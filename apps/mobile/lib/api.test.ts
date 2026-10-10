@@ -1,6 +1,6 @@
 vi.mock("./ai-consent", () => ({ promptAiConsent: vi.fn() }));
 
-import { withLiveStreamingProgress } from "@rakazo/core";
+import { isServerUnreachable, withLiveStreamingProgress } from "@rakazo/core";
 import * as SecureStore from "expo-secure-store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { promptAiConsent } from "./ai-consent";
@@ -15,6 +15,7 @@ import {
   deleteAccount,
   fetchAccountSecurity,
   IDLE_TIMEOUT_MS,
+  isServerReachable,
   loadApiBase,
   MAX_MOBILE_AUTH_RESPONSE_BYTES,
   MAX_MOBILE_RPC_RESPONSE_BYTES,
@@ -34,6 +35,7 @@ import {
   signIn,
   signOut,
   signUp,
+  subscribeServerReachable,
   subscribeSessionRejected,
   subscribeThread,
 } from "./api.js";
@@ -50,6 +52,8 @@ import {
   saveSessionToken,
   snapshotSessionToken,
 } from "./session.js";
+import type { UnsentDisk } from "./thread-feedback.js";
+import { configureUnsentSends } from "./thread-feedback.js";
 
 vi.mock("expo-secure-store", () => ({
   getItemAsync: vi.fn(),
@@ -92,6 +96,25 @@ describe("mobile API authentication", () => {
     );
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith("rakazo.session_token", "session-token");
     expect(resumeLiveNotifications).not.toHaveBeenCalled();
+  });
+
+  it("deletes unsent messages left on disk when a new account signs in", async () => {
+    const clear = vi.fn();
+    configureUnsentSends({
+      request: rpc,
+      serverReachable: () => true,
+      scope: () => ({ apiBase: "http://127.0.0.1:3100", spaceId: null }),
+      disk: { clear, save: vi.fn() } as unknown as UnsentDisk,
+      errorText: String,
+      notDelivered: vi.fn(),
+      delivered: vi.fn(),
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ token: "session-token" })),
+    );
+    await signIn("ada@example.com", "correct horse");
+    expect(clear).toHaveBeenCalledOnce();
   });
 
   it("creates an account and persists its session token", async () => {
@@ -574,6 +597,80 @@ describe("mobile API authentication", () => {
     const pending = rpc<{ ok: boolean }>("computer/boot", { botId: "bot" }, { timeoutMs: 120_000 });
     await vi.advanceTimersByTimeAsync(20_000);
     await expect(pending).resolves.toEqual({ ok: true });
+  });
+
+  it("tracks whether the server can be reached and says when that changes", async () => {
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue("session-token");
+    const changed = vi.fn();
+    const unsubscribe = subscribeServerReachable(changed);
+    try {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          throw new TypeError("Network request failed");
+        }),
+      );
+      const offline = await rpc("bots/list").catch((error: unknown) => error);
+      expect(offline).toMatchObject({ message: "Could not reach the server" });
+      expect(isServerUnreachable(offline)).toBe(true);
+      expect(isServerReachable()).toBe(false);
+
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => rpcErrorResponse(503, "UNAVAILABLE", "Service Unavailable")),
+      );
+      expect(isServerUnreachable(await rpc("bots/list").catch((error: unknown) => error))).toBe(
+        true,
+      );
+      expect(isServerReachable()).toBe(false);
+      expect(changed).toHaveBeenCalledOnce();
+
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => rpcErrorResponse(404, "NOT_FOUND", "Bot does not exist")),
+      );
+      const refused = await rpc("bots/get").catch((error: unknown) => error);
+      expect(refused).toMatchObject({ message: "Bot does not exist", status: 404 });
+      expect(isServerUnreachable(refused)).toBe(false);
+      expect(isServerReachable()).toBe(true);
+      expect(changed).toHaveBeenCalledTimes(2);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("counts an rpc timeout as unreachable and a reopened live connection as reachable again", async () => {
+    vi.useFakeTimers();
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue("session-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_input: unknown, init?: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new Error("fetch failed: FetchRequestCanceledException")),
+            );
+          }),
+      ),
+    );
+    const pending = rpc("threads/get", { botId: "bot" }).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(8_000);
+    expect(isServerUnreachable(await pending)).toBe(true);
+    expect(isServerReachable()).toBe(false);
+
+    const reachableAgain = vi.fn();
+    const unsubscribe = subscribeServerReachable(reachableAgain);
+    try {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response(new ReadableStream({ start: (c) => c.close() }))),
+      );
+      await subscribeThread({ botId: "bot" }, -1, vi.fn(), new AbortController().signal);
+      expect(isServerReachable()).toBe(true);
+      expect(reachableAgain).toHaveBeenCalledOnce();
+    } finally {
+      unsubscribe();
+    }
   });
 
   it("clears the local session even when the sign-out request fails", async () => {

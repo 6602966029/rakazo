@@ -27,6 +27,8 @@ import {
   cancelResponseBody,
   ensureAiDataConsent,
   isRunTerminalEvent,
+  isServerUnreachable,
+  isUnreachableStatus,
   mergeThreadHistory,
   prependThreadHistoryPage,
   progressMessageId,
@@ -56,6 +58,7 @@ import {
   snapshotSessionToken,
   tokenFromAuthResponse,
 } from "./session";
+import { clearUnsentSends } from "./thread-feedback";
 import { authErrorText, errorText } from "./user-error";
 
 const ENDPOINT_KEY = "rakazo.api_base";
@@ -95,7 +98,39 @@ function bumpSpaceSelectionGeneration(): void {
 
 /** Keeps a timeout or cancel reason; turns transport and parsing detail into copy. */
 function requestError(error: unknown, signal: AbortSignal): unknown {
-  return signal.aborted ? (signal.reason ?? error) : new Error(errorText(error));
+  return signal.aborted
+    ? (signal.reason ?? error)
+    : withDetail(new Error(errorText(error)), { cause: error });
+}
+
+/** Adds what callers classify a failure by (as non-enumerable, like a native `cause`) without changing its copy. */
+function withDetail(error: Error, detail: { cause?: unknown; status?: number; name?: string }) {
+  for (const [key, value] of Object.entries(detail)) {
+    Object.defineProperty(error, key, { value, writable: true, configurable: true });
+  }
+  return error;
+}
+
+let serverReachable = true;
+const serverReachableListeners = new Set<() => void>();
+
+/** False from a request that could not reach the server until the server answers again. */
+export function isServerReachable(): boolean {
+  return serverReachable;
+}
+
+/** Calls `listener` each time the server stops or starts answering. */
+export function subscribeServerReachable(listener: () => void): () => void {
+  serverReachableListeners.add(listener);
+  return () => {
+    serverReachableListeners.delete(listener);
+  };
+}
+
+function noteServerReachable(reachable: boolean): void {
+  if (reachable === serverReachable) return;
+  serverReachable = reachable;
+  for (const listener of [...serverReachableListeners]) listener();
 }
 
 export function currentApiBase() {
@@ -484,6 +519,8 @@ async function authenticateWithEmail(
       ),
     );
   if (!(await clearSpace())) throw new Error(t("Could not clear the previous space"));
+  // A new sign-in never inherits unsent messages, even ones a failed sign-out left on disk.
+  clearUnsentSends();
   await saveSessionToken(token);
   return { verificationRequired: false };
 }
@@ -719,7 +756,8 @@ export async function rpc<T>(
     options.timeoutMs === null
       ? undefined
       : setTimeout(
-          () => controller.abort(new Error("Request timed out")),
+          () =>
+            controller.abort(withDetail(new Error("Request timed out"), { name: "TimeoutError" })),
           options.timeoutMs ?? RPC_TIMEOUT_MS,
         );
   // Bind recovery to the Space + selection epoch this request was sent with:
@@ -746,6 +784,7 @@ export async function rpc<T>(
       // location; say what happened instead.
       throw requestError(error, controller.signal);
     }
+    noteServerReachable(!isUnreachableStatus(res.status));
     if (proc === "aiConsent/status" && res.status === 404) {
       cancelResponseBody(res);
       throw new Error(t("Update your server to use AI data sharing in this mobile version."));
@@ -850,9 +889,12 @@ export async function rpc<T>(
         if (!selectedSpaceId()) await clearStaleSpaceSelection();
         throw new Error(message);
       }
-      throw new Error(message);
+      throw withDetail(new Error(message), { status: res.status });
     }
     return parsed.json as T;
+  } catch (error) {
+    if (isServerUnreachable(error)) noteServerReachable(false);
+    throw error;
   } finally {
     if (timer) clearTimeout(timer);
     options.signal?.removeEventListener("abort", cancel);
@@ -1091,6 +1133,8 @@ export async function subscribeThread(
   cursor: number,
   onEvent: (event: ThreadEvent) => void,
   signal: AbortSignal,
+  /** Called once the live connection is open. */
+  onOpen?: () => void,
 ) {
   const res = await fetch(`${currentApiBase()}/rpc/threads/subscribe`, {
     method: "POST",
@@ -1102,8 +1146,13 @@ export async function subscribeThread(
     },
     body: JSON.stringify({ json: { ...target, cursor } }),
     signal,
+  }).catch((error: unknown) => {
+    if (!signal.aborted && isServerUnreachable(error)) noteServerReachable(false);
+    throw error;
   });
+  noteServerReachable(!isUnreachableStatus(res.status));
   if (!res.ok || !res.body) throw new Error(`rpc threads/subscribe failed (${res.status})`);
+  onOpen?.();
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";

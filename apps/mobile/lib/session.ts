@@ -3,7 +3,8 @@ import * as SecureStore from "expo-secure-store";
 import { invalidateArtifactCacheSession } from "./artifact-cache-session";
 import { clearAvatarStyle, saveAvatarStyle } from "./avatar-style";
 import { stopLiveNotifications } from "./live-notifications";
-import { clearFailedSends } from "./thread-feedback";
+import { clearUnsentSends } from "./thread-feedback";
+import { toast } from "./toast";
 
 const SESSION_KEY = "rakazo.session_token";
 const INTEGRATIONS_SCOPE_KEY = "rakazo.integrations-scope";
@@ -114,6 +115,7 @@ export async function loadSessionToken() {
 
 export async function saveSessionToken(token: string) {
   sessionGeneration += 1;
+  toast.resume();
   const clearingScope = invalidateSessionCaches();
   await SecureStore.setItemAsync(SESSION_KEY, token);
   await clearingScope;
@@ -124,7 +126,9 @@ export async function saveSessionToken(token: string) {
 /** Clears the session. Returns false only when SecureStore could neither delete nor overwrite. */
 export async function clearSessionToken(): Promise<boolean> {
   sessionGeneration += 1;
-  clearFailedSends();
+  clearUnsentSends();
+  // A send failure from the previous account must not show after it signed out.
+  toast.suspend();
   const clearingScope = invalidateSessionCaches();
   await stopLiveNotifications(true).catch(() => undefined);
   const tokenCleared = await clearStoredSessionToken();

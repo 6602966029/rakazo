@@ -273,29 +273,66 @@ describe("Android mobile platform contract", () => {
     );
   });
 
-  it("clears only the unchanged origin composer after delivery settles and preserves send errors", () => {
+  it("shows a send as a bubble and clears the composer at once, then holds or sends it", () => {
     const thread = readFileSync(resolve(mobileRoot, "app/thread.tsx"), "utf8");
     const send = thread.slice(
       thread.indexOf("async function send()"),
-      thread.indexOf("async function stop()"),
+      thread.indexOf("function showUnsentSends"),
     );
-    const firstDelivery = send.indexOf("await deliver(attempt, () => {");
-    expect(firstDelivery).toBeGreaterThan(-1);
-    expect(send.slice(0, firstDelivery)).not.toContain("composerRef.current?.reset()");
-    const clear = send.slice(firstDelivery, send.indexOf("async function deliver"));
-    expect(clear).toMatch(
-      /if \(originThreadKey !== \(activeGroupId.current \?\? activeBotId.current\)\) return;\s*const current = composerRef.current\?\.snapshot\(\);\s*if \(!current\) return;\s*const settled = settleComposer/,
-    );
-    expect(clear).toContain("settleComposer(submitted, current)");
-    expect(clear).toMatch(
+    const reset = send.indexOf("composerRef.current?.reset();");
+    expect(reset).toBeGreaterThan(send.indexOf("feedback.sendAttempt("));
+    expect(send).toMatch(
       /setPendingAttachments\(\(current\) =>\s*current.filter\(\(attachment\) => !submitted.attachmentIds.includes\(attachment.id\)\)/,
     );
-    expect(clear).toMatch(
-      /if \(!settled.clearComposer\) return;\s*composerRef.current\?\.reset\(\)/,
+    expect(send.slice(reset)).toMatch(
+      /if \(feedback\.shouldHold\(\)\) \{\s*feedback\.queue\(attempt\);\s*return;\s*\}\s*await deliver\(attempt\);/,
     );
-    expect(send).toMatch(/finally \{\s*onSettled\?\.\(\);/);
-    expect(send).toContain('attempt.error = errorText(err, t("Failed to send message"))');
-    expect(thread).toContain("onRetry={() => void deliver(attempt)}");
+    expect(thread).toContain("onRetry={() => retrySend(attempt)}");
+    expect(thread).toContain("else void deliver(attempt);");
+  });
+
+  it("marks held sends, shows progress on one bubble and explains a failed load in the thread", () => {
+    const thread = readFileSync(resolve(mobileRoot, "app/thread.tsx"), "utf8");
+    expect(thread).toContain("{attempt === firstHeld ? <HeldSendsDivider /> : null}");
+    expect(thread).toContain(
+      "progressSince={progress?.entry === attempt ? progress.since : undefined}",
+    );
+    expect(thread).toMatch(
+      /isServerUnreachable\(err\)\s*\? t\("Can't reach the server — your messages are safe\."\)\s*: errorText\(err\)/,
+    );
+    expect(thread).toContain("await refresh().catch(refreshFailed);");
+    expect(thread).toMatch(
+      /if \(result === "sending"\) \{\s*toast\.show\(t\("This message is already sending and can't be canceled\."\), \{ variant: "info" \}\);/,
+    );
+    expect(thread).toMatch(/\(\) => \{\s*closeStream = threadStreamOpened\(liveThreadKey\);\s*\}/);
+    expect(thread).toMatch(/\} finally \{\s*closeStream\?\.\(\);/);
+    // Cancel send hands the message over only while this screen's composer is still there.
+    expect(thread).toMatch(
+      /const composer = composerRef\.current;[\s\S]*?if \(!composer \|\| originThreadKey !== \(activeGroupId\.current \?\? activeBotId\.current\)\)\s*return false;/,
+    );
+    expect(thread).toMatch(
+      /if \(unsentRows && !scrollBehavior\.current\.state\(\)\.detached\) \{\s*scrollToUnsentAfterLayout\.current = true;/,
+    );
+  });
+
+  it("follows up a delivered message, held or not, only on the focused screen it was sent from", () => {
+    const thread = readFileSync(resolve(mobileRoot, "app/thread.tsx"), "utf8");
+    const after = thread.slice(
+      thread.indexOf("function afterDelivered("),
+      thread.indexOf("const afterDeliveredRef"),
+    );
+    expect(after).toMatch(
+      /if \(attempt\.payload\.originThreadKey !== \(activeGroupId\.current \?\? activeBotId\.current\)\) return;\s*if \(!navigation\.isFocused\(\)\) return;/,
+    );
+    expect(after).toContain('pathname: "/group-thread"');
+    expect(thread).toContain(
+      "useEffect(() => subscribeDelivered((attempt) => afterDeliveredRef.current(attempt)), []);",
+    );
+    const deliver = thread.slice(
+      thread.indexOf("async function deliver("),
+      thread.indexOf("function afterDelivered("),
+    );
+    expect(deliver).not.toContain("router.push");
   });
 
   it("offers Voice settings when speaking has no configured provider", () => {

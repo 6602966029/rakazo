@@ -21,3 +21,15 @@ export function formatMessageTime(
     minute: "2-digit",
   });
 }
+
+/** Month, day and time, as in "Sent while offline · Oct 11, 3:04 PM". */
+export function formatMonthDayTime(at: string | number | Date, locale: string): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(locale, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}

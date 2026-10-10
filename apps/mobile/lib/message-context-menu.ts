@@ -1,4 +1,12 @@
-export const messageMenuSymbols = ["reply", "copy", "react", "quote", "speak", "select"] as const;
+export const messageMenuSymbols = [
+  "reply",
+  "copy",
+  "react",
+  "quote",
+  "speak",
+  "select",
+  "cancelSend",
+] as const;
 
 export type MessageMenuSymbol = (typeof messageMenuSymbols)[number];
 
@@ -25,22 +33,22 @@ export function buildMessageContextMenu({
   reactions,
   include,
 }: {
-  labels: Record<MessageMenuSymbol, string>;
+  labels: Record<Exclude<MessageMenuSymbol, "cancelSend">, string>;
   reactions: readonly string[];
   include: { reply?: boolean; quote: boolean; react: boolean; speak: boolean; select: boolean };
 }): MessageMenuEntry[] {
   const secondary: MessageMenuEntry[] = [
-    ...(include.quote ? [entry("quote", labels.quote)] : []),
-    ...(include.speak ? [entry("speak", labels.speak)] : []),
-    ...(include.select ? [entry("select", labels.select)] : []),
+    ...(include.quote ? [messageMenuEntry("quote", labels.quote)] : []),
+    ...(include.speak ? [messageMenuEntry("speak", labels.speak)] : []),
+    ...(include.select ? [messageMenuEntry("select", labels.select)] : []),
   ];
   return [
-    ...(include.reply !== false ? [entry("reply", labels.reply)] : []),
-    entry("copy", labels.copy),
+    ...(include.reply !== false ? [messageMenuEntry("reply", labels.reply)] : []),
+    messageMenuEntry("copy", labels.copy),
     ...(include.react
       ? [
           {
-            ...entry("react", labels.react),
+            ...messageMenuEntry("react", labels.react),
             subactions: reactions.map((reaction) => ({
               id: messageMenuReactionId(reaction),
               title: reaction,
@@ -61,6 +69,6 @@ export function buildMessageContextMenu({
   ];
 }
 
-function entry(symbol: MessageMenuSymbol, title: string): MessageMenuEntry {
+export function messageMenuEntry(symbol: MessageMenuSymbol, title: string): MessageMenuEntry {
   return { id: symbol, title, symbol };
 }

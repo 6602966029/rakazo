@@ -7,7 +7,6 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadComposerHandle } from "../components/thread-composer";
 import { ThreadComposer } from "../components/thread-composer";
-import { settleComposer } from "./thread-feedback";
 
 const input = vi.hoisted(() => ({
   change: (_value: string) => {},
@@ -160,15 +159,9 @@ describe("thread composer isolation", () => {
     expect(container.querySelector("input")!.value).toBe("");
   });
 
-  it("keeps edits during send and clears an unchanged composition, including popovers", () => {
-    type("Submitted");
-    const submitted = composer.current!.snapshot();
-    render({ sending: true });
+  it("clears the composition, including popovers", () => {
     type("Dictated replacement @He");
     expect(container.querySelector('[data-testid="mention-picker"]')).not.toBeNull();
-    expect(settleComposer(submitted, composer.current!.snapshot()).clearComposer).toBe(false);
-    const current = composer.current!.snapshot();
-    expect(settleComposer(current, composer.current!.snapshot()).clearComposer).toBe(true);
     act(() => composer.current!.reset());
     expect(composer.current!.snapshot().promptText).toBe("");
     expect(container.querySelector('[data-testid="mention-picker"]')).toBeNull();
@@ -190,6 +183,29 @@ describe("thread composer isolation", () => {
     expect(composer.current!.snapshot().skill).toEqual(skill);
     act(() => input.key({ nativeEvent: { key: "Backspace" } }));
     expect(composer.current!.snapshot().skill).toBeNull();
+  });
+
+  it("puts a cancelled message's chips and skill back as real chips after what is typed", () => {
+    type("Also @He");
+    press("@{name}");
+    const scout = { kind: "bot" as const, id: "bot-scout", name: "Scout" };
+    act(() =>
+      composer.current!.restore({ draft: "check the build", mentions: [scout, bot], skill }),
+    );
+    expect(composer.current!.snapshot()).toMatchObject({
+      draft: "Also \ncheck the build",
+      mentions: [bot, scout],
+      skill,
+    });
+    act(() => composer.current!.reset());
+    act(() =>
+      composer.current!.restore({ draft: "check the build", mentions: [scout], skill: null }),
+    );
+    expect(composer.current!.snapshot()).toMatchObject({
+      promptText: "@Scout check the build",
+      mentions: [scout],
+      skill: null,
+    });
   });
 
   it("clears a slash query before routing and uses the call control for an empty draft", () => {

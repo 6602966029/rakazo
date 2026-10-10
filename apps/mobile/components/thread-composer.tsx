@@ -14,13 +14,16 @@ import type { ViewStyle } from "react-native";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useI18n } from "../lib/i18n";
 import { useMobileTokens, useResolvedAppearance } from "../lib/native";
-import type { ComposerSnapshot } from "../lib/thread-feedback";
+import type { ComposerDraft, ComposerSnapshot } from "../lib/thread-feedback";
+import { restoreComposerDraft } from "../lib/thread-feedback";
 import { GlassSurface } from "./glass-surface";
 import { NativeSymbol } from "./native-symbol";
 
 export type ThreadComposerHandle = {
   snapshot: () => ComposerSnapshot;
   reset: () => void;
+  /** Puts a cancelled message's text, mention chips and skill back, after what is already here. */
+  restore: (cancelled: ComposerDraft) => void;
 };
 
 type ThreadComposerProps = {
@@ -75,6 +78,7 @@ export function ThreadComposer({
   useImperativeHandle(ref, () => ({
     snapshot: () => ({
       promptText: serializeComposerPrompt(draft, selectedSkill, selectedMentions),
+      draft,
       mentions: selectedMentions,
       skill: selectedSkill,
       replyTargetId,
@@ -87,6 +91,17 @@ export function ThreadComposer({
       setSlashQuery(null);
       setSelectedSkill(null);
       setSelectedMentions([]);
+    },
+    restore: (cancelled) => {
+      const next = restoreComposerDraft(
+        { draft, mentions: selectedMentions, skill: selectedSkill },
+        cancelled,
+      );
+      setDraft(next.draft);
+      setMentionQuery(null);
+      setSlashQuery(null);
+      setSelectedMentions(next.mentions);
+      setSelectedSkill(next.skill);
     },
   }));
   const mentionOptions = useMemo(() => {

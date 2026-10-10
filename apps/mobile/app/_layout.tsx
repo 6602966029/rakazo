@@ -19,6 +19,7 @@ import { CallCard } from "../components/CallCard";
 import { ComputerUpdateProgress } from "../components/computer-update-progress";
 import { floatingHeaderOptions, glassHeaderOptions } from "../components/glass-title";
 import { NativeSymbol } from "../components/native-symbol";
+import { ToastHost } from "../components/toast-host";
 import { VoicePlayerBar } from "../components/voice-player-bar";
 import {
   currentApiBase,
@@ -45,6 +46,7 @@ import {
   subscribeRemoteImages,
 } from "../lib/remote-images-preference";
 import { loadResponseStreamingPreference } from "../lib/response-streaming";
+import { startUnsentSends } from "../lib/unsent-sends";
 
 configureForegroundNotifications();
 // Keep the splash up until the saved appearance applies, so the first frame isn't in the OS scheme.
@@ -125,6 +127,11 @@ export default function Layout() {
     if (!ready) return;
     // A session revoked or expired on the server ends here, from whichever screen noticed it.
     return subscribeSessionRejected(() => replaceWithSignIn());
+  }, [ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    return startUnsentSends();
   }, [ready]);
 
   useEffect(() => {
@@ -244,6 +251,7 @@ export default function Layout() {
                 </View>
                 <ComputerUpdateProgress />
                 <CallCard />
+                <ToastHost />
               </ThemeProvider>
             </ChatContentProviders>
           </AvatarStyleProvider>

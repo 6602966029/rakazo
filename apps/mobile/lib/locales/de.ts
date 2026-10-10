@@ -1,6 +1,17 @@
 export const DE_MESSAGES: Record<string, string> = {
-  "Try Again": "Erneut versuchen",
-  "Not sent · Tap to retry": "Nicht gesendet · Zum Wiederholen tippen",
+  "Cancel send": "Senden abbrechen",
+  "Send after reconnect": "Nach Wiederverbindung senden",
+  "Messages waiting to send until the server reconnects":
+    "Nachrichten warten auf das Senden, bis der Server wieder verbunden ist",
+  "Sent while offline · {time}": "Offline gesendet · {time}",
+  "Not delivered": "Nicht zugestellt",
+  "Retry send": "Senden wiederholen",
+  "Message not delivered": "Nachricht nicht zugestellt",
+  "This message is already sending and can't be canceled.":
+    "Diese Nachricht wird bereits gesendet und kann nicht abgebrochen werden.",
+  "Can't reach the server — your messages are safe.":
+    "Server nicht erreichbar – deine Nachrichten sind sicher.",
+  Sending: "Wird gesendet",
   Photo: "Foto",
   Today: "Heute",
   Yesterday: "Gestern",

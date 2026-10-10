@@ -8,7 +8,11 @@ import type {
   MessageReaction,
   Routine,
 } from "@rakazo/contracts";
-import { canReactToThreadMessage, MESSAGE_REACTIONS } from "@rakazo/contracts";
+import {
+  ATTACHMENT_MAX_COUNT,
+  canReactToThreadMessage,
+  MESSAGE_REACTIONS,
+} from "@rakazo/contracts";
 import type { SlashActionId, ThreadItem } from "@rakazo/core";
 import {
   abortableDelay,
@@ -24,6 +28,7 @@ import {
   isPeerReceiptBlocks,
   isRunTerminalEvent,
   isSecretAskBlock,
+  isServerUnreachable,
   latestAnswerableAskMessageId,
   leaveThreadWindow,
   openThreadWindow,
@@ -34,6 +39,7 @@ import {
   resolveComposerSendPlan,
   resolvePersonaColorDef,
   selectedAskActionLabel,
+  sendProgress,
   threadWindowMessages,
   timeSeparatorIds,
   userVisibleMessages,
@@ -49,6 +55,7 @@ import {
 } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import {
+  Fragment,
   memo,
   useCallback,
   useEffect,
@@ -92,8 +99,8 @@ import { BotAvatar } from "../components/bot-avatar";
 import { ChoiceCard } from "../components/ChoiceCard";
 import { ComputerCard } from "../components/ComputerCard";
 import { ComposerReplyPreview } from "../components/composer-reply-preview";
-import { FailedSendBubble } from "../components/failed-send-bubble";
 import { GlassSurface } from "../components/glass-surface";
+import { HeldSendsDivider } from "../components/held-sends-divider";
 import type { ImageArtifactPreviewTarget } from "../components/image-artifact-viewer";
 import { InlineImageAttachment } from "../components/inline-image-attachment";
 import { McpApprovalCard } from "../components/McpApprovalCard";
@@ -103,6 +110,7 @@ import { MessageCaption } from "../components/message-caption";
 import { MessageContextMenu } from "../components/message-context-menu";
 import { NativeActionButton } from "../components/native-action-button";
 import { NativeSymbol } from "../components/native-symbol";
+import { OptimisticSendBubble } from "../components/optimistic-send-bubble";
 import { ReplyDismissButton } from "../components/reply-dismiss-button";
 import { ReplyLine } from "../components/reply-line";
 import { SelectTextSheet } from "../components/select-text-sheet";
@@ -124,8 +132,6 @@ import {
   applyMobileThreadEvent,
   blockText,
   copyableMobileMessageText,
-  currentApiBase,
-  loadSessionToken,
   mergeMobileSnapshot,
   messagingProviderLabel,
   mobileThreadRefreshResult,
@@ -151,11 +157,7 @@ import { cancelFocusPrompt, focusPromptThreadActive } from "../lib/focus-prompt"
 import { dateLocaleForUi, t, useI18n } from "../lib/i18n";
 import { isInlineImageMimeType } from "../lib/inline-image";
 import { saveLastBotId } from "../lib/last-bot";
-import {
-  dismissThreadNotifications,
-  resumeLiveNotifications,
-  setOpenNotificationThread,
-} from "../lib/live-notifications";
+import { dismissThreadNotifications, setOpenNotificationThread } from "../lib/live-notifications";
 import { presentMessageActionSheet } from "../lib/message-action-sheet";
 import { buildMessageContextMenu, messageMenuReaction } from "../lib/message-context-menu";
 import {
@@ -183,12 +185,19 @@ import {
 import { secretDestinationLabel } from "../lib/secret-destination";
 import { selectableTextFromMarkdown } from "../lib/selectable-text";
 import type { SendAttempt } from "../lib/thread-feedback";
-import { deliverSend, settleComposer, useThreadFeedback } from "../lib/thread-feedback";
+import {
+  confirmEchoes,
+  showThread,
+  subscribeDelivered,
+  threadStreamOpened,
+  useThreadFeedback,
+} from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
 import { ThreadReadOnlyContext } from "../lib/thread-read-only";
 import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
 import { ThreadScrollBehavior } from "../lib/thread-scroll";
 import { reconcileVisibleThreadSnapshot } from "../lib/thread-snapshot";
+import { toast } from "../lib/toast";
 import { errorText } from "../lib/user-error";
 import { speakQueue, speakText } from "../lib/voice";
 import {
@@ -426,6 +435,7 @@ function Thread() {
   const scrollBehavior = useRef(new ThreadScrollBehavior());
   const userDragging = useRef(false);
   const loadingOlderContent = useRef(false);
+  const scrollToUnsentAfterLayout = useRef(false);
   const expandedHistoryThread = useRef<string | null>(null);
   const historyEpoch = useRef(0);
   const jumpGeneration = useRef(0);
@@ -487,6 +497,18 @@ function Thread() {
   const streamResponsesRef = useRef(streamResponses);
   streamResponsesRef.current = streamResponses;
 
+  useEffect(() => {
+    const loadedThread = snap?.groupId ?? snap?.botId;
+    if (!snap || !loadedThread || loadedThread !== threadKey) return;
+    // A sent message that has arrived replaces its bubble.
+    confirmEchoes(
+      loadedThread,
+      snap.messages.flatMap((message) =>
+        message.role === "user" && message.seq !== undefined ? [message.seq] : [],
+      ),
+    );
+  }, [snap, threadKey]);
+
   function commitSnap(next: MobileSnapshot | null) {
     snapRef.current = next;
     const visible = withLiveStreamingProgress(next, streamResponsesRef.current);
@@ -519,7 +541,6 @@ function Thread() {
   const [quoteTarget, setQuoteTarget] = useState<MobileMessage | null>(null);
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const pendingDeliveries = useRef(0);
   const feedback = useThreadFeedback(threadKey, newClientNonce);
   const { error, setError } = feedback;
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -963,6 +984,15 @@ function Thread() {
     setBotActionsOpen(true);
   }
 
+  /** The thread's load-error line; an unreachable server gets its own notice. */
+  function refreshFailed(err: unknown) {
+    setError(
+      isServerUnreachable(err)
+        ? t("Can't reach the server — your messages are safe.")
+        : errorText(err),
+    );
+  }
+
   async function refresh() {
     if (!botId && !groupId) return;
     const targetBotId = botId;
@@ -1248,23 +1278,27 @@ function Thread() {
     const abort = new AbortController();
     const subscriptionGeneration = ++liveSubscriptionGeneration.current;
     liveSubscribed.current = false;
+    // New messages here are held until the live connection opens.
+    const hideThread = showThread(groupId ?? botId!);
     void (async () => {
       // Pending search jumps load the around-page separately; avoid replacing it with latest.
       const next = messageId
         ? await rpc<MobileSnapshot>("threads/get", groupId ? { groupId } : { botId: botId! }).catch(
             (err: unknown) => {
-              setError(errorText(err));
+              refreshFailed(err);
               return null;
             },
           )
         : await refresh().catch((err: unknown) => {
-            setError(errorText(err));
+            refreshFailed(err);
             return null;
           });
       if (abort.signal.aborted || readOnly) return;
       let cursor = next?.cursor ?? -1;
       let retryMs = 250;
+      const liveThreadKey = groupId ?? botId!;
       while (!abort.signal.aborted) {
+        let closeStream: (() => void) | undefined;
         try {
           liveSubscribed.current = true;
           await subscribeThread(
@@ -1311,17 +1345,21 @@ function Thread() {
               }
             },
             abort.signal,
+            () => {
+              closeStream = threadStreamOpened(liveThreadKey);
+            },
           );
         } catch {
           // A full refresh reconciles visible state; the event cursor still resumes without gaps.
         } finally {
+          closeStream?.();
           if (liveSubscriptionGeneration.current === subscriptionGeneration) {
             liveSubscribed.current = false;
           }
         }
         if (abort.signal.aborted) break;
         if (!jumpScrollTarget.current && !expandedHistoryThread.current) {
-          await refresh().catch(() => undefined);
+          await refresh().catch(refreshFailed);
         }
         await abortableDelay(retryMs, abort.signal);
         retryMs = Math.min(retryMs * 2, 5_000);
@@ -1329,6 +1367,7 @@ function Thread() {
     })();
     return () => {
       abort.abort();
+      hideThread();
     };
   }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots]);
 
@@ -1345,7 +1384,7 @@ function Thread() {
         !jumpScrollTarget.current &&
         !expandedHistoryThread.current
       ) {
-        await refresh().catch(() => undefined);
+        await refresh().catch(refreshFailed);
       }
       if (!cancelled) {
         timer = setTimeout(() => void tick(), refreshDelay());
@@ -1434,6 +1473,7 @@ function Thread() {
     const botTarget = reroutedToGroup ? undefined : initialBotTarget;
     const attempt = feedback.sendAttempt({
       originThreadKey: originThreadKey!,
+      composer: { draft: submitted.draft, mentions: submitted.mentions, skill: submitted.skill },
       displayText: submitted.promptText,
       replyPreview: replyQuote ?? (replyTarget ? previewMessageText(replyTarget) : null),
       initialBotTarget,
@@ -1445,49 +1485,97 @@ function Thread() {
       replyTargetId: replyTarget?.id,
       replyQuote,
     });
-    await deliver(attempt, () => {
-      if (originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
-      const current = composerRef.current?.snapshot();
-      if (!current) return;
-      const settled = settleComposer(submitted, current);
-      setPendingAttachments((current) =>
-        current.filter((attachment) => !submitted.attachmentIds.includes(attachment.id)),
-      );
-      if (!settled.clearComposer) return;
-      composerRef.current?.reset();
-      setReplyTarget(null);
-      setReplyQuote(null);
-      setAttachmentNotice(null);
-    });
+    // The message shows as a bubble right away, so the composer clears at once.
+    composerRef.current?.reset();
+    setPendingAttachments((current) =>
+      current.filter((attachment) => !submitted.attachmentIds.includes(attachment.id)),
+    );
+    setReplyTarget(null);
+    setReplyQuote(null);
+    setAttachmentNotice(null);
+    showUnsentSends(attempt);
+    if (feedback.shouldHold()) {
+      feedback.queue(attempt);
+      return;
+    }
+    await deliver(attempt);
   }
 
-  async function deliver(attempt: SendAttempt, onSettled?: () => void) {
-    if (readOnly || !feedback.start(attempt)) return;
-    const { initialBotTarget, botTarget, groupTarget, reroutedToGroup, plan } = attempt.payload;
-    pendingDeliveries.current += 1;
-    setSending(true);
-    try {
-      await deliverSend(attempt.payload, attempt, rpc);
-    } catch (err) {
-      attempt.error = errorText(err, t("Failed to send message"));
-      feedback.sendFailed(attempt);
-      if (attempt.payload.originThreadKey === (activeGroupId.current ?? activeBotId.current)) {
-        if (pinnedAroundRef.current) showLatest();
-        performScroll(scrollBehavior.current.jumpToLatest());
-        publishThreadScrollState(scrollBehavior.current.state());
-      }
-      return;
-    } finally {
-      onSettled?.();
-      pendingDeliveries.current -= 1;
-      setSending(pendingDeliveries.current > 0);
-    }
-    feedback.sent(attempt);
-    if (initialBotTarget) cancelFocusPrompt(initialBotTarget);
-    void loadSessionToken()
-      .then((token) => resumeLiveNotifications(currentApiBase(), token, selectedSpaceId() ?? ""))
-      .catch(() => undefined);
+  function showUnsentSends(attempt: SendAttempt) {
     if (attempt.payload.originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
+    if (pinnedAroundRef.current) showLatest();
+    scrollToUnsentAfterLayout.current = true;
+    performScroll(scrollBehavior.current.jumpToLatest());
+    publishThreadScrollState(scrollBehavior.current.state());
+  }
+
+  function retrySend(attempt: SendAttempt) {
+    if (feedback.shouldHold()) feedback.queue(attempt);
+    else void deliver(attempt);
+  }
+
+  /** Puts an unsent message back in the composer, after anything already typed there. */
+  async function cancelSend(attempt: SendAttempt) {
+    const { originThreadKey } = attempt.payload;
+    if (originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
+    const result = await feedback.cancel(attempt, putBackInComposer);
+    if (result === "sending") {
+      toast.show(t("This message is already sending and can't be canceled."), { variant: "info" });
+    }
+  }
+
+  /** Puts a cancelled message in this composer; false when the user left the chat meanwhile. */
+  function putBackInComposer(attempt: SendAttempt): boolean {
+    const composer = composerRef.current;
+    const { payload } = attempt;
+    const { originThreadKey } = payload;
+    if (!composer || originThreadKey !== (activeGroupId.current ?? activeBotId.current))
+      return false;
+    composer.restore(payload.composer);
+    const replyTo = snapRef.current?.messages.find(({ id }) => id === payload.replyTargetId);
+    if (replyTo && !replyTarget) {
+      setReplyTarget(replyTo);
+      setReplyQuote(payload.replyQuote);
+    }
+    const restored = payload.attachments.filter((attachment) => attachment.contentBase64);
+    const room = Math.max(ATTACHMENT_MAX_COUNT - activePendingAttachments.length, 0);
+    setPendingAttachments((current) => [
+      ...current,
+      ...restored.slice(0, room).map((attachment) => ({
+        ...attachment,
+        id: `${attachment.id}-${attempt.clientNonce}`,
+        threadKey: originThreadKey,
+      })),
+    ]);
+    const skipped = restored.slice(room);
+    setAttachmentNotice(
+      skipped.length
+        ? t("Skipped {items}", {
+            items: skipped
+              .map(({ name }) =>
+                formatAttachmentSkip({ name, reason: `max ${ATTACHMENT_MAX_COUNT} attachments` }),
+              )
+              .join(", "),
+          })
+        : null,
+    );
+    return true;
+  }
+
+  async function deliver(attempt: SendAttempt) {
+    if (readOnly) return;
+    // An accepted send finishes in afterDelivered, the same way as a held one.
+    if (!(await feedback.send(attempt))) {
+      // Keep the bubble's new "Not delivered" row in view.
+      showUnsentSends(attempt);
+    }
+  }
+
+  /** Follows up a delivered message only on the screen it was sent from, while the user is on it. */
+  function afterDelivered(attempt: SendAttempt) {
+    if (attempt.payload.originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
+    if (!navigation.isFocused()) return;
+    const { groupTarget, botTarget, reroutedToGroup, plan } = attempt.payload;
     if (reroutedToGroup && groupTarget) {
       router.push({
         pathname: "/group-thread",
@@ -1500,6 +1588,9 @@ function Thread() {
       void refresh().catch(() => undefined);
     }
   }
+  const afterDeliveredRef = useRef(afterDelivered);
+  afterDeliveredRef.current = afterDelivered;
+  useEffect(() => subscribeDelivered((attempt) => afterDeliveredRef.current(attempt)), []);
 
   async function stop() {
     if (readOnly) return;
@@ -2067,13 +2158,28 @@ function Thread() {
       </Pressable>
     ) : null;
 
-  const failedSendBubbles = feedback.failedSends.map((attempt) => (
-    <FailedSendBubble
-      key={attempt.clientNonce}
-      attempt={attempt}
-      onRetry={() => void deliver(attempt)}
-      onDelete={() => feedback.discard(attempt)}
-    />
+  const progress = sendProgress(feedback.unsentSends);
+  const unsentRows = feedback.unsentSends
+    .map((attempt) => `${attempt.clientNonce}:${attempt.state}:${attempt.heldOffline}`)
+    .join("|");
+  useEffect(() => {
+    // A bubble's footer appearing (Not delivered, Sent while offline) grows the bottom row; stay on it.
+    if (unsentRows && !scrollBehavior.current.state().detached) {
+      scrollToUnsentAfterLayout.current = true;
+    }
+  }, [unsentRows]);
+  const firstHeld = feedback.unsentSends.find((attempt) => attempt.state === "queued");
+  const unsentSendBubbles = feedback.unsentSends.map((attempt) => (
+    <Fragment key={attempt.clientNonce}>
+      {attempt === firstHeld ? <HeldSendsDivider /> : null}
+      <OptimisticSendBubble
+        attempt={attempt}
+        progressSince={progress?.entry === attempt ? progress.since : undefined}
+        onRetry={() => retrySend(attempt)}
+        onCancelSend={() => void cancelSend(attempt)}
+        onSelectText={setSelectableText}
+      />
+    </Fragment>
   ));
 
   return (
@@ -2144,7 +2250,7 @@ function Thread() {
             {threadWindowMessages(visibleMessages, pinnedNewerCursor).map((message, index) =>
               renderMessageRow(message, { enableJump: true, index }),
             )}
-            {pinnedNewerCursor === null ? failedSendBubbles : null}
+            {pinnedNewerCursor === null ? unsentSendBubbles : null}
             {pinnedNewerCursor === null ? (
               workingFooter
             ) : loadingNewer ? (
@@ -2167,6 +2273,7 @@ function Thread() {
             scrollEventThrottle={16}
             onScrollBeginDrag={() => {
               userDragging.current = true;
+              scrollToUnsentAfterLayout.current = false;
             }}
             onScroll={(event) => {
               if (userDragging.current) updateUserScroll(event);
@@ -2182,6 +2289,11 @@ function Thread() {
                 loadingOlderContent.current = false;
                 return;
               }
+              if (scrollToUnsentAfterLayout.current) {
+                // The jump ran before the new unsent bubble had a size; follow it once it does.
+                scrollToUnsentAfterLayout.current = false;
+                performScroll("smooth");
+              }
               const blocked = Boolean(
                 jumpScrollTarget.current ||
                   (pinnedAroundRef.current &&
@@ -2196,7 +2308,7 @@ function Thread() {
             ListFooterComponent={loadEarlierControl}
             ListHeaderComponent={
               <>
-                {failedSendBubbles}
+                {unsentSendBubbles}
                 {workingFooter}
               </>
             }

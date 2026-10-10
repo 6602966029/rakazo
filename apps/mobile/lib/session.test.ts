@@ -14,7 +14,8 @@ import {
   snapshotSessionToken,
   tokenFromAuthResponse,
 } from "./session.js";
-import { clearFailedSends } from "./thread-feedback.js";
+import { clearUnsentSends } from "./thread-feedback.js";
+import { toast } from "./toast.js";
 
 vi.mock("expo-secure-store", () => ({
   getItemAsync: vi.fn(),
@@ -24,7 +25,8 @@ vi.mock("expo-secure-store", () => ({
 vi.mock("./live-notifications.js", () => ({
   stopLiveNotifications: vi.fn(async () => undefined),
 }));
-vi.mock("./thread-feedback.js", () => ({ clearFailedSends: vi.fn() }));
+vi.mock("./thread-feedback.js", () => ({ clearUnsentSends: vi.fn() }));
+vi.mock("./toast.js", () => ({ toast: { suspend: vi.fn(), resume: vi.fn() } }));
 
 describe("mobile session storage", () => {
   beforeEach(async () => {
@@ -57,10 +59,16 @@ describe("mobile session storage", () => {
     }
   });
 
-  it("forgets unsent messages on sign-out", async () => {
-    vi.mocked(clearFailedSends).mockClear();
+  it("forgets unsent messages on sign-out and silences their toasts until the next sign-in", async () => {
+    vi.mocked(clearUnsentSends).mockClear();
+    vi.mocked(toast.suspend).mockClear();
+    vi.mocked(toast.resume).mockClear();
     await clearSessionToken();
-    expect(clearFailedSends).toHaveBeenCalledOnce();
+    expect(clearUnsentSends).toHaveBeenCalledOnce();
+    expect(toast.suspend).toHaveBeenCalledOnce();
+    expect(toast.resume).not.toHaveBeenCalled();
+    await saveSessionToken("next-session");
+    expect(toast.resume).toHaveBeenCalledOnce();
   });
 
   it("forgets the cached avatar style on sign-out", async () => {
