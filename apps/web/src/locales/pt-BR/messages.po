@@ -3550,13 +3550,13 @@ msgstr ""
 msgid "Registration is closed"
 msgstr "O cadastro está fechado"
 
-#: src/pages/Shell.tsx
-msgid "Release"
-msgstr "Libere"
-
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"
 msgstr ""
+
+#: src/pages/Shell.tsx
+msgid "Release control"
+msgstr "Liberar o controle"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release interrupted computer?"
@@ -4288,6 +4288,10 @@ msgstr "Alternando…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "System"
 msgstr "Sistema"
+
+#: src/pages/Shell.tsx
+msgid "Take control"
+msgstr "Assumir o controle"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"
