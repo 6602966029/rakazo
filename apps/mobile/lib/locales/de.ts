@@ -1,12 +1,8 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Not sent": "Nicht gesendet",
+  "Waiting to send": "Wartet auf das Senden",
   "Cancel send": "Senden abbrechen",
-  "Messages waiting to send until the server reconnects":
-    "Nachrichten warten auf das Senden, bis der Server wieder verbunden ist",
   Sending: "Wird gesendet",
-  "This message is already sending and can't be canceled.":
-    "Diese Nachricht wird bereits gesendet und kann nicht abgebrochen werden.",
-  "Can't reach the server — your messages are safe.":
-    "Server nicht erreichbar – deine Nachrichten sind sicher.",
   "Try Again": "Erneut versuchen",
   "Not sent · Tap to retry": "Nicht gesendet · Zum Wiederholen tippen",
   Photo: "Foto",

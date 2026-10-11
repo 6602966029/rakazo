@@ -512,6 +512,7 @@ export function useThreadFeedback(threadKey: string | undefined, newNonce: () =>
         userId: null,
         cacheSession: null,
       };
+      if (!scope.userId || !scope.cacheSession) throw new Error("Send identity is not ready");
       return {
         payload,
         clientNonce: newNonce(),

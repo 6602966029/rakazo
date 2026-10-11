@@ -120,9 +120,10 @@ export const outboxDisk: UnsentDisk = {
     if (storedBytes.has(attempt.clientNonce)) return true;
     const metadata = JSON.stringify({
       ...attempt.payload,
-      attachments: attempt.payload.attachments.map(
-        ({ contentBase64: _bytes, ...attachment }) => attachment,
-      ),
+      attachments: attempt.payload.attachments.map(({ contentBase64: _bytes, ...attachment }) => ({
+        ...attachment,
+        previewUri: attachment.previewUri?.startsWith("data:") ? undefined : attachment.previewUri,
+      })),
     });
     if (new TextEncoder().encode(metadata).length > 16 * 1024) return false;
     const bytes = attempt.payload.attachments.reduce(
@@ -168,6 +169,9 @@ export const outboxDisk: UnsentDisk = {
           attachments: attempt.payload.attachments.map(
             ({ contentBase64: _content, ...attachment }, index) => ({
               ...attachment,
+              previewUri: attachment.previewUri?.startsWith("data:")
+                ? undefined
+                : attachment.previewUri,
               file: attachmentFileName(index, attachment.name),
             }),
           ),

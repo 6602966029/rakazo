@@ -5,6 +5,8 @@ const h = vi.hoisted(() => ({
   appState: new Set<(state: string) => void>(),
   token: "session-token" as string | null,
   reachable: true,
+  generation: 0,
+  identity: null as null | { apiBase: string; userId: string; cacheSession: string },
 }));
 
 vi.mock("react-native", () => ({
@@ -31,11 +33,9 @@ vi.mock("./live-notifications", () => ({ resumeLiveNotifications: vi.fn() }));
 vi.mock("./outbox-disk", () => ({ outboxDisk: { clear: vi.fn() } }));
 vi.mock("./session", () => ({
   loadSessionToken: vi.fn(async () => h.token),
-  loadSessionIdentity: vi.fn(async () =>
-    h.token ? { cacheSession: "cache-1", userId: "user-1" } : null,
-  ),
-  currentSessionIdentity: () => ({ cacheSession: "cache-1", userId: "user-1" }),
-  currentSessionGeneration: () => 0,
+  loadSessionIdentity: vi.fn(async () => (h.token ? h.identity : null)),
+  currentSessionIdentity: () => h.identity,
+  currentSessionGeneration: () => h.generation,
 }));
 vi.mock("./thread-feedback", () => ({
   configureUnsentSends: vi.fn(),
@@ -49,7 +49,7 @@ const { outboxDisk } = await import("./outbox-disk");
 const { configureUnsentSends, restoreUnsentSends, sendWaitingMessages } = await import(
   "./thread-feedback"
 );
-const { startUnsentSends } = await import("./unsent-sends");
+const { startUnsentSends, prepareUnsentSends } = await import("./unsent-sends");
 const { Alert } = await import("react-native");
 const { cancelFocusPrompt } = await import("./focus-prompt");
 
@@ -58,8 +58,34 @@ describe("unsent sends", () => {
     vi.clearAllMocks();
     h.token = "session-token";
     h.reachable = true;
+    h.generation = 0;
+    h.identity = { apiBase: "https://rakazo.example", userId: "user-1", cacheSession: "cache-1" };
   });
 
+  it("waits for cached identity before releasing a draft to the outbox", async () => {
+    h.identity = null;
+    const { loadSessionIdentity } = await import("./session");
+    let finish!: () => void;
+    vi.mocked(loadSessionIdentity).mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      h.identity = { apiBase: "https://rakazo.example", userId: "user-1", cacheSession: "cache-1" };
+      return h.identity;
+    });
+    const ready = prepareUnsentSends();
+    expect(restoreUnsentSends).not.toHaveBeenCalled();
+    finish();
+    await ready;
+    expect(restoreUnsentSends).toHaveBeenCalledOnce();
+  });
+  it("does not release a draft when identity verification is offline", async () => {
+    h.identity = null;
+    const { rpc } = await import("./api");
+    vi.mocked(rpc).mockRejectedValueOnce(new TypeError("Network request failed"));
+    await expect(prepareUnsentSends()).rejects.toThrow("Network request failed");
+    expect(restoreUnsentSends).not.toHaveBeenCalled();
+  });
   it("cancels the bot's focus prompt once a message to it is delivered, held or not", () => {
     const stop = startUnsentSends();
     const config = vi.mocked(configureUnsentSends).mock.calls[0]![0];

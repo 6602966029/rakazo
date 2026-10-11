@@ -28,7 +28,6 @@ import {
   isPeerReceiptBlocks,
   isRunTerminalEvent,
   isSecretAskBlock,
-  isServerUnreachable,
   latestAnswerableAskMessageId,
   leaveThreadWindow,
   openThreadWindow,
@@ -195,6 +194,7 @@ import { ThreadReadOnlyContext } from "../lib/thread-read-only";
 import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
 import { ThreadScrollBehavior } from "../lib/thread-scroll";
 import { reconcileVisibleThreadSnapshot } from "../lib/thread-snapshot";
+import { prepareUnsentSends } from "../lib/unsent-sends";
 import { errorText } from "../lib/user-error";
 import { speakQueue, speakText } from "../lib/voice";
 import {
@@ -539,6 +539,7 @@ function Thread() {
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const feedback = useThreadFeedback(threadKey, newClientNonce);
+  const preparingSend = useRef(false);
   const { error, setError } = feedback;
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [selectableText, setSelectableText] = useState<string | null>(null);
@@ -981,13 +982,8 @@ function Thread() {
     setBotActionsOpen(true);
   }
 
-  /** The thread's load-error line; an unreachable server gets its own notice. */
   function refreshFailed(err: unknown) {
-    setError(
-      isServerUnreachable(err)
-        ? t("Can't reach the server — your messages are safe.")
-        : errorText(err),
-    );
+    setError(errorText(err));
   }
 
   async function refresh() {
@@ -1444,7 +1440,7 @@ function Thread() {
     if (readOnly) return;
     const initialBotTarget = botId;
     const initialGroupTarget = groupId;
-    if ((!initialBotTarget && !initialGroupTarget) || sending) return;
+    if ((!initialBotTarget && !initialGroupTarget) || sending || preparingSend.current) return;
     const originThreadKey = initialGroupTarget ?? initialBotTarget;
     const submitted = composerRef.current?.snapshot();
     if (!submitted) return;
@@ -1463,6 +1459,21 @@ function Thread() {
       openBotChat(typedSwitch, false);
       return;
     }
+    preparingSend.current = true;
+    try {
+      await prepareUnsentSends();
+    } catch (error) {
+      if (isCurrentTarget(initialBotTarget, initialGroupTarget))
+        Alert.alert(t("Failed to send message"), errorText(error));
+      return;
+    } finally {
+      preparingSend.current = false;
+    }
+    if (
+      !isCurrentTarget(initialBotTarget, initialGroupTarget) ||
+      JSON.stringify(submitted) !== JSON.stringify(composerRef.current?.snapshot())
+    )
+      return;
     const reroutedToGroup = Boolean(
       plan.rerouteGroupId && plan.rerouteGroupId !== initialGroupTarget,
     );
@@ -1515,10 +1526,7 @@ function Thread() {
   async function cancelSend(attempt: SendAttempt) {
     const { originThreadKey } = attempt.payload;
     if (originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
-    const result = await feedback.cancel(attempt, putBackInComposer);
-    if (result === "sending") {
-      Alert.alert(t("This message is already sending and can't be canceled."));
-    }
+    await feedback.cancel(attempt, putBackInComposer);
   }
 
   /** Puts a cancelled message in this composer; false when the user left the chat meanwhile. */

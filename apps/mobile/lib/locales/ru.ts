@@ -1,12 +1,8 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Not sent": "Не отправлено",
+  "Waiting to send": "Ожидает отправки",
   "Cancel send": "Отменить отправку",
-  "Messages waiting to send until the server reconnects":
-    "Сообщения ждут отправки, пока сервер снова не подключится",
   Sending: "Отправка",
-  "This message is already sending and can't be canceled.":
-    "Это сообщение уже отправляется, и его нельзя отменить.",
-  "Can't reach the server — your messages are safe.":
-    "Сервер недоступен — ваши сообщения в безопасности.",
   "Try Again": "Повторить",
   "Not sent · Tap to retry": "Не отправлено · Нажмите, чтобы повторить",
   Photo: "Фото",

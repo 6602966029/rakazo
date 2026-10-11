@@ -144,7 +144,7 @@ const server = {
   scope: {
     apiBase: "https://rakazo.example",
     cacheSession: "cache-1",
-    userId: "user-1",
+    userId: "user-1" as string | null,
     spaceId: "space-1" as string | null,
   },
   request: vi.fn(),
@@ -204,6 +204,13 @@ function payload(text = "Hello"): SendPayload {
 }
 
 describe("thread feedback", () => {
+  it("does not create an attempt until the signed-in identity is known", () => {
+    server.scope = { ...server.scope, userId: null };
+    expect(() => feedback.sendAttempt(payload("Keep this draft"))).toThrow(
+      "Send identity is not ready",
+    );
+  });
+
   it.each(["user", "server", "session"])(
     "does not drain sends after the %s scope changes",
     async (change) => {
@@ -380,6 +387,7 @@ describe("thread feedback", () => {
     expect(server.notDelivered).not.toHaveBeenCalled();
     expect(container.textContent).not.toContain("Not sent · Tap to retry");
     expect(menu("cancelSend")).not.toBeNull();
+    expect(container.textContent).toContain("Waiting to send");
   });
 
   it("shows Not sent · Tap to retry for a refused send, without Retry, and with Retry when it failed otherwise", async () => {
@@ -392,15 +400,13 @@ describe("thread feedback", () => {
     expect(rejected.state).toBe("refused");
     expect(rejected.error).toBe("Bot is archived");
     expect(server.notDelivered).toHaveBeenCalledWith(rejected);
-    expect(bubble().getAttribute("aria-label")).toBe(
-      "Rejected, photo.png. Not sent · Tap to retry",
-    );
+    expect(bubble().getAttribute("aria-label")).toBe("Rejected, photo.png. Not sent");
     // The caption is in the bubble's label, so VoiceOver doesn't read it a second time.
     const caption = [...container.querySelectorAll("span")].find(
-      (span) => span.textContent === "Not sent · Tap to retry",
+      (span) => span.textContent === "Not sent",
     )!;
-    expect(caption.textContent).toBe("Not sent · Tap to retry");
-    expect(container.querySelector('button[aria-label="Not sent · Tap to retry"]')).not.toBeNull();
+    expect(caption.textContent).toBe("Not sent");
+    expect(container.querySelector('button[aria-label="Not sent · Tap to retry"]')).toBeNull();
 
     server.request.mockImplementation(async (method: string) => {
       if (method === "artifacts/create") return { id: "artifact-1" };
@@ -449,9 +455,7 @@ describe("thread feedback", () => {
     });
     expect(server.request).not.toHaveBeenCalled();
     expect([first.state, second.state]).toEqual(["queued", "queued"]);
-    expect(bubble().getAttribute("aria-label")).toBe(
-      "First, photo.png. Messages waiting to send until the server reconnects",
-    );
+    expect(bubble().getAttribute("aria-label")).toBe("First, photo.png. Waiting to send");
 
     let release!: () => void;
     server.request.mockImplementation(async (method: string, input: { text?: string }) => {

@@ -281,6 +281,9 @@ describe("Android mobile platform contract", () => {
     );
     const reset = send.indexOf("composerRef.current?.reset();");
     expect(reset).toBeGreaterThan(send.indexOf("feedback.sendAttempt("));
+    expect(send.indexOf("feedback.sendAttempt(")).toBeGreaterThan(
+      send.indexOf("await prepareUnsentSends();"),
+    );
     expect(send).toMatch(
       /setPendingAttachments\(\(current\) =>\s*current.filter\(\(attachment\) => !submitted.attachmentIds.includes\(attachment.id\)\)/,
     );
@@ -294,13 +297,9 @@ describe("Android mobile platform contract", () => {
   it("marks held sends, shows progress on one bubble and explains a failed load in the thread", () => {
     const thread = readFileSync(resolve(mobileRoot, "app/thread.tsx"), "utf8");
 
-    expect(thread).toMatch(
-      /isServerUnreachable\(err\)\s*\? t\("Can't reach the server — your messages are safe\."\)\s*: errorText\(err\)/,
-    );
+    expect(thread).toContain("setError(errorText(err));");
     expect(thread).toContain("await refresh().catch(refreshFailed);");
-    expect(thread).toMatch(
-      /if \(result === "sending"\) \{\s*Alert\.alert\(t\("This message is already sending and can't be canceled\."\)\);/,
-    );
+    expect(thread).toContain("await feedback.cancel(attempt, putBackInComposer);");
     expect(thread).toMatch(/\(\) => \{\s*closeStream = threadStreamOpened\(liveThreadKey\);\s*\}/);
     expect(thread).toMatch(/\} finally \{\s*closeStream\?\.\(\);/);
     // Cancel send hands the message over only while this screen's composer is still there.

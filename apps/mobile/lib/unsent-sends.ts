@@ -73,3 +73,29 @@ export function startUnsentSends(): () => void {
     appState.remove();
   };
 }
+
+/** Verify the owner before the composer gives a draft to the outbox. */
+export async function prepareUnsentSends(): Promise<void> {
+  const generation = currentSessionGeneration();
+  const apiBase = currentApiBase();
+  const spaceId = selectedSpaceId();
+  let identity = currentSessionIdentity();
+  if (!identity || identity.apiBase !== apiBase) identity = await loadSessionIdentity(apiBase);
+  if (
+    generation !== currentSessionGeneration() ||
+    apiBase !== currentApiBase() ||
+    spaceId !== selectedSpaceId()
+  )
+    throw new Error(t("Failed to send message"));
+  if (!identity) await rpc("me");
+  identity = currentSessionIdentity();
+  if (
+    !identity ||
+    identity.apiBase !== apiBase ||
+    generation !== currentSessionGeneration() ||
+    apiBase !== currentApiBase() ||
+    spaceId !== selectedSpaceId()
+  )
+    throw new Error(t("Failed to send message"));
+  restoreUnsentSends();
+}

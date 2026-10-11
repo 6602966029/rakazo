@@ -24,11 +24,15 @@ export function OptimisticSendBubble({
   const colorScheme = useResolvedAppearance();
   const { width: windowWidth } = useWindowDimensions();
   const { payload, state } = attempt;
-  const undelivered = state === "failed" || state === "refused";
-  const footer = undelivered ? t("Not sent · Tap to retry") : null;
-  const stateLabel =
-    footer ??
-    (state === "queued" ? t("Messages waiting to send until the server reconnects") : t("Sending"));
+  const footer =
+    state === "failed"
+      ? t("Not sent · Tap to retry")
+      : state === "refused"
+        ? t("Not sent")
+        : state === "queued"
+          ? t("Waiting to send")
+          : t("Sending");
+  const stateLabel = footer;
   const messageLabel = [payload.displayText, ...payload.attachments.map(({ name }) => name)]
     .filter(Boolean)
     .join(", ");
@@ -134,7 +138,7 @@ export function OptimisticSendBubble({
           ))}
         </View>
       </MessageContextMenu>
-      {footer ? (
+      {state === "failed" ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("Not sent · Tap to retry")}
@@ -143,7 +147,9 @@ export function OptimisticSendBubble({
         >
           <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>{footer}</Text>
         </Pressable>
-      ) : null}
+      ) : (
+        <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>{footer}</Text>
+      )}
     </View>
   );
 }

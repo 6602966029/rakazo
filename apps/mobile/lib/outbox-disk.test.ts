@@ -121,6 +121,22 @@ function attempt(nonce: string, contentBase64 = "aGVsbG8="): SendAttempt {
 }
 
 describe("outbox on disk", () => {
+  it("stores restored data-URI photos as files without counting or persisting their preview bytes twice", async () => {
+    const held = attempt("restored-photo", "x".repeat(32_000));
+    held.payload.attachments[0]!.previewUri =
+      `data:image/png;base64,${held.payload.attachments[0]!.contentBase64}`;
+    expect(outboxDisk.admit(held)).toBe(true);
+    outboxDisk.save([held]);
+    expect(fs.files.get("cache/outbox/outbox.json")).not.toContain("data:image");
+    const [saved] = outboxDisk.load(0, new Set(), {
+      apiBase: held.apiBase,
+      userId: held.userId,
+      cacheSession: held.cacheSession,
+    });
+    await outboxDisk.hydrate(saved!);
+    expect(saved!.payload.attachments[0]!.contentBase64).toHaveLength(32_000);
+  });
+
   it.each([
     { apiBase: "https://other.example", userId: "user-1", cacheSession: "cache-1" },
     { apiBase: "https://rakazo.example", userId: "user-2", cacheSession: "cache-1" },
