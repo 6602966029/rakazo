@@ -55,28 +55,29 @@ export async function prepareUnsentSends(): Promise<void> {
   }
   restoreUnsentSends();
 }
+// Configure the wipe before bootstrap can replace credentials or the saved server.
+configureUnsentSends({
+  request: async <T>(
+    proc: string,
+    body: unknown,
+    options: Parameters<typeof rpc>[2],
+    spaceId: string | null,
+  ) => {
+    const generation = currentSessionGeneration();
+    const context = await captureApiRequestContext();
+    if (generation !== currentSessionGeneration()) throw new Error("Session changed");
+    const headers = { ...context.headers };
+    if (spaceId) headers["x-rakazo-space-id"] = spaceId;
+    else delete headers["x-rakazo-space-id"];
+    return rpc<T>(proc, body, { ...options, requestContext: { ...context, headers } });
+  },
+  serverReachable: isServerReachable,
+  scope,
+  disk: outboxDisk,
+  errorText: (error) => errorText(error, t("Failed to send message")),
+  notDelivered: (attempt) => Alert.alert(t("Failed to send message"), attempt.error),
+});
 export function startUnsentSends(): () => void {
-  configureUnsentSends({
-    request: async <T>(
-      proc: string,
-      body: unknown,
-      options: Parameters<typeof rpc>[2],
-      spaceId: string | null,
-    ) => {
-      const generation = currentSessionGeneration();
-      const context = await captureApiRequestContext();
-      if (generation !== currentSessionGeneration()) throw new Error("Session changed");
-      const headers = { ...context.headers };
-      if (spaceId) headers["x-rakazo-space-id"] = spaceId;
-      else delete headers["x-rakazo-space-id"];
-      return rpc<T>(proc, body, { ...options, requestContext: { ...context, headers } });
-    },
-    serverReachable: isServerReachable,
-    scope,
-    disk: outboxDisk,
-    errorText: (error) => errorText(error, t("Failed to send message")),
-    notDelivered: (attempt) => Alert.alert(t("Failed to send message"), attempt.error),
-  });
   let stopped = false;
   const retry = (force = false) =>
     void prepareUnsentSends()
