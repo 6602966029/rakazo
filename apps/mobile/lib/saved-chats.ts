@@ -34,7 +34,6 @@ export type SavedInbox = {
 export const SAVED_CHAT_MESSAGES = 100;
 export const SAVED_CHATS = 40;
 export const SAVED_INBOXES = 10;
-
 const ROOT = "saved-chats-v1";
 export const SAVED_CHAT_MAX_BYTES = 1024 * 1024;
 export const SAVED_CHATS_MAX_BYTES = 20 * 1024 * 1024;
@@ -175,9 +174,7 @@ export async function liveSavedChatsScope(): Promise<SavedChatsScope | null> {
 
 export async function loadSavedInbox(): Promise<SavedInbox | null> {
   const scope = await savedChatsScope();
-  if (!scope) return null;
-  const inbox = readSavedInbox(scope);
-  return inbox && isIntegrationsScopeCurrent(scope) ? inbox : null;
+  return scope ? readSavedInbox(scope) : null;
 }
 
 export function saveInbox(

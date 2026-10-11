@@ -1640,7 +1640,10 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     feedback.sent(attempt);
     if (initialBotTarget) cancelFocusPrompt(initialBotTarget);
     void loadSessionToken()
-      .then((token) => resumeLiveNotifications(currentApiBase(), token, selectedSpaceId() ?? ""))
+      .then((token) => {
+        if (generation === currentSessionGeneration())
+          return resumeLiveNotifications(currentApiBase(), token, selectedSpaceId() ?? "");
+      })
       .catch(() => undefined);
     if (attempt.payload.originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
     if (reroutedToGroup && groupTarget) {
