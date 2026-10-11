@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MessageMenuEntry, MessageMenuSymbol } from "./message-context-menu";
 import { buildMessageContextMenu, messageMenuReaction } from "./message-context-menu";
 
-const labels: Record<Exclude<MessageMenuSymbol, "cancelSend">, string> = {
+const labels: Record<MessageMenuSymbol, string> = {
   reply: "Reply",
   copy: "Copy",
   react: "React",

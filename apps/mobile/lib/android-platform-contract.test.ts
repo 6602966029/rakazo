@@ -273,62 +273,25 @@ describe("Android mobile platform contract", () => {
     );
   });
 
-  it("shows a send as a bubble and clears the composer at once, then holds or sends it", () => {
+  it("clears the unchanged composer only after preparing the scoped optimistic send", () => {
     const thread = readFileSync(resolve(mobileRoot, "app/thread.tsx"), "utf8");
     const send = thread.slice(
       thread.indexOf("async function send()"),
-      thread.indexOf("function showUnsentSends"),
+      thread.indexOf("async function deliver"),
     );
-    const reset = send.indexOf("composerRef.current?.reset();");
-    expect(reset).toBeGreaterThan(send.indexOf("feedback.sendAttempt("));
-    expect(send.indexOf("feedback.sendAttempt(")).toBeGreaterThan(
-      send.indexOf("await prepareUnsentSends();"),
+    expect(send.indexOf("await prepareUnsentSends()")).toBeLessThan(
+      send.indexOf("feedback.sendAttempt("),
     );
-    expect(send).toMatch(
-      /setPendingAttachments\(\(current\) =>\s*current.filter\(\(attachment\) => !submitted.attachmentIds.includes\(attachment.id\)\)/,
+    expect(send.indexOf("feedback.sendAttempt(")).toBeLessThan(
+      send.indexOf("composerRef.current?.reset()"),
     );
-    expect(send.slice(reset)).toMatch(
-      /if \(feedback\.shouldHold\(\)\) \{\s*feedback\.queue\(attempt\);\s*return;\s*\}\s*await deliver\(attempt\);/,
+    expect(send.indexOf("composerRef.current?.reset()")).toBeLessThan(
+      send.indexOf("await deliver(attempt)"),
     );
-    expect(thread).toContain("onRetry={() => retrySend(attempt)}");
-    expect(thread).toContain("else void deliver(attempt);");
-  });
-
-  it("marks held sends, shows progress on one bubble and explains a failed load in the thread", () => {
-    const thread = readFileSync(resolve(mobileRoot, "app/thread.tsx"), "utf8");
-
-    expect(thread).toContain("setError(errorText(err));");
-    expect(thread).toContain("await refresh().catch(refreshFailed);");
-    expect(thread).toContain("await feedback.cancel(attempt, putBackInComposer);");
-    expect(thread).toMatch(/\(\) => \{\s*closeStream = threadStreamOpened\(liveThreadKey\);\s*\}/);
-    expect(thread).toMatch(/\} finally \{\s*closeStream\?\.\(\);/);
-    // Cancel send hands the message over only while this screen's composer is still there.
-    expect(thread).toMatch(
-      /const composer = composerRef\.current;[\s\S]*?if \(!composer \|\| originThreadKey !== \(activeGroupId\.current \?\? activeBotId\.current\)\)\s*return false;/,
+    expect(send).toContain(
+      "JSON.stringify(submitted) !== JSON.stringify(composerRef.current?.snapshot())",
     );
-    expect(thread).toMatch(
-      /if \(unsentRows && !scrollBehavior\.current\.state\(\)\.detached\) \{\s*scrollToUnsentAfterLayout\.current = true;/,
-    );
-  });
-
-  it("follows up a delivered message, held or not, only on the focused screen it was sent from", () => {
-    const thread = readFileSync(resolve(mobileRoot, "app/thread.tsx"), "utf8");
-    const after = thread.slice(
-      thread.indexOf("function afterDelivered("),
-      thread.indexOf("const afterDeliveredRef"),
-    );
-    expect(after).toMatch(
-      /if \(attempt\.payload\.originThreadKey !== \(activeGroupId\.current \?\? activeBotId\.current\)\) return;\s*if \(!navigation\.isFocused\(\)\) return;/,
-    );
-    expect(after).toContain('pathname: "/group-thread"');
-    expect(thread).toContain(
-      "useEffect(() => subscribeDelivered((attempt) => afterDeliveredRef.current(attempt)), []);",
-    );
-    const deliver = thread.slice(
-      thread.indexOf("async function deliver("),
-      thread.indexOf("function afterDelivered("),
-    );
-    expect(deliver).not.toContain("router.push");
+    expect(thread).toContain("onRetry={() => void deliver(attempt)}");
   });
 
   it("offers Voice settings when speaking has no configured provider", () => {

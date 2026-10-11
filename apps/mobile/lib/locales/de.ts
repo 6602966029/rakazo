@@ -1,11 +1,7 @@
 export const DE_MESSAGES: Record<string, string> = {
-  "Not sent": "Nicht gesendet",
-  "Waiting to send": "Wartet auf das Senden",
-  "This message is already sending and can't be canceled.":
-    "Diese Nachricht wird bereits gesendet und kann nicht abgebrochen werden.",
-  "Cancel send": "Senden abbrechen",
-  Sending: "Wird gesendet",
   "Try Again": "Erneut versuchen",
+  "Too many unsent messages": "Zu viele ungesendete Nachrichten",
+  "Not sent": "Nicht gesendet",
   "Not sent · Tap to retry": "Nicht gesendet · Zum Wiederholen tippen",
   Photo: "Foto",
   Today: "Heute",

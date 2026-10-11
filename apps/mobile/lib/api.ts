@@ -54,8 +54,8 @@ import {
   loadSessionToken,
   replaceSessionTokenIfCurrent,
   restoreSessionToken,
-  saveSessionIdentity,
   saveSessionToken,
+  saveVerifiedIntegrationsScope,
   snapshotSessionToken,
   tokenFromAuthResponse,
 } from "./session";
@@ -905,11 +905,17 @@ export async function rpc<T>(
       }
       throw withDetail(new Error(message), { status: res.status });
     }
-    const verifiedUser = parsed.json as { userId?: unknown } | null;
-    if (proc === "me" && typeof verifiedUser?.userId === "string") {
-      await saveSessionIdentity(requestSessionGeneration, {
+    const verifiedUser = parsed.json as { userId?: unknown; spaceId?: unknown } | null;
+    if (
+      proc === "me" &&
+      typeof verifiedUser?.userId === "string" &&
+      typeof verifiedUser.spaceId === "string"
+    ) {
+      await saveVerifiedIntegrationsScope(requestSessionGeneration, {
         apiBase: requestApiBase,
         userId: verifiedUser.userId,
+        spaceId: requestSpaceId || verifiedUser.spaceId,
+        selectionId: requestSpaceId ?? null,
       });
     }
     return parsed.json as T;
@@ -1159,26 +1165,27 @@ export async function subscribeThread(
   cursor: number,
   onEvent: (event: ThreadEvent) => void,
   signal: AbortSignal,
-  /** Called once the live connection is open. */
-  onOpen?: () => void,
 ) {
-  const res = await fetch(`${currentApiBase()}/rpc/threads/subscribe`, {
+  const context = await captureApiRequestContext();
+  const current = () =>
+    context.apiBase === currentApiBase() &&
+    context.sessionGeneration === currentSessionGeneration();
+  const res = await fetch(`${context.apiBase}/rpc/threads/subscribe`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       accept: "text/event-stream",
       origin: "rakazo://",
-      ...(await authHeaders()),
+      ...context.headers,
     },
     body: JSON.stringify({ json: { ...target, cursor } }),
     signal,
   }).catch((error: unknown) => {
-    if (!signal.aborted && isServerUnreachable(error)) noteServerReachable(false);
+    if (current() && !signal.aborted && isServerUnreachable(error)) noteServerReachable(false);
     throw error;
   });
-  noteServerReachable(!isUnreachableStatus(res.status));
+  if (current()) noteServerReachable(!isUnreachableStatus(res.status));
   if (!res.ok || !res.body) throw new Error(`rpc threads/subscribe failed (${res.status})`);
-  onOpen?.();
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -1186,7 +1193,10 @@ export async function subscribeThread(
     // A half-open socket never reports done, so give up on silence and let the caller reconnect.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const read = await Promise.race([
-      reader.read(),
+      reader.read().catch((error) => {
+        if (current() && !signal.aborted && isServerUnreachable(error)) noteServerReachable(false);
+        throw error;
+      }),
       new Promise<"idle">((resolve) => {
         timer = setTimeout(() => resolve("idle"), IDLE_TIMEOUT_MS);
       }),

@@ -7,106 +7,79 @@ import {
   selectedSpaceId,
   subscribeServerReachable,
 } from "./api";
-import { cancelFocusPrompt } from "./focus-prompt";
+import { artifactCacheSession } from "./artifact-cache-session";
 import { t } from "./i18n";
-import { resumeLiveNotifications } from "./live-notifications";
+import { integrationsCacheScope } from "./integrations-cache";
 import { outboxDisk } from "./outbox-disk";
 import {
   currentSessionGeneration,
-  currentSessionIdentity,
-  loadSessionIdentity,
   loadSessionToken,
+  loadVerifiedIntegrationsScope,
 } from "./session";
+import type { OutboxScope } from "./thread-feedback";
 import { configureUnsentSends, restoreUnsentSends, sendWaitingMessages } from "./thread-feedback";
 import { errorText } from "./user-error";
 
-/**
- * Sends held messages when the server answers again and when the app returns to the foreground,
- * restores the ones a signed-in account left unsent, and reports sends that were not delivered.
- */
+let activeScope: (OutboxScope & { generation: number }) | null = null;
+function scope() {
+  return activeScope &&
+    activeScope.generation === currentSessionGeneration() &&
+    activeScope.apiBase === currentApiBase() &&
+    activeScope.spaceId === selectedSpaceId()
+    ? activeScope
+    : null;
+}
+export async function prepareUnsentSends(): Promise<void> {
+  const generation = currentSessionGeneration();
+  const apiBase = currentApiBase();
+  const spaceId = selectedSpaceId();
+  if (!scope()) {
+    const saved = await loadVerifiedIntegrationsScope();
+    const verified = saved?.apiBase === apiBase ? saved : await integrationsCacheScope();
+    const cacheSession = await artifactCacheSession(await loadSessionToken());
+    if (
+      generation !== currentSessionGeneration() ||
+      apiBase !== currentApiBase() ||
+      spaceId !== selectedSpaceId()
+    )
+      throw new Error(t("Failed to send message"));
+    activeScope = { apiBase, spaceId, userId: verified.userId, cacheSession, generation };
+  }
+  restoreUnsentSends();
+}
 export function startUnsentSends(): () => void {
   configureUnsentSends({
     request: async (proc, body, options) => {
       const generation = currentSessionGeneration();
+      const spaceId = selectedSpaceId();
       const context = await captureApiRequestContext();
-      if (generation !== currentSessionGeneration()) throw new Error("Session changed");
+      if (generation !== currentSessionGeneration() || spaceId !== selectedSpaceId())
+        throw new Error("Session changed");
       return rpc(proc, body, { ...options, requestContext: context });
     },
     serverReachable: isServerReachable,
-    scope: () => ({
-      apiBase: currentApiBase(),
-      spaceId: selectedSpaceId(),
-      userId: currentSessionIdentity()?.userId ?? null,
-      cacheSession: currentSessionIdentity()?.cacheSession ?? null,
-    }),
+    scope,
     disk: outboxDisk,
     errorText: (error) => errorText(error, t("Failed to send message")),
-    notDelivered(attempt) {
-      Alert.alert(t("Failed to send message"), attempt.error);
-    },
-    delivered(attempt) {
-      if (attempt.payload.initialBotTarget) cancelFocusPrompt(attempt.payload.initialBotTarget);
-      const generation = currentSessionGeneration();
-      const apiBase = currentApiBase();
-      const spaceId = selectedSpaceId();
-      void loadSessionToken()
-        .then((token) => {
-          if (
-            generation !== currentSessionGeneration() ||
-            apiBase !== currentApiBase() ||
-            spaceId !== selectedSpaceId()
-          )
-            return;
-          return resumeLiveNotifications(apiBase, token, spaceId ?? "");
-        })
-        .catch(() => undefined);
-    },
+    notDelivered: (attempt) => Alert.alert(t("Failed to send message"), attempt.error),
   });
-  const generation = currentSessionGeneration();
   let stopped = false;
-  void loadSessionIdentity(currentApiBase())
-    .then((identity) => {
-      if (stopped || generation !== currentSessionGeneration()) return;
-      if (identity) restoreUnsentSends();
-      else outboxDisk.clear();
-    })
-    .catch(() => undefined);
-  // Sending's own requests flip this too, so it never asks a running send to go round again.
+  const retry = () =>
+    void prepareUnsentSends()
+      .then(() => {
+        if (!stopped) return sendWaitingMessages();
+      })
+      .catch(() => undefined);
+  retry();
   const reachable = subscribeServerReachable(() => {
-    if (isServerReachable()) void sendWaitingMessages({ ifIdle: true });
+    if (isServerReachable()) retry();
   });
   const appState = AppState.addEventListener("change", (state) => {
-    if (state === "active") void sendWaitingMessages();
+    if (state === "active") retry();
   });
   return () => {
     stopped = true;
     reachable();
     appState.remove();
   };
-}
-
-/** Verify the owner before the composer gives a draft to the outbox. */
-export async function prepareUnsentSends(): Promise<void> {
-  const generation = currentSessionGeneration();
-  const apiBase = currentApiBase();
-  const spaceId = selectedSpaceId();
-  let identity = currentSessionIdentity();
-  if (!identity || identity.apiBase !== apiBase) identity = await loadSessionIdentity(apiBase);
-  if (
-    generation !== currentSessionGeneration() ||
-    apiBase !== currentApiBase() ||
-    spaceId !== selectedSpaceId()
-  )
-    throw new Error(t("Failed to send message"));
-  if (!identity) await rpc("me");
-  identity = currentSessionIdentity();
-  if (
-    !identity ||
-    identity.apiBase !== apiBase ||
-    generation !== currentSessionGeneration() ||
-    apiBase !== currentApiBase() ||
-    spaceId !== selectedSpaceId()
-  )
-    throw new Error(t("Failed to send message"));
-  restoreUnsentSends();
 }

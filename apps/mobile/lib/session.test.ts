@@ -5,18 +5,17 @@ import { AVATAR_STYLE_KEY, getCachedAvatarStyle, saveAvatarStyle } from "./avata
 import {
   clearSessionToken,
   currentSessionGeneration,
-  loadSessionIdentity,
   loadSessionToken,
   loadVerifiedIntegrationsScope,
   restoreSessionToken,
   saveAvatarStyleIfCurrent,
-  saveSessionIdentity,
   saveSessionToken,
   saveVerifiedIntegrationsScope,
   snapshotSessionToken,
+  subscribeSessionGeneration,
   tokenFromAuthResponse,
 } from "./session.js";
-import { clearUnsentSends } from "./thread-feedback.js";
+import { clearFailedSends } from "./thread-feedback.js";
 
 vi.mock("expo-secure-store", () => ({
   getItemAsync: vi.fn(),
@@ -26,7 +25,7 @@ vi.mock("expo-secure-store", () => ({
 vi.mock("./live-notifications.js", () => ({
   stopLiveNotifications: vi.fn(async () => undefined),
 }));
-vi.mock("./thread-feedback.js", () => ({ clearUnsentSends: vi.fn() }));
+vi.mock("./thread-feedback.js", () => ({ clearFailedSends: vi.fn() }));
 
 describe("mobile session storage", () => {
   beforeEach(async () => {
@@ -45,58 +44,24 @@ describe("mobile session storage", () => {
           finish = resolve;
         }),
     );
+    const listener = vi.fn();
+    const unsubscribe = subscribeSessionGeneration(listener);
     const saving = saveSessionToken("fake-new-token");
+    expect(listener).toHaveBeenCalledOnce();
+    unsubscribe();
     await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
     expect(await snapshotSessionToken()).toEqual({ ok: true, value: "" });
     finish();
     await saving;
   });
 
-  it("rejects a token read that finishes after the session changes", async () => {
-    let finish!: (token: string) => void;
-    vi.mocked(SecureStore.getItemAsync).mockImplementationOnce(
-      () =>
-        new Promise<string>((resolve) => {
-          finish = resolve;
-        }),
-    );
-    const reading = snapshotSessionToken();
-    await saveSessionToken("fake-new-token");
-    finish("fake-old-token");
-    expect(await reading).toEqual({ ok: true, value: "" });
+  it("wipes the outbox on sign-in, sign-out and server-session restoration", async () => {
+    vi.mocked(clearFailedSends).mockClear();
+    await saveSessionToken("fake-a");
+    await clearSessionToken();
+    await restoreSessionToken("fake-b");
+    expect(vi.mocked(clearFailedSends).mock.calls.length).toBeGreaterThanOrEqual(3);
   });
-
-  it.each(["replacement", "sign-out", "sign-out then replacement"])(
-    "serializes a pending token write before %s",
-    async (change) => {
-      let stored = "fake-old-token";
-      let finish!: () => void;
-      vi.mocked(SecureStore.getItemAsync).mockImplementation(async (key) =>
-        key === "rakazo.session_token" ? stored : null,
-      );
-      vi.mocked(SecureStore.setItemAsync).mockImplementation(async (key, value) => {
-        if (key !== "rakazo.session_token") return;
-        if (value === "fake-first-token")
-          await new Promise<void>((resolve) => {
-            finish = resolve;
-          });
-        stored = value;
-      });
-      const first = saveSessionToken("fake-first-token");
-      await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
-      vi.mocked(SecureStore.deleteItemAsync).mockImplementation(async (key) => {
-        if (key === "rakazo.session_token") stored = "";
-      });
-      const clearing =
-        change === "sign-out then replacement" ? clearSessionToken() : Promise.resolve();
-      const second =
-        change === "sign-out" ? clearSessionToken() : saveSessionToken("fake-second-token");
-      expect(await snapshotSessionToken()).toEqual({ ok: true, value: "" });
-      finish();
-      await Promise.all([first, second, clearing]);
-      expect(await loadSessionToken()).toBe(change === "sign-out" ? "" : "fake-second-token");
-    },
-  );
 
   it("stores and clears only the session token key", async () => {
     await saveSessionToken("secret-token");
@@ -121,16 +86,10 @@ describe("mobile session storage", () => {
     }
   });
 
-  it("wipes the outbox on sign-out, sign-in and session restore", async () => {
-    for (const change of [
-      () => clearSessionToken(),
-      () => saveSessionToken("fake-next-session"),
-      () => restoreSessionToken(""),
-    ]) {
-      vi.mocked(clearUnsentSends).mockClear();
-      await change();
-      expect(clearUnsentSends).toHaveBeenCalled();
-    }
+  it("forgets unsent messages on sign-out", async () => {
+    vi.mocked(clearFailedSends).mockClear();
+    await clearSessionToken();
+    expect(clearFailedSends).toHaveBeenCalledOnce();
   });
 
   it("forgets the cached avatar style on sign-out", async () => {
@@ -326,27 +285,6 @@ describe("verified integration session scope", () => {
     await restoreSessionToken("");
     await saveSessionToken("fake-session-a");
   });
-  it("binds cached identity to the exact bearer and server", async () => {
-    await saveSessionIdentity(currentSessionGeneration(), scope);
-    expect(await loadSessionIdentity(scope.apiBase)).toMatchObject({
-      userId: scope.userId,
-      apiBase: scope.apiBase,
-    });
-    expect(await loadSessionIdentity("https://other.example.test")).toBeNull();
-    disk.set("rakazo.session_token", "fake-session-b");
-    expect(await loadSessionIdentity(scope.apiBase)).toBeNull();
-  });
-  it.each(["sign-out", "sign-in", "restore"])(
-    "invalidates cached identity on %s even if deletion fails",
-    async (change) => {
-      await saveSessionIdentity(currentSessionGeneration(), scope);
-      vi.mocked(SecureStore.deleteItemAsync).mockRejectedValue(new Error("storage unavailable"));
-      if (change === "sign-out") await clearSessionToken();
-      if (change === "sign-in") await saveSessionToken("fake-session-a");
-      if (change === "restore") await restoreSessionToken("fake-session-a");
-      expect(await loadSessionIdentity(scope.apiBase)).toBeNull();
-    },
-  );
   it("loads the scope only for the exact stored session", async () => {
     await saveVerifiedIntegrationsScope(currentSessionGeneration(), scope);
     expect(await loadVerifiedIntegrationsScope()).toEqual(scope);

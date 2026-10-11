@@ -12,7 +12,6 @@ const symbols = {
   quote: "text.quote",
   speak: "speaker.wave.2",
   select: "character.cursor.ibeam",
-  cancelSend: "xmark.circle",
 } as const satisfies Record<MessageMenuSymbol, Extract<NonNullable<MenuAction["image"]>, string>>;
 
 export function MessageContextMenu({

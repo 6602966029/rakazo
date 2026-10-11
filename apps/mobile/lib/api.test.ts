@@ -10,6 +10,7 @@ import {
   applyMobileThreadEvent,
   authHeaders,
   blockText,
+  captureApiRequestContext,
   changePassword,
   currentApiBase,
   deleteAccount,
@@ -72,8 +73,6 @@ afterEach(() => {
 
 describe("mobile API authentication", () => {
   it("does not send a captured old bearer after the session changes", async () => {
-    const { captureApiRequestContext } = await import("./api");
-    const { saveSessionToken } = await import("./session");
     await saveSessionToken("fake-session-a");
     const context = await captureApiRequestContext();
     await saveSessionToken("fake-session-b");
@@ -115,16 +114,10 @@ describe("mobile API authentication", () => {
     configureUnsentSends({
       request: rpc,
       serverReachable: () => true,
-      scope: () => ({
-        apiBase: "http://127.0.0.1:3100",
-        userId: null,
-        cacheSession: null,
-        spaceId: null,
-      }),
+      scope: () => null,
       disk: { clear, save: vi.fn() } as unknown as UnsentDisk,
       errorText: String,
       notDelivered: vi.fn(),
-      delivered: vi.fn(),
     });
     vi.stubGlobal(
       "fetch",

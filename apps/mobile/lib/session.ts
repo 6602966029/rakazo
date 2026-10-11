@@ -1,9 +1,9 @@
 import type { AvatarStyle } from "@rakazo/contracts";
 import * as SecureStore from "expo-secure-store";
-import { artifactCacheSession, invalidateArtifactCacheSession } from "./artifact-cache-session";
+import { invalidateArtifactCacheSession } from "./artifact-cache-session";
 import { clearAvatarStyle, saveAvatarStyle } from "./avatar-style";
 import { stopLiveNotifications } from "./live-notifications";
-import { clearUnsentSends } from "./thread-feedback";
+import { clearFailedSends } from "./thread-feedback";
 
 const SESSION_KEY = "rakazo.session_token";
 const INTEGRATIONS_SCOPE_KEY = "rakazo.integrations-scope";
@@ -28,13 +28,11 @@ function enqueueScopeWrite<T>(task: () => Promise<T>): Promise<T> {
 
 function invalidateSessionCaches(): Promise<void> {
   scopeInvalidated = true;
-  sessionIdentity = null;
-  identityInvalidated = true;
+  clearFailedSends();
   const clearingArtifacts = invalidateArtifactCacheSession();
   return enqueueScopeWrite(async () => {
     await clearingArtifacts;
     try {
-      await SecureStore.deleteItemAsync(IDENTITY_KEY);
       await SecureStore.deleteItemAsync(INTEGRATIONS_SCOPE_KEY);
     } catch {
       try {
@@ -109,6 +107,28 @@ let sessionFallback: string | undefined;
 /** Bumped by every session change, so a late response can tell it no longer owns the session. */
 let sessionGeneration = 0;
 
+let readySessionGeneration = 0;
+export function currentReadySessionGeneration() {
+  return readySessionGeneration;
+}
+const sessionListeners = new Set<() => void>();
+export function subscribeSessionGeneration(listener: () => void): () => void {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+}
+function publishSessionGeneration(ready = true) {
+  if (ready) readySessionGeneration = sessionGeneration;
+  for (const listener of sessionListeners) {
+    try {
+      listener();
+    } catch {
+      /* Observers cannot block an authentication change. */
+    }
+  }
+}
+
 export function currentSessionGeneration() {
   return sessionGeneration;
 }
@@ -120,23 +140,24 @@ export async function loadSessionToken() {
 
 export async function saveSessionToken(token: string) {
   const generation = ++sessionGeneration;
+  publishSessionGeneration(false);
   sessionInvalidated = true;
   sessionFallback = undefined;
-  clearUnsentSends();
   const clearingScope = invalidateSessionCaches();
   await enqueueScopeWrite(() => SecureStore.setItemAsync(SESSION_KEY, token));
   await clearingScope;
   if (generation !== sessionGeneration) return;
   sessionInvalidated = false;
   sessionFallback = undefined;
+  if (generation === sessionGeneration) publishSessionGeneration();
 }
 
 /** Clears the session. Returns false only when SecureStore could neither delete nor overwrite. */
 export async function clearSessionToken(): Promise<boolean> {
   const generation = ++sessionGeneration;
+  publishSessionGeneration(false);
   sessionInvalidated = true;
   sessionFallback = undefined;
-  clearUnsentSends();
   const clearingScope = invalidateSessionCaches();
   const clearingToken = clearStoredSessionToken(generation);
   await stopLiveNotifications(true).catch(() => undefined);
@@ -144,6 +165,7 @@ export async function clearSessionToken(): Promise<boolean> {
   await clearingScope;
   // Best-effort: a stuck style must not block sign-out or restore a wiped token.
   await clearAvatarStyle();
+  if (generation === sessionGeneration) publishSessionGeneration();
   return tokenCleared;
 }
 
@@ -178,13 +200,14 @@ async function clearStoredSessionToken(generation: number): Promise<boolean> {
 /** Restores the current-server session in memory even when persistence is unavailable. */
 export async function restoreSessionToken(token: string) {
   const generation = ++sessionGeneration;
-  clearUnsentSends();
+  publishSessionGeneration(false);
   const clearingScope = invalidateSessionCaches();
   if (!token) {
     await clearingScope;
     if (generation !== sessionGeneration) return;
     sessionInvalidated = false;
     sessionFallback = undefined;
+    if (generation === sessionGeneration) publishSessionGeneration();
     return;
   }
   try {
@@ -193,6 +216,7 @@ export async function restoreSessionToken(token: string) {
     if (sessionGeneration === generation + 1) {
       sessionInvalidated = false;
       sessionFallback = token;
+      publishSessionGeneration();
     }
   }
 }
@@ -214,6 +238,7 @@ export async function replaceSessionTokenIfCurrent(
     if (sessionGeneration === generation + 1) {
       sessionInvalidated = false;
       sessionFallback = token;
+      publishSessionGeneration();
     }
     throw error;
   }
@@ -262,68 +287,4 @@ function jsonToken(body: unknown): string {
     return (session as { token: string }).token;
   }
   return "";
-}
-
-const IDENTITY_KEY = "rakazo.verified-identity";
-export type SessionIdentity = { apiBase: string; userId: string; cacheSession: string };
-let sessionIdentity: SessionIdentity | null = null;
-let identityInvalidated = false;
-export function currentSessionIdentity(): SessionIdentity | null {
-  return sessionIdentity;
-}
-/** Only a verified me response may bind cached data to the active bearer. */
-export function saveSessionIdentity(
-  generation: number,
-  identity: Omit<SessionIdentity, "cacheSession">,
-): Promise<void> {
-  if (
-    generation === sessionGeneration &&
-    sessionIdentity &&
-    (sessionIdentity.apiBase !== identity.apiBase || sessionIdentity.userId !== identity.userId)
-  ) {
-    clearUnsentSends();
-    void invalidateSessionCaches();
-  }
-  return enqueueScopeWrite(async () => {
-    const token = await snapshotSessionToken();
-    if (generation !== sessionGeneration || !token.ok || !token.value) return;
-    const cacheSession = await artifactCacheSession(token.value);
-    if (generation !== sessionGeneration) return;
-    sessionIdentity = { ...identity, cacheSession };
-    identityInvalidated = false;
-    await SecureStore.setItemAsync(
-      IDENTITY_KEY,
-      JSON.stringify({ ...sessionIdentity, token: token.value }),
-    ).catch(() => undefined);
-  });
-}
-export async function loadSessionIdentity(apiBase: string): Promise<SessionIdentity | null> {
-  if (identityInvalidated) return null;
-  const generation = sessionGeneration;
-  const token = await snapshotSessionToken();
-  try {
-    const stored = JSON.parse((await SecureStore.getItemAsync(IDENTITY_KEY)) ?? "null");
-    if (
-      identityInvalidated ||
-      generation !== sessionGeneration ||
-      !token.ok ||
-      !token.value ||
-      stored?.token !== token.value ||
-      stored.apiBase !== apiBase ||
-      typeof stored.userId !== "string" ||
-      !stored.userId
-    )
-      return null;
-    const cacheSession = await artifactCacheSession(token.value);
-    if (
-      generation !== sessionGeneration ||
-      identityInvalidated ||
-      cacheSession !== stored.cacheSession
-    )
-      return null;
-    sessionIdentity = { apiBase, userId: stored.userId, cacheSession };
-    return sessionIdentity;
-  } catch {
-    return null;
-  }
 }

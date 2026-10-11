@@ -1,10 +1,7 @@
 export const ZH_MESSAGES: Record<string, string> = {
-  "Not sent": "未发送",
-  "Waiting to send": "等待发送",
-  "This message is already sending and can't be canceled.": "此消息正在发送，无法取消。",
-  "Cancel send": "取消发送",
-  Sending: "正在发送",
   "Try Again": "重试",
+  "Too many unsent messages": "未发送消息过多",
+  "Not sent": "未发送",
   "Not sent · Tap to retry": "未发送 · 轻点重试",
   Photo: "照片",
   Today: "今天",
