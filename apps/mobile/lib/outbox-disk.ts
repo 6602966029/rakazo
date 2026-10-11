@@ -74,8 +74,11 @@ export const outboxDisk: UnsentDisk = {
     try {
       root().create({ intermediates: true, idempotent: true });
       const target = file();
+      const text = JSON.stringify(attempts.slice(0, OUTBOX_MAX_ENTRIES).map(storedEntry));
+      const bytes = new TextEncoder().encode(text).length;
+      if (diskBytes(root()) - (target.exists ? target.size : 0) + bytes > OUTBOX_MAX_BYTES) return;
       target.create({ overwrite: true });
-      target.write(JSON.stringify(attempts.slice(0, OUTBOX_MAX_ENTRIES).map(storedEntry)));
+      target.write(text);
     } catch {
       /* Optional persistence; the in-memory outbox remains usable. */
     }
