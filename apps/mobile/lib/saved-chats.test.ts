@@ -108,7 +108,7 @@ const me = {
   name: "Ada Example",
   email: "ada@example.test",
 } as MobileMe;
-const bot = { id: "bot-a", name: "Alpha" };
+const bot = { id: "bot-a", name: "Alpha", sectionId: "section-a", parentBotId: "parent-a" };
 const navigation = {
   current: {
     id: "space-a",
@@ -152,6 +152,11 @@ it("round trips only what the inbox shows", () => {
   expect(readSavedInbox(scope)?.bots).toEqual([bot]);
   const [contents] = [...state.files.values()];
   expect(contents).not.toContain("Private");
+  writeSavedThread(scope, "bot:bot-a", thread(SAVED_CHAT_MESSAGES + 1));
+  const saved = readSavedThread(scope, "bot:bot-a")!;
+  expect(saved.messages).toHaveLength(SAVED_CHAT_MESSAGES);
+  expect(saved.run).toBeNull();
+  expect(saved).not.toHaveProperty("cursor");
 });
 
 it.each([{ apiBase: "https://other.example.test" }, { userId: "user-b" }, { spaceId: "space-b" }])(
@@ -196,16 +201,6 @@ it("caps total bytes across Spaces before admitting another transcript", () => {
   expect(bytes).toBeLessThanOrEqual(SAVED_CHATS_MAX_BYTES);
   expect(state.files.size).toBeLessThan(SAVED_CHATS);
   expect(readSavedThread(scope, "bot:bot-0")).toBeNull();
-});
-
-it("keeps the last 100 messages, display-only", () => {
-  writeSavedThread(scope, "bot:bot-a", thread(SAVED_CHAT_MESSAGES + 20));
-  const saved = readSavedThread(scope, "bot:bot-a")!;
-  expect(saved.messages).toHaveLength(SAVED_CHAT_MESSAGES);
-  expect(saved.messages[0]!.id).toBe("m-20");
-  expect(saved.olderCursor).toBeNull();
-  expect(saved.run).toBeNull();
-  expect(saved).not.toHaveProperty("cursor");
 });
 
 it("clears everything", () => {

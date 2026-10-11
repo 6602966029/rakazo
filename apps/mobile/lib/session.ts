@@ -35,6 +35,7 @@ export function registerSessionDiskCache(clear: () => void): void {
 
 function invalidateSessionCaches(): Promise<void> {
   scopeInvalidated = true;
+  clearFailedSends();
   for (const clear of sessionDiskCaches) {
     try {
       clear();
@@ -171,7 +172,6 @@ export async function clearSessionToken(): Promise<boolean> {
   publishSessionGeneration(false);
   sessionInvalidated = true;
   sessionFallback = undefined;
-  clearFailedSends();
   const clearingScope = invalidateSessionCaches();
   const clearingToken = clearStoredSessionToken(generation);
   await stopLiveNotifications(true).catch(() => undefined);

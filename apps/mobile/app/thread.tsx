@@ -150,7 +150,7 @@ import { available as dictationAvailable } from "../lib/dictation";
 import { cancelFocusPrompt, focusPromptThreadActive } from "../lib/focus-prompt";
 import { dateLocaleForUi, t, useI18n } from "../lib/i18n";
 import { isInlineImageMimeType } from "../lib/inline-image";
-import { isIntegrationsScopeCurrent } from "../lib/integrations-cache";
+import { integrationsCacheScope, isIntegrationsScopeCurrent } from "../lib/integrations-cache";
 import { saveLastBotId } from "../lib/last-bot";
 import {
   dismissThreadNotifications,
@@ -195,6 +195,7 @@ import { selectableTextFromMarkdown } from "../lib/selectable-text";
 import {
   currentReadySessionGeneration,
   currentSessionGeneration,
+  loadVerifiedIntegrationsScope,
   subscribeSessionGeneration,
 } from "../lib/session";
 import type { SendAttempt } from "../lib/thread-feedback";
@@ -274,6 +275,33 @@ function speakableMessageText(message: MobileMessage): string {
 export default function ThreadRoute() {
   const generation = useSyncExternalStore(subscribeSessionGeneration, currentSessionGeneration);
   const ready = useSyncExternalStore(subscribeSessionGeneration, currentReadySessionGeneration);
+  const [owner, setOwner] = useState<{ key: string; generation: number } | null>(null);
+  useEffect(() => {
+    if (generation !== ready) return;
+    const apiBase = currentApiBase();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const verify = () =>
+      void loadVerifiedIntegrationsScope()
+        .then((saved) => (saved?.apiBase === apiBase ? saved : integrationsCacheScope()))
+        .then((scope) => {
+          if (
+            !cancelled &&
+            scope &&
+            generation === currentSessionGeneration() &&
+            apiBase === currentApiBase()
+          )
+            setOwner({ key: JSON.stringify([apiBase, scope.userId]), generation });
+        })
+        .catch(() => {
+          if (!cancelled) timer = setTimeout(verify, 5_000);
+        });
+    verify();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [generation, ready]);
   const tokens = useMobileTokens();
   const { t } = useI18n();
   const router = useRouter();
@@ -325,7 +353,11 @@ export default function ThreadRoute() {
   }, [activeSpaceId, focused, spaceId]);
 
   if (request.action === "show" && !focusSync.switchFailed)
-    return <Thread key={`${generation}:${ready}`} />;
+    return (
+      <View style={{ flex: 1, display: owner?.generation === generation ? "flex" : "none" }}>
+        {owner ? <Thread key={owner.key} sessionEpoch={ready} /> : null}
+      </View>
+    );
   return (
     <View
       style={{
@@ -404,7 +436,7 @@ function createThreadHeaderStyles() {
   });
 }
 
-function Thread() {
+function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const colorScheme = useResolvedAppearance();
   const tokens = mobileTokens();
   const styles = useThemedStyles(createThreadHeaderStyles);
@@ -500,6 +532,7 @@ function Thread() {
   // The copy saved on this device stays on screen until a live snapshot replaces it.
   const [showingSaved, setShowingSaved] = useState(false);
   const snapshotOrigin = useRef<SavedChatsScope | null>(null);
+  const pendingSave = useRef<(() => void) | null>(null);
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,
@@ -1063,6 +1096,7 @@ function Thread() {
     });
     if (result.commit) {
       snapshotOrigin.current = scope;
+      writeSavedThread(scope, savedChatTarget(next), next);
       commitSnap(
         mergeMobileSnapshot(snapRef.current, next, expandedHistoryThread.current === next.threadId),
       );
@@ -1411,7 +1445,9 @@ function Thread() {
     return () => {
       abort.abort();
     };
-  }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots]);
+  }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots, sessionEpoch]);
+
+  useEffect(() => () => pendingSave.current?.(), [botId, groupId]);
 
   // Save the latest messages of the live chat (not a jump or loaded history) once updates settle.
   useEffect(() => {
@@ -1429,11 +1465,12 @@ function Thread() {
     const origin = snapshotOrigin.current;
     if (!origin) return;
     const write = () => writeSavedThread(origin, target, latest);
-    const timer = setTimeout(write, 600);
-    return () => {
-      clearTimeout(timer);
+    pendingSave.current = write;
+    const timer = setTimeout(() => {
       write();
-    };
+      pendingSave.current = null;
+    }, 600);
+    return () => clearTimeout(timer);
   }, [snap, showingSaved, botId, groupId]);
 
   useEffect(() => {
@@ -1482,7 +1519,7 @@ function Thread() {
         setError(errorText(err, t("Could not open message")));
       },
     );
-  }, [botId, groupId, messageId]);
+  }, [botId, groupId, messageId, sessionEpoch]);
 
   useEffect(() => {
     setPendingAttachments((current) => attachmentsForThread(current, threadKey));

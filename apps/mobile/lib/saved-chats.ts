@@ -23,8 +23,6 @@ export type SavedChatsScope = IntegrationsCacheScope & {
   namespace: string;
 };
 
-export type SavedChatTarget = string;
-
 export type SavedInbox = {
   bots: MobileBot[];
   groups: MobileGroup[];
@@ -42,7 +40,7 @@ export const SAVED_CHAT_MAX_BYTES = 1024 * 1024;
 export const SAVED_CHATS_MAX_BYTES = 20 * 1024 * 1024;
 const SAVED_INBOX_ROWS = 200;
 
-export function savedChatTarget(target: { botId?: string; groupId?: string }): SavedChatTarget {
+export function savedChatTarget(target: { botId?: string; groupId?: string }): string {
   return target.groupId ? `group:${target.groupId}` : `bot:${target.botId}`;
 }
 
@@ -107,7 +105,7 @@ export function writeSavedInbox(
   try {
     const inbox: SavedInbox = {
       bots: navigation.current.bots.slice(0, SAVED_INBOX_ROWS).map(
-        ({ id, name, color, preview, unread, pinned, spaceId, status }) =>
+        ({ id, name, color, preview, unread, pinned, spaceId, status, sectionId, parentBotId }) =>
           ({
             id,
             name,
@@ -117,14 +115,17 @@ export function writeSavedInbox(
             pinned,
             spaceId,
             status,
+            sectionId,
+            parentBotId,
           }) as MobileBot,
       ),
       groups: navigation.current.groups.slice(0, SAVED_INBOX_ROWS).map(
-        ({ id, name, members, preview, unread, pinned, spaceId }) =>
+        ({ id, name, members, preview, unread, pinned, spaceId, sectionId }) =>
           ({
             id,
             name,
             members,
+            sectionId,
             preview,
             unread,
             pinned,
@@ -210,10 +211,7 @@ export function savedThreadSnapshot(snapshot: MobileSnapshot): MobileSnapshot {
   };
 }
 
-export function readSavedThread(
-  scope: SavedChatsScope,
-  target: SavedChatTarget,
-): MobileSnapshot | null {
+export function readSavedThread(scope: SavedChatsScope, target: string): MobileSnapshot | null {
   if (!isIntegrationsScopeCurrent(scope)) return null;
   try {
     const data = readJson(spaceFile(scope, target), scopeKey(scope, target));
@@ -236,7 +234,7 @@ export function readSavedThread(
 
 function writeSavedFile(
   scope: SavedChatsScope,
-  target: SavedChatTarget,
+  target: string,
   data: Record<string, unknown>,
 ): void {
   if (!isIntegrationsScopeCurrent(scope)) return;
@@ -277,7 +275,7 @@ function writeSavedFile(
 
 export function writeSavedThread(
   scope: SavedChatsScope,
-  target: SavedChatTarget,
+  target: string,
   snapshot: MobileSnapshot,
 ): void {
   if (!isIntegrationsScopeCurrent(scope) || savedChatTarget(snapshot) !== target) return;
