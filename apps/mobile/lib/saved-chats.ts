@@ -119,19 +119,12 @@ export function writeSavedInbox(
             parentBotId,
           }) as MobileBot,
       ),
-      groups: navigation.current.groups.slice(0, SAVED_INBOX_ROWS).map(
-        ({ id, name, members, preview, unread, pinned, spaceId, sectionId }) =>
-          ({
-            id,
-            name,
-            members,
-            sectionId,
-            preview,
-            unread,
-            pinned,
-            spaceId,
-          }) as MobileGroup,
-      ),
+      groups: navigation.current.groups
+        .slice(0, SAVED_INBOX_ROWS)
+        .map(
+          ({ id, name, members, preview, unread, pinned, spaceId, sectionId }) =>
+            ({ id, name, members, sectionId, preview, unread, pinned, spaceId }) as MobileGroup,
+        ),
       botSections: navigation.current.botSections.slice(0, SAVED_INBOX_ROWS),
       spaces: navigation.spaces.slice(0, 40).map((space) => ({
         ...space,
@@ -139,7 +132,6 @@ export function writeSavedInbox(
         groups: space.groups.slice(0, SAVED_INBOX_ROWS),
         externalConversations: [],
       })),
-
       me: { userId: me.userId, spaceId: me.spaceId, name: me.name },
     };
     if (!isIntegrationsScopeCurrent(scope) || me.userId !== scope.userId) return;

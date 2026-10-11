@@ -123,6 +123,7 @@ import type {
 import {
   applyMobileThreadEvent,
   blockText,
+  captureApiRequestContext,
   copyableMobileMessageText,
   currentApiBase,
   loadSessionToken,
@@ -1614,8 +1615,14 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     const { initialBotTarget, botTarget, groupTarget, reroutedToGroup, plan } = attempt.payload;
     pendingDeliveries.current += 1;
     setSending(true);
+    const generation = currentSessionGeneration();
     try {
-      await deliverSend(attempt.payload, attempt, rpc);
+      const requestContext = await captureApiRequestContext();
+      await deliverSend(attempt.payload, attempt, <T,>(...args: Parameters<typeof rpc>) => {
+        if (generation !== currentSessionGeneration()) throw new Error("Session changed");
+        return rpc<T>(args[0], args[1], { ...args[2], requestContext });
+      });
+      if (generation !== currentSessionGeneration()) return;
     } catch (err) {
       attempt.error = errorText(err, t("Failed to send message"));
       feedback.sendFailed(attempt);
@@ -1626,7 +1633,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       }
       return;
     } finally {
-      onSettled?.();
+      if (generation === currentSessionGeneration()) onSettled?.();
       pendingDeliveries.current -= 1;
       setSending(pendingDeliveries.current > 0);
     }
