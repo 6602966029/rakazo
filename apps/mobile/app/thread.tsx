@@ -489,7 +489,7 @@ function Thread() {
     : botId
       ? { botId }
       : undefined;
-  const [snap, setSnap] = useState<MobileSnapshot | null>(null);
+  const [loadedSnap, setSnap] = useState<MobileSnapshot | null>(null);
   const snapRef = useRef<MobileSnapshot | null>(null);
   // The copy saved on this device stays on screen until a live snapshot replaces it.
   const [showingSaved, setShowingSaved] = useState(false);
@@ -505,6 +505,8 @@ function Thread() {
     apiBase: string;
     userId: string;
   } | null>(null);
+  // Retained history can render again only after the replacement session verifies its owner.
+  const snap = snapshotOrigin.current?.sessionGeneration === sessionEpoch ? loadedSnap : null;
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,

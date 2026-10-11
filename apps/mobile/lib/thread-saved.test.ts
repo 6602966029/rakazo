@@ -154,6 +154,22 @@ describe("saved chat on open", () => {
     expect(source).toContain("refreshMentionBots, sessionEpoch]");
   });
 
+  it("hides retained messages until they belong to the rendered session", () => {
+    const start = source.indexOf("  const snap = snapshotOrigin.current?");
+    const end = source.indexOf("  const streamResponses", start);
+    const visible = new Function(
+      "snapshotOrigin",
+      "sessionEpoch",
+      "loadedSnap",
+      `${source.slice(start, end)}return snap;`,
+    );
+    const privateMessages = snapshot(["private"]);
+    expect(visible({ current: { sessionGeneration: 0 } }, 1, privateMessages)).toBeNull();
+    expect(visible({ current: { sessionGeneration: 1 } }, 1, privateMessages)).toBe(
+      privateMessages,
+    );
+  });
+
   it.each(["same", "user", "server"])(
     "retains loaded history only for the same owner (%s)",
     async (change) => {
