@@ -235,7 +235,8 @@ export function sendWaitingMessages(force = false): Promise<void> {
         else changed();
       } catch (error) {
         if (!inScope(attempt)) continue;
-        const status = (error as { status?: number } | null)?.status;
+        const detail = error as { status?: number; cause?: { status?: number } } | null;
+        const status = detail?.status ?? detail?.cause?.status;
         const offline = isServerUnreachable(error) || status === 429;
         attempt.state = offline
           ? "queued"

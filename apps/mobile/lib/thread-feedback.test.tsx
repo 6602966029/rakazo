@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { resolveComposerSendPlan } from "@rakazo/core";
+import { AiConsentBlocked, resolveComposerSendPlan } from "@rakazo/core";
 import type { ReactNode } from "react";
 import { act, createElement } from "react";
 import type { Root } from "react-dom/client";
@@ -254,7 +254,7 @@ describe("scoped mobile outbox", () => {
     const sends = request.mock.calls.filter(([proc]) => proc === "threads/send");
     expect(sends[0]).toEqual(sends[1]);
   });
-  it("holds a rate-limited message ahead of the rest of the queue", async () => {
+  it.each([false, true])("pauses the ordered queue on HTTP 429 (wrapped: %s)", async (wrapped) => {
     reachable = false;
     const first = feedback.sendAttempt(payload("First"));
     const second = feedback.sendAttempt(payload("Second"));
@@ -263,7 +263,8 @@ describe("scoped mobile outbox", () => {
       await feedback.send(second);
     });
     reachable = true;
-    request.mockRejectedValueOnce(Object.assign(new Error("Slow down"), { status: 429 }));
+    const error = Object.assign(new Error("Slow down"), { status: 429 });
+    request.mockRejectedValueOnce(wrapped ? new AiConsentBlocked("Consent check", error) : error);
     await act(async () => {
       await sendWaitingMessages();
     });
