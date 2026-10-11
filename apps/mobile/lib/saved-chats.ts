@@ -19,9 +19,7 @@ import {
   saveVerifiedIntegrationsScope,
 } from "./session";
 
-export type SavedChatsScope = IntegrationsCacheScope & {
-  namespace: string;
-};
+export type SavedChatsScope = IntegrationsCacheScope & { namespace: string };
 
 export type SavedInbox = {
   bots: MobileBot[];
