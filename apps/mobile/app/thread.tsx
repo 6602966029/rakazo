@@ -499,9 +499,12 @@ function Thread() {
     currentSessionGeneration,
     currentSessionGeneration,
   );
-  const snapshotOrigin = useRef<{ sessionGeneration: number; selectionId: string | null } | null>(
-    null,
-  );
+  const snapshotOrigin = useRef<{
+    sessionGeneration: number;
+    selectionId: string | null;
+    apiBase: string;
+    userId: string;
+  } | null>(null);
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,
@@ -1015,6 +1018,7 @@ function Thread() {
       if (messageId || (onScreen && savedChatTarget(onScreen) === target)) return;
       const saved = readSavedThread(scope, target);
       if (!saved) return;
+      snapshotOrigin.current = scope;
       commitSnap(saved);
       setShowingSaved(true);
     });
@@ -1029,13 +1033,20 @@ function Thread() {
     snapshot: MobileSnapshot,
     // The session and Space the snapshot was loaded in; a write after either changed is dropped,
     // so a sign-out or server switch can't bring back what it just deleted.
-    origin: { sessionGeneration: number; selectionId: string | null },
+    origin: {
+      sessionGeneration: number;
+      selectionId: string | null;
+      apiBase: string;
+      userId: string;
+    },
   ) {
     void liveSavedChatsScope().then((scope) => {
       if (
         scope &&
         scope.sessionGeneration === origin.sessionGeneration &&
         scope.selectionId === origin.selectionId &&
+        scope.apiBase === origin.apiBase &&
+        scope.userId === origin.userId &&
         isIntegrationsScopeCurrent(scope)
       )
         writeSavedThread(scope, target, snapshot);
@@ -1061,6 +1072,14 @@ function Thread() {
       origin.selectionId !== selectedSpaceId()
     )
       return;
+    const scope = await liveSavedChatsScope();
+    if (
+      !scope ||
+      scope.sessionGeneration !== origin.sessionGeneration ||
+      scope.selectionId !== origin.selectionId ||
+      !isIntegrationsScopeCurrent(scope)
+    )
+      return;
     // Only the newest started refresh may commit. Threads also receive live
     // events; an older snapshot must not overwrite those while a newer refresh
     // is already in flight. The subscription starts from the snapshot returned
@@ -1078,9 +1097,19 @@ function Thread() {
       activeGroupId: activeGroupId.current,
     });
     if (result.commit) {
-      snapshotOrigin.current = origin;
+      const previousOrigin = snapshotOrigin.current;
+      const sameOwner =
+        previousOrigin?.apiBase === scope.apiBase &&
+        previousOrigin?.userId === scope.userId &&
+        previousOrigin?.selectionId === scope.selectionId;
+      if (!sameOwner) expandedHistoryThread.current = null;
+      snapshotOrigin.current = scope;
       commitSnap(
-        mergeMobileSnapshot(snapRef.current, next, expandedHistoryThread.current === next.threadId),
+        mergeMobileSnapshot(
+          snapRef.current,
+          next,
+          sameOwner && expandedHistoryThread.current === next.threadId,
+        ),
       );
       setShowingSaved(false);
     }
@@ -1329,12 +1358,7 @@ function Thread() {
 
   useEffect(() => {
     if (!botId && !groupId) return;
-    if (!messageId) {
-      pinnedAroundRef.current = null;
-      jumpScrollTarget.current = null;
-      jumpAnchor.current.release();
-    }
-    expandedHistoryThread.current = null;
+    // Invalidate pending history loads while retaining pages already loaded for this chat.
     historyEpoch.current += 1;
     const abort = new AbortController();
     const subscriptionGeneration = ++liveSubscriptionGeneration.current;

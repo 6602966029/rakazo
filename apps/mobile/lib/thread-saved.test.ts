@@ -53,10 +53,12 @@ function screen(options: { messageId?: string; onScreen?: MobileSnapshot } = {})
         apiBase: string;
         selectionId: string | null;
         sessionGeneration: number;
+        userId: string;
       } | null> => ({
         apiBase: "https://api.example.test",
         selectionId: "space-a",
         sessionGeneration: 1,
+        userId: "user-a",
       }),
     ),
     isIntegrationsScopeCurrent: () => true,
@@ -66,17 +68,26 @@ function screen(options: { messageId?: string; onScreen?: MobileSnapshot } = {})
     rpc: vi.fn(() => fetched),
     currentSessionGeneration: () => 1,
     selectedSpaceId: () => "space-a",
-    snapshotOrigin: { current: null },
+    snapshotOrigin: {
+      current: null as null | {
+        apiBase: string;
+        userId: string;
+        selectionId: string | null;
+        sessionGeneration: number;
+      },
+    },
     refreshGeneration: { current: 0 },
     historyEpoch: { current: 0 },
     activeBotId: { current: "bot-a" },
     activeGroupId: { current: undefined },
-    expandedHistoryThread: { current: null },
+    expandedHistoryThread: { current: null as string | null },
     mobileThreadRefreshResult: ({ fetched }: { fetched: MobileSnapshot }) => ({
       commit: true,
       snapshot: fetched,
     }),
-    mergeMobileSnapshot: (_previous: unknown, next: MobileSnapshot) => next,
+    mergeMobileSnapshot: vi.fn(
+      (_previous: unknown, next: MobileSnapshot, _keepHistory: boolean) => next,
+    ),
     isCurrentTarget: () => true,
     feedback: { refreshed: vi.fn() },
   };
@@ -143,6 +154,27 @@ describe("saved chat on open", () => {
     expect(source).toContain("refreshMentionBots, sessionEpoch]");
   });
 
+  it.each(["same", "user", "server"])(
+    "retains loaded history only for the same owner (%s)",
+    async (change) => {
+      const { scope, refresh } = screen({ onScreen: snapshot(["older"]) });
+      scope.snapshotOrigin.current = {
+        apiBase: change === "server" ? "https://other.example" : "https://api.example.test",
+        userId: change === "user" ? "user-b" : "user-a",
+        selectionId: "space-a",
+        sessionGeneration: 0,
+      };
+      scope.expandedHistoryThread.current = "thread-bot-a";
+      scope.rpc.mockResolvedValue(snapshot(["latest"]));
+      await refresh();
+      expect(scope.mergeMobileSnapshot).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        change === "same",
+      );
+    },
+  );
+
   it("shows the saved messages before the server answers", async () => {
     const { scope, saved, showSavedThread, refresh } = screen();
     void refresh();
@@ -197,7 +229,12 @@ describe("saved chat on open", () => {
     showSavedThread(new AbortController().signal);
     await settled(scope.savedChatsScope);
     const live = snapshot(["live-1"]);
-    saveThread("bot:bot-a", live, { sessionGeneration: 1, selectionId: "space-a" });
+    saveThread("bot:bot-a", live, {
+      sessionGeneration: 1,
+      selectionId: "space-a",
+      apiBase: "https://api.example.test",
+      userId: "user-a",
+    });
     await settled(scope.liveSavedChatsScope);
     expect(scope.writeSavedThread).toHaveBeenCalledWith(
       expect.objectContaining({ selectionId: "space-a" }),
@@ -208,15 +245,40 @@ describe("saved chat on open", () => {
 
   it("doesn't save under a Space selected after the chat's own", async () => {
     const { scope, saveThread } = screen();
-    saveThread("bot:bot-a", snapshot(["live-1"]), { sessionGeneration: 1, selectionId: "space-b" });
+    saveThread("bot:bot-a", snapshot(["live-1"]), {
+      sessionGeneration: 1,
+      selectionId: "space-b",
+      apiBase: "https://api.example.test",
+      userId: "user-a",
+    });
     await settled(scope.liveSavedChatsScope);
     expect(scope.writeSavedThread).not.toHaveBeenCalled();
   });
 
+  it.each(["user", "server"])(
+    "rejects a delayed write from another %s even with the same epoch",
+    async (change) => {
+      const { scope, saveThread } = screen();
+      saveThread("bot:bot-a", snapshot(["private"]), {
+        sessionGeneration: 1,
+        selectionId: "space-a",
+        apiBase: change === "server" ? "https://other.example" : "https://api.example.test",
+        userId: change === "user" ? "user-b" : "user-a",
+      });
+      await settled(scope.liveSavedChatsScope);
+      expect(scope.writeSavedThread).not.toHaveBeenCalled();
+    },
+  );
+
   it("drops a pending write from a session that has since ended", async () => {
     // A sign-out or server switch wiped the folder; the old token still verifies for a moment.
     const { scope, saveThread } = screen();
-    saveThread("bot:bot-a", snapshot(["live-1"]), { sessionGeneration: 0, selectionId: "space-a" });
+    saveThread("bot:bot-a", snapshot(["live-1"]), {
+      sessionGeneration: 0,
+      selectionId: "space-a",
+      apiBase: "https://api.example.test",
+      userId: "user-a",
+    });
     await settled(scope.liveSavedChatsScope);
     expect(scope.writeSavedThread).not.toHaveBeenCalled();
   });
