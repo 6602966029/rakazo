@@ -13,6 +13,7 @@ import {
   saveSessionToken,
   saveVerifiedIntegrationsScope,
   snapshotSessionToken,
+  subscribeSessionGeneration,
   tokenFromAuthResponse,
 } from "./session.js";
 import { clearFailedSends } from "./thread-feedback.js";
@@ -35,6 +36,23 @@ describe("mobile session storage", () => {
     await restoreSessionToken("");
   });
 
+  it("notifies stream consumers only after replacement credentials are ready", async () => {
+    let finish!: () => void;
+    const wait = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    vi.mocked(SecureStore.setItemAsync).mockImplementation(async (key) => {
+      if (key === "rakazo.session_token") await wait;
+    });
+    const listener = vi.fn();
+    const unsubscribe = subscribeSessionGeneration(listener);
+    const pending = saveSessionToken("fake-next-token");
+    expect(listener).not.toHaveBeenCalled();
+    finish();
+    await pending;
+    expect(listener).toHaveBeenCalledOnce();
+    unsubscribe();
+  });
   it("stores and clears only the session token key", async () => {
     await saveSessionToken("secret-token");
     await clearSessionToken();

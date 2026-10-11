@@ -137,6 +137,12 @@ async function settled(lookup: ReturnType<typeof vi.fn>) {
 }
 
 describe("saved chat on open", () => {
+  it("restarts the guarded stream after session replacement", () => {
+    expect(source).toContain("useSyncExternalStore(");
+    expect(source).toContain("subscribeSessionGeneration,");
+    expect(source).toContain("refreshMentionBots, sessionEpoch]");
+  });
+
   it("shows the saved messages before the server answers", async () => {
     const { scope, saved, showSavedThread, refresh } = screen();
     void refresh();

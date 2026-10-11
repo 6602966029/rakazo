@@ -78,6 +78,7 @@ function pick<T extends object>(row: T, fields: ReadonlyArray<keyof T>): T {
 
 export const SAVED_CHAT_MESSAGES = 100;
 export const SAVED_CHATS = 40;
+export const SAVED_INBOXES = 10;
 /** Coalesces a chat's stream updates into one write once it has been quiet this long. */
 export const SAVED_CHAT_WRITE_DELAY_MS = 600;
 const ROOT = "saved-chats-v1";
@@ -302,12 +303,22 @@ function writeSavedFile(
   collect(userRoot(scope));
   let total = bytes + files.reduce((sum, entry) => sum + entry.size, 0);
   files.sort((a, b) => (a.lastModified ?? 0) - (b.lastModified ?? 0));
-  while (files.length >= SAVED_CHATS || total > SAVED_CHATS_MAX_BYTES) {
-    const oldest = files.shift()!;
+  const inboxes = files.filter((entry) => entry.name === "inbox.json");
+  const threads = files.filter((entry) => entry.name !== "inbox.json");
+  const evict = (entries: File[]) => {
+    const oldest = entries.shift();
+    if (!oldest) throw new Error("Saved cache budget unavailable");
     const size = oldest.size;
     oldest.delete();
     total -= size;
+  };
+  if (target === "inbox") {
+    while (inboxes.length >= SAVED_INBOXES) evict(inboxes);
+  } else {
+    while (threads.length >= SAVED_CHATS) evict(threads);
   }
+  // Transcript writes never remove the navigation needed to open those transcripts offline.
+  while (total > SAVED_CHATS_MAX_BYTES) evict(threads);
   file.create({ overwrite: true });
   file.write(text);
 }

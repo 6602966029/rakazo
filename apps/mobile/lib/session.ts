@@ -117,6 +117,23 @@ let sessionFallback: string | undefined;
 /** Bumped by every session change, so a late response can tell it no longer owns the session. */
 let sessionGeneration = 0;
 
+const sessionListeners = new Set<() => void>();
+export function subscribeSessionGeneration(listener: () => void): () => void {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+}
+function publishSessionGeneration() {
+  for (const listener of sessionListeners) {
+    try {
+      listener();
+    } catch {
+      /* Observers cannot block an authentication change. */
+    }
+  }
+}
+
 export function currentSessionGeneration() {
   return sessionGeneration;
 }
@@ -127,17 +144,18 @@ export async function loadSessionToken() {
 }
 
 export async function saveSessionToken(token: string) {
-  sessionGeneration += 1;
+  const generation = ++sessionGeneration;
   const clearingScope = invalidateSessionCaches();
   await SecureStore.setItemAsync(SESSION_KEY, token);
   await clearingScope;
   sessionInvalidated = false;
   sessionFallback = undefined;
+  if (generation === sessionGeneration) publishSessionGeneration();
 }
 
 /** Clears the session. Returns false only when SecureStore could neither delete nor overwrite. */
 export async function clearSessionToken(): Promise<boolean> {
-  sessionGeneration += 1;
+  const generation = ++sessionGeneration;
   clearFailedSends();
   const clearingScope = invalidateSessionCaches();
   await stopLiveNotifications(true).catch(() => undefined);
@@ -145,6 +163,7 @@ export async function clearSessionToken(): Promise<boolean> {
   await clearingScope;
   // Best-effort: a stuck style must not block sign-out or restore a wiped token.
   await clearAvatarStyle();
+  if (generation === sessionGeneration) publishSessionGeneration();
   return tokenCleared;
 }
 
@@ -176,19 +195,23 @@ async function clearStoredSessionToken(): Promise<boolean> {
 
 /** Restores the current-server session in memory even when persistence is unavailable. */
 export async function restoreSessionToken(token: string) {
-  sessionGeneration += 1;
+  const generation = ++sessionGeneration;
   const clearingScope = invalidateSessionCaches();
   if (!token) {
     await clearingScope;
     sessionInvalidated = false;
     sessionFallback = undefined;
+    if (generation === sessionGeneration) publishSessionGeneration();
     return;
   }
   try {
     await saveSessionToken(token);
   } catch {
-    sessionInvalidated = false;
-    sessionFallback = token;
+    if (sessionGeneration === generation + 1) {
+      sessionInvalidated = false;
+      sessionFallback = token;
+      publishSessionGeneration();
+    }
   }
 }
 
@@ -209,6 +232,7 @@ export async function replaceSessionTokenIfCurrent(
     if (sessionGeneration === generation + 1) {
       sessionInvalidated = false;
       sessionFallback = token;
+      publishSessionGeneration();
     }
     throw error;
   }

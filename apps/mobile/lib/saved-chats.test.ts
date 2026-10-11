@@ -13,6 +13,7 @@ import {
   SAVED_CHAT_WRITE_DELAY_MS,
   SAVED_CHATS,
   SAVED_CHATS_MAX_BYTES,
+  SAVED_INBOXES,
   savedChatsScope,
   savedChatWriter,
   saveInbox,
@@ -58,6 +59,9 @@ vi.mock("./session", () => ({
 vi.mock("expo-file-system", () => {
   class Directory {
     uri: string;
+    get name() {
+      return this.uri.split("/").at(-1)!;
+    }
     get exists() {
       return [...state.files.keys()].some((path) => path.startsWith(`${this.uri}/`));
     }
@@ -311,6 +315,28 @@ describe("inbox hydrate and save", () => {
 });
 
 describe("saved chats", () => {
+  it("keeps the offline inbox while enforcing transcript count and byte eviction", () => {
+    writeSavedInbox(scope, navigation, me);
+    for (let index = 0; index < SAVED_CHATS + 10; index++) {
+      const snapshot = thread(1, `bot-${index}`);
+      snapshot.messages[0]!.blocks = [{ kind: "text", text: "x".repeat(700_000) }];
+      writeSavedThread(scope, `bot:bot-${index}`, snapshot);
+    }
+    expect(readSavedInbox(scope)).toEqual(savedInbox);
+    const bytes = [...state.files.values()].reduce(
+      (sum, text) => sum + new TextEncoder().encode(text).length,
+      0,
+    );
+    expect(bytes).toBeLessThanOrEqual(SAVED_CHATS_MAX_BYTES);
+  });
+  it("caps inboxes separately across Spaces without counting them as transcripts", () => {
+    for (let index = 0; index <= SAVED_INBOXES; index++)
+      writeSavedInbox({ ...scope, spaceId: `space-${index}` }, navigation, me);
+    expect(state.files.size).toBe(SAVED_INBOXES);
+    expect(readSavedInbox({ ...scope, spaceId: "space-0" })).toBeNull();
+    expect(readSavedInbox({ ...scope, spaceId: `space-${SAVED_INBOXES}` })).not.toBeNull();
+  });
+
   it("rejects oversized files on both write and read", () => {
     const huge = thread(1);
     huge.messages[0]!.blocks = [{ kind: "text", text: "x".repeat(SAVED_CHAT_MAX_BYTES) }];

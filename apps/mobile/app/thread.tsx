@@ -193,7 +193,7 @@ import {
 } from "../lib/saved-chats";
 import { secretDestinationLabel } from "../lib/secret-destination";
 import { selectableTextFromMarkdown } from "../lib/selectable-text";
-import { currentSessionGeneration } from "../lib/session";
+import { currentSessionGeneration, subscribeSessionGeneration } from "../lib/session";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { deliverSend, settleComposer, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
@@ -494,6 +494,11 @@ function Thread() {
   // The copy saved on this device stays on screen until a live snapshot replaces it.
   const [showingSaved, setShowingSaved] = useState(false);
   const savedWriter = useRef(savedChatWriter());
+  const sessionEpoch = useSyncExternalStore(
+    subscribeSessionGeneration,
+    currentSessionGeneration,
+    currentSessionGeneration,
+  );
   const snapshotOrigin = useRef<{ sessionGeneration: number; selectionId: string | null } | null>(
     null,
   );
@@ -1419,7 +1424,7 @@ function Thread() {
     return () => {
       abort.abort();
     };
-  }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots]);
+  }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots, sessionEpoch]);
 
   // Save the latest messages of the live chat (not a jump or loaded history) once updates settle.
   useEffect(() => {
