@@ -272,6 +272,7 @@ export default function ThreadRoute() {
     if (generation !== ready) return;
     const apiBase = currentApiBase();
     let cancelled = false;
+    let notified = false;
     let timer: ReturnType<typeof setTimeout>;
     const verify = () =>
       void loadVerifiedIntegrationsScope()
@@ -285,7 +286,9 @@ export default function ThreadRoute() {
           )
             setOwner({ key: JSON.stringify([apiBase, scope.userId]), generation });
         })
-        .catch(() => {
+        .catch((error) => {
+          if (!cancelled && !notified) Alert.alert(t("Could not continue"), errorText(error));
+          notified = true;
           if (!cancelled) timer = setTimeout(verify, 5_000);
         });
     verify();
@@ -346,9 +349,12 @@ export default function ThreadRoute() {
 
   if (request.action === "show" && !focusSync.switchFailed)
     return (
-      <View style={{ flex: 1, display: owner?.generation === generation ? "flex" : "none" }}>
-        {owner ? <Thread key={owner.key} sessionEpoch={ready} /> : null}
-      </View>
+      <>
+        {owner?.generation !== generation ? <ActivityIndicator color={tokens.foreground} /> : null}
+        <View style={{ flex: 1, display: owner?.generation === generation ? "flex" : "none" }}>
+          {owner ? <Thread key={owner.key} sessionEpoch={ready} /> : null}
+        </View>
+      </>
     );
   return (
     <View
