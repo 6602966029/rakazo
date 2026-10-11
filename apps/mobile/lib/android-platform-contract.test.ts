@@ -293,7 +293,7 @@ describe("Android mobile platform contract", () => {
     expect(clear).toMatch(
       /if \(!settled.clearComposer\) return;\s*composerRef.current\?\.reset\(\)/,
     );
-    expect(send).toMatch(/finally \{\s*onSettled\?\.\(\);/);
+    expect(send).toMatch(/finally \{\s*if .* onSettled\?\.\(\);/);
     expect(send).toContain('attempt.error = errorText(err, t("Failed to send message"))');
     expect(thread).toContain("onRetry={() => void deliver(attempt)}");
   });
