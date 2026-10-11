@@ -46,6 +46,7 @@ import {
   resolveSpaceComputerLimit,
   resolveTeamScreenLimit,
   SCREEN_HOST,
+  screenPeerNetworkConnectOptions,
   screenPorts,
   screenUrlFor,
   screenUrlWithToken,
@@ -100,6 +101,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const dataDir = path.resolve(repositoryRoot, process.env.DATA_DIR ?? "./data");
 let imageReady: Promise<void> | undefined;
 let supervisorInfo: Docker.ContainerInspectInfo | undefined;
+let dockerApiVersion: string | undefined;
 const supervisorToken = resolveSupervisorToken(process.env);
 const screenNetworkMode = resolveScreenNetworkMode(process.env.SANDBOX_SCREEN_NETWORK);
 const computerEgressMode = resolveComputerEgressMode();
@@ -1407,14 +1409,25 @@ async function connectComposeScreenPeers(networkName: string, info: Docker.Conta
   const network = docker.getNetwork(networkName);
   const networkInfo = await network.inspect();
   const connectedIds = new Set(Object.keys(networkInfo.Containers ?? {}));
+  const missingPeerIds = [...peerIds].filter((containerId) => !connectedIds.has(containerId));
+  if (missingPeerIds.length === 0) return;
+  let apiVersion = dockerApiVersion;
+  if (!apiVersion) {
+    try {
+      apiVersion = (await docker.version()).ApiVersion;
+      dockerApiVersion = apiVersion;
+    } catch {
+      // Version discovery is optional: preserve legacy connectivity and retry
+      // discovery on a later join rather than caching a transient failure.
+      apiVersion = "";
+    }
+  }
   await Promise.all(
-    [...peerIds]
-      .filter((containerId) => !connectedIds.has(containerId))
-      .map((containerId) =>
-        network.connect({ Container: containerId }).catch((error) => {
-          if (!/already exists|already connected/i.test(String(error))) throw error;
-        }),
-      ),
+    missingPeerIds.map((containerId) =>
+      network.connect(screenPeerNetworkConnectOptions(containerId, apiVersion)).catch((error) => {
+        if (!/already exists|already connected/i.test(String(error))) throw error;
+      }),
+    ),
   );
 }
 
