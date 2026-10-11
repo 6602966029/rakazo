@@ -503,7 +503,12 @@ export function useThreadFeedback(threadKey: string | undefined, newNonce: () =>
     unsentSends: threadUnsentSends,
     /** True when a new message here is held instead of going out now. */
     shouldHold() {
-      return shouldHoldSend(threadUnsentSends, threadKey ? threadLinkUp(threadKey) : false);
+      return shouldHoldSend(
+        unsentSends.filter(
+          (attempt) => attempt.payload.originThreadKey === threadKey && inScope(attempt),
+        ),
+        threadKey ? threadLinkUp(threadKey) : false,
+      );
     },
     sendAttempt(payload: SendPayload): SendAttempt {
       const scope = config?.scope() ?? {

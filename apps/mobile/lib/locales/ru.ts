@@ -1,6 +1,8 @@
 export const RU_MESSAGES: Record<string, string> = {
   "Not sent": "Не отправлено",
   "Waiting to send": "Ожидает отправки",
+  "This message is already sending and can't be canceled.":
+    "Это сообщение уже отправляется, отменить отправку нельзя.",
   "Cancel send": "Отменить отправку",
   Sending: "Отправка",
   "Try Again": "Повторить",

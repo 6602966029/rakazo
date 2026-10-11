@@ -475,6 +475,7 @@ export async function authHeaders(
 }
 
 export type ApiRequestContext = {
+  sessionGeneration?: number;
   apiBase: string;
   headers: Record<string, string>;
 };
@@ -485,12 +486,15 @@ export function aiConsentCoalesceKey(requestContext: ApiRequestContext): string 
 }
 
 export async function captureApiRequestContext(): Promise<ApiRequestContext> {
+  const generation = currentSessionGeneration();
   const apiBase = currentApiBase();
   const headers = await authHeaders(selectedSpaceId());
   if (apiBase !== currentApiBase()) {
     throw new Error(t("The server changed while starting the request"));
   }
-  return { apiBase, headers };
+  if (generation !== currentSessionGeneration())
+    throw new Error(t("Something went wrong. Try again."));
+  return { apiBase, headers, sessionGeneration: generation };
 }
 
 async function authenticateWithEmail(
@@ -767,6 +771,11 @@ export async function rpc<T>(
   const requestHeaders = consentContext?.headers ?? (await authHeaders());
   const requestSpaceId = requestHeaders["x-rakazo-space-id"];
   try {
+    if (
+      consentContext?.sessionGeneration !== undefined &&
+      consentContext.sessionGeneration !== currentSessionGeneration()
+    )
+      throw new Error(t("Something went wrong. Try again."));
     let res: Response;
     try {
       res = await fetch(`${consentContext?.apiBase ?? currentApiBase()}/rpc/${proc}`, {

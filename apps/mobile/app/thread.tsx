@@ -1463,7 +1463,11 @@ function Thread() {
     try {
       await prepareUnsentSends();
     } catch (error) {
-      if (isCurrentTarget(initialBotTarget, initialGroupTarget))
+      if (
+        composerRef.current &&
+        navigation.isFocused() &&
+        isCurrentTarget(initialBotTarget, initialGroupTarget)
+      )
         Alert.alert(t("Failed to send message"), errorText(error));
       return;
     } finally {
@@ -1526,7 +1530,9 @@ function Thread() {
   async function cancelSend(attempt: SendAttempt) {
     const { originThreadKey } = attempt.payload;
     if (originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
-    await feedback.cancel(attempt, putBackInComposer);
+    const result = await feedback.cancel(attempt, putBackInComposer);
+    if (result === "sending" && navigation.isFocused())
+      Alert.alert(t("This message is already sending and can't be canceled."));
   }
 
   /** Puts a cancelled message in this composer; false when the user left the chat meanwhile. */

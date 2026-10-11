@@ -71,6 +71,18 @@ afterEach(() => {
 });
 
 describe("mobile API authentication", () => {
+  it("does not send a captured old bearer after the session changes", async () => {
+    const { captureApiRequestContext } = await import("./api");
+    const { saveSessionToken } = await import("./session");
+    await saveSessionToken("fake-session-a");
+    const context = await captureApiRequestContext();
+    await saveSessionToken("fake-session-b");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    await expect(rpc("bots/list", {}, { requestContext: context })).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   beforeEach(async () => {
     vi.restoreAllMocks();
     vi.mocked(SecureStore.getItemAsync).mockReset();

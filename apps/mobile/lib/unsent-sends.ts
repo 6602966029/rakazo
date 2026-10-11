@@ -46,8 +46,19 @@ export function startUnsentSends(): () => void {
     },
     delivered(attempt) {
       if (attempt.payload.initialBotTarget) cancelFocusPrompt(attempt.payload.initialBotTarget);
+      const generation = currentSessionGeneration();
+      const apiBase = currentApiBase();
+      const spaceId = selectedSpaceId();
       void loadSessionToken()
-        .then((token) => resumeLiveNotifications(currentApiBase(), token, selectedSpaceId() ?? ""))
+        .then((token) => {
+          if (
+            generation !== currentSessionGeneration() ||
+            apiBase !== currentApiBase() ||
+            spaceId !== selectedSpaceId()
+          )
+            return;
+          return resumeLiveNotifications(apiBase, token, spaceId ?? "");
+        })
         .catch(() => undefined);
     },
   });

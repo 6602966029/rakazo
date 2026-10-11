@@ -444,6 +444,20 @@ describe("thread feedback", () => {
     );
   });
 
+  it("reads the current queue from a callback captured before a saved send is restored", () => {
+    const beforeRestore = feedback;
+    expect(beforeRestore.shouldHold()).toBe(false);
+    const saved = feedback.sendAttempt(payload("Older"));
+    saved.state = "queued";
+    saved.heldOffline = true;
+    act(() => clearUnsentSends());
+    saved.session += 1;
+    server.reachable = false;
+    disk.load.mockReturnValueOnce([saved]);
+    act(() => restoreUnsentSends());
+    expect(beforeRestore.shouldHold()).toBe(true);
+  });
+
   it("holds new messages while the live connection is down and sends them in order when it is back", async () => {
     act(() => watchThread("bot-1", false));
     expect(feedback.shouldHold()).toBe(true);

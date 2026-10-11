@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   token: "session-token" as string | null,
   reachable: true,
   generation: 0,
+  apiBase: "https://rakazo.example",
   identity: null as null | { apiBase: string; userId: string; cacheSession: string },
 }));
 
@@ -19,7 +20,7 @@ vi.mock("react-native", () => ({
   },
 }));
 vi.mock("./api", () => ({
-  currentApiBase: () => "https://rakazo.example",
+  currentApiBase: () => h.apiBase,
   isServerReachable: () => h.reachable,
   rpc: vi.fn(),
   selectedSpaceId: () => "space-1",
@@ -59,6 +60,7 @@ describe("unsent sends", () => {
     h.token = "session-token";
     h.reachable = true;
     h.generation = 0;
+    h.apiBase = "https://rakazo.example";
     h.identity = { apiBase: "https://rakazo.example", userId: "user-1", cacheSession: "cache-1" };
   });
 
@@ -85,6 +87,27 @@ describe("unsent sends", () => {
     vi.mocked(rpc).mockRejectedValueOnce(new TypeError("Network request failed"));
     await expect(prepareUnsentSends()).rejects.toThrow("Network request failed");
     expect(restoreUnsentSends).not.toHaveBeenCalled();
+  });
+  it("does not restart notifications with an old bearer after a server/session change", async () => {
+    const { loadSessionToken } = await import("./session");
+    const { resumeLiveNotifications } = await import("./live-notifications");
+    let finish!: (token: string) => void;
+    vi.mocked(loadSessionToken).mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const stop = startUnsentSends();
+    const config = vi.mocked(configureUnsentSends).mock.calls[0]![0];
+    config.delivered({ payload: {} } as Parameters<typeof config.delivered>[0]);
+    h.apiBase = "https://other.example";
+    h.generation++;
+    finish("fake-old-token");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(resumeLiveNotifications).not.toHaveBeenCalled();
+    stop();
   });
   it("cancels the bot's focus prompt once a message to it is delivered, held or not", () => {
     const stop = startUnsentSends();
