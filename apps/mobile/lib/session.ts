@@ -17,9 +17,12 @@ export type VerifiedIntegrationsScope = {
 let scopeInvalidated = false;
 let scopeWrites: Promise<void> = Promise.resolve();
 
-function enqueueScopeWrite(task: () => Promise<void>): Promise<void> {
+function enqueueScopeWrite<T>(task: () => Promise<T>): Promise<T> {
   const next = scopeWrites.then(task, task);
-  scopeWrites = next.catch(() => undefined);
+  scopeWrites = next.then(
+    () => undefined,
+    () => undefined,
+  );
   return next;
 }
 
@@ -148,7 +151,7 @@ export async function saveSessionToken(token: string) {
   sessionInvalidated = true;
   sessionFallback = undefined;
   const clearingScope = invalidateSessionCaches();
-  await SecureStore.setItemAsync(SESSION_KEY, token);
+  await enqueueScopeWrite(() => SecureStore.setItemAsync(SESSION_KEY, token));
   await clearingScope;
   if (generation !== sessionGeneration) return;
   sessionInvalidated = false;
@@ -164,7 +167,7 @@ export async function clearSessionToken(): Promise<boolean> {
   clearFailedSends();
   const clearingScope = invalidateSessionCaches();
   await stopLiveNotifications(true).catch(() => undefined);
-  const tokenCleared = await clearStoredSessionToken();
+  const tokenCleared = await clearStoredSessionToken(generation);
   await clearingScope;
   // Best-effort: a stuck style must not block sign-out or restore a wiped token.
   await clearAvatarStyle();
@@ -178,24 +181,26 @@ export function saveAvatarStyleIfCurrent(generation: number, style: AvatarStyle)
   return saveAvatarStyle(style).then(() => generation === sessionGeneration);
 }
 
-async function clearStoredSessionToken(): Promise<boolean> {
-  try {
-    await SecureStore.deleteItemAsync(SESSION_KEY);
-    sessionInvalidated = false;
-    sessionFallback = undefined;
-    return true;
-  } catch {
+async function clearStoredSessionToken(generation: number): Promise<boolean> {
+  return enqueueScopeWrite(async () => {
+    let cleared = false;
     try {
-      await SecureStore.setItemAsync(SESSION_KEY, "");
-      sessionInvalidated = false;
-      sessionFallback = undefined;
-      return true;
+      await SecureStore.deleteItemAsync(SESSION_KEY);
+      cleared = true;
     } catch {
-      sessionInvalidated = true;
-      sessionFallback = undefined;
-      return false;
+      try {
+        await SecureStore.setItemAsync(SESSION_KEY, "");
+        cleared = true;
+      } catch {
+        // A failed wipe keeps the bearer invalid in memory.
+      }
     }
-  }
+    if (generation === sessionGeneration) {
+      sessionInvalidated = !cleared;
+      sessionFallback = undefined;
+    }
+    return cleared;
+  });
 }
 
 /** Restores the current-server session in memory even when persistence is unavailable. */
