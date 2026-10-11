@@ -170,11 +170,7 @@ export function restoreUnsentSends() {
   const scope = config?.scope();
   if (restored || !scope || !config) return;
   // Restore before the first write; repeated preparation cannot duplicate nonces.
-  const live = new Set(unsentSends.map((a) => a.clientNonce));
-  unsentSends = [
-    ...config.disk.load(sessionCount, scope).filter((a) => !live.has(a.clientNonce)),
-    ...unsentSends,
-  ];
+  unsentSends = config.disk.load(sessionCount, scope);
   restored = true;
   changed();
 }
