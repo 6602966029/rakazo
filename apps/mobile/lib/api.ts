@@ -614,6 +614,7 @@ export async function signOut() {
       fetch(`${currentApiBase()}/api/auth/sign-out`, {
         method: "POST",
         headers: { "content-type": "application/json", origin: "rakazo://", ...headers },
+        body: "{}",
         signal: controller.signal,
       }),
       controller.signal,
@@ -1374,7 +1375,15 @@ export async function fetchAccountSecurity(): Promise<AccountSecurity> {
 export async function requestAccountDeletionCode(): Promise<void> {
   const { response, body } = await fetchMobileJson<unknown>(
     `${currentApiBase()}/api/auth/request-account-deletion`,
-    { method: "POST", headers: { origin: "rakazo://", ...(await authHeaders()) } },
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "rakazo://",
+        ...(await authHeaders()),
+      },
+      body: "{}",
+    },
     null,
   );
   if (!response.ok) throw new Error(authErrorText(body, t("Could not continue")));

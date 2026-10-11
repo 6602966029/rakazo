@@ -603,6 +603,21 @@ describe("mobile API authentication", () => {
     ]);
   });
 
+  it("sends sign-out with a JSON body so the server ends the session", async () => {
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue("session-token");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ json: null }))
+      .mockResolvedValueOnce(jsonResponse({ success: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await signOut();
+
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(init.headers).toMatchObject({ "content-type": "application/json" });
+    expect(init.body).toBe("{}");
+  });
+
   it("continues sign-out when push unregistration times out", async () => {
     vi.useFakeTimers();
     vi.mocked(SecureStore.getItemAsync).mockResolvedValue("session-token");
@@ -3099,6 +3114,18 @@ it.each([502, 429])("localizes non-JSON deletion-code HTTP %s", async (status) =
     vi.fn(async () => new Response("<html>Gateway error</html>", { status })),
   );
   await expect(requestAccountDeletionCode()).rejects.toThrow("Could not continue");
+});
+
+it("sends the deletion-code request with a JSON body", async () => {
+  const fetchMock = vi.fn(async () => jsonResponse({ status: true }));
+  vi.stubGlobal("fetch", fetchMock);
+
+  await requestAccountDeletionCode();
+
+  const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+  expect(url).toBe("http://127.0.0.1:3100/api/auth/request-account-deletion");
+  expect(init.headers).toMatchObject({ "content-type": "application/json" });
+  expect(init.body).toBe("{}");
 });
 
 it("localizes non-JSON successful account-security responses", async () => {

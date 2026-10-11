@@ -496,6 +496,40 @@ describeWithDatabase("API authorization and resource isolation", () => {
     expect(multiline.status).toBe(400);
   });
 
+  // On the wire, the POST older phone apps send without a body arrives as an empty one.
+  const emptyBody = { method: "POST", body: "" };
+
+  it("ends the session when an older phone app signs out with an empty body", async () => {
+    const phone = await phoneSession(app, `phone-sign-out-${stamp}@rakazo.test`);
+    const signedOut = await app.request("/api/auth/sign-out", {
+      ...emptyBody,
+      headers: { ...phone.headers, "content-type": "application/json", "content-length": "0" },
+    });
+    expect(signedOut.status).toBe(200);
+    expect(await phone.me()).toBe(401);
+  });
+
+  it("accepts the deletion-code request older apps send with no body", async () => {
+    const phone = await phoneSession(app, `phone-deletion-code-${stamp}@rakazo.test`);
+    const response = await app.request("/api/auth/request-account-deletion", {
+      ...emptyBody,
+      headers: { ...phone.headers, "content-length": "0" },
+    });
+    // A password account reaches the endpoint, which offers deletion by password instead.
+    expect(await response.json()).toMatchObject({ code: "EMAIL_DELETION_UNAVAILABLE" });
+  });
+
+  it("still rejects a malformed auth body", async () => {
+    const phone = await phoneSession(app, `phone-malformed-${stamp}@rakazo.test`);
+    const response = await app.request("/api/auth/sign-out", {
+      method: "POST",
+      headers: { ...phone.headers, "content-type": "application/json" },
+      body: "{",
+    });
+    expect(response.status).toBe(400);
+    expect(await phone.me()).toBe(200);
+  });
+
   it("drops a push token when the session that registered it is revoked", async () => {
     const email = `push-sessions-${stamp}@rakazo.test`;
     const phone = await signup(app, email, "Push Sessions");
@@ -1688,6 +1722,25 @@ async function signup(app: App, email: string, name: string) {
     throw new Error(`signup failed ${response.status}: ${await response.text()}`);
   }
   return sessionCookieHeader(response);
+}
+
+async function phoneSession(app: App, email: string) {
+  const response = await app.request("/api/auth/sign-up/email", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "rakazo://" },
+    body: JSON.stringify({ email, password: "password12", name: "Phone" }),
+  });
+  const { token } = (await response.json()) as { token: string };
+  const headers = { origin: "rakazo://", authorization: `Bearer ${token}` };
+  const me = async () =>
+    (
+      await app.request("/rpc/me", {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify({ json: {} }),
+      })
+    ).status;
+  return { headers, me };
 }
 
 async function signin(app: App, email: string, password = "password12") {
