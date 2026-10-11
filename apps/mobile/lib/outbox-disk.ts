@@ -86,10 +86,13 @@ export const outboxDisk: UnsentDisk = {
   load(session, scope) {
     try {
       const target = file();
-      if (!target.exists || diskBytes(root()) > OUTBOX_MAX_BYTES) return [];
+      if (!target.exists || diskBytes(root()) > OUTBOX_MAX_BYTES) {
+        outboxDisk.clear();
+        return [];
+      }
       const entries: unknown = JSON.parse(target.textSync());
       if (!Array.isArray(entries)) return [];
-      return entries.slice(0, OUTBOX_MAX_ENTRIES).flatMap((entry): SendAttempt[] => {
+      const loaded = entries.slice(0, OUTBOX_MAX_ENTRIES).flatMap((entry): SendAttempt[] => {
         if (
           entry?.apiBase !== scope.apiBase ||
           entry.userId !== scope.userId ||
@@ -131,7 +134,11 @@ export const outboxDisk: UnsentDisk = {
           },
         ];
       });
+      const keep = new Set([target.uri, ...loaded.map((a) => folder(a.clientNonce).uri)]);
+      for (const entry of root().list()) if (!keep.has(entry.uri)) entry.delete();
+      return loaded;
     } catch {
+      outboxDisk.clear();
       return [];
     }
   },

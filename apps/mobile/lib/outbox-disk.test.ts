@@ -86,12 +86,14 @@ it("restores payload, uploaded ids and nonce for an idempotent retry", async () 
   const original = attempt();
   expect(outboxDisk.admit(original)).toBe(true);
   outboxDisk.save([original]);
+  files.set("cache/outbox/delivered/0", "orphan");
   const [restored] = outboxDisk.load(2, scope);
   expect(restored).toMatchObject({
     state: "queued",
     session: 2,
     clientNonce: original.clientNonce,
   });
+  expect(files.has("cache/outbox/delivered/0")).toBe(false);
   expect(restored?.artifactIds).toEqual(original.artifactIds);
   expect(restored?.payload.attachments[0]?.contentBase64).toBe("");
   restored!.artifactIds.clear();
