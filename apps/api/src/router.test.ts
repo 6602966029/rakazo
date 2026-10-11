@@ -8,6 +8,7 @@ import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
 import {
   COMPUTER_SCREEN_UNAVAILABLE,
   CodexCatalogCache,
+  ComputerBusyError,
   ComputerScreenUnavailableError,
   EncryptedSecretStore,
   IntegrationProviderSettings,
@@ -1620,6 +1621,35 @@ describe("computer terminal and file transfer", () => {
       { argv: ["mkdir", "-p", "shared", "bots/bot-1"] },
       expect.anything(),
     );
+  });
+
+  it("clears a reclaimed sandbox before boot attempts provisioning again", async () => {
+    const { sandbox, prisma, call } = setup();
+    sandbox.execute.mockImplementation(async function* () {
+      yield await Promise.reject(
+        Object.assign(new Error("Sandbox is probably not running anymore"), {
+          name: "SandboxNotFoundError",
+        }),
+      );
+    });
+    const findUniqueOrThrow = vi.fn().mockRejectedValue(new ComputerBusyError());
+    prisma.computer.findUniqueOrThrow = findUniqueOrThrow;
+
+    await expect(call("boot", {})).resolves.toMatchObject({ status: 409 });
+    expect(prisma.computer.updateMany).toHaveBeenCalledWith({
+      where: { id: "computer-1", providerRef: "sandbox-ref-1" },
+      data: { state: "stopped", providerRef: null },
+    });
+    expect(findUniqueOrThrow).toHaveBeenCalledWith({ where: { id: "computer-1" } });
+  });
+
+  it("does not discard a live sandbox when folder preparation fails", async () => {
+    const { sandbox, prisma, call } = setup();
+    sandbox.execute.mockImplementation(async function* () {
+      yield { type: "exit" as const, code: 1 };
+    });
+    await expect(call("boot", {})).resolves.toMatchObject({ status: 500 });
+    expect(prisma.computer.updateMany).not.toHaveBeenCalled();
   });
 
   it("opens a terminal only for the user holding this bot's control lease", async () => {

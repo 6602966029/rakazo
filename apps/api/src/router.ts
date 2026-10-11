@@ -2485,15 +2485,19 @@ export function createRouter(deps: RouterDeps) {
         const bot = await repos.getBot(context.actor, input.botId);
         if (!bot.computer) throw new IsolationError();
         if (bot.computer.state === "running" && bot.computer.providerRef) {
-          await ensureComputerWorkspaceLayout(
-            deps.sandbox,
-            toComputerRef(bot.computer),
-            parseComputerMode(bot.computer.scope),
-            bot.id,
-            computerContext(context.actor, bot.id, "boot"),
-          );
-          scheduleComputerSleep(deps.jobs, bot.computer.id);
-          return computerStatus(deps, context.actor, input.botId);
+          try {
+            await ensureComputerWorkspaceLayout(
+              deps.sandbox,
+              toComputerRef(bot.computer),
+              parseComputerMode(bot.computer.scope),
+              bot.id,
+              computerContext(context.actor, bot.id, "boot"),
+            );
+            scheduleComputerSleep(deps.jobs, bot.computer.id);
+            return computerStatus(deps, context.actor, input.botId);
+          } catch (error) {
+            await clearGoneSandbox(deps, bot.computer, error);
+          }
         }
         const ctx = computerContext(context.actor, bot.id, "boot");
         const manualRunId = `boot:${randomUUID()}`;
