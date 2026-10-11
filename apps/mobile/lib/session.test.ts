@@ -7,6 +7,7 @@ import {
   currentSessionGeneration,
   loadSessionToken,
   loadVerifiedIntegrationsScope,
+  registerSessionDiskCache,
   restoreSessionToken,
   saveAvatarStyleIfCurrent,
   saveSessionToken,
@@ -55,6 +56,28 @@ describe("mobile session storage", () => {
       expect(next).not.toBe(previous);
       previous = next;
     }
+  });
+
+  it("deletes registered disk caches on sign-in, sign-out and restore", async () => {
+    const clear = vi.fn();
+    registerSessionDiskCache(clear);
+    await saveSessionToken("fake-a");
+    expect(clear).toHaveBeenCalledTimes(1);
+    await clearSessionToken();
+    expect(clear).toHaveBeenCalledTimes(2);
+    await restoreSessionToken("fake-b");
+    expect(clear.mock.calls.length).toBeGreaterThan(2);
+  });
+
+  it("still signs out and runs every other wipe when one disk cache throws", async () => {
+    const after = vi.fn();
+    registerSessionDiskCache(() => {
+      throw new Error("disk unavailable");
+    });
+    registerSessionDiskCache(after);
+    await expect(clearSessionToken()).resolves.toBe(true);
+    expect(after).toHaveBeenCalledOnce();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("rakazo.integrations-scope");
   });
 
   it("forgets unsent messages on sign-out", async () => {

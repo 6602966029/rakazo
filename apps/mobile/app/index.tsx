@@ -7,6 +7,7 @@ import { Redirect, useFocusEffect, useNavigation, useRouter } from "expo-router"
 import type { ReactNode } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   AppState,
@@ -22,6 +23,7 @@ import { KeyboardController } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BotAvatar } from "../components/bot-avatar";
 import { BotOrganizeModal } from "../components/bot-organize-modal";
+import { ConnectionBar } from "../components/connection-bar";
 import { GroupAvatar } from "../components/group-avatar";
 import { NativeSymbol } from "../components/native-symbol";
 import { WorkingIndicator } from "../components/WorkingIndicator";
@@ -49,6 +51,7 @@ import {
 } from "../lib/api";
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { mobileBotAvatarPresentation } from "../lib/bot-avatar";
+import { useConnectionPhase } from "../lib/connection-phase";
 import { allowFocusPrompt, scheduleFocusPrompt } from "../lib/focus-prompt";
 import { t, useI18n } from "../lib/i18n";
 import { botTag, filterBots, formatThreadTime, userInitials } from "../lib/inbox";
@@ -67,9 +70,11 @@ import { native, useThemedStyles } from "../lib/native";
 import { iosAtLeast } from "../lib/native-controls";
 import { previewSnippet } from "../lib/preview";
 import { registerPushToken } from "../lib/push";
+import { loadSavedInbox, saveInbox } from "../lib/saved-chats";
 import { querySpaceSearch } from "../lib/search";
 import { mobileSearchDestination } from "../lib/search-destination";
 import { dedupeSearchHits, searchHitListKey, searchHitRowPreview } from "../lib/search-list";
+import { currentSessionGeneration } from "../lib/session";
 import { errorText } from "../lib/user-error";
 
 const FALLBACK_COLOR = botColors[3];
@@ -115,7 +120,7 @@ export default function Home() {
   const [groups, setGroups] = useState<MobileGroup[]>([]);
   const [botSections, setBotSections] = useState<MobileBotSection[]>([]);
   const [spaces, setSpaces] = useState<MobileSpace[]>([]);
-  const [me, setMe] = useState<MobileMe | null>(null);
+  const [me, setMe] = useState<Pick<MobileMe, "userId" | "spaceId" | "name"> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
@@ -135,6 +140,7 @@ export default function Home() {
   });
   const activityRequestId = useRef(0);
   const inboxRequestId = useRef(0);
+  const inboxLoaded = useRef(false);
   const creatingBotRef = useRef(false);
   const spaceActionRef = useRef<{ busy: boolean; recoveryId: string | null }>({
     busy: false,
@@ -167,6 +173,8 @@ export default function Home() {
   const loadBots = useCallback(async () => {
     if (spaceActionRef.current.busy || spaceActionRef.current.recoveryId) return;
     const requestId = ++inboxRequestId.current;
+    const apiBase = currentApiBase();
+    const generation = currentSessionGeneration();
     setError(null);
     try {
       const [navigation, nextMe] = await Promise.all([
@@ -183,6 +191,18 @@ export default function Home() {
       setGroups((current) => retainInboxValue(current, navigation.current.groups));
       setSpaces((current) => retainInboxValue(current, navigation.spaces));
       setMe((current) => retainInboxValue(current, nextMe));
+      inboxLoaded.current = true;
+      saveInbox(
+        {
+          apiBase,
+          userId: nextMe.userId,
+          spaceId: navigation.current.id,
+          sessionGeneration: generation,
+          selectionId: selectedSpaceId(),
+        },
+        navigation,
+        nextMe,
+      );
     } catch (err) {
       if (requestId !== inboxRequestId.current) return;
       setError(errorText(err, t("Could not load bots")));
@@ -208,6 +228,23 @@ export default function Home() {
   useEffect(() => {
     if (!hasSession) return;
     void registerPushToken().catch(() => undefined);
+  }, [hasSession]);
+
+  // Show the inbox saved on this device until the first live load replaces it.
+  useEffect(() => {
+    if (!hasSession) return;
+    let cancelled = false;
+    void loadSavedInbox().then((saved) => {
+      if (cancelled || !saved || inboxLoaded.current) return;
+      setBots(saved.bots);
+      setBotSections(saved.botSections);
+      setGroups(saved.groups);
+      setSpaces(saved.spaces);
+      setMe(saved.me);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [hasSession]);
 
   useFocusEffect(
@@ -357,6 +394,12 @@ export default function Home() {
   // Liquid Glass uses the native bar: glass bar items, a native menu, and bottom search.
   const nativeHeader = iosAtLeast(26);
   const navigation = useNavigation();
+  // The bar's live region is Android-only. iOS hears the failure once per outage, from here
+  // rather than the bar, which unmounts while searching.
+  const connectionPhase = useConnectionPhase(() => {
+    if (navigation.isFocused())
+      AccessibilityInfo.announceForAccessibility(t("Can't reach the server"));
+  });
   const router = useRouter();
 
   const chooseInboxSpace = useCallback(
@@ -824,7 +867,15 @@ export default function Home() {
               />
             ) : null}
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {connectionPhase !== "connected" && !searching ? (
+              <ConnectionBar
+                phase={connectionPhase}
+                saved={me !== null}
+                onRetry={() => void refreshBots()}
+              />
+            ) : error ? (
+              <Text style={styles.error}>{error}</Text>
+            ) : null}
             {spaceRecoveryId ? (
               <Pressable
                 accessibilityRole="button"
@@ -853,7 +904,10 @@ export default function Home() {
                 ? t("No matching bots")
                 : searching
                   ? t("Search conversations, files, and routines")
-                  : t("Tap + to create a bot")}
+                  : // Before any load (an offline launch with nothing saved) the bots are unknown.
+                    me
+                    ? t("Tap + to create a bot")
+                    : null}
           </Text>
         }
         ListFooterComponent={

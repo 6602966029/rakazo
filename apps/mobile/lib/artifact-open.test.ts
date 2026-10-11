@@ -11,6 +11,10 @@ const state = vi.hoisted(() => ({
   token: "fake-token-a",
   getSize: vi.fn(),
   rpc: vi.fn(),
+  verified: null as null | { apiBase: string; userId: string; selectionId: string | null },
+  /** Simulated bytes per file and write order, for the disk budget. */
+  fileBytes: 0,
+  written: new Map<string, number>(),
 }));
 vi.mock("expo-file-system", () => {
   class Node {
@@ -28,12 +32,27 @@ vi.mock("expo-file-system", () => {
       state.files.set(this.uri, "");
     }
     delete() {
-      state.files.delete(this.uri);
+      for (const key of [...state.files.keys()]) {
+        if (key === this.uri || key.startsWith(`${this.uri}/`)) state.files.delete(key);
+      }
+    }
+    get size() {
+      return (
+        [...state.files.keys()].filter((key) => key.startsWith(`${this.uri}/`)).length *
+        state.fileBytes
+      );
     }
   }
   class File extends Node {
+    override get size() {
+      return state.fileBytes;
+    }
+    get lastModified() {
+      return state.written.get(this.uri) ?? 0;
+    }
     write(value: string) {
       state.files.set(this.uri, value);
+      state.written.set(this.uri, state.written.size + 1);
     }
     textSync() {
       return state.files.get(this.uri) ?? "";
@@ -43,7 +62,22 @@ vi.mock("expo-file-system", () => {
     }
     copySync() {}
   }
-  class Directory extends Node {}
+  class Directory extends Node {
+    override get exists() {
+      return [...state.files.keys()].some((key) => key.startsWith(`${this.uri}/`));
+    }
+    override create() {}
+    list() {
+      const children = new Set<string>();
+      for (const key of state.files.keys()) {
+        if (key.startsWith(`${this.uri}/`))
+          children.add(key.slice(this.uri.length + 1).split("/")[0]!);
+      }
+      return [...children].map((name) =>
+        state.files.has(`${this.uri}/${name}`) ? new File(this, name) : new Directory(this, name),
+      );
+    }
+  }
   return { File, Directory, Paths: { cache: { uri: "file:///cache" } } };
 });
 vi.mock("expo-secure-store", () => ({
@@ -61,6 +95,7 @@ vi.mock("./i18n", () => ({ t: (value: string) => value }));
 vi.mock("./session", () => ({
   currentSessionGeneration: () => state.generation,
   loadSessionToken: async () => state.token,
+  loadVerifiedIntegrationsScope: async () => state.verified,
 }));
 vi.mock("./api", () => ({
   rpc: state.rpc,
@@ -85,6 +120,9 @@ beforeEach(() => {
   state.apiBase = "https://api.example.test";
   state.userId = "user-a";
   state.token = "fake-token-a";
+  state.verified = null;
+  state.fileBytes = 0;
+  state.written.clear();
   state.rpc
     .mockReset()
     .mockImplementation(async (proc: string) =>
@@ -257,5 +295,62 @@ describe("artifact preview caches", () => {
     await expect(api.imageArtifactUri(target, "art-2", "image/png")).rejects.toThrow("offline");
     await api.imageArtifactUri(target, "art-2", "image/png");
     expect(artifactFetches()).toBe(3);
+  });
+
+  it("opens previews already on disk without the network when the session's user is verified", async () => {
+    state.verified = { apiBase: state.apiBase, userId: "user-a", selectionId: null };
+    let api = await load();
+    const online = await api.imageArtifactPreview(target, "art-1", "image/png");
+    vi.resetModules();
+    api = await load();
+    state.rpc.mockRejectedValue(new Error("Network request failed"));
+    expect(await api.imageArtifactPreview(target, "art-1", "image/png")).toEqual(online);
+    expect(state.rpc.mock.calls.filter(([proc]) => proc === "me")).toHaveLength(0);
+    // A preview never downloaded still needs the server.
+    await expect(api.imageArtifactUri(target, "art-2", "image/png")).rejects.toThrow();
+  });
+
+  it("opens previews offline in a Space other than the one last verified", async () => {
+    state.verified = { apiBase: state.apiBase, userId: "user-a", selectionId: "space-other" };
+    let api = await load();
+    const online = await api.imageArtifactPreview(target, "art-1", "image/png");
+    vi.resetModules();
+    api = await load();
+    state.rpc.mockRejectedValue(new Error("Network request failed"));
+    expect(await api.imageArtifactPreview(target, "art-1", "image/png")).toEqual(online);
+    expect(state.rpc.mock.calls.filter(([proc]) => proc === "me")).toHaveLength(0);
+  });
+
+  it("asks the server who the user is when the verified scope is for another server", async () => {
+    state.verified = { apiBase: "https://other.example.test", userId: "user-x", selectionId: null };
+    const api = await load();
+    await api.imageArtifactPreview(target, "art-1", "image/png");
+    expect(state.rpc).toHaveBeenCalledWith("me", {}, expect.anything());
+  });
+
+  it("deletes the least recently written previews past the disk budget", async () => {
+    // Each preview is a file and its sidecar: 2 × 40 MB, so the 200 MB budget holds two.
+    state.fileBytes = 40 * 1024 * 1024;
+    const api = await load();
+    for (let index = 0; index < 4; index += 1) {
+      await api.imageArtifactUri(target, `art-${index}`, "image/png");
+    }
+    const kept = () =>
+      [0, 1, 2, 3].filter((index) =>
+        [...state.files.keys()].some((key) => key.endsWith(`art-${index}.png`)),
+      );
+    expect(kept()).toEqual([2, 3]);
+    await api.imageArtifactUri(target, "art-3", "image/png");
+    expect(artifactFetches()).toBe(4);
+    await api.imageArtifactUri(target, "art-0", "image/png");
+    expect(artifactFetches()).toBe(5);
+    expect(kept()).toEqual([0, 3]);
+  });
+
+  it("clears every downloaded preview", async () => {
+    const api = await load();
+    await api.imageArtifactUri(target, "art-1", "image/png");
+    api.clearArtifactPreviews();
+    expect([...state.files.keys()].filter((key) => key.includes("artifact-previews"))).toEqual([]);
   });
 });

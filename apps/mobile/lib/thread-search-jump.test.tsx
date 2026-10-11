@@ -80,6 +80,7 @@ describe("mobile search jump", () => {
           snapRef: useRef<MobileSnapshot | null>(latest),
           streamResponsesRef: useRef(false),
           setSnap,
+          setShowingSaved: () => undefined,
           setThreadScrollState,
           scrollBehavior: useRef(new ThreadScrollBehavior()),
           openThreadWindow,

@@ -255,6 +255,12 @@ export const RU_MESSAGES: Record<string, string> = {
   "Could not play a sample": "Не удалось воспроизвести сэмпл",
   "Could not play that clip.": "Не удалось воспроизвести этот клип.",
   "Could not reach the server": "Не удалось связаться с сервером",
+  "Reconnecting to the server…": "Повторное подключение к серверу…",
+  "Can't reach the server": "Сервер недоступен",
+  "Your bots are safe — showing saved chats.":
+    "Ваши боты в безопасности — показаны сохранённые чаты.",
+  "Couldn't refresh — showing the last loaded messages.":
+    "Не удалось обновить — показаны последние загруженные сообщения.",
   "Enter a password": "Введите пароль",
   "Enter a valid email": "Введите корректный адрес электронной почты",
   "Something went wrong. Try again.": "Что-то пошло не так. Попробуйте ещё раз.",

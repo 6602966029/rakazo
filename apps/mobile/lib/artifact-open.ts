@@ -9,7 +9,11 @@ import { artifactCacheFileName, artifactShareFileName } from "./artifact-file";
 import { t } from "./i18n";
 import type { ImageSize } from "./inline-image";
 import { createKeyedPromiseCache } from "./inline-image";
-import { currentSessionGeneration, loadSessionToken } from "./session";
+import {
+  currentSessionGeneration,
+  loadSessionToken,
+  loadVerifiedIntegrationsScope,
+} from "./session";
 
 export type MobileArtifactTarget = { botId: string } | { groupId: string };
 
@@ -20,6 +24,9 @@ export type MobileArtifactTarget = { botId: string } | { groupId: string };
  * of their own.
  */
 export const ARTIFACT_DOWNLOAD_TIMEOUT_MS = 120_000;
+/** Disk budget for downloaded previews; the least recently written are deleted past it. */
+export const ARTIFACT_PREVIEW_CACHE_BYTES = 200 * 1024 * 1024;
+const PREVIEWS = "artifact-previews";
 
 /** Writes an artifact's bytes to its cache file; no network call. */
 export function writeArtifactCacheFile(
@@ -70,14 +77,20 @@ function artifactScope(): Promise<ArtifactScope> {
       selectionId !== selectedSpaceId()
     )
       throw new Error("Artifact session changed");
-    const me = await rpc<Pick<Me, "userId">>("me", {}, { requestContext: context });
+    // The verified scope is bound to this token, so previews already on disk open offline. The
+    // user is the same in every Space on this server; requests still carry the current Space.
+    const verified = await loadVerifiedIntegrationsScope();
+    const userId =
+      verified?.apiBase === apiBase
+        ? verified.userId
+        : (await rpc<Pick<Me, "userId">>("me", {}, { requestContext: context })).userId;
     if (generation !== currentSessionGeneration()) throw new Error("Artifact session changed");
-    if (!me.userId) throw new Error("Missing artifact owner");
+    if (!userId) throw new Error("Missing artifact owner");
     const result = {
       context,
       generation,
       selectionId,
-      userId: me.userId,
+      userId,
       namespace: await artifactCacheSession(token),
     };
     assertCurrent(result);
@@ -111,7 +124,7 @@ async function cacheMobileArtifact(
   const key = requestKey(target, artifactId, mimeType);
   const root = new Directory(
     Paths.cache,
-    "artifact-previews",
+    PREVIEWS,
     scope.namespace,
     `endpoint-${encodeURIComponent(scope.context.apiBase)}`,
     `user-${encodeURIComponent(scope.userId)}`,
@@ -142,7 +155,51 @@ async function cacheMobileArtifact(
   file.write(artifact.contentBase64, { encoding: "base64" });
   metadata.create({ overwrite: true });
   metadata.write(JSON.stringify({ key }));
+  pruneArtifactPreviews(new Directory(Paths.cache, PREVIEWS, scope.namespace), root);
   return file;
+}
+
+/** Keeps one session's previews under the disk budget, deleting the least recently written. */
+function pruneArtifactPreviews(namespace: Directory, keep: Directory): void {
+  try {
+    if ((namespace.size ?? 0) <= ARTIFACT_PREVIEW_CACHE_BYTES) return;
+    const entries: Array<{ dir: Directory; bytes: number; written: number }> = [];
+    const walk = (dir: Directory) => {
+      let bytes = 0;
+      let written = 0;
+      let leaf = false;
+      for (const item of dir.list()) {
+        if (item instanceof Directory) {
+          walk(item);
+        } else {
+          leaf = true;
+          bytes += item.size;
+          written = Math.max(written, item.lastModified ?? 0);
+        }
+      }
+      if (leaf) entries.push({ dir, bytes, written });
+    };
+    walk(namespace);
+    let total = entries.reduce((sum, entry) => sum + entry.bytes, 0);
+    for (const entry of entries.sort((a, b) => a.written - b.written)) {
+      if (total <= ARTIFACT_PREVIEW_CACHE_BYTES) break;
+      if (entry.dir.uri === keep.uri) continue;
+      entry.dir.delete();
+      total -= entry.bytes;
+    }
+  } catch {
+    // Pruning is best-effort; the next download tries again.
+  }
+}
+
+/** Deletes every downloaded preview; the session namespace rotates with it. */
+export function clearArtifactPreviews(): void {
+  try {
+    const root = new Directory(Paths.cache, PREVIEWS);
+    if (root.exists) root.delete();
+  } catch {
+    // Leftovers stay unreachable: reads need the next session's namespace.
+  }
 }
 
 export async function readMobileArtifactText(

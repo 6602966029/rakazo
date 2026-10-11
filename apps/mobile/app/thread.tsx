@@ -150,6 +150,7 @@ import { available as dictationAvailable } from "../lib/dictation";
 import { cancelFocusPrompt, focusPromptThreadActive } from "../lib/focus-prompt";
 import { dateLocaleForUi, t, useI18n } from "../lib/i18n";
 import { isInlineImageMimeType } from "../lib/inline-image";
+import { isIntegrationsScopeCurrent } from "../lib/integrations-cache";
 import { saveLastBotId } from "../lib/last-bot";
 import {
   dismissThreadNotifications,
@@ -180,8 +181,19 @@ import {
   getCachedResponseStreamingEnabled,
   subscribeResponseStreaming,
 } from "../lib/response-streaming";
+import type { SavedChatTarget } from "../lib/saved-chats";
+import {
+  liveSavedChatsScope,
+  loadSavedInbox,
+  readSavedThread,
+  savedChatsScope,
+  savedChatTarget,
+  savedChatWriter,
+  writeSavedThread,
+} from "../lib/saved-chats";
 import { secretDestinationLabel } from "../lib/secret-destination";
 import { selectableTextFromMarkdown } from "../lib/selectable-text";
+import { currentSessionGeneration } from "../lib/session";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { deliverSend, settleComposer, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
@@ -479,6 +491,9 @@ function Thread() {
       : undefined;
   const [snap, setSnap] = useState<MobileSnapshot | null>(null);
   const snapRef = useRef<MobileSnapshot | null>(null);
+  // The copy saved on this device stays on screen until a live snapshot replaces it.
+  const [showingSaved, setShowingSaved] = useState(false);
+  const savedWriter = useRef(savedChatWriter());
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,
@@ -607,7 +622,7 @@ function Thread() {
       botId: currentBot.id,
       autoSpeak: currentBot.autoSpeak,
       focused: AppState.currentState === "active" && navigation.isFocused(),
-      snapshotReady: snap?.botId === currentBot.id,
+      snapshotReady: snap?.botId === currentBot.id && !showingSaved,
       lastSpokenBotId: autoSpokenBotId.current,
       lastSpokenMessageId: autoSpoken.current,
       runStatus: snap?.run?.status,
@@ -628,7 +643,16 @@ function Thread() {
         color: resolvePersonaColorDef(currentBot.id, currentBot.color).light,
       },
     }).catch(() => undefined);
-  }, [botId, inGroup, currentBot, navigation, snap?.botId, snap?.messages, snap?.run?.status]);
+  }, [
+    botId,
+    inGroup,
+    currentBot,
+    navigation,
+    showingSaved,
+    snap?.botId,
+    snap?.messages,
+    snap?.run?.status,
+  ]);
 
   const speakFinishedReplyRef = useRef(speakFinishedReply);
   useLayoutEffect(() => {
@@ -672,7 +696,13 @@ function Thread() {
         }
       }
     } catch {
-      // Keep the last known roster if refresh fails.
+      // Keep the last known roster if refresh fails. Before any, use the bots saved with the
+      // inbox, so a saved chat offline keeps its bot's colour and avatar.
+      if (mentionBotsAppliedGeneration.current !== 0) return;
+      const saved = await loadSavedInbox();
+      if (!saved || mentionBotsAppliedGeneration.current !== 0) return;
+      if (targetBotId !== activeBotId.current) return;
+      setMentionBots((current) => (current.length ? current : saved.bots));
     }
   }, [botId, groupId, router]);
 
@@ -963,6 +993,47 @@ function Thread() {
     setBotActionsOpen(true);
   }
 
+  /** Shows the chat's saved copy until live data for it arrives; never under a search jump. */
+  function showSavedThread(signal: AbortSignal) {
+    const target = savedChatTarget({ botId, groupId });
+    // Another chat's messages must never stay on screen under this chat's name.
+    if (snapRef.current && savedChatTarget(snapRef.current) !== target) {
+      commitSnap(null);
+      setShowingSaved(false);
+    }
+    void savedChatsScope().then((scope) => {
+      if (signal.aborted || !scope) return;
+      const onScreen = snapRef.current;
+      if (messageId || (onScreen && savedChatTarget(onScreen) === target)) return;
+      const saved = readSavedThread(scope, target);
+      if (!saved) return;
+      commitSnap(saved);
+      setShowingSaved(true);
+    });
+  }
+
+  /**
+   * Saves under the scope current when the write runs (identity can be verified after the chat
+   * opened, or change with the session), only while the chat's Space is still the selected one.
+   */
+  function saveThread(
+    target: SavedChatTarget,
+    snapshot: MobileSnapshot,
+    // The session and Space the snapshot was loaded in; a write after either changed is dropped,
+    // so a sign-out or server switch can't bring back what it just deleted.
+    origin: { sessionGeneration: number; selectionId: string | null },
+  ) {
+    void liveSavedChatsScope().then((scope) => {
+      if (
+        scope &&
+        scope.sessionGeneration === origin.sessionGeneration &&
+        scope.selectionId === origin.selectionId &&
+        isIntegrationsScopeCurrent(scope)
+      )
+        writeSavedThread(scope, target, snapshot);
+    });
+  }
+
   async function refresh() {
     if (!botId && !groupId) return;
     const targetBotId = botId;
@@ -993,6 +1064,7 @@ function Thread() {
       commitSnap(
         mergeMobileSnapshot(snapRef.current, next, expandedHistoryThread.current === next.threadId),
       );
+      setShowingSaved(false);
     }
     if (isCurrentTarget(targetBotId, targetGroupId)) {
       feedback.refreshed(targetGroupId ?? targetBotId);
@@ -1036,6 +1108,7 @@ function Thread() {
     // Publish the jump refs even when the opened snapshot is already visible.
     setThreadScrollState(scrollBehavior.current.state());
     commitSnap(opened?.snapshot ?? snap);
+    setShowingSaved(false);
   }
 
   async function loadNewerMessages() {
@@ -1248,6 +1321,7 @@ function Thread() {
     const abort = new AbortController();
     const subscriptionGeneration = ++liveSubscriptionGeneration.current;
     liveSubscribed.current = false;
+    showSavedThread(abort.signal);
     void (async () => {
       // Pending search jumps load the around-page separately; avoid replacing it with latest.
       const next = messageId
@@ -1331,6 +1405,30 @@ function Thread() {
       abort.abort();
     };
   }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots]);
+
+  // Save the latest messages of the live chat (not a jump or loaded history) once updates settle.
+  useEffect(() => {
+    if (
+      !snap ||
+      showingSaved ||
+      jumpScrollTarget.current ||
+      pinnedAroundRef.current ||
+      expandedHistoryThread.current
+    )
+      return;
+    const target = savedChatTarget({ botId, groupId });
+    const latest = snapRef.current;
+    if (!latest || savedChatTarget(latest) !== target) return;
+    const origin = {
+      sessionGeneration: currentSessionGeneration(),
+      selectionId: selectedSpaceId(),
+    };
+    savedWriter.current.schedule(() => saveThread(target, latest, origin));
+  }, [snap, showingSaved, botId, groupId]);
+  useEffect(() => {
+    const writer = savedWriter.current;
+    return () => writer.flush();
+  }, [botId, groupId]);
 
   useEffect(() => {
     if (!botId && !groupId) return;
@@ -2083,7 +2181,9 @@ function Thread() {
       style={{ flex: 1, backgroundColor: tokens.background, paddingHorizontal: 20 }}
     >
       {error ? (
-        <Text style={{ color: tokens.mutedForeground, marginTop: headerHeight + 28 }}>{error}</Text>
+        <Text style={{ color: tokens.mutedForeground, marginTop: headerHeight + 28 }}>
+          {showingSaved ? t("Couldn't refresh — showing the last loaded messages.") : error}
+        </Text>
       ) : null}
       {runError ? (
         <Text style={{ color: tokens.destructive, marginTop: error ? 12 : headerHeight + 28 }}>
