@@ -403,6 +403,8 @@ export const appContract = {
           runId: Id,
           messageId: Id,
           answer: z.string().min(1),
+          /** Carries the call id for an answer spoken during a call. */
+          clientNonce: z.string().min(1).max(200).optional(),
           /** Only for a login card; `answer` carries its password. */
           username: z.string().min(1).max(512).optional(),
         }),

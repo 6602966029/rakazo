@@ -2361,6 +2361,17 @@ export function createRouter(deps: RouterDeps) {
         ];
         const committed = await deps.prisma
           .$transaction(async (tx) => {
+            // A late provider hang-up is harmless when the call never produced a
+            // user utterance; do not create a phantom marker or follow-up run.
+            const userUtterance = await tx.message.findFirst({
+              where: {
+                threadId,
+                role: "user",
+                clientNonce: { startsWith: `${CALL_CLIENT_NONCE_PREFIX}${input.callId}:` },
+              },
+              select: { id: true },
+            });
+            if (!userUtterance) return null;
             // The marker's deterministic nonce is the idempotency key: the unique
             // (threadId, clientNonce) index rejects a second hang-up, concurrent or not.
             const message = await createThreadMessageInTransaction(tx, {
@@ -2440,6 +2451,7 @@ export function createRouter(deps: RouterDeps) {
           messageId: input.messageId,
           answeredByUserId: context.actor.userId,
           answer: input.answer,
+          clientNonce: input.clientNonce,
           username: input.username,
         });
         if (!answered) {

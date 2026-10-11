@@ -437,6 +437,7 @@ describe("thread answer delivery", () => {
             runId: "run-1",
             messageId: "message-1",
             answer: "Paris",
+            clientNonce: "call:call-1:spoken-answer",
           },
         }),
       }),
@@ -451,6 +452,7 @@ describe("thread answer delivery", () => {
         spaceId: "workspace-1",
         threadId: "thread-1",
         runId: "run-1",
+        clientNonce: "call:call-1:spoken-answer",
       }),
     );
     expect(enqueue).toHaveBeenCalledOnce();
@@ -3564,12 +3566,13 @@ describe("routines.update", () => {
 });
 
 describe("threads.endCall", () => {
-  function fixture(duplicateMarker?: boolean) {
+  function fixture(duplicateMarker?: boolean, userSpoke = true) {
     const created: { blocks?: unknown; clientNonce?: string }[] = [];
     const events: { type: string; payload: Record<string, unknown> }[] = [];
     const tx = {
       thread: { update: vi.fn().mockResolvedValue({ nextMessageSeq: 3, nextEventSeq: 5 }) },
       message: {
+        findFirst: vi.fn().mockResolvedValue(userSpoke ? { id: "utterance-1" } : null),
         create: vi.fn(async ({ data }: { data: { blocks: unknown; clientNonce?: string } }) => {
           if (duplicateMarker) throw Object.assign(new Error("unique"), { code: "P2002" });
           created.push({ blocks: data.blocks, clientNonce: data.clientNonce });
@@ -3655,6 +3658,26 @@ describe("threads.endCall", () => {
     );
     expect(String(tx.run.create.mock.calls[0]?.[0]?.data?.clientNonce)).toMatch(/^call:call-1:/);
     expect(enqueue).toHaveBeenCalledOnce();
+  });
+
+  it("is a no-op for a late hang-up with no user call utterance", async () => {
+    const { call, created, events, tx, enqueue } = fixture(false, false);
+    const { response } = await call();
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ json: { ok: true } });
+    expect(tx.message.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          threadId: "thread-1",
+          role: "user",
+          clientNonce: { startsWith: "call:call-1:" },
+        }),
+      }),
+    );
+    expect(created).toEqual([]);
+    expect(events).toEqual([]);
+    expect(tx.run.create).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
   });
 
   it("is a no-op when a concurrent hang-up already wrote the marker", async () => {
