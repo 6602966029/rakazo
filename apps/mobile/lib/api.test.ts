@@ -15,7 +15,6 @@ import {
   deleteAccount,
   fetchAccountSecurity,
   IDLE_TIMEOUT_MS,
-  isServerReachable,
   loadApiBase,
   MAX_MOBILE_AUTH_RESPONSE_BYTES,
   MAX_MOBILE_RPC_RESPONSE_BYTES,
@@ -35,7 +34,6 @@ import {
   signIn,
   signOut,
   signUp,
-  subscribeServerReachable,
   subscribeSessionRejected,
   subscribeThread,
 } from "./api.js";
@@ -3136,126 +3134,4 @@ it("localizes non-JSON successful account-security responses", async () => {
     vi.fn(async () => new Response("<html>Gateway error</html>")),
   );
   await expect(fetchAccountSecurity()).rejects.toThrow("Could not load sign-in options");
-});
-
-describe("server reachability", () => {
-  beforeEach(async () => {
-    vi.mocked(SecureStore.getItemAsync).mockReset();
-    await restoreSessionToken("");
-  });
-
-  it("goes down when a request can't reach the server and up when the server answers", async () => {
-    const changes: boolean[] = [];
-    const unsubscribe = subscribeServerReachable(() => changes.push(isServerReachable()));
-    try {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => {
-          throw new TypeError("Network request failed");
-        }),
-      );
-      await expect(rpc("me")).rejects.toThrow();
-      expect(isServerReachable()).toBe(false);
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => new Response("bad gateway", { status: 503 })),
-      );
-      await expect(rpc("me")).rejects.toThrow();
-      expect(isServerReachable()).toBe(false);
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => rpcErrorResponse(404, "NOT_FOUND", "Bot not found")),
-      );
-      await expect(rpc("bots/get")).rejects.toThrow("Bot not found");
-      expect(isServerReachable()).toBe(true);
-      expect(changes).toEqual([false, true]);
-    } finally {
-      unsubscribe();
-    }
-  });
-
-  it("goes down when the connection drops after the headers, not for a bad body", async () => {
-    const broken = () =>
-      new ReadableStream({
-        start(controller) {
-          controller.error(new TypeError("Network request failed"));
-        },
-      });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => jsonResponse({ json: { ok: true } })),
-    );
-    await rpc("me");
-    expect(isServerReachable()).toBe(true);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response("not json", { status: 500 })),
-    );
-    await expect(rpc("me")).rejects.toThrow();
-    expect(isServerReachable()).toBe(true);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(broken(), { status: 200 })),
-    );
-    await expect(rpc("me")).rejects.toThrow();
-    expect(isServerReachable()).toBe(false);
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => jsonResponse({ json: { ok: true } })),
-    );
-    await rpc("me");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(broken(), { status: 200 })),
-    );
-    await expect(
-      subscribeThread({ botId: "bot-1" }, -1, () => undefined, new AbortController().signal),
-    ).rejects.toThrow();
-    expect(isServerReachable()).toBe(false);
-  });
-
-  it("ignores a request the caller canceled", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => jsonResponse({ json: { ok: true } })),
-    );
-    await rpc("me");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url: string, init: RequestInit) => {
-        await new Promise((_resolve, reject) => {
-          if (init.signal!.aborted) reject(new Error("aborted"));
-          init.signal!.addEventListener("abort", () => reject(new Error("aborted")));
-        });
-      }),
-    );
-    const controller = new AbortController();
-    const pending = rpc("me", {}, { signal: controller.signal });
-    controller.abort();
-    await expect(pending).rejects.toThrow();
-    expect(isServerReachable()).toBe(true);
-  });
-
-  it("follows the live connection opening and failing", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        throw new TypeError("Network request failed");
-      }),
-    );
-    const controller = new AbortController();
-    await expect(
-      subscribeThread({ botId: "bot-1" }, -1, () => undefined, controller.signal),
-    ).rejects.toThrow();
-    expect(isServerReachable()).toBe(false);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(null, { status: 401 })),
-    );
-    await expect(
-      subscribeThread({ botId: "bot-1" }, -1, () => undefined, controller.signal),
-    ).rejects.toThrow();
-    expect(isServerReachable()).toBe(true);
-  });
 });

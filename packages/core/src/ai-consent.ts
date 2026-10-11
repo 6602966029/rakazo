@@ -3,12 +3,8 @@ import { AI_CONSENT_REQUIRED } from "@rakazo/contracts";
 
 /** A foreground check failed before the requested mutation was dispatched. */
 export class AiConsentBlocked extends Error {
-  constructor(message = AI_CONSENT_REQUIRED, cause?: unknown) {
+  constructor(message = AI_CONSENT_REQUIRED) {
     super(message);
-    // Keeps an unreachable server recognizable behind the consent check.
-    if (cause !== undefined) {
-      Object.defineProperty(this, "cause", { value: cause, writable: true, configurable: true });
-    }
   }
 }
 
@@ -76,7 +72,7 @@ export async function ensureAiDataConsent(options: {
       await pending;
     }
   } catch (error) {
-    throw new AiConsentBlocked(error instanceof Error ? error.message : AI_CONSENT_REQUIRED, error);
+    throw new AiConsentBlocked(error instanceof Error ? error.message : AI_CONSENT_REQUIRED);
   }
 }
 

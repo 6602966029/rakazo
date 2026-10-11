@@ -27,12 +27,9 @@ import {
   cancelResponseBody,
   ensureAiDataConsent,
   isRunTerminalEvent,
-  isServerUnreachable,
-  isUnreachableStatus,
   mergeThreadHistory,
   prependThreadHistoryPage,
   progressMessageId,
-  ResponseBodyTooLargeError,
   readBoundedJsonResponse,
   reduceLiveMessageBlocks,
   replyMetadata,
@@ -98,29 +95,7 @@ function bumpSpaceSelectionGeneration(): void {
 
 /** Keeps a timeout or cancel reason; turns transport and parsing detail into copy. */
 function requestError(error: unknown, signal: AbortSignal): unknown {
-  return signal.aborted ? (signal.reason ?? error) : new Error(errorText(error), { cause: error });
-}
-
-let serverReachable = true;
-const serverReachableListeners = new Set<() => void>();
-
-/** False from a request that could not reach the server until the server answers again. */
-export function isServerReachable(): boolean {
-  return serverReachable;
-}
-
-/** Calls `listener` each time the server stops or starts answering. */
-export function subscribeServerReachable(listener: () => void): () => void {
-  serverReachableListeners.add(listener);
-  return () => {
-    serverReachableListeners.delete(listener);
-  };
-}
-
-function noteServerReachable(reachable: boolean): void {
-  if (reachable === serverReachable) return;
-  serverReachable = reachable;
-  for (const listener of [...serverReachableListeners]) listener();
+  return signal.aborted ? (signal.reason ?? error) : new Error(errorText(error));
 }
 
 export function currentApiBase() {
@@ -603,10 +578,7 @@ export async function fetchMobileJson<T>(
   invalidJsonFallback?: T,
 ): Promise<{ response: Response; body: T }> {
   const controller = new AbortController();
-  const timer = setTimeout(
-    () => controller.abort(Object.assign(new Error("Request timed out"), { name: "TimeoutError" })),
-    RPC_TIMEOUT_MS,
-  );
+  const timer = setTimeout(() => controller.abort(new Error("Request timed out")), RPC_TIMEOUT_MS);
   try {
     const response = await withAbort(
       fetch(input, { ...init, signal: controller.signal }),
@@ -722,7 +694,6 @@ export async function rpc<T>(
 ): Promise<T> {
   const requestSpaceGeneration = spaceSelectionGeneration;
   const requestSessionGeneration = currentSessionGeneration();
-  const requestApiBase = options.requestContext?.apiBase ?? currentApiBase();
   const uses = aiDataUsesForProcedure(proc, body);
   const consentContext =
     options.requestContext ?? (uses.length ? await captureApiRequestContext() : undefined);
@@ -748,10 +719,7 @@ export async function rpc<T>(
     options.timeoutMs === null
       ? undefined
       : setTimeout(
-          () =>
-            controller.abort(
-              Object.assign(new Error("Request timed out"), { name: "TimeoutError" }),
-            ),
+          () => controller.abort(new Error("Request timed out")),
           options.timeoutMs ?? RPC_TIMEOUT_MS,
         );
   // Bind recovery to the Space + selection epoch this request was sent with:
@@ -773,24 +741,11 @@ export async function rpc<T>(
         signal: controller.signal,
       });
     } catch (error) {
-      // No connection or the timeout; a request the caller canceled says nothing about the server.
-      if (
-        requestSessionGeneration === currentSessionGeneration() &&
-        requestApiBase === currentApiBase() &&
-        !options.signal?.aborted &&
-        isServerUnreachable(error)
-      )
-        noteServerReachable(false);
       // The native fetch reports an aborted request with an implementation detail
       // ("FetchRequestCanceledException") and an unreachable server with a native stack
       // location; say what happened instead.
       throw requestError(error, controller.signal);
     }
-    if (
-      requestSessionGeneration === currentSessionGeneration() &&
-      requestApiBase === currentApiBase()
-    )
-      noteServerReachable(!isUnreachableStatus(res.status));
     if (proc === "aiConsent/status" && res.status === 404) {
       cancelResponseBody(res);
       throw new Error(t("Update your server to use AI data sharing in this mobile version."));
@@ -802,15 +757,6 @@ export async function rpc<T>(
     ).catch((error: unknown) => {
       // A proxy, or a server without this procedure, can fail with a body that is not JSON.
       if (!res.ok && error instanceof SyntaxError) return {};
-      // The connection dropped or timed out mid-body; a bad or oversized body is the server's answer.
-      if (
-        !options.signal?.aborted &&
-        requestSessionGeneration === currentSessionGeneration() &&
-        requestApiBase === currentApiBase() &&
-        !(error instanceof SyntaxError) &&
-        !(error instanceof ResponseBodyTooLargeError)
-      )
-        noteServerReachable(false);
       throw requestError(error, controller.signal);
     });
     if (!res.ok) {
@@ -904,7 +850,7 @@ export async function rpc<T>(
         if (!selectedSpaceId()) await clearStaleSpaceSelection();
         throw new Error(message);
       }
-      throw Object.defineProperty(new Error(message), "status", { value: res.status });
+      throw new Error(message);
     }
     return parsed.json as T;
   } finally {
@@ -1156,11 +1102,7 @@ export async function subscribeThread(
     },
     body: JSON.stringify({ json: { ...target, cursor } }),
     signal,
-  }).catch((error: unknown) => {
-    if (!signal.aborted && isServerUnreachable(error)) noteServerReachable(false);
-    throw error;
   });
-  noteServerReachable(!isUnreachableStatus(res.status));
   if (!res.ok || !res.body) throw new Error(`rpc threads/subscribe failed (${res.status})`);
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -1173,12 +1115,7 @@ export async function subscribeThread(
       new Promise<"idle">((resolve) => {
         timer = setTimeout(() => resolve("idle"), IDLE_TIMEOUT_MS);
       }),
-    ])
-      .catch((error: unknown) => {
-        if (!signal.aborted && isServerUnreachable(error)) noteServerReachable(false);
-        throw error;
-      })
-      .finally(() => clearTimeout(timer));
+    ]).finally(() => clearTimeout(timer));
     if (read === "idle") {
       void reader.cancel().catch(() => undefined);
       return;
