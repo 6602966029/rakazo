@@ -1612,6 +1612,16 @@ describe("computer terminal and file transfer", () => {
     );
   });
 
+  it("prepares the bot's folders when boot reuses an already running Team Computer", async () => {
+    const { sandbox, call } = setup();
+    await expect(call("boot", {})).resolves.toMatchObject({ status: 200 });
+    expect(sandbox.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "sandbox-ref-1" }),
+      { argv: ["mkdir", "-p", "shared", "bots/bot-1"] },
+      expect.anything(),
+    );
+  });
+
   it("opens a terminal only for the user holding this bot's control lease", async () => {
     const released = setup();
     await expect(released.call("terminalUrl", {})).resolves.toMatchObject({ status: 403 });
