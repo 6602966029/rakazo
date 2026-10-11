@@ -910,6 +910,9 @@ importers:
 
   packages/ui-tokens:
     devDependencies:
+      sharp:
+        specifier: 0.35.4
+        version: 0.35.4(@types/node@26.5.0)
       typescript:
         specifier: 7.0.2
         version: 7.0.2
