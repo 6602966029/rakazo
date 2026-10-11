@@ -141,7 +141,12 @@ function Probe({ threadKey }: { threadKey: string }) {
 
 const server = {
   reachable: true,
-  scope: { apiBase: "https://rakazo.example", spaceId: "space-1" as string | null },
+  scope: {
+    apiBase: "https://rakazo.example",
+    cacheSession: "cache-1",
+    userId: "user-1",
+    spaceId: "space-1" as string | null,
+  },
   request: vi.fn(),
   delivered: vi.fn(),
   notDelivered: vi.fn(),
@@ -199,6 +204,25 @@ function payload(text = "Hello"): SendPayload {
 }
 
 describe("thread feedback", () => {
+  it.each(["user", "server", "session"])(
+    "does not drain sends after the %s scope changes",
+    async (change) => {
+      act(() => watchThread("bot-1", false));
+      const held = feedback.sendAttempt(payload("Private draft"));
+      act(() => feedback.queue(held));
+      if (change === "user") server.scope = { ...server.scope, userId: "user-2" };
+      if (change === "server") server.scope = { ...server.scope, apiBase: "https://other.example" };
+      if (change === "session") server.scope = { ...server.scope, cacheSession: "cache-2" };
+      await act(() => {
+        watchThread("bot-1", true);
+        return sendWaitingMessages();
+      });
+      render("bot-1");
+      expect(server.request).not.toHaveBeenCalled();
+      expect(feedback.unsentSends).toEqual([]);
+    },
+  );
+
   let root: Root;
   let container: HTMLDivElement;
   function render(threadKey: string) {
@@ -211,7 +235,12 @@ describe("thread feedback", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     vi.clearAllMocks();
     server.reachable = true;
-    server.scope = { apiBase: "https://rakazo.example", spaceId: "space-1" };
+    server.scope = {
+      apiBase: "https://rakazo.example",
+      cacheSession: "cache-1",
+      userId: "user-1",
+      spaceId: "space-1",
+    };
     server.request.mockReset();
     disk.admit.mockImplementation(() => true);
     putBack.mockImplementation(() => true);
@@ -284,7 +313,7 @@ describe("thread feedback", () => {
       watchThread("bot-1", true);
       await sendWaitingMessages({ ifIdle: true });
     });
-    expect(container.textContent).toContain("Not delivered");
+    expect(container.textContent).toContain("Not sent · Tap to retry");
     // The column aligns each row (bubble, footer) to the end instead of stretching them to the
     // widest one, so a footer wider than the bubble can't pull the bubble off the right edge.
     const column = container.querySelector<HTMLDivElement>('div[data-align-self="flex-end"]')!;
@@ -314,8 +343,8 @@ describe("thread feedback", () => {
     expect(attempt.state).toBe("pending");
     await act(() => vi.advanceTimersByTimeAsync(1_000));
     expect(attempt.state).toBe("failed");
-    expect(container.textContent).toContain("Not delivered");
-    expect(container.textContent).toContain("Retry");
+    expect(container.textContent).toContain("Not sent · Tap to retry");
+    expect(container.textContent).toContain("Tap to retry");
     expect(server.notDelivered).not.toHaveBeenCalled();
     // The message still replaces the bubble if it shows up late.
     act(() => confirmEchoes("bot-1", [41]));
@@ -349,11 +378,11 @@ describe("thread feedback", () => {
     expect(held.heldOffline).toBe(true);
     expect(disk.admit).toHaveBeenCalledWith(held);
     expect(server.notDelivered).not.toHaveBeenCalled();
-    expect(container.textContent).not.toContain("Not delivered");
+    expect(container.textContent).not.toContain("Not sent · Tap to retry");
     expect(menu("cancelSend")).not.toBeNull();
   });
 
-  it("shows Not delivered for a refused send, without Retry, and with Retry when it failed otherwise", async () => {
+  it("shows Not sent · Tap to retry for a refused send, without Retry, and with Retry when it failed otherwise", async () => {
     server.request.mockImplementation(async (method: string) => {
       if (method === "artifacts/create") return { id: "artifact-1" };
       throw refused();
@@ -363,13 +392,15 @@ describe("thread feedback", () => {
     expect(rejected.state).toBe("refused");
     expect(rejected.error).toBe("Bot is archived");
     expect(server.notDelivered).toHaveBeenCalledWith(rejected);
-    expect(bubble().getAttribute("aria-label")).toBe("Rejected, photo.png. Not delivered");
+    expect(bubble().getAttribute("aria-label")).toBe(
+      "Rejected, photo.png. Not sent · Tap to retry",
+    );
     // The caption is in the bubble's label, so VoiceOver doesn't read it a second time.
     const caption = [...container.querySelectorAll("span")].find(
-      (span) => span.textContent === "Not delivered",
+      (span) => span.textContent === "Not sent · Tap to retry",
     )!;
-    expect(caption.getAttribute("aria-hidden")).toBe("true");
-    expect(container.querySelector('button[aria-label="Retry send"]')).toBeNull();
+    expect(caption.textContent).toBe("Not sent · Tap to retry");
+    expect(container.querySelector('button[aria-label="Not sent · Tap to retry"]')).not.toBeNull();
 
     server.request.mockImplementation(async (method: string) => {
       if (method === "artifacts/create") return { id: "artifact-1" };
@@ -379,7 +410,7 @@ describe("thread feedback", () => {
     await send(failed);
     expect(failed.state).toBe("failed");
     const retryButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Retry send"]',
+      'button[aria-label="Not sent · Tap to retry"]',
     )!;
     act(() => retryButton.click());
     expect(retry).toHaveBeenCalledOnce();
@@ -437,7 +468,7 @@ describe("thread feedback", () => {
     });
     expect(first.state).toBe("pending");
     expect(second.state).toBe("queued");
-    expect(container.textContent).toMatch(/Sent while offline · \w{3} \d+/);
+    expect(container.textContent).not.toContain("Sent while offline");
     // A message written meanwhile still waits behind the held ones.
     expect(feedback.shouldHold()).toBe(true);
     await act(async () => {
@@ -497,7 +528,7 @@ describe("thread feedback", () => {
     const limited = feedback.sendAttempt(payload());
     await send(limited);
     expect(limited.state).toBe("failed");
-    expect(container.querySelector('button[aria-label="Retry send"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label="Not sent · Tap to retry"]')).not.toBeNull();
   });
 
   it("sends once per trigger while only the send itself gets a 503", async () => {
@@ -619,7 +650,7 @@ describe("thread feedback", () => {
     const attempt = feedback.sendAttempt(payload());
     act(() => feedback.queue(attempt));
     expect(attempt.state).toBe("failed");
-    expect(container.textContent).toContain("Not delivered");
+    expect(container.textContent).toContain("Not sent · Tap to retry");
   });
 
   it("cancels a held or failed message with its content, and not one already sending", async () => {
@@ -684,16 +715,15 @@ describe("thread feedback", () => {
     expect(disk.forget).not.toHaveBeenCalled();
   });
 
-  it("restores saved messages once, alongside one a chat queued before restoring ran", async () => {
+  it("restores the saved queue before a new message can replace its disk list", () => {
     act(() => watchThread("bot-1", false));
+    const other = { ...feedback.sendAttempt(payload("Saved")), state: "queued" as const };
+    disk.load.mockReturnValueOnce([other]);
     const early = feedback.sendAttempt(payload("Early"));
     act(() => feedback.queue(early));
-    const savedCopy: SendAttempt = { ...early, artifactIds: new Map() };
-    const other: SendAttempt = { ...feedback.sendAttempt(payload("Saved")), state: "queued" };
-    disk.load.mockReturnValueOnce([savedCopy, other]);
-    act(() => restoreUnsentSends());
-    expect(disk.load).toHaveBeenCalledWith(expect.any(Number), new Set([early.clientNonce]));
+    expect(disk.load).toHaveBeenCalledWith(expect.any(Number), new Set(), server.scope);
     expect(feedback.unsentSends).toEqual([other, early]);
+    expect(disk.save).toHaveBeenLastCalledWith([other, early]);
   });
 
   it("does not cancel a held message the queue started sending after the menu opened", async () => {
@@ -715,7 +745,7 @@ describe("thread feedback", () => {
       expect(await feedback.cancel(attempt, putBack)).toBe("sending");
     });
     expect(feedback.unsentSends).toEqual([attempt]);
-    expect(container.textContent).toContain("Sent while offline");
+    expect(container.textContent).not.toContain("Sent while offline");
     await act(async () => {
       finish();
       await sendWaitingMessages();
@@ -797,14 +827,24 @@ describe("thread feedback", () => {
     act(() => watchThread("bot-1", false));
     const attempt = feedback.sendAttempt(payload());
     act(() => feedback.queue(attempt));
-    server.scope = { apiBase: "https://rakazo.example", spaceId: "space-2" };
+    server.scope = {
+      apiBase: "https://rakazo.example",
+      cacheSession: "cache-1",
+      userId: "user-1",
+      spaceId: "space-2",
+    };
     server.request.mockImplementation(accepts(41));
     await act(async () => {
       watchThread("bot-1", true);
       await sendWaitingMessages();
     });
     expect(server.request).not.toHaveBeenCalled();
-    server.scope = { apiBase: "https://rakazo.example", spaceId: "space-1" };
+    server.scope = {
+      apiBase: "https://rakazo.example",
+      cacheSession: "cache-1",
+      userId: "user-1",
+      spaceId: "space-1",
+    };
     await act(() => sendWaitingMessages());
     expect(attempt.acceptedSeq).toBe(41);
   });
@@ -869,14 +909,24 @@ describe("thread feedback", () => {
     await act(async () => {
       await vi.waitFor(() => expect(upload).toBeTypeOf("function"));
     });
-    server.scope = { apiBase: "https://rakazo.example", spaceId: "space-2" };
+    server.scope = {
+      apiBase: "https://rakazo.example",
+      cacheSession: "cache-1",
+      userId: "user-1",
+      spaceId: "space-2",
+    };
     await act(async () => {
       upload();
       expect(await sending).toBe(false);
     });
     expect(server.request.mock.calls.filter(([method]) => method === "threads/send")).toEqual([]);
     expect(attempt.state).toBe("queued");
-    server.scope = { apiBase: "https://rakazo.example", spaceId: "space-1" };
+    server.scope = {
+      apiBase: "https://rakazo.example",
+      cacheSession: "cache-1",
+      userId: "user-1",
+      spaceId: "space-1",
+    };
     await act(() => sendWaitingMessages());
     expect(attempt.acceptedSeq).toBe(41);
   });

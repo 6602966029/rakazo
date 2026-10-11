@@ -113,12 +113,41 @@ function attempt(nonce: string, contentBase64 = "aGVsbG8="): SendAttempt {
     heldOffline: true,
     createdAt: Date.UTC(2026, 9, 11, 12, 4),
     session: 0,
+    cacheSession: "cache-1",
+    userId: "user-1",
     apiBase: "https://rakazo.example",
     spaceId: "space-1",
   };
 }
 
 describe("outbox on disk", () => {
+  it.each([
+    { apiBase: "https://other.example", userId: "user-1", cacheSession: "cache-1" },
+    { apiBase: "https://rakazo.example", userId: "user-2", cacheSession: "cache-1" },
+    { apiBase: "https://rakazo.example", userId: "user-1", cacheSession: "cache-2" },
+    { apiBase: "https://rakazo.example", userId: null, cacheSession: null },
+  ])("never restores another server, user or signed-in session: %j", (scope) => {
+    const held = attempt("nonce-1");
+    outboxDisk.admit(held);
+    outboxDisk.save([held]);
+    expect(outboxDisk.load(0, new Set(), scope)).toEqual([]);
+  });
+
+  it("fails locally if the OS purges an attachment instead of uploading empty bytes", async () => {
+    const held = attempt("nonce-1");
+    outboxDisk.admit(held);
+    outboxDisk.save([held]);
+    const [restored] = outboxDisk.load(0, new Set(), {
+      apiBase: held.apiBase,
+      userId: held.userId,
+      cacheSession: held.cacheSession,
+    });
+    fs.files.delete("cache/outbox/nonce-1/0.png");
+    await expect(outboxDisk.hydrate(restored!)).rejects.toThrow(
+      "Attachment is no longer available",
+    );
+  });
+
   beforeEach(() => {
     outboxDisk.clear();
     fs.files.clear();
@@ -136,7 +165,11 @@ describe("outbox on disk", () => {
     expect(list).not.toContain("aGVsbG8=");
     expect(fs.files.get("cache/outbox/nonce-1/0.png")).toBe("aGVsbG8=");
 
-    const restored = outboxDisk.load(4, new Set());
+    const restored = outboxDisk.load(4, new Set(), {
+      apiBase: "https://rakazo.example",
+      cacheSession: "cache-1",
+      userId: "user-1",
+    });
     // A refusal stays refused; anything else is sent again after a restart.
     expect(
       restored.map(({ clientNonce, state, session, heldOffline, createdAt }) => [
@@ -172,9 +205,13 @@ describe("outbox on disk", () => {
     const held = attempt("nonce-1");
     outboxDisk.admit(held);
     outboxDisk.save([held]);
-    expect(outboxDisk.load(0, new Set())[0]!.payload.attachments[0]!.previewUri).toBe(
-      "cache/ImagePicker/photo.png",
-    );
+    expect(
+      outboxDisk.load(0, new Set(), {
+        apiBase: "https://rakazo.example",
+        cacheSession: "cache-1",
+        userId: "user-1",
+      })[0]!.payload.attachments[0]!.previewUri,
+    ).toBe("cache/ImagePicker/photo.png");
   });
 
   it("deletes a message's attachments once it is sent, cancelled or deleted", () => {
@@ -184,7 +221,13 @@ describe("outbox on disk", () => {
     outboxDisk.forget(held);
     outboxDisk.save([]);
     expect([...fs.files.keys()]).toEqual([]);
-    expect(outboxDisk.load(0, new Set())).toEqual([]);
+    expect(
+      outboxDisk.load(0, new Set(), {
+        apiBase: "https://rakazo.example",
+        cacheSession: "cache-1",
+        userId: "user-1",
+      }),
+    ).toEqual([]);
   });
 
   it("removes attachment folders that no saved message refers to on launch", () => {
@@ -193,7 +236,11 @@ describe("outbox on disk", () => {
     outboxDisk.admit(kept);
     outboxDisk.admit(orphan);
     outboxDisk.save([kept]);
-    outboxDisk.load(0, new Set());
+    outboxDisk.load(0, new Set(), {
+      apiBase: "https://rakazo.example",
+      cacheSession: "cache-1",
+      userId: "user-1",
+    });
     expect(fs.directories.has("cache/outbox/nonce-1")).toBe(true);
     expect(fs.directories.has("cache/outbox/nonce-2")).toBe(false);
     expect(fs.files.has("cache/outbox/nonce-2/0.png")).toBe(false);
@@ -206,9 +253,15 @@ describe("outbox on disk", () => {
     outboxDisk.admit(accepted);
     // Accepted and waiting to appear: off the saved list, files still in use.
     outboxDisk.save([saved]);
-    expect(outboxDisk.load(0, new Set(["nonce-2"])).map((entry) => entry.clientNonce)).toEqual([
-      "nonce-1",
-    ]);
+    expect(
+      outboxDisk
+        .load(0, new Set(["nonce-2"]), {
+          apiBase: "https://rakazo.example",
+          cacheSession: "cache-1",
+          userId: "user-1",
+        })
+        .map((entry) => entry.clientNonce),
+    ).toEqual(["nonce-1"]);
     expect(fs.files.get("cache/outbox/nonce-2/0.png")).toBe("aGVsbG8=");
     // Its stored size is still counted, so it isn't written or counted twice.
     expect(outboxDisk.admit(accepted)).toBe(true);
@@ -237,7 +290,15 @@ describe("outbox on disk", () => {
     // Interrupted after the new list was written but before it replaced the old one.
     fs.files.set("cache/outbox/outbox.next.json", fs.files.get("cache/outbox/outbox.json")!);
     fs.files.delete("cache/outbox/outbox.json");
-    expect(outboxDisk.load(0, new Set()).map((entry) => entry.clientNonce)).toEqual(["nonce-1"]);
+    expect(
+      outboxDisk
+        .load(0, new Set(), {
+          apiBase: "https://rakazo.example",
+          cacheSession: "cache-1",
+          userId: "user-1",
+        })
+        .map((entry) => entry.clientNonce),
+    ).toEqual(["nonce-1"]);
   });
 
   it("prefers a complete next list, falls back to the current one, and never deletes folders when either is unreadable", () => {
@@ -252,21 +313,39 @@ describe("outbox on disk", () => {
     // Cut short after the new list was written in full, before it replaced the old one.
     fs.files.set("cache/outbox/outbox.json", oldList);
     fs.files.set("cache/outbox/outbox.next.json", newList);
-    expect(outboxDisk.load(0, new Set()).map((entry) => entry.clientNonce)).toEqual([
-      "nonce-1",
-      "nonce-2",
-    ]);
+    expect(
+      outboxDisk
+        .load(0, new Set(), {
+          apiBase: "https://rakazo.example",
+          cacheSession: "cache-1",
+          userId: "user-1",
+        })
+        .map((entry) => entry.clientNonce),
+    ).toEqual(["nonce-1", "nonce-2"]);
     // Cut short while writing the new list: the current one is used, and nothing is deleted.
     fs.files.set("cache/outbox/outbox.next.json", "{ half");
-    expect(outboxDisk.load(0, new Set()).map((entry) => entry.clientNonce)).toEqual(["nonce-1"]);
+    expect(
+      outboxDisk
+        .load(0, new Set(), {
+          apiBase: "https://rakazo.example",
+          cacheSession: "cache-1",
+          userId: "user-1",
+        })
+        .map((entry) => entry.clientNonce),
+    ).toEqual(["nonce-1"]);
     expect(fs.files.has("cache/outbox/nonce-2/0.png")).toBe(true);
     // The current list is unreadable but the next one is complete.
     fs.files.set("cache/outbox/outbox.json", "{ cut off");
     fs.files.set("cache/outbox/outbox.next.json", newList);
-    expect(outboxDisk.load(0, new Set()).map((entry) => entry.clientNonce)).toEqual([
-      "nonce-1",
-      "nonce-2",
-    ]);
+    expect(
+      outboxDisk
+        .load(0, new Set(), {
+          apiBase: "https://rakazo.example",
+          cacheSession: "cache-1",
+          userId: "user-1",
+        })
+        .map((entry) => entry.clientNonce),
+    ).toEqual(["nonce-1", "nonce-2"]);
   });
 
   it("keeps every saved folder when the list can't be read", () => {
@@ -274,7 +353,13 @@ describe("outbox on disk", () => {
     outboxDisk.admit(held);
     outboxDisk.save([held]);
     fs.files.set("cache/outbox/outbox.json", "{ cut off");
-    expect(outboxDisk.load(0, new Set())).toEqual([]);
+    expect(
+      outboxDisk.load(0, new Set(), {
+        apiBase: "https://rakazo.example",
+        cacheSession: "cache-1",
+        userId: "user-1",
+      }),
+    ).toEqual([]);
     expect(fs.files.get("cache/outbox/nonce-1/0.png")).toBe("aGVsbG8=");
   });
 
@@ -287,9 +372,23 @@ describe("outbox on disk", () => {
       "cache/outbox/outbox.json",
       JSON.stringify({ ...list, entries: [...list.entries, { clientNonce: "broken" }, null] }),
     );
-    expect(outboxDisk.load(0, new Set()).map((entry) => entry.clientNonce)).toEqual(["nonce-1"]);
-    fs.files.set("cache/outbox/outbox.json", JSON.stringify({ ...list, version: 2 }));
-    expect(outboxDisk.load(0, new Set())).toEqual([]);
+    expect(
+      outboxDisk
+        .load(0, new Set(), {
+          apiBase: "https://rakazo.example",
+          cacheSession: "cache-1",
+          userId: "user-1",
+        })
+        .map((entry) => entry.clientNonce),
+    ).toEqual(["nonce-1"]);
+    fs.files.set("cache/outbox/outbox.json", JSON.stringify({ ...list, version: 999 }));
+    expect(
+      outboxDisk.load(0, new Set(), {
+        apiBase: "https://rakazo.example",
+        cacheSession: "cache-1",
+        userId: "user-1",
+      }),
+    ).toEqual([]);
     expect(fs.files.get("cache/outbox/nonce-1/0.png")).toBe("aGVsbG8=");
   });
 
@@ -298,7 +397,11 @@ describe("outbox on disk", () => {
     held.artifactIds.set("photo.png-5-0", "artifact-1");
     outboxDisk.admit(held);
     outboxDisk.save([held]);
-    const [restored] = outboxDisk.load(0, new Set());
+    const [restored] = outboxDisk.load(0, new Set(), {
+      apiBase: "https://rakazo.example",
+      cacheSession: "cache-1",
+      userId: "user-1",
+    });
     expect(restored!.payload.attachments[0]!.previewUri).toBe("cache/outbox/nonce-1/0.png");
     await outboxDisk.hydrate(restored!);
     expect(restored!.payload.attachments[0]!.contentBase64).toBe("");
@@ -315,6 +418,12 @@ describe("outbox on disk", () => {
     outboxDisk.save([held]);
     outboxDisk.clear();
     expect(fs.files.size).toBe(0);
-    expect(outboxDisk.load(0, new Set())).toEqual([]);
+    expect(
+      outboxDisk.load(0, new Set(), {
+        apiBase: "https://rakazo.example",
+        cacheSession: "cache-1",
+        userId: "user-1",
+      }),
+    ).toEqual([]);
   });
 });

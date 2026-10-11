@@ -54,6 +54,7 @@ import {
   loadSessionToken,
   replaceSessionTokenIfCurrent,
   restoreSessionToken,
+  saveSessionIdentity,
   saveSessionToken,
   snapshotSessionToken,
   tokenFromAuthResponse,
@@ -81,6 +82,7 @@ export function subscribeApiBase(listener: () => void): () => void {
 }
 
 function setCachedApiBase(url: string): void {
+  if (cachedApiBase !== undefined && cachedApiBase !== url) clearUnsentSends();
   cachedApiBase = url;
   for (const listener of apiBaseListeners) listener();
 }
@@ -519,8 +521,6 @@ async function authenticateWithEmail(
       ),
     );
   if (!(await clearSpace())) throw new Error(t("Could not clear the previous space"));
-  // A new sign-in never inherits unsent messages, even ones a failed sign-out left on disk.
-  clearUnsentSends();
   await saveSessionToken(token);
   return { verificationRequired: false };
 }
@@ -731,6 +731,7 @@ export async function rpc<T>(
 ): Promise<T> {
   const requestSpaceGeneration = spaceSelectionGeneration;
   const requestSessionGeneration = currentSessionGeneration();
+  const requestApiBase = options.requestContext?.apiBase ?? currentApiBase();
   const uses = aiDataUsesForProcedure(proc, body);
   const consentContext =
     options.requestContext ?? (uses.length ? await captureApiRequestContext() : undefined);
@@ -784,7 +785,11 @@ export async function rpc<T>(
       // location; say what happened instead.
       throw requestError(error, controller.signal);
     }
-    noteServerReachable(!isUnreachableStatus(res.status));
+    if (
+      requestSessionGeneration === currentSessionGeneration() &&
+      requestApiBase === currentApiBase()
+    )
+      noteServerReachable(!isUnreachableStatus(res.status));
     if (proc === "aiConsent/status" && res.status === 404) {
       cancelResponseBody(res);
       throw new Error(t("Update your server to use AI data sharing in this mobile version."));
@@ -891,9 +896,21 @@ export async function rpc<T>(
       }
       throw withDetail(new Error(message), { status: res.status });
     }
+    const verifiedUser = parsed.json as { userId?: unknown } | null;
+    if (proc === "me" && typeof verifiedUser?.userId === "string") {
+      await saveSessionIdentity(requestSessionGeneration, {
+        apiBase: requestApiBase,
+        userId: verifiedUser.userId,
+      });
+    }
     return parsed.json as T;
   } catch (error) {
-    if (isServerUnreachable(error)) noteServerReachable(false);
+    if (
+      requestSessionGeneration === currentSessionGeneration() &&
+      requestApiBase === currentApiBase() &&
+      isServerUnreachable(error)
+    )
+      noteServerReachable(false);
     throw error;
   } finally {
     if (timer) clearTimeout(timer);

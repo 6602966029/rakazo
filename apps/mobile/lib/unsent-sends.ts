@@ -1,5 +1,6 @@
-import { AppState } from "react-native";
+import { Alert, AppState } from "react-native";
 import {
+  captureApiRequestContext,
   currentApiBase,
   isServerReachable,
   rpc,
@@ -10,9 +11,13 @@ import { cancelFocusPrompt } from "./focus-prompt";
 import { t } from "./i18n";
 import { resumeLiveNotifications } from "./live-notifications";
 import { outboxDisk } from "./outbox-disk";
-import { loadSessionToken } from "./session";
+import {
+  currentSessionGeneration,
+  currentSessionIdentity,
+  loadSessionIdentity,
+  loadSessionToken,
+} from "./session";
 import { configureUnsentSends, restoreUnsentSends, sendWaitingMessages } from "./thread-feedback";
-import { toast } from "./toast";
 import { errorText } from "./user-error";
 
 /**
@@ -21,17 +26,23 @@ import { errorText } from "./user-error";
  */
 export function startUnsentSends(): () => void {
   configureUnsentSends({
-    request: rpc,
+    request: async (proc, body, options) => {
+      const generation = currentSessionGeneration();
+      const context = await captureApiRequestContext();
+      if (generation !== currentSessionGeneration()) throw new Error("Session changed");
+      return rpc(proc, body, { ...options, requestContext: context });
+    },
     serverReachable: isServerReachable,
-    scope: () => ({ apiBase: currentApiBase(), spaceId: selectedSpaceId() }),
+    scope: () => ({
+      apiBase: currentApiBase(),
+      spaceId: selectedSpaceId(),
+      userId: currentSessionIdentity()?.userId ?? null,
+      cacheSession: currentSessionIdentity()?.cacheSession ?? null,
+    }),
     disk: outboxDisk,
     errorText: (error) => errorText(error, t("Failed to send message")),
     notDelivered(attempt) {
-      toast.show(t("Message not delivered"), {
-        variant: "error",
-        detail: attempt.error,
-        dedupeKey: "chat.sendFailed",
-      });
+      Alert.alert(t("Failed to send message"), attempt.error);
     },
     delivered(attempt) {
       if (attempt.payload.initialBotTarget) cancelFocusPrompt(attempt.payload.initialBotTarget);
@@ -40,8 +51,14 @@ export function startUnsentSends(): () => void {
         .catch(() => undefined);
     },
   });
-  void loadSessionToken()
-    .then((token) => (token ? restoreUnsentSends() : outboxDisk.clear()))
+  const generation = currentSessionGeneration();
+  let stopped = false;
+  void loadSessionIdentity(currentApiBase())
+    .then((identity) => {
+      if (stopped || generation !== currentSessionGeneration()) return;
+      if (identity) restoreUnsentSends();
+      else outboxDisk.clear();
+    })
     .catch(() => undefined);
   // Sending's own requests flip this too, so it never asks a running send to go round again.
   const reachable = subscribeServerReachable(() => {
@@ -51,6 +68,7 @@ export function startUnsentSends(): () => void {
     if (state === "active") void sendWaitingMessages();
   });
   return () => {
+    stopped = true;
     reachable();
     appState.remove();
   };

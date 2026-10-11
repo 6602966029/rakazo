@@ -79,6 +79,8 @@ export type SendAttempt = {
   /** The server and Space it was written in; it is only ever sent there. */
   apiBase: string;
   spaceId: string | null;
+  userId: string | null;
+  cacheSession: string | null;
   error?: string;
 };
 
@@ -143,7 +145,11 @@ export type UnsentDisk = {
   save(attempts: SendAttempt[]): void;
   forget(attempt: SendAttempt): void;
   /** Restores the saved list; files of `live` nonces (already in memory) are kept as they are. */
-  load(session: number, live: ReadonlySet<string>): SendAttempt[];
+  load(
+    session: number,
+    live: ReadonlySet<string>,
+    scope: { apiBase: string; userId: string | null; cacheSession: string | null },
+  ): SendAttempt[];
   /**
    * Reads back attachment content that restoring left on disk. For the composer (Cancel send) it
    * reads already uploaded files too and points previews at the bytes, as the folder goes next.
@@ -156,7 +162,12 @@ export type UnsentSendsConfig = {
   request: typeof rpc;
   serverReachable(): boolean;
   /** The server and Space new messages go to now. */
-  scope(): { apiBase: string; spaceId: string | null };
+  scope(): {
+    apiBase: string;
+    spaceId: string | null;
+    userId: string | null;
+    cacheSession: string | null;
+  };
   disk: UnsentDisk;
   errorText(error: unknown): string;
   /** A send the server refused or that failed; the app shows "Message not delivered". */
@@ -201,7 +212,7 @@ function awaitingEcho(attempt: SendAttempt) {
 
 function setUnsentSends(update: (current: SendAttempt[]) => SendAttempt[]) {
   unsentSends = update(unsentSends);
-  config?.disk.save(unsentSends.filter((attempt) => !awaitingEcho(attempt)));
+  if (restored) config?.disk.save(unsentSends.filter((attempt) => !awaitingEcho(attempt)));
   for (const watcher of [...watchers]) watcher();
 }
 
@@ -231,6 +242,7 @@ function remove(attempt: SendAttempt) {
 
 /** Holds a message to go out once the link is back, on disk when it fits; one that does not fit fails. */
 function hold(attempt: SendAttempt) {
+  if (!restored && config?.scope().userId) restoreUnsentSends();
   attempt.state = "queued";
   attempt.heldOffline = true;
   attempt.attemptedAt = undefined;
@@ -267,6 +279,7 @@ function cancelable(attempt: SendAttempt) {
 }
 
 function begin(attempt: SendAttempt) {
+  if (!restored && config?.scope().userId) restoreUnsentSends();
   attempt.state = "pending";
   attempt.attemptedAt = Date.now();
   attempt.acceptedSeq = undefined;
@@ -316,8 +329,15 @@ class SendOutOfScope extends Error {
 
 function inScope(attempt: SendAttempt) {
   if (!config || attempt.session !== sessionCount) return false;
-  const { apiBase, spaceId } = config.scope();
-  return attempt.apiBase === apiBase && attempt.spaceId === spaceId;
+  const { apiBase, spaceId, userId, cacheSession } = config.scope();
+  return (
+    !!userId &&
+    !!cacheSession &&
+    attempt.cacheSession === cacheSession &&
+    attempt.userId === userId &&
+    attempt.apiBase === apiBase &&
+    attempt.spaceId === spaceId
+  );
 }
 
 async function transmit(attempt: SendAttempt) {
@@ -434,7 +454,7 @@ export function restoreUnsentSends() {
   const live = new Set(unsentSends.map((attempt) => attempt.clientNonce));
   let saved: SendAttempt[] = [];
   try {
-    saved = config.disk.load(sessionCount, live);
+    saved = config.disk.load(sessionCount, live, config.scope());
   } catch {
     // Nothing usable on disk; what is in memory keeps working.
   }
@@ -464,7 +484,12 @@ export function useThreadFeedback(threadKey: string | undefined, newNonce: () =>
   useEffect(() => setError(null), [threadKey]);
 
   const threadUnsentSends = allUnsentSends.filter(
-    (attempt) => attempt.payload.originThreadKey === threadKey,
+    (attempt) =>
+      attempt.payload.originThreadKey === threadKey &&
+      attempt.apiBase === config?.scope().apiBase &&
+      attempt.userId === config?.scope().userId &&
+      attempt.cacheSession === config?.scope().cacheSession &&
+      attempt.spaceId === config?.scope().spaceId,
   );
 
   return {
@@ -481,7 +506,12 @@ export function useThreadFeedback(threadKey: string | undefined, newNonce: () =>
       return shouldHoldSend(threadUnsentSends, threadKey ? threadLinkUp(threadKey) : false);
     },
     sendAttempt(payload: SendPayload): SendAttempt {
-      const scope = config?.scope() ?? { apiBase: "", spaceId: null };
+      const scope = config?.scope() ?? {
+        apiBase: "",
+        spaceId: null,
+        userId: null,
+        cacheSession: null,
+      };
       return {
         payload,
         clientNonce: newNonce(),

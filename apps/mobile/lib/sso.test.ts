@@ -3,7 +3,6 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { authHeaders, clearSpace, currentApiBase, fetchMobileJson } from "./api";
 import { currentSessionGeneration, replaceSessionTokenIfCurrent } from "./session";
 import { continueWithSso } from "./sso";
-import { clearUnsentSends } from "./thread-feedback";
 
 vi.mock("expo-web-browser", () => ({
   openAuthSessionAsync: vi.fn(),
@@ -15,7 +14,6 @@ vi.mock("./api", () => ({
   currentApiBase: vi.fn(() => "https://rakazo.example.test"),
   fetchMobileJson: vi.fn(),
 }));
-vi.mock("./thread-feedback", () => ({ clearUnsentSends: vi.fn() }));
 vi.mock("./session", () => ({
   currentSessionGeneration: vi.fn(() => 1),
   replaceSessionTokenIfCurrent: vi.fn(async () => true),
@@ -52,7 +50,6 @@ it("uses the Expo proxy, validates the session, and saves the existing session s
   expect(new URL(url).searchParams.get("oauthState")).toBe("encrypted-state");
   expect(replaceSessionTokenIfCurrent).toHaveBeenCalledWith(1, "new-session");
   expect(clearSpace).toHaveBeenCalledOnce();
-  expect(clearUnsentSends).toHaveBeenCalledOnce();
 });
 it.each([WebBrowserResultType.CANCEL, WebBrowserResultType.DISMISS])(
   "does not store a session on %s",

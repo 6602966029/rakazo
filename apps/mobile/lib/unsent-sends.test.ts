@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("react-native", () => ({
+  Alert: { alert: vi.fn() },
   AppState: {
     addEventListener: (_event: string, listener: (state: string) => void) => {
       h.appState.add(listener);
@@ -28,14 +29,20 @@ vi.mock("./api", () => ({
 vi.mock("./i18n", () => ({ t: (text: string) => text }));
 vi.mock("./live-notifications", () => ({ resumeLiveNotifications: vi.fn() }));
 vi.mock("./outbox-disk", () => ({ outboxDisk: { clear: vi.fn() } }));
-vi.mock("./session", () => ({ loadSessionToken: vi.fn(async () => h.token) }));
+vi.mock("./session", () => ({
+  loadSessionToken: vi.fn(async () => h.token),
+  loadSessionIdentity: vi.fn(async () =>
+    h.token ? { cacheSession: "cache-1", userId: "user-1" } : null,
+  ),
+  currentSessionIdentity: () => ({ cacheSession: "cache-1", userId: "user-1" }),
+  currentSessionGeneration: () => 0,
+}));
 vi.mock("./thread-feedback", () => ({
   configureUnsentSends: vi.fn(),
   restoreUnsentSends: vi.fn(),
   sendWaitingMessages: vi.fn(async () => undefined),
 }));
 vi.mock("./user-error", () => ({ errorText: (_error: unknown, fallback: string) => fallback }));
-vi.mock("./toast", () => ({ toast: { show: vi.fn() } }));
 vi.mock("./focus-prompt", () => ({ cancelFocusPrompt: vi.fn() }));
 
 const { outboxDisk } = await import("./outbox-disk");
@@ -43,7 +50,7 @@ const { configureUnsentSends, restoreUnsentSends, sendWaitingMessages } = await 
   "./thread-feedback"
 );
 const { startUnsentSends } = await import("./unsent-sends");
-const { toast } = await import("./toast");
+const { Alert } = await import("react-native");
 const { cancelFocusPrompt } = await import("./focus-prompt");
 
 describe("unsent sends", () => {
@@ -63,15 +70,11 @@ describe("unsent sends", () => {
     stop();
   });
 
-  it("shows Message not delivered with the failure as its detail", () => {
+  it("shows real send errors in a system alert", () => {
     const stop = startUnsentSends();
     const config = vi.mocked(configureUnsentSends).mock.calls[0]![0];
     config.notDelivered({ error: "Bot is archived" } as Parameters<typeof config.notDelivered>[0]);
-    expect(toast.show).toHaveBeenCalledWith("Message not delivered", {
-      variant: "error",
-      detail: "Bot is archived",
-      dedupeKey: "chat.sendFailed",
-    });
+    expect(Alert.alert).toHaveBeenCalledWith("Failed to send message", "Bot is archived");
     stop();
   });
 

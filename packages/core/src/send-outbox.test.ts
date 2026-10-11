@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { OutboxEntry } from "./send-outbox.js";
 import {
   createOutboxDrain,
-  sendProgress,
   sendWithOneResend,
   shouldHoldSend,
   stateAfterFailure,
@@ -110,19 +109,6 @@ describe("sendWithOneResend", () => {
       }),
     ).rejects.toThrow("Bot not found");
     expect(calls).toBe(1);
-  });
-});
-
-describe("sendProgress", () => {
-  it("shows on the newest send in flight, timed from the oldest", () => {
-    const entries = [
-      { state: "pending" as const, attemptedAt: 1_000 },
-      { state: "queued" as const },
-      { state: "pending" as const, attemptedAt: 3_000 },
-      { state: "failed" as const, attemptedAt: 500 },
-    ];
-    expect(sendProgress(entries)).toEqual({ entry: entries[2], since: 1_000 });
-    expect(sendProgress([{ state: "queued" as const }])).toBeNull();
   });
 });
 

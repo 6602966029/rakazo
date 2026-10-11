@@ -8,7 +8,8 @@ const ROOT = "outbox";
 const LIST = "outbox.json";
 /** The next list, written in full before it replaces the current one. */
 const NEXT = "outbox.next.json";
-const VERSION = 1;
+const VERSION = 2;
+const OUTBOX_LIST_MAX_BYTES = 1024 * 1024;
 /** Enough for a long offline stretch of messages without letting the queue grow unbounded. */
 export const OUTBOX_MAX_ENTRIES = 50;
 /** Five messages at the attachment limit (4 × 10 MiB each). */
@@ -19,6 +20,8 @@ type StoredEntry = {
   clientNonce: string;
   apiBase: string;
   spaceId: string | null;
+  userId: string;
+  cacheSession: string;
   state: "queued" | "refused";
   createdAt: number;
   error?: string;
@@ -65,6 +68,7 @@ function deleteQuietly(target: File | Directory) {
 /** The saved list, or null when it can't be read or isn't one this version wrote. */
 function readList(file: File): StoredEntry[] | null {
   try {
+    if (file.size > OUTBOX_LIST_MAX_BYTES) return null;
     const parsed = JSON.parse(file.textSync()) as { version?: unknown; entries?: unknown } | null;
     if (parsed?.version !== VERSION || !Array.isArray(parsed.entries)) return null;
     return parsed.entries.filter(isStoredEntry);
@@ -77,11 +81,26 @@ function isStoredEntry(value: unknown): value is StoredEntry {
   const entry = value as Partial<StoredEntry> | null;
   return (
     typeof entry?.clientNonce === "string" &&
+    /^[A-Za-z0-9_-]{1,200}$/.test(entry.clientNonce) &&
+    typeof entry.userId === "string" &&
+    !!entry.userId &&
+    typeof entry.cacheSession === "string" &&
+    !!entry.cacheSession &&
     typeof entry.apiBase === "string" &&
     (entry.spaceId === null || typeof entry.spaceId === "string") &&
     (entry.state === "queued" || entry.state === "refused") &&
     typeof entry.createdAt === "number" &&
     Array.isArray(entry.artifactIds) &&
+    entry.artifactIds.every(
+      (pair) =>
+        Array.isArray(pair) && pair.length === 2 && pair.every((id) => typeof id === "string"),
+    ) &&
+    typeof entry.payload?.displayText === "string" &&
+    typeof entry.payload?.composer?.draft === "string" &&
+    Array.isArray(entry.payload.composer.mentions) &&
+    typeof entry.payload?.plan?.shouldSend === "boolean" &&
+    Array.isArray(entry.payload.plan.routineIds) &&
+    Array.isArray(entry.payload.plan.mentionPayload) &&
     typeof entry.payload?.originThreadKey === "string" &&
     Array.isArray(entry.payload.attachments) &&
     entry.payload.attachments.every(
@@ -89,14 +108,23 @@ function isStoredEntry(value: unknown): value is StoredEntry {
         typeof attachment?.id === "string" &&
         typeof attachment.name === "string" &&
         typeof attachment.mimeType === "string" &&
-        typeof attachment.file === "string",
+        typeof attachment.file === "string" &&
+        /^[0-9]+(?:\.[A-Za-z0-9]{1,8})?$/.test(attachment.file),
     )
   );
 }
 
 export const outboxDisk: UnsentDisk = {
   admit(attempt) {
+    if (!attempt.userId || !attempt.cacheSession) return false;
     if (storedBytes.has(attempt.clientNonce)) return true;
+    const metadata = JSON.stringify({
+      ...attempt.payload,
+      attachments: attempt.payload.attachments.map(
+        ({ contentBase64: _bytes, ...attachment }) => attachment,
+      ),
+    });
+    if (new TextEncoder().encode(metadata).length > 16 * 1024) return false;
     const bytes = attempt.payload.attachments.reduce(
       (total, attachment) => total + attachmentBytes(attachment),
       0,
@@ -128,6 +156,8 @@ export const outboxDisk: UnsentDisk = {
       .map((attempt) => ({
         clientNonce: attempt.clientNonce,
         apiBase: attempt.apiBase,
+        userId: attempt.userId!,
+        cacheSession: attempt.cacheSession!,
         spaceId: attempt.spaceId,
         // Anything but a refusal goes out again after a restart; the nonce makes resending safe.
         state: attempt.state === "refused" ? "refused" : "queued",
@@ -155,7 +185,9 @@ export const outboxDisk: UnsentDisk = {
       }
       directory.create({ intermediates: true, idempotent: true });
       next.create({ overwrite: true });
-      next.write(JSON.stringify({ version: VERSION, entries }));
+      const serialized = JSON.stringify({ version: VERSION, entries });
+      if (new TextEncoder().encode(serialized).length > OUTBOX_LIST_MAX_BYTES) return;
+      next.write(serialized);
       // Replace the list only once the new one is complete; load falls back to it if cut short.
       next.moveSync(list, { overwrite: true });
     } catch {
@@ -168,7 +200,7 @@ export const outboxDisk: UnsentDisk = {
     deleteQuietly(entryDirectory(attempt.clientNonce));
   },
 
-  load(session, live) {
+  load(session, live, scope) {
     for (const nonce of [...storedBytes.keys()]) if (!live.has(nonce)) storedBytes.delete(nonce);
     const directory = root();
     const list = new File(directory, LIST);
@@ -178,7 +210,15 @@ export const outboxDisk: UnsentDisk = {
     const fromList = list.exists ? readList(list) : null;
     // Any list that exists but can't be read keeps every folder: they may still be someone's messages.
     const unreadable = (next.exists && !fromNext) || (list.exists && !fromList);
-    const entries = fromNext ?? fromList ?? [];
+    const entries = (fromNext ?? fromList ?? [])
+      .filter(
+        (entry) =>
+          entry.apiBase === scope.apiBase &&
+          !!scope.userId &&
+          entry.userId === scope.userId &&
+          entry.cacheSession === scope.cacheSession,
+      )
+      .slice(0, OUTBOX_MAX_ENTRIES);
     const kept = new Set(
       [...entries.map((entry) => entry.clientNonce), ...live].map((nonce) =>
         encodeURIComponent(nonce),
@@ -193,7 +233,8 @@ export const outboxDisk: UnsentDisk = {
     } catch {
       // Orphans are retried on the next launch.
     }
-    return entries.map((entry): SendAttempt => {
+    let loadedBytes = 0;
+    return entries.flatMap((entry): SendAttempt[] => {
       const folder = entryDirectory(entry.clientNonce);
       let bytes = 0;
       const attachments = entry.payload.attachments.map(({ file, ...attachment }) => {
@@ -208,19 +249,28 @@ export const outboxDisk: UnsentDisk = {
               : undefined;
         return { ...attachment, contentBase64: "", previewUri };
       });
+      loadedBytes += bytes;
+      if (loadedBytes > OUTBOX_MAX_BYTES) {
+        deleteQuietly(folder);
+        return [];
+      }
       storedBytes.set(entry.clientNonce, bytes);
-      return {
-        payload: { ...entry.payload, attachments },
-        clientNonce: entry.clientNonce,
-        artifactIds: new Map(entry.artifactIds),
-        state: entry.state,
-        heldOffline: true,
-        createdAt: entry.createdAt,
-        session,
-        apiBase: entry.apiBase,
-        spaceId: entry.spaceId,
-        error: entry.error,
-      };
+      return [
+        {
+          payload: { ...entry.payload, attachments },
+          clientNonce: entry.clientNonce,
+          artifactIds: new Map(entry.artifactIds),
+          state: entry.state,
+          heldOffline: true,
+          createdAt: entry.createdAt,
+          session,
+          apiBase: entry.apiBase,
+          userId: entry.userId,
+          cacheSession: entry.cacheSession,
+          spaceId: entry.spaceId,
+          error: entry.error,
+        },
+      ];
     });
   },
 
@@ -234,6 +284,8 @@ export const outboxDisk: UnsentDisk = {
         if (!attachment.contentBase64 && !skip && file.exists) {
           attachment.contentBase64 = await file.base64();
         }
+        if (!skip && !attachment.contentBase64)
+          throw new Error("Attachment is no longer available");
         // A preview of the saved copy would point at a folder that is deleted next.
         if (
           options?.forComposer &&

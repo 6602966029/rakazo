@@ -5,17 +5,18 @@ import { AVATAR_STYLE_KEY, getCachedAvatarStyle, saveAvatarStyle } from "./avata
 import {
   clearSessionToken,
   currentSessionGeneration,
+  loadSessionIdentity,
   loadSessionToken,
   loadVerifiedIntegrationsScope,
   restoreSessionToken,
   saveAvatarStyleIfCurrent,
+  saveSessionIdentity,
   saveSessionToken,
   saveVerifiedIntegrationsScope,
   snapshotSessionToken,
   tokenFromAuthResponse,
 } from "./session.js";
 import { clearUnsentSends } from "./thread-feedback.js";
-import { toast } from "./toast.js";
 
 vi.mock("expo-secure-store", () => ({
   getItemAsync: vi.fn(),
@@ -26,7 +27,6 @@ vi.mock("./live-notifications.js", () => ({
   stopLiveNotifications: vi.fn(async () => undefined),
 }));
 vi.mock("./thread-feedback.js", () => ({ clearUnsentSends: vi.fn() }));
-vi.mock("./toast.js", () => ({ toast: { suspend: vi.fn(), resume: vi.fn() } }));
 
 describe("mobile session storage", () => {
   beforeEach(async () => {
@@ -59,16 +59,16 @@ describe("mobile session storage", () => {
     }
   });
 
-  it("forgets unsent messages on sign-out and silences their toasts until the next sign-in", async () => {
-    vi.mocked(clearUnsentSends).mockClear();
-    vi.mocked(toast.suspend).mockClear();
-    vi.mocked(toast.resume).mockClear();
-    await clearSessionToken();
-    expect(clearUnsentSends).toHaveBeenCalledOnce();
-    expect(toast.suspend).toHaveBeenCalledOnce();
-    expect(toast.resume).not.toHaveBeenCalled();
-    await saveSessionToken("next-session");
-    expect(toast.resume).toHaveBeenCalledOnce();
+  it("wipes the outbox on sign-out, sign-in and session restore", async () => {
+    for (const change of [
+      () => clearSessionToken(),
+      () => saveSessionToken("fake-next-session"),
+      () => restoreSessionToken(""),
+    ]) {
+      vi.mocked(clearUnsentSends).mockClear();
+      await change();
+      expect(clearUnsentSends).toHaveBeenCalled();
+    }
   });
 
   it("forgets the cached avatar style on sign-out", async () => {
@@ -264,6 +264,27 @@ describe("verified integration session scope", () => {
     await restoreSessionToken("");
     await saveSessionToken("fake-session-a");
   });
+  it("binds cached identity to the exact bearer and server", async () => {
+    await saveSessionIdentity(currentSessionGeneration(), scope);
+    expect(await loadSessionIdentity(scope.apiBase)).toMatchObject({
+      userId: scope.userId,
+      apiBase: scope.apiBase,
+    });
+    expect(await loadSessionIdentity("https://other.example.test")).toBeNull();
+    disk.set("rakazo.session_token", "fake-session-b");
+    expect(await loadSessionIdentity(scope.apiBase)).toBeNull();
+  });
+  it.each(["sign-out", "sign-in", "restore"])(
+    "invalidates cached identity on %s even if deletion fails",
+    async (change) => {
+      await saveSessionIdentity(currentSessionGeneration(), scope);
+      vi.mocked(SecureStore.deleteItemAsync).mockRejectedValue(new Error("storage unavailable"));
+      if (change === "sign-out") await clearSessionToken();
+      if (change === "sign-in") await saveSessionToken("fake-session-a");
+      if (change === "restore") await restoreSessionToken("fake-session-a");
+      expect(await loadSessionIdentity(scope.apiBase)).toBeNull();
+    },
+  );
   it("loads the scope only for the exact stored session", async () => {
     await saveVerifiedIntegrationsScope(currentSessionGeneration(), scope);
     expect(await loadVerifiedIntegrationsScope()).toEqual(scope);

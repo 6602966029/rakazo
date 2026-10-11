@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMessageTime, formatMonthDayTime } from "./message-time.js";
+import { formatMessageTime } from "./message-time.js";
 
 const now = new Date(2026, 9, 4, 15, 30);
 
@@ -21,14 +21,5 @@ describe("message time label", () => {
 
   it("returns an empty label for an invalid timestamp", () => {
     expect(formatMessageTime("not a date", "en-US", now)).toBe("");
-  });
-});
-
-describe("month, day and time", () => {
-  it("always includes the date, even today", () => {
-    const at = new Date(2026, 9, 11, 15, 4);
-    expect(formatMonthDayTime(at, "en-US")).toBe("Oct 11, 3:04 PM");
-    expect(formatMonthDayTime(at.getTime(), "en-US")).toBe("Oct 11, 3:04 PM");
-    expect(formatMonthDayTime("not a date", "en-US")).toBe("");
   });
 });

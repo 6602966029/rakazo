@@ -39,7 +39,6 @@ import {
   resolveComposerSendPlan,
   resolvePersonaColorDef,
   selectedAskActionLabel,
-  sendProgress,
   threadWindowMessages,
   timeSeparatorIds,
   userVisibleMessages,
@@ -100,7 +99,6 @@ import { ChoiceCard } from "../components/ChoiceCard";
 import { ComputerCard } from "../components/ComputerCard";
 import { ComposerReplyPreview } from "../components/composer-reply-preview";
 import { GlassSurface } from "../components/glass-surface";
-import { HeldSendsDivider } from "../components/held-sends-divider";
 import type { ImageArtifactPreviewTarget } from "../components/image-artifact-viewer";
 import { InlineImageAttachment } from "../components/inline-image-attachment";
 import { McpApprovalCard } from "../components/McpApprovalCard";
@@ -197,7 +195,6 @@ import { ThreadReadOnlyContext } from "../lib/thread-read-only";
 import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
 import { ThreadScrollBehavior } from "../lib/thread-scroll";
 import { reconcileVisibleThreadSnapshot } from "../lib/thread-snapshot";
-import { toast } from "../lib/toast";
 import { errorText } from "../lib/user-error";
 import { speakQueue, speakText } from "../lib/voice";
 import {
@@ -1520,7 +1517,7 @@ function Thread() {
     if (originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
     const result = await feedback.cancel(attempt, putBackInComposer);
     if (result === "sending") {
-      toast.show(t("This message is already sending and can't be canceled."), { variant: "info" });
+      Alert.alert(t("This message is already sending and can't be canceled."));
     }
   }
 
@@ -1531,14 +1528,15 @@ function Thread() {
     const { originThreadKey } = payload;
     if (!composer || originThreadKey !== (activeGroupId.current ?? activeBotId.current))
       return false;
+    const restored = payload.attachments.filter((attachment) => attachment.contentBase64);
+    const room = Math.max(ATTACHMENT_MAX_COUNT - activePendingAttachments.length, 0);
+    if (restored.length !== payload.attachments.length || restored.length > room) return false;
     composer.restore(payload.composer);
     const replyTo = snapRef.current?.messages.find(({ id }) => id === payload.replyTargetId);
     if (replyTo && !replyTarget) {
       setReplyTarget(replyTo);
       setReplyQuote(payload.replyQuote);
     }
-    const restored = payload.attachments.filter((attachment) => attachment.contentBase64);
-    const room = Math.max(ATTACHMENT_MAX_COUNT - activePendingAttachments.length, 0);
     setPendingAttachments((current) => [
       ...current,
       ...restored.slice(0, room).map((attachment) => ({
@@ -2158,7 +2156,6 @@ function Thread() {
       </Pressable>
     ) : null;
 
-  const progress = sendProgress(feedback.unsentSends);
   const unsentRows = feedback.unsentSends
     .map((attempt) => `${attempt.clientNonce}:${attempt.state}:${attempt.heldOffline}`)
     .join("|");
@@ -2168,13 +2165,10 @@ function Thread() {
       scrollToUnsentAfterLayout.current = true;
     }
   }, [unsentRows]);
-  const firstHeld = feedback.unsentSends.find((attempt) => attempt.state === "queued");
   const unsentSendBubbles = feedback.unsentSends.map((attempt) => (
     <Fragment key={attempt.clientNonce}>
-      {attempt === firstHeld ? <HeldSendsDivider /> : null}
       <OptimisticSendBubble
         attempt={attempt}
-        progressSince={progress?.entry === attempt ? progress.since : undefined}
         onRetry={() => retrySend(attempt)}
         onCancelSend={() => void cancelSend(attempt)}
         onSelectText={setSelectableText}

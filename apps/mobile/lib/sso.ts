@@ -5,7 +5,6 @@ import {
   replaceSessionTokenIfCurrent,
   tokenFromAuthResponse,
 } from "./session";
-import { clearUnsentSends } from "./thread-feedback";
 import { authErrorText } from "./user-error";
 
 let inFlight = false;
@@ -87,11 +86,8 @@ export async function continueWithSso(
     if (!user || (action === "reauthenticate" && (!previous || previous !== user)))
       throw new Error(t("Could not continue"));
     requireCurrentSession();
-    if (action === "sign-in") {
-      if (!(await clearSpace())) throw new Error(t("Could not clear the previous space"));
-      // A new sign-in never inherits unsent messages, even ones a failed sign-out left on disk.
-      clearUnsentSends();
-    }
+    if (action === "sign-in" && !(await clearSpace()))
+      throw new Error(t("Could not clear the previous space"));
     return await replaceSessionTokenIfCurrent(generation, token);
   } finally {
     inFlight = false;

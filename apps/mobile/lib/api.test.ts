@@ -103,7 +103,12 @@ describe("mobile API authentication", () => {
     configureUnsentSends({
       request: rpc,
       serverReachable: () => true,
-      scope: () => ({ apiBase: "http://127.0.0.1:3100", spaceId: null }),
+      scope: () => ({
+        apiBase: "http://127.0.0.1:3100",
+        userId: null,
+        cacheSession: null,
+        spaceId: null,
+      }),
       disk: { clear, save: vi.fn() } as unknown as UnsentDisk,
       errorText: String,
       notDelivered: vi.fn(),

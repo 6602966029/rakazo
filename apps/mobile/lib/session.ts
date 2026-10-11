@@ -1,10 +1,9 @@
 import type { AvatarStyle } from "@rakazo/contracts";
 import * as SecureStore from "expo-secure-store";
-import { invalidateArtifactCacheSession } from "./artifact-cache-session";
+import { artifactCacheSession, invalidateArtifactCacheSession } from "./artifact-cache-session";
 import { clearAvatarStyle, saveAvatarStyle } from "./avatar-style";
 import { stopLiveNotifications } from "./live-notifications";
 import { clearUnsentSends } from "./thread-feedback";
-import { toast } from "./toast";
 
 const SESSION_KEY = "rakazo.session_token";
 const INTEGRATIONS_SCOPE_KEY = "rakazo.integrations-scope";
@@ -26,10 +25,13 @@ function enqueueScopeWrite(task: () => Promise<void>): Promise<void> {
 
 function invalidateSessionCaches(): Promise<void> {
   scopeInvalidated = true;
+  sessionIdentity = null;
+  identityInvalidated = true;
   const clearingArtifacts = invalidateArtifactCacheSession();
   return enqueueScopeWrite(async () => {
     await clearingArtifacts;
     try {
+      await SecureStore.deleteItemAsync(IDENTITY_KEY);
       await SecureStore.deleteItemAsync(INTEGRATIONS_SCOPE_KEY);
     } catch {
       try {
@@ -115,7 +117,7 @@ export async function loadSessionToken() {
 
 export async function saveSessionToken(token: string) {
   sessionGeneration += 1;
-  toast.resume();
+  clearUnsentSends();
   const clearingScope = invalidateSessionCaches();
   await SecureStore.setItemAsync(SESSION_KEY, token);
   await clearingScope;
@@ -127,8 +129,6 @@ export async function saveSessionToken(token: string) {
 export async function clearSessionToken(): Promise<boolean> {
   sessionGeneration += 1;
   clearUnsentSends();
-  // A send failure from the previous account must not show after it signed out.
-  toast.suspend();
   const clearingScope = invalidateSessionCaches();
   await stopLiveNotifications(true).catch(() => undefined);
   const tokenCleared = await clearStoredSessionToken();
@@ -167,6 +167,7 @@ async function clearStoredSessionToken(): Promise<boolean> {
 /** Restores the current-server session in memory even when persistence is unavailable. */
 export async function restoreSessionToken(token: string) {
   sessionGeneration += 1;
+  clearUnsentSends();
   const clearingScope = invalidateSessionCaches();
   if (!token) {
     await clearingScope;
@@ -242,4 +243,68 @@ function jsonToken(body: unknown): string {
     return (session as { token: string }).token;
   }
   return "";
+}
+
+const IDENTITY_KEY = "rakazo.verified-identity";
+export type SessionIdentity = { apiBase: string; userId: string; cacheSession: string };
+let sessionIdentity: SessionIdentity | null = null;
+let identityInvalidated = false;
+export function currentSessionIdentity(): SessionIdentity | null {
+  return sessionIdentity;
+}
+/** Only a verified me response may bind cached data to the active bearer. */
+export function saveSessionIdentity(
+  generation: number,
+  identity: Omit<SessionIdentity, "cacheSession">,
+): Promise<void> {
+  if (
+    generation === sessionGeneration &&
+    sessionIdentity &&
+    (sessionIdentity.apiBase !== identity.apiBase || sessionIdentity.userId !== identity.userId)
+  ) {
+    clearUnsentSends();
+    void invalidateSessionCaches();
+  }
+  return enqueueScopeWrite(async () => {
+    const token = await snapshotSessionToken();
+    if (generation !== sessionGeneration || !token.ok || !token.value) return;
+    const cacheSession = await artifactCacheSession(token.value);
+    if (generation !== sessionGeneration) return;
+    sessionIdentity = { ...identity, cacheSession };
+    identityInvalidated = false;
+    await SecureStore.setItemAsync(
+      IDENTITY_KEY,
+      JSON.stringify({ ...sessionIdentity, token: token.value }),
+    ).catch(() => undefined);
+  });
+}
+export async function loadSessionIdentity(apiBase: string): Promise<SessionIdentity | null> {
+  if (identityInvalidated) return null;
+  const generation = sessionGeneration;
+  const token = await snapshotSessionToken();
+  try {
+    const stored = JSON.parse((await SecureStore.getItemAsync(IDENTITY_KEY)) ?? "null");
+    if (
+      identityInvalidated ||
+      generation !== sessionGeneration ||
+      !token.ok ||
+      !token.value ||
+      stored?.token !== token.value ||
+      stored.apiBase !== apiBase ||
+      typeof stored.userId !== "string" ||
+      !stored.userId
+    )
+      return null;
+    const cacheSession = await artifactCacheSession(token.value);
+    if (
+      generation !== sessionGeneration ||
+      identityInvalidated ||
+      cacheSession !== stored.cacheSession
+    )
+      return null;
+    sessionIdentity = { apiBase, userId: stored.userId, cacheSession };
+    return sessionIdentity;
+  } catch {
+    return null;
+  }
 }

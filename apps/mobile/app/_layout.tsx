@@ -19,7 +19,6 @@ import { CallCard } from "../components/CallCard";
 import { ComputerUpdateProgress } from "../components/computer-update-progress";
 import { floatingHeaderOptions, glassHeaderOptions } from "../components/glass-title";
 import { NativeSymbol } from "../components/native-symbol";
-import { ToastHost } from "../components/toast-host";
 import { VoicePlayerBar } from "../components/voice-player-bar";
 import {
   currentApiBase,
@@ -251,7 +250,6 @@ export default function Layout() {
                 </View>
                 <ComputerUpdateProgress />
                 <CallCard />
-                <ToastHost />
               </ThemeProvider>
             </ChatContentProviders>
           </AvatarStyleProvider>

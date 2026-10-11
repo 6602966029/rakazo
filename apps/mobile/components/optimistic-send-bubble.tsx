@@ -1,43 +1,31 @@
-import { formatMonthDayTime } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { Image, Platform, Pressable, Text, useWindowDimensions, View } from "react-native";
-import { dateLocaleForUi, useI18n } from "../lib/i18n";
+import { useI18n } from "../lib/i18n";
 import { presentMessageActionSheet } from "../lib/message-action-sheet";
 import { messageMenuEntry } from "../lib/message-context-menu";
 import { useMobileTokens, useResolvedAppearance } from "../lib/native";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { MessageContextMenu } from "./message-context-menu";
-import { SendProgress } from "./send-progress";
 
 /** The user's message until the server has it: shown at once, like a sent one, with its send state. */
 export function OptimisticSendBubble({
   attempt,
-  progressSince,
   onRetry,
   onCancelSend,
   onSelectText,
 }: {
   attempt: SendAttempt;
-  /** Set on the bubble that shows send progress: since when sending has been going on. */
-  progressSince?: number;
   onRetry: () => void;
   onCancelSend: () => void;
   onSelectText: (text: string) => void;
 }) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const tokens = useMobileTokens();
   const colorScheme = useResolvedAppearance();
   const { width: windowWidth } = useWindowDimensions();
   const { payload, state } = attempt;
   const undelivered = state === "failed" || state === "refused";
-  const footer =
-    state === "pending" && attempt.heldOffline
-      ? t("Sent while offline · {time}", {
-          time: formatMonthDayTime(attempt.createdAt, dateLocaleForUi(locale)),
-        })
-      : undelivered
-        ? t("Not delivered")
-        : null;
+  const footer = undelivered ? t("Not sent · Tap to retry") : null;
   const stateLabel =
     footer ??
     (state === "queued" ? t("Messages waiting to send until the server reconnects") : t("Sending"));
@@ -144,47 +132,17 @@ export function OptimisticSendBubble({
               </Text>
             </View>
           ))}
-          {progressSince !== undefined ? <SendProgress since={progressSince} /> : null}
         </View>
       </MessageContextMenu>
       {footer ? (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            maxWidth: "100%",
-            gap: 6,
-            // Clears the progress bar that hangs below the bubble's corner.
-            marginTop: progressSince !== undefined ? 6 : 0,
-          }}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("Not sent · Tap to retry")}
+          hitSlop={8}
+          onPress={onRetry}
         >
-          {/* The bubble's own label already says this. Long captions wrap instead of widening the row. */}
-          <Text
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-            style={{
-              color: tokens.mutedForeground,
-              fontSize: 12,
-              flexShrink: 1,
-              textAlign: "right",
-            }}
-          >
-            {footer}
-          </Text>
-          {state === "failed" ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("Retry send")}
-              hitSlop={8}
-              onPress={onRetry}
-            >
-              <Text style={{ color: tokens.primary, fontSize: 12, fontWeight: "600" }}>
-                {t("Retry")}
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
+          <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>{footer}</Text>
+        </Pressable>
       ) : null}
     </View>
   );

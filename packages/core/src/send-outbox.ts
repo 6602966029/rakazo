@@ -17,9 +17,6 @@ export type OutboxEntry = {
 
 /** After the server accepted a send, how long it may take to appear in the thread while connected. */
 export const SEND_ECHO_TIMEOUT_MS = 120_000;
-/** A send shows its progress only once it has taken this long. */
-export const SEND_PROGRESS_DELAY_MS = 2_000;
-
 /**
  * A new send is held while the live connection is down, and behind a held message in its thread
  * until the server has accepted that one, so it can't arrive first (e.g. while that one uploads).
@@ -73,19 +70,6 @@ export async function sendWithOneResend<T>(send: () => Promise<T>): Promise<T> {
     if (!isServerUnreachable(error)) throw error;
     return send();
   }
-}
-
-/**
- * The bubble that shows send progress (the newest one being sent) and since when: the oldest of
- * those attempts, so a row of slow sends shows one indicator.
- */
-export function sendProgress<T extends OutboxEntry & { attemptedAt?: number }>(
-  entries: readonly T[],
-): { entry: T; since: number } | null {
-  const pending = entries.filter((entry) => entry.state === "pending" && entry.attemptedAt);
-  const newest = pending.at(-1);
-  if (!newest) return null;
-  return { entry: newest, since: Math.min(...pending.map((entry) => entry.attemptedAt!)) };
 }
 
 /**
