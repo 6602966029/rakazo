@@ -4,6 +4,7 @@ import { artifactCacheSession } from "./artifact-cache-session";
 import { AVATAR_STYLE_KEY, getCachedAvatarStyle, saveAvatarStyle } from "./avatar-style.js";
 import {
   clearSessionToken,
+  currentReadySessionGeneration,
   currentSessionGeneration,
   loadSessionToken,
   loadVerifiedIntegrationsScope,
@@ -46,11 +47,15 @@ describe("mobile session storage", () => {
     });
     const listener = vi.fn();
     const unsubscribe = subscribeSessionGeneration(listener);
+    const ready = currentReadySessionGeneration();
     const pending = saveSessionToken("fake-next-token");
+    expect(currentReadySessionGeneration()).toBe(ready);
+    expect(currentSessionGeneration()).toBeGreaterThan(ready);
     expect(listener).not.toHaveBeenCalled();
     finish();
     await pending;
     expect(listener).toHaveBeenCalledOnce();
+    expect(currentReadySessionGeneration()).toBe(currentSessionGeneration());
     unsubscribe();
   });
   it("hides the previous bearer while a replacement token is being stored", async () => {

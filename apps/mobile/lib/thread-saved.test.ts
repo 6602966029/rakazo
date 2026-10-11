@@ -155,16 +155,18 @@ describe("saved chat on open", () => {
   });
 
   it("hides retained messages until they belong to the rendered session", () => {
-    const start = source.indexOf("  const snap = loadedSnap.sessionGeneration");
+    const start = source.indexOf("  const snap =");
     const end = source.indexOf("  const streamResponses", start);
     const visible = new Function(
-      "sessionEpoch",
+      "currentSessionGeneration",
       "loadedSnap",
       `${source.slice(start, end)}return snap;`,
     );
     const privateMessages = snapshot(["private"]);
-    expect(visible(1, { sessionGeneration: 0, snapshot: privateMessages })).toBeNull();
-    expect(visible(1, { sessionGeneration: 1, snapshot: privateMessages })).toBe(privateMessages);
+    expect(visible(() => 1, { sessionGeneration: 0, snapshot: privateMessages })).toBeNull();
+    expect(visible(() => 1, { sessionGeneration: 1, snapshot: privateMessages })).toBe(
+      privateMessages,
+    );
   });
 
   it("publishes verified ownership even when the visible messages are unchanged", () => {

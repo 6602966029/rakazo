@@ -193,7 +193,11 @@ import {
 } from "../lib/saved-chats";
 import { secretDestinationLabel } from "../lib/secret-destination";
 import { selectableTextFromMarkdown } from "../lib/selectable-text";
-import { currentSessionGeneration, subscribeSessionGeneration } from "../lib/session";
+import {
+  currentReadySessionGeneration,
+  currentSessionGeneration,
+  subscribeSessionGeneration,
+} from "../lib/session";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { deliverSend, settleComposer, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
@@ -499,8 +503,8 @@ function Thread() {
   const savedWriter = useRef(savedChatWriter());
   const sessionEpoch = useSyncExternalStore(
     subscribeSessionGeneration,
-    currentSessionGeneration,
-    currentSessionGeneration,
+    currentReadySessionGeneration,
+    currentReadySessionGeneration,
   );
   const snapshotOrigin = useRef<{
     sessionGeneration: number;
@@ -509,7 +513,8 @@ function Thread() {
     userId: string;
   } | null>(null);
   // Retained history can render again only after the replacement session verifies its owner.
-  const snap = loadedSnap.sessionGeneration === sessionEpoch ? loadedSnap.snapshot : null;
+  const snap =
+    loadedSnap.sessionGeneration === currentSessionGeneration() ? loadedSnap.snapshot : null;
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,
@@ -1384,6 +1389,9 @@ function Thread() {
     liveSubscribed.current = false;
     showSavedThread(abort.signal);
     void (async () => {
+      const token = await loadSessionToken();
+      if (!token || abort.signal.aborted || sessionGeneration !== currentSessionGeneration())
+        return;
       // Pending search jumps load the around-page separately; avoid replacing it with latest.
       const next = messageId
         ? await rpc<MobileSnapshot>("threads/get", groupId ? { groupId } : { botId: botId! }).catch(

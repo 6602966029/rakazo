@@ -120,6 +120,10 @@ let sessionFallback: string | undefined;
 /** Bumped by every session change, so a late response can tell it no longer owns the session. */
 let sessionGeneration = 0;
 
+let readySessionGeneration = 0;
+export function currentReadySessionGeneration() {
+  return readySessionGeneration;
+}
 const sessionListeners = new Set<() => void>();
 export function subscribeSessionGeneration(listener: () => void): () => void {
   sessionListeners.add(listener);
@@ -128,6 +132,7 @@ export function subscribeSessionGeneration(listener: () => void): () => void {
   };
 }
 function publishSessionGeneration() {
+  readySessionGeneration = sessionGeneration;
   for (const listener of sessionListeners) {
     try {
       listener();
