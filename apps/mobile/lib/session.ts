@@ -17,9 +17,12 @@ export type VerifiedIntegrationsScope = {
 let scopeInvalidated = false;
 let scopeWrites: Promise<void> = Promise.resolve();
 
-function enqueueScopeWrite(task: () => Promise<void>): Promise<void> {
+function enqueueScopeWrite<T>(task: () => Promise<T>): Promise<T> {
   const next = scopeWrites.then(task, task);
-  scopeWrites = next.catch(() => undefined);
+  scopeWrites = next.then(
+    () => undefined,
+    () => undefined,
+  );
   return next;
 }
 
@@ -121,7 +124,7 @@ export async function saveSessionToken(token: string) {
   sessionFallback = undefined;
   clearUnsentSends();
   const clearingScope = invalidateSessionCaches();
-  await SecureStore.setItemAsync(SESSION_KEY, token);
+  await enqueueScopeWrite(() => SecureStore.setItemAsync(SESSION_KEY, token));
   await clearingScope;
   if (generation !== sessionGeneration) return;
   sessionInvalidated = false;
@@ -130,13 +133,14 @@ export async function saveSessionToken(token: string) {
 
 /** Clears the session. Returns false only when SecureStore could neither delete nor overwrite. */
 export async function clearSessionToken(): Promise<boolean> {
-  sessionGeneration += 1;
+  const generation = ++sessionGeneration;
   sessionInvalidated = true;
   sessionFallback = undefined;
   clearUnsentSends();
   const clearingScope = invalidateSessionCaches();
+  const clearingToken = clearStoredSessionToken(generation);
   await stopLiveNotifications(true).catch(() => undefined);
-  const tokenCleared = await clearStoredSessionToken();
+  const tokenCleared = await clearingToken;
   await clearingScope;
   // Best-effort: a stuck style must not block sign-out or restore a wiped token.
   await clearAvatarStyle();
@@ -149,33 +153,36 @@ export function saveAvatarStyleIfCurrent(generation: number, style: AvatarStyle)
   return saveAvatarStyle(style).then(() => generation === sessionGeneration);
 }
 
-async function clearStoredSessionToken(): Promise<boolean> {
-  try {
-    await SecureStore.deleteItemAsync(SESSION_KEY);
-    sessionInvalidated = false;
-    sessionFallback = undefined;
-    return true;
-  } catch {
+async function clearStoredSessionToken(generation: number): Promise<boolean> {
+  return enqueueScopeWrite(async () => {
+    let cleared = false;
     try {
-      await SecureStore.setItemAsync(SESSION_KEY, "");
-      sessionInvalidated = false;
-      sessionFallback = undefined;
-      return true;
+      await SecureStore.deleteItemAsync(SESSION_KEY);
+      cleared = true;
     } catch {
-      sessionInvalidated = true;
-      sessionFallback = undefined;
-      return false;
+      try {
+        await SecureStore.setItemAsync(SESSION_KEY, "");
+        cleared = true;
+      } catch {
+        // A failed wipe keeps the bearer invalid in memory.
+      }
     }
-  }
+    if (generation === sessionGeneration) {
+      sessionInvalidated = !cleared;
+      sessionFallback = undefined;
+    }
+    return cleared;
+  });
 }
 
 /** Restores the current-server session in memory even when persistence is unavailable. */
 export async function restoreSessionToken(token: string) {
-  sessionGeneration += 1;
+  const generation = ++sessionGeneration;
   clearUnsentSends();
   const clearingScope = invalidateSessionCaches();
   if (!token) {
     await clearingScope;
+    if (generation !== sessionGeneration) return;
     sessionInvalidated = false;
     sessionFallback = undefined;
     return;
@@ -183,8 +190,10 @@ export async function restoreSessionToken(token: string) {
   try {
     await saveSessionToken(token);
   } catch {
-    sessionInvalidated = false;
-    sessionFallback = token;
+    if (sessionGeneration === generation + 1) {
+      sessionInvalidated = false;
+      sessionFallback = token;
+    }
   }
 }
 

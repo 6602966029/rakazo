@@ -46,6 +46,7 @@ describe("mobile session storage", () => {
         }),
     );
     const saving = saveSessionToken("fake-new-token");
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
     expect(await snapshotSessionToken()).toEqual({ ok: true, value: "" });
     finish();
     await saving;
@@ -64,6 +65,38 @@ describe("mobile session storage", () => {
     finish("fake-old-token");
     expect(await reading).toEqual({ ok: true, value: "" });
   });
+
+  it.each(["replacement", "sign-out", "sign-out then replacement"])(
+    "serializes a pending token write before %s",
+    async (change) => {
+      let stored = "fake-old-token";
+      let finish!: () => void;
+      vi.mocked(SecureStore.getItemAsync).mockImplementation(async (key) =>
+        key === "rakazo.session_token" ? stored : null,
+      );
+      vi.mocked(SecureStore.setItemAsync).mockImplementation(async (key, value) => {
+        if (key !== "rakazo.session_token") return;
+        if (value === "fake-first-token")
+          await new Promise<void>((resolve) => {
+            finish = resolve;
+          });
+        stored = value;
+      });
+      const first = saveSessionToken("fake-first-token");
+      await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+      vi.mocked(SecureStore.deleteItemAsync).mockImplementation(async (key) => {
+        if (key === "rakazo.session_token") stored = "";
+      });
+      const clearing =
+        change === "sign-out then replacement" ? clearSessionToken() : Promise.resolve();
+      const second =
+        change === "sign-out" ? clearSessionToken() : saveSessionToken("fake-second-token");
+      expect(await snapshotSessionToken()).toEqual({ ok: true, value: "" });
+      finish();
+      await Promise.all([first, second, clearing]);
+      expect(await loadSessionToken()).toBe(change === "sign-out" ? "" : "fake-second-token");
+    },
+  );
 
   it("stores and clears only the session token key", async () => {
     await saveSessionToken("secret-token");
