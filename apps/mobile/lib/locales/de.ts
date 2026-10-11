@@ -1,4 +1,6 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Couldn't refresh — showing the last loaded messages.":
+    "Aktualisierung fehlgeschlagen – die zuletzt geladenen Nachrichten werden angezeigt.",
   "Try Again": "Erneut versuchen",
   "Not sent · Tap to retry": "Nicht gesendet · Zum Wiederholen tippen",
   Photo: "Foto",
@@ -678,12 +680,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Android blocked notifications.": "Android hat Benachrichtigungen blockiert.",
   // lib/user-error.ts
   "Could not reach the server": "Server konnte nicht erreicht werden",
-  "Reconnecting to the server…": "Verbindung zum Server wird wiederhergestellt…",
-  "Can't reach the server": "Server nicht erreichbar",
-  "Your bots are safe — showing saved chats.":
-    "Deine Bots sind sicher – gespeicherte Chats werden angezeigt.",
-  "Couldn't refresh — showing the last loaded messages.":
-    "Aktualisierung fehlgeschlagen – die zuletzt geladenen Nachrichten werden angezeigt.",
   "Enter a password": "Gib ein Passwort ein",
   "Enter a valid email": "Gib eine gültige E-Mail-Adresse ein",
   "Something went wrong. Try again.": "Etwas ist schiefgelaufen. Versuche es erneut.",

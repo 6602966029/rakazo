@@ -1,4 +1,5 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Couldn't refresh — showing the last loaded messages.": "无法刷新——显示最近加载的消息。",
   "Try Again": "重试",
   "Not sent · Tap to retry": "未发送 · 轻点重试",
   Photo: "照片",
@@ -240,10 +241,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Could not play a sample": "无法播放示例",
   "Could not play that clip.": "无法播放该音频。",
   "Could not reach the server": "无法连接服务器",
-  "Reconnecting to the server…": "正在重新连接服务器…",
-  "Can't reach the server": "无法连接服务器",
-  "Your bots are safe — showing saved chats.": "你的 Bot 是安全的 — 正在显示已保存的聊天。",
-  "Couldn't refresh — showing the last loaded messages.": "无法刷新——显示最近加载的消息。",
   "Enter a password": "请输入密码",
   "Enter a valid email": "请输入有效的邮箱地址",
   "Something went wrong. Try again.": "出了点问题，请重试。",

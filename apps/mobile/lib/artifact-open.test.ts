@@ -45,7 +45,9 @@ vi.mock("expo-file-system", () => {
   }
   class File extends Node {
     override get size() {
-      return state.fileBytes;
+      return this.uri.endsWith(".json")
+        ? new TextEncoder().encode(state.files.get(this.uri) ?? "").length
+        : state.fileBytes;
     }
     get lastModified() {
       return state.written.get(this.uri) ?? 0;
@@ -132,6 +134,42 @@ beforeEach(() => {
 });
 
 describe("artifact preview caches", () => {
+  it("caps the number of tiny previews as well as their bytes", async () => {
+    const api = await load();
+    for (let i = 0; i <= api.ARTIFACT_PREVIEW_CACHE_ENTRIES; i++)
+      await api.imageArtifactUri(target, `art-${i}`, "image/png");
+    expect([...state.files.keys()].filter((path) => path.endsWith(".png"))).toHaveLength(
+      api.ARTIFACT_PREVIEW_CACHE_ENTRIES,
+    );
+  });
+  it.each(["account", "server"])(
+    "cannot serve old previews offline after a %s change",
+    async (change) => {
+      state.verified = { apiBase: state.apiBase, userId: state.userId, selectionId: null };
+      const api = await load();
+      await api.imageArtifactUri(target, "private-artifact", "image/png");
+      state.generation++;
+      if (change === "account") {
+        await (await import("./artifact-cache-session")).invalidateArtifactCacheSession();
+        state.token = "fake-token-b";
+        state.userId = "user-b";
+        state.verified = { apiBase: state.apiBase, userId: state.userId, selectionId: null };
+      } else state.apiBase = "https://other.example.test";
+      state.rpc.mockRejectedValue(new TypeError("Network request failed"));
+      await expect(api.imageArtifactUri(target, "private-artifact", "image/png")).rejects.toThrow(
+        "Network request failed",
+      );
+    },
+  );
+  it("clears previews and in-memory identities on a session wipe", async () => {
+    const api = await load();
+    await api.imageArtifactUri(target, "art-1", "image/png");
+    api.clearArtifactPreviews();
+    expect(state.files.size).toBe(0);
+    state.rpc.mockRejectedValue(new TypeError("Network request failed"));
+    await expect(api.imageArtifactUri(target, "art-1", "image/png")).rejects.toThrow();
+  });
+
   it("keeps the large-payload download timeout and captured auth context", async () => {
     const api = await load();
     await api.readMobileArtifactText(target, "art-1", "text/plain");
@@ -329,8 +367,8 @@ describe("artifact preview caches", () => {
   });
 
   it("deletes the least recently written previews past the disk budget", async () => {
-    // Each preview is a file and its sidecar: 2 × 40 MB, so the 200 MB budget holds two.
-    state.fileBytes = 40 * 1024 * 1024;
+    // Each preview is 80 MiB plus a small sidecar, so the 200 MiB budget holds two.
+    state.fileBytes = 80 * 1024 * 1024;
     const api = await load();
     for (let index = 0; index < 4; index += 1) {
       await api.imageArtifactUri(target, `art-${index}`, "image/png");

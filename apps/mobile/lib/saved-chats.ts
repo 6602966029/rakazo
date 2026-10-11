@@ -8,7 +8,7 @@ import type {
   MobileSpace,
   MobileSpaceNavigation,
 } from "./api";
-import { currentApiBase, isServerReachable, rpc, selectedSpaceId } from "./api";
+import { currentApiBase, selectedSpaceId } from "./api";
 import { artifactCacheSession } from "./artifact-cache-session";
 import type { IntegrationsCacheScope } from "./integrations-cache";
 import { integrationsCacheScope, isIntegrationsScopeCurrent } from "./integrations-cache";
@@ -81,8 +81,9 @@ export const SAVED_CHATS = 40;
 /** Coalesces a chat's stream updates into one write once it has been quiet this long. */
 export const SAVED_CHAT_WRITE_DELAY_MS = 600;
 const ROOT = "saved-chats-v1";
-
-type IndexEntry = { spaceId: string; target: SavedChatTarget; signature?: string };
+export const SAVED_CHAT_MAX_BYTES = 1024 * 1024;
+export const SAVED_CHATS_MAX_BYTES = 20 * 1024 * 1024;
+const SAVED_INBOX_ROWS = 200;
 
 export function savedChatTarget(target: { botId?: string; groupId?: string }): SavedChatTarget {
   return target.groupId ? `group:${target.groupId}` : `bot:${target.botId}`;
@@ -105,24 +106,13 @@ function spaceFile(scope: SavedChatsScope, name: string): File {
 }
 
 function scopeKey(scope: SavedChatsScope, name: string): string {
-  return JSON.stringify([scope.apiBase, scope.userId, scope.spaceId, name]);
+  return JSON.stringify([scope.namespace, scope.apiBase, scope.userId, scope.spaceId, name]);
 }
 
 function readJson(file: File, key: string): Record<string, unknown> | null {
-  if (!file.exists) return null;
+  if (!file.exists || file.size > SAVED_CHAT_MAX_BYTES) return null;
   const data = JSON.parse(file.textSync());
   return data && typeof data === "object" && data.key === key ? data : null;
-}
-
-// What this process last wrote per file, so the inbox poll doesn't rewrite unchanged data.
-const written = new Map<string, string>();
-
-function writeJson(file: File, data: Record<string, unknown>): void {
-  const text = JSON.stringify(data);
-  if (written.get(file.uri) === text && file.exists) return;
-  file.create({ overwrite: true });
-  file.write(text);
-  written.set(file.uri, text);
 }
 
 function isRows(value: unknown): value is Array<{ id: string }> {
@@ -133,6 +123,7 @@ function isRows(value: unknown): value is Array<{ id: string }> {
 }
 
 export function readSavedInbox(scope: SavedChatsScope): SavedInbox | null {
+  if (!isIntegrationsScopeCurrent(scope)) return null;
   try {
     const data = readJson(spaceFile(scope, "inbox"), scopeKey(scope, "inbox"));
     const inbox = data?.inbox as SavedInbox | undefined;
@@ -162,14 +153,24 @@ export function writeSavedInbox(
 ): void {
   try {
     const inbox: SavedInbox = {
-      bots: navigation.current.bots.map((bot) => pick<MobileBot>(bot, BOT_FIELDS)),
-      groups: navigation.current.groups.map((group) => pick<MobileGroup>(group, GROUP_FIELDS)),
-      botSections: navigation.current.botSections,
-      spaces: navigation.spaces.map((space) => ({ ...space, externalConversations: [] })),
+      bots: navigation.current.bots
+        .slice(0, SAVED_INBOX_ROWS)
+        .map((bot) => pick<MobileBot>(bot, BOT_FIELDS)),
+      groups: navigation.current.groups
+        .slice(0, SAVED_INBOX_ROWS)
+        .map((group) => pick<MobileGroup>(group, GROUP_FIELDS)),
+      botSections: navigation.current.botSections.slice(0, SAVED_INBOX_ROWS),
+      spaces: navigation.spaces.slice(0, 40).map((space) => ({
+        ...space,
+        bots: space.bots.slice(0, SAVED_INBOX_ROWS),
+        groups: space.groups.slice(0, SAVED_INBOX_ROWS),
+        externalConversations: [],
+      })),
       // The profile initials and the Space the rows belong to.
       me: { userId: me.userId, spaceId: me.spaceId, name: me.name },
     };
-    writeJson(spaceFile(scope, "inbox"), { key: scopeKey(scope, "inbox"), inbox });
+    if (!isIntegrationsScopeCurrent(scope) || me.userId !== scope.userId) return;
+    writeSavedFile(scope, "inbox", { key: scopeKey(scope, "inbox"), inbox });
   } catch {
     // Saved chats are optional; storage failures must not block the inbox.
   }
@@ -230,50 +231,17 @@ export async function loadSavedInbox(): Promise<SavedInbox | null> {
   return inbox && isIntegrationsScopeCurrent(scope) ? inbox : null;
 }
 
-let refreshingSavedChats = false;
-let verifiedScope = "";
-
-/**
- * Saves a successful inbox load and the identity it verified, then brings saved chats whose row
- * changed up to date. Dropped when the session, server or Space changed while it loaded.
- */
+/** Saves the inbox only after the load verified its identity in the current session. */
 export function saveInbox(
   verifiedLoad: IntegrationsCacheScope,
   navigation: MobileSpaceNavigation,
   me: MobileMe,
 ): void {
-  if (!isIntegrationsScopeCurrent(verifiedLoad)) return;
-  if (verifiedScope !== JSON.stringify(verifiedLoad)) {
-    verifiedScope = JSON.stringify(verifiedLoad);
-    const { sessionGeneration, ...verified } = verifiedLoad;
-    void saveVerifiedIntegrationsScope(sessionGeneration, verified);
-  }
+  if (!isIntegrationsScopeCurrent(verifiedLoad) || verifiedLoad.userId !== me.userId) return;
+  const { sessionGeneration, ...verified } = verifiedLoad;
+  void saveVerifiedIntegrationsScope(sessionGeneration, verified);
   void withSessionNamespace(verifiedLoad).then((scope) => {
-    if (scope) saveInboxIn(scope, navigation, me);
-  });
-}
-
-function saveInboxIn(scope: SavedChatsScope, navigation: MobileSpaceNavigation, me: MobileMe) {
-  writeSavedInbox(scope, navigation, me);
-  if (refreshingSavedChats) return;
-  refreshingSavedChats = true;
-  const rows = [
-    ...navigation.current.bots.map((bot) => ({
-      target: savedChatTarget({ botId: bot.id }),
-      row: bot,
-    })),
-    ...navigation.current.groups.map((group) => ({
-      target: savedChatTarget({ groupId: group.id }),
-      row: group,
-    })),
-  ].map(({ target, row }) => ({ target, signature: savedChatSignature(row) }));
-  void refreshSavedChats(
-    scope,
-    rows,
-    (target) => rpc<MobileSnapshot>("threads/get", target),
-    () => isIntegrationsScopeCurrent(scope),
-  ).finally(() => {
-    refreshingSavedChats = false;
+    if (scope) writeSavedInbox(scope, navigation, me);
   });
 }
 
@@ -292,11 +260,13 @@ export function readSavedThread(
   scope: SavedChatsScope,
   target: SavedChatTarget,
 ): MobileSnapshot | null {
+  if (!isIntegrationsScopeCurrent(scope)) return null;
   try {
     const data = readJson(spaceFile(scope, target), scopeKey(scope, target));
     const snapshot = data?.snapshot as MobileSnapshot | undefined;
     if (
       !snapshot ||
+      savedChatTarget(snapshot) !== target ||
       typeof snapshot.threadId !== "string" ||
       !isRows(snapshot.messages) ||
       !snapshot.messages.every(
@@ -310,105 +280,51 @@ export function readSavedThread(
   }
 }
 
-function indexFile(scope: SavedChatsScope): File {
-  const root = userRoot(scope);
-  if (!root.exists) root.create({ intermediates: true, idempotent: true });
-  return new File(root, "index.json");
-}
-
-function readIndex(scope: SavedChatsScope): IndexEntry[] {
-  try {
-    const data = readJson(indexFile(scope), JSON.stringify([scope.apiBase, scope.userId, "index"]));
-    return Array.isArray(data?.chats)
-      ? data.chats.filter(
-          (entry: IndexEntry) =>
-            typeof entry?.spaceId === "string" && typeof entry.target === "string",
-        )
-      : [];
-  } catch {
-    return [];
+/** Evict oldest files before writing so corrupt metadata cannot bypass count or byte limits. */
+function writeSavedFile(
+  scope: SavedChatsScope,
+  target: SavedChatTarget,
+  data: Record<string, unknown>,
+): void {
+  if (!isIntegrationsScopeCurrent(scope)) return;
+  const text = JSON.stringify(data);
+  const bytes = new TextEncoder().encode(text).length;
+  if (bytes > SAVED_CHAT_MAX_BYTES) return;
+  const file = spaceFile(scope, target);
+  const files: File[] = [];
+  const collect = (directory: Directory) => {
+    for (const entry of directory.list()) {
+      if (entry instanceof File) {
+        if (entry.uri !== file.uri) files.push(entry);
+      } else collect(entry);
+    }
+  };
+  collect(userRoot(scope));
+  let total = bytes + files.reduce((sum, entry) => sum + entry.size, 0);
+  files.sort((a, b) => (a.lastModified ?? 0) - (b.lastModified ?? 0));
+  while (files.length >= SAVED_CHATS || total > SAVED_CHATS_MAX_BYTES) {
+    const oldest = files.shift()!;
+    const size = oldest.size;
+    oldest.delete();
+    total -= size;
   }
+  file.create({ overwrite: true });
+  file.write(text);
 }
-
-function writeIndex(scope: SavedChatsScope, chats: IndexEntry[]): void {
-  writeJson(indexFile(scope), {
-    key: JSON.stringify([scope.apiBase, scope.userId, "index"]),
-    chats,
-  });
-}
-
-/**
- * Saves the latest messages of a chat. The index lists chats oldest-written first; past
- * SAVED_CHATS the chat written longest ago is forgotten and its file deleted.
- */
-// Counts this process's writes per chat, so a background answer can tell the chat was saved while
-// it was loading.
-const chatWrites = new Map<string, number>();
 
 export function writeSavedThread(
   scope: SavedChatsScope,
   target: SavedChatTarget,
   snapshot: MobileSnapshot,
-  signature?: string,
 ): void {
-  const key = scopeKey(scope, target);
-  chatWrites.set(key, (chatWrites.get(key) ?? 0) + 1);
+  if (!isIntegrationsScopeCurrent(scope) || savedChatTarget(snapshot) !== target) return;
   try {
-    writeJson(spaceFile(scope, target), { key, snapshot: savedThreadSnapshot(snapshot) });
-    const index = readIndex(scope);
-    const isThis = (entry: IndexEntry) =>
-      entry.spaceId === scope.spaceId && entry.target === target;
-    // A write from the open chat keeps the row it was last refreshed for, so an unchanged row
-    // isn't downloaded again.
-    const kept = signature ?? index.find(isThis)?.signature;
-    const chats = index.filter((entry) => !isThis(entry));
-    chats.push({ spaceId: scope.spaceId, target, ...(kept ? { signature: kept } : {}) });
-    for (const evicted of chats.splice(0, Math.max(0, chats.length - SAVED_CHATS))) {
-      const file = spaceFile({ ...scope, spaceId: evicted.spaceId }, evicted.target);
-      if (file.exists) file.delete();
-    }
-    writeIndex(scope, chats);
+    writeSavedFile(scope, target, {
+      key: scopeKey(scope, target),
+      snapshot: savedThreadSnapshot(snapshot),
+    });
   } catch {
-    // Saved chats are optional; storage failures must not block the thread.
-  }
-}
-
-/** What a chat's inbox row looked like; a change means the saved copy is behind. */
-export function savedChatSignature(row: { updatedAt?: string | null; preview?: string }): string {
-  return JSON.stringify([row.updatedAt ?? null, row.preview ?? ""]);
-}
-
-/**
- * Re-fetches chats that are already saved and whose inbox row changed since; chats never opened
- * on this device are never fetched. `isCurrent` gates each write against a session change.
- */
-export async function refreshSavedChats(
-  scope: SavedChatsScope,
-  rows: Array<{ target: SavedChatTarget; signature: string }>,
-  load: (target: { botId: string } | { groupId: string }) => Promise<MobileSnapshot>,
-  isCurrent: () => boolean,
-): Promise<void> {
-  const saved = new Map(
-    readIndex(scope)
-      .filter((entry) => entry.spaceId === scope.spaceId)
-      .map((entry) => [entry.target, entry.signature]),
-  );
-  for (const row of rows) {
-    if (!saved.has(row.target) || saved.get(row.target) === row.signature) continue;
-    const id = row.target.slice(row.target.indexOf(":") + 1);
-    const writes = chatWrites.get(scopeKey(scope, row.target));
-    let snapshot: MobileSnapshot;
-    try {
-      snapshot = await load(row.target.startsWith("group:") ? { groupId: id } : { botId: id });
-    } catch {
-      // One chat failing (deleted, access removed) must not keep the others stale; an outage stops.
-      if (!isCurrent() || !isServerReachable()) return;
-      continue;
-    }
-    if (!isCurrent()) return;
-    // The open chat saved newer messages while this was loading.
-    if (chatWrites.get(scopeKey(scope, row.target)) !== writes) continue;
-    writeSavedThread(scope, row.target, snapshot, row.signature);
+    // Optional cache: failed writes never block a live thread.
   }
 }
 
@@ -434,9 +350,6 @@ export function savedChatWriter(delayMs = SAVED_CHAT_WRITE_DELAY_MS) {
 
 /** Deletes every saved inbox and chat on this device. */
 export function clearSavedChats(): void {
-  written.clear();
-  chatWrites.clear();
-  verifiedScope = "";
   try {
     const root = new Directory(Paths.cache, ROOT);
     if (root.exists) root.delete();

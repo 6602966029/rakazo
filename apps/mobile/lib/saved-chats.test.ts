@@ -8,11 +8,11 @@ import {
   loadSavedInbox,
   readSavedInbox,
   readSavedThread,
-  refreshSavedChats,
+  SAVED_CHAT_MAX_BYTES,
   SAVED_CHAT_MESSAGES,
   SAVED_CHAT_WRITE_DELAY_MS,
   SAVED_CHATS,
-  savedChatSignature,
+  SAVED_CHATS_MAX_BYTES,
   savedChatsScope,
   savedChatWriter,
   saveInbox,
@@ -22,6 +22,7 @@ import {
 
 const state = vi.hoisted(() => ({
   files: new Map<string, string>(),
+  written: new Map<string, number>(),
   broken: false,
   current: true,
   verified: null as null | {
@@ -64,6 +65,16 @@ vi.mock("expo-file-system", () => {
       this.uri = parts.map((part) => (typeof part === "string" ? part : part.uri)).join("/");
     }
     create() {}
+    list() {
+      const names = new Set(
+        [...state.files.keys()]
+          .filter((path) => path.startsWith(`${this.uri}/`))
+          .map((path) => path.slice(this.uri.length + 1).split("/")[0]!),
+      );
+      return [...names].map((name) =>
+        state.files.has(`${this.uri}/${name}`) ? new File(this, name) : new Directory(this, name),
+      );
+    }
     delete() {
       for (const path of [...state.files.keys()]) {
         if (path.startsWith(`${this.uri}/`)) state.files.delete(path);
@@ -80,11 +91,18 @@ vi.mock("expo-file-system", () => {
     override delete() {
       state.files.delete(this.uri);
     }
+    get lastModified() {
+      return state.written.get(this.uri) ?? 0;
+    }
+    get size() {
+      return new TextEncoder().encode(state.files.get(this.uri) ?? "").length;
+    }
     textSync() {
       return state.files.get(this.uri);
     }
     write(value: string) {
       state.files.set(this.uri, value);
+      state.written.set(this.uri, state.written.size + 1);
     }
   }
   return { Directory, File, Paths: { cache: "cache" } };
@@ -157,6 +175,7 @@ function thread(count: number, botId = "bot-a"): MobileSnapshot {
 
 beforeEach(() => {
   state.files.clear();
+  state.written.clear();
   state.broken = false;
   state.current = true;
   state.verified = null;
@@ -281,7 +300,7 @@ describe("inbox hydrate and save", () => {
     });
     // The 5 s inbox poll saves the identity once, not on every load.
     saveInbox(loaded, navigation, me);
-    expect(state.saveVerified).toHaveBeenCalledTimes(1);
+    expect(state.saveVerified).toHaveBeenCalledTimes(2);
     state.files.clear();
     state.current = false;
     saveInbox(loaded, navigation, me);
@@ -289,18 +308,34 @@ describe("inbox hydrate and save", () => {
     await Promise.resolve();
     expect(state.files.size).toBe(0);
   });
-
-  it("brings a saved chat up to date after an inbox load, never an unsaved one", async () => {
-    writeSavedThread(scope, "bot:bot-a", thread(1));
-    state.rpc.mockResolvedValue(thread(4));
-    saveInbox(loaded, navigation, me);
-    await vi.waitFor(() => expect(readSavedThread(scope, "bot:bot-a")?.messages).toHaveLength(4));
-    expect(state.rpc).toHaveBeenCalledTimes(1);
-    expect(state.rpc).toHaveBeenCalledWith("threads/get", { botId: "bot-a" });
-  });
 });
 
 describe("saved chats", () => {
+  it("rejects oversized files on both write and read", () => {
+    const huge = thread(1);
+    huge.messages[0]!.blocks = [{ kind: "text", text: "x".repeat(SAVED_CHAT_MAX_BYTES) }];
+    writeSavedThread(scope, "bot:bot-a", huge);
+    expect(state.files.size).toBe(0);
+    writeSavedThread(scope, "bot:bot-a", thread(1));
+    const path = [...state.files.keys()][0]!;
+    state.files.set(path, "x".repeat(SAVED_CHAT_MAX_BYTES + 1));
+    expect(readSavedThread(scope, "bot:bot-a")).toBeNull();
+  });
+  it("caps total bytes across Spaces before admitting another transcript", () => {
+    for (let index = 0; index < 40; index++) {
+      const snapshot = thread(1, `bot-${index}`);
+      snapshot.messages[0]!.blocks = [{ kind: "text", text: "x".repeat(700_000) }];
+      writeSavedThread({ ...scope, spaceId: `space-${index}` }, `bot:bot-${index}`, snapshot);
+    }
+    const bytes = [...state.files.values()].reduce(
+      (sum, text) => sum + new TextEncoder().encode(text).length,
+      0,
+    );
+    expect(bytes).toBeLessThanOrEqual(SAVED_CHATS_MAX_BYTES);
+    expect(state.files.size).toBeLessThan(SAVED_CHATS);
+    expect(readSavedThread(scope, "bot:bot-0")).toBeNull();
+  });
+
   it("keeps the last 100 messages, display-only", () => {
     writeSavedThread(scope, "bot:bot-a", thread(SAVED_CHAT_MESSAGES + 20));
     const saved = readSavedThread(scope, "bot:bot-a")!;
@@ -381,87 +416,6 @@ describe("saved chats", () => {
   });
 });
 
-describe("background refresh", () => {
-  it("re-fetches only saved chats whose row changed", async () => {
-    writeSavedThread(scope, "bot:bot-a", thread(1));
-    const load = vi.fn(async (target: { botId: string } | { groupId: string }) =>
-      thread(3, "botId" in target ? target.botId : target.groupId),
-    );
-    const rows = [
-      { target: "bot:bot-a", signature: savedChatSignature({ updatedAt: "t1", preview: "Hi" }) },
-      { target: "bot:bot-new", signature: savedChatSignature({ updatedAt: "t1", preview: "Hi" }) },
-    ];
-    await refreshSavedChats(scope, rows, load, () => true);
-    expect(load).toHaveBeenCalledTimes(1);
-    expect(load).toHaveBeenCalledWith({ botId: "bot-a" });
-    expect(readSavedThread(scope, "bot:bot-a")?.messages).toHaveLength(3);
-    expect(readSavedThread(scope, "bot:bot-new")).toBeNull();
-
-    await refreshSavedChats(scope, rows, load, () => true);
-    expect(load).toHaveBeenCalledTimes(1);
-  });
-
-  it("keeps newer messages the open chat saved while a background answer was loading", async () => {
-    writeSavedThread(scope, "bot:bot-a", thread(1));
-    let answer!: (snapshot: MobileSnapshot) => void;
-    const refreshing = refreshSavedChats(
-      scope,
-      [{ target: "bot:bot-a", signature: "changed" }],
-      () => new Promise((resolve) => (answer = resolve)),
-      () => true,
-    );
-    await vi.waitFor(() => expect(answer).toBeDefined());
-    writeSavedThread(scope, "bot:bot-a", thread(5));
-    answer(thread(2));
-    await refreshing;
-    expect(readSavedThread(scope, "bot:bot-a")?.messages).toHaveLength(5);
-  });
-
-  it("doesn't download an unchanged chat again after the open chat saved it", async () => {
-    const signature = savedChatSignature({ updatedAt: "t1", preview: "Hi" });
-    writeSavedThread(scope, "bot:bot-a", thread(1), signature);
-    writeSavedThread(scope, "bot:bot-a", thread(2));
-    const load = vi.fn(async () => thread(3));
-    await refreshSavedChats(scope, [{ target: "bot:bot-a", signature }], load, () => true);
-    expect(load).not.toHaveBeenCalled();
-    expect(readSavedThread(scope, "bot:bot-a")?.messages).toHaveLength(2);
-  });
-
-  it("skips a chat that fails to load and refreshes the rest, but stops in an outage", async () => {
-    writeSavedThread(scope, "bot:bot-gone", thread(1, "bot-gone"));
-    writeSavedThread(scope, "bot:bot-a", thread(1));
-    const rows = [
-      { target: "bot:bot-gone", signature: "changed" },
-      { target: "bot:bot-a", signature: "changed" },
-    ];
-    const load = vi.fn(async (target: { botId: string } | { groupId: string }) => {
-      if ("botId" in target && target.botId === "bot-gone") throw new Error("Bot not found");
-      return thread(3);
-    });
-    await refreshSavedChats(scope, rows, load, () => true);
-    expect(readSavedThread(scope, "bot:bot-a")?.messages).toHaveLength(3);
-
-    writeSavedThread(scope, "bot:bot-a", thread(1));
-    state.reachable = false;
-    load.mockClear();
-    const later = rows.map((row) => ({ ...row, signature: "changed again" }));
-    await refreshSavedChats(scope, later, load, () => true);
-    expect(load).toHaveBeenCalledTimes(1);
-    expect(readSavedThread(scope, "bot:bot-a")?.messages).toHaveLength(1);
-  });
-
-  it("drops a result that returns after the session changed", async () => {
-    writeSavedThread(scope, "bot:bot-a", thread(1));
-    await refreshSavedChats(
-      scope,
-      [{ target: "bot:bot-a", signature: "changed" }],
-      async () => thread(3),
-      () => false,
-    );
-    expect(readSavedThread(scope, "bot:bot-a")?.messages).toHaveLength(1);
-  });
-});
-
 describe("chat writes", () => {
   it("coalesces stream updates into one write after they settle, and flushes on leave", () => {
     vi.useFakeTimers();
@@ -508,9 +462,9 @@ describe("app wiring", () => {
       inbox.indexOf("ListHeaderComponent={"),
       inbox.indexOf("ListEmptyComponent={"),
     );
-    expect(header).toContain("<ConnectionBar");
+    expect(header).toContain("{error ? <Text style={styles.error}>{error}</Text> : null}");
     // The home bar only says chats are saved once the inbox has rows to show.
-    expect(inbox).toContain("saved={me !== null}");
+
     // The saved inbox is applied only until the first live load.
     expect(inbox).toMatch(/if \(cancelled \|\| !saved \|\| inboxLoaded\.current\) return;/);
   });

@@ -494,6 +494,9 @@ function Thread() {
   // The copy saved on this device stays on screen until a live snapshot replaces it.
   const [showingSaved, setShowingSaved] = useState(false);
   const savedWriter = useRef(savedChatWriter());
+  const snapshotOrigin = useRef<{ sessionGeneration: number; selectionId: string | null } | null>(
+    null,
+  );
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,
@@ -1039,11 +1042,20 @@ function Thread() {
     const targetBotId = botId;
     const targetGroupId = groupId;
     const epoch = historyEpoch.current;
+    const origin = {
+      sessionGeneration: currentSessionGeneration(),
+      selectionId: selectedSpaceId(),
+    };
     const generation = ++refreshGeneration.current;
     const next = await rpc<MobileSnapshot>(
       "threads/get",
       targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! },
     );
+    if (
+      origin.sessionGeneration !== currentSessionGeneration() ||
+      origin.selectionId !== selectedSpaceId()
+    )
+      return;
     // Only the newest started refresh may commit. Threads also receive live
     // events; an older snapshot must not overwrite those while a newer refresh
     // is already in flight. The subscription starts from the snapshot returned
@@ -1061,6 +1073,7 @@ function Thread() {
       activeGroupId: activeGroupId.current,
     });
     if (result.commit) {
+      snapshotOrigin.current = origin;
       commitSnap(
         mergeMobileSnapshot(snapRef.current, next, expandedHistoryThread.current === next.threadId),
       );
@@ -1320,6 +1333,7 @@ function Thread() {
     historyEpoch.current += 1;
     const abort = new AbortController();
     const subscriptionGeneration = ++liveSubscriptionGeneration.current;
+    const sessionGeneration = currentSessionGeneration();
     liveSubscribed.current = false;
     showSavedThread(abort.signal);
     void (async () => {
@@ -1338,13 +1352,14 @@ function Thread() {
       if (abort.signal.aborted || readOnly) return;
       let cursor = next?.cursor ?? -1;
       let retryMs = 250;
-      while (!abort.signal.aborted) {
+      while (!abort.signal.aborted && sessionGeneration === currentSessionGeneration()) {
         try {
           liveSubscribed.current = true;
           await subscribeThread(
             groupId ? { groupId } : { botId: botId! },
             cursor,
             (event) => {
+              if (sessionGeneration !== currentSessionGeneration()) return;
               cursor = Math.max(cursor, event.seq ?? -1);
               retryMs = 250;
               if (
@@ -1419,10 +1434,8 @@ function Thread() {
     const target = savedChatTarget({ botId, groupId });
     const latest = snapRef.current;
     if (!latest || savedChatTarget(latest) !== target) return;
-    const origin = {
-      sessionGeneration: currentSessionGeneration(),
-      selectionId: selectedSpaceId(),
-    };
+    const origin = snapshotOrigin.current;
+    if (!origin) return;
     savedWriter.current.schedule(() => saveThread(target, latest, origin));
   }, [snap, showingSaved, botId, groupId]);
   useEffect(() => {

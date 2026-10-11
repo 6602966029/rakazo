@@ -7,7 +7,6 @@ import { Redirect, useFocusEffect, useNavigation, useRouter } from "expo-router"
 import type { ReactNode } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   AppState,
@@ -23,7 +22,6 @@ import { KeyboardController } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BotAvatar } from "../components/bot-avatar";
 import { BotOrganizeModal } from "../components/bot-organize-modal";
-import { ConnectionBar } from "../components/connection-bar";
 import { GroupAvatar } from "../components/group-avatar";
 import { NativeSymbol } from "../components/native-symbol";
 import { WorkingIndicator } from "../components/WorkingIndicator";
@@ -51,7 +49,6 @@ import {
 } from "../lib/api";
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { mobileBotAvatarPresentation } from "../lib/bot-avatar";
-import { useConnectionPhase } from "../lib/connection-phase";
 import { allowFocusPrompt, scheduleFocusPrompt } from "../lib/focus-prompt";
 import { t, useI18n } from "../lib/i18n";
 import { botTag, filterBots, formatThreadTime, userInitials } from "../lib/inbox";
@@ -181,11 +178,21 @@ export default function Home() {
         rpc<MobileSpaceNavigation>("spaces/list"),
         rpc<MobileMe>("me"),
       ]);
-      if (requestId !== inboxRequestId.current) return;
+      if (
+        requestId !== inboxRequestId.current ||
+        generation !== currentSessionGeneration() ||
+        apiBase !== currentApiBase()
+      )
+        return;
       if (!(await selectInitialSpace(nextMe.spaceId))) {
         throw new Error(t("Could not save the default space"));
       }
-      if (requestId !== inboxRequestId.current) return;
+      if (
+        requestId !== inboxRequestId.current ||
+        generation !== currentSessionGeneration() ||
+        apiBase !== currentApiBase()
+      )
+        return;
       setBots((current) => retainInboxValue(current, navigation.current.bots));
       setBotSections((current) => retainInboxValue(current, navigation.current.botSections));
       setGroups((current) => retainInboxValue(current, navigation.current.groups));
@@ -204,7 +211,12 @@ export default function Home() {
         nextMe,
       );
     } catch (err) {
-      if (requestId !== inboxRequestId.current) return;
+      if (
+        requestId !== inboxRequestId.current ||
+        generation !== currentSessionGeneration() ||
+        apiBase !== currentApiBase()
+      )
+        return;
       setError(errorText(err, t("Could not load bots")));
     }
   }, []);
@@ -394,12 +406,6 @@ export default function Home() {
   // Liquid Glass uses the native bar: glass bar items, a native menu, and bottom search.
   const nativeHeader = iosAtLeast(26);
   const navigation = useNavigation();
-  // The bar's live region is Android-only. iOS hears the failure once per outage, from here
-  // rather than the bar, which unmounts while searching.
-  const connectionPhase = useConnectionPhase(() => {
-    if (navigation.isFocused())
-      AccessibilityInfo.announceForAccessibility(t("Can't reach the server"));
-  });
   const router = useRouter();
 
   const chooseInboxSpace = useCallback(
@@ -867,15 +873,7 @@ export default function Home() {
               />
             ) : null}
 
-            {connectionPhase !== "connected" && !searching ? (
-              <ConnectionBar
-                phase={connectionPhase}
-                saved={me !== null}
-                onRetry={() => void refreshBots()}
-              />
-            ) : error ? (
-              <Text style={styles.error}>{error}</Text>
-            ) : null}
+            {error ? <Text style={styles.error}>{error}</Text> : null}
             {spaceRecoveryId ? (
               <Pressable
                 accessibilityRole="button"

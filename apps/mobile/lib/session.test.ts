@@ -293,6 +293,15 @@ describe("verified integration session scope", () => {
     expect(await loadVerifiedIntegrationsScope()).toBeNull();
     expect(disk.has("rakazo.integrations-scope")).toBe(false);
   });
+  it("a failed secure wipe cannot authorize a previous session's cache", async () => {
+    await saveVerifiedIntegrationsScope(currentSessionGeneration(), scope);
+    const previous = await artifactCacheSession("fake-session-a");
+    vi.mocked(SecureStore.deleteItemAsync).mockRejectedValue(new Error("storage unavailable"));
+    await saveSessionToken("fake-session-a");
+    expect(await loadVerifiedIntegrationsScope()).toBeNull();
+    await saveVerifiedIntegrationsScope(currentSessionGeneration(), scope);
+    expect(await artifactCacheSession("fake-session-a")).not.toBe(previous);
+  });
   it("rejects a late verification after session replacement", async () => {
     const generation = currentSessionGeneration();
     await saveSessionToken("fake-session-b");

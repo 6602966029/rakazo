@@ -26,6 +26,7 @@ export type MobileArtifactTarget = { botId: string } | { groupId: string };
 export const ARTIFACT_DOWNLOAD_TIMEOUT_MS = 120_000;
 /** Disk budget for downloaded previews; the least recently written are deleted past it. */
 export const ARTIFACT_PREVIEW_CACHE_BYTES = 200 * 1024 * 1024;
+export const ARTIFACT_PREVIEW_CACHE_ENTRIES = 100;
 const PREVIEWS = "artifact-previews";
 
 /** Writes an artifact's bytes to its cache file; no network call. */
@@ -34,9 +35,18 @@ export function writeArtifactCacheFile(
   mimeType: string,
   contentBase64: string,
 ): File {
-  const file = new File(Paths.cache, artifactCacheFileName(artifactId, mimeType));
+  if (Math.floor((contentBase64.length * 3) / 4) > ARTIFACT_PREVIEW_CACHE_BYTES)
+    throw new Error(t("Could not load this artifact."));
+  const root = new Directory(
+    Paths.cache,
+    "artifact-downloads",
+    artifactCacheFileName(artifactId, mimeType),
+  );
+  root.create({ intermediates: true, idempotent: true });
+  const file = new File(root, artifactCacheFileName(artifactId, mimeType));
   file.create({ overwrite: true });
   file.write(contentBase64, { encoding: "base64" });
+  pruneArtifactPreviews(new Directory(Paths.cache, "artifact-downloads"), root);
   return file;
 }
 
@@ -136,7 +146,12 @@ async function cacheMobileArtifact(
   const file = new File(root, artifactCacheFileName(artifactId, mimeType));
   const metadata = new File(root, `${file.name}.json`);
   // Legacy unscoped files and incomplete writes are never authorized cache entries.
-  if (file.exists && metadata.exists) {
+  if (
+    file.exists &&
+    file.size <= ARTIFACT_PREVIEW_CACHE_BYTES &&
+    metadata.exists &&
+    metadata.size <= 8192
+  ) {
     try {
       if (JSON.parse(metadata.textSync()).key === key) return file;
     } catch {
@@ -149,6 +164,8 @@ async function cacheMobileArtifact(
     { timeoutMs: ARTIFACT_DOWNLOAD_TIMEOUT_MS, requestContext: scope.context },
   );
   assertCurrent(scope);
+  if (Math.floor((artifact.contentBase64.length * 3) / 4) > ARTIFACT_PREVIEW_CACHE_BYTES)
+    throw new Error(t("Could not load this artifact."));
   // Invalidate first so an interrupted overwrite cannot leave valid metadata for wrong bytes.
   if (metadata.exists) metadata.delete();
   file.create({ overwrite: true });
@@ -162,7 +179,6 @@ async function cacheMobileArtifact(
 /** Keeps one session's previews under the disk budget, deleting the least recently written. */
 function pruneArtifactPreviews(namespace: Directory, keep: Directory): void {
   try {
-    if ((namespace.size ?? 0) <= ARTIFACT_PREVIEW_CACHE_BYTES) return;
     const entries: Array<{ dir: Directory; bytes: number; written: number }> = [];
     const walk = (dir: Directory) => {
       let bytes = 0;
@@ -181,24 +197,35 @@ function pruneArtifactPreviews(namespace: Directory, keep: Directory): void {
     };
     walk(namespace);
     let total = entries.reduce((sum, entry) => sum + entry.bytes, 0);
+    let count = entries.length;
     for (const entry of entries.sort((a, b) => a.written - b.written)) {
-      if (total <= ARTIFACT_PREVIEW_CACHE_BYTES) break;
+      if (total <= ARTIFACT_PREVIEW_CACHE_BYTES && count <= ARTIFACT_PREVIEW_CACHE_ENTRIES) break;
       if (entry.dir.uri === keep.uri) continue;
       entry.dir.delete();
       total -= entry.bytes;
+      count -= 1;
     }
-  } catch {
-    // Pruning is best-effort; the next download tries again.
+    if (total > ARTIFACT_PREVIEW_CACHE_BYTES || count > ARTIFACT_PREVIEW_CACHE_ENTRIES)
+      throw new Error(t("Could not load this artifact."));
+  } catch (error) {
+    keep.delete();
+    throw error;
   }
 }
 
 /** Deletes every downloaded preview; the session namespace rotates with it. */
 export function clearArtifactPreviews(): void {
-  try {
-    const root = new Directory(Paths.cache, PREVIEWS);
-    if (root.exists) root.delete();
-  } catch {
-    // Leftovers stay unreachable: reads need the next session's namespace.
+  identity = undefined;
+  imageArtifactUris.clear();
+  imageArtifactSizes.clear();
+  imageArtifactRequests.clear();
+  for (const name of [PREVIEWS, "artifact-downloads", "artifact-shares"]) {
+    try {
+      const root = new Directory(Paths.cache, name);
+      if (root.exists) root.delete();
+    } catch {
+      // One failed physical wipe cannot skip the other caches; namespaces gate reuse.
+    }
   }
 }
 
@@ -299,6 +326,7 @@ async function shareNamedFile(source: File, mimeType: string, name: string): Pro
   if (!dir.exists) dir.create();
   const shared = new File(dir, artifactShareFileName(name, mimeType));
   source.copySync(shared, { overwrite: true });
+  pruneArtifactPreviews(root, dir);
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(shared.uri, { mimeType });
     return;
