@@ -24,8 +24,7 @@ let activeScope: (OutboxScope & { generation: number }) | null = null;
 function scope() {
   return activeScope &&
     activeScope.generation === currentSessionGeneration() &&
-    activeScope.apiBase === currentApiBase() &&
-    activeScope.spaceId === selectedSpaceId()
+    activeScope.apiBase === currentApiBase()
     ? activeScope
     : null;
 }
@@ -33,9 +32,12 @@ export async function prepareUnsentSends(): Promise<void> {
   const generation = currentSessionGeneration();
   const apiBase = currentApiBase();
   const spaceId = selectedSpaceId();
-  if (!scope()) {
+  if (!scope() || activeScope?.spaceId !== spaceId) {
     const saved = await loadVerifiedIntegrationsScope();
-    const verified = saved?.apiBase === apiBase ? saved : await integrationsCacheScope();
+    const verified =
+      saved?.apiBase === apiBase && (spaceId || saved.selectionId === null)
+        ? saved
+        : await integrationsCacheScope();
     const cacheSession = await artifactCacheSession(await loadSessionToken());
     if (
       generation !== currentSessionGeneration() ||
@@ -43,19 +45,31 @@ export async function prepareUnsentSends(): Promise<void> {
       spaceId !== selectedSpaceId()
     )
       throw new Error(t("Failed to send message"));
-    activeScope = { apiBase, spaceId, userId: verified.userId, cacheSession, generation };
+    activeScope = {
+      apiBase,
+      spaceId: spaceId ?? verified.spaceId,
+      userId: verified.userId,
+      cacheSession,
+      generation,
+    };
   }
   restoreUnsentSends();
 }
 export function startUnsentSends(): () => void {
   configureUnsentSends({
-    request: async (proc, body, options) => {
+    request: async <T>(
+      proc: string,
+      body: unknown,
+      options: Parameters<typeof rpc>[2],
+      spaceId: string | null,
+    ) => {
       const generation = currentSessionGeneration();
-      const spaceId = selectedSpaceId();
       const context = await captureApiRequestContext();
-      if (generation !== currentSessionGeneration() || spaceId !== selectedSpaceId())
-        throw new Error("Session changed");
-      return rpc(proc, body, { ...options, requestContext: context });
+      if (generation !== currentSessionGeneration()) throw new Error("Session changed");
+      const headers = { ...context.headers };
+      if (spaceId) headers["x-rakazo-space-id"] = spaceId;
+      else delete headers["x-rakazo-space-id"];
+      return rpc<T>(proc, body, { ...options, requestContext: { ...context, headers } });
     },
     serverReachable: isServerReachable,
     scope,
@@ -64,10 +78,10 @@ export function startUnsentSends(): () => void {
     notDelivered: (attempt) => Alert.alert(t("Failed to send message"), attempt.error),
   });
   let stopped = false;
-  const retry = () =>
+  const retry = (force = false) =>
     void prepareUnsentSends()
       .then(() => {
-        if (!stopped) return sendWaitingMessages();
+        if (!stopped) return sendWaitingMessages(force);
       })
       .catch(() => undefined);
   retry();
@@ -75,7 +89,7 @@ export function startUnsentSends(): () => void {
     if (isServerReachable()) retry();
   });
   const appState = AppState.addEventListener("change", (state) => {
-    if (state === "active") retry();
+    if (state === "active") retry(true);
   });
   return () => {
     stopped = true;

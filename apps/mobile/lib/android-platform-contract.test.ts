@@ -291,7 +291,7 @@ describe("Android mobile platform contract", () => {
     expect(send).toContain(
       "JSON.stringify(submitted) !== JSON.stringify(composerRef.current?.snapshot())",
     );
-    expect(thread).toContain("onRetry={() => void deliver(attempt)}");
+    expect(thread).toContain("onRetry={() => void deliver(attempt, true)}");
   });
 
   it("offers Voice settings when speaking has no configured provider", () => {

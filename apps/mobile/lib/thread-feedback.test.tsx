@@ -132,13 +132,21 @@ describe("scoped mobile outbox", () => {
     spaceId: "space-a",
   };
   const request = vi.fn();
-  const disk = { load: vi.fn(() => []), save: vi.fn(), clear: vi.fn() };
+  const disk = {
+    admit: vi.fn(() => true),
+    hydrate: vi.fn(async () => undefined),
+    forget: vi.fn(),
+    load: vi.fn(() => []),
+    save: vi.fn(),
+    clear: vi.fn(),
+  };
   const notDelivered = vi.fn();
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     clearFailedSends();
     vi.clearAllMocks();
     reachable = true;
+    scope.spaceId = "space-a";
     request.mockImplementation(async (proc) =>
       proc === "artifacts/create" ? { id: "artifact-a" } : { seq: 42 },
     );
@@ -177,6 +185,9 @@ describe("scoped mobile outbox", () => {
     expect(container.textContent).toContain("Hello");
     expect(container.textContent).toContain("Sending…");
     await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    const writes = disk.save.mock.calls.length;
+    act(() => confirmEchoes("bot-1", []));
+    expect(disk.save).toHaveBeenCalledTimes(writes);
     await act(async () => {
       finish({ seq: 42 });
       await sending;
@@ -216,6 +227,7 @@ describe("scoped mobile outbox", () => {
     act(() => {
       sending = feedback.send(attempt);
     });
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
     act(() => clearFailedSends());
     await act(async () => {
       finish({ id: "artifact-a" });
@@ -241,5 +253,46 @@ describe("scoped mobile outbox", () => {
     expect(request.mock.calls.filter(([proc]) => proc === "artifacts/create")).toHaveLength(1);
     const sends = request.mock.calls.filter(([proc]) => proc === "threads/send");
     expect(sends[0]).toEqual(sends[1]);
+  });
+  it("holds a rate-limited message ahead of the rest of the queue", async () => {
+    reachable = false;
+    const first = feedback.sendAttempt(payload("First"));
+    const second = feedback.sendAttempt(payload("Second"));
+    await act(async () => {
+      await feedback.send(first);
+      await feedback.send(second);
+    });
+    reachable = true;
+    request.mockRejectedValueOnce(Object.assign(new Error("Slow down"), { status: 429 }));
+    await act(async () => {
+      await sendWaitingMessages();
+    });
+    expect(first.state).toBe("queued");
+    expect(second.state).toBe("queued");
+    expect(request).toHaveBeenCalledOnce();
+    expect(notDelivered).not.toHaveBeenCalled();
+  });
+  it("keeps the original Space while selection changes during an upload", async () => {
+    let finish!: (value: { id: string }) => void;
+    request.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const attempt = feedback.sendAttempt(payload());
+    let sending!: Promise<boolean>;
+    act(() => {
+      sending = feedback.send(attempt);
+    });
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    scope.spaceId = "space-b";
+    await act(async () => {
+      finish({ id: "artifact-a" });
+      await sending;
+    });
+    const [send] = request.mock.calls.filter(([proc]) => proc === "threads/send");
+    expect(send?.[3]).toBe("space-a");
+    expect(attempt.acceptedSeq).toBe(42);
   });
 });

@@ -100,17 +100,7 @@ function bumpSpaceSelectionGeneration(): void {
 
 /** Keeps a timeout or cancel reason; turns transport and parsing detail into copy. */
 function requestError(error: unknown, signal: AbortSignal): unknown {
-  return signal.aborted
-    ? (signal.reason ?? error)
-    : withDetail(new Error(errorText(error)), { cause: error });
-}
-
-/** Adds what callers classify a failure by (as non-enumerable, like a native `cause`) without changing its copy. */
-function withDetail(error: Error, detail: { cause?: unknown; status?: number; name?: string }) {
-  for (const [key, value] of Object.entries(detail)) {
-    Object.defineProperty(error, key, { value, writable: true, configurable: true });
-  }
-  return error;
+  return signal.aborted ? (signal.reason ?? error) : new Error(errorText(error), { cause: error });
 }
 
 let serverReachable = true;
@@ -762,7 +752,11 @@ export async function rpc<T>(
       ? undefined
       : setTimeout(
           () =>
-            controller.abort(withDetail(new Error("Request timed out"), { name: "TimeoutError" })),
+            controller.abort(
+              Object.defineProperty(new Error("Request timed out"), "name", {
+                value: "TimeoutError",
+              }),
+            ),
           options.timeoutMs ?? RPC_TIMEOUT_MS,
         );
   // Bind recovery to the Space + selection epoch this request was sent with:
@@ -903,7 +897,7 @@ export async function rpc<T>(
         if (!selectedSpaceId()) await clearStaleSpaceSelection();
         throw new Error(message);
       }
-      throw withDetail(new Error(message), { status: res.status });
+      throw Object.defineProperty(new Error(message), "status", { value: res.status });
     }
     const verifiedUser = parsed.json as { userId?: unknown; spaceId?: unknown } | null;
     if (

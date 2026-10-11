@@ -1,6 +1,6 @@
 import { resolveComposerSendPlan } from "@rakazo/core";
 import { beforeEach, expect, it, vi } from "vitest";
-import { outboxDisk } from "./outbox-disk";
+import { OUTBOX_MAX_BYTES, outboxDisk } from "./outbox-disk";
 import type { SendAttempt } from "./thread-feedback";
 import { OUTBOX_MAX_ENTRIES } from "./thread-feedback";
 
@@ -16,12 +16,28 @@ vi.mock("expo-file-system", () => {
     }
     create() {}
     delete() {
-      files.clear();
+      for (const path of files.keys()) if (path.startsWith(`${this.uri}/`)) files.delete(path);
+    }
+    list() {
+      const names = new Set(
+        [...files.keys()]
+          .filter((path) => path.startsWith(`${this.uri}/`))
+          .map((path) => path.slice(this.uri.length + 1).split("/")[0]!),
+      );
+      return [...names].map((name) =>
+        files.has(`${this.uri}/${name}`) ? new File(this, name) : new Directory(this, name),
+      );
     }
   }
   class File extends Directory {
     override get exists() {
       return files.has(this.uri);
+    }
+    get size() {
+      return Buffer.byteLength(files.get(this.uri) ?? "");
+    }
+    async base64() {
+      return files.get(this.uri) ?? "";
     }
     textSync() {
       return files.get(this.uri);
@@ -66,8 +82,9 @@ function attempt(nonce = "nonce-a"): SendAttempt {
   };
 }
 beforeEach(() => files.clear());
-it("restores payload, uploaded ids and nonce for an idempotent retry", () => {
+it("restores payload, uploaded ids and nonce for an idempotent retry", async () => {
   const original = attempt();
+  expect(outboxDisk.admit(original)).toBe(true);
   outboxDisk.save([original]);
   const [restored] = outboxDisk.load(2, scope);
   expect(restored).toMatchObject({
@@ -76,8 +93,13 @@ it("restores payload, uploaded ids and nonce for an idempotent retry", () => {
     clientNonce: original.clientNonce,
   });
   expect(restored?.artifactIds).toEqual(original.artifactIds);
+  expect(restored?.payload.attachments[0]?.contentBase64).toBe("");
+  restored!.artifactIds.clear();
+  await outboxDisk.hydrate(restored!);
   expect(restored?.payload.attachments[0]?.contentBase64).toBe("aGVsbG8=");
-  expect([...files.values()][0]).not.toContain("file:");
+  const metadata = files.get("cache/outbox/sends-v4.json");
+  expect(metadata).not.toContain("aGVsbG8=");
+  expect(metadata).not.toContain("file:");
 });
 it.each([
   { userId: "user-b" },
@@ -94,6 +116,14 @@ it("caps the persisted count and wipes every entry", () => {
   expect(files.size).toBe(0);
 });
 it("treats corrupt storage as an empty outbox", () => {
-  files.set("cache/outbox/sends-v3.json", "{");
+  files.set("cache/outbox/sends-v4.json", "{");
   expect(outboxDisk.load(2, scope)).toEqual([]);
+});
+
+it("rejects a full attachment budget without rewriting existing bytes", () => {
+  files.set("cache/outbox/old/0", "x");
+  const large = attempt();
+  large.payload.attachments[0]!.contentBase64 = "x".repeat(Math.ceil((OUTBOX_MAX_BYTES * 4) / 3));
+  expect(outboxDisk.admit(large)).toBe(false);
+  expect(files.get("cache/outbox/old/0")).toBe("x");
 });

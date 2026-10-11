@@ -1280,12 +1280,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   useEffect(() => {
     if (!botId && !groupId) return;
-    if (!messageId) {
-      pinnedAroundRef.current = null;
-      jumpScrollTarget.current = null;
-      jumpAnchor.current.release();
-    }
-    expandedHistoryThread.current = null;
     historyEpoch.current += 1;
     const abort = new AbortController();
     const subscriptionGeneration = ++liveSubscriptionGeneration.current;
@@ -1420,7 +1414,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
         setError(errorText(err, t("Could not open message")));
       },
     );
-  }, [botId, groupId, messageId]);
+  }, [botId, groupId, messageId, sessionEpoch]);
 
   useEffect(() => {
     setPendingAttachments((current) => attachmentsForThread(current, threadKey));
@@ -1499,7 +1493,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
         groupTarget,
         reroutedToGroup,
         plan,
-        attachments: attachments.map((attachment) => ({ ...attachment })),
+        attachments,
         replyTargetId: replyTarget?.id,
         replyQuote,
       });
@@ -1520,8 +1514,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     await deliver(attempt);
   }
 
-  async function deliver(attempt: SendAttempt) {
-    if (!readOnly) await feedback.send(attempt);
+  async function deliver(attempt: SendAttempt, force = false) {
+    if (!readOnly) await feedback.send(attempt, force);
   }
 
   function afterDelivered(attempt: SendAttempt) {
@@ -2142,7 +2136,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     <FailedSendBubble
       key={attempt.clientNonce}
       attempt={attempt}
-      onRetry={() => void deliver(attempt)}
+      onRetry={() => void deliver(attempt, true)}
       onDelete={() => feedback.discard(attempt)}
     />
   ));

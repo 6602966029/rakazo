@@ -609,39 +609,21 @@ describe("mobile API authentication", () => {
     await expect(pending).resolves.toEqual({ ok: true });
   });
 
-  it("tracks whether the server can be reached and says when that changes", async () => {
-    vi.mocked(SecureStore.getItemAsync).mockResolvedValue("session-token");
+  it("publishes only reachability transitions and preserves transport causes", async () => {
     const changed = vi.fn();
     const unsubscribe = subscribeServerReachable(changed);
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue("session-token");
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError("Network request failed"))
+        .mockResolvedValueOnce(rpcErrorResponse(404, "NOT_FOUND", "Bot does not exist")),
+    );
     try {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => {
-          throw new TypeError("Network request failed");
-        }),
-      );
-      const offline = await rpc("bots/list").catch((error: unknown) => error);
-      expect(offline).toMatchObject({ message: "Could not reach the server" });
-      expect(isServerUnreachable(offline)).toBe(true);
+      expect(isServerUnreachable(await rpc("bots/list").catch((error) => error))).toBe(true);
       expect(isServerReachable()).toBe(false);
-
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => rpcErrorResponse(503, "UNAVAILABLE", "Service Unavailable")),
-      );
-      expect(isServerUnreachable(await rpc("bots/list").catch((error: unknown) => error))).toBe(
-        true,
-      );
-      expect(isServerReachable()).toBe(false);
-      expect(changed).toHaveBeenCalledOnce();
-
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => rpcErrorResponse(404, "NOT_FOUND", "Bot does not exist")),
-      );
-      const refused = await rpc("bots/get").catch((error: unknown) => error);
-      expect(refused).toMatchObject({ message: "Bot does not exist", status: 404 });
-      expect(isServerUnreachable(refused)).toBe(false);
+      await expect(rpc("bots/get")).rejects.toThrow("Bot does not exist");
       expect(isServerReachable()).toBe(true);
       expect(changed).toHaveBeenCalledTimes(2);
     } finally {

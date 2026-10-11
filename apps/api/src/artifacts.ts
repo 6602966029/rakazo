@@ -110,18 +110,7 @@ async function findReplayedArtifact(
   return row;
 }
 
-function createdArtifact(row: {
-  id: string;
-  botId: string | null;
-  groupId: string | null;
-  runId: string | null;
-  name: string;
-  description: string | null;
-  mimeType: string;
-  size: number;
-  version: number;
-  createdAt: Date;
-}) {
+function createdArtifact(row: Prisma.ArtifactGetPayload<Record<string, never>>) {
   return {
     id: row.id,
     botId: row.botId,

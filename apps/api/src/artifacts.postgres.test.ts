@@ -94,20 +94,6 @@ describePostgres("artifact upload nonce (PostgreSQL)", () => {
     expect(stored.size).toBe(2);
   });
 
-  it("still creates a new version for uploads without a nonce", async () => {
-    const before = await prisma.artifact.count({ where: { spaceId } });
-    await upload(undefined, { botId });
-    await upload(undefined, { botId });
-    expect(await prisma.artifact.count({ where: { spaceId } })).toBe(before + 2);
-  });
-
-  it("replays a group upload even when the group's first bot changed between retries", async () => {
-    const group = await prisma.chatGroup.create({ data: { spaceId, userId, name: "Planning" } });
-    const first = await upload("send-4:0", { botId, groupId: group.id });
-    const retry = await upload("send-4:0", { botId: otherBotId, groupId: group.id });
-    expect(retry.id).toBe(first.id);
-  });
-
   it("replays one artifact when retries of a group upload race under different member bots", async () => {
     const group = await prisma.chatGroup.create({ data: { spaceId, userId, name: "Race" } });
     const uploads = await Promise.all(

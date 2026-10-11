@@ -6,30 +6,76 @@ import { OUTBOX_MAX_ENTRIES } from "./thread-feedback";
 function root() {
   return new Directory(Paths.cache, "outbox");
 }
+function folder(nonce: string) {
+  return new Directory(root(), encodeURIComponent(nonce));
+}
+function attachmentFile(nonce: string, index: number) {
+  return new File(folder(nonce), `${index}`);
+}
 function file() {
-  return new File(root(), "sends-v3.json");
+  return new File(root(), "sends-v4.json");
+}
+export const OUTBOX_MAX_BYTES = 50 * 1024 * 1024;
+function diskBytes(directory: Directory): number {
+  return directory.exists
+    ? directory
+        .list()
+        .reduce((sum, entry) => sum + (entry instanceof File ? entry.size : diskBytes(entry)), 0)
+    : 0;
+}
+function storedEntry(attempt: SendAttempt) {
+  return {
+    ...attempt,
+    state: attempt.state === "pending" ? "queued" : attempt.state,
+    artifactIds: [...attempt.artifactIds],
+    payload: {
+      ...attempt.payload,
+      attachments: attempt.payload.attachments.map(
+        ({ contentBase64: _bytes, previewUri: _preview, ...attachment }) => attachment,
+      ),
+    },
+  };
 }
 export const outboxDisk: UnsentDisk = {
+  admit(attempt) {
+    try {
+      const bytes = attempt.payload.attachments.reduce(
+        (sum, a, index) =>
+          sum +
+          (attachmentFile(attempt.clientNonce, index).exists
+            ? 0
+            : Math.floor((a.contentBase64.length * 3) / 4)),
+        0,
+      );
+      if (
+        diskBytes(root()) +
+          bytes +
+          new TextEncoder().encode(JSON.stringify(storedEntry(attempt))).length +
+          2 >
+        OUTBOX_MAX_BYTES
+      )
+        return false;
+      folder(attempt.clientNonce).create({ intermediates: true, idempotent: true });
+      attempt.payload.attachments.forEach((attachment, index) => {
+        const target = attachmentFile(attempt.clientNonce, index);
+        if (target.exists) return;
+        target.create();
+        target.write(attachment.contentBase64, { encoding: "base64" });
+        attachment.previewUri = attachment.mimeType.startsWith("image/") ? target.uri : undefined;
+      });
+      for (const attachment of attempt.payload.attachments) attachment.contentBase64 = "";
+      return true;
+    } catch {
+      outboxDisk.forget(attempt);
+      throw new Error("OUTBOX_STORAGE_UNAVAILABLE");
+    }
+  },
   save(attempts) {
     try {
       root().create({ intermediates: true, idempotent: true });
       const target = file();
       target.create({ overwrite: true });
-      target.write(
-        JSON.stringify(
-          attempts.slice(0, OUTBOX_MAX_ENTRIES).map((attempt) => ({
-            ...attempt,
-            state: attempt.state === "pending" ? "queued" : attempt.state,
-            artifactIds: [...attempt.artifactIds],
-            payload: {
-              ...attempt.payload,
-              attachments: attempt.payload.attachments.map(
-                ({ previewUri: _preview, ...attachment }) => attachment,
-              ),
-            },
-          })),
-        ),
-      );
+      target.write(JSON.stringify(attempts.slice(0, OUTBOX_MAX_ENTRIES).map(storedEntry)));
     } catch {
       /* Optional persistence; the in-memory outbox remains usable. */
     }
@@ -37,7 +83,7 @@ export const outboxDisk: UnsentDisk = {
   load(session, scope) {
     try {
       const target = file();
-      if (!target.exists) return [];
+      if (!target.exists || diskBytes(root()) > OUTBOX_MAX_BYTES) return [];
       const entries: unknown = JSON.parse(target.textSync());
       if (!Array.isArray(entries)) return [];
       return entries.slice(0, OUTBOX_MAX_ENTRIES).flatMap((entry): SendAttempt[] => {
@@ -47,7 +93,7 @@ export const outboxDisk: UnsentDisk = {
           entry.cacheSession !== scope.cacheSession ||
           !(entry.spaceId === null || typeof entry.spaceId === "string") ||
           typeof entry.clientNonce !== "string" ||
-          !entry.clientNonce ||
+          !/^[A-Za-z0-9_-]{1,200}$/.test(entry.clientNonce) ||
           !["queued", "failed", "refused"].includes(entry.state) ||
           typeof entry.payload?.originThreadKey !== "string" ||
           typeof entry.payload.displayText !== "string" ||
@@ -55,9 +101,6 @@ export const outboxDisk: UnsentDisk = {
           !Array.isArray(entry.payload.plan.routineIds) ||
           !Array.isArray(entry.payload.plan.mentionPayload) ||
           !Array.isArray(entry.payload.attachments) ||
-          !entry.payload.attachments.every(
-            (a: { contentBase64?: unknown }) => typeof a?.contentBase64 === "string",
-          ) ||
           !Array.isArray(entry.artifactIds) ||
           !entry.artifactIds.every(
             (pair: unknown) =>
@@ -67,11 +110,41 @@ export const outboxDisk: UnsentDisk = {
           )
         )
           return [];
-        return [{ ...entry, session, artifactIds: new Map(entry.artifactIds) }];
+        const attachments = entry.payload.attachments.map(
+          (attachment: SendAttempt["payload"]["attachments"][number], index: number) => ({
+            ...attachment,
+            contentBase64: "",
+            previewUri: attachment.mimeType?.startsWith("image/")
+              ? attachmentFile(entry.clientNonce, index).uri
+              : undefined,
+          }),
+        );
+        return [
+          {
+            ...entry,
+            session,
+            artifactIds: new Map(entry.artifactIds),
+            payload: { ...entry.payload, attachments },
+          },
+        ];
       });
     } catch {
       return [];
     }
+  },
+  async hydrate(attempt) {
+    for (const [index, attachment] of attempt.payload.attachments.entries()) {
+      if (attachment.contentBase64 || attempt.artifactIds.has(attachment.id)) continue;
+      const target = attachmentFile(attempt.clientNonce, index);
+      if (!target.exists) throw new Error("ATTACHMENT_UNAVAILABLE");
+      attachment.contentBase64 = await target.base64();
+    }
+  },
+  forget(attempt) {
+    try {
+      const directory = folder(attempt.clientNonce);
+      if (directory.exists) directory.delete();
+    } catch {}
   },
   clear() {
     try {
