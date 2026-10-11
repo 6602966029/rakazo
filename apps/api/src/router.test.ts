@@ -3100,7 +3100,7 @@ describe("bot model auth on save", () => {
       teamChatRules: "",
       webhookSecretId: null,
       spawnKey: null,
-      thread: { id: "thread-1", unread: false, messages: [] },
+      thread: { id: "thread-1", unread: false, messages: [], runs: [] },
       computer: null,
       runs: [],
     };

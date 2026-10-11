@@ -33,6 +33,9 @@ test("homepage screenshots", async ({ page }, testInfo) => {
   await captureScreenshot(page, testInfo, "03-marketing-homepage-zh");
 
   await openHomepage(page);
+  await page
+    .locator('.product-demo[data-product-demo-ready="true"]')
+    .waitFor({ state: "attached" });
   await page.locator(".product-demo__computer-shot").first().click();
   await page.locator(".product-demo__takeover").waitFor({ state: "visible" });
   await captureScreenshot(page, testInfo, "04-marketing-demo-computer");
