@@ -273,6 +273,23 @@ describe("scoped mobile outbox", () => {
     expect(request).toHaveBeenCalledOnce();
     expect(notDelivered).not.toHaveBeenCalled();
   });
+  it("allows Retry after a consent conflict before dispatch", async () => {
+    const attempt = feedback.sendAttempt(payload());
+    request.mockRejectedValueOnce(
+      new AiConsentBlocked(
+        "Review consent again",
+        Object.assign(new Error("Changed"), { status: 409 }),
+      ),
+    );
+    await act(async () => {
+      await feedback.send(attempt);
+    });
+    expect(attempt.state).toBe("failed");
+    await act(async () => {
+      await feedback.send(attempt, true);
+    });
+    expect(attempt.acceptedSeq).toBe(42);
+  });
   it("keeps the original Space while selection changes during an upload", async () => {
     let finish!: (value: { id: string }) => void;
     request.mockImplementationOnce(
