@@ -181,14 +181,13 @@ import {
   getCachedResponseStreamingEnabled,
   subscribeResponseStreaming,
 } from "../lib/response-streaming";
-import type { SavedChatTarget } from "../lib/saved-chats";
+import type { SavedChatsScope } from "../lib/saved-chats";
 import {
   liveSavedChatsScope,
   loadSavedInbox,
   readSavedThread,
   savedChatsScope,
   savedChatTarget,
-  savedChatWriter,
   writeSavedThread,
 } from "../lib/saved-chats";
 import { secretDestinationLabel } from "../lib/secret-destination";
@@ -273,6 +272,8 @@ function speakableMessageText(message: MobileMessage): string {
 }
 
 export default function ThreadRoute() {
+  const generation = useSyncExternalStore(subscribeSessionGeneration, currentSessionGeneration);
+  const ready = useSyncExternalStore(subscribeSessionGeneration, currentReadySessionGeneration);
   const tokens = useMobileTokens();
   const { t } = useI18n();
   const router = useRouter();
@@ -323,7 +324,8 @@ export default function ThreadRoute() {
     };
   }, [activeSpaceId, focused, spaceId]);
 
-  if (request.action === "show" && !focusSync.switchFailed) return <Thread />;
+  if (request.action === "show" && !focusSync.switchFailed)
+    return <Thread key={`${generation}:${ready}`} />;
   return (
     <View
       style={{
@@ -493,28 +495,11 @@ function Thread() {
     : botId
       ? { botId }
       : undefined;
-  const [loadedSnap, setLoadedSnap] = useState<{
-    snapshot: MobileSnapshot | null;
-    sessionGeneration: number | null;
-  }>({ snapshot: null, sessionGeneration: null });
+  const [snap, setSnap] = useState<MobileSnapshot | null>(null);
   const snapRef = useRef<MobileSnapshot | null>(null);
   // The copy saved on this device stays on screen until a live snapshot replaces it.
   const [showingSaved, setShowingSaved] = useState(false);
-  const savedWriter = useRef(savedChatWriter());
-  const sessionEpoch = useSyncExternalStore(
-    subscribeSessionGeneration,
-    currentReadySessionGeneration,
-    currentReadySessionGeneration,
-  );
-  const snapshotOrigin = useRef<{
-    sessionGeneration: number;
-    selectionId: string | null;
-    apiBase: string;
-    userId: string;
-  } | null>(null);
-  // Retained history can render again only after the replacement session verifies its owner.
-  const snap =
-    loadedSnap.sessionGeneration === currentSessionGeneration() ? loadedSnap.snapshot : null;
+  const snapshotOrigin = useRef<SavedChatsScope | null>(null);
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,
@@ -526,13 +511,7 @@ function Thread() {
   function commitSnap(next: MobileSnapshot | null) {
     snapRef.current = next;
     const visible = withLiveStreamingProgress(next, streamResponsesRef.current);
-    const generation = snapshotOrigin.current?.sessionGeneration ?? null;
-    setLoadedSnap((previous) => {
-      const snapshot = reconcileVisibleThreadSnapshot(previous.snapshot, visible);
-      return previous.sessionGeneration === generation && previous.snapshot === snapshot
-        ? previous
-        : { snapshot, sessionGeneration: generation };
-    });
+    setSnap((previous) => reconcileVisibleThreadSnapshot(previous, visible));
   }
 
   useEffect(() => {
@@ -1039,35 +1018,6 @@ function Thread() {
     });
   }
 
-  /**
-   * Saves under the scope current when the write runs (identity can be verified after the chat
-   * opened, or change with the session), only while the chat's Space is still the selected one.
-   */
-  function saveThread(
-    target: SavedChatTarget,
-    snapshot: MobileSnapshot,
-    // The session and Space the snapshot was loaded in; a write after either changed is dropped,
-    // so a sign-out or server switch can't bring back what it just deleted.
-    origin: {
-      sessionGeneration: number;
-      selectionId: string | null;
-      apiBase: string;
-      userId: string;
-    },
-  ) {
-    void liveSavedChatsScope().then((scope) => {
-      if (
-        scope &&
-        scope.sessionGeneration === origin.sessionGeneration &&
-        scope.selectionId === origin.selectionId &&
-        scope.apiBase === origin.apiBase &&
-        scope.userId === origin.userId &&
-        isIntegrationsScopeCurrent(scope)
-      )
-        writeSavedThread(scope, target, snapshot);
-    });
-  }
-
   async function refresh() {
     if (!botId && !groupId) return;
     const targetBotId = botId;
@@ -1112,19 +1062,9 @@ function Thread() {
       activeGroupId: activeGroupId.current,
     });
     if (result.commit) {
-      const previousOrigin = snapshotOrigin.current;
-      const sameOwner =
-        previousOrigin?.apiBase === scope.apiBase &&
-        previousOrigin?.userId === scope.userId &&
-        previousOrigin?.selectionId === scope.selectionId;
-      if (!sameOwner) expandedHistoryThread.current = null;
       snapshotOrigin.current = scope;
       commitSnap(
-        mergeMobileSnapshot(
-          snapRef.current,
-          next,
-          sameOwner && expandedHistoryThread.current === next.threadId,
-        ),
+        mergeMobileSnapshot(snapRef.current, next, expandedHistoryThread.current === next.threadId),
       );
       setShowingSaved(false);
     }
@@ -1389,9 +1329,6 @@ function Thread() {
     liveSubscribed.current = false;
     showSavedThread(abort.signal);
     void (async () => {
-      const token = await loadSessionToken();
-      if (!token || abort.signal.aborted || sessionGeneration !== currentSessionGeneration())
-        return;
       // Pending search jumps load the around-page separately; avoid replacing it with latest.
       const next = messageId
         ? await rpc<MobileSnapshot>("threads/get", groupId ? { groupId } : { botId: botId! }).catch(
@@ -1474,7 +1411,7 @@ function Thread() {
     return () => {
       abort.abort();
     };
-  }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots, sessionEpoch]);
+  }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots]);
 
   // Save the latest messages of the live chat (not a jump or loaded history) once updates settle.
   useEffect(() => {
@@ -1491,12 +1428,13 @@ function Thread() {
     if (!latest || savedChatTarget(latest) !== target) return;
     const origin = snapshotOrigin.current;
     if (!origin) return;
-    savedWriter.current.schedule(() => saveThread(target, latest, origin));
+    const write = () => writeSavedThread(origin, target, latest);
+    const timer = setTimeout(write, 600);
+    return () => {
+      clearTimeout(timer);
+      write();
+    };
   }, [snap, showingSaved, botId, groupId]);
-  useEffect(() => {
-    const writer = savedWriter.current;
-    return () => writer.flush();
-  }, [botId, groupId]);
 
   useEffect(() => {
     if (!botId && !groupId) return;

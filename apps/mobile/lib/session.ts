@@ -131,8 +131,8 @@ export function subscribeSessionGeneration(listener: () => void): () => void {
     sessionListeners.delete(listener);
   };
 }
-function publishSessionGeneration() {
-  readySessionGeneration = sessionGeneration;
+function publishSessionGeneration(ready = true) {
+  if (ready) readySessionGeneration = sessionGeneration;
   for (const listener of sessionListeners) {
     try {
       listener();
@@ -153,6 +153,7 @@ export async function loadSessionToken() {
 
 export async function saveSessionToken(token: string) {
   const generation = ++sessionGeneration;
+  publishSessionGeneration(false);
   sessionInvalidated = true;
   sessionFallback = undefined;
   const clearingScope = invalidateSessionCaches();
@@ -167,6 +168,7 @@ export async function saveSessionToken(token: string) {
 /** Clears the session. Returns false only when SecureStore could neither delete nor overwrite. */
 export async function clearSessionToken(): Promise<boolean> {
   const generation = ++sessionGeneration;
+  publishSessionGeneration(false);
   sessionInvalidated = true;
   sessionFallback = undefined;
   clearFailedSends();
@@ -212,6 +214,7 @@ async function clearStoredSessionToken(generation: number): Promise<boolean> {
 /** Restores the current-server session in memory even when persistence is unavailable. */
 export async function restoreSessionToken(token: string) {
   const generation = ++sessionGeneration;
+  publishSessionGeneration(false);
   const clearingScope = invalidateSessionCaches();
   if (!token) {
     await clearingScope;

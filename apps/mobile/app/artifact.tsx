@@ -32,7 +32,6 @@ import { t, useI18n } from "../lib/i18n";
 import { presentMessageActionSheet } from "../lib/message-action-sheet";
 import { native, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import { iosAtLeast } from "../lib/native-controls";
-import { currentSessionGeneration } from "../lib/session";
 import { errorText } from "../lib/user-error";
 
 type PreviewContent =
@@ -88,13 +87,11 @@ export default function ArtifactDetailScreen() {
     if (!selectedVersionId) return;
     let cancelled = false;
     setContent({ status: "loading" });
-    const generation = currentSessionGeneration();
     void getArtifactById(selectedVersionId)
       .then(async (artifact) => {
-        if (cancelled || generation !== currentSessionGeneration()) return;
         const file = writeArtifactCacheFile(artifact.id, artifact.mimeType, artifact.contentBase64);
         const preview = await computePreview(artifact.mimeType, file);
-        if (cancelled || generation !== currentSessionGeneration()) return;
+        if (cancelled) return;
         setContent({ status: "ready", artifact, file, preview });
       })
       .catch((error: unknown) => {

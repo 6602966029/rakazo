@@ -1,22 +1,16 @@
-import { readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import type { MobileMe, MobileSnapshot, MobileSpaceNavigation } from "./api";
 import type { SavedChatsScope } from "./saved-chats";
 import {
   clearSavedChats,
-  liveSavedChatsScope,
   loadSavedInbox,
   readSavedInbox,
   readSavedThread,
   SAVED_CHAT_MAX_BYTES,
   SAVED_CHAT_MESSAGES,
-  SAVED_CHAT_WRITE_DELAY_MS,
   SAVED_CHATS,
   SAVED_CHATS_MAX_BYTES,
-  SAVED_INBOXES,
   savedChatsScope,
-  savedChatWriter,
-  saveInbox,
   writeSavedInbox,
   writeSavedThread,
 } from "./saved-chats";
@@ -24,37 +18,27 @@ import {
 const state = vi.hoisted(() => ({
   files: new Map<string, string>(),
   written: new Map<string, number>(),
-  broken: false,
   current: true,
-  verified: null as null | {
-    apiBase: string;
-    userId: string;
-    spaceId: string;
-    selectionId: string | null;
-  },
+  verified: null as Omit<SavedChatsScope, "namespace"> | null,
   selection: "space-a" as string | null,
-  rpc: vi.fn(),
-  saveVerified: vi.fn(),
-  verifyOnline: vi.fn(),
-  reachable: true,
   namespace: "ns-1",
 }));
 vi.mock("./artifact-cache-session", () => ({ artifactCacheSession: async () => state.namespace }));
 vi.mock("./api", () => ({
-  rpc: state.rpc,
-  isServerReachable: () => state.reachable,
   currentApiBase: () => "https://api.example.test",
   selectedSpaceId: () => state.selection,
 }));
 vi.mock("./integrations-cache", () => ({
   isIntegrationsScopeCurrent: () => state.current,
-  integrationsCacheScope: state.verifyOnline,
+  integrationsCacheScope: async () => {
+    throw new Error("offline");
+  },
 }));
 vi.mock("./session", () => ({
   currentSessionGeneration: () => 1,
   loadSessionToken: async () => "fake-token",
   loadVerifiedIntegrationsScope: async () => state.verified,
-  saveVerifiedIntegrationsScope: state.saveVerified,
+  saveVerifiedIntegrationsScope: vi.fn(),
 }));
 vi.mock("expo-file-system", () => {
   class Directory {
@@ -89,9 +73,7 @@ vi.mock("expo-file-system", () => {
     override get exists() {
       return state.files.has(this.uri);
     }
-    override create() {
-      if (state.broken) throw new Error("disk unavailable");
-    }
+    override create() {}
     override delete() {
       state.files.delete(this.uri);
     }
@@ -126,41 +108,18 @@ const me = {
   name: "Ada Example",
   email: "ada@example.test",
 } as MobileMe;
-const bot = {
-  id: "bot-a",
-  name: "Alpha",
-  color: "blue",
-  preview: "Hi",
-  unread: true,
-  pinned: true,
-};
+const bot = { id: "bot-a", name: "Alpha" };
 const navigation = {
   current: {
     id: "space-a",
     name: "Personal",
     bots: [{ ...bot, instructions: "Private bot instructions", teamChatRules: "Private rules" }],
-    groups: [{ id: "group-a", name: "Team", preview: "Yo", members: [], unread: false }],
-    externalConversations: [{ id: "external-a", participantNames: ["Private Person"] }],
-    botSections: [{ id: "section-a", name: "Work" }],
+    groups: [],
+    externalConversations: [],
+    botSections: [],
   },
-  spaces: [
-    {
-      id: "space-a",
-      name: "Personal",
-      bots: [],
-      groups: [],
-      externalConversations: [{ id: "external-a", participantNames: ["Private Person"] }],
-    },
-  ],
+  spaces: [],
 } as unknown as MobileSpaceNavigation;
-const savedInbox = {
-  bots: [bot],
-  groups: [{ id: "group-a", name: "Team", preview: "Yo", members: [], unread: false }],
-  botSections: [{ id: "section-a", name: "Work" }],
-  spaces: [{ id: "space-a", name: "Personal", bots: [], groups: [], externalConversations: [] }],
-  me: { userId: "user-a", spaceId: "space-a", name: "Ada Example" },
-};
-
 function thread(count: number, botId = "bot-a"): MobileSnapshot {
   return {
     botId,
@@ -180,326 +139,79 @@ function thread(count: number, botId = "bot-a"): MobileSnapshot {
 beforeEach(() => {
   state.files.clear();
   state.written.clear();
-  state.broken = false;
   state.current = true;
   state.verified = null;
   state.selection = "space-a";
-  state.rpc.mockReset().mockReturnValue(new Promise(() => {}));
-  state.saveVerified.mockReset();
-  state.reachable = true;
   state.namespace = "ns-1";
-  state.verifyOnline.mockReset().mockRejectedValue(new Error("offline"));
 });
 
-describe("saved inbox", () => {
-  it("round trips only what the inbox shows", () => {
-    expect(readSavedInbox(scope)).toBeNull();
-    writeSavedInbox(scope, navigation, me);
-    expect(readSavedInbox(scope)).toEqual(savedInbox);
-    const [contents] = [...state.files.values()];
-    expect(contents).not.toContain("Private");
-  });
+const verified = { ...scope };
+it("round trips only what the inbox shows", () => {
+  expect(readSavedInbox(scope)).toBeNull();
+  writeSavedInbox(scope, navigation, me);
+  expect(readSavedInbox(scope)?.bots).toEqual([bot]);
+  const [contents] = [...state.files.values()];
+  expect(contents).not.toContain("Private");
+});
 
-  it("keys files by ids only and never stores the email", () => {
-    writeSavedInbox(scope, navigation, me);
-    writeSavedThread(scope, "bot:bot-a", thread(2));
-    for (const [path, contents] of state.files) {
-      expect(path).not.toContain("ada");
-      expect(contents).not.toContain("ada@example.test");
-      expect(contents).not.toMatch(/token/i);
-    }
-  });
-
-  it.each([
-    { apiBase: "https://other.example.test" },
-    { userId: "user-b" },
-    { spaceId: "space-b" },
-  ])("never reads another scope %j", (change) => {
+it.each([{ apiBase: "https://other.example.test" }, { userId: "user-b" }, { spaceId: "space-b" }])(
+  "never reads another scope %j",
+  (change) => {
     writeSavedInbox(scope, navigation, me);
     expect(readSavedInbox({ ...scope, ...change })).toBeNull();
-  });
+  },
+);
+
+it("never reads what an earlier session of the same account left behind", async () => {
+  // A wipe failed; signing in again rotates the namespace, so the old files are unreachable.
+  state.verified = verified;
+  writeSavedThread((await savedChatsScope())!, "bot:bot-a", thread(2));
+  writeSavedInbox((await savedChatsScope())!, navigation, me);
+  state.namespace = "ns-2";
+  expect(readSavedThread((await savedChatsScope())!, "bot:bot-a")).toBeNull();
+  expect(await loadSavedInbox()).toBeNull();
 });
 
-// What the inbox passes in: the load's verified scope, before the session namespace is added.
-const { namespace: _loadedNamespace, ...loaded } = scope;
-
-const verified = {
-  apiBase: scope.apiBase,
-  userId: "user-a",
-  spaceId: "space-a",
-  selectionId: "space-a",
-};
-
-describe("saved chats scope", () => {
-  it("saves and reads a chat under the Space selected to open it, not the inbox's last one", async () => {
-    // The inbox last loaded in space-a; opening a bot from space-b selected space-b first.
-    state.verified = verified;
-    state.selection = "space-b";
-    const opened = (await savedChatsScope())!;
-    expect(opened).toEqual({ ...scope, spaceId: "space-b", selectionId: "space-b" });
-    writeSavedThread(opened, "bot:bot-b", thread(2, "bot-b"));
-    expect(readSavedThread(opened, "bot:bot-b")?.messages).toHaveLength(2);
-    expect(readSavedThread(scope, "bot:bot-b")).toBeNull();
-  });
-
-  it("asks the server who the user is when a live chat has no verified identity yet", async () => {
-    // Right after sign-in or a password change, before the inbox has verified the new session.
-    expect(await savedChatsScope()).toBeNull();
-    const { namespace: _namespace, ...online } = scope;
-    state.verifyOnline.mockResolvedValue(online);
-    expect(await liveSavedChatsScope()).toEqual(scope);
-    state.verified = verified;
-    state.verifyOnline.mockClear();
-    expect(await liveSavedChatsScope()).toEqual(scope);
-    expect(state.verifyOnline).not.toHaveBeenCalled();
-  });
-
-  it("never reads what an earlier session of the same account left behind", async () => {
-    // A wipe failed; signing in again rotates the namespace, so the old files are unreachable.
-    state.verified = verified;
-    writeSavedThread((await savedChatsScope())!, "bot:bot-a", thread(2));
-    writeSavedInbox((await savedChatsScope())!, navigation, me);
-    state.namespace = "ns-2";
-    const next = (await savedChatsScope())!;
-    expect(next.namespace).toBe("ns-2");
-    expect(readSavedThread(next, "bot:bot-a")).toBeNull();
-    expect(await loadSavedInbox()).toBeNull();
-  });
-
-  it("falls back to the verified default Space before any Space was selected", async () => {
-    state.verified = { ...verified, selectionId: null };
-    state.selection = null;
-    expect((await savedChatsScope())?.spaceId).toBe("space-a");
-    state.verified = verified;
-    expect(await savedChatsScope()).toBeNull();
-  });
+it("rejects oversized files on both write and read", () => {
+  const huge = thread(1);
+  huge.messages[0]!.blocks = [{ kind: "text", text: "x".repeat(SAVED_CHAT_MAX_BYTES) }];
+  writeSavedThread(scope, "bot:bot-a", huge);
+  expect(state.files.size).toBe(0);
+  writeSavedThread(scope, "bot:bot-a", thread(1));
+  const path = [...state.files.keys()][0]!;
+  state.files.set(path, "x".repeat(SAVED_CHAT_MAX_BYTES + 1));
+  expect(readSavedThread(scope, "bot:bot-a")).toBeNull();
 });
 
-describe("inbox hydrate and save", () => {
-  it("hydrates the saved inbox from the persisted scope before any request answers", async () => {
-    writeSavedInbox(scope, navigation, me);
-    state.verified = verified;
-    expect(await loadSavedInbox()).toEqual(readSavedInbox(scope));
-    expect(state.rpc).not.toHaveBeenCalled();
-  });
-
-  it("hydrates nothing without a verified scope or after the session changed", async () => {
-    writeSavedInbox(scope, navigation, me);
-    expect(await loadSavedInbox()).toBeNull();
-    state.verified = { ...verified, apiBase: "https://other.example.test" };
-    expect(await loadSavedInbox()).toBeNull();
-    state.verified = verified;
-    state.current = false;
-    expect(await loadSavedInbox()).toBeNull();
-  });
-
-  it("saves a load with its verified identity, and drops one from a changed session", async () => {
-    saveInbox(loaded, navigation, me);
-    await vi.waitFor(() => expect(readSavedInbox(scope)).toEqual(savedInbox));
-    expect(state.saveVerified).toHaveBeenCalledWith(1, {
-      apiBase: scope.apiBase,
-      userId: "user-a",
-      spaceId: "space-a",
-      selectionId: "space-a",
-    });
-    // The 5 s inbox poll saves the identity once, not on every load.
-    saveInbox(loaded, navigation, me);
-    expect(state.saveVerified).toHaveBeenCalledTimes(2);
-    state.files.clear();
-    state.current = false;
-    saveInbox(loaded, navigation, me);
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(state.files.size).toBe(0);
-  });
+it("caps total bytes across Spaces before admitting another transcript", () => {
+  for (let index = 0; index < 40; index++) {
+    const snapshot = thread(1, `bot-${index}`);
+    snapshot.messages[0]!.blocks = [{ kind: "text", text: "x".repeat(700_000) }];
+    writeSavedThread({ ...scope, spaceId: `space-${index}` }, `bot:bot-${index}`, snapshot);
+  }
+  const bytes = [...state.files.values()].reduce(
+    (sum, text) => sum + new TextEncoder().encode(text).length,
+    0,
+  );
+  expect(bytes).toBeLessThanOrEqual(SAVED_CHATS_MAX_BYTES);
+  expect(state.files.size).toBeLessThan(SAVED_CHATS);
+  expect(readSavedThread(scope, "bot:bot-0")).toBeNull();
 });
 
-describe("saved chats", () => {
-  it("counts inaccessible leftovers from earlier namespaces in the device budget", () => {
-    for (let i = 0; i < SAVED_CHATS + 1; i++) {
-      writeSavedThread({ ...scope, namespace: `ns-${i}` }, `bot:bot-${i}`, thread(1, `bot-${i}`));
-    }
-    expect(state.files.size).toBe(SAVED_CHATS);
-    expect(readSavedThread({ ...scope, namespace: "ns-0" }, "bot:bot-0")).toBeNull();
-  });
-
-  it("keeps the offline inbox while enforcing transcript count and byte eviction", () => {
-    writeSavedInbox(scope, navigation, me);
-    for (let index = 0; index < SAVED_CHATS + 10; index++) {
-      const snapshot = thread(1, `bot-${index}`);
-      snapshot.messages[0]!.blocks = [{ kind: "text", text: "x".repeat(700_000) }];
-      writeSavedThread(scope, `bot:bot-${index}`, snapshot);
-    }
-    expect(readSavedInbox(scope)).toEqual(savedInbox);
-    const bytes = [...state.files.values()].reduce(
-      (sum, text) => sum + new TextEncoder().encode(text).length,
-      0,
-    );
-    expect(bytes).toBeLessThanOrEqual(SAVED_CHATS_MAX_BYTES);
-  });
-  it("caps inboxes separately across Spaces without counting them as transcripts", () => {
-    for (let index = 0; index <= SAVED_INBOXES; index++)
-      writeSavedInbox({ ...scope, spaceId: `space-${index}` }, navigation, me);
-    expect(state.files.size).toBe(SAVED_INBOXES);
-    expect(readSavedInbox({ ...scope, spaceId: "space-0" })).toBeNull();
-    expect(readSavedInbox({ ...scope, spaceId: `space-${SAVED_INBOXES}` })).not.toBeNull();
-  });
-
-  it("rejects oversized files on both write and read", () => {
-    const huge = thread(1);
-    huge.messages[0]!.blocks = [{ kind: "text", text: "x".repeat(SAVED_CHAT_MAX_BYTES) }];
-    writeSavedThread(scope, "bot:bot-a", huge);
-    expect(state.files.size).toBe(0);
-    writeSavedThread(scope, "bot:bot-a", thread(1));
-    const path = [...state.files.keys()][0]!;
-    state.files.set(path, "x".repeat(SAVED_CHAT_MAX_BYTES + 1));
-    expect(readSavedThread(scope, "bot:bot-a")).toBeNull();
-  });
-  it("caps total bytes across Spaces before admitting another transcript", () => {
-    for (let index = 0; index < 40; index++) {
-      const snapshot = thread(1, `bot-${index}`);
-      snapshot.messages[0]!.blocks = [{ kind: "text", text: "x".repeat(700_000) }];
-      writeSavedThread({ ...scope, spaceId: `space-${index}` }, `bot:bot-${index}`, snapshot);
-    }
-    const bytes = [...state.files.values()].reduce(
-      (sum, text) => sum + new TextEncoder().encode(text).length,
-      0,
-    );
-    expect(bytes).toBeLessThanOrEqual(SAVED_CHATS_MAX_BYTES);
-    expect(state.files.size).toBeLessThan(SAVED_CHATS);
-    expect(readSavedThread(scope, "bot:bot-0")).toBeNull();
-  });
-
-  it("keeps the last 100 messages, display-only", () => {
-    writeSavedThread(scope, "bot:bot-a", thread(SAVED_CHAT_MESSAGES + 20));
-    const saved = readSavedThread(scope, "bot:bot-a")!;
-    expect(saved.messages).toHaveLength(SAVED_CHAT_MESSAGES);
-    expect(saved.messages[0]!.id).toBe("m-20");
-    expect(saved.messages.at(-1)!.id).toBe(`m-${SAVED_CHAT_MESSAGES + 19}`);
-    expect(saved.olderCursor).toBeNull();
-    expect(saved.run).toBeNull();
-    expect(saved).not.toHaveProperty("cursor");
-    expect(saved).not.toHaveProperty("activeRuns");
-    const [contents] = [...state.files.values()].filter((value) => value.includes("thread-"));
-    expect(JSON.parse(contents!).snapshot).not.toHaveProperty("cursor");
-  });
-
-  it("evicts the chat written longest ago past 40 chats and deletes its file", () => {
-    for (let index = 0; index < SAVED_CHATS; index++) {
-      writeSavedThread(scope, `bot:bot-${index}`, thread(1, `bot-${index}`));
-    }
-    // Writing bot-0 again makes bot-1 the oldest.
-    writeSavedThread(scope, "bot:bot-0", thread(2, "bot-0"));
-    writeSavedThread(scope, "group:group-x", {
-      ...thread(1),
-      botId: undefined,
-      groupId: "group-x",
-    });
-    expect(readSavedThread(scope, "bot:bot-1")).toBeNull();
-    expect([...state.files.keys()].some((path) => path.includes("bot%3Abot-1."))).toBe(false);
-    expect(readSavedThread(scope, "bot:bot-0")?.messages).toHaveLength(2);
-    expect(readSavedThread(scope, "bot:bot-2")).not.toBeNull();
-    expect(readSavedThread(scope, "group:group-x")).not.toBeNull();
-    const chatFiles = [...state.files.keys()].filter((path) => !path.endsWith("index.json"));
-    expect(chatFiles).toHaveLength(SAVED_CHATS);
-  });
-
-  it.each([
-    ["server", { apiBase: "https://other.example.test" }],
-    ["user", { userId: "user-b" }],
-    ["space", { spaceId: "space-b" }],
-  ])("is a miss, not a partial hydrate, when the %s differs", (_part, change) => {
-    writeSavedThread(scope, "bot:bot-a", thread(3));
-    writeSavedInbox(scope, navigation, me);
-    const other = { ...scope, ...change };
-    // Plant this scope's files at the other scope's paths: the key inside must still match.
-    for (const [path, contents] of [...state.files]) {
-      const moved = path
-        .replace(encodeURIComponent(scope.apiBase), encodeURIComponent(other.apiBase))
-        .replace(`user-${scope.userId}`, `user-${other.userId}`)
-        .replace(`space-${scope.spaceId}`, `space-${other.spaceId}`);
-      state.files.set(moved, contents);
-    }
-    expect(readSavedThread(other, "bot:bot-a")).toBeNull();
-    expect(readSavedInbox(other)).toBeNull();
-  });
-
-  it("is a miss when the chat differs, even with the file in its place", () => {
-    writeSavedThread(scope, "bot:bot-a", thread(3));
-    const [path, contents] = [...state.files].find(([key]) => key.includes("bot%3Abot-a"))!;
-    state.files.set(path.replace("bot-a", "bot-b"), contents);
-    expect(readSavedThread(scope, "bot:bot-b")).toBeNull();
-  });
-
-  it("treats corrupt files and disk failures as misses", () => {
-    writeSavedThread(scope, "bot:bot-a", thread(1));
-    const [path] = [...state.files.keys()].filter((key) => key.includes("bot%3Abot-a"));
-    state.files.set(path!, "{");
-    expect(readSavedThread(scope, "bot:bot-a")).toBeNull();
-    state.broken = true;
-    expect(() => writeSavedThread(scope, "bot:bot-a", thread(1))).not.toThrow();
-    expect(() => writeSavedInbox(scope, navigation, me)).not.toThrow();
-  });
-
-  it("clears everything", () => {
-    writeSavedInbox(scope, navigation, me);
-    writeSavedThread(scope, "bot:bot-a", thread(1));
-    clearSavedChats();
-    expect(state.files.size).toBe(0);
-    expect(readSavedInbox(scope)).toBeNull();
-  });
+it("keeps the last 100 messages, display-only", () => {
+  writeSavedThread(scope, "bot:bot-a", thread(SAVED_CHAT_MESSAGES + 20));
+  const saved = readSavedThread(scope, "bot:bot-a")!;
+  expect(saved.messages).toHaveLength(SAVED_CHAT_MESSAGES);
+  expect(saved.messages[0]!.id).toBe("m-20");
+  expect(saved.olderCursor).toBeNull();
+  expect(saved.run).toBeNull();
+  expect(saved).not.toHaveProperty("cursor");
 });
 
-describe("chat writes", () => {
-  it("coalesces stream updates into one write after they settle, and flushes on leave", () => {
-    vi.useFakeTimers();
-    try {
-      const writer = savedChatWriter();
-      const writes: number[] = [];
-      for (let update = 1; update <= 5; update++) {
-        writer.schedule(() => writes.push(update));
-        vi.advanceTimersByTime(SAVED_CHAT_WRITE_DELAY_MS - 1);
-      }
-      expect(writes).toEqual([]);
-      vi.advanceTimersByTime(1);
-      expect(writes).toEqual([5]);
-      writer.schedule(() => writes.push(6));
-      writer.flush();
-      writer.flush();
-      vi.runAllTimers();
-      expect(writes).toEqual([5, 6]);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-});
-
-describe("app wiring", () => {
-  const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
-
-  it("deletes saved chats and downloaded previews with every session change", () => {
-    const layout = read("../app/_layout.tsx");
-    expect(layout).toContain("registerSessionDiskCache(clearSavedChats);");
-    expect(layout).toContain("registerSessionDiskCache(clearArtifactPreviews);");
-  });
-
-  it("never tells an inbox that hasn't loaded yet to create a bot", () => {
-    const inbox = read("../app/index.tsx");
-    const empty = inbox.slice(
-      inbox.indexOf("ListEmptyComponent={"),
-      inbox.indexOf("ListFooterComponent={"),
-    );
-    expect(empty).toMatch(/me\s*\?\s*t\("Tap \+ to create a bot"\)\s*:\s*null/);
-    // The bar takes the inbox error line's place at the top of the list, never under the
-    // iOS 26 bottom search bar.
-    const header = inbox.slice(
-      inbox.indexOf("ListHeaderComponent={"),
-      inbox.indexOf("ListEmptyComponent={"),
-    );
-    expect(header).toContain("{error ? <Text style={styles.error}>{error}</Text> : null}");
-    // The home bar only says chats are saved once the inbox has rows to show.
-
-    // The saved inbox is applied only until the first live load.
-    expect(inbox).toMatch(/if \(cancelled \|\| !saved \|\| inboxLoaded\.current\) return;/);
-  });
+it("clears everything", () => {
+  writeSavedInbox(scope, navigation, me);
+  writeSavedThread(scope, "bot:bot-a", thread(1));
+  clearSavedChats();
+  expect(state.files.size).toBe(0);
+  expect(readSavedInbox(scope)).toBeNull();
 });

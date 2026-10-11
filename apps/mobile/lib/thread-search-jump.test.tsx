@@ -57,10 +57,7 @@ describe("mobile search jump", () => {
       const anchor = new ThreadJumpAnchor();
 
       function Probe() {
-        const [loaded, setLoadedSnap] = useState<{
-          snapshot: MobileSnapshot | null;
-          sessionGeneration: number | null;
-        }>({ snapshot: latest, sessionGeneration: 0 });
+        const [snap, setSnap] = useState<MobileSnapshot | null>(latest);
         const [, setThreadScrollState] = useState<ThreadScrollState>({
           detached: false,
           unread: false,
@@ -69,6 +66,10 @@ describe("mobile search jump", () => {
         const jumpScrollTarget = useRef<string | null>(null);
         const scope = {
           rpc,
+          liveSavedChatsScope: async () => ({}),
+          isIntegrationsScopeCurrent: () => true,
+          snapshotOrigin: useRef(null),
+          setShowingSaved: vi.fn(),
           historyEpoch: useRef(0),
           jumpGeneration: useRef(0),
           activeGroupId: useRef(targetKey === "groupId" ? "target-1" : undefined),
@@ -82,16 +83,7 @@ describe("mobile search jump", () => {
           pinnedScrollMetrics: useRef({ offset: 0, viewport: 0, content: 0 }),
           snapRef: useRef<MobileSnapshot | null>(latest),
           streamResponsesRef: useRef(false),
-          setLoadedSnap,
-          snapshotOrigin: useRef({ sessionGeneration: 0 }),
-          liveSavedChatsScope: async () => ({
-            sessionGeneration: 0,
-            apiBase: "https://api.example.test",
-            userId: "user-a",
-            selectionId: "space-a",
-          }),
-          isIntegrationsScopeCurrent: () => true,
-          setShowingSaved: () => undefined,
+          setSnap,
           setThreadScrollState,
           scrollBehavior: useRef(new ThreadScrollBehavior()),
           openThreadWindow,
@@ -99,7 +91,7 @@ describe("mobile search jump", () => {
           reconcileVisibleThreadSnapshot,
         };
         jump = new Function(...Object.keys(scope), handlers)(...Object.values(scope));
-        renderedSnapshot = loaded.snapshot;
+        renderedSnapshot = snap;
         return (
           <div
             data-list={pinnedAroundRef.current ? "pinned" : "live"}

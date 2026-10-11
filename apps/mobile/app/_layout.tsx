@@ -29,7 +29,6 @@ import {
   subscribeSessionRejected,
 } from "../lib/api";
 import { loadAppearancePreference, mobileTokens } from "../lib/appearance";
-import { clearArtifactPreviews } from "../lib/artifact-open";
 import { replaceWithSignIn } from "../lib/auth-routing";
 import { loadAvatarStyle } from "../lib/avatar-style";
 import { bootstrapI18n, useI18n } from "../lib/i18n";
@@ -51,7 +50,6 @@ import { registerSessionDiskCache } from "../lib/session";
 
 configureForegroundNotifications();
 registerSessionDiskCache(clearSavedChats);
-registerSessionDiskCache(clearArtifactPreviews);
 // Keep the splash up until the saved appearance applies, so the first frame isn't in the OS scheme.
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 

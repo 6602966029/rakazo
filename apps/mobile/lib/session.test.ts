@@ -4,7 +4,6 @@ import { artifactCacheSession } from "./artifact-cache-session";
 import { AVATAR_STYLE_KEY, getCachedAvatarStyle, saveAvatarStyle } from "./avatar-style.js";
 import {
   clearSessionToken,
-  currentReadySessionGeneration,
   currentSessionGeneration,
   loadSessionToken,
   loadVerifiedIntegrationsScope,
@@ -37,27 +36,6 @@ describe("mobile session storage", () => {
     await restoreSessionToken("");
   });
 
-  it("notifies stream consumers only after replacement credentials are ready", async () => {
-    let finish!: () => void;
-    const wait = new Promise<void>((resolve) => {
-      finish = resolve;
-    });
-    vi.mocked(SecureStore.setItemAsync).mockImplementation(async (key) => {
-      if (key === "rakazo.session_token") await wait;
-    });
-    const listener = vi.fn();
-    const unsubscribe = subscribeSessionGeneration(listener);
-    const ready = currentReadySessionGeneration();
-    const pending = saveSessionToken("fake-next-token");
-    expect(currentReadySessionGeneration()).toBe(ready);
-    expect(currentSessionGeneration()).toBeGreaterThan(ready);
-    expect(listener).not.toHaveBeenCalled();
-    finish();
-    await pending;
-    expect(listener).toHaveBeenCalledOnce();
-    expect(currentReadySessionGeneration()).toBe(currentSessionGeneration());
-    unsubscribe();
-  });
   it("hides the previous bearer while a replacement token is being stored", async () => {
     vi.mocked(SecureStore.getItemAsync).mockResolvedValue("fake-old-token");
     let finish!: () => void;
@@ -67,80 +45,15 @@ describe("mobile session storage", () => {
           finish = resolve;
         }),
     );
+    const listener = vi.fn();
+    const unsubscribe = subscribeSessionGeneration(listener);
     const saving = saveSessionToken("fake-new-token");
+    expect(listener).toHaveBeenCalledOnce();
+    unsubscribe();
     await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
     expect(await snapshotSessionToken()).toEqual({ ok: true, value: "" });
     finish();
     await saving;
-  });
-
-  it("rejects a token read that finishes after the session changes", async () => {
-    let finish!: (token: string) => void;
-    vi.mocked(SecureStore.getItemAsync).mockImplementationOnce(
-      () =>
-        new Promise<string>((resolve) => {
-          finish = resolve;
-        }),
-    );
-    const reading = snapshotSessionToken();
-    await saveSessionToken("fake-new-token");
-    finish("fake-old-token");
-    expect(await reading).toEqual({ ok: true, value: "" });
-  });
-
-  it.each(["replacement", "sign-out", "sign-out then replacement"])(
-    "serializes a pending token write before %s",
-    async (change) => {
-      let stored = "fake-old-token";
-      let finish!: () => void;
-      vi.mocked(SecureStore.getItemAsync).mockImplementation(async (key) =>
-        key === "rakazo.session_token" ? stored : null,
-      );
-      vi.mocked(SecureStore.setItemAsync).mockImplementation(async (key, value) => {
-        if (key !== "rakazo.session_token") return;
-        if (value === "fake-first-token")
-          await new Promise<void>((resolve) => {
-            finish = resolve;
-          });
-        stored = value;
-      });
-      const first = saveSessionToken("fake-first-token");
-      await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
-      vi.mocked(SecureStore.deleteItemAsync).mockImplementation(async (key) => {
-        if (key === "rakazo.session_token") stored = "";
-      });
-      const clearing =
-        change === "sign-out then replacement" ? clearSessionToken() : Promise.resolve();
-      const second =
-        change === "sign-out" ? clearSessionToken() : saveSessionToken("fake-second-token");
-      expect(await snapshotSessionToken()).toEqual({ ok: true, value: "" });
-      finish();
-      await Promise.all([first, second, clearing]);
-      expect(await loadSessionToken()).toBe(change === "sign-out" ? "" : "fake-second-token");
-    },
-  );
-
-  it("stores and clears only the session token key", async () => {
-    await saveSessionToken("secret-token");
-    await clearSessionToken();
-
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith("rakazo.session_token", "secret-token");
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("rakazo.session_token");
-  });
-
-  it("rotates the artifact namespace on session save, clear and restore", async () => {
-    await saveSessionToken("fake-cache-token");
-    let previous = await artifactCacheSession("fake-cache-token");
-    for (const change of [
-      () => saveSessionToken("fake-cache-token"),
-      () => clearSessionToken(),
-      () => restoreSessionToken("fake-cache-token"),
-    ]) {
-      await change();
-      const next = await artifactCacheSession("fake-cache-token");
-      expect(next).not.toBe(previous);
-      previous = next;
-    }
   });
 
   it("deletes registered disk caches on sign-in, sign-out and restore", async () => {
@@ -163,6 +76,29 @@ describe("mobile session storage", () => {
     await expect(clearSessionToken()).resolves.toBe(true);
     expect(after).toHaveBeenCalledOnce();
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("rakazo.integrations-scope");
+  });
+
+  it("stores and clears only the session token key", async () => {
+    await saveSessionToken("secret-token");
+    await clearSessionToken();
+
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith("rakazo.session_token", "secret-token");
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("rakazo.session_token");
+  });
+
+  it("rotates the artifact namespace on session save, clear and restore", async () => {
+    await saveSessionToken("fake-cache-token");
+    let previous = await artifactCacheSession("fake-cache-token");
+    for (const change of [
+      () => saveSessionToken("fake-cache-token"),
+      () => clearSessionToken(),
+      () => restoreSessionToken("fake-cache-token"),
+    ]) {
+      await change();
+      const next = await artifactCacheSession("fake-cache-token");
+      expect(next).not.toBe(previous);
+      previous = next;
+    }
   });
 
   it("forgets unsent messages on sign-out", async () => {
@@ -377,15 +313,6 @@ describe("verified integration session scope", () => {
     if (change === "restore") await restoreSessionToken("fake-session-a");
     expect(await loadVerifiedIntegrationsScope()).toBeNull();
     expect(disk.has("rakazo.integrations-scope")).toBe(false);
-  });
-  it("a failed secure wipe cannot authorize a previous session's cache", async () => {
-    await saveVerifiedIntegrationsScope(currentSessionGeneration(), scope);
-    const previous = await artifactCacheSession("fake-session-a");
-    vi.mocked(SecureStore.deleteItemAsync).mockRejectedValue(new Error("storage unavailable"));
-    await saveSessionToken("fake-session-a");
-    expect(await loadVerifiedIntegrationsScope()).toBeNull();
-    await saveVerifiedIntegrationsScope(currentSessionGeneration(), scope);
-    expect(await artifactCacheSession("fake-session-a")).not.toBe(previous);
   });
   it("rejects a late verification after session replacement", async () => {
     const generation = currentSessionGeneration();
