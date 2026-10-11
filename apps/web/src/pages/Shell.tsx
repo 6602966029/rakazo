@@ -3247,9 +3247,11 @@ export function ShellPage() {
                                 <div
                                   dir="auto"
                                   className={`mt-1 line-clamp-2 text-[12.5px] break-words whitespace-normal ${
-                                    workStatusLabel || item.chat.unread
-                                      ? "font-medium text-foreground/75"
-                                      : "text-muted-foreground/60"
+                                    workStatusLabel
+                                      ? "font-semibold text-status-working"
+                                      : item.chat.unread
+                                        ? "font-medium text-foreground/75"
+                                        : "text-muted-foreground/60"
                                   }`}
                                 >
                                   {rosterLine}
