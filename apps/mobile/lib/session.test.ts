@@ -53,6 +53,35 @@ describe("mobile session storage", () => {
     expect(listener).toHaveBeenCalledOnce();
     unsubscribe();
   });
+  it("hides the previous bearer while a replacement token is being stored", async () => {
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue("fake-old-token");
+    let finish!: () => void;
+    vi.mocked(SecureStore.setItemAsync).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const saving = saveSessionToken("fake-new-token");
+    expect(await snapshotSessionToken()).toEqual({ ok: true, value: "" });
+    finish();
+    await saving;
+  });
+
+  it("rejects a token read that finishes after the session changes", async () => {
+    let finish!: (token: string) => void;
+    vi.mocked(SecureStore.getItemAsync).mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const reading = snapshotSessionToken();
+    await saveSessionToken("fake-new-token");
+    finish("fake-old-token");
+    expect(await reading).toEqual({ ok: true, value: "" });
+  });
+
   it("stores and clears only the session token key", async () => {
     await saveSessionToken("secret-token");
     await clearSessionToken();

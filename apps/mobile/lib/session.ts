@@ -145,9 +145,12 @@ export async function loadSessionToken() {
 
 export async function saveSessionToken(token: string) {
   const generation = ++sessionGeneration;
+  sessionInvalidated = true;
+  sessionFallback = undefined;
   const clearingScope = invalidateSessionCaches();
   await SecureStore.setItemAsync(SESSION_KEY, token);
   await clearingScope;
+  if (generation !== sessionGeneration) return;
   sessionInvalidated = false;
   sessionFallback = undefined;
   if (generation === sessionGeneration) publishSessionGeneration();
@@ -156,6 +159,8 @@ export async function saveSessionToken(token: string) {
 /** Clears the session. Returns false only when SecureStore could neither delete nor overwrite. */
 export async function clearSessionToken(): Promise<boolean> {
   const generation = ++sessionGeneration;
+  sessionInvalidated = true;
+  sessionFallback = undefined;
   clearFailedSends();
   const clearingScope = invalidateSessionCaches();
   await stopLiveNotifications(true).catch(() => undefined);
@@ -243,8 +248,13 @@ export async function replaceSessionTokenIfCurrent(
 export async function snapshotSessionToken(): Promise<{ ok: true; value: string } | { ok: false }> {
   if (sessionFallback !== undefined) return { ok: true, value: sessionFallback };
   if (sessionInvalidated) return { ok: true, value: "" };
+  const generation = sessionGeneration;
   try {
-    return { ok: true, value: (await SecureStore.getItemAsync(SESSION_KEY)) ?? "" };
+    const value = (await SecureStore.getItemAsync(SESSION_KEY)) ?? "";
+    return {
+      ok: true,
+      value: generation === sessionGeneration && !sessionInvalidated ? value : "",
+    };
   } catch {
     return { ok: false };
   }
