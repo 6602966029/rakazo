@@ -489,7 +489,10 @@ function Thread() {
     : botId
       ? { botId }
       : undefined;
-  const [loadedSnap, setSnap] = useState<MobileSnapshot | null>(null);
+  const [loadedSnap, setLoadedSnap] = useState<{
+    snapshot: MobileSnapshot | null;
+    sessionGeneration: number | null;
+  }>({ snapshot: null, sessionGeneration: null });
   const snapRef = useRef<MobileSnapshot | null>(null);
   // The copy saved on this device stays on screen until a live snapshot replaces it.
   const [showingSaved, setShowingSaved] = useState(false);
@@ -506,7 +509,7 @@ function Thread() {
     userId: string;
   } | null>(null);
   // Retained history can render again only after the replacement session verifies its owner.
-  const snap = snapshotOrigin.current?.sessionGeneration === sessionEpoch ? loadedSnap : null;
+  const snap = loadedSnap.sessionGeneration === sessionEpoch ? loadedSnap.snapshot : null;
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,
@@ -518,12 +521,17 @@ function Thread() {
   function commitSnap(next: MobileSnapshot | null) {
     snapRef.current = next;
     const visible = withLiveStreamingProgress(next, streamResponsesRef.current);
-    setSnap((previous) => reconcileVisibleThreadSnapshot(previous, visible));
+    const generation = snapshotOrigin.current?.sessionGeneration ?? null;
+    setLoadedSnap((previous) => {
+      const snapshot = reconcileVisibleThreadSnapshot(previous.snapshot, visible);
+      return previous.sessionGeneration === generation && previous.snapshot === snapshot
+        ? previous
+        : { snapshot, sessionGeneration: generation };
+    });
   }
 
   useEffect(() => {
-    const visible = withLiveStreamingProgress(snapRef.current, streamResponses);
-    setSnap((previous) => reconcileVisibleThreadSnapshot(previous, visible));
+    commitSnap(snapRef.current);
   }, [streamResponses]);
   const activeThreadId = useRef<string | undefined>(undefined);
   const [agentSkills, setAgentSkills] = useState<AgentSkillCatalogEntry[]>([]);
@@ -1126,6 +1134,8 @@ function Thread() {
     const epoch = historyEpoch.current;
     jumpGeneration.current += 1;
     const jumpId = jumpGeneration.current;
+    const scope = await liveSavedChatsScope();
+    if (!scope || !isIntegrationsScopeCurrent(scope)) return;
     const [snap, page] = await Promise.all([
       rpc<MobileSnapshot>("threads/get", threadTarget),
       rpc<MobileMessagePage>("threads/messages", {
@@ -1135,7 +1145,12 @@ function Thread() {
     ]);
     // The epoch check drops a jump that raced a conversation clear (or a bot switch); the
     // generation check drops an older same-thread jump that finished after a newer one.
-    if (epoch !== historyEpoch.current || jumpId !== jumpGeneration.current) return;
+    if (
+      epoch !== historyEpoch.current ||
+      jumpId !== jumpGeneration.current ||
+      !isIntegrationsScopeCurrent(scope)
+    )
+      return;
     if (target.groupId && activeGroupId.current !== target.groupId) return;
     if (target.botId && activeBotId.current !== target.botId) return;
     const targetInPage = page.messages.some((message) => message.id === target.messageId);
@@ -1156,6 +1171,7 @@ function Thread() {
     pinnedScrollMetrics.current = { offset: 0, viewport: 0, content: 0 };
     // Publish the jump refs even when the opened snapshot is already visible.
     setThreadScrollState(scrollBehavior.current.state());
+    snapshotOrigin.current = scope;
     commitSnap(opened?.snapshot ?? snap);
     setShowingSaved(false);
   }

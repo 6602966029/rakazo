@@ -155,19 +155,49 @@ describe("saved chat on open", () => {
   });
 
   it("hides retained messages until they belong to the rendered session", () => {
-    const start = source.indexOf("  const snap = snapshotOrigin.current?");
+    const start = source.indexOf("  const snap = loadedSnap.sessionGeneration");
     const end = source.indexOf("  const streamResponses", start);
     const visible = new Function(
-      "snapshotOrigin",
       "sessionEpoch",
       "loadedSnap",
       `${source.slice(start, end)}return snap;`,
     );
     const privateMessages = snapshot(["private"]);
-    expect(visible({ current: { sessionGeneration: 0 } }, 1, privateMessages)).toBeNull();
-    expect(visible({ current: { sessionGeneration: 1 } }, 1, privateMessages)).toBe(
-      privateMessages,
+    expect(visible(1, { sessionGeneration: 0, snapshot: privateMessages })).toBeNull();
+    expect(visible(1, { sessionGeneration: 1, snapshot: privateMessages })).toBe(privateMessages);
+  });
+
+  it("publishes verified ownership even when the visible messages are unchanged", () => {
+    const start = source.indexOf("  function commitSnap(");
+    const end = source.indexOf("  useEffect(", start);
+    const code = ts.transpileModule(`${source.slice(start, end)}return commitSnap;`, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const messages = snapshot(["unchanged"]);
+    let state = { snapshot: messages, sessionGeneration: 0 };
+    const before = state;
+    const commit = new Function(
+      "snapRef",
+      "streamResponsesRef",
+      "snapshotOrigin",
+      "withLiveStreamingProgress",
+      "reconcileVisibleThreadSnapshot",
+      "setLoadedSnap",
+      code,
+    )(
+      { current: messages },
+      { current: true },
+      { current: { sessionGeneration: 1 } },
+      (next: unknown) => next,
+      (previous: unknown) => previous,
+      (update: (previous: typeof state) => typeof state) => {
+        state = update(state);
+      },
     );
+    commit(messages);
+    expect(state).not.toBe(before);
+    expect(state.sessionGeneration).toBe(1);
+    expect(state.snapshot).toBe(messages);
   });
 
   it.each(["same", "user", "server"])(
