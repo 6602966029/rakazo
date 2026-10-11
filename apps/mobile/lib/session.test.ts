@@ -83,7 +83,7 @@ describe("mobile session storage", () => {
     expect(await reading).toEqual({ ok: true, value: "" });
   });
 
-  it.each(["replacement", "sign-out"])(
+  it.each(["replacement", "sign-out", "sign-out then replacement"])(
     "serializes a pending token write before %s",
     async (change) => {
       let stored = "fake-old-token";
@@ -104,12 +104,14 @@ describe("mobile session storage", () => {
       vi.mocked(SecureStore.deleteItemAsync).mockImplementation(async (key) => {
         if (key === "rakazo.session_token") stored = "";
       });
+      const clearing =
+        change === "sign-out then replacement" ? clearSessionToken() : Promise.resolve();
       const second =
-        change === "replacement" ? saveSessionToken("fake-second-token") : clearSessionToken();
+        change === "sign-out" ? clearSessionToken() : saveSessionToken("fake-second-token");
       expect(await snapshotSessionToken()).toEqual({ ok: true, value: "" });
       finish();
-      await Promise.all([first, second]);
-      expect(await loadSessionToken()).toBe(change === "replacement" ? "fake-second-token" : "");
+      await Promise.all([first, second, clearing]);
+      expect(await loadSessionToken()).toBe(change === "sign-out" ? "" : "fake-second-token");
     },
   );
 

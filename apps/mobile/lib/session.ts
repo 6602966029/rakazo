@@ -166,8 +166,9 @@ export async function clearSessionToken(): Promise<boolean> {
   sessionFallback = undefined;
   clearFailedSends();
   const clearingScope = invalidateSessionCaches();
+  const clearingToken = clearStoredSessionToken(generation);
   await stopLiveNotifications(true).catch(() => undefined);
-  const tokenCleared = await clearStoredSessionToken(generation);
+  const tokenCleared = await clearingToken;
   await clearingScope;
   // Best-effort: a stuck style must not block sign-out or restore a wiped token.
   await clearAvatarStyle();
@@ -209,6 +210,7 @@ export async function restoreSessionToken(token: string) {
   const clearingScope = invalidateSessionCaches();
   if (!token) {
     await clearingScope;
+    if (generation !== sessionGeneration) return;
     sessionInvalidated = false;
     sessionFallback = undefined;
     if (generation === sessionGeneration) publishSessionGeneration();
