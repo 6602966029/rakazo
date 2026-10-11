@@ -1049,6 +1049,10 @@ msgstr "Color"
 msgid "Color {color}"
 msgstr "Color {color}"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Comfortable"
+msgstr "Comfortable"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Coming soon"
 msgstr "Coming soon"
@@ -1065,6 +1069,10 @@ msgstr "Command variable"
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "Comment"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Compact"
+msgstr "Compact"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Complete"
@@ -2111,6 +2119,11 @@ msgstr "Enter a whole number from 1 to 1000 for the image limit."
 msgid "Enter an API key before testing."
 msgstr "Enter an API key before testing."
 
+#: src/lib/roster-status.ts
+#: src/pages/Shell.tsx
+msgid "Error"
+msgstr "Error"
+
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every"
@@ -2937,6 +2950,10 @@ msgstr "Name this group"
 msgid "Name this routine"
 msgstr "Name this routine"
 
+#: src/lib/roster-status.ts
+msgid "Needs an answer"
+msgstr "Needs an answer"
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "Needs input"
@@ -2945,6 +2962,7 @@ msgstr "Needs input"
 msgid "Needs takeover"
 msgstr "Needs takeover"
 
+#: src/lib/roster-status.ts
 #: src/pages/Shell.tsx
 msgid "Needs you"
 msgstr "Needs you"
@@ -3532,13 +3550,13 @@ msgstr "Refreshing…"
 msgid "Registration is closed"
 msgstr "Registration is closed"
 
-#: src/pages/Shell.tsx
-msgid "Release"
-msgstr "Release"
-
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"
 msgstr "Release computer"
+
+#: src/pages/Shell.tsx
+msgid "Release control"
+msgstr "Release control"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release interrupted computer?"
@@ -4060,6 +4078,10 @@ msgstr "Show tool activity"
 msgid "Show transcript"
 msgstr "Show transcript"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Sidebar density"
+msgstr "Sidebar density"
+
 #: src/lib/localized-provider-hint.ts
 #: src/pages/Auth.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -4266,6 +4288,10 @@ msgstr "Switching…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "System"
 msgstr "System"
+
+#: src/pages/Shell.tsx
+msgid "Take control"
+msgstr "Take control"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"

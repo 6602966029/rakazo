@@ -1049,6 +1049,10 @@ msgstr "Цвет"
 msgid "Color {color}"
 msgstr "Цвет {color}"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Comfortable"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Coming soon"
 msgstr "Скоро"
@@ -1064,6 +1068,10 @@ msgstr "Переменная команды"
 
 #: src/pages/Board.tsx
 msgid "Comment"
+msgstr ""
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Compact"
 msgstr ""
 
 #: src/pages/ScratchpadSection.tsx
@@ -2111,6 +2119,11 @@ msgstr ""
 msgid "Enter an API key before testing."
 msgstr "Введите API-ключ перед тестом."
 
+#: src/lib/roster-status.ts
+#: src/pages/Shell.tsx
+msgid "Error"
+msgstr ""
+
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every"
@@ -2937,6 +2950,10 @@ msgstr "Назовите эту группу"
 msgid "Name this routine"
 msgstr "Назовите эту задачу"
 
+#: src/lib/roster-status.ts
+msgid "Needs an answer"
+msgstr ""
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "Требуется ввод данных"
@@ -2945,6 +2962,7 @@ msgstr "Требуется ввод данных"
 msgid "Needs takeover"
 msgstr "Требуется передача управления"
 
+#: src/lib/roster-status.ts
 #: src/pages/Shell.tsx
 msgid "Needs you"
 msgstr "Требуется ваше участие"
@@ -3532,13 +3550,13 @@ msgstr "Обновление…"
 msgid "Registration is closed"
 msgstr "Регистрация закрыта"
 
-#: src/pages/Shell.tsx
-msgid "Release"
-msgstr "Освободить управление"
-
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"
 msgstr "Освободить компьютер"
+
+#: src/pages/Shell.tsx
+msgid "Release control"
+msgstr "Передать управление"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release interrupted computer?"
@@ -4060,6 +4078,10 @@ msgstr ""
 msgid "Show transcript"
 msgstr "Показать расшифровку"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Sidebar density"
+msgstr ""
+
 #: src/lib/localized-provider-hint.ts
 #: src/pages/Auth.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -4266,6 +4288,10 @@ msgstr "Переключение…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "System"
 msgstr "Системная"
+
+#: src/pages/Shell.tsx
+msgid "Take control"
+msgstr "Взять управление"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"

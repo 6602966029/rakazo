@@ -1049,6 +1049,10 @@ msgstr "Couleur"
 msgid "Color {color}"
 msgstr "Couleur {color}"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Comfortable"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Coming soon"
 msgstr "Bientôt disponible"
@@ -1064,6 +1068,10 @@ msgstr "Variable de commande"
 
 #: src/pages/Board.tsx
 msgid "Comment"
+msgstr ""
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Compact"
 msgstr ""
 
 #: src/pages/ScratchpadSection.tsx
@@ -2111,6 +2119,11 @@ msgstr "Saisissez un nombre entier de 1 à 1000 pour la limite d'images."
 msgid "Enter an API key before testing."
 msgstr "Saisissez une clé API avant de tester."
 
+#: src/lib/roster-status.ts
+#: src/pages/Shell.tsx
+msgid "Error"
+msgstr ""
+
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every"
@@ -2937,6 +2950,10 @@ msgstr "Nommez ce groupe"
 msgid "Name this routine"
 msgstr "Nommez cette routine"
 
+#: src/lib/roster-status.ts
+msgid "Needs an answer"
+msgstr ""
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "Nécessite une saisie"
@@ -2945,6 +2962,7 @@ msgstr "Nécessite une saisie"
 msgid "Needs takeover"
 msgstr "Nécessite une intervention"
 
+#: src/lib/roster-status.ts
 #: src/pages/Shell.tsx
 msgid "Needs you"
 msgstr "A besoin de vous"
@@ -3532,13 +3550,13 @@ msgstr "Actualisation en cours…"
 msgid "Registration is closed"
 msgstr "Les inscriptions sont fermées"
 
-#: src/pages/Shell.tsx
-msgid "Release"
-msgstr "Libérer"
-
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"
 msgstr "Libérer l'ordinateur"
+
+#: src/pages/Shell.tsx
+msgid "Release control"
+msgstr "Rendre le contrôle"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release interrupted computer?"
@@ -4060,6 +4078,10 @@ msgstr ""
 msgid "Show transcript"
 msgstr "Afficher la transcription"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Sidebar density"
+msgstr ""
+
 #: src/lib/localized-provider-hint.ts
 #: src/pages/Auth.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -4266,6 +4288,10 @@ msgstr "Basculement en cours…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "System"
 msgstr "Système"
+
+#: src/pages/Shell.tsx
+msgid "Take control"
+msgstr "Prendre le contrôle"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"
