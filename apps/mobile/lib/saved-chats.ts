@@ -300,7 +300,7 @@ function writeSavedFile(
       } else collect(entry);
     }
   };
-  collect(userRoot(scope));
+  collect(new Directory(Paths.cache, ROOT));
   let total = bytes + files.reduce((sum, entry) => sum + entry.size, 0);
   files.sort((a, b) => (a.lastModified ?? 0) - (b.lastModified ?? 0));
   const inboxes = files.filter((entry) => entry.name === "inbox.json");

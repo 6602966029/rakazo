@@ -315,6 +315,14 @@ describe("inbox hydrate and save", () => {
 });
 
 describe("saved chats", () => {
+  it("counts inaccessible leftovers from earlier namespaces in the device budget", () => {
+    for (let i = 0; i < SAVED_CHATS + 1; i++) {
+      writeSavedThread({ ...scope, namespace: `ns-${i}` }, `bot:bot-${i}`, thread(1, `bot-${i}`));
+    }
+    expect(state.files.size).toBe(SAVED_CHATS);
+    expect(readSavedThread({ ...scope, namespace: "ns-0" }, "bot:bot-0")).toBeNull();
+  });
+
   it("keeps the offline inbox while enforcing transcript count and byte eviction", () => {
     writeSavedInbox(scope, navigation, me);
     for (let index = 0; index < SAVED_CHATS + 10; index++) {

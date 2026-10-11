@@ -172,7 +172,7 @@ async function cacheMobileArtifact(
   file.write(artifact.contentBase64, { encoding: "base64" });
   metadata.create({ overwrite: true });
   metadata.write(JSON.stringify({ key }));
-  pruneArtifactPreviews(new Directory(Paths.cache, PREVIEWS, scope.namespace), root);
+  pruneArtifactPreviews(new Directory(Paths.cache, PREVIEWS), root);
   return file;
 }
 
