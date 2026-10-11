@@ -39,12 +39,9 @@ function storedEntry(attempt: SendAttempt) {
 export const outboxDisk: UnsentDisk = {
   admit(attempt) {
     try {
+      if (folder(attempt.clientNonce).exists) return false;
       const bytes = attempt.payload.attachments.reduce(
-        (sum, a, index) =>
-          sum +
-          (attachmentFile(attempt.clientNonce, index).exists
-            ? 0
-            : Math.floor((a.contentBase64.length * 3) / 4)),
+        (sum, a) => sum + Math.floor((a.contentBase64.length * 3) / 4),
         0,
       );
       if (
@@ -58,7 +55,6 @@ export const outboxDisk: UnsentDisk = {
       folder(attempt.clientNonce).create({ intermediates: true, idempotent: true });
       attempt.payload.attachments.forEach((attachment, index) => {
         const target = attachmentFile(attempt.clientNonce, index);
-        if (target.exists) return;
         target.create();
         target.write(attachment.contentBase64, { encoding: "base64" });
         attachment.previewUri = attachment.mimeType.startsWith("image/") ? target.uri : undefined;

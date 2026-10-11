@@ -129,3 +129,10 @@ it("rejects a full attachment budget without rewriting existing bytes", () => {
   expect(outboxDisk.admit(large)).toBe(false);
   expect(files.get("cache/outbox/old/0")).toBe("x");
 });
+
+it("does not reuse leftover bytes for a repeated nonce in another session", () => {
+  files.set("cache/outbox/nonce-a/0", "old-private-placeholder");
+  const next = { ...attempt(), userId: "user-b", cacheSession: "namespace-b" };
+  expect(outboxDisk.admit(next)).toBe(false);
+  expect(next.payload.attachments[0]?.contentBase64).toBe("aGVsbG8=");
+});
