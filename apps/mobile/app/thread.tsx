@@ -150,7 +150,7 @@ import { available as dictationAvailable } from "../lib/dictation";
 import { cancelFocusPrompt, focusPromptThreadActive } from "../lib/focus-prompt";
 import { dateLocaleForUi, t, useI18n } from "../lib/i18n";
 import { isInlineImageMimeType } from "../lib/inline-image";
-import { integrationsCacheScope } from "../lib/integrations-cache";
+import { integrationsCacheScope, isIntegrationsScopeCurrent } from "../lib/integrations-cache";
 import { saveLastBotId } from "../lib/last-bot";
 import {
   dismissThreadNotifications,
@@ -181,6 +181,15 @@ import {
   getCachedResponseStreamingEnabled,
   subscribeResponseStreaming,
 } from "../lib/response-streaming";
+import type { SavedChatsScope } from "../lib/saved-chats";
+import {
+  liveSavedChatsScope,
+  loadSavedInbox,
+  readSavedThread,
+  savedChatsScope,
+  savedChatTarget,
+  writeSavedThread,
+} from "../lib/saved-chats";
 import { secretDestinationLabel } from "../lib/secret-destination";
 import { selectableTextFromMarkdown } from "../lib/selectable-text";
 import {
@@ -527,6 +536,10 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       : undefined;
   const [snap, setSnap] = useState<MobileSnapshot | null>(null);
   const snapRef = useRef<MobileSnapshot | null>(null);
+  // The copy saved on this device stays on screen until a live snapshot replaces it.
+  const [showingSaved, setShowingSaved] = useState(false);
+  const snapshotOrigin = useRef<SavedChatsScope | null>(null);
+  const pendingSave = useRef<(() => void) | null>(null);
   const streamResponses = useSyncExternalStore(
     subscribeResponseStreaming,
     getCachedResponseStreamingEnabled,
@@ -542,8 +555,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   }
 
   useEffect(() => {
-    const visible = withLiveStreamingProgress(snapRef.current, streamResponses);
-    setSnap((previous) => reconcileVisibleThreadSnapshot(previous, visible));
+    commitSnap(snapRef.current);
   }, [streamResponses]);
   const activeThreadId = useRef<string | undefined>(undefined);
   const [agentSkills, setAgentSkills] = useState<AgentSkillCatalogEntry[]>([]);
@@ -655,7 +667,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       botId: currentBot.id,
       autoSpeak: currentBot.autoSpeak,
       focused: AppState.currentState === "active" && navigation.isFocused(),
-      snapshotReady: snap?.botId === currentBot.id,
+      snapshotReady: snap?.botId === currentBot.id && !showingSaved,
       lastSpokenBotId: autoSpokenBotId.current,
       lastSpokenMessageId: autoSpoken.current,
       runStatus: snap?.run?.status,
@@ -676,7 +688,16 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
         color: resolvePersonaColorDef(currentBot.id, currentBot.color).light,
       },
     }).catch(() => undefined);
-  }, [botId, inGroup, currentBot, navigation, snap?.botId, snap?.messages, snap?.run?.status]);
+  }, [
+    botId,
+    inGroup,
+    currentBot,
+    navigation,
+    showingSaved,
+    snap?.botId,
+    snap?.messages,
+    snap?.run?.status,
+  ]);
 
   const speakFinishedReplyRef = useRef(speakFinishedReply);
   useLayoutEffect(() => {
@@ -720,7 +741,13 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
         }
       }
     } catch {
-      // Keep the last known roster if refresh fails.
+      // Keep the last known roster if refresh fails. Before any, use the bots saved with the
+      // inbox, so a saved chat offline keeps its bot's colour and avatar.
+      if (mentionBotsAppliedGeneration.current !== 0) return;
+      const saved = await loadSavedInbox();
+      if (!saved || mentionBotsAppliedGeneration.current !== 0) return;
+      if (targetBotId !== activeBotId.current) return;
+      setMentionBots((current) => (current.length ? current : saved.bots));
     }
   }, [botId, groupId, router]);
 
@@ -1011,16 +1038,53 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     setBotActionsOpen(true);
   }
 
+  /** Shows the chat's saved copy until live data for it arrives; never under a search jump. */
+  function showSavedThread(signal: AbortSignal) {
+    const target = savedChatTarget({ botId, groupId });
+    // Another chat's messages must never stay on screen under this chat's name.
+    if (snapRef.current && savedChatTarget(snapRef.current) !== target) {
+      commitSnap(null);
+      setShowingSaved(false);
+    }
+    void savedChatsScope().then((scope) => {
+      if (signal.aborted || !scope) return;
+      const onScreen = snapRef.current;
+      if (messageId || (onScreen && savedChatTarget(onScreen) === target)) return;
+      const saved = readSavedThread(scope, target);
+      if (!saved) return;
+      snapshotOrigin.current = scope;
+      commitSnap(saved);
+      setShowingSaved(true);
+    });
+  }
+
   async function refresh() {
     if (!botId && !groupId) return;
     const targetBotId = botId;
     const targetGroupId = groupId;
     const epoch = historyEpoch.current;
+    const origin = {
+      sessionGeneration: currentSessionGeneration(),
+      selectionId: selectedSpaceId(),
+    };
     const generation = ++refreshGeneration.current;
     const next = await rpc<MobileSnapshot>(
       "threads/get",
       targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! },
     );
+    if (
+      origin.sessionGeneration !== currentSessionGeneration() ||
+      origin.selectionId !== selectedSpaceId()
+    )
+      return;
+    const scope = await liveSavedChatsScope();
+    if (
+      !scope ||
+      scope.sessionGeneration !== origin.sessionGeneration ||
+      scope.selectionId !== origin.selectionId ||
+      !isIntegrationsScopeCurrent(scope)
+    )
+      return;
     // Only the newest started refresh may commit. Threads also receive live
     // events; an older snapshot must not overwrite those while a newer refresh
     // is already in flight. The subscription starts from the snapshot returned
@@ -1038,9 +1102,13 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       activeGroupId: activeGroupId.current,
     });
     if (result.commit) {
+      snapshotOrigin.current = scope;
+      pendingSave.current = null;
+      writeSavedThread(scope, savedChatTarget(next), next);
       commitSnap(
         mergeMobileSnapshot(snapRef.current, next, expandedHistoryThread.current === next.threadId),
       );
+      setShowingSaved(false);
     }
     if (isCurrentTarget(targetBotId, targetGroupId)) {
       feedback.refreshed(targetGroupId ?? targetBotId);
@@ -1053,6 +1121,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     const epoch = historyEpoch.current;
     jumpGeneration.current += 1;
     const jumpId = jumpGeneration.current;
+    const scope = await liveSavedChatsScope();
+    if (!scope || !isIntegrationsScopeCurrent(scope)) return;
     const [snap, page] = await Promise.all([
       rpc<MobileSnapshot>("threads/get", threadTarget),
       rpc<MobileMessagePage>("threads/messages", {
@@ -1062,7 +1132,12 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     ]);
     // The epoch check drops a jump that raced a conversation clear (or a bot switch); the
     // generation check drops an older same-thread jump that finished after a newer one.
-    if (epoch !== historyEpoch.current || jumpId !== jumpGeneration.current) return;
+    if (
+      epoch !== historyEpoch.current ||
+      jumpId !== jumpGeneration.current ||
+      !isIntegrationsScopeCurrent(scope)
+    )
+      return;
     if (target.groupId && activeGroupId.current !== target.groupId) return;
     if (target.botId && activeBotId.current !== target.botId) return;
     const targetInPage = page.messages.some((message) => message.id === target.messageId);
@@ -1083,7 +1158,9 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     pinnedScrollMetrics.current = { offset: 0, viewport: 0, content: 0 };
     // Publish the jump refs even when the opened snapshot is already visible.
     setThreadScrollState(scrollBehavior.current.state());
+    snapshotOrigin.current = scope;
     commitSnap(opened?.snapshot ?? snap);
+    setShowingSaved(false);
   }
 
   async function loadNewerMessages() {
@@ -1286,10 +1363,13 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   useEffect(() => {
     if (!botId && !groupId) return;
+    // Invalidate pending history loads while retaining pages already loaded for this chat.
     historyEpoch.current += 1;
     const abort = new AbortController();
     const subscriptionGeneration = ++liveSubscriptionGeneration.current;
+    const sessionGeneration = currentSessionGeneration();
     liveSubscribed.current = false;
+    showSavedThread(abort.signal);
     void (async () => {
       // Pending search jumps load the around-page separately; avoid replacing it with latest.
       const next = messageId
@@ -1306,13 +1386,14 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       if (abort.signal.aborted || readOnly) return;
       let cursor = next?.cursor ?? -1;
       let retryMs = 250;
-      while (!abort.signal.aborted) {
+      while (!abort.signal.aborted && sessionGeneration === currentSessionGeneration()) {
         try {
           liveSubscribed.current = true;
           await subscribeThread(
             groupId ? { groupId } : { botId: botId! },
             cursor,
             (event) => {
+              if (sessionGeneration !== currentSessionGeneration()) return;
               cursor = Math.max(cursor, event.seq ?? -1);
               retryMs = 250;
               if (
@@ -1373,6 +1454,32 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       abort.abort();
     };
   }, [botId, groupId, readOnly, markReadIfVisible, refreshMentionBots, sessionEpoch]);
+
+  useEffect(() => () => pendingSave.current?.(), [botId, groupId]);
+
+  // Save the latest messages of the live chat (not a jump or loaded history) once updates settle.
+  useEffect(() => {
+    if (
+      !snap ||
+      showingSaved ||
+      jumpScrollTarget.current ||
+      pinnedAroundRef.current ||
+      expandedHistoryThread.current
+    )
+      return;
+    const target = savedChatTarget({ botId, groupId });
+    const latest = snapRef.current;
+    if (!latest || savedChatTarget(latest) !== target) return;
+    const origin = snapshotOrigin.current;
+    if (!origin) return;
+    const write = () => writeSavedThread(origin, target, latest);
+    pendingSave.current = write;
+    const timer = setTimeout(() => {
+      pendingSave.current?.();
+      pendingSave.current = null;
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [snap, showingSaved, botId, groupId]);
 
   useEffect(() => {
     if (!botId && !groupId) return;
@@ -2154,7 +2261,9 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       style={{ flex: 1, backgroundColor: tokens.background, paddingHorizontal: 20 }}
     >
       {error ? (
-        <Text style={{ color: tokens.mutedForeground, marginTop: headerHeight + 28 }}>{error}</Text>
+        <Text style={{ color: tokens.mutedForeground, marginTop: headerHeight + 28 }}>
+          {showingSaved ? t("Couldn't refresh — showing the last loaded messages.") : error}
+        </Text>
       ) : null}
       {runError ? (
         <Text style={{ color: tokens.destructive, marginTop: error ? 12 : headerHeight + 28 }}>

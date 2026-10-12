@@ -26,9 +26,23 @@ function enqueueScopeWrite<T>(task: () => Promise<T>): Promise<T> {
   return next;
 }
 
+const sessionDiskCaches = new Set<() => void>();
+
+/** Registers a disk cache that every session change (sign-in, sign-out, server switch) deletes. */
+export function registerSessionDiskCache(clear: () => void): void {
+  sessionDiskCaches.add(clear);
+}
+
 function invalidateSessionCaches(): Promise<void> {
   scopeInvalidated = true;
   clearFailedSends();
+  for (const clear of sessionDiskCaches) {
+    try {
+      clear();
+    } catch {
+      // A failed disk wipe must not block the session change or the other wipes.
+    }
+  }
   const clearingArtifacts = invalidateArtifactCacheSession();
   return enqueueScopeWrite(async () => {
     await clearingArtifacts;

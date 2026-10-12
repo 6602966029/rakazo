@@ -45,9 +45,12 @@ import {
   subscribeRemoteImages,
 } from "../lib/remote-images-preference";
 import { loadResponseStreamingPreference } from "../lib/response-streaming";
+import { clearSavedChats } from "../lib/saved-chats";
+import { registerSessionDiskCache } from "../lib/session";
 import { startUnsentSends } from "../lib/unsent-sends";
 
 configureForegroundNotifications();
+registerSessionDiskCache(clearSavedChats);
 // Keep the splash up until the saved appearance applies, so the first frame isn't in the OS scheme.
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
