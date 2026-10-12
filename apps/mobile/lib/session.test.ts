@@ -7,11 +7,13 @@ import {
   currentSessionGeneration,
   loadSessionToken,
   loadVerifiedIntegrationsScope,
+  registerSessionDiskCache,
   restoreSessionToken,
   saveAvatarStyleIfCurrent,
   saveSessionToken,
   saveVerifiedIntegrationsScope,
   snapshotSessionToken,
+  subscribeSessionGeneration,
   tokenFromAuthResponse,
 } from "./session.js";
 import { clearFailedSends } from "./thread-feedback.js";
@@ -32,6 +34,48 @@ describe("mobile session storage", () => {
     vi.mocked(SecureStore.setItemAsync).mockReset();
     vi.mocked(SecureStore.deleteItemAsync).mockReset();
     await restoreSessionToken("");
+  });
+
+  it("hides the previous bearer while a replacement token is being stored", async () => {
+    vi.mocked(SecureStore.getItemAsync).mockResolvedValue("fake-old-token");
+    let finish!: () => void;
+    vi.mocked(SecureStore.setItemAsync).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const listener = vi.fn();
+    const unsubscribe = subscribeSessionGeneration(listener);
+    const saving = saveSessionToken("fake-new-token");
+    expect(listener).toHaveBeenCalledOnce();
+    unsubscribe();
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    expect(await snapshotSessionToken()).toEqual({ ok: true, value: "" });
+    finish();
+    await saving;
+  });
+
+  it("deletes registered disk caches on sign-in, sign-out and restore", async () => {
+    const clear = vi.fn();
+    registerSessionDiskCache(clear);
+    await saveSessionToken("fake-a");
+    expect(clear).toHaveBeenCalledTimes(1);
+    await clearSessionToken();
+    expect(clear).toHaveBeenCalledTimes(2);
+    await restoreSessionToken("fake-b");
+    expect(clear.mock.calls.length).toBeGreaterThan(2);
+  });
+
+  it("still signs out and runs every other wipe when one disk cache throws", async () => {
+    const after = vi.fn();
+    registerSessionDiskCache(() => {
+      throw new Error("disk unavailable");
+    });
+    registerSessionDiskCache(after);
+    await expect(clearSessionToken()).resolves.toBe(true);
+    expect(after).toHaveBeenCalledOnce();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("rakazo.integrations-scope");
   });
 
   it("stores and clears only the session token key", async () => {
