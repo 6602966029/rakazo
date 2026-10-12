@@ -63,6 +63,7 @@ export const GROK_SOURCES = [
   { label: "Grok-1 weights", href: "https://github.com/xai-org/grok-1" },
   { label: "OpenMausBot", href: "https://www.openmausbot.com/" },
   { label: "OpenMausBot docs", href: "https://docs.openmausbot.com/docs" },
+  { label: "OpenMausBot providers", href: "https://docs.openmausbot.com/docs/providers" },
   { label: "OpenMausBot source", href: "https://github.com/milind-soni/OpenMausBot" },
   { label: "OpenMuse", href: "https://www.copilotkit.ai/openmuse" },
   { label: "OpenMuse source", href: "https://github.com/CopilotKit/openmuse" },
@@ -207,7 +208,7 @@ export const GROK_OTHER_ALTERNATIVES = [
   {
     href: "https://www.openmausbot.com/",
     label: "OpenMausBot",
-    note: "An Apache-2.0 desktop app for macOS, Windows, and Ubuntu. Its [docs](https://docs.openmausbot.com/docs) say each bot runs an agent CLI you sign in to, and that application data stays on your machine.",
+    note: "An Apache-2.0 desktop app for macOS, Windows, and Ubuntu. Its [docs](https://docs.openmausbot.com/docs/providers) say bots can run a signed-in agent CLI, or Mistral from an API key with no CLI, and that application data stays on your machine.",
   },
   {
     href: "https://www.copilotkit.ai/openmuse",
@@ -246,7 +247,7 @@ export const GROK_ALTERNATIVE_FAQ = [
   {
     question: "What are the other alternatives?",
     answer:
-      "Meta Muse, OpenAI Dots, Instinct, and Hark Pro are hosted assistants. OpenClaw and Hermes Agent are open source agents you can run yourself, with a gateway and a config file in their docs. OpenMausBot is an Apache-2.0 desktop app; its docs say each bot runs an agent CLI you sign in to, and that application data stays on your machine. OpenMuse is CopilotKit's MIT-licensed personal agent, with a chat, a persistent browser, and an optional Linux terminal, and those surfaces run in the alpha. The comparisons page lists licenses, prices, and setup side by side. None of them imports a Grok Bot account.",
+      "Meta Muse, OpenAI Dots, Instinct, and Hark Pro are hosted assistants. OpenClaw and Hermes Agent are open source agents you can run yourself, with a gateway and a config file in their docs. OpenMausBot is an Apache-2.0 desktop app; its docs say bots can run a signed-in agent CLI, or Mistral from an API key with no CLI, and that application data stays on your machine. OpenMuse is CopilotKit's MIT-licensed personal agent, with a chat, a persistent browser, and an optional Linux terminal, and those surfaces run in the alpha. The comparisons page lists licenses, prices, and setup side by side. None of them imports a Grok Bot account.",
   },
 ] as const;
 
@@ -271,6 +272,14 @@ function absoluteHref(href: string): string {
   return href.startsWith("http") ? href : `${SITE_URL}${href}`;
 }
 
+/** The saved markdown page has no site to resolve a root-relative link against. */
+function absoluteMarkdown(value: string): string {
+  return value.replaceAll(
+    linkPattern(),
+    (_match, label: string, href: string) => `[${label}](${absoluteHref(href)})`,
+  );
+}
+
 function figureMarkdown(figure: GrokFigure): string {
   return `![${figure.alt}](${SITE_URL}${figure.webp})\n\n${figure.caption}`;
 }
@@ -282,7 +291,7 @@ function sectionMarkdown(section: (typeof GROK_SECTIONS)[number]): string {
       : section.heading === "Setup, then the chat"
         ? GROK_MODELS_FIGURE
         : null;
-  const body = section.paragraphs.join("\n\n");
+  const body = section.paragraphs.map((paragraph) => absoluteMarkdown(paragraph)).join("\n\n");
   return `## ${section.heading}\n\n${body}${figure ? `\n\n${figureMarkdown(figure)}` : ""}`;
 }
 
@@ -296,14 +305,14 @@ export function grokAlternativeMarkdown(): string {
     "\n",
   );
   const faq = GROK_ALTERNATIVE_FAQ.map(
-    (item) => `### ${item.question}\n\n${item.answer}`,
+    (item) => `### ${item.question}\n\n${absoluteMarkdown(item.answer)}`,
   ).join("\n\n");
 
   return `# ${GROK_ALTERNATIVE_H1}
 
 Updated ${GROK_UPDATED}.
 
-${GROK_INTRO.join("\n\n")}
+${GROK_INTRO.map((paragraph) => absoluteMarkdown(paragraph)).join("\n\n")}
 
 ${figureMarkdown(GROK_CHAT_FIGURE)}
 
@@ -332,9 +341,9 @@ ${SELF_HOST_AFTER.join("\n\n")}
 
 ## Other alternatives
 
-${GROK_OTHER_LEAD}
+${absoluteMarkdown(GROK_OTHER_LEAD)}
 
-${GROK_OTHER_ALTERNATIVES.map((item) => `- [${item.label}](${absoluteHref(item.href)}) — ${item.note}`).join("\n")}
+${GROK_OTHER_ALTERNATIVES.map((item) => `- [${item.label}](${absoluteHref(item.href)}) — ${absoluteMarkdown(item.note)}`).join("\n")}
 
 ## FAQ
 
