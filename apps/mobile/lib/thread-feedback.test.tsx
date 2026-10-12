@@ -273,6 +273,30 @@ describe("scoped mobile outbox", () => {
     expect(request).toHaveBeenCalledOnce();
     expect(notDelivered).not.toHaveBeenCalled();
   });
+  it("retries after a reconnect that arrived during an in-flight send", async () => {
+    let rejectUpload!: (error: unknown) => void;
+    request.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectUpload = reject;
+        }),
+    );
+    const attempt = feedback.sendAttempt(payload("Held"));
+    let sending!: Promise<boolean>;
+    act(() => {
+      sending = feedback.send(attempt);
+    });
+    await vi.waitFor(() => expect(rejectUpload).toBeTypeOf("function"));
+    const replay = sendWaitingMessages();
+    await act(async () => {
+      rejectUpload(Object.assign(new Error("unavailable"), { status: 503 }));
+      await sending;
+      await replay;
+    });
+    expect(attempt.acceptedSeq).toBe(42);
+    expect(request.mock.calls.filter(([proc]) => proc === "threads/send")).toHaveLength(1);
+    expect(notDelivered).not.toHaveBeenCalled();
+  });
   it("allows Retry after a consent conflict before dispatch", async () => {
     const attempt = feedback.sendAttempt(payload());
     request.mockRejectedValueOnce(

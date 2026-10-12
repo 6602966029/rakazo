@@ -128,6 +128,8 @@ let unsentSends: SendAttempt[] = [];
 let sessionCount = 0;
 let restored = false;
 let running: Promise<void> | undefined;
+/** A retry that arrived while a drain was in progress, run once that drain stops. */
+let pendingForce: boolean | null = null;
 const watchers = new Set<() => void>();
 const deliveredListeners = new Set<(attempt: SendAttempt) => void>();
 const echoes = new Map<string, Set<number>>();
@@ -179,6 +181,7 @@ export function clearUnsentSends() {
   restored = false;
   unsentSends = [];
   echoes.clear();
+  pendingForce = null;
   config?.disk.clear();
   changed();
 }
@@ -203,54 +206,70 @@ export function subscribeDelivered(listener: (attempt: SendAttempt) => void) {
   };
 }
 export function sendWaitingMessages(force = false): Promise<void> {
-  if (running) return running;
-  running = (async () => {
-    while (config && (force || config.serverReachable())) {
-      force = false;
-      const attempt = unsentSends.find((a) => a.state === "queued" && inScope(a));
-      if (!attempt) break;
-      attempt.state = "pending";
-      changed();
-      try {
-        const request = ((...args: Parameters<typeof rpc>) => {
-          if (!inScope(attempt)) throw new Error("Session changed");
-          return config!.request(args[0], args[1], args[2], attempt.spaceId);
-        }) as typeof rpc;
-        await config.disk.hydrate(attempt);
-        const seq = await deliverSend(attempt.payload, attempt, request);
-        if (!inScope(attempt)) continue;
-        attempt.acceptedSeq = seq;
-        for (const listener of deliveredListeners) listener(attempt);
-        if (
-          !screens.has(attempt.payload.originThreadKey) ||
-          seq === undefined ||
-          attempt.payload.reroutedToGroup ||
-          echoes.get(attempt.payload.originThreadKey)?.has(seq)
-        )
-          remove(attempt);
-        else changed();
-      } catch (error) {
-        if (!inScope(attempt)) continue;
-        const detail = error as { status?: number; cause?: { status?: number } } | null;
-        const status = detail?.status;
-        const offline = isServerUnreachable(error) || (status ?? detail?.cause?.status) === 429;
-        attempt.state = offline
-          ? "queued"
-          : status && status >= 400 && status < 500 && ![408, 425, 429].includes(status)
-            ? "refused"
-            : "failed";
-        attempt.error = config.errorText(error);
+  if (running) {
+    pendingForce = pendingForce === true || force;
+    return running;
+  }
+  const task = (async () => {
+    let nextForce = force;
+    for (;;) {
+      let allowUnreachable = nextForce;
+      while (config && (allowUnreachable || config.serverReachable())) {
+        allowUnreachable = false;
+        const attempt = unsentSends.find((a) => a.state === "queued" && inScope(a));
+        if (!attempt) break;
+        attempt.state = "pending";
         changed();
-        if (offline) break;
-        config.notDelivered(attempt);
-      } finally {
-        for (const attachment of attempt.payload.attachments) attachment.contentBase64 = "";
+        try {
+          const request = ((...args: Parameters<typeof rpc>) => {
+            if (!inScope(attempt)) throw new Error("Session changed");
+            return config!.request(args[0], args[1], args[2], attempt.spaceId);
+          }) as typeof rpc;
+          await config.disk.hydrate(attempt);
+          const seq = await deliverSend(attempt.payload, attempt, request);
+          if (!inScope(attempt)) continue;
+          attempt.acceptedSeq = seq;
+          for (const listener of deliveredListeners) listener(attempt);
+          if (
+            !screens.has(attempt.payload.originThreadKey) ||
+            seq === undefined ||
+            attempt.payload.reroutedToGroup ||
+            echoes.get(attempt.payload.originThreadKey)?.has(seq)
+          )
+            remove(attempt);
+          else changed();
+        } catch (error) {
+          if (!inScope(attempt)) continue;
+          const detail = error as { status?: number; cause?: { status?: number } } | null;
+          const status = detail?.status;
+          const offline = isServerUnreachable(error) || (status ?? detail?.cause?.status) === 429;
+          attempt.state = offline
+            ? "queued"
+            : status && status >= 400 && status < 500 && ![408, 425, 429].includes(status)
+              ? "refused"
+              : "failed";
+          attempt.error = config.errorText(error);
+          changed();
+          if (offline) break;
+          config.notDelivered(attempt);
+        } finally {
+          for (const attachment of attempt.payload.attachments) attachment.contentBase64 = "";
+        }
       }
+      if (pendingForce === null) return;
+      nextForce = pendingForce;
+      pendingForce = null;
     }
   })().finally(() => {
+    if (running !== task) return;
     running = undefined;
+    if (pendingForce === null) return;
+    const next = pendingForce;
+    pendingForce = null;
+    void sendWaitingMessages(next);
   });
-  return running;
+  running = task;
+  return task;
 }
 export function useThreadFeedback(threadKey: string | undefined, newNonce: () => string) {
   const [error, setError] = useState<string | null>(null);
