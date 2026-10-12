@@ -851,7 +851,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
                 identity={currentBot.id}
                 size={28}
                 status={currentBotStatus}
-                muted={!currentBot.notifyOnFinish}
+                muted={currentBot.notifyOnFinish === false}
               />
             ) : null}
             <Text numberOfLines={1} style={styles.title}>

@@ -320,8 +320,8 @@ describe("Android mobile platform contract", () => {
     const menu = readFileSync(resolve(mobileRoot, "components/bot-organize-modal.tsx"), "utf8");
     expect(menu).toContain("Silence notifications");
     expect(menu).toContain("Resume notifications");
-    expect(index).toContain("muted={!bot.notifyOnFinish}");
-    expect(thread).toContain("muted={!currentBot.notifyOnFinish}");
+    expect(index).toContain("muted={bot.notifyOnFinish === false}");
+    expect(thread).toContain("muted={currentBot.notifyOnFinish === false}");
     expect(avatar).toContain('accessibilityLabel={t("Notifications silenced")}');
     expect(avatar).toContain('android="notifications-off"');
     expect(thread.match(/muted=\{/g)).toHaveLength(1);

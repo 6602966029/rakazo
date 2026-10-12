@@ -108,13 +108,29 @@ const me = {
   name: "Ada Example",
   email: "ada@example.test",
 } as MobileMe;
-const bot = { id: "bot-a", name: "Alpha", sectionId: "section-a", parentBotId: "parent-a" };
+const bot = {
+  id: "bot-a",
+  name: "Alpha",
+  title: "Research",
+  notifyOnFinish: true,
+  threadId: "thread-bot-a",
+  updatedAt: "2026-10-10T12:30:00.000Z",
+  sectionId: "section-a",
+  parentBotId: "parent-a",
+};
+const group = {
+  id: "group-a",
+  name: "Team",
+  members: [],
+  preview: "",
+  updatedAt: "2026-10-10T12:30:00.000Z",
+};
 const navigation = {
   current: {
     id: "space-a",
     name: "Personal",
     bots: [{ ...bot, instructions: "Private bot instructions", teamChatRules: "Private rules" }],
-    groups: [],
+    groups: [{ ...group, createdAt: "2026-10-01T09:00:00.000Z" }],
     externalConversations: [],
     botSections: [],
   },
@@ -150,6 +166,7 @@ it("round trips only what the inbox shows", () => {
   expect(readSavedInbox(scope)).toBeNull();
   writeSavedInbox(scope, navigation, me);
   expect(readSavedInbox(scope)?.bots).toEqual([bot]);
+  expect(readSavedInbox(scope)?.groups).toEqual([group]);
   const [contents] = [...state.files.values()];
   expect(contents).not.toContain("Private");
   writeSavedThread(scope, "bot:bot-a", thread(SAVED_CHAT_MESSAGES + 1));

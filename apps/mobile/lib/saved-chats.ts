@@ -102,10 +102,26 @@ export function writeSavedInbox(
   try {
     const inbox: SavedInbox = {
       bots: navigation.current.bots.slice(0, SAVED_INBOX_ROWS).map(
-        ({ id, name, color, preview, unread, pinned, spaceId, status, sectionId, parentBotId }) =>
+        ({
+          id,
+          name,
+          title,
+          color,
+          preview,
+          unread,
+          pinned,
+          spaceId,
+          status,
+          sectionId,
+          parentBotId,
+          notifyOnFinish,
+          threadId,
+          updatedAt,
+        }) =>
           ({
             id,
             name,
+            title,
             color,
             preview,
             unread,
@@ -114,14 +130,25 @@ export function writeSavedInbox(
             status,
             sectionId,
             parentBotId,
+            notifyOnFinish,
+            threadId,
+            updatedAt,
           }) as MobileBot,
       ),
-      groups: navigation.current.groups
-        .slice(0, SAVED_INBOX_ROWS)
-        .map(
-          ({ id, name, members, preview, unread, pinned, spaceId, sectionId }) =>
-            ({ id, name, members, sectionId, preview, unread, pinned, spaceId }) as MobileGroup,
-        ),
+      groups: navigation.current.groups.slice(0, SAVED_INBOX_ROWS).map(
+        ({ id, name, members, preview, unread, pinned, spaceId, sectionId, updatedAt }) =>
+          ({
+            id,
+            name,
+            members,
+            sectionId,
+            preview,
+            unread,
+            pinned,
+            spaceId,
+            updatedAt,
+          }) as MobileGroup,
+      ),
       botSections: navigation.current.botSections.slice(0, SAVED_INBOX_ROWS),
       spaces: navigation.spaces.slice(0, 40).map((space) => ({
         ...space,

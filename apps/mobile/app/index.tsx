@@ -1254,7 +1254,7 @@ const BotRow = memo(function BotRow({
     bot.name,
     tag,
     working ? t("Working…") : null,
-    bot.notifyOnFinish ? null : t("notifications silenced"),
+    bot.notifyOnFinish === false ? t("notifications silenced") : null,
     bot.unread ? t("unread") : null,
     time,
     preview,
@@ -1284,7 +1284,7 @@ const BotRow = memo(function BotRow({
           color={bot.color || FALLBACK_COLOR}
           identity={bot.id}
           status={bot.status}
-          muted={!bot.notifyOnFinish}
+          muted={bot.notifyOnFinish === false}
         />
       }
     />
