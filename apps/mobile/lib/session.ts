@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { invalidateArtifactCacheSession } from "./artifact-cache-session";
 import { clearAvatarStyle, saveAvatarStyle } from "./avatar-style";
 import { stopLiveNotifications } from "./live-notifications";
+import { clearNetworkCache } from "./network-cache";
 import { clearFailedSends } from "./thread-feedback";
 
 const SESSION_KEY = "rakazo.session_token";
@@ -36,6 +37,7 @@ export function registerSessionDiskCache(clear: () => void): void {
 function invalidateSessionCaches(): Promise<void> {
   scopeInvalidated = true;
   clearFailedSends();
+  clearNetworkCache();
   for (const clear of sessionDiskCaches) {
     try {
       clear();
