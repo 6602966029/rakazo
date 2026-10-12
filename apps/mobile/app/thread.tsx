@@ -123,7 +123,6 @@ import type {
 import {
   applyMobileThreadEvent,
   blockText,
-  captureApiRequestContext,
   copyableMobileMessageText,
   currentApiBase,
   loadSessionToken,
@@ -200,12 +199,13 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import type { SendAttempt } from "../lib/thread-feedback";
-import { deliverSend, settleComposer, useThreadFeedback } from "../lib/thread-feedback";
+import { confirmEchoes, subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
 import { ThreadReadOnlyContext } from "../lib/thread-read-only";
 import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
 import { ThreadScrollBehavior } from "../lib/thread-scroll";
 import { reconcileVisibleThreadSnapshot } from "../lib/thread-snapshot";
+import { prepareUnsentSends } from "../lib/unsent-sends";
 import { errorText } from "../lib/user-error";
 import { speakQueue, speakText } from "../lib/voice";
 import {
@@ -579,7 +579,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const [quoteTarget, setQuoteTarget] = useState<MobileMessage | null>(null);
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const pendingDeliveries = useRef(0);
+  const preparingSend = useRef(false);
   const feedback = useThreadFeedback(threadKey, newClientNonce);
   const { error, setError } = feedback;
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -1557,7 +1557,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     if (readOnly) return;
     const initialBotTarget = botId;
     const initialGroupTarget = groupId;
-    if ((!initialBotTarget && !initialGroupTarget) || sending) return;
+    if ((!initialBotTarget && !initialGroupTarget) || sending || preparingSend.current) return;
     const originThreadKey = initialGroupTarget ?? initialBotTarget;
     const submitted = composerRef.current?.snapshot();
     if (!submitted) return;
@@ -1576,76 +1576,82 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       openBotChat(typedSwitch, false);
       return;
     }
+    preparingSend.current = true;
+    try {
+      await prepareUnsentSends();
+    } catch (error) {
+      Alert.alert(t("Failed to send message"), errorText(error));
+      return;
+    } finally {
+      preparingSend.current = false;
+    }
+    if (
+      !isCurrentTarget(initialBotTarget, initialGroupTarget) ||
+      JSON.stringify(submitted) !== JSON.stringify(composerRef.current?.snapshot())
+    )
+      return;
     const reroutedToGroup = Boolean(
       plan.rerouteGroupId && plan.rerouteGroupId !== initialGroupTarget,
     );
     const groupTarget = plan.rerouteGroupId ?? initialGroupTarget;
     const botTarget = reroutedToGroup ? undefined : initialBotTarget;
-    const attempt = feedback.sendAttempt({
-      originThreadKey: originThreadKey!,
-      displayText: submitted.promptText,
-      replyPreview: replyQuote ?? (replyTarget ? previewMessageText(replyTarget) : null),
-      initialBotTarget,
-      botTarget,
-      groupTarget,
-      reroutedToGroup,
-      plan,
-      attachments: attachments.map((attachment) => ({ ...attachment })),
-      replyTargetId: replyTarget?.id,
-      replyQuote,
-    });
-    await deliver(attempt, () => {
-      if (originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
-      const current = composerRef.current?.snapshot();
-      if (!current) return;
-      const settled = settleComposer(submitted, current);
-      setPendingAttachments((current) =>
-        current.filter((attachment) => !submitted.attachmentIds.includes(attachment.id)),
-      );
-      if (!settled.clearComposer) return;
-      composerRef.current?.reset();
-      setReplyTarget(null);
-      setReplyQuote(null);
-      setAttachmentNotice(null);
-    });
+    let attempt: SendAttempt;
+    try {
+      attempt = feedback.sendAttempt({
+        originThreadKey: originThreadKey!,
+        displayText: submitted.promptText,
+        replyPreview: replyQuote ?? (replyTarget ? previewMessageText(replyTarget) : null),
+        initialBotTarget,
+        botTarget,
+        groupTarget,
+        reroutedToGroup,
+        plan,
+        attachments,
+        replyTargetId: replyTarget?.id,
+        replyQuote,
+      });
+    } catch (error) {
+      Alert.alert(t("Failed to send message"), errorText(error));
+      return;
+    }
+    composerRef.current?.reset();
+    setPendingAttachments((current) =>
+      current.filter((attachment) => !submitted.attachmentIds.includes(attachment.id)),
+    );
+    setReplyTarget(null);
+    setReplyQuote(null);
+    setAttachmentNotice(null);
+    if (pinnedAroundRef.current) showLatest();
+    performScroll(scrollBehavior.current.jumpToLatest());
+    publishThreadScrollState(scrollBehavior.current.state());
+    await deliver(attempt);
   }
 
-  async function deliver(attempt: SendAttempt, onSettled?: () => void) {
-    if (readOnly || !feedback.start(attempt)) return;
+  async function deliver(attempt: SendAttempt, force = false) {
+    if (!readOnly) await feedback.send(attempt, force);
+  }
+
+  function afterDelivered(attempt: SendAttempt) {
     const { initialBotTarget, botTarget, groupTarget, reroutedToGroup, plan } = attempt.payload;
-    pendingDeliveries.current += 1;
-    setSending(true);
-    const generation = currentSessionGeneration();
-    try {
-      const requestContext = await captureApiRequestContext();
-      await deliverSend(attempt.payload, attempt, <T,>(...args: Parameters<typeof rpc>) => {
-        if (generation !== currentSessionGeneration()) throw new Error("Session changed");
-        return rpc<T>(args[0], args[1], { ...args[2], requestContext });
-      });
-      if (generation !== currentSessionGeneration()) return;
-    } catch (err) {
-      attempt.error = errorText(err, t("Failed to send message"));
-      feedback.sendFailed(attempt);
-      if (attempt.payload.originThreadKey === (activeGroupId.current ?? activeBotId.current)) {
-        if (pinnedAroundRef.current) showLatest();
-        performScroll(scrollBehavior.current.jumpToLatest());
-        publishThreadScrollState(scrollBehavior.current.state());
-      }
-      return;
-    } finally {
-      if (generation === currentSessionGeneration()) onSettled?.();
-      pendingDeliveries.current -= 1;
-      setSending(pendingDeliveries.current > 0);
-    }
-    feedback.sent(attempt);
     if (initialBotTarget) cancelFocusPrompt(initialBotTarget);
+    const generation = currentSessionGeneration();
+    const apiBase = currentApiBase();
+    const spaceId = selectedSpaceId();
     void loadSessionToken()
       .then((token) => {
-        if (generation === currentSessionGeneration())
-          return resumeLiveNotifications(currentApiBase(), token, selectedSpaceId() ?? "");
+        if (
+          generation === currentSessionGeneration() &&
+          apiBase === currentApiBase() &&
+          spaceId === selectedSpaceId()
+        )
+          return resumeLiveNotifications(apiBase, token, spaceId ?? "");
       })
       .catch(() => undefined);
-    if (attempt.payload.originThreadKey !== (activeGroupId.current ?? activeBotId.current)) return;
+    if (
+      attempt.payload.originThreadKey !== (activeGroupId.current ?? activeBotId.current) ||
+      !navigation.isFocused()
+    )
+      return;
     if (reroutedToGroup && groupTarget) {
       router.push({
         pathname: "/group-thread",
@@ -1658,6 +1664,20 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       void refresh().catch(() => undefined);
     }
   }
+
+  const afterDeliveredRef = useRef(afterDelivered);
+  afterDeliveredRef.current = afterDelivered;
+  useEffect(() => subscribeDelivered((attempt) => afterDeliveredRef.current(attempt)), []);
+  useEffect(() => {
+    if (snap && (snap.groupId ?? snap.botId) === threadKey) {
+      confirmEchoes(
+        threadKey!,
+        snap.messages.flatMap((message) =>
+          message.role === "user" && message.seq !== undefined ? [message.seq] : [],
+        ),
+      );
+    }
+  }, [snap, threadKey]);
 
   async function stop() {
     if (readOnly) return;
@@ -2225,11 +2245,11 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       </Pressable>
     ) : null;
 
-  const failedSendBubbles = feedback.failedSends.map((attempt) => (
+  const failedSendBubbles = feedback.unsentSends.map((attempt) => (
     <FailedSendBubble
       key={attempt.clientNonce}
       attempt={attempt}
-      onRetry={() => void deliver(attempt)}
+      onRetry={() => void deliver(attempt, true)}
       onDelete={() => feedback.discard(attempt)}
     />
   ));

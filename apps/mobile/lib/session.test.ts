@@ -56,6 +56,14 @@ describe("mobile session storage", () => {
     await saving;
   });
 
+  it("wipes the outbox on sign-in, sign-out and server-session restoration", async () => {
+    vi.mocked(clearFailedSends).mockClear();
+    await saveSessionToken("fake-a");
+    await clearSessionToken();
+    await restoreSessionToken("fake-b");
+    expect(vi.mocked(clearFailedSends).mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
+
   it("deletes registered disk caches on sign-in, sign-out and restore", async () => {
     const clear = vi.fn();
     registerSessionDiskCache(clear);
