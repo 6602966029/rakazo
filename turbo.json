@@ -1,17 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalPassThroughEnv": [
-    "COREPACK_ENABLE_DOWNLOAD_PROMPT"
-  ],
+  "globalPassThroughEnv": ["COREPACK_ENABLE_DOWNLOAD_PROMPT"],
   "tasks": {
     "generate": {
       "cache": false
     },
     "build": {
-      "dependsOn": [
-        "^build",
-        "^generate"
-      ],
+      "dependsOn": ["^build", "^generate"],
       "env": [
         "BETTER_AUTH_SECRET",
         "DATABASE_URL",
@@ -20,38 +15,20 @@
         "PUBLIC_POSTHOG_HOST",
         "PUBLIC_POSTHOG_KEY"
       ],
-      "outputs": [
-        "dist/**",
-        "src/generated/**"
-      ]
+      "outputs": ["dist/**", "src/generated/**"]
     },
     "check": {
-      "dependsOn": [
-        "^check",
-        "^generate",
-        "generate"
-      ]
+      "dependsOn": ["^check", "^generate", "generate"]
     },
     "test": {
-      "dependsOn": [
-        "^generate"
-      ],
-      "outputs": [
-        "coverage/**"
-      ]
+      "dependsOn": ["^generate"],
+      "outputs": ["coverage/**"]
     },
     "dev": {
       "cache": false,
-      "env": [
-        "PUBLIC_POSTHOG_HOST",
-        "PUBLIC_POSTHOG_KEY"
-      ],
+      "env": ["PUBLIC_POSTHOG_HOST", "PUBLIC_POSTHOG_KEY"],
       "persistent": true,
-      "passThroughEnv": [
-        "RAKAZO_HOST",
-        "RAKAZO_DEV_HOST",
-        "RAKAZO_ALLOWED_HOSTS"
-      ]
+      "passThroughEnv": ["RAKAZO_HOST", "RAKAZO_DEV_HOST", "RAKAZO_ALLOWED_HOSTS"]
     }
   }
 }
