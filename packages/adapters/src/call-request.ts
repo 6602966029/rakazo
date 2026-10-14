@@ -83,7 +83,7 @@ export function newCallRequest(input: {
  * devices answering, or an answer racing the ring-out, settle exactly once.
  */
 export async function settleCallRequest(
-  deps: { prisma: PrismaClient; events: Pick<ThreadEvents, "append"> },
+  deps: { prisma: PrismaClient; events: Pick<ThreadEvents, "notify"> },
   input: {
     threadId: string;
     callId: string;
@@ -92,40 +92,45 @@ export async function settleCallRequest(
     durationSeconds?: number;
   },
 ): Promise<CallRequestBlock | null> {
-  const message = await deps.prisma.message.findUnique({
-    where: {
-      threadId_clientNonce: {
-        threadId: input.threadId,
-        clientNonce: callRequestClientNonce(input.callId),
+  const result = await deps.prisma.$transaction(async (tx) => {
+    const message = await tx.message.findUnique({
+      where: {
+        threadId_clientNonce: {
+          threadId: input.threadId,
+          clientNonce: callRequestClientNonce(input.callId),
+        },
       },
-    },
-    select: { id: true, blocks: true, botId: true, thread: { select: { spaceId: true } } },
+      select: { id: true, blocks: true, botId: true, thread: { select: { spaceId: true } } },
+    });
+    if (!message?.botId) return null;
+    const before = Array.isArray(message.blocks) ? (message.blocks as MessageBlock[]) : [];
+    const block = callRequestBlock(before);
+    if (!block || !input.from.includes(block.status)) return null;
+    const expired = block.status === "ringing" && Date.parse(block.expiresAt) <= Date.now();
+    const next: CallRequestBlock = {
+      ...block,
+      ...(input.status ? { status: expired ? "missed" : input.status } : {}),
+      ...(input.durationSeconds === undefined ? {} : { durationSeconds: input.durationSeconds }),
+    };
+    const blocks = [next, ...before.slice(1)];
+    // Compare-and-set on the stored blocks: a concurrent settle leaves this one a no-op.
+    const updated = await tx.message.updateMany({
+      where: { id: message.id, blocks: { equals: message.blocks as Prisma.InputJsonValue } },
+      data: { blocks: blocks as Prisma.InputJsonValue },
+    });
+    if (updated.count !== 1) return null;
+    const event = await appendEventInTransaction(tx, {
+      spaceId: message.thread.spaceId,
+      threadId: input.threadId,
+      botId: message.botId,
+      type: "thread.message.updated",
+      payload: { messageId: message.id, role: "bot", blocks, callId: input.callId },
+    });
+    return { next, eventSeq: event.seq };
   });
-  if (!message?.botId) return null;
-  const before = Array.isArray(message.blocks) ? (message.blocks as MessageBlock[]) : [];
-  const block = callRequestBlock(before);
-  if (!block || !input.from.includes(block.status)) return null;
-  const expired = block.status === "ringing" && Date.parse(block.expiresAt) <= Date.now();
-  const next: CallRequestBlock = {
-    ...block,
-    ...(input.status ? { status: expired ? "missed" : input.status } : {}),
-    ...(input.durationSeconds === undefined ? {} : { durationSeconds: input.durationSeconds }),
-  };
-  const blocks = [next, ...before.slice(1)];
-  // Compare-and-set on the stored blocks: a concurrent settle leaves this one a no-op.
-  const updated = await deps.prisma.message.updateMany({
-    where: { id: message.id, blocks: { equals: message.blocks as Prisma.InputJsonValue } },
-    data: { blocks: blocks as Prisma.InputJsonValue },
-  });
-  if (updated.count !== 1) return null;
-  await deps.events.append({
-    spaceId: message.thread.spaceId,
-    threadId: input.threadId,
-    botId: message.botId,
-    type: "thread.message.updated",
-    payload: { messageId: message.id, role: "bot", blocks, callId: input.callId },
-  });
-  return next;
+  if (!result) return null;
+  await deps.events.notify(input.threadId, result.eventSeq).catch(() => undefined);
+  return result.next;
 }
 
 /** Serialize ringing across every bot owned by the user, including concurrent runs. */

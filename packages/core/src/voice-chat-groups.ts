@@ -54,7 +54,12 @@ export function groupVoiceChats<T extends VoiceChatMessage>(messages: T[]): Thre
           open = undefined;
           continue;
         }
-        if (message.callId === open.callId && message.runId) openRunIds.add(message.runId);
+        if (
+          message.callId === open.callId &&
+          message.runId &&
+          message.blocks[0]?.kind !== "call_request"
+        )
+          openRunIds.add(message.runId);
         continue;
       }
       open = undefined;
@@ -68,7 +73,10 @@ export function groupVoiceChats<T extends VoiceChatMessage>(messages: T[]): Thre
         callId: message.callId,
         messages: [message],
       };
-      openRunIds = new Set(message.runId ? [message.runId] : []);
+      // A request belongs to the calling run, not to a spoken turn.
+      openRunIds = new Set(
+        message.runId && message.blocks[0]?.kind !== "call_request" ? [message.runId] : [],
+      );
       items.push(open);
       continue;
     }

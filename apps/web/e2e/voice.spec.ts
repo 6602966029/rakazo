@@ -1,7 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, openUserSettings, rpc, signup } from "./helpers";
 
+test.use({
+  launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
+  permissions: ["microphone"],
+});
+
 test("voice settings connect a key, speak a reply, and open a call", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "SpeechRecognition", { value: undefined });
+    Object.defineProperty(window, "webkitSpeechRecognition", { value: undefined });
+  });
   const stamp = Date.now();
   const userName = `Voice ${stamp}`;
   await signup(page, `voice-${stamp}@rakazo.test`, "password12", userName);
@@ -81,15 +90,31 @@ test("voice settings connect a key, speak a reply, and open a call", async ({ pa
   await expect(page.getByTestId("call-view")).toBeVisible();
   await expect(page.getByTestId("call-view").getByText("Calling…")).toBeVisible();
   await expect(page.getByRole("button", { name: "Hang up" })).toBeVisible();
+  await captureScreenshot(page, testInfo, "outgoing-ringing");
+  await expect(page.getByTestId("call-view").getByText(/· Listening/)).toBeVisible();
   await captureScreenshot(page, testInfo, "voice-call");
   await page.getByRole("button", { name: "Minimize call" }).click();
   await expect(page.getByTestId("call-view")).toHaveCount(0);
   await expect(page.getByTestId("call-button")).toHaveAccessibleName("Open call");
+  await captureScreenshot(page, testInfo, "call-minimized");
   await page.getByTestId("call-return-bar").click();
   await expect(page.getByTestId("call-view")).toBeVisible();
   await page.getByRole("button", { name: "Hang up" }).click();
   await expect(page.getByTestId("call-view")).toHaveCount(0);
   await expect(page.getByTestId("call-return-bar")).toHaveCount(0);
+
+  const mic = page.getByRole("button", { name: "Hold to talk", exact: true });
+  const micBounds = await mic.boundingBox();
+  if (!micBounds) throw new Error("Missing composer microphone");
+  await page.mouse.move(micBounds.x + micBounds.width / 2, micBounds.y + micBounds.height / 2);
+  await page.mouse.down();
+  await expect(page.getByTestId("hold-to-talk-strip")).toBeVisible();
+  await captureScreenshot(page, testInfo, "composer-mic-dictation");
+  // Lock and discard so the screenshot's recording never sends a chat message.
+  await page.mouse.move(micBounds.x + micBounds.width / 2, micBounds.y - 100);
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Discard recording" }).click();
+  await expect(page.getByTestId("hold-to-talk-strip")).toHaveCount(0);
 
   await openUserSettings(page, "voice");
   const settings = page.getByTestId("voice-settings");

@@ -3644,7 +3644,7 @@ describe("threads.answerCall and threads.declineCall", () => {
     expiresAt = new Date(Date.now() + 45_000).toISOString(),
   ) {
     const appended: { type: string; payload: Record<string, unknown> }[] = [];
-    const prisma = {
+    const tx = {
       bot: {
         findFirst: vi
           .fn()
@@ -3668,12 +3668,25 @@ describe("threads.answerCall and threads.declineCall", () => {
         }),
         updateMany: vi.fn().mockResolvedValue({ count: updated }),
       },
+      thread: { update: vi.fn(async () => ({ nextEventSeq: 2 })) },
+      event: {
+        create: vi.fn(
+          async ({ data }: { data: { type: string; payload: Record<string, unknown> } }) => {
+            appended.push(data);
+            return { seq: 1 };
+          },
+        ),
+      },
       routine: {
         create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
           id: "routine-1",
           ...data,
         })),
       },
+    };
+    const prisma = {
+      ...tx,
+      $transaction: vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
     } as unknown as PrismaClient;
     const enqueue = vi.fn().mockResolvedValue(undefined);
     const deps = {
@@ -3764,6 +3777,7 @@ describe("threads.endCall", () => {
     const tx = {
       thread: { update: vi.fn().mockResolvedValue({ nextMessageSeq: 3, nextEventSeq: 5 }) },
       message: {
+        findUnique: vi.fn().mockResolvedValue(null),
         findFirst: vi.fn().mockResolvedValue(userSpoke ? { id: "utterance-1" } : null),
         create: vi.fn(async ({ data }: { data: { blocks: unknown; clientNonce?: string } }) => {
           if (duplicateMarker) throw Object.assign(new Error("unique"), { code: "P2002" });

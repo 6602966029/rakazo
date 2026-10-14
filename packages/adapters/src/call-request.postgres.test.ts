@@ -79,6 +79,17 @@ postgres("call isolation and cooldown (PostgreSQL)", () => {
       expect(await prisma.message.count({ where: { thread: { userId } } })).toBe(1);
       jobs.enqueue.mockClear();
       await reconcileCallRequests(deps);
+      const plan = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SET LOCAL enable_seqscan = off`;
+        return tx.$queryRaw<Array<{ "QUERY PLAN": string }>>`
+          EXPLAIN SELECT "threadId", blocks FROM messages
+          WHERE role = 'bot' AND "clientNonce" LIKE 'call:%' AND "clientNonce" LIKE '%:request'
+            AND blocks #> ARRAY['0', 'status'] = '"ringing"'::jsonb
+          ORDER BY "createdAt" ASC LIMIT 100`;
+      });
+      expect(plan.map((row) => row["QUERY PLAN"]).join("\n")).toContain(
+        "messages_call_recovery_idx",
+      );
       expect(jobs.enqueue).toHaveBeenCalledOnce();
       const job = jobs.enqueue.mock.calls[0]?.[0];
       expect(job).toMatchObject({ name: "call.expire" });
@@ -91,6 +102,35 @@ postgres("call isolation and cooldown (PostgreSQL)", () => {
           from: ["ringing"],
           status: "answered",
         });
+      // An event insert failure must roll back the status, leaving answer retryable.
+      let failEvent = true;
+      const failingPrisma = prisma.$extends({
+        query: {
+          event: {
+            create({ args, query }) {
+              if (failEvent && args.data.type === "thread.message.updated") {
+                failEvent = false;
+                throw new Error("event insert failed");
+              }
+              return query(args);
+            },
+          },
+        },
+      });
+      await expect(
+        settleCallRequest(
+          { ...deps, prisma: failingPrisma as unknown as typeof prisma },
+          {
+            threadId: message.threadId,
+            callId: block.callId,
+            from: ["ringing"],
+            status: "answered",
+          },
+        ),
+      ).rejects.toThrow("event insert failed");
+      expect(
+        (await prisma.message.findUniqueOrThrow({ where: { id: message.id } })).blocks,
+      ).toEqual(message.blocks);
       expect((await Promise.all([settle(), settle()])).filter(Boolean)).toHaveLength(1);
     } finally {
       await prisma.organization.deleteMany({ where: { id: organizationId } });

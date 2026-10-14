@@ -71,16 +71,18 @@ export function IncomingCall({
   const [busy, setBusy] = useState(false);
   const notified = useRef(new Set<string>());
 
+  const currentNow = Math.max(now, Date.now());
   const ringing: Ringing | null = onCall
     ? null
     : (bots
         .filter((bot) => bot.incomingCall && !handled.has(bot.incomingCall.callId))
         .map((bot) => ({ bot, call: bot.incomingCall as Ringing["call"] }))
-        .find(({ call }) => Date.parse(call.expiresAt) > now) ?? null);
+        .find(({ call }) => Date.parse(call.expiresAt) > currentNow) ?? null);
   const callId = ringing?.call.callId;
 
   useEffect(() => {
     if (!callId) return;
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [callId]);
@@ -91,7 +93,10 @@ export function IncomingCall({
     return startRingtone();
   }, [callId]);
 
+  const ringingRef = useRef(ringing);
+  ringingRef.current = ringing;
   useEffect(() => {
+    const ringing = ringingRef.current;
     if (!ringing || notified.current.has(ringing.call.callId)) return;
     notified.current.add(ringing.call.callId);
     if (document.visibilityState === "visible" || typeof Notification === "undefined") return;
@@ -104,12 +109,13 @@ export function IncomingCall({
       window.focus();
       notice.close();
     };
-  }, [ringing, t]);
+    return () => notice.close();
+  }, [callId, t]);
 
   if (!ringing) return null;
   const { bot, call } = ringing;
   const startedAt = Date.parse(call.expiresAt) - CALL_REQUEST_RING_MS;
-  const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const elapsed = Math.max(0, Math.floor((currentNow - startedAt) / 1000));
 
   const settle = async () => {
     setBusy(true);
@@ -139,6 +145,9 @@ export function IncomingCall({
       });
       onAnswered(bot.id);
     } catch (cause) {
+      if ((cause as { code?: string } | null)?.code === "CONFLICT") {
+        setHandled((current) => new Set(current).add(call.callId));
+      }
       setError(errorText(cause, t`This call is no longer ringing.`));
     } finally {
       setBusy(false);

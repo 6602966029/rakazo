@@ -25,7 +25,9 @@ function prismaWith(options: {
       expiresAt: options.expiresAt ?? new Date(Date.now() + 45_000).toISOString(),
     },
   ];
-  return {
+  const tx = {
+    thread: { update: vi.fn(async () => ({ nextEventSeq: 1 })) },
+    event: { create: vi.fn(async () => ({ seq: 0 })) },
     userVoiceCredential: {
       findFirst: vi.fn(async () => (options.voice === false ? null : { id: "voice-1" })),
     },
@@ -39,7 +41,12 @@ function prismaWith(options: {
       })),
       updateMany: vi.fn(async () => ({ count: options.updated ?? 1 })),
     },
+  };
+  return {
+    ...tx,
+    $transaction: vi.fn(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
   } as unknown as PrismaClient & {
+    event: { create: ReturnType<typeof vi.fn> };
     message: { updateMany: ReturnType<typeof vi.fn>; findFirst: ReturnType<typeof vi.fn> };
   };
 }
@@ -101,48 +108,67 @@ describe("call_user", () => {
 describe("settleCallRequest", () => {
   it("moves a ringing call on and tells the thread", async () => {
     const prisma = prismaWith({});
-    const events = { append: vi.fn(async () => ({}) as never) };
+    const events = { notify: vi.fn(async () => undefined) };
     const settled = await settleCallRequest(
       { prisma, events },
       { threadId: "thread-1", callId: "call-1", from: ["ringing"], status: "answered" },
     );
 
     expect(settled).toMatchObject({ status: "answered", opening: "Hi, it's about the report." });
-    expect(events.append).toHaveBeenCalledWith(
+    expect(prisma.event.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: "thread.message.updated",
-        botId: "bot-1",
-        payload: expect.objectContaining({ messageId: "message-1", callId: "call-1" }),
+        data: expect.objectContaining({
+          type: "thread.message.updated",
+          botId: "bot-1",
+          payload: expect.objectContaining({ messageId: "message-1", callId: "call-1" }),
+        }),
       }),
     );
   });
 
+  it("keeps a committed answer recoverable when notification fails", async () => {
+    const prisma = prismaWith({});
+    const events = { notify: vi.fn().mockRejectedValue(new Error("offline")) };
+    await expect(
+      settleCallRequest(
+        { prisma, events },
+        {
+          threadId: "thread-1",
+          callId: "call-1",
+          from: ["ringing"],
+          status: "answered",
+        },
+      ),
+    ).resolves.toMatchObject({ status: "answered" });
+    expect(events.notify).toHaveBeenCalledWith("thread-1", 0);
+  });
+
   it("leaves a call that already moved on alone", async () => {
-    const events = { append: vi.fn() };
+    const events = { notify: vi.fn(async () => undefined) };
     await expect(
       settleCallRequest(
         { prisma: prismaWith({ status: "missed" }), events },
         { threadId: "thread-1", callId: "call-1", from: ["ringing"], status: "answered" },
       ),
     ).resolves.toBeNull();
-    expect(events.append).not.toHaveBeenCalled();
+    expect(events.notify).not.toHaveBeenCalled();
   });
 
   it("settles once when two devices race", async () => {
-    const events = { append: vi.fn() };
+    const events = { notify: vi.fn(async () => undefined) };
     await expect(
       settleCallRequest(
         { prisma: prismaWith({ updated: 0 }), events },
         { threadId: "thread-1", callId: "call-1", from: ["ringing"], status: "answered" },
       ),
     ).resolves.toBeNull();
-    expect(events.append).not.toHaveBeenCalled();
+    expect(events.notify).not.toHaveBeenCalled();
   });
 
   it("records how long an answered call lasted", async () => {
     const prisma = prismaWith({ status: "answered" });
     await settleCallRequest(
-      { prisma, events: { append: vi.fn(async () => ({}) as never) } },
+      { prisma, events: { notify: vi.fn(async () => undefined) } },
       { threadId: "thread-1", callId: "call-1", from: ["answered"], durationSeconds: 42 },
     );
     expect(prisma.message.updateMany).toHaveBeenCalledWith(
