@@ -3,10 +3,8 @@ import { CALL_CLIENT_NONCE_PREFIX } from "./call-nonce.js";
 
 /** How long the bot's call rings before it counts as missed. */
 export const CALL_REQUEST_RING_MS = 45_000;
-/** A bot may not ring the same chat again sooner than this. */
+/** Bots share this cooldown across every chat owned by the recipient. */
 export const CALL_REQUEST_COOLDOWN_MS = 10 * 60_000;
-/** "Remind me later" on an incoming call asks the bot to try again after this. */
-export const CALL_REQUEST_LATER_MS = 10 * 60_000;
 
 export type CallRequestBlock = Extract<MessageBlock, { kind: "call_request" }>;
 

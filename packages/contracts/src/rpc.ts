@@ -424,7 +424,7 @@ export const appContract = {
             .min(1)
             .max(200)
             .regex(/^[^:]+$/),
-          outcome: z.enum(["declined", "later", "missed"]),
+          outcome: z.enum(["declined", "missed"]),
         }),
       )
       .output(z.object({ ok: z.literal(true) })),

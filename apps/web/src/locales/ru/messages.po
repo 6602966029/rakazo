@@ -822,10 +822,6 @@ msgstr "Перезвонить"
 msgid "Call with {0}"
 msgstr "Звонок с {0}"
 
-#: src/components/call/VoiceChatCard.tsx
-msgid "Calling back in 10 min"
-msgstr "Перезвонит через 10 мин"
-
 #: src/components/call/IncomingCall.tsx
 msgid "Calling you"
 msgstr "Звонит вам"
@@ -837,10 +833,6 @@ msgstr "Звонит вам…"
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
 msgstr "Вызов…"
-
-#: src/lib/call-session.ts
-msgid "Camera failed"
-msgstr "Не удалось включить камеру"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -1712,6 +1704,7 @@ msgstr "Не удалось выполнить поиск по каталогу"
 msgid "Could not send reset email"
 msgstr "Не удалось отправить электронное письмо для сброса"
 
+#: src/components/call/IncomingCall.tsx
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "Не удалось отправить это"
@@ -3669,10 +3662,6 @@ msgstr "Передать управление"
 msgid "Release interrupted computer?"
 msgstr "Освободить прерванный компьютер?"
 
-#: src/components/call/IncomingCall.tsx
-msgid "Remind me in 10 minutes"
-msgstr "Напомнить через 10 минут"
-
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -4001,10 +3990,6 @@ msgstr "Сохранение…"
 msgid "Say yes or no, or answer in a sentence."
 msgstr "Скажите «да» или «нет» или ответьте предложением."
 
-#: src/lib/call-session.ts
-msgid "Screen sharing failed"
-msgstr "Не удалось показать экран"
-
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -4148,10 +4133,6 @@ msgstr "Помощь по настройке"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Shape"
 msgstr "Форма"
-
-#: src/components/call/CallCard.tsx
-msgid "Share screen"
-msgstr "Показать экран"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -4358,14 +4339,9 @@ msgstr ""
 msgid "Steps"
 msgstr "Шаги"
 
-#: src/components/call/CallCard.tsx
 #: src/pages/Shell.tsx
 msgid "Stop"
 msgstr "Остановить"
-
-#: src/components/call/CallCard.tsx
-msgid "Stop sharing screen"
-msgstr "Остановить показ экрана"
 
 #: src/pages/Shell.tsx
 msgid "Stop speaking"
@@ -4680,14 +4656,6 @@ msgstr ""
 msgid "Try the test again."
 msgstr "Повторите тест."
 
-#: src/components/call/CallCard.tsx
-msgid "Turn camera off"
-msgstr "Выключить камеру"
-
-#: src/components/call/CallCard.tsx
-msgid "Turn camera on"
-msgstr "Включить камеру"
-
 #: src/pages/shell/bot-credentials.tsx
 msgid "Type"
 msgstr ""
@@ -4990,14 +4958,6 @@ msgstr "Вы отклонили"
 #: src/pages/Shell.tsx
 msgid "You have control"
 msgstr "Вы управляете"
-
-#: src/components/call/CallCard.tsx
-msgid "You're sharing your screen"
-msgstr "Вы показываете экран"
-
-#: src/components/call/CallCard.tsx
-msgid "Your camera"
-msgstr "Ваша камера"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

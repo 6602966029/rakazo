@@ -427,3 +427,36 @@ describe("createRepos.reorderBots", () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+it("finds incoming calls independently of the sidebar message window", async () => {
+  const blocks = [
+    {
+      kind: "call_request",
+      callId: "call-1",
+      reason: "Review",
+      opening: "Ready?",
+      status: "ringing",
+      expiresAt: new Date(Date.now() + 45_000).toISOString(),
+    },
+  ];
+  const messageQuery = vi.fn(async () => [{ role: "bot", blocks }]);
+  const prisma = {
+    bot: { findMany: vi.fn(async () => [baseBot]) },
+    message: { findMany: messageQuery },
+  } as unknown as PrismaClient;
+  const bots = await createRepos(prisma, { phoneCallsEnabled: true }).listBots(actor);
+  expect(bots[0]?.incomingCall?.callId).toBe("call-1");
+  expect(messageQuery).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: {
+        threadId: "thread-1",
+        role: "bot",
+        clientNonce: { startsWith: "call:", endsWith: ":request" },
+      },
+      take: 1,
+    }),
+  );
+  messageQuery.mockClear();
+  expect((await createRepos(prisma).listBots(actor))[0]?.incomingCall).toBeNull();
+  expect(messageQuery).not.toHaveBeenCalled();
+});

@@ -50,7 +50,7 @@ function startRingtone(): () => void {
 type Ringing = { bot: Bot; call: NonNullable<Bot["incomingCall"]> };
 
 /**
- * The bot is calling: rings until the user answers, declines, asks for later, or
+ * The bot is calling: rings until the user answers, declines, or
  * the call rings out. Answering hands over to the regular call window.
  */
 export function IncomingCall({
@@ -97,7 +97,6 @@ export function IncomingCall({
     if (document.visibilityState === "visible" || typeof Notification === "undefined") return;
     if (Notification.permission !== "granted") return;
     const notice = new Notification(t`${ringing.bot.name} is calling you`, {
-      body: ringing.call.reason,
       tag: `call:${ringing.call.callId}`,
       requireInteraction: true,
     });
@@ -112,11 +111,17 @@ export function IncomingCall({
   const startedAt = Date.parse(call.expiresAt) - CALL_REQUEST_RING_MS;
   const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
 
-  const settle = (outcome: "declined" | "later") => {
-    setHandled((current) => new Set(current).add(call.callId));
-    void rpc.threads.declineCall({ botId: bot.id, callId: call.callId, outcome }).catch(() => {
-      // The ring-out marks it missed anyway.
-    });
+  const settle = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await rpc.threads.declineCall({ botId: bot.id, callId: call.callId, outcome: "declined" });
+      setHandled((current) => new Set(current).add(call.callId));
+    } catch (cause) {
+      setError(errorText(cause, t`Could not send that`));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const answer = async () => {
@@ -135,7 +140,6 @@ export function IncomingCall({
       onAnswered(bot.id);
     } catch (cause) {
       setError(errorText(cause, t`This call is no longer ringing.`));
-      setHandled((current) => new Set(current).add(call.callId));
     } finally {
       setBusy(false);
     }
@@ -188,7 +192,8 @@ export function IncomingCall({
         <Button
           variant="destructive"
           className="h-14 rounded-full text-[15px] md:h-11 md:text-[14px]"
-          onClick={() => settle("declined")}
+          disabled={busy}
+          onClick={() => void settle()}
         >
           <PhoneOff className="size-5" aria-hidden="true" />
           {t`Decline`}
@@ -202,13 +207,6 @@ export function IncomingCall({
           {t({ message: "Answer", context: "incoming call" })}
         </Button>
       </div>
-      <Button
-        variant="ghost"
-        className="mt-3 self-center rounded-full text-muted-foreground md:mt-0"
-        onClick={() => settle("later")}
-      >
-        {t`Remind me in 10 minutes`}
-      </Button>
     </div>
   );
 }

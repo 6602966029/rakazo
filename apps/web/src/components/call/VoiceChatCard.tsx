@@ -42,7 +42,6 @@ export function VoiceChatCard({
   // A call that rang out reads as missed even before the server's ring-out lands.
   const missed =
     request?.status === "declined" ||
-    request?.status === "later" ||
     request?.status === "missed" ||
     (request?.status === "ringing" && !ringing);
   const title = !request
@@ -58,11 +57,9 @@ export function VoiceChatCard({
       ? ""
       : request.status === "declined"
         ? t`You declined`
-        : request.status === "later"
-          ? t`Calling back in 10 min`
-          : request.status === "missed" || request.status === "ringing"
-            ? t`No answer`
-            : duration;
+        : request.status === "missed" || request.status === "ringing"
+          ? t`No answer`
+          : duration;
   const summary = missed || ringing ? (request?.reason ?? "") : voiceChatSummary(group);
   // The opening was spoken, not posted: show it as the call's first bot turn.
   const transcript = [

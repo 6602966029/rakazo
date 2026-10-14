@@ -129,10 +129,9 @@ export function blocksToAgentHistoryText(blocks: MessageBlock[]): string {
           ringing: "still ringing",
           answered: "the user answered",
           declined: "the user declined it",
-          later: "the user asked you to call back in 10 minutes",
           missed: "the user did not answer",
         }[block.status];
-        return `[you called the user about: ${block.reason}; ${outcome}]`;
+        return `[you called the user about: ${block.reason}; ${outcome}]${block.status === "answered" ? `\n${block.opening}` : ""}`;
       }
       if ("text" in block && typeof block.text === "string") return block.text;
       return "";

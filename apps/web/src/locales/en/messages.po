@@ -822,10 +822,6 @@ msgstr "Call back"
 msgid "Call with {0}"
 msgstr "Call with {0}"
 
-#: src/components/call/VoiceChatCard.tsx
-msgid "Calling back in 10 min"
-msgstr "Calling back in 10 min"
-
 #: src/components/call/IncomingCall.tsx
 msgid "Calling you"
 msgstr "Calling you"
@@ -837,10 +833,6 @@ msgstr "Calling you…"
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
 msgstr "Calling…"
-
-#: src/lib/call-session.ts
-msgid "Camera failed"
-msgstr "Camera failed"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -1712,6 +1704,7 @@ msgstr "Could not search catalog"
 msgid "Could not send reset email"
 msgstr "Could not send reset email"
 
+#: src/components/call/IncomingCall.tsx
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "Could not send that"
@@ -3669,10 +3662,6 @@ msgstr "Release control"
 msgid "Release interrupted computer?"
 msgstr "Release interrupted computer?"
 
-#: src/components/call/IncomingCall.tsx
-msgid "Remind me in 10 minutes"
-msgstr "Remind me in 10 minutes"
-
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -4001,10 +3990,6 @@ msgstr "Saving…"
 msgid "Say yes or no, or answer in a sentence."
 msgstr "Say yes or no, or answer in a sentence."
 
-#: src/lib/call-session.ts
-msgid "Screen sharing failed"
-msgstr "Screen sharing failed"
-
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -4148,10 +4133,6 @@ msgstr "Setup help"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Shape"
 msgstr "Shape"
-
-#: src/components/call/CallCard.tsx
-msgid "Share screen"
-msgstr "Share screen"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -4358,14 +4339,9 @@ msgstr "Status"
 msgid "Steps"
 msgstr "Steps"
 
-#: src/components/call/CallCard.tsx
 #: src/pages/Shell.tsx
 msgid "Stop"
 msgstr "Stop"
-
-#: src/components/call/CallCard.tsx
-msgid "Stop sharing screen"
-msgstr "Stop sharing screen"
 
 #: src/pages/Shell.tsx
 msgid "Stop speaking"
@@ -4680,14 +4656,6 @@ msgstr "Try again"
 msgid "Try the test again."
 msgstr "Try the test again."
 
-#: src/components/call/CallCard.tsx
-msgid "Turn camera off"
-msgstr "Turn camera off"
-
-#: src/components/call/CallCard.tsx
-msgid "Turn camera on"
-msgstr "Turn camera on"
-
 #: src/pages/shell/bot-credentials.tsx
 msgid "Type"
 msgstr "Type"
@@ -4990,14 +4958,6 @@ msgstr "You declined"
 #: src/pages/Shell.tsx
 msgid "You have control"
 msgstr "You have control"
-
-#: src/components/call/CallCard.tsx
-msgid "You're sharing your screen"
-msgstr "You're sharing your screen"
-
-#: src/components/call/CallCard.tsx
-msgid "Your camera"
-msgstr "Your camera"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

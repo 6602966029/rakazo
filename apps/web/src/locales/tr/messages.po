@@ -822,10 +822,6 @@ msgstr ""
 msgid "Call with {0}"
 msgstr ""
 
-#: src/components/call/VoiceChatCard.tsx
-msgid "Calling back in 10 min"
-msgstr ""
-
 #: src/components/call/IncomingCall.tsx
 msgid "Calling you"
 msgstr ""
@@ -836,10 +832,6 @@ msgstr ""
 
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
-msgstr ""
-
-#: src/lib/call-session.ts
-msgid "Camera failed"
 msgstr ""
 
 #: src/App.tsx
@@ -1712,6 +1704,7 @@ msgstr ""
 msgid "Could not send reset email"
 msgstr "Sıfırlama e-postası gönderilemedi"
 
+#: src/components/call/IncomingCall.tsx
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "Gönderilemedi"
@@ -3669,10 +3662,6 @@ msgstr "Kontrolü bırak"
 msgid "Release interrupted computer?"
 msgstr ""
 
-#: src/components/call/IncomingCall.tsx
-msgid "Remind me in 10 minutes"
-msgstr ""
-
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -4001,10 +3990,6 @@ msgstr "Kaydediliyor…"
 msgid "Say yes or no, or answer in a sentence."
 msgstr "Evet ya da hayır de veya bir cümleyle yanıtla."
 
-#: src/lib/call-session.ts
-msgid "Screen sharing failed"
-msgstr ""
-
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -4148,10 +4133,6 @@ msgstr "Kurulum yardımı"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Shape"
 msgstr "Şekil"
-
-#: src/components/call/CallCard.tsx
-msgid "Share screen"
-msgstr ""
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -4358,14 +4339,9 @@ msgstr ""
 msgid "Steps"
 msgstr "Adımlar"
 
-#: src/components/call/CallCard.tsx
 #: src/pages/Shell.tsx
 msgid "Stop"
 msgstr "Durdur"
-
-#: src/components/call/CallCard.tsx
-msgid "Stop sharing screen"
-msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Stop speaking"
@@ -4680,14 +4656,6 @@ msgstr "Tekrar dene"
 msgid "Try the test again."
 msgstr "Testi yeniden dene."
 
-#: src/components/call/CallCard.tsx
-msgid "Turn camera off"
-msgstr ""
-
-#: src/components/call/CallCard.tsx
-msgid "Turn camera on"
-msgstr ""
-
 #: src/pages/shell/bot-credentials.tsx
 msgid "Type"
 msgstr ""
@@ -4990,14 +4958,6 @@ msgstr ""
 #: src/pages/Shell.tsx
 msgid "You have control"
 msgstr "Kontrol sende"
-
-#: src/components/call/CallCard.tsx
-msgid "You're sharing your screen"
-msgstr ""
-
-#: src/components/call/CallCard.tsx
-msgid "Your camera"
-msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

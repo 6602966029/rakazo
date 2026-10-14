@@ -53,6 +53,12 @@ describe("call requests", () => {
     ).toBeNull();
   });
 
+  it("includes the spoken opening in answered history", () => {
+    expect(blocksToAgentHistoryText([request("answered")])).toContain(
+      "You missed my reminders, so I'm calling.",
+    );
+  });
+
   it("tells the bot how its call ended", () => {
     expect(blocksToAgentHistoryText([request("missed")])).toBe(
       "[you called the user about: 3 reminders without a reply; the user did not answer]",

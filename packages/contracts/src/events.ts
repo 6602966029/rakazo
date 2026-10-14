@@ -171,7 +171,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     reason: z.string(),
     /** The bot's first spoken sentence once the user answers. */
     opening: z.string(),
-    status: z.enum(["ringing", "answered", "declined", "later", "missed"]),
+    status: z.enum(["ringing", "answered", "declined", "missed"]),
     expiresAt: z.string(),
     /** Connected time the user's client measured after answering. */
     durationSeconds: z.number().int().nonnegative().optional(),

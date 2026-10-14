@@ -35,9 +35,6 @@ export interface CallState {
   muted: boolean;
   /** The call window is tucked away; the call keeps running. */
   minimized: boolean;
-  /** Local preview only: nothing here reaches the bot yet. */
-  camera: MediaStream | null;
-  screen: MediaStream | null;
   transcriptOpen: boolean;
   caption: string;
   heard: string;
@@ -135,8 +132,6 @@ export function startCall(call: {
     phase: "ringing",
     muted: false,
     minimized: false,
-    camera: null,
-    screen: null,
     transcriptOpen: false,
     caption: "",
     heard: "",
@@ -244,8 +239,6 @@ export function endCall(): void {
   spokenMessageIds.clear();
   spokenMemory.clear();
   if (!state) return;
-  stopStream(state.camera);
-  stopStream(state.screen);
   state = null;
   emit();
 }
@@ -272,58 +265,6 @@ export function toggleTranscript(): void {
 export function setCallMinimized(minimized: boolean): void {
   if (!state) return;
   set({ minimized });
-}
-
-export function screenShareAvailable(): boolean {
-  return typeof globalThis.navigator?.mediaDevices?.getDisplayMedia === "function";
-}
-
-export function toggleCamera(): Promise<void> {
-  return toggleStream("camera", () => navigator.mediaDevices.getUserMedia({ video: true }));
-}
-
-export function toggleScreenShare(): Promise<void> {
-  return toggleStream("screen", () => navigator.mediaDevices.getDisplayMedia({ video: true }));
-}
-
-async function toggleStream(slot: "camera" | "screen", open: () => Promise<MediaStream>) {
-  if (!state) return;
-  const current = state[slot];
-  if (current) {
-    stopStream(current);
-    set({ [slot]: null });
-    return;
-  }
-  const requestCallId = callId;
-  let stream: MediaStream;
-  try {
-    stream = await open();
-  } catch (error) {
-    if (state && callId === requestCallId) {
-      set({
-        caption: errorText(error, slot === "camera" ? t`Camera failed` : t`Screen sharing failed`),
-      });
-    }
-    return;
-  }
-  if (!state || callId !== requestCallId) {
-    stopStream(stream);
-    return;
-  }
-  // The browser's own "Stop sharing" or an unplugged camera ends the track under us.
-  for (const track of stream.getTracks()) {
-    track.addEventListener("ended", () => {
-      if (state?.[slot] === stream) {
-        stopStream(stream);
-        set({ [slot]: null });
-      }
-    });
-  }
-  set({ [slot]: stream });
-}
-
-function stopStream(stream: MediaStream | null) {
-  for (const track of stream?.getTracks() ?? []) track.stop();
 }
 
 /** Live feed for the bot on the call, independent of whichever thread is on screen. */

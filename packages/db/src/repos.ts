@@ -118,7 +118,10 @@ function mapBot(
   };
 }
 
-export function createRepos(prisma: PrismaClient) {
+export function createRepos(
+  prisma: PrismaClient,
+  capabilities: { phoneCallsEnabled?: boolean } = {},
+) {
   async function listBotSectionsForSpaces(
     actor: Actor,
     spaceIds: string[],
@@ -390,7 +393,20 @@ export function createRepos(prisma: PrismaClient) {
             preview,
             bot.runs[0]?.status ?? "idle",
             rosterRunErrorId(bot.thread?.runs[0], bot.runs[0]),
-            ringingCall(bot.thread?.messages ?? []),
+            ringingCall(
+              capabilities.phoneCallsEnabled && bot.thread
+                ? await prisma.message.findMany({
+                    where: {
+                      threadId: bot.thread.id,
+                      role: "bot",
+                      clientNonce: { startsWith: "call:", endsWith: ":request" },
+                    },
+                    orderBy: { seq: "desc" },
+                    take: 1,
+                    select: { role: true, blocks: true },
+                  })
+                : [],
+            ),
           );
         }),
       );

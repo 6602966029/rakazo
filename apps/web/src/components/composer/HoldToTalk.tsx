@@ -52,9 +52,10 @@ export function useHoldToTalk({
   const [lift, setLift] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const recordingRef = useRef(recording);
-  recordingRef.current = recording;
   const onTextRef = useRef(onText);
-  onTextRef.current = onText;
+  useEffect(() => {
+    onTextRef.current = onText;
+  }, [onText]);
   /** Dictation reported listening for this recording, so a later idle means it ended. */
   const started = useRef(false);
   const gesture = useRef<{ startY: number; startedAt: number } | null>(null);
@@ -75,6 +76,7 @@ export function useHoldToTalk({
         setTranscribing(snapshot.status === "transcribing");
         if (snapshot.status !== "idle" || !started.current) return;
         started.current = false;
+        recordingRef.current = null;
         setRecording(null);
         setTranscribing(false);
         setLift(0);
@@ -126,7 +128,11 @@ export function useHoldToTalk({
   const lock = useCallback(() => {
     gesture.current = null;
     setLift(0);
-    setRecording((current) => (current ? { ...current, locked: true } : current));
+    const current = recordingRef.current;
+    if (!current) return;
+    const next = { ...current, locked: true };
+    recordingRef.current = next;
+    setRecording(next);
   }, []);
 
   return {
@@ -246,7 +252,7 @@ export function HoldToTalkControls({ talk, disabled }: { talk: HoldToTalk; disab
           aria-label={t`Send recording`}
           disabled={talk.transcribing}
           onClick={talk.submit}
-          className="size-8 shrink-0 rounded-full bg-white text-black shadow-sm hover:bg-white/90"
+          className="size-8 shrink-0 rounded-full shadow-sm"
         >
           <ArrowUp size={16} strokeWidth={2.2} />
         </Button>
@@ -283,7 +289,7 @@ export function HoldToTalkControls({ talk, disabled }: { talk: HoldToTalk; disab
         className={cn(
           "size-8 shrink-0 touch-none select-none rounded-full text-foreground/75 [-webkit-touch-callout:none]",
           recording &&
-            "scale-125 border-destructive bg-destructive text-white hover:bg-destructive",
+            "scale-125 border-destructive bg-destructive text-destructive-foreground hover:bg-destructive",
         )}
       >
         <Mic size={16} strokeWidth={1.8} />

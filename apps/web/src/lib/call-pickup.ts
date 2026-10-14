@@ -13,15 +13,19 @@ export const MIN_RING_MS = 2_000;
  * picks up; listening reports the error on the card.
  */
 export async function pickUp(signal: AbortSignal, options: { ring?: boolean } = {}): Promise<void> {
+  if (signal.aborted) return;
   // An incoming call the user just answered has nothing to ring for: only the microphone.
   if (options.ring === false) {
     await microphoneReady();
     return;
   }
   const tone = startRingback();
+  signal.addEventListener("abort", tone.stop, { once: true });
+  if (signal.aborted) tone.stop();
   try {
     await Promise.all([delay(MIN_RING_MS, signal), microphoneReady()]);
   } finally {
+    signal.removeEventListener("abort", tone.stop);
     tone.stop();
   }
 }

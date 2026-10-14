@@ -1,26 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
 import { BotAvatar, Button, cn, defaultBotAvatarValue } from "@rakazo/ui-web";
-import {
-  Captions,
-  ChevronDown,
-  Mic,
-  MicOff,
-  MonitorUp,
-  PhoneOff,
-  Settings,
-  Video,
-  VideoOff,
-} from "lucide-react";
+import { Captions, ChevronDown, Mic, MicOff, PhoneOff, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { CallState } from "../../lib/call-session";
 import {
   endCall,
-  screenShareAvailable,
   setCallMinimized,
-  toggleCamera,
   toggleMute,
-  toggleScreenShare,
   toggleTranscript,
   useCallSession,
 } from "../../lib/call-session";
@@ -45,21 +32,6 @@ export function useCallElapsed(call: CallState | null): number {
     return () => clearInterval(timer);
   }, [connectedAt]);
   return connectedAt === null ? 0 : Math.max(0, Math.floor((now - connectedAt) / 1000));
-}
-
-function Preview({ stream, label }: { stream: MediaStream; label: string }) {
-  return (
-    <video
-      aria-label={label}
-      autoPlay
-      muted
-      playsInline
-      ref={(element) => {
-        if (element && element.srcObject !== stream) element.srcObject = stream;
-      }}
-      className="absolute end-0 top-0 h-32 w-24 rounded-xl border border-border bg-muted object-cover"
-    />
-  );
 }
 
 export function CallCard({ onSettings }: { onSettings: () => void }) {
@@ -131,15 +103,6 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
         </Button>
       </div>
 
-      {call.screen ? (
-        <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-muted py-1.5 ps-3 pe-1.5 text-[13px]">
-          <span>{t`You're sharing your screen`}</span>
-          <Button size="sm" className="rounded-full" onClick={() => void toggleScreenShare()}>
-            {t`Stop`}
-          </Button>
-        </div>
-      ) : null}
-
       <div className="relative flex flex-1 flex-col items-center justify-center gap-4 py-6 md:flex-none">
         <button
           type="button"
@@ -186,7 +149,6 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
             ))}
           </div>
         ) : null}
-        {call.camera ? <Preview stream={call.camera} label={t`Your camera`} /> : null}
       </div>
 
       {call.transcriptOpen ? (
@@ -226,28 +188,6 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
         >
           {call.muted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
         </Button>
-        <Button
-          variant={call.camera ? "default" : "secondary"}
-          size="icon-lg"
-          className="size-14 rounded-full md:size-12"
-          aria-label={call.camera ? t`Turn camera off` : t`Turn camera on`}
-          aria-pressed={Boolean(call.camera)}
-          onClick={() => void toggleCamera()}
-        >
-          {call.camera ? <VideoOff className="size-5" /> : <Video className="size-5" />}
-        </Button>
-        {screenShareAvailable() ? (
-          <Button
-            variant={call.screen ? "default" : "secondary"}
-            size="icon-lg"
-            className="size-14 rounded-full md:size-12"
-            aria-label={call.screen ? t`Stop sharing screen` : t`Share screen`}
-            aria-pressed={Boolean(call.screen)}
-            onClick={() => void toggleScreenShare()}
-          >
-            <MonitorUp className="size-5" />
-          </Button>
-        ) : null}
         <Button
           variant="destructive"
           size="icon-lg"

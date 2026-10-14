@@ -1,12 +1,19 @@
-import type { PrismaClient } from "@rakazo/db";
+import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
-import { callRequestRefusal, newCallRequest, settleCallRequest } from "./call-request.js";
+import {
+  callRequestRefusal,
+  newCallRequest,
+  reconcileCallRequests,
+  requestUserCall,
+  settleCallRequest,
+} from "./call-request.js";
 
 function prismaWith(options: {
   voice?: boolean;
   recent?: boolean;
   status?: string;
   updated?: number;
+  expiresAt?: string;
 }) {
   const blocks = [
     {
@@ -15,7 +22,7 @@ function prismaWith(options: {
       reason: "Send the report",
       opening: "Hi, it's about the report.",
       status: options.status ?? "ringing",
-      expiresAt: "2026-10-14T18:30:45Z",
+      expiresAt: options.expiresAt ?? new Date(Date.now() + 45_000).toISOString(),
     },
   ];
   return {
@@ -52,7 +59,7 @@ describe("call_user", () => {
     );
   });
 
-  it("looks for an earlier call only among this chat's own call requests", async () => {
+  it("limits calls across every chat owned by the recipient", async () => {
     const prisma = prismaWith({});
     await callRequestRefusal(prisma, {
       userId: "user-1",
@@ -63,7 +70,7 @@ describe("call_user", () => {
     expect(prisma.message.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          threadId: "thread-1",
+          thread: { userId: "user-1" },
           clientNonce: { startsWith: "call:", endsWith: ":request" },
           createdAt: { gt: new Date("2026-10-14T18:20:00Z") },
         }),
@@ -141,6 +148,148 @@ describe("settleCallRequest", () => {
     expect(prisma.message.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { blocks: [expect.objectContaining({ status: "answered", durationSeconds: 42 })] },
+      }),
+    );
+  });
+});
+
+describe("requestUserCall security", () => {
+  const run = {
+    id: "run-1",
+    spaceId: "space-1",
+    userId: "user-1",
+    threadId: "thread-1",
+    botId: "bot-1",
+  };
+  const input = { reason: "Review the report", opening: "Can we review it?" };
+  function fixture() {
+    let saved: { id: string; blocks: unknown; botId: string; thread: { spaceId: string } } | null =
+      null;
+    const tx = {
+      $queryRaw: vi.fn(async () => []),
+      thread: {
+        findFirst: vi.fn(async (): Promise<{ id: string } | null> => ({ id: run.threadId })),
+
+        update: vi.fn(async () => ({ nextMessageSeq: 1, nextEventSeq: 1 })),
+      },
+      run: { findUnique: vi.fn(async () => ({ status: "running" })) },
+      userVoiceCredential: { findFirst: vi.fn(async () => ({ id: "voice-1" })) },
+      message: {
+        findFirst: vi.fn(async () => saved),
+        create: vi.fn(async ({ data }: { data: { blocks: unknown } }) => {
+          saved = {
+            id: "message-1",
+            blocks: data.blocks,
+            botId: run.botId,
+            thread: { spaceId: run.spaceId },
+          };
+          return saved;
+        }),
+        findUnique: vi.fn(async () => saved),
+        updateMany: vi.fn(async ({ data }: { data: { blocks: unknown } }) => {
+          if (saved) saved.blocks = data.blocks;
+          return { count: 1 };
+        }),
+      },
+      event: { create: vi.fn(async () => ({ seq: 0 })) },
+    };
+    let tail = Promise.resolve();
+    const prisma = {
+      ...tx,
+      $transaction: vi.fn((fn: (client: typeof tx) => Promise<unknown>) => {
+        const result = tail.then(() => fn(tx));
+        tail = result.then(
+          () => undefined,
+          () => undefined,
+        );
+        return result;
+      }),
+    } as unknown as PrismaClient;
+    const deps = {
+      prisma,
+      phoneCallsEnabled: true,
+      events: { append: vi.fn(), notify: vi.fn(async () => undefined) } as unknown as ThreadEvents,
+      jobs: { enqueue: vi.fn(async () => undefined), cancel: vi.fn(), close: vi.fn() },
+    };
+    return { deps, tx, saved: () => saved };
+  }
+
+  it("does no work while disabled", async () => {
+    const { deps } = fixture();
+    expect(await requestUserCall({ ...deps, phoneCallsEnabled: false }, run, input)).toHaveProperty(
+      "error",
+    );
+    expect(deps.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each(["userId", "spaceId", "botId", "threadId"] as const)(
+    "rejects a mismatched %s",
+    async (key) => {
+      const { deps, tx } = fixture();
+      tx.thread.findFirst.mockResolvedValueOnce(null);
+      expect(await requestUserCall(deps, { ...run, [key]: "other" }, input)).toHaveProperty(
+        "error",
+      );
+      expect(tx.thread.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: key === "threadId" ? "other" : run.threadId,
+            userId: key === "userId" ? "other" : run.userId,
+            spaceId: key === "spaceId" ? "other" : run.spaceId,
+            botId: key === "botId" ? "other" : run.botId,
+            groupId: null,
+            externalConversationId: null,
+            bot: expect.objectContaining({ userId: key === "userId" ? "other" : run.userId }),
+          }),
+        }),
+      );
+      expect(tx.message.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it("allows only one concurrent ring across a recipient's bots", async () => {
+    const { deps, tx } = fixture();
+    const results = await Promise.all([
+      requestUserCall(deps, run, input),
+      requestUserCall(deps, { ...run, botId: "bot-2", threadId: "thread-2" }, input),
+    ]);
+    expect(results.filter((result) => "ok" in result)).toHaveLength(1);
+    expect(tx.message.create).toHaveBeenCalledOnce();
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(deps.jobs.enqueue).toHaveBeenCalledOnce();
+  });
+
+  it("settles missed when expiry cannot be enqueued", async () => {
+    const { deps, saved } = fixture();
+    deps.jobs.enqueue.mockRejectedValueOnce(new Error("queue unavailable"));
+    expect(await requestUserCall(deps, run, input)).toHaveProperty("error");
+    expect(saved()?.blocks).toEqual([expect.objectContaining({ status: "missed" })]);
+  });
+
+  it("restores expiry jobs from persisted ringing requests", async () => {
+    const enqueue = vi.fn();
+    const prisma = {
+      message: {
+        findMany: vi.fn(async () => [
+          {
+            threadId: "thread-1",
+            blocks: [
+              {
+                kind: "call_request",
+                callId: "call-1",
+                status: "ringing",
+                expiresAt: "2026-10-14T18:30:45Z",
+              },
+            ],
+          },
+        ]),
+      },
+    } as unknown as PrismaClient;
+    await reconcileCallRequests({ prisma, jobs: { enqueue } as never });
+    expect(enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "call.expire",
+        payload: { threadId: "thread-1", callId: "call-1" },
       }),
     );
   });

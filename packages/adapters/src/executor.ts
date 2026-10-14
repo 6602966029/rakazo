@@ -28,7 +28,6 @@ import type {
   WebProvider,
 } from "@rakazo/adapter-kit";
 import {
-  callExpireJob,
   DEFAULT_CONTEXT_STRATEGY,
   historyCompactJob,
   MEMORY_REVISION_CONFLICT_ERROR,
@@ -192,7 +191,7 @@ import {
   browserSnapshotFromTool,
 } from "./browser-tools.js";
 import { agentConnectionTools, builtinAgentTools, sharedMemorySaveError } from "./builtin-tools.js";
-import { callRequestRefusal, newCallRequest } from "./call-request.js";
+import { requestUserCall } from "./call-request.js";
 import { archiveSpawnedBot, spawnBot } from "./child-bots.js";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled } from "./cloud-agent-factory.js";
@@ -2659,6 +2658,7 @@ export interface ExecutorDeps {
   /** Publishes board-change signals and wakes ticket owners; absent disables both. */
   onTicketChange?: TicketChangeNotifier;
   ticketBoardEnabled?: boolean;
+  phoneCallsEnabled?: boolean;
   /** Messaging surface; absent means zero identity queries and no chat prompts. */
   messaging?: { hasIdentity(botId: string): Promise<boolean> };
   listConnectedPluginSlugs?: (userId: string) => Promise<string[]>;
@@ -3822,6 +3822,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const builtins = [
           ...selectBuiltinToolsForRun({
             ticketBoardEnabled: deps.ticketBoardEnabled,
+            phoneCallsEnabled: deps.phoneCallsEnabled,
             historyRetrievalEnabled: contextStrategy !== "current",
             graphicalToolsAllowed,
             pageBrowserAllowed,
@@ -5382,27 +5383,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return finish(created);
           }
           if (name === "call_user") {
-            const refusal = await callRequestRefusal(deps.prisma, {
-              userId: run.userId,
-              threadId: thread.id,
-              groupChat: Boolean(thread.groupId),
-            });
-            if (refusal) return finish({ error: refusal });
-            const request = newCallRequest({
-              reason: String(args.reason ?? ""),
-              opening: String(args.opening ?? ""),
-            });
-            if ("error" in request) return finish(request);
-            await publishMessage(deps, run, "bot", request.blocks, true, request.clientNonce);
-            await deps.jobs
-              .enqueue(callExpireJob(thread.id, request.callId, request.expiresAt))
-              .catch((error) => getLogger().error("call.expire enqueue", error));
-            return finish({
-              ok: true,
-              status: "ringing",
-              note: "The user's devices are ringing. If they answer, your opening is spoken and the call continues. If they miss or decline it, the chat shows a missed call; do not call again right away.",
-            });
+            if (
+              messagingChannelRun ||
+              thread.groupId ||
+              voiceCall ||
+              isBackgroundRunTrigger(run.trigger)
+            ) {
+              return finish({ error: "Calls require a one-to-one chat." });
+            }
+            return finish(
+              await requestUserCall(deps, run, {
+                reason: String(args.reason ?? ""),
+                opening: String(args.opening ?? ""),
+              }),
+            );
           }
+
           if (name === "schedule_list") {
             return listSchedulesFromTool(deps, {
               spaceId: run.spaceId,
@@ -7480,6 +7476,7 @@ function computerRetryDelay(fence: number): number {
 
 export function selectBuiltinToolsForRun(options: {
   ticketBoardEnabled?: boolean;
+  phoneCallsEnabled?: boolean;
   historyRetrievalEnabled?: boolean;
   graphicalToolsAllowed: boolean;
   /** Page browser tools need a graphical computer (Chrome), not model vision. */
@@ -7519,7 +7516,12 @@ export function selectBuiltinToolsForRun(options: {
         !["message_user", "message_bot", "handoff_to_bot", "message_agent"].includes(tool.name)) &&
       (options.voiceCall || tool.name !== "end_call") &&
       // Already on a call, or reached through a messaging channel that cannot ring.
-      ((!options.voiceCall && !options.messagingChannelRun) || tool.name !== "call_user") &&
+      ((options.phoneCallsEnabled &&
+        !options.groupId &&
+        !options.voiceCall &&
+        !options.messagingChannelRun &&
+        !isBackgroundRunTrigger(options.trigger)) ||
+        tool.name !== "call_user") &&
       (options.historyRetrievalEnabled ||
         !["search_history", "read_history"].includes(tool.name)) &&
       (!options.messagingChannelRun ||
