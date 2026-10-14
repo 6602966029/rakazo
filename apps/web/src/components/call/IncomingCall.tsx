@@ -93,22 +93,29 @@ export function IncomingCall({
     return startRingtone();
   }, [callId]);
 
-  const callerName = ringing?.bot.name;
+  const notification = useRef<Notification | null>(null);
   useEffect(() => {
-    if (!callId || notified.current.has(callId)) return;
-    notified.current.add(callId);
+    return () => {
+      notification.current?.close();
+      notification.current = null;
+    };
+  }, [callId]);
+
+  useEffect(() => {
+    if (!ringing || notified.current.has(ringing.call.callId)) return;
+    notified.current.add(ringing.call.callId);
     if (document.visibilityState === "visible" || typeof Notification === "undefined") return;
     if (Notification.permission !== "granted") return;
-    const notice = new Notification(t`${callerName} is calling you`, {
-      tag: `call:${callId}`,
+    const notice = new Notification(t`${ringing.bot.name} is calling you`, {
+      tag: `call:${ringing.call.callId}`,
       requireInteraction: true,
     });
+    notification.current = notice;
     notice.onclick = () => {
       window.focus();
       notice.close();
     };
-    return () => notice.close();
-  }, [callId, callerName, t]);
+  }, [ringing, t]);
 
   if (!ringing) return null;
   const { bot, call } = ringing;

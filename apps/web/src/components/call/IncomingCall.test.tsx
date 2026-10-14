@@ -7,11 +7,12 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { rpc } from "../../lib/rpc";
 import { IncomingCall } from "./IncomingCall";
 
-vi.mock("@lingui/react/macro", () => {
-  const t = (parts: TemplateStringsArray | { message: string }, ...values: unknown[]) =>
-    "message" in parts ? parts.message : String.raw(parts, ...values);
-  return { useLingui: () => ({ t }) };
-});
+vi.mock("@lingui/react/macro", () => ({
+  useLingui: () => ({
+    t: (parts: TemplateStringsArray | { message: string }, ...values: unknown[]) =>
+      "message" in parts ? parts.message : String.raw(parts, ...values),
+  }),
+}));
 vi.mock("@rakazo/ui-web", () => ({
   BotAvatar: () => null,
   defaultBotAvatarValue: () => "",
