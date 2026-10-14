@@ -103,7 +103,6 @@ export function IncomingCall({
 
   useEffect(() => {
     if (!ringing || notified.current.has(ringing.call.callId)) return;
-    notified.current.add(ringing.call.callId);
     if (document.visibilityState === "visible" || typeof Notification === "undefined") return;
     if (Notification.permission !== "granted") return;
     const notice = new Notification(t`${ringing.bot.name} is calling you`, {
@@ -111,6 +110,7 @@ export function IncomingCall({
       requireInteraction: true,
     });
     notification.current = notice;
+    notified.current.add(ringing.call.callId);
     notice.onclick = () => {
       window.focus();
       notice.close();

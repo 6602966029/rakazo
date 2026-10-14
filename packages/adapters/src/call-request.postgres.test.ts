@@ -91,21 +91,26 @@ postgres("call isolation and cooldown (PostgreSQL)", () => {
       expect(plan.map((row) => row["QUERY PLAN"]).join("\n")).toContain(
         "messages_call_recovery_idx",
       );
-      // Simulate a concurrent build's invalid leftover, then exercise its repair.
-      await prisma.$executeRaw`UPDATE pg_catalog.pg_index SET indisvalid = false
-        WHERE indexrelid = to_regclass('public.messages_call_recovery_idx')`;
-      const repair = await readFile(
+      // Roll back the simulated catalog mutation even if the guard unexpectedly succeeds.
+      const guard = await readFile(
         new URL(
           "../../db/prisma/migrations/20261015010001_repair_ringing_call_recovery/migration.sql",
           import.meta.url,
         ),
         "utf8",
       );
-      await prisma.$executeRawUnsafe(repair);
-      const repaired = await prisma.$queryRaw<Array<{ indisvalid: boolean }>>`
+      await expect(
+        prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`UPDATE pg_catalog.pg_index SET indisvalid = false
+          WHERE indexrelid = to_regclass('public.messages_call_recovery_idx')`;
+          await tx.$executeRawUnsafe(guard);
+          throw new Error("Index guard accepted an invalid index");
+        }),
+      ).rejects.toThrow(/messages_call_recovery_idx is missing or invalid/);
+      const index = await prisma.$queryRaw<Array<{ indisvalid: boolean }>>`
         SELECT indisvalid FROM pg_catalog.pg_index
         WHERE indexrelid = to_regclass('public.messages_call_recovery_idx')`;
-      expect(repaired).toEqual([{ indisvalid: true }]);
+      expect(index).toEqual([{ indisvalid: true }]);
       expect(jobs.enqueue).toHaveBeenCalledOnce();
       const job = jobs.enqueue.mock.calls[0]?.[0];
       expect(job).toMatchObject({ name: "call.expire" });

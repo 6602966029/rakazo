@@ -29,6 +29,7 @@ let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
 const close = vi.fn();
 const notify = vi.fn();
+let visibility: DocumentVisibilityState = "hidden";
 const start = Date.parse("2026-10-15T00:00:00Z");
 function bot(callId: string, expiresAt: number): Bot {
   return {
@@ -59,7 +60,8 @@ beforeEach(() => {
       }
     },
   );
-  vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+  visibility = "hidden";
+  vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
   vi.clearAllMocks();
   vi.mocked(rpc.threads.answerCall).mockReset();
   vi.mocked(rpc.threads.declineCall).mockReset();
@@ -93,6 +95,25 @@ it("keeps the notification across roster refreshes and closes it on remote answe
   expect(close).not.toHaveBeenCalled();
   render([]);
   expect(close).toHaveBeenCalledOnce();
+});
+
+it("notifies when a visible call's tab becomes hidden", () => {
+  visibility = "visible";
+  render([bot("call-1", start + 45_000)]);
+  expect(notify).not.toHaveBeenCalled();
+  visibility = "hidden";
+  act(() => vi.advanceTimersByTime(1000));
+  expect(notify).toHaveBeenCalledOnce();
+});
+
+it("keeps the notification alive when the bot is renamed", () => {
+  render([bot("call-1", start + 45_000)]);
+  const renamed = bot("call-1", start + 45_000);
+  renamed.name = "Renamed bot";
+  render([renamed]);
+  expect(container.textContent).toContain("Renamed bot");
+  expect(notify).toHaveBeenCalledOnce();
+  expect(close).not.toHaveBeenCalled();
 });
 
 it("closes the notification on expiry", () => {

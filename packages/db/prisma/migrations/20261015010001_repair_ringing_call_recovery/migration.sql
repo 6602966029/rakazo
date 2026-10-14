@@ -1,15 +1,13 @@
--- Match the existing invalid-index repair pattern: normal deploys keep the valid
--- concurrent build; only a failed build needs the blocking repair inside DO.
+-- Do not rebuild a large message index under a blocking table lock.
+-- An invalid or missing index needs an operator's concurrent repair before retry.
 DO $$
 BEGIN
-  IF EXISTS (
+  IF NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_index
     WHERE indexrelid = to_regclass('public.messages_call_recovery_idx')
-      AND NOT indisvalid
+      AND indisvalid
   ) THEN
-    DROP INDEX "messages_call_recovery_idx";
-    CREATE INDEX "messages_call_recovery_idx" ON "messages"
-      ((blocks #> ARRAY['0', 'status']), "createdAt")
-      WHERE role = 'bot' AND "clientNonce" LIKE 'call:%' AND "clientNonce" LIKE '%:request';
+    RAISE EXCEPTION 'messages_call_recovery_idx is missing or invalid'
+      USING HINT = 'Run DROP INDEX CONCURRENTLY IF EXISTS "messages_call_recovery_idx"; then run the concurrent CREATE from 20261015010000_ringing_call_recovery. After it succeeds, run prisma migrate resolve --rolled-back 20261015010001_repair_ringing_call_recovery and prisma migrate deploy.';
   END IF;
 END $$;
