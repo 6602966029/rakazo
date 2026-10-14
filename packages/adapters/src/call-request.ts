@@ -93,6 +93,8 @@ export async function settleCallRequest(
   },
 ): Promise<CallRequestBlock | null> {
   const result = await deps.prisma.$transaction(async (tx) => {
+    // Match clearThread: thread first, then messages.
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
     const message = await tx.message.findUnique({
       where: {
         threadId_clientNonce: {

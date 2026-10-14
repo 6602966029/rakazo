@@ -26,6 +26,7 @@ function prismaWith(options: {
     },
   ];
   const tx = {
+    $queryRaw: vi.fn(async () => []),
     thread: { update: vi.fn(async () => ({ nextEventSeq: 1 })) },
     event: { create: vi.fn(async () => ({ seq: 0 })) },
     userVoiceCredential: {
@@ -114,6 +115,9 @@ describe("settleCallRequest", () => {
       { threadId: "thread-1", callId: "call-1", from: ["ringing"], status: "answered" },
     );
 
+    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(prisma.message.findUnique).mock.invocationCallOrder[0]!,
+    );
     expect(settled).toMatchObject({ status: "answered", opening: "Hi, it's about the report." });
     expect(prisma.event.create).toHaveBeenCalledWith(
       expect.objectContaining({

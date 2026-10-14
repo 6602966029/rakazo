@@ -93,16 +93,14 @@ export function IncomingCall({
     return startRingtone();
   }, [callId]);
 
-  const ringingRef = useRef(ringing);
-  ringingRef.current = ringing;
+  const callerName = ringing?.bot.name;
   useEffect(() => {
-    const ringing = ringingRef.current;
-    if (!ringing || notified.current.has(ringing.call.callId)) return;
-    notified.current.add(ringing.call.callId);
+    if (!callId || notified.current.has(callId)) return;
+    notified.current.add(callId);
     if (document.visibilityState === "visible" || typeof Notification === "undefined") return;
     if (Notification.permission !== "granted") return;
-    const notice = new Notification(t`${ringing.bot.name} is calling you`, {
-      tag: `call:${ringing.call.callId}`,
+    const notice = new Notification(t`${callerName} is calling you`, {
+      tag: `call:${callId}`,
       requireInteraction: true,
     });
     notice.onclick = () => {
@@ -110,7 +108,7 @@ export function IncomingCall({
       notice.close();
     };
     return () => notice.close();
-  }, [callId, t]);
+  }, [callId, callerName, t]);
 
   if (!ringing) return null;
   const { bot, call } = ringing;

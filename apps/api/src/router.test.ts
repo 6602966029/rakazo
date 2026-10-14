@@ -3645,6 +3645,7 @@ describe("threads.answerCall and threads.declineCall", () => {
   ) {
     const appended: { type: string; payload: Record<string, unknown> }[] = [];
     const tx = {
+      $queryRaw: vi.fn(async () => []),
       bot: {
         findFirst: vi
           .fn()
@@ -3775,6 +3776,7 @@ describe("threads.endCall", () => {
     const created: { blocks?: unknown; clientNonce?: string }[] = [];
     const events: { type: string; payload: Record<string, unknown> }[] = [];
     const tx = {
+      $queryRaw: vi.fn(async () => []),
       thread: { update: vi.fn().mockResolvedValue({ nextMessageSeq: 3, nextEventSeq: 5 }) },
       message: {
         findUnique: vi.fn().mockResolvedValue(null),
