@@ -36,11 +36,7 @@ test("homepage screenshots", async ({ page }, testInfo) => {
   await page
     .locator('.product-demo[data-product-demo-ready="true"]')
     .waitFor({ state: "attached" });
-  await page.getByRole("button", { name: "Bot settings", exact: true }).click();
-  await page.locator(".product-demo__settings").waitFor({ state: "visible" });
-  await captureScreenshot(page, testInfo, "04-marketing-demo-settings");
-
   await page.locator(".product-demo__computer-shot").first().click();
   await page.locator(".product-demo__takeover").waitFor({ state: "visible" });
-  await captureScreenshot(page, testInfo, "05-marketing-demo-computer");
+  await captureScreenshot(page, testInfo, "04-marketing-demo-computer");
 });
