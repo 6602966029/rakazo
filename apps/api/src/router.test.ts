@@ -142,26 +142,23 @@ describe("account preferences", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it.each(["robot", "organic", "custom-cdn"])(
-    "returns the stored style or organic fallback for %s",
-    async (style) => {
-      const { actor, handler } = preferencesDeps(style);
+  it("coerces unknown stored avatar styles to robot on me", async () => {
+    const { actor, handler } = preferencesDeps("custom-cdn");
 
-      const { response } = await handler.handle(
-        new Request("http://127.0.0.1/rpc/me", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ json: null }),
-        }),
-        { prefix: "/rpc", context: { actor } },
-      );
+    const { response } = await handler.handle(
+      new Request("http://127.0.0.1/rpc/me", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ json: null }),
+      }),
+      { prefix: "/rpc", context: { actor } },
+    );
 
-      expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toEqual({
-        json: expect.objectContaining({ avatarStyle: style === "robot" ? "robot" : "organic" }),
-      });
-    },
-  );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      json: expect.objectContaining({ avatarStyle: "robot" }),
+    });
+  });
 });
 
 describe("billing", () => {

@@ -48,12 +48,7 @@ function renderComposer(
     disconnect() {}
   };
   // Reduced motion skips the chip-row resize animation, which jsdom cannot run.
-  window.matchMedia ??= () =>
-    ({
-      matches: true,
-      addEventListener() {},
-      removeEventListener() {},
-    }) as unknown as MediaQueryList;
+  window.matchMedia ??= () => ({ matches: true }) as MediaQueryList;
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
