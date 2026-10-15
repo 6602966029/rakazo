@@ -1094,7 +1094,52 @@ describe("screen release status", () => {
     expect(container.exec).not.toHaveBeenCalled();
   });
 
-  it("returns 500 when tearing down a screen leaves the browser running", async () => {
+  it.each(["run-1:1", "screen-view-writer:0"])(
+    "keeps the browser across release and reacquisition (%s)",
+    async (leaseId) => {
+      const { supervisorApp } = await import("./index.js");
+      const container = managedContainer();
+      mocks.docker.getContainer.mockReturnValue(container);
+      const open = (lease: string) =>
+        supervisorApp.request("/computers/persistent/screen-mode", {
+          method: "POST",
+          headers: { ...headers, "x-rakazo-screen-lease-id": lease },
+          body: JSON.stringify({ interactive: false, revokeControl: false }),
+        });
+      const first = await open(leaseId);
+      expect(first.status).toBe(200);
+      const firstView = await first.json();
+      container.exec.mockClear();
+
+      const released = await supervisorApp.request("/computers/persistent/screen", {
+        method: "DELETE",
+        headers: { ...headers, "x-rakazo-screen-lease-id": leaseId },
+      });
+      expect(released.status).toBe(200);
+      const releaseCommand = container.exec.mock.calls
+        .map(([options]) => options.Cmd.join(" "))
+        .join("\n");
+      expect(releaseCommand).toContain("sockets/view-1-");
+      expect(releaseCommand).toContain("sockets/control-1-");
+      expect(releaseCommand).not.toContain("Browser.close");
+      expect(releaseCommand).not.toContain("browser-profile-");
+      expect(releaseCommand).not.toContain("Xvfb");
+      container.exec.mockClear();
+
+      const next = await open("run-2:2");
+      expect(next.status).toBe(200);
+      expect(await next.json()).not.toEqual(firstView);
+      const setupCommand = container.exec.mock.calls
+        .map(([options]) => options.Cmd.join(" "))
+        .join("\n");
+      expect(setupCommand).toContain("browser-profile-1");
+      expect(setupCommand).toContain("if ! browser_running; then");
+      expect(setupCommand).not.toContain("Browser.close");
+      expect(setupCommand).not.toContain("for marker in /tmp/rakazo/browser-profile-*");
+    },
+  );
+
+  it("returns 500 when cancellation leaves the browser running", async () => {
     const { supervisorApp } = await import("./index.js");
     let failStop = false;
     const container = managedContainer(
@@ -1118,7 +1163,11 @@ describe("screen release status", () => {
     failStop = true;
     const released = await supervisorApp.request("/computers/release-failed/screen", {
       method: "DELETE",
-      headers: { ...headers, "x-rakazo-screen-lease-id": "run-1:1" },
+      headers: {
+        ...headers,
+        "x-rakazo-screen-lease-id": "run-1:1",
+        "x-rakazo-cancel-run-work": "1",
+      },
     });
     expect(released.status).toBe(500);
     await expect(released.json()).resolves.toEqual({ error: "computer screen failed to stop" });
