@@ -897,8 +897,12 @@ app.delete("/computers/:id/screen", async (c) => {
         screenId,
       });
       if (assigned && index !== undefined) {
-        await teardownReleasedScreen(assigned, screenId, index, () =>
-          runContainerCommand(container, ["bash", "-c", stop]),
+        await teardownReleasedScreen(
+          assigned,
+          screenId,
+          index,
+          () => runContainerCommand(container, ["bash", "-c", stop]),
+          { retainBrowser: !cancelRunWork },
         );
       } else if (stop) {
         const result = await runContainerCommand(container, ["bash", "-c", stop]);
@@ -906,6 +910,7 @@ app.delete("/computers/:id/screen", async (c) => {
           throw new Error(result.stderr || "computer screen failed to stop");
         }
       }
+      // Ordinary release retains the browser's slot; cancellation can empty the registry.
       // Keep an emptied registry. A missing one means the supervisor lost track of the
       // container, and the next screen request then resets every desktop process in it.
     });
