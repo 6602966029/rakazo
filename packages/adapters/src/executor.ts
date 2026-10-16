@@ -5036,7 +5036,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 run,
                 attach: (output, fileName, job) =>
                   attachWorkspaceFileToThread(
-                    { prisma: deps.prisma, artifacts },
+                    { prisma: deps.prisma, artifacts, maxUploadSizeBytes: deps.maxUploadSizeBytes },
                     {
                       spaceId: run.spaceId,
                       userId: run.userId,

@@ -880,18 +880,6 @@ service's trust boundary. `SIGNUPS_ENABLED` applies on the API's first start. A 
 `SIGNUP_ALLOWLIST` applies on every API start.
 The optional marketing site in `apps/www` can be hosted separately.
 
-## Connect mobile clients
-
-The iOS and Android app can also point at a self-hosted origin at runtime. On the sign-in screen, tap **Use a custom server** and enter the same HTTPS origin as `WEB_ORIGIN` (for example `https://app.example.com`). Store builds still default to `EXPO_PUBLIC_API_URL`; the in-app setting is an override for people running their own API. Changing the server signs the device out of any previous session.
-
-## Upload size
-
-`MAX_UPLOAD_SIZE_MB` sets the per-file chat attachment and computer file transfer limit
-in MiB (1 MiB = 1,048,576 bytes). It defaults to `10` and must be a positive integer.
-Set it in `.env` and restart the API, worker, and Docker supervisor (when used). Web, desktop, and mobile use the
-limit advertised by the server. If a reverse proxy limits request bodies, allow
-room for base64 encoding (about 4/3 of the file size) and the JSON envelope.
-
 ## Image and video generation
 
 Bot media tools are disabled by default. Configure the worker (and API for inline
@@ -926,8 +914,21 @@ never retried automatically: a lost response can mean the provider accepted and
 charged for the request. Provider errors omit remote response bodies. Configure
 account budgets and rate limits with your provider; the run cap is not a currency
 budget. Provider 429 responses are returned without automatic retries. Outputs
-must fit the existing 10 MiB attachment limit; larger outputs are rejected.
+must fit both the 10 MiB media ceiling and the configured attachment limit;
+larger outputs are rejected.
 
 Images use existing inline chat rendering. MP4 files can be previewed with native
 video controls on web and Electron and opened/downloaded through the existing
 native file flow on mobile. No new mobile player or settings screen is required.
+
+## Connect mobile clients
+
+The iOS and Android app can also point at a self-hosted origin at runtime. On the sign-in screen, tap **Use a custom server** and enter the same HTTPS origin as `WEB_ORIGIN` (for example `https://app.example.com`). Store builds still default to `EXPO_PUBLIC_API_URL`; the in-app setting is an override for people running their own API. Changing the server signs the device out of any previous session.
+
+## Upload size
+
+`MAX_UPLOAD_SIZE_MB` sets the per-file chat attachment and computer file transfer limit
+in MiB (1 MiB = 1,048,576 bytes). It defaults to `10` and must be a positive integer.
+Set it in `.env` and restart the API, worker, and Docker supervisor (when used). Web, desktop, and mobile use the
+limit advertised by the server. If a reverse proxy limits request bodies, allow
+room for base64 encoding (about 4/3 of the file size) and the JSON envelope.

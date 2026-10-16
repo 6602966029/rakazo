@@ -14,6 +14,28 @@ import {
 } from "./thread-artifacts.js";
 
 describe("current-turn thread files", () => {
+  it("rejects generated output above a lower configured attachment limit before storage", async () => {
+    const put = vi.fn();
+    await expect(
+      attachWorkspaceFileToThread(
+        {
+          prisma: {} as PrismaClient,
+          artifacts: { put } as unknown as ArtifactStore,
+          maxUploadSizeBytes: 3,
+        },
+        {
+          spaceId: "space",
+          userId: "owner",
+          botId: "bot",
+          runId: "run",
+          filePath: "generated.mp4",
+          bytes: new Uint8Array(4),
+          operationId: "op",
+        },
+      ),
+    ).rejects.toThrow("attachment limit");
+    expect(put).not.toHaveBeenCalled();
+  });
   it("materializes uploads above 10 MiB when allowed by the server", async () => {
     const bytes = new Uint8Array(11 * 1024 * 1024);
     const writeFile = vi.fn().mockResolvedValue(undefined);
