@@ -1,4 +1,33 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Your OpenRouter": "Your OpenRouter",
+  "Your OpenAI": "Your OpenAI",
+  "Your Anthropic": "Your Anthropic",
+  "Your model provider": "Your model provider",
+  "The model provider returned an error.": "The model provider returned an error.",
+  "{provider} is rate limiting requests. Try again shortly.":
+    "{provider} is rate limiting requests. Try again shortly.",
+  "{summary} Resets {date}.": "{summary} Resets {date}.",
+  "{provider} rejected the API key. Check your connection settings.":
+    "{provider} rejected the API key. Check your connection settings.",
+  "{provider} could not find the requested model.":
+    "{provider} could not find the requested model.",
+  "{provider} took too long to respond. Try again.":
+    "{provider} took too long to respond. Try again.",
+  "{provider} key hit its limit.": "{provider} key hit its limit.",
+  "{provider} key hit its daily limit.": "{provider} key hit its daily limit.",
+  "{provider} key hit its weekly limit.": "{provider} key hit its weekly limit.",
+  "{provider} key hit its monthly limit.": "{provider} key hit its monthly limit.",
+  "{provider} reached its credit limit.": "{provider} reached its credit limit.",
+  "{provider} reached its daily credit limit.": "{provider} reached its daily credit limit.",
+  "{provider} reached its weekly credit limit.": "{provider} reached its weekly credit limit.",
+  "{provider} reached its monthly credit limit.": "{provider} reached its monthly credit limit.",
+  "{provider} reached its spending limit.": "{provider} reached its spending limit.",
+  "{provider} reached its daily spending limit.": "{provider} reached its daily spending limit.",
+  "{provider} reached its weekly spending limit.": "{provider} reached its weekly spending limit.",
+  "{provider} reached its monthly spending limit.":
+    "{provider} reached its monthly spending limit.",
+  Details: "Details",
+
   "Couldn't refresh — showing the last loaded messages.":
     "Aktualisierung fehlgeschlagen – die zuletzt geladenen Nachrichten werden angezeigt.",
   "Try Again": "Erneut versuchen",

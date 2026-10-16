@@ -97,13 +97,27 @@ describe("mobile i18n", () => {
     const { ZH_MESSAGES } = await import("./locales/zh");
     const { RU_MESSAGES } = await import("./locales/ru");
     const { DE_MESSAGES } = await import("./locales/de");
-    const { EMPTY_PLUGIN_CATALOG_MESSAGE, SLASH_ACTIONS } = await import("@rakazo/core");
+    const { EMPTY_PLUGIN_CATALOG_MESSAGE, SLASH_ACTIONS, RUN_ERROR_LIMIT_MESSAGES } = await import(
+      "@rakazo/core"
+    );
     const { AI_DATA_DISCLOSURES, OPENAI_COMPATIBLE_BASE_URL_HINT } = await import(
       "@rakazo/contracts"
     );
     const mobileRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
     const ids = new Set<string>([
       ...Object.values(AI_DATA_DISCLOSURES),
+      ...Object.values(RUN_ERROR_LIMIT_MESSAGES).flatMap(Object.values),
+      "Your OpenRouter",
+      "Your OpenAI",
+      "Your Anthropic",
+      "Your model provider",
+      "The model provider returned an error.",
+      "{provider} is rate limiting requests. Try again shortly.",
+      "{summary} Resets {date}.",
+      "{provider} rejected the API key. Check your connection settings.",
+      "{provider} could not find the requested model.",
+      "{provider} took too long to respond. Try again.",
+
       EMPTY_PLUGIN_CATALOG_MESSAGE,
       OPENAI_COMPATIBLE_BASE_URL_HINT,
       ...SLASH_ACTIONS.map((action) => action.label),

@@ -2254,7 +2254,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       {runError ? (
         <View style={{ marginTop: error ? 12 : headerHeight + 28 }}>
           <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>
-            {normalizeRunError(runError).summary}
+            {normalizeRunError(runError, t, locale).summary}
           </Text>
           <NativeActionButton
             label={t("Details")}

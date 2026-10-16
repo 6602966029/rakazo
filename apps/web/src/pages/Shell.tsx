@@ -226,6 +226,7 @@ import {
   rosterWorkStatusLabel,
 } from "../lib/roster-status";
 import { clearSpaceSelection, rpc, selectedSpaceId, selectSpace } from "../lib/rpc";
+import { translateRunError } from "../lib/run-error";
 import { readSeenRunErrorIds, rememberSeenRunErrorId } from "../lib/run-error-storage";
 import { sharedInflight } from "../lib/shared-inflight";
 import {
@@ -6023,9 +6024,18 @@ export const Composer = memo(function Composer({
           data-testid="composer-error"
           className="mb-3 flex items-center gap-2 rounded-[14px] border border-destructive/40 bg-destructive/10 px-4 py-2 text-[13px] text-destructive"
         >
-          <span className="min-w-0 flex-1" title={!sendError && runError ? runError : undefined}>
-            {sendError ?? (runError ? normalizeRunError(runError).summary : null)}
-          </span>
+          <div className="min-w-0 flex-1">
+            {sendError ??
+              (runError
+                ? normalizeRunError(runError, translateRunError, i18n.locale || "en").summary
+                : null)}
+            {!sendError && runError ? (
+              <details key={runError} className="mt-1">
+                <summary className="w-fit cursor-pointer">{t`Details`}</summary>
+                <pre className="mt-2 whitespace-pre-wrap break-words text-xs">{runError}</pre>
+              </details>
+            ) : null}
+          </div>
           <button
             type="button"
             aria-label={t`Dismiss error`}

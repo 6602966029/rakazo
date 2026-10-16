@@ -48,7 +48,7 @@ describe("normalizeRunError", () => {
       '{"error":{"code":"model_not_found"}}',
       "Your model provider could not find the requested model.",
     ],
-    ["Request timed out", "Your model provider took too long to respond. Try again."],
+    ["Request timed out", "Request timed out"],
     [
       '504: {"message":"Gateway error"}',
       "Your model provider took too long to respond. Try again.",
@@ -59,10 +59,60 @@ describe("normalizeRunError", () => {
       "500: {malformed https://example.test/keys/fake-key-id",
       "The model provider returned an error.",
     ],
-    ["Something unexpected happened", "The model provider returned an error."],
+    ["Something unexpected happened", "Something unexpected happened"],
     ["", "The model provider returned an error."],
   ])("normalizes %s", (details, summary) => {
     expect(normalizeRunError(details)).toEqual({ summary, details });
+  });
+
+  it.each([
+    '429: {"message":"API key rate limit exceeded"}',
+    '403: {"message":"API key rate limit exceeded"}',
+    '429: {"error":{"type":"rate_limit_error","message":"API key rate limit exceeded"}}',
+  ])("recognizes per-key rate limits: %s", (details) => {
+    expect(normalizeRunError(details).summary).toBe(
+      "Your model provider is rate limiting requests. Try again shortly.",
+    );
+  });
+
+  it.each([
+    "The tools finished, but the model did not write a final answer. Rephrase the request and try again.",
+    "The model provider timed out. Please retry your request.",
+    "Stopped. This stayed queued without starting.",
+  ])("preserves app-authored recovery advice: %s", (details) => {
+    expect(normalizeRunError(details)).toEqual({ summary: details, details });
+  });
+
+  it("keeps quota exhaustion distinct from 429 rate limits", () => {
+    expect(
+      normalizeRunError(
+        '429: {"error":{"type":"rate_limit_error","code":"insufficient_quota","message":"Insufficient quota"}}',
+      ).summary,
+    ).toBe("Your model provider reached its credit limit.");
+  });
+
+  it("translates templates and formats reset dates in the selected locale", () => {
+    const translate = (message: string, values?: Record<string, string | number>) => {
+      const template =
+        (
+          {
+            "Your model provider": "Dein Modellanbieter",
+            "{provider} key hit its weekly limit.":
+              "{provider}: wöchentliches Schlüssellimit erreicht.",
+            "{summary} Resets {date}.": "{summary} Zurückgesetzt am {date}.",
+          } as Record<string, string>
+        )[message] ?? message;
+      return template.replace(/\{(\w+)\}/g, (_, key: string) => String(values?.[key]));
+    };
+    expect(
+      normalizeRunError(
+        '403: {"message":"Key limit exceeded (weekly); resets 2026-10-12"}',
+        translate,
+        "de",
+      ).summary,
+    ).toBe(
+      "Dein Modellanbieter: wöchentliches Schlüssellimit erreicht. Zurückgesetzt am 12. Okt..",
+    );
   });
 
   it("ignores malformed reset dates", () => {
