@@ -883,3 +883,11 @@ The optional marketing site in `apps/www` can be hosted separately.
 ## Connect mobile clients
 
 The iOS and Android app can also point at a self-hosted origin at runtime. On the sign-in screen, tap **Use a custom server** and enter the same HTTPS origin as `WEB_ORIGIN` (for example `https://app.example.com`). Store builds still default to `EXPO_PUBLIC_API_URL`; the in-app setting is an override for people running their own API. Changing the server signs the device out of any previous session.
+
+## Upload size
+
+`MAX_UPLOAD_SIZE_MB` sets the per-file chat attachment and computer file transfer limit
+in MiB (1 MiB = 1,048,576 bytes). It defaults to `10` and must be a positive integer.
+Set it in `.env` and restart the API, worker, and Docker supervisor (when used). Web, desktop, and mobile use the
+limit advertised by the server. If a reverse proxy limits request bodies, allow
+room for base64 encoding (about 4/3 of the file size) and the JSON envelope.

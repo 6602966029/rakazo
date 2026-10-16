@@ -8,7 +8,7 @@ import type {
   MessageReaction,
   Routine,
 } from "@rakazo/contracts";
-import { canReactToThreadMessage, MESSAGE_REACTIONS } from "@rakazo/contracts";
+import { attachmentMaxBytes, canReactToThreadMessage, MESSAGE_REACTIONS } from "@rakazo/contracts";
 import type { SlashActionId, ThreadItem } from "@rakazo/core";
 import {
   abortableDelay,
@@ -254,7 +254,8 @@ function formatApprovalAnswer(
 function formatAttachmentSkip(item: { name: string; reason: string }): string {
   const name = item.name === "camera" ? t("Camera") : item.name;
   if (item.reason === "permission denied") return t("{name} (permission denied)", { name });
-  if (item.reason === "over 10 MiB") return t("{name} (over 10 MiB)", { name });
+  if (item.reason.startsWith("over "))
+    return t("{name} (over {limit})", { name, limit: item.reason.slice(5) });
   if (item.reason === "unsupported type") return t("{name} (unsupported type)", { name });
   const maxMatch = /^max (\d+) attachments$/.exec(item.reason);
   if (maxMatch) {
@@ -543,6 +544,19 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   }, [streamResponses]);
   const activeThreadId = useRef<string | undefined>(undefined);
   const [agentSkills, setAgentSkills] = useState<AgentSkillCatalogEntry[]>([]);
+  const [uploadConfig, setUploadConfig] = useState<{ maxUploadSizeBytes?: number }>();
+  useEffect(() => {
+    let cancelled = false;
+    void rpc<{ maxUploadSizeBytes?: number }>("me")
+      .then((me) => {
+        if (!cancelled) setUploadConfig(me);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [mentionBots, setMentionBots] = useState<MobileBot[]>([]);
   // The call outlives renders, so its switch check reads the newest bot list from here.
   const mentionBotsRef = useRef<MobileBot[]>([]);
@@ -1857,14 +1871,17 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   }
 
   async function addAttachments(
-    picker: (existingCount: number) => Promise<{
+    picker: (
+      existingCount: number,
+      maxBytes: number,
+    ) => Promise<{
       attachments: PickedAttachment[];
       skipped: Array<{ name: string; reason: string }>;
     }>,
   ) {
     const targetKey = groupId ?? botId;
     if (!targetKey) return;
-    const result = await picker(activePendingAttachments.length);
+    const result = await picker(activePendingAttachments.length, attachmentMaxBytes(uploadConfig));
     if ((groupId ?? botId) !== targetKey) return;
     if (result.attachments.length) {
       setPendingAttachments((current) => [
