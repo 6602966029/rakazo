@@ -104,6 +104,7 @@ describe("current-turn thread files", () => {
   });
 
   it.each([
+    ["video/mp4", ".mp4"],
     ["application/pdf", ".pdf"],
     ["application/zip", ".zip"],
   ])(
