@@ -21,6 +21,8 @@ export async function generateMediaFromTool(options: {
   name: "generate_image" | "generate_video";
   args: Record<string, unknown>;
   executionId: string;
+  /** Recover only persisted state; never submit a new billed generation. */
+  recoverOnly?: boolean;
   provider: MediaGenerationProvider;
   prisma: PrismaClient;
   context: AdapterContext;
@@ -85,6 +87,12 @@ export async function generateMediaFromTool(options: {
             return { status: "completed", artifactId: saved.data.artifactId };
           reservation = prior;
         } else {
+          if (video && saved.success && saved.data.jobId)
+            return {
+              jobId: prior.id,
+              status: prior.status === "media_failed" ? "failed" : "queued",
+            };
+          if (options.recoverOnly) return undefined;
           return {
             jobId: prior.id,
             error: "Submission already attempted. Poll a video job; do not resubmit automatically.",
@@ -92,6 +100,7 @@ export async function generateMediaFromTool(options: {
         }
       }
       if (!reservation) {
+        if (options.recoverOnly) return undefined;
         const input = mediaPromptSchema.safeParse(args);
         if (!input.success) return { error: "A prompt of 1–4000 characters is required." };
         // A unique slot makes the per-run cap durable even across concurrent calls/restarts.
@@ -123,7 +132,15 @@ export async function generateMediaFromTool(options: {
       }
     }
     const saved = savedJob.parse(reservation.result);
-    if ((video && typeof args.jobId === "string") || saved.artifactId) {
+    if (saved.artifactId) {
+      const artifact = await prisma.artifact.findFirst({
+        where: { id: saved.artifactId, spaceId: run.spaceId, userId: run.userId, botId: run.botId },
+      });
+      if (!artifact) return { error: "Generated attachment is unavailable." };
+      await options.publish(messageBlockForArtifact(artifact), reservation.id, artifact.id);
+      return { status: "completed", artifactId: artifact.id };
+    }
+    if (video && typeof args.jobId === "string") {
       const claim = await prisma.externalEffect.updateMany({
         where: {
           id: reservation.id,
@@ -135,19 +152,13 @@ export async function generateMediaFromTool(options: {
         data: { status: "media_polling" },
       });
       if (!claim.count)
-        return {
-          error:
-            "Video job is already being checked or needs recovery. Do not resubmit automatically.",
-        };
+        return options.recoverOnly
+          ? { jobId: reservation.id, status: "running" }
+          : {
+              error:
+                "Video job is already being checked or needs recovery. Do not resubmit automatically.",
+            };
       polling = true;
-    }
-    if (saved.artifactId) {
-      const artifact = await prisma.artifact.findFirst({
-        where: { id: saved.artifactId, spaceId: run.spaceId, userId: run.userId, botId: run.botId },
-      });
-      if (!artifact) return { error: "Generated attachment is unavailable." };
-      await options.publish(messageBlockForArtifact(artifact), reservation.id, artifact.id);
-      return { status: "completed", artifactId: artifact.id };
     }
     let output: MediaVideoJob | { status: "completed"; output: GeneratedMedia };
     try {

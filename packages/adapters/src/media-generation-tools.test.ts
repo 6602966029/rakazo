@@ -218,6 +218,28 @@ describe("bot media tools", () => {
       );
     },
   );
+  it("never submits or reserves new work in recovery-only mode", async () => {
+    const { options, externalEffect, provider } = setup();
+    const submit = vi.spyOn(provider, "generateImage");
+    expect(await generateMediaFromTool({ ...options, recoverOnly: true })).toBeUndefined();
+    expect(submit).not.toHaveBeenCalled();
+    expect(externalEffect.create).not.toHaveBeenCalled();
+  });
+  it("returns the existing running job when an interrupted poll is still claimed", async () => {
+    const { options, externalEffect, row, provider } = setup();
+    externalEffect.findFirst.mockResolvedValue(row);
+    externalEffect.updateMany.mockResolvedValue({ count: 0 });
+    const poll = vi.spyOn(provider, "pollVideo");
+    expect(
+      await generateMediaFromTool({
+        ...options,
+        name: "generate_video",
+        args: { jobId: row.id },
+        recoverOnly: true,
+      }),
+    ).toEqual({ jobId: row.id, status: "running" });
+    expect(poll).not.toHaveBeenCalled();
+  });
   it("does not concurrently poll a claimed job", async () => {
     const { options, externalEffect, row, provider } = setup();
     externalEffect.findFirst.mockResolvedValue(row);
