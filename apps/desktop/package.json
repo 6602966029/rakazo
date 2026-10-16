@@ -2,6 +2,9 @@
   "name": "@rakazo/desktop",
   "productName": "Rakazo",
   "version": "0.2.0",
+  "author": {
+    "name": "Rakazo"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/main.js",
@@ -52,6 +55,7 @@
       }
     ],
     "extraMetadata": {
+      "name": "rakazo",
       "main": "dist/main.js"
     },
     "mac": {
