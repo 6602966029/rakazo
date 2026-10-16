@@ -32,8 +32,9 @@ export async function commitBotUpdate(
 
   const { instructions, ...data } = options.data;
   const committed = await options.prisma.$transaction(async (tx) => {
+    // Event appends also lock the thread; all writers take it before the bot row.
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${options.threadId} FOR UPDATE`;
     if (typeof instructions === "string") {
-      await tx.$queryRaw`SELECT id FROM threads WHERE id = ${options.threadId} FOR UPDATE`;
       await writeBotInstructions(tx, {
         botId: options.botId,
         instructions,
