@@ -436,7 +436,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     },
     [],
   );
-  const composerRestingPadding = Math.max(insets.bottom + 12, 24);
+  const composerRestingPadding =
+    Platform.OS === "ios" ? insets.bottom : Math.max(insets.bottom + 12, 24);
   // Hands the composer from the keyboard to the safe area as the keyboard moves, so it never
   // dips into the home indicator and then jumps back up.
   const composerKeyboardPadding = useAnimatedStyle(() => ({

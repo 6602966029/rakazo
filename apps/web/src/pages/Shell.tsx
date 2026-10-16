@@ -5565,7 +5565,7 @@ export const Composer = memo(function Composer({
     const mentionMatch = /(?:^|\s)@([\w-]*)$/.exec(draft);
     return mentionMatch ? (mentionMatch[1] ?? "") : null;
   });
-  const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0);
+  const [mentionHighlightKey, setMentionHighlightKey] = useState<string | null>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(() => {
     const slashMatch = /^\/([^\n]*)$/.exec(draft);
     return slashMatch ? (slashMatch[1] ?? "") : null;
@@ -5737,7 +5737,7 @@ export const Composer = memo(function Composer({
     writeComposerDraft(draftKey, next);
     setDraft(next);
     setMentionQuery(null);
-    setMentionHighlightIndex(0);
+    setMentionHighlightKey(null);
     setSelectedMentions((current) =>
       current.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
         ? current
@@ -5780,11 +5780,11 @@ export const Composer = memo(function Composer({
   }, [mentionQuery, mentionTargets]);
 
   useEffect(() => {
-    setMentionHighlightIndex(0);
-  }, [mentionQuery, mentionOptions]);
+    setMentionHighlightKey(null);
+  }, [mentionQuery]);
 
   const activeMentionIndex = clampMentionHighlightIndex(
-    mentionHighlightIndex,
+    mentionOptions.findIndex((mention) => mentionChipKey(mention) === mentionHighlightKey),
     mentionOptions.length,
   );
   const mentionPickerOpen = mentionOptions.length > 0;
@@ -5827,7 +5827,7 @@ export const Composer = memo(function Composer({
     const submission = beginComposerDraftSubmission(draftKey, draft);
     setDraft("");
     setMentionQuery(null);
-    setMentionHighlightIndex(0);
+    setMentionHighlightKey(null);
     setSlashQuery(null);
     setSelectedSkill(null);
     const mentions = selectedMentions;
@@ -6134,7 +6134,7 @@ export const Composer = memo(function Composer({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => insertMention(mention)}
                 // Opening the list under a stationary pointer must not steal the keyboard highlight.
-                onMouseMove={() => setMentionHighlightIndex(index)}
+                onMouseMove={() => setMentionHighlightKey(mentionChipKey(mention))}
                 className={`flex w-full items-start gap-3 px-4 py-2.5 text-start hover:bg-accent ${
                   highlighted ? "bg-accent" : ""
                 }`}
@@ -6315,13 +6315,13 @@ export const Composer = memo(function Composer({
               }
               if (action.type === "move") {
                 event.preventDefault();
-                setMentionHighlightIndex(action.index);
+                setMentionHighlightKey(mentionChipKey(mentionOptions[action.index]!));
                 return;
               }
               if (action.type === "dismiss") {
                 event.preventDefault();
                 setMentionQuery(null);
-                setMentionHighlightIndex(0);
+                setMentionHighlightKey(null);
                 return;
               }
               if (action.type === "send") {

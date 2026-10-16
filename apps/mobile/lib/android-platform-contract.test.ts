@@ -35,7 +35,9 @@ describe("Android mobile platform contract", () => {
     // The composer's bottom padding follows the keyboard instead of switching once it has hidden.
     expect(thread).toContain("useKeyboardHandler");
     expect(thread).toContain("onInteractive");
-    expect(thread).toContain("const composerRestingPadding = Math.max(insets.bottom + 12, 24);");
+    expect(thread).toMatch(
+      /const composerRestingPadding =\s*Platform\.OS === "ios" \? insets\.bottom : Math\.max\(insets\.bottom \+ 12, 24\)/,
+    );
     expect(thread).toContain(
       "interpolate(keyboardProgress.value, [0, 1], [composerRestingPadding, 12])",
     );
