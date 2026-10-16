@@ -123,6 +123,7 @@ import { createThreadHeaderStyles } from "../components/thread-header-styles";
 import { TimeSeparator } from "../components/time-separator";
 import { VoiceChatCard } from "../components/VoiceChatCard";
 import { WorkingIndicator } from "../components/WorkingIndicator";
+import { readableGutter } from "../lib/adaptive-layout";
 import type {
   MobileBot,
   MobileGroup,
@@ -412,6 +413,9 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const nativeHeaderHeight = useHeaderHeight();
   const headerHeight = iosAtLeast(26) ? nativeHeaderHeight : 0;
   const insets = useSafeAreaInsets();
+  // An unfolded or tablet window keeps messages and the composer in a centred reading column.
+  const columnInset = readableGutter(windowWidth, Math.max(insets.left, insets.right));
+  const columnWidth = windowWidth - columnInset * 2;
   // Frame by frame, including a swipe that drags the keyboard down.
   const keyboardProgress = useSharedValue(KeyboardController.isVisible() ? 1 : 0);
   useKeyboardHandler(
@@ -2108,7 +2112,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           activityColor={activityBot?.color}
           activityStatus={activityStatus}
           inGroup={inGroup}
-          windowWidth={windowWidth}
+          columnWidth={columnWidth}
           enableJump={options?.enableJump ?? false}
           index={options?.index ?? 0}
         />
@@ -2133,7 +2137,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       answerableAskMessageId,
       highlightedMessageId,
       separatorIds,
-      windowWidth,
+      columnWidth,
       t,
       locale,
     ],
@@ -2244,7 +2248,11 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       behavior="height"
       // Android lays out the screen below the opaque native navigation header.
       keyboardVerticalOffset={Platform.OS === "android" ? nativeHeaderHeight : 0}
-      style={{ flex: 1, backgroundColor: tokens.background, paddingHorizontal: 20 }}
+      style={{
+        flex: 1,
+        backgroundColor: tokens.background,
+        paddingHorizontal: 20 + columnInset,
+      }}
     >
       {error ? (
         <Text style={{ color: tokens.mutedForeground, marginTop: headerHeight + 28 }}>
@@ -2817,7 +2825,7 @@ type MessageRowProps = {
   activityColor?: string;
   activityStatus?: MobileBot["status"];
   inGroup: boolean;
-  windowWidth: number;
+  columnWidth: number;
   enableJump: boolean;
   index: number;
 };
@@ -2843,7 +2851,7 @@ const MessageRow = memo(function MessageRow({
   activityColor,
   activityStatus,
   inGroup,
-  windowWidth,
+  columnWidth,
   enableJump,
   index,
 }: MessageRowProps) {
@@ -3028,10 +3036,10 @@ const MessageRow = memo(function MessageRow({
             actions={menu}
             maxWidth={
               isCenteredAgentEvent(message.blocks)
-                ? windowWidth - 40
+                ? columnWidth - 40
                 : activityBotId
-                  ? windowWidth - 40 - (inGroup ? 28 : 36)
-                  : (windowWidth - 40) * 0.9
+                  ? columnWidth - 40 - (inGroup ? 28 : 36)
+                  : (columnWidth - 40) * 0.9
             }
             colorScheme={colorScheme}
             onAction={onMenuAction}
