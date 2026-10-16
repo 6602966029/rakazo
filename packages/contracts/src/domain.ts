@@ -145,6 +145,8 @@ export const UpdateGroupInput = z.object({
   groupId: Id,
   name: z.string().trim().min(1).max(80).optional(),
   botIds: GroupBotIds.optional(),
+  /** Reject a membership replacement when another client changed the active roster. */
+  expectedBotIds: z.array(Id).max(GROUP_MEMBER_MAX).optional(),
   pinned: z.boolean().optional(),
   sectionId: Id.nullable().optional(),
 });
