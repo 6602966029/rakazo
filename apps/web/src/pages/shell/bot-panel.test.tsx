@@ -64,6 +64,7 @@ vi.mock("./bot-credentials", () => ({ BotCredentialsSection: () => null }));
 vi.mock("../ScratchpadSection", () => ({ ScratchpadSection: () => null }));
 vi.mock("../KnowledgeSection", () => ({ KnowledgeSection: () => null }));
 
+import { InstructionSettings } from "../../components/InstructionSettings";
 import { rpc } from "../../lib/rpc";
 import { BotSettings } from "./bot-panel";
 
@@ -88,6 +89,7 @@ function bot(description = "Billing"): Bot {
     threadId: "thread-1",
     preview: "",
     status: "idle",
+    runErrorId: null,
     computerMode: "team",
     updatedAt: "2026-09-01T00:00:00.000Z",
     createdAt: "2026-09-01T00:00:00.000Z",
@@ -232,8 +234,8 @@ describe("BotSettings description saves", () => {
     await clickSave();
     expect(onSave.mock.calls[0]?.[0]).toMatchObject({
       description: "Invoices",
-      instructions: "Invoices",
     });
+    expect(onSave.mock.lastCall?.[0]).not.toHaveProperty("instructions");
 
     // The parent still passes the description from when the panel opened.
     await render();
@@ -252,8 +254,8 @@ describe("BotSettings description saves", () => {
     await clickSave();
     expect(onSave.mock.calls[1]?.[0]).toMatchObject({
       description: "Billing",
-      instructions: "Billing",
     });
+    expect(onSave.mock.lastCall?.[0]).not.toHaveProperty("instructions");
   });
 
   it("keeps the previous description as the baseline when a save fails", async () => {
@@ -264,7 +266,35 @@ describe("BotSettings description saves", () => {
     await clickSave();
     expect(onSave.mock.calls[1]?.[0]).toMatchObject({
       description: "Invoices",
-      instructions: "Invoices",
     });
+    expect(onSave.mock.lastCall?.[0]).not.toHaveProperty("instructions");
+  });
+});
+
+describe("instruction settings refresh", () => {
+  it("keeps a dirty draft when run completion refreshes the bot", async () => {
+    const initial = bot();
+    await act(async () => {
+      root.render(<InstructionSettings bot={initial} />);
+    });
+    await setDescription("Unsaved instructions");
+    await act(async () => {
+      root.render(
+        <InstructionSettings bot={{ ...initial, updatedAt: "2026-09-02T00:00:00.000Z" }} />,
+      );
+    });
+    expect(descriptionField().value).toBe("Unsaved instructions");
+  });
+  it("refreshes pristine instructions after an external update", async () => {
+    const initial = bot();
+    await act(async () => {
+      root.render(<InstructionSettings bot={initial} />);
+    });
+    await act(async () => {
+      root.render(
+        <InstructionSettings bot={{ ...initial, instructions: "Approved replacement" }} />,
+      );
+    });
+    expect(descriptionField().value).toBe("Approved replacement");
   });
 });

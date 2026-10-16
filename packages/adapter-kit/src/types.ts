@@ -13,6 +13,8 @@ export interface AdapterContext {
   runId?: string;
   /** Opaque fence for releasing a graphical screen without tearing down its replacement. */
   screenLeaseId?: string;
+  /** Retain a completed run's screen for reuse by this bot. */
+  keepScreenWarm?: boolean;
   /** When releasing a screen after cancel, also stop orphaned browser work on that screen. */
   cancelRunWork?: boolean;
   signal: AbortSignal;
@@ -615,12 +617,20 @@ export interface VoiceTranscribeRequest {
   audio: Uint8Array;
   mimeType: string;
   apiKey: string;
+  /**
+   * Language of the recording, as a BCP-47 tag or an ISO 639-1 code. Providers treat it
+   * as a hint: Fish Audio guesses when it is missing, and a wrong guess turns speech in
+   * one language into lookalike words of another.
+   */
+  language?: string;
   signal?: AbortSignal;
 }
 
 export interface BackgroundJobPayloads {
   "run.continue": { runId: string };
   "routine.wakeup": { routineId: string; scheduledFor: string };
+  /** Run a failed routine run once more; the payload names the failed run. */
+  "routine.retry": { runId: string };
   "computer.sleep": { computerId: string };
   "computer.update": { updateId: string };
   "computer.control-expire": { computerId: string; leaseId: string };
@@ -639,6 +649,12 @@ export type BackgroundJob = {
     payload: BackgroundJobPayloads[Name];
     availableAt?: Date;
     replaceKey?: string;
+    /**
+     * Leave an existing job with `replaceKey` alone while it still has attempts
+     * left, including one waiting out backoff. An exhausted or missing job is
+     * replaced. Omit to replace, which is what an explicit continue does.
+     */
+    keepExisting?: boolean;
     /** Cap retried executions; omit to use the job queue's default. */
     maxAttempts?: number;
   };

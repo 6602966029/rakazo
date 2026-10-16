@@ -1,18 +1,23 @@
-import { Trans, useLingui } from "@lingui/react/macro";
+import { Trans } from "@lingui/react/macro";
 import type { Bot } from "@rakazo/contracts";
 import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@rakazo/contracts";
-import { Button, Switch, Textarea } from "@rakazo/ui-web";
+import { Button, Textarea } from "@rakazo/ui-web";
 import { useId, useState } from "react";
 import { rpc } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
 
 export function InstructionSettings({ bot }: { bot: Bot }) {
-  const { t } = useLingui();
   const id = useId();
+  const [previousBot, setPreviousBot] = useState(bot);
   const [current, setCurrent] = useState(bot);
   const [instructions, setInstructions] = useState(bot.instructions);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  if (bot !== previousBot) {
+    setPreviousBot(bot);
+    if (instructions === previousBot.instructions) setInstructions(bot.instructions);
+    setCurrent(bot);
+  }
   async function save(action: () => Promise<Bot>) {
     setPending(true);
     setError("");
@@ -40,21 +45,6 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
             if (instructions !== current.instructions)
               void save(() => rpc.bots.update({ botId: bot.id, instructions }));
           }}
-        />
-      </label>
-      <label
-        htmlFor={`${id}-self-update`}
-        className="flex items-center justify-between gap-3 text-sm"
-      >
-        <Trans>Let this bot update its own instructions</Trans>
-        <Switch
-          id={`${id}-self-update`}
-          aria-label={t`Let this bot update its own instructions`}
-          checked={current.selfUpdateInstructions ?? false}
-          disabled={pending}
-          onCheckedChange={(checked) =>
-            void save(() => rpc.bots.update({ botId: bot.id, selfUpdateInstructions: checked }))
-          }
         />
       </label>
       {current.instructionHistory?.length ? (

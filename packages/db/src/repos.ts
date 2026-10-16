@@ -7,7 +7,7 @@ import { ensureComputerRecord, parseComputerMode } from "./computers.js";
 import { createThreadMessageInTransaction } from "./messages.js";
 import { BotSectionNameConflictError, IsolationError } from "./scope.js";
 import { lockSpaceForContentCreation } from "./spaces.js";
-import { activeRunSelection, previewFromBlocks } from "./thread-listing.js";
+import { activeRunSelection, latestBotRunSelection, previewFromBlocks } from "./thread-listing.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 /** Newest messages loaded for sidebar preview; enough to skip a short peer-run tail. */
@@ -23,6 +23,20 @@ function isSpawnKeyConflict(error: unknown): boolean {
   if (target == null) return true;
   const fields = Array.isArray(target) ? target : [target];
   return fields.some((field) => field === "spawnKey" || field.includes("spawnKey"));
+}
+
+function rosterRunErrorId(
+  latestRun: { id: string; status: string } | undefined,
+  activeRun: { status: string } | undefined,
+): string | null {
+  if (
+    latestRun?.status !== "failed" ||
+    activeRun?.status === "waiting_input" ||
+    activeRun?.status === "waiting_takeover"
+  ) {
+    return null;
+  }
+  return latestRun.id;
 }
 
 function mapBot(
@@ -59,6 +73,7 @@ function mapBot(
   },
   preview = "",
   status = "idle",
+  runErrorId: string | null = null,
 ): Bot {
   if (!bot.thread) {
     throw new IsolationError("Bot is missing its thread");
@@ -83,6 +98,7 @@ function mapBot(
     threadId: bot.thread.id,
     preview,
     status,
+    runErrorId,
     computerMode: bot.computer ? parseComputerMode(bot.computer.scope) : "team",
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),
@@ -146,6 +162,7 @@ export function createRepos(prisma: PrismaClient) {
               take: 1,
               select: { blocks: true },
             },
+            runs: latestBotRunSelection,
           },
         },
         runs: activeRunSelection,
@@ -167,6 +184,7 @@ export function createRepos(prisma: PrismaClient) {
         parentBotId: bot.parentBotId,
         preview: previewFromBlocks(bot.thread.messages[0]?.blocks),
         status: bot.runs[0]?.status ?? "idle",
+        runErrorId: rosterRunErrorId(bot.thread.runs[0], bot.runs[0]),
         updatedAt: bot.updatedAt.toISOString(),
       };
     });
@@ -293,6 +311,7 @@ export function createRepos(prisma: PrismaClient) {
           thread: {
             include: {
               messages: { orderBy: { seq: "desc" }, take: SIDEBAR_PREVIEW_MESSAGE_WINDOW },
+              runs: latestBotRunSelection,
             },
           },
           runs: activeRunSelection,
@@ -363,7 +382,12 @@ export function createRepos(prisma: PrismaClient) {
             });
             if (messages.length === 0) break;
           }
-          return mapBot(bot, preview, bot.runs[0]?.status ?? "idle");
+          return mapBot(
+            bot,
+            preview,
+            bot.runs[0]?.status ?? "idle",
+            rosterRunErrorId(bot.thread?.runs[0], bot.runs[0]),
+          );
         }),
       );
     },

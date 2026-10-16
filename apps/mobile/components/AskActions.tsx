@@ -74,32 +74,27 @@ export function AskActions({
         const emphasized = action.id === "allow" || action.id === "always";
         if (instructions !== undefined)
           return (
-            <View
+            <NativeActionButton
               key={action.id}
               accessibilityActions={accessibilityActions}
               onAccessibilityAction={onAccessibilityAction}
-            >
-              <NativeActionButton
-                label={
-                  action.id === "edit"
-                    ? action.label
-                    : t(action.id === "allow" ? "Apply" : "Dismiss")
-                }
-                prominence={emphasized ? "primary" : "secondary"}
-                fill
-                disabled={disabled || submitting}
-                busy={pendingAction === action.id || (action.id === "allow" && submitting)}
-                onPress={() =>
-                  action.id === "edit"
-                    ? setEditing((value) => !value)
-                    : void submit(
-                        editing && action.id === "allow"
-                          ? JSON.stringify({ instructions: draft })
-                          : action.id,
-                      )
-                }
-              />
-            </View>
+              label={
+                action.id === "edit" ? action.label : t(action.id === "allow" ? "Apply" : "Dismiss")
+              }
+              prominence={emphasized ? "primary" : "secondary"}
+              fill
+              disabled={disabled || submitting}
+              busy={pendingAction === action.id || (action.id === "allow" && submitting)}
+              onPress={() =>
+                action.id === "edit"
+                  ? setEditing((value) => !value)
+                  : void submit(
+                      editing && action.id === "allow"
+                        ? JSON.stringify({ instructions: draft })
+                        : action.id,
+                    )
+              }
+            />
           );
         return (
           <Pressable

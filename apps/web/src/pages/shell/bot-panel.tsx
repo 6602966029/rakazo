@@ -553,7 +553,7 @@ export function BotSettings({
             ›
           </span>
         </summary>
-        <InstructionSettings key={bot.updatedAt} bot={bot} />
+        <InstructionSettings key={bot.id} bot={bot} />
         <ComputerModePicker value={computerMode} onChange={setComputerMode} />
         <ErrorBoundary fallback={<SectionLoadFailed />}>
           <Suspense fallback={null}>

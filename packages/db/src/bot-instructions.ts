@@ -52,13 +52,10 @@ export async function writeBotInstructions(
     versionId?: string;
     expectedInstructions?: string;
     proposalRunId?: string;
-    requireSelfUpdate?: boolean;
   },
 ) {
   await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} FOR UPDATE`;
   const bot = await tx.bot.findUniqueOrThrow({ where: { id: input.botId } });
-  if (input.requireSelfUpdate && !bot.selfUpdateInstructions)
-    throw new Error("Self updates are disabled.");
   if (input.expectedInstructions !== undefined && bot.instructions !== input.expectedInstructions) {
     throw new Error("Instructions changed; review the current instructions first.");
   }

@@ -19,6 +19,10 @@ import { catalogEntries, resolveCatalogCall } from "./lazy-tool-catalog.js";
 vi.mock("./computer-lifecycle.js", async (importOriginal) => ({
   ...(await importOriginal<typeof ComputerLifecycleModule>()),
   acquireComputerExecutionLease: async () => null,
+  acquireDedicatedScreenLeaseFence: async (
+    _prisma: unknown,
+    input: { computerId: string; botId: string; runId: string },
+  ) => ({ ...input, fence: 7 }),
   provisionComputer: async () => ({ id: "computer-1", kind: "desktop" }),
 }));
 
@@ -350,6 +354,12 @@ function fixture({
   return {
     effects,
     instructionState,
+    cancelAtInstructionCommit() {
+      transactionalPrisma.$queryRaw.mockImplementation(async (...values: unknown[]) => {
+        if (String(values[0]).includes("FROM threads")) run.status = "cancelled";
+        return [];
+      });
+    },
     results,
     execute,
     commit,
@@ -417,12 +427,15 @@ function fixture({
     setCalls(next: typeof calls) {
       calls = next;
     },
-    async run() {
+    async run(allowFailure = false) {
       run.status = "queued";
       await executor.continueRun(run.id, "worker-1");
       expect(runtimeRun).toHaveBeenCalled();
       expect(prisma.attempt.update).not.toHaveBeenCalled();
-      expect(finalizeRun).not.toHaveBeenCalledWith(expect.objectContaining({ outcome: "failed" }));
+      if (!allowFailure)
+        expect(finalizeRun).not.toHaveBeenCalledWith(
+          expect.objectContaining({ outcome: "failed" }),
+        );
     },
   };
 }
@@ -845,7 +858,7 @@ describe("self instruction proposals", () => {
     expect(f.effects).toHaveLength(1);
     expect(f.effects[0]!.status).toBe("completed");
   });
-  it("auto-applies only with the per-bot setting and keeps an undo version", async () => {
+  it("requires human approval even with the legacy self-update setting enabled", async () => {
     const f = fixture({
       name: "propose_instructions_update",
       builtin: true,
@@ -853,10 +866,34 @@ describe("self instruction proposals", () => {
     });
     f.setCalls([{ args, executionId: "call-1" }]);
     await f.run();
-    expect(f.pauseRunForInput).not.toHaveBeenCalled();
-    expect(f.instructionState.instructions).toBe(args.instructions);
-    expect(f.instructionState.instructionHistory).toHaveLength(1);
-    expect(f.instructionState.pendingInstructionsRunId).toBeNull();
+    expect(f.pauseRunForInput).toHaveBeenCalledOnce();
+    expect(f.instructionState.instructions).toBe("Draft only");
+    expect(f.instructionState.instructionHistory).toHaveLength(0);
+    expect(f.effects[0]?.status).toBe("intended");
+  });
+  it("rejects known credentials before persisting a proposal", async () => {
+    const f = fixture({
+      name: "propose_instructions_update",
+      builtin: true,
+      secrets: ["fake-credential-value"],
+    });
+    f.setCalls([
+      { args: { ...args, instructions: "Use fake-credential-value" }, executionId: "call-1" },
+    ]);
+    await f.run();
+    expect(f.results).toEqual([{ error: "Instruction proposals cannot contain credentials." }]);
+    expect(f.effects).toEqual([]);
+    expect(f.instructionState.instructions).toBe("Draft only");
+  });
+  it("does not apply an approved proposal after cancellation wins the thread lock", async () => {
+    const f = fixture({ name: "propose_instructions_update", builtin: true });
+    f.setCalls([{ args, executionId: "call-1" }]);
+    await f.run();
+    f.effects[0]!.status = "approved";
+    f.cancelAtInstructionCommit();
+    await f.run(true);
+    expect(f.instructionState.instructions).toBe("Draft only");
+    expect(f.instructionState.instructionHistory).toHaveLength(0);
   });
   it.each(["email", "web content", "webhook"])(
     "refuses an instruction update through the inbound %s run path",

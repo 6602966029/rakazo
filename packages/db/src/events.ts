@@ -1,12 +1,10 @@
 import type { RealtimeFanout } from "@rakazo/adapter-kit";
+import type { BotSecretDestination, MessageBlock, ProductEvent } from "@rakazo/contracts";
 import {
   BOT_INSTRUCTIONS_MAX_LENGTH,
-  type BotSecretDestination,
   encodeLoginSecret,
   LoginSecretValue,
-  type MessageBlock,
   MessageBlock as MessageBlockSchema,
-  type ProductEvent,
 } from "@rakazo/contracts";
 import {
   blocksToAgentHistoryText,
@@ -82,7 +80,7 @@ export interface FinalizeComputerControlReleaseInput {
   computerId: string;
   botId: string;
   runId: string | null;
-  leaseId: string;
+  leaseId: string | null;
   holder: "bot" | "none";
   reason: "done" | "expired" | "released" | "skipped";
 }
@@ -176,6 +174,22 @@ function resumeChoiceLabel(
   }
 }
 
+/**
+ * A conversational run's request and earlier answers stay in thread history, so its resumed
+ * attempt gets just the answer. A background run's prompt never reaches the thread, so it keeps
+ * its instructions and every earlier answer; otherwise the resumed attempt forgets them.
+ */
+function resumePrompt(
+  run: { trigger: string; task?: { prompt: string } | null },
+  question: string,
+  answer: string,
+): string {
+  if (isConversationalRun(run.trigger)) return answer;
+  return [run.task?.prompt.trim(), `${question.trim()}\nAnswer: ${answer}`]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export interface PauseRunForTakeover {
   spaceId: string;
   threadId: string;
@@ -196,6 +210,8 @@ export interface AnswerRunInput {
   messageId: string;
   answeredByUserId: string;
   answer: string;
+  /** Identifies a spoken answer as part of a live voice call. */
+  clientNonce?: string;
   /** Only for a login card; `answer` carries its password. */
   username?: string;
 }
@@ -529,7 +545,12 @@ export async function claimSteering(
         leaseOwner: input.leaseOwner,
         leaseFence: input.leaseFence,
       },
-      select: { id: true, trigger: true, sourceMessage: { select: { blocks: true } } },
+      select: {
+        id: true,
+        spaceId: true,
+        trigger: true,
+        sourceMessage: { select: { blocks: true } },
+      },
     });
     if (!run || run.trigger === "created") return [];
     const channelId =
@@ -569,6 +590,20 @@ export async function claimSteering(
     await tx.steeringMessage.updateMany({
       where: { id: { in: steering.map((item) => item.id) }, claimedAt: null },
       data: { runId: input.runId, claimedAt: new Date() },
+    });
+    // The thread lock serializes this watermark with message writes. Unlike claim
+    // timestamps, it cannot drift from the database clock or tie with a reply.
+    const { nextMessageSeq } = await tx.thread.findUniqueOrThrow({
+      where: { id: input.threadId },
+      select: { nextMessageSeq: true },
+    });
+    await appendEventInTransaction(tx, {
+      threadId: input.threadId,
+      spaceId: run.spaceId,
+      botId: input.botId,
+      runId: input.runId,
+      type: "run.steering.claimed",
+      payload: { steeringIds: steering.map((item) => item.id), nextMessageSeq },
     });
     return steering.map((item) => ({
       id: item.id,
@@ -619,7 +654,13 @@ async function commitAnswerRunInput(
       threadId: input.threadId,
       status: "waiting_input",
     },
-    select: { botId: true, userId: true, checkpoint: true },
+    select: {
+      botId: true,
+      userId: true,
+      checkpoint: true,
+      trigger: true,
+      task: { select: { prompt: true } },
+    },
   });
   if (!run) return null;
   const message = await tx.message.findFirst({
@@ -683,6 +724,8 @@ async function commitAnswerRunInput(
     if (pendingAsk.instructionUpdate) {
       if (
         approvalEffect.kind !== "propose_instructions_update" ||
+        pendingAsk.instructionUpdate.botId !== run.botId ||
+        (approvalAnswer !== "allow" && approvalAnswer !== "deny") ||
         run.userId !== input.answeredByUserId
       )
         return null;
@@ -708,6 +751,30 @@ async function commitAnswerRunInput(
   if (queued.count !== 1) return null;
 
   const recordedAnswer = secretAsk ? "" : (selectedChoice?.id ?? approvalAnswer);
+  const callId = callIdFromClientNonce(input.clientNonce);
+  const recordsCallUtterance = Boolean(callId && !secretAsk);
+
+  // Give spoken answers the same durable, call-scoped user utterance as other voice turns.
+  // Secret asks stay out of message history; the call UI requires those answers on screen.
+  if (recordsCallUtterance) {
+    const blocks = [{ kind: "text" as const, text: input.answer }];
+    const utterance = await createThreadMessageInTransaction(tx, {
+      threadId: input.threadId,
+      role: "user",
+      blocks,
+      botId: run.botId,
+      runId: input.runId,
+      clientNonce: input.clientNonce,
+    });
+    await appendEventInTransaction(tx, {
+      spaceId: input.spaceId,
+      threadId: input.threadId,
+      botId: run.botId,
+      type: "thread.message.created",
+      runId: input.runId,
+      payload: { messageId: utterance.id, role: "user", blocks, callId },
+    });
+  }
 
   if (approvalAsk) {
     if (pendingAsk.instructionUpdate) {
@@ -788,9 +855,11 @@ async function commitAnswerRunInput(
     const task = await tx.task.updateMany({
       where: { runs: { some: { id: input.runId } } },
       data: {
-        prompt: selectedChoice
-          ? `Selected choice ${selectedChoice.id}: ${resumeLabel}`
-          : input.answer,
+        prompt: resumePrompt(
+          run,
+          pendingAsk.text,
+          selectedChoice ? `Selected choice ${selectedChoice.id}: ${resumeLabel}` : input.answer,
+        ),
       },
     });
     if (task.count !== 1) throw new Error("Run task was not available to answer");
@@ -1046,15 +1115,25 @@ export async function finalizeComputerControlRelease(
   input: FinalizeComputerControlReleaseInput,
   realtime?: RealtimeFanout,
 ): Promise<FinalizeComputerControlReleaseResult | false> {
+  if (!input.leaseId && !input.runId) return false;
   const committed = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const cleared = await tx.computer.updateMany({
-      where: {
-        id: input.computerId,
-        spaceId: input.spaceId,
-        controlBotId: input.botId,
-        controlLeaseId: input.leaseId,
-        controlRunId: input.runId,
-      },
+      where: input.leaseId
+        ? {
+            id: input.computerId,
+            spaceId: input.spaceId,
+            controlBotId: input.botId,
+            controlLeaseId: input.leaseId,
+            controlRunId: input.runId,
+          }
+        : {
+            id: input.computerId,
+            spaceId: input.spaceId,
+            controlHolder: "none",
+            controlBotId: null,
+            controlLeaseId: null,
+            controlRunId: input.runId,
+          },
       data: {
         controlHolder: input.holder,
         controlLeaseId: null,
@@ -1267,6 +1346,7 @@ async function finalizeRunOnce(
         data: { runId: null },
       });
     } else {
+      await discardAnsweredSteering(tx, input);
       const { sourceMessage } = await tx.run.findUniqueOrThrow({
         where: { id: input.runId },
         select: { sourceMessage: { select: { seq: true } } },
@@ -1284,6 +1364,46 @@ async function finalizeRunOnce(
     const continuationRunId = await createPendingSteeringRun(tx, input);
     await tx.bot.update({ where: { id: input.botId }, data: { updatedAt: now } });
     return { threadId: lastEvent.threadId, seq: lastEvent.seq, continuationRunId };
+  });
+}
+
+export async function discardAnsweredSteering(
+  tx: Prisma.TransactionClient,
+  input: { threadId: string; runId: string },
+) {
+  const lastReply = await tx.message.findFirst({
+    where: {
+      threadId: input.threadId,
+      runId: input.runId,
+      role: "bot",
+      blocks: { array_contains: [{ kind: "text" }] },
+      NOT: ["ask", "computer", "steps", "subagent"].map((kind) => ({
+        blocks: { array_contains: [{ kind }] },
+      })),
+    },
+    orderBy: { seq: "desc" },
+    select: { seq: true },
+  });
+  if (!lastReply) return;
+  const claims = await tx.event.findMany({
+    where: { threadId: input.threadId, runId: input.runId, type: "run.steering.claimed" },
+    select: { payload: true },
+  });
+  const answeredIds = new Set<string>();
+  for (const claim of claims) {
+    const payload = claim.payload as { steeringIds?: unknown; nextMessageSeq?: unknown } | null;
+    if (!payload || !Array.isArray(payload.steeringIds)) continue;
+    for (const id of payload.steeringIds) {
+      if (typeof id !== "string") continue;
+      if (typeof payload.nextMessageSeq === "number" && payload.nextMessageSeq <= lastReply.seq) {
+        answeredIds.add(id);
+      }
+    }
+  }
+  // Old runs without a durable claim watermark are deliberately replayed.
+  if (answeredIds.size === 0) return;
+  await tx.steeringMessage.deleteMany({
+    where: { runId: input.runId, claimedAt: { not: null }, id: { in: [...answeredIds] } },
   });
 }
 

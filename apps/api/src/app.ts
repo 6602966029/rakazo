@@ -593,8 +593,14 @@ export async function createApp(
       credentials: true,
     }),
   );
+  // Session and account replies must never be stored by a client or an HTTP cache.
+  for (const path of ["/api/auth/*", "/rpc/*"]) {
+    app.use(path, async (c, next) => {
+      await next();
+      c.header("cache-control", "no-store");
+    });
+  }
   app.get("/api/auth/capabilities", (c) => {
-    c.header("cache-control", "no-store");
     return c.json({
       sso: env.oidc
         ? { name: env.oidc.name, availability: auth.ssoAvailability() ?? "checking" }
@@ -622,7 +628,7 @@ export async function createApp(
     if (isBlockedAuthPath(path)) {
       return c.json({ error: "Not available in version 1" }, 404);
     }
-    return auth.handler(c.req.raw);
+    return auth.handler(emptyAuthBodyAsJson(c.req.raw));
   });
   mountLocalSettings(app, { token: env.desktopStackToken, prisma, rpc });
   const requestSession = async (request: Request) => {
@@ -1055,6 +1061,24 @@ export async function actorFromMembership(membership: Promise<Actor>): Promise<A
     if (error instanceof IsolationError) return null;
     throw error;
   }
+}
+
+/**
+ * Some clients POST auth actions with an empty body (older phone sign-out, the web deletion code);
+ * Better Auth rejects that before the endpoint runs.
+ */
+function emptyAuthBodyAsJson(request: Request) {
+  if (
+    request.method !== "POST" ||
+    request.headers.get("content-length") !== "0" ||
+    request.headers.has("transfer-encoding")
+  ) {
+    return request;
+  }
+  const headers = new Headers(request.headers);
+  headers.set("content-type", "application/json");
+  headers.delete("content-length");
+  return new Request(request, { headers, body: "{}" });
 }
 
 function sessionHeaders(request: Request) {
