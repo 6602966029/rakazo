@@ -8,7 +8,7 @@ import type {
   MessageReaction,
   Routine,
 } from "@rakazo/contracts";
-import { canReactToThreadMessage, MESSAGE_REACTIONS } from "@rakazo/contracts";
+import { attachmentMaxBytes, canReactToThreadMessage, MESSAGE_REACTIONS } from "@rakazo/contracts";
 import type { SlashActionId, ThreadItem } from "@rakazo/core";
 import {
   abortableDelay,
@@ -123,6 +123,7 @@ import { createThreadHeaderStyles } from "../components/thread-header-styles";
 import { TimeSeparator } from "../components/time-separator";
 import { VoiceChatCard } from "../components/VoiceChatCard";
 import { WorkingIndicator } from "../components/WorkingIndicator";
+import { readableGutter } from "../lib/adaptive-layout";
 import type {
   MobileBot,
   MobileGroup,
@@ -254,7 +255,8 @@ function formatApprovalAnswer(
 function formatAttachmentSkip(item: { name: string; reason: string }): string {
   const name = item.name === "camera" ? t("Camera") : item.name;
   if (item.reason === "permission denied") return t("{name} (permission denied)", { name });
-  if (item.reason === "over 10 MiB") return t("{name} (over 10 MiB)", { name });
+  if (item.reason.startsWith("over "))
+    return t("{name} (over {limit})", { name, limit: item.reason.slice(5) });
   if (item.reason === "unsupported type") return t("{name} (unsupported type)", { name });
   const maxMatch = /^max (\d+) attachments$/.exec(item.reason);
   if (maxMatch) {
@@ -412,6 +414,9 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const nativeHeaderHeight = useHeaderHeight();
   const headerHeight = iosAtLeast(26) ? nativeHeaderHeight : 0;
   const insets = useSafeAreaInsets();
+  // An unfolded or tablet window keeps messages and the composer in a centred reading column.
+  const columnInset = readableGutter(windowWidth, Math.max(insets.left, insets.right));
+  const columnWidth = windowWidth - columnInset * 2;
   // Frame by frame, including a swipe that drags the keyboard down.
   const keyboardProgress = useSharedValue(KeyboardController.isVisible() ? 1 : 0);
   useKeyboardHandler(
@@ -540,6 +545,19 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   }, [streamResponses]);
   const activeThreadId = useRef<string | undefined>(undefined);
   const [agentSkills, setAgentSkills] = useState<AgentSkillCatalogEntry[]>([]);
+  const [uploadConfig, setUploadConfig] = useState<{ maxUploadSizeBytes?: number }>();
+  useEffect(() => {
+    let cancelled = false;
+    void rpc<{ maxUploadSizeBytes?: number }>("me")
+      .then((me) => {
+        if (!cancelled) setUploadConfig(me);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [mentionBots, setMentionBots] = useState<MobileBot[]>([]);
   // The call outlives renders, so its switch check reads the newest bot list from here.
   const mentionBotsRef = useRef<MobileBot[]>([]);
@@ -1854,14 +1872,17 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   }
 
   async function addAttachments(
-    picker: (existingCount: number) => Promise<{
+    picker: (
+      existingCount: number,
+      maxBytes: number,
+    ) => Promise<{
       attachments: PickedAttachment[];
       skipped: Array<{ name: string; reason: string }>;
     }>,
   ) {
     const targetKey = groupId ?? botId;
     if (!targetKey) return;
-    const result = await picker(activePendingAttachments.length);
+    const result = await picker(activePendingAttachments.length, attachmentMaxBytes(uploadConfig));
     if ((groupId ?? botId) !== targetKey) return;
     if (result.attachments.length) {
       setPendingAttachments((current) => [
@@ -2108,7 +2129,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           activityColor={activityBot?.color}
           activityStatus={activityStatus}
           inGroup={inGroup}
-          windowWidth={windowWidth}
+          columnWidth={columnWidth}
           enableJump={options?.enableJump ?? false}
           index={options?.index ?? 0}
         />
@@ -2133,7 +2154,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       answerableAskMessageId,
       highlightedMessageId,
       separatorIds,
-      windowWidth,
+      columnWidth,
       t,
       locale,
     ],
@@ -2244,7 +2265,11 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       behavior="height"
       // Android lays out the screen below the opaque native navigation header.
       keyboardVerticalOffset={Platform.OS === "android" ? nativeHeaderHeight : 0}
-      style={{ flex: 1, backgroundColor: tokens.background, paddingHorizontal: 20 }}
+      style={{
+        flex: 1,
+        backgroundColor: tokens.background,
+        paddingHorizontal: 20 + columnInset,
+      }}
     >
       {error ? (
         <Text style={{ color: tokens.mutedForeground, marginTop: headerHeight + 28 }}>
@@ -2825,7 +2850,7 @@ type MessageRowProps = {
   activityColor?: string;
   activityStatus?: MobileBot["status"];
   inGroup: boolean;
-  windowWidth: number;
+  columnWidth: number;
   enableJump: boolean;
   index: number;
 };
@@ -2851,7 +2876,7 @@ const MessageRow = memo(function MessageRow({
   activityColor,
   activityStatus,
   inGroup,
-  windowWidth,
+  columnWidth,
   enableJump,
   index,
 }: MessageRowProps) {
@@ -3036,10 +3061,10 @@ const MessageRow = memo(function MessageRow({
             actions={menu}
             maxWidth={
               isCenteredAgentEvent(message.blocks)
-                ? windowWidth - 40
+                ? columnWidth - 40
                 : activityBotId
-                  ? windowWidth - 40 - (inGroup ? 28 : 36)
-                  : (windowWidth - 40) * 0.9
+                  ? columnWidth - 40 - (inGroup ? 28 : 36)
+                  : (columnWidth - 40) * 0.9
             }
             colorScheme={colorScheme}
             onAction={onMenuAction}

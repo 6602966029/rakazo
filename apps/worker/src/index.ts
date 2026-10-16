@@ -47,9 +47,10 @@ import {
   ScriptedAgentRuntime,
   SpaceMemoryProviderResolver,
   sandboxProviderOptionsFromEnv,
+  shutdownPiTelemetry,
   withSecretPersistence,
 } from "@rakazo/adapters";
-import { resolveEncryptionKey, resolveSupervisorToken } from "@rakazo/core";
+import { resolveEncryptionKey, resolveSupervisorToken, uploadSizeFromEnv } from "@rakazo/core";
 import {
   createBoardEvents,
   createDb,
@@ -181,6 +182,7 @@ async function main() {
     pushSessionExpiresAt(prisma, sessionId),
   );
   const executor = createRunExecutor({
+    maxUploadSizeBytes: uploadSizeFromEnv(process.env),
     prisma,
     runtime,
     // Live per-account Codex catalog; never refreshes or writes credentials.
@@ -296,6 +298,7 @@ async function main() {
       await prisma.$disconnect().catch(() => undefined);
       await pool.end().catch(() => undefined);
     } finally {
+      await shutdownPiTelemetry();
       await logger.flush({ timeoutMs: 2_000 });
     }
   };
