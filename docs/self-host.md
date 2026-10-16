@@ -381,6 +381,22 @@ screenshot computer tools stay available. Existing connections default to disabl
 managed endpoints, the deployment-wide fallback remains
 `RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS=gpt4o-vision,llava`.
 
+### Web search and page reading
+
+Builtin `web_search` and `web_fetch` use keyless HTTP search (DuckDuckGo HTML) and local
+Readability extraction by default. To choose [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp),
+set `WEB_PROVIDER=parallel` in `.env` and restart both the API and worker. The same bot tools
+then return search excerpts and extracted page markdown through HTTPS MCP at
+`https://search.parallel.ai/mcp`. Search uses Fast mode without an account or API key.
+
+This option sends search queries and requested page URLs to Parallel, which retrieves pages
+on its servers. Conversation accounting uses an HMAC of internal IDs keyed by
+`ENCRYPTION_KEY` (shared by the API and worker), so deployments with distinct secrets send
+distinct session IDs. Rotating that secret resets the session IDs; the existing development-only
+encryption-key fallback also applies here. Anonymous access has service limits; rate-limit and provider errors are returned
+to the bot without switching providers. Per-bot disabled web tools remain disabled. Set
+`WEB_PROVIDER=keyless-http` (or remove the setting) to return to the default.
+
 Remote MCP servers and installed API / GraphQL connectors default to public HTTPS. The deployment
 owner can attach one on localhost, the same LAN, or a Docker network. Set
 `MCP_ALLOW_PRIVATE_ENDPOINT=true` on the API and worker to allow these for every user. Cloud
