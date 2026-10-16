@@ -83,8 +83,17 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { KeyboardAvoidingView, useKeyboardState } from "react-native-keyboard-controller";
-import { useReducedMotion } from "react-native-reanimated";
+import {
+  KeyboardAvoidingView,
+  KeyboardController,
+  useKeyboardHandler,
+} from "react-native-keyboard-controller";
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppConnectCard } from "../components/AppConnectCard";
 import { AskActions } from "../components/AskActions";
@@ -402,7 +411,31 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const nativeHeaderHeight = useHeaderHeight();
   const headerHeight = iosAtLeast(26) ? nativeHeaderHeight : 0;
   const insets = useSafeAreaInsets();
-  const keyboardVisible = useKeyboardState((state) => state.isVisible);
+  // Frame by frame, including a swipe that drags the keyboard down.
+  const keyboardProgress = useSharedValue(KeyboardController.isVisible() ? 1 : 0);
+  useKeyboardHandler(
+    {
+      onMove: (event) => {
+        "worklet";
+        keyboardProgress.value = event.progress;
+      },
+      onInteractive: (event) => {
+        "worklet";
+        keyboardProgress.value = event.progress;
+      },
+      onEnd: (event) => {
+        "worklet";
+        keyboardProgress.value = event.progress;
+      },
+    },
+    [],
+  );
+  const composerRestingPadding = Math.max(insets.bottom + 12, 24);
+  // Hands the composer from the keyboard to the safe area as the keyboard moves, so it never
+  // dips into the home indicator and then jumps back up.
+  const composerKeyboardPadding = useAnimatedStyle(() => ({
+    paddingBottom: interpolate(keyboardProgress.value, [0, 1], [composerRestingPadding, 12]),
+  }));
   const {
     botId,
     groupId,
@@ -2230,6 +2263,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             ref={pinnedScroll}
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingTop: headerHeight + 8, paddingBottom: 16 }}
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             maintainVisibleContentPosition={messageListPosition}
             scrollEventThrottle={16}
             onLayout={(event) => {
@@ -2293,6 +2327,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             // This callback tracks every row input, including reply, reaction and highlight state.
             extraData={renderMessageRow}
             style={messageListStyles.list}
+            // Swiping down hides the keyboard; on iOS it follows the finger.
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             // Inverted, so the bottom padding is the visual top, clear of the transparent header.
             contentContainerStyle={listContentStyle}
             maintainVisibleContentPosition={messageListPosition}
@@ -2395,12 +2431,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
         <View pointerEvents="none" style={[styles.headerFade, { height: headerHeight + 24 }]} />
       ) : null}
       {/* Shrinks (the suggestion lists scroll) so the input and Send stay above the keyboard. */}
-      <View
-        style={{
-          display: readOnly ? "none" : "flex",
-          flexShrink: 1,
-          paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom + 12, 24),
-        }}
+      <Animated.View
+        style={[{ display: readOnly ? "none" : "flex", flexShrink: 1 }, composerKeyboardPadding]}
       >
         {/* Fades messages out above the composer, like the header fade. */}
         <View pointerEvents="none" style={styles.composerFade} />
@@ -2530,7 +2562,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           startVoiceCall={startVoiceCall}
           onSlashAction={runSlashAction}
         />
-      </View>
+      </Animated.View>
       <Modal
         visible={botActionsOpen}
         transparent
