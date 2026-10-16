@@ -1049,6 +1049,10 @@ msgstr "Color"
 msgid "Color {color}"
 msgstr "Color {color}"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Comfortable"
+msgstr "Comfortable"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Coming soon"
 msgstr "Coming soon"
@@ -1065,6 +1069,10 @@ msgstr "Command variable"
 #: src/pages/Board.tsx
 msgid "Comment"
 msgstr "Comment"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Compact"
+msgstr "Compact"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Complete"
@@ -1588,6 +1596,7 @@ msgstr "Could not run routine"
 
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/KnowledgeSection.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Could not save"
 msgstr "Could not save"
@@ -2111,6 +2120,11 @@ msgstr "Enter a whole number from 1 to 1000 for the image limit."
 msgid "Enter an API key before testing."
 msgstr "Enter an API key before testing."
 
+#: src/lib/roster-status.ts
+#: src/pages/Shell.tsx
+msgid "Error"
+msgstr "Error"
+
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every"
@@ -2364,7 +2378,7 @@ msgstr "Hi, this is how I'll sound when I read replies out loud."
 msgid "Hide bots"
 msgstr "Hide bots"
 
-#: src/pages/Auth.tsx
+#: src/components/I18nBootstrap.tsx
 msgid "Hide password"
 msgstr "Hide password"
 
@@ -2937,6 +2951,10 @@ msgstr "Name this group"
 msgid "Name this routine"
 msgstr "Name this routine"
 
+#: src/lib/roster-status.ts
+msgid "Needs an answer"
+msgstr "Needs an answer"
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "Needs input"
@@ -2945,6 +2963,7 @@ msgstr "Needs input"
 msgid "Needs takeover"
 msgstr "Needs takeover"
 
+#: src/lib/roster-status.ts
 #: src/pages/Shell.tsx
 msgid "Needs you"
 msgstr "Needs you"
@@ -3532,13 +3551,13 @@ msgstr "Refreshing…"
 msgid "Registration is closed"
 msgstr "Registration is closed"
 
-#: src/pages/Shell.tsx
-msgid "Release"
-msgstr "Release"
-
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"
 msgstr "Release computer"
+
+#: src/pages/Shell.tsx
+msgid "Release control"
+msgstr "Release control"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release interrupted computer?"
@@ -3954,6 +3973,10 @@ msgstr "Send it"
 msgid "Send reset link"
 msgstr "Send reset link"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Send with Enter"
+msgstr "Send with Enter"
+
 #: src/components/AskCard.tsx
 msgid "Sending…"
 msgstr "Sending…"
@@ -4013,8 +4036,8 @@ msgid "Shared"
 msgstr "Shared"
 
 #: src/pages/shell/dialogs.tsx
-msgid "Shared chat with 2-6 bots. They all reply in the same thread."
-msgstr "Shared chat with 2-6 bots. They all reply in the same thread."
+msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
+msgstr "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared documents"
@@ -4044,7 +4067,7 @@ msgstr "Show list"
 msgid "Show more"
 msgstr "Show more"
 
-#: src/pages/Auth.tsx
+#: src/components/I18nBootstrap.tsx
 msgid "Show password"
 msgstr "Show password"
 
@@ -4059,6 +4082,10 @@ msgstr "Show tool activity"
 #: src/components/call/VoiceChatCard.tsx
 msgid "Show transcript"
 msgstr "Show transcript"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Sidebar density"
+msgstr "Sidebar density"
 
 #: src/lib/localized-provider-hint.ts
 #: src/pages/Auth.tsx
@@ -4266,6 +4293,10 @@ msgstr "Switching…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "System"
 msgstr "System"
+
+#: src/pages/Shell.tsx
+msgid "Take control"
+msgstr "Take control"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"

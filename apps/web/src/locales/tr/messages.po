@@ -1049,6 +1049,10 @@ msgstr "Renk"
 msgid "Color {color}"
 msgstr "Renk {color}"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Comfortable"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Coming soon"
 msgstr ""
@@ -1064,6 +1068,10 @@ msgstr "Komut değişkeni"
 
 #: src/pages/Board.tsx
 msgid "Comment"
+msgstr ""
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Compact"
 msgstr ""
 
 #: src/pages/ScratchpadSection.tsx
@@ -1588,6 +1596,7 @@ msgstr ""
 
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/KnowledgeSection.tsx
+#: src/pages/Shell.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Could not save"
 msgstr "Kaydedilemedi"
@@ -2111,6 +2120,11 @@ msgstr "Görüntü sınırı için 1 ile 1000 arasında bir tam sayı girin."
 msgid "Enter an API key before testing."
 msgstr "Test etmeden önce bir API anahtarı gir."
 
+#: src/lib/roster-status.ts
+#: src/pages/Shell.tsx
+msgid "Error"
+msgstr ""
+
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every"
@@ -2364,7 +2378,7 @@ msgstr "Merhaba, yanıtları sesli okuduğumda böyle duyulacağım."
 msgid "Hide bots"
 msgstr ""
 
-#: src/pages/Auth.tsx
+#: src/components/I18nBootstrap.tsx
 msgid "Hide password"
 msgstr ""
 
@@ -2937,6 +2951,10 @@ msgstr "Gruba bir ad ver"
 msgid "Name this routine"
 msgstr ""
 
+#: src/lib/roster-status.ts
+msgid "Needs an answer"
+msgstr ""
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "Girdi bekliyor"
@@ -2945,6 +2963,7 @@ msgstr "Girdi bekliyor"
 msgid "Needs takeover"
 msgstr "Devralma bekliyor"
 
+#: src/lib/roster-status.ts
 #: src/pages/Shell.tsx
 msgid "Needs you"
 msgstr ""
@@ -3532,13 +3551,13 @@ msgstr ""
 msgid "Registration is closed"
 msgstr "Kayıt kapalı"
 
-#: src/pages/Shell.tsx
-msgid "Release"
-msgstr "Bırak"
-
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release computer"
 msgstr ""
+
+#: src/pages/Shell.tsx
+msgid "Release control"
+msgstr "Kontrolü bırak"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Release interrupted computer?"
@@ -3954,6 +3973,10 @@ msgstr "Gönder"
 msgid "Send reset link"
 msgstr "Sıfırlama bağlantısı gönder"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Send with Enter"
+msgstr "Enter ile gönder"
+
 #: src/components/AskCard.tsx
 msgid "Sending…"
 msgstr "Gönderiliyor…"
@@ -4013,7 +4036,7 @@ msgid "Shared"
 msgstr "Ortak"
 
 #: src/pages/shell/dialogs.tsx
-msgid "Shared chat with 2-6 bots. They all reply in the same thread."
+msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
@@ -4044,7 +4067,7 @@ msgstr ""
 msgid "Show more"
 msgstr "Daha fazla göster"
 
-#: src/pages/Auth.tsx
+#: src/components/I18nBootstrap.tsx
 msgid "Show password"
 msgstr ""
 
@@ -4059,6 +4082,10 @@ msgstr ""
 #: src/components/call/VoiceChatCard.tsx
 msgid "Show transcript"
 msgstr "Dökümü göster"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Sidebar density"
+msgstr ""
 
 #: src/lib/localized-provider-hint.ts
 #: src/pages/Auth.tsx
@@ -4266,6 +4293,10 @@ msgstr "Geçiliyor…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "System"
 msgstr "Sistem"
+
+#: src/pages/Shell.tsx
+msgid "Take control"
+msgstr "Kontrolü al"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Teach a task"
