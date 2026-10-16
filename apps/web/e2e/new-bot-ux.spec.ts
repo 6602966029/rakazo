@@ -153,6 +153,54 @@ test("later bot waits before showing the focus card; sending cancels it", async 
   await expect(page.getByText("What do you want me on first?", { exact: true })).toHaveCount(0);
 });
 
+test("a roster refresh started before creation keeps the new bot selected", async ({ page }) => {
+  await signup(page, `create-refresh-${Date.now()}@rakazo.test`, "password12", "Create Refresh");
+  await completeOnboarding(page);
+
+  let releaseRoster!: () => void;
+  let rosterReady!: () => void;
+  const rosterGate = new Promise<void>((resolve) => {
+    releaseRoster = resolve;
+  });
+  const staleRosterReady = new Promise<void>((resolve) => {
+    rosterReady = resolve;
+  });
+  await page.route(
+    "**/rpc/spaces/list",
+    async (route) => {
+      const response = await route.fetch();
+      rosterReady();
+      await rosterGate;
+      await route.fulfill({ response });
+    },
+    { times: 1 },
+  );
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await staleRosterReady;
+
+  let releaseStart!: () => void;
+  const startGate = new Promise<void>((resolve) => {
+    releaseStart = resolve;
+  });
+  await page.route("**/rpc/onboarding/start", async (route) => {
+    await startGate;
+    await route.continue();
+  });
+  await createBotFromPicker(page, { name: "Later Bot" });
+  const newBotUrl = page.url();
+  const staleDelivered = page.waitForResponse("**/rpc/spaces/list");
+  releaseRoster();
+  await staleDelivered;
+  // The create flow's final refresh follows the stale response, without masking a redirect.
+  const freshRoster = page.waitForResponse("**/rpc/spaces/list");
+  releaseStart();
+  await freshRoster;
+  await expect(page).toHaveURL(newBotUrl);
+  await expect(
+    page.getByRole("combobox", { name: "Message Later Bot", exact: true }),
+  ).toBeEditable();
+});
+
 test("plus picker can create a Private computer bot", async ({ page }, testInfo) => {
   const stamp = Date.now();
   await signup(page, `new-bot-private-${stamp}@rakazo.test`, "password12", "New Bot Private");

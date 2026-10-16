@@ -111,6 +111,11 @@ describe("normalizeRunError", () => {
         )[message] ?? message;
       return template.replace(/\{(\w+)\}/g, (_, key: string) => String(values?.[key]));
     };
+    const resetDate = new Intl.DateTimeFormat("de", {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }).format(new Date("2026-10-12T00:00:00Z"));
     expect(
       normalizeRunError(
         '403: {"message":"Key limit exceeded (weekly); resets 2026-10-12"}',
@@ -118,7 +123,7 @@ describe("normalizeRunError", () => {
         "de",
       ).summary,
     ).toBe(
-      "Dein Modellanbieter: wöchentliches Schlüssellimit erreicht. Zurückgesetzt am 12. Okt..",
+      `Dein Modellanbieter: wöchentliches Schlüssellimit erreicht. Zurückgesetzt am ${resetDate}.`,
     );
   });
 

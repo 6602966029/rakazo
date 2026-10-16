@@ -2452,6 +2452,8 @@ export function ShellPage() {
       notifyOnFinish: true,
       computerMode: input.computerMode,
     });
+    // A roster requested before creation may omit this bot and redirect its new chat.
+    botsRefreshEpoch.current += 1;
     setBots((current) =>
       current.some((item) => item.id === bot.id) ? current : [bot, ...current],
     );
