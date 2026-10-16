@@ -8,7 +8,7 @@ let exporter: Promise<{ context: TelemetryContext; shutdown(): Promise<void> }> 
 /** Disabled deployments never load or initialize the OTel SDK. */
 export async function withPiTelemetry<T>(
   request: Pick<AgentRunRequest, "botId" | "runId" | "routineId">,
-  work: () => Promise<T>,
+  work: (span?: TelemetrySpan) => Promise<T>,
 ): Promise<T> {
   if (!process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim()) return work();
   exporter ??= import("./pi-telemetry-otel.js").then(({ createPiTelemetryExporter }) =>
@@ -30,7 +30,7 @@ export async function withPiTelemetry<T>(
         "rakazo.routine.id": request.routineId ?? undefined,
       },
     },
-    (span) => current.run(span, work),
+    (span) => current.run(span, () => work(span)),
   );
 }
 

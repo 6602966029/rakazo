@@ -10,7 +10,7 @@ import {
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-node";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PiAgentRuntime } from "./pi-runtime.js";
+import { MISSING_TOOL_FINAL_RESPONSE_ERROR, PiAgentRuntime } from "./pi-runtime.js";
 import {
   recordPiTelemetryContent,
   shutdownPiTelemetry,
@@ -231,58 +231,44 @@ describe("Pi OpenTelemetry", () => {
     });
     expect(JSON.stringify(span.attributes)).not.toMatch(/private|fake-fixture-key/);
   });
-  it.each([false, true])(
-    "exports real Agent model/tool steps with content capture=%s",
-    async (capture) => {
-      const { output, provider } = setup(capture);
-      vi.stubEnv("OTEL_CAPTURE_CONTENT", String(capture));
-      let calls = 0;
-      const server = createServer(async (request, response) => {
-        for await (const _chunk of request) {
-          /* Drain request body. */
-        }
-        response.setHeader("content-type", "text/event-stream");
-        calls += 1;
-        const delta =
-          calls === 1
-            ? {
-                tool_calls: [
-                  {
-                    index: 0,
-                    id: "fixture-call",
-                    type: "function",
-                    function: {
-                      name: "fixture_tool",
-                      arguments: JSON.stringify({ query: "private args" }),
-                    },
+  it.each(["provider", "missing final answer"])("marks caught %s run failures", async (failure) => {
+    const { output, provider } = setup();
+    const server = createServer(async (request, response) => {
+      for await (const _chunk of request) {
+        /* Drain request body. */
+      }
+      if (failure === "provider") {
+        response.writeHead(400, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: { message: "private provider failure" } }));
+        return;
+      }
+      response.setHeader("content-type", "text/event-stream");
+      const delta =
+        calls++ === 0
+          ? {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "fixture-call",
+                  type: "function",
+                  function: {
+                    name: "fixture_tool",
+                    arguments: "{}",
                   },
-                ],
-              }
-            : { content: "private response" };
-        response.end(
-          `${[
-            { id: "fixture", choices: [{ index: 0, delta, finish_reason: null }] },
-            {
-              id: "fixture",
-              choices: [
-                { index: 0, delta: {}, finish_reason: calls === 1 ? "tool_calls" : "stop" },
+                },
               ],
-              usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
-            },
-          ]
-            .map((frame) => `data: ${JSON.stringify(frame)}\n\n`)
-            .join("")}data: [DONE]\n\n`,
-        );
-      });
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
-      try {
-        const executeTool = vi.fn(async () => ({
-          kind: "agent_tool_result" as const,
-          content: [{ type: "text" as const, text: "private result" }],
-          details: { error: "private tool failure" },
-        }));
-        const runtime = new PiAgentRuntime();
+            }
+          : {};
+      response.end(
+        `data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason: null }] })}\n\ndata: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+      );
+    });
+    let calls = 0;
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    try {
+      const runtime = new PiAgentRuntime();
+      const consume = async () => {
         for await (const _event of runtime.run({
           ...ids,
           threadId: "thread-fixture",
@@ -301,47 +287,143 @@ describe("Pi OpenTelemetry", () => {
             {
               name: "fixture_tool",
               description: "fixture",
-              inputSchema: {
-                type: "object",
-                properties: { query: { type: "string" } },
-                required: ["query"],
-              },
+              inputSchema: { type: "object", properties: {} },
             },
           ],
-          executeTool,
+          executeTool: async () => ({ result: "done" }),
         })) {
-          /* Exercise real Pi Agent model and tool lifecycle. */
+          /* Consume the queue, including its failure. */
         }
-        await provider.forceFlush();
-        expect(executeTool).toHaveBeenCalledOnce();
-        const spans = output.getFinishedSpans();
-        expect(spans.filter((span) => span.name === "pi.ai.request")).toHaveLength(2);
-        const tool = spans.find((span) => span.name === "pi.agent.tool")!;
-        expect(tool.attributes).toMatchObject({
-          "rakazo.bot.id": ids.botId,
-          "rakazo.run.id": ids.runId,
-          "rakazo.routine.id": ids.routineId,
-          "pi.agent.tool.name": "fixture_tool",
-          "pi.agent.tool.success": false,
-        });
-        expect(tool.status.code).toBe(SpanStatusCode.ERROR);
-        const data = JSON.stringify(spans.map((span) => span.attributes));
-        expect(data).not.toContain("fake-fixture-key");
-        if (capture) {
-          for (const content of [
-            "private prompt",
-            "private response",
-            "private args",
-            "private result",
-          ])
-            expect(data).toContain(content);
-        } else expect(data).not.toContain("private");
-      } finally {
-        server.closeAllConnections();
-        await new Promise<void>((resolve, reject) =>
-          server.close((error) => (error ? reject(error) : resolve())),
-        );
+      };
+      await expect(consume()).rejects.toThrow(
+        failure === "provider" ? "private provider failure" : MISSING_TOOL_FINAL_RESPONSE_ERROR,
+      );
+      await provider.forceFlush();
+      const run = output.getFinishedSpans().find((span) => span.name === "rakazo.agent.run")!;
+      expect(run.status.code).toBe(SpanStatusCode.ERROR);
+      expect(run.events).toEqual([]);
+      expect(JSON.stringify(run.attributes)).not.toContain("private");
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+
+  it.each([
+    { capture: false, details: { error: "private tool failure" }, failed: true },
+    { capture: true, details: { error: "private tool failure" }, failed: true },
+    { capture: false, details: { isError: true }, failed: true },
+    { capture: false, details: { error: "" }, failed: true },
+    { capture: false, details: { error: false }, failed: true },
+    { capture: false, details: { error: null, isError: false }, failed: false },
+  ])("exports real Agent model/tool steps with %j", async ({ capture, details, failed }) => {
+    const { output, provider } = setup(capture);
+    vi.stubEnv("OTEL_CAPTURE_CONTENT", String(capture));
+    let calls = 0;
+    const server = createServer(async (request, response) => {
+      for await (const _chunk of request) {
+        /* Drain request body. */
       }
-    },
-  );
+      response.setHeader("content-type", "text/event-stream");
+      calls += 1;
+      const delta =
+        calls === 1
+          ? {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "fixture-call",
+                  type: "function",
+                  function: {
+                    name: "fixture_tool",
+                    arguments: JSON.stringify({ query: "private args" }),
+                  },
+                },
+              ],
+            }
+          : { content: "private response" };
+      response.end(
+        `${[
+          { id: "fixture", choices: [{ index: 0, delta, finish_reason: null }] },
+          {
+            id: "fixture",
+            choices: [{ index: 0, delta: {}, finish_reason: calls === 1 ? "tool_calls" : "stop" }],
+            usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+          },
+        ]
+          .map((frame) => `data: ${JSON.stringify(frame)}\n\n`)
+          .join("")}data: [DONE]\n\n`,
+      );
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    try {
+      const executeTool = vi.fn(async () => ({
+        kind: "agent_tool_result" as const,
+        content: [{ type: "text" as const, text: "private result" }],
+        details,
+      }));
+      const runtime = new PiAgentRuntime();
+      for await (const _event of runtime.run({
+        ...ids,
+        threadId: "thread-fixture",
+        prompt: "private prompt",
+        instructions: "fixture",
+        history: [],
+        model: {
+          provider: "openai-compatible",
+          id: "fixture",
+          baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`,
+          apiKey: "fake-fixture-key",
+          maxTokens: 256,
+          contextWindow: 4096,
+        },
+        tools: [
+          {
+            name: "fixture_tool",
+            description: "fixture",
+            inputSchema: {
+              type: "object",
+              properties: { query: { type: "string" } },
+              required: ["query"],
+            },
+          },
+        ],
+        executeTool,
+      })) {
+        /* Exercise real Pi Agent model and tool lifecycle. */
+      }
+      await provider.forceFlush();
+      expect(executeTool).toHaveBeenCalledOnce();
+      const spans = output.getFinishedSpans();
+      expect(spans.filter((span) => span.name === "pi.ai.request")).toHaveLength(2);
+      const tool = spans.find((span) => span.name === "pi.agent.tool")!;
+      expect(tool.attributes).toMatchObject({
+        "rakazo.bot.id": ids.botId,
+        "rakazo.run.id": ids.runId,
+        "rakazo.routine.id": ids.routineId,
+        "pi.agent.tool.name": "fixture_tool",
+        "pi.agent.tool.success": !failed,
+      });
+      expect(tool.status.code).toBe(failed ? SpanStatusCode.ERROR : SpanStatusCode.UNSET);
+      const data = JSON.stringify(spans.map((span) => span.attributes));
+      expect(data).not.toContain("fake-fixture-key");
+      if (capture) {
+        for (const content of [
+          "private prompt",
+          "private response",
+          "private args",
+          "private result",
+        ])
+          expect(data).toContain(content);
+      } else expect(data).not.toContain("private");
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
 });
