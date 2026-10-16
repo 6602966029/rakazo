@@ -27,8 +27,9 @@ import type {
 } from "@rakazo/contracts";
 import {
   ATTACHMENT_ALLOWED_MIME_TYPES,
-  ATTACHMENT_MAX_BYTES,
   ATTACHMENT_MAX_COUNT,
+  attachmentMaxBytes,
+  attachmentSizeLabel,
   canReactToThreadMessage,
   MESSAGE_REACTIONS,
   normalizeCreateBotProfile,
@@ -49,6 +50,7 @@ import {
   latestAnswerableAskMessageId,
   mentionChipKey,
   nestRosterByParent,
+  normalizeRunError,
   plainTextFromMarkdown,
   projectMessageReactions,
   reorderBotTo,
@@ -225,6 +227,7 @@ import {
   rosterWorkStatusLabel,
 } from "../lib/roster-status";
 import { clearSpaceSelection, rpc, selectedSpaceId, selectSpace } from "../lib/rpc";
+import { translateRunError } from "../lib/run-error";
 import { readSeenRunErrorIds, rememberSeenRunErrorId } from "../lib/run-error-storage";
 import { sharedInflight } from "../lib/shared-inflight";
 import {
@@ -1246,7 +1249,7 @@ export function ShellPage() {
       .catch(() => {
         if (cancelled) return;
         setBootstrapMe(null);
-        void refreshBots(true);
+        void refreshBots(true).catch(() => undefined);
       });
     let refreshTimer: number | undefined;
     const refreshVisibleBots = () => {
@@ -2111,8 +2114,10 @@ export function ShellPage() {
           skipped.push(t`${file.name} (max ${ATTACHMENT_MAX_COUNT} attachments)`);
           continue;
         }
-        if (file.size > ATTACHMENT_MAX_BYTES) {
-          skipped.push(t`${file.name} (over 10 MiB)`);
+        if (file.size > attachmentMaxBytes(bootstrapMe)) {
+          skipped.push(
+            t`${file.name} (over ${attachmentSizeLabel(attachmentMaxBytes(bootstrapMe))})`,
+          );
           continue;
         }
         const mimeType = inferAttachmentMimeType(file.name, file.type);
@@ -2132,7 +2137,7 @@ export function ShellPage() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       return next.length > 0;
     },
-    [pendingAttachments, t],
+    [pendingAttachments, bootstrapMe, t],
   );
   const removeAttachment = useCallback((attachment: PendingAttachment) => {
     revokePendingAttachmentPreviews([attachment]);
@@ -2450,6 +2455,8 @@ export function ShellPage() {
       notifyOnFinish: true,
       computerMode: input.computerMode,
     });
+    // A roster requested before creation may omit this bot and redirect its new chat.
+    botsRefreshEpoch.current += 1;
     setBots((current) =>
       current.some((item) => item.id === bot.id) ? current : [bot, ...current],
     );
@@ -3733,6 +3740,8 @@ export function ShellPage() {
             {!inGroup && active ? (
               <button
                 type="button"
+                aria-label={t`Agent computer`}
+                aria-pressed={panel === "computer"}
                 title={t`Agent computer`}
                 onClick={() => {
                   const next = panel === "computer" ? null : "computer";
@@ -5556,7 +5565,7 @@ export const Composer = memo(function Composer({
     const mentionMatch = /(?:^|\s)@([\w-]*)$/.exec(draft);
     return mentionMatch ? (mentionMatch[1] ?? "") : null;
   });
-  const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0);
+  const [mentionHighlightKey, setMentionHighlightKey] = useState<string | null>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(() => {
     const slashMatch = /^\/([^\n]*)$/.exec(draft);
     return slashMatch ? (slashMatch[1] ?? "") : null;
@@ -5728,7 +5737,7 @@ export const Composer = memo(function Composer({
     writeComposerDraft(draftKey, next);
     setDraft(next);
     setMentionQuery(null);
-    setMentionHighlightIndex(0);
+    setMentionHighlightKey(null);
     setSelectedMentions((current) =>
       current.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
         ? current
@@ -5771,11 +5780,11 @@ export const Composer = memo(function Composer({
   }, [mentionQuery, mentionTargets]);
 
   useEffect(() => {
-    setMentionHighlightIndex(0);
-  }, [mentionQuery, mentionOptions]);
+    setMentionHighlightKey(null);
+  }, [mentionQuery]);
 
   const activeMentionIndex = clampMentionHighlightIndex(
-    mentionHighlightIndex,
+    mentionOptions.findIndex((mention) => mentionChipKey(mention) === mentionHighlightKey),
     mentionOptions.length,
   );
   const mentionPickerOpen = mentionOptions.length > 0;
@@ -5818,7 +5827,7 @@ export const Composer = memo(function Composer({
     const submission = beginComposerDraftSubmission(draftKey, draft);
     setDraft("");
     setMentionQuery(null);
-    setMentionHighlightIndex(0);
+    setMentionHighlightKey(null);
     setSlashQuery(null);
     setSelectedSkill(null);
     const mentions = selectedMentions;
@@ -6022,7 +6031,18 @@ export const Composer = memo(function Composer({
           data-testid="composer-error"
           className="mb-3 flex items-center gap-2 rounded-[14px] border border-destructive/40 bg-destructive/10 px-4 py-2 text-[13px] text-destructive"
         >
-          <span className="min-w-0 flex-1">{sendError ?? runError}</span>
+          <div className="min-w-0 flex-1">
+            {sendError ??
+              (runError
+                ? normalizeRunError(runError, translateRunError, i18n.locale || "en").summary
+                : null)}
+            {!sendError && runError ? (
+              <details key={runError} className="mt-1">
+                <summary className="w-fit cursor-pointer">{t`Details`}</summary>
+                <pre className="mt-2 whitespace-pre-wrap break-words text-xs">{runError}</pre>
+              </details>
+            ) : null}
+          </div>
           <button
             type="button"
             aria-label={t`Dismiss error`}
@@ -6114,7 +6134,7 @@ export const Composer = memo(function Composer({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => insertMention(mention)}
                 // Opening the list under a stationary pointer must not steal the keyboard highlight.
-                onMouseMove={() => setMentionHighlightIndex(index)}
+                onMouseMove={() => setMentionHighlightKey(mentionChipKey(mention))}
                 className={`flex w-full items-start gap-3 px-4 py-2.5 text-start hover:bg-accent ${
                   highlighted ? "bg-accent" : ""
                 }`}
@@ -6295,13 +6315,13 @@ export const Composer = memo(function Composer({
               }
               if (action.type === "move") {
                 event.preventDefault();
-                setMentionHighlightIndex(action.index);
+                setMentionHighlightKey(mentionChipKey(mentionOptions[action.index]!));
                 return;
               }
               if (action.type === "dismiss") {
                 event.preventDefault();
                 setMentionQuery(null);
-                setMentionHighlightIndex(0);
+                setMentionHighlightKey(null);
                 return;
               }
               if (action.type === "send") {

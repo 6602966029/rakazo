@@ -1355,6 +1355,7 @@ export const ServerUpdateRequestSchema = z.object({
 export type ServerUpdateRequest = z.infer<typeof ServerUpdateRequestSchema>;
 
 export const MeSchema = z.object({
+  maxUploadSizeBytes: z.number().int().positive().optional(),
   ticketBoardEnabled: z.boolean(),
   userId: Id,
   email: z.string().email(),

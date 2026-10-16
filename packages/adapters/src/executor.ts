@@ -2647,6 +2647,7 @@ function runtimeFallbackModel(runtime: AgentRuntime) {
 }
 
 export interface ExecutorDeps {
+  maxUploadSizeBytes?: number;
   contextStrategy?: AgentContextStrategy;
   prisma: PrismaClient;
   events: ThreadEvents;
@@ -3952,6 +3953,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 {
                   prisma: deps.prisma,
                   artifacts: deps.artifacts,
+                  maxUploadSizeBytes: deps.maxUploadSizeBytes,
                   sandbox: deps.sandbox,
                 },
                 turnBlocks,
@@ -5084,7 +5086,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   computer,
                   resolveBotWorkspacePath(computerMode, bot.id, dataPath),
                   context,
-                  { maxBytes: ATTACHMENT_MAX_BYTES },
+                  { maxBytes: deps.maxUploadSizeBytes ?? ATTACHMENT_MAX_BYTES },
                 );
                 rows = parsePlotData(dataPath, new TextDecoder().decode(bytes));
               }
@@ -5132,7 +5134,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 attached = true;
               } else if (args.attach !== false && deps.artifacts) {
                 const result = await attachWorkspaceFileToThread(
-                  { prisma: deps.prisma, artifacts: deps.artifacts },
+                  {
+                    prisma: deps.prisma,
+                    artifacts: deps.artifacts,
+                    maxUploadSizeBytes: deps.maxUploadSizeBytes,
+                  },
                   {
                     spaceId: run.spaceId,
                     userId: run.userId,
@@ -5167,7 +5173,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             let bytes: Uint8Array;
             try {
               bytes = await deps.sandbox.readFile(computer, storedPath, context, {
-                maxBytes: ATTACHMENT_MAX_BYTES,
+                maxBytes: deps.maxUploadSizeBytes ?? ATTACHMENT_MAX_BYTES,
               });
             } catch {
               return failAttach("file not found or unreadable");
@@ -5176,7 +5182,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (!mimeType) return failAttach("unsupported attachment type");
             try {
               const attached = await attachWorkspaceFileToThread(
-                { prisma: deps.prisma, artifacts: deps.artifacts },
+                {
+                  prisma: deps.prisma,
+                  artifacts: deps.artifacts,
+                  maxUploadSizeBytes: deps.maxUploadSizeBytes,
+                },
                 {
                   spaceId: run.spaceId,
                   userId: run.userId,
@@ -6983,6 +6993,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                                   {
                                     prisma: deps.prisma,
                                     artifacts: deps.artifacts,
+                                    maxUploadSizeBytes: deps.maxUploadSizeBytes,
                                     sandbox: deps.sandbox,
                                   },
                                   item.blocks,

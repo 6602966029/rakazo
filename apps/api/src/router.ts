@@ -138,8 +138,9 @@ import type {
   SpaceNavigation,
 } from "@rakazo/contracts";
 import {
-  ATTACHMENT_MAX_BYTES,
   appContract,
+  attachmentMaxBytes,
+  attachmentSizeLabel,
   BotSecretAuth,
   ComputerCommandSchema,
   foldComputerCommands,
@@ -586,6 +587,7 @@ export interface RouterDeps {
   billing?: BillingService;
   env: {
     ticketBoardEnabled?: boolean;
+    maxUploadSizeBytes?: number;
     agentRuntime: string;
     teamChatJudgeProvider?: string;
     teamChatJudgeModel?: string;
@@ -3023,11 +3025,13 @@ export function createRouter(deps: RouterDeps) {
             toComputerRef(computer),
             storedPath,
             computerContext(context.actor, bot.id, "download"),
-            { maxBytes: ATTACHMENT_MAX_BYTES },
+            { maxBytes: attachmentMaxBytes(deps.env) },
           )
           .catch((error: unknown) => {
             if (error instanceof Error && /exceeds|too large/i.test(error.message)) {
-              throw new ORPCError("BAD_REQUEST", { message: "File is too large to download." });
+              throw new ORPCError("BAD_REQUEST", {
+                message: `File exceeds the ${attachmentSizeLabel(attachmentMaxBytes(deps.env))} download limit.`,
+              });
             }
             throw error;
           });
@@ -3046,9 +3050,17 @@ export function createRouter(deps: RouterDeps) {
         if (!hasActiveComputerControl(computer) || computer.controlBotId !== bot.id) {
           throw new ORPCError("FORBIDDEN", { message: "Take control first." });
         }
+        const maxBytes = attachmentMaxBytes(deps.env);
+        if (input.contentBase64.length > Math.ceil(maxBytes / 3) * 4) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: `File exceeds the ${attachmentSizeLabel(maxBytes)} upload limit.`,
+          });
+        }
         const content = Buffer.from(input.contentBase64, "base64");
-        if (content.byteLength > ATTACHMENT_MAX_BYTES) {
-          throw new ORPCError("BAD_REQUEST", { message: "File is too large to upload." });
+        if (content.byteLength > maxBytes) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: `File exceeds the ${attachmentSizeLabel(maxBytes)} upload limit.`,
+          });
         }
         await keepComputerAwake(deps, computer.id);
         let storedPath: string;
@@ -5873,7 +5885,11 @@ export function createRouter(deps: RouterDeps) {
           : (await groupRepos.getGroupTarget(context.actor, input.groupId!)).members[0]?.bot.id;
         if (!botId) throw new IsolationError();
         try {
-          return await createOwnedArtifact(deps, context.actor, { ...input, botId });
+          return await createOwnedArtifact(
+            { ...deps, maxUploadSizeBytes: attachmentMaxBytes(deps.env) },
+            context.actor,
+            { ...input, botId },
+          );
         } catch (error) {
           if (error instanceof AttachmentValidationError) {
             throw new ORPCError("BAD_REQUEST", { message: error.message });
@@ -6352,6 +6368,7 @@ async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
   ]);
   return {
     ticketBoardEnabled: deps.env.ticketBoardEnabled === true,
+    maxUploadSizeBytes: attachmentMaxBytes(deps.env),
     userId: actor.userId,
     email: user.email,
     name: user.name,
