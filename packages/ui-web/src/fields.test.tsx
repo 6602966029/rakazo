@@ -14,6 +14,10 @@ afterEach(() => {
 });
 
 function render(node: ReactNode) {
+  return renderRoot(node).container;
+}
+
+function renderRoot(node: ReactNode) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
@@ -23,7 +27,7 @@ function render(node: ReactNode) {
     act(() => root.unmount());
     container.remove();
   });
-  return container;
+  return { container, root };
 }
 
 function revealField(container: HTMLElement) {
@@ -69,6 +73,20 @@ describe("Input with a hidden value", () => {
     expect(input.type).toBe("password");
     expect(input.value).toBe("correct horse");
     expect(button.getAttribute("aria-label")).toBe("Passwort anzeigen");
+  });
+
+  it("hides a revealed value when the field is disabled, and keeps it hidden after", () => {
+    const { container, root } = renderRoot(<Input type="password" defaultValue="correct horse" />);
+    const { input, button } = revealField(container);
+    act(() => button.click());
+    expect(input.type).toBe("text");
+
+    act(() => root.render(<Input type="password" disabled defaultValue="correct horse" />));
+    expect(input.type).toBe("password");
+
+    act(() => root.render(<Input type="password" defaultValue="correct horse" />));
+    expect(input.type).toBe("password");
+    expect(button.getAttribute("aria-label")).toBe("Show password");
   });
 
   it("does not reveal a disabled field", () => {

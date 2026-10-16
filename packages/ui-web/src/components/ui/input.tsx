@@ -48,10 +48,14 @@ function HiddenInput({
 }: Omit<React.ComponentProps<"input">, "type">) {
   const labels = React.useContext(RevealLabelsContext);
   const [shown, setShown] = React.useState(false);
+  // Disabling the field, say while a form submits, hides the value again, and it stays hidden
+  // when the field is enabled again.
+  if (disabled && shown) setShown(false);
+  const visible = shown && !disabled;
   return (
     <div data-slot="input-reveal" className="relative w-full min-w-0">
       <InputPrimitive
-        type={shown ? "text" : "password"}
+        type={visible ? "text" : "password"}
         data-slot="input"
         disabled={disabled}
         className={cn(inputClass, "block", className, "pr-9")}
@@ -62,13 +66,13 @@ function HiddenInput({
         variant="ghost"
         size="icon-sm"
         disabled={disabled}
-        aria-label={shown ? labels.hide : labels.show}
+        aria-label={visible ? labels.hide : labels.show}
         // A click leaves the caret in the field; the keyboard still reaches the button.
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setShown((current) => !current)}
         className="absolute inset-y-0 right-1 my-auto text-muted-foreground"
       >
-        {shown ? <EyeOffIcon /> : <EyeIcon />}
+        {visible ? <EyeOffIcon /> : <EyeIcon />}
       </Button>
     </div>
   );
