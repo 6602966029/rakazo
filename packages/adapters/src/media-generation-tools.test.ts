@@ -39,7 +39,10 @@ function setup() {
     args: { prompt: "draw" } as Record<string, unknown>,
     executionId: "execution",
     provider,
-    prisma: { externalEffect } as unknown as PrismaClient,
+    prisma: {
+      externalEffect,
+      artifact: { findFirst: vi.fn().mockResolvedValue(null) },
+    } as unknown as PrismaClient,
     context,
     run,
     attach,
@@ -67,6 +70,12 @@ describe("bot media tools", () => {
     expect(names({ mediaImagesEnabled: true })).not.toContain("generate_video");
     expect(names({ mediaVideoEnabled: true })).toContain("generate_video");
     expect(
+      names({ trigger: "tickets", mediaImagesEnabled: true, mediaVideoEnabled: true }),
+    ).not.toContain("generate_image");
+    expect(
+      names({ trigger: "tickets", mediaImagesEnabled: true, mediaVideoEnabled: true }),
+    ).not.toContain("generate_video");
+    expect(
       names({ mediaVideoEnabled: true, disabledBuiltinTools: ["generate_video"] }),
     ).not.toContain("generate_video");
   });
@@ -83,6 +92,7 @@ describe("bot media tools", () => {
     expect(attach).toHaveBeenCalledWith(
       expect.objectContaining({ mimeType: "image/png" }),
       "generated-local-job.png",
+      expect.objectContaining({ id: "local-job" }),
     );
     expect(publish).toHaveBeenCalledTimes(1);
   });
@@ -155,6 +165,7 @@ describe("bot media tools", () => {
     expect(attach).toHaveBeenCalledWith(
       expect.objectContaining({ mimeType: "video/mp4" }),
       "generated-local-job.mp4",
+      expect.objectContaining({ id: "local-job" }),
     );
     expect(publish).toHaveBeenCalledTimes(1);
     externalEffect.findFirst.mockResolvedValue({
@@ -165,6 +176,48 @@ describe("bot media tools", () => {
     expect(poll).toHaveBeenCalledTimes(1);
     expect(publish).toHaveBeenCalledTimes(1);
   });
+  it.each(["generate_image", "generate_video"] as const)(
+    "recovers %s after storage succeeds and publication fails without generating again",
+    async (name) => {
+      const { options, externalEffect, row, provider, attach, publish } = setup();
+      externalEffect.findFirst.mockResolvedValue({
+        ...row,
+        result: { ...row.result, artifactId: "artifact" },
+      });
+      const artifact = {
+        id: "artifact",
+        name: "generated.png",
+        mimeType: "image/png",
+        size: 4,
+      };
+      vi.mocked(options.prisma.artifact.findFirst).mockResolvedValue(artifact as never);
+      const image = vi.spyOn(provider, "generateImage");
+      const poll = vi.spyOn(provider, "pollVideo");
+      publish.mockRejectedValueOnce(new Error("publication failed"));
+      expect(
+        await generateMediaFromTool({
+          ...options,
+          name,
+          args: name === "generate_video" ? { jobId: row.id } : { prompt: "draw" },
+        }),
+      ).toHaveProperty("error");
+      expect(
+        await generateMediaFromTool({
+          ...options,
+          name,
+          args: name === "generate_video" ? { jobId: row.id } : { prompt: "draw" },
+        }),
+      ).toEqual({ status: "completed", artifactId: artifact.id });
+      expect(image).not.toHaveBeenCalled();
+      expect(poll).not.toHaveBeenCalled();
+      expect(attach).not.toHaveBeenCalled();
+      expect(publish).toHaveBeenCalledWith(
+        expect.objectContaining({ artifactId: artifact.id }),
+        row.id,
+        artifact.id,
+      );
+    },
+  );
   it("does not concurrently poll a claimed job", async () => {
     const { options, externalEffect, row, provider } = setup();
     externalEffect.findFirst.mockResolvedValue(row);

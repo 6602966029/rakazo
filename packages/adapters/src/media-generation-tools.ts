@@ -6,6 +6,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { MediaGenerationError } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
+import { messageBlockForArtifact } from "@rakazo/core";
 import type { ExternalEffect, PrismaClient } from "@rakazo/db";
 import { z } from "zod";
 import { mediaPromptSchema, validateGeneratedMedia } from "./media-generation-provider.js";
@@ -27,6 +28,7 @@ export async function generateMediaFromTool(options: {
   attach: (
     output: GeneratedMedia,
     name: string,
+    job: { id: string; result: { provider: string; jobId?: string } },
   ) => Promise<{ artifactId: string; block: MessageBlock }>;
   publish: (block: MessageBlock, jobId: string, artifactId: string) => Promise<unknown>;
 }) {
@@ -63,10 +65,65 @@ export async function generateMediaFromTool(options: {
           error:
             "Video job provider changed or submission is uncertain. Do not resubmit automatically.",
         };
-      if (saved.data.artifactId) return { status: "completed", artifactId: saved.data.artifactId };
+      if (saved.data.artifactId && reservation.status === "media_completed")
+        return { status: "completed", artifactId: saved.data.artifactId };
       if (reservation.status === "media_failed") return { status: "failed" };
-      if (!saved.data.jobId)
+      if (!saved.data.jobId && !saved.data.artifactId)
         return { error: "Submission is uncertain. Do not resubmit automatically." };
+    } else {
+      const prior = await prisma.externalEffect.findFirst({
+        where: {
+          runId: run.id,
+          kind: JOB_KIND,
+          request: { path: ["executionId"], equals: options.executionId },
+        },
+      });
+      if (prior) {
+        const saved = savedJob.safeParse(prior.result);
+        if (saved.success && saved.data.artifactId) {
+          if (prior.status === "media_completed")
+            return { status: "completed", artifactId: saved.data.artifactId };
+          reservation = prior;
+        } else {
+          return {
+            jobId: prior.id,
+            error: "Submission already attempted. Poll a video job; do not resubmit automatically.",
+          };
+        }
+      }
+      if (!reservation) {
+        const input = mediaPromptSchema.safeParse(args);
+        if (!input.success) return { error: "A prompt of 1–4000 characters is required." };
+        // A unique slot makes the per-run cap durable even across concurrent calls/restarts.
+        for (let slot = 0; slot < 2; slot++) {
+          try {
+            reservation = await prisma.externalEffect.create({
+              data: {
+                spaceId: run.spaceId,
+                runId: run.id,
+                kind: JOB_KIND,
+                idempotencyKey: `media:${run.id}:${slot}`,
+                status: "media_submitting",
+                request: {
+                  tool: options.name,
+                  prompt: input.data.prompt,
+                  executionId: options.executionId,
+                },
+                result: { provider: provider.id },
+              },
+            });
+            break;
+          } catch (error) {
+            if (!(error && typeof error === "object" && "code" in error && error.code === "P2002"))
+              throw error;
+          }
+        }
+        if (!reservation)
+          return { error: "Media generation limit reached (two submissions per run)." };
+      }
+    }
+    const saved = savedJob.parse(reservation.result);
+    if ((video && typeof args.jobId === "string") || saved.artifactId) {
       const claim = await prisma.externalEffect.updateMany({
         where: {
           id: reservation.id,
@@ -83,54 +140,15 @@ export async function generateMediaFromTool(options: {
             "Video job is already being checked or needs recovery. Do not resubmit automatically.",
         };
       polling = true;
-    } else {
-      const prior = await prisma.externalEffect.findFirst({
-        where: {
-          runId: run.id,
-          kind: JOB_KIND,
-          request: { path: ["executionId"], equals: options.executionId },
-        },
-      });
-      if (prior) {
-        const saved = savedJob.safeParse(prior.result);
-        return saved.success && saved.data.artifactId
-          ? { status: "completed", artifactId: saved.data.artifactId }
-          : {
-              jobId: prior.id,
-              error:
-                "Submission already attempted. Poll a video job; do not resubmit automatically.",
-            };
-      }
-      const input = mediaPromptSchema.safeParse(args);
-      if (!input.success) return { error: "A prompt of 1–4000 characters is required." };
-      // A unique slot makes the per-run cap durable even across concurrent calls/restarts.
-      for (let slot = 0; slot < 2; slot++) {
-        try {
-          reservation = await prisma.externalEffect.create({
-            data: {
-              spaceId: run.spaceId,
-              runId: run.id,
-              kind: JOB_KIND,
-              idempotencyKey: `media:${run.id}:${slot}`,
-              status: "media_submitting",
-              request: {
-                tool: options.name,
-                prompt: input.data.prompt,
-                executionId: options.executionId,
-              },
-              result: { provider: provider.id },
-            },
-          });
-          break;
-        } catch (error) {
-          if (!(error && typeof error === "object" && "code" in error && error.code === "P2002"))
-            throw error;
-        }
-      }
-      if (!reservation)
-        return { error: "Media generation limit reached (two submissions per run)." };
     }
-    const saved = savedJob.parse(reservation.result);
+    if (saved.artifactId) {
+      const artifact = await prisma.artifact.findFirst({
+        where: { id: saved.artifactId, spaceId: run.spaceId, userId: run.userId, botId: run.botId },
+      });
+      if (!artifact) return { error: "Generated attachment is unavailable." };
+      await options.publish(messageBlockForArtifact(artifact), reservation.id, artifact.id);
+      return { status: "completed", artifactId: artifact.id };
+    }
     let output: MediaVideoJob | { status: "completed"; output: GeneratedMedia };
     try {
       output = video
@@ -151,7 +169,11 @@ export async function generateMediaFromTool(options: {
     }
     if (video && "id" in output) {
       await prisma.externalEffect.updateMany({
-        where: { id: reservation.id, status: { not: "media_completed" } },
+        where: {
+          id: reservation.id,
+          status: { not: "media_completed" },
+          result: { equals: saved },
+        },
         data: {
           status:
             output.status === "failed"
@@ -174,6 +196,10 @@ export async function generateMediaFromTool(options: {
     const attached = await options.attach(
       output.output,
       `generated-${reservation.id}.${video ? "mp4" : "png"}`,
+      {
+        id: reservation.id,
+        result: { provider: provider.id, ...("id" in output ? { jobId: output.id } : {}) },
+      },
     );
     await options.publish(attached.block, reservation.id, attached.artifactId);
     return { status: "completed", artifactId: attached.artifactId };

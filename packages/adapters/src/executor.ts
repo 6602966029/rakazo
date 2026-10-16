@@ -5022,7 +5022,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return finish({ ok: true, path: filePath });
           }
           if (name === "generate_image" || name === "generate_video") {
-            if (!mediaGeneration || !deps.artifacts)
+            if (isBackgroundRunTrigger(run.trigger) || !mediaGeneration || !deps.artifacts)
               return finish({ error: "Media generation is unavailable." });
             const artifacts = deps.artifacts;
             return finish(
@@ -5034,7 +5034,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 prisma: deps.prisma,
                 context,
                 run,
-                attach: (output, fileName) =>
+                attach: (output, fileName, job) =>
                   attachWorkspaceFileToThread(
                     { prisma: deps.prisma, artifacts },
                     {
@@ -5046,6 +5046,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
                       filePath: fileName,
                       bytes: output.bytes,
                       operationId: executionId,
+                      onAttached: async (tx, artifact) => {
+                        const checkpointed = await tx.externalEffect.updateMany({
+                          where: {
+                            id: job.id,
+                            status: { not: "media_completed" },
+                            result: { equals: job.result },
+                          },
+                          data: {
+                            status: "media_polling",
+                            result: { ...job.result, artifactId: artifact.id },
+                          },
+                        });
+                        if (!checkpointed.count)
+                          throw new Error("Media attachment was already checkpointed");
+                      },
                     },
                   ),
                 publish: async (block, jobId, artifactId) => {
@@ -7885,7 +7900,14 @@ export function selectBuiltinToolsForRun(options: {
       (options.ticketBoardEnabled ||
         (tool.name !== "board_tickets" && !tool.name.startsWith("ticket_"))) &&
       (!isBackgroundRunTrigger(options.trigger) ||
-        !["message_user", "message_bot", "handoff_to_bot", "message_agent"].includes(tool.name)) &&
+        ![
+          "message_user",
+          "message_bot",
+          "handoff_to_bot",
+          "message_agent",
+          "generate_image",
+          "generate_video",
+        ].includes(tool.name)) &&
       (options.voiceCall || tool.name !== "end_call") &&
       (options.historyRetrievalEnabled ||
         !["search_history", "read_history"].includes(tool.name)) &&
