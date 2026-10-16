@@ -145,6 +145,17 @@ describe("mobile i18n", () => {
     }
   });
 
+  it.each([
+    ["de", "Dein Modellanbieter hat zu lange zum Antworten gebraucht. Versuche es erneut."],
+    ["ru", "Ваш поставщик моделей не ответил вовремя. Повторите попытку."],
+    ["zh-CN", "你的模型提供商响应超时。请重试。"],
+  ] as const)("renders provider errors in %s", async (locale, expected) => {
+    const { normalizeRunError } = await import("@rakazo/core");
+    const { resetI18nForTests, t, dateLocaleForUi } = await import("./i18n");
+    resetI18nForTests(locale);
+    expect(normalizeRunError("Request timed out", t, dateLocaleForUi()).summary).toBe(expected);
+  });
+
   it("prefers the stored locale, then activates and persists a new choice", async () => {
     const { getItemAsync, setItemAsync } = await import("expo-secure-store");
     vi.mocked(getItemAsync).mockResolvedValue("zh-CN");

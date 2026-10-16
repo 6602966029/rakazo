@@ -160,82 +160,82 @@ msgstr "{name} 중지됨"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} could not find the requested model."
-msgstr "{provider} could not find the requested model."
+msgstr "{provider}에서 요청한 모델을 찾을 수 없습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} is rate limiting requests. Try again shortly."
-msgstr "{provider} is rate limiting requests. Try again shortly."
+msgstr "{provider}에서 요청 속도를 제한하고 있습니다. 잠시 후 다시 시도하세요."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its daily limit."
-msgstr "{provider} key hit its daily limit."
+msgstr "{provider}의 일일 키 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its limit."
-msgstr "{provider} key hit its limit."
+msgstr "{provider}의 키 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its monthly limit."
-msgstr "{provider} key hit its monthly limit."
+msgstr "{provider}의 월간 키 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its weekly limit."
-msgstr "{provider} key hit its weekly limit."
+msgstr "{provider}의 주간 키 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its credit limit."
-msgstr "{provider} reached its credit limit."
+msgstr "{provider}의 크레딧 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its daily credit limit."
-msgstr "{provider} reached its daily credit limit."
+msgstr "{provider}의 일일 크레딧 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its daily spending limit."
-msgstr "{provider} reached its daily spending limit."
+msgstr "{provider}의 일일 지출 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its monthly credit limit."
-msgstr "{provider} reached its monthly credit limit."
+msgstr "{provider}의 월간 크레딧 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its monthly spending limit."
-msgstr "{provider} reached its monthly spending limit."
+msgstr "{provider}의 월간 지출 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its spending limit."
-msgstr "{provider} reached its spending limit."
+msgstr "{provider}의 지출 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its weekly credit limit."
-msgstr "{provider} reached its weekly credit limit."
+msgstr "{provider}의 주간 크레딧 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its weekly spending limit."
-msgstr "{provider} reached its weekly spending limit."
+msgstr "{provider}의 주간 지출 한도에 도달했습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} rejected the API key. Check your connection settings."
-msgstr "{provider} rejected the API key. Check your connection settings."
+msgstr "{provider}에서 API 키를 거부했습니다. 연결 설정을 확인하세요."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} took too long to respond. Try again."
-msgstr "{provider} took too long to respond. Try again."
+msgstr "{provider}의 응답 시간이 초과되었습니다. 다시 시도하세요."
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
@@ -260,7 +260,7 @@ msgstr ""
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{summary} Resets {date}."
-msgstr "{summary} Resets {date}."
+msgstr "{summary} {date}에 초기화됩니다."
 
 #: src/pages/ActivityList.tsx
 msgid "{title}, {label}"
@@ -2034,7 +2034,7 @@ msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Details"
-msgstr "Details"
+msgstr "세부 정보"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Direct MCP"
@@ -4450,7 +4450,7 @@ msgstr "연결 시간이 초과되었습니다."
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "The model provider returned an error."
-msgstr "The model provider returned an error."
+msgstr "모델 제공업체에서 오류를 반환했습니다."
 
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
@@ -4931,7 +4931,7 @@ msgstr "직접 조작 중"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
-msgstr "Your Anthropic"
+msgstr "사용 중인 Anthropic"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"
@@ -4940,7 +4940,7 @@ msgstr "이메일 주소"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your model provider"
-msgstr "Your model provider"
+msgstr "사용 중인 모델 제공업체"
 
 #: src/pages/Auth.tsx
 msgid "Your name"
@@ -4949,12 +4949,12 @@ msgstr "이름"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your OpenAI"
-msgstr "Your OpenAI"
+msgstr "사용 중인 OpenAI"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
-msgstr "Your OpenRouter"
+msgstr "사용 중인 OpenRouter"
 
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."

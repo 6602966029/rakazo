@@ -160,82 +160,82 @@ msgstr "{name} durduruldu"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} could not find the requested model."
-msgstr "{provider} could not find the requested model."
+msgstr "{provider} istenen modeli bulamadı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} is rate limiting requests. Try again shortly."
-msgstr "{provider} is rate limiting requests. Try again shortly."
+msgstr "{provider} istek hızını sınırlıyor. Kısa bir süre sonra tekrar deneyin."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its daily limit."
-msgstr "{provider} key hit its daily limit."
+msgstr "{provider} için günlük anahtar sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its limit."
-msgstr "{provider} key hit its limit."
+msgstr "{provider} için anahtar sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its monthly limit."
-msgstr "{provider} key hit its monthly limit."
+msgstr "{provider} için aylık anahtar sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its weekly limit."
-msgstr "{provider} key hit its weekly limit."
+msgstr "{provider} için haftalık anahtar sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its credit limit."
-msgstr "{provider} reached its credit limit."
+msgstr "{provider} için kredi sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its daily credit limit."
-msgstr "{provider} reached its daily credit limit."
+msgstr "{provider} için günlük kredi sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its daily spending limit."
-msgstr "{provider} reached its daily spending limit."
+msgstr "{provider} için günlük harcama sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its monthly credit limit."
-msgstr "{provider} reached its monthly credit limit."
+msgstr "{provider} için aylık kredi sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its monthly spending limit."
-msgstr "{provider} reached its monthly spending limit."
+msgstr "{provider} için aylık harcama sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its spending limit."
-msgstr "{provider} reached its spending limit."
+msgstr "{provider} için harcama sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its weekly credit limit."
-msgstr "{provider} reached its weekly credit limit."
+msgstr "{provider} için haftalık kredi sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its weekly spending limit."
-msgstr "{provider} reached its weekly spending limit."
+msgstr "{provider} için haftalık harcama sınırına ulaşıldı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} rejected the API key. Check your connection settings."
-msgstr "{provider} rejected the API key. Check your connection settings."
+msgstr "{provider} API anahtarını reddetti. Bağlantı ayarlarınızı kontrol edin."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} took too long to respond. Try again."
-msgstr "{provider} took too long to respond. Try again."
+msgstr "{provider} çok geç yanıt verdi. Tekrar deneyin."
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
@@ -260,7 +260,7 @@ msgstr ""
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{summary} Resets {date}."
-msgstr "{summary} Resets {date}."
+msgstr "{summary} Sıfırlanma tarihi: {date}."
 
 #: src/pages/ActivityList.tsx
 msgid "{title}, {label}"
@@ -2034,7 +2034,7 @@ msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Details"
-msgstr "Details"
+msgstr "Ayrıntılar"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Direct MCP"
@@ -4450,7 +4450,7 @@ msgstr "Bağlantı zaman aşımına uğradı."
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "The model provider returned an error."
-msgstr "The model provider returned an error."
+msgstr "Model sağlayıcısı bir hata döndürdü."
 
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
@@ -4931,7 +4931,7 @@ msgstr "Kontrol sende"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
-msgstr "Your Anthropic"
+msgstr "Anthropic sağlayıcınız"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"
@@ -4940,7 +4940,7 @@ msgstr "E-posta adresin"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your model provider"
-msgstr "Your model provider"
+msgstr "Model sağlayıcınız"
 
 #: src/pages/Auth.tsx
 msgid "Your name"
@@ -4949,12 +4949,12 @@ msgstr "Adın"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your OpenAI"
-msgstr "Your OpenAI"
+msgstr "OpenAI sağlayıcınız"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
-msgstr "Your OpenRouter"
+msgstr "OpenRouter sağlayıcınız"
 
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."

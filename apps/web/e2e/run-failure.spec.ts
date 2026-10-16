@@ -35,7 +35,7 @@ test("a failed run is visible once without returning after reload", async ({ pag
 
   const error = page.getByTestId("composer-error");
   await expect(error).toBeVisible({ timeout: 30_000 });
-  await expect(error).toContainText("Scripted run failure");
+  await expect(error).toContainText("The model provider returned an error.");
   const details = error.locator("summary");
   await details.focus();
   await expect(details).toBeFocused();
@@ -58,7 +58,7 @@ test("a failed run is visible once without returning after reload", async ({ pag
   await page.getByPlaceholder(/^Message /).fill("fail this run");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(error).toBeVisible({ timeout: 30_000 });
-  await expect(error).toContainText("Scripted run failure");
+  await expect(error).toContainText("The model provider returned an error.");
 
   const dismissError = page.getByTestId("composer-error-dismiss");
   await dismissError.focus();
@@ -84,7 +84,7 @@ test("a covered run error is not remembered until it is presented", async ({ pag
   await sendButton.evaluate((button) => (button as HTMLButtonElement).click());
 
   const error = page.getByTestId("composer-error");
-  await expect(error).toContainText("Scripted run failure", { timeout: 30_000 });
+  await expect(error).toContainText("The model provider returned an error.", { timeout: 30_000 });
   expect(await isPresented(error)).toBe(false);
   await captureScreenshot(page, testInfo, "run-error-covered-by-mobile-navigation");
   await page.reload();
@@ -103,7 +103,7 @@ test("a covered run error is not remembered until it is presented", async ({ pag
   if (!nextSendButton) throw new Error("Send button not found");
   await page.getByRole("button", { name: "Open navigation" }).click();
   await nextSendButton.evaluate((button) => (button as HTMLButtonElement).click());
-  await expect(error).toContainText("Scripted run failure", { timeout: 30_000 });
+  await expect(error).toContainText("The model provider returned an error.", { timeout: 30_000 });
 
   await page.getByRole("button", { name: "Close navigation" }).click();
   await expect.poll(() => isPresented(error)).toBe(true);
@@ -126,7 +126,7 @@ test("a covered run error is not remembered until it is presented", async ({ pag
   const newSpaceDialog = page.getByRole("dialog", { name: "New space" });
   await expect(newSpaceDialog).toBeVisible();
   await modalSendButton.evaluate((button) => (button as HTMLButtonElement).click());
-  await expect(error).toContainText("Scripted run failure", { timeout: 30_000 });
+  await expect(error).toContainText("The model provider returned an error.", { timeout: 30_000 });
   expect(await isPresented(error)).toBe(false);
   await expect.poll(() => seenRunErrorCount(page)).toBe(recordedErrorCount + 1);
 

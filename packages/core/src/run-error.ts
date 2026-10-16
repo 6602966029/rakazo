@@ -1,3 +1,10 @@
+import { stuckWorkStatusMessages } from "./stuck-work.js";
+
+export const MISSING_TOOL_FINAL_RESPONSE_ERROR =
+  "The tools finished, but the model did not write a final answer. Rephrase the request and try again.";
+
+const APP_RUN_ERRORS = new Set([MISSING_TOOL_FINAL_RESPONSE_ERROR, ...stuckWorkStatusMessages()]);
+
 export const RUN_ERROR_LIMIT_MESSAGES = {
   key: {
     none: "{provider} key hit its limit.",
@@ -42,9 +49,8 @@ export function normalizeRunError(
     // Plain text is handled below; malformed HTTP envelopes still get a safe summary.
   }
   const record = asRecord(parsed);
-  // App-authored prose already includes recovery advice. Only summarize provider
-  // envelopes (HTTP status or JSON), rather than rewriting every failed run.
-  if (!prefix && !Object.keys(record).length && details.trim()) {
+  // Preserve only known recovery advice: provider diagnostics can also be plain text.
+  if (APP_RUN_ERRORS.has(details.trim())) {
     return { summary: details, details };
   }
   const error = asRecord(record.error);

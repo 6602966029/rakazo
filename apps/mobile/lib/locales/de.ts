@@ -1,31 +1,33 @@
 export const DE_MESSAGES: Record<string, string> = {
-  "Your OpenRouter": "Your OpenRouter",
-  "Your OpenAI": "Your OpenAI",
-  "Your Anthropic": "Your Anthropic",
-  "Your model provider": "Your model provider",
-  "The model provider returned an error.": "The model provider returned an error.",
+  "Your OpenRouter": "Dein OpenRouter",
+  "Your OpenAI": "Dein OpenAI",
+  "Your Anthropic": "Dein Anthropic",
+  "Your model provider": "Dein Modellanbieter",
+  "The model provider returned an error.": "Der Modellanbieter hat einen Fehler zurückgegeben.",
   "{provider} is rate limiting requests. Try again shortly.":
-    "{provider} is rate limiting requests. Try again shortly.",
-  "{summary} Resets {date}.": "{summary} Resets {date}.",
+    "{provider} begrenzt die Anfragerate. Versuche es gleich noch einmal.",
+  "{summary} Resets {date}.": "{summary} Zurücksetzung am {date}.",
   "{provider} rejected the API key. Check your connection settings.":
-    "{provider} rejected the API key. Check your connection settings.",
+    "{provider} hat den API-Schlüssel abgelehnt. Prüfe deine Verbindungseinstellungen.",
   "{provider} could not find the requested model.":
-    "{provider} could not find the requested model.",
+    "{provider} konnte das angeforderte Modell nicht finden.",
   "{provider} took too long to respond. Try again.":
-    "{provider} took too long to respond. Try again.",
-  "{provider} key hit its limit.": "{provider} key hit its limit.",
-  "{provider} key hit its daily limit.": "{provider} key hit its daily limit.",
-  "{provider} key hit its weekly limit.": "{provider} key hit its weekly limit.",
-  "{provider} key hit its monthly limit.": "{provider} key hit its monthly limit.",
-  "{provider} reached its credit limit.": "{provider} reached its credit limit.",
-  "{provider} reached its daily credit limit.": "{provider} reached its daily credit limit.",
-  "{provider} reached its weekly credit limit.": "{provider} reached its weekly credit limit.",
-  "{provider} reached its monthly credit limit.": "{provider} reached its monthly credit limit.",
-  "{provider} reached its spending limit.": "{provider} reached its spending limit.",
-  "{provider} reached its daily spending limit.": "{provider} reached its daily spending limit.",
-  "{provider} reached its weekly spending limit.": "{provider} reached its weekly spending limit.",
+    "{provider} hat zu lange zum Antworten gebraucht. Versuche es erneut.",
+  "{provider} key hit its limit.": "{provider}: Schlüssellimit erreicht.",
+  "{provider} key hit its daily limit.": "{provider}: tägliches Schlüssellimit erreicht.",
+  "{provider} key hit its weekly limit.": "{provider}: wöchentliches Schlüssellimit erreicht.",
+  "{provider} key hit its monthly limit.": "{provider}: monatliches Schlüssellimit erreicht.",
+  "{provider} reached its credit limit.": "{provider}: Guthabenlimit erreicht.",
+  "{provider} reached its daily credit limit.": "{provider}: tägliches Guthabenlimit erreicht.",
+  "{provider} reached its weekly credit limit.":
+    "{provider}: wöchentliches Guthabenlimit erreicht.",
+  "{provider} reached its monthly credit limit.": "{provider}: monatliches Guthabenlimit erreicht.",
+  "{provider} reached its spending limit.": "{provider}: Ausgabenlimit erreicht.",
+  "{provider} reached its daily spending limit.": "{provider}: tägliches Ausgabenlimit erreicht.",
+  "{provider} reached its weekly spending limit.":
+    "{provider}: wöchentliches Ausgabenlimit erreicht.",
   "{provider} reached its monthly spending limit.":
-    "{provider} reached its monthly spending limit.",
+    "{provider}: monatliches Ausgabenlimit erreicht.",
   Details: "Details",
 
   "Couldn't refresh — showing the last loaded messages.":

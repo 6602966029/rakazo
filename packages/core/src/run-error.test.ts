@@ -48,7 +48,7 @@ describe("normalizeRunError", () => {
       '{"error":{"code":"model_not_found"}}',
       "Your model provider could not find the requested model.",
     ],
-    ["Request timed out", "Request timed out"],
+    ["Request timed out", "Your model provider took too long to respond. Try again."],
     [
       '504: {"message":"Gateway error"}',
       "Your model provider took too long to respond. Try again.",
@@ -59,7 +59,15 @@ describe("normalizeRunError", () => {
       "500: {malformed https://example.test/keys/fake-key-id",
       "The model provider returned an error.",
     ],
-    ["Something unexpected happened", "Something unexpected happened"],
+    ["Something unexpected happened", "The model provider returned an error."],
+    [
+      "Provider diagnostic: manage https://example.test/keys/fake-key-id; trace fake-trace",
+      "The model provider returned an error.",
+    ],
+    [
+      "OpenRouter key limit exceeded (weekly). Manage https://example.test/keys/fake-key-id",
+      "Your OpenRouter key hit its weekly limit.",
+    ],
     ["", "The model provider returned an error."],
   ])("normalizes %s", (details, summary) => {
     expect(normalizeRunError(details)).toEqual({ summary, details });
@@ -77,7 +85,6 @@ describe("normalizeRunError", () => {
 
   it.each([
     "The tools finished, but the model did not write a final answer. Rephrase the request and try again.",
-    "The model provider timed out. Please retry your request.",
     "Stopped. This stayed queued without starting.",
   ])("preserves app-authored recovery advice: %s", (details) => {
     expect(normalizeRunError(details)).toEqual({ summary: details, details });

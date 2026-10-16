@@ -160,82 +160,82 @@ msgstr "{name} 已停止"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} could not find the requested model."
-msgstr "{provider} could not find the requested model."
+msgstr "{provider}找不到请求的模型。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} is rate limiting requests. Try again shortly."
-msgstr "{provider} is rate limiting requests. Try again shortly."
+msgstr "{provider}正在限制请求频率。请稍后重试。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its daily limit."
-msgstr "{provider} key hit its daily limit."
+msgstr "{provider}的密钥已达到每日限额。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its limit."
-msgstr "{provider} key hit its limit."
+msgstr "{provider}的密钥已达到限额。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its monthly limit."
-msgstr "{provider} key hit its monthly limit."
+msgstr "{provider}的密钥已达到每月限额。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} key hit its weekly limit."
-msgstr "{provider} key hit its weekly limit."
+msgstr "{provider}的密钥已达到每周限额。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its credit limit."
-msgstr "{provider} reached its credit limit."
+msgstr "{provider}已达到额度上限。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its daily credit limit."
-msgstr "{provider} reached its daily credit limit."
+msgstr "{provider}已达到每日额度上限。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its daily spending limit."
-msgstr "{provider} reached its daily spending limit."
+msgstr "{provider}已达到每日支出限额。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its monthly credit limit."
-msgstr "{provider} reached its monthly credit limit."
+msgstr "{provider}已达到每月额度上限。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its monthly spending limit."
-msgstr "{provider} reached its monthly spending limit."
+msgstr "{provider}已达到每月支出限额。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its spending limit."
-msgstr "{provider} reached its spending limit."
+msgstr "{provider}已达到支出限额。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its weekly credit limit."
-msgstr "{provider} reached its weekly credit limit."
+msgstr "{provider}已达到每周额度上限。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} reached its weekly spending limit."
-msgstr "{provider} reached its weekly spending limit."
+msgstr "{provider}已达到每周支出限额。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} rejected the API key. Check your connection settings."
-msgstr "{provider} rejected the API key. Check your connection settings."
+msgstr "{provider}拒绝了 API 密钥。请检查连接设置。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} took too long to respond. Try again."
-msgstr "{provider} took too long to respond. Try again."
+msgstr "{provider}响应超时。请重试。"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
@@ -260,7 +260,7 @@ msgstr ""
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{summary} Resets {date}."
-msgstr "{summary} Resets {date}."
+msgstr "{summary} 将于{date}重置。"
 
 #: src/pages/ActivityList.tsx
 msgid "{title}, {label}"
@@ -2034,7 +2034,7 @@ msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Details"
-msgstr "Details"
+msgstr "详情"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Direct MCP"
@@ -4450,7 +4450,7 @@ msgstr "连接超时。"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "The model provider returned an error."
-msgstr "The model provider returned an error."
+msgstr "模型提供商返回了错误。"
 
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
@@ -4931,7 +4931,7 @@ msgstr "你已接管"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
-msgstr "Your Anthropic"
+msgstr "你的 Anthropic"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"
@@ -4940,7 +4940,7 @@ msgstr "你的邮箱"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your model provider"
-msgstr "Your model provider"
+msgstr "你的模型提供商"
 
 #: src/pages/Auth.tsx
 msgid "Your name"
@@ -4949,12 +4949,12 @@ msgstr "你的名字"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your OpenAI"
-msgstr "Your OpenAI"
+msgstr "你的 OpenAI"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
-msgstr "Your OpenRouter"
+msgstr "你的 OpenRouter"
 
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
