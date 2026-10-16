@@ -71,4 +71,17 @@ test("instruction proposals support edit, approval, undo and mandatory human app
   await captureScreenshot(page, testInfo, "instructions-conflict-reload");
   await reload.click();
   await expect(instructions).toHaveValue("Newer saved instructions");
+  const updated = await rpc<{ instructionHistory: Array<{ id: string }> }>(page, "bots/update", {
+    botId,
+    instructions: "Remote edit",
+    expectedInstructions: "Newer saved instructions",
+  });
+  await expect(instructions).toHaveValue("Remote edit");
+  await rpc(page, "bots/restoreInstructions", {
+    botId,
+    versionId: updated.instructionHistory[0]?.id,
+    expectedInstructions: "Remote edit",
+    undo: true,
+  });
+  await expect(instructions).toHaveValue("Newer saved instructions");
 });

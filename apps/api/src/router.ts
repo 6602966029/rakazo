@@ -215,7 +215,6 @@ import {
   toTicketCommentDto,
   toTicketDto,
   touchGroupUpdatedAt,
-  writeBotInstructions,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "./agent-secrets.js";
@@ -1786,11 +1785,20 @@ export function createRouter(deps: RouterDeps) {
         return bot;
       }),
       restoreInstructions: authed.bots.restoreInstructions.handler(async ({ context, input }) => {
-        await repos.getBot(context.actor, input.botId);
+        const bot = await repos.getBot(context.actor, input.botId);
+        if (!bot.thread) throw new IsolationError();
         try {
-          await deps.prisma.$transaction((tx) =>
-            writeBotInstructions(tx, { ...input, reason: "Restore" }),
-          );
+          await commitBotUpdate({
+            prisma: deps.prisma,
+            notify: (threadId, seq) => deps.events.notify(threadId, seq),
+            spaceId: context.actor.spaceId,
+            threadId: bot.thread.id,
+            botId: bot.id,
+            data: {},
+            emitBotUpdated: true,
+            expectedInstructions: input.expectedInstructions,
+            instructionRestore: { versionId: input.versionId, undo: input.undo },
+          });
         } catch (error) {
           if (!(error instanceof InstructionConflictError)) throw error;
           throw new ORPCError("CONFLICT", { message: error.message });

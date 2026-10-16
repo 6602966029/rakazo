@@ -276,6 +276,31 @@ describe("BotSettings description saves", () => {
 });
 
 describe("instruction settings refresh", () => {
+  it("refreshes a saved field against its latest baseline before the parent catches up", async () => {
+    const initial = bot();
+    vi.mocked(rpc.bots.update).mockResolvedValueOnce({ ...initial, instructions: "Saved edit" });
+    await act(async () => {
+      root.render(<InstructionSettings bot={initial} />);
+    });
+    await setDescription("Saved edit");
+    await act(async () => {
+      descriptionField().dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    await act(async () => {
+      root.render(<InstructionSettings bot={{ ...initial, instructions: "External update" }} />);
+    });
+    expect(descriptionField().value).toBe("External update");
+    await setDescription("Fresh edit");
+    vi.mocked(rpc.bots.update).mockResolvedValueOnce({ ...initial, instructions: "Fresh edit" });
+    await act(async () => {
+      descriptionField().dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    expect(rpc.bots.update).toHaveBeenLastCalledWith({
+      botId: initial.id,
+      instructions: "Fresh edit",
+      expectedInstructions: "External update",
+    });
+  });
   it("keeps a dirty draft when run completion refreshes the bot", async () => {
     const initial = bot();
     await act(async () => {

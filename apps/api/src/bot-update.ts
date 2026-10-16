@@ -5,8 +5,8 @@ import { getLogger } from "@rakazo/logging";
 type AppendEvent = typeof appendEventInTransaction;
 
 /**
- * Persist a bot row. When profile labels change, write `bot.updated` in the same
- * transaction so clients never observe a successful rename without a durable event.
+ * Persist a bot row. When profile labels or instructions change, write `bot.updated`
+ * in the same transaction so clients can refresh after every successful write.
  * Realtime notify stays best-effort after commit.
  */
 export async function commitBotUpdate(
@@ -19,10 +19,15 @@ export async function commitBotUpdate(
     data: Omit<Prisma.BotUncheckedUpdateInput, "instructions"> & { instructions?: string };
     emitBotUpdated: boolean;
     expectedInstructions?: string;
+    instructionRestore?: { versionId: string; undo?: boolean };
   },
   appendEvent: AppendEvent = appendEventInTransaction,
 ): Promise<{ id: string; name: string; title: string; description: string }> {
-  if (!options.emitBotUpdated && options.data.instructions === undefined) {
+  if (
+    !options.emitBotUpdated &&
+    options.data.instructions === undefined &&
+    !options.instructionRestore
+  ) {
     return options.prisma.bot.update({
       where: { id: options.botId },
       data: options.data,
@@ -34,12 +39,13 @@ export async function commitBotUpdate(
   const committed = await options.prisma.$transaction(async (tx) => {
     // Event appends also lock the thread; all writers take it before the bot row.
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${options.threadId} FOR UPDATE`;
-    if (typeof instructions === "string") {
+    if (typeof instructions === "string" || options.instructionRestore) {
       await writeBotInstructions(tx, {
         botId: options.botId,
         instructions,
-        reason: "Manual edit",
+        reason: options.instructionRestore ? "Restore" : "Manual edit",
         expectedInstructions: options.expectedInstructions,
+        ...options.instructionRestore,
       });
     }
     const updated = await tx.bot.update({

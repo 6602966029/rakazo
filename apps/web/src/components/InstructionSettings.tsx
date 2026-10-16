@@ -18,7 +18,7 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
   const [error, setError] = useState("");
   if (bot !== previousBot) {
     setPreviousBot(bot);
-    if (instructions === previousBot.instructions) {
+    if (instructions === baseline) {
       setInstructions(bot.instructions);
       setBaseline(bot.instructions);
     }
