@@ -4035,7 +4035,7 @@ msgid "Shared"
 msgstr "Ortak"
 
 #: src/pages/shell/dialogs.tsx
-msgid "Shared chat with 2-6 bots. They all reply in the same thread."
+msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx

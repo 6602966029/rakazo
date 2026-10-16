@@ -4035,8 +4035,8 @@ msgid "Shared"
 msgstr "Shared"
 
 #: src/pages/shell/dialogs.tsx
-msgid "Shared chat with 2-6 bots. They all reply in the same thread."
-msgstr "Shared chat with 2-6 bots. They all reply in the same thread."
+msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
+msgstr "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared documents"
