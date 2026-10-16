@@ -116,6 +116,22 @@ function pressEnter(textarea: HTMLTextAreaElement) {
 }
 
 describe("Composer", () => {
+  it("keeps the keyboard mention selection when targets refresh", () => {
+    const alice: ComposerMention = { kind: "bot", id: "bot-3", name: "Alice" };
+    const textarea = renderComposer(vi.fn(), { mentionTargets: [alice, bob] });
+    type(textarea, "@");
+    act(() => {
+      textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    });
+    expect(container?.querySelector('[aria-selected="true"]')?.textContent).toContain("Bob");
+
+    rerenderComposer({ mentionTargets: [{ ...alice }, { ...bob }] });
+    pressEnter(textarea);
+
+    expect(container?.querySelector('[data-testid="mention-chip"]')?.textContent).toBe("Bob");
+    expect(container?.querySelector('[data-testid="mention-picker"]')).toBeNull();
+  });
+
   it("clears the draft once the message is sent", async () => {
     const onSend = vi.fn().mockResolvedValue(true);
     const textarea = renderComposer(onSend);

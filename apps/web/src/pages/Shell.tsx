@@ -5772,7 +5772,7 @@ export const Composer = memo(function Composer({
 
   useEffect(() => {
     setMentionHighlightIndex(0);
-  }, [mentionQuery, mentionOptions]);
+  }, [mentionQuery]);
 
   const activeMentionIndex = clampMentionHighlightIndex(
     mentionHighlightIndex,
