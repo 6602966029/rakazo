@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
+import { i18n } from "@lingui/core";
 import type { AgentSkillCatalogEntry, ThreadMessage } from "@rakazo/contracts";
 import type { ComposerMention } from "@rakazo/core";
 import type { ComponentProps, ReactNode } from "react";
 import { act, createRef } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@lingui/react/macro", () => {
   const t = (parts: TemplateStringsArray, ...values: unknown[]) =>
@@ -19,6 +20,11 @@ import { Composer } from "./Shell";
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 let composerProps: ComponentProps<typeof Composer>;
+
+beforeEach(() => {
+  i18n.load("en", {});
+  i18n.activate("en");
+});
 
 afterEach(() => {
   act(() => root?.unmount());
@@ -90,6 +96,25 @@ function rerenderComposer(overrides: Partial<ComponentProps<typeof Composer>>) {
   composerProps = { ...composerProps, ...overrides };
   act(() => root?.render(<Composer {...composerProps} />));
 }
+
+it("shows a readable run error with raw details, while preserving send errors", () => {
+  const runError = '429: {"message":"Too many requests","metadata":{"provider":"OpenRouter"}}';
+  renderComposer(async () => true, { runError, runErrorId: "failed-run" });
+  const error = container?.querySelector('[data-testid="composer-error"]');
+  expect(error?.textContent).toContain(
+    "Your OpenRouter is rate limiting requests. Try again shortly.",
+  );
+  const details = error?.querySelector("details");
+  expect(details?.open).toBe(false);
+  expect(details?.querySelector("summary")?.textContent).toBe("Details");
+  act(() => details?.querySelector("summary")?.click());
+  expect(details?.open).toBe(true);
+  expect(details?.querySelector("pre")?.textContent).toBe(runError);
+
+  rerenderComposer({ sendError: "Could not send the message." });
+  expect(error?.textContent).toBe("Could not send the message.");
+  expect(error?.querySelector("details")).toBeNull();
+});
 
 function pickAttachment() {
   const input = container?.querySelector<HTMLInputElement>('input[type="file"]');
