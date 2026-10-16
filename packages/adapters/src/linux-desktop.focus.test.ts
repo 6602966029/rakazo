@@ -145,8 +145,8 @@ describe("provider focus command", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(Date.now() - started).toBeLessThan(2_000);
     expect(readFileSync(activated, "utf8").trim()).toBe("0x00000009");
+    await expect.poll(() => Number(readFileSync(recorded, "utf8").trim())).toBeGreaterThan(0);
     const pid = Number(readFileSync(recorded, "utf8").trim());
-    expect(pid).toBeGreaterThan(0);
     try {
       process.kill(pid, "SIGTERM");
     } catch {
