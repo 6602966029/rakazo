@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GROUP_MEMBER_MAX } from "@rakazo/contracts";
 import { resolveRosterDrop } from "./roster-drop";
 
 const bot = (id: string, sectionId: string | null, pinned = false) => ({
@@ -115,7 +116,14 @@ describe("resolveRosterDrop", () => {
     expect(
       resolveRosterDrop({
         dragged: bot("z", null),
-        target: { kind: "group", chat: group("g1", null, ["a", "b", "c", "d", "e", "f"]) },
+        target: {
+          kind: "group",
+          chat: group(
+            "g1",
+            null,
+            Array.from({ length: GROUP_MEMBER_MAX }, (_, i) => `m${i}`),
+          ),
+        },
         sameParent: false,
       }),
     ).toBeNull();
