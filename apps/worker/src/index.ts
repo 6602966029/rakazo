@@ -49,7 +49,7 @@ import {
   sandboxProviderOptionsFromEnv,
   withSecretPersistence,
 } from "@rakazo/adapters";
-import { resolveEncryptionKey, resolveSupervisorToken } from "@rakazo/core";
+import { resolveEncryptionKey, resolveSupervisorToken, uploadSizeFromEnv } from "@rakazo/core";
 import {
   createBoardEvents,
   createDb,
@@ -181,6 +181,7 @@ async function main() {
     pushSessionExpiresAt(prisma, sessionId),
   );
   const executor = createRunExecutor({
+    maxUploadSizeBytes: uploadSizeFromEnv(process.env),
     prisma,
     runtime,
     // Live per-account Codex catalog; never refreshes or writes credentials.
