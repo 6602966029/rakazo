@@ -1249,7 +1249,7 @@ export function ShellPage() {
       .catch(() => {
         if (cancelled) return;
         setBootstrapMe(null);
-        void refreshBots(true);
+        void refreshBots(true).catch(() => undefined);
       });
     let refreshTimer: number | undefined;
     const refreshVisibleBots = () => {
@@ -3740,6 +3740,8 @@ export function ShellPage() {
             {!inGroup && active ? (
               <button
                 type="button"
+                aria-label={t`Agent computer`}
+                aria-pressed={panel === "computer"}
                 title={t`Agent computer`}
                 onClick={() => {
                   const next = panel === "computer" ? null : "computer";
