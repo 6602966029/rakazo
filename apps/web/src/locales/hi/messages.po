@@ -525,10 +525,6 @@ msgid "Appearance"
 msgstr "रूप"
 
 #: src/components/AskCard.tsx
-msgid "Applied"
-msgstr "लागू किया गया"
-
-#: src/components/AskCard.tsx
 msgid "Apply"
 msgstr "लागू करें"
 

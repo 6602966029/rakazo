@@ -33,6 +33,7 @@ export function InstructionUndo({
               botId,
               versionId,
               expectedInstructions: instructions,
+              undo: true,
             });
             setRestored(true);
           } catch {

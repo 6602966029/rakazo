@@ -212,6 +212,10 @@ function fixture({
       update: vi.fn(async ({ data }: { data: Record<string, unknown> }) =>
         Object.assign(instructionState, data),
       ),
+      updateMany: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        Object.assign(instructionState, data);
+        return { count: 1 };
+      }),
       findMany: vi.fn(async () => []),
     },
     attempt: {
@@ -870,6 +874,21 @@ describe("self instruction proposals", () => {
     expect(f.instructionState.instructions).toBe("Draft only");
     expect(f.instructionState.instructionHistory).toHaveLength(0);
     expect(f.effects[0]?.status).toBe("intended");
+  });
+  it("completes a stale approved proposal with an error and frees its reservation", async () => {
+    const f = fixture({ name: "propose_instructions_update", builtin: true });
+    f.setCalls([{ args, executionId: "call-1" }]);
+    await f.run();
+    f.effects[0]!.status = "approved";
+    f.instructionState.instructions = "Newer manual edit";
+    await f.run();
+    expect(f.instructionState.instructions).toBe("Newer manual edit");
+    expect(f.instructionState.pendingInstructionsRunId).toBeNull();
+    expect(f.effects[0]).toMatchObject({
+      status: "completed",
+      result: { error: expect.stringContaining("Instructions changed") },
+    });
+    expect(f.instructionState.instructionHistory).toHaveLength(0);
   });
   it("rejects known credentials before persisting a proposal", async () => {
     const f = fixture({

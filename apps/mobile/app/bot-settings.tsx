@@ -283,6 +283,7 @@ export default function BotSettingsScreen() {
         title?: string;
         description?: string;
         instructions?: string;
+        expectedInstructions?: string;
         color?: string;
         modelProvider?: string | null;
         modelId?: string | null;
@@ -294,7 +295,10 @@ export default function BotSettingsScreen() {
       if (profile.description !== (bot.description ?? "")) {
         input.description = profile.description;
       }
-      if (instructions !== bot.instructions) input.instructions = instructions;
+      if (instructions !== bot.instructions) {
+        input.instructions = instructions;
+        input.expectedInstructions = bot.instructions;
+      }
       if (color !== bot.color) input.color = color;
       const modelChanged =
         (selected?.provider ?? null) !== (bot.modelProvider ?? null) ||
@@ -547,6 +551,7 @@ export default function BotSettingsScreen() {
                           void rpc<MobileBot>("bots/restoreInstructions", {
                             botId: bot.id,
                             versionId,
+                            expectedInstructions: bot.instructions,
                           })
                             .then((updated) => {
                               setBot(updated);

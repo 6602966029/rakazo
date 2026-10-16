@@ -185,6 +185,7 @@ import {
   findSpaceMemoryConfig,
   findTicket,
   formatMessagingLinkCode,
+  InstructionConflictError,
   InvalidSpaceNameError,
   IsolationError,
   issueMessagingLinkCode,
@@ -1747,6 +1748,7 @@ export function createRouter(deps: RouterDeps) {
           threadId: existing.thread.id,
           botId: input.botId,
           emitBotUpdated: botProfileLabelsChanged(input),
+          expectedInstructions: input.expectedInstructions,
           data: {
             name: input.name,
             title: input.title,
@@ -1772,6 +1774,9 @@ export function createRouter(deps: RouterDeps) {
               ? { disabledBuiltinTools: input.disabledBuiltinTools }
               : {}),
           },
+        }).catch((error) => {
+          if (!(error instanceof InstructionConflictError)) throw error;
+          throw new ORPCError("CONFLICT", { message: error.message });
         });
         const bots = await repos.listBots(context.actor);
         const bot = bots.find((b) => b.id === input.botId);
@@ -1785,9 +1790,8 @@ export function createRouter(deps: RouterDeps) {
             writeBotInstructions(tx, { ...input, reason: "Restore" }),
           );
         } catch (error) {
-          throw new ORPCError("CONFLICT", {
-            message: error instanceof Error ? error.message : "Could not restore instructions",
-          });
+          if (!(error instanceof InstructionConflictError)) throw error;
+          throw new ORPCError("CONFLICT", { message: error.message });
         }
         return (await repos.listBots(context.actor)).find((bot) => bot.id === input.botId)!;
       }),

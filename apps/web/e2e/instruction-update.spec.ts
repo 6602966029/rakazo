@@ -11,10 +11,10 @@ test("instruction proposals support edit, approval, undo and mandatory human app
   const composer = page.getByPlaceholder(/Message/);
   await composer.fill("propose an instruction update");
   await page.keyboard.press("Enter");
-  await expect(page.getByText("Update instructions?", { exact: true })).toBeVisible({
+  const proposal = page.getByTestId("instruction-approval-card");
+  await expect(proposal.getByText("Update instructions?", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
-  const proposal = page.getByTestId("instruction-approval-card");
   await expect(proposal.getByRole("button", { name: "Dismiss", exact: true })).toBeVisible();
   expect((await rpc<{ instructions: string }>(page, "bots/get", { botId })).instructions).toBe(
     original,

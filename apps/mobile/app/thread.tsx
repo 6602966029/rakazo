@@ -3516,7 +3516,7 @@ const MessageBubble = memo(function MessageBubble({
                   }}
                 >
                   {askBlock.instructionUpdate
-                    ? t(askBlock.answer === "deny" ? "Dismissed" : "Applied")
+                    ? t(askBlock.answer === "deny" ? "Dismissed" : "Allowed once")
                     : formatApprovalAnswer(
                         askBlock.answer,
                         askBlock.actions,

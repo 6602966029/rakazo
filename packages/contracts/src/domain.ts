@@ -344,6 +344,7 @@ export const UpdateBotInput = z
     title: z.string().trim().max(BOT_TITLE_MAX_LENGTH).optional(),
     description: z.string().trim().max(BOT_DESCRIPTION_MAX_LENGTH).optional(),
     instructions: z.string().trim().max(BOT_INSTRUCTIONS_MAX_LENGTH).optional(),
+    expectedInstructions: z.string().max(BOT_INSTRUCTIONS_MAX_LENGTH).optional(),
     selfUpdateInstructions: z.boolean().optional(),
     notifyOnFinish: z.boolean().optional(),
     color: BotAvatarValueSchema.optional(),

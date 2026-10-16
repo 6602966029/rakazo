@@ -118,6 +118,7 @@ export function AskCard({
                   botId: block.instructionUpdate!.botId,
                   versionId: block.instructionUpdate!.undoVersionId!,
                   expectedInstructions: block.instructionUpdate!.after,
+                  undo: true,
                 });
                 setUndone(true);
               } catch (err) {
@@ -193,7 +194,7 @@ export function AskCard({
           {block.instructionUpdate
             ? block.answer === "deny"
               ? t`Dismissed`
-              : t`Applied`
+              : t`Allowed once`
             : formatAnsweredState(
                 block.answer,
                 Boolean(approvalActions),

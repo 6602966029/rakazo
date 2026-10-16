@@ -1,6 +1,7 @@
 import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
 import {
+  InstructionConflictError,
   reserveInstructionProposal,
   validateInstructionProposal,
   writeBotInstructions,
@@ -116,8 +117,67 @@ describe("instruction history", () => {
     expect(bot.instructionHistory[0]!.instructions).toBe("Version 24");
     expect(bot.instructionHistory).toHaveLength(20);
     await expect(
-      writeBotInstructions(tx as never, { botId: bot.id, versionId: "expired", reason: "Restore" }),
+      writeBotInstructions(tx as never, {
+        botId: bot.id,
+        versionId: "expired",
+        expectedInstructions: bot.instructions,
+        reason: "Restore",
+      }),
     ).rejects.toThrow("unavailable");
+  });
+  it("rejects stale manual edits and requires a baseline for historical restores", async () => {
+    const { bot, tx } = fixture();
+    await writeBotInstructions(tx as never, {
+      botId: bot.id,
+      instructions: "Newer edit",
+      reason: "Manual edit",
+    });
+    await expect(
+      writeBotInstructions(tx as never, {
+        botId: bot.id,
+        instructions: "Stale draft",
+        expectedInstructions: "Draft only",
+        reason: "Manual edit",
+      }),
+    ).rejects.toBeInstanceOf(InstructionConflictError);
+    await expect(
+      writeBotInstructions(tx as never, {
+        botId: bot.id,
+        versionId: bot.instructionHistory[0]!.id,
+        reason: "Restore",
+      }),
+    ).rejects.toBeInstanceOf(InstructionConflictError);
+    expect(bot.instructions).toBe("Newer edit");
+  });
+  it("allows restoring older history with a current baseline while Undo requires the latest version", async () => {
+    const { bot, tx } = fixture();
+    await writeBotInstructions(tx as never, {
+      botId: bot.id,
+      instructions: "First edit",
+      reason: "Manual edit",
+    });
+    await writeBotInstructions(tx as never, {
+      botId: bot.id,
+      instructions: "Second edit",
+      reason: "Manual edit",
+    });
+    const versionId = bot.instructionHistory[1]!.id;
+    await expect(
+      writeBotInstructions(tx as never, {
+        botId: bot.id,
+        versionId,
+        expectedInstructions: bot.instructions,
+        undo: true,
+        reason: "Undo",
+      }),
+    ).rejects.toBeInstanceOf(InstructionConflictError);
+    await writeBotInstructions(tx as never, {
+      botId: bot.id,
+      versionId,
+      expectedInstructions: bot.instructions,
+      reason: "Restore",
+    });
+    expect(bot.instructions).toBe("Draft only");
   });
   it("records manual edits and releases reservations even for unchanged instructions", async () => {
     const { bot, tx } = fixture();
@@ -166,6 +226,7 @@ describe("instruction history", () => {
         botId: bot.id,
         versionId: versionId!,
         expectedInstructions: "New",
+        undo: true,
         reason: "Undo",
       }),
     ).rejects.toThrow("changed");

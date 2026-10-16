@@ -525,10 +525,6 @@ msgid "Appearance"
 msgstr "Apariencia"
 
 #: src/components/AskCard.tsx
-msgid "Applied"
-msgstr "Aplicado"
-
-#: src/components/AskCard.tsx
 msgid "Apply"
 msgstr "Aplicar"
 

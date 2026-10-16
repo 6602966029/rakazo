@@ -10,12 +10,16 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
   const id = useId();
   const [previousBot, setPreviousBot] = useState(bot);
   const [current, setCurrent] = useState(bot);
+  const [baseline, setBaseline] = useState(bot.instructions);
   const [instructions, setInstructions] = useState(bot.instructions);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   if (bot !== previousBot) {
     setPreviousBot(bot);
-    if (instructions === previousBot.instructions) setInstructions(bot.instructions);
+    if (instructions === previousBot.instructions) {
+      setInstructions(bot.instructions);
+      setBaseline(bot.instructions);
+    }
     setCurrent(bot);
   }
   async function save(action: () => Promise<Bot>) {
@@ -25,6 +29,7 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
       const updated = await action();
       setCurrent(updated);
       setInstructions(updated.instructions);
+      setBaseline(updated.instructions);
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -43,7 +48,9 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
           onChange={(event) => setInstructions(event.target.value)}
           onBlur={() => {
             if (instructions !== current.instructions)
-              void save(() => rpc.bots.update({ botId: bot.id, instructions }));
+              void save(() =>
+                rpc.bots.update({ botId: bot.id, instructions, expectedInstructions: baseline }),
+              );
           }}
         />
       </label>
@@ -65,7 +72,11 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
                 disabled={pending}
                 onClick={() =>
                   void save(() =>
-                    rpc.bots.restoreInstructions({ botId: bot.id, versionId: version.id }),
+                    rpc.bots.restoreInstructions({
+                      botId: bot.id,
+                      versionId: version.id,
+                      expectedInstructions: current.instructions,
+                    }),
                   )
                 }
               >

@@ -18,6 +18,7 @@ export async function commitBotUpdate(
     botId: string;
     data: Omit<Prisma.BotUncheckedUpdateInput, "instructions"> & { instructions?: string };
     emitBotUpdated: boolean;
+    expectedInstructions?: string;
   },
   appendEvent: AppendEvent = appendEventInTransaction,
 ): Promise<{ id: string; name: string; title: string; description: string }> {
@@ -37,6 +38,7 @@ export async function commitBotUpdate(
         botId: options.botId,
         instructions,
         reason: "Manual edit",
+        expectedInstructions: options.expectedInstructions,
       });
     }
     const updated = await tx.bot.update({

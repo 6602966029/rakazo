@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/rpc", () => ({
   rpc: {
+    bots: { update: vi.fn(), restoreInstructions: vi.fn() },
     voice: { voices: vi.fn().mockResolvedValue([]) },
     models: {
       credentials: vi.fn().mockResolvedValue([]),
@@ -284,6 +285,30 @@ describe("instruction settings refresh", () => {
       );
     });
     expect(descriptionField().value).toBe("Unsaved instructions");
+  });
+  it("saves the original draft baseline after a newer instruction refresh", async () => {
+    const initial = bot();
+    vi.mocked(rpc.bots.update).mockResolvedValueOnce({
+      ...initial,
+      instructions: "Unsaved instructions",
+    });
+    await act(async () => {
+      root.render(<InstructionSettings bot={initial} />);
+    });
+    await setDescription("Unsaved instructions");
+    await act(async () => {
+      root.render(
+        <InstructionSettings bot={{ ...initial, instructions: "Newer saved instructions" }} />,
+      );
+    });
+    await act(async () => {
+      descriptionField().dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    expect(rpc.bots.update).toHaveBeenCalledWith({
+      botId: initial.id,
+      instructions: "Unsaved instructions",
+      expectedInstructions: initial.instructions,
+    });
   });
   it("refreshes pristine instructions after an external update", async () => {
     const initial = bot();

@@ -109,6 +109,7 @@ import {
   effectiveMemoryScope,
   findDefaultModelCredential,
   findModelCredential,
+  InstructionConflictError,
   InvalidSpaceNameError,
   isTooManyDatabaseConnections,
   loadRunHistoryMessages,
@@ -6271,13 +6272,23 @@ export function createRunExecutor(deps: ExecutorDeps) {
               if (!mayOpenModelStream(live, workerId, fence, context.signal.aborted)) {
                 throw new Error("Instruction update run is no longer active.");
               }
-              const undoVersionId = await writeBotInstructions(tx, {
-                botId: bot.id,
-                instructions: String(args.instructions),
-                reason: String(args.reason),
-                expectedInstructions: String(args.previousInstructions),
-                proposalRunId: runId,
-              });
+              let undoVersionId: string | null;
+              try {
+                undoVersionId = await writeBotInstructions(tx, {
+                  botId: bot.id,
+                  instructions: String(args.instructions),
+                  reason: String(args.reason),
+                  expectedInstructions: String(args.previousInstructions),
+                  proposalRunId: runId,
+                });
+              } catch (error) {
+                if (!(error instanceof InstructionConflictError)) throw error;
+                await tx.bot.updateMany({
+                  where: { id: bot.id, pendingInstructionsRunId: runId },
+                  data: { pendingInstructionsRunId: null },
+                });
+                return { error: error.message };
+              }
               if (!undoVersionId) return null;
               return persistMessageInTransaction(tx, run, "bot", [
                 {
@@ -6294,6 +6305,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 },
               ]);
             });
+            if (committed && "error" in committed) return finish(committed);
             if (committed)
               await deps.events
                 .notify(run.threadId, committed.eventSeq)
