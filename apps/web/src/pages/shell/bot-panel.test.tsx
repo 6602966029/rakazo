@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { ORPCError } from "@orpc/client";
 import type { Bot } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
@@ -9,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/rpc", () => ({
   rpc: {
-    bots: { update: vi.fn(), restoreInstructions: vi.fn() },
+    bots: { get: vi.fn(), update: vi.fn(), restoreInstructions: vi.fn() },
     voice: { voices: vi.fn().mockResolvedValue([]) },
     models: {
       credentials: vi.fn().mockResolvedValue([]),
@@ -168,6 +169,8 @@ async function clickSave() {
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   onSave.mockReset().mockResolvedValue(undefined);
+  vi.mocked(rpc.bots.update).mockReset();
+  vi.mocked(rpc.bots.get).mockReset();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -308,6 +311,53 @@ describe("instruction settings refresh", () => {
       botId: initial.id,
       instructions: "Unsaved instructions",
       expectedInstructions: initial.instructions,
+    });
+  });
+  it("reloads the current instructions and baseline after a conflict", async () => {
+    const initial = bot();
+    vi.mocked(rpc.bots.update).mockRejectedValueOnce(
+      new ORPCError("CONFLICT", { message: "Instructions changed" }),
+    );
+    vi.mocked(rpc.bots.get)
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        ...initial,
+        instructions: "Newer saved instructions",
+      });
+    await act(async () => {
+      root.render(<InstructionSettings bot={initial} />);
+    });
+    await setDescription("Unsaved instructions");
+    await act(async () => {
+      descriptionField().dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    const reload = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Reload",
+    );
+    if (!reload) throw new Error("Missing reload action");
+    expect(descriptionField().value).toBe("Unsaved instructions");
+    await act(async () => {
+      descriptionField().dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    expect(rpc.bots.update).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      reload.click();
+    });
+    expect(descriptionField().value).toBe("Unsaved instructions");
+    expect(container.textContent).toContain("Reload");
+    await act(async () => {
+      reload.click();
+    });
+    expect(descriptionField().value).toBe("Newer saved instructions");
+    vi.mocked(rpc.bots.update).mockResolvedValueOnce({ ...initial, instructions: "Fresh draft" });
+    await setDescription("Fresh draft");
+    await act(async () => {
+      descriptionField().dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    expect(rpc.bots.update).toHaveBeenLastCalledWith({
+      botId: initial.id,
+      instructions: "Fresh draft",
+      expectedInstructions: "Newer saved instructions",
     });
   });
   it("refreshes pristine instructions after an external update", async () => {

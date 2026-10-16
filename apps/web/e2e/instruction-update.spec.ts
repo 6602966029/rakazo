@@ -54,4 +54,21 @@ test("instruction proposals support edit, approval, undo and mandatory human app
   await page.getByTestId("bot-settings-advanced").getByText("Advanced", { exact: true }).click();
   await expect(page.getByText("Instruction history", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "instruction-settings-history");
+  const saved = (await rpc<{ instructions: string }>(page, "bots/get", { botId })).instructions;
+  const instructions = page.getByRole("textbox", { name: "Instructions", exact: true });
+  await instructions.fill("Unsaved draft");
+  await rpc(page, "bots/update", {
+    botId,
+    instructions: "Newer saved instructions",
+    expectedInstructions: saved,
+  });
+  await instructions.press("Tab");
+  const reload = page.getByRole("button", { name: "Reload", exact: true });
+  await expect(reload).toBeVisible();
+  await expect(instructions).toHaveValue("Unsaved draft");
+  await reload.scrollIntoViewIfNeeded();
+  await expect(reload).toBeInViewport();
+  await captureScreenshot(page, testInfo, "instructions-conflict-reload");
+  await reload.click();
+  await expect(instructions).toHaveValue("Newer saved instructions");
 });

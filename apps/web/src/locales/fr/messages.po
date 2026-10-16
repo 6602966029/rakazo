@@ -3589,6 +3589,10 @@ msgstr "Rendre le contrôle"
 msgid "Release interrupted computer?"
 msgstr "Libérer l'ordinateur interrompu ?"
 
+#: src/components/InstructionSettings.tsx
+msgid "Reload"
+msgstr "Recharger"
+
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx

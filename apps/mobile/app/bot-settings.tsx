@@ -532,7 +532,7 @@ export default function BotSettingsScreen() {
                 marginTop: 8,
               }}
             />
-            {bot?.instructionHistory?.length ? (
+            {bot?.instructionHistory?.length && instructions === bot.instructions ? (
               <MenuPicker
                 label={t("Instruction history")}
                 value=""
@@ -541,6 +541,7 @@ export default function BotSettingsScreen() {
                   label: `${new Date(version.createdAt).toLocaleString()} · ${version.reason}`,
                 }))}
                 onChange={(versionId) => {
+                  if (pending || instructions !== bot.instructions) return;
                   const version = bot.instructionHistory?.find((item) => item.id === versionId);
                   if (version)
                     Alert.alert(t("Restore"), version.instructions, [

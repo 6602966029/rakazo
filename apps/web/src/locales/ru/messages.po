@@ -3589,6 +3589,10 @@ msgstr "Передать управление"
 msgid "Release interrupted computer?"
 msgstr "Освободить прерванный компьютер?"
 
+#: src/components/InstructionSettings.tsx
+msgid "Reload"
+msgstr "Перезагрузить"
+
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx

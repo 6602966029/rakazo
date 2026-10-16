@@ -1,4 +1,5 @@
 import { Trans } from "@lingui/react/macro";
+import { ORPCError } from "@orpc/client";
 import type { Bot } from "@rakazo/contracts";
 import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@rakazo/contracts";
 import { Button, Textarea } from "@rakazo/ui-web";
@@ -13,6 +14,7 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
   const [baseline, setBaseline] = useState(bot.instructions);
   const [instructions, setInstructions] = useState(bot.instructions);
   const [pending, setPending] = useState(false);
+  const [conflict, setConflict] = useState(false);
   const [error, setError] = useState("");
   if (bot !== previousBot) {
     setPreviousBot(bot);
@@ -27,11 +29,13 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
     setError("");
     try {
       const updated = await action();
+      setConflict(false);
       setCurrent(updated);
       setInstructions(updated.instructions);
       setBaseline(updated.instructions);
     } catch (err) {
       setError(errorText(err));
+      setConflict((current) => current || (err instanceof ORPCError && err.code === "CONFLICT"));
     } finally {
       setPending(false);
     }
@@ -47,7 +51,7 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
           disabled={pending}
           onChange={(event) => setInstructions(event.target.value)}
           onBlur={() => {
-            if (instructions !== current.instructions)
+            if (!conflict && instructions !== current.instructions)
               void save(() =>
                 rpc.bots.update({ botId: bot.id, instructions, expectedInstructions: baseline }),
               );
@@ -87,6 +91,15 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
         </details>
       ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {conflict ? (
+        <Button
+          variant="outline"
+          disabled={pending}
+          onClick={() => void save(() => rpc.bots.get({ botId: bot.id }))}
+        >
+          <Trans>Reload</Trans>
+        </Button>
+      ) : null}
     </div>
   );
 }
