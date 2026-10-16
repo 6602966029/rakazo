@@ -33,6 +33,7 @@ services:
     command: ["pnpm", "--filter", "@rakazo/sandbox-supervisor", "start"]
     user: root
     environment:
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
       NODE_ENV: production
       DATA_DIR: /data
       SUPERVISOR_HOST: "0.0.0.0"

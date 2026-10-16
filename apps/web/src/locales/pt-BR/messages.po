@@ -43,7 +43,7 @@ msgstr "{0} (máx. anexos {ATTACHMENT_MAX_COUNT})"
 #. placeholder {1}: attachmentSizeLabel(attachmentMaxBytes(bootstrapMe))
 #: src/pages/Shell.tsx
 msgid "{0} (over {1})"
-msgstr ""
+msgstr "{0} (mais de {1})"
 
 #. placeholder {0}: preset.n
 #: src/pages/RoutineSchedule.tsx
@@ -2224,7 +2224,7 @@ msgstr "Tratamento de falhas"
 #. placeholder {0}: attachmentSizeLabel(getMaxUploadSizeBytes())
 #: src/components/computer/FilesApp.tsx
 msgid "File exceeds the {0} upload limit."
-msgstr ""
+msgstr "O arquivo excede o limite de upload de {0}."
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Files"
