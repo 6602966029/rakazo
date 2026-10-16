@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { GROUP_MEMBER_MAX } from "@rakazo/contracts";
+import { describe, expect, it } from "vitest";
 import { resolveRosterDrop } from "./roster-drop";
 
 const bot = (id: string, sectionId: string | null, pinned = false) => ({
