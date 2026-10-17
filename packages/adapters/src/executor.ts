@@ -386,6 +386,7 @@ import {
 import { advanceToolCallLoopGuard, loopGuardStopText } from "./tool-loop.js";
 import { textContentArg } from "./tool-text.js";
 import {
+  assistantTurnSeparator,
   botMessageOutcomeFromMidTurn,
   clampUserProgressMessage,
   extractNarrationText,
@@ -4194,6 +4195,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
         let pendingProgress = "";
         let lastProgressAt = 0;
         let hasStreamedText = false;
+        // Set by a tool call: the next text starts a new assistant turn and needs a break
+        // from the earlier text that stayed in this reply (held-back narration).
+        let assistantTurnBreakPending = false;
         let toolCallStreak: ToolCallStreak = { key: undefined, count: 0 };
         let lastComputerFrameId: string | undefined;
         let unchangedVisualStreak: UnchangedVisualStreak = { count: 0 };
@@ -7164,6 +7168,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
 
             if (event.type === "text") {
+              if (assistantTurnBreakPending && event.text) {
+                assistantTurnBreakPending = false;
+                const separator = assistantTurnSeparator(assembled, event.text);
+                if (separator) {
+                  assembled += separator;
+                  currentTextSegment += separator;
+                  pendingProgress += progressRedactor.push(separator);
+                }
+              }
               assembled += event.text;
               currentTextSegment += event.text;
               toolCallStreak = { key: undefined, count: 0 };
@@ -7308,6 +7321,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               if (event.name !== "message_user") {
                 await publishMidTurnNarration();
               }
+              assistantTurnBreakPending = true;
               await deps.events.append({
                 spaceId: run.spaceId,
                 threadId: thread.id,

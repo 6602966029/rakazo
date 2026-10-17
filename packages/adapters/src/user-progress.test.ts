@@ -2,6 +2,7 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { isToolActivityBlock } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import {
+  assistantTurnSeparator,
   botMessageOutcomeFromMidTurn,
   clampUserProgressMessage,
   extractNarrationText,
@@ -121,5 +122,21 @@ describe("userProgressClientNonce", () => {
     expect(userProgressClientNonce("run-1", 0)).not.toBe(nonce);
     expect(isUserProgressClientNonce(null)).toBe(false);
     expect(isUserProgressClientNonce("other")).toBe(false);
+  });
+});
+
+describe("assistantTurnSeparator", () => {
+  it("adds a paragraph break between turns that would run together", () => {
+    expect(
+      assistantTurnSeparator("posted at https://example.com/drafts/42", "Nothing changed."),
+    ).toBe("\n\n");
+    expect(assistantTurnSeparator("Nothing changed.", "NO_RESPONSE")).toBe("\n\n");
+  });
+
+  it("adds nothing when there is no earlier text or a side has whitespace", () => {
+    expect(assistantTurnSeparator("", "Hello.")).toBe("");
+    expect(assistantTurnSeparator("Done.", "")).toBe("");
+    expect(assistantTurnSeparator("Done.\n", "Next.")).toBe("");
+    expect(assistantTurnSeparator("Done.", " Next.")).toBe("");
   });
 });

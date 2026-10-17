@@ -39,6 +39,17 @@ export function isProgressMessageTruncated(text: string): boolean {
 }
 
 /**
+ * Text to put between the text of two assistant turns that end up in one reply,
+ * so they do not run together ("…/drafts/42Nothing has changed…").
+ * Empty when there is no earlier text or either side already has whitespace.
+ */
+export function assistantTurnSeparator(previous: string, next: string): string {
+  if (!previous || !next) return "";
+  if (/\s$/.test(previous) || /^\s/.test(next)) return "";
+  return "\n\n";
+}
+
+/**
  * Pull narration text out of the in-progress turn segments so it can be posted
  * as a durable mid-turn message. Tool/step blocks stay for the final publish.
  */
