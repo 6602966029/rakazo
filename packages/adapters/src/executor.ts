@@ -4145,8 +4145,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
         // Rehydrate from this run's prior progress rows so a resume after ask/takeover
         // still knows progress was already published (skip hollow finals; status outcome).
         let publishedMidTurnUserMessage = false;
-        // Routine runs discard promoted narration instead of posting it as chat.
+        // Routine, background and bot-to-bot runs discard promoted narration instead of
+        // posting it as chat.
         let discardedMidTurnNarration = false;
+        let lastDiscardedMidTurnNarration = "";
         const midTurnUserTexts: string[] = [];
         let midTurnProgressCount = 0;
         const turnStartedAtMs = run.startedAt?.getTime() ?? Date.now();
@@ -4246,6 +4248,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (!canPublish) {
             assembled = "";
             discardedMidTurnNarration = true;
+            lastDiscardedMidTurnNarration = narration;
             return;
           }
           assembled = "";
@@ -7277,6 +7280,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   publishedMidTurnUserMessage = true;
                 } else if (narration) {
                   discardedMidTurnNarration = true;
+                  lastDiscardedMidTurnNarration = narration;
                 }
                 assembled = "";
                 hasStreamedText = false;
@@ -7541,6 +7545,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
           await workspaceCheckpoint.flush();
           terminalCheckpointComplete = true;
 
+          // Save the last held-back narration as the final reply so outcome delivery
+          // can be retried from the persisted message after completion.
+          if (
+            run.trigger === "bot_message" &&
+            !allowSilentEmptyRun &&
+            !assembled.trim() &&
+            lastDiscardedMidTurnNarration
+          ) {
+            assembled = lastDiscardedMidTurnNarration;
+            currentTextSegment = assembled;
+          }
           flushPendingTools();
           // Only routine runs are instructed to emit NO_RESPONSE. Other
           // allowSilentEmpty wakes (FYI, messaging) may finish truly empty.
@@ -8491,8 +8506,13 @@ export function runAllowsSilentEmpty(trigger: string): boolean {
   return trigger === "routine" || isBackgroundRunTrigger(trigger);
 }
 
+/**
+ * Whether text written before a tool call is saved as a chat bubble. Bot-to-bot runs
+ * discard it: nobody reads those threads live, and the receiver's final reply is what
+ * goes back to the sender.
+ */
 export function runPromotesMidTurnNarration(trigger: string): boolean {
-  return trigger !== "routine" && !isBackgroundRunTrigger(trigger);
+  return trigger !== "routine" && trigger !== "bot_message" && !isBackgroundRunTrigger(trigger);
 }
 
 export const TICKET_SILENT_REPLY_GUIDANCE =
