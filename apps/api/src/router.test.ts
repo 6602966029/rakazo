@@ -3262,6 +3262,7 @@ describe("bot model auth on save", () => {
       description: bot.description,
     }));
     const tx = {
+      $queryRaw: vi.fn(async () => []),
       bot: { update: botUpdate },
       thread: { update: vi.fn(async () => ({ nextEventSeq: 2 })) },
       event: { create: vi.fn(async () => ({ seq: 1 })) },

@@ -109,15 +109,19 @@ import {
   effectiveMemoryScope,
   findDefaultModelCredential,
   findModelCredential,
+  InstructionConflictError,
   InvalidSpaceNameError,
   isTooManyDatabaseConnections,
   loadRunHistoryMessages,
   parseComputerMode,
   readHistory,
   recordUsage,
+  reserveInstructionProposal,
   retireModelCredential,
   SpaceLimitError,
   searchHistory,
+  validateInstructionProposal,
+  writeBotInstructions,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { parse as parseShellCommand } from "shell-quote";
@@ -4266,7 +4270,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           return occurrence;
         };
 
-        const applyTool = async (
+        const dispatchTool = async (
           name: string,
           args: Record<string, unknown>,
           executionId: string,
@@ -4279,6 +4283,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               error: "This stage was handed off. End the turn without more tool calls.",
             };
           }
+          if (name === "propose_instructions_update" && approvalPausePending)
+            return pauseForApproval();
           if (disabledBuiltinTools.has(name)) {
             return { error: "This tool is disabled for this bot." };
           }
@@ -4467,6 +4473,46 @@ export function createRunExecutor(deps: ExecutorDeps) {
               }
             }
           }
+          if (name === "propose_instructions_update") {
+            try {
+              if (run.trigger === "follow_up") {
+                const source = run.sourceMessageId
+                  ? await deps.prisma.message.findUnique({
+                      where: { id: run.sourceMessageId },
+                      select: { role: true },
+                    })
+                  : null;
+                if (source?.role !== "user")
+                  return {
+                    error: "Instruction updates are blocked for externally triggered runs.",
+                  };
+              }
+              if (!nextApprovedTool) validateInstructionProposal(args, run.trigger);
+              else
+                validateInstructionProposal(
+                  { instructions: args.instructions, reason: args.reason },
+                  run.trigger,
+                );
+              if (
+                redactSecrets(String(args.instructions), runSecrets) !== args.instructions ||
+                redactSecrets(String(args.reason), runSecrets) !== args.reason
+              )
+                return { error: "Instruction proposals cannot contain credentials." };
+              const instructionProposalBot = await reserveInstructionProposal(
+                deps.prisma,
+                bot.id,
+                runId,
+              );
+              if (!nextApprovedTool) {
+                args = { ...args, previousInstructions: instructionProposalBot.instructions };
+              }
+            } catch (error) {
+              return {
+                error: error instanceof Error ? error.message : "Invalid instruction proposal.",
+              };
+            }
+          }
+          if (name === "propose_instructions_update") effectRequest = args;
           const viaConnector = !BUILTIN_AGENT_TOOL_NAMES.has(name);
           // Declared effect of the operation this call dispatches (installed API method and
           // flag). Install config is immutable per route resource, so it cannot drift before
@@ -4753,9 +4799,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
               leaseOwner: workerId,
               leaseFence: fence,
               blocks: [
-                buildApprovalAskBlock(applied!.effect.id, name, args, runSecrets, {
-                  reviewReason,
-                }),
+                buildApprovalAskBlock(
+                  applied!.effect.id,
+                  name,
+                  name === "propose_instructions_update" ? { ...args, botId: bot.id } : args,
+                  runSecrets,
+                  {
+                    reviewReason,
+                  },
+                ),
               ],
             });
             // pauseRunForInput returning false after a successful renew means the run row no
@@ -6219,6 +6271,59 @@ export function createRunExecutor(deps: ExecutorDeps) {
               result: String(args.task ?? "done."),
             };
           }
+          if (name === "propose_instructions_update") {
+            if (nextApprovedTool !== name || !claimedEffect) {
+              return finish({ error: "Instruction updates require human approval." });
+            }
+            const committed = await deps.prisma.$transaction(async (tx) => {
+              await tx.$queryRaw`SELECT id FROM threads WHERE id = ${run.threadId} FOR UPDATE`;
+              await tx.$queryRaw`SELECT id FROM runs WHERE id = ${runId} FOR UPDATE`;
+              const live = await tx.run.findUnique({ where: { id: runId } });
+              if (!mayOpenModelStream(live, workerId, fence, context.signal.aborted)) {
+                throw new Error("Instruction update run is no longer active.");
+              }
+              let undoVersionId: string | null;
+              try {
+                undoVersionId = await writeBotInstructions(tx, {
+                  botId: bot.id,
+                  instructions: String(args.instructions),
+                  reason: String(args.reason),
+                  expectedInstructions: String(args.previousInstructions),
+                  proposalRunId: runId,
+                });
+              } catch (error) {
+                if (!(error instanceof InstructionConflictError)) throw error;
+                await tx.bot.updateMany({
+                  where: { id: bot.id, pendingInstructionsRunId: runId },
+                  data: { pendingInstructionsRunId: null },
+                });
+                return { error: error.message };
+              }
+              if (!undoVersionId) return null;
+              return persistMessageInTransaction(tx, run, "bot", [
+                {
+                  kind: "ask",
+                  text: "Instructions updated",
+                  status: "answered",
+                  instructionUpdate: {
+                    botId: bot.id,
+                    before: redactSecrets(String(args.previousInstructions), runSecrets),
+                    after: String(args.instructions),
+                    reason: String(args.reason),
+                    undoVersionId,
+                  },
+                },
+              ]);
+            });
+            if (committed && "error" in committed) return finish(committed);
+            if (committed)
+              await deps.events
+                .notify(run.threadId, committed.eventSeq)
+                .catch((error) =>
+                  getLogger().error("instruction update realtime notification", error),
+                );
+            return finish({ ok: true });
+          }
           if (name === "create_space") {
             try {
               const space = await createSpaceForMember(deps.prisma, {
@@ -6553,6 +6658,20 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return finish(result);
           }
           return finish({ error: `unknown tool ${name}` });
+        };
+
+        // Runtimes may dispatch parallel calls; a run can open only one proposal at a time.
+        let instructionProposalInFlight = false;
+        const applyTool = async (...params: Parameters<typeof dispatchTool>) => {
+          if (params[0] !== "propose_instructions_update") return dispatchTool(...params);
+          if (instructionProposalInFlight)
+            return { error: "This bot already has a pending instruction proposal." };
+          instructionProposalInFlight = true;
+          try {
+            return await dispatchTool(...params);
+          } finally {
+            instructionProposalInFlight = false;
+          }
         };
 
         const pluginLine =

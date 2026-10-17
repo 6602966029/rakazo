@@ -186,6 +186,7 @@ import {
   findSpaceMemoryConfig,
   findTicket,
   formatMessagingLinkCode,
+  InstructionConflictError,
   InvalidSpaceNameError,
   IsolationError,
   issueMessagingLinkCode,
@@ -1748,11 +1749,13 @@ export function createRouter(deps: RouterDeps) {
           threadId: existing.thread.id,
           botId: input.botId,
           emitBotUpdated: botProfileLabelsChanged(input),
+          expectedInstructions: input.expectedInstructions,
           data: {
             name: input.name,
             title: input.title,
             description: input.description,
             instructions: input.instructions,
+            selfUpdateInstructions: input.selfUpdateInstructions,
             notifyOnFinish: input.notifyOnFinish,
             color: input.color,
             pinned: input.pinned,
@@ -1772,11 +1775,35 @@ export function createRouter(deps: RouterDeps) {
               ? { disabledBuiltinTools: input.disabledBuiltinTools }
               : {}),
           },
+        }).catch((error) => {
+          if (!(error instanceof InstructionConflictError)) throw error;
+          throw new ORPCError("CONFLICT", { message: error.message });
         });
         const bots = await repos.listBots(context.actor);
         const bot = bots.find((b) => b.id === input.botId);
         if (!bot) throw new IsolationError();
         return bot;
+      }),
+      restoreInstructions: authed.bots.restoreInstructions.handler(async ({ context, input }) => {
+        const bot = await repos.getBot(context.actor, input.botId);
+        if (!bot.thread) throw new IsolationError();
+        try {
+          await commitBotUpdate({
+            prisma: deps.prisma,
+            notify: (threadId, seq) => deps.events.notify(threadId, seq),
+            spaceId: context.actor.spaceId,
+            threadId: bot.thread.id,
+            botId: bot.id,
+            data: {},
+            emitBotUpdated: true,
+            expectedInstructions: input.expectedInstructions,
+            instructionRestore: { versionId: input.versionId, undo: input.undo },
+          });
+        } catch (error) {
+          if (!(error instanceof InstructionConflictError)) throw error;
+          throw new ORPCError("CONFLICT", { message: error.message });
+        }
+        return (await repos.listBots(context.actor)).find((bot) => bot.id === input.botId)!;
       }),
       setComputer: authed.bots.setComputer.handler(async ({ context, input }) => {
         const bot = await repos.getBot(context.actor, input.botId);

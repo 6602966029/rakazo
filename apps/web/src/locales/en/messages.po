@@ -610,6 +610,10 @@ msgstr "API key header"
 msgid "Appearance"
 msgstr "Appearance"
 
+#: src/components/AskCard.tsx
+msgid "Apply"
+msgstr "Apply"
+
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Approval boundaries"
 msgstr "Approval boundaries"
@@ -2067,6 +2071,7 @@ msgstr "Disconnected {0}."
 msgid "Disconnecting…"
 msgstr "Disconnecting…"
 
+#: src/components/AskCard.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
 #: src/pages/shell/message-cards.tsx
@@ -2076,6 +2081,10 @@ msgstr "Dismiss"
 #: src/pages/Shell.tsx
 msgid "Dismiss error"
 msgstr "Dismiss error"
+
+#: src/components/AskCard.tsx
+msgid "Dismissed"
+msgstr "Dismissed"
 
 #: src/pages/shell/message-cards.tsx
 msgid "Dismissed. Reconnect anytime from MCP settings."
@@ -2150,6 +2159,10 @@ msgstr "Duplicate"
 #: src/pages/shell/bot-panel.tsx
 msgid "e.g. Hivenet Agent, Presales, Timesheets bot"
 msgstr "e.g. Hivenet Agent, Presales, Timesheets bot"
+
+#: src/components/AskCard.tsx
+msgid "Edit"
+msgstr "Edit"
 
 #: src/components/AskCard.tsx
 msgid "Edit first"
@@ -2556,6 +2569,19 @@ msgstr "Instance API key"
 #: src/pages/RoutineEditor.tsx
 msgid "Instruction"
 msgstr "Instruction"
+
+#: src/components/InstructionSettings.tsx
+msgid "Instruction history"
+msgstr "Instruction history"
+
+#: src/components/AskCard.tsx
+#: src/components/InstructionSettings.tsx
+msgid "Instructions"
+msgstr "Instructions"
+
+#: src/components/AskCard.tsx
+msgid "Instructions updated"
+msgstr "Instructions updated"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Integration domain"
@@ -3654,6 +3680,10 @@ msgstr "Release control"
 msgid "Release interrupted computer?"
 msgstr "Release interrupted computer?"
 
+#: src/components/InstructionSettings.tsx
+msgid "Reload"
+msgstr "Reload"
+
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -3798,6 +3828,7 @@ msgstr "Resize panel"
 msgid "Restart to update"
 msgstr "Restart to update"
 
+#: src/components/InstructionSettings.tsx
 #: src/pages/Shell.tsx
 msgid "Restore"
 msgstr "Restore"
@@ -3809,6 +3840,10 @@ msgstr "Restore the last saved workspace."
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Restore the last saved workspace. Unsaved work on the computer is lost."
 msgstr "Restore the last saved workspace. Unsaved work on the computer is lost."
+
+#: src/components/AskCard.tsx
+msgid "Restored"
+msgstr "Restored"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Restoring your workspace"
@@ -4646,6 +4681,10 @@ msgstr "Unassigned"
 msgid "Unavailable"
 msgstr "Unavailable"
 
+#: src/components/AskCard.tsx
+msgid "Undo"
+msgstr "Undo"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
 msgstr "Uninstall"
@@ -4696,6 +4735,10 @@ msgstr "Update failed"
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Update finished with errors"
 msgstr "Update finished with errors"
+
+#: src/components/AskCard.tsx
+msgid "Update instructions?"
+msgstr "Update instructions?"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Update progress"

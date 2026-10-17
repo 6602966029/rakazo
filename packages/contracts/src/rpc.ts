@@ -295,6 +295,16 @@ export const appContract = {
     duplicate: oc.input(botId).output(BotSchema),
     reorder: oc.input(ReorderBotsInput).output(z.object({ ok: z.literal(true) })),
     update: oc.input(UpdateBotInput).output(BotSchema),
+    restoreInstructions: oc
+      .input(
+        z.object({
+          botId: Id,
+          versionId: Id,
+          expectedInstructions: z.string(),
+          undo: z.boolean().optional(),
+        }),
+      )
+      .output(BotSchema),
     setComputer: oc.input(z.object({ botId: Id, mode: ComputerModeSchema })).output(BotSchema),
     archive: oc.input(botId).output(z.object({ ok: z.literal(true) })),
     restore: oc.input(botId).output(z.object({ ok: z.literal(true) })),
