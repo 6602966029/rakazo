@@ -218,6 +218,7 @@ afterEach(() => vi.useRealTimers());
 describe("Pi runtime transient model retries", () => {
   it.each([
     "terminated",
+    "Stream ended without finish_reason",
     "Codex error: Our servers are currently overloaded. Please try again later.",
   ])(
     "recovers from two pre-output failures with %s and commits one assistant message",
@@ -302,22 +303,25 @@ describe("Pi runtime transient model retries", () => {
     expect(providerState.delay.mock.calls.map(([delay]) => delay)).toEqual([2_000]);
   });
 
-  it("does not retry after a tool call starts even if the terminal error omits it", async () => {
-    const failure = message(primary, [], "error", "terminated");
-    providerState.stream.mockImplementation(() => {
-      const result = new AssistantMessageEventStream();
-      result.push({ type: "start", partial: failure });
-      result.push({ type: "toolcall_start", contentIndex: 0, partial: failure });
-      result.push({ type: "error", reason: "error", error: failure });
-      result.end(failure);
-      return result;
-    });
-    const input = request([{ provider: backupA.provider, id: backupA.id, apiKey: "backup-key" }]);
-    await expect(run(input)).rejects.toThrow("terminated");
-    expect(providerState.stream).toHaveBeenCalledOnce();
-    expect(providerState.delay).not.toHaveBeenCalled();
-    expect(input.executeTool).not.toHaveBeenCalled();
-  });
+  it.each(["terminated", "Stream ended without finish_reason"])(
+    "does not retry after a tool call starts even if %s omits it",
+    async (error) => {
+      const failure = message(primary, [], "error", error);
+      providerState.stream.mockImplementation(() => {
+        const result = new AssistantMessageEventStream();
+        result.push({ type: "start", partial: failure });
+        result.push({ type: "toolcall_start", contentIndex: 0, partial: failure });
+        result.push({ type: "error", reason: "error", error: failure });
+        result.end(failure);
+        return result;
+      });
+      const input = request([{ provider: backupA.provider, id: backupA.id, apiKey: "backup-key" }]);
+      await expect(run(input)).rejects.toThrow(error);
+      expect(providerState.stream).toHaveBeenCalledOnce();
+      expect(providerState.delay).not.toHaveBeenCalled();
+      expect(input.executeTool).not.toHaveBeenCalled();
+    },
+  );
 
   it("retries the same model for a helper agent without configured backups", async () => {
     const input = request();
