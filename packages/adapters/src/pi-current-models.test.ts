@@ -23,6 +23,57 @@ describe("current model compatibility", () => {
     ).toEqual(["low", "medium", "high", "xhigh", "max"]);
   });
   it.each([
+    ["us.anthropic.claude-sonnet-5-5", "us.anthropic.claude-sonnet-5"],
+    ["global.anthropic.claude-sonnet-5-5", "global.anthropic.claude-sonnet-5"],
+    ["us.openai.gpt-6.1-sol", "us.openai.gpt-6-astra"],
+  ])("lists Bedrock %s with the endpoint and efforts of %s", (id, baseId) => {
+    const catalog = listPiCatalog();
+    const levels = (modelId: string) =>
+      catalog.find((entry) => entry.provider === "amazon-bedrock" && entry.id === modelId)
+        ?.thinkingLevels;
+    expect(levels(id)).toBeDefined();
+    expect(levels(id)).toEqual(levels(baseId));
+    const models = supplementPiModels(builtinModels());
+    const model = models.getModel("amazon-bedrock", id);
+    expect(model?.baseUrl).toBe(models.getModel("amazon-bedrock", baseId)?.baseUrl);
+    expect(model?.input).toContain("image");
+  });
+  it("leaves Claude Haiku 5.5 off Bedrock until the transport supports it", () => {
+    const models = supplementPiModels(builtinModels());
+    expect(models.getModel("amazon-bedrock", "us.anthropic.claude-haiku-5-5")).toBeUndefined();
+  });
+  it("disables strict tools only for the India Haiku 4.5 profile", () => {
+    const models = supplementPiModels(builtinModels());
+    const sibling = models.getModel(
+      "amazon-bedrock",
+      "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    );
+    const model = models.getModel("amazon-bedrock", "in.anthropic.claude-haiku-4-5-20251001-v1:0");
+    expect(sibling?.compat).toMatchObject({ supportsStrictMode: true });
+    expect(model?.compat).toEqual({ ...sibling?.compat, supportsStrictMode: false });
+  });
+  it.each([
+    [
+      "us.openai.gpt-6.1-sol",
+      {
+        input: 2.2,
+        output: 11,
+        cacheRead: 0.11,
+        cacheWrite: 2.75,
+        tiers: [
+          { inputTokensAbove: 272000, input: 4.4, output: 16.5, cacheRead: 0.22, cacheWrite: 5.5 },
+        ],
+      },
+    ],
+    [
+      "eu.anthropic.claude-sonnet-5-5",
+      { input: 2.2, output: 11, cacheRead: 0.11, cacheWrite: 2.75 },
+    ],
+  ] as const)("uses catalog prices for Bedrock %s", (id, cost) => {
+    const models = supplementPiModels(builtinModels());
+    expect(models.getModel("amazon-bedrock", id)?.cost).toEqual(cost);
+  });
+  it.each([
     ["opencode", "claude-haiku-5-5", "claude-haiku-4-5"],
     ["opencode", "claude-sonnet-5-5", "claude-sonnet-5"],
     ["opencode-go", "claude-haiku-5-5", "minimax-m3"],
