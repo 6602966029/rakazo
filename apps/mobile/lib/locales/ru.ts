@@ -154,7 +154,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Add thumbs-up": "Поставить отметку «Нравится»",
   "Add Treg": "Добавить Treg",
   "Agent messages": "Сообщения агента",
-  "Alerts from routines": "Уведомления от задач",
   "Allowed once": "Разрешено один раз",
   "Allow once": "Разрешить один раз",
   "Already have an account?": "У вас уже есть аккаунт?",
@@ -418,7 +417,6 @@ export const RU_MESSAGES: Record<string, string> = {
     "Нажмите и удерживайте, чтобы закрепить или переместить в раздел",
   "Long press to pin, move, or silence notifications":
     "Длительное нажатие, чтобы закрепить, переместить или отключить уведомления",
-  "Enter your Rakazo server address.": "Введите адрес вашего сервера Rakazo.",
   "Show less": "Свернуть",
   Members: "Участники",
   "Members ({min}–{max})": "Участники ({min}–{max})",
@@ -602,7 +600,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Waiting for this bot’s response.": "Ожидание ответа этого бота.",
   "Waiting…": "Ожидание…",
   "What this bot is for": "Для чего нужен этот бот",
-  "While agents are working": "Пока агенты работают",
   Working: "Выполняется",
   "Working…": "Выполняется…",
   "Work stopped, but the thread could not refresh: {detail}":

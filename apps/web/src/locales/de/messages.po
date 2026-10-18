@@ -939,10 +939,6 @@ msgstr "Diagramm konnte nicht angezeigt werden: {error}"
 msgid "Chat apps"
 msgstr ""
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Chat apps, group channels, and agent connections."
-msgstr ""
-
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "Chat-Einstellungen"
@@ -2778,10 +2774,6 @@ msgstr "MCP-Server verwalten"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Manage messaging settings"
 msgstr ""
-
-#: src/pages/MemorySettingsOverlay.tsx
-msgid "Manage the Space semantic memory provider."
-msgstr "Verwalte den Anbieter für semantische Erinnerungen des Arbeitsbereichs."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Manual"

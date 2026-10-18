@@ -939,10 +939,6 @@ msgstr "Chart failed to render: {error}"
 msgid "Chat apps"
 msgstr "Chat apps"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Chat apps, group channels, and agent connections."
-msgstr "Chat apps, group channels, and agent connections."
-
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "Chat Settings"
@@ -2778,10 +2774,6 @@ msgstr "Manage MCP servers"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Manage messaging settings"
 msgstr "Manage messaging settings"
-
-#: src/pages/MemorySettingsOverlay.tsx
-msgid "Manage the Space semantic memory provider."
-msgstr "Manage the Space semantic memory provider."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Manual"

@@ -939,10 +939,6 @@ msgstr "Не удалось отобразить диаграмму: {error}."
 msgid "Chat apps"
 msgstr "Приложения для чата"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Chat apps, group channels, and agent connections."
-msgstr "Приложения чата, групповые каналы и подключения агентов."
-
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "Настройки чата"
@@ -2778,10 +2774,6 @@ msgstr "Управление серверами MCP"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Manage messaging settings"
 msgstr "Управление настройками обмена сообщениями"
-
-#: src/pages/MemorySettingsOverlay.tsx
-msgid "Manage the Space semantic memory provider."
-msgstr "Управляйте провайдером семантической памяти Space."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Manual"
