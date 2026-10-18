@@ -112,6 +112,7 @@ import {
   selectDefaultCredentialId,
   serializeModelSecret,
   storeBotSecret,
+  storedOpenAiCompatibleProbeKey,
   takeoverLeaseMs,
   toComputerRef,
   touchRunningComputer,
@@ -1293,8 +1294,36 @@ export function createRouter(deps: RouterDeps) {
       }),
       probeOpenAiCompatible: authed.models.probeOpenAiCompatible.handler(
         async ({ context, input }) => {
+          let apiKey = input.apiKey;
+          if (!apiKey?.trim()) {
+            try {
+              const credential = await findModelCredential(
+                deps.prisma,
+                context.actor,
+                OPENAI_COMPATIBLE_PROVIDER_ID,
+              );
+              if (credential) {
+                const secret = await deps.prisma.secret.findFirst({
+                  where: { id: credential.secretId, userId: context.actor.userId, spaceId: null },
+                  select: { ciphertext: true },
+                });
+                if (secret) {
+                  apiKey = storedOpenAiCompatibleProbeKey(
+                    input.baseUrl,
+                    await deps.secrets.load(secret.ciphertext, credential.secretId),
+                  );
+                }
+              }
+            } catch {
+              // An unavailable saved key must not prevent a keyless probe.
+            }
+          }
           try {
-            const models = await probeOpenAiCompatibleModels(input, undefined, context.signal);
+            const models = await probeOpenAiCompatibleModels(
+              { ...input, apiKey },
+              undefined,
+              context.signal,
+            );
             return { models };
           } catch (error) {
             throw new ORPCError("BAD_REQUEST", {

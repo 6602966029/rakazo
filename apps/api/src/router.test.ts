@@ -5,6 +5,7 @@ import { createRouterClient } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import type { ManagedConnectorProvider } from "@rakazo/adapter-kit";
 import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
+import * as adapters from "@rakazo/adapters";
 import {
   COMPUTER_SCREEN_UNAVAILABLE,
   CodexCatalogCache,
@@ -1946,6 +1947,139 @@ describe("interrupted computer reservation release", () => {
       data: { maintenanceId: null, state: "error" },
     });
     expect(order).toEqual(["operation", "computer"]);
+  });
+});
+
+describe("OpenAI-compatible model probes", () => {
+  const actor = {
+    spaceId: "workspace-1",
+    userId: "user-1",
+    email: "user@rakazo.test",
+    isDeploymentOwner: true,
+  } satisfies Actor;
+  const baseUrl = "https://127.0.0.1:8000/v1";
+  const stored = JSON.stringify({ kind: "openai_compatible", baseUrl, apiKey: "fake-saved-key" });
+
+  function fixture(options: { credentialUserId?: string; secretUserId?: string } = {}) {
+    const credential = {
+      id: "cred-1",
+      userId: options.credentialUserId ?? actor.userId,
+      provider: "openai-compatible",
+      secretId: "secret-1",
+    };
+    const findCredential = vi.fn(
+      async ({ where }: { where: { userId: string; provider: string } }) =>
+        where.userId === credential.userId && where.provider === credential.provider
+          ? credential
+          : null,
+    );
+    const findSecret = vi.fn(
+      async ({ where }: { where: { userId: string; id: string; spaceId: null } }) =>
+        where.userId === (options.secretUserId ?? actor.userId) &&
+        where.id === credential.secretId &&
+        where.spaceId === null
+          ? { ciphertext: "fake-ciphertext" }
+          : null,
+    );
+    const load = vi.fn().mockResolvedValue(stored);
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json({ data: [{ id: "test-model" }] }),
+    );
+    const probe = adapters.probeOpenAiCompatibleModels;
+    vi.spyOn(adapters, "probeOpenAiCompatibleModels").mockImplementation((input, _, signal) =>
+      probe(input, fetch, signal),
+    );
+    const deps = {
+      prisma: {
+        spaceModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
+        userModelCredential: { findFirst: findCredential },
+        secret: { findFirst: findSecret },
+      },
+      secrets: { load },
+      env: { sandboxProvider: "fake" },
+    } as unknown as RouterDeps;
+    const client = createRouterClient(createRouter(deps), { context: { actor } as never });
+    return { client, fetch, findCredential, findSecret, load };
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([undefined, "", "   "])("uses the saved key for a blank key %j", async (apiKey) => {
+    const { client, fetch, findSecret, load } = fixture();
+    const response = await client.models.probeOpenAiCompatible({ baseUrl, apiKey });
+    expect(fetch).toHaveBeenCalledWith(
+      new URL(`${baseUrl}/models`),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer fake-saved-key" }),
+      }),
+    );
+    expect(findSecret).toHaveBeenCalledWith({
+      where: { id: "secret-1", userId: actor.userId, spaceId: null },
+      select: { ciphertext: true },
+    });
+    expect(load).toHaveBeenCalledWith("fake-ciphertext", "secret-1");
+    expect(response).toEqual({ models: ["test-model"] });
+    expect(JSON.stringify(response)).not.toContain("fake-saved-key");
+  });
+
+  it("uses a typed key without looking up the stored credential", async () => {
+    const { client, fetch, findCredential, load } = fixture();
+    await client.models.probeOpenAiCompatible({ baseUrl, apiKey: " fake-typed-key " });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer fake-typed-key" }),
+      }),
+    );
+    expect(findCredential).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it("does not send the saved key to a different endpoint", async () => {
+    const { client, fetch } = fixture();
+    await client.models.probeOpenAiCompatible({ baseUrl: "https://127.0.0.2:8000/v1" });
+    expect(fetch.mock.calls[0]?.[1]?.headers).not.toHaveProperty("Authorization");
+  });
+
+  it.each([{ credentialUserId: "other-user" }, { secretUserId: "other-user" }])(
+    "does not load another user's credential or secret: %j",
+    async (options) => {
+      const { client, fetch, findCredential, load } = fixture(options);
+      await client.models.probeOpenAiCompatible({ baseUrl });
+      expect(findCredential).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: actor.userId, provider: "openai-compatible" } }),
+      );
+      expect(load).not.toHaveBeenCalled();
+      expect(fetch.mock.calls[0]?.[1]?.headers).not.toHaveProperty("Authorization");
+    },
+  );
+
+  it.each(["unavailable", "corrupt"])(
+    "falls back when the stored secret is %s",
+    async (failure) => {
+      const { client, fetch, load } = fixture();
+      if (failure === "unavailable") load.mockRejectedValue(new Error("Secret unavailable"));
+      else load.mockResolvedValue('{"kind":"openai_compatible"}');
+      await expect(client.models.probeOpenAiCompatible({ baseUrl })).resolves.toEqual({
+        models: ["test-model"],
+      });
+      expect(fetch.mock.calls[0]?.[1]?.headers).not.toHaveProperty("Authorization");
+    },
+  );
+
+  it("still rejects saved keys on public HTTP endpoints", async () => {
+    vi.stubEnv("RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC", "1");
+    try {
+      const { client, fetch, load } = fixture();
+      const baseUrl = "http://example.invalid/v1";
+      load.mockResolvedValue(
+        JSON.stringify({ kind: "openai_compatible", baseUrl, apiKey: "fake-saved-key" }),
+      );
+      await expect(client.models.probeOpenAiCompatible({ baseUrl })).rejects.toThrow(/HTTPS/);
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
