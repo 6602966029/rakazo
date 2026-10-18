@@ -477,6 +477,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const pinnedScroll = useRef<ScrollView>(null);
   const scrollBehavior = useRef(new ThreadScrollBehavior());
   const scrollIdleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const nativeMomentumActive = useRef(false);
   const loadingOlderContent = useRef(false);
   const expandedHistoryThread = useRef<string | null>(null);
   const historyEpoch = useRef(0);
@@ -522,7 +523,10 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     joinPinnedAfterLayout.current = null;
     loadingOlderContent.current = false;
     publishThreadScrollState(scrollBehavior.current.state());
-    return () => clearTimeout(scrollIdleTimer.current);
+    return () => {
+      clearTimeout(scrollIdleTimer.current);
+      nativeMomentumActive.current = false;
+    };
   }, [threadKey, publishThreadScrollState]);
   const reducedMotion = useReducedMotion();
   const artifactTarget: MobileArtifactTarget | undefined = groupId
@@ -1998,12 +2002,16 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   function scheduleScrollIdle() {
     clearTimeout(scrollIdleTimer.current);
-    // Some drags/flings never emit momentum-end. Every scroll event renews the
-    // grace period; the behavior also refuses to settle while a finger is down.
-    scrollIdleTimer.current = setTimeout(() => {
-      performScroll(scrollBehavior.current.onUserMomentumEnd());
-      publishThreadScrollState(scrollBehavior.current.state());
-    }, 200);
+    // Every scroll event renews the fallback. Native momentum gets a longer
+    // grace period, but a missing momentum-end must still recover after silence.
+    scrollIdleTimer.current = setTimeout(
+      () => {
+        nativeMomentumActive.current = false;
+        performScroll(scrollBehavior.current.onUserMomentumEnd());
+        publishThreadScrollState(scrollBehavior.current.state());
+      },
+      nativeMomentumActive.current ? 1000 : 200,
+    );
   }
 
   function updateUserScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -2395,6 +2403,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             scrollEventThrottle={16}
             onScrollBeginDrag={() => {
               clearTimeout(scrollIdleTimer.current);
+              nativeMomentumActive.current = false;
               scrollBehavior.current.onUserDragStart();
             }}
             onScroll={(event) => {
@@ -2406,7 +2415,12 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
               scrollBehavior.current.onUserDragEnd();
               scheduleScrollIdle();
             }}
+            onMomentumScrollBegin={() => {
+              nativeMomentumActive.current = true;
+              scheduleScrollIdle();
+            }}
             onMomentumScrollEnd={(event) => {
+              nativeMomentumActive.current = false;
               if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
               clearTimeout(scrollIdleTimer.current);
               performScroll(scrollBehavior.current.onUserMomentumEnd());
