@@ -1,4 +1,12 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Too many attempts. Try again in a few minutes.":
+    "Zu viele Versuche. Versuche es in ein paar Minuten erneut.",
+  "The server had a problem. Try again in a moment.":
+    "Auf dem Server ist ein Problem aufgetreten. Versuche es gleich noch einmal.",
+  "Password sign-in is turned off on this server":
+    "Die Anmeldung mit Passwort ist auf diesem Server deaktiviert",
+  "Could not save your sign-in on this device. Try again.":
+    "Deine Anmeldung konnte auf diesem Gerät nicht gespeichert werden. Versuche es erneut.",
   "Your OpenRouter": "Dein OpenRouter",
   "Your OpenAI": "Dein OpenAI",
   "Your Anthropic": "Dein Anthropic",

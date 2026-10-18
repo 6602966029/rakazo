@@ -1,4 +1,11 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Too many attempts. Try again in a few minutes.":
+    "Слишком много попыток. Попробуйте снова через несколько минут.",
+  "The server had a problem. Try again in a moment.":
+    "На сервере возникла проблема. Попробуйте снова чуть позже.",
+  "Password sign-in is turned off on this server": "Вход по паролю на этом сервере отключён",
+  "Could not save your sign-in on this device. Try again.":
+    "Не удалось сохранить вход на этом устройстве. Попробуйте снова.",
   "Your OpenRouter": "Ваш OpenRouter",
   "Your OpenAI": "Ваш OpenAI",
   "Your Anthropic": "Ваш Anthropic",
