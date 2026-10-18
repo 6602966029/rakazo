@@ -99,14 +99,24 @@ export default function SearchSheet() {
         const selection = selectSpace(row.spaceId);
         selectionSeq = spaceSelectionSeq();
         selected = await selection;
-        if (!isCurrent()) return;
+        if (
+          !isCurrent() ||
+          selectionSeq !== spaceSelectionSeq() ||
+          (selected && selectedSpaceId() !== row.spaceId)
+        )
+          return;
         if (!selected) {
           Alert.alert(t("Could not switch spaces"), t("Try again."));
           return;
         }
       }
       await KeyboardController.dismiss();
-      if (!isCurrent()) return;
+      if (
+        !isCurrent() ||
+        (selectionSeq !== undefined &&
+          (selectionSeq !== spaceSelectionSeq() || selectedSpaceId() !== row.spaceId))
+      )
+        return;
       // Replace removes the sheet from history while preserving messageId search jumps.
       navigated = true;
       router.replace(row.destination);

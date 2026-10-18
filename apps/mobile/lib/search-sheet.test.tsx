@@ -416,6 +416,56 @@ it.each(["space-c", "space-b"])(
   },
 );
 
+it.each(
+  ["space switch", "keyboard dismiss"].flatMap((stage) =>
+    ["space-c", "space-b"].map((nextSpace) => ({ stage, nextSpace })),
+  ),
+)(
+  "skips stale navigation after a newer pending $nextSpace selection during $stage",
+  async ({ stage, nextSpace }) => {
+    let finishOpen!: () => void;
+    const pending = new Promise<void>((resolve) => (finishOpen = resolve));
+    if (stage === "space switch") {
+      state.selectSpace.mockImplementationOnce(async (id: string) => {
+        state.spaceId = id;
+        await pending;
+        state.persistedSpaceId = id;
+        return true;
+      });
+    } else {
+      state.dismiss.mockReturnValueOnce(pending);
+    }
+    await act(async () => row("Team, Group").click());
+
+    let finishCleanup!: () => void;
+    state.selectSpace.mockImplementationOnce(async (id: string) => {
+      await new Promise<void>((resolve) => (finishCleanup = resolve));
+      state.spaceId = id;
+      state.persistedSpaceId = id;
+      return true;
+    });
+    const homeSelection = selectSpace(nextSpace);
+    // The newer request owns the selection even while B remains active.
+    expect(state.spaceId).toBe("space-b");
+    await act(async () => finishOpen());
+    expect(state.replace).not.toHaveBeenCalled();
+    expect(state.selectSpace.mock.calls).toEqual([["space-b"], [nextSpace]]);
+    expect(state.alert).not.toHaveBeenCalled();
+    if (stage === "space switch") expect(state.dismiss).not.toHaveBeenCalled();
+    await act(async () => {
+      finishCleanup();
+      expect(await homeSelection).toBe(true);
+    });
+    expect(state.spaceId).toBe(nextSpace);
+    expect(state.persistedSpaceId).toBe(nextSpace);
+
+    // The focused sheet must allow another row tap after aborting the stale open.
+    await act(async () => row("Team, Group").click());
+    expect(state.replace).toHaveBeenCalledOnce();
+    expect(state.selectSpace.mock.calls).toEqual([["space-b"], [nextSpace], ["space-b"]]);
+  },
+);
+
 it.each(["session", "server", "selection"])(
   "does not restore a cancelled attempt over a newer %s",
   async (changed) => {
