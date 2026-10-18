@@ -133,6 +133,7 @@ import type {
   ExportManifest,
   McpServer,
   Me,
+  MessageBlock,
   ProductEvent,
   Routine,
   SpaceNavigation,
@@ -160,6 +161,8 @@ import {
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
   nextCronDateAcrossStrict,
+  speakable,
+  speechFromBlocks,
 } from "@rakazo/core";
 import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
@@ -238,6 +241,12 @@ import {
   toComputerStatus,
 } from "./computer-status.js";
 import { searchIntegrationCatalog } from "./integration-catalog.js";
+import {
+  createMacSaySpeaker,
+  type MacSaySpeaker,
+  macVoiceInstalled,
+  macVoicePreview,
+} from "./mac-say.js";
 import {
   dismissMcpServerApprovals,
   resolveMcpApprovalCards,
@@ -580,6 +589,8 @@ export interface RouterDeps {
   remoteConnectors?: RemoteConnectorDependencies;
   artifacts: ArtifactStore;
   dataDir: string;
+  /** Host `say` speaker. Null away from macOS. Tests inject a fake. */
+  macSay?: MacSaySpeaker | null;
   /** Present when the external messaging surface is enabled. */
   messaging?: { enabled: boolean; providers: string[]; openSignup: boolean };
   /** Present only when the deployment bills; self-hosted installs leave it unset. */
@@ -754,6 +765,7 @@ async function resolveSpaceBoard(
 }
 
 export function createRouter(deps: RouterDeps) {
+  const macSay = deps.macSay === undefined ? createMacSaySpeaker() : deps.macSay;
   const os = implement(appContract).$context<{
     actor: Actor | null;
     /** The signed-in session, so a push token ends with the session that registered it. */
@@ -1742,6 +1754,12 @@ export function createRouter(deps: RouterDeps) {
           }
         }
         if (!existing.thread) throw new IsolationError();
+        if (input.macVoice) {
+          const installed = macSay ? await macSay.list() : [];
+          if (!macVoiceInstalled(input.macVoice, installed)) {
+            throw new ORPCError("BAD_REQUEST", { message: "That Mac voice is not installed." });
+          }
+        }
         await commitBotUpdate({
           prisma: deps.prisma,
           notify: (threadId, seq) => deps.events.notify(threadId, seq),
@@ -1763,6 +1781,12 @@ export function createRouter(deps: RouterDeps) {
             sectionId: input.sectionId,
             voiceId: input.voiceId,
             autoSpeak: input.autoSpeak,
+            ...(input.macVoice !== undefined
+              ? {
+                  macVoice: input.macVoice,
+                  ...(input.macVoice ? { autoSpeak: true } : {}),
+                }
+              : {}),
             ...(input.modelProvider !== undefined
               ? { modelProvider: input.modelProvider, modelId: input.modelId ?? null }
               : {}),
@@ -6156,8 +6180,15 @@ export function createRouter(deps: RouterDeps) {
       ),
       voices: authed.voice.voices.handler(async ({ context, input }) => {
         const loaded = await loadDefaultVoiceCredential(deps, context.actor);
-        if (!loaded) return [];
-        const providerId = input.provider ?? loaded.cred.provider;
+        const providerId = input.provider ?? loaded?.cred.provider;
+        if (providerId === "macos") {
+          if (!macSay) return [];
+          return (await macSay.list()).map((voice) => ({
+            id: `macos:${voice.name}`,
+            label: voice.name,
+          }));
+        }
+        if (!loaded || !providerId) return [];
         const row =
           providerId === loaded.cred.provider
             ? loaded
@@ -6171,6 +6202,41 @@ export function createRouter(deps: RouterDeps) {
       prepare: authed.voice.prepare.handler(async ({ context, input }) =>
         prepareVoice(deps, context.actor, input),
       ),
+      spokenText: authed.voice.spokenText.handler(async ({ context, input }) => {
+        const bot = await deps.prisma.bot.findFirst({
+          where: { id: input.botId, spaceId: context.actor.spaceId, userId: context.actor.userId },
+          select: { id: true, macVoice: true, thread: { select: { id: true } } },
+        });
+        if (!bot?.thread) throw new IsolationError();
+        const message = await deps.prisma.message.findFirst({
+          where: { id: input.messageId, threadId: bot.thread.id, role: "bot" },
+          select: { blocks: true },
+        });
+        if (!message) throw new IsolationError();
+        const text = speakable(speechFromBlocks(message.blocks as MessageBlock[]));
+        const hostSpoken = Boolean(input.speakOnHost && macSay && bot.macVoice);
+        if (hostSpoken && text) {
+          void macSay?.enqueue(bot.macVoice, text).catch((error) => {
+            getLogger().warn("macOS say failed", { botId: bot.id, error });
+          });
+        }
+        return { text: hostSpoken ? "" : text, hostSpoken };
+      }),
+      macVoices: authed.voice.macVoices.handler(async () => {
+        if (!macSay) return { available: false, voices: [] };
+        return { available: true, voices: await macSay.list() };
+      }),
+      previewMacVoice: authed.voice.previewMacVoice.handler(async ({ input }) => {
+        if (!macSay) {
+          throw new ORPCError("BAD_REQUEST", { message: "macOS voices are not available here." });
+        }
+        const voices = await macSay.list();
+        if (!macVoiceInstalled(input.voice, voices)) {
+          throw new ORPCError("BAD_REQUEST", { message: "That Mac voice is not installed." });
+        }
+        await macSay.enqueue(input.voice, macVoicePreview(input.voice));
+        return { ok: true as const };
+      }),
     },
   });
 }

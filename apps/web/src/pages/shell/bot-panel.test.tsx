@@ -11,7 +11,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../lib/rpc", () => ({
   rpc: {
     bots: { get: vi.fn(), update: vi.fn(), restoreInstructions: vi.fn() },
-    voice: { voices: vi.fn().mockResolvedValue([]) },
+    voice: {
+      voices: vi.fn().mockResolvedValue([]),
+      status: vi.fn().mockResolvedValue({ provider: null }),
+    },
     models: {
       credentials: vi.fn().mockResolvedValue([]),
       list: vi.fn().mockResolvedValue([]),
@@ -97,6 +100,7 @@ function bot(description = "Billing"): Bot {
     createdAt: "2026-09-01T00:00:00.000Z",
     voiceId: null,
     autoSpeak: false,
+    macVoice: "",
     modelProvider: null,
     modelId: null,
     thinkingLevel: null,

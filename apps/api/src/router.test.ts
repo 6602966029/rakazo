@@ -3211,6 +3211,7 @@ describe("bot model auth on save", () => {
       updatedAt: now,
       voiceId: null,
       autoSpeak: false,
+      macVoice: "",
       modelProvider: "openai-codex",
       modelId,
       thinkingLevel: null,

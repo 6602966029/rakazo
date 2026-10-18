@@ -682,13 +682,22 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     if (decision.action !== "speak") return;
     autoSpokenBotId.current = currentBot.id;
     autoSpoken.current = decision.messageId;
-    void speakText(decision.text, {
+    const speaker = {
+      name: currentBot.name,
+      color: resolvePersonaColorDef(currentBot.id, currentBot.color).light,
+    };
+    void rpc<{ text: string; hostSpoken: boolean }>("voice/spokenText", {
       botId: currentBot.id,
-      speaker: {
-        name: currentBot.name,
-        color: resolvePersonaColorDef(currentBot.id, currentBot.color).light,
-      },
-    }).catch(() => undefined);
+      messageId: decision.messageId,
+      speakOnHost: false,
+    })
+      .then((spoken) => {
+        if (spoken.hostSpoken || !spoken.text) return;
+        return speakText(spoken.text, { botId: currentBot.id, speaker });
+      })
+      .catch(() =>
+        speakText(decision.text, { botId: currentBot.id, speaker }).catch(() => undefined),
+      );
   }, [
     botId,
     inGroup,

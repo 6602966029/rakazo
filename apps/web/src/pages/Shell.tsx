@@ -61,7 +61,6 @@ import {
   SLASH_ACTIONS,
   searchHitThreadTarget,
   serializeComposerPrompt,
-  speechFromBlocks,
   timeSeparatorIds,
   truncateSlashDescription,
   userVisibleMessages,
@@ -1323,10 +1322,16 @@ export function ShellPage() {
     }
     if (snapshot.run && ["running", "queued", "leased"].includes(snapshot.run.status)) return;
     if (!lastBot || lastBot.id === autoSpoken.current) return;
-    const text = speechFromBlocks(lastBot.blocks);
-    if (!text) return;
     autoSpoken.current = lastBot.id;
-    void speaker.speak(text, { botId: active.id, messageId: lastBot.id });
+    const messageId = lastBot.id;
+    const botId = active.id;
+    void rpc.voice
+      .spokenText({ botId, messageId, speakOnHost: true })
+      .then((spoken) => {
+        if (spoken.hostSpoken || !spoken.text || autoSpoken.current !== messageId) return;
+        void speaker.speak(spoken.text, { botId, messageId });
+      })
+      .catch(() => undefined);
   }, [
     snapshot?.messages,
     snapshot?.run?.status,
@@ -2412,9 +2417,16 @@ export function ShellPage() {
       speaker.stop();
       return;
     }
-    const text = speechFromBlocks(message.blocks);
     const id = message.botId ?? activeBotId.current;
-    if (text && id) void speaker.speak(text, { botId: id, messageId: message.id });
+    if (!id) return;
+    void rpc.voice
+      .spokenText({ botId: id, messageId: message.id, speakOnHost: true })
+      .then((spoken) => {
+        if (!spoken.hostSpoken && spoken.text) {
+          void speaker.speak(spoken.text, { botId: id, messageId: message.id });
+        }
+      })
+      .catch(() => undefined);
   }, []);
 
   async function createGroup(input: { name: string; botIds: string[] }) {

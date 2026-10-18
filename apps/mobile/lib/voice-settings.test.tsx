@@ -72,6 +72,7 @@ vi.mock("react-native", () => {
 });
 
 const catalog = [
+  { id: "macos", name: "macOS", transcribe: false },
   { id: "fish-audio", name: "Fish Audio", transcribe: true },
   { id: "other", name: "Other provider", transcribe: false },
   { id: "new", name: "New provider", transcribe: false },
@@ -130,10 +131,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("hides the macOS provider on the phone", async () => {
+  await render();
+  expect(container.textContent).not.toContain("macOS");
+  expect(container.textContent).not.toContain("Summarise");
+});
+
 it("selects only This device and hides all provider controls until it is turned off", async () => {
   await render();
   selected("This device");
-  for (const entry of catalog) unselected(entry.name);
+  for (const entry of catalog.filter((item) => item.id !== "macos")) unselected(entry.name);
   expect(container.querySelector("input")).toBeNull();
   expect(container.textContent).not.toContain("Replace key");
   expect(container.textContent).not.toContain("Disconnect");
@@ -159,7 +166,9 @@ it("disables provider rows until the saved device preference has loaded", async 
     }),
   );
   await render();
-  for (const entry of catalog) expect(button(entry.name).disabled).toBe(true);
+  for (const entry of catalog.filter((item) => item.id !== "macos")) {
+    expect(button(entry.name).disabled).toBe(true);
+  }
   await click("Other provider");
   expect(state.save).not.toHaveBeenCalled();
   expect(state.rpc).not.toHaveBeenCalledWith("voice/setVoice", expect.anything());

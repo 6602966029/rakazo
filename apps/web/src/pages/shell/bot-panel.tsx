@@ -220,6 +220,7 @@ export function BotSettings({
     memoryScope?: "isolated" | "shared" | null;
     autoSpeak?: boolean;
     voiceId?: string | null;
+    macVoice?: string;
     modelProvider?: string | null;
     modelId?: string | null;
     thinkingLevel?: ThinkingLevel | null;
@@ -246,6 +247,7 @@ export function BotSettings({
   const [autoSpeak, setAutoSpeak] = useState(bot.autoSpeak);
   const [voiceId, setVoiceId] = useState(bot.voiceId ?? "");
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
+  const [macVoice, setMacVoice] = useState(bot.macVoice ?? "");
   const [modelKey, setModelKey] = useState(
     bot.modelProvider && bot.modelId ? modelOptionKey(bot.modelProvider, bot.modelId) : "",
   );
@@ -285,9 +287,15 @@ export function BotSettings({
     }) => Promise<void>
   >(async () => undefined);
   useEffect(() => {
-    void rpc.voice
-      .voices({})
-      .then(setVoices)
+    void Promise.all([rpc.voice.status(), rpc.voice.voices({})])
+      .then(async ([status, listed]) => {
+        if (status.provider === "macos") {
+          setVoices(listed);
+          return;
+        }
+        const mac = await rpc.voice.voices({ provider: "macos" }).catch(() => []);
+        setVoices(mac.length ? [...listed, ...mac] : listed);
+      })
       .catch(() => setVoices([]));
     void Promise.all([rpc.models.credentials(), rpc.models.list(), rpc.me()])
       .then(([nextCredentials, nextCatalog, nextMe]) => {
@@ -371,6 +379,7 @@ export function BotSettings({
         memoryScope,
         autoSpeak,
         voiceId: voiceId || null,
+        macVoice,
         modelProvider: selected?.provider ?? null,
         modelId: selected?.modelId ?? null,
         ...(modelMetaReady
@@ -655,16 +664,33 @@ export function BotSettings({
           />
           <Trans>Read replies aloud</Trans>
         </label>
-        {voices.length ? (
+        {voices.length || macVoice ? (
           <label htmlFor={`${ids}-voice`} className={fieldLabelClass}>
             <Trans>Voice</Trans>
             <NativeSelect
               id={`${ids}-voice`}
               className="mt-2 w-full"
-              value={voiceId}
-              onChange={(event) => setVoiceId(event.target.value)}
+              value={macVoice ? `macos:${macVoice}` : voiceId}
+              onChange={(event) => {
+                const next = event.target.value;
+                const mac =
+                  next.startsWith("macos:") || voices.some((voice) => voice.id === `macos:${next}`);
+                if (mac) {
+                  const name = next.slice("macos:".length);
+                  setMacVoice(name);
+                  setVoiceId("");
+                  setAutoSpeak(true);
+                  void rpc.voice.previewMacVoice({ voice: name }).catch(() => undefined);
+                  return;
+                }
+                setMacVoice("");
+                setVoiceId(next);
+              }}
             >
               <NativeSelectOption value="">{t`Account default`}</NativeSelectOption>
+              {macVoice && !voices.some((voice) => voice.id === `macos:${macVoice}`) ? (
+                <NativeSelectOption value={`macos:${macVoice}`}>{macVoice}</NativeSelectOption>
+              ) : null}
               {voices.map((voice) => (
                 <NativeSelectOption key={voice.id} value={voice.id}>
                   {voice.label}

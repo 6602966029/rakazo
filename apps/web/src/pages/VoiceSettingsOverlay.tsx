@@ -71,10 +71,10 @@ export function VoiceSettingsOverlay({
     const activeVoice = cred?.voiceId ?? "";
     setVoiceId(activeVoice);
     setSpeechModel(cred?.speechModel ?? "");
-    if (cred) {
+    if (cred || selected === "macos") {
       const listed = await rpc.voice.voices({ provider: selected });
       setVoices(listed);
-      if (!activeVoice && listed[0]) setVoiceId(listed[0].id);
+      if (!activeVoice && listed[0]) setVoiceId(listed[0].id.replace(/^macos:/, ""));
     } else {
       setVoices([]);
     }
@@ -88,6 +88,8 @@ export function VoiceSettingsOverlay({
 
   const selected = catalog.find((entry) => entry.id === provider) ?? catalog[0];
   const credential = credentials.find((entry) => entry.provider === provider);
+  const macProvider = selected?.id === "macos";
+  const voiceReady = Boolean(credential) || macProvider;
   const voiceOptions = useMemo(
     () => (voices.length ? voices : voiceId ? [{ id: voiceId, label: voiceId }] : []),
     [voices, voiceId],
@@ -133,6 +135,10 @@ export function VoiceSettingsOverlay({
 
   async function chooseVoice(nextVoiceId: string) {
     setVoiceId(nextVoiceId);
+    if (selected?.id === "macos") {
+      setVoiceId(nextVoiceId.replace(/^macos:/, ""));
+      return;
+    }
     if (!credential) return;
     markPending("voice");
     setError(null);
@@ -236,7 +242,9 @@ export function VoiceSettingsOverlay({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] text-foreground">{entry.name}</span>
                     <span className="mt-0.5 block text-[12px] text-muted-foreground/80">
-                      {entry.transcribe ? (
+                      {entry.id === "macos" ? (
+                        <Trans>Free, works offline</Trans>
+                      ) : entry.transcribe ? (
                         <Trans>Speak + transcribe</Trans>
                       ) : (
                         <Trans>Speak only</Trans>
@@ -264,51 +272,59 @@ export function VoiceSettingsOverlay({
           {notice ? <p className="mb-4 text-sm text-success">{notice}</p> : null}
           {selected ? (
             <>
-              <Field className="mt-5">
-                <FieldLabel htmlFor={apiKeyId}>
-                  <Trans>API key</Trans>
-                </FieldLabel>
-                <Input
-                  id={apiKeyId}
-                  type="password"
-                  autoComplete="new-password"
-                  value={apiKey}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  placeholder={credential ? t`Paste a replacement key` : t`Paste your API key`}
-                />
-              </Field>
-              <Button
-                type="button"
-                className="mt-3"
-                disabled={busy || apiKey.trim().length < 8}
-                onClick={() => void connectKey()}
-              >
-                {pending === "connect" ? (
-                  <Trans>Connecting…</Trans>
-                ) : credential ? (
-                  <Trans>Replace key</Trans>
-                ) : (
-                  <Trans>Connect</Trans>
-                )}
-              </Button>
-              {credential ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  disabled={busy}
-                  onClick={() => void disconnectProvider()}
-                >
-                  {pending === "disconnect" ? (
-                    <Trans>Disconnecting…</Trans>
-                  ) : (
-                    <Trans>Disconnect</Trans>
-                  )}
-                </Button>
-              ) : null}
+              {macProvider ? (
+                <p className="mt-5 text-sm text-muted-foreground">
+                  <Trans>Uses the voices installed on this Mac. No API key.</Trans>
+                </p>
+              ) : (
+                <>
+                  <Field className="mt-5">
+                    <FieldLabel htmlFor={apiKeyId}>
+                      <Trans>API key</Trans>
+                    </FieldLabel>
+                    <Input
+                      id={apiKeyId}
+                      type="password"
+                      autoComplete="new-password"
+                      value={apiKey}
+                      onChange={(event) => setApiKey(event.target.value)}
+                      placeholder={credential ? t`Paste a replacement key` : t`Paste your API key`}
+                    />
+                  </Field>
+                  <Button
+                    type="button"
+                    className="mt-3"
+                    disabled={busy || apiKey.trim().length < 8}
+                    onClick={() => void connectKey()}
+                  >
+                    {pending === "connect" ? (
+                      <Trans>Connecting…</Trans>
+                    ) : credential ? (
+                      <Trans>Replace key</Trans>
+                    ) : (
+                      <Trans>Connect</Trans>
+                    )}
+                  </Button>
+                  {credential ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      disabled={busy}
+                      onClick={() => void disconnectProvider()}
+                    >
+                      {pending === "disconnect" ? (
+                        <Trans>Disconnecting…</Trans>
+                      ) : (
+                        <Trans>Disconnect</Trans>
+                      )}
+                    </Button>
+                  ) : null}
+                </>
+              )}
 
-              {credential ? (
+              {voiceReady ? (
                 <>
                   <Field className="mt-6">
                     <FieldLabel htmlFor={voiceSelectId}>
@@ -322,7 +338,7 @@ export function VoiceSettingsOverlay({
                       onChange={(event) => void chooseVoice(event.target.value)}
                     >
                       {voiceOptions.map((voice) => (
-                        <NativeSelectOption key={voice.id} value={voice.id}>
+                        <NativeSelectOption key={voice.id} value={voice.id.replace(/^macos:/, "")}>
                           {voice.label}
                           {voice.description ? ` · ${voice.description}` : ""}
                         </NativeSelectOption>
@@ -356,8 +372,16 @@ export function VoiceSettingsOverlay({
                     type="button"
                     variant="secondary"
                     className="mt-4 rounded-full"
-                    disabled={busy || !status?.ready}
-                    onClick={() => void testVoice()}
+                    disabled={busy || (!macProvider && !status?.ready)}
+                    onClick={() =>
+                      void (macProvider && voiceId
+                        ? rpc.voice
+                            .previewMacVoice({ voice: voiceId })
+                            .catch((err: unknown) =>
+                              setError(errorText(err, t`Could not preview that voice`)),
+                            )
+                        : testVoice())
+                    }
                   >
                     {pending === "test" ? <Trans>Playing…</Trans> : <Trans>Hear a sample</Trans>}
                   </Button>

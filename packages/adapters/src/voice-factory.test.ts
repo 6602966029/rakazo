@@ -45,12 +45,13 @@ describe("createVoiceProvider", () => {
       "cartesia",
       "fish-audio",
     ]);
-    expect(listVoiceCatalog().map((entry) => entry.id)).toEqual([
+    expect(listVoiceCatalog("linux").map((entry) => entry.id)).toEqual([
       "elevenlabs",
       "openai",
       "cartesia",
       "fish-audio",
     ]);
+    expect(listVoiceCatalog("darwin").map((entry) => entry.id)[0]).toBe("macos");
     expect(createVoiceProvider("elevenlabs").describe().id).toBe("elevenlabs");
     expect(createVoiceProvider("openai").describe().capabilities.transcribe).toBe(true);
     expect(createVoiceProvider("cartesia").describe().capabilities.transcribe).toBe(false);

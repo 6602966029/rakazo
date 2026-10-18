@@ -81,7 +81,9 @@ export default function VoiceSettings() {
       rpc<VoiceCredential[]>("voice/credentials"),
       rpc<VoiceStatus>("voice/status"),
     ]);
-    const selected = nextProvider || nextStatus.provider || nextCatalog[0]?.id || "";
+    const cloudCatalog = nextCatalog.filter((entry) => entry.id !== "macos");
+    const preferred = nextProvider || nextStatus.provider || cloudCatalog[0]?.id || "";
+    const selected = preferred === "macos" ? cloudCatalog[0]?.id || "" : preferred;
     setCatalog(nextCatalog);
     setCredentials(nextCredentials);
     setStatus(nextStatus);
@@ -234,7 +236,8 @@ export default function VoiceSettings() {
     }
   }
 
-  const selected = catalog.find((entry) => entry.id === provider);
+  const providers = catalog.filter((entry) => entry.id !== "macos");
+  const selected = providers.find((entry) => entry.id === provider);
   const credential = credentials.find((entry) => entry.provider === provider);
 
   async function connect() {
@@ -353,9 +356,9 @@ export default function VoiceSettings() {
             {deviceVoice ? <Checkmark /> : null}
           </Pressable>
         </View>
-        {catalog.length ? (
+        {providers.length ? (
           <View style={styles.group}>
-            {catalog.map((entry, index) => {
+            {providers.map((entry, index) => {
               const connected = credentials.some((cred) => cred.provider === entry.id);
               return (
                 <Pressable
