@@ -7,14 +7,16 @@ export async function signOut(): Promise<boolean> {
     const result = await authClient.signOut();
     if (result.error) return false;
 
-    // Refresh the shared session state before navigation can redirect using stale data.
-    const session = authClient.$store.atoms.session;
-    if (!session) return false;
-    await session.get().refetch({ query: { disableCookieCache: true } });
-    const refreshed = session.get();
-    return (
-      !refreshed.error && !refreshed.isPending && !refreshed.isRefetching && refreshed.data === null
-    );
+    // Ask the server directly: a later shared refresh can supersede the forced one below.
+    const check = await authClient.getSession({ query: { disableCookieCache: true } });
+    if (check.error || check.data) return false;
+
+    // Refresh the shared session state so navigation does not redirect using stale data.
+    await authClient.$store.atoms.session
+      ?.get()
+      .refetch({ query: { disableCookieCache: true } })
+      .catch(() => undefined);
+    return true;
   } catch {
     return false;
   }

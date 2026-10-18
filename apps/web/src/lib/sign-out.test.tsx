@@ -5,81 +5,74 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signOut, useSignOut } from "./sign-out";
 
-const { requestSignOut, refetch, session } = vi.hoisted(() => ({
+const { requestSignOut, getSession, refetch } = vi.hoisted(() => ({
   requestSignOut: vi.fn(),
+  getSession: vi.fn(),
   refetch: vi.fn(),
-  session: {
-    data: null as { user: { id: string } } | null,
-    error: null as { status: number } | null,
-    isPending: false,
-    isRefetching: false,
-  },
 }));
 
 vi.mock("./auth", () => ({
   authClient: {
     signOut: requestSignOut,
-    $store: { atoms: { session: { get: () => ({ ...session, refetch }) } } },
+    getSession,
+    $store: { atoms: { session: { get: () => ({ refetch }) } } },
   },
 }));
 
 beforeEach(() => {
   vi.resetAllMocks();
-  Object.assign(session, { data: null, error: null, isPending: false, isRefetching: false });
   requestSignOut.mockResolvedValue({ data: { success: true }, error: null });
+  getSession.mockResolvedValue({ data: null, error: null });
   refetch.mockResolvedValue(undefined);
 });
 
 describe("signOut", () => {
-  it("handles an error result without refreshing the session", async () => {
+  it("handles an error result without checking the session", async () => {
     requestSignOut.mockResolvedValue({ data: null, error: { status: 500 } });
     expect(await signOut()).toBe(false);
+    expect(getSession).not.toHaveBeenCalled();
     expect(refetch).not.toHaveBeenCalled();
   });
 
   it("handles a rejected sign-out request", async () => {
     requestSignOut.mockRejectedValue(new Error("Network unavailable"));
     expect(await signOut()).toBe(false);
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it("fails if the server still has the session", async () => {
+    getSession.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+    expect(await signOut()).toBe(false);
+    expect(getSession).toHaveBeenCalledWith({ query: { disableCookieCache: true } });
     expect(refetch).not.toHaveBeenCalled();
   });
 
-  it("fails if the refreshed session still exists", async () => {
-    session.data = { user: { id: "user-1" } };
-    expect(await signOut()).toBe(false);
-    expect(refetch).toHaveBeenCalledWith({ query: { disableCookieCache: true } });
-  });
-
-  it("fails if the session refresh returns an error", async () => {
-    refetch.mockImplementation(async () => {
-      session.error = { status: 500 };
-    });
+  it("fails if the session check returns an error", async () => {
+    getSession.mockResolvedValue({ data: null, error: { status: 500 } });
     expect(await signOut()).toBe(false);
   });
 
-  it("handles a rejected session refresh", async () => {
-    refetch.mockRejectedValue(new Error("Network unavailable"));
+  it("handles a rejected session check", async () => {
+    getSession.mockRejectedValue(new Error("Network unavailable"));
     expect(await signOut()).toBe(false);
   });
 
-  it("does not accept an unfinished session refresh", async () => {
-    session.isRefetching = true;
-    expect(await signOut()).toBe(false);
+  it("still succeeds when the shared refresh is superseded or fails", async () => {
+    refetch.mockRejectedValue(new Error("aborted"));
+    expect(await signOut()).toBe(true);
   });
 
-  it("waits for the shared session to be cleared before succeeding", async () => {
-    session.data = { user: { id: "user-1" } };
+  it("refreshes the shared session before succeeding", async () => {
     let finishRefresh = () => {};
     refetch.mockImplementation(
       () =>
         new Promise<void>((resolve) => {
-          finishRefresh = () => {
-            session.data = null;
-            resolve();
-          };
+          finishRefresh = resolve;
         }),
     );
     const result = signOut();
     await vi.waitFor(() => expect(refetch).toHaveBeenCalledOnce());
+    expect(refetch).toHaveBeenCalledWith({ query: { disableCookieCache: true } });
     let settled = false;
     void result.then(() => {
       settled = true;
