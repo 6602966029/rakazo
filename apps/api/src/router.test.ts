@@ -1967,19 +1967,29 @@ describe("OpenAI-compatible model probes", () => {
       provider: "openai-compatible",
       secretId: "secret-1",
     };
+    const credentials = [credential];
     const findCredential = vi.fn(
       async ({ where }: { where: { userId: string; provider: string } }) =>
         where.userId === credential.userId && where.provider === credential.provider
           ? credential
           : null,
     );
+    const findCredentials = vi.fn(
+      async ({ where }: { where: { userId: string; provider: string } }) =>
+        credentials.filter(
+          (candidate) => candidate.userId === where.userId && candidate.provider === where.provider,
+        ),
+    );
     const findSecret = vi.fn(
-      async ({ where }: { where: { userId: string; id: string; spaceId: null } }) =>
-        where.userId === (options.secretUserId ?? actor.userId) &&
-        where.id === credential.secretId &&
-        where.spaceId === null
-          ? { ciphertext: "fake-ciphertext" }
-          : null,
+      async ({ where }: { where: { userId: string; id: { in: string[] }; spaceId: null } }) =>
+        credentials
+          .filter(
+            (candidate) =>
+              where.userId === (options.secretUserId ?? candidate.userId) &&
+              where.id.in.includes(candidate.secretId) &&
+              where.spaceId === null,
+          )
+          .map((candidate) => ({ id: candidate.secretId, ciphertext: "fake-ciphertext" })),
     );
     const load = vi.fn().mockResolvedValue(stored);
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
@@ -1992,14 +2002,14 @@ describe("OpenAI-compatible model probes", () => {
     const deps = {
       prisma: {
         spaceModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
-        userModelCredential: { findFirst: findCredential },
-        secret: { findFirst: findSecret },
+        userModelCredential: { findFirst: findCredential, findMany: findCredentials },
+        secret: { findMany: findSecret },
       },
       secrets: { load },
       env: { sandboxProvider: "fake" },
     } as unknown as RouterDeps;
     const client = createRouterClient(createRouter(deps), { context: { actor } as never });
-    return { client, fetch, findCredential, findSecret, load };
+    return { client, fetch, credentials, findCredential, findCredentials, findSecret, load };
   }
 
   afterEach(() => vi.restoreAllMocks());
@@ -2014,8 +2024,8 @@ describe("OpenAI-compatible model probes", () => {
       }),
     );
     expect(findSecret).toHaveBeenCalledWith({
-      where: { id: "secret-1", userId: actor.userId, spaceId: null },
-      select: { ciphertext: true },
+      where: { id: { in: ["secret-1"] }, userId: actor.userId, spaceId: null },
+      select: { id: true, ciphertext: true },
     });
     expect(load).toHaveBeenCalledWith("fake-ciphertext", "secret-1");
     expect(response).toEqual({ models: ["test-model"] });
@@ -2023,7 +2033,7 @@ describe("OpenAI-compatible model probes", () => {
   });
 
   it("uses a typed key without looking up the stored credential", async () => {
-    const { client, fetch, findCredential, load } = fixture();
+    const { client, fetch, findCredential, findCredentials, findSecret, load } = fixture();
     await client.models.probeOpenAiCompatible({ baseUrl, apiKey: " fake-typed-key " });
     expect(fetch).toHaveBeenCalledWith(
       expect.any(URL),
@@ -2032,7 +2042,77 @@ describe("OpenAI-compatible model probes", () => {
       }),
     );
     expect(findCredential).not.toHaveBeenCalled();
+    expect(findCredentials).not.toHaveBeenCalled();
+    expect(findSecret).not.toHaveBeenCalled();
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it.each(["different endpoint", "unreadable", "matching endpoint"])(
+    "tries the preferred credential first, then another matching credential when preferred is %s",
+    async (preferred) => {
+      const { client, fetch, credentials, findCredentials, findSecret, load } = fixture();
+      credentials.push({
+        id: "cred-2",
+        userId: actor.userId,
+        provider: "openai-compatible",
+        secretId: "secret-2",
+      });
+      load.mockImplementation(async (_, secretId) => {
+        if (secretId === "secret-2") return stored;
+        if (preferred === "unreadable") throw new Error("Secret unavailable");
+        return JSON.stringify({
+          kind: "openai_compatible",
+          baseUrl: preferred === "matching endpoint" ? baseUrl : "https://127.0.0.2:8000/v1",
+          apiKey: "fake-preferred-key",
+        });
+      });
+
+      await client.models.probeOpenAiCompatible({ baseUrl });
+
+      expect(findCredentials).toHaveBeenCalledWith({
+        where: { userId: actor.userId, provider: "openai-compatible" },
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      });
+      expect(findSecret).toHaveBeenCalledExactlyOnceWith({
+        where: { id: { in: ["secret-1", "secret-2"] }, userId: actor.userId, spaceId: null },
+        select: { id: true, ciphertext: true },
+      });
+      expect(fetch.mock.calls[0]?.[1]?.headers).toHaveProperty(
+        "Authorization",
+        preferred === "matching endpoint" ? "Bearer fake-preferred-key" : "Bearer fake-saved-key",
+      );
+      expect(load.mock.calls.map((call) => call[1])).toEqual(
+        preferred === "matching endpoint" ? ["secret-1"] : ["secret-1", "secret-2"],
+      );
+    },
+  );
+
+  it("never uses another user's matching credential after the preferred endpoint differs", async () => {
+    const { client, fetch, credentials, findSecret, load } = fixture();
+    credentials.push({
+      id: "cred-other",
+      userId: "other-user",
+      provider: "openai-compatible",
+      secretId: "secret-other",
+    });
+    load.mockImplementation(async (_, secretId) =>
+      secretId === "secret-other"
+        ? stored
+        : JSON.stringify({
+            kind: "openai_compatible",
+            baseUrl: "https://127.0.0.2:8000/v1",
+            apiKey: "fake-preferred-key",
+          }),
+    );
+
+    await client.models.probeOpenAiCompatible({ baseUrl });
+
+    expect(findSecret).toHaveBeenCalledExactlyOnceWith({
+      where: { id: { in: ["secret-1"] }, userId: actor.userId, spaceId: null },
+      select: { id: true, ciphertext: true },
+    });
+    expect(load).toHaveBeenCalledExactlyOnceWith("fake-ciphertext", "secret-1");
+    expect(fetch.mock.calls[0]?.[1]?.headers).not.toHaveProperty("Authorization");
   });
 
   it("does not send the saved key to a different endpoint", async () => {
