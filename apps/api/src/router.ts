@@ -239,7 +239,7 @@ import {
 } from "./computer-status.js";
 import { searchIntegrationCatalog } from "./integration-catalog.js";
 import type { MacSaySpeaker } from "./mac-say.js";
-import { createMacSaySpeaker, macVoiceInstalled, macVoicePreview } from "./mac-say.js";
+import { createMacSaySpeaker, macVoicePreview, resolveMacVoiceName } from "./mac-say.js";
 import {
   dismissMcpServerApprovals,
   resolveMcpApprovalCards,
@@ -772,13 +772,14 @@ export function createRouter(deps: RouterDeps) {
       select: { macVoice: true },
     });
     const macVoice = row?.macVoice ?? "";
-    if (!macVoice) return false;
-    if (text) {
-      void macSay.enqueue(macVoice, text).catch((error) => {
-        getLogger().warn("macOS say failed", { botId, error });
-      });
+    if (!macVoice || !text) return false;
+    try {
+      await macSay.enqueue(macVoice, text);
+      return true;
+    } catch (error) {
+      getLogger().warn("macOS say failed", { botId, error });
+      return false;
     }
-    return true;
   });
   const os = implement(appContract).$context<{
     actor: Actor | null;
@@ -1768,10 +1769,15 @@ export function createRouter(deps: RouterDeps) {
           }
         }
         if (!existing.thread) throw new IsolationError();
-        if (input.macVoice) {
-          const installed = macSay ? await macSay.list() : [];
-          if (!macVoiceInstalled(input.macVoice, installed)) {
-            throw new ORPCError("BAD_REQUEST", { message: "That Mac voice is not installed." });
+        let macVoice = input.macVoice;
+        if (input.macVoice !== undefined && input.macVoice !== existing.macVoice) {
+          if (input.macVoice) {
+            const installed = macSay ? await macSay.list() : [];
+            const canonical = resolveMacVoiceName(input.macVoice, installed);
+            if (!canonical) {
+              throw new ORPCError("BAD_REQUEST", { message: "That Mac voice is not installed." });
+            }
+            macVoice = canonical;
           }
         }
         await commitBotUpdate({
@@ -1795,7 +1801,9 @@ export function createRouter(deps: RouterDeps) {
             sectionId: input.sectionId,
             voiceId: input.voiceId,
             autoSpeak: input.autoSpeak,
-            ...(input.macVoice !== undefined ? { macVoice: input.macVoice } : {}),
+            ...(input.macVoice !== undefined && input.macVoice !== existing.macVoice
+              ? { macVoice }
+              : {}),
             ...(input.modelProvider !== undefined
               ? { modelProvider: input.modelProvider, modelId: input.modelId ?? null }
               : {}),
@@ -6115,7 +6123,10 @@ export function createRouter(deps: RouterDeps) {
       })),
     },
     voice: {
-      catalog: authed.voice.catalog.handler(async () => listVoiceCatalog()),
+      catalog: authed.voice.catalog.handler(async () => {
+        const catalog = listVoiceCatalog();
+        return macSay ? catalog : catalog.filter((entry) => entry.id !== "macos");
+      }),
       status: authed.voice.status.handler(async ({ context }) => {
         const cred = await findDefaultVoiceCredential(deps.prisma, context.actor);
         return toVoiceStatus(cred);
@@ -6217,10 +6228,11 @@ export function createRouter(deps: RouterDeps) {
           throw new ORPCError("BAD_REQUEST", { message: "macOS voices are not available here." });
         }
         const voices = await macSay.list();
-        if (!macVoiceInstalled(input.voice, voices)) {
+        const name = resolveMacVoiceName(input.voice, voices);
+        if (!name) {
           throw new ORPCError("BAD_REQUEST", { message: "That Mac voice is not installed." });
         }
-        await macSay.enqueue(input.voice, macVoicePreview(input.voice));
+        await macSay.enqueue(name, macVoicePreview(name));
         return { ok: true as const };
       }),
       prepare: authed.voice.prepare.handler(async ({ context, input }) =>

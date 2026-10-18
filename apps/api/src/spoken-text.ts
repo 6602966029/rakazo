@@ -1,6 +1,7 @@
 import type { MessageBlock } from "@rakazo/contracts";
 import { speakable, speechFromBlocks } from "@rakazo/core";
-import { IsolationError, type PrismaClient } from "@rakazo/db";
+import type { PrismaClient } from "@rakazo/db";
+import { IsolationError } from "@rakazo/db";
 
 export type SpokenTextResolver = (input: {
   prisma: PrismaClient;
@@ -45,9 +46,10 @@ export async function loadSpeakableMessage(
   });
   if (!bot) throw new IsolationError();
   const message = await prisma.message.findFirst({
-    where: { id: input.messageId, role: "bot", botId: bot.id },
+    where: { id: input.messageId, role: "bot" },
     select: {
       blocks: true,
+      botId: true,
       thread: {
         select: {
           id: true,
@@ -60,11 +62,14 @@ export async function loadSpeakableMessage(
     },
   });
   const thread = message?.thread;
-  const ownsThread =
-    thread?.spaceId === actor.spaceId &&
+  if (!message || !thread) throw new IsolationError();
+  const owned =
+    thread.spaceId === actor.spaceId &&
     thread.userId === actor.userId &&
-    (thread.botId === bot.id || (thread.group?.members.length ?? 0) > 0);
-  if (!message || !ownsThread || !thread) throw new IsolationError();
+    (thread.botId === bot.id
+      ? !message.botId || message.botId === bot.id
+      : (thread.group?.members.length ?? 0) > 0 && message.botId === bot.id);
+  if (!owned) throw new IsolationError();
   return { threadId: thread.id, blocks: message.blocks as MessageBlock[] };
 }
 

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { accessSync, constants } from "node:fs";
 
 export type MacVoiceQuality = "premium" | "enhanced" | "standard";
 
@@ -18,8 +19,14 @@ const QUALITY_RANK: Record<MacVoiceQuality, number> = {
 
 type SayRunner = (voice: string, text: string) => Promise<void>;
 
-export function macSayAvailable(platform = process.platform): boolean {
-  return platform === "darwin";
+export function macSayAvailable(platform = process.platform, bin = SAY_BIN): boolean {
+  if (platform !== "darwin") return false;
+  try {
+    accessSync(bin, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** `Daniel (English (UK))` keeps its locale. Only a trailing quality mark is special. */
@@ -47,15 +54,20 @@ export function parseMacVoices(output: string): MacVoice[] {
   );
 }
 
-/** "Zoe (Premium)" previews as "Hi, I'm Zoe." */
-/** `macos:Zoe (Premium)` and `Zoe` both match the installed `Zoe (Premium)`. */
-export function macVoiceInstalled(name: string, voices: readonly MacVoice[]): boolean {
+/** `macos:Zoe (Premium)` and `Zoe` both resolve to the installed `Zoe (Premium)`. */
+export function resolveMacVoiceName(name: string, voices: readonly MacVoice[]): string | null {
   const requested = name.replace(/^macos:/, "").trim();
-  return voices.some(
-    (voice) =>
-      voice.name === requested ||
-      voice.name.replace(/\s+\((?:Premium|Enhanced)\)$/, "") === requested,
+  if (!requested) return null;
+  const exact = voices.find((voice) => voice.name === requested);
+  if (exact) return exact.name;
+  return (
+    voices.find((voice) => voice.name.replace(/\s+\((?:Premium|Enhanced)\)$/, "") === requested)
+      ?.name ?? null
   );
+}
+
+export function macVoiceInstalled(name: string, voices: readonly MacVoice[]): boolean {
+  return resolveMacVoiceName(name, voices) !== null;
 }
 
 export function macVoicePreview(name: string): string {
@@ -92,10 +104,9 @@ export class MacSaySpeaker {
     const job = this.queue.then(async () => {
       if (!spoken) return;
       const installed = await this.voices();
-      if (!installed.some((item) => item.name === voice)) {
-        throw new Error(`Mac voice "${voice}" is not installed.`);
-      }
-      await this.say(voice, spoken);
+      const name = resolveMacVoiceName(voice, installed);
+      if (!name) throw new Error(`Mac voice "${voice}" is not installed.`);
+      await this.say(name, spoken);
     });
     this.queue = job.catch(() => undefined);
     return job;

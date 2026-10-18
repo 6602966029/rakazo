@@ -699,7 +699,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
         }
         if (!navigation.isFocused()) return;
         if (spoken.hostSpoken || !spoken.text) return;
-        return speakText(spoken.text, { botId: spokenBotId, speaker });
+        return speakText(spoken.text, { botId: spokenBotId, speaker }).catch(() => undefined);
       })
       .catch(() => {
         if (autoSpoken.current !== spokenMessageId || autoSpokenBotId.current !== spokenBotId) {

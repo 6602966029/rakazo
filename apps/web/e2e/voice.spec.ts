@@ -159,18 +159,26 @@ test("bot settings list a Mac voice", async ({ page }) => {
       json: { json: [{ id: "macos:Zoe (Premium)", label: "Zoe (Premium)" }] },
     });
   });
-  await page.route("**/rpc/bots/list", async (route) => {
+  const showMacVoice = async (route: {
+    fetch: () => Promise<Response>;
+    fulfill: (options: { response: Response; json: unknown }) => Promise<void>;
+  }) => {
     const response = await route.fetch();
     const body = await response.json();
-    const bots = Array.isArray(body.json) ? body.json : [];
-    for (const bot of bots) {
-      if (bot?.name === "Chief") {
-        bot.macVoice = "Zoe (Premium)";
-        bot.autoSpeak = true;
+    const lists = [body.json?.bots, body.json?.current?.bots];
+    for (const bots of lists) {
+      if (!Array.isArray(bots)) continue;
+      for (const bot of bots) {
+        if (bot?.name === "Chief") {
+          bot.macVoice = "Zoe (Premium)";
+          bot.autoSpeak = true;
+        }
       }
     }
-    await route.fulfill({ response, json: { ...body, json: bots } });
-  });
+    await route.fulfill({ response, json: body });
+  };
+  await page.route("**/rpc/bootstrap", showMacVoice);
+  await page.route("**/rpc/spaces/list", showMacVoice);
   await page.reload();
   await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
   const settings = page.getByTestId("bot-settings");

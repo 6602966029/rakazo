@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   MacSaySpeaker,
+  macSayAvailable,
   macVoiceInstalled,
   macVoicePreview,
   parseMacVoices,
+  resolveMacVoiceName,
   sanitizeSayText,
 } from "./mac-say.js";
 
@@ -49,12 +51,30 @@ describe("macVoicePreview", () => {
   });
 });
 
+describe("macSayAvailable", () => {
+  it("requires Darwin and an executable say binary", () => {
+    expect(macSayAvailable("linux")).toBe(false);
+    expect(macSayAvailable("darwin", "/no/such/say")).toBe(false);
+  });
+});
+
+describe("resolveMacVoiceName", () => {
+  it("returns the installed name for a prefix or a bare downloaded name", () => {
+    const voices = parseMacVoices(LIST);
+    expect(resolveMacVoiceName("macos:Zoe (Premium)", voices)).toBe("Zoe (Premium)");
+    expect(resolveMacVoiceName("Zoe", voices)).toBe("Zoe (Premium)");
+    expect(resolveMacVoiceName("Missing", voices)).toBeNull();
+  });
+});
+
 describe("MacSaySpeaker", () => {
-  it("rejects a voice that is not installed and does not speak it", async () => {
+  it("rejects an unknown voice and speaks a bare name as the installed voice", async () => {
     const say = vi.fn(async () => undefined);
     const speaker = new MacSaySpeaker(async () => parseMacVoices(LIST), say);
     await expect(speaker.enqueue("Missing", "Hello")).rejects.toThrow(/not installed/);
-    expect(say).not.toHaveBeenCalled();
+    await expect(speaker.enqueue("Zoe", "Hello")).resolves.toBeUndefined();
+    expect(say).toHaveBeenCalledTimes(1);
+    expect(say).toHaveBeenCalledWith("Zoe (Premium)", "Hello");
   });
 
   it("speaks one utterance at a time and strips control characters", async () => {
