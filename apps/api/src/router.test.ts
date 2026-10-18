@@ -2381,6 +2381,67 @@ describe("model credential persistence", () => {
     });
   });
 
+  it("updates a saved legacy Azure credential when replacing its key", async () => {
+    const { deps, handler } = persistDeps();
+    const existing = {
+      id: "cred-azure",
+      userId: actor.userId,
+      provider: "azure-openai-responses",
+      label: "Azure",
+      secretId: "old-secret",
+    };
+    const update = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+      ...existing,
+      ...data,
+    }));
+    const findFirst = vi.fn(
+      async ({ where }: { where: { provider: string | { in: string[] } } }) => {
+        const provider = where.provider;
+        return provider === existing.provider ||
+          (typeof provider !== "string" && provider.in.includes(existing.provider))
+          ? existing
+          : null;
+      },
+    );
+    Object.assign(deps.prisma.userModelCredential, {
+      findFirst,
+      update,
+      count: vi.fn().mockResolvedValue(0),
+    });
+    // The fixture shares this client with the write transaction.
+    const transaction = deps.prisma.$transaction as unknown as ReturnType<typeof vi.fn>;
+    transaction.mockImplementation(async (fn) =>
+      fn({
+        userModelCredential: deps.prisma.userModelCredential,
+        userVoiceCredential: { count: vi.fn().mockResolvedValue(0) },
+        spaceModelPreference: deps.prisma.spaceModelPreference,
+        secret: {
+          create: vi.fn().mockResolvedValue({ id: "new-secret" }),
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+      }),
+    );
+    Object.assign(deps.prisma, {
+      secret: { findFirst: vi.fn().mockResolvedValue(null) },
+    });
+
+    const response = await call(handler, "models/connect", {
+      provider: "azure",
+      apiKey: "fake-replacement-key",
+      modelId: "gpt-4o",
+    });
+
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: existing.id },
+      data: { label: "azure", secretId: "new-secret" },
+    });
+    expect(deps.prisma.userModelCredential.create).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      json: { id: existing.id, provider: "azure" },
+    });
+  });
+
   it("does not persist a missing model id as the string null", async () => {
     const { upsert, handler } = persistDeps({ envDefaultModel: "null" });
 
@@ -3987,6 +4048,20 @@ describe("routines.update", () => {
       modelProvider: "openai-compatible",
       modelId: "old-model",
       thinkingLevel: null,
+    });
+  });
+
+  it("keeps thinking when the saved Azure provider alias is canonicalized", async () => {
+    const { call, update } = fixture(false, false, {
+      modelProvider: "azure-openai-responses",
+      modelId: "gpt-4o",
+      thinkingLevel: "high",
+    });
+    expect((await call({ modelProvider: "azure", modelId: "gpt-4o" })).response.status).toBe(200);
+    expect(update.mock.calls[0]![0].data).toMatchObject({
+      modelProvider: "azure",
+      modelId: "gpt-4o",
+      thinkingLevel: "high",
     });
   });
 
