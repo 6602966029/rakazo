@@ -121,6 +121,7 @@ import { NativeActionButton } from "../components/native-action-button";
 import { NativeSymbol } from "../components/native-symbol";
 import { ReplyDismissButton } from "../components/reply-dismiss-button";
 import { ReplyLine } from "../components/reply-line";
+import { ScrollToBottomButton } from "../components/scroll-to-bottom-button";
 import { SelectTextSheet } from "../components/select-text-sheet";
 import { trailingHeaderOptions } from "../components/sheet-header";
 import type { ThreadComposerHandle } from "../components/thread-composer";
@@ -185,7 +186,7 @@ import {
   quotableMessageSegments,
   truncateQuoteExcerpt,
 } from "../lib/message-presentation";
-import { native, useMobileTokens, useResolvedAppearance, useThemedStyles } from "../lib/native";
+import { useMobileTokens, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import { HEADER_TITLE_MAX_FONT_SCALE, iosAtLeast } from "../lib/native-controls";
 import {
   threadRouteSpaceOnFocus,
@@ -475,7 +476,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const scroll = useRef<FlatList<ThreadItem<MobileMessage>>>(null);
   const pinnedScroll = useRef<ScrollView>(null);
   const scrollBehavior = useRef(new ThreadScrollBehavior());
-  const userDragging = useRef(false);
+  const scrollIdleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const nativeMomentumActive = useRef(false);
   const loadingOlderContent = useRef(false);
   const expandedHistoryThread = useRef<string | null>(null);
   const historyEpoch = useRef(0);
@@ -521,6 +523,10 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     joinPinnedAfterLayout.current = null;
     loadingOlderContent.current = false;
     publishThreadScrollState(scrollBehavior.current.state());
+    return () => {
+      clearTimeout(scrollIdleTimer.current);
+      nativeMomentumActive.current = false;
+    };
   }, [threadKey, publishThreadScrollState]);
   const reducedMotion = useReducedMotion();
   const artifactTarget: MobileArtifactTarget | undefined = groupId
@@ -1935,6 +1941,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   function performScroll(action: ThreadScrollAction) {
     if (!action || showPinnedPage) return;
+    scrollBehavior.current.onProgrammaticScroll();
     scroll.current?.scrollToOffset({
       offset: 0,
       animated: action === "smooth" && !reducedMotion,
@@ -1990,11 +1997,26 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     }
   }
 
+  function scheduleScrollIdle() {
+    clearTimeout(scrollIdleTimer.current);
+    // Every scroll event renews the fallback. Native momentum gets a longer
+    // grace period, but a missing momentum-end must still recover after silence.
+    scrollIdleTimer.current = setTimeout(
+      () => {
+        nativeMomentumActive.current = false;
+        performScroll(scrollBehavior.current.onUserMomentumEnd());
+        publishThreadScrollState(scrollBehavior.current.state());
+      },
+      nativeMomentumActive.current ? 1000 : 200,
+    );
+  }
+
   function updateUserScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     // Inverted FlatList: contentOffset.y is distance from the latest messages.
-    publishThreadScrollState(
-      scrollBehavior.current.onUserScroll(Math.max(0, event.nativeEvent.contentOffset.y)),
-    );
+    scheduleScrollIdle();
+    const previous = scrollBehavior.current.state();
+    const next = scrollBehavior.current.onUserScroll(event.nativeEvent.contentOffset.y);
+    if (reconcileThreadScrollState(previous, next) !== previous) publishThreadScrollState(next);
   }
 
   async function reactToMessage(message: MobileMessage, reaction: MessageReaction) {
@@ -2372,18 +2394,36 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             maintainVisibleContentPosition={messageListPosition}
             scrollEventThrottle={16}
             onScrollBeginDrag={() => {
-              userDragging.current = true;
+              clearTimeout(scrollIdleTimer.current);
+              nativeMomentumActive.current = false;
+              scrollBehavior.current.onUserDragStart();
             }}
             onScroll={(event) => {
-              if (userDragging.current) updateUserScroll(event);
+              if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
             }}
+            // Keep tracking after release: a fling can cross the threshold mid-momentum.
             onScrollEndDrag={(event) => {
               updateUserScroll(event);
-              userDragging.current = false;
+              scrollBehavior.current.onUserDragEnd();
+              scheduleScrollIdle();
             }}
-            onMomentumScrollEnd={updateUserScroll}
-            onLayout={() => performScroll(scrollBehavior.current.onLayout())}
-            onContentSizeChange={() => {
+            onMomentumScrollBegin={() => {
+              nativeMomentumActive.current = true;
+              scheduleScrollIdle();
+            }}
+            onMomentumScrollEnd={(event) => {
+              nativeMomentumActive.current = false;
+              if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
+              clearTimeout(scrollIdleTimer.current);
+              performScroll(scrollBehavior.current.onUserMomentumEnd());
+              publishThreadScrollState(scrollBehavior.current.state());
+            }}
+            onLayout={(event) => {
+              performScroll(scrollBehavior.current.onLayout(event.nativeEvent.layout.height));
+              publishThreadScrollState(scrollBehavior.current.state());
+            }}
+            onContentSizeChange={(_, height) => {
+              publishThreadScrollState(scrollBehavior.current.onContentSizeChanged(height));
               if (loadingOlderContent.current) {
                 loadingOlderContent.current = false;
                 return;
@@ -2410,58 +2450,35 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           />
         )}
         {showPinnedPage || threadScrollState.detached ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              threadScrollState.unread ? t("Jump to latest, new messages") : t("Jump to latest")
-            }
-            onPress={() => {
-              if (showPinnedPage) {
-                showLatest();
-                return;
+          <View style={{ position: "absolute", end: 0, bottom: 12 }}>
+            <ScrollToBottomButton
+              accessibilityLabel={
+                threadScrollState.unread ? t("Jump to latest, new messages") : t("Jump to latest")
               }
-              performScroll(scrollBehavior.current.jumpToLatest());
-              publishThreadScrollState(scrollBehavior.current.state());
-            }}
-            style={{
-              position: "absolute",
-              left: "50%",
-              marginLeft: -21,
-              bottom: 12,
-              width: 42,
-              height: 42,
-            }}
-          >
-            <GlassSurface
-              shape="circle"
-              style={styles.circleButton}
-              fallbackStyle={{
-                borderWidth: 1,
-                borderColor: native.fillPressed,
-                backgroundColor: native.fill,
+              onPress={() => {
+                if (showPinnedPage) {
+                  showLatest();
+                  return;
+                }
+                performScroll(scrollBehavior.current.jumpToLatest());
+                publishThreadScrollState(scrollBehavior.current.state());
               }}
-            >
-              <NativeSymbol
-                ios="arrow.down"
-                android="arrow-down"
-                size={18}
-                color={tokens.foreground}
+            />
+            {threadScrollState.unread ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  top: 3,
+                  end: 3,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: tokens.primary,
+                }}
               />
-              {threadScrollState.unread ? (
-                <View
-                  style={{
-                    position: "absolute",
-                    top: 3,
-                    right: 3,
-                    width: 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: tokens.primary,
-                  }}
-                />
-              ) : null}
-            </GlassSurface>
-          </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </View>
       {/* Shrinks (the suggestion lists scroll) so the input and Send stay above the keyboard. */}
