@@ -377,8 +377,9 @@ function Home() {
     [spaces, me, visible, visibleGroups, botSections, t, locale],
   );
   useEffect(() => {
-    setSearchInbox(inboxSpaces);
-  }, [inboxSpaces]);
+    // A remounted session has no roster until its saved or live inbox arrives.
+    if (me) setSearchInbox(inboxSpaces);
+  }, [inboxSpaces, me]);
   const listData = useMemo(
     () => spaceInboxItems(inboxSpaces, collapsedRosterParents),
     [inboxSpaces, collapsedRosterParents],

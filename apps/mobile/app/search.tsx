@@ -19,13 +19,14 @@ import { GlassIconButton } from "../components/glass-icon-button";
 import { GroupAvatar } from "../components/group-avatar";
 import { NativeSymbol } from "../components/native-symbol";
 import { readableGutter } from "../lib/adaptive-layout";
-import { selectSpace } from "../lib/api";
+import { currentApiBase, selectedSpaceId, selectSpace } from "../lib/api";
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { useI18n } from "../lib/i18n";
 import { native, useThemedStyles } from "../lib/native";
 import { getSearchInbox, subscribeSearchInbox } from "../lib/search-inbox";
 import type { SearchSheetRow } from "../lib/search-sheet";
 import { searchSheetRows } from "../lib/search-sheet";
+import { currentSessionGeneration } from "../lib/session";
 import { useSearch } from "../lib/use-search";
 
 const kindIcons = {
@@ -87,9 +88,14 @@ export default function SearchSheet() {
     opening.current = true;
     const currentAttempt = ++attempt.current;
     const isCurrent = () => focused.current && attempt.current === currentAttempt;
+    const previousSpaceId = selectedSpaceId();
+    const generation = currentSessionGeneration();
+    const apiBase = currentApiBase();
+    let selected = false;
+    let navigated = false;
     try {
       if (row.spaceId) {
-        const selected = await selectSpace(row.spaceId);
+        selected = await selectSpace(row.spaceId);
         if (!isCurrent()) return;
         if (!selected) {
           Alert.alert(t("Could not switch spaces"), t("Try again."));
@@ -99,8 +105,21 @@ export default function SearchSheet() {
       await KeyboardController.dismiss();
       if (!isCurrent()) return;
       // Replace removes the sheet from history while preserving messageId search jumps.
+      navigated = true;
       router.replace(row.destination);
     } finally {
+      // Native dismissal can outlive the switch; undo it only in the session that started it.
+      if (
+        !navigated &&
+        !isCurrent() &&
+        selected &&
+        previousSpaceId !== row.spaceId &&
+        selectedSpaceId() === row.spaceId &&
+        generation === currentSessionGeneration() &&
+        apiBase === currentApiBase()
+      ) {
+        await selectSpace(previousSpaceId ?? "").catch(() => false);
+      }
       if (isCurrent()) opening.current = false;
     }
   };

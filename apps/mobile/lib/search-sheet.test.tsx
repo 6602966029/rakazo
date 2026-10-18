@@ -15,6 +15,10 @@ const state = vi.hoisted(() => ({
   addListener: vi.fn(),
   lifecycle: new Map<string, () => void>(),
   selectSpace: vi.fn(),
+  spaceId: "space-a" as string | null,
+  persistedSpaceId: "space-a",
+  generation: 1,
+  apiBase: "https://example.test",
   dismiss: vi.fn(),
   alert: vi.fn(),
   platform: { OS: "ios" },
@@ -54,7 +58,12 @@ vi.mock("expo-router", () => ({
       return cleanup;
     }, [effect]),
 }));
-vi.mock("./api", () => ({ selectSpace: state.selectSpace }));
+vi.mock("./api", () => ({
+  selectSpace: state.selectSpace,
+  selectedSpaceId: () => state.spaceId,
+  currentApiBase: () => state.apiBase,
+}));
+vi.mock("./session", () => ({ currentSessionGeneration: () => state.generation }));
 vi.mock("./search", () => ({ querySpaceSearch: state.search }));
 vi.mock("./search-inbox", () => ({
   getSearchInbox: () => spaces,
@@ -154,7 +163,15 @@ beforeEach(() => {
   });
   state.platform.OS = "ios";
   state.search.mockResolvedValue([]);
-  state.selectSpace.mockResolvedValue(true);
+  state.spaceId = "space-a";
+  state.persistedSpaceId = "space-a";
+  state.generation = 1;
+  state.apiBase = "https://example.test";
+  state.selectSpace.mockImplementation(async (id: string) => {
+    state.spaceId = id || null;
+    state.persistedSpaceId = id;
+    return true;
+  });
   state.dismiss.mockResolvedValue(undefined);
   container = document.createElement("div");
   root = createRoot(container);
@@ -293,17 +310,19 @@ it.each(["space switch", "keyboard dismiss"] as const)(
       resolve = done;
     });
     if (stage === "space switch") {
-      state.selectSpace.mockImplementationOnce(async () => {
+      state.selectSpace.mockImplementationOnce(async (id: string) => {
+        state.spaceId = id;
         await pending;
+        state.persistedSpaceId = id;
         return true;
       });
     } else {
       state.dismiss.mockReturnValueOnce(pending);
     }
     const focus = vi.spyOn(container.querySelector("input")!, "focus");
-    await act(async () => row("Scout, Bot").click());
-    // A second tap must not start another attempt while the first is pending.
     await act(async () => row("Team, Group").click());
+    // A second tap must not start another attempt while the first is pending.
+    await act(async () => row("Scout, Bot").click());
     expect(state.selectSpace).toHaveBeenCalledOnce();
     await act(async () =>
       container.querySelector<HTMLButtonElement>('[data-testid="search-sheet-close"]')!.click(),
@@ -312,22 +331,66 @@ it.each(["space switch", "keyboard dismiss"] as const)(
     act(() => vi.advanceTimersByTime(350));
     expect(focus).not.toHaveBeenCalled();
     expect(state.replace).not.toHaveBeenCalled();
+    expect(state.spaceId).toBe("space-a");
+    expect(state.persistedSpaceId).toBe("space-a");
     if (stage === "space switch") expect(state.dismiss).not.toHaveBeenCalled();
   },
 );
 
-it.each(["beforeRemove", "blur", "unmount"])("cancels pending navigation on %s", async (event) => {
+it.each(
+  ["beforeRemove", "blur", "unmount"].flatMap((event) =>
+    ["space switch", "keyboard dismiss"].map((stage) => ({ event, stage })),
+  ),
+)("cancels pending $stage on $event and restores the space", async ({ event, stage }) => {
   let resolve!: () => void;
-  state.dismiss.mockReturnValueOnce(
-    new Promise<void>((done) => {
-      resolve = done;
-    }),
-  );
-  await act(async () => row("Scout, Bot").click());
+  const pending = new Promise<void>((done) => {
+    resolve = done;
+  });
+  if (stage === "space switch") {
+    state.selectSpace.mockImplementationOnce(async (id: string) => {
+      state.spaceId = id;
+      await pending;
+      state.persistedSpaceId = id;
+      return true;
+    });
+  } else {
+    state.dismiss.mockReturnValueOnce(pending);
+  }
+  await act(async () => row("Team, Group").click());
   act(() => {
     if (event === "unmount") root.unmount();
     else state.lifecycle.get(event)!();
   });
   await act(async () => resolve());
   expect(state.replace).not.toHaveBeenCalled();
+  expect(state.spaceId).toBe("space-a");
+  expect(state.persistedSpaceId).toBe("space-a");
 });
+
+it("keeps the selected space when successful navigation removes the sheet", async () => {
+  state.replace.mockImplementationOnce(() => state.lifecycle.get("beforeRemove")!());
+  await act(async () => row("Team, Group").click());
+  expect(state.replace).toHaveBeenCalledOnce();
+  expect(state.spaceId).toBe("space-b");
+  expect(state.persistedSpaceId).toBe("space-b");
+});
+
+it.each(["session", "server", "selection"])(
+  "does not restore a cancelled attempt over a newer %s",
+  async (changed) => {
+    let resolve!: () => void;
+    state.dismiss.mockReturnValueOnce(
+      new Promise<void>((done) => {
+        resolve = done;
+      }),
+    );
+    await act(async () => row("Team, Group").click());
+    act(() => state.lifecycle.get("blur")!());
+    if (changed === "session") state.generation++;
+    else if (changed === "server") state.apiBase = "https://other.example.test";
+    else state.spaceId = "space-c";
+    await act(async () => resolve());
+    expect(state.replace).not.toHaveBeenCalled();
+    expect(state.selectSpace).toHaveBeenCalledOnce();
+  },
+);
