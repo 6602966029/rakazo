@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { ReactNode } from "react";
-import { act } from "react";
+import { act, useEffect } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -12,6 +12,8 @@ const state = vi.hoisted(() => ({
   search: vi.fn(),
   replace: vi.fn(),
   back: vi.fn(),
+  addListener: vi.fn(),
+  lifecycle: new Map<string, () => void>(),
   selectSpace: vi.fn(),
   dismiss: vi.fn(),
   alert: vi.fn(),
@@ -42,7 +44,16 @@ const message = {
   snippet: "A **matching** line",
   messageId: "message-a",
 };
-vi.mock("expo-router", () => ({ useRouter: () => state }));
+vi.mock("expo-router", () => ({
+  useRouter: () => state,
+  useNavigation: () => state,
+  useFocusEffect: (effect: () => () => void) =>
+    useEffect(() => {
+      const cleanup = effect();
+      state.lifecycle.set("blur", cleanup);
+      return cleanup;
+    }, [effect]),
+}));
 vi.mock("./api", () => ({ selectSpace: state.selectSpace }));
 vi.mock("./search", () => ({ querySpaceSearch: state.search }));
 vi.mock("./search-inbox", () => ({
@@ -136,6 +147,11 @@ beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.useFakeTimers();
   vi.clearAllMocks();
+  state.lifecycle.clear();
+  state.addListener.mockImplementation((event: string, listener: () => void) => {
+    state.lifecycle.set(event, listener);
+    return () => state.lifecycle.delete(event);
+  });
   state.platform.OS = "ios";
   state.search.mockResolvedValue([]);
   state.selectSpace.mockResolvedValue(true);
@@ -267,4 +283,51 @@ it("clears the Android field and restores inbox chats", async () => {
   await act(async () => row("Clear").click());
   expect(container.querySelector("input")!.value).toBe("");
   expect(row("Scout, Bot")).not.toBeNull();
+});
+
+it.each(["space switch", "keyboard dismiss"] as const)(
+  "cancels navigation when closed during a pending %s",
+  async (stage) => {
+    let resolve!: () => void;
+    const pending = new Promise<void>((done) => {
+      resolve = done;
+    });
+    if (stage === "space switch") {
+      state.selectSpace.mockImplementationOnce(async () => {
+        await pending;
+        return true;
+      });
+    } else {
+      state.dismiss.mockReturnValueOnce(pending);
+    }
+    const focus = vi.spyOn(container.querySelector("input")!, "focus");
+    await act(async () => row("Scout, Bot").click());
+    // A second tap must not start another attempt while the first is pending.
+    await act(async () => row("Team, Group").click());
+    expect(state.selectSpace).toHaveBeenCalledOnce();
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[data-testid="search-sheet-close"]')!.click(),
+    );
+    await act(async () => resolve());
+    act(() => vi.advanceTimersByTime(350));
+    expect(focus).not.toHaveBeenCalled();
+    expect(state.replace).not.toHaveBeenCalled();
+    if (stage === "space switch") expect(state.dismiss).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["beforeRemove", "blur", "unmount"])("cancels pending navigation on %s", async (event) => {
+  let resolve!: () => void;
+  state.dismiss.mockReturnValueOnce(
+    new Promise<void>((done) => {
+      resolve = done;
+    }),
+  );
+  await act(async () => row("Scout, Bot").click());
+  act(() => {
+    if (event === "unmount") root.unmount();
+    else state.lifecycle.get(event)!();
+  });
+  await act(async () => resolve());
+  expect(state.replace).not.toHaveBeenCalled();
 });

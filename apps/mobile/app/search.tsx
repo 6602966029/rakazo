@@ -1,6 +1,6 @@
 import { botColors } from "@rakazo/ui-tokens";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Alert,
   FlatList,
@@ -39,6 +39,7 @@ const kindIcons = {
 export default function SearchSheet() {
   const { t, locale } = useI18n();
   const router = useRouter();
+  const navigation = useNavigation();
   const styles = useThemedStyles(createStyles);
   const tokens = mobileTokens();
   const appearance = resolveMobileAppearance();
@@ -46,15 +47,35 @@ export default function SearchSheet() {
   const gutter = readableGutter(useWindowDimensions().width, Math.max(insets.left, insets.right));
   const field = useRef<TextInput>(null);
   const opening = useRef(false);
+  const attempt = useRef(0);
+  const focused = useRef(false);
   const [query, setQuery] = useState("");
   const spaces = useSyncExternalStore(subscribeSearchInbox, getSearchInbox);
   const { hits, loading } = useSearch(query);
   const rows = useMemo(() => searchSheetRows(spaces, query, hits), [spaces, query, hits, locale]);
 
+  const cancelOpen = useCallback(() => {
+    attempt.current += 1;
+    focused.current = false;
+    opening.current = true;
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      focused.current = true;
+      opening.current = false;
+      const unsubscribe = navigation.addListener("beforeRemove", cancelOpen);
+      return () => {
+        cancelOpen();
+        unsubscribe();
+      };
+    }, [navigation, cancelOpen]),
+  );
+
   useEffect(() => {
     // Native formSheet may finish attaching after TextInput's autoFocus runs.
     const timer = setTimeout(() => {
-      if (!opening.current) field.current?.focus();
+      if (focused.current && !opening.current) field.current?.focus();
     }, 350);
     return () => {
       clearTimeout(timer);
@@ -62,18 +83,25 @@ export default function SearchSheet() {
   }, []);
 
   const open = async (row: SearchSheetRow) => {
-    if (opening.current) return;
+    if (!focused.current || opening.current) return;
     opening.current = true;
+    const currentAttempt = ++attempt.current;
+    const isCurrent = () => focused.current && attempt.current === currentAttempt;
     try {
-      if (row.spaceId && !(await selectSpace(row.spaceId))) {
-        Alert.alert(t("Could not switch spaces"), t("Try again."));
-        return;
+      if (row.spaceId) {
+        const selected = await selectSpace(row.spaceId);
+        if (!isCurrent()) return;
+        if (!selected) {
+          Alert.alert(t("Could not switch spaces"), t("Try again."));
+          return;
+        }
       }
       await KeyboardController.dismiss();
+      if (!isCurrent()) return;
       // Replace removes the sheet from history while preserving messageId search jumps.
       router.replace(row.destination);
     } finally {
-      opening.current = false;
+      if (isCurrent()) opening.current = false;
     }
   };
 
@@ -93,7 +121,7 @@ export default function SearchSheet() {
           color={tokens.foreground}
           fallbackStyle={{ backgroundColor: tokens.muted }}
           onPress={() => {
-            opening.current = true;
+            cancelOpen();
             router.back();
           }}
         />
