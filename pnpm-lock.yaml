@@ -663,8 +663,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@chat-adapter/tests':
-        specifier: 4.42.0
-        version: 4.42.0(chat@4.42.0(zod@4.6.7))(vitest@4.1.12(@opentelemetry/api@1.9.1)(@types/node@26.5.0)(jsdom@30.1.3(@noble/hashes@2.3.0))(vite@8.3.4(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1)))
+        specifier: 4.41.1
+        version: 4.41.1(chat@4.42.0(zod@4.6.7))(vitest@4.1.12(@opentelemetry/api@1.9.1)(@types/node@26.5.0)(jsdom@30.1.3(@noble/hashes@2.3.0))(vite@8.3.4(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1)))
       '@types/d3-dsv':
         specifier: 3.0.7
         version: 3.0.7
@@ -1886,11 +1886,11 @@ packages:
     resolution: {integrity: sha512-doAdkTyJ92Ap96rDBxGkPfeHJE1EbHJdey1GtDYkq/00WWSUwubdCHAwic/5xAhna8bJtcQBLGRYK0hAX6bl8w==}
     engines: {node: '>=20'}
 
-  '@chat-adapter/tests@4.42.0':
-    resolution: {integrity: sha512-rctAJh7ElgAsUmenD30v9kDesDH+hwSmxJN5da0mW/F1ld4g6SIfGswgw+VEqyyDMaw2CVbROwlRZCzuyWLTug==}
+  '@chat-adapter/tests@4.41.1':
+    resolution: {integrity: sha512-7KAqffXk8sFW4gZzBoKsq+uZFI53o2g+nLAf4eJlKgM1lYn03ZrfjfNeO87FCxNsKB5QPpPtL41DJ+USEiLkYQ==}
     peerDependencies:
       chat: ^4.28.1
-      vitest: ^5.0.0
+      vitest: ^4.0.0
 
   '@chat-adapter/whatsapp@4.42.0':
     resolution: {integrity: sha512-3Tq28mD/33onnCVTa6w+76F7sofxYopspW/hb7rZ6qnSfBg86CPEWBVCscmL5KZjbm2ppOsITQym290zEbb1jw==}
@@ -11292,7 +11292,7 @@ snapshots:
       - workflow
       - zod
 
-  '@chat-adapter/tests@4.42.0(chat@4.42.0(zod@4.6.7))(vitest@4.1.12(@opentelemetry/api@1.9.1)(@types/node@26.5.0)(jsdom@30.1.3(@noble/hashes@2.3.0))(vite@8.3.4(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1)))':
+  '@chat-adapter/tests@4.41.1(chat@4.42.0(zod@4.6.7))(vitest@4.1.12(@opentelemetry/api@1.9.1)(@types/node@26.5.0)(jsdom@30.1.3(@noble/hashes@2.3.0))(vite@8.3.4(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1)))':
     dependencies:
       chat: 4.42.0(zod@4.6.7)
       vitest: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@26.5.0)(jsdom@30.1.3(@noble/hashes@2.3.0))(vite@8.3.4(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1))
