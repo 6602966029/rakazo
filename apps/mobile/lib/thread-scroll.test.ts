@@ -104,4 +104,57 @@ describe("mobile thread initial scroll", () => {
     expect(afterCommits).toBe(2);
     expect(after).toEqual({ detached: false, unread: false });
   });
+  it("publishes only threshold crossings throughout a fling and clears unread near latest", () => {
+    const behavior = new ThreadScrollBehavior();
+    behavior.openThread("thread-1");
+    behavior.onLayout(600);
+    behavior.onContentSizeChanged(1800);
+    behavior.onContentChanged(false, "m1");
+    let state = behavior.state();
+    let commits = 0;
+    const scroll = (offset: number) => {
+      const next = reconcileThreadScrollState(state, behavior.onUserScroll(offset));
+      if (next !== state) commits += 1;
+      state = next;
+    };
+
+    // The finger lifts below the threshold; momentum continues away from latest.
+    for (const offset of [0, 30, 70, 81, 150, 300, 500]) scroll(offset);
+    expect(commits).toBe(1);
+    expect(state.detached).toBe(true);
+    behavior.onContentChanged(false, "m2");
+    state = behavior.state();
+    expect(state.unread).toBe(true);
+    // A fling towards latest reattaches before momentum ends.
+    for (const offset of [400, 200, 81, 80, 30, 0, -20]) scroll(offset);
+    expect(commits).toBe(2);
+    expect(state).toEqual({ detached: false, unread: false });
+  });
+
+  it("ignores bounce on short threads and reattaches when content or viewport stops scrolling", () => {
+    const behavior = new ThreadScrollBehavior();
+    behavior.openThread("thread-1");
+    behavior.onLayout(600);
+    behavior.onContentSizeChanged(400);
+    expect(behavior.onUserScroll(100)).toEqual({ detached: false, unread: false });
+    behavior.onContentSizeChanged(1200);
+    expect(behavior.onUserScroll(100).detached).toBe(true);
+    behavior.onLayout(1200);
+    expect(behavior.state().detached).toBe(false);
+    behavior.onLayout(600);
+    behavior.onUserScroll(100);
+    expect(behavior.onContentSizeChanged(600)).toEqual({ detached: false, unread: false });
+  });
+
+  it("keeps a tap reattached when content resizes before the smooth scroll finishes", () => {
+    const behavior = new ThreadScrollBehavior();
+    behavior.openThread("thread-1");
+    behavior.onLayout(600);
+    behavior.onContentSizeChanged(1200);
+    behavior.onContentChanged(false, "m1");
+    behavior.onUserScroll(300);
+    behavior.onContentChanged(false, "m2");
+    expect(behavior.jumpToLatest()).toBe("smooth");
+    expect(behavior.onContentSizeChanged(1300)).toEqual({ detached: false, unread: false });
+  });
 });

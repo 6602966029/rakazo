@@ -8,6 +8,9 @@ export class ThreadScrollBehavior {
   private threadKey: string | null = null;
   private laidOut = false;
   private contentReady = false;
+  private viewportHeight: number | null = null;
+  private contentHeight: number | null = null;
+  private distanceFromEnd = 0;
   private latestMessageId: string | null = null;
   private currentState: ThreadScrollState = { detached: false, unread: false };
 
@@ -17,11 +20,18 @@ export class ThreadScrollBehavior {
     this.laidOut = false;
     this.contentReady = false;
     this.latestMessageId = null;
+    this.viewportHeight = null;
+    this.contentHeight = null;
+    this.distanceFromEnd = 0;
     this.currentState = { detached: false, unread: false };
   }
 
-  onLayout(): ThreadScrollAction {
+  onLayout(viewportHeight?: number): ThreadScrollAction {
     this.laidOut = true;
+    if (viewportHeight !== undefined) {
+      this.viewportHeight = viewportHeight;
+      this.onUserScroll(this.distanceFromEnd);
+    }
     return this.contentReady && !this.currentState.detached ? "jump" : null;
   }
 
@@ -39,8 +49,18 @@ export class ThreadScrollBehavior {
     return "smooth";
   }
 
+  onContentSizeChanged(height: number): ThreadScrollState {
+    this.contentHeight = height;
+    return this.onUserScroll(this.distanceFromEnd);
+  }
+
   onUserScroll(distanceFromEnd: number): ThreadScrollState {
-    const detached = distanceFromEnd > 80;
+    const scrollable =
+      this.contentHeight === null ||
+      this.viewportHeight === null ||
+      this.contentHeight > this.viewportHeight;
+    this.distanceFromEnd = scrollable ? Math.max(0, distanceFromEnd) : 0;
+    const detached = this.distanceFromEnd > 80;
     this.currentState = {
       detached,
       unread: detached ? this.currentState.unread : false,
@@ -49,6 +69,7 @@ export class ThreadScrollBehavior {
   }
 
   jumpToLatest(): ThreadScrollAction {
+    this.distanceFromEnd = 0;
     this.currentState = { detached: false, unread: false };
     return "smooth";
   }
