@@ -77,8 +77,12 @@ export default function SearchSheet() {
     }
   };
 
+  // Preserve this container so the native sheet does not stretch the list over the header.
   return (
-    <View style={[styles.screen, { paddingTop: Platform.OS === "ios" ? 16 : insets.top + 8 }]}>
+    <View
+      collapsable={false}
+      style={[styles.screen, { paddingTop: Platform.OS === "ios" ? 16 : insets.top + 8 }]}
+    >
       <View style={[styles.top, { marginHorizontal: 16 + gutter }]}>
         <GlassIconButton
           testID="search-sheet-close"
