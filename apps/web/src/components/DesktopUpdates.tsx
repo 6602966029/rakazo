@@ -142,7 +142,7 @@ export function DesktopUpdateSection() {
       <div className="mt-3 flex items-center justify-between gap-3">
         <span className="text-sm text-muted-foreground">v{state.currentVersion}</span>
         <Button
-          variant="outline"
+          variant="secondary"
           disabled={busy || downloading || state.phase === "checking"}
           onClick={() => void act(ready ? "install" : "check")}
         >

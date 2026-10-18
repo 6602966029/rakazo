@@ -41,7 +41,7 @@ function ScopePicker({
         {(["isolated", "shared"] as const).map((option) => (
           <Toggle
             key={option}
-            variant="outline"
+            variant="soft"
             pressed={value === option}
             disabled={disabled}
             onPressedChange={() => onChange(option)}
@@ -203,7 +203,7 @@ export function MemorySettingsOverlay({
             </div>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               disabled={busy}
               onClick={() => void disconnect()}

@@ -458,7 +458,7 @@ export function McpServersOverlay({ onClose }: { onClose: () => void }) {
                               <Button
                                 key={bot.id}
                                 type="button"
-                                variant={assigned ? "default" : "outline"}
+                                variant="secondary"
                                 size="xs"
                                 className="rounded-full"
                                 aria-pressed={assigned}
@@ -484,7 +484,7 @@ export function McpServersOverlay({ onClose }: { onClose: () => void }) {
                               {server.oauthStatus !== "none" ? (
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant="secondary"
                                   size="sm"
                                   disabled={oauthPending === server.id}
                                   onClick={() => void disconnectOAuth(server)}
@@ -496,7 +496,7 @@ export function McpServersOverlay({ onClose }: { onClose: () => void }) {
                           ) : null}
                           <Button
                             type="button"
-                            variant={confirmingDelete === server.id ? "destructive" : "outline"}
+                            variant={confirmingDelete === server.id ? "destructive" : "secondary"}
                             size="sm"
                             className="ml-auto"
                             onClick={() => void deleteServer(server)}

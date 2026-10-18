@@ -114,14 +114,14 @@ export function ApprovalRulesSettings() {
       </h3>
       <div className="mt-4 flex flex-col items-start gap-2">
         <Button
-          variant="outline"
+          variant="secondary"
           disabled={loading || savingPreset !== null}
           onClick={() => void setPreset("email")}
         >
           <Trans>Ask before sending external email</Trans>
         </Button>
         <Button
-          variant="outline"
+          variant="secondary"
           disabled={loading || savingPreset !== null}
           onClick={() => void setPreset("purchase")}
         >
@@ -158,7 +158,7 @@ export function ApprovalRulesSettings() {
           {rules.map((rule) => (
             <li
               key={rule.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border px-3.5 py-2"
+              className="flex items-center justify-between gap-3 rounded-lg bg-secondary px-3.5 py-2"
             >
               <span className="text-[13.5px] text-foreground/75">{describeRule(rule)}</span>
               <Button

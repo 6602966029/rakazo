@@ -887,7 +887,7 @@ export function PluginsOverlay({
                         {catalogFeedResults.map((result) => (
                           <div
                             key={`${result.domain}:${result.name}:${result.pageUrl ?? ""}`}
-                            className="rounded-xl border border-border/70 p-3"
+                            className="rounded-xl bg-secondary p-3"
                           >
                             <div className="font-medium text-foreground">
                               {result.pageUrl ? (

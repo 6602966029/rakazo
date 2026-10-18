@@ -248,7 +248,7 @@ export function GeneralSettingsPanels({
           </NativeSelect>
           {!timezone || !sameTimeZone(timezone, deviceTimezone) ? (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="mt-3 h-auto max-w-full py-1.5 text-left whitespace-normal"
               disabled={timezonePending}
@@ -279,7 +279,7 @@ export function GeneralSettingsPanels({
           {(["robot", "organic"] as const).map((style) => (
             <Toggle
               key={style}
-              variant="outline"
+              variant="soft"
               pressed={style === avatarStyle}
               disabled={avatarPending}
               onPressedChange={() => void chooseAvatarStyle(style)}

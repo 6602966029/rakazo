@@ -362,7 +362,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                       </Button>
                     </div>
                     {open && bot ? (
-                      <div className="mt-4 rounded-lg border border-border px-3 py-3">
+                      <div className="mt-4 rounded-lg bg-secondary px-3 py-3">
                         <ExternalConversationSettings
                           conversation={conversation}
                           bot={bot}

@@ -55,7 +55,7 @@ export function AccountAccess({
     <div className="mt-3 space-y-3">
       {security?.sso && !security.ssoLinked ? (
         <Button
-          variant="outline"
+          variant="secondary"
           disabled={pending}
           onClick={() =>
             void action(async () => {
@@ -85,7 +85,7 @@ export function AccountAccess({
             <Trans>This permanently deletes your account and data.</Trans>
           </p>
           {!security ? (
-            <Button variant="outline" onClick={() => setAttempt((value) => value + 1)}>
+            <Button variant="secondary" onClick={() => setAttempt((value) => value + 1)}>
               <Trans>Retry</Trans>
             </Button>
           ) : security.hasPassword ? (
@@ -105,7 +105,7 @@ export function AccountAccess({
             <>
               {security.sso ? (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   disabled={pending}
                   onClick={() =>
                     void action(async () => {
@@ -130,7 +130,7 @@ export function AccountAccess({
               ) : null}
               {security.emailDeletion ? (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   disabled={pending}
                   onClick={() =>
                     void action(async () => {

@@ -856,7 +856,7 @@ export function ModelSettingsOverlay({
                     />
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       disabled={!pasteCode.trim()}
                       onClick={() => void submitOAuthCode()}
@@ -909,7 +909,7 @@ export function ModelSettingsOverlay({
                     </p>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={() => copyOAuthCode(oauth.userCode)}
                     >
