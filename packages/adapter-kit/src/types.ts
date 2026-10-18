@@ -703,10 +703,12 @@ export interface TransactionalEmail {
   html?: string;
 }
 
+export type MessagingReceipt = "typing" | "reaction";
+
 export interface MessagingCapabilities {
   direct: boolean;
   groups: boolean;
-  typing: boolean;
+  receipt: MessagingReceipt | null;
 }
 
 /** One messaging platform behind the chat surface (sendblue, slack, …). */

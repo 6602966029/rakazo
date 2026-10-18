@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import type {
@@ -111,6 +110,7 @@ import {
   teamChatSenderCanWakeMessageRoutines,
   wakeMessageRoutines,
 } from "./messaging-inbound.js";
+import { createMessagingReceipts } from "./messaging-receipts.js";
 import { mountMessagingWebhookRoutes } from "./messaging-webhook.js";
 import { mountApiRequestBodyLimits } from "./request-body-limit.js";
 import { createRouter } from "./router.js";
@@ -693,6 +693,7 @@ export async function createApp(
   /** Constructed even before start() succeeds so stop() can cancel in-flight startup. */
   let teamChatBridgeInstance: TeamChatBridge | undefined;
   const pendingTeamChatInbound = new PendingTeamChatInbound();
+  const receipts = messaging ? createMessagingReceipts(messaging) : undefined;
   if (messaging) {
     const inboundDeps = {
       prisma,
@@ -704,21 +705,7 @@ export async function createApp(
         signupsEnabled: env.signupsEnabled,
         signupAllowlist: env.signupAllowlist,
       },
-      typing: (threadId) => {
-        // Keep conversation addresses out of trace ids — those reach logs
-        // and telemetry, a different trust boundary than the database.
-        const operationId = `messaging.typing:${randomUUID()}`;
-        return messaging.sendTyping(threadId, {
-          operationId,
-          traceId: operationId,
-          spaceId: "",
-          userId: "",
-          // Cosmetic side call: the wait is bounded so a stalled vendor
-          // response never holds our callback chain (the Chat SDK adapter
-          // API cannot cancel the underlying request itself).
-          signal: AbortSignal.timeout(2000),
-        });
-      },
+      acknowledge: receipts?.acknowledge,
     } satisfies Parameters<typeof createMessagingInboundHandler>[0];
     const inbound = createMessagingInboundHandler(inboundDeps);
     const handleTeamChatInbound = async (
@@ -847,6 +834,7 @@ export async function createApp(
         providerId: "slack",
         botId: env.teamChatBotId,
         judge,
+        acknowledge: receipts?.acknowledge,
       });
       teamChatBridgeInstance = bridge;
       try {
@@ -998,6 +986,7 @@ export async function createApp(
       messagingStopped = true;
       clearMessagingRetryDelay?.();
       clearTeamChatRetryDelay?.();
+      receipts?.stop();
       pendingTeamChatInbound.reject(new Error("Team chat bridge stopped before startup"));
       // Cancel in-flight start() before awaiting the retry task so stop() cannot
       // sit on DB/reconcile work that bridge.start() is still running.

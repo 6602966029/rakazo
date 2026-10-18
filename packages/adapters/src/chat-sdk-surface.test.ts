@@ -80,7 +80,7 @@ function createPlatform(
   });
   const platform: MessagingPlatform = {
     provider: "mock",
-    capabilities: { direct: true, groups: true, typing: true },
+    capabilities: { direct: true, groups: true, receipt: "typing" },
     adapter,
     ...overrides,
   };
@@ -139,7 +139,7 @@ describe("ChatSdkMessagingSurface inbound", () => {
       const surface = new ChatSdkMessagingSurface([
         {
           provider: "slack",
-          capabilities: { direct: true, groups: true, typing: false },
+          capabilities: { direct: true, groups: true, receipt: "reaction" },
           adapter,
           enrichTeamRoom: enrichSlackTeamRoom,
         },
@@ -353,7 +353,7 @@ describe("ChatSdkMessagingSurface inbound", () => {
 
   it("drops non-DM events for platforms without group support", async () => {
     const { surface, events } = createSurface({
-      capabilities: { direct: true, groups: false, typing: false },
+      capabilities: { direct: true, groups: false, receipt: null },
     });
     const response = await surface.handleWebhook(
       "mock",
@@ -603,25 +603,37 @@ describe("ChatSdkMessagingSurface thread history", () => {
   });
 });
 
-describe("ChatSdkMessagingSurface typing", () => {
-  it("forwards typing to platforms that support it", async () => {
-    const { surface, adapter } = createSurface();
-    await surface.sendTyping("mock:Duser:1", context);
-    expect(adapter.startTyping).toHaveBeenCalledWith("mock:Duser:1");
+describe("ChatSdkMessagingSurface acknowledge", () => {
+  it("reacts with eyes on reaction platforms", async () => {
+    const { surface, adapter } = createSurface({
+      capabilities: { direct: true, groups: true, receipt: "reaction" },
+    });
+    await surface.acknowledge("mock:Duser:1", "1700000000.000100", context);
+    expect(adapter.addReaction).toHaveBeenCalledWith("mock:Duser:1", "1700000000.000100", "eyes");
+    expect(adapter.startTyping).not.toHaveBeenCalled();
   });
 
-  it("no-ops when the platform lacks typing support", async () => {
+  it("starts typing on typing platforms", async () => {
+    const { surface, adapter } = createSurface();
+    await surface.acknowledge("mock:Duser:1", "m-1", context);
+    expect(adapter.startTyping).toHaveBeenCalledWith("mock:Duser:1");
+    expect(adapter.addReaction).not.toHaveBeenCalled();
+  });
+
+  it("no-ops when the platform has no receipt", async () => {
     const { surface, adapter } = createSurface({
-      capabilities: { direct: true, groups: true, typing: false },
+      capabilities: { direct: true, groups: true, receipt: null },
     });
-    await surface.sendTyping("mock:Duser:1", context);
+    await surface.acknowledge("mock:Duser:1", "m-1", context);
     expect(adapter.startTyping).not.toHaveBeenCalled();
+    expect(adapter.addReaction).not.toHaveBeenCalled();
   });
 
   it("no-ops for a thread on an unknown provider", async () => {
     const { surface, adapter } = createSurface();
-    await surface.sendTyping("nope:Duser:1", context);
+    await surface.acknowledge("nope:Duser:1", "m-1", context);
     expect(adapter.startTyping).not.toHaveBeenCalled();
+    expect(adapter.addReaction).not.toHaveBeenCalled();
   });
 });
 
@@ -630,7 +642,7 @@ describe("ChatSdkMessagingSurface shape", () => {
     expect(() => new ChatSdkMessagingSurface([])).toThrow(/>=1 platform/);
     const { surface } = createSurface();
     expect(surface.platforms()).toEqual([
-      { provider: "mock", capabilities: { direct: true, groups: true, typing: true } },
+      { provider: "mock", capabilities: { direct: true, groups: true, receipt: "typing" } },
     ]);
     expect(surface.describe().capabilities).toEqual({ providers: ["mock"] });
     expect(providerOfThreadId("mock:C1:9")).toBe("mock");

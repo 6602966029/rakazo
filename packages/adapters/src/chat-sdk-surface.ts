@@ -9,6 +9,7 @@ import type {
   MessagingInboundMessage,
   MessagingOutboundStatus,
   MessagingPlatformDescriptor,
+  MessagingReceipt,
   MessagingSendRequest,
   MessagingSendResult,
   MessagingSurface,
@@ -162,13 +163,18 @@ export class ChatSdkMessagingSurface implements MessagingSurface {
     return platform.adapter.openDM(address);
   }
 
-  async sendTyping(threadId: string, context: AdapterContext): Promise<void> {
+  async acknowledge(threadId: string, handle: string, context: AdapterContext): Promise<void> {
     const platform = this.byProvider.get(providerOfThreadId(threadId));
-    if (!platform?.capabilities.typing) return;
+    const receipt = platform?.capabilities.receipt;
+    if (!platform || !receipt) return;
     await this.ensureInitialized();
+    const sends: Record<MessagingReceipt, () => Promise<void>> = {
+      typing: () => platform.adapter.startTyping(threadId),
+      reaction: () => platform.adapter.addReaction(threadId, handle, "eyes"),
+    };
     // The Chat SDK adapter API takes no abort signal, so the underlying
     // request cannot be cancelled — but the caller's wait is still bounded.
-    await raceWithSignal(platform.adapter.startTyping(threadId), context.signal);
+    await raceWithSignal(sends[receipt](), context.signal);
   }
 
   async fetchThreadHistory(
