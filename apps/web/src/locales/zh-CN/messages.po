@@ -1608,6 +1608,10 @@ msgstr "无法加载更新状态"
 msgid "Could not load voice settings"
 msgstr "无法加载语音设置"
 
+#: src/lib/sign-out.ts
+msgid "Could not log out. Try again."
+msgstr "无法退出登录。请重试。"
+
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"

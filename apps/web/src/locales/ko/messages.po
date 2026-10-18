@@ -1608,6 +1608,10 @@ msgstr "업데이트 상태를 불러올 수 없습니다"
 msgid "Could not load voice settings"
 msgstr "음성 설정을 불러오지 못했습니다."
 
+#: src/lib/sign-out.ts
+msgid "Could not log out. Try again."
+msgstr "로그아웃하지 못했습니다. 다시 시도해 주세요."
+
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"

@@ -1608,6 +1608,10 @@ msgstr ""
 msgid "Could not load voice settings"
 msgstr "Ses ayarları yüklenemedi"
 
+#: src/lib/sign-out.ts
+msgid "Could not log out. Try again."
+msgstr "Çıkış yapılamadı. Tekrar deneyin."
+
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"

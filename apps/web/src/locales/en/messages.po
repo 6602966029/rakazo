@@ -1608,6 +1608,10 @@ msgstr "Could not load update status"
 msgid "Could not load voice settings"
 msgstr "Could not load voice settings"
 
+#: src/lib/sign-out.ts
+msgid "Could not log out. Try again."
+msgstr "Could not log out. Try again."
+
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"

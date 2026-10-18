@@ -236,6 +236,7 @@ import { clearSpaceSelection, createSpaceRpc, selectedSpaceId, selectSpace } fro
 import { translateRunError } from "../lib/run-error";
 import { readSeenRunErrorIds, rememberSeenRunErrorId } from "../lib/run-error-storage";
 import { sharedInflight } from "../lib/shared-inflight";
+import { useSignOut } from "../lib/sign-out";
 import {
   guardShellNavigate,
   markShellReady,
@@ -518,6 +519,10 @@ function SpaceShell() {
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const { signingOut, logOut } = useSignOut(() => {
+    clearSpaceSelection();
+    navigate("/");
+  }, setSendError);
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [panel, setPanelState] = useState<Panel>(null);
@@ -3725,12 +3730,8 @@ function SpaceShell() {
               <Button
                 variant="ghost"
                 className="w-full justify-start font-normal"
-                onClick={() =>
-                  void authClient.signOut().then(() => {
-                    clearSpaceSelection();
-                    navigate("/");
-                  })
-                }
+                disabled={signingOut}
+                onClick={() => void logOut()}
               >
                 <LogOut className="text-muted-foreground" strokeWidth={1.75} />
                 <Trans>Log out</Trans>

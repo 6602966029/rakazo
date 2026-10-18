@@ -1608,6 +1608,10 @@ msgstr ""
 msgid "Could not load voice settings"
 msgstr "Stimmeinstellungen konnten nicht geladen werden"
 
+#: src/lib/sign-out.ts
+msgid "Could not log out. Try again."
+msgstr "Abmelden fehlgeschlagen. Bitte erneut versuchen."
+
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"
