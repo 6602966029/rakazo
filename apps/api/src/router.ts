@@ -161,8 +161,6 @@ import {
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
   nextCronDateAcrossStrict,
-  speakable,
-  speechFromBlocks,
 } from "@rakazo/core";
 import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
@@ -278,6 +276,7 @@ import {
   readServerUpdateStatus,
   UpdaterProxyError,
 } from "./server-update.js";
+import { registerHostSpeaker, resolveSpokenText, speakOnHost } from "./spoken-text.js";
 import { assertTeachingSendAllowed, createTaughtSkillsService } from "./taught-skills.js";
 import {
   isBackgroundRun,
@@ -766,6 +765,21 @@ async function resolveSpaceBoard(
 
 export function createRouter(deps: RouterDeps) {
   const macSay = deps.macSay === undefined ? createMacSaySpeaker() : deps.macSay;
+  registerHostSpeaker(deps, async ({ prisma, botId, text, speakOnHost }) => {
+    if (!speakOnHost || !macSay) return false;
+    const row = await prisma.bot.findFirst({
+      where: { id: botId },
+      select: { macVoice: true },
+    });
+    const macVoice = row?.macVoice ?? "";
+    if (!macVoice) return false;
+    if (text) {
+      void macSay.enqueue(macVoice, text).catch((error) => {
+        getLogger().warn("macOS say failed", { botId, error });
+      });
+    }
+    return true;
+  });
   const os = implement(appContract).$context<{
     actor: Actor | null;
     /** The signed-in session, so a push token ends with the session that registered it. */
@@ -6199,29 +6213,6 @@ export function createRouter(deps: RouterDeps) {
           voiceContext(context.actor, context.signal),
         );
       }),
-      prepare: authed.voice.prepare.handler(async ({ context, input }) =>
-        prepareVoice(deps, context.actor, input),
-      ),
-      spokenText: authed.voice.spokenText.handler(async ({ context, input }) => {
-        const bot = await deps.prisma.bot.findFirst({
-          where: { id: input.botId, spaceId: context.actor.spaceId, userId: context.actor.userId },
-          select: { id: true, macVoice: true, thread: { select: { id: true } } },
-        });
-        if (!bot?.thread) throw new IsolationError();
-        const message = await deps.prisma.message.findFirst({
-          where: { id: input.messageId, threadId: bot.thread.id, role: "bot" },
-          select: { blocks: true },
-        });
-        if (!message) throw new IsolationError();
-        const text = speakable(speechFromBlocks(message.blocks as MessageBlock[]));
-        const hostSpoken = Boolean(input.speakOnHost && macSay && bot.macVoice);
-        if (hostSpoken && text) {
-          void macSay?.enqueue(bot.macVoice, text).catch((error) => {
-            getLogger().warn("macOS say failed", { botId: bot.id, error });
-          });
-        }
-        return { text: hostSpoken ? "" : text, hostSpoken };
-      }),
       macVoices: authed.voice.macVoices.handler(async () => {
         if (!macSay) return { available: false, voices: [] };
         return { available: true, voices: await macSay.list() };
@@ -6236,6 +6227,36 @@ export function createRouter(deps: RouterDeps) {
         }
         await macSay.enqueue(input.voice, macVoicePreview(input.voice));
         return { ok: true as const };
+      }),
+      prepare: authed.voice.prepare.handler(async ({ context, input }) =>
+        prepareVoice(deps, context.actor, input),
+      ),
+      spokenText: authed.voice.spokenText.handler(async ({ context, input }) => {
+        const bot = await deps.prisma.bot.findFirst({
+          where: { id: input.botId, spaceId: context.actor.spaceId, userId: context.actor.userId },
+          select: { id: true, thread: { select: { id: true } } },
+        });
+        if (!bot?.thread) throw new IsolationError();
+        const message = await deps.prisma.message.findFirst({
+          where: { id: input.messageId, threadId: bot.thread.id, role: "bot" },
+          select: { blocks: true },
+        });
+        if (!message) throw new IsolationError();
+        const blocks = message.blocks as MessageBlock[];
+        const text = await resolveSpokenText({
+          prisma: deps.prisma,
+          botId: bot.id,
+          threadId: bot.thread.id,
+          messageId: input.messageId,
+          blocks,
+        });
+        const hostSpoken = await speakOnHost(deps, {
+          prisma: deps.prisma,
+          botId: bot.id,
+          text,
+          speakOnHost: input.speakOnHost === true,
+        });
+        return { text: hostSpoken ? "" : text, hostSpoken };
       }),
     },
   });
