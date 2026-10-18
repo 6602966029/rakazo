@@ -124,6 +124,69 @@ describe("Pi JSONL sessions", () => {
     }
   });
 
+  it("never recreates a transcript deleted during a session", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "rakazo-pi-session-"));
+    try {
+      const session = await new PiJsonlSessionRecorder(root, root).start({
+        runId: "run-1",
+        threadId: "thread-1",
+        botId: "bot-1",
+        userId: "user-1",
+        provider: "openai-compatible",
+        model: "test-model",
+        thinkingLevel: "off",
+        systemPrompt: "Be concise.",
+        initialMessages: [],
+      });
+      const botRoot = piSessionBotRoot(root, "user-1", "bot-1");
+      const [file] = await readdir(botRoot);
+      expect(file).toBeDefined();
+      await rm(path.join(botRoot, file!));
+
+      await session.appendMessage({ role: "user", content: "later", timestamp: 1 });
+      await session.appendMessage({ role: "user", content: "again", timestamp: 2 });
+
+      expect(await readdir(botRoot)).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("protects the session being started from the retention count limit", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "rakazo-pi-retention-"));
+    try {
+      const botRoot = piSessionBotRoot(root, "user-1", "bot-1");
+      await mkdir(botRoot, { recursive: true });
+      // Newer timestamps force the new session past the count limit without protection.
+      const future = new Date(Date.now() + 60_000);
+      await Promise.all(
+        Array.from({ length: PI_SESSION_MAX_FILES_PER_BOT }, async (_, index) => {
+          const file = path.join(botRoot, `existing-${index}.jsonl`);
+          await writeFile(file, "{}\n");
+          await utimes(file, future, future);
+        }),
+      );
+      await new PiJsonlSessionRecorder(root, root).start({
+        runId: "run-new",
+        threadId: "thread-1",
+        botId: "bot-1",
+        userId: "user-1",
+        provider: "openai-compatible",
+        model: "test-model",
+        thinkingLevel: "off",
+        systemPrompt: "Be concise.",
+        initialMessages: [],
+      });
+
+      expect(await readdir(botRoot)).toHaveLength(PI_SESSION_MAX_FILES_PER_BOT);
+      const raw = await readFiles(botRoot);
+      expect(raw).toContain('"kind":"header","id":"run-new"');
+      expect(raw).toContain('"customType":"rakazo_context"');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("keeps sessions scoped and bounded by the retention policy", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "rakazo-pi-retention-"));
     try {

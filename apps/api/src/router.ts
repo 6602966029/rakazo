@@ -149,6 +149,7 @@ import {
   IntegrationProviderIdSchema,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   parseTicketRef,
+  storedPiProviderIds,
   usableModelId,
 } from "@rakazo/contracts";
 import {
@@ -3472,7 +3473,8 @@ export function createRouter(deps: RouterDeps) {
         const modelId = input.modelId === undefined ? existing.modelId : input.modelId;
         const hasModel = Boolean(modelProvider && modelId);
         const modelChanged =
-          modelProvider !== existing.modelProvider || modelId !== existing.modelId;
+          canonicalPiProviderId(modelProvider ?? "") !==
+            canonicalPiProviderId(existing.modelProvider ?? "") || modelId !== existing.modelId;
         const touchesModel =
           input.modelProvider !== undefined ||
           input.modelId !== undefined ||
@@ -6898,7 +6900,7 @@ async function persistModelCredential(
       async (tx) => {
         throwIfAborted(input.signal);
         const existing = await tx.userModelCredential.findFirst({
-          where: { userId: actor.userId, provider: input.provider },
+          where: { userId: actor.userId, provider: { in: storedPiProviderIds(input.provider) } },
           orderBy: newestModelCredentialOrder,
         });
         throwIfAborted(input.signal);

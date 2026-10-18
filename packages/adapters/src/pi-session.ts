@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { appendFile, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { mkdir, open, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { getLogger } from "@rakazo/logging";
@@ -68,6 +69,8 @@ export interface PiSessionRetentionOptions {
   now?: number;
   maxAgeMs?: number;
   maxFiles?: number;
+  /** Keep the transcript being started even when timestamps tie or clocks move. */
+  protectedFile?: string;
 }
 
 interface PiSessionFile {
@@ -114,12 +117,14 @@ export async function prunePiSessionFiles(
   const files: PiSessionFile[] = [];
   await collectPiSessionFiles(root, files);
   const cutoff = (options.now ?? Date.now()) - maxAgeMs;
-  const expired = files.filter((file) => file.mtimeMs < cutoff);
-  const retained = files.filter((file) => file.mtimeMs >= cutoff);
+  const candidates = files.filter((file) => file.path !== options.protectedFile);
+  const availableSlots = maxFiles - (files.length - candidates.length);
+  const expired = candidates.filter((file) => file.mtimeMs < cutoff);
+  const retained = candidates.filter((file) => file.mtimeMs >= cutoff);
   retained.sort((left, right) => right.mtimeMs - left.mtimeMs);
 
   await Promise.all(
-    [...expired, ...retained.slice(maxFiles)].map((file) => rm(file.path, { force: true })),
+    [...expired, ...retained.slice(availableSlots)].map((file) => rm(file.path, { force: true })),
   );
 }
 
@@ -184,7 +189,7 @@ export class PiJsonlSessionRecorder implements PiSessionRecorder {
       { flag: "wx", mode: 0o600 },
     );
     try {
-      await prunePiSessionFiles(sessionsRoot);
+      await prunePiSessionFiles(sessionsRoot, { protectedFile: file });
     } catch (error) {
       getLogger().warn("Pi session retention cleanup failed", {
         userId: input.userId,
@@ -272,7 +277,12 @@ class BestEffortPiSession implements PiSessionHandle {
           value: id,
         },
       ];
-      await appendFile(this.file, `${JSON.stringify(records)}\n`);
+      const file = await open(this.file, constants.O_WRONLY | constants.O_APPEND);
+      try {
+        await file.writeFile(`${JSON.stringify(records)}\n`);
+      } finally {
+        await file.close();
+      }
       this.seq += 2;
       this.parentId = id;
     });
