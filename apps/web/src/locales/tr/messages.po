@@ -875,6 +875,10 @@ msgstr "Yerleşik"
 msgid "Can't reach the server."
 msgstr "Sunucuya ulaşılamıyor."
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Can't read images"
+msgstr "Görselleri okuyamaz"
+
 #: src/components/AskCard.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx

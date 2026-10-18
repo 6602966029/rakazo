@@ -875,6 +875,10 @@ msgstr "Intégré"
 msgid "Can't reach the server."
 msgstr "Impossible d'atteindre le serveur."
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Can't read images"
+msgstr "Ne peut pas lire les images"
+
 #: src/components/AskCard.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx

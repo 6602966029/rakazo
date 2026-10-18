@@ -875,6 +875,10 @@ msgstr "Built-in"
 msgid "Can't reach the server."
 msgstr "Can't reach the server."
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Can't read images"
+msgstr "Can't read images"
+
 #: src/components/AskCard.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx

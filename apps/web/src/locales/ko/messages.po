@@ -875,6 +875,10 @@ msgstr "기본 제공"
 msgid "Can't reach the server."
 msgstr "서버에 연결할 수 없습니다."
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Can't read images"
+msgstr "이미지를 읽을 수 없음"
+
 #: src/components/AskCard.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx

@@ -875,6 +875,10 @@ msgstr "内置"
 msgid "Can't reach the server."
 msgstr "无法连接服务器。"
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Can't read images"
+msgstr "无法读取图像"
+
 #: src/components/AskCard.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx

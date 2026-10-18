@@ -875,6 +875,10 @@ msgstr "Встроенный"
 msgid "Can't reach the server."
 msgstr "Не удаётся связаться с сервером."
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Can't read images"
+msgstr "Не может читать изображения"
+
 #: src/components/AskCard.tsx
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
