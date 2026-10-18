@@ -35,7 +35,7 @@ import {
   isTransientModelError,
   TransientModelError,
 } from "@rakazo/adapter-kit";
-import { usableModelId } from "@rakazo/contracts";
+import { canonicalPiProviderId, usableModelId } from "@rakazo/contracts";
 import { abortableDelay, MISSING_TOOL_FINAL_RESPONSE_ERROR } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "./approval-effect.js";
@@ -54,6 +54,7 @@ import {
 import { PiRuntimeCredentialStore, toOAuthCredential } from "./pi-credentials.js";
 import { estimatePiImageTokens } from "./pi-image-context.js";
 import { registerLocalProvider } from "./pi-local-provider.js";
+import { applyPiModelCompatibility } from "./pi-model-compat.js";
 import { codexComputeResidency } from "./pi-oauth.js";
 import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
@@ -94,7 +95,9 @@ const toolCallBudgetsByRun = new Map<string, ToolCallBudget>();
 // would run before .env is loaded and miss the local provider entirely.
 let catalogModelsCache: Models | undefined;
 function catalogModels(): Models {
-  catalogModelsCache ??= registerOpenAiCompatibleCatalog(registerLocalProvider(builtinModels()));
+  catalogModelsCache ??= registerOpenAiCompatibleCatalog(
+    registerLocalProvider(applyPiModelCompatibility(builtinModels())),
+  );
   return catalogModelsCache;
 }
 const MAX_PARALLEL_SUBAGENTS = 4;
@@ -723,7 +726,9 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   /** Live credential store; OAuth refreshes swap the credential mid-run. */
   credentials: PiRuntimeCredentialStore | undefined;
 } {
-  const provider = modelConfig.provider === "scripted" ? "openrouter" : modelConfig.provider;
+  const provider = canonicalPiProviderId(
+    modelConfig.provider === "scripted" ? "openrouter" : modelConfig.provider,
+  );
   const envDefaultModel = process.env.PI_DEFAULT_MODEL?.trim();
   const envDefaultProvider = process.env.PI_DEFAULT_PROVIDER?.trim() || "openrouter";
   const requestedId =
@@ -787,7 +792,7 @@ export function modelsForRequest(
   const store = credentials ?? credentialStoreForRequest(request, provider);
   if (store) {
     return registerOpenAiCompatibleCatalog(
-      registerLocalProvider(builtinModels({ credentials: store })),
+      registerLocalProvider(applyPiModelCompatibility(builtinModels({ credentials: store }))),
     );
   }
   if (
@@ -795,7 +800,9 @@ export function modelsForRequest(
     request.model.baseUrl &&
     request.model.id.trim()
   ) {
-    const models = registerOpenAiCompatibleCatalog(registerLocalProvider(builtinModels()));
+    const models = registerOpenAiCompatibleCatalog(
+      registerLocalProvider(applyPiModelCompatibility(builtinModels())),
+    );
     return registerOpenAiCompatibleRuntime(models, {
       modelId: request.model.id,
       baseUrl: request.model.baseUrl,

@@ -5,6 +5,13 @@ import { listPiCatalog } from "./pi-models.js";
 import { modelsForRequest } from "./pi-runtime.js";
 
 describe("current model compatibility", () => {
+  it("disables strict tools for Bedrock Haiku in India", () => {
+    const provider = "amazon-bedrock";
+    const id = "in.anthropic.claude-haiku-4-5-20251001-v1:0";
+    const model = modelsForRequest({ model: { provider, id } }, provider).getModel(provider, id);
+    expect(model?.compat).toMatchObject({ supportsStrictMode: false });
+  });
+
   it.each([
     ["anthropic", "claude-sonnet-5-5"],
     ["opencode", "claude-haiku-5-5"],

@@ -1,7 +1,9 @@
 import type { Models } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
+import { canonicalPiProviderId } from "@rakazo/contracts";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
 import { registerLocalProvider } from "./pi-local-provider.js";
+import { applyPiModelCompatibility } from "./pi-model-compat.js";
 import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   registerOpenAiCompatibleCatalog,
@@ -51,7 +53,9 @@ let catalogModelsCache: Models | undefined;
 
 function catalogModels(): Models {
   // Same catalog the runtime calls, including configured compatible providers.
-  catalogModelsCache ??= registerOpenAiCompatibleCatalog(registerLocalProvider(builtinModels()));
+  catalogModelsCache ??= registerOpenAiCompatibleCatalog(
+    registerLocalProvider(applyPiModelCompatibility(builtinModels())),
+  );
   return catalogModelsCache;
 }
 
@@ -63,7 +67,7 @@ export function resolveModelRefForVisionCheck(
   provider: string,
   modelId: string,
 ): { provider: string; id: string } {
-  const normalizedProvider = provider.trim();
+  const normalizedProvider = canonicalPiProviderId(provider.trim());
   const normalizedId = modelId.trim();
   if (normalizedProvider === "scripted" || normalizedId === "scripted") {
     return {

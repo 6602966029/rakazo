@@ -1,7 +1,9 @@
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import type { ModelOAuthSignInMode, ThinkingLevel } from "@rakazo/contracts";
+import { canonicalPiProviderId } from "@rakazo/contracts";
 import { LOCAL_PROVIDER_ID, registerLocalProvider } from "./pi-local-provider.js";
+import { applyPiModelCompatibility } from "./pi-model-compat.js";
 import { loadProviderOAuth, SUBSCRIPTION_SIGN_IN_PROVIDERS } from "./pi-oauth.js";
 import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
@@ -36,7 +38,7 @@ const catalogProbeBaseUrls = new Map<string, string>();
 /** Pinned models-list URL for a catalog provider, taken from the model registry. */
 export function catalogProviderProbeBaseUrl(provider: string): string | null {
   listPiCatalog();
-  return catalogProbeBaseUrls.get(provider) ?? null;
+  return catalogProbeBaseUrls.get(canonicalPiProviderId(provider)) ?? null;
 }
 
 /**
@@ -101,7 +103,9 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 
 function buildPiCatalog(): PiCatalogEntry[] {
   catalogProbeBaseUrls.clear();
-  const models = registerOpenAiCompatibleCatalog(registerLocalProvider(builtinModels()));
+  const models = registerOpenAiCompatibleCatalog(
+    registerLocalProvider(applyPiModelCompatibility(builtinModels())),
+  );
   const entries: PiCatalogEntry[] = [];
   for (const provider of models.getProviders()) {
     const providerName = PROVIDER_DISPLAY_NAMES[provider.id] ?? provider.name;

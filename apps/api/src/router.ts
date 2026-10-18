@@ -144,6 +144,7 @@ import {
   attachmentSizeLabel,
   BotSecretAuth,
   ComputerCommandSchema,
+  canonicalPiProviderId,
   foldComputerCommands,
   IntegrationProviderIdSchema,
   OPENAI_COMPATIBLE_PROVIDER_ID,
@@ -195,6 +196,7 @@ import {
   listSpaceBackupModels,
   listTicketComments,
   lockOwnedGroup,
+  modelCredentialProviderFilter,
   newestModelCredentialOrder,
   newestVoiceCredentialOrder,
   Prisma,
@@ -1219,7 +1221,9 @@ export function createRouter(deps: RouterDeps) {
             }
             if (
               catalog.some(
-                (entry) => entry.provider === choice.provider && entry.id === choice.modelId,
+                (entry) =>
+                  entry.provider === canonicalPiProviderId(choice.provider) &&
+                  entry.id === choice.modelId,
               )
             )
               continue;
@@ -1428,12 +1432,15 @@ export function createRouter(deps: RouterDeps) {
               where: {
                 spaceId: context.actor.spaceId,
                 userId: context.actor.userId,
-                credential: { provider: input.provider },
+                credential: { provider: modelCredentialProviderFilter(input.provider) },
               },
               include: { credential: true },
             }),
             client.userModelCredential.findMany({
-              where: { userId: context.actor.userId, provider: input.provider },
+              where: {
+                userId: context.actor.userId,
+                provider: modelCredentialProviderFilter(input.provider),
+              },
             }),
           ]);
           return {
@@ -1588,10 +1595,16 @@ export function createRouter(deps: RouterDeps) {
           deps.prisma.$transaction(
             async (tx) => {
               await tx.spaceBackupModel.deleteMany({
-                where: { userId: context.actor.userId, provider: input.provider },
+                where: {
+                  userId: context.actor.userId,
+                  provider: modelCredentialProviderFilter(input.provider),
+                },
               });
               const existing = await tx.userModelCredential.findMany({
-                where: { userId: context.actor.userId, provider: input.provider },
+                where: {
+                  userId: context.actor.userId,
+                  provider: modelCredentialProviderFilter(input.provider),
+                },
               });
               if (existing.length === 0) return;
               const ids = existing.map((row) => row.id);
@@ -1716,7 +1729,9 @@ export function createRouter(deps: RouterDeps) {
           }
           const knownModels = [...listPiCatalog(), scriptedCatalogEntry];
           const inCatalog = knownModels.some(
-            (item) => item.provider === input.modelProvider && item.id === input.modelId,
+            (item) =>
+              item.provider === canonicalPiProviderId(input.modelProvider ?? "") &&
+              item.id === input.modelId,
           );
           if (!inCatalog && credential.defaultModel !== input.modelId) {
             throw new ORPCError("BAD_REQUEST", { message: "Unknown model for that provider" });
@@ -1752,7 +1767,9 @@ export function createRouter(deps: RouterDeps) {
           const effectiveModelId = modelId ?? me.defaultModel;
           if (effectiveProvider && effectiveModelId) {
             const entry = listPiCatalog().find(
-              (item) => item.provider === effectiveProvider && item.id === effectiveModelId,
+              (item) =>
+                item.provider === canonicalPiProviderId(effectiveProvider) &&
+                item.id === effectiveModelId,
             );
             let allowed = entry?.thinkingLevels;
             if (effectiveProvider === OPENAI_COMPATIBLE_PROVIDER_ID) {
@@ -6449,10 +6466,11 @@ async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
     spaceId: actor.spaceId,
     isDeploymentOwner: actor.isDeploymentOwner,
     needsModel: setup.needsModel,
-    defaultProvider:
+    defaultProvider: canonicalPiProviderId(
       setup.credential?.provider ??
-      setup.settings?.defaultModelProvider ??
-      deps.env.defaultProvider,
+        setup.settings?.defaultModelProvider ??
+        deps.env.defaultProvider,
+    ),
     defaultModel:
       setup.credential?.defaultModel ?? setup.settings?.defaultModelId ?? deps.env.defaultModel,
     // Set only while the active default is the deployment's own, running on host credentials.
@@ -6501,8 +6519,9 @@ async function prepareAllowedThinkingLevels(
 ): Promise<{ allowed: string[] | undefined; secret?: { id: string; ciphertext: string } }> {
   if (provider !== OPENAI_COMPATIBLE_PROVIDER_ID) {
     return {
-      allowed: listPiCatalog().find((item) => item.provider === provider && item.id === modelId)
-        ?.thinkingLevels,
+      allowed: listPiCatalog().find(
+        (item) => item.provider === canonicalPiProviderId(provider) && item.id === modelId,
+      )?.thinkingLevels,
     };
   }
   let allowed: string[] | undefined = ["off"];
@@ -6806,7 +6825,9 @@ async function deploymentDto(prisma: PrismaClient, sandboxProvider: string) {
       ? settings.signupAllowlist.split(",").filter(Boolean)
       : [],
     hasDeploymentModelCredential: Boolean(settings?.deploymentModelCredentialCipher),
-    defaultProvider: settings?.defaultModelProvider ?? null,
+    defaultProvider: settings?.defaultModelProvider
+      ? canonicalPiProviderId(settings.defaultModelProvider)
+      : null,
     defaultModel: settings?.defaultModelId ?? null,
     computerHost: computerHostFor(settings?.computerHost, sandboxProvider),
     canChooseHostComputer: sandboxProvider === "docker",
@@ -7011,7 +7032,7 @@ function mapRoutine(row: {
     webhookEnabled: row.webhookEnabled,
     githubEnabled: row.githubEnabled,
     messageProvider: row.messageProvider,
-    modelProvider: row.modelProvider ?? null,
+    modelProvider: row.modelProvider ? canonicalPiProviderId(row.modelProvider) : null,
     modelId: row.modelId ?? null,
     thinkingLevel: (row.thinkingLevel as Routine["thinkingLevel"]) ?? null,
     lastRunAt: row.lastRunAt?.toISOString() ?? null,
