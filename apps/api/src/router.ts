@@ -3231,6 +3231,10 @@ export function createRouter(deps: RouterDeps) {
               homeKey: bot.computer.homeKey,
               providerRef: bot.computer.providerRef,
               kind: bot.computer.kind,
+              runningSince: bot.computer.runningSince,
+              controlHolder: bot.computer.controlHolder,
+              controlLeaseId: bot.computer.controlLeaseId,
+              controlLeaseExpiresAt: bot.computer.controlLeaseExpiresAt,
             },
           ).catch(() => undefined);
         }

@@ -315,6 +315,7 @@ import { actorMayUsePrivateEndpoint } from "./private-endpoint.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
+import { lazyRunComputer } from "./run-computer.js";
 import {
   commitConsumedRunSecret,
   normalizeSecretAskPurpose,
@@ -370,6 +371,7 @@ import { getActiveTeachingSession, parsePlaybook } from "./teaching-session.js";
 import {
   attachWorkspaceFileToThread,
   currentTurnFilesInstruction,
+  listRecentThreadFiles,
   materializeCurrentTurnFiles,
   materializeRecentThreadFiles,
   recentThreadFilesInstruction,
@@ -3950,40 +3952,54 @@ export function createRunExecutor(deps: ExecutorDeps) {
         if (!bot.computer) throw new Error("Bot has no computer");
         const storedComputer = bot.computer;
         const computerMode = parseComputerMode(storedComputer.scope);
-        const computer = await provisionComputer(deps, storedComputer.id, context, "bot");
-        screenRelease = { computer, context, keepWarm: false };
-        scheduleComputerSleep(deps.jobs, storedComputer.id);
-        const workspaceCheckpoint = createRunWorkspaceCheckpoint(() =>
-          checkpointRunComputerWorkspace(deps, storedComputer, computer, context),
+        const artifacts = deps.artifacts;
+        const recentFilesInput = {
+          context,
+          computerMode,
+          skipMessageId: currentTurnMessage?.id,
+          maxTurns: RECENT_TURN_IMAGE_TURNS,
+        };
+        const runComputer = lazyRunComputer(
+          async () => {
+            const computer = await provisionComputer(deps, storedComputer.id, context, "bot");
+            screenRelease = { computer, context, keepWarm: false };
+            scheduleComputerSleep(deps.jobs, storedComputer.id);
+            // Earlier attachments wait for the computer's first use; every start copies them
+            // again, so they need no checkpoint, and each copy logs and skips its own failure.
+            if (artifacts) {
+              await materializeRecentThreadFiles({ ...deps, artifacts }, history, historyMessages, {
+                ...recentFilesInput,
+                computer: async () => computer,
+              });
+            }
+            return computer;
+          },
+          () => runAbortController?.abort(),
         );
+        const computerKind = (await deps.sandbox.provisionKind?.()) ?? storedComputer.kind;
+        const workspaceCheckpoint = createRunWorkspaceCheckpoint(async () => {
+          if (!runComputer.ready) return;
+          await checkpointRunComputerWorkspace(deps, storedComputer, runComputer.ready, context);
+        });
         let currentTurnFiles: Awaited<ReturnType<typeof materializeCurrentTurnFiles>> = [];
-        let recentThreadFiles: Awaited<ReturnType<typeof materializeRecentThreadFiles>> = [];
+        let recentThreadFiles: Awaited<ReturnType<typeof listRecentThreadFiles>> = [];
         try {
-          if (deps.artifacts) {
-            const fileDeps = {
-              prisma: deps.prisma,
-              artifacts: deps.artifacts,
-              maxUploadSizeBytes: deps.maxUploadSizeBytes,
-              sandbox: deps.sandbox,
-            };
-            const fileInput = {
-              context,
-              computer,
-              computerMode,
-              markWorkspaceDirty: workspaceCheckpoint.markDirty,
-            };
-            currentTurnFiles = await materializeCurrentTurnFiles(fileDeps, turnBlocks, fileInput);
-            recentThreadFiles = await materializeRecentThreadFiles(
-              fileDeps,
+          if (artifacts) {
+            currentTurnFiles = await materializeCurrentTurnFiles(
+              { ...deps, artifacts },
+              turnBlocks,
+              {
+                context,
+                computer: runComputer.get,
+                computerMode,
+                markWorkspaceDirty: workspaceCheckpoint.markDirty,
+              },
+            );
+            recentThreadFiles = await listRecentThreadFiles(
+              deps,
               history,
               historyMessages,
-              {
-                ...fileInput,
-                // Every run copies these again, so they need no checkpoint.
-                markWorkspaceDirty: undefined,
-                skipMessageId: currentTurnMessage?.id,
-                maxTurns: RECENT_TURN_IMAGE_TURNS,
-              },
+              recentFilesInput,
             );
           }
         } catch (error) {
@@ -3997,7 +4013,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           .filter(Boolean)
           .join("\n\n");
         const graphical =
-          computer.kind !== "desktop" && deps.sandbox.describe().capabilities.graphical;
+          computerKind !== "desktop" && deps.sandbox.describe().capabilities.graphical;
         // Gate on the model this run will actually call — the pair written to the run row
         // above. Deriving it a second time here dropped the deployment fallback, so a
         // vision-capable default was gated as "scripted" and lost its screenshot tools.
@@ -4124,7 +4140,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           disabled: disabledBuiltinTools,
         });
         const dockerToolInstruction = dockerComputerToolInstruction(
-          computer.kind,
+          computerKind,
           disabledBuiltinTools,
         );
         const computerInstruction = dockerToolInstruction
@@ -5061,7 +5077,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               };
             }
             return computerScreenToolResult(async () =>
-              formatObservation(await deps.sandbox.observe(computer, context)),
+              formatObservation(await deps.sandbox.observe(await runComputer.get(), context)),
             );
           }
           if (name === "computer_act") {
@@ -5081,7 +5097,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             workspaceCheckpoint.markDirty();
             return computerScreenToolResult(async () => {
               const result = await deps.sandbox.act(
-                computer,
+                await runComputer.get(),
                 {
                   actions,
                   observe: args.observe !== false,
@@ -5101,7 +5117,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (name === "list_files") {
             const requestedPath = String(args.path ?? "");
             const entries = await deps.sandbox.listFiles(
-              computer,
+              await runComputer.get(),
               resolveBotWorkspacePath(computerMode, bot.id, requestedPath),
               context,
             );
@@ -5118,7 +5134,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             const storedPath = resolveBotWorkspacePath(computerMode, bot.id, filePath);
             let bytes: Uint8Array;
             try {
-              bytes = await deps.sandbox.readFile(computer, storedPath, context, {
+              bytes = await deps.sandbox.readFile(await runComputer.get(), storedPath, context, {
                 maxBytes: MAX_MODEL_FILE_BYTES,
               });
             } catch (error) {
@@ -5164,7 +5180,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             workspaceCheckpoint.markDirty();
             try {
               await deps.sandbox.writeFile(
-                computer,
+                await runComputer.get(),
                 { path: resolveBotWorkspacePath(computerMode, bot.id, filePath), content },
                 context,
               );
@@ -5197,7 +5213,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 typeof args.data_path === "string" && args.data_path ? args.data_path : undefined;
               if (!rows && dataPath) {
                 const bytes = await deps.sandbox.readFile(
-                  computer,
+                  await runComputer.get(),
                   resolveBotWorkspacePath(computerMode, bot.id, dataPath),
                   context,
                   { maxBytes: deps.maxUploadSizeBytes ?? ATTACHMENT_MAX_BYTES },
@@ -5219,7 +5235,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   : `charts/plot-${Date.now()}.png`;
               workspaceCheckpoint.markDirty();
               await deps.sandbox.writeFile(
-                computer,
+                await runComputer.get(),
                 {
                   path: resolveBotWorkspacePath(computerMode, bot.id, outPath),
                   content: png,
@@ -5286,7 +5302,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             const storedPath = resolveBotWorkspacePath(computerMode, bot.id, filePath);
             let bytes: Uint8Array;
             try {
-              bytes = await deps.sandbox.readFile(computer, storedPath, context, {
+              bytes = await deps.sandbox.readFile(await runComputer.get(), storedPath, context, {
                 maxBytes: deps.maxUploadSizeBytes ?? ATTACHMENT_MAX_BYTES,
               });
             } catch {
@@ -5389,7 +5405,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               };
               const observed = await observeShellCommand(
                 deps.sandbox.execute(
-                  computer,
+                  await runComputer.get(),
                   {
                     argv: [
                       "bash",
@@ -5475,7 +5491,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return computerScreenToolResult(async () => {
               try {
                 const result = await deps.sandbox.act(
-                  computer,
+                  await runComputer.get(),
                   {
                     actions: [
                       {
@@ -5511,7 +5527,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return computerScreenToolResult(async () => {
               try {
                 const result = await deps.sandbox.act(
-                  computer,
+                  await runComputer.get(),
                   {
                     actions: [
                       {
@@ -5605,8 +5621,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   : null;
             return computerScreenToolResult(async () => {
               const result = tool
-                ? redactConnectorPayload(await tool(browser, computer, context, args), redactions())
-                : await browserActFromTool(browser, computer, context, args, {
+                ? redactConnectorPayload(
+                    await tool(browser, await runComputer.get(), context, args),
+                    redactions(),
+                  )
+                : await browserActFromTool(browser, await runComputer.get(), context, args, {
                     redactions,
                     resolveSecretFill: async (step) => {
                       const resolved = await resolveLoginFill({
@@ -7114,7 +7133,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                                   item.blocks,
                                   {
                                     context,
-                                    computer,
+                                    computer: runComputer.get,
                                     computerMode,
                                     markWorkspaceDirty: workspaceCheckpoint.markDirty,
                                   },
@@ -7262,6 +7281,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               return;
             } else if (event.type === "takeover") {
               if (!(await renewRunLease(deps, runId, workerId, fence))) return;
+              // The user takes over the computer's screen, so it must be up before the run waits.
+              await runComputer.get();
               const safeReason = redactSecrets(event.reason, runSecrets);
               // Publish pending narration as tagged mid-turn progress so reconciliation
               // does not treat pre-takeover text as the delegated final result.
@@ -7503,6 +7524,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
           }
 
+          runComputer.throwIfFailed();
           if (approvalPausePending || !leaseValid) return;
           approvedEffectReplays.assertDrained();
           pendingProgress += progressRedactor.finish();
@@ -7512,7 +7534,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             for (const file of turn.files ?? []) {
               workspaceCheckpoint.markDirty();
               await deps.sandbox.writeFile(
-                computer,
+                await runComputer.get(),
                 {
                   path: resolveBotWorkspacePath(computerMode, bot.id, file.path),
                   content: new TextEncoder().encode(file.content),
@@ -7682,6 +7704,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
             getLogger().error("history.compact enqueue failed", error);
           }
         } catch (error) {
+          // A computer that could not start fails setup, as it did when every run started it.
+          runComputer.throwIfFailed();
           if (!terminalCheckpointComplete) {
             await workspaceCheckpoint.flush().catch(() => undefined);
           }
