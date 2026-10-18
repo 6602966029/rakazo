@@ -870,7 +870,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           </GlassSurface>
         </Pressable>
       ),
-      ...(Platform.OS === "ios" && (!inGroup || iosAtLeast(26))
+      ...(Platform.OS === "ios" && !readOnly && (!inGroup || iosAtLeast(26))
         ? {
             unstable_headerRightItems: () => [
               inGroup

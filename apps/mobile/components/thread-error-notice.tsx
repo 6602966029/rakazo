@@ -23,6 +23,8 @@ export function ThreadErrorNotice({
   if (!error && !summary) return null;
   return (
     <View
+      accessibilityRole="alert"
+      accessibilityLiveRegion="assertive"
       pointerEvents="box-none"
       style={{ position: "absolute", top, left: inset, right: inset, zIndex: 1 }}
     >
