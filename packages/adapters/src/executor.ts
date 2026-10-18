@@ -6854,6 +6854,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
           { exposedToolNames: new Set(tools.map((tool) => tool.name)) },
         );
         const replyContext = await loadReplyContext(deps.prisma, thread.id, run.sourceMessageId);
+        let userTimeZone: string | null | undefined;
+        try {
+          userTimeZone = (
+            await deps.prisma.user.findUnique({
+              where: { id: run.userId },
+              select: { timezone: true },
+            })
+          )?.timezone;
+        } catch {
+          // Timezone is optional context; a lookup failure must not prevent a run.
+        }
         const prompt = [
           replyContext,
           run.trigger === "reaction" && replyContext ? undefined : basePrompt,
@@ -6862,7 +6873,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // A hang-up turn is read, not heard: no spoken-reply constraint.
           voiceCall && !callEndRun ? voiceCallInstruction(disabledBuiltinTools) : undefined,
           // Per-turn, not in the system prompt: the timestamp changes every call and would break the cacheable prefix.
-          formatCurrentTimeInstruction(),
+          formatCurrentTimeInstruction(new Date(), userTimeZone),
         ]
           .filter(Boolean)
           .join("\n\n");
