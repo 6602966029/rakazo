@@ -1044,6 +1044,7 @@ const REACTION_TURN_COOLDOWN_MS = 30_000;
  * Append a human emoji reply with its target. Any reaction to the bot's latest
  * message may wake it, with silence allowed. Only thumbs answer an ordinary pending
  * ask; busy bots, recent reaction turns, and older targets stay quiet context.
+ * A 👍 on a pending takeover counts as done and hands computer control back.
  * Approval and secret asks remain on their cards. Reactions are append-only.
  */
 export async function reactToThreadMessage(
@@ -1057,6 +1058,7 @@ export async function reactToThreadMessage(
     /** False when a send could not start a run either (no model, teaching). */
     mayStartTurn: boolean;
   },
+  releaseTakeover?: (runId: string) => Promise<void>,
 ) {
   const committed = await deps.prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR UPDATE`;
@@ -1071,7 +1073,17 @@ export async function reactToThreadMessage(
       },
       select: { id: true },
     });
-    if (existing) return { eventSeq: null, runs: [] };
+    if (existing) {
+      // A retry finishes a takeover handoff whose release failed after the 👍 was saved.
+      const steering = releaseTakeover
+        ? await tx.steeringMessage.findFirst({
+            where: { messageId: existing.id, claimedAt: null },
+            select: { run: { select: { id: true, taskId: true, status: true } } },
+          })
+        : null;
+      const run = steering?.run;
+      return { eventSeq: null, runs: run?.status === "waiting_takeover" ? [run] : [] };
+    }
     const members =
       target.kind === "group" ? await lockAndLoadGroupMembers(tx, actor, target) : undefined;
     const currentTarget = members
@@ -1093,7 +1105,10 @@ export async function reactToThreadMessage(
       clientNonce: input.clientNonce,
     });
     const runs = replyBotId
-      ? await startReactionTurn(tx, actor, target.threadId, replyBotId, parent, message, input)
+      ? await startReactionTurn(tx, actor, target.threadId, replyBotId, parent, message, {
+          ...input,
+          canReleaseTakeover: Boolean(releaseTakeover),
+        })
       : [];
     if (target.kind === "group") await touchGroupUpdatedAt(tx, target.groupId);
     const event = await appendEventInTransaction(tx, {
@@ -1112,6 +1127,11 @@ export async function reactToThreadMessage(
     });
     return { eventSeq: event.seq, runs };
   });
+  if (releaseTakeover) {
+    for (const run of committed.runs) {
+      if (run.status === "waiting_takeover") await releaseTakeover(run.id);
+    }
+  }
   await enqueueRunsNeedingContinue(deps.jobs, committed.runs);
   return { eventSeq: committed.eventSeq, runIds: committed.runs.map((run) => run.id) };
 }
@@ -1150,7 +1170,7 @@ async function startReactionTurn(
   botId: string,
   parent: { runId: string | null },
   message: { id: string },
-  input: { reaction: MessageReaction; clientNonce: string },
+  input: { reaction: MessageReaction; clientNonce: string; canReleaseTakeover: boolean },
 ): Promise<Array<{ id: string; taskId: string; status: string }>> {
   const activeRuns = await tx.run.findMany({
     where: { threadId, botId, status: { in: [...ACTIVE_RUN_STATUSES] } },
@@ -1158,6 +1178,22 @@ async function startReactionTurn(
   });
   const [active, ...others] = activeRuns;
   if (active) {
+    // A 👍 while this run waits for the user to finish on the computer means "done", the
+    // same as a typed reply: it steers the run and the caller hands control back.
+    // Only when the caller can hand control back (bot threads), as with a typed reply.
+    if (
+      input.canReleaseTakeover &&
+      input.reaction === "👍" &&
+      !others.length &&
+      active.status === "waiting_takeover" &&
+      active.id === parent.runId
+    ) {
+      await tx.steeringMessage.create({
+        data: { messageId: message.id, botId, userId: actor.userId, runId: active.id },
+      });
+      await tx.message.update({ where: { id: message.id }, data: { runId: active.id } });
+      return [active];
+    }
     // Only the pending ask in the reacted message is answered; approval and secret asks
     // are refused here and stay on their card.
     if (
