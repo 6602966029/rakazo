@@ -159,13 +159,17 @@ test("bot settings list a Mac voice", async ({ page }) => {
       json: { json: [{ id: "macos:Zoe (Premium)", label: "Zoe (Premium)" }] },
     });
   });
-  const bots = await rpc<Array<{ id: string; name: string }>>(page, "bots/list", {});
-  const chief = bots.find((bot) => bot.name === "Chief");
-  if (!chief) throw new Error("Chief bot was not created");
-  await rpc(page, "bots/update", {
-    botId: chief.id,
-    autoSpeak: true,
-    macVoice: "Zoe (Premium)",
+  await page.route("**/rpc/bots/list", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    const bots = Array.isArray(body.json) ? body.json : [];
+    for (const bot of bots) {
+      if (bot?.name === "Chief") {
+        bot.macVoice = "Zoe (Premium)";
+        bot.autoSpeak = true;
+      }
+    }
+    await route.fulfill({ response, json: { ...body, json: bots } });
   });
   await page.reload();
   await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();

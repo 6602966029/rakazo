@@ -3814,6 +3814,7 @@ export function ShellPage() {
             onBotChanged={refreshBots}
             onAddRoutine={addSkillRoutine}
             voiceReady={Boolean(voiceStatus?.ready)}
+            macVoiceBotIds={new Set(bots.filter((bot) => bot.macVoice).map((bot) => bot.id))}
             speakingMessageId={speakingMessageId}
             onSpeak={speakMessage}
             onOpenComputer={onOpenComputer}
@@ -4961,6 +4962,7 @@ const Transcript = memo(function Transcript({
   onBotChanged,
   onAddRoutine,
   voiceReady,
+  macVoiceBotIds,
   speakingMessageId,
   onSpeak,
   onOpenComputer,
@@ -4990,6 +4992,7 @@ const Transcript = memo(function Transcript({
   onBotChanged: () => Promise<void>;
   onAddRoutine: (name: string, prompt: string) => void;
   voiceReady: boolean;
+  macVoiceBotIds: ReadonlySet<string>;
   speakingMessageId: string | null;
   onSpeak: (message: ThreadMessage) => void;
   onOpenComputer: (botId?: string) => void;
@@ -5338,7 +5341,7 @@ const Transcript = memo(function Transcript({
                       onRefresh={onRefresh}
                       onBotChanged={onBotChanged}
                       onAddRoutine={onAddRoutine}
-                      voiceReady={voiceReady}
+                      voiceReady={voiceReady || macVoiceBotIds.has(message.botId ?? "")}
                       speaking={speakingMessageId === message.id}
                       onSpeak={() => onSpeak(message)}
                       onOpenComputer={onOpenComputer}

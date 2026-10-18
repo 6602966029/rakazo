@@ -1,6 +1,6 @@
 import type { MessageBlock } from "@rakazo/contracts";
 import { speakable, speechFromBlocks } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+import { IsolationError, type PrismaClient } from "@rakazo/db";
 
 export type SpokenTextResolver = (input: {
   prisma: PrismaClient;
@@ -28,6 +28,44 @@ export function registerSpokenTextResolver(fn: SpokenTextResolver): void {
 /** Optional host playback, keyed by the router deps object. Unset, the browser speaks. */
 export function registerHostSpeaker(key: object, fn: HostSpeaker): void {
   hostSpeakers.set(key, fn);
+}
+
+/**
+ * A reply the actor may speak. Direct replies live on the bot's thread. Group
+ * replies live on the group thread and carry the speaking bot's id.
+ */
+export async function loadSpeakableMessage(
+  prisma: PrismaClient,
+  actor: { spaceId: string; userId: string },
+  input: { botId: string; messageId: string },
+): Promise<{ threadId: string; blocks: MessageBlock[] }> {
+  const bot = await prisma.bot.findFirst({
+    where: { id: input.botId, spaceId: actor.spaceId, userId: actor.userId },
+    select: { id: true, thread: { select: { id: true } } },
+  });
+  if (!bot) throw new IsolationError();
+  const message = await prisma.message.findFirst({
+    where: { id: input.messageId, role: "bot", botId: bot.id },
+    select: {
+      blocks: true,
+      thread: {
+        select: {
+          id: true,
+          spaceId: true,
+          userId: true,
+          botId: true,
+          group: { select: { members: { where: { botId: bot.id }, select: { botId: true } } } },
+        },
+      },
+    },
+  });
+  const thread = message?.thread;
+  const ownsThread =
+    thread?.spaceId === actor.spaceId &&
+    thread.userId === actor.userId &&
+    (thread.botId === bot.id || (thread.group?.members.length ?? 0) > 0);
+  if (!message || !ownsThread || !thread) throw new IsolationError();
+  return { threadId: thread.id, blocks: message.blocks as MessageBlock[] };
 }
 
 export async function resolveSpokenText(input: {

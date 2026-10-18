@@ -686,18 +686,28 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       name: currentBot.name,
       color: resolvePersonaColorDef(currentBot.id, currentBot.color).light,
     };
+    const spokenBotId = currentBot.id;
+    const spokenMessageId = decision.messageId;
     void rpc<{ text: string; hostSpoken: boolean }>("voice/spokenText", {
-      botId: currentBot.id,
-      messageId: decision.messageId,
+      botId: spokenBotId,
+      messageId: spokenMessageId,
       speakOnHost: false,
     })
       .then((spoken) => {
+        if (autoSpoken.current !== spokenMessageId || autoSpokenBotId.current !== spokenBotId) {
+          return;
+        }
+        if (!navigation.isFocused()) return;
         if (spoken.hostSpoken || !spoken.text) return;
-        return speakText(spoken.text, { botId: currentBot.id, speaker });
+        return speakText(spoken.text, { botId: spokenBotId, speaker });
       })
-      .catch(() =>
-        speakText(decision.text, { botId: currentBot.id, speaker }).catch(() => undefined),
-      );
+      .catch(() => {
+        if (autoSpoken.current !== spokenMessageId || autoSpokenBotId.current !== spokenBotId) {
+          return;
+        }
+        if (!navigation.isFocused()) return;
+        return speakText(decision.text, { botId: spokenBotId, speaker }).catch(() => undefined);
+      });
   }, [
     botId,
     inGroup,

@@ -133,7 +133,6 @@ import type {
   ExportManifest,
   McpServer,
   Me,
-  MessageBlock,
   ProductEvent,
   Routine,
   SpaceNavigation,
@@ -239,12 +238,8 @@ import {
   toComputerStatus,
 } from "./computer-status.js";
 import { searchIntegrationCatalog } from "./integration-catalog.js";
-import {
-  createMacSaySpeaker,
-  type MacSaySpeaker,
-  macVoiceInstalled,
-  macVoicePreview,
-} from "./mac-say.js";
+import type { MacSaySpeaker } from "./mac-say.js";
+import { createMacSaySpeaker, macVoiceInstalled, macVoicePreview } from "./mac-say.js";
 import {
   dismissMcpServerApprovals,
   resolveMcpApprovalCards,
@@ -276,7 +271,12 @@ import {
   readServerUpdateStatus,
   UpdaterProxyError,
 } from "./server-update.js";
-import { registerHostSpeaker, resolveSpokenText, speakOnHost } from "./spoken-text.js";
+import {
+  loadSpeakableMessage,
+  registerHostSpeaker,
+  resolveSpokenText,
+  speakOnHost,
+} from "./spoken-text.js";
 import { assertTeachingSendAllowed, createTaughtSkillsService } from "./taught-skills.js";
 import {
   isBackgroundRun,
@@ -1795,12 +1795,7 @@ export function createRouter(deps: RouterDeps) {
             sectionId: input.sectionId,
             voiceId: input.voiceId,
             autoSpeak: input.autoSpeak,
-            ...(input.macVoice !== undefined
-              ? {
-                  macVoice: input.macVoice,
-                  ...(input.macVoice ? { autoSpeak: true } : {}),
-                }
-              : {}),
+            ...(input.macVoice !== undefined ? { macVoice: input.macVoice } : {}),
             ...(input.modelProvider !== undefined
               ? { modelProvider: input.modelProvider, modelId: input.modelId ?? null }
               : {}),
@@ -6232,27 +6227,17 @@ export function createRouter(deps: RouterDeps) {
         prepareVoice(deps, context.actor, input),
       ),
       spokenText: authed.voice.spokenText.handler(async ({ context, input }) => {
-        const bot = await deps.prisma.bot.findFirst({
-          where: { id: input.botId, spaceId: context.actor.spaceId, userId: context.actor.userId },
-          select: { id: true, thread: { select: { id: true } } },
-        });
-        if (!bot?.thread) throw new IsolationError();
-        const message = await deps.prisma.message.findFirst({
-          where: { id: input.messageId, threadId: bot.thread.id, role: "bot" },
-          select: { blocks: true },
-        });
-        if (!message) throw new IsolationError();
-        const blocks = message.blocks as MessageBlock[];
+        const message = await loadSpeakableMessage(deps.prisma, context.actor, input);
         const text = await resolveSpokenText({
           prisma: deps.prisma,
-          botId: bot.id,
-          threadId: bot.thread.id,
+          botId: input.botId,
+          threadId: message.threadId,
           messageId: input.messageId,
-          blocks,
+          blocks: message.blocks,
         });
         const hostSpoken = await speakOnHost(deps, {
           prisma: deps.prisma,
-          botId: bot.id,
+          botId: input.botId,
           text,
           speakOnHost: input.speakOnHost === true,
         });
