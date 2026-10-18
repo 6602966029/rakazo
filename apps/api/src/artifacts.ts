@@ -64,7 +64,12 @@ export async function storeInboundAttachment(
     maxUploadSizeBytes?: number;
   },
   owner: ArtifactOwner,
-  input: { botId: string; attachment: MessagingInboundAttachment; clientNonce: string },
+  input: {
+    botId: string;
+    attachment: MessagingInboundAttachment;
+    clientNonce: string;
+    downloadDeadline?: number;
+  },
 ) {
   const replayed = await findReplayedArtifact(deps.prisma, owner, input);
   if (replayed) return createdArtifact(replayed);
@@ -77,7 +82,19 @@ export async function storeInboundAttachment(
     `Attachment exceeds the ${attachmentSizeLabel(maxBytes)} limit`,
   );
   if ((attachment.size ?? 0) > maxBytes) throw tooLarge;
-  const bytes = await attachment.fetch();
+  const timeoutMs = Math.min(2_000, (input.downloadDeadline ?? Infinity) - Date.now());
+  if (timeoutMs <= 0) throw new AttachmentValidationError("Attachment download timed out");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new AttachmentValidationError("Attachment download timed out")),
+      timeoutMs,
+    );
+  });
+  const bytes = await Promise.race([
+    Promise.resolve().then(() => attachment.fetch()),
+    timeout,
+  ]).finally(() => clearTimeout(timer));
   if (bytes.byteLength === 0) throw new AttachmentValidationError("Attachment content is empty");
   if (bytes.byteLength > maxBytes) throw tooLarge;
   return storeOwnedArtifact(deps, owner, {
