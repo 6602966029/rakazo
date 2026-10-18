@@ -944,10 +944,6 @@ msgstr "차트를 표시하지 못했습니다: {error}"
 msgid "Chat apps"
 msgstr "채팅 앱"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Chat apps, group channels, and agent connections."
-msgstr "채팅 앱, 그룹 채널 및 Agent 연결을 관리합니다."
-
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "채팅 설정"
@@ -2802,10 +2798,6 @@ msgstr "MCP 서버 관리"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Manage messaging settings"
 msgstr "메시징 설정 관리"
-
-#: src/pages/MemorySettingsOverlay.tsx
-msgid "Manage the Space semantic memory provider."
-msgstr "작업공간에서 사용할 장기 기억 서비스를 관리합니다."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Manual"

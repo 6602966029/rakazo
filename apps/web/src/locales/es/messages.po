@@ -944,10 +944,6 @@ msgstr "No se pudo renderizar el gráfico: {error}"
 msgid "Chat apps"
 msgstr "Apps de chat"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Chat apps, group channels, and agent connections."
-msgstr "Apps de chat, canales de grupo y conexiones de agentes."
-
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "Configuración del chat"
@@ -2802,10 +2798,6 @@ msgstr "Gestionar servidores MCP"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Manage messaging settings"
 msgstr "Administrar configuración de mensajería"
-
-#: src/pages/MemorySettingsOverlay.tsx
-msgid "Manage the Space semantic memory provider."
-msgstr "Administra el proveedor de memoria semántica del Space."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Manual"

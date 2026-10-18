@@ -86,7 +86,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Custom server {host}": "Eigener Server {host}",
   "Don’t have an account?": "Du hast noch kein Konto?",
   Email: "E-Mail",
-  "Enter your Rakazo server address.": "Gib die Adresse deines Rakazo-Servers ein.",
   "Forgot password?": "Passwort vergessen?",
   "Loading…": "Wird geladen…",
   Password: "Passwort",
@@ -527,7 +526,6 @@ export const DE_MESSAGES: Record<string, string> = {
     "Die eingebaute Stimme deines Telefons. Kostenlos, kein Konto nötig",
   // app/(settings)/account.tsx
   "Agent messages": "Agent-Nachrichten",
-  "Alerts from routines": "Meldungen von Routinen",
   Appearance: "Erscheinungsbild",
   Archived: "Archiviert",
   "Avatar style": "Avatar-Stil",
@@ -567,7 +565,6 @@ export const DE_MESSAGES: Record<string, string> = {
     "Das löscht dein Konto, deine Bots, Unterhaltungen, Erinnerungen, Dateien und gespeicherten Verbindungen endgültig. Das lässt sich nicht rückgängig machen.",
   "Try again.": "Versuche es erneut.",
   Usage: "Nutzung",
-  "While agents are working": "Während Agents arbeiten",
   "Your account": "Dein Konto",
   "{runs} runs · {tokens} tokens": "{runs} Ausführungen · {tokens} Token",
   "{style} avatars": "Avatare: {style}",

@@ -944,10 +944,6 @@ msgstr "图表渲染失败：{error}"
 msgid "Chat apps"
 msgstr "聊天应用"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Chat apps, group channels, and agent connections."
-msgstr "聊天应用、群组频道和 Agent 连接。"
-
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "聊天设置"
@@ -2802,10 +2798,6 @@ msgstr "管理 MCP 服务器"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Manage messaging settings"
 msgstr "管理消息设置"
-
-#: src/pages/MemorySettingsOverlay.tsx
-msgid "Manage the Space semantic memory provider."
-msgstr "管理工作区语义记忆提供方。"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Manual"
