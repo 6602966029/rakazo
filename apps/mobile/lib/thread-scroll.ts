@@ -13,6 +13,7 @@ export class ThreadScrollBehavior {
   private distanceFromEnd = 0;
   private dragging = false;
   private userScrolling = false;
+  private pendingFollow = false;
   private latestMessageId: string | null = null;
   private currentState: ThreadScrollState = { detached: false, unread: false };
 
@@ -27,6 +28,7 @@ export class ThreadScrollBehavior {
     this.distanceFromEnd = 0;
     this.dragging = false;
     this.userScrolling = false;
+    this.pendingFollow = false;
     this.currentState = { detached: false, unread: false };
   }
 
@@ -36,6 +38,7 @@ export class ThreadScrollBehavior {
       this.viewportHeight = viewportHeight;
       this.onUserScroll(this.distanceFromEnd);
     }
+    if (this.userScrolling) return null;
     return this.contentReady && !this.currentState.detached ? "jump" : null;
   }
 
@@ -45,12 +48,17 @@ export class ThreadScrollBehavior {
     if (latestMessageId === null || latestMessageId === this.latestMessageId) return null;
     const initial = this.latestMessageId === null;
     this.latestMessageId = latestMessageId;
+    if (this.userScrolling) {
+      this.pendingFollow = true;
+      if (this.currentState.detached) this.currentState = { detached: true, unread: true };
+      return null;
+    }
     if (initial) return this.laidOut ? "jump" : null;
     if (this.currentState.detached) {
       this.currentState = { detached: true, unread: true };
       return null;
     }
-    return this.dragging ? null : "smooth";
+    return "smooth";
   }
 
   onUserDragStart(): void {
@@ -62,11 +70,16 @@ export class ThreadScrollBehavior {
     this.dragging = false;
   }
 
-  onUserMomentumEnd(): void {
-    this.userScrolling = this.dragging;
+  onUserMomentumEnd(): ThreadScrollAction {
+    if (this.dragging) return null;
+    this.userScrolling = false;
+    const follow = this.pendingFollow && !this.currentState.detached;
+    this.pendingFollow = false;
+    return follow ? this.jumpToLatest() : null;
   }
 
   onProgrammaticScroll(): void {
+    this.pendingFollow = false;
     this.userScrolling = this.dragging;
   }
 
@@ -88,7 +101,7 @@ export class ThreadScrollBehavior {
     const detached = this.distanceFromEnd > 80;
     this.currentState = {
       detached,
-      unread: detached ? this.currentState.unread : false,
+      unread: detached ? this.currentState.unread || this.pendingFollow : false,
     };
     return this.state();
   }

@@ -87,7 +87,7 @@ describe("mobile thread initial scroll", () => {
     expect(behavior.state()).toEqual({ detached: true, unread: true });
   });
 
-  it("cancels momentum tracking for auto-follow and re-enables it for a new drag", () => {
+  it("defers auto-follow until momentum ends and re-enables tracking for a new drag", () => {
     const behavior = new ThreadScrollBehavior();
     behavior.openThread("thread-1");
     behavior.onLayout();
@@ -95,7 +95,10 @@ describe("mobile thread initial scroll", () => {
     behavior.onUserDragStart();
     behavior.onUserScroll(50);
     behavior.onUserDragEnd();
-    expect(behavior.onContentChanged(false, "m2")).toBe("smooth");
+    expect(behavior.onContentChanged(false, "m2")).toBe(null);
+    expect(behavior.isTrackingUserScroll()).toBe(true);
+    expect(behavior.onUserMomentumEnd()).toBe("smooth");
+    expect(behavior.state()).toEqual({ detached: false, unread: false });
     behavior.onProgrammaticScroll();
     expect(behavior.isTrackingUserScroll()).toBe(false);
     behavior.onUserDragStart();
@@ -110,6 +113,82 @@ describe("mobile thread initial scroll", () => {
     behavior.onLayout();
     expect(behavior.onContentChanged(false, "m3")).toBe("jump");
     expect(behavior.onContentChanged(false, "m4")).toBe("smooth");
+  });
+
+  it("does not interrupt a fling below the threshold, then shows unread when it ends detached", () => {
+    const behavior = new ThreadScrollBehavior();
+    behavior.openThread("thread-1");
+    behavior.onLayout();
+    behavior.onContentChanged(false, "m1");
+    behavior.onUserDragStart();
+    behavior.onUserScroll(50);
+    behavior.onUserDragEnd();
+
+    expect(behavior.onContentChanged(false, "m2")).toBe(null);
+    expect(behavior.onLayout()).toBe(null);
+    expect(behavior.isTrackingUserScroll()).toBe(true);
+    expect(behavior.onUserScroll(150)).toEqual({ detached: true, unread: true });
+    expect(behavior.onUserMomentumEnd()).toBe(null);
+    expect(behavior.isTrackingUserScroll()).toBe(false);
+    expect(behavior.state()).toEqual({ detached: true, unread: true });
+    // Catching up clears the button and does not replay the deferred arrival.
+    behavior.onUserDragStart();
+    behavior.onUserScroll(80);
+    behavior.onUserDragEnd();
+    expect(behavior.onUserMomentumEnd()).toBe(null);
+    expect(behavior.state()).toEqual({ detached: false, unread: false });
+  });
+
+  it("settles on idle without momentum-end, but never while a finger is down", () => {
+    const behavior = new ThreadScrollBehavior();
+    behavior.openThread("thread-1");
+    behavior.onLayout();
+    behavior.onContentChanged(false, "m1");
+    behavior.onUserDragStart();
+    behavior.onUserScroll(80);
+    expect(behavior.onContentChanged(false, "m2")).toBe(null);
+    // The idle fallback and native momentum-end use the same settlement path.
+    expect(behavior.onUserMomentumEnd()).toBe(null);
+    expect(behavior.isTrackingUserScroll()).toBe(true);
+    behavior.onUserDragEnd();
+    expect(behavior.onUserMomentumEnd()).toBe("smooth");
+    expect(behavior.isTrackingUserScroll()).toBe(false);
+    expect(behavior.state()).toEqual({ detached: false, unread: false });
+    expect(behavior.onUserMomentumEnd()).toBe(null);
+    expect(behavior.onContentChanged(false, "m3")).toBe("smooth");
+    behavior.onUserDragStart();
+    behavior.onUserDragEnd();
+    expect(behavior.onUserMomentumEnd()).toBe(null);
+    expect(behavior.isTrackingUserScroll()).toBe(false);
+  });
+
+  it("catches up after an arrival while detached when the same fling ends near latest", () => {
+    const behavior = new ThreadScrollBehavior();
+    behavior.openThread("thread-1");
+    behavior.onLayout();
+    behavior.onContentChanged(false, "m1");
+    behavior.onUserDragStart();
+    behavior.onUserScroll(200);
+    behavior.onUserDragEnd();
+    expect(behavior.onContentChanged(false, "m2")).toBe(null);
+    expect(behavior.state()).toEqual({ detached: true, unread: true });
+    behavior.onUserScroll(80);
+    expect(behavior.onUserMomentumEnd()).toBe("smooth");
+    expect(behavior.state()).toEqual({ detached: false, unread: false });
+    expect(behavior.isTrackingUserScroll()).toBe(false);
+  });
+
+  it("discards deferred following when switching threads", () => {
+    const behavior = new ThreadScrollBehavior();
+    behavior.openThread("thread-1");
+    behavior.onLayout();
+    behavior.onContentChanged(false, "m1");
+    behavior.onUserDragStart();
+    expect(behavior.onContentChanged(false, "m2")).toBe(null);
+    behavior.onUserDragEnd();
+    behavior.openThread("thread-2");
+    expect(behavior.onUserMomentumEnd()).toBe(null);
+    expect(behavior.isTrackingUserScroll()).toBe(false);
   });
 
   it.each(["content", "viewport"])(

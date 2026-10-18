@@ -476,6 +476,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const scroll = useRef<FlatList<ThreadItem<MobileMessage>>>(null);
   const pinnedScroll = useRef<ScrollView>(null);
   const scrollBehavior = useRef(new ThreadScrollBehavior());
+  const scrollIdleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const loadingOlderContent = useRef(false);
   const expandedHistoryThread = useRef<string | null>(null);
   const historyEpoch = useRef(0);
@@ -521,6 +522,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     joinPinnedAfterLayout.current = null;
     loadingOlderContent.current = false;
     publishThreadScrollState(scrollBehavior.current.state());
+    return () => clearTimeout(scrollIdleTimer.current);
   }, [threadKey, publishThreadScrollState]);
   const reducedMotion = useReducedMotion();
   const artifactTarget: MobileArtifactTarget | undefined = groupId
@@ -1994,8 +1996,19 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     }
   }
 
+  function scheduleScrollIdle() {
+    clearTimeout(scrollIdleTimer.current);
+    // Some drags/flings never emit momentum-end. Every scroll event renews the
+    // grace period; the behavior also refuses to settle while a finger is down.
+    scrollIdleTimer.current = setTimeout(() => {
+      performScroll(scrollBehavior.current.onUserMomentumEnd());
+      publishThreadScrollState(scrollBehavior.current.state());
+    }, 200);
+  }
+
   function updateUserScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     // Inverted FlatList: contentOffset.y is distance from the latest messages.
+    scheduleScrollIdle();
     const previous = scrollBehavior.current.state();
     const next = scrollBehavior.current.onUserScroll(event.nativeEvent.contentOffset.y);
     if (reconcileThreadScrollState(previous, next) !== previous) publishThreadScrollState(next);
@@ -2381,6 +2394,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             maintainVisibleContentPosition={messageListPosition}
             scrollEventThrottle={16}
             onScrollBeginDrag={() => {
+              clearTimeout(scrollIdleTimer.current);
               scrollBehavior.current.onUserDragStart();
             }}
             onScroll={(event) => {
@@ -2390,10 +2404,13 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             onScrollEndDrag={(event) => {
               updateUserScroll(event);
               scrollBehavior.current.onUserDragEnd();
+              scheduleScrollIdle();
             }}
             onMomentumScrollEnd={(event) => {
               if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
-              scrollBehavior.current.onUserMomentumEnd();
+              clearTimeout(scrollIdleTimer.current);
+              performScroll(scrollBehavior.current.onUserMomentumEnd());
+              publishThreadScrollState(scrollBehavior.current.state());
             }}
             onLayout={(event) => {
               performScroll(scrollBehavior.current.onLayout(event.nativeEvent.layout.height));
