@@ -1139,6 +1139,7 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
         return {
           name: String(raw.name ?? ""),
           title: raw.title ? String(raw.title) : "",
+          description: raw.description ? String(raw.description) : "",
           instructions: raw.instructions ? String(raw.instructions) : "",
           prompt: raw.prompt ? String(raw.prompt) : "",
           computer_mode: raw.computer_mode ? String(raw.computer_mode) : "",
@@ -1755,6 +1756,7 @@ function builtinParameters(tool: ConnectorTool) {
     return Type.Object({
       name: Type.String(),
       title: Type.Optional(Type.String()),
+      description: Type.Optional(Type.String()),
       instructions: Type.Optional(Type.String()),
       prompt: Type.Optional(Type.String()),
       computer_mode: Type.Optional(stringEnum(["team", "dedicated"], {})),
