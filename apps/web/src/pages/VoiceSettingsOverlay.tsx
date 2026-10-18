@@ -373,15 +373,20 @@ export function VoiceSettingsOverlay({
                     variant="secondary"
                     className="mt-4 rounded-full"
                     disabled={busy || (!macProvider && !status?.ready)}
-                    onClick={() =>
-                      void (macProvider && voiceId
-                        ? rpc.voice
-                            .previewMacVoice({ voice: voiceId })
-                            .catch((err: unknown) =>
-                              setError(errorText(err, t`Could not preview that voice`)),
-                            )
-                        : testVoice())
-                    }
+                    onClick={() => {
+                      if (macProvider && voiceId) {
+                        markPending("test");
+                        setError(null);
+                        void rpc.voice
+                          .previewMacVoice({ voice: voiceId })
+                          .catch((err: unknown) =>
+                            setError(errorText(err, t`Could not preview that voice`)),
+                          )
+                          .finally(() => markPending(null));
+                        return;
+                      }
+                      void testVoice();
+                    }}
                   >
                     {pending === "test" ? <Trans>Playing…</Trans> : <Trans>Hear a sample</Trans>}
                   </Button>
