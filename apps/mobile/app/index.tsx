@@ -1,5 +1,5 @@
 import { MenuView } from "@expo/ui/community/menu";
-import type { RunActivityRow, SearchHit, SpaceBot, SpaceGroup } from "@rakazo/contracts";
+import type { RunActivityRow, SpaceBot, SpaceGroup } from "@rakazo/contracts";
 import { normalizeCreateBotProfile } from "@rakazo/contracts";
 import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
 import { botColors } from "@rakazo/ui-tokens";
@@ -25,11 +25,9 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
-import { KeyboardController } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BotAvatar } from "../components/bot-avatar";
 import type { BotOrganizationUpdate } from "../components/bot-organize-modal";
@@ -66,7 +64,7 @@ import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { mobileBotAvatarPresentation } from "../lib/bot-avatar";
 import { allowFocusPrompt, scheduleFocusPrompt } from "../lib/focus-prompt";
 import { t, useI18n } from "../lib/i18n";
-import { botTag, filterBots, formatThreadTime, userInitials } from "../lib/inbox";
+import { botTag, formatThreadTime, userInitials } from "../lib/inbox";
 import { retainInboxValue } from "../lib/inbox-retention";
 import type { InboxSpace, InboxSpaceItem } from "../lib/inbox-spaces";
 import {
@@ -92,9 +90,7 @@ import { iosAtLeast } from "../lib/native-controls";
 import { previewSnippet } from "../lib/preview";
 import { registerPushToken } from "../lib/push";
 import { loadSavedInbox, saveInbox } from "../lib/saved-chats";
-import { querySpaceSearch } from "../lib/search";
-import { mobileSearchDestination } from "../lib/search-destination";
-import { dedupeSearchHits, searchHitListKey, searchHitRowPreview } from "../lib/search-list";
+import { setSearchInbox } from "../lib/search-inbox";
 import {
   currentReadySessionGeneration,
   currentSessionGeneration,
@@ -105,8 +101,6 @@ import { errorText } from "../lib/user-error";
 const FALLBACK_COLOR = botColors[3];
 // Swipe actions are iOS list behaviour; other platforms keep the long-press sheet.
 const SWIPE_ROWS = Platform.OS === "ios";
-
-type InboxItem = InboxSpaceItem | { type: "search"; hit: SearchHit };
 
 async function openMobileSpace(spaceId: string | undefined, open: () => void) {
   if (spaceId && !(await selectSpace(spaceId))) {
@@ -158,10 +152,6 @@ function Home() {
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [unreadOverrides, setUnreadOverrides] = useState<ReadonlyMap<string, boolean>>(
     () => new Map(),
   );
@@ -317,7 +307,7 @@ function Home() {
 
   const loadActivity = useCallback(async () => {
     if (spaceActionRef.current.busy || spaceActionRef.current.recoveryId) return;
-    if (!hasSession || !activityMode || searching || query.trim()) {
+    if (!hasSession || !activityMode) {
       activityRequestId.current += 1;
       setActivity({ active: [], recent: [] });
       return;
@@ -331,11 +321,11 @@ function Home() {
       // Keep the last good snapshot on transient RPC failures; only drop stale responses.
       if (requestId !== activityRequestId.current) return;
     }
-  }, [activityMode, hasSession, query, searching]);
+  }, [activityMode, hasSession]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!hasSession || !activityMode || searching || query.trim()) return;
+      if (!hasSession || !activityMode) return;
       let cancelled = false;
       let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -352,64 +342,24 @@ function Home() {
         activityRequestId.current += 1;
         if (timer !== undefined) clearTimeout(timer);
       };
-    }, [activityMode, hasSession, loadActivity, query, searching]),
+    }, [activityMode, hasSession, loadActivity]),
   );
-
-  useEffect(() => {
-    const trimmed = query.trim();
-    if (!searching || !trimmed) {
-      setSearchHits([]);
-      setSearchLoading(false);
-      return;
-    }
-    const abort = new AbortController();
-    const timer = setTimeout(() => {
-      setSearchLoading(true);
-      void querySpaceSearch(trimmed)
-        .then((hits) => {
-          if (!abort.signal.aborted) setSearchHits(hits);
-        })
-        .catch(() => {
-          if (!abort.signal.aborted) setSearchHits([]);
-        })
-        .finally(() => {
-          if (!abort.signal.aborted) setSearchLoading(false);
-        });
-    }, 200);
-    return () => {
-      abort.abort();
-      clearTimeout(timer);
-    };
-  }, [query, searching]);
 
   const visible = useMemo(
-    () => filterBots(applyUnreadOverrides("bot", bots, unreadOverrides), query),
-    [bots, query, unreadOverrides],
+    () => applyUnreadOverrides("bot", bots, unreadOverrides),
+    [bots, unreadOverrides],
   );
-  const visibleGroups = useMemo(() => {
-    const shown = applyUnreadOverrides("group", groups, unreadOverrides);
-    const needle = query.trim().toLowerCase();
-    if (!needle) return shown;
-    return shown.filter((group) => `${group.name} ${group.preview}`.toLowerCase().includes(needle));
-  }, [groups, query, unreadOverrides]);
-  const listData = useMemo((): InboxItem[] => {
-    if (query.trim() && searching) {
-      return dedupeSearchHits(searchHits).map((hit) => ({ type: "search" as const, hit }));
-    }
-    const sidebarSpaces =
+  const visibleGroups = useMemo(
+    () => applyUnreadOverrides("group", groups, unreadOverrides),
+    [groups, unreadOverrides],
+  );
+  const inboxSpaces = useMemo(
+    () =>
       spaces.length > 0
         ? spaces.map((space) =>
             space.id === me?.spaceId
               ? { ...space, bots: visible, groups: visibleGroups, botSections }
-              : {
-                  ...space,
-                  bots: filterBots(space.bots, query),
-                  groups: space.groups.filter((group) =>
-                    `${group.name} ${group.preview}`
-                      .toLowerCase()
-                      .includes(query.trim().toLowerCase()),
-                  ),
-                },
+              : space,
           )
         : me
           ? [
@@ -423,20 +373,16 @@ function Home() {
                 botSections,
               },
             ]
-          : [];
-    return spaceInboxItems(sidebarSpaces, collapsedRosterParents);
-  }, [
-    botSections,
-    collapsedRosterParents,
-    locale,
-    me,
-    spaces,
-    query,
-    searching,
-    searchHits,
-    visible,
-    visibleGroups,
-  ]);
+          : [],
+    [spaces, me, visible, visibleGroups, botSections, t, locale],
+  );
+  useEffect(() => {
+    setSearchInbox(inboxSpaces);
+  }, [inboxSpaces]);
+  const listData = useMemo(
+    () => spaceInboxItems(inboxSpaces, collapsedRosterParents),
+    [inboxSpaces, collapsedRosterParents],
+  );
   const initials = userInitials(me?.name ?? "");
   const organizeChat = organizeTarget
     ? organizeTarget.kind === "bot"
@@ -449,7 +395,7 @@ function Home() {
     useWindowDimensions().width,
     Math.max(insets.left, insets.right),
   );
-  // Liquid Glass uses the native bar: glass bar items, a native menu, and bottom search.
+  // Liquid Glass uses the native bar: glass bar items and a native menu.
   const nativeHeader = iosAtLeast(26);
   const navigation = useNavigation();
   const router = useRouter();
@@ -631,6 +577,13 @@ function Home() {
           onPress: () => router.push("/artifacts"),
         },
         {
+          type: "button" as const,
+          accessibilityLabel: t("Search"),
+          identifier: "home-search-button",
+          icon: { type: "sfSymbol" as const, name: "magnifyingglass" },
+          onPress: () => router.push("/search"),
+        },
+        {
           type: "menu" as const,
           accessibilityLabel: t("Create"),
           icon: { type: "sfSymbol" as const, name: "plus" },
@@ -658,18 +611,6 @@ function Home() {
           },
         },
       ],
-      headerSearchBarOptions: {
-        placeholder: t("Search"),
-        hideWhenScrolling: false,
-        autoCapitalize: "none",
-        onFocus: () => setSearching(true),
-        onChangeText: (event: { nativeEvent: { text: string } }) =>
-          setQuery(event.nativeEvent.text),
-        onCancelButtonPress: () => {
-          setSearching(false);
-          setQuery("");
-        },
-      },
     });
   }, [
     nativeHeader,
@@ -685,15 +626,6 @@ function Home() {
     locale,
   ]);
 
-  const openSearchHit = useCallback(
-    (hit: SearchHit) => {
-      setQuery("");
-      setSearchHits([]);
-      // Wait for the search keyboard to close before sizing the destination composer.
-      void KeyboardController.dismiss().then(() => router.push(mobileSearchDestination(hit)));
-    },
-    [router],
-  );
   const openBot = useCallback(
     (bot: MobileBot | SpaceBot) => {
       if (spaceActionRef.current.busy || spaceActionRef.current.recoveryId) return;
@@ -816,10 +748,8 @@ function Home() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: InboxItem }) =>
-      item.type === "search" ? (
-        <SearchRow hit={item.hit} onPress={openSearchHit} />
-      ) : item.type === "heading" ? (
+    ({ item }: { item: InboxSpaceItem }) =>
+      item.type === "heading" ? (
         item.space ? (
           <View style={styles.spaceHeading}>
             <Pressable
@@ -897,7 +827,6 @@ function Home() {
       me?.spaceId,
       openBot,
       openGroup,
-      openSearchHit,
       organizeBot,
       organizeGroup,
       spaceBusy,
@@ -949,22 +878,17 @@ function Home() {
               />
             </HeaderButton>
             <HeaderButton
-              accessibilityLabel={t("Search")}
-              active={searching}
-              onPress={() =>
-                setSearching((open) => {
-                  if (open) setQuery("");
-                  return !open;
-                })
-              }
-            >
-              <NativeSymbol ios="magnifyingglass" android="search" size={17} />
-            </HeaderButton>
-            <HeaderButton
               accessibilityLabel={t("Artifacts")}
               onPress={() => router.push("/artifacts")}
             >
               <NativeSymbol ios="square.stack.3d.up" android="layers-outline" size={17} />
+            </HeaderButton>
+            <HeaderButton
+              testID="home-search-button"
+              accessibilityLabel={t("Search")}
+              onPress={() => router.push("/search")}
+            >
+              <NativeSymbol ios="magnifyingglass" android="search" size={17} />
             </HeaderButton>
             {Platform.OS === "android" ? (
               // A plain button: the native Android menu trigger collapses to zero width when the
@@ -1000,24 +924,18 @@ function Home() {
         </View>
       )}
 
-      <FlatList<InboxItem>
+      <FlatList<InboxSpaceItem>
         style={{ flex: 1 }}
         data={listData}
         keyExtractor={(item) => {
           if (item.type === "heading") return `heading-${item.key}`;
           if (item.type === "bot") return item.bot.id;
-          if (item.type === "group") return `group-${item.group.id}`;
-          return searchHitListKey(item.hit);
+          return `group-${item.group.id}`;
         }}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         indicatorStyle={appearance === "dark" ? "white" : "black"}
-        contentContainerStyle={[
-          styles.list,
-          { paddingHorizontal: columnInset },
-          // iOS moves the active search bar to the bottom and removes the navigation inset.
-          nativeHeader && searching ? { paddingTop: insets.top + 12 } : undefined,
-        ]}
+        contentContainerStyle={[styles.list, { paddingHorizontal: columnInset }]}
         contentInsetAdjustmentBehavior="automatic"
         refreshControl={
           <RefreshControl
@@ -1033,22 +951,6 @@ function Home() {
         }
         ListHeaderComponent={
           <>
-            {searching && !nativeHeader ? (
-              <TextInput
-                autoFocus
-                value={query}
-                onChangeText={setQuery}
-                placeholder={t("Search")}
-                placeholderTextColor={tokens.mutedForeground}
-                autoCorrect={false}
-                autoCapitalize="none"
-                returnKeyType="search"
-                keyboardAppearance={appearance}
-                clearButtonMode="while-editing"
-                style={styles.searchField}
-              />
-            ) : null}
-
             {error ? <Text style={styles.error}>{error}</Text> : null}
             {spaceRecoveryId ? (
               <Pressable
@@ -1060,29 +962,13 @@ function Home() {
                 <Text style={styles.spaceTitle}>{t("Try again.")}</Text>
               </Pressable>
             ) : null}
-            {activityMode &&
-            !searching &&
-            !query.trim() &&
-            (activity.active.length > 0 || activity.recent.length > 0) ? (
+            {activityMode && (activity.active.length > 0 || activity.recent.length > 0) ? (
               <ActivitySection activity={activity} bots={bots} />
             ) : null}
           </>
         }
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            {query.trim() && searching
-              ? searchLoading
-                ? t("Searching…")
-                : t("No results")
-              : query.trim()
-                ? t("No matching bots")
-                : searching
-                  ? t("Search conversations, files, and routines")
-                  : // Before any load (an offline launch with nothing saved) the bots are unknown.
-                    me
-                    ? t("Tap + to create a bot")
-                    : null}
-          </Text>
+          <Text style={styles.empty}>{me ? t("Tap + to create a bot") : null}</Text>
         }
         ListFooterComponent={
           inboxNeedsCreateHint(listData) ? (
@@ -1310,6 +1196,7 @@ function ConversationRow({
 }
 
 function HeaderButton({
+  testID,
   children,
   onPress,
   accessibilityLabel,
@@ -1319,12 +1206,14 @@ function HeaderButton({
   children: ReactNode;
   onPress: () => void;
   accessibilityLabel: string;
+  testID?: string;
   active?: boolean;
   accent?: boolean;
 }) {
   const styles = useThemedStyles(createHomeStyles);
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected: active }}
@@ -1341,34 +1230,6 @@ function HeaderButton({
     </Pressable>
   );
 }
-
-const SearchRow = memo(function SearchRow({
-  hit,
-  onPress,
-}: {
-  hit: SearchHit;
-  onPress: (hit: SearchHit) => void;
-}) {
-  const styles = useThemedStyles(createHomeStyles);
-  return (
-    <Pressable
-      onPress={() => onPress(hit)}
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-    >
-      <View style={styles.rowBody}>
-        <View style={styles.rowTop}>
-          <Text style={styles.name} numberOfLines={1}>
-            {hit.title}
-          </Text>
-          <Text style={styles.time}>{hit.kind}</Text>
-        </View>
-        <Text style={styles.preview} numberOfLines={2}>
-          {searchHitRowPreview(hit)}
-        </Text>
-      </View>
-    </Pressable>
-  );
-});
 
 const BotRow = memo(function BotRow({
   bot,
@@ -1558,19 +1419,6 @@ function createHomeStyles() {
       color: native.label,
       fontSize: 15,
       fontWeight: "600",
-    },
-    searchField: {
-      marginHorizontal: 16,
-      marginBottom: 8,
-      minHeight: 44,
-      paddingVertical: 10,
-      textAlignVertical: "center",
-      borderRadius: 10,
-      backgroundColor: native.fill,
-      color: native.label,
-      paddingHorizontal: 12,
-      fontSize: 17,
-      writingDirection: "auto",
     },
     error: {
       color: native.secondaryLabel,

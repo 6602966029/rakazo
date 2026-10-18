@@ -1,4 +1,6 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  Close: "关闭",
+  Link: "链接",
   "Too many attempts. Try again in a few minutes.": "尝试次数过多。请过几分钟再试。",
   "The server had a problem. Try again in a moment.": "服务器出现问题。请稍后重试。",
   "Password sign-in is turned off on this server": "此服务器已关闭密码登录",

@@ -1,4 +1,6 @@
 export const RU_MESSAGES: Record<string, string> = {
+  Close: "Закрыть",
+  Link: "Ссылка",
   "Too many attempts. Try again in a few minutes.":
     "Слишком много попыток. Попробуйте снова через несколько минут.",
   "The server had a problem. Try again in a moment.":
