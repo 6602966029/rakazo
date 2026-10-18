@@ -95,6 +95,22 @@ describe("Pi JSONL sessions", () => {
           }),
         }),
       );
+      expect(records[0]).toMatchObject({
+        v: 4,
+        kind: "header",
+        id: "run-1",
+        storageVersion: 1,
+      });
+      const entries = records.filter((record) => record.kind === "entry");
+      expect(entries.map((entry) => entry.type)).toEqual(["custom", "message", "message"]);
+      expect(entries.map((entry) => entry.parentId)).toEqual([null, entries[0].id, entries[1].id]);
+      expect(records.slice(1).map((record) => record.seq)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      expect(records.at(-1)).toMatchObject({
+        kind: "value",
+        namespace: "pi.branch.tip",
+        key: "main",
+        value: entries[2].id,
+      });
       expect(raw).toContain("Be concise.");
       expect(raw).toContain("prior");
       expect(raw).toContain("I should answer.");

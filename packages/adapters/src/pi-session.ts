@@ -1,9 +1,8 @@
+import { randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { readdir, rm, stat } from "node:fs/promises";
+import { appendFile, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { type AgentMessage, type Branch, JsonlSessionRepo } from "@earendil-works/pi-agent-core";
-import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
-import { NodeExecutionEnv } from "@earendil-works/pi-agent-core/node";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { getLogger } from "@rakazo/logging";
 
 export const PI_SESSION_RETENTION_DAYS = 30;
@@ -146,33 +145,43 @@ export interface PiSessionRecorder {
 }
 
 /**
- * Persists the low-level Agent transcript using Pi's native JSONL session format.
+ * Persists the low-level Agent transcript using Pi's format-4 JSONL records.
+ * Pi 1.0 removed its session writer; keep the recording subset local.
  * This is deliberately a recorder only: Rakazo remains responsible for running
  * the agent and for its product history in Postgres.
  */
 export class PiJsonlSessionRecorder implements PiSessionRecorder {
   private readonly cwd: string;
   private readonly sessionsRoot: string;
-  private readonly fs: NodeExecutionEnv;
 
   constructor(sessionsRoot: string, cwd = process.cwd()) {
     this.cwd = path.resolve(cwd);
     this.sessionsRoot = path.resolve(sessionsRoot);
-    this.fs = new NodeExecutionEnv({ cwd: this.cwd });
   }
 
   async start(input: PiSessionStart): Promise<PiSessionHandle> {
     const sessionsRoot = piSessionBotRoot(this.sessionsRoot, input.userId, input.botId);
-    const repo = new JsonlSessionRepo({
-      fileSystem: this.fs,
-      sessionsRoot,
-    });
-    const session = await repo.create(
-      {
+    await mkdir(sessionsRoot, { recursive: true });
+    const createdAt = Date.now();
+    const file = path.join(sessionsRoot, `${createdAt}_${randomUUID()}.jsonl`);
+    await writeFile(
+      file,
+      `${JSON.stringify({
+        v: 4,
+        kind: "header",
         id: input.runId,
+        storageVersion: 1,
+        createdAt,
         cwd: this.cwd,
-      },
-      BACKGROUND_CONTEXT,
+      })}\n${JSON.stringify({
+        kind: "value",
+        op: "set",
+        seq: 1,
+        namespace: "pi.branch.tip",
+        key: "main",
+        value: null,
+      })}\n`,
+      { flag: "wx", mode: 0o600 },
     );
     try {
       await prunePiSessionFiles(sessionsRoot);
@@ -183,10 +192,7 @@ export class PiJsonlSessionRecorder implements PiSessionRecorder {
         error,
       });
     }
-    const handle = new BestEffortPiSession(
-      await session.createBranch("main", null, BACKGROUND_CONTEXT),
-      input.runId,
-    );
+    const handle = new BestEffortPiSession(file, input.runId);
 
     await handle.appendCustomEntry("rakazo_context", {
       rakazoUserId: input.userId,
@@ -209,15 +215,18 @@ export class PiJsonlSessionRecorder implements PiSessionRecorder {
 
 class BestEffortPiSession implements PiSessionHandle {
   private failureLogged = false;
+  private seq = 2;
+  private parentId: string | null = null;
+  private queue: Promise<void> = Promise.resolve();
 
   constructor(
-    private readonly session: Branch,
+    private readonly file: string,
     private readonly runId: string,
   ) {}
 
   async appendMessage(message: AgentMessage): Promise<void> {
     try {
-      await this.session.appendMessage(message, BACKGROUND_CONTEXT);
+      await this.appendEntry({ type: "message", message });
     } catch (error) {
       this.logFailure("message", error);
     }
@@ -225,10 +234,50 @@ class BestEffortPiSession implements PiSessionHandle {
 
   async appendCustomEntry(customType: string, data: Record<string, string>): Promise<void> {
     try {
-      await this.session.appendCustomEntry(customType, data, BACKGROUND_CONTEXT);
+      await this.appendEntry({ type: "custom", customType, data });
     } catch (error) {
       this.logFailure("context", error);
     }
+  }
+
+  private appendEntry(
+    entry:
+      | { type: "message"; message: AgentMessage }
+      | { type: "custom"; customType: string; data: Record<string, string> },
+  ): Promise<void> {
+    const pending = this.queue.then(async () => {
+      if (
+        entry.type === "message" &&
+        entry.message.role === "assistant" &&
+        entry.message.stopReason === "pending"
+      ) {
+        throw new Error("Cannot record a pending assistant message");
+      }
+      const id = randomUUID();
+      const records = [
+        {
+          kind: "entry",
+          ...entry,
+          id,
+          parentId: this.parentId,
+          seq: this.seq,
+          timestamp: Date.now(),
+        },
+        {
+          kind: "value",
+          op: "set",
+          seq: this.seq + 1,
+          namespace: "pi.branch.tip",
+          key: "main",
+          value: id,
+        },
+      ];
+      await appendFile(this.file, `${JSON.stringify(records)}\n`);
+      this.seq += 2;
+      this.parentId = id;
+    });
+    this.queue = pending.catch(() => undefined);
+    return pending;
   }
 
   private logFailure(kind: string, error: unknown): void {
