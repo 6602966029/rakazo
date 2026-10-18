@@ -2000,12 +2000,16 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     const targetGroupId = groupId;
     if (!targetBotId && !targetGroupId) return;
     try {
-      await rpc("threads/react", {
+      const result = await rpc<{ ok: true; runIds?: string[] }>("threads/react", {
         ...(targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! }),
         messageId: message.id,
         reaction,
         clientNonce: newClientNonce(),
       });
+      if (result.runIds?.length && isCurrentTarget(targetBotId, targetGroupId)) {
+        // The reaction is saved; a failed refresh is caught up by live events.
+        await refresh().catch(() => {});
+      }
     } catch (err) {
       if (!isCurrentTarget(targetBotId, targetGroupId)) return;
       Alert.alert(t("Could not update reaction"), errorText(err, t("Try again.")));
