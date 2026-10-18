@@ -1297,21 +1297,38 @@ export function createRouter(deps: RouterDeps) {
           let apiKey = input.apiKey;
           if (!apiKey?.trim()) {
             try {
-              const credential = await findModelCredential(
+              const preferred = await findModelCredential(
                 deps.prisma,
                 context.actor,
                 OPENAI_COMPATIBLE_PROVIDER_ID,
               );
-              if (credential) {
-                const secret = await deps.prisma.secret.findFirst({
-                  where: { id: credential.secretId, userId: context.actor.userId, spaceId: null },
-                  select: { ciphertext: true },
-                });
-                if (secret) {
+              const credentials = await deps.prisma.userModelCredential.findMany({
+                where: { userId: context.actor.userId, provider: OPENAI_COMPATIBLE_PROVIDER_ID },
+                orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+              });
+              const candidates = preferred
+                ? [preferred, ...credentials.filter((credential) => credential.id !== preferred.id)]
+                : credentials;
+              const secrets = await deps.prisma.secret.findMany({
+                where: {
+                  id: { in: candidates.map((credential) => credential.secretId) },
+                  userId: context.actor.userId,
+                  spaceId: null,
+                },
+                select: { id: true, ciphertext: true },
+              });
+              const ciphertexts = new Map(secrets.map((secret) => [secret.id, secret.ciphertext]));
+              for (const credential of candidates) {
+                const ciphertext = ciphertexts.get(credential.secretId);
+                if (!ciphertext) continue;
+                try {
                   apiKey = storedOpenAiCompatibleProbeKey(
                     input.baseUrl,
-                    await deps.secrets.load(secret.ciphertext, credential.secretId),
+                    await deps.secrets.load(ciphertext, credential.secretId),
                   );
+                  if (apiKey) break;
+                } catch {
+                  // An unreadable secret must not prevent trying the remaining credentials.
                 }
               }
             } catch {
