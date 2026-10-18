@@ -5,6 +5,7 @@ import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import SearchSheet from "../app/search";
+import { selectSpace } from "./api";
 import type { InboxSpace } from "./inbox-spaces";
 import { searchKindLabel } from "./search-sheet";
 
@@ -15,6 +16,7 @@ const state = vi.hoisted(() => ({
   addListener: vi.fn(),
   lifecycle: new Map<string, () => void>(),
   selectSpace: vi.fn(),
+  selectionSeq: 0,
   spaceId: "space-a" as string | null,
   persistedSpaceId: "space-a",
   generation: 1,
@@ -59,7 +61,11 @@ vi.mock("expo-router", () => ({
     }, [effect]),
 }));
 vi.mock("./api", () => ({
-  selectSpace: state.selectSpace,
+  selectSpace: (id: string) => {
+    state.selectionSeq++;
+    return state.selectSpace(id);
+  },
+  spaceSelectionSeq: () => state.selectionSeq,
   selectedSpaceId: () => state.spaceId,
   currentApiBase: () => state.apiBase,
 }));
@@ -164,6 +170,7 @@ beforeEach(() => {
   state.platform.OS = "ios";
   state.search.mockResolvedValue([]);
   state.spaceId = "space-a";
+  state.selectionSeq = 0;
   state.persistedSpaceId = "space-a";
   state.generation = 1;
   state.apiBase = "https://example.test";
@@ -374,6 +381,40 @@ it("keeps the selected space when successful navigation removes the sheet", asyn
   expect(state.spaceId).toBe("space-b");
   expect(state.persistedSpaceId).toBe("space-b");
 });
+
+it.each(["space-c", "space-b"])(
+  "does not restore over a newer pending selection of %s after closing during keyboard dismissal",
+  async (nextSpace) => {
+    let dismiss!: () => void;
+    state.dismiss.mockReturnValueOnce(new Promise<void>((resolve) => (dismiss = resolve)));
+    await act(async () => row("Team, Group").click());
+    expect(state.spaceId).toBe("space-b");
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[data-testid="search-sheet-close"]')!.click(),
+    );
+
+    let finishCleanup!: () => void;
+    state.selectSpace.mockImplementationOnce(async (id: string) => {
+      await new Promise<void>((resolve) => (finishCleanup = resolve));
+      state.spaceId = id;
+      state.persistedSpaceId = id;
+      return true;
+    });
+    const homeSelection = selectSpace(nextSpace);
+    // Home has started selecting, but storage cleanup still leaves B in memory.
+    expect(state.spaceId).toBe("space-b");
+    await act(async () => dismiss());
+    expect(state.selectSpace.mock.calls).toEqual([["space-b"], [nextSpace]]);
+    expect(state.replace).not.toHaveBeenCalled();
+    await act(async () => {
+      finishCleanup();
+      expect(await homeSelection).toBe(true);
+    });
+    expect(state.spaceId).toBe(nextSpace);
+    expect(state.persistedSpaceId).toBe(nextSpace);
+    expect(state.alert).not.toHaveBeenCalled();
+  },
+);
 
 it.each(["session", "server", "selection"])(
   "does not restore a cancelled attempt over a newer %s",

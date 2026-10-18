@@ -19,7 +19,7 @@ import { GlassIconButton } from "../components/glass-icon-button";
 import { GroupAvatar } from "../components/group-avatar";
 import { NativeSymbol } from "../components/native-symbol";
 import { readableGutter } from "../lib/adaptive-layout";
-import { currentApiBase, selectedSpaceId, selectSpace } from "../lib/api";
+import { currentApiBase, selectedSpaceId, selectSpace, spaceSelectionSeq } from "../lib/api";
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { useI18n } from "../lib/i18n";
 import { native, useThemedStyles } from "../lib/native";
@@ -92,10 +92,13 @@ export default function SearchSheet() {
     const generation = currentSessionGeneration();
     const apiBase = currentApiBase();
     let selected = false;
+    let selectionSeq: number | undefined;
     let navigated = false;
     try {
       if (row.spaceId) {
-        selected = await selectSpace(row.spaceId);
+        const selection = selectSpace(row.spaceId);
+        selectionSeq = spaceSelectionSeq();
+        selected = await selection;
         if (!isCurrent()) return;
         if (!selected) {
           Alert.alert(t("Could not switch spaces"), t("Try again."));
@@ -108,11 +111,12 @@ export default function SearchSheet() {
       navigated = true;
       router.replace(row.destination);
     } finally {
-      // Native dismissal can outlive the switch; undo it only in the session that started it.
+      // Native dismissal can outlive the switch; newer selections (even pending) own it now.
       if (
         !navigated &&
         !isCurrent() &&
         selected &&
+        selectionSeq === spaceSelectionSeq() &&
         previousSpaceId !== row.spaceId &&
         selectedSpaceId() === row.spaceId &&
         generation === currentSessionGeneration() &&
