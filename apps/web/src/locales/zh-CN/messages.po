@@ -3493,6 +3493,10 @@ msgstr "请从列表中选择模型，或输入此端点提供的模型 ID。"
 msgid "Pin"
 msgstr "置顶"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Play {name}"
+msgstr "播放 {name}"
+
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
 msgstr "播放中…"

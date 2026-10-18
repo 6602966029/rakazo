@@ -6,6 +6,7 @@ import {
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_MAX_COUNT,
   attachmentSizeLabel,
+  isAttachmentAudioMimeType,
 } from "@rakazo/contracts";
 import {
   AttachmentValidationError,
@@ -48,9 +49,10 @@ export async function createOwnedArtifact(
 ) {
   const replayed = await findReplayedArtifact(deps.prisma, actor, input);
   if (replayed) return createdArtifact(replayed);
+  const inferredType = inferAttachmentMimeType(input.name, input.mimeType);
   const mimeType =
-    inferAttachmentMimeType(input.name, input.mimeType) === "application/zip"
-      ? "application/zip"
+    inferredType && (inferredType === "application/zip" || isAttachmentAudioMimeType(inferredType))
+      ? inferredType
       : input.mimeType;
   validateAttachmentMimeType(mimeType);
   const bytes = decodeAttachmentBase64(input.contentBase64, deps.maxUploadSizeBytes);

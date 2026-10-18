@@ -3493,6 +3493,10 @@ msgstr "Listeden bir model seç veya bu uç noktanın sunduğu bir model kimliğ
 msgid "Pin"
 msgstr "Sabitle"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Play {name}"
+msgstr "{name} dosyasını oynat"
+
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
 msgstr "Çalınıyor…"

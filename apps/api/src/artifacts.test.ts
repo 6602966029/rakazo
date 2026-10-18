@@ -383,6 +383,39 @@ describe("deleteArtifactFamily", () => {
 });
 
 describe("configured artifact upload limit", () => {
+  it.each([
+    ["song.mp3", "audio/mp3", "audio/mpeg"],
+    ["song.wav", "audio/x-wav", "audio/wav"],
+    ["song.ogg", "", "audio/ogg"],
+    ["song.m4a", "audio/x-m4a", "audio/mp4"],
+    ["song.m4a", "audio/aac", "audio/mp4"],
+  ])("normalizes %s uploads before validation/storage", async (name, mimeType, expected) => {
+    const reachedStorage = new Error("reached storage");
+    const put = vi.fn().mockRejectedValue(reachedStorage);
+    const deps = { prisma: {} as PrismaClient, artifacts: { put } as unknown as ArtifactStore };
+    await expect(
+      createOwnedArtifact(deps, actor, {
+        botId: "bot-1",
+        name,
+        mimeType,
+        contentBase64: "YXVkaW8=",
+      }),
+    ).rejects.toBe(reachedStorage);
+    expect(put).toHaveBeenCalledWith(
+      expect.objectContaining({ mimeType: expected }),
+      expect.anything(),
+    );
+    put.mockClear();
+    await expect(
+      createOwnedArtifact(deps, actor, {
+        botId: "bot-1",
+        name: "song.flac",
+        mimeType: "audio/flac",
+        contentBase64: "YXVkaW8=",
+      }),
+    ).rejects.toThrow("Unsupported attachment type");
+    expect(put).not.toHaveBeenCalled();
+  });
   it("rejects oversized attachments before storage and accepts uploads above the old cap", async () => {
     const stored = new Error("reached storage");
     const put = vi.fn().mockRejectedValue(stored);

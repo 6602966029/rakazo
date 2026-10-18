@@ -3493,6 +3493,10 @@ msgstr "सूची से एक मॉडल चुनें या इस �
 msgid "Pin"
 msgstr "पिन करें"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Play {name}"
+msgstr "{name} चलाएँ"
+
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
 msgstr "प्ले हो रहा है…"

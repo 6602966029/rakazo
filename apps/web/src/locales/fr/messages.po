@@ -3493,6 +3493,10 @@ msgstr "Choisissez un modèle dans la liste ou saisissez un identifiant de modè
 msgid "Pin"
 msgstr "Épingler"
 
+#: src/components/ArtifactFileCard.tsx
+msgid "Play {name}"
+msgstr "Lire {name}"
+
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Playing…"
 msgstr "Lecture en cours…"

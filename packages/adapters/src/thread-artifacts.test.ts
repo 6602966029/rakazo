@@ -212,6 +212,10 @@ describe("current-turn thread files", () => {
 
   it.each([
     ["video/mp4", ".mp4"],
+    ["audio/mpeg", ".mp3"],
+    ["audio/wav", ".wav"],
+    ["audio/ogg", ".ogg"],
+    ["audio/mp4", ".m4a"],
     ["application/pdf", ".pdf"],
     ["application/zip", ".zip"],
   ])(
