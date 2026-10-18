@@ -11,6 +11,8 @@ export class ThreadScrollBehavior {
   private viewportHeight: number | null = null;
   private contentHeight: number | null = null;
   private distanceFromEnd = 0;
+  private dragging = false;
+  private userScrolling = false;
   private latestMessageId: string | null = null;
   private currentState: ThreadScrollState = { detached: false, unread: false };
 
@@ -23,6 +25,8 @@ export class ThreadScrollBehavior {
     this.viewportHeight = null;
     this.contentHeight = null;
     this.distanceFromEnd = 0;
+    this.dragging = false;
+    this.userScrolling = false;
     this.currentState = { detached: false, unread: false };
   }
 
@@ -46,7 +50,28 @@ export class ThreadScrollBehavior {
       this.currentState = { detached: true, unread: true };
       return null;
     }
-    return "smooth";
+    return this.dragging ? null : "smooth";
+  }
+
+  onUserDragStart(): void {
+    this.dragging = true;
+    this.userScrolling = true;
+  }
+
+  onUserDragEnd(): void {
+    this.dragging = false;
+  }
+
+  onUserMomentumEnd(): void {
+    this.userScrolling = this.dragging;
+  }
+
+  onProgrammaticScroll(): void {
+    this.userScrolling = this.dragging;
+  }
+
+  isTrackingUserScroll(): boolean {
+    return this.userScrolling;
   }
 
   onContentSizeChanged(height: number): ThreadScrollState {
@@ -55,11 +80,11 @@ export class ThreadScrollBehavior {
   }
 
   onUserScroll(distanceFromEnd: number): ThreadScrollState {
-    const scrollable =
-      this.contentHeight === null ||
-      this.viewportHeight === null ||
-      this.contentHeight > this.viewportHeight;
-    this.distanceFromEnd = scrollable ? Math.max(0, distanceFromEnd) : 0;
+    const maxDistance =
+      this.contentHeight === null || this.viewportHeight === null
+        ? Number.POSITIVE_INFINITY
+        : Math.max(0, this.contentHeight - this.viewportHeight);
+    this.distanceFromEnd = Math.min(maxDistance, Math.max(0, distanceFromEnd));
     const detached = this.distanceFromEnd > 80;
     this.currentState = {
       detached,

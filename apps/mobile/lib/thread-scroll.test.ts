@@ -63,6 +63,80 @@ describe("mobile thread initial scroll", () => {
     expect(behavior.state()).toEqual({ detached: false, unread: false });
   });
 
+  it("skips auto-follow during a drag and tracks the fling past the detach threshold", () => {
+    const behavior = new ThreadScrollBehavior();
+    behavior.openThread("thread-1");
+    behavior.onLayout(600);
+    behavior.onContentSizeChanged(1800);
+    behavior.onContentChanged(false, "m1");
+    behavior.onUserDragStart();
+    behavior.onUserScroll(50);
+
+    expect(behavior.onContentChanged(false, "m2")).toBe(null);
+    // Even an explicit programmatic scroll must preserve the active finger.
+    behavior.onProgrammaticScroll();
+    expect(behavior.isTrackingUserScroll()).toBe(true);
+    behavior.onUserScroll(70);
+    behavior.onUserDragEnd();
+    expect(behavior.isTrackingUserScroll()).toBe(true);
+    if (behavior.isTrackingUserScroll()) behavior.onUserScroll(150);
+    behavior.onUserMomentumEnd();
+    expect(behavior.isTrackingUserScroll()).toBe(false);
+    expect(behavior.state()).toEqual({ detached: true, unread: false });
+    expect(behavior.onContentChanged(false, "m3")).toBe(null);
+    expect(behavior.state()).toEqual({ detached: true, unread: true });
+  });
+
+  it("cancels momentum tracking for auto-follow and re-enables it for a new drag", () => {
+    const behavior = new ThreadScrollBehavior();
+    behavior.openThread("thread-1");
+    behavior.onLayout();
+    behavior.onContentChanged(false, "m1");
+    behavior.onUserDragStart();
+    behavior.onUserScroll(50);
+    behavior.onUserDragEnd();
+    expect(behavior.onContentChanged(false, "m2")).toBe("smooth");
+    behavior.onProgrammaticScroll();
+    expect(behavior.isTrackingUserScroll()).toBe(false);
+    behavior.onUserDragStart();
+    expect(behavior.isTrackingUserScroll()).toBe(true);
+    // Completion of the interrupted animation cannot cancel the new drag.
+    behavior.onUserMomentumEnd();
+    expect(behavior.isTrackingUserScroll()).toBe(true);
+    behavior.onUserScroll(150);
+    expect(behavior.state().detached).toBe(true);
+    behavior.openThread("thread-2");
+    expect(behavior.isTrackingUserScroll()).toBe(false);
+    behavior.onLayout();
+    expect(behavior.onContentChanged(false, "m3")).toBe("jump");
+    expect(behavior.onContentChanged(false, "m4")).toBe("smooth");
+  });
+
+  it.each(["content", "viewport"])(
+    "clamps distance and clears unread when %s measurements leave at most 80 points to scroll",
+    (measurement) => {
+      const behavior = new ThreadScrollBehavior();
+      behavior.openThread("thread-1");
+      behavior.onLayout(600);
+      behavior.onContentSizeChanged(1800);
+      behavior.onContentChanged(false, "m1");
+      behavior.onUserScroll(500);
+      behavior.onContentChanged(false, "m2");
+      const resize = (remaining: number) => {
+        if (measurement === "content") behavior.onContentSizeChanged(600 + remaining);
+        else behavior.onLayout(1800 - remaining);
+      };
+
+      resize(81);
+      expect(behavior.state()).toEqual({ detached: true, unread: true });
+      resize(80);
+      expect(behavior.state()).toEqual({ detached: false, unread: false });
+      // Increasing the range again must not restore the stale distance or unread state.
+      resize(1200);
+      expect(behavior.state()).toEqual({ detached: false, unread: false });
+    },
+  );
+
   it("skips state commits during a 2 s detached drag of 120 scroll events", () => {
     const behavior = new ThreadScrollBehavior();
     behavior.openThread("thread-1");

@@ -476,7 +476,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const scroll = useRef<FlatList<ThreadItem<MobileMessage>>>(null);
   const pinnedScroll = useRef<ScrollView>(null);
   const scrollBehavior = useRef(new ThreadScrollBehavior());
-  const userScrolling = useRef(false);
   const loadingOlderContent = useRef(false);
   const expandedHistoryThread = useRef<string | null>(null);
   const historyEpoch = useRef(0);
@@ -515,7 +514,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   }, []);
   useLayoutEffect(() => {
     scrollBehavior.current.openThread(threadKey ?? "");
-    userScrolling.current = false;
     expandedHistoryThread.current = null;
     pinnedAroundRef.current = null;
     jumpScrollTarget.current = null;
@@ -1940,7 +1938,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   function performScroll(action: ThreadScrollAction) {
     if (!action || showPinnedPage) return;
-    userScrolling.current = false;
+    scrollBehavior.current.onProgrammaticScroll();
     scroll.current?.scrollToOffset({
       offset: 0,
       animated: action === "smooth" && !reducedMotion,
@@ -2383,16 +2381,19 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             maintainVisibleContentPosition={messageListPosition}
             scrollEventThrottle={16}
             onScrollBeginDrag={() => {
-              userScrolling.current = true;
+              scrollBehavior.current.onUserDragStart();
             }}
             onScroll={(event) => {
-              if (userScrolling.current) updateUserScroll(event);
+              if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
             }}
             // Keep tracking after release: a fling can cross the threshold mid-momentum.
-            onScrollEndDrag={updateUserScroll}
+            onScrollEndDrag={(event) => {
+              updateUserScroll(event);
+              scrollBehavior.current.onUserDragEnd();
+            }}
             onMomentumScrollEnd={(event) => {
-              if (userScrolling.current) updateUserScroll(event);
-              userScrolling.current = false;
+              if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
+              scrollBehavior.current.onUserMomentumEnd();
             }}
             onLayout={(event) => {
               performScroll(scrollBehavior.current.onLayout(event.nativeEvent.layout.height));
