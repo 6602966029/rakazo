@@ -562,6 +562,8 @@ export const RU_MESSAGES: Record<string, string> = {
   Speak: "Озвучить",
   "Speak only": "Только озвучить",
   "Speech model": "Речевая модель",
+  "Transcription model": "Модель транскрипции",
+  Reconnect: "Переподключить",
   Starting: "Запуск",
   "Starting…": "Запуск…",
   Stop: "Остановить",

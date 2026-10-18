@@ -3565,6 +3565,10 @@ msgstr "שליפה בלבד"
 msgid "Recent"
 msgstr "אחרונים"
 
+#: src/pages/VoiceSettingsOverlay.tsx
+msgid "Reconnect"
+msgstr "חיבור מחדש"
+
 #: src/pages/McpServersOverlay.tsx
 msgid "Reconnect OAuth"
 msgstr "חיבור OAuth מחדש"
@@ -4105,6 +4109,7 @@ msgstr "שם השרת"
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Server URL"
 msgstr "URL של השרת"
 
@@ -4611,6 +4616,10 @@ msgstr "כלים"
 #: src/components/call/CallCard.tsx
 msgid "Transcript"
 msgstr "תמליל"
+
+#: src/pages/VoiceSettingsOverlay.tsx
+msgid "Transcription model"
+msgstr "מודל תמלול"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Treat like a person"

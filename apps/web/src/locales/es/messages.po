@@ -3565,6 +3565,10 @@ msgstr ""
 msgid "Recent"
 msgstr "Recientes"
 
+#: src/pages/VoiceSettingsOverlay.tsx
+msgid "Reconnect"
+msgstr ""
+
 #: src/pages/McpServersOverlay.tsx
 msgid "Reconnect OAuth"
 msgstr "Reconectar OAuth"
@@ -4105,6 +4109,7 @@ msgstr "Nombre del servidor"
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Server URL"
 msgstr "URL del servidor"
 
@@ -4611,6 +4616,10 @@ msgstr ""
 #: src/components/call/CallCard.tsx
 msgid "Transcript"
 msgstr "Transcripción"
+
+#: src/pages/VoiceSettingsOverlay.tsx
+msgid "Transcription model"
+msgstr ""
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Treat like a person"
