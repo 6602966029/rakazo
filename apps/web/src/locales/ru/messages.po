@@ -1608,6 +1608,10 @@ msgstr "Не удалось загрузить статус обновления
 msgid "Could not load voice settings"
 msgstr "Не удалось загрузить голосовые настройки."
 
+#: src/lib/sign-out.ts
+msgid "Could not log out. Try again."
+msgstr "Не удалось выйти. Попробуйте ещё раз."
+
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"

@@ -1608,6 +1608,10 @@ msgstr "Impossible de charger l'état de la mise à jour"
 msgid "Could not load voice settings"
 msgstr "Impossible de charger les paramètres vocaux"
 
+#: src/lib/sign-out.ts
+msgid "Could not log out. Try again."
+msgstr "Impossible de se déconnecter. Réessayez."
+
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"
