@@ -166,7 +166,12 @@ import { TeachRecordingChrome, TeachStopButton } from "../components/teach/Teach
 import { readActivityMode, writeActivityMode } from "../lib/activity-mode";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { authClient } from "../lib/auth";
-import { takeInitialBootstrap } from "../lib/bootstrap";
+import {
+  discardPrimedBootstrap,
+  primeSpaceBootstrap,
+  takeInitialBootstrap,
+} from "../lib/bootstrap";
+import { initialBootstrapTarget } from "../lib/bootstrap-target";
 import {
   getBotsSidebarDensity,
   subscribeBotsSidebarDensity,
@@ -181,7 +186,7 @@ import {
   requestBrowserNotificationPermission,
   shouldNotifyBrowser,
 } from "../lib/browser-notifications";
-import { startCall, useCallSession } from "../lib/call-session";
+import { getSnapshot as getCallSnapshot, startCall, useCallSession } from "../lib/call-session";
 import { newClientId } from "../lib/client-id";
 import {
   beginComposerDraftSubmission,
@@ -211,6 +216,7 @@ import {
   isFilePaste,
   readFileAsBase64,
   revokePendingAttachmentPreviews,
+  usePendingAttachmentPreviewCleanup,
 } from "../lib/pending-attachments";
 import { markAfterPaint, markOnce } from "../lib/performance";
 import { quoteDraftForSelection } from "../lib/quote-selection";
@@ -226,10 +232,17 @@ import {
   rosterHasUndismissedRunError,
   rosterWorkStatusLabel,
 } from "../lib/roster-status";
-import { clearSpaceSelection, rpc, selectedSpaceId, selectSpace } from "../lib/rpc";
+import { clearSpaceSelection, createSpaceRpc, selectedSpaceId, selectSpace } from "../lib/rpc";
 import { translateRunError } from "../lib/run-error";
 import { readSeenRunErrorIds, rememberSeenRunErrorId } from "../lib/run-error-storage";
 import { sharedInflight } from "../lib/shared-inflight";
+import {
+  guardShellNavigate,
+  markShellReady,
+  remountShellForSpace,
+  spaceSwitchDecision,
+  useSpaceEpoch,
+} from "../lib/space-switch";
 import {
   activeThreadRuns,
   applyThreadSendReceipt,
@@ -414,9 +427,33 @@ function readCollapsedRosterParents(userId: string | null | undefined): Set<stri
 }
 
 export function ShellPage() {
+  // A new key per space switch, so nothing from the previous space survives it.
+  const spaceEpoch = useSpaceEpoch();
+  return <SpaceShell key={spaceEpoch} />;
+}
+
+function SpaceShell() {
   const { t } = useLingui();
   const { botId, groupId } = useParams();
-  const navigate = useNavigate();
+  const [rpc] = useState(() => createSpaceRpc(selectedSpaceId()));
+  const routerNavigate = useNavigate();
+  const navigateRef = useRef(routerNavigate);
+  navigateRef.current = routerNavigate;
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const navigate = useMemo(
+    () =>
+      guardShellNavigate(
+        () => navigateRef.current,
+        () => alive.current,
+      ),
+    [],
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   // Mirrors searchParams for effects that only need to read it once on run,
   // not re-run on every unrelated query-param change (e.g. the SSE subscribe
@@ -475,6 +512,7 @@ export function ShellPage() {
     () => false,
   );
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  usePendingAttachmentPreviewCleanup(pendingAttachments);
   const [replyTarget, setReplyTarget] = useState<ThreadMessage | null>(null);
   const [replyQuote, setReplyQuote] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -1571,22 +1609,85 @@ export function ShellPage() {
     return sidebarGroupsForSpaces(sidebarSpaces, query);
   }, [bootstrapMe, botSections, bots, groups, spaces, query]);
 
+  const spaceSwitchRequest = useRef(0);
+  useEffect(
+    () => () => {
+      // A switch still loading when this shell goes away (another page, or a
+      // newer switch) must not pull the user back to its space afterwards.
+      spaceSwitchRequest.current += 1;
+    },
+    [],
+  );
   const openSpaceChat = useCallback(
     (spaceId: string, path: string) => {
       setMobileSidebarOpen(false);
-      const previousSpaceId = selectedSpaceId();
+      const request = ++spaceSwitchRequest.current;
+      const previousEffective = selectedSpaceId() ?? bootstrapMe?.spaceId;
       // Persist the active space (including primary) so voice/RPC headers match the chat.
-      const selectionStored = selectSpace(spaceId);
-      if (!selectionStored) return;
-      const previousEffective = previousSpaceId ?? bootstrapMe?.spaceId;
-      const boundaryChanged = previousEffective !== spaceId;
-      // Soft-navigate within the same space; reload only when the auth boundary changes
-      // so bootstrapped bots/groups match the request header.
-      if (boundaryChanged) {
-        window.location.assign(path);
+      if (previousEffective === spaceId) {
+        if (selectSpace(spaceId)) navigate(path);
         return;
       }
-      navigate(path);
+      const reload = () => {
+        if (selectSpace(spaceId)) window.location.assign(path);
+      };
+      // Another space is an auth boundary: its bootstrap is loaded first, under that
+      // space's header, then the shell remounts so none of this space's state survives.
+      // A call in progress, or a page outside the shell, still reloads.
+      const target = initialBootstrapTarget(path, false);
+      if (!target || getCallSnapshot()) {
+        reload();
+        return;
+      }
+      const startedAt = window.location.pathname;
+      const decision = () =>
+        spaceSwitchDecision(
+          request === spaceSwitchRequest.current,
+          startedAt,
+          window.location.pathname,
+          Boolean(getCallSnapshot()),
+        );
+      const current = () => decision() !== "abandon";
+      const primed = primeSpaceBootstrap(spaceId, target.botId);
+      primed.then(
+        () => {
+          if (!current()) {
+            discardPrimedBootstrap(primed);
+            return;
+          }
+          // A call started while the bootstrap loaded belongs to this space.
+          if (getCallSnapshot()) {
+            discardPrimedBootstrap(primed);
+            reload();
+            return;
+          }
+          remountShellForSpace(() => {
+            const action = decision();
+            if (action !== "commit") {
+              discardPrimedBootstrap(primed);
+              if (action === "reload") {
+                // Leave the view-transition update before starting a full navigation.
+                window.setTimeout(() => {
+                  if (current()) reload();
+                }, 0);
+              }
+              return false;
+            }
+            if (!selectSpace(spaceId)) {
+              discardPrimedBootstrap(primed);
+              return false;
+            }
+            // Playback belongs to the conversation being left.
+            speaker.stop();
+            navigate(path);
+            return true;
+          });
+        },
+        () => {
+          discardPrimedBootstrap(primed);
+          if (current()) reload();
+        },
+      );
     },
     [bootstrapMe?.spaceId, navigate],
   );
@@ -2018,6 +2119,7 @@ export function ShellPage() {
       markAfterPaint("rk:renderer:thread-painted");
     }
     if (shellReady) {
+      markShellReady();
       markOnce("rk:renderer:shell-ready");
       markAfterPaint("rk:renderer:shell-painted");
     }
@@ -2898,6 +3000,7 @@ export function ShellPage() {
       ) : null}
       <aside
         data-testid="bots-sidebar"
+        data-space-switch="sidebar"
         data-bots-sidebar-density={botsSidebarDensity}
         data-collapsed={botsSidebarCollapsed ? "true" : "false"}
         inert={botsSidebarCollapsed && !mobileSidebarOpen ? true : undefined}
@@ -3685,6 +3788,7 @@ export function ShellPage() {
 
       {/* Keep the composer's z-index inside the chat so phone overlays like the side panel cover it. */}
       <main
+        data-space-switch="main"
         aria-hidden={mobileSidebarOpen || undefined}
         inert={mobileSidebarOpen}
         className="isolate flex min-w-0 flex-1 flex-col bg-background"
@@ -4514,6 +4618,7 @@ export function ShellPage() {
             onConfirm={async () => {
               const targetId = deleteSpaceTarget.id;
               const result = await rpc.spaces.remove({ spaceId: targetId });
+              if (!alive.current) return;
               setDeleteSpaceTarget(null);
               setPanel(null);
               const effectiveSpaceId = selectedSpaceId() ?? bootstrapMe?.spaceId;
@@ -4618,6 +4723,7 @@ export function ShellPage() {
             onCancel={() => setNewSpaceOpen(false)}
             onConfirm={async (name) => {
               const space = await rpc.spaces.create({ name });
+              if (!alive.current) return;
               if (!selectSpace(space.id)) {
                 setNewSpaceOpen(false);
                 await refreshBots();
