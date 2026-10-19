@@ -1503,6 +1503,10 @@ msgstr "לא ניתן למחוק את שרת ה-MCP"
 msgid "Could not delete routine"
 msgstr "לא ניתן למחוק את הרוטינה"
 
+#: src/pages/shell/dialogs.tsx
+msgid "Could not delete section"
+msgstr "לא ניתן למחוק את המקטע"
+
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not delete skill"
 msgstr "לא ניתן למחוק את המיומנות"
@@ -2036,6 +2040,10 @@ msgstr "מחיקת הקבוצה"
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
 msgstr "מחיקת הזיכרונות גם כן"
+
+#: src/pages/Shell.tsx
+msgid "Delete section"
+msgstr "מחיקת המקטע"
 
 #: src/pages/Shell.tsx
 msgid "Delete space"
@@ -2707,6 +2715,10 @@ msgstr "מבודד"
 #: src/pages/Artifacts.tsx
 msgid "Isolated preview — no access to your account"
 msgstr "תצוגה מקדימה מבודדת — ללא גישה לחשבון"
+
+#: src/pages/Shell.tsx
+msgid "Its bots and groups are kept and leave the section."
+msgstr "הבוטים והקבוצות שבו יישמרו ויוצאו מהמקטע."
 
 #: src/pages/shell/dialogs.tsx
 msgid "Its conversation, files, and routines will be permanently deleted. Bots it created stay in your list."

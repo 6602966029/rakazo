@@ -1503,6 +1503,10 @@ msgstr "MCP sunucusu silinemedi"
 msgid "Could not delete routine"
 msgstr "Rutin silinemedi"
 
+#: src/pages/shell/dialogs.tsx
+msgid "Could not delete section"
+msgstr "Bölüm silinemedi"
+
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not delete skill"
 msgstr "Beceri silinemedi"
@@ -2036,6 +2040,10 @@ msgstr "Grubu sil"
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
 msgstr "Hafızayı da sil"
+
+#: src/pages/Shell.tsx
+msgid "Delete section"
+msgstr "Bölümü sil"
 
 #: src/pages/Shell.tsx
 msgid "Delete space"
@@ -2707,6 +2715,10 @@ msgstr "Yalıtılmış"
 #: src/pages/Artifacts.tsx
 msgid "Isolated preview — no access to your account"
 msgstr ""
+
+#: src/pages/Shell.tsx
+msgid "Its bots and groups are kept and leave the section."
+msgstr "Botları ve grupları korunur ve bölümden çıkarılır."
 
 #: src/pages/shell/dialogs.tsx
 msgid "Its conversation, files, and routines will be permanently deleted. Bots it created stay in your list."

@@ -1503,6 +1503,10 @@ msgstr "MCP 서버를 삭제하지 못했습니다."
 msgid "Could not delete routine"
 msgstr "자동 실행을 삭제하지 못했습니다."
 
+#: src/pages/shell/dialogs.tsx
+msgid "Could not delete section"
+msgstr "섹션을 삭제하지 못했습니다."
+
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not delete skill"
 msgstr "스킬을 삭제하지 못했습니다"
@@ -2036,6 +2040,10 @@ msgstr "그룹 삭제"
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
 msgstr "기억도 함께 삭제"
+
+#: src/pages/Shell.tsx
+msgid "Delete section"
+msgstr "섹션 삭제"
 
 #: src/pages/Shell.tsx
 msgid "Delete space"
@@ -2707,6 +2715,10 @@ msgstr "이 Bot만 사용"
 #: src/pages/Artifacts.tsx
 msgid "Isolated preview — no access to your account"
 msgstr ""
+
+#: src/pages/Shell.tsx
+msgid "Its bots and groups are kept and leave the section."
+msgstr "이 섹션의 Bot과 그룹은 유지되며 섹션에서 빠집니다."
 
 #: src/pages/shell/dialogs.tsx
 msgid "Its conversation, files, and routines will be permanently deleted. Bots it created stay in your list."

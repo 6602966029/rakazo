@@ -1503,6 +1503,10 @@ msgstr "MCP सर्वर डिलीट नहीं किया जा स
 msgid "Could not delete routine"
 msgstr "रूटीन डिलीट नहीं किया जा सका"
 
+#: src/pages/shell/dialogs.tsx
+msgid "Could not delete section"
+msgstr "अनुभाग हटाया नहीं जा सका"
+
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not delete skill"
 msgstr "स्किल हटाई नहीं जा सकी"
@@ -2036,6 +2040,10 @@ msgstr "समूह डिलीट करें"
 #: src/pages/shell/dialogs.tsx
 msgid "Delete memories too"
 msgstr "मेमोरी भी डिलीट करें"
+
+#: src/pages/Shell.tsx
+msgid "Delete section"
+msgstr "अनुभाग हटाएँ"
 
 #: src/pages/Shell.tsx
 msgid "Delete space"
@@ -2708,6 +2716,10 @@ msgstr "पृथक"
 msgid "Isolated preview — no access to your account"
 msgstr ""
 
+#: src/pages/Shell.tsx
+msgid "Its bots and groups are kept and leave the section."
+msgstr "इसके बॉट और समूह बने रहेंगे और अनुभाग से बाहर हो जाएँगे।"
+
 #: src/pages/shell/dialogs.tsx
 msgid "Its conversation, files, and routines will be permanently deleted. Bots it created stay in your list."
 msgstr "इसकी बातचीत, फ़ाइलें और रूटीन स्थायी रूप से डिलीट कर दिए जाएंगे। इसके बनाए बॉट आपकी सूची में बने रहेंगे।"
@@ -3220,7 +3232,7 @@ msgstr "नया पासवर्ड"
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "New section"
-msgstr "नया सेक्शन"
+msgstr "नया अनुभाग"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "New skill"

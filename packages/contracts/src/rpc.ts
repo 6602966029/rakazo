@@ -351,6 +351,13 @@ export const appContract = {
     list: oc.output(z.array(BotSectionSchema)),
     create: oc.input(threadTarget.safeExtend({ name: BotSectionName })).output(BotSectionSchema),
     update: oc.input(z.object({ sectionId: Id, name: BotSectionName })).output(BotSectionSchema),
+    remove: oc.input(z.object({ sectionId: Id })).output(
+      z.object({
+        id: Id,
+        releasedBots: z.number().int().nonnegative(),
+        releasedGroups: z.number().int().nonnegative(),
+      }),
+    ),
   },
   threads: {
     head: oc.input(threadTarget).output(

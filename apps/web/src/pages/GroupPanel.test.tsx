@@ -105,6 +105,7 @@ function fakeBot(id: string, name: string, title: string): Bot {
     teamChatRules: "",
     disabledBuiltinTools: [],
     webhookConfigured: false,
+    fleetManagement: false,
     spawnKey: null,
   };
 }
