@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { i18n } from "@lingui/core";
 import { ORPCError } from "@orpc/client";
 import type { Bot } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
@@ -80,7 +81,7 @@ import { BotSettings } from "./bot-panel";
 
 const longInstructions = "I".repeat(4_000);
 
-function bot(description = "Billing"): Bot {
+function bot(description = "Billing", overrides: Partial<Bot> = {}): Bot {
   return {
     id: "bot-1",
     spaceId: "space-1",
@@ -114,6 +115,7 @@ function bot(description = "Billing"): Bot {
     disabledBuiltinTools: [],
     webhookConfigured: false,
     spawnKey: null,
+    ...overrides,
   };
 }
 
@@ -123,11 +125,11 @@ const onSave = vi.fn(
   async (_patch: Parameters<ComponentProps<typeof BotSettings>["onSave"]>[0]) => undefined,
 );
 
-async function render(description = "Billing", fleetManagement = false) {
+async function render(description = "Billing", overrides: Partial<Bot> = {}) {
   await act(async () => {
     root.render(
       <BotSettings
-        bot={{ ...bot(description), fleetManagement }}
+        bot={bot(description, overrides)}
         memoryProviderConfigured={false}
         onSkillsChange={() => undefined}
         onSave={onSave}
@@ -233,10 +235,57 @@ describe("BotSettings model choices", () => {
   });
 });
 
+describe("BotSettings thinking options", () => {
+  it("preserves saved thinking on a profile save when options are hidden", async () => {
+    await render("Billing", {
+      modelProvider: "openai-compatible",
+      modelId: "beta",
+      thinkingLevel: "high",
+    });
+    await clickSave();
+    expect(onSave.mock.lastCall?.[0]).not.toHaveProperty("thinkingLevel");
+  });
+
+  it("shows the connection's thinking levels for a bot on a second enabled model", async () => {
+    i18n.load("en", {});
+    i18n.activate("en");
+    vi.mocked(rpc.models.credentials).mockResolvedValueOnce([
+      {
+        id: "newer",
+        provider: "openai-compatible",
+        label: "Newer",
+        hasKey: true,
+        isDefault: false,
+        enabledModelIds: ["beta"],
+        thinkingLevels: ["off"],
+      },
+      {
+        id: "cred-compatible",
+        provider: "openai-compatible",
+        label: "Local server",
+        hasKey: true,
+        isDefault: true,
+        modelId: "alpha",
+        enabledModelIds: ["alpha", "beta"],
+        thinkingLevels: ["off", "low", "high"],
+      },
+    ]);
+    await render("Billing", { modelProvider: "openai-compatible", modelId: "beta" });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [model, thinking] = [...container.querySelectorAll("select")];
+    if (!(model instanceof HTMLSelectElement)) throw new Error("Missing model select");
+    expect(model.value).toBe("openai-compatible::beta");
+    if (!(thinking instanceof HTMLSelectElement)) throw new Error("Missing thinking select");
+    expect([...thinking.options].map((option) => option.value)).toEqual(["", "low", "high"]);
+  });
+});
+
 describe("BotSettings fleet management saves", () => {
   it("cannot restore a stale enabled value when another session disables it", async () => {
-    await render("Billing", true);
-    await render("Billing", false);
+    await render("Billing", { fleetManagement: true });
+    await render("Billing", { fleetManagement: false });
     await clickSave();
     expect(onSave.mock.lastCall?.[0]).not.toHaveProperty("fleetManagement");
   });
@@ -253,7 +302,7 @@ describe("BotSettings fleet management saves", () => {
   });
 
   it.each([false, true])("saves only the fleet toggle from %s", async (enabled) => {
-    await render("Billing", enabled);
+    await render("Billing", { fleetManagement: enabled });
     const toggle = container.querySelector<HTMLButtonElement>('button[id$="-fleet-management"]');
     if (!toggle) throw new Error("Missing switch");
     await act(async () => {

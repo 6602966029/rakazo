@@ -1084,6 +1084,8 @@ export function modelOutputLeavesInputRoom(
 }
 
 export const ModelCredentialSchema = z.object({
+  /** Computed space preference order; credentials themselves remain newest first. */
+  preferenceRank: z.number().int().nonnegative().optional(),
   ...ModelContextLimitsSchema.shape,
   id: Id,
   provider: z.string(),
@@ -1100,6 +1102,8 @@ export const ModelCredentialSchema = z.object({
   supportsImages: z.boolean().optional(),
   maxImagesPerPrompt: z.number().int().min(1).max(1000).optional(),
   thinkingLevels: z.array(ThinkingLevelSchema).optional(),
+  /** Openai-compatible only; always contains `modelId` when set. */
+  enabledModelIds: z.array(z.string()).optional(),
   /** Stored secret kind. Absent when the secret could not be read. */
   authKind: z.enum(["api_key", "oauth", "openai_compatible"]).optional(),
 });
@@ -1131,6 +1135,8 @@ export const ModelBackupListSchema = z
 
 export const OPENAI_COMPATIBLE_PROVIDER_ID = "openai-compatible";
 
+export const MAX_ENABLED_MODEL_IDS = 500;
+
 export const ModelConnectInputSchema = z
   .object({
     ...ModelContextLimitsSchema.shape,
@@ -1146,6 +1152,10 @@ export const ModelConnectInputSchema = z
     maxTokens: z.number().int().min(1).max(MAX_MODEL_MAX_TOKENS).nullable().optional(),
     supportsImages: z.boolean().optional(),
     maxImagesPerPrompt: z.number().int().min(1).max(1000).nullable().optional(),
+    enabledModelIds: z
+      .array(z.string().trim().min(1).max(512))
+      .max(MAX_ENABLED_MODEL_IDS)
+      .optional(),
   })
   .superRefine((value, ctx) => {
     if (!modelOutputLeavesInputRoom(value.maxTokens, value.contextWindow)) {

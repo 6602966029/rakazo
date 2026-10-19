@@ -51,6 +51,7 @@ import {
   codexLiveCatalogsForSpace,
   codexLiveListsModel,
   commentTicket,
+  compatibleThinkingLevels,
   computerSupportsTerminal,
   computerSupportsUpdate,
   computerUpdateView,
@@ -65,6 +66,7 @@ import {
   enqueueTakeoverContinuation,
   ensureComputerWorkspaceLayout,
   expireComputerControl,
+  findConnectedModelCredential,
   forgetBotSecret,
   hasActiveComputerControl,
   hostCredentialSource,
@@ -183,6 +185,7 @@ import {
   ComputerLimitError,
   claimEmptySpaceDeletionForMember,
   commitBotUpdate,
+  comparePreferenceOrder,
   createExternalConversationRepos,
   createGroupRepos,
   createRepos,
@@ -1193,6 +1196,12 @@ export function createRouter(deps: RouterDeps) {
             })
           : [];
         const ciphertextById = new Map(secrets.map((secret) => [secret.id, secret.ciphertext]));
+        const preferenceRanks = new Map(
+          rows
+            .flatMap((row) => row.preferences)
+            .sort(comparePreferenceOrder)
+            .map((preference, index) => [preference.id, index]),
+        );
         return Promise.all(
           rows.map(async (row) => {
             const preference = row.preferences[0];
@@ -1202,17 +1211,18 @@ export function createRouter(deps: RouterDeps) {
               defaultModel: preference?.modelId ?? null,
               thinkingLevel: preference?.thinkingLevel ?? null,
             };
+            const dto = (plaintext?: string) => ({
+              ...modelCredentialDto(selected, plaintext),
+              ...(preference ? { preferenceRank: preferenceRanks.get(preference.id) } : {}),
+            });
             const ciphertext = ciphertextById.get(row.secretId);
-            if (!ciphertext) return modelCredentialDto(selected);
+            if (!ciphertext) return dto();
             try {
-              return modelCredentialDto(
-                selected,
-                await deps.secrets.load(ciphertext, row.secretId),
-              );
+              return dto(await deps.secrets.load(ciphertext, row.secretId));
             } catch (error) {
               if (error instanceof SecretStoreUnavailableError)
                 throw new ORPCError("SERVICE_UNAVAILABLE", { cause: error });
-              return modelCredentialDto(selected);
+              return dto();
             }
           }),
         );
@@ -1253,6 +1263,7 @@ export function createRouter(deps: RouterDeps) {
               });
             }
             if (
+              choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID &&
               catalog.some(
                 (entry) =>
                   entry.provider === canonicalPiProviderId(choice.provider) &&
@@ -1262,6 +1273,7 @@ export function createRouter(deps: RouterDeps) {
               continue;
             const error = await validateConnectedModelChoice(
               deps.prisma,
+              deps.secrets,
               context.actor,
               choice.provider,
               choice.modelId,
@@ -1310,6 +1322,15 @@ export function createRouter(deps: RouterDeps) {
           throw new ORPCError("BAD_REQUEST", {
             message: error instanceof Error ? error.message : "Invalid model connection",
           });
+        }
+        if (input.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
+          // Limits: this runs before persistModelCredential's transaction. A pin saved in
+          // between can fall outside the stored list and then fails at run time with
+          // "Unknown model for that provider". Closing it needs every pin write (bots,
+          // routines, backups) serializable. Concurrent saves of the same connection are
+          // last-write-wins, as before this list existed, so one save's ticks can be dropped.
+          const saved = parseModelSecret(plaintext);
+          await assertNoDanglingModelPins(deps, context.actor, saved, input.modelId ?? "");
         }
         return persistModelCredential(
           deps,
@@ -1523,9 +1544,20 @@ export function createRouter(deps: RouterDeps) {
                     Boolean(preference.thinkingLevel),
                 )
               : Boolean(input.thinkingLevel);
-          const thinking = needsThinking
-            ? await prepareAllowedThinkingLevels(deps, context.actor, input.provider, input.modelId)
-            : { allowed: undefined, secret: undefined };
+          const compatible = input.provider === OPENAI_COMPATIBLE_PROVIDER_ID;
+          // Compatible defaults always load the secret so the transaction rechecks it.
+          const thinking =
+            needsThinking || compatible
+              ? await prepareAllowedThinkingLevels(
+                  deps,
+                  context.actor,
+                  input.provider,
+                  input.modelId,
+                )
+              : { allowed: undefined, secret: undefined };
+          if (compatible) {
+            await assertCompatibleDefaultChange(deps, context.actor, input.modelId, thinking);
+          }
           return deps.prisma.$transaction(
             async (tx) => {
               const { preferences, candidates } = await loadSpaceModelState(tx);
@@ -1565,6 +1597,9 @@ export function createRouter(deps: RouterDeps) {
                   authFailure ??= auth.message;
                   continue;
                 }
+                // The enabled-list check and execution must use the same connection.
+                if (compatible && thinking.secret && candidate.secretId !== thinking.secret.id)
+                  continue;
                 readyIds.push(candidate.id);
               }
               const chosenId = selectDefaultCredentialId({
@@ -6957,9 +6992,16 @@ async function persistModelCredential(
     requestedModelId ??
     defaultCatalogModelId(input.provider, input.plaintext) ??
     usableModelId(deps.env.defaultModel);
-  const allowedThinking = defaultModel
-    ? await allowedThinkingLevels(deps, actor, input.provider, defaultModel)
-    : undefined;
+  // A compatible connect may enable its new default, so judge it by the secret being saved.
+  const allowedThinking = !defaultModel
+    ? undefined
+    : input.provider === OPENAI_COMPATIBLE_PROVIDER_ID
+      ? compatibleThinkingLevels(
+          { id: "", provider: input.provider, label: "", isDefault: true, defaultModel },
+          input.plaintext,
+          defaultModel,
+        ).allowed
+      : await allowedThinkingLevels(deps, actor, input.provider, defaultModel);
   const stored = await deps.secrets.put(input.plaintext, {
     operationId: "cred",
     traceId: "cred",
@@ -7060,6 +7102,121 @@ function nextRoutineDate(crons: string[], timezone: string): Date {
   return next;
 }
 
+/** The actor's active compatible bot, routine and backup pins matching `filter`. */
+async function compatibleModelPins(
+  deps: RouterDeps,
+  actor: Actor,
+  filter: { spaceId?: string; modelId: string | { notIn: string[] } },
+) {
+  const provider = OPENAI_COMPATIBLE_PROVIDER_ID;
+  const where = { userId: actor.userId, ...filter };
+  const pin = { spaceId: true, modelId: true } as const;
+  const [bots, routines, backups] = await Promise.all([
+    deps.prisma.bot.findMany({
+      where: { ...where, archivedAt: null, modelProvider: provider },
+      select: { ...pin, name: true },
+    }),
+    deps.prisma.routine.findMany({
+      where: { ...where, modelProvider: provider, bot: { archivedAt: null } },
+      select: { ...pin, name: true },
+    }),
+    deps.prisma.spaceBackupModel.findMany({ where: { ...where, provider }, select: pin }),
+  ]);
+  return { named: [...bots, ...routines], backups };
+}
+
+type ModelPinRow = { spaceId: string; modelId: string | null };
+
+/** Refusal naming the bots and routines (plus "backup models") left on a dropped model. */
+function refuseModelPins(
+  pins: { named: Array<ModelPinRow & { name: string }>; backups: ModelPinRow[] },
+  dangling: (row: ModelPinRow) => boolean,
+) {
+  const names = pins.named.filter(dangling).map((row) => row.name);
+  if (pins.backups.some(dangling)) names.push("backup models");
+  if (names.length === 0) return;
+  throw new ORPCError("BAD_REQUEST", {
+    message: `In use by ${[...new Set(names)].join(", ")}. Pick another model for them first.`,
+  });
+}
+
+/** Refuse only pins that runtime selection cannot serve after this connection save. */
+async function assertNoDanglingModelPins(
+  deps: RouterDeps,
+  actor: Actor,
+  secret: ReturnType<typeof parseModelSecret>,
+  actorDefault: string,
+) {
+  const stored = secret.kind === "openai_compatible" ? (secret.enabledModelIds ?? []) : [];
+  const [connection, preferences, pins] = await Promise.all([
+    deps.prisma.userModelCredential.findFirst({
+      where: { userId: actor.userId, provider: OPENAI_COMPATIBLE_PROVIDER_ID },
+      orderBy: newestModelCredentialOrder,
+    }),
+    deps.prisma.spaceModelPreference.findMany({
+      where: {
+        userId: actor.userId,
+        credential: { userId: actor.userId, provider: OPENAI_COMPATIBLE_PROVIDER_ID },
+      },
+      select: { spaceId: true, modelId: true, credentialId: true },
+    }),
+    compatibleModelPins(deps, actor, { modelId: { notIn: stored } }),
+  ]);
+  if (!connection) return;
+  const defaults = new Map(
+    preferences
+      .filter((row) => row.credentialId === connection.id)
+      .map((row) => [row.spaceId, usableModelId(row.modelId)]),
+  );
+  defaults.set(actor.spaceId, usableModelId(actorDefault));
+  const dangling = new Set<ModelPinRow>();
+  for (const row of [...pins.named, ...pins.backups]) {
+    if (!row.modelId || row.modelId === defaults.get(row.spaceId)) continue;
+    const selected = await findConnectedModelCredential(
+      deps.prisma,
+      deps.secrets,
+      { ...actor, spaceId: row.spaceId },
+      OPENAI_COMPATIBLE_PROVIDER_ID,
+      row.modelId,
+      {
+        replacement: {
+          credentialId: connection.id,
+          secret,
+          defaultModel: defaults.get(row.spaceId) ?? null,
+        },
+      },
+    );
+    if (selected?.id === connection.id || !selected) dangling.add(row);
+  }
+  refuseModelPins(pins, (row) => dangling.has(row));
+}
+
+/**
+ * `models.setDefault` on an openai-compatible connection: a listed secret only accepts an
+ * effective id. It changes only this space's default and never the secret, so the only pins
+ * it can strand are this space's pins on an outgoing default that is outside the stored list.
+ */
+async function assertCompatibleDefaultChange(
+  deps: RouterDeps,
+  actor: Actor,
+  modelId: string,
+  thinking: { enabledModelIds?: string[]; storedEnabledModelIds?: string[] },
+) {
+  const requested = modelId.trim();
+  const enabled = thinking.enabledModelIds ?? [];
+  const stored = thinking.storedEnabledModelIds;
+  if (stored && !enabled.includes(requested)) {
+    throw new ORPCError("BAD_REQUEST", { message: "Unknown model for that provider" });
+  }
+  const outgoing = enabled.find((id) => id !== requested && !stored?.includes(id));
+  if (!outgoing) return;
+  const pins = await compatibleModelPins(deps, actor, {
+    spaceId: actor.spaceId,
+    modelId: outgoing,
+  });
+  refuseModelPins(pins, () => true);
+}
+
 /** A routine may only name a model the space has connected. */
 async function assertRoutineModel(
   deps: RouterDeps,
@@ -7069,6 +7226,7 @@ async function assertRoutineModel(
   if (!model.modelProvider || !model.modelId) return;
   const message = await validateConnectedModelChoice(
     deps.prisma,
+    deps.secrets,
     actor,
     model.modelProvider,
     model.modelId,

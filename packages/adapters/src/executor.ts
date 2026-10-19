@@ -109,7 +109,6 @@ import {
   createThreadMessageInTransaction,
   effectiveMemoryScope,
   findDefaultModelCredential,
-  findModelCredential,
   InstructionConflictError,
   InvalidSpaceNameError,
   isTooManyDatabaseConnections,
@@ -291,7 +290,8 @@ import { loadAgentMemoryContext } from "./memory-context.js";
 import type { MemoryProviderResolver } from "./memory-provider-factory.js";
 import { selectMemoryTools } from "./memory-tools.js";
 import {
-  isCatalogModelChoice,
+  enabledOpenAiCompatibleModelIds,
+  findConnectedModelCredential,
   pinnedModelCredentialError,
   routineRunModelPin,
   runModelChoice,
@@ -310,6 +310,7 @@ import {
 import type { CodexLiveCatalog } from "./pi-codex-catalog.js";
 import { codexLiveListsModel } from "./pi-codex-catalog.js";
 import { toOAuthCredential } from "./pi-credentials.js";
+import type { StoredModelSecret } from "./pi-oauth.js";
 import {
   isRetiredModelCredentialError,
   kickModelCredentialRefresh,
@@ -3014,19 +3015,20 @@ export function createRunExecutor(deps: ExecutorDeps) {
   ): Promise<AgentRunRequest["model"]> => {
     const validationError = await validateConnectedModelChoice(
       deps.prisma,
+      deps.secretStore,
       scope,
       provider,
       modelId,
     );
     if (validationError) throw new Error(validationError);
-    const credential = await findModelCredential(deps.prisma, scope, provider, modelId);
+    const credential = await findConnectedModelCredential(
+      deps.prisma,
+      deps.secretStore,
+      scope,
+      provider,
+      modelId,
+    );
     if (!credential) throw new Error("Connect that model provider first");
-    // Free-form selections must keep the preference that owns this modelId. A
-    // intervening delete/change can make findModelCredential fall back to another
-    // same-provider credential; reject that mismatch instead of mixing baseUrl.
-    if (!isCatalogModelChoice(provider, modelId) && credential.defaultModel !== modelId) {
-      throw new Error("Unknown model for that provider");
-    }
     const resolved = await resolveModelKey(
       deps,
       scope.userId,
@@ -3035,7 +3037,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       provider,
       modelId,
       registerSecrets,
-      requireStoredSecret,
+      { requireStoredSecret },
     );
     return {
       provider,
@@ -3086,7 +3088,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
       const hasOverride = Boolean(override?.modelProvider && override.modelId);
       const [overrideCredential, defaultCredential, settings] = await Promise.all([
         hasOverride
-          ? findModelCredential(deps.prisma, scope, override!.modelProvider!, override!.modelId)
+          ? findConnectedModelCredential(
+              deps.prisma,
+              deps.secretStore,
+              scope,
+              override!.modelProvider!,
+              override!.modelId,
+            )
           : Promise.resolve(null),
         findDefaultModelCredential(deps.prisma, scope),
         deps.prisma.deploymentSettings.findUnique({
@@ -3711,8 +3719,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const hasModelOverride = Boolean(modelChoice.modelProvider && modelChoice.modelId);
         const overrideCredential =
           hasModelOverride && modelChoice.modelProvider
-            ? await findModelCredential(
+            ? await findConnectedModelCredential(
                 deps.prisma,
+                deps.secretStore,
                 run,
                 modelChoice.modelProvider,
                 modelChoice.modelId,
@@ -4717,8 +4726,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
               (checker
                 ? isAutoReviewCheckerConfigured({}) ||
                   Boolean(
-                    await findModelCredential(
+                    await findConnectedModelCredential(
                       deps.prisma,
+                      deps.secretStore,
                       { userId: run.userId, spaceId: run.spaceId },
                       checker.provider,
                     ),
@@ -4797,8 +4807,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 if (kind === "jev" || kind === "scripted") {
                   provider = createAutoReviewProvider(kind);
                 } else {
-                  const reviewCredential = await findModelCredential(
+                  const reviewCredential = await findConnectedModelCredential(
                     deps.prisma,
+                    deps.secretStore,
                     { userId: run.userId, spaceId: run.spaceId },
                     checker!.provider,
                     checker!.model,
@@ -9294,6 +9305,22 @@ function deploymentKeyFor(deps: ExecutorDeps, provider: string): string | undefi
  */
 const CODEX_LIVE_RUN_WAIT_MS = 8_000;
 
+// Listed connections serve enabled ids and their space default; legacy connections serve any id.
+function assertCompatibleModelEnabled(
+  credential: { provider: string; defaultModel?: string | null },
+  secret: StoredModelSecret,
+  modelId: string,
+) {
+  if (credential.provider !== OPENAI_COMPATIBLE_PROVIDER_ID) return;
+  if (secret.kind !== "openai_compatible") return;
+  if (secret.enabledModelIds !== undefined) {
+    if (!enabledOpenAiCompatibleModelIds(secret, credential.defaultModel).includes(modelId)) {
+      throw new UnavailableModelForAuthError("Unknown model for that provider");
+    }
+    return;
+  }
+}
+
 async function resolveModelKey(
   deps: ExecutorDeps,
   userId: string,
@@ -9308,7 +9335,7 @@ async function resolveModelKey(
   provider: string,
   modelId: string,
   registerSecrets?: (values: string[]) => void,
-  requireStoredSecret = false,
+  { requireStoredSecret = false }: { requireStoredSecret?: boolean } = {},
 ): Promise<{
   apiKey?: string;
   accountId?: string;
@@ -9337,6 +9364,9 @@ async function resolveModelKey(
       });
       if (!row) {
         if (requireStoredSecret) throw new Error("Backup model credential is no longer available");
+        if (credential.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
+          throw new UnavailableModelForAuthError("Unknown model for that provider");
+        }
         cloudflareGatewayProviderEnv({ provider });
         return { apiKey: deploymentKeyFor(deps, provider), redact: [] };
       }
@@ -9391,6 +9421,7 @@ async function resolveModelKey(
         if (!liveListed) throw new UnavailableModelForAuthError(authError);
       }
       resolved ??= await resolveAuth();
+      assertCompatibleModelEnabled(credential, resolved.secret, modelId);
       const oauth = resolved.secret.kind === "oauth" ? resolved.secret.credential : undefined;
       const baseUrl =
         resolved.secret.kind === "openai_compatible" ? resolved.secret.baseUrl : undefined;
