@@ -283,6 +283,21 @@ describe("BoatSandboxProvider", () => {
     expect(provider.describe().capabilities.multiScreen).toBe(true);
   });
 
+  it("refuses a desktop URL that is not served over HTTPS", async () => {
+    const fixture = boatFixture();
+    fixture.hostPort.mockResolvedValue({
+      ok: true,
+      type: "sandbox.host",
+      url: "http://boat-test-6100.on.boat.dev?_token=secret",
+    });
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, fixture.client);
+    const computer = await provider.provision({ botId: "bot-a", homePath: "/unused" }, context);
+    await provider.prepare(computer, context);
+    await expect(
+      provider.connectScreen(computer, { view: "stream", interactive: false }, context),
+    ).rejects.toThrow("Boat desktop URL is not protected");
+  });
+
   it("archives on stop and permanently deletes on destroy", async () => {
     const fixture = boatFixture();
     const provider = new BoatSandboxProvider({ apiKey: "test-key" }, fixture.client);

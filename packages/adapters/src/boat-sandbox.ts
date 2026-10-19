@@ -104,7 +104,11 @@ export class BoatSandboxProvider implements SandboxProvider {
       );
       if (!hosted.url) throw new Error("Boat did not return a desktop URL");
       const url = new URL(hosted.url);
-      if (!url.hostname.endsWith(".on.boat.dev") || !url.searchParams.get("_token"))
+      if (
+        url.protocol !== "https:" ||
+        !url.hostname.endsWith(".on.boat.dev") ||
+        !url.searchParams.get("_token")
+      )
         throw new Error("Boat desktop URL is not protected");
       url.pathname = "/vnc.html";
       return url.toString();

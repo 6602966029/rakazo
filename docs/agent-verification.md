@@ -112,9 +112,8 @@ the app and calls `computer/recover`, requiring a new sandbox with the saved
 file restored. `computer/boot` returns the stored running state and does not
 request recovery from an externally deleted sandbox.
 
-Both providers run the same assertions. This journey does not cover PTY sessions
-or multiple screens, which Boat does not support. Provider conformance tests
-remain separate. Live runs retain error logs to diagnose provider failures.
+Both providers run the same assertions. This journey does not cover multiple screens, or PTY sessions, which Boat does
+not support. Provider conformance tests remain separate. Live runs retain error logs to diagnose provider failures.
 
 ## Real-model quality
 

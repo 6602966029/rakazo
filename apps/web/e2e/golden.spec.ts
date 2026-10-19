@@ -105,8 +105,8 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await expect(sidePanel).toHaveAttribute("data-panel", "computer");
   await expect(sidePanel).toHaveCSS("width", "384px");
   const [mainBox, panelBox] = await Promise.all([
-    page.locator("main").boundingBoat(),
-    sidePanel.boundingBoat(),
+    page.locator("main").boundingBox(),
+    sidePanel.boundingBox(),
   ]);
   expect(mainBox).not.toBeNull();
   expect(panelBox).not.toBeNull();
