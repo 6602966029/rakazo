@@ -20,9 +20,11 @@ export {
 
 import { timingSafeEqual } from "node:crypto";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { canReleaseScreenLease, canTakeScreenLease } from "@rakazo/core";
 import { z } from "zod";
-import { type SandboxInput, xdotoolCommand } from "./computer-spec.js";
+import type { SandboxInput } from "./computer-spec.js";
+import { xdotoolCommand } from "./computer-spec.js";
 
 export const computerActionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("key"), key: z.string(), modifiers: z.array(z.string()).optional() }),
@@ -418,14 +420,17 @@ export function containerActionStep(
       action.direction === "up" ? "4" : "5",
     ];
   } else if (action.kind === "open") {
-    const target = /^https?:\/\//i.test(action.path)
+    const isHttpUrl = /^https?:\/\//i.test(action.path);
+    const target = isHttpUrl
       ? action.path
-      : workspaceTarget(normalizeWorkspaceRelative(action.path));
+      : pathToFileURL(workspaceTarget(normalizeWorkspaceRelative(action.path)), {
+          windows: false,
+        }).href;
     argv = [
       "env",
       `DISPLAY=${display}`,
       ...(browserProfile ? [`RAKAZO_BROWSER_PROFILE=${browserProfile}`] : []),
-      "xdg-open",
+      isHttpUrl ? "xdg-open" : "rakazo-browser",
       target,
     ];
   } else {
