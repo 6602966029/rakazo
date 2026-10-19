@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useI18n } from "../lib/i18n";
-import { native, useThemedStyles } from "../lib/native";
+import { native, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import type { LoadFailureKind } from "../lib/user-error";
 import { NativeActionButton } from "./native-action-button";
 import { NativeSymbol } from "./native-symbol";
@@ -16,17 +16,22 @@ const SYMBOLS = {
 export function HomeErrorState({
   kind,
   message,
+  loading,
   onRetry,
   onSignIn,
 }: {
   kind: LoadFailureKind;
   /** Shown under the title only when the cause is unknown. */
   message: string;
+  /** A retry is in flight: the failure stays, with a spinner in place of the action. */
+  loading: boolean;
   onRetry: () => void;
   onSignIn: () => void;
 }) {
   const { t } = useI18n();
   const styles = useThemedStyles(createStyles);
+  // Secondary gray reads faint on the dark page; lift the icon a step there.
+  const iconColor = useResolvedAppearance() === "dark" ? native.label : native.secondaryLabel;
   const title =
     kind === "offline"
       ? t("Could not reach the server")
@@ -38,10 +43,16 @@ export function HomeErrorState({
   const detail = kind === "other" && message !== title ? message : null;
   return (
     <View accessibilityRole="alert" style={styles.container}>
-      <NativeSymbol {...SYMBOLS[kind]} size={40} color={native.secondaryLabel} />
+      <View style={styles.icon}>
+        <NativeSymbol {...SYMBOLS[kind]} size={40} color={iconColor} />
+      </View>
       <Text style={styles.title}>{title}</Text>
       {detail ? <Text style={styles.detail}>{detail}</Text> : null}
-      {kind === "session" ? (
+      {loading ? (
+        <View style={styles.action}>
+          <ActivityIndicator color={native.secondaryLabel} />
+        </View>
+      ) : kind === "session" ? (
         <View style={styles.action}>
           <NativeActionButton label={t("Sign in")} fill={false} onPress={onSignIn} />
         </View>
@@ -50,7 +61,7 @@ export function HomeErrorState({
         <View style={styles.action}>
           <NativeActionButton
             label={t("Try again")}
-            prominence="quiet"
+            prominence="secondary"
             size="compact"
             onPress={onRetry}
           />
@@ -67,8 +78,8 @@ function createStyles() {
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 32,
-      // Sit slightly above the middle, where the eye expects the center.
-      paddingBottom: 64,
+      // Sit above the middle, where the eye expects the center.
+      paddingBottom: 140,
       gap: 8,
     },
     title: {
@@ -84,6 +95,8 @@ function createStyles() {
       lineHeight: 20,
       textAlign: "center",
     },
-    action: { marginTop: 8 },
+    icon: { opacity: 0.75 },
+    // Fixed height so swapping the button for the spinner does not move the text.
+    action: { marginTop: 8, minHeight: 34, justifyContent: "center" },
   });
 }

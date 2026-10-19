@@ -221,6 +221,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   const [me, setMe] = useState<Pick<MobileMe, "userId" | "spaceId" | "name"> | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Kept apart from action errors so a failed action never borrows the load's title.
+  const [inboxLoading, setInboxLoading] = useState(false);
   const [loadFailure, setLoadFailure] = useState<{ kind: LoadFailureKind; message: string } | null>(
     null,
   );
@@ -285,7 +286,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     const apiBase = currentApiBase();
     const generation = currentSessionGeneration();
     setError(null);
-    setLoadFailure(null);
+    setInboxLoading(true);
     try {
       const [navigation, nextMe] = await Promise.all([
         rpc<MobileSpaceNavigation>("spaces/list"),
@@ -312,6 +313,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       setSpaces((current) => retainInboxValue(current, navigation.spaces));
       setMe((current) => retainInboxValue(current, nextMe));
       inboxLoaded.current = true;
+      setLoadFailure(null);
       saveInbox(
         {
           apiBase,
@@ -335,6 +337,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         kind: loadFailureKind(err),
         message: errorText(err, t("Could not load bots")),
       });
+    } finally {
+      if (requestId === inboxRequestId.current) setInboxLoading(false);
     }
   }, []);
 
@@ -1225,7 +1229,9 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   }
   if (!hasSession) return <Redirect href="/sign-in" />;
   // With nothing to show, the failure takes the screen; over saved chats it stays one line.
-  const showLoadFailure = Boolean(loadFailure) && !searching && listData.length === 0;
+  // Headings of empty saved Spaces are not chats, so they do not hide the failure.
+  const showLoadFailure =
+    Boolean(loadFailure) && !searching && listData.every((item) => item.type === "heading");
   const inlineError = error ?? (showLoadFailure ? null : (loadFailure?.message ?? null));
 
   return (
@@ -1315,7 +1321,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         <CompactRowsContext.Provider value={compactRows}>
           <FlatList<InboxItem>
             style={{ flex: 1 }}
-            data={listData}
+            data={showLoadFailure ? [] : listData}
             keyExtractor={(item) => {
               if (item.type === "pinned") return "pinned";
               if (item.type === "heading") return `heading-${item.key}`;
@@ -1387,6 +1393,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
                 <HomeErrorState
                   kind={loadFailure.kind}
                   message={loadFailure.message}
+                  loading={inboxLoading && !refreshing}
                   onRetry={() => void refreshBots()}
                   onSignIn={() => void signInAgain()}
                 />
