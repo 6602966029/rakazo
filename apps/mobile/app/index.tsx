@@ -1210,9 +1210,6 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     ],
   );
 
-  // With nothing to show, the failure takes the screen; over saved chats it stays one line.
-  const showLoadFailure = Boolean(error && loadFailure) && !searching && listData.length === 0;
-
   if (!ready) {
     return (
       <View style={[styles.screen, styles.centered]}>
@@ -1221,6 +1218,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     );
   }
   if (!hasSession) return <Redirect href="/sign-in" />;
+  // With nothing to show, the failure takes the screen; over saved chats it stays one line.
+  const showLoadFailure = Boolean(error && loadFailure) && !searching && listData.length === 0;
 
   return (
     <View style={styles.screen}>
