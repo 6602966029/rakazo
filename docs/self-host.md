@@ -590,25 +590,32 @@ content while a digest is present.
 For the single-VM production layout, install `infra/compose/backup-prod.sh` as
 `/usr/local/sbin/rakazo-backup` and enable the supplied `rakazo-backup.timer`. It creates a verified
 Postgres custom-format dump plus an application-data archive under `/var/backups/rakazo`, with mode
-`0600` and seven-day rotation. These local snapshots help with operator mistakes but are not a
-substitute for an encrypted off-host backup or provider snapshot.
+`0600`. It keeps the newest `RAKAZO_BACKUP_KEEP` verified snapshots (default `3`) and removes
+older ones only after a new snapshot verifies. It fails before writing if the disk has less free
+space than the last snapshot used, and a failed run removes its partial snapshot. These local
+snapshots help with operator mistakes but are not a substitute for an encrypted off-host backup or
+provider snapshot.
 
 The scheduled backup uses `/srv/rakazo` by default. For another deployment directory, set
 `RAKAZO_DEPLOY_DIR=/absolute/path/to/checkout` in a root-owned `/etc/rakazo/backup.env`
 (mode `0600`). The service reads this optional file on each run; the script uses the selected
 checkout's `.env` and production Compose file. If the stack was started with a custom `-p`,
 set the same `COMPOSE_PROJECT_NAME` in that file. For a manual run, export these variables instead.
-When updating an existing backup installation, reinstall both the script and service unit,
-then run `systemctl daemon-reload`.
+Set `RAKAZO_BACKUP_KEEP` in the same file. When updating an existing backup installation, reinstall
+both the script and service unit, then run `systemctl daemon-reload`.
 
 To deploy from CI, install `infra/compose/deploy-main.sh` as `/usr/local/sbin/rakazo-deploy-main`
 and give CI a key restricted to it in the deploy user's `authorized_keys`
 (`restrict,command="/usr/local/sbin/rakazo-deploy-main" ssh-ed25519 …`). It builds `origin/main`,
 restarts the stack, waits for `https://$RAKAZO_HOST/health`, and rolls back on failure. Build and
 start are time-limited so a stuck build fails the deploy instead of holding its lock; a deploy that
-finds the lock held exits non-zero. For a checkout outside `/srv/rakazo`, put
-`RAKAZO_DEPLOY_DIR=/absolute/path` in a root-owned `/etc/rakazo/deploy.env` readable by the
-deploy user.
+finds the lock held exits non-zero. A deploy refuses to start with less than
+`RAKAZO_DEPLOY_MIN_FREE_GB` (default `5`) free, and after a healthy rollout it removes untagged
+images and build cache unused for a day, keeping the previous images tagged `rakazo-rollback`.
+For a checkout outside `/srv/rakazo`, put `RAKAZO_DEPLOY_DIR=/absolute/path` (and any of these
+settings) in a root-owned `/etc/rakazo/deploy.env` readable by the deploy user. After pulling a new
+version of the script, reinstall it with
+`sudo install -m 0755 infra/compose/deploy-main.sh /usr/local/sbin/rakazo-deploy-main`.
 
 ### Docker computers on the production stack
 
