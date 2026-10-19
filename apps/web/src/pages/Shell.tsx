@@ -1486,6 +1486,7 @@ function SpaceShell() {
           event.type === "bot.spawned" ||
           event.type === "bot.deleted" ||
           event.type === "bot.updated" ||
+          event.type === "group.created" ||
           event.type === "run.started" ||
           isRunTerminalEvent(event) ||
           event.type === "thread.cleared"
@@ -1592,6 +1593,7 @@ function SpaceShell() {
         if (
           event.type === "run.started" ||
           event.type === "bot.updated" ||
+          event.type === "group.updated" ||
           isRunTerminalEvent(event)
         ) {
           void refreshBots().catch(() => undefined);
@@ -4236,7 +4238,7 @@ function SpaceShell() {
                 memoryProviderConfigured={memoryProviderConfig != null}
                 onSkillsChange={setAgentSkills}
                 onSave={async ({ computerMode, ...patch }) => {
-                  if (computerMode !== active.computerMode) {
+                  if (computerMode !== undefined && computerMode !== active.computerMode) {
                     await rpc.bots.setComputer({
                       botId: active.id,
                       mode: computerMode,
@@ -5499,11 +5501,15 @@ const Transcript = memo(function Transcript({
                     className={
                       peerReceipt
                         ? undefined
-                        : `relative w-fit min-w-0 ${
-                            message.role === "user"
-                              ? "max-w-[min(84%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[84%]"
-                              : "max-w-[min(88%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[88%]"
-                          }`
+                        : message.blocks.some(
+                              (block) => block.kind === "ask" || block.kind === "mcp_approval",
+                            )
+                          ? "relative w-full min-w-0 max-w-full"
+                          : `relative w-fit min-w-0 ${
+                              message.role === "user"
+                                ? "max-w-[min(84%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[84%]"
+                                : "max-w-[min(88%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[88%]"
+                            }`
                     }
                   >
                     <MessageView

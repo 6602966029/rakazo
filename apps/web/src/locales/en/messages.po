@@ -2405,6 +2405,10 @@ msgstr "Finishing MCP connection…"
 msgid "Flag unexpected actions"
 msgstr "Flag unexpected actions"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Fleet management"
+msgstr "Fleet management"
+
 #: src/pages/Auth.tsx
 msgid "Forgot password?"
 msgstr "Forgot password?"
@@ -2700,6 +2704,10 @@ msgstr "Launched {app}"
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Leave"
 msgstr "Leave"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Lets this bot organize, retune and schedule the bots it creates. You approve each change."
+msgstr "Lets this bot organize, retune and schedule the bots it creates. You approve each change."
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
