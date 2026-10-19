@@ -1415,7 +1415,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
               )
             }
             ListFooterComponent={
-              inboxNeedsCreateHint(listData) ? (
+              !showLoadFailure && inboxNeedsCreateHint(listData) ? (
                 <Text style={styles.empty}>{t("Tap + to create a bot")}</Text>
               ) : null
             }
