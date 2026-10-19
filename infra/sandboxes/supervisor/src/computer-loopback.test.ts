@@ -1139,6 +1139,58 @@ describe("screen release status", () => {
     },
   );
 
+  it("restores active control on every screen ensure and fails visibly if restoration fails", async () => {
+    const { supervisorApp } = await import("./index.js");
+    let failControl = false;
+    const container = managedContainer(
+      vi.fn(async (options: { Cmd?: string[] }) => ({
+        start: async () => Readable.from([]),
+        inspect: async () => ({
+          ExitCode:
+            failControl &&
+            options.Cmd?.join(" ").includes("nohup x11vnc -display :1 -forever -shared -nopw")
+              ? 1
+              : 0,
+        }),
+      })),
+    );
+    mocks.docker.getContainer.mockReturnValue(container);
+    const open = (interactive: boolean) =>
+      supervisorApp.request("/computers/control-rebuild/screen-mode", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          interactive,
+          controlToken: interactive ? "human-control" : undefined,
+          revokeControl: false,
+        }),
+      });
+    const takeover = await open(true);
+    expect(takeover.status).toBe(200);
+    expect(
+      decodeURIComponent(((await takeover.json()) as { screenUrl: string }).screenUrl),
+    ).toContain("token=human-control");
+    container.exec.mockClear();
+    expect((await open(false)).status).toBe(200);
+    expect(
+      container.exec.mock.calls.map(([options]) => options.Cmd.join(" ")).join("\n"),
+    ).toContain("nohup x11vnc -display :1 -forever -shared -nopw");
+    failControl = true;
+    const failed = await open(false);
+    expect(failed.status).toBe(400);
+    expect(await failed.json()).toEqual({ error: "control screen failed to start" });
+    const failedTakeover = await open(true);
+    expect(failedTakeover.status).toBe(400);
+    expect(await failedTakeover.json()).toEqual({ error: "control screen failed to start" });
+    const revoked = await supervisorApp.request("/computers/control-rebuild/screen-mode", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ interactive: false }),
+    });
+    expect(revoked.status).toBe(200);
+    expect((await open(false)).status).toBe(200);
+  });
+
   it("returns 500 when cancellation leaves the browser running", async () => {
     const { supervisorApp } = await import("./index.js");
     let failStop = false;

@@ -796,7 +796,14 @@ app.post("/computers/:id/screen-mode", async (c) => {
     const screenLeaseId = c.req.header("x-rakazo-screen-lease-id");
     const { container, info } = await managedContainer(id, botId, spaceId);
     const { layout, viewToken } = await withComputerScreenLock(id, async () => {
-      const screen = await ensureManagedScreen(id, container, botId, screenId, screenLeaseId);
+      const screen = await ensureManagedScreen(
+        id,
+        container,
+        botId,
+        screenId,
+        screenLeaseId,
+        !body.interactive && body.revokeControl === false,
+      );
       if (body.interactive || body.revokeControl !== false) {
         const changed = await setInteractiveScreen(
           container,
@@ -806,8 +813,13 @@ app.post("/computers/:id/screen-mode", async (c) => {
         );
         const slot = computerScreens.get(id)?.get(screen.screenKey);
         if (slot && changed) {
-          if (body.interactive) slot.controlled = true;
-          else delete slot.controlled;
+          if (body.interactive) {
+            slot.controlled = true;
+            slot.controlToken = body.controlToken;
+          } else {
+            delete slot.controlled;
+            delete slot.controlToken;
+          }
         }
       }
       return screen;
@@ -1250,10 +1262,18 @@ async function ensureManagedScreen(
   botId: string | undefined,
   screenId: string | undefined,
   screenLeaseId: string | undefined,
+  restoreControl = true,
 ) {
   // Docker can restart independently of the supervisor's screen lock.
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const screen = await ensureManagedScreenAttempt(id, container, botId, screenId, screenLeaseId);
+    const screen = await ensureManagedScreenAttempt(
+      id,
+      container,
+      botId,
+      screenId,
+      screenLeaseId,
+      restoreControl,
+    );
     const info = await container.inspect();
     if (info.State?.StartedAt === screen.info.State?.StartedAt) {
       // Confirm the pending boot marker only after setup completes against the same boot.
@@ -1276,6 +1296,7 @@ async function ensureManagedScreenAttempt(
   botId: string | undefined,
   screenId: string | undefined,
   screenLeaseId: string | undefined,
+  restoreControl = true,
 ) {
   // Callers hold the screen lock: an inspection before waiting can describe an older boot.
   const info = await container.inspect();
@@ -1343,6 +1364,10 @@ async function ensureManagedScreenAttempt(
     if (assigned.size === 0) clearComputerScreenRegistry(computerScreens, computerScreenBoots, id);
     const detail = [ensured.stderr, browserLog.stdout].filter(Boolean).join("\n").trim();
     throw new Error(detail || `computer screen ${layout.display} failed to start`);
+  }
+  // Ensuring the view must also recover an active human lease after its VNC process dies.
+  if (restoreControl && slot.controlToken) {
+    await setInteractiveScreen(container, true, slot.controlToken, layout);
   }
   return {
     container,

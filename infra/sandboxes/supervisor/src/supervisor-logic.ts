@@ -272,6 +272,7 @@ export function completeWarmReleasedScreen(
   if (slot?.releasing && slot.index === index) {
     delete slot.releasing;
     delete slot.controlled;
+    delete slot.controlToken;
     slot.idleAt = idleAt;
   }
 }
@@ -303,7 +304,7 @@ export async function teardownReleasedScreen(
   const slot = assigned.get(screenId);
   if (options.retainBrowser && slot?.releasing && slot.index === index) {
     // Keep the display reserved for this browser, and the fence to reject delayed releases.
-    delete slot.releasing;
+    completeWarmReleasedScreen(assigned, screenId, index, Date.now());
     delete slot.viewToken;
   } else {
     completeReleasedScreen(assigned, screenId, index);
@@ -317,6 +318,7 @@ export interface ScreenAssignment {
   viewToken?: string;
   idleAt?: number;
   controlled?: boolean;
+  controlToken?: string;
 }
 
 /** Forget screen assignments and their boot marker together on every cleanup path. */

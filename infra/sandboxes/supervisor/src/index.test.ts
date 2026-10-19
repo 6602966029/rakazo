@@ -934,12 +934,19 @@ describe("sandbox supervisor input containment", () => {
     nextScreenIndex(assigned, "researcher", "other-run:1");
     expect(nextScreenIndex(assigned, "writer", "run-1:2")).toBe(1);
     assigned.get("writer")!.viewToken = "old-view-token";
+    assigned.get("writer")!.controlled = true;
+    assigned.get("writer")!.controlToken = "old-control-token";
     expect(releaseAssignedScreen(assigned, "writer", "run-1:2")).toBe(1);
     await teardownReleasedScreen(assigned, "writer", 1, async () => ({ code: 0, stderr: "" }), {
       retainBrowser: true,
     });
 
-    expect(assigned.get("writer")).toEqual({ index: 1, leaseId: "run-1:2" });
+    expect(assigned.get("writer")).toEqual({
+      index: 1,
+      leaseId: "run-1:2",
+      idleAt: expect.any(Number),
+    });
+    expect(oldestIdleScreen(assigned, 2)).toBe("writer");
     expect(nextScreenIndex(assigned, "new-bot", "new-run:3")).toBe(2);
     expect(() => nextScreenIndex(assigned, "writer", "screen-view-writer:0")).toThrow(
       /owned by a newer execution/,
