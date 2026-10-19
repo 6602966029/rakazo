@@ -101,6 +101,7 @@ import { cors } from "hono/cors";
 import { storeInboundAttachment } from "./artifacts.js";
 import { createBillingService } from "./billing.js";
 import { mountBillingRoutes } from "./billing-webhook.js";
+import { mountDiagramScript } from "./diagram-script.js";
 import type { AppEnv } from "./env.js";
 import { loadEnv } from "./env.js";
 import { healthRoutes } from "./health.js";
@@ -504,6 +505,9 @@ export async function createApp(
     events,
     onTicketChange: ticketChanges,
     ticketBoardEnabled,
+    phoneCallsEnabled: env.phoneCallsEnabled,
+    phoneCallRingSeconds: env.phoneCallRingSeconds,
+    phoneCallCooldownMinutes: env.phoneCallCooldownMinutes,
     messaging: messaging ? createMessagingContextLoader(prisma) : undefined,
     web: createWebProvider(),
     cloudAgent,
@@ -570,6 +574,8 @@ export async function createApp(
       openSignup: env.messagingOpenSignup,
     },
     env: {
+      phoneCallsEnabled: env.phoneCallsEnabled,
+      phoneCallRingSeconds: env.phoneCallRingSeconds,
       ticketBoardEnabled,
       agentRuntime: env.agentRuntime,
       defaultProvider: env.defaultProvider,
@@ -636,6 +642,7 @@ export async function createApp(
   app.route("/", monitoringRoutes(env.browserMonitoring));
   mountApiRequestBodyLimits(app, env.maxUploadSizeBytes);
   mountScreenTarget(app, prisma, env.screenProxySecret);
+  mountDiagramScript(app);
   app.on(["GET", "POST"], "/api/auth/*", async (c) => {
     const path = new URL(c.req.url).pathname.replace("/api/auth", "");
     if (isBlockedAuthPath(path)) {

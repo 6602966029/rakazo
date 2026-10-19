@@ -217,6 +217,7 @@ function ApprovalShot() {
 
 const subscriptionMe: Me = {
   ticketBoardEnabled: false,
+  phoneCallsEnabled: false,
   userId: "user-demo",
   email: "ada@example.test",
   name: "Ada",

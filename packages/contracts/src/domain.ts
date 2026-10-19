@@ -106,10 +106,21 @@ export const BotSchema = z.object({
   thinkingLevel: ThinkingLevelSchema.nullable(),
   teamChatAmbientEnabled: z.boolean(),
   teamChatRules: z.string(),
+  fleetManagement: z.boolean().default(false),
   disabledBuiltinTools: z.array(z.string()).default([]),
   webhookConfigured: z.boolean(),
   /** Present when created with an idempotency key (e.g. onboarding:first). */
   spawnKey: z.string().nullable(),
+  /** The bot is ringing the user right now. */
+  incomingCall: z
+    .object({
+      callId: z.string(),
+      reason: z.string(),
+      opening: z.string(),
+      expiresAt: z.string(),
+    })
+    .nullable()
+    .optional(),
 });
 export type Bot = z.infer<typeof BotSchema>;
 
@@ -185,6 +196,8 @@ export const GroupDetailSchema = GroupSchema.extend({
   messages: z.array(ThreadMessageSchema).optional(),
 });
 export type GroupDetail = z.infer<typeof GroupDetailSchema>;
+
+export const BotSectionName = z.string().trim().min(1).max(60);
 
 export const BotSectionSchema = z.object({
   id: Id,
@@ -379,6 +392,7 @@ export const UpdateBotInput = z
     thinkingLevel: ThinkingLevelSchema.nullable().optional(),
     teamChatAmbientEnabled: z.boolean().optional(),
     teamChatRules: z.string().max(TEAM_CHAT_RULES_MAX_LENGTH).optional(),
+    fleetManagement: z.boolean().optional(),
     disabledBuiltinTools: DisabledBuiltinToolsSchema.optional(),
   })
   .superRefine((value, ctx) => {
@@ -668,6 +682,12 @@ export const MemoryDocumentSchema = z.object({
   updatedAt: z.string(),
 });
 export type MemoryDocument = z.infer<typeof MemoryDocumentSchema>;
+
+/** Every bot and Space keeps its MEMORY.md index; other memory documents can be deleted. */
+export const MEMORY_INDEX_PATH = "MEMORY.md";
+export function isDeletableMemoryDocument(path: string): boolean {
+  return path !== MEMORY_INDEX_PATH;
+}
 
 export const ConnectionSchema = z.object({
   id: Id,
@@ -1396,6 +1416,7 @@ export type ServerUpdateRequest = z.infer<typeof ServerUpdateRequestSchema>;
 export const MeSchema = z.object({
   maxUploadSizeBytes: z.number().int().positive().optional(),
   ticketBoardEnabled: z.boolean(),
+  phoneCallsEnabled: z.boolean().default(false),
   userId: Id,
   email: z.string().email(),
   name: z.string(),

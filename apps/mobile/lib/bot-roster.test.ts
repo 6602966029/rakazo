@@ -35,6 +35,7 @@ function bot(id = "bot-1"): Bot {
     macVoice: "",
     teamChatAmbientEnabled: false,
     teamChatRules: "",
+    fleetManagement: false,
     disabledBuiltinTools: [],
     webhookConfigured: false,
     spawnKey: null,
