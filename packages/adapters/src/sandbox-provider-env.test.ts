@@ -15,7 +15,7 @@ describe("resolveSandboxProvider", () => {
     expect(resolveSandboxProvider({ SANDBOX_PROVIDER: "e2b" })).toBe("none");
     expect(resolveSandboxProvider({ SANDBOX_PROVIDER: "daytona" })).toBe("none");
     expect(resolveSandboxProvider({ SANDBOX_PROVIDER: "createos" })).toBe("none");
-    expect(resolveSandboxProvider({ SANDBOX_PROVIDER: "box" })).toBe("none");
+    expect(resolveSandboxProvider({ SANDBOX_PROVIDER: "boat" })).toBe("none");
   });
 
   it("requires both Railway credentials and an environment", () => {

@@ -9,7 +9,7 @@ export function resolveSandboxProvider(source: NodeJS.ProcessEnv = process.env):
   if (requested === "e2b" && !optional(source.E2B_API_KEY)) return "none";
   if (requested === "daytona" && !optional(source.DAYTONA_API_KEY)) return "none";
   if (requested === "createos" && !optional(source.CREATEOS_SANDBOX_API_KEY)) return "none";
-  if (requested === "box" && !optional(source.BOX_API_KEY)) return "none";
+  if (requested === "boat" && !optional(source.BOAT_API_KEY)) return "none";
   if (
     requested === "railway" &&
     (!optional(source.RAILWAY_API_TOKEN) || !optional(source.RAILWAY_ENVIRONMENT_ID))
@@ -45,8 +45,8 @@ export function sandboxProviderOptionsFromEnv(
   | "railwayEnvironmentId"
   | "railwayMaxWorkspaceFileBytes"
   | "railwaySandboxRegion"
-  | "boxApiKey"
-  | "boxApiUrl"
+  | "boatApiKey"
+  | "boatApiUrl"
 > {
   return {
     hostComputerUrl: source.SANDBOX_HOST_URL,
@@ -63,8 +63,8 @@ export function sandboxProviderOptionsFromEnv(
     railwayEnvironmentId: source.RAILWAY_ENVIRONMENT_ID,
     railwayMaxWorkspaceFileBytes: source.RAILWAY_MAX_WORKSPACE_FILE_BYTES,
     railwaySandboxRegion: optional(source.RAILWAY_SANDBOX_REGION),
-    boxApiKey: source.BOX_API_KEY,
-    boxApiUrl: source.BOX_API_URL ?? source.BOX_BASE_URL,
+    boatApiKey: source.BOAT_API_KEY,
+    boatApiUrl: source.BOAT_API_URL,
   };
 }
 
