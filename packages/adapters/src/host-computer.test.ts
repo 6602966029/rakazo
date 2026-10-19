@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { ComputerRef, ProcessEvent } from "@rakazo/adapter-kit";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ensureComputerWorkspaceLayout,
   removeComputerWorkspaceDirectories,
@@ -56,6 +56,47 @@ describe("native host computer transport", () => {
       expect(win32NtRelativeAvailable()).toBe(true);
     },
   );
+
+  it("flushes headers and keeps quiet native commands active on the HTTP stream", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    try {
+      const response = await fetch(`${url}/computer`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          method: "execute",
+          botId: computer.botId,
+          command: { argv: [process.execPath, "-e", "setInterval(() => {}, 1000)"] },
+        }),
+      });
+      expect(response.status).toBe(200);
+      reader = response.body!.getReader();
+      const frame = reader.read();
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(new TextDecoder().decode((await frame).value)).toBe('{"heartbeat":true}\n');
+    } finally {
+      await reader?.cancel();
+      vi.useRealTimers();
+    }
+  });
+
+  it("consumes keepalive frames without exposing them as command output", async () => {
+    const mock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response('{"heartbeat":true}\n{"value":{"type":"exit","code":0}}\n{"done":true}\n', {
+          status: 200,
+        }),
+      );
+    try {
+      expect(await collect(client.execute(computer, { argv: ["command"] }, context))).toEqual([
+        { type: "exit", code: 0 },
+      ]);
+    } finally {
+      mock.mockRestore();
+    }
+  });
 
   it("requires both native consent and authentication and rejects browser origins", async () => {
     const body = JSON.stringify({ method: "provision", botId: "test" });

@@ -61,6 +61,7 @@ export async function startHostComputerServer(options: {
     controller.signal.addEventListener("abort", () => response.destroy(), { once: true });
     const abort = () => controller.abort();
     response.once("close", abort);
+    let heartbeat: NodeJS.Timeout | undefined;
     let timer = setTimeout(abort, 30_000);
     timer.unref();
     try {
@@ -105,6 +106,13 @@ export async function startHostComputerServer(options: {
         "content-type": "application/x-ndjson",
         "cache-control": "no-store",
       });
+      response.flushHeaders();
+      // Quiet commands must keep HTTP clients and intermediaries from timing out between frames.
+      heartbeat = setInterval(() => {
+        if (!controller.signal.aborted && !response.destroyed)
+          response.write(`${JSON.stringify({ heartbeat: true })}\n`);
+      }, 30_000);
+      heartbeat.unref();
       const context: AdapterContext = {
         operationId: "desktop-host",
         traceId: "desktop-host",
@@ -134,6 +142,7 @@ export async function startHostComputerServer(options: {
       if (!response.destroyed) response.end(`${JSON.stringify({ error: message })}\n`);
     } finally {
       clearTimeout(timer);
+      clearInterval(heartbeat);
       active.delete(controller);
       response.removeListener("close", abort);
     }

@@ -64,7 +64,11 @@ export interface HostComputerEnvironment {
   home: string;
   shell: string;
 }
-export type HostComputerFrame<T> = { value: T } | { done: true } | { error: string };
+export type HostComputerFrame<T> =
+  | { value: T }
+  | { done: true }
+  | { error: string }
+  | { heartbeat: true };
 
 /** Leave time for the command timeout event and final response to cross the bridge. */
 export function hostComputerDeadlineMs(request: HostComputerRequest) {

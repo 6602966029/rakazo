@@ -99,6 +99,7 @@ jobs:
   native-computer:
     name: Native computer (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:

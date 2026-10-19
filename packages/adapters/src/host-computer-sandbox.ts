@@ -65,6 +65,10 @@ export class HostComputerSandbox implements SandboxProvider {
           const frame = JSON.parse(pending.slice(0, newline)) as HostComputerFrame<T>;
           pending = pending.slice(newline + 1);
           if ("error" in frame) throw new Error(frame.error);
+          if ("heartbeat" in frame) {
+            newline = pending.indexOf("\n");
+            continue;
+          }
           if ("done" in frame) {
             return;
           }
