@@ -286,7 +286,6 @@ describe("profile entry point", () => {
     expect(labels).toEqual([
       "Profile",
       "Chat settings",
-      "Open computer",
       "Clear conversation",
       "Cancel",
       "Clear",

@@ -413,19 +413,106 @@ describe("inbox row long press", () => {
   it("leaves long press to the system menu on iOS rows and keeps the sheet elsewhere", () => {
     for (const kind of ["bot", "group"]) {
       const name = kind === "bot" ? "organizeBot" : "organizeGroup";
-      expect(source).toContain(
-        `onLongPress={!SWIPE_ROWS&&item.${kind}.spaceId===me?.spaceId?${name}:undefined}`,
-      );
+      expect(source).toContain(`onLongPress={!SWIPE_ROWS?${name}:undefined}`);
     }
+  });
+});
+
+describe("cross-space organize", () => {
+  const source = readFileSync(new URL("../app/index.tsx", testFileUrl), "utf8");
+  const handler = source.slice(
+    source.indexOf("  const organize = useCallback("),
+    source.indexOf("  const organizeBot = useCallback("),
+  );
+
+  function setup(cached: boolean) {
+    const chat = { id: "bot-other", spaceId: "space-other" };
+    const space = { id: chat.spaceId, bots: [chat], groups: [], botSections: [] };
+    const scope = {
+      useCallback: (callback: unknown) => callback,
+      organizeRequestId: { current: 0 },
+      currentSessionGeneration: () => 1,
+      currentApiBase: () => "",
+      me: { spaceId: "space-current" },
+      bots: [],
+      groups: [],
+      botSections: [],
+      spaces: cached ? [space] : [],
+      captureApiRequestContext: vi.fn(async () => ({ headers: { authorization: "Bearer fake" } })),
+      rpc: vi.fn(async () => ({ current: space })),
+      setOrganizeTarget: vi.fn(),
+      // A background poll must not delay showing an already available chat.
+      loadBots: vi.fn(() => new Promise(() => {})),
+      Alert: { alert: vi.fn() },
+      errorText: (_error: unknown, fallback: string) => fallback,
+      t: (text: string) => text,
+    };
+    const compiled = ts.transpileModule(`${handler}\nreturn organize;`, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const organize = new Function(...Object.keys(scope), compiled)(...Object.values(scope)) as (
+      kind: string,
+      chat: { id: string; spaceId: string },
+    ) => Promise<void>;
+    return { ...scope, organize, chat, space };
+  }
+
+  it("opens immediately from the other space's cached data", async () => {
+    const h = setup(true);
+    const done = h.organize("bot", h.chat);
+    expect(h.setOrganizeTarget).toHaveBeenCalledWith({
+      kind: "bot",
+      id: h.chat.id,
+      spaceId: h.chat.spaceId,
+      chat: h.chat,
+      sections: [],
+    });
+    expect(h.rpc).not.toHaveBeenCalled();
+    await done;
+  });
+
+  it("fetches missing data in the target space independently of inbox polling", async () => {
+    const h = setup(false);
+    await h.organize("bot", h.chat);
+    expect(h.rpc).toHaveBeenCalledWith("spaces/list", undefined, {
+      requestContext: {
+        headers: { authorization: "Bearer fake", "x-rakazo-space-id": h.chat.spaceId },
+      },
+      skipSpaceAuthRecovery: true,
+    });
+    expect(h.setOrganizeTarget).toHaveBeenCalledWith(expect.objectContaining({ chat: h.chat }));
+  });
+
+  it("ignores a fallback response after the organize target is closed", async () => {
+    const h = setup(false);
+    let finish!: (value: { current: typeof h.space }) => void;
+    h.rpc.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const done = h.organize("bot", h.chat);
+    await Promise.resolve();
+    h.organizeRequestId.current += 1;
+    finish({ current: h.space });
+    await done;
+    expect(h.setOrganizeTarget).not.toHaveBeenCalled();
   });
 });
 
 describe("inbox swipe handlers", () => {
   const source = readFileSync(new URL("../app/index.tsx", testFileUrl), "utf8");
-  const handlerSource = source.slice(
-    source.indexOf("  // One path for the long-press sheet and the swipe actions."),
-    source.indexOf("  const botAction = useCallback("),
-  );
+  const handlerSource = [
+    source.slice(
+      source.indexOf("/** Sends a request about a chat to that chat's space"),
+      source.indexOf("export default function HomeRoute()"),
+    ),
+    source.slice(
+      source.indexOf("  // One path for the long-press sheet and the swipe actions."),
+      source.indexOf("  const botAction = useCallback("),
+    ),
+  ].join("\n");
 
   const session = { space: "space-a", generation: 1 };
   beforeEach(() => {
@@ -479,11 +566,16 @@ describe("inbox swipe handlers", () => {
     const run = new Function(...Object.keys(scope), compiled)(...Object.values(scope)) as {
       runRowAction: (
         kind: "bot" | "group",
-        chat: { id: string },
+        chat: { id: string; spaceId?: string },
         action: InboxRowAction,
       ) => Promise<void>;
+      updateChat: (
+        kind: "bot" | "group",
+        chat: { id: string; spaceId?: string },
+        update: { pinned?: boolean },
+      ) => Promise<void>;
     };
-    return { ...scope, state, runRowAction: run.runRowAction };
+    return { ...scope, state, runRowAction: run.runRowAction, updateChat: run.updateChat };
   }
 
   it("sends overlapping read changes for one chat in order and keeps the newest on screen", async () => {
@@ -592,6 +684,42 @@ describe("inbox swipe handlers", () => {
     const h = handlers(async () => ({ ok: true }));
     await h.runRowAction(kind, { id: "x" }, action);
     expect(h.rpc.mock.calls).toEqual([[procedure, input]]);
+    expect(h.loadBots).toHaveBeenCalledTimes(1);
+  });
+
+  it("archives a chat from another space in that space", async () => {
+    const h = handlers(async () => ({ ok: true }));
+    await h.runRowAction("group", { id: "x", spaceId: "space-b" }, "archive");
+    expect(h.rpc.mock.calls[0]?.[2]).toMatchObject({
+      requestContext: { headers: { "x-rakazo-space-id": "space-b" } },
+    });
+  });
+
+  it("marks a chat from another space read in that space", async () => {
+    const h = handlers(async () => ({ ok: true }));
+    await h.runRowAction("bot", { id: "x", spaceId: "space-b" }, "read");
+    expect(h.rpc.mock.calls[0]?.[2]).toMatchObject({
+      requestContext: { headers: { "x-rakazo-space-id": "space-b" } },
+    });
+  });
+
+  it("updates a chat from another space in that space without switching", async () => {
+    const h = handlers(async () => ({ ok: true }));
+    await h.updateChat("bot", { id: "x", spaceId: "space-b" }, { pinned: false });
+    expect(h.rpc.mock.calls).toEqual([
+      [
+        "bots/update",
+        { botId: "x", pinned: false },
+        {
+          requestContext: {
+            apiBase: "",
+            headers: { authorization: "Bearer token", "x-rakazo-space-id": "space-b" },
+            sessionGeneration: 1,
+          },
+          skipSpaceAuthRecovery: true,
+        },
+      ],
+    ]);
     expect(h.loadBots).toHaveBeenCalledTimes(1);
   });
 

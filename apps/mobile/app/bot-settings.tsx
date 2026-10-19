@@ -1,5 +1,6 @@
 import type { ComputerMode, ThinkingLevel } from "@rakazo/contracts";
 import {
+  BOT_AVATAR_SHAPE_COUNT,
   BOT_COLORS,
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_INSTRUCTIONS_MAX_LENGTH,
@@ -30,6 +31,13 @@ import { Chevron } from "../components/row-accessories";
 import { SettingsFooter } from "../components/settings-group";
 import type { MobileBot, MobileMe, MobileModel, MobileModelCredential } from "../lib/api";
 import { rpc } from "../lib/api";
+import {
+  avatarColor,
+  avatarShape,
+  isAvatarPhoto,
+  withAvatarColor,
+  withAvatarShape,
+} from "../lib/bot-avatar-edit";
 import { deviceVoices, setVoiceForBot, voiceForBot, voiceLabel } from "../lib/bot-voices";
 import { COMPUTER_LIFECYCLE_TIMEOUT_MS } from "../lib/computer";
 import { loadDeviceVoiceEnabled } from "../lib/device-voice";
@@ -394,6 +402,17 @@ export default function BotSettingsScreen() {
         {bot ? (
           <View style={{ alignItems: "center", marginBottom: 24 }}>
             <BotAvatar color={color} identity={bot.id} size={64} status={bot.status} />
+            {isAvatarPhoto(color) ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setColor(avatarColor(bot.color))}
+                style={{ marginTop: 12 }}
+              >
+                <Text style={{ color: tokens.mutedForeground, fontSize: 15 }}>
+                  {t("Remove photo")}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
         <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{t("Name")}</Text>
@@ -462,19 +481,64 @@ export default function BotSettingsScreen() {
               key={option}
               accessibilityRole="radio"
               accessibilityLabel={t("Color {number}", { number: index + 1 })}
-              accessibilityState={{ checked: color === option }}
-              onPress={() => setColor(option)}
+              accessibilityState={{ checked: avatarColor(color) === option }}
+              onPress={() => setColor((current) => withAvatarColor(current, option))}
               style={{
                 width: 36,
                 height: 36,
                 borderRadius: 18,
                 backgroundColor: option,
                 borderWidth: 3,
-                borderColor: color === option ? tokens.foreground : "transparent",
+                borderColor: avatarColor(color) === option ? tokens.foreground : "transparent",
               }}
             />
           ))}
         </ScrollView>
+        {bot && !isAvatarPhoto(color) ? (
+          <>
+            <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
+              {t("Shape")}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 10, marginTop: 8 }}
+              accessibilityRole="radiogroup"
+            >
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityLabel={t("Default")}
+                accessibilityState={{ checked: avatarShape(color) === null }}
+                onPress={() => setColor((current) => avatarColor(current))}
+                style={{
+                  padding: 4,
+                  borderRadius: 14,
+                  borderWidth: 2,
+                  borderColor: avatarShape(color) === null ? tokens.foreground : "transparent",
+                }}
+              >
+                <BotAvatar color={avatarColor(color)} identity={bot.id} size={36} />
+              </Pressable>
+              {Array.from({ length: BOT_AVATAR_SHAPE_COUNT }, (_, shape) => (
+                <Pressable
+                  key={shape}
+                  accessibilityRole="radio"
+                  accessibilityLabel={t("Shape {number}", { number: shape + 1 })}
+                  accessibilityState={{ checked: avatarShape(color) === shape }}
+                  onPress={() => setColor((current) => withAvatarShape(current, shape))}
+                  style={{
+                    padding: 4,
+                    borderRadius: 14,
+                    borderWidth: 2,
+                    borderColor: avatarShape(color) === shape ? tokens.foreground : "transparent",
+                  }}
+                >
+                  <BotAvatar color={withAvatarShape(color, shape)} identity={bot.id} size={36} />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
         <ComputerModePicker value={computerMode} onChange={setComputerMode} />
         <View style={[styles.row, { marginTop: 20 }]}>
           <Text style={[styles.rowLabel, { color: tokens.mutedForeground }]}>
