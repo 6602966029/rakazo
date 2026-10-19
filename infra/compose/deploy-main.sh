@@ -19,7 +19,7 @@ UP_TIMEOUT="${RAKAZO_DEPLOY_UP_TIMEOUT:-5m}"
 ROLLBACK_TIMEOUT="${RAKAZO_DEPLOY_ROLLBACK_TIMEOUT:-8m}"
 # Free disk a deploy needs before it builds.
 MIN_FREE_GB="${RAKAZO_DEPLOY_MIN_FREE_GB:-5}"
-[[ "${MIN_FREE_GB}" =~ ^[0-9]+$ ]] || { echo "RAKAZO_DEPLOY_MIN_FREE_GB must be a whole number" >&2; exit 1; }
+[[ "${MIN_FREE_GB}" =~ ^(0|[1-9][0-9]*)$ ]] || { echo "RAKAZO_DEPLOY_MIN_FREE_GB must be a whole number" >&2; exit 1; }
 
 cd "${APP_DIR}"
 if [[ -z "${RAKAZO_HEALTH_URL:-}" ]]; then
@@ -46,6 +46,18 @@ if ! flock -n 9; then
   exit 1
 fi
 
+# Each build adds images, so refuse to start one that would fill the disk. Check before fetching:
+# git fails on a full disk with a less helpful message.
+docker_root="$(sudo docker info --format '{{.DockerRootDir}}')"
+for dir in "${APP_DIR}" "${docker_root}"; do
+  free_gb="$(df -Pk "${dir}" | awk 'NR == 2 { print int($4 / 1048576) }')"
+  if ((free_gb < MIN_FREE_GB)); then
+    echo "Only ${free_gb}GB free on ${dir}; deploys need ${MIN_FREE_GB}GB (RAKAZO_DEPLOY_MIN_FREE_GB)." >&2
+    echo "Free space first, for example: sudo docker image prune -f && sudo docker builder prune -f" >&2
+    exit 1
+  fi
+done
+
 previous_revision="$(git rev-parse HEAD)"
 git fetch --quiet --prune origin main
 target_revision="$(git rev-parse origin/main)"
@@ -60,17 +72,6 @@ if [[ "${previous_revision}" == "${target_revision}" && "${deployed_revision}" =
   exit 0
 fi
 
-# Each build adds images, so refuse to start one that would fill the disk.
-docker_root="$(sudo docker info --format '{{.DockerRootDir}}')"
-for dir in "${APP_DIR}" "${docker_root}"; do
-  free_gb="$(df -Pk "${dir}" | awk 'NR == 2 { print int($4 / 1048576) }')"
-  if ((free_gb < MIN_FREE_GB)); then
-    echo "Only ${free_gb}GB free on ${dir}; deploys need ${MIN_FREE_GB}GB (RAKAZO_DEPLOY_MIN_FREE_GB)." >&2
-    echo "Free space first, for example: sudo docker image prune -f && sudo docker builder prune -f" >&2
-    exit 1
-  fi
-done
-
 rollback() {
   trap - ERR
   echo "Deployment failed; restoring the previous revision ${previous_revision}." >&2
@@ -81,20 +82,28 @@ rollback() {
 trap rollback ERR
 
 # Image IDs the running containers use, kept after the deploy for a manual rollback.
-previous_images="$(compose 1m images -q 2>/dev/null | sort -u || true)"
+previous_images="$(compose 1m images -q 2>/dev/null | sort -u)" || previous_images="unknown"
 
 # Runs after a healthy rollout. Tags the previous images so they survive, then drops untagged
-# images and build cache unused for a day. A failed prune never fails the deploy.
+# images and build cache unused for a day. Cleanup is time-limited and never fails the deploy.
 prune_docker() {
-  local id
-  # Untag by name only: removing by ID would also drop the tag of an image still in use.
-  sudo docker image ls --format '{{.Repository}}:{{.Tag}}' rakazo-rollback |
-    xargs -r sudo docker rmi >/dev/null 2>&1 || true
-  for id in ${previous_images}; do
-    sudo docker tag "${id}" "rakazo-rollback:${id#sha256:}" >/dev/null 2>&1 || true
-  done
-  sudo docker image prune --force >/dev/null || echo "Image prune failed; continuing." >&2
-  sudo docker builder prune --all --force --filter until=24h >/dev/null ||
+  local id kept=true
+  if [[ "${previous_images}" == unknown ]]; then
+    kept=false
+  else
+    # Untag by name only: removing by ID would also drop the tag of an image still in use.
+    sudo docker image ls --format '{{.Repository}}:{{.Tag}}' rakazo-rollback |
+      xargs -r sudo docker rmi >/dev/null 2>&1 || true
+    for id in ${previous_images}; do
+      sudo docker tag "${id}" "rakazo-rollback:${id#sha256:}" || kept=false
+    done
+  fi
+  if [[ "${kept}" == true ]]; then
+    timeout 5m sudo docker image prune --force >/dev/null || echo "Image prune failed; continuing." >&2
+  else
+    echo "Could not tag the previous images; skipping image prune to keep them." >&2
+  fi
+  timeout 5m sudo docker builder prune --all --force --filter until=24h >/dev/null ||
     echo "Build cache prune failed; continuing." >&2
 }
 

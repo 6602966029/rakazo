@@ -65,6 +65,7 @@ echo "docker $* @ $(git rev-parse --short HEAD)" >> "$COMMAND_LOG"
 if [[ "$*" == *" build" && -n "\${FAIL_BUILD:-}" ]]; then exit 1; fi
 if [[ "$1" == info ]]; then echo /var/lib/docker; fi
 if [[ "$*" == *" images -q" ]]; then echo sha256:running; fi
+if [[ "$1" == tag && -n "\${FAIL_TAG:-}" ]]; then exit 1; fi
 if [[ "$*" == "image ls "* ]]; then echo rakazo-rollback:old; fi
 exit 0
 `,
@@ -134,7 +135,9 @@ describe("production deploy script", () => {
     write(path.join(deploy.checkout, ".last-deployed-revision"), `${deploy.first}\n`);
     const result = deploy.run();
     expect(result.status).toBe(0);
-    expect(deploy.commands()).toEqual(["curl https://app.example.test/health"]);
+    expect(deploy.commands().filter((line) => !/^(df|docker info) /.test(line))).toEqual([
+      "curl https://app.example.test/health",
+    ]);
   });
 
   it("deploys when the checkout matches but that revision was never recorded", () => {
@@ -190,6 +193,22 @@ describe("production deploy script", () => {
       "docker image prune --force",
       "docker builder prune --all --force --filter until=24h",
     ]);
+  });
+
+  it("keeps every image when the previous ones could not be tagged", () => {
+    const deploy = fixture();
+    commit(deploy.upstream, "next");
+    const result = deploy.run({ FAIL_TAG: "1" });
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("skipping image prune");
+    expect(deploy.commands().some((line) => line.startsWith("docker image prune"))).toBe(false);
+  });
+
+  it("rejects a threshold with a leading zero", () => {
+    const deploy = fixture();
+    const result = deploy.run({ RAKAZO_DEPLOY_MIN_FREE_GB: "08" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("whole number");
   });
 
   it("refuses to build with too little free disk", () => {
