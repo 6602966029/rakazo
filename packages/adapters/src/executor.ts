@@ -9397,7 +9397,7 @@ async function deploymentKeyFor(
 ): Promise<string | undefined> {
   // Fail before entering a runtime: provider SDKs can also discover ambient credentials.
   if (!(await canUsePlatformModel(deps.prisma, deps.platformModelAllowlist, userId)))
-    throw new Error(MISSING_MODEL_MESSAGE);
+    throw new UnavailableModelForAuthError(MISSING_MODEL_MESSAGE);
   if (!deps.deploymentModelKey) return undefined;
   return provider === resolveDeploymentModel().provider ? deps.deploymentModelKey : undefined;
 }

@@ -2608,7 +2608,7 @@ description: Prepare standup notes
     expect(enqueue).toHaveBeenCalledOnce();
   });
 
-  it("fails a run clearly without calling the real runtime when no model is configured", async () => {
+  it.each([false, true])("fails without an available model (denied %s)", async (denied) => {
     let status = "queued";
     const runtimeRun = vi.fn();
     const finalizeRun = vi.fn(async () => {
@@ -2643,6 +2643,7 @@ description: Prepare standup notes
           },
     );
     const prisma = {
+      user: { findUnique: vi.fn(async () => ({ email: "user@example.test" })) },
       run: {
         findUnique: vi.fn(async () => run),
         findUniqueOrThrow: vi.fn(async () => ({ status: "leased", startedAt: null })),
@@ -2670,7 +2671,17 @@ description: Prepare standup notes
       connection: { findMany: vi.fn(async () => []) },
       spaceModelPreference: { findFirst: vi.fn(async () => null) },
       userModelCredential: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) },
-      deploymentSettings: { findUnique: vi.fn(async () => null) },
+      deploymentSettings: {
+        findUnique: vi.fn(async () =>
+          denied
+            ? {
+                ownerUserId: "owner-1",
+                defaultModelProvider: "openrouter",
+                defaultModelId: "fixture-model",
+              }
+            : null,
+        ),
+      },
       taughtSkill: { findMany: vi.fn(async () => []) },
       agentSecret: { findMany: vi.fn(async () => []) },
       botSecret: { findMany: vi.fn(async () => []) },
@@ -2679,6 +2690,9 @@ description: Prepare standup notes
     } as unknown as PrismaClient;
     const executor = createRunExecutor({
       prisma,
+      platformModelAllowlist: denied ? ["@other.test"] : undefined,
+      deploymentModelKey: denied ? "fixture-platform-key" : undefined,
+      deploymentModelConfigured: denied,
       runtime: {
         describe: () => ({ capabilities: { scripted: false } }),
         run: runtimeRun,
