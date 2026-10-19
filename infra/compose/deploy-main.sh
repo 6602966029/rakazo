@@ -17,7 +17,7 @@ COMPOSE_FILE="infra/compose/docker-compose.prod.yml"
 BUILD_TIMEOUT="${RAKAZO_DEPLOY_BUILD_TIMEOUT:-15m}"
 UP_TIMEOUT="${RAKAZO_DEPLOY_UP_TIMEOUT:-5m}"
 ROLLBACK_TIMEOUT="${RAKAZO_DEPLOY_ROLLBACK_TIMEOUT:-8m}"
-# Every deploy builds new images, so refuse to start a build that would fill the disk.
+# Free disk a deploy needs before it builds.
 MIN_FREE_GB="${RAKAZO_DEPLOY_MIN_FREE_GB:-5}"
 [[ "${MIN_FREE_GB}" =~ ^[0-9]+$ ]] || { echo "RAKAZO_DEPLOY_MIN_FREE_GB must be a whole number" >&2; exit 1; }
 
@@ -46,17 +46,6 @@ if ! flock -n 9; then
   exit 1
 fi
 
-# Check before fetching: a full disk fails git and Postgres alike.
-docker_root="$(sudo docker info --format '{{.DockerRootDir}}')"
-for dir in "${APP_DIR}" "${docker_root}"; do
-  free_gb="$(df -Pk "${dir}" | awk 'NR == 2 { print int($4 / 1048576) }')"
-  if ((free_gb < MIN_FREE_GB)); then
-    echo "Only ${free_gb}GB free on ${dir}; deploys need ${MIN_FREE_GB}GB (RAKAZO_DEPLOY_MIN_FREE_GB)." >&2
-    echo "Free space first, for example: sudo docker image prune -f && sudo docker builder prune -f" >&2
-    exit 1
-  fi
-done
-
 previous_revision="$(git rev-parse HEAD)"
 git fetch --quiet --prune origin main
 target_revision="$(git rev-parse origin/main)"
@@ -70,6 +59,17 @@ if [[ "${previous_revision}" == "${target_revision}" && "${deployed_revision}" =
   echo "Production is already at ${target_revision} and healthy."
   exit 0
 fi
+
+# Each build adds images, so refuse to start one that would fill the disk.
+docker_root="$(sudo docker info --format '{{.DockerRootDir}}')"
+for dir in "${APP_DIR}" "${docker_root}"; do
+  free_gb="$(df -Pk "${dir}" | awk 'NR == 2 { print int($4 / 1048576) }')"
+  if ((free_gb < MIN_FREE_GB)); then
+    echo "Only ${free_gb}GB free on ${dir}; deploys need ${MIN_FREE_GB}GB (RAKAZO_DEPLOY_MIN_FREE_GB)." >&2
+    echo "Free space first, for example: sudo docker image prune -f && sudo docker builder prune -f" >&2
+    exit 1
+  fi
+done
 
 rollback() {
   trap - ERR
