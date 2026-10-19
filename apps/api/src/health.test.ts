@@ -1,7 +1,7 @@
 import { InfisicalSecretStore } from "@rakazo/adapters";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { infisicalFake } from "../../../packages/adapters/src/secret-store-fake.js";
-import { healthRoutes } from "./health.js";
+import { DATABASE_CHECK_TIMEOUT_MS, healthRoutes } from "./health.js";
 
 const app = healthRoutes(() => ({ runtime: "pi", sandbox: "docker", revision: "abc123" }));
 
@@ -51,6 +51,23 @@ describe("health routes", () => {
     expect((await health.request("/health")).status).toBe(200);
     up = true;
     expect((await health.request("/ready")).status).toBe(200);
+  });
+
+  it("answers 503 at the deadline while the database hangs, with one probe at a time", async () => {
+    vi.useFakeTimers();
+    try {
+      const check = vi.fn(() => new Promise<never>(() => {}));
+      const health = healthRoutes(() => ({}), check);
+      const first = health.request("/ready");
+      const second = health.request("/ready");
+      expect((await health.request("/health")).status).toBe(200);
+      await vi.advanceTimersByTimeAsync(DATABASE_CHECK_TIMEOUT_MS);
+      expect((await first).status).toBe(503);
+      expect((await second).status).toBe(503);
+      expect(check).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps public liveness free of deployment details", async () => {

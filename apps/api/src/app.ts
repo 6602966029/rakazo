@@ -979,7 +979,12 @@ export async function createApp(
         degraded: secrets.describe().capabilities.degraded ?? false,
         revision: env.gitSha ?? null,
       }),
-      () => prisma.$queryRaw`SELECT 1`,
+      // The statement timeout ends a stuck probe on the server too, freeing its connection.
+      () =>
+        prisma.$transaction([
+          prisma.$executeRaw`SET LOCAL statement_timeout = 1500`,
+          prisma.$queryRaw`SELECT 1`,
+        ]),
     ),
   );
 
