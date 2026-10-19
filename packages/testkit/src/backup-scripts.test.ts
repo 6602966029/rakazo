@@ -4,6 +4,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -113,6 +115,14 @@ for (const file of process.argv.slice(2)) {
 `,
   );
   chmodSync(checksum, 0o755);
+  write(
+    path.join(bin, "df"),
+    `#!/bin/bash
+echo "Filesystem 1024-blocks Used Available Capacity Mounted on"
+echo "/dev/fake 104857600 0 \${FREE_KB:-52428800} 0% /"
+`,
+  );
+  chmodSync(path.join(bin, "df"), 0o755);
   // No inherited deployment settings, credentials, or executable search paths.
   const env = {
     PATH: [bin, path.dirname(process.execPath), "/usr/bin", "/bin"].join(path.delimiter),
@@ -307,6 +317,37 @@ describe("production backup deployment and archive behavior", () => {
       const result = f.run("infra/compose/backup-prod.sh", [], failure);
       expect(result.status).not.toBe(0);
       expect(result.stdout).not.toContain("Verified Rakazo backup");
+      // The partial snapshot is removed.
+      expect(readdirSync(f.snapshots)).toEqual([]);
     },
   );
+
+  it("keeps the newest verified snapshots and drops older and partial ones", () => {
+    const f = fixture();
+    const stamps = ["20261014T000000Z", "20261015T000000Z", "20261016T000000Z", "20261017T000000Z"];
+    for (const stamp of stamps) write(path.join(f.snapshots, stamp, "SHA256SUMS"), "sums");
+    write(path.join(f.snapshots, "20261018T000000Z/appdata.tgz"), "partial");
+    write(path.join(f.snapshots, "notes/keep.txt"), "not a snapshot");
+    const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_BACKUP_KEEP: "2" });
+    expect(result.status, result.stderr).toBe(0);
+    const current = path.basename(result.stdout.trim().split("written to ")[1]);
+    expect(readdirSync(f.snapshots).sort()).toEqual(["20261017T000000Z", current, "notes"].sort());
+  });
+
+  it("fails before writing when the disk is short of the last snapshot's size", () => {
+    const f = fixture();
+    write(path.join(f.snapshots, "20261017T000000Z/SHA256SUMS"), "x".repeat(64 * 1024));
+    const result = f.run("infra/compose/backup-prod.sh", [], { FREE_KB: "1" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("this backup needs about");
+    expect(readdirSync(f.snapshots)).toEqual(["20261017T000000Z"]);
+    expect(f.commands().some((args) => args.includes("sh"))).toBe(false);
+  });
+
+  it("rejects a non-positive retention", () => {
+    const f = fixture();
+    const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_BACKUP_KEEP: "0" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("RAKAZO_BACKUP_KEEP");
+  });
 });
