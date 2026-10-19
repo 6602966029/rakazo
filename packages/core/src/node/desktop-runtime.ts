@@ -185,7 +185,7 @@ function browserLauncherCommand(
     '  while [ -n "$_rest" ]; do',
     '    case "$_rest" in',
     // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
-    '      *:*) _entry="${_rest%%:*}"; _rest="${_rest#*:}" ;;',
+    '      *[:\\ ]*) _entry="${_rest%%[: ]*}"; _rest="${_rest#*[: ]}" ;;',
     '      *) _entry="$_rest"; _rest="" ;;',
     "    esac",
     '    case "$_entry" in',

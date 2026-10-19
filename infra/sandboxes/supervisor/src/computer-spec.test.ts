@@ -424,6 +424,8 @@ describe("graphical computer spec", () => {
             "/tmp/first.so:/tmp/last.so",
           ],
           [":libnss_wrapper.so::", "unset"],
+          ["/usr/local/lib/libnss_wrapper.so /tmp/other.so", "/tmp/other.so"],
+          [" /tmp/first.so:libnss_wrapper.so /tmp/last.so ", "/tmp/first.so:/tmp/last.so"],
           ["/tmp/other.so", "/tmp/other.so"],
           ["", ""],
         ]) {

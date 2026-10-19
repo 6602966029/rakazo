@@ -217,6 +217,8 @@ describe("shared Linux desktop lifecycle", () => {
   it("drops libnss_wrapper before the screen browser exec", () => {
     const command = ensureScreenCommand(0, "bot", "token");
     expect(command).toContain("*libnss_wrapper.so");
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: generated shell parameter expansion
+    expect(command).toContain("${_rest%%[: ]*}");
     expect(command).toContain("unset LD_PRELOAD");
     expect(command).toContain('[ "$(cat /tmp/rakazo/desktop-targets/view-1)" != "$desired" ]');
     expect(command).toContain(

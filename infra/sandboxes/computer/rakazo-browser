@@ -394,13 +394,13 @@ if [ -d "$ACTUAL_PROFILE" ]; then
 fi
 
 # Chromium's singleton hand-off hangs with the image's NSS wrapper loaded.
-# Match the per-screen launcher: preserve other colon-separated preload entries.
+# Match the per-screen launcher: preserve other space- or colon-separated preload entries.
 if [ -n "${LD_PRELOAD:-}" ]; then
   _kept=""
   _rest="$LD_PRELOAD"
   while [ -n "$_rest" ]; do
     case "$_rest" in
-      *:*) _entry="${_rest%%:*}"; _rest="${_rest#*:}" ;;
+      *[:\ ]*) _entry="${_rest%%[: ]*}"; _rest="${_rest#*[: ]}" ;;
       *) _entry="$_rest"; _rest="" ;;
     esac
     case "$_entry" in
