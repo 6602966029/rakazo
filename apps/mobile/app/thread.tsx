@@ -1734,7 +1734,10 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   }
 
   async function deliver(attempt: SendAttempt, force = false) {
-    if (!readOnly) await feedback.send(attempt, force);
+    if (!readOnly) {
+      await feedback.send(attempt, force);
+      if (attempt.error === "Connect a model to start a run.") setModelRequired(true);
+    }
   }
 
   function afterDelivered(attempt: SendAttempt) {
@@ -2010,8 +2013,11 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const normalizedError = runError ? normalizeRunError(runError, t, locale) : null;
   const noModel =
     modelRequired ||
-    error === "Connect a model to start a run." ||
-    feedback.unsentSends.some((attempt) => attempt.error === "Connect a model to start a run.");
+    (uploadConfig?.needsModel !== false &&
+      (error === "Connect a model to start a run." ||
+        feedback.unsentSends.some(
+          (attempt) => attempt.error === "Connect a model to start a run.",
+        )));
   const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
