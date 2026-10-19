@@ -834,4 +834,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   Shape: "形状",
   "Shape {number}": "形状 {number}",
   "Fleet management": "集群管理",
+  "Try again": "重试",
+  "Your session expired": "会话已过期",
+  "The server had a problem": "服务器出现问题",
 };

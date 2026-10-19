@@ -1,0 +1,86 @@
+import { StyleSheet, Text, View } from "react-native";
+import { useI18n } from "../lib/i18n";
+import { native, useThemedStyles } from "../lib/native";
+import type { LoadFailureKind } from "../lib/user-error";
+import { NativeActionButton } from "./native-action-button";
+import { NativeSymbol } from "./native-symbol";
+
+const SYMBOLS = {
+  offline: { ios: "wifi.slash", android: "cloud-offline-outline" },
+  session: { ios: "person.crop.circle.badge.exclamationmark", android: "person-circle-outline" },
+  server: { ios: "exclamationmark.icloud", android: "cloud-outline" },
+  other: { ios: "exclamationmark.circle", android: "alert-circle-outline" },
+} as const;
+
+/** Centered, like the system's content-unavailable view: what went wrong, then what to do. */
+export function HomeErrorState({
+  kind,
+  message,
+  onRetry,
+  onSignIn,
+}: {
+  kind: LoadFailureKind;
+  /** Shown under the title only when the cause is unknown. */
+  message: string;
+  onRetry: () => void;
+  onSignIn: () => void;
+}) {
+  const { t } = useI18n();
+  const styles = useThemedStyles(createStyles);
+  const title =
+    kind === "offline"
+      ? t("Could not reach the server")
+      : kind === "session"
+        ? t("Your session expired")
+        : kind === "server"
+          ? t("The server had a problem")
+          : t("Could not load chats");
+  const detail = kind === "other" && message !== title ? message : null;
+  return (
+    <View accessibilityRole="alert" style={styles.container}>
+      <NativeSymbol {...SYMBOLS[kind]} size={40} color={native.secondaryLabel} />
+      <Text style={styles.title}>{title}</Text>
+      {detail ? <Text style={styles.detail}>{detail}</Text> : null}
+      <View style={styles.action}>
+        {kind === "session" ? (
+          <NativeActionButton label={t("Sign in")} fill={false} onPress={onSignIn} />
+        ) : (
+          <NativeActionButton
+            label={t("Try again")}
+            prominence="quiet"
+            size="compact"
+            onPress={onRetry}
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+
+function createStyles() {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 32,
+      // Sit slightly above the middle, where the eye expects the center.
+      paddingBottom: 64,
+      gap: 8,
+    },
+    title: {
+      marginTop: 4,
+      color: native.label,
+      fontSize: 17,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    detail: {
+      color: native.secondaryLabel,
+      fontSize: 15,
+      lineHeight: 20,
+      textAlign: "center",
+    },
+    action: { marginTop: 8 },
+  });
+}

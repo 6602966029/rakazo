@@ -45,6 +45,7 @@ import { BotAvatar } from "../components/bot-avatar";
 import type { BotOrganizationUpdate } from "../components/bot-organize-modal";
 import { BotOrganizeModal } from "../components/bot-organize-modal";
 import { GroupAvatar } from "../components/group-avatar";
+import { HomeErrorState } from "../components/home-error-state";
 import { InboxSwipeRow } from "../components/inbox-swipe-row";
 import { NativeSymbol } from "../components/native-symbol";
 import { WorkingIndicator } from "../components/WorkingIndicator";
@@ -72,6 +73,7 @@ import {
   selectedSpaceId,
   selectInitialSpace,
   selectSpace,
+  signOut,
 } from "../lib/api";
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { mobileBotAvatarPresentation } from "../lib/bot-avatar";
@@ -114,7 +116,7 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import { useSplitView } from "../lib/split-view";
-import { errorText } from "../lib/user-error";
+import { errorText, type LoadFailureKind, loadFailureKind } from "../lib/user-error";
 
 const FALLBACK_COLOR = botColors[3];
 // A list narrower than this, beside an open chat, keeps names whole by leaving out the title tag.
@@ -217,6 +219,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   const [spaces, setSpaces] = useState<MobileSpace[]>([]);
   const [me, setMe] = useState<Pick<MobileMe, "userId" | "spaceId" | "name"> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailure, setLoadFailure] = useState<LoadFailureKind | null>(null);
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -278,6 +281,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     const apiBase = currentApiBase();
     const generation = currentSessionGeneration();
     setError(null);
+    setLoadFailure(null);
     try {
       const [navigation, nextMe] = await Promise.all([
         rpc<MobileSpaceNavigation>("spaces/list"),
@@ -324,6 +328,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       )
         return;
       setError(errorText(err, t("Could not load bots")));
+      setLoadFailure(loadFailureKind(err));
     }
   }, []);
 
@@ -561,6 +566,11 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     },
     [embedded, pathname, router],
   );
+  const signInAgain = useCallback(async () => {
+    // A rejected session cannot sign out on the server; clearing it here is what matters.
+    await signOut().catch(() => undefined);
+    router.replace("/sign-in");
+  }, [router]);
 
   const chooseInboxSpace = useCallback(
     async (spaceId: string) => {
@@ -1200,6 +1210,9 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     ],
   );
 
+  // With nothing to show, the failure takes the screen; over saved chats it stays one line.
+  const showLoadFailure = Boolean(error && loadFailure) && !searching && listData.length === 0;
+
   if (!ready) {
     return (
       <View style={[styles.screen, styles.centered]}>
@@ -1344,7 +1357,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
                   />
                 ) : null}
 
-                {error ? <Text style={styles.error}>{error}</Text> : null}
+                {error && !showLoadFailure ? <Text style={styles.error}>{error}</Text> : null}
                 {spaceRecoveryId ? (
                   <Pressable
                     accessibilityRole="button"
@@ -1364,20 +1377,29 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
               </>
             }
             ListEmptyComponent={
-              <Text style={styles.empty}>
-                {query.trim() && searching
-                  ? searchLoading
-                    ? t("Searching…")
-                    : t("No results")
-                  : query.trim()
-                    ? t("No matching bots")
-                    : searching
-                      ? t("Search conversations, files, and routines")
-                      : // Before any load (an offline launch with nothing saved) the bots are unknown.
-                        me
-                        ? t("Tap + to create a bot")
-                        : null}
-              </Text>
+              showLoadFailure && loadFailure && error ? (
+                <HomeErrorState
+                  kind={loadFailure}
+                  message={error}
+                  onRetry={() => void refreshBots()}
+                  onSignIn={() => void signInAgain()}
+                />
+              ) : (
+                <Text style={styles.empty}>
+                  {query.trim() && searching
+                    ? searchLoading
+                      ? t("Searching…")
+                      : t("No results")
+                    : query.trim()
+                      ? t("No matching bots")
+                      : searching
+                        ? t("Search conversations, files, and routines")
+                        : // Before any load (an offline launch with nothing saved) the bots are unknown.
+                          me
+                          ? t("Tap + to create a bot")
+                          : null}
+                </Text>
+              )
             }
             ListFooterComponent={
               inboxNeedsCreateHint(listData) ? (
