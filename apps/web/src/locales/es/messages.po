@@ -125,7 +125,6 @@ msgid "{count} years"
 msgstr ""
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "{days}d ago"
 msgstr "hace {days} d"
 
@@ -134,12 +133,10 @@ msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
 msgstr ""
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "{hours}h ago"
 msgstr "hace {hours} h"
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "{minutes}m ago"
 msgstr "hace {minutes} min"
 
@@ -2736,7 +2733,6 @@ msgid "Jump to replied message: {excerpt}"
 msgstr "Ir al mensaje respondido: {excerpt}"
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "just now"
 msgstr "ahora mismo"
 
