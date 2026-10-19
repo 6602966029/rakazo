@@ -13,6 +13,8 @@ export interface AdapterContext {
   runId?: string;
   /** Opaque fence for releasing a graphical screen without tearing down its replacement. */
   screenLeaseId?: string;
+  /** Retain a completed run's screen for reuse by this bot. */
+  keepScreenWarm?: boolean;
   /** When releasing a screen after cancel, also stop orphaned browser work on that screen. */
   cancelRunWork?: boolean;
   signal: AbortSignal;
@@ -450,6 +452,7 @@ export interface AgentRunRequest {
   botId: string;
   threadId: string;
   runId: string;
+  routineId?: string | null;
   sourceMessageId?: string | null;
   prompt: string;
   instructions: string;
@@ -627,6 +630,8 @@ export interface VoiceTranscribeRequest {
 export interface BackgroundJobPayloads {
   "run.continue": { runId: string };
   "routine.wakeup": { routineId: string; scheduledFor: string };
+  /** Run a failed routine run once more; the payload names the failed run. */
+  "routine.retry": { runId: string };
   "computer.sleep": { computerId: string };
   "computer.update": { updateId: string };
   "computer.control-expire": { computerId: string; leaseId: string };
@@ -700,10 +705,12 @@ export interface TransactionalEmail {
   html?: string;
 }
 
+export type MessagingReceipt = "typing" | "reaction";
+
 export interface MessagingCapabilities {
   direct: boolean;
   groups: boolean;
-  typing: boolean;
+  receipt: MessagingReceipt | null;
 }
 
 /** One messaging platform behind the chat surface (sendblue, slack, …). */
@@ -748,6 +755,10 @@ export interface MessagingInboundMessage {
   participants: string[];
   content: string;
   mediaUrl: string | null;
+  /** Files the platform only serves to the bot's credentials (Slack url_private, …). */
+  attachments?: MessagingInboundAttachment[];
+  /** The platform reports that this group message @-mentions the bot. */
+  mentionsBot?: boolean;
   /** Team-room workspace/team id when the platform reports one (Slack team_id, …). */
   workspaceId?: string;
   /** Stable conversation key within the workspace (channel id, DM key, …). */
@@ -760,6 +771,15 @@ export interface MessagingInboundMessage {
   senderIsBot?: boolean;
   /** Display names for room participants when the platform reports them. */
   participantNames?: string[];
+}
+
+/** An inbound file whose bytes are fetched with the platform's own credentials. */
+export interface MessagingInboundAttachment {
+  name: string;
+  mimeType: string;
+  /** Size the platform reported, when known. */
+  size?: number;
+  fetch: () => Promise<Uint8Array>;
 }
 
 /** Provider-neutral inbound team/external room message for TeamChatBridge. */
@@ -778,6 +798,7 @@ export interface TeamChatInboundMessage {
   senderName: string;
   senderIsBot?: boolean;
   content: string;
+  attachments?: MessagingInboundAttachment[];
 }
 
 export interface TeamChatSendRequest {
