@@ -2,9 +2,12 @@ import { createHash } from "node:crypto";
 import { ORPCError } from "@orpc/server";
 import { runContinueJob } from "@rakazo/adapter-kit";
 import {
+  createPluginMarketplace,
   persistPreparedSecret,
+  pluginPreviewDto,
   prepareApiInstall,
   prepareGraphqlInstall,
+  previewPluginInstall,
   recordMcpServerHealth,
   sanitizeComposioError,
   verifyMcpInstall,
@@ -37,6 +40,7 @@ import {
   promptFocus,
   startOnboarding,
 } from "../onboarding.js";
+import { installPlugin } from "../plugin-installs.js";
 import type { RouterContext } from "./context.js";
 import { computerContext, isUniqueViolation } from "./shared.js";
 
@@ -54,7 +58,13 @@ export function mcpRoutes(ctx: RouterContext) {
     announceMcpServer,
     authed,
   } = ctx;
+  const pluginMarketplace = createPluginMarketplace(deps.pluginMarketplaceRead);
   return {
+    marketplace: {
+      catalog: authed.marketplace.catalog.handler(({ input }) =>
+        pluginMarketplace.catalog(input.query),
+      ),
+    },
     capabilities: {
       list: authed.capabilities.list.handler(async ({ context }) => {
         const rows = await deps.prisma.capabilityInstall.findMany({
@@ -92,6 +102,19 @@ export function mcpRoutes(ctx: RouterContext) {
         }
       }),
       install: authed.capabilities.install.handler(async ({ context, input }) => {
+        if (input.kind === "plugin") {
+          return installPlugin(
+            {
+              prisma: deps.prisma,
+              secrets: deps.secrets,
+              fetcher: deps.pluginRepoFetcher,
+              assertEndpoint: (endpoint) => assertMcpRemoteEndpoint(endpoint, deps),
+            },
+            context.actor,
+            input,
+            context.signal,
+          );
+        }
         let source = input.source.trim();
         let config = input.config;
         const credential = input.credential?.trim() || undefined;
@@ -213,7 +236,28 @@ export function mcpRoutes(ctx: RouterContext) {
           createdAt: row.createdAt.toISOString(),
         };
       }),
+      pluginPreview: authed.capabilities.pluginPreview.handler(async ({ context, input }) => {
+        try {
+          const preview = await previewPluginInstall({
+            source: input.source,
+            signal: context.signal,
+            fetcher: deps.pluginRepoFetcher,
+          });
+          for (const server of preview.mcpServers) {
+            await assertMcpRemoteEndpoint(server.endpoint, deps);
+          }
+          return {
+            ...pluginPreviewDto(preview),
+            pinnedSource: `${preview.source.gitUrl}@${preview.resolvedSha}${preview.source.subdir ? `#${preview.source.subdir}` : ""}`,
+          };
+        } catch {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Could not preview a supported plugin from this repository",
+          });
+        }
+      }),
       remove: authed.capabilities.remove.handler(async ({ context, input }) => {
+        const notify: Array<{ threadId: string; seq: number }> = [];
         await deps.prisma.$transaction(async (tx) => {
           const existing = await tx.capabilityInstall.findFirst({
             where: {
@@ -223,6 +267,20 @@ export function mcpRoutes(ctx: RouterContext) {
             },
           });
           if (!existing) return;
+          if (existing.kind === "plugin") {
+            const servers = await tx.mcpServer.findMany({
+              where: {
+                installId: existing.id,
+                spaceId: context.actor.spaceId,
+                userId: context.actor.userId,
+              },
+              select: { id: true, secretId: true },
+            });
+            for (const server of servers) {
+              notify.push(...(await removeMcpServerInTransaction(tx, context.actor, server)));
+            }
+            await tx.agentSkill.deleteMany({ where: { installId: existing.id } });
+          }
           await tx.capabilityInstall.delete({ where: { id: existing.id } });
           if (existing.secretId) {
             const shared = await tx.capabilityInstall.count({
@@ -239,6 +297,7 @@ export function mcpRoutes(ctx: RouterContext) {
             }
           }
         });
+        for (const event of notify) await deps.events.notify(event.threadId, event.seq);
         return { ok: true as const };
       }),
     },
