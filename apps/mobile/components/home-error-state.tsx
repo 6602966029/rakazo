@@ -79,7 +79,7 @@ function createStyles() {
       justifyContent: "center",
       paddingHorizontal: 32,
       // Sit above the middle, where the eye expects the center.
-      paddingBottom: 140,
+      paddingBottom: 210,
       gap: 8,
     },
     title: {
