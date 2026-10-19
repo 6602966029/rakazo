@@ -89,6 +89,11 @@ export interface ComputerRef {
   started?: boolean;
 }
 
+export type WorkspaceDirectoryRequest =
+  | { action: "ensure"; paths: string[] }
+  | { action: "list" }
+  | { action: "remove"; parent: ".browser-profiles" | "bots"; names: string[] };
+
 export interface CommandRequest {
   argv: string[];
   cwd?: string;

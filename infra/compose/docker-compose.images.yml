@@ -120,11 +120,15 @@ services:
     mem_limit: 1536m
     env_file:
       - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_BROWSER_DSN: ${SENTRY_BROWSER_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SANDBOX_HOST_URL: ${SANDBOX_HOST_URL:-}
+      SANDBOX_HOST_TOKEN: ${SANDBOX_HOST_TOKEN:-}
       SECRET_STORE: ${SECRET_STORE:-encrypted}
       INFISICAL_URL: ${INFISICAL_URL:-}
       INFISICAL_ALLOW_INSECURE_HTTP: ${INFISICAL_ALLOW_INSECURE_HTTP:-false}
@@ -199,10 +203,14 @@ services:
     mem_limit: 2g
     env_file:
       - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SANDBOX_HOST_URL: ${SANDBOX_HOST_URL:-}
+      SANDBOX_HOST_TOKEN: ${SANDBOX_HOST_TOKEN:-}
       SECRET_STORE: ${SECRET_STORE:-encrypted}
       INFISICAL_URL: ${INFISICAL_URL:-}
       INFISICAL_ALLOW_INSECURE_HTTP: ${INFISICAL_ALLOW_INSECURE_HTTP:-false}

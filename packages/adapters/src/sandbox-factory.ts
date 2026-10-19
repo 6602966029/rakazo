@@ -13,6 +13,8 @@ import { NoneSandboxProvider } from "./none-sandbox.js";
 import { RailwaySandboxProvider } from "./railway-sandbox.js";
 
 export interface SandboxProviderOptions {
+  hostComputerUrl?: string;
+  hostComputerToken?: string;
   supervisorUrl?: string;
   supervisorToken?: string;
   e2bApiKey?: string;

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, signup } from "./helpers";
 
-for (const platform of ["darwin", "win32"]) {
+for (const platform of ["darwin", "win32", "linux"]) {
   test(`host computer choice explains file access on ${platform}`, async ({ page }, testInfo) => {
     await signup(
       page,
@@ -14,6 +14,14 @@ for (const platform of ["darwin", "win32"]) {
       Object.defineProperty(window, "rakazoDesktop", {
         value: {
           platform,
+          computer: {
+            requestAccess: async () => false,
+            revokeAccess: async () => {},
+            onConfigure: (listener: () => void) => {
+              window.addEventListener("test-computer-configure", listener);
+              return () => window.removeEventListener("test-computer-configure", listener);
+            },
+          },
           window: {
             close: async () => {},
             minimize: async () => {},
@@ -27,12 +35,13 @@ for (const platform of ["darwin", "win32"]) {
         },
       });
     }, platform);
+    let chosen: "this-mac" | null = null;
     await page.route(/\/rpc\/(me|bootstrap)$/, async (route) => {
       const response = await route.fetch();
       const body = await response.json();
       const me = route.request().url().endsWith("/me") ? body.json : body.json.me;
       me.canChooseHostComputer = true;
-      me.computerHost = null;
+      me.computerHost = chosen;
       await route.fulfill({ response, json: body });
     });
     await page.reload();
@@ -56,6 +65,26 @@ for (const platform of ["darwin", "win32"]) {
     await expect(dialog.getByText(/recommended/i)).toHaveCount(0);
     await expect(dialog.getByRole("button", { name: `Use ${host}` })).toBeVisible();
     await captureScreenshot(page, testInfo, `host-computer-choice-${platform}`);
+    let updates = 0;
+    await page.route(/\/rpc\/deployment\/update$/, async (route) => {
+      updates++;
+      chosen = "this-mac";
+      await route.fulfill({ json: { json: {} } });
+    });
+    await dialog.getByRole("button", { name: `Use ${host}` }).click();
+    await expect(dialog).toBeVisible();
+    expect(updates).toBe(0);
+    await page.evaluate(() => {
+      window.rakazoDesktop!.computer!.requestAccess = async () => true;
+    });
+    await dialog.getByRole("button", { name: `Use ${host}` }).click();
+    await expect(dialog).toBeHidden();
+    expect(updates).toBe(1);
+    await page.evaluate(() => window.dispatchEvent(new Event("test-computer-configure")));
+    await expect(dialog).toBeVisible();
+    await captureScreenshot(page, testInfo, `host-computer-configure-${platform}`);
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).toBeHidden();
   });
 }
 

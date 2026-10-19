@@ -27,6 +27,37 @@ describe("host-aware sandbox", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
+  it("never falls back to backend execution when the native connection is missing", async () => {
+    const provision = vi.spyOn(DesktopSandboxProvider.prototype, "provision");
+    const sandbox = createRunSandbox("docker", {
+      prisma: {
+        deploymentSettings: { findUnique: vi.fn(async () => ({ computerHost: "this-mac" })) },
+      } as unknown as PrismaClient,
+    });
+    await expect(sandbox.provision({ botId: "host", homePath: "/unused" }, ctx)).rejects.toThrow(
+      "requires the desktop app",
+    );
+    expect(provision).not.toHaveBeenCalled();
+  });
+
+  it("refuses an old host reference once the deployment switches back to Docker", async () => {
+    const host = new DesktopSandboxProvider();
+    const execute = vi.spyOn(host, "execute");
+    const sandbox = new HostAwareSandbox(new FakeSandboxProvider(), host, async () => false);
+    const computer: ComputerRef = {
+      id: "old-host",
+      botId: "host",
+      kind: "desktop",
+      providerRef: "old-host",
+    };
+    const attempt = async () => {
+      for await (const _event of sandbox.execute(computer, { argv: ["echo", "no"] }, ctx)) {
+      }
+    };
+    await expect(attempt()).rejects.toThrow("disabled");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("exposes and routes page commands through the production Docker wrapper", async () => {
     const result = {
       ok: true,

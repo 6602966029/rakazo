@@ -2883,6 +2883,10 @@ msgstr "מקומי"
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
 msgstr "גישה מקומית מאפשרת לבוטים להריץ פקודות בלי לבקש אישור. לא מומלץ להפעיל אותה בשרתים משותפים או ציבוריים."
 
+#: src/pages/HostComputerPrompt.tsx
+msgid "Local computer access requires the latest desktop app."
+msgstr ""
+
 #: src/pages/LocalSettings.tsx
 msgid "Local Server Settings"
 msgstr "הגדרות השרת המקומי"
