@@ -186,6 +186,44 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+describe("BotSettings Mac voices", () => {
+  afterEach(() => {
+    vi.mocked(rpc.voice.voices).mockReset().mockResolvedValue([]);
+    vi.mocked(rpc.voice.status).mockReset().mockResolvedValue({
+      configured: false,
+      ready: false,
+      transcribe: false,
+      provider: null,
+      voiceId: "",
+    });
+  });
+
+  it("keeps Mac voices when the cloud voice list fails", async () => {
+    vi.mocked(rpc.voice.status).mockResolvedValue({
+      configured: true,
+      ready: false,
+      transcribe: false,
+      provider: "elevenlabs",
+      voiceId: "",
+    });
+    vi.mocked(rpc.voice.voices).mockImplementation(async (input) => {
+      if (input?.provider === "macos") {
+        return [{ id: "macos:Samantha", name: "Samantha", label: "Samantha", provider: "macos" }];
+      }
+      throw new Error("expired key");
+    });
+    await render();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const labels = [...container.querySelectorAll("option")].map((option) => option.textContent);
+    expect(labels).toContain("Samantha");
+  });
+});
+
 describe("BotSettings model choices", () => {
   it("submits DeepSeek API ids and does not offer a display label", async () => {
     vi.mocked(rpc.models.credentials).mockResolvedValueOnce([

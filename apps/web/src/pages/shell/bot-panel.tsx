@@ -287,16 +287,23 @@ export function BotSettings({
     }) => Promise<void>
   >(async () => undefined);
   useEffect(() => {
-    void Promise.all([rpc.voice.status(), rpc.voice.voices({})])
-      .then(async ([status, listed]) => {
-        if (status.provider === "macos") {
-          setVoices(listed);
-          return;
-        }
-        const mac = await rpc.voice.voices({ provider: "macos" }).catch(() => []);
-        setVoices(mac.length ? [...listed, ...mac] : listed);
-      })
-      .catch(() => setVoices([]));
+    let current = true;
+    void (async () => {
+      const status = await rpc.voice.status().catch(() => null);
+      if (!current) return;
+      if (status?.provider === "macos") {
+        const listed = await rpc.voice.voices({}).catch(() => []);
+        if (current) setVoices(listed);
+        return;
+      }
+      // A failed cloud list must not drop voices that work without that account.
+      const [listed, mac] = await Promise.all([
+        rpc.voice.voices({}).catch(() => []),
+        rpc.voice.voices({ provider: "macos" }).catch(() => []),
+      ]);
+      if (!current) return;
+      setVoices(mac.length ? [...listed, ...mac] : listed);
+    })();
     void Promise.all([rpc.models.credentials(), rpc.models.list(), rpc.me()])
       .then(([nextCredentials, nextCatalog, nextMe]) => {
         setCredentials(nextCredentials);
@@ -307,6 +314,9 @@ export function BotSettings({
         setModelMetaReady(true);
       })
       .catch(() => undefined);
+    return () => {
+      current = false;
+    };
   }, []);
 
   const connectedOptions = connectedModelChoices(credentials, catalog);

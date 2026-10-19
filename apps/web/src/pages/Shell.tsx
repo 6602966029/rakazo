@@ -243,6 +243,7 @@ import {
   spaceSwitchDecision,
   useSpaceEpoch,
 } from "../lib/space-switch";
+import { spokenTextForRequest } from "../lib/speak-request";
 import {
   activeThreadRuns,
   applyThreadSendReceipt,
@@ -2001,6 +2002,10 @@ function SpaceShell() {
     () => userVisibleMessages(activeSnapshot?.messages ?? [], { includePeerReceipts: true }),
     [activeSnapshot?.messages],
   );
+  const macVoiceBotIds = useMemo(
+    () => new Set(bots.filter((bot) => bot.macVoice).map((bot) => bot.id)),
+    [bots],
+  );
   const transcriptArtifactTarget = useMemo<ArtifactTarget>(
     () => (inGroup ? { groupId: groupId ?? "" } : { botId: active?.id ?? "" }),
     [active?.id, groupId, inGroup],
@@ -2547,19 +2552,23 @@ function SpaceShell() {
   }, []);
   const speakingMessageIdRef = useRef(speakingMessageId);
   speakingMessageIdRef.current = speakingMessageId;
+  const speakRequestRef = useRef(0);
   const speakMessage = useCallback((message: ThreadMessage) => {
     if (speakingMessageIdRef.current === message.id) {
+      speakRequestRef.current += 1;
       speaker.stop();
       return;
     }
     const id = message.botId ?? activeBotId.current;
     if (!id) return;
+    // The lookup is async. A slower reply for an earlier click must not start later.
+    const request = ++speakRequestRef.current;
+    speaker.stop();
     void rpc.voice
       .spokenText({ botId: id, messageId: message.id, speakOnHost: true })
       .then((spoken) => {
-        if (!spoken.hostSpoken && spoken.text) {
-          void speaker.speak(spoken.text, { botId: id, messageId: message.id });
-        }
+        const text = spokenTextForRequest(request, speakRequestRef.current, spoken);
+        if (text) void speaker.speak(text, { botId: id, messageId: message.id });
       })
       .catch(() => undefined);
   }, []);
@@ -3964,7 +3973,7 @@ function SpaceShell() {
             onBotChanged={refreshBots}
             onAddRoutine={addSkillRoutine}
             voiceReady={Boolean(voiceStatus?.ready)}
-            macVoiceBotIds={new Set(bots.filter((bot) => bot.macVoice).map((bot) => bot.id))}
+            macVoiceBotIds={macVoiceBotIds}
             speakingMessageId={speakingMessageId}
             onSpeak={speakMessage}
             onOpenComputer={onOpenComputer}
