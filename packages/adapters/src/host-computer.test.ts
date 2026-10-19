@@ -13,10 +13,12 @@ import path from "node:path";
 import type { ComputerRef, ProcessEvent } from "@rakazo/adapter-kit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  checkpointComputerWorkspace,
   ensureComputerWorkspaceLayout,
   removeComputerWorkspaceDirectories,
 } from "./computer-workspace.js";
 import { win32NtRelativeAvailable } from "./desktop-sandbox-win32-path.js";
+import { LocalAgentHomeStore } from "./home.js";
 import { hostComputerDeadlineMs } from "./host-computer-protocol.js";
 import { HostComputerSandbox } from "./host-computer-sandbox.js";
 import { startHostComputerServer } from "./host-computer-server.js";
@@ -301,9 +303,7 @@ describe("native host computer transport", () => {
     await expect(
       client.readFile(computer, "large.bin", context, { maxBytes: 10 * 1024 * 1024 }),
     ).rejects.toThrow("exceeds");
-    expect(await collect(client.exportWorkspace(computer, context))).toMatchObject([
-      { path: "nested/file.bin", content },
-    ]);
+    await expect(collect(client.exportWorkspace(computer, context))).rejects.toThrow("exceeds");
     await expect(client.readFile(computer, "../../outside", context)).rejects.toThrow();
     await expect(
       client.writeFile(computer, { path: "../outside", content }, context),
@@ -311,6 +311,35 @@ describe("native host computer transport", () => {
     await expect(
       client.readFile(computer, "nested/file.bin", context, { maxBytes: 2 }),
     ).rejects.toThrow();
+  });
+
+  it("preserves the saved workspace when a native file grows beyond the transfer limit", async () => {
+    const home = new LocalAgentHomeStore(path.join(root, "saved"));
+    const filePath = path.join(
+      root,
+      "desktop-computers",
+      computer.id.slice("desktop-".length),
+      "result.bin",
+    );
+    await client.writeFile(
+      computer,
+      { path: "result.bin", content: new TextEncoder().encode("saved result") },
+      context,
+    );
+    await checkpointComputerWorkspace(home, client, "test-bot", computer, context);
+    await writeFile(filePath, Buffer.alloc(8 * 1024 * 1024 + 1));
+    await client.writeFile(
+      computer,
+      { path: "a-partial.txt", content: new TextEncoder().encode("unsaved change") },
+      context,
+    );
+    await expect(
+      checkpointComputerWorkspace(home, client, "test-bot", computer, context),
+    ).rejects.toThrow("exceeds 8388608 bytes");
+    expect(await readFile(path.join(home.pathFor("test-bot"), "result.bin"), "utf8")).toBe(
+      "saved result",
+    );
+    expect(await readdir(home.pathFor("test-bot"))).toEqual(["result.bin"]);
   });
 
   it.each(["revoke", "cancel"])(
