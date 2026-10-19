@@ -50,6 +50,13 @@ for (const platform of ["darwin", "win32", "linux"]) {
     await expect(dialog).toHaveAccessibleDescription(
       /Local access lets bots run commands without asking\. Avoid it on shared or public servers\./,
     );
+    const configuredProfile = page.waitForResponse(/\/rpc\/me$/);
+    await page.evaluate(() => window.dispatchEvent(new Event("test-computer-configure")));
+    await (await configuredProfile).finished();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    await expect(dialog.getByRole("button", { name: "Close", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeVisible();
     const host = platform === "darwin" ? "this Mac" : "this computer";
     await expect(
       dialog.getByText(

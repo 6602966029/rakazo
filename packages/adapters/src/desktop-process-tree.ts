@@ -99,7 +99,7 @@ function windowsProcessTree(pid: number): NativeProcessTree {
 
 // The wrapper waits on a private pipe until the parent assigns its Windows Job. Commands and
 // credentials go through that pipe, never the command line. Descendants inherit the Job.
-// Detach the inner command from libuv's wrapper-lifetime Job; our own Job still contains it.
+// Keep console applications attached; our Job owns descendants across wrapper exit.
 const WINDOWS_COMMAND_WRAPPER = `
 const { spawn } = require('node:child_process');
 let input = '';
@@ -107,7 +107,7 @@ process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => { input += chunk; });
 process.stdin.on('end', () => {
   const { argv, env } = JSON.parse(input);
-  const child = spawn(argv[0], argv.slice(1), { env, shell: false, stdio: ['ignore', 'inherit', 'inherit'], windowsHide: true, detached: true });
+  const child = spawn(argv[0], argv.slice(1), { env, shell: false, stdio: ['ignore', 'inherit', 'inherit'], windowsHide: true });
   child.on('error', (error) => { console.error(error.message); process.exitCode = 1; });
   child.on('exit', (code) => { process.exitCode = code ?? 1; });
 });

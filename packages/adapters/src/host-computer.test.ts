@@ -82,13 +82,11 @@ describe("native host computer transport", () => {
   });
 
   it("consumes keepalive frames without exposing them as command output", async () => {
-    const mock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(
-        new Response('{"heartbeat":true}\n{"value":{"type":"exit","code":0}}\n{"done":true}\n', {
-          status: 200,
-        }),
-      );
+    const mock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response('{"heartbeat":true}\n{"value":{"type":"exit","code":0}}\n{"done":true}\n', {
+        status: 200,
+      }),
+    );
     try {
       expect(await collect(client.execute(computer, { argv: ["command"] }, context))).toEqual([
         { type: "exit", code: 0 },
@@ -181,8 +179,9 @@ describe("native host computer transport", () => {
         .map((event) => event.data)
         .join("")
         .trim(),
+      JSON.stringify(events),
     ).toBe("native-shell-ok");
-    expect(events.at(-1)).toEqual({ type: "exit", code: 0 });
+    expect(events.at(-1), JSON.stringify(events)).toEqual({ type: "exit", code: 0 });
   });
 
   it("creates and cleans Team folders without Unix command tools", async () => {
@@ -302,6 +301,9 @@ describe("native host computer transport", () => {
     await expect(
       client.readFile(computer, "large.bin", context, { maxBytes: 10 * 1024 * 1024 }),
     ).rejects.toThrow("exceeds");
+    expect(await collect(client.exportWorkspace(computer, context))).toMatchObject([
+      { path: "nested/file.bin", content },
+    ]);
     await expect(client.readFile(computer, "../../outside", context)).rejects.toThrow();
     await expect(
       client.writeFile(computer, { path: "../outside", content }, context),

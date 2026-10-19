@@ -38,7 +38,7 @@ export function HostComputerPrompt({
           .me()
           .then((me) => {
             if (me.canChooseHostComputer) {
-              setConfiguring(true);
+              setConfiguring(me.computerHost != null);
               setOpen(true);
             }
           })

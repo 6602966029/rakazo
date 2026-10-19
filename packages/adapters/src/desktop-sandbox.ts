@@ -812,8 +812,7 @@ async function* walkDesktopWorkspace(
     const info = await stat(child);
     if (info.isDirectory()) yield* walkDesktopWorkspace(home, relative, maxFileBytes);
     else if (info.isFile()) {
-      if (maxFileBytes !== undefined && info.size > maxFileBytes)
-        throw new Error(`computer file exceeds ${maxFileBytes} bytes`);
+      if (maxFileBytes !== undefined && info.size > maxFileBytes) continue;
       yield {
         path: relative,
         content: new Uint8Array(await readFile(child)),

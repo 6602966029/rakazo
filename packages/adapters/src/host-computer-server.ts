@@ -230,8 +230,7 @@ export async function startHostComputerServer(options: {
         break;
       case "exportWorkspace":
         for await (const file of provider.exportWorkspace(computer)) {
-          if (file.content.byteLength > HOST_COMPUTER_MAX_FILE_BYTES)
-            throw new Error("File too large");
+          if (file.content.byteLength > HOST_COMPUTER_MAX_FILE_BYTES) continue;
           yield { ...file, content: Buffer.from(file.content).toString("base64") };
         }
         break;
