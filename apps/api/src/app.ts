@@ -964,20 +964,28 @@ export async function createApp(
 
   app.route(
     "/",
-    healthRoutes(() => ({
-      runtime: env.agentRuntime,
-      sandbox: env.sandboxProvider,
-      composio: Boolean(stack.composio),
-      pipedream: Boolean(pipedream),
-      messaging: Boolean(messaging),
-      email: email?.describe().id ?? null,
-      billing: billingProvider?.describe().id ?? null,
-      jobs: jobKind,
-      realtime: realtime.describe().id,
-      secrets: secrets.describe(),
-      degraded: secrets.describe().capabilities.degraded ?? false,
-      revision: env.gitSha ?? null,
-    })),
+    healthRoutes(
+      () => ({
+        runtime: env.agentRuntime,
+        sandbox: env.sandboxProvider,
+        composio: Boolean(stack.composio),
+        pipedream: Boolean(pipedream),
+        messaging: Boolean(messaging),
+        email: email?.describe().id ?? null,
+        billing: billingProvider?.describe().id ?? null,
+        jobs: jobKind,
+        realtime: realtime.describe().id,
+        secrets: secrets.describe(),
+        degraded: secrets.describe().capabilities.degraded ?? false,
+        revision: env.gitSha ?? null,
+      }),
+      // The statement timeout ends a stuck probe on the server too, freeing its connection.
+      () =>
+        prisma.$transaction([
+          prisma.$executeRaw`SET LOCAL statement_timeout = 1500`,
+          prisma.$queryRaw`SELECT 1`,
+        ]),
+    ),
   );
 
   return {
