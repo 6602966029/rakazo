@@ -614,6 +614,139 @@ describe("OpenAPI connector import", () => {
     ).toThrow("unsafe header Authorization");
   });
 
+  const prepareOpenApiFrom = (body: string) => {
+    const fetch = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => {
+      return new Response(body);
+    });
+    const prepared = prepareApiInstall({
+      source: "https://api.example.test/openapi",
+      config: { openApi: true, auth: { type: "none" } },
+      remote: {
+        fetch: fetch as unknown as typeof globalThis.fetch,
+        resolveHostname: async () => [{ address: "203.0.113.10", family: 4 as const }],
+      },
+    });
+    return { fetch, prepared };
+  };
+
+  it("imports an OpenAPI document published as YAML", async () => {
+    const { fetch, prepared } = prepareOpenApiFrom(
+      [
+        "openapi: 3.0.3",
+        "servers:",
+        "  - url: https://api.example.test/v1",
+        "paths:",
+        "  /contacts/{contactId}:",
+        "    get:",
+        "      operationId: getContact",
+        "      parameters:",
+        "        - name: contactId",
+        "          in: path",
+        "          required: true",
+        "          schema: { type: string }",
+        "",
+      ].join("\n"),
+    );
+
+    await expect(prepared).resolves.toMatchObject({
+      source: "https://api.example.test/v1",
+      operationCount: 1,
+      config: {
+        operations: [
+          {
+            id: "getContact",
+            method: "GET",
+            path: "/contacts/{contactId}",
+            inputSchema: { required: ["contactId"] },
+          },
+        ],
+      },
+    });
+    const headers = new Headers(fetch.mock.calls[0]![1]?.headers);
+    expect(headers.get("accept")).toContain("application/yaml");
+  });
+
+  it("parses YAML mappings without duplicate-key checks or warnings", async () => {
+    const emitWarning = vi.spyOn(process, "emitWarning").mockImplementation(() => undefined);
+    try {
+      // Skipping duplicate-key checks keeps large mappings linear; the last key wins, as with
+      // JSON.parse.
+      const { prepared } = prepareOpenApiFrom(
+        [
+          "servers:",
+          "  - url: https://api.example.test/old",
+          "servers:",
+          "  - url: https://api.example.test/v1",
+          "x-note: !private-tag kept-out-of-logs",
+          "paths:",
+          "  /contacts:",
+          "    get: { operationId: listContacts }",
+          "",
+        ].join("\n"),
+      );
+
+      await expect(prepared).resolves.toMatchObject({ source: "https://api.example.test/v1" });
+      expect(emitWarning).not.toHaveBeenCalled();
+    } finally {
+      emitWarning.mockRestore();
+    }
+  });
+
+  it("allows shared YAML anchors but refuses circular ones", async () => {
+    const spec = (extra: string) =>
+      [
+        "servers: [{ url: https://api.example.test/v1 }]",
+        "x-id: &id { type: string }",
+        "paths:",
+        "  /contacts/{contactId}:",
+        "    get:",
+        "      operationId: getContact",
+        "      parameters:",
+        "        - { name: contactId, in: path, required: true, schema: *id }",
+        "        - { name: tag, in: query, schema: *id }",
+        extra,
+        "",
+      ].join("\n");
+
+    await expect(prepareOpenApiFrom(spec("")).prepared).resolves.toMatchObject({
+      config: {
+        operations: [
+          {
+            inputSchema: {
+              properties: { contactId: { type: "string" }, tag: { type: "string" } },
+            },
+          },
+        ],
+      },
+    });
+    await expect(
+      prepareOpenApiFrom(spec("x-loop: &loop { items: [*loop] }")).prepared,
+    ).rejects.toThrow(/^OpenAPI document is not valid JSON or YAML$/);
+  });
+
+  it("still imports an OpenAPI document published as JSON", async () => {
+    const { prepared } = prepareOpenApiFrom(
+      JSON.stringify({
+        openapi: "3.0.3",
+        servers: [{ url: "https://api.example.test/v1" }],
+        paths: { "/contacts": { get: { operationId: "listContacts" } } },
+      }),
+    );
+
+    await expect(prepared).resolves.toMatchObject({
+      source: "https://api.example.test/v1",
+      config: { operations: [{ id: "listContacts", method: "GET", path: "/contacts" }] },
+    });
+  });
+
+  it("refuses an OpenAPI document that is neither JSON nor YAML", async () => {
+    for (const body of ["<!doctype html><title>Sign in</title>", "just text", "- a\n- b", ""]) {
+      await expect(prepareOpenApiFrom(body).prepared).rejects.toThrow(
+        /^OpenAPI document is not valid JSON or YAML$/,
+      );
+    }
+  });
+
   it("refuses credentials embedded in a persisted MCP URL", async () => {
     await expect(
       verifyMcpInstall({

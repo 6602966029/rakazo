@@ -7,6 +7,7 @@ import type {
   SecretStore,
 } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
+import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import {
   AuthSchema,
@@ -394,7 +395,10 @@ export async function prepareApiInstall(input: {
   let operationsValue = input.config.operations;
   if (input.config.openApi === true || input.config.openapi === true) {
     const documentUrl = new URL(input.source);
-    const documentHeaders: Record<string, string> = { accept: "application/json", ...headers };
+    const documentHeaders: Record<string, string> = {
+      accept: "application/json, application/yaml;q=0.9",
+      ...headers,
+    };
     applyCredential(documentUrl, documentHeaders, auth, input.credential);
     const document = await loadOpenApiDocument(documentUrl, documentHeaders, input.signal, remote);
     const imported = importOpenApiDocument(document);
@@ -427,10 +431,59 @@ async function loadOpenApiDocument(
     if (size > 2_000_000) throw new Error("OpenAPI document is too large");
     const { text, truncated } = await readBoundedText(response, 2_000_000);
     if (truncated) throw new Error("OpenAPI document is too large");
-    return JSON.parse(text) as Record<string, unknown>;
+    return parseOpenApiText(text);
   } finally {
     await safeFetch.close().catch(() => undefined);
   }
+}
+
+/** OpenAPI documents may be published as JSON or YAML; JSON is tried first. */
+function parseOpenApiText(text: string): Record<string, unknown> {
+  let document: unknown;
+  try {
+    document = JSON.parse(text);
+  } catch {
+    try {
+      // Without duplicate-key checks large mappings parse in linear time; the last key wins, as
+      // with JSON.parse. Warnings would print document excerpts outside the logger.
+      const parsed: unknown = parseYaml(text, { uniqueKeys: false, logLevel: "error" });
+      // An anchor that refers to its own ancestor parses into a circular object.
+      document = isCircular(parsed) ? undefined : parsed;
+    } catch {
+      document = undefined;
+    }
+  }
+  if (!document || typeof document !== "object" || Array.isArray(document)) {
+    throw new Error("OpenAPI document is not valid JSON or YAML");
+  }
+  return document as Record<string, unknown>;
+}
+
+/** Iterative depth-first walk; shared (non-circular) nodes are visited once. */
+function isCircular(root: unknown): boolean {
+  const open = new Set<object>();
+  const finished = new Set<object>();
+  const stack: Array<[object, Iterator<unknown>]> = [];
+  const enter = (value: unknown): boolean => {
+    if (!value || typeof value !== "object" || finished.has(value)) return false;
+    if (open.has(value)) return true;
+    open.add(value);
+    stack.push([value, Object.values(value)[Symbol.iterator]()]);
+    return false;
+  };
+  if (enter(root)) return true;
+  while (stack.length > 0) {
+    const [node, children] = stack[stack.length - 1]!;
+    const next = children.next();
+    if (!next.done) {
+      if (enter(next.value)) return true;
+      continue;
+    }
+    stack.pop();
+    open.delete(node);
+    finished.add(node);
+  }
+  return false;
 }
 
 export function importOpenApiDocument(document: Record<string, unknown>): {
