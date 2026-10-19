@@ -770,11 +770,14 @@ function SpaceShell() {
   }, [bootstrapMe?.phoneCallsEnabled]);
   const currentSpaceId = selectedSpaceId() ?? bootstrapMe?.spaceId ?? null;
   // null: settings follow the space the app is showing.
-  const [settingsSpaceId, setSettingsSpaceId] = useState<string | null>(null);
+  const [settingsSpaceId, setSettingsSpaceId] = usePreloadRecoveryState<string | null>(
+    "settingsSpaceId",
+    null,
+  );
   const settingsSpace =
     spaces.find((space) => space.id === (settingsSpaceId ?? currentSpaceId)) ?? null;
   // Never fall back to another space's settings when the edited space goes away.
-  const settingsSpaceGone = settingsSpaceId !== null && !settingsSpace;
+  const settingsSpaceGone = initialBotsLoaded && settingsSpaceId !== null && !settingsSpace;
   useEffect(() => {
     if (!settingsSpaceGone) return;
     setSettingsOpen(false);
@@ -4976,7 +4979,7 @@ function SpaceShell() {
       </Suspense>
 
       <Suspense fallback={null}>
-        {settingsOpen && !settingsSpaceGone ? (
+        {settingsOpen && (settingsSpaceId === null || settingsSpace) ? (
           <SettingsOverlay
             space={settingsSpace}
             spaces={spaces}

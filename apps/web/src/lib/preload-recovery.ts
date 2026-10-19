@@ -58,17 +58,24 @@ export function installPreloadRecovery(
   target: PreloadRecoveryWindow = window,
   getState: () => Record<string, unknown> = () => overlayState,
 ): () => void {
-  restoredState = readPreloadRecoveryState(target.sessionStorage);
+  let storage: Storage;
+  try {
+    storage = target.sessionStorage;
+  } catch {
+    restoredState = {};
+    return () => {};
+  }
+  restoredState = readPreloadRecoveryState(storage);
   const clearRecovery = target.setTimeout(
-    () => target.sessionStorage.removeItem(PRELOAD_RECOVERY_KEY),
+    () => storage.removeItem(PRELOAD_RECOVERY_KEY),
     PRELOAD_RECOVERY_COOLDOWN_MS,
   );
   const onPreloadError = (event: Event) => {
-    if (!target.navigator.onLine || target.sessionStorage.getItem(PRELOAD_RECOVERY_KEY)) return;
+    if (!target.navigator.onLine || storage.getItem(PRELOAD_RECOVERY_KEY)) return;
     event.preventDefault();
-    target.sessionStorage.setItem(PRELOAD_RECOVERY_KEY, "1");
+    storage.setItem(PRELOAD_RECOVERY_KEY, "1");
     try {
-      target.sessionStorage.setItem(PRELOAD_RECOVERY_STATE_KEY, JSON.stringify(getState()));
+      storage.setItem(PRELOAD_RECOVERY_STATE_KEY, JSON.stringify(getState()));
     } catch {
       // Recovery still works when the overlay snapshot cannot be stored.
     }

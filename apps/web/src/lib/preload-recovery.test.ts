@@ -41,6 +41,15 @@ describe("preload recovery", () => {
     expect(store.get("rk:preload-recovery")).toBe("1");
   });
 
+  it("does not block startup when session storage access is restricted", () => {
+    const target = {
+      get sessionStorage(): Storage {
+        throw new Error("Storage is restricted");
+      },
+    };
+    expect(() => installPreloadRecovery(target as Window)()).not.toThrow();
+  });
+
   it("ignores malformed recovery state", () => {
     const store = new Map([["rk:preload-recovery-state", "invalid"]]);
     expect(
