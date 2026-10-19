@@ -851,6 +851,11 @@ async function* streamLocalCommand(
   own: (tree: NativeProcessTree) => void,
   sweep: () => void,
 ): AsyncIterable<ProcessEvent> {
+  if (signal.aborted) {
+    yield { type: "stderr", data: "command aborted\n" };
+    yield { type: "exit", code: 130 };
+    return;
+  }
   const direct = directCommandArgv(argv);
   if (!direct) {
     yield { type: "stderr", data: "command rejected\n" };
