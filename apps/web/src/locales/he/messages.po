@@ -125,7 +125,6 @@ msgid "{count} years"
 msgstr "{count} שנים"
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "{days}d ago"
 msgstr "לפני {days} ימים"
 
@@ -134,12 +133,10 @@ msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
 msgstr "{hidden, plural, one {+# שלב קודם} other {+# שלבים קודמים}}"
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "{hours}h ago"
 msgstr "לפני {hours} שע׳"
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "{minutes}m ago"
 msgstr "לפני {minutes} דק׳"
 
@@ -2736,7 +2733,6 @@ msgid "Jump to replied message: {excerpt}"
 msgstr "מעבר להודעה שנענתה: {excerpt}"
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "just now"
 msgstr "הרגע"
 
