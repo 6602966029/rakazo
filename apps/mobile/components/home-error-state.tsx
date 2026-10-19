@@ -41,18 +41,21 @@ export function HomeErrorState({
       <NativeSymbol {...SYMBOLS[kind]} size={40} color={native.secondaryLabel} />
       <Text style={styles.title}>{title}</Text>
       {detail ? <Text style={styles.detail}>{detail}</Text> : null}
-      <View style={styles.action}>
-        {kind === "session" ? (
+      {kind === "session" ? (
+        <View style={styles.action}>
           <NativeActionButton label={t("Sign in")} fill={false} onPress={onSignIn} />
-        ) : (
+        </View>
+      ) : kind !== "server" ? (
+        // A server fault is not fixed by retrying right away; pull to refresh still reloads.
+        <View style={styles.action}>
           <NativeActionButton
             label={t("Try again")}
             prominence="quiet"
             size="compact"
             onPress={onRetry}
           />
-        )}
-      </View>
+        </View>
+      ) : null}
     </View>
   );
 }
