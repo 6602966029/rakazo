@@ -1,5 +1,10 @@
 import type { CredentialField } from "@rakazo/core";
-import { authErrorMessage, isUnreachableStatus, userErrorMessage } from "@rakazo/core";
+import {
+  authErrorMessage,
+  isServerUnreachable,
+  isUnreachableStatus,
+  userErrorMessage,
+} from "@rakazo/core";
 import { t } from "./i18n";
 
 /** Text for a failure: human messages pass through; network and implementation detail become copy. */
@@ -49,4 +54,15 @@ export function authResponseErrorText(status: number, body: unknown, invalidJson
 /** Only implementation details from local session persistence need replacement. */
 export function sessionSaveErrorText(error: unknown): string {
   return errorText(error, t("Could not save your sign-in on this device. Try again."));
+}
+
+export type LoadFailureKind = "offline" | "session" | "server" | "other";
+
+/** Why a load failed, when the error says: no answer, a rejected session, or a server fault. */
+export function loadFailureKind(error: unknown): LoadFailureKind {
+  if (isServerUnreachable(error)) return "offline";
+  const status = error instanceof Error ? (error as { status?: unknown }).status : undefined;
+  if (status === 401) return "session";
+  if (typeof status === "number" && status >= 500) return "server";
+  return "other";
 }

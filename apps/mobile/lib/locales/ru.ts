@@ -866,4 +866,7 @@ export const RU_MESSAGES: Record<string, string> = {
   Shape: "Форма",
   "Shape {number}": "Форма {number}",
   "Fleet management": "Управление флотом",
+  "Try again": "Повторить",
+  "Your session expired": "Сеанс истёк",
+  "The server had a problem": "На сервере произошла ошибка",
 };

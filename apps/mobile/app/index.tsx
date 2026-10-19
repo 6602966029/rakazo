@@ -45,6 +45,7 @@ import { BotAvatar } from "../components/bot-avatar";
 import type { BotOrganizationUpdate } from "../components/bot-organize-modal";
 import { BotOrganizeModal } from "../components/bot-organize-modal";
 import { GroupAvatar } from "../components/group-avatar";
+import { HomeErrorState } from "../components/home-error-state";
 import { InboxSwipeRow } from "../components/inbox-swipe-row";
 import { NativeSymbol } from "../components/native-symbol";
 import { WorkingIndicator } from "../components/WorkingIndicator";
@@ -72,6 +73,7 @@ import {
   selectedSpaceId,
   selectInitialSpace,
   selectSpace,
+  signOut,
 } from "../lib/api";
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { mobileBotAvatarPresentation } from "../lib/bot-avatar";
@@ -114,7 +116,8 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import { useSplitView } from "../lib/split-view";
-import { errorText } from "../lib/user-error";
+import type { LoadFailureKind } from "../lib/user-error";
+import { errorText, loadFailureKind } from "../lib/user-error";
 
 const FALLBACK_COLOR = botColors[3];
 // A list narrower than this, beside an open chat, keeps names whole by leaving out the title tag.
@@ -217,6 +220,11 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   const [spaces, setSpaces] = useState<MobileSpace[]>([]);
   const [me, setMe] = useState<Pick<MobileMe, "userId" | "spaceId" | "name"> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Kept apart from action errors so a failed action never borrows the load's title.
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [loadFailure, setLoadFailure] = useState<{ kind: LoadFailureKind; message: string } | null>(
+    null,
+  );
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -278,6 +286,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     const apiBase = currentApiBase();
     const generation = currentSessionGeneration();
     setError(null);
+    setInboxLoading(true);
     try {
       const [navigation, nextMe] = await Promise.all([
         rpc<MobileSpaceNavigation>("spaces/list"),
@@ -304,6 +313,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       setSpaces((current) => retainInboxValue(current, navigation.spaces));
       setMe((current) => retainInboxValue(current, nextMe));
       inboxLoaded.current = true;
+      setLoadFailure(null);
       saveInbox(
         {
           apiBase,
@@ -323,7 +333,12 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         apiBase !== currentApiBase()
       )
         return;
-      setError(errorText(err, t("Could not load bots")));
+      setLoadFailure({
+        kind: loadFailureKind(err),
+        message: errorText(err, t("Could not load bots")),
+      });
+    } finally {
+      if (requestId === inboxRequestId.current) setInboxLoading(false);
     }
   }, []);
 
@@ -561,6 +576,11 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     },
     [embedded, pathname, router],
   );
+  const signInAgain = useCallback(async () => {
+    // A rejected session cannot sign out on the server; clearing it here is what matters.
+    await signOut().catch(() => undefined);
+    router.replace("/sign-in");
+  }, [router]);
 
   const chooseInboxSpace = useCallback(
     async (spaceId: string) => {
@@ -1208,6 +1228,11 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     );
   }
   if (!hasSession) return <Redirect href="/sign-in" />;
+  // With nothing to show, the failure takes the screen; over saved chats it stays one line.
+  // Headings of empty saved Spaces are not chats, so they do not hide the failure.
+  const showLoadFailure =
+    Boolean(loadFailure) && !searching && listData.every((item) => item.type === "heading");
+  const inlineError = error ?? (showLoadFailure ? null : (loadFailure?.message ?? null));
 
   return (
     <View style={styles.screen}>
@@ -1296,7 +1321,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         <CompactRowsContext.Provider value={compactRows}>
           <FlatList<InboxItem>
             style={{ flex: 1 }}
-            data={listData}
+            data={showLoadFailure ? [] : listData}
             keyExtractor={(item) => {
               if (item.type === "pinned") return "pinned";
               if (item.type === "heading") return `heading-${item.key}`;
@@ -1344,7 +1369,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
                   />
                 ) : null}
 
-                {error ? <Text style={styles.error}>{error}</Text> : null}
+                {inlineError ? <Text style={styles.error}>{inlineError}</Text> : null}
                 {spaceRecoveryId ? (
                   <Pressable
                     accessibilityRole="button"
@@ -1364,23 +1389,33 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
               </>
             }
             ListEmptyComponent={
-              <Text style={styles.empty}>
-                {query.trim() && searching
-                  ? searchLoading
-                    ? t("Searching…")
-                    : t("No results")
-                  : query.trim()
-                    ? t("No matching bots")
-                    : searching
-                      ? t("Search conversations, files, and routines")
-                      : // Before any load (an offline launch with nothing saved) the bots are unknown.
-                        me
-                        ? t("Tap + to create a bot")
-                        : null}
-              </Text>
+              showLoadFailure && loadFailure ? (
+                <HomeErrorState
+                  kind={loadFailure.kind}
+                  message={loadFailure.message}
+                  loading={inboxLoading && !refreshing}
+                  onRetry={() => void refreshBots()}
+                  onSignIn={() => void signInAgain()}
+                />
+              ) : (
+                <Text style={styles.empty}>
+                  {query.trim() && searching
+                    ? searchLoading
+                      ? t("Searching…")
+                      : t("No results")
+                    : query.trim()
+                      ? t("No matching bots")
+                      : searching
+                        ? t("Search conversations, files, and routines")
+                        : // Before any load (an offline launch with nothing saved) the bots are unknown.
+                          me
+                          ? t("Tap + to create a bot")
+                          : null}
+                </Text>
+              )
             }
             ListFooterComponent={
-              inboxNeedsCreateHint(listData) ? (
+              !showLoadFailure && inboxNeedsCreateHint(listData) ? (
                 <Text style={styles.empty}>{t("Tap + to create a bot")}</Text>
               ) : null
             }
