@@ -76,3 +76,49 @@ for (const [failing, intact] of [
     await expect(composer).toHaveValue("Keep this draft");
   });
 }
+
+for (const overlay of ["settings", "integrations"] as const) {
+  test(`preload recovery reopens ${overlay} once after an automatic reload`, async ({
+    page,
+  }, testInfo) => {
+    await signup(
+      page,
+      `preload-${overlay}-${Date.now()}@rakazo.test`,
+      "password12",
+      "Preload Recovery",
+    );
+    await completeOnboarding(page);
+    const chunk =
+      overlay === "settings" ? /\/pages\/SettingsOverlay\.tsx/ : /\/pages\/PluginsOverlay\.tsx/;
+    const opened =
+      overlay === "settings"
+        ? page.getByTestId("user-settings")
+        : page.getByPlaceholder("Search apps");
+    const originalUrl = page.url();
+    await page.route(
+      chunk,
+      async (route) => {
+        await route.fulfill({ status: 404 });
+        await page
+          .evaluate(() =>
+            window.dispatchEvent(new Event("vite:preloadError", { cancelable: true })),
+          )
+          .catch(() => undefined);
+      },
+      { times: 1 },
+    );
+    if (overlay === "settings") await page.getByTestId("user-menu-trigger").click();
+    await page
+      .getByRole("button", {
+        name: overlay === "settings" ? "Settings" : "Integrations",
+        exact: true,
+      })
+      .click();
+    await expect(opened).toBeVisible();
+    await expect(page).toHaveURL(originalUrl);
+    await captureScreenshot(page, testInfo, `preload-recovered-${overlay}`);
+    await page.reload();
+    await expect(page.locator('[data-rakazo-app-state="ready"]')).toBeVisible();
+    await expect(opened).toHaveCount(0);
+  });
+}
