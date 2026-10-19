@@ -119,6 +119,10 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile
+      - name: Generate the database client for desktop compilation
+        run: pnpm db:generate
+        env:
+          DATABASE_URL: postgres://rakazo:rakazo@127.0.0.1:5433/rakazo
       - name: Build renderer and Electron main process
         run: pnpm --filter @rakazo/web build && pnpm --filter @rakazo/desktop build
         env:
