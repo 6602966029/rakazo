@@ -8,13 +8,18 @@ import type {
   SandboxProvider,
   WorkspaceDirectoryRequest,
 } from "@rakazo/adapter-kit";
+import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
 import { DesktopSandboxProvider } from "./desktop-sandbox.js";
 import type {
   HostComputerEnvironment,
   HostComputerFrame,
   HostComputerRequest,
 } from "./host-computer-protocol.js";
-import { HOST_COMPUTER_MAX_BYTES } from "./host-computer-protocol.js";
+import {
+  HOST_COMPUTER_MAX_BYTES,
+  HOST_COMPUTER_MAX_FILE_BYTES,
+  hostComputerDeadlineMs,
+} from "./host-computer-protocol.js";
 
 /** Authenticated native host transport. Commands are never retried after a lost response. */
 export class HostComputerSandbox implements SandboxProvider {
@@ -36,7 +41,7 @@ export class HostComputerSandbox implements SandboxProvider {
       method: "POST",
       headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json" },
       body,
-      signal: AbortSignal.any([context.signal, AbortSignal.timeout(10 * 60_000)]),
+      signal: AbortSignal.any([context.signal, AbortSignal.timeout(hostComputerDeadlineMs(input))]),
       redirect: "error",
     });
     if (!response.ok || !response.body) {
@@ -97,7 +102,11 @@ export class HostComputerSandbox implements SandboxProvider {
   }
   execute(computer: ComputerRef, command: CommandRequest, context: AdapterContext) {
     return this.request<ProcessEvent>(
-      { method: "execute", botId: computer.botId, command },
+      {
+        method: "execute",
+        botId: computer.botId,
+        command: { ...command, timeoutMs: boundedSandboxCommandTimeoutMs(command.timeoutMs) },
+      },
       context,
     );
   }
@@ -132,7 +141,15 @@ export class HostComputerSandbox implements SandboxProvider {
     options?: { maxBytes?: number },
   ) {
     const content = await this.one<string>(
-      { method: "readFile", botId: computer.botId, path, maxBytes: options?.maxBytes },
+      {
+        method: "readFile",
+        botId: computer.botId,
+        path,
+        maxBytes: Math.min(
+          options?.maxBytes ?? HOST_COMPUTER_MAX_FILE_BYTES,
+          HOST_COMPUTER_MAX_FILE_BYTES,
+        ),
+      },
       context,
     );
     return new Uint8Array(Buffer.from(content, "base64"));

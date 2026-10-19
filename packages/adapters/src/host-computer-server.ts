@@ -6,7 +6,12 @@ import path from "node:path";
 import type { AdapterContext, ComputerRef } from "@rakazo/adapter-kit";
 import { DesktopSandboxProvider } from "./desktop-sandbox.js";
 import type { HostComputerRequest } from "./host-computer-protocol.js";
-import { HOST_COMPUTER_MAX_BYTES, hostComputerRequest } from "./host-computer-protocol.js";
+import {
+  HOST_COMPUTER_MAX_BYTES,
+  HOST_COMPUTER_MAX_FILE_BYTES,
+  hostComputerDeadlineMs,
+  hostComputerRequest,
+} from "./host-computer-protocol.js";
 
 /** No renderer receives the credential. Docker reaches this listener through its host gateway. */
 export async function startHostComputerServer(options: {
@@ -24,7 +29,7 @@ export async function startHostComputerServer(options: {
   const provider = new DesktopSandboxProvider({
     root: options.root,
     hostRoots: [homedir()],
-    maxFileBytes: 8 * 1024 * 1024,
+    maxFileBytes: HOST_COMPUTER_MAX_FILE_BYTES,
   });
   const secret = Buffer.from(`Bearer ${options.token}`);
   const server = createServer(async (request, response) => {
@@ -56,7 +61,7 @@ export async function startHostComputerServer(options: {
     controller.signal.addEventListener("abort", () => response.destroy(), { once: true });
     const abort = () => controller.abort();
     response.once("close", abort);
-    const timer = setTimeout(abort, 10 * 60_000);
+    let timer = setTimeout(abort, 30_000);
     timer.unref();
     try {
       const chunks: Buffer[] = [];
@@ -80,6 +85,9 @@ export async function startHostComputerServer(options: {
         response.writeHead(403).end();
         return;
       }
+      clearTimeout(timer);
+      timer = setTimeout(abort, hostComputerDeadlineMs(parsed.data));
+      timer.unref();
       const lifecycle =
         parsed.data.method === "cancelRunWork" ||
         parsed.data.method === "stop" ||
@@ -200,7 +208,7 @@ export async function startHostComputerServer(options: {
       case "readFile":
         yield Buffer.from(
           await provider.readFile(computer, input.path, context, {
-            maxBytes: input.maxBytes ?? 8 * 1024 * 1024,
+            maxBytes: input.maxBytes ?? HOST_COMPUTER_MAX_FILE_BYTES,
           }),
         ).toString("base64");
         break;
@@ -213,7 +221,8 @@ export async function startHostComputerServer(options: {
         break;
       case "exportWorkspace":
         for await (const file of provider.exportWorkspace(computer)) {
-          if (file.content.byteLength > 8 * 1024 * 1024) throw new Error("File too large");
+          if (file.content.byteLength > HOST_COMPUTER_MAX_FILE_BYTES)
+            throw new Error("File too large");
           yield { ...file, content: Buffer.from(file.content).toString("base64") };
         }
         break;

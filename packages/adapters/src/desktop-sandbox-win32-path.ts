@@ -74,7 +74,8 @@ function nt(): NtFns {
   if (cached) return cached;
   const ntdll = koffi.load("ntdll.dll");
   const kernel32 = koffi.load("kernel32.dll");
-  const msvcrt = koffi.load("msvcrt.dll");
+  // Node and Electron use the Universal CRT descriptor table. Legacy msvcrt has a separate table.
+  const crt = koffi.load("ucrtbase.dll");
 
   koffi.struct("UNICODE_STRING", {
     Length: "uint16_t",
@@ -101,8 +102,8 @@ function nt(): NtFns {
     RtlInitUnicodeString: ntdll.func(
       "void __stdcall RtlInitUnicodeString(_Out_ UNICODE_STRING *DestinationString, void *SourceString)",
     ),
-    getOsFhandle: msvcrt.func("intptr_t __cdecl _get_osfhandle(int fd)"),
-    openOsFhandle: msvcrt.func("int __cdecl _open_osfhandle(intptr_t handle, int flags)"),
+    getOsFhandle: crt.func("intptr_t __cdecl _get_osfhandle(int fd)"),
+    openOsFhandle: crt.func("int __cdecl _open_osfhandle(intptr_t handle, int flags)"),
     CloseHandle: kernel32.func("int __stdcall CloseHandle(void *hObject)"),
     GetFinalPathNameByHandleW: kernel32.func(
       "uint32_t __stdcall GetFinalPathNameByHandleW(void *hFile, void *lpszFilePath, uint32_t cchFilePath, uint32_t dwFlags)",

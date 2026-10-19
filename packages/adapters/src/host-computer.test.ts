@@ -16,6 +16,7 @@ import {
   ensureComputerWorkspaceLayout,
   removeComputerWorkspaceDirectories,
 } from "./computer-workspace.js";
+import { hostComputerDeadlineMs } from "./host-computer-protocol.js";
 import { HostComputerSandbox } from "./host-computer-sandbox.js";
 import { startHostComputerServer } from "./host-computer-server.js";
 import { nativeShellCommandArgv } from "./native-shell.js";
@@ -45,7 +46,7 @@ describe("native host computer transport", () => {
   });
   afterEach(async () => {
     await server.close();
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
   });
 
   it("requires both native consent and authentication and rejects browser origins", async () => {
@@ -236,11 +237,22 @@ describe("native host computer transport", () => {
       context,
     );
     expect(await client.readFile(computer, "nested/file.bin", context)).toEqual(content);
+    // attach_file supplies its 10 MiB limit even when the requested file is tiny.
+    expect(
+      await client.readFile(computer, "nested/file.bin", context, { maxBytes: 10 * 1024 * 1024 }),
+    ).toEqual(content);
     expect(await client.listFiles(computer, "nested", context)).toMatchObject([
       { path: "nested/file.bin", kind: "file", size: 5 },
     ]);
     const files = await collect(client.exportWorkspace(computer, context));
     expect(files).toMatchObject([{ path: "nested/file.bin", content }]);
+    await writeFile(
+      path.join(root, "desktop-computers", computer.id.slice("desktop-".length), "large.bin"),
+      Buffer.alloc(8 * 1024 * 1024 + 1),
+    );
+    await expect(
+      client.readFile(computer, "large.bin", context, { maxBytes: 10 * 1024 * 1024 }),
+    ).rejects.toThrow("exceeds");
     await expect(client.readFile(computer, "../../outside", context)).rejects.toThrow();
     await expect(
       client.writeFile(computer, { path: "../outside", content }, context),
@@ -254,7 +266,7 @@ describe("native host computer transport", () => {
     "%s owns background children after their shell request finishes",
     async (action) => {
       const command =
-        "const {spawn} = require('node:child_process'); const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {stdio: 'ignore'}); child.unref(); console.log(child.pid)";
+        "const {spawn} = require('node:child_process'); const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {stdio: 'ignore', detached: process.platform === 'win32'}); child.unref(); console.log(child.pid)";
       const result = await collect(
         client.execute(
           computer,
@@ -345,3 +357,16 @@ function processExists(pid: number) {
     return false;
   }
 }
+
+it.each([1, 5 * 60_000, 15 * 60_000, 60 * 60_000])(
+  "keeps the native transport open beyond a %s ms command deadline",
+  (timeoutMs) => {
+    expect(
+      hostComputerDeadlineMs({
+        method: "execute",
+        botId: "bot",
+        command: { argv: ["command"], timeoutMs },
+      }),
+    ).toBe(timeoutMs + 30_000);
+  },
+);

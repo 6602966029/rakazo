@@ -1,6 +1,8 @@
+import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
 import { z } from "zod";
 
 export const HOST_COMPUTER_MAX_BYTES = 12 * 1024 * 1024;
+export const HOST_COMPUTER_MAX_FILE_BYTES = 8 * 1024 * 1024;
 const file = z.object({
   path: z.string().max(4096),
   content: z.string().max(HOST_COMPUTER_MAX_BYTES),
@@ -52,12 +54,7 @@ export const hostComputerRequest = z.discriminatedUnion("method", [
     ...base,
     method: z.literal("readFile"),
     path: z.string().max(4096),
-    maxBytes: z
-      .number()
-      .int()
-      .positive()
-      .max(8 * 1024 * 1024)
-      .optional(),
+    maxBytes: z.number().int().positive().max(HOST_COMPUTER_MAX_FILE_BYTES).optional(),
   }),
   z.object({ ...base, method: z.literal("writeFile"), file }),
 ]);
@@ -68,3 +65,10 @@ export interface HostComputerEnvironment {
   shell: string;
 }
 export type HostComputerFrame<T> = { value: T } | { done: true } | { error: string };
+
+/** Leave time for the command timeout event and final response to cross the bridge. */
+export function hostComputerDeadlineMs(request: HostComputerRequest) {
+  return request.method === "execute"
+    ? boundedSandboxCommandTimeoutMs(request.command.timeoutMs) + 30_000
+    : 10 * 60_000;
+}
