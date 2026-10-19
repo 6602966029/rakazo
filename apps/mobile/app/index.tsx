@@ -116,7 +116,8 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import { useSplitView } from "../lib/split-view";
-import { errorText, type LoadFailureKind, loadFailureKind } from "../lib/user-error";
+import type { LoadFailureKind } from "../lib/user-error";
+import { errorText, loadFailureKind } from "../lib/user-error";
 
 const FALLBACK_COLOR = botColors[3];
 // A list narrower than this, beside an open chat, keeps names whole by leaving out the title tag.
@@ -219,7 +220,10 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   const [spaces, setSpaces] = useState<MobileSpace[]>([]);
   const [me, setMe] = useState<Pick<MobileMe, "userId" | "spaceId" | "name"> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loadFailure, setLoadFailure] = useState<LoadFailureKind | null>(null);
+  // Kept apart from action errors so a failed action never borrows the load's title.
+  const [loadFailure, setLoadFailure] = useState<{ kind: LoadFailureKind; message: string } | null>(
+    null,
+  );
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -327,8 +331,10 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         apiBase !== currentApiBase()
       )
         return;
-      setError(errorText(err, t("Could not load bots")));
-      setLoadFailure(loadFailureKind(err));
+      setLoadFailure({
+        kind: loadFailureKind(err),
+        message: errorText(err, t("Could not load bots")),
+      });
     }
   }, []);
 
@@ -1219,7 +1225,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   }
   if (!hasSession) return <Redirect href="/sign-in" />;
   // With nothing to show, the failure takes the screen; over saved chats it stays one line.
-  const showLoadFailure = Boolean(error && loadFailure) && !searching && listData.length === 0;
+  const showLoadFailure = Boolean(loadFailure) && !searching && listData.length === 0;
+  const inlineError = error ?? (showLoadFailure ? null : (loadFailure?.message ?? null));
 
   return (
     <View style={styles.screen}>
@@ -1356,7 +1363,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
                   />
                 ) : null}
 
-                {error && !showLoadFailure ? <Text style={styles.error}>{error}</Text> : null}
+                {inlineError ? <Text style={styles.error}>{inlineError}</Text> : null}
                 {spaceRecoveryId ? (
                   <Pressable
                     accessibilityRole="button"
@@ -1376,10 +1383,10 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
               </>
             }
             ListEmptyComponent={
-              showLoadFailure && loadFailure && error ? (
+              showLoadFailure && loadFailure ? (
                 <HomeErrorState
-                  kind={loadFailure}
-                  message={error}
+                  kind={loadFailure.kind}
+                  message={loadFailure.message}
                   onRetry={() => void refreshBots()}
                   onSignIn={() => void signInAgain()}
                 />
