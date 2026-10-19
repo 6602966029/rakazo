@@ -4242,6 +4242,10 @@ function SpaceShell() {
                 bots={bots}
                 onCancel={() => setPanel(null)}
                 onCreate={(input) => createGroup(input)}
+                onOpenBot={(botId) => {
+                  setPanel(null);
+                  openBot(botId);
+                }}
               />
             ) : null}
             {panel === "group-settings" && activeGroup ? (
@@ -4267,6 +4271,7 @@ function SpaceShell() {
                   await refreshBots().catch(() => undefined);
                 }}
                 onClose={() => setPanel(null)}
+                onOpenBot={openBot}
                 covered={computerOpen}
               />
             ) : null}

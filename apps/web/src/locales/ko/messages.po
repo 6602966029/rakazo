@@ -372,6 +372,11 @@ msgstr "활동"
 msgid "Add"
 msgstr "추가"
 
+#. placeholder {0}: bot.name
+#: src/pages/GroupPanel.tsx
+msgid "Add {0} to the group"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Add a command to run"
 msgstr "실행할 명령 추가"
@@ -2397,6 +2402,10 @@ msgstr "컴퓨터의 파일 또는 폴더"
 msgid "Files or folders, one per line"
 msgstr "파일 또는 폴더, 한 줄에 하나씩"
 
+#: src/pages/GroupPanel.tsx
+msgid "Filter bots"
+msgstr ""
+
 #: src/pages/Artifacts.tsx
 msgid "Filter by date"
 msgstr ""
@@ -2965,13 +2974,10 @@ msgstr "보통"
 msgid "Medium"
 msgstr ""
 
+#. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
-msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
-msgstr "참여 Bot ({GROUP_MEMBER_MIN}~{GROUP_MEMBER_MAX}개)"
-
-#: src/pages/GroupPanel.tsx
-msgid "Members (pick {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
-msgstr "참여 Bot ({GROUP_MEMBER_MIN}~{GROUP_MEMBER_MAX}개 선택)"
+msgid "Members ({0})"
+msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/MemorySettingsOverlay.tsx
@@ -3256,6 +3262,7 @@ msgstr "아직 봇 활동이 없습니다."
 msgid "No bots"
 msgstr ""
 
+#: src/pages/GroupPanel.tsx
 #: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
 msgstr ""
@@ -3295,6 +3302,10 @@ msgstr "아직 추가된 MCP 또는 API 도구가 없습니다."
 #: src/pages/McpServersOverlay.tsx
 msgid "No MCP servers yet."
 msgstr "아직 연결된 MCP 서버가 없습니다."
+
+#: src/pages/GroupPanel.tsx
+msgid "No members yet"
+msgstr ""
 
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
@@ -3598,6 +3609,10 @@ msgstr ""
 msgid "Photo"
 msgstr "사진"
 
+#: src/pages/GroupPanel.tsx
+msgid "Pick {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX}"
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "Pick a model from the catalog."
 msgstr "모델 목록에서 모델을 선택하세요."
@@ -3829,6 +3844,11 @@ msgstr "삭제"
 #: src/pages/Shell.tsx
 msgid "Remove {0}"
 msgstr "{0} 삭제"
+
+#. placeholder {0}: bot.name
+#: src/pages/GroupPanel.tsx
+msgid "Remove {0} from the group"
+msgstr ""
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Remove {full}"
@@ -4320,6 +4340,10 @@ msgstr "공유 스킬"
 msgid "Shell"
 msgstr "셸"
 
+#: src/pages/GroupPanel.tsx
+msgid "Show all"
+msgstr ""
+
 #: src/pages/Shell.tsx
 msgid "Show bots"
 msgstr ""
@@ -4339,6 +4363,10 @@ msgstr "더 보기"
 #: src/components/I18nBootstrap.tsx
 msgid "Show password"
 msgstr "비밀번호 표시"
+
+#: src/pages/GroupPanel.tsx
+msgid "Show selected"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Show settings"

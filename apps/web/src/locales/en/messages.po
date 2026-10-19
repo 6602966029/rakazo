@@ -372,6 +372,11 @@ msgstr "Activity"
 msgid "Add"
 msgstr "Add"
 
+#. placeholder {0}: bot.name
+#: src/pages/GroupPanel.tsx
+msgid "Add {0} to the group"
+msgstr "Add {0} to the group"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Add a command to run"
 msgstr "Add a command to run"
@@ -2397,6 +2402,10 @@ msgstr "Files or folders on the computer"
 msgid "Files or folders, one per line"
 msgstr "Files or folders, one per line"
 
+#: src/pages/GroupPanel.tsx
+msgid "Filter bots"
+msgstr "Filter bots"
+
 #: src/pages/Artifacts.tsx
 msgid "Filter by date"
 msgstr "Filter by date"
@@ -2965,13 +2974,10 @@ msgstr "Medium"
 msgid "Medium"
 msgstr "Medium"
 
+#. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
-msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
-msgstr "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
-
-#: src/pages/GroupPanel.tsx
-msgid "Members (pick {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
-msgstr "Members (pick {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
+msgid "Members ({0})"
+msgstr "Members ({0})"
 
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/MemorySettingsOverlay.tsx
@@ -3256,6 +3262,7 @@ msgstr "No bot activity yet."
 msgid "No bots"
 msgstr "No bots"
 
+#: src/pages/GroupPanel.tsx
 #: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
 msgstr "No bots match"
@@ -3295,6 +3302,10 @@ msgstr "No MCP or API tool sources installed yet."
 #: src/pages/McpServersOverlay.tsx
 msgid "No MCP servers yet."
 msgstr "No MCP servers yet."
+
+#: src/pages/GroupPanel.tsx
+msgid "No members yet"
+msgstr "No members yet"
 
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
@@ -3598,6 +3609,10 @@ msgstr "Phone call"
 msgid "Photo"
 msgstr "Photo"
 
+#: src/pages/GroupPanel.tsx
+msgid "Pick {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX}"
+msgstr "Pick {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX}"
+
 #: src/lib/model-connection-preflight.ts
 msgid "Pick a model from the catalog."
 msgstr "Pick a model from the catalog."
@@ -3829,6 +3844,11 @@ msgstr "Remove"
 #: src/pages/Shell.tsx
 msgid "Remove {0}"
 msgstr "Remove {0}"
+
+#. placeholder {0}: bot.name
+#: src/pages/GroupPanel.tsx
+msgid "Remove {0} from the group"
+msgstr "Remove {0} from the group"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Remove {full}"
@@ -4320,6 +4340,10 @@ msgstr "Shared skills"
 msgid "Shell"
 msgstr "Shell"
 
+#: src/pages/GroupPanel.tsx
+msgid "Show all"
+msgstr "Show all"
+
 #: src/pages/Shell.tsx
 msgid "Show bots"
 msgstr "Show bots"
@@ -4339,6 +4363,10 @@ msgstr "Show more"
 #: src/components/I18nBootstrap.tsx
 msgid "Show password"
 msgstr "Show password"
+
+#: src/pages/GroupPanel.tsx
+msgid "Show selected"
+msgstr "Show selected"
 
 #: src/pages/Shell.tsx
 msgid "Show settings"
