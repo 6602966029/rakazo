@@ -33,6 +33,26 @@ describe("health routes", () => {
       await store.close();
     }
   });
+  it("reports not ready while the database is unreachable", async () => {
+    let up = false;
+    const health = healthRoutes(
+      () => ({}),
+      async () => {
+        if (!up) throw new Error("connection refused");
+      },
+    );
+    const response = await health.request("/ready");
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      degraded: false,
+      database: "unreachable",
+    });
+    expect((await health.request("/health")).status).toBe(200);
+    up = true;
+    expect((await health.request("/ready")).status).toBe(200);
+  });
+
   it("keeps public liveness free of deployment details", async () => {
     const response = await app.request("/health");
     expect(response.status).toBe(200);
