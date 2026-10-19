@@ -16,6 +16,7 @@ const MINUTE = 60_000;
 interface Scenario {
   error: Error;
   platformKeyNonOwner?: boolean;
+  ambientCredentials?: boolean;
   trigger?: string;
   retryOfRunId?: string | null;
   routineNotify?: boolean;
@@ -133,7 +134,7 @@ async function failRun(scenario: Scenario) {
   const send = vi.fn(async () => undefined);
   const executor = createRunExecutor({
     prisma,
-    deploymentModelKey: "fake-deployment-key",
+    deploymentModelKey: scenario.ambientCredentials ? undefined : "fake-deployment-key",
     runtime: { describe: () => ({ capabilities: { scripted: false } }), run: runtimeRun },
     sandbox: {
       describe: () => ({ capabilities: { graphical: false } }),
@@ -731,9 +732,17 @@ describe("exhausted routine retry notification", () => {
   );
 });
 
-it("marks deployment-key failures for non-owners", async () => {
-  await failRun({
-    error: new Error('403: {"message":"Key limit exceeded"}'),
-    platformKeyNonOwner: true,
-  });
-});
+it.each([false, true])(
+  "marks deployment fallback failures for non-owners (ambient %s)",
+  async (ambientCredentials) => {
+    const { send } = await failRun({
+      ambientCredentials,
+      error: new Error('403: {"message":"Key limit exceeded"}'),
+      platformKeyNonOwner: true,
+    });
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ body: "Add your own API key to keep chatting." }),
+      expect.anything(),
+    );
+  },
+);

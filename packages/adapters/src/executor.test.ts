@@ -3659,13 +3659,14 @@ describe("call_user availability", () => {
 
 describe("platform model fallback access", () => {
   it.each([
-    [undefined, null, "deployment-test-key"],
-    [["allowed@example.test"], null, "deployment-test-key"],
-    [["@other.test"], "user-1", "deployment-test-key"],
-    [["@other.test"], null, undefined],
+    [undefined, null, "deployment-test-key", false],
+    [["allowed@example.test"], null, "deployment-test-key", false],
+    [["@other.test"], "user-1", "deployment-test-key", false],
+    [["@other.test"], null, undefined, false],
+    [["@other.test"], null, undefined, true],
   ])(
     "gates the resolved key for %j and owner %s",
-    async (platformModelAllowlist, ownerUserId, apiKey) => {
+    async (platformModelAllowlist, ownerUserId, apiKey, scripted) => {
       const prisma = {
         user: { findUnique: vi.fn().mockResolvedValue({ email: "allowed@example.test" }) },
         userModelCredential: {
@@ -3683,12 +3684,13 @@ describe("platform model fallback access", () => {
       } as unknown as PrismaClient;
       const executor = createRunExecutor({
         prisma,
+        runtime: { describe: () => ({ capabilities: { scripted } }) },
         platformModelAllowlist,
         deploymentModelKey: "deployment-test-key",
         deploymentModelConfigured: true,
       } as unknown as Parameters<typeof createRunExecutor>[0]);
       const model = executor.resolveModel({ userId: "user-1", spaceId: "space-1" });
-      if (apiKey) await expect(model).resolves.toMatchObject({ apiKey });
+      if (apiKey || scripted) await expect(model).resolves.toMatchObject({ apiKey });
       else await expect(model).rejects.toThrow("Connect a model");
       if (!platformModelAllowlist) expect(prisma.user.findUnique).not.toHaveBeenCalled();
     },

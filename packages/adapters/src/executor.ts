@@ -4020,7 +4020,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         }
         let platformKeyFailure =
           resolved.deploymentKey &&
-          Boolean(resolved.apiKey) &&
+          !deps.runtime.describe().capabilities.scripted &&
           settings?.ownerUserId !== run.userId;
         runSecrets.push(...resolved.redact);
         // A pin stays as it was created. Unpinned runs still record the model they
@@ -9396,8 +9396,11 @@ async function deploymentKeyFor(
   userId: string,
 ): Promise<string | undefined> {
   // Fail before entering a runtime: provider SDKs can also discover ambient credentials.
-  if (!(await canUsePlatformModel(deps.prisma, deps.platformModelAllowlist, userId)))
+  if (!(await canUsePlatformModel(deps.prisma, deps.platformModelAllowlist, userId))) {
+    // Offline scripted runs need no credential and never enter a provider SDK.
+    if (deps.runtime?.describe().capabilities.scripted) return undefined;
     throw new UnavailableModelForAuthError(MISSING_MODEL_MESSAGE);
+  }
   if (!deps.deploymentModelKey) return undefined;
   return provider === resolveDeploymentModel().provider ? deps.deploymentModelKey : undefined;
 }
