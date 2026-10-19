@@ -259,7 +259,7 @@ describe("settings group", () => {
     expect(columnText(render(row))).toBe("LanguageEnglish");
   });
 
-  it("moves the switch under its label at large text sizes", () => {
+  it("keeps the switch beside its wrapping label at large text sizes", () => {
     const row = <SettingsSwitch label="Stream replies" value={false} onChange={() => undefined} />;
     const beforeSwitch = (view: HTMLElement) =>
       view.querySelector("input")?.parentElement?.previousElementSibling?.tagName;
@@ -269,6 +269,9 @@ describe("settings group", () => {
     container?.remove();
 
     fontScale = 2.643;
-    expect(beforeSwitch(render(row))).toBe("SPAN");
+    const view = render(row);
+    expect(beforeSwitch(view)).toBe("DIV");
+    const wrapper = view.querySelector("input")?.parentElement;
+    expect(JSON.parse(wrapper?.getAttribute("data-style") ?? "null")).toEqual({ flexShrink: 0 });
   });
 });

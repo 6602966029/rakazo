@@ -153,7 +153,7 @@ export function SettingsSwitch({
   const styles = useThemedStyles(createSettingsStyles);
   const stacked = useStackedSettings();
   const toggle = (
-    <View style={stacked ? styles.stackedSwitch : undefined}>
+    <View style={styles.switch}>
       <NativeSwitch
         accessibilityHint={detail}
         accessibilityLabel={accessibilityLabel ?? label}
@@ -168,9 +168,8 @@ export function SettingsSwitch({
       <View style={styles.titleColumn}>
         <Text style={styles.title}>{label}</Text>
         {detail ? <Text style={styles.detail}>{detail}</Text> : null}
-        {stacked ? toggle : null}
       </View>
-      {stacked ? null : toggle}
+      {toggle}
     </View>
   );
 }
@@ -212,7 +211,7 @@ function createSettingsStyles() {
     compactSeparator: { marginStart: 12 },
     compactRow: { paddingHorizontal: 12, gap: 8 },
     titleColumn: { flex: 1, flexShrink: 1, gap: 2 },
-    stackedSwitch: { alignSelf: "flex-start", marginTop: 6 },
+    switch: { flexShrink: 0 },
     title: { color: native.label, fontSize: 17 },
     prominent: { fontSize: 20, fontWeight: "600" },
     detail: { color: native.secondaryLabel, fontSize: 15 },
