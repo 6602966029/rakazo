@@ -15,6 +15,7 @@ import { observeSyntheticHistory } from "../evals/history-observer.js";
 import type { CacheDecisionMeasurement, EvalPricing } from "../evals/measurement.js";
 import { measureCalls, SpendBudget, validatePricing } from "../evals/measurement.js";
 import { emptyTrial, redact, summarize, validateControls } from "../evals/report.js";
+import { SILENCE_EVAL_CASES, SILENCE_FIXTURE_VERSION } from "../evals/silence.js";
 import type { DiagnosticWireObservation } from "../evals/wire-observer.js";
 import { installDiagnosticWireObserver } from "../evals/wire-observer.js";
 
@@ -45,9 +46,14 @@ async function main() {
       output: { type: "string", default: "test-report/evals/report.json" },
     },
   });
-  const cases =
-    values.suite === "history" ? HISTORY_EVAL_CASES : values.suite === "product" ? EVAL_CASES : [];
-  if (!cases.length) throw new Error("Unknown suite; use product or history");
+  const suites = {
+    product: { cases: EVAL_CASES, fixtureVersion: "product-v1" },
+    history: { cases: HISTORY_EVAL_CASES, fixtureVersion: HISTORY_FIXTURE_VERSION },
+    silence: { cases: SILENCE_EVAL_CASES, fixtureVersion: SILENCE_FIXTURE_VERSION },
+  };
+  if (!Object.hasOwn(suites, values.suite!))
+    throw new Error("Unknown suite; use product, history, or silence");
+  const { cases, fixtureVersion } = suites[values.suite as keyof typeof suites];
   if (values["wire-diagnostics"] && values.suite !== "history")
     throw new Error("Synthetic wire diagnostics require the history suite");
   const strategies = [...new Set(values.strategy?.length ? values.strategy : ["current"])];
@@ -102,12 +108,9 @@ async function main() {
       values.suite === "history"
         ? "Short chats use originals. Larger ordinary cases use a synthetic prepared summary retaining common facts and omitting rare identifiers; backlog, failed-summary and oversized cases retain raw compaction stress."
         : null,
-    fixtureVersion: values.suite === "history" ? HISTORY_FIXTURE_VERSION : "product-v1",
+    fixtureVersion,
     caseFixtureVersions: Object.fromEntries(
-      selected.map((c) => [
-        c.id,
-        c.history?.version ?? (values.suite === "history" ? HISTORY_FIXTURE_VERSION : "product-v1"),
-      ]),
+      selected.map((c) => [c.id, c.history?.version ?? fixtureVersion]),
     ),
     codeRevision: codeRevision(),
     workingDiffHash: workingDiffHash(),
@@ -127,7 +130,7 @@ async function main() {
     assistedRetries: false,
     limitations: [
       "Does not evaluate browser perception, native recording perception, or real external services.",
-      "Release routine grades a scheduled new-release read; unchanged-release notification deduplication is not covered.",
+      "Silence cases observe routine chat, transient progress, and provider notification requests; native push delivery and UI pixels are outside the fixture.",
       "Deterministic fact checks are deliberately narrow; they do not grade overall writing quality.",
       "Cost uses provider-reported charges where available and explicit pricing estimates otherwise. Spend reservations are a guard, not a billing guarantee.",
       "Tool trace contains names and statuses only; raw requests and responses are omitted.",
@@ -364,7 +367,7 @@ async function main() {
             ...controls,
             connection,
             pricing,
-            createApp: async (composio, messaging) => {
+            createApp: async (composio, messaging, witnesses) => {
               const sandbox = new EvalSandboxProvider();
               let acceptingCalls = true;
               const cacheDecisions: CacheDecisionMeasurement[] = [];
@@ -425,6 +428,7 @@ async function main() {
                 wakeupDriver: "memory",
                 composio,
                 messaging,
+                ...(scenario.routine ? witnesses : {}),
                 messagingOpenSignup: false,
                 defaultProvider: connection.provider,
                 defaultModel: connection.modelId!,

@@ -47,6 +47,7 @@ export class EvalServices extends ComposioEmulator {
     { id: "customer-2", name: "Example Books", status: "lead", priority: "normal" },
   ];
   inbox = INBOX.map((row) => ({ ...row }));
+  githubReadError = false;
   uncertainWrite = false;
   private faultUsed = false;
 
@@ -193,7 +194,13 @@ export class EvalServices extends ComposioEmulator {
     context: AdapterContext,
   ): AsyncIterable<ConnectorEvent> {
     if (call.tool.startsWith("GITHUB_")) {
-      this.calls.push({ tool: call.tool, args: call.args, outcome: "read" });
+      this.calls.push({
+        tool: call.tool,
+        args: call.args,
+        outcome: this.githubReadError ? "rejected" : "read",
+      });
+      if (this.githubReadError)
+        throw new Error("Release service unavailable; check did not complete.");
       yield* super.execute(call, context);
       return;
     }
