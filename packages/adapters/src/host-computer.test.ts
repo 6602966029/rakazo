@@ -16,6 +16,7 @@ import {
   ensureComputerWorkspaceLayout,
   removeComputerWorkspaceDirectories,
 } from "./computer-workspace.js";
+import { win32NtRelativeAvailable } from "./desktop-sandbox-win32-path.js";
 import { hostComputerDeadlineMs } from "./host-computer-protocol.js";
 import { HostComputerSandbox } from "./host-computer-sandbox.js";
 import { startHostComputerServer } from "./host-computer-server.js";
@@ -48,6 +49,13 @@ describe("native host computer transport", () => {
     await server.close();
     await rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
   });
+
+  it.skipIf(process.platform !== "win32")(
+    "uses the running runtime for Windows native handles",
+    () => {
+      expect(win32NtRelativeAvailable()).toBe(true);
+    },
+  );
 
   it("requires both native consent and authentication and rejects browser origins", async () => {
     const body = JSON.stringify({ method: "provision", botId: "test" });
