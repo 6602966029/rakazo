@@ -766,6 +766,7 @@ app.get("/computers/:id/screen", async (c) => {
       c.req.header("x-rakazo-space-id"),
       c.req.header("x-rakazo-screen-id"),
       c.req.header("x-rakazo-screen-lease-id"),
+      false,
     );
     const screenUrl = await publishedScreenUrl(container, info, layout.viewPort);
     return c.redirect(screenUrlWithToken(screenUrl, viewToken));
@@ -862,6 +863,7 @@ app.post("/computers/:id/terminal", async (c) => {
         botId,
         c.req.header("x-rakazo-screen-id"),
         c.req.header("x-rakazo-screen-lease-id"),
+        false,
       );
       const result = await runContainerCommand(
         container,
@@ -1249,10 +1251,11 @@ async function managedScreen(
   spaceId: string | undefined,
   screenId: string | undefined,
   screenLeaseId: string | undefined,
+  restoreControl = true,
 ) {
   const { container } = await managedContainer(id, botId, spaceId);
   return withComputerScreenLock(id, () =>
-    ensureManagedScreen(id, container, botId, screenId, screenLeaseId),
+    ensureManagedScreen(id, container, botId, screenId, screenLeaseId, restoreControl),
   );
 }
 

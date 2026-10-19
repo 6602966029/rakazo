@@ -1182,6 +1182,17 @@ describe("screen release status", () => {
     const failedTakeover = await open(true);
     expect(failedTakeover.status).toBe(400);
     expect(await failedTakeover.json()).toEqual({ error: "control screen failed to start" });
+    const viewer = await supervisorApp.request("/computers/control-rebuild/screen", { headers });
+    expect(viewer.status).toBe(302);
+    expect(decodeURIComponent(viewer.headers.get("location")!)).not.toContain(
+      "token=human-control",
+    );
+    const terminal = await supervisorApp.request("/computers/control-rebuild/terminal", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ controlToken: "human-control" }),
+    });
+    expect(terminal.status).toBe(200);
     const revoked = await supervisorApp.request("/computers/control-rebuild/screen-mode", {
       method: "POST",
       headers,
