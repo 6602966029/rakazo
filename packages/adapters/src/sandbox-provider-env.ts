@@ -31,6 +31,8 @@ export function sandboxProviderOptionsFromEnv(
   source: NodeJS.ProcessEnv = process.env,
 ): Pick<
   SandboxProviderOptions,
+  | "hostComputerUrl"
+  | "hostComputerToken"
   | "e2bApiKey"
   | "daytonaApiKey"
   | "daytonaApiUrl"
@@ -47,6 +49,8 @@ export function sandboxProviderOptionsFromEnv(
   | "boxApiUrl"
 > {
   return {
+    hostComputerUrl: source.SANDBOX_HOST_URL,
+    hostComputerToken: source.SANDBOX_HOST_TOKEN,
     e2bApiKey: source.E2B_API_KEY,
     daytonaApiKey: source.DAYTONA_API_KEY,
     daytonaApiUrl: source.DAYTONA_API_URL,

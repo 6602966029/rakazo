@@ -2883,6 +2883,10 @@ msgstr "Local"
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
 msgstr "L'accès local permet aux bots d'exécuter des commandes sans demander. Évitez-le sur les serveurs partagés ou publics."
 
+#: src/pages/HostComputerPrompt.tsx
+msgid "Local computer access requires the latest desktop app."
+msgstr ""
+
 #: src/pages/LocalSettings.tsx
 msgid "Local Server Settings"
 msgstr "Paramètres du serveur local"

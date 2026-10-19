@@ -2883,6 +2883,10 @@ msgstr "Местный"
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
 msgstr "Локальный доступ позволяет ботам выполнять команды без запроса разрешения. Не используйте его на общих или публичных серверах."
 
+#: src/pages/HostComputerPrompt.tsx
+msgid "Local computer access requires the latest desktop app."
+msgstr ""
+
 #: src/pages/LocalSettings.tsx
 msgid "Local Server Settings"
 msgstr "Настройки локального сервера"

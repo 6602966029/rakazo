@@ -309,6 +309,7 @@ import {
   modelAcceptsImageInput,
   modelIdSupportsImages,
 } from "./model-vision.js";
+import { nativeShellCommandArgv } from "./native-shell.js";
 import type { CodexLiveCatalog } from "./pi-codex-catalog.js";
 import { codexLiveListsModel } from "./pi-codex-catalog.js";
 import { toOAuthCredential } from "./pi-credentials.js";
@@ -4214,9 +4215,31 @@ export function createRunExecutor(deps: ExecutorDeps) {
           computerKind,
           disabledBuiltinTools,
         );
-        const computerInstruction = dockerToolInstruction
-          ? `${baseComputerInstruction} ${dockerToolInstruction}`
-          : baseComputerInstruction;
+        const hostEnvironment =
+          computerKind === "desktop"
+            ? await deps.sandbox
+                .environment?.(
+                  {
+                    id: storedComputer.providerRef ?? storedComputer.id,
+                    botId: storedComputer.homeKey,
+                    kind: "desktop",
+                    providerRef: storedComputer.providerRef ?? "",
+                  },
+                  {
+                    ...context,
+                    signal: AbortSignal.any([context.signal, AbortSignal.timeout(2000)]),
+                  },
+                )
+                .catch(() => undefined)
+            : undefined;
+        const hostInstruction = hostEnvironment
+          ? `Commands run on the user's ${hostEnvironment.platform} computer with their account permissions. Home: ${JSON.stringify(hostEnvironment.home)}. Shell: ${JSON.stringify(hostEnvironment.shell)}. The shell tool executes commands with that shell. Use its native syntax, paths and installed tools; do not assume Linux or bash. Local files outside the bot workspace can be accessed through commands. App launching is available through OS commands; graphical screen control is unavailable.`
+          : undefined;
+        const computerInstruction = hostInstruction
+          ? `${baseComputerInstruction} ${hostInstruction}`
+          : dockerToolInstruction
+            ? `${baseComputerInstruction} ${dockerToolInstruction}`
+            : baseComputerInstruction;
         const workspaceInstruction =
           computerMode === "team"
             ? `Your Team Computer home is ${teamBotWorkspaceDirectory(bot.id)}. Relative file paths and shell working directories start there. Put intentionally shared work under shared/. Other bots' folders are visible under bots/; treat them as their working areas.`
@@ -5536,22 +5559,30 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 const safe = redactShellStreams(snapshot, runSecrets, { withholdPartial });
                 return `${safe.stdout}${safe.stderr}`;
               };
+              const computer = await runComputer.get();
+              const shellEnvironment =
+                hostEnvironment ??
+                (computer.kind === "desktop"
+                  ? await deps.sandbox.environment?.(computer, context)
+                  : undefined);
               const observed = await observeShellCommand(
                 deps.sandbox.execute(
-                  await runComputer.get(),
+                  computer,
                   {
-                    argv: [
-                      "bash",
-                      "-c",
-                      BACKGROUND_WORK_LAUNCH,
-                      "rakazo-background-launch",
-                      // Marker id must match sleepComputerIfIdle's probe (DB id), not ComputerRef.id
-                      // (providerRef via toComputerRef). Scope launches to this run for cancel teardown.
-                      storedComputer.id,
-                      runId,
-                      randomUUID(),
-                      command,
-                    ],
+                    argv: shellEnvironment
+                      ? nativeShellCommandArgv(command, shellEnvironment)
+                      : [
+                          "bash",
+                          "-c",
+                          BACKGROUND_WORK_LAUNCH,
+                          "rakazo-background-launch",
+                          // Marker id must match sleepComputerIfIdle's probe (DB id), not ComputerRef.id
+                          // (providerRef via toComputerRef). Scope launches to this run for cancel teardown.
+                          storedComputer.id,
+                          runId,
+                          randomUUID(),
+                          command,
+                        ],
                     cwd,
                     env:
                       Object.keys(commandEnvironment.env).length > 0

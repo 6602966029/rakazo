@@ -127,7 +127,7 @@ export function cancelComputerRunWorkArgv(computerId: string, runId: string): st
 }
 
 export async function cancelComputerRunWork(
-  sandbox: Pick<SandboxProvider, "execute">,
+  sandbox: Pick<SandboxProvider, "execute" | "cancelRunWork">,
   computer: ComputerRef,
   computerId: string,
   runId: string,
@@ -135,6 +135,12 @@ export async function cancelComputerRunWork(
 ): Promise<void> {
   if (!computerId || !runId) return;
   try {
+    if (sandbox.cancelRunWork) {
+      await sandbox.cancelRunWork(computer, computerId, runId, context);
+      return;
+    }
+    if (computer.kind === "desktop") return;
+
     for await (const _event of sandbox.execute(
       computer,
       { argv: cancelComputerRunWorkArgv(computerId, runId), timeoutMs: 15_000 },
@@ -251,6 +257,8 @@ export async function sleepComputerIfIdle(
   if (!computerIdleSleepEnabled()) return;
   let computer = await loadComputer(deps.prisma, computerId);
   if (!computer?.providerRef || computer.state !== "running") return;
+  // Native computers have no provisioned runtime to suspend; Electron owns their lifetime.
+  if (computer.kind === "desktop") return;
 
   if (computer.controlBotId && computer.controlLeaseId && !hasActiveComputerControl(computer)) {
     await expireComputerControl(deps, computer.id, computer.controlLeaseId);

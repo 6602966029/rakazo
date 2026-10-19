@@ -454,7 +454,9 @@ Optional messaging platforms (iMessage, Slack, WhatsApp, Telegram, Feishu/Lark) 
 
 ## Choosing a computer provider
 
-The Electron desktop app is a client of the same API. Docker and E2B still apply. On first launch, Electron asks the deployment owner whether bots should keep using Docker or run on this Mac as you. `SANDBOX_PROVIDER=desktop` is a separate, explicit provider that always runs commands on the service host.
+The Electron desktop app is a client of the same API. Docker remains the default. For an app-managed local instance, the deployment owner can choose **Use this Mac** (macOS) or **Use this computer** (Windows/Linux). After native confirmation, an authenticated bridge sends commands from the Docker backend to Electron, where they run under your OS account. **Computer Access…** in the app menu changes the choice; **Revoke Local Computer Access** immediately disconnects active operations and revokes the saved permission. Local execution requires the desktop app to remain running. Connecting to an existing remote instance does not grant it access to your computer. Browser and mobile clients use the deployment’s configured computer; they do not expose their own host. `SANDBOX_PROVIDER=desktop` remains a separate configuration for backends running directly on the intended host.
+
+Native file reads and workspace exports are limited to 8 MiB per file. A larger workspace file fails the checkpoint and preserves the previous saved workspace; local files remain on the computer. Writes are bounded by the 12 MiB encoded request limit.
 
 - **Published images** (`docker-compose.images.yml`) default to `SANDBOX_PROVIDER=docker` with a
   local supervisor and published `ghcr.io/elie222/rakazo/computer` image. No E2B account required.
@@ -476,10 +478,17 @@ The Electron desktop app is a client of the same API. Docker and E2B still apply
   workspace under `/home/user/rakazo-home`, and refreshes a two-hour TTL. Box uses the shared Linux
   desktop runtime and protected port routes for concurrent bot desktops. Each bot has its own
   persistent Chrome profile; logins are not shared between bots.
-- **Desktop provider** / **This Mac** runs commands on the API/worker host. Docker stays the default.
-  The Electron app asks once; if you choose This Mac, bots can use working directories under your home
-  folder. Do not enable it on a public or shared service. macOS does not show its own permission
-  dialog for this.
+- **Local computer access** in the app-managed Electron instance runs commands on Windows, macOS,
+  or Linux through the native bridge. Bots can read/change local files and launch installed apps
+  through OS commands, subject to your account and OS permissions. Portable file tools and
+  checkpoints remain scoped to bot workspaces; use commands for other local folders. Graphical
+  screen control is unavailable. Permission is remembered locally and can be revoked from the
+  app menu. Only enable this for a trusted personal instance: every bot on that instance can use
+  your account’s permissions.
+- **Desktop provider** (`SANDBOX_PROVIDER=desktop`) runs commands directly on the API/worker host.
+  Setting this inside a container does not grant access to the physical computer. Docker deployments
+  use the authenticated native bridge when local computer access is selected; they never silently
+  fall back to executing on the backend host.
 - **Fake** is only an emulator for verification.
 - **None** boots the product without a computer host (fallback when Docker/supervisor is not
   configured, or when a remote provider is selected without its API key).

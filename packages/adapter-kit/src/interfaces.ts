@@ -86,12 +86,24 @@ import type {
   WebSearchCapabilities,
   WebSearchHit,
   WebSearchRequest,
+  WorkspaceDirectoryRequest,
 } from "./types.js";
 
 export interface SandboxProvider {
   /** True when every running minute is billed, so the active-lifetime cap applies. */
   billsWhileRunning?(computer: ComputerRef): boolean;
   describe(): AdapterDescriptor<SandboxCapabilities>;
+  /** Workspace directory operations for hosts without the standard Unix command tools. */
+  workspaceDirectories?(
+    computer: ComputerRef,
+    request: WorkspaceDirectoryRequest,
+    context: AdapterContext,
+  ): Promise<string[]>;
+  /** Native command environment; omitted for providers with a fixed container environment. */
+  environment?(
+    computer: ComputerRef,
+    context: AdapterContext,
+  ): Promise<{ platform: string; home: string; shell: string } | undefined>;
   /** Optional live browser on the same leased screen as observe/act. */
   pageBrowser?(
     computer: ComputerRef,
@@ -122,6 +134,13 @@ export interface SandboxProvider {
     request: CommandRequest,
     context: AdapterContext,
   ): AsyncIterable<ProcessEvent>;
+  /** Cancel only this run’s native commands; other providers may use a sandbox-scoped fallback. */
+  cancelRunWork?(
+    computer: ComputerRef,
+    computerId: string,
+    runId: string,
+    context: AdapterContext,
+  ): Promise<void>;
   inspectBackgroundWork?(
     computer: ComputerRef,
     markerId: string,
