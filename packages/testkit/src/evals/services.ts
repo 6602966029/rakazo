@@ -194,14 +194,27 @@ export class EvalServices extends ComposioEmulator {
     context: AdapterContext,
   ): AsyncIterable<ConnectorEvent> {
     if (call.tool.startsWith("GITHUB_")) {
-      this.calls.push({
+      const entry: ServiceCall = {
         tool: call.tool,
-        args: call.args,
-        outcome: this.githubReadError ? "rejected" : "read",
-      });
+        args: structuredClone(call.args),
+        outcome: "rejected",
+      };
+      this.calls.push(entry);
       if (this.githubReadError)
         throw new Error("Release service unavailable; check did not complete.");
-      yield* super.execute(call, context);
+      for await (const event of super.execute(call, context)) {
+        if (event.type === "result") {
+          entry.outcome =
+            event.data !== null &&
+            typeof event.data === "object" &&
+            "ok" in event.data &&
+            event.data.ok === true
+              ? "read"
+              : "rejected";
+        }
+        if (event.type === "error") entry.outcome = "rejected";
+        yield event;
+      }
       return;
     }
     const entry: ServiceCall = {

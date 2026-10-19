@@ -16,6 +16,12 @@ describe.skipIf(!databaseAvailable)("routine silence eval through the product", 
   it.each([
     { id: "silence-unchanged", replies: ["NO_RESPONSE"], pass: true },
     { id: "silence-empty-source", replies: ["NO_RESPONSE"], pass: true },
+    {
+      id: "silence-empty-source",
+      replies: ["NO_RESPONSE"],
+      pass: false,
+      tool: "GITHUB_GET_RELEASE",
+    },
     { id: "silence-repeat-after-new-release", replies: [releaseReply, "NO_RESPONSE"], pass: true },
     {
       id: "silence-failed-check",
@@ -36,7 +42,7 @@ describe.skipIf(!databaseAvailable)("routine silence eval through the product", 
     { id: "silence-failed-check", replies: ["NO_RESPONSE"], pass: false },
   ])(
     "$id with replies $replies passes=$pass",
-    async ({ id, replies, pass }) => {
+    async ({ id, replies, pass, tool }) => {
       const scenario = SILENCE_EVAL_CASES.find((c) => c.id === id)!;
       const steps: ModelEmulatorStep[] = replies.flatMap((reply, index) => [
         {
@@ -48,7 +54,7 @@ describe.skipIf(!databaseAvailable)("routine silence eval through the product", 
           response: {
             type: "tool" as const,
             id: `release-read-${index}`,
-            name: "GITHUB_LIST_RELEASES",
+            name: tool ?? "GITHUB_LIST_RELEASES",
             arguments: { owner: "example", repo: "widget" },
             assistantText: "I will check the releases now.",
           },
@@ -62,7 +68,7 @@ describe.skipIf(!databaseAvailable)("routine silence eval through the product", 
             else if (id === "silence-repeat-after-new-release")
               expect(String(tool?.content)).toContain("v2.2.0");
             else if (id === "silence-empty-source")
-              expect(String(tool?.content)).toContain('"releases":[]');
+              expect(String(tool?.content)).toContain(pass ? '"releases":[]' : '"ok":false');
             else expect(String(tool?.content)).toContain("v2.1.0");
           },
           response:

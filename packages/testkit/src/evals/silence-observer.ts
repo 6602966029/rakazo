@@ -14,7 +14,18 @@ export class SilenceObserver extends InMemoryRealtimeFanout {
   override async publish(topic: string, payload: string): Promise<void> {
     if (this.prisma && topic.startsWith("thread:")) {
       try {
-        const { cursor } = JSON.parse(payload) as { cursor: number };
+        const parsed: unknown = JSON.parse(payload);
+        if (
+          parsed === null ||
+          typeof parsed !== "object" ||
+          !("cursor" in parsed) ||
+          typeof parsed.cursor !== "number" ||
+          !Number.isSafeInteger(parsed.cursor) ||
+          parsed.cursor < 0
+        ) {
+          throw new Error("Invalid realtime cursor");
+        }
+        const cursor = parsed.cursor;
         const event = await this.prisma.event.findFirst({
           where: { threadId: topic.slice("thread:".length), seq: cursor },
           select: { runId: true, type: true, payload: true },

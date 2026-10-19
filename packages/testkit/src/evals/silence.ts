@@ -4,7 +4,7 @@ import { isToolActivityBlock } from "@rakazo/core";
 import type { Criterion, EvalCase, Evidence } from "./cases.js";
 import type { ServiceCall } from "./services.js";
 
-export const SILENCE_FIXTURE_VERSION = "silence-v1";
+export const SILENCE_FIXTURE_VERSION = "silence-v2";
 export type RoutineEvidence = {
   text: string;
   unread: boolean;
@@ -20,13 +20,25 @@ const check = (id: string, pass: boolean): Criterion => ({ id, pass });
 const checked = (run: RoutineEvidence) =>
   run.calls.some(
     (call) =>
-      call.tool.startsWith("GITHUB_") &&
+      (call.tool === "GITHUB_LIST_RELEASES" ||
+        (call.tool === "GITHUB_GET_RELEASE" && !call.args.tag)) &&
       call.args.owner === "example" &&
       call.args.repo === "widget" &&
       call.outcome === "read",
   );
 const hasVisibleMessage = (run: RoutineEvidence) =>
   run.messages.some((blocks) => blocks.length === 0 || blocks.some((b) => !isToolActivityBlock(b)));
+
+/** Keep explicit uncertainty distinct from an unsupported all-clear in the same reply. */
+function hasFalseAllClear(text: string): boolean {
+  const withoutUncertainty = text.replace(
+    /\b(?:cannot|can't|could not|couldn't|unable to)\s+(?:confirm|verify|tell|determine)\s+(?:(?:whether|that|if)\s+)?(?:there\s+(?:are|is)\s+)?(?:no new releases|nothing (?:new|changed)|everything is up.to.date)\b/gi,
+    "",
+  );
+  return /\b(?:no new releases|nothing (?:new|changed)|everything is up.to.date)\b/i.test(
+    withoutUncertainty,
+  );
+}
 
 function grade(e: Evidence, expected: Array<"silent" | "release" | "failure">): Criterion[] {
   const runs = e.routineRuns ?? [];
@@ -84,12 +96,7 @@ function grade(e: Evidence, expected: Array<"silent" | "release" | "failure">): 
             /(?:check|release|GitHub)/i.test(run.text),
         ),
         check(`${prefix}-failure-push`, run.notifications.length === 1),
-        check(
-          `${prefix}-no-false-all-clear`,
-          !/(?:^|[.!?]\s+)(?:there (?:are|is) )?(?:no new releases|nothing (?:new|changed)|everything is up.to.date)/i.test(
-            run.text,
-          ),
-        ),
+        check(`${prefix}-no-false-all-clear`, !hasFalseAllClear(run.text)),
       ];
     }),
   ];

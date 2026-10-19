@@ -225,7 +225,7 @@ judgment. Native push delivery and rendered UI pixels are outside this fixture.
 Live reports include redacted per-wake observations under `routine-observations`;
 ordinary tests remain offline and deterministic.
 
-The initial October 19, 2026 live run planned three trials per case on
+The initial October 19, 2026 `silence-v1` live run planned three trials per case on
 `openai/gpt-6-luna` through OpenRouter. One empty-source trial passed; the other
 fourteen trials ended with `Request timed out.` before usable outcomes. This is
 an inconclusive baseline, not a model-quality pass. The initial report is preserved

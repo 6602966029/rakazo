@@ -1,6 +1,8 @@
+import type { AdapterContext, ConnectorCall } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
 import type { Evidence } from "./cases.js";
+import { EvalServices } from "./services.js";
 import type { RoutineEvidence } from "./silence.js";
 import { SILENCE_EVAL_CASES } from "./silence.js";
 
@@ -108,4 +110,80 @@ describe("silence outcome grading", () => {
       pass: false,
     });
   });
+});
+
+describe("source-read evidence", () => {
+  const context: AdapterContext = {
+    operationId: "synthetic",
+    traceId: "synthetic",
+    spaceId: "space",
+    userId: "user",
+    signal: new AbortController().signal,
+  };
+  it("does not credit a missing latest release as an empty successful listing", async () => {
+    const services = new EvalServices();
+    services.seedGithubReleases([]);
+    const args = { owner: "example", repo: "widget" };
+    const events = [];
+    for await (const event of services.execute(
+      { tool: "GITHUB_GET_RELEASE", args, executionId: "synthetic" } as ConnectorCall,
+      context,
+    ))
+      events.push(event);
+    expect(events).toContainEqual({ type: "result", data: expect.objectContaining({ ok: false }) });
+    expect(services.calls[0]?.outcome).toBe("rejected");
+    const e = evidence({ calls: services.calls });
+    expect(SILENCE_EVAL_CASES[1]!.grade(e)).toContainEqual({
+      id: "wake-1-source-checked",
+      pass: false,
+    });
+  });
+  it("does not credit a successful lookup of an old release as a current check", () => {
+    expect(
+      passes(
+        evidence({
+          calls: [
+            {
+              tool: "GITHUB_GET_RELEASE",
+              args: { owner: "example", repo: "widget", tag: "v2.1.0" },
+              outcome: "read",
+            },
+          ],
+        }),
+      ),
+    ).toBe(false);
+  });
+  it("credits a successful latest-release lookup", () => {
+    expect(
+      passes(
+        evidence({
+          calls: [
+            {
+              tool: "GITHUB_GET_RELEASE",
+              args: { owner: "example", repo: "widget" },
+              outcome: "read",
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("failed-check all-clear grading", () => {
+  const criterion = (text: string) =>
+    SILENCE_EVAL_CASES[3]!
+      .grade(evidence({ text }))
+      .find((c) => c.id === "wake-1-no-false-all-clear")?.pass;
+  it.each([
+    "The GitHub check failed, but there are no new releases.",
+    "The GitHub check failed and I found nothing new.",
+    "I couldn't check GitHub, so everything is up to date.",
+    "The GitHub check failed; I cannot confirm there are no new releases, but there are no new releases.",
+  ])("rejects unsupported all-clear in %s", (text) => expect(criterion(text)).toBe(false));
+  it.each([
+    "The GitHub check failed; I cannot confirm there are no new releases.",
+    "The release service is unavailable; I couldn't verify whether nothing changed.",
+    "I am unable to check GitHub; I can't confirm everything is up to date.",
+  ])("allows explicit uncertainty in %s", (text) => expect(criterion(text)).toBe(true));
 });
