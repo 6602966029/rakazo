@@ -178,6 +178,23 @@ jobs:
           grep -Fqx "owner: elie222" "$app/Contents/Resources/app-update.yml"
           grep -Fqx "repo: rakazo" "$app/Contents/Resources/app-update.yml"
 
+      - name: Verify the packaged native bridge dependency
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          app="apps/desktop/out/mac-universal/Rakazo.app"
+          native="$app/Contents/Resources/app.asar.unpacked/node_modules/@koromix"
+          lipo "$native/koffi-darwin-x64/darwin_x64/koffi.node" -verify_arch x86_64
+          lipo "$native/koffi-darwin-arm64/darwin_arm64/koffi.node" -verify_arch arm64
+          ELECTRON_RUN_AS_NODE=1 "$app/Contents/MacOS/Rakazo" -e '
+            const { createRequire } = require("node:module");
+            const appRequire = createRequire(`${process.argv[1]}/Contents/Resources/app.asar/package.json`);
+            const koffi = appRequire("koffi");
+            if (koffi.load(null).func("int getpid()")() !== process.pid) {
+              throw new Error("Packaged native bridge dependency failed");
+            }
+          ' "$PWD/$app"
+
       - name: Require Windows signing credentials
         if: runner.os == 'Windows'
         shell: bash
