@@ -36,6 +36,9 @@ appdata="$(docker inspect "${api}" \
 [[ -n "${appdata}" ]] || { echo "the api container has no /data mount" >&2; exit 1; }
 
 install -d -m 700 "${BACKUP_ROOT}"
+# One backup at a time, so cleanup never removes a snapshot another run is still writing.
+exec 8>"${BACKUP_ROOT}/.lock"
+flock -n 8 || { echo "Another Rakazo backup is running" >&2; exit 1; }
 # Newest first; stamps sort by time. Only stamp-named directories are ever listed or removed.
 snapshots() {
   find "${BACKUP_ROOT}" -mindepth 1 -maxdepth 1 -type d -regextype posix-extended \

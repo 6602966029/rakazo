@@ -155,6 +155,11 @@ echo "/dev/fake 104857600 0 \${FREE_KB:-52428800} 0% /"
   };
 }
 
+/** Snapshot directories, without the backup lock file. */
+function snapshotNames(root: string) {
+  return readdirSync(root).filter((name) => name !== ".lock");
+}
+
 function contents(archive: string) {
   return execFileSync("/usr/bin/tar", ["-tzf", archive], { encoding: "utf8" });
 }
@@ -317,7 +322,7 @@ describe("production backup deployment and archive behavior", () => {
       expect(result.status).not.toBe(0);
       expect(result.stdout).not.toContain("Verified Rakazo backup");
       // The partial snapshot is removed.
-      expect(readdirSync(f.snapshots)).toEqual([]);
+      expect(snapshotNames(f.snapshots)).toEqual([]);
     },
   );
 
@@ -330,7 +335,9 @@ describe("production backup deployment and archive behavior", () => {
     const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_BACKUP_KEEP: "2" });
     expect(result.status, result.stderr).toBe(0);
     const current = path.basename(result.stdout.trim().split("written to ")[1]);
-    expect(readdirSync(f.snapshots).sort()).toEqual(["20261017T000000Z", current, "notes"].sort());
+    expect(snapshotNames(f.snapshots).sort()).toEqual(
+      ["20261017T000000Z", current, "notes"].sort(),
+    );
   });
 
   it("fails before writing when the disk is short of the last snapshot's size", () => {
@@ -339,8 +346,27 @@ describe("production backup deployment and archive behavior", () => {
     const result = f.run("infra/compose/backup-prod.sh", [], { FREE_KB: "1" });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("this backup needs about");
-    expect(readdirSync(f.snapshots)).toEqual(["20261017T000000Z"]);
+    expect(snapshotNames(f.snapshots)).toEqual(["20261017T000000Z"]);
     expect(f.commands().some((args) => args.includes("sh"))).toBe(false);
+  });
+
+  it("refuses to run while another backup holds the lock", () => {
+    const f = fixture();
+    mkdirSync(f.snapshots, { recursive: true });
+    const lock = path.join(f.snapshots, ".lock");
+    writeFileSync(lock, "");
+    const result = spawnSync(
+      "flock",
+      [lock, "/bin/bash", path.join(f.checkout, "infra/compose/backup-prod.sh")],
+      {
+        cwd: f.root,
+        env: f.env,
+        encoding: "utf8",
+        timeout: 10_000,
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Another Rakazo backup is running");
   });
 
   it("rejects a non-positive retention", () => {
