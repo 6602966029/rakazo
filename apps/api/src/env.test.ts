@@ -14,6 +14,14 @@ describe("loadEnv", () => {
     }
     expect(loadEnv({ ...base, PHONE_CALLS_ENABLED: "true" }).phoneCallsEnabled).toBe(true);
   });
+  it("parses the call ring window and falls back for invalid values", () => {
+    expect(loadEnv(base).phoneCallRingSeconds).toBe(45);
+    expect(loadEnv({ ...base, PHONE_CALL_RING_SECONDS: "90" }).phoneCallRingSeconds).toBe(90);
+    for (const value of ["", "0", "-1", "invalid", "NaN", "Infinity"]) {
+      expect(loadEnv({ ...base, PHONE_CALL_RING_SECONDS: value }).phoneCallRingSeconds).toBe(45);
+    }
+  });
+
   it("defaults uploads to 10 MiB and parses a configured limit", () => {
     expect(loadEnv(base).maxUploadSizeBytes).toBe(10 * 1024 * 1024);
     expect(loadEnv({ ...base, MAX_UPLOAD_SIZE_MB: "" }).maxUploadSizeBytes).toBe(10 * 1024 * 1024);

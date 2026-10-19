@@ -61,7 +61,6 @@ msgid "{0} handling"
 msgstr "Gestion de {0}"
 
 #. placeholder {0}: bot.name
-#. placeholder {0}: ringing.bot.name
 #: src/components/call/IncomingCall.tsx
 msgid "{0} is calling you"
 msgstr "{0} vous appelle"
@@ -134,18 +133,10 @@ msgstr "il y a {days} j"
 msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
 msgstr ""
 
-#: src/components/call/VoiceChatCard.tsx
-msgid "{hours} h {minutes} min"
-msgstr "{hours} h {minutes} min"
-
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
 msgid "{hours}h ago"
 msgstr "il y a {hours} h"
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "{minutes} min {rest} s"
-msgstr "{minutes} min {rest} s"
 
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
@@ -250,10 +241,6 @@ msgstr "{provider} a mis trop de temps à répondre. Réessayez."
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "{remaining} restant · le bot observe, il n'agit pas"
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "{rest} s"
-msgstr "{rest} s"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "{seats, plural, one {# seat} other {# seats}}"
@@ -919,10 +906,6 @@ msgstr "Rappeler"
 #: src/components/call/CallCard.tsx
 msgid "Call with {0}"
 msgstr "Appel avec {0}"
-
-#: src/components/call/IncomingCall.tsx
-msgid "Calling you"
-msgstr "Vous appelle"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Calling you…"
@@ -2782,14 +2765,10 @@ msgstr "Vue en liste"
 msgid "Listen"
 msgstr "Écouter"
 
+#: src/components/call/CallCard.tsx
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Listening"
 msgstr "Écoute"
-
-#: src/components/call/CallCard.tsx
-msgctxt "call status"
-msgid "Listening"
-msgstr "À l’écoute"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Listening…"
@@ -3156,7 +3135,6 @@ msgid "Mute"
 msgstr "Couper le micro"
 
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Muted"
 msgstr "Micro coupé"
 
@@ -3236,10 +3214,6 @@ msgstr ""
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."
 msgstr "Aucune connexion d'agent pour le moment."
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "No answer"
-msgstr "Sans réponse"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
@@ -4473,7 +4447,6 @@ msgid "Speak this reply"
 msgstr "Lire cette réponse à voix haute"
 
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Speaking"
 msgstr "Parle"
 
@@ -4658,17 +4631,13 @@ msgstr "Le fournisseur de mémoire sélectionné n'est pas disponible dans cette
 msgid "These saved settings can't be read. Remove it and add it again."
 msgstr ""
 
+#: src/components/call/CallCard.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Thinking"
 msgstr "Réflexion"
-
-#: src/components/call/CallCard.tsx
-msgctxt "call status"
-msgid "Thinking"
-msgstr "Réfléchit"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Thinking: {activeThinkingLabel}"

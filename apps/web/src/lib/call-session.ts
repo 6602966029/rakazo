@@ -21,14 +21,13 @@ import { speaker } from "./tts.js";
 import { errorText } from "./user-error";
 
 /** `ringing` until the call picks up; the rest describe the conversation. */
-export type CallPhase = "ringing" | "listening" | "thinking" | "speaking";
-export type CallExchange = { role: "user" | "bot"; text: string };
+type CallPhase = "ringing" | "listening" | "thinking" | "speaking";
+type CallExchange = { role: "user" | "bot"; text: string };
 
 export interface CallState {
   botId: string;
   botName: string;
   botColor: string;
-  startedAt: number;
   /** When the call picked up; null while it is still ringing. */
   connectedAt: number | null;
   phase: CallPhase;
@@ -127,7 +126,6 @@ export function startCall(call: {
     botId: call.botId,
     botName: call.botName,
     botColor: call.botColor ?? "",
-    startedAt: Date.now(),
     connectedAt: null,
     phase: "ringing",
     muted: false,

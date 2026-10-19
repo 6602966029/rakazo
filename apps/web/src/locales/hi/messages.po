@@ -61,7 +61,6 @@ msgid "{0} handling"
 msgstr ""
 
 #. placeholder {0}: bot.name
-#. placeholder {0}: ringing.bot.name
 #: src/components/call/IncomingCall.tsx
 msgid "{0} is calling you"
 msgstr "{0} आपको कॉल कर रहा है"
@@ -134,18 +133,10 @@ msgstr "{days} दिन पहले"
 msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
 msgstr ""
 
-#: src/components/call/VoiceChatCard.tsx
-msgid "{hours} h {minutes} min"
-msgstr "{hours} घंटे {minutes} मिनट"
-
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
 msgid "{hours}h ago"
 msgstr "{hours} घंटे पहले"
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "{minutes} min {rest} s"
-msgstr "{minutes} मिनट {rest} सेकंड"
 
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
@@ -250,10 +241,6 @@ msgstr "{provider} ने जवाब देने में बहुत स�
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "{remaining} शेष · बॉट देख रहा है, कार्रवाई नहीं कर रहा"
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "{rest} s"
-msgstr "{rest} सेकंड"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "{seats, plural, one {# seat} other {# seats}}"
@@ -919,10 +906,6 @@ msgstr "वापस कॉल करें"
 #: src/components/call/CallCard.tsx
 msgid "Call with {0}"
 msgstr "{0} के साथ कॉल"
-
-#: src/components/call/IncomingCall.tsx
-msgid "Calling you"
-msgstr "आपको कॉल कर रहा है"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Calling you…"
@@ -2782,12 +2765,8 @@ msgstr ""
 msgid "Listen"
 msgstr ""
 
-#: src/pages/ExternalConversationSettings.tsx
-msgid "Listening"
-msgstr "सुन रहा है"
-
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
+#: src/pages/ExternalConversationSettings.tsx
 msgid "Listening"
 msgstr "सुन रहा है"
 
@@ -3156,7 +3135,6 @@ msgid "Mute"
 msgstr "म्यूट करें"
 
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Muted"
 msgstr "माइक बंद है"
 
@@ -3236,10 +3214,6 @@ msgstr ""
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."
 msgstr ""
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "No answer"
-msgstr "कोई उत्तर नहीं"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
@@ -4473,7 +4447,6 @@ msgid "Speak this reply"
 msgstr "यह उत्तर बोलकर सुनाएं"
 
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Speaking"
 msgstr "बोल रहा है"
 
@@ -4658,15 +4631,11 @@ msgstr "चयनित मेमोरी प्रोवाइडर इस �
 msgid "These saved settings can't be read. Remove it and add it again."
 msgstr ""
 
+#: src/components/call/CallCard.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
-msgid "Thinking"
-msgstr "सोच रहा है"
-
-#: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Thinking"
 msgstr "सोच रहा है"
 

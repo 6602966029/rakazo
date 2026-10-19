@@ -6,6 +6,7 @@ import {
 } from "@rakazo/adapters";
 import type { OidcConfig } from "@rakazo/auth";
 import {
+  phoneCallSettings,
   resolveAuthSecret,
   resolveEncryptionKey,
   resolveScreenProxySecret,
@@ -36,6 +37,8 @@ export interface AppEnv {
   piSessionRecording: boolean;
   ticketBoardEnabled: boolean;
   phoneCallsEnabled: boolean;
+  phoneCallRingSeconds: number;
+  phoneCallCooldownMinutes: number;
   maxUploadSizeBytes: number;
   sandboxSupervisorUrl: string;
   sandboxSupervisorToken: string | undefined;
@@ -179,7 +182,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     dataDir: source.DATA_DIR ?? "./data",
     piSessionRecording: source.PI_SESSION_RECORDING === "true",
     ticketBoardEnabled: source.TICKET_BOARD_ENABLED === "true",
-    phoneCallsEnabled: source.PHONE_CALLS_ENABLED === "true",
+    ...phoneCallSettings(source),
     maxUploadSizeBytes: uploadSizeFromEnv(source),
     sandboxSupervisorUrl: source.SANDBOX_SUPERVISOR_URL ?? "http://127.0.0.1:7091",
     sandboxSupervisorToken:

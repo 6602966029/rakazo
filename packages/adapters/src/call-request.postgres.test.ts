@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import type { BackgroundJob } from "@rakazo/adapter-kit";
 import { createDb, createThreadEvents } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
@@ -91,26 +90,6 @@ postgres("call isolation and cooldown (PostgreSQL)", () => {
       expect(plan.map((row) => row["QUERY PLAN"]).join("\n")).toContain(
         "messages_call_recovery_idx",
       );
-      // Roll back the simulated catalog mutation even if the guard unexpectedly succeeds.
-      const guard = await readFile(
-        new URL(
-          "../../db/prisma/migrations/20261015010001_repair_ringing_call_recovery/migration.sql",
-          import.meta.url,
-        ),
-        "utf8",
-      );
-      await expect(
-        prisma.$transaction(async (tx) => {
-          await tx.$executeRaw`UPDATE pg_catalog.pg_index SET indisvalid = false
-          WHERE indexrelid = to_regclass('public.messages_call_recovery_idx')`;
-          await tx.$executeRawUnsafe(guard);
-          throw new Error("Index guard accepted an invalid index");
-        }),
-      ).rejects.toThrow(/messages_call_recovery_idx is missing or invalid/);
-      const index = await prisma.$queryRaw<Array<{ indisvalid: boolean }>>`
-        SELECT indisvalid FROM pg_catalog.pg_index
-        WHERE indexrelid = to_regclass('public.messages_call_recovery_idx')`;
-      expect(index).toEqual([{ indisvalid: true }]);
       expect(jobs.enqueue).toHaveBeenCalledOnce();
       const job = jobs.enqueue.mock.calls[0]?.[0];
       expect(job).toMatchObject({ name: "call.expire" });

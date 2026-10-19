@@ -103,7 +103,6 @@ describe("VoiceChatCard", () => {
     act(() => root?.render(<VoiceChatCard group={missed} onCallBack={onCallBack} />));
 
     expect(container.textContent).toContain("Missed call");
-    expect(container.textContent).toContain("No answer");
     expect(container.textContent).toContain("3 reminders without a reply");
     const callBack = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Call back",
@@ -143,7 +142,7 @@ describe("VoiceChatCard", () => {
     act(() => root?.render(<VoiceChatCard group={answered} />));
 
     expect(container.textContent).toContain("Incoming call");
-    expect(container.textContent).toContain("42 s");
+    expect(container.textContent).toContain("0:42");
     act(() => container?.querySelector<HTMLButtonElement>("button[aria-expanded]")?.click());
     expect(container.textContent).toContain("Hi, it's about the report.");
     expect(container.textContent).toContain("On it");

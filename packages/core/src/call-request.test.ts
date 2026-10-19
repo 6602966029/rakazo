@@ -2,7 +2,7 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
 import { blocksToAgentHistoryText } from "./attachments.js";
 import { callIdFromClientNonce } from "./call-nonce.js";
-import { callRequestClientNonce, ringingCall } from "./call-request.js";
+import { callRequestClientNonce, phoneCallSettings, ringingCall } from "./call-request.js";
 
 const NOW = Date.parse("2026-10-14T18:30:00Z");
 
@@ -64,4 +64,36 @@ describe("call requests", () => {
       "[you called the user about: 3 reminders without a reply; the user did not answer]",
     );
   });
+});
+
+describe("phone call server settings", () => {
+  it("defaults to disabled, a two minute cooldown, and a 45 second ring", () => {
+    expect(phoneCallSettings()).toEqual({
+      phoneCallsEnabled: false,
+      phoneCallCooldownMinutes: 2,
+      phoneCallRingSeconds: 45,
+    });
+  });
+
+  it("reads the worker settings with explicit opt-in", () => {
+    expect(
+      phoneCallSettings({
+        PHONE_CALLS_ENABLED: "true",
+        PHONE_CALL_COOLDOWN_MINUTES: "1",
+        PHONE_CALL_RING_SECONDS: "90",
+      }),
+    ).toEqual({ phoneCallsEnabled: true, phoneCallCooldownMinutes: 1, phoneCallRingSeconds: 90 });
+    for (const value of ["TRUE", "1", "false", ""]) {
+      expect(phoneCallSettings({ PHONE_CALLS_ENABLED: value }).phoneCallsEnabled).toBe(false);
+    }
+  });
+
+  it.each(["", "0", "-1", "invalid", "NaN", "Infinity"])(
+    "defaults invalid durations: %s",
+    (value) => {
+      expect(
+        phoneCallSettings({ PHONE_CALL_COOLDOWN_MINUTES: value, PHONE_CALL_RING_SECONDS: value }),
+      ).toMatchObject({ phoneCallCooldownMinutes: 2, phoneCallRingSeconds: 45 });
+    },
+  );
 });

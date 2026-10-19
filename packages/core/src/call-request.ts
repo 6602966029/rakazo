@@ -1,19 +1,20 @@
 import type { MessageBlock } from "@rakazo/contracts";
 import { CALL_CLIENT_NONCE_PREFIX } from "./call-nonce.js";
 
-/** How long the bot's call rings before it counts as missed. */
-export const CALL_REQUEST_RING_MS = 45_000;
-/** Bots share this cooldown across every chat owned by the recipient. */
-export const CALL_REQUEST_COOLDOWN_MS = 10 * 60_000;
+/** Server settings shared by the API and worker. Calls require an explicit opt-in. */
+export function phoneCallSettings(source: Record<string, string | undefined> = {}) {
+  const positive = (value: string | undefined, fallback: number) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
+  return {
+    phoneCallsEnabled: source.PHONE_CALLS_ENABLED === "true",
+    phoneCallCooldownMinutes: positive(source.PHONE_CALL_COOLDOWN_MINUTES, 2),
+    phoneCallRingSeconds: positive(source.PHONE_CALL_RING_SECONDS, 45),
+  };
+}
 
 export type CallRequestBlock = Extract<MessageBlock, { kind: "call_request" }>;
-
-export type IncomingCall = {
-  callId: string;
-  reason: string;
-  opening: string;
-  expiresAt: string;
-};
 
 /**
  * The call request's own nonce: it carries the call id like every message on
@@ -36,7 +37,7 @@ export function callRequestBlock(
 export function ringingCall(
   messages: ReadonlyArray<{ role: string; blocks: unknown }>,
   now = Date.now(),
-): IncomingCall | null {
+): Pick<CallRequestBlock, "callId" | "reason" | "opening" | "expiresAt"> | null {
   for (const message of messages) {
     if (message.role !== "bot" || !Array.isArray(message.blocks)) continue;
     const block = callRequestBlock(message.blocks as MessageBlock[]);

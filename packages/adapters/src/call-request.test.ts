@@ -63,7 +63,7 @@ describe("call_user", () => {
       /voice provider/,
     );
     await expect(callRequestRefusal(prismaWith({ recent: true }), input)).resolves.toMatch(
-      /last 10 minutes/,
+      /last 2 minutes/,
     );
   });
 
@@ -71,7 +71,6 @@ describe("call_user", () => {
     const prisma = prismaWith({});
     await callRequestRefusal(prisma, {
       userId: "user-1",
-      threadId: "thread-1",
       groupChat: false,
       now: Date.parse("2026-10-14T18:30:00Z"),
     });
@@ -80,11 +79,32 @@ describe("call_user", () => {
         where: expect.objectContaining({
           thread: { userId: "user-1" },
           clientNonce: { startsWith: "call:", endsWith: ":request" },
-          createdAt: { gt: new Date("2026-10-14T18:20:00Z") },
+          createdAt: { gt: new Date("2026-10-14T18:28:00Z") },
         }),
       }),
     );
   });
+
+  it.each([1, 5])(
+    "uses the configured %i minute cooldown in the query and refusal",
+    async (minutes) => {
+      const prisma = prismaWith({ recent: true });
+      const now = Date.parse("2026-10-14T18:30:00Z");
+      await expect(
+        callRequestRefusal(prisma, {
+          userId: "user-1",
+          groupChat: false,
+          now,
+          phoneCallCooldownMinutes: minutes,
+        }),
+      ).resolves.toContain(`last ${minutes} ${minutes === 1 ? "minute." : "minutes."}`);
+      expect(prisma.message.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ createdAt: { gt: new Date(now - minutes * 60_000) } }),
+        }),
+      );
+    },
+  );
 
   it("builds a ringing request that expires after the ring window", () => {
     const request = newCallRequest({
@@ -243,6 +263,29 @@ describe("requestUserCall security", () => {
     };
     return { deps, tx, saved: () => saved };
   }
+
+  it("passes configured durations to the persisted request and recipient cooldown", async () => {
+    const { deps, tx, saved } = fixture();
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      await requestUserCall(
+        { ...deps, phoneCallRingSeconds: 90, phoneCallCooldownMinutes: 1 },
+        run,
+        input,
+      );
+      expect(saved()?.blocks).toEqual([
+        expect.objectContaining({ expiresAt: new Date(now + 90_000).toISOString() }),
+      ]);
+      expect(tx.message.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ createdAt: { gt: new Date(now - 60_000) } }),
+        }),
+      );
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
 
   it("does no work while disabled", async () => {
     const { deps } = fixture();

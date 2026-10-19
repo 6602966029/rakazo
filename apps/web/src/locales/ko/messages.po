@@ -61,7 +61,6 @@ msgid "{0} handling"
 msgstr ""
 
 #. placeholder {0}: bot.name
-#. placeholder {0}: ringing.bot.name
 #: src/components/call/IncomingCall.tsx
 msgid "{0} is calling you"
 msgstr ""
@@ -134,18 +133,10 @@ msgstr "{days}일 전"
 msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
 msgstr ""
 
-#: src/components/call/VoiceChatCard.tsx
-msgid "{hours} h {minutes} min"
-msgstr ""
-
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
 msgid "{hours}h ago"
 msgstr "{hours}시간 전"
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "{minutes} min {rest} s"
-msgstr ""
 
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
@@ -250,10 +241,6 @@ msgstr "{provider}의 응답 시간이 초과되었습니다. 다시 시도하�
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "남은 시간 {remaining} · Bot은 화면만 보고 직접 조작하지 않습니다"
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "{rest} s"
-msgstr ""
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "{seats, plural, one {# seat} other {# seats}}"
@@ -918,10 +905,6 @@ msgstr ""
 #. placeholder {0}: call.botName
 #: src/components/call/CallCard.tsx
 msgid "Call with {0}"
-msgstr ""
-
-#: src/components/call/IncomingCall.tsx
-msgid "Calling you"
 msgstr ""
 
 #: src/components/call/VoiceChatCard.tsx
@@ -2782,12 +2765,8 @@ msgstr ""
 msgid "Listen"
 msgstr ""
 
-#: src/pages/ExternalConversationSettings.tsx
-msgid "Listening"
-msgstr ""
-
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
+#: src/pages/ExternalConversationSettings.tsx
 msgid "Listening"
 msgstr ""
 
@@ -3156,7 +3135,6 @@ msgid "Mute"
 msgstr "음소거"
 
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Muted"
 msgstr ""
 
@@ -3236,10 +3214,6 @@ msgstr ""
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."
 msgstr "아직 Agent 연결이 없습니다."
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "No answer"
-msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
@@ -4473,7 +4447,6 @@ msgid "Speak this reply"
 msgstr "이 답변 읽기"
 
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Speaking"
 msgstr ""
 
@@ -4658,17 +4631,13 @@ msgstr "선택한 기억 서비스는 현재 빌드에서 사용할 수 없습�
 msgid "These saved settings can't be read. Remove it and add it again."
 msgstr ""
 
+#: src/components/call/CallCard.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Thinking"
 msgstr "생각 깊이"
-
-#: src/components/call/CallCard.tsx
-msgctxt "call status"
-msgid "Thinking"
-msgstr ""
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Thinking: {activeThinkingLabel}"

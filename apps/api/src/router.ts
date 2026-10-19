@@ -597,6 +597,7 @@ export interface RouterDeps {
   env: {
     ticketBoardEnabled?: boolean;
     phoneCallsEnabled?: boolean;
+    phoneCallRingSeconds?: number;
     maxUploadSizeBytes?: number;
     agentRuntime: string;
     teamChatJudgeProvider?: string;
@@ -773,7 +774,10 @@ export function createRouter(deps: RouterDeps) {
     /** Re-runs the request's auth so a long-lived stream notices sign-out and revocation. */
     stillAuthorized?: () => Promise<boolean>;
   }>();
-  const repos = createRepos(deps.prisma, { phoneCallsEnabled: deps.env?.phoneCallsEnabled });
+  const repos = createRepos(deps.prisma, {
+    phoneCallsEnabled: deps.env?.phoneCallsEnabled,
+    phoneCallRingSeconds: deps.env?.phoneCallRingSeconds,
+  });
   const onboardingDeps = { prisma: deps.prisma, events: deps.events, connectors: deps.connectors };
   const mcpOAuth = deps.mcpOAuth ?? new McpOAuthBroker(deps.prisma, deps.secrets);
   const codexCatalog = deps.codexCatalog ?? new CodexCatalogCache();

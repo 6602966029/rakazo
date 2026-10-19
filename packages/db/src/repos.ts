@@ -1,6 +1,12 @@
 import type { Actor, Bot, BotSection, MessageBlock, SpaceBot } from "@rakazo/contracts";
 import { BOT_COLORS, canonicalPiProviderId, InstructionVersionSchema } from "@rakazo/contracts";
-import { BACKGROUND_RUN_TRIGGERS, CALL_REQUEST_RING_MS, ringingCall, isBackgroundRunTrigger, userVisibleMessages } from "@rakazo/core";
+import {
+  BACKGROUND_RUN_TRIGGERS,
+  isBackgroundRunTrigger,
+  phoneCallSettings,
+  ringingCall,
+  userVisibleMessages,
+} from "@rakazo/core";
 import type { PrismaClient } from "./client.js";
 import type { ComputerMode } from "./computers.js";
 import { ensureComputerRecord, parseComputerMode } from "./computers.js";
@@ -126,7 +132,7 @@ function mapBot(
 
 export function createRepos(
   prisma: PrismaClient,
-  capabilities: { phoneCallsEnabled?: boolean } = {},
+  capabilities: { phoneCallsEnabled?: boolean; phoneCallRingSeconds?: number } = {},
 ) {
   async function listBotSectionsForSpaces(
     actor: Actor,
@@ -338,7 +344,14 @@ export function createRepos(
         ? await prisma.message.findMany({
             where: {
               threadId: { in: callThreadIds },
-              createdAt: { gt: new Date(Date.now() - CALL_REQUEST_RING_MS) },
+              createdAt: {
+                gt: new Date(
+                  Date.now() -
+                    (capabilities.phoneCallRingSeconds ??
+                      phoneCallSettings().phoneCallRingSeconds) *
+                      1000,
+                ),
+              },
               role: "bot",
               clientNonce: { startsWith: "call:", endsWith: ":request" },
             },

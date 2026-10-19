@@ -5,10 +5,9 @@ import type { MessageBlock } from "@rakazo/contracts";
 import type { CallRequestBlock } from "@rakazo/core";
 import {
   CALL_CLIENT_NONCE_PREFIX,
-  CALL_REQUEST_COOLDOWN_MS,
-  CALL_REQUEST_RING_MS,
   callRequestBlock,
   callRequestClientNonce,
+  phoneCallSettings,
 } from "@rakazo/core";
 import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import { appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
@@ -16,12 +15,12 @@ import { appendEventInTransaction, createThreadMessageInTransaction } from "@rak
 const REASON_MAX = 120;
 const OPENING_MAX = 240;
 
-export type CallRequestStatus = CallRequestBlock["status"];
+type CallRequestStatus = CallRequestBlock["status"];
 
 /** Why the bot may not ring the user right now, or null when it may. */
 export async function callRequestRefusal(
   prisma: Pick<PrismaClient, "message" | "userVoiceCredential">,
-  input: { userId: string; threadId: string; groupChat: boolean; now?: number },
+  input: { userId: string; groupChat: boolean; now?: number; phoneCallCooldownMinutes?: number },
 ): Promise<string | null> {
   if (input.groupChat) return "Calls work in a one-to-one chat only. Send a message instead.";
   const voice = await prisma.userVoiceCredential.findFirst({
@@ -31,7 +30,8 @@ export async function callRequestRefusal(
   if (!voice) {
     return "The user has not connected a voice provider, so they cannot take a call. Send a message instead.";
   }
-  const since = new Date((input.now ?? Date.now()) - CALL_REQUEST_COOLDOWN_MS);
+  const minutes = input.phoneCallCooldownMinutes ?? phoneCallSettings().phoneCallCooldownMinutes;
+  const since = new Date((input.now ?? Date.now()) - minutes * 60_000);
   const recent = await prisma.message.findFirst({
     where: {
       thread: { userId: input.userId },
@@ -42,7 +42,7 @@ export async function callRequestRefusal(
     select: { id: true },
   });
   if (recent) {
-    return "You already called the user in the last 10 minutes. Send a message instead of calling again.";
+    return `You already called the user in the last ${minutes} ${minutes === 1 ? "minute" : "minutes"}. Send a message instead of calling again.`;
   }
   return null;
 }
@@ -51,6 +51,7 @@ export function newCallRequest(input: {
   reason: string;
   opening: string;
   now?: number;
+  phoneCallRingSeconds?: number;
 }):
   | { error: string }
   | { callId: string; clientNonce: string; expiresAt: Date; blocks: MessageBlock[] } {
@@ -59,7 +60,10 @@ export function newCallRequest(input: {
   if (!reason) return { error: "reason is required." };
   if (!opening) return { error: "opening is required." };
   const callId = randomUUID();
-  const expiresAt = new Date((input.now ?? Date.now()) + CALL_REQUEST_RING_MS);
+  const expiresAt = new Date(
+    (input.now ?? Date.now()) +
+      (input.phoneCallRingSeconds ?? phoneCallSettings().phoneCallRingSeconds) * 1000,
+  );
   return {
     callId,
     clientNonce: callRequestClientNonce(callId),
@@ -142,12 +146,14 @@ export async function requestUserCall(
     events: ThreadEvents;
     jobs: JobPublisher;
     phoneCallsEnabled?: boolean;
+    phoneCallCooldownMinutes?: number;
+    phoneCallRingSeconds?: number;
   },
   run: { id: string; spaceId: string; userId: string; threadId: string; botId: string },
   input: { reason: string; opening: string },
 ) {
   if (!deps.phoneCallsEnabled) return { error: "Calls are disabled." };
-  const request = newCallRequest(input);
+  const request = newCallRequest({ ...input, phoneCallRingSeconds: deps.phoneCallRingSeconds });
   if ("error" in request) return request;
   const result = await deps.prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`call:${run.userId}`}, 0))::text`;
@@ -164,7 +170,11 @@ export async function requestUserCall(
       select: { id: true },
     });
     if (!target) return { error: "Calls require the bot's own one-to-one chat." };
-    const refusal = await callRequestRefusal(tx, { ...run, groupChat: false });
+    const refusal = await callRequestRefusal(tx, {
+      ...run,
+      groupChat: false,
+      phoneCallCooldownMinutes: deps.phoneCallCooldownMinutes,
+    });
     if (refusal) return { error: refusal };
     const message = await createThreadMessageInTransaction(tx, {
       threadId: run.threadId,

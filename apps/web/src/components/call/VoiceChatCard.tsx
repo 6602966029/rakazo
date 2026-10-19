@@ -29,15 +29,7 @@ export function VoiceChatCard({
   /** Present when the bot placed this call; the card then follows the call's outcome. */
   const request = callRequestBlock(group.messages[0]?.blocks);
   const seconds = voiceChatDuration(group);
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const rest = seconds % 60;
-  const duration =
-    hours > 0
-      ? t`${hours} h ${minutes} min`
-      : minutes > 0
-        ? t`${minutes} min ${rest} s`
-        : t`${rest} s`;
+  const duration = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   const ringing = request?.status === "ringing" && Date.parse(request.expiresAt) > Date.now();
   // A call that rang out reads as missed even before the server's ring-out lands.
   const missed =
@@ -57,8 +49,8 @@ export function VoiceChatCard({
       ? ""
       : request.status === "declined"
         ? t`You declined`
-        : request.status === "missed" || request.status === "ringing"
-          ? t`No answer`
+        : missed
+          ? ""
           : duration;
   const summary = missed || ringing ? (request?.reason ?? "") : voiceChatSummary(group);
   // The opening was spoken, not posted: show it as the call's first bot turn.

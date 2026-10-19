@@ -61,7 +61,6 @@ msgid "{0} handling"
 msgstr ""
 
 #. placeholder {0}: bot.name
-#. placeholder {0}: ringing.bot.name
 #: src/components/call/IncomingCall.tsx
 msgid "{0} is calling you"
 msgstr "{0} te está llamando"
@@ -134,18 +133,10 @@ msgstr "hace {days} d"
 msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
 msgstr ""
 
-#: src/components/call/VoiceChatCard.tsx
-msgid "{hours} h {minutes} min"
-msgstr "{hours} h {minutes} min"
-
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
 msgid "{hours}h ago"
 msgstr "hace {hours} h"
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "{minutes} min {rest} s"
-msgstr "{minutes} min {rest} s"
 
 #: src/lib/relative-time.ts
 #: src/pages/ActivityList.tsx
@@ -250,10 +241,6 @@ msgstr "{provider} tardó demasiado en responder. Vuelve a intentarlo."
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "{remaining} left · bot is watching, not acting"
 msgstr "Quedan {remaining} · el bot observa, no actúa"
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "{rest} s"
-msgstr "{rest} s"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "{seats, plural, one {# seat} other {# seats}}"
@@ -919,10 +906,6 @@ msgstr "Devolver llamada"
 #: src/components/call/CallCard.tsx
 msgid "Call with {0}"
 msgstr "Llamada con {0}"
-
-#: src/components/call/IncomingCall.tsx
-msgid "Calling you"
-msgstr "Te está llamando"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Calling you…"
@@ -2782,12 +2765,8 @@ msgstr ""
 msgid "Listen"
 msgstr ""
 
-#: src/pages/ExternalConversationSettings.tsx
-msgid "Listening"
-msgstr "Escuchando"
-
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
+#: src/pages/ExternalConversationSettings.tsx
 msgid "Listening"
 msgstr "Escuchando"
 
@@ -3156,7 +3135,6 @@ msgid "Mute"
 msgstr "Silenciar"
 
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Muted"
 msgstr "Silenciado"
 
@@ -3236,10 +3214,6 @@ msgstr ""
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."
 msgstr "Aún no hay conexiones de agentes."
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "No answer"
-msgstr "Sin respuesta"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
@@ -4473,7 +4447,6 @@ msgid "Speak this reply"
 msgstr "Leer esta respuesta"
 
 #: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Speaking"
 msgstr "Hablando"
 
@@ -4658,15 +4631,11 @@ msgstr "El proveedor de memoria seleccionado no está disponible en esta build."
 msgid "These saved settings can't be read. Remove it and add it again."
 msgstr ""
 
+#: src/components/call/CallCard.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
-msgid "Thinking"
-msgstr "Pensando"
-
-#: src/components/call/CallCard.tsx
-msgctxt "call status"
 msgid "Thinking"
 msgstr "Pensando"
 

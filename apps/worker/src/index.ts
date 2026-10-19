@@ -1,5 +1,6 @@
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
 import { ComposioConnector, IntegrationProviderSettings } from "@rakazo/adapters";
+import { phoneCallSettings } from "@rakazo/core";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import { createWorkerSecretStore } from "./secret-store.js";
 
@@ -221,7 +222,7 @@ async function main() {
     events,
     onTicketChange: ticketChanges,
     ticketBoardEnabled,
-    phoneCallsEnabled: process.env.PHONE_CALLS_ENABLED === "true",
+    ...phoneCallSettings(process.env),
     messaging: messaging ? createMessagingContextLoader(prisma) : undefined,
     web: createWebProvider(),
     cloudAgent,

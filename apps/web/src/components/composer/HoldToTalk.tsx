@@ -11,25 +11,7 @@ export const LOCK_DISTANCE_PX = 64;
 export const TAP_MS = 350;
 const HINT_MS = 2_500;
 
-export type HoldToTalk = {
-  /** Recording now; `locked` once the hold was slid up and the finger can lift. */
-  recording: { locked: boolean; startedAt: number } | null;
-  transcribing: boolean;
-  transcript: string;
-  /** The finger's travel toward the lock, 0 to LOCK_DISTANCE_PX. */
-  lift: number;
-  notice: string | null;
-  submit: () => void;
-  cancel: () => void;
-  buttonProps: {
-    onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
-    onPointerMove: (event: PointerEvent<HTMLButtonElement>) => void;
-    onPointerUp: (event: PointerEvent<HTMLButtonElement>) => void;
-    onPointerCancel: () => void;
-    onClick: (event: { detail: number }) => void;
-    onContextMenu: (event: { preventDefault: () => void }) => void;
-  };
-};
+type Recording = { locked: boolean; startedAt: number } | null;
 
 /**
  * Telegram-style dictation: hold to talk and release to send the text; slide up
@@ -44,9 +26,9 @@ export function useHoldToTalk({
   transcribe?: boolean;
   disabled?: boolean;
   onText: (text: string) => void;
-}): HoldToTalk {
+}) {
   const { t } = useLingui();
-  const [recording, setRecording] = useState<HoldToTalk["recording"]>(null);
+  const [recording, setRecording] = useState<Recording>(null);
   const [transcribing, setTranscribing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [lift, setLift] = useState(0);
@@ -144,14 +126,14 @@ export function useHoldToTalk({
     submit,
     cancel,
     buttonProps: {
-      onPointerDown: (event) => {
+      onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
         if (disabled || event.button !== 0 || recordingRef.current) return;
         event.preventDefault();
         event.currentTarget.setPointerCapture?.(event.pointerId);
         gesture.current = { startY: event.clientY, startedAt: Date.now() };
         start(false);
       },
-      onPointerMove: (event) => {
+      onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
         const hold = gesture.current;
         if (!hold || !recordingRef.current || recordingRef.current.locked) return;
         const travel = Math.max(0, hold.startY - event.clientY);
@@ -178,12 +160,12 @@ export function useHoldToTalk({
         gesture.current = null;
         if (!recordingRef.current?.locked) cancel();
       },
-      onClick: (event) => {
+      onClick: (event: { detail: number }) => {
         // detail 0 is a keyboard press; pointer presses are handled above.
         if (event.detail !== 0 || disabled || recordingRef.current) return;
         start(true);
       },
-      onContextMenu: (event) => event.preventDefault(),
+      onContextMenu: (event: { preventDefault: () => void }) => event.preventDefault(),
     },
   };
 }
@@ -198,7 +180,7 @@ function useSeconds(since: number): number {
 }
 
 /** Takes the text field's place while recording: a live dot, the time, and what was heard. */
-export function HoldToTalkStrip({ talk }: { talk: HoldToTalk }) {
+export function HoldToTalkStrip({ talk }: { talk: ReturnType<typeof useHoldToTalk> }) {
   const { t } = useLingui();
   const startedAt = talk.recording?.startedAt ?? Date.now();
   const seconds = useSeconds(startedAt);
@@ -211,7 +193,7 @@ export function HoldToTalkStrip({ talk }: { talk: HoldToTalk }) {
   return (
     <div
       data-testid="hold-to-talk-strip"
-      className="flex min-h-6 min-w-0 flex-1 items-center gap-2.5 py-0.5 text-[15px]"
+      className="flex min-h-6 min-w-0 flex-1 items-center gap-2.5 py-0.5 text-sm"
     >
       <span
         aria-hidden="true"
@@ -232,7 +214,13 @@ export function HoldToTalkStrip({ talk }: { talk: HoldToTalk }) {
 }
 
 /** The microphone button, plus the lock target above it and Cancel/Send once locked. */
-export function HoldToTalkControls({ talk, disabled }: { talk: HoldToTalk; disabled?: boolean }) {
+export function HoldToTalkControls({
+  talk,
+  disabled,
+}: {
+  talk: ReturnType<typeof useHoldToTalk>;
+  disabled?: boolean;
+}) {
   const { t } = useLingui();
   const { recording } = talk;
   if (recording?.locked) {
@@ -274,7 +262,7 @@ export function HoldToTalkControls({ talk, disabled }: { talk: HoldToTalk; disab
       {talk.notice && !recording ? (
         <span
           role="status"
-          className="pointer-events-none absolute bottom-full end-0 mb-2 w-max max-w-64 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[12.5px] text-foreground shadow-md"
+          className="pointer-events-none absolute bottom-full end-0 mb-2 w-max max-w-64 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground shadow-md"
         >
           {talk.notice}
         </span>

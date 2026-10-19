@@ -192,7 +192,12 @@ import {
   requestBrowserNotificationPermission,
   shouldNotifyBrowser,
 } from "../lib/browser-notifications";
-import { getSnapshot as getCallSnapshot, setCallMinimized, startCall, useCallSession } from "../lib/call-session";
+import {
+  getSnapshot as getCallSnapshot,
+  setCallMinimized,
+  startCall,
+  useCallSession,
+} from "../lib/call-session";
 import { newClientId } from "../lib/client-id";
 import {
   beginComposerDraftSubmission,

@@ -16,13 +16,13 @@ const BARS = [9, 15, 21, 15, 9];
 const TRANSCRIPT_LINES = 4;
 const EDITABLE = /^(?:input|textarea|select)$/i;
 
-export function callClock(seconds: number): string {
+function callClock(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 /** Whole seconds the call has been connected, ticking while it is. */
-export function useCallElapsed(call: CallState | null): number {
+function useCallElapsed(call: CallState | null): number {
   const connectedAt = call?.connectedAt ?? null;
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -57,12 +57,12 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
   const ringing = call.phase === "ringing";
   const activity =
     call.phase === "speaking"
-      ? t({ message: "Speaking", context: "call status" })
+      ? t`Speaking`
       : call.phase === "thinking"
-        ? t({ message: "Thinking", context: "call status" })
+        ? t`Thinking`
         : call.muted
-          ? t({ message: "Muted", context: "call status" })
-          : t({ message: "Listening", context: "call status" });
+          ? t`Muted`
+          : t`Listening`;
   const status = ringing ? t`Calling…` : `${callClock(elapsed)} · ${activity}`;
   return (
     <div
@@ -122,10 +122,10 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
           <BotAvatar color={call.botColor} identity={call.botId} size={96} />
         </button>
         <div className="flex flex-col items-center gap-1 text-center">
-          <span className="text-[22px] font-semibold text-foreground md:text-[19px]" dir="auto">
+          <span className="text-2xl font-semibold text-foreground md:text-xl" dir="auto">
             {call.botName}
           </span>
-          <span className="text-[14px] tabular-nums text-muted-foreground" aria-live="polite">
+          <span className="text-sm tabular-nums text-muted-foreground" aria-live="polite">
             {status}
           </span>
         </div>
@@ -152,7 +152,7 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
       </div>
 
       {call.transcriptOpen ? (
-        <div className="mb-4 flex flex-col gap-1.5 border-t border-border pt-2.5 text-[13px] leading-[1.45]">
+        <div className="mb-4 flex flex-col gap-1.5 border-t border-border pt-2.5 text-sm leading-[1.45]">
           {call.exchanges.slice(-TRANSCRIPT_LINES).map((exchange, index) => (
             <p
               key={`${exchange.role}-${index + 1}-${exchange.text.slice(0, 24)}`}
@@ -172,7 +172,7 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
           ) : null}
         </div>
       ) : call.caption ? (
-        <p className="mb-4 text-center text-[13px] text-muted-foreground" dir="auto">
+        <p className="mb-4 text-center text-sm text-muted-foreground" dir="auto">
           {call.caption}
         </p>
       ) : null}
@@ -213,7 +213,7 @@ export function CallReturnBar() {
       type="button"
       data-testid="call-return-bar"
       onClick={() => setCallMinimized(false)}
-      className="app-no-drag flex min-h-10 w-full shrink-0 items-center justify-center gap-1.5 bg-success px-3 text-[13.5px] font-medium text-background"
+      className="app-no-drag flex min-h-10 w-full shrink-0 items-center justify-center gap-1.5 bg-success px-3 text-sm font-medium text-background"
     >
       <span dir="auto">{t`Return to call with ${call.botName}`}</span>
       <span className="tabular-nums">
