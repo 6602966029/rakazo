@@ -123,6 +123,14 @@ traffic from the match and nothing else. A computer provisioned before the flag 
 is replaced on its next provision — resuming it on an unnamed bridge would bypass the
 restriction.
 
+Computers resolve names through Docker's embedded DNS, which forwards each lookup to the
+host's resolvers from inside the computer's network. When the host's resolver has a private
+address, as a cloud VPC resolver or a LAN router does, the ruleset drops that forward too and
+every lookup times out while connections by IP still work. Set `SANDBOX_COMPUTER_DNS` to
+public resolvers (comma-separated IP addresses, such as `1.1.1.1,1.0.0.1`) and recreate the
+supervisor: Docker then forwards computers' lookups there, and each computer picks the
+servers up on its next provision.
+
 To disable restricted egress, set `SANDBOX_COMPUTER_EGRESS=open`, recreate the
 supervisor, and run `sudo bash infra/compose/restrict-computer-egress.sh --remove`.
 The flag alone does not uninstall the host rules, which keep matching the still-named
