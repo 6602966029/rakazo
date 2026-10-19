@@ -350,6 +350,27 @@ describe("sandbox supervisor input containment", () => {
     });
   });
 
+  it.each([undefined, "/home/rakazo/.browser-profiles/bot-test"])(
+    "opens workspace files in the assigned browser (profile=%s)",
+    (profile) => {
+      for (const [file, url] of [
+        ["screenshots/it's #1%.png", "file:///home/rakazo/screenshots/it's%20%231%25.png"],
+        ["/image.png", "file:///home/rakazo/image.png"],
+        ["screenshots/back\\slash.png", "file:///home/rakazo/screenshots/back/slash.png"],
+      ] as const) {
+        expect(containerActionStep({ kind: "open", path: file }, ":2", profile)).toEqual({
+          argv: [
+            "env",
+            "DISPLAY=:2",
+            ...(profile ? [`RAKAZO_BROWSER_PROFILE=${profile}`] : []),
+            "rakazo-browser",
+            url,
+          ],
+        });
+      }
+    },
+  );
+
   it("routes Docker browser aliases through the safe wrapper on every display", () => {
     for (const application of DOCKER_BROWSER_ALIASES) {
       expect(
