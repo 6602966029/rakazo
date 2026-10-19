@@ -15,6 +15,7 @@ const MINUTE = 60_000;
 
 interface Scenario {
   error: Error;
+  platformKeyNonOwner?: boolean;
   trigger?: string;
   retryOfRunId?: string | null;
   routineNotify?: boolean;
@@ -112,6 +113,7 @@ async function failRun(scenario: Scenario) {
     spaceBackupModel: { findMany: vi.fn(async () => []) },
     deploymentSettings: {
       findUnique: vi.fn(async () => ({
+        ownerUserId: scenario.platformKeyNonOwner ? "owner-1" : "user-1",
         defaultModelProvider: "openrouter",
         defaultModelId: "deepseek/deepseek-v4-flash-0731",
       })),
@@ -152,7 +154,10 @@ async function failRun(scenario: Scenario) {
 
   await executor.continueRun(run.id, "worker-1");
   expect(finalizeRun).toHaveBeenCalledWith(
-    expect.objectContaining({ outcome: "failed", error: scenario.error.message }),
+    expect.objectContaining({
+      outcome: "failed",
+      error: `${scenario.platformKeyNonOwner ? "[platform-model-key]" : ""}${scenario.error.message}`,
+    }),
   );
   const retries = enqueue.mock.calls
     .map(([job]) => job)
@@ -724,4 +729,11 @@ describe("exhausted routine retry notification", () => {
       expect(send).not.toHaveBeenCalled();
     },
   );
+});
+
+it("marks deployment-key failures for non-owners", async () => {
+  await failRun({
+    error: new Error('403: {"message":"Key limit exceeded"}'),
+    platformKeyNonOwner: true,
+  });
 });

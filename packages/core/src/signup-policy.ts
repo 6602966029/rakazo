@@ -6,6 +6,14 @@ export function parseAllowlist(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
+export function platformModelAllowed(input: {
+  allowlist?: string[];
+  email: string;
+  isOwner: boolean;
+}): boolean {
+  return input.isOwner || emailAllowed(input.email, input.allowlist ?? []);
+}
+
 export function emailAllowed(email: string, allowlist: string[]): boolean {
   if (allowlist.length === 0) return true;
   const normalized = email.trim().toLowerCase();

@@ -33,6 +33,7 @@ export function createBackgroundJobHandlers(deps: {
   runtime: AgentRuntime;
   secretStore: SecretStore;
   memoryProviders: MemoryProviderResolver;
+  platformModelAllowlist?: string[];
   deploymentModelKey?: string;
   deploymentModelConfigured?: boolean;
   messaging?: MessagingSurface;
@@ -116,6 +117,7 @@ export function createBackgroundJobHandlers(deps: {
           runtime: deps.runtime,
           jobs: deps.jobs,
           memoryProviders: deps.memoryProviders,
+          platformModelAllowlist: deps.platformModelAllowlist,
           deploymentModelKey: deps.deploymentModelKey,
           deploymentModelConfigured: deps.deploymentModelConfigured,
           ...(deps.executor.resolveModel ? { resolveModel: deps.executor.resolveModel } : {}),

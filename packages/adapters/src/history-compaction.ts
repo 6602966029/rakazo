@@ -11,6 +11,7 @@ import type {
   ConfiguredMemoryProvider,
   MemoryProviderResolver,
 } from "./memory-provider-factory.js";
+import { canUsePlatformModel } from "./platform-model-access.js";
 
 /**
  * Sentinel for "nothing compacted yet". Message `seq` is 0-based, so an exclusive lower bound of
@@ -206,6 +207,7 @@ export interface CompactHistoryDeps {
   runtime: AgentRuntime;
   jobs: JobPublisher;
   memoryProviders: MemoryProviderResolver;
+  platformModelAllowlist?: string[];
   deploymentModelKey?: string;
   deploymentModelConfigured?: boolean;
   resolveModel?: (scope: {
@@ -325,6 +327,11 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
   // "scripted" means nothing at all is configured: ScriptedAgentRuntime answers by echoing canned
   // text keyed off the prompt, so summarizing with it would save nonsense to external memory and
   // advance the cursor past messages that are then lost from both stores. Skip instead.
+  if (
+    !deps.resolveModel &&
+    !(await canUsePlatformModel(deps.prisma, deps.platformModelAllowlist, thread.userId))
+  )
+    return;
   const deploymentFallback = resolveDeploymentModel();
   const model = deps.resolveModel
     ? await deps.resolveModel({

@@ -7,6 +7,7 @@ import type {
   SecretStore,
 } from "@rakazo/adapter-kit";
 import {
+  canUsePlatformModel,
   formatCurrentTimeInstruction,
   matchesFailedOAuthSecret,
   resolveModelAuth,
@@ -119,6 +120,7 @@ interface ModelTeamChatEngagementJudgeDeps {
   secrets: SecretStore;
   deploymentProvider: string;
   deploymentModel: string;
+  platformModelAllowlist?: string[];
   deploymentModelKey?: string;
   providerOverride?: string;
   modelOverride?: string;
@@ -238,6 +240,10 @@ export class ModelTeamChatEngagementJudge implements TeamChatEngagementJudge {
     if (!provider || !modelId) return null;
 
     if (!credential) {
+      if (
+        !(await canUsePlatformModel(this.deps.prisma, this.deps.platformModelAllowlist, bot.userId))
+      )
+        return null;
       const apiKey =
         provider === this.deps.deploymentProvider ? this.deps.deploymentModelKey : undefined;
       return { model: { provider, id: modelId, ...(apiKey ? { apiKey } : {}) } };
