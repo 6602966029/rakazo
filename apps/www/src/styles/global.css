@@ -526,7 +526,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 .roster-card,
 .comparison-card {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   box-shadow: var(--shadow-soft);
 }
 
@@ -3165,4 +3165,43 @@ button.product-demo__dock-icon {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Homepage supporting details stay small beside the product examples. */
+.works-with,
+.source-links,
+.cloud-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.works-with {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.provider-chip {
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--body);
+  padding: 4px 8px;
+}
+
+.cloud-preview {
+  color: var(--muted-2);
+  font-size: 14px;
+}
+
+.cloud-link {
+  border: 0;
+  border-bottom: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--ink);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }
