@@ -45,6 +45,7 @@ export * from "./messaging-providers.js";
 export * from "./model-oauth.js";
 export * from "./model-probe.js";
 export * from "./model-providers.js";
+export * from "./product-analytics.js";
 export * from "./prompt-data.js";
 export * from "./remote-images.js";
 export * from "./response-bytes.js";

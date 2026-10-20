@@ -31,6 +31,7 @@ import {
   createMessagingContextLoader,
   createMessagingTeamChatHistory,
   createMessagingTeamChatSender,
+  createProductAnalytics,
   createRunExecutor,
   createRunSandbox,
   createRunSecretWriter,
@@ -219,7 +220,9 @@ export async function createApp(
   if (secrets.describe().capabilities.degraded)
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
+  const analytics = createProductAnalytics();
   const events = createThreadEvents(prisma, realtime, {
+    analytics,
     runSecretWriter: createRunSecretWriter(secrets),
   });
   const ticketBoardEnabled = env.ticketBoardEnabled;
@@ -401,6 +404,7 @@ export async function createApp(
     notificationsOverride ??
     new ExpoPushProvider(env.dataDir, (sessionId) => pushSessionExpiresAt(prisma, sessionId), jobs);
   const auth = createAuth(prisma, {
+    analytics,
     passwordAuth: env.passwordAuth,
     oidc: env.oidc,
     secret: env.authSecret,
@@ -553,6 +557,7 @@ export async function createApp(
   reconciler?.start();
 
   const router = createRouter({
+    analytics,
     cloudAgent,
     codexCatalog,
     prisma,
@@ -1039,6 +1044,7 @@ export async function createApp(
       await prisma.$disconnect().catch(() => undefined);
       await created.pool?.end().catch(() => undefined);
       await ownedJobPool?.end().catch(() => undefined);
+      await analytics?.flush();
       await logger.flush({ timeoutMs: 2_000 });
     },
   };

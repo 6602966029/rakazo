@@ -15,6 +15,7 @@ import {
   createJobReconciler,
   createMessagingContextLoader,
   createPostgresReconciliationLeadership,
+  createProductAnalytics,
   createRoutineRetryNoticeReconciler,
   createRunExecutor,
   createRunSandbox,
@@ -88,7 +89,9 @@ async function main() {
   if (secrets.describe().capabilities.degraded)
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
+  const analytics = createProductAnalytics();
   const events = createThreadEvents(prisma, realtime, {
+    analytics,
     runSecretWriter: createRunSecretWriter(secrets),
   });
   const ticketBoardEnabled = process.env.TICKET_BOARD_ENABLED === "true";
@@ -300,6 +303,7 @@ async function main() {
       await prisma.$disconnect().catch(() => undefined);
       await pool.end().catch(() => undefined);
     } finally {
+      await analytics?.flush();
       await shutdownPiTelemetry();
       await logger.flush({ timeoutMs: 2_000 });
     }
