@@ -6,13 +6,15 @@ export function isOpaqueName(name: string): boolean {
     /^__[A-Za-z0-9_-]+__$/.test(name) ||
     /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(name) ||
     // Cuid v1 has a fixed prefix/length; cuid2 is 24 lowercase alphanumerics.
-    /^c[a-z0-9]{24}$/.test(name) ||
+    (/^c[a-z0-9]{24}$/.test(name) && /[0-9]/.test(name)) ||
     (/^[a-z][a-z0-9]{23}$/.test(name) && /[0-9]/.test(name)) ||
-    // Longer nanoid-like handles need all three classes to avoid ordinary names.
+    // Require interspersed digits and unstructured casing; numbered words/handles stay names.
     (/^[A-Za-z0-9_-]{20,}$/.test(name) &&
       /[a-z]/.test(name) &&
       /[A-Z]/.test(name) &&
-      /[0-9]/.test(name))
+      /[0-9]/.test(name) &&
+      !/^[A-Za-z_-]+[0-9]+$/.test(name) &&
+      !/^[A-Za-z][a-z]*(?:[A-Z][a-z]+|[0-9]|[_-][A-Za-z][a-z]+)*$/.test(name))
   );
 }
 
@@ -40,18 +42,21 @@ export function accountDisplay(
 }
 
 /** Only identity metadata changes; message text, filenames and tool identifiers stay literal. */
-export function displayMessageBlock(block: MessageBlock): MessageBlock {
+export function displayMessageBlock(
+  block: MessageBlock,
+  labels = { bot: "Bot", member: "Member", subagent: "subagent" },
+): MessageBlock {
   switch (block.kind) {
     case "bot_message_sent":
-      return { ...block, toBotName: displayName(block.toBotName, "Bot") };
+      return { ...block, toBotName: displayName(block.toBotName, labels.bot) };
     case "bot_message_received":
-      return { ...block, fromBotName: displayName(block.fromBotName, "Bot") };
+      return { ...block, fromBotName: displayName(block.fromBotName, labels.bot) };
     case "subagent":
-      return { ...block, name: displayName(block.name, "subagent") };
+      return { ...block, name: displayName(block.name, labels.subagent) };
     case "child_bot":
-      return { ...block, name: displayName(block.name, "Bot") };
+      return { ...block, name: displayName(block.name, labels.bot) };
     case "channel_message":
-      return { ...block, fromLabel: displayName(block.fromLabel, "Member") };
+      return { ...block, fromLabel: displayName(block.fromLabel, labels.member) };
     default:
       return block;
   }

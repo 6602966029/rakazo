@@ -91,9 +91,9 @@ export async function listSpaceRuns(
   return rows.map((row) => ({
     runId: row.id,
     botId: row.botId,
-    botName: displayName(row.bot.name, "Bot"),
+    botName: row.bot.name,
     groupId: row.thread.groupId,
-    groupName: row.thread.group ? displayName(row.thread.group.name, "Group") : null,
+    groupName: row.thread.group ? row.thread.group.name : null,
     threadId: row.threadId,
     status: row.status as RunActivityRow["status"],
     trigger: row.trigger as RunActivityRow["trigger"],

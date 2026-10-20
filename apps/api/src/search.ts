@@ -88,9 +88,9 @@ export async function querySpaceSearch(
       {
         kind: "conversation",
         botId: bot.id,
-        botName: displayName(bot.name, "Bot"),
-        title: displayName(bot.name, "Bot"),
-        snippet: bot.title || bot.description || bot.name,
+        botName: bot.name,
+        title: bot.name,
+        snippet: displayName(bot.title, "") || bot.description || displayName(bot.name, ""),
       },
       CONVERSATION_HIT_LIMIT * 2,
     );
@@ -110,9 +110,9 @@ export async function querySpaceSearch(
       {
         kind: "conversation",
         groupId: group.id,
-        groupName: displayName(group.name, "Group"),
-        title: displayName(group.name, "Group"),
-        snippet: group.name,
+        groupName: group.name,
+        title: group.name,
+        snippet: displayName(group.name, ""),
       },
       CONVERSATION_HIT_LIMIT * 2,
     );
@@ -149,7 +149,7 @@ export async function querySpaceSearch(
       {
         kind: "file",
         botId: artifact.botId,
-        botName: displayName(artifact.bot.name, "Bot"),
+        botName: artifact.bot.name,
         title: artifact.name,
         snippet: `${artifact.mimeType} · ${artifact.size} bytes`,
         artifactId: artifact.id,
@@ -187,7 +187,7 @@ export async function querySpaceSearch(
       {
         kind: "file",
         groupId: artifact.groupId,
-        groupName: displayName(artifact.group.name, "Group"),
+        groupName: artifact.group.name,
         title: artifact.name,
         snippet: `${artifact.mimeType} · ${artifact.size} bytes`,
         artifactId: artifact.id,
@@ -217,7 +217,7 @@ export async function querySpaceSearch(
       {
         kind: "routine",
         botId: routine.botId,
-        botName: displayName(routine.bot.name, "Bot"),
+        botName: routine.bot.name,
         title: routine.name,
         snippet: snippetAroundMatch(routine.prompt, query),
         routineId: routine.id,
@@ -252,7 +252,7 @@ export async function querySpaceSearch(
   for (const row of messageRows) {
     pushMessageHits(row.blocks as MessageBlock[], {
       botId: row.botId,
-      botName: displayName(row.botName, "Bot"),
+      botName: row.botName,
       messageId: row.id,
       seq: row.seq,
       query,
@@ -285,7 +285,7 @@ export async function querySpaceSearch(
   for (const row of groupMessageRows) {
     pushMessageHits(row.blocks as MessageBlock[], {
       groupId: row.groupId,
-      groupName: displayName(row.groupName, "Group"),
+      groupName: row.groupName,
       messageId: row.id,
       seq: row.seq,
       query,

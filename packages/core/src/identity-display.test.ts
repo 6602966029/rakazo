@@ -1,0 +1,106 @@
+import { describe, expect, it } from "vitest";
+import { projectMessages } from "./events.js";
+import { displayIdentityEvent, displayIdentityResult } from "./identity-display.js";
+
+const labels = {
+  bot: "Бот",
+  group: "Группа",
+  space: "Пространство",
+  chats: "Чаты",
+  routine: "Задача",
+  member: "Участник",
+  subagent: "субагент",
+  owner: "Владелец",
+};
+
+describe("localized identity projections", () => {
+  it("localizes invalid names without translating legitimate names or mutating wire values", () => {
+    const source = [
+      {
+        id: "group-1",
+        name: "__TestTok1__",
+        members: [
+          { name: "Group", botId: "bot-1" },
+          { name: "__TestTok2__", botId: "bot-2" },
+        ],
+      },
+    ];
+    expect(displayIdentityResult(["groups", "list"], source, labels)).toEqual([
+      {
+        ...source[0],
+        name: "Группа",
+        members: [
+          { name: "Group", botId: "bot-1" },
+          { name: "Бот", botId: "bot-2" },
+        ],
+      },
+    ]);
+    expect(source[0]?.name).toBe("__TestTok1__");
+  });
+  it("covers bootstrap, threads and activity without touching message text or IDs", () => {
+    const message = {
+      blocks: [
+        {
+          kind: "bot_message_received",
+          fromBotId: "__route__",
+          fromBotName: "__TestTok1__",
+          text: "Keep __TestTok1__ literal",
+        },
+      ],
+    };
+    expect(
+      displayIdentityResult(
+        ["bootstrap"],
+        {
+          bots: [{ name: "__TestTok1__" }],
+          groups: [{ name: "" }],
+          thread: { messages: [message] },
+        },
+        labels,
+      ),
+    ).toMatchObject({
+      bots: [{ name: "Бот" }],
+      groups: [{ name: "Группа" }],
+      thread: {
+        messages: [
+          {
+            blocks: [
+              { fromBotName: "Бот", fromBotId: "__route__", text: "Keep __TestTok1__ literal" },
+            ],
+          },
+        ],
+      },
+    });
+    expect(
+      displayIdentityResult(["runs", "list"], { runs: [{ botName: "", groupName: null }] }, labels),
+    ).toEqual({ runs: [{ botName: "Бот", groupName: null }] });
+  });
+  it("leaves provider configuration and file metadata alone", () => {
+    const result = { name: "__TestTok1__", content: { botName: "__TestTok1__" } };
+    expect(displayIdentityResult(["artifacts", "get"], result, labels)).toBe(result);
+  });
+  it("uses the current client locale for streamed metadata", () => {
+    expect(
+      displayIdentityEvent({ type: "thread.subagent", payload: { name: "__TestTok1__" } }, labels)
+        .payload.name,
+    ).toBe("субагент");
+  });
+});
+
+it("keeps server-projected subagent names localizable at the client boundary", () => {
+  const messages = projectMessages([
+    {
+      id: "event",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      runId: "run",
+      threadId: "thread",
+      seq: 1,
+      type: "thread.subagent",
+      payload: { agentId: "agent", name: "__TestTok1__", task: "Summarize" },
+    },
+  ]);
+  expect(messages[0]?.blocks[0]).toMatchObject({ name: "__TestTok1__" });
+  expect(displayIdentityResult(["threads", "get"], { messages }, labels)).toMatchObject({
+    messages: [{ blocks: [{ name: "субагент" }] }],
+  });
+});

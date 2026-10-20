@@ -27,6 +27,11 @@ describe("displayName", () => {
     "123",
     "AlexandertheGreat",
     "Ada Lovelace",
+    "CustomerSupportBot2026",
+    "CustomerSupport2026Team",
+    "iPhoneDeveloper2026Team",
+    "Customer_Support_Bot2026",
+    "christopheralexandermorgan",
   ])("keeps names and short handles: %s", (name) => {
     expect(displayName(` ${name} `, "Bot")).toBe(name);
   });

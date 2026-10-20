@@ -97,7 +97,7 @@ function mapBot(
   return {
     id: bot.id,
     spaceId: bot.spaceId,
-    name: displayName(bot.name, "Bot"),
+    name: bot.name,
     title: displayName(bot.title, ""),
     description: bot.description,
     instructions: bot.instructions,
@@ -149,7 +149,7 @@ export function createRepos(
     return sections.map((section) => ({
       id: section.id,
       spaceId: section.spaceId,
-      name: displayName(section.name, "Chats"),
+      name: section.name,
       position: section.position,
       createdAt: section.createdAt.toISOString(),
       updatedAt: section.updatedAt.toISOString(),
@@ -195,7 +195,7 @@ export function createRepos(
       return {
         id: bot.id,
         spaceId: bot.spaceId,
-        name: displayName(bot.name, "Bot"),
+        name: bot.name,
         title: displayName(bot.title, ""),
         color: bot.color,
         notifyOnFinish: bot.notifyOnFinish,
@@ -277,7 +277,7 @@ export function createRepos(
         }
         return {
           id: section.id,
-          name: displayName(section.name, "Chats"),
+          name: section.name,
           position: section.position,
           createdAt: section.createdAt.toISOString(),
           updatedAt: section.updatedAt.toISOString(),
@@ -297,7 +297,7 @@ export function createRepos(
       if (existing.name === input.name) {
         return {
           id: existing.id,
-          name: displayName(existing.name, "Chats"),
+          name: existing.name,
           position: existing.position,
           createdAt: existing.createdAt.toISOString(),
           updatedAt: existing.updatedAt.toISOString(),
@@ -310,7 +310,7 @@ export function createRepos(
         });
         return {
           id: section.id,
-          name: displayName(section.name, "Chats"),
+          name: section.name,
           position: section.position,
           createdAt: section.createdAt.toISOString(),
           updatedAt: section.updatedAt.toISOString(),
@@ -557,7 +557,7 @@ export function createRepos(
             data: {
               spaceId: actor.spaceId,
               userId: actor.userId,
-              name: displayName(input.name, "Bot"),
+              name: displayName(input.name, ""),
               title: displayName(input.title, ""),
               description: input.description,
               instructions: input.instructions,

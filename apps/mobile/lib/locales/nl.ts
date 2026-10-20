@@ -1,4 +1,6 @@
 export const NL_MESSAGES: Record<string, string> = {
+  Member: "Lid",
+  Owner: "Eigenaar",
   Chats: "Chats",
   Space: "Ruimte",
   "Message from another agent": "Bericht van een andere agent",

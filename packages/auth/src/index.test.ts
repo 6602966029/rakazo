@@ -232,3 +232,19 @@ describe("stored account names", () => {
     expect(result).toEqual({ data: { emailVerified: true } });
   });
 });
+
+it("preserves readable numbered account names on writes", async () => {
+  const auth = createAuth({} as never, {
+    secret: "offline-auth-secret-at-least-32-characters",
+    baseURL: "https://api.example.test",
+    webOrigin: "https://app.example.test",
+    signupsEnabled: "true",
+    signupAllowlist: "",
+  });
+  expect(
+    await auth.options.databaseHooks!.user!.create!.before!({
+      name: "CustomerSupportBot2026",
+      email: "demo@example.com",
+    } as never),
+  ).toMatchObject({ data: { name: "CustomerSupportBot2026" } });
+});

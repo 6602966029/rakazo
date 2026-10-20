@@ -34,7 +34,7 @@ export async function commitBotUpdate(
   if (typeof options.data.name === "string") {
     options = {
       ...options,
-      data: { ...options.data, name: displayName(options.data.name, "Bot") },
+      data: { ...options.data, name: displayName(options.data.name, "") },
     };
   }
   if (

@@ -52,7 +52,7 @@ type SpaceGroupRecord = Pick<
 function mapGroupMembers(members: GroupRecord["members"]): GroupMember[] {
   return members.map((member) => ({
     botId: member.bot.id,
-    name: displayName(member.bot.name, "Bot"),
+    name: member.bot.name,
     color: member.bot.color,
     status: member.bot.runs[0]?.status ?? "idle",
   }));
@@ -64,7 +64,7 @@ function mapGroup(group: GroupRecord): Group {
   return {
     id: group.id,
     spaceId: group.spaceId,
-    name: displayName(group.name, "Group"),
+    name: group.name,
     pinned: group.pinned,
     sectionId: group.sectionId,
     archivedAt: group.archivedAt?.toISOString() ?? null,
@@ -82,7 +82,7 @@ function mapSpaceGroup(group: SpaceGroupRecord): SpaceGroup {
   return {
     id: group.id,
     spaceId: group.spaceId,
-    name: displayName(group.name, "Group"),
+    name: group.name,
     pinned: group.pinned,
     sectionId: group.sectionId,
     members: mapGroupMembers(group.members),
@@ -121,7 +121,7 @@ async function assertOwnedBots(
   return unique.map((botId) => {
     const bot = botsById.get(botId);
     if (!bot) throw new IsolationError();
-    return { botId: bot.id, name: displayName(bot.name, "Bot"), color: bot.color };
+    return { botId: bot.id, name: bot.name, color: bot.color };
   });
 }
 
@@ -352,7 +352,7 @@ export function createGroupRepos(prisma: PrismaClient) {
           data: {
             spaceId: actor.spaceId,
             userId: actor.userId,
-            name: displayName(input.name, "Group"),
+            name: displayName(input.name, ""),
           },
         });
         await tx.chatGroupMember.createMany({
@@ -446,7 +446,7 @@ export function createGroupRepos(prisma: PrismaClient) {
         if (input.name !== undefined) {
           await tx.chatGroup.update({
             where: { id: input.groupId },
-            data: { name: displayName(input.name, "Group") },
+            data: { name: displayName(input.name, "") },
           });
         }
         if (members) {
