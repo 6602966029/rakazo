@@ -92,6 +92,22 @@ describe("sandbox idle", () => {
     expect(harness.jobs.enqueue).toHaveBeenCalledOnce();
   });
 
+  it("leaves a held computer whose heartbeat finds the sandbox gone to its recovery", async () => {
+    const harness = idleHarness();
+    harness.prisma.run.findFirst.mockResolvedValue({ id: "run" });
+    harness.sandbox.keepAlive.mockRejectedValueOnce(
+      Object.assign(new Error("sandbox removed"), { name: "SandboxNotFoundError" }),
+    );
+
+    await expect(sleepComputerIfIdle(harness.deps, harness.computer.id)).resolves.toBeUndefined();
+    expect(harness.jobs.enqueue).toHaveBeenCalledOnce();
+
+    harness.sandbox.keepAlive.mockRejectedValueOnce(new Error("requires PRIVATE networking"));
+    await expect(sleepComputerIfIdle(harness.deps, harness.computer.id)).rejects.toThrow(
+      "PRIVATE networking",
+    );
+  });
+
   it("does not suspend a computer while bot-launched background work is active", async () => {
     const harness = idleHarness({ backgroundWorkProbeCode: 0 });
 

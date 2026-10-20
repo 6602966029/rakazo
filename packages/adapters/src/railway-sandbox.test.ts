@@ -76,9 +76,7 @@ function backboard(stored?: Partial<SandboxInfo>) {
   if (stored) sandboxes.set("sandbox", sandboxInfo(stored));
   const operations: string[] = [];
   const failures = new Map<string, RailwayGraphQLErrorItem>();
-  // HTTP status for a failure, and failures that clear after one reply.
   const failureStatus = new Map<string, number>();
-  const failOnce = new Set<string>();
   const created: Array<Record<string, unknown>> = [];
   const rejected: Array<Record<string, unknown>> = [];
   // Hobby and Pro allow 1-120 minutes or 0 (never); Trial and Free allow 1-5 and never 0.
@@ -96,10 +94,7 @@ function backboard(stored?: Partial<SandboxInfo>) {
       const operation = /(?:query|mutation) (\w+)/.exec(query)?.[1] ?? "";
       operations.push(operation);
       const failure = failures.get(operation);
-      if (failure) {
-        if (failOnce.has(operation)) failures.delete(operation);
-        return reply({ errors: [failure] }, failureStatus.get(operation));
-      }
+      if (failure) return reply({ errors: [failure] }, failureStatus.get(operation));
       const existing = sandboxes.get(variables.id);
       switch (operation) {
         case "RailwaySandbox":
@@ -136,7 +131,6 @@ function backboard(stored?: Partial<SandboxInfo>) {
     operations,
     failures,
     failureStatus,
-    failOnce,
     created,
     rejected,
     plan,
@@ -443,25 +437,34 @@ describe("Railway sandbox lifecycle", () => {
     expect(api.operations.filter((name) => name === "RailwaySandboxCreate")).toHaveLength(1);
   });
 
-  it.each([
-    ["a server error", 502],
-    ["a network error", undefined],
-  ])("retries a create once after %s", async (_name, status) => {
+  it.each<[string, () => Response]>([
+    [
+      "a server error",
+      () => new Response('{"errors":[{"message":"Bad gateway"}]}', { status: 502 }),
+    ],
+    [
+      "a lost reply",
+      () => {
+        throw new TypeError("fetch failed");
+      },
+    ],
+  ])("does not retry a create after %s that may hide a created sandbox", async (_name, lose) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const api = backboard();
-    if (status) {
-      api.failures.set("RailwaySandboxCreate", { message: "Bad gateway" });
-      api.failureStatus.set("RailwaySandboxCreate", status);
-      api.failOnce.add("RailwaySandboxCreate");
-    } else vi.mocked(fetch).mockRejectedValueOnce(new TypeError("fetch failed"));
+    const transport = vi.mocked(fetch);
+    const respond = transport.getMockImplementation();
+    // Railway creates the sandbox, but its reply never reaches the adapter.
+    transport.mockImplementationOnce(async (...args) => {
+      await respond?.(...args);
+      return lose();
+    });
     try {
-      expect(await provider.provision({ botId: "bot", homePath: "/unused" }, ctx)).toMatchObject({
-        providerRef: "created-1",
-      });
-      expect(api.created).toEqual([
-        expect.not.objectContaining({ idleTimeoutMinutes: expect.anything() }),
-      ]);
-      expect(warn).toHaveBeenCalledOnce();
+      await expect(
+        provider.provision({ botId: "bot", homePath: "/unused" }, ctx),
+      ).rejects.toThrow();
+      expect(api.created).toHaveLength(1);
+      expect(api.operations.filter((name) => name === "RailwaySandboxCreate")).toHaveLength(1);
+      expect(warn).not.toHaveBeenCalled();
     } finally {
       warn.mockRestore();
     }

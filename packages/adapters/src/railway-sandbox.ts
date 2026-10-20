@@ -581,9 +581,14 @@ function goneError(error: unknown, id: string, environmentId: string) {
     : error;
 }
 
+/**
+ * Only a rejection Railway answered proves nothing was created. A lost reply or a server error
+ * can hide a created sandbox that a retry would leak, and is not a plan rejecting the timeout.
+ */
 function retriesWithoutIdleTimeout(error: unknown) {
-  if (!(error instanceof RailwayGraphQLError)) return true;
   return (
+    error instanceof RailwayGraphQLError &&
+    error.status < 500 &&
     error.status !== 401 &&
     error.status !== 403 &&
     !hasRailwayErrorCode(error, "LIMIT_EXCEEDED") &&

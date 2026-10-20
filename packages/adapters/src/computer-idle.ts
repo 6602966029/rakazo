@@ -293,7 +293,12 @@ export async function sleepComputerIfIdle(
       : hasActiveBackgroundWork(deps.sandbox, ref, ctx, computerId);
   if ((await runHolds()) || (await backgroundHolds())) {
     scheduleComputerSleep(deps.jobs, computerId);
-    await deps.sandbox.keepAlive?.(ref);
+    try {
+      await deps.sandbox.keepAlive?.(ref);
+    } catch (error) {
+      // The holding run or the next idle check recovers a computer whose sandbox is gone.
+      if (!isSandboxGoneError(error)) throw error;
+    }
     return;
   }
 
