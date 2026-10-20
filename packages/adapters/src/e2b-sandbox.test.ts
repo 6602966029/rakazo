@@ -1,13 +1,11 @@
 import { createServer } from "node:http";
+import type { CommandResult, EntryInfo, Sandbox } from "@e2b/desktop";
 import {
   AuthenticationError,
   CommandExitError,
-  type CommandResult,
-  type EntryInfo,
   FileNotFoundError,
   FileType,
   RateLimitError,
-  type Sandbox,
   SandboxError,
   SandboxNotFoundError,
   TimeoutError,
@@ -1158,6 +1156,44 @@ describe("E2B sandbox lifecycle", () => {
       vi.useRealTimers();
       vi.unstubAllEnvs();
     }
+  });
+
+  it("extends a cached handle before a command could outlast its remaining timeout", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("SANDBOX_IDLE_MS", "60000");
+    try {
+      const { fake, provider, computer } = await started();
+      await vi.advanceTimersByTimeAsync(50_000);
+      fake.command = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30_000));
+        return ok();
+      };
+      const events = runCommand(provider, computer);
+      await vi.advanceTimersByTimeAsync(30_000);
+      await expect(events).resolves.toEqual([{ type: "exit", code: 0 }]);
+      expect(fake.calls.connect).toBe(0);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("does not resume a sandbox that stop paused while a request was in flight", async () => {
+    const { fake, provider, computer } = await started();
+    let finish!: () => void;
+    fake.command = async () => {
+      await new Promise<void>((resolve) => (finish = resolve));
+      return ok();
+    };
+    const events = runCommand(provider, computer).catch((failure: unknown) => failure);
+    await vi.waitFor(() => expect(finish).toBeDefined());
+    await provider.stop(computer, context);
+    finish();
+    const error = await events;
+    expect(error).toBeInstanceOf(Error);
+    expect(isSandboxGoneError(error)).toBe(false);
+    expect(fake.state).toBe("paused");
+    expect(fake.calls.connect).toBe(0);
   });
 
   it("maps only the command's own deadline to exit 124", async () => {

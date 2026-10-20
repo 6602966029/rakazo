@@ -1,10 +1,5 @@
-import {
-  type CommandResult,
-  type CommandStartOpts,
-  type EntryInfo,
-  Sandbox,
-  TimeoutError,
-} from "@e2b/desktop";
+import type { CommandResult, CommandStartOpts, EntryInfo } from "@e2b/desktop";
+import { Sandbox, TimeoutError } from "@e2b/desktop";
 import type {
   AdapterContext,
   CommandRequest,
@@ -154,7 +149,8 @@ export class E2BSandboxProvider implements SandboxProvider {
     const existing = this.boxes.get(id);
     if (existing) {
       const lastTouched = this.lastTouchedAt.get(id) ?? 0;
-      if (Date.now() - lastTouched < 60_000) return existing;
+      // Fresh enough that the command keepalive's first extension lands before the timeout.
+      if (Date.now() - lastTouched < extendEveryMs()) return existing;
       try {
         await existing.setTimeout(sandboxIdleMs());
         this.lastTouchedAt.set(id, Date.now());
@@ -205,6 +201,10 @@ export class E2BSandboxProvider implements SandboxProvider {
   ): Promise<unknown> {
     if (!isSandboxNotRunning(error)) return error;
     const id = sandboxId(computer);
+    // stop() or destroy() forgot this handle on purpose; resuming it would undo them.
+    if (this.boxes.get(id) !== desktop && !this.boxes.has(id) && !this.connections.has(id)) {
+      return new Error("computer stopped during the request");
+    }
     this.drop(id, desktop);
     await this.connect(id);
     return new Error("computer was not running and has been resumed; try again");
@@ -557,9 +557,14 @@ function extendPeriodically(desktop: Pick<E2BDesktop, "setTimeout">): () => void
   // A failed extension surfaces through the work itself once E2B pauses the sandbox.
   const timer = setInterval(
     () => void desktop.setTimeout(idleMs).catch(() => undefined),
-    Math.min(60_000, idleMs / 2),
+    extendEveryMs(),
   );
   return () => clearInterval(timer);
+}
+
+/** A third of the idle window, so a handle box() returns outlives the first extension. */
+function extendEveryMs(): number {
+  return Math.min(60_000, sandboxIdleMs() / 3);
 }
 
 async function* walkE2BWorkspace(
