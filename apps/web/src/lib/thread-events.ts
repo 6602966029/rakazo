@@ -16,6 +16,7 @@ import {
   mergeThreadHistory,
   prependThreadHistoryPage,
   progressMessageId,
+  QUEUE_HOLDING_RUN_STATUSES,
   reduceLiveMessageBlocks,
   replyMetadata,
   runFailureError,
@@ -89,7 +90,8 @@ export function applyThreadSendReceipt(
     return snapshot;
   }
   const currentRuns = activeThreadRuns(snapshot);
-  if (currentRuns.some((run) => isActive(run.status as RunStatus))) return snapshot;
+  if (currentRuns.some((run) => QUEUE_HOLDING_RUN_STATUSES.some((s) => s === run.status)))
+    return snapshot;
   const createdAt = receipt.createdAt ?? new Date().toISOString();
   const run: Run = {
     id: receipt.runId,
@@ -106,7 +108,11 @@ export function applyThreadSendReceipt(
     completedAt: null,
     createdAt,
   };
-  return { ...snapshot, run, activeRuns: [run] };
+  return {
+    ...snapshot,
+    run,
+    activeRuns: [...currentRuns.filter((r) => isActive(r.status as RunStatus)), run],
+  };
 }
 
 /** Reason the newest run stopped, until the reader dismisses that run's failure. */
@@ -291,8 +297,8 @@ export function reduceThreadSnapshot(
     const without = (prev.activeRuns ?? (prev.run ? [prev.run] : [])).filter(
       (candidate) => candidate.id !== run.id,
     );
-    // Bot threads keep a single primary run; groups accumulate concurrent member runs.
-    const activeRuns = prev.groupId ? [...without, run] : [run];
+    // Paused cards remain answerable when new work starts in any thread.
+    const activeRuns = [...without.filter((r) => isActive(r.status as RunStatus)), run];
     return {
       ...prev,
       cursor: event.seq,
