@@ -86,12 +86,12 @@
       "contents": [
         {
           "x": 170,
-          "y": 175,
+          "y": 135,
           "type": "file"
         },
         {
           "x": 490,
-          "y": 175,
+          "y": 135,
           "type": "link",
           "path": "/Applications"
         }
