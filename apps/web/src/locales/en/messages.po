@@ -362,7 +362,6 @@ msgstr "Active"
 msgid "Active model"
 msgstr "Active model"
 
-#: src/components/computer/TerminalApp.tsx
 #: src/pages/Shell.tsx
 msgid "Activity"
 msgstr "Activity"
@@ -729,10 +728,6 @@ msgstr "at {timeSelect}"
 msgid "Attach file"
 msgstr "Attach file"
 
-#: src/components/computer/TerminalApp.tsx
-msgid "Attached {path}"
-msgstr "Attached {path}"
-
 #: src/pages/Shell.tsx
 #: src/pages/shell/chat-context.tsx
 msgid "Attachment"
@@ -783,7 +778,6 @@ msgstr "Avatar Studio"
 msgid "Avatars"
 msgstr "Avatars"
 
-#: src/components/computer/FilesApp.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -896,10 +890,6 @@ msgstr "Brain label"
 #: src/pages/PluginsOverlay.tsx
 msgid "Browse MCP servers"
 msgstr "Browse MCP servers"
-
-#: src/components/computer/ComputerWorkspace.tsx
-msgid "Browser"
-msgstr "Browser"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Built-in"
@@ -1111,10 +1101,6 @@ msgstr "Client secret"
 #: src/pages/WindowChrome.tsx
 msgid "Close"
 msgstr "Close"
-
-#: src/components/computer/ComputerWorkspace.tsx
-msgid "Close {title}"
-msgstr "Close {title}"
 
 #: src/pages/shell/message-cards.tsx
 msgid "Close chart"
@@ -1564,17 +1550,9 @@ msgstr "Could not download {0}. Try again."
 msgid "Could not download {name}. Try again."
 msgstr "Could not download {name}. Try again."
 
-#: src/components/computer/FilesApp.tsx
-msgid "Could not download file"
-msgstr "Could not download file"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not install connector"
 msgstr "Could not install connector"
-
-#: src/components/computer/FilesApp.tsx
-msgid "Could not list files"
-msgstr "Could not list files"
 
 #: src/components/ErrorBoundary.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1604,10 +1582,6 @@ msgstr "Could not load billing"
 #: src/pages/IntegrationSetup.tsx
 msgid "Could not load bots. Reload to try again."
 msgstr "Could not load bots. Reload to try again."
-
-#: src/components/computer/TerminalApp.tsx
-msgid "Could not load commands"
-msgstr "Could not load commands"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Could not load credentials."
@@ -1668,17 +1642,9 @@ msgstr "Could not log out. Try again."
 msgid "Could not open billing"
 msgstr "Could not open billing"
 
-#: src/components/computer/FilesApp.tsx
-msgid "Could not open file"
-msgstr "Could not open file"
-
 #: src/pages/LocalSettings.tsx
 msgid "Could not open local settings. Start the local server and create its owner account, then try again."
 msgstr "Could not open local settings. Start the local server and create its owner account, then try again."
-
-#: src/components/computer/TerminalApp.tsx
-msgid "Could not open terminal"
-msgstr "Could not open terminal"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Could not play a test clip"
@@ -1843,10 +1809,6 @@ msgstr "Could not update reaction"
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "Could not update the default memory scope"
 msgstr "Could not update the default memory scope"
-
-#: src/components/computer/FilesApp.tsx
-msgid "Could not upload file"
-msgstr "Could not upload file"
 
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Could not verify computer setup ({failureMessage}). Fix the connection, then check again."
@@ -2187,15 +2149,12 @@ msgstr "Don’t have an account?"
 msgid "Done"
 msgstr "Done"
 
-#: src/components/computer/FilesApp.tsx
 #: src/pages/Artifacts.tsx
 msgid "Download"
 msgstr "Download"
 
-#. placeholder {0}: basename(entry.path)
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
-#: src/components/computer/FilesApp.tsx
 msgid "Download {0}"
 msgstr "Download {0}"
 
@@ -2405,15 +2364,6 @@ msgstr "Fields that mark a change"
 #: src/pages/RoutineEditor.tsx
 msgid "Fields to compare, e.g. id, modifiedTime (optional)"
 msgstr "Fields to compare, e.g. id, modifiedTime (optional)"
-
-#. placeholder {0}: attachmentSizeLabel(getMaxUploadSizeBytes())
-#: src/components/computer/FilesApp.tsx
-msgid "File exceeds the {0} upload limit."
-msgstr "File exceeds the {0} upload limit."
-
-#: src/components/computer/ComputerWorkspace.tsx
-msgid "Files"
-msgstr "Files"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Files or folders on the computer"
@@ -2779,10 +2729,6 @@ msgstr "Last check {0}: no changes"
 #: src/components/DesktopUpdates.tsx
 msgid "Later"
 msgstr "Later"
-
-#: src/components/computer/TerminalApp.tsx
-msgid "Launched {app}"
-msgstr "Launched {app}"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Leave"
@@ -3287,10 +3233,6 @@ msgstr "no auth"
 msgid "No authentication"
 msgstr "No authentication"
 
-#: src/components/computer/TerminalApp.tsx
-msgid "No bot activity yet."
-msgstr "No bot activity yet."
-
 #: src/pages/shell/command-palette.tsx
 msgid "No bots"
 msgstr "No bots"
@@ -3511,10 +3453,6 @@ msgstr "Open in full window"
 msgid "Open navigation"
 msgstr "Open navigation"
 
-#: src/components/computer/TerminalApp.tsx
-msgid "Open shell"
-msgstr "Open shell"
-
 #: src/pages/ScratchpadSection.tsx
 msgid "Open work"
 msgstr "Open work"
@@ -3523,10 +3461,6 @@ msgstr "Open work"
 #: src/pages/Onboarding.tsx
 msgid "OpenAI-compatible server URL"
 msgstr "OpenAI-compatible server URL"
-
-#: src/components/computer/TerminalApp.tsx
-msgid "Opened {path}"
-msgstr "Opened {path}"
 
 #: src/pages/Shell.tsx
 msgid "Opened its thread."
@@ -4366,10 +4300,6 @@ msgstr "Shared documents"
 msgid "Shared skills"
 msgstr "Shared skills"
 
-#: src/components/computer/TerminalApp.tsx
-msgid "Shell"
-msgstr "Shell"
-
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
 msgstr "Show all"
@@ -4660,10 +4590,6 @@ msgstr "Teams message"
 #: src/pages/RoutineEditor.tsx
 msgid "Teams not enabled"
 msgstr "Teams not enabled"
-
-#: src/components/computer/ComputerWorkspace.tsx
-msgid "Terminal"
-msgstr "Terminal"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Test"
@@ -5020,7 +4946,6 @@ msgstr "Updating Team Computer"
 msgid "Updating…"
 msgstr "Updating…"
 
-#: src/components/computer/FilesApp.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Upload"
 msgstr "Upload"
@@ -5210,10 +5135,6 @@ msgstr "Working…"
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "Workspace"
 msgstr "Workspace"
-
-#: src/components/computer/TerminalApp.tsx
-msgid "Wrote {path}"
-msgstr "Wrote {path}"
 
 #: src/lib/billing.ts
 msgid "year"
