@@ -56,6 +56,7 @@ async function main() {
     email,
     emptyEmail,
     password,
+    providerLimitError: sections.some((section) => section.id === "thread-errors"),
   });
 
   const results: SectionResult[] = [];

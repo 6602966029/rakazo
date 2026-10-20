@@ -11,12 +11,16 @@ export function ThreadErrorNotice({
   error,
   summary,
   onDetails,
+  onConnection,
+  onModel,
 }: {
   top: number;
   inset: number;
   error: string | null;
   summary: string | null;
   onDetails: () => void;
+  onConnection?: () => void;
+  onModel?: () => void;
 }) {
   const { t } = useI18n();
   const tokens = useMobileTokens();
@@ -44,16 +48,36 @@ export function ThreadErrorNotice({
       >
         {error ? <Text style={{ color: tokens.foreground }}>{error}</Text> : null}
         {summary ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ gap: 8 }}>
             <Text style={{ color: tokens.foreground, fontSize: 13.5, flexShrink: 1 }}>
               {summary}
             </Text>
-            <NativeActionButton
-              label={t("Details")}
-              prominence="quiet"
-              size="compact"
-              onPress={onDetails}
-            />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+              {onConnection ? (
+                <NativeActionButton
+                  label={t("Connection settings")}
+                  fill={false}
+                  prominence="plain"
+                  size="compact"
+                  onPress={onConnection}
+                />
+              ) : null}
+              {onModel ? (
+                <NativeActionButton
+                  label={t("Change model")}
+                  fill={false}
+                  prominence="quiet"
+                  size="compact"
+                  onPress={onModel}
+                />
+              ) : null}
+              <NativeActionButton
+                label={t("Details")}
+                prominence="quiet"
+                size="compact"
+                onPress={onDetails}
+              />
+            </View>
           </View>
         ) : null}
       </GlassSurface>

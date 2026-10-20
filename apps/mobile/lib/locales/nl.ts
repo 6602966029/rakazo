@@ -1,4 +1,12 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "Model provider": "Modelprovider",
+  "Connection settings": "Verbindingsinstellingen",
+  "Change model": "Model wijzigen",
+  "Technical details": "Technische details",
+  "The provider did not report whether this was a personal or shared key.":
+    "De provider heeft niet gemeld of dit een persoonlijke of gedeelde sleutel was.",
+  "Check your model connection or choose another model.":
+    "Controleer je modelverbinding of kies een ander model.",
   "Message from another agent": "Bericht van een andere agent",
   "Another agent": "Een andere agent",
   "Update from {name}: {text}": "Update van {name}: {text}",

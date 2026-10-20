@@ -1,4 +1,11 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Model provider": "模型提供商",
+  "Connection settings": "连接设置",
+  "Change model": "更换模型",
+  "Technical details": "技术详情",
+  "The provider did not report whether this was a personal or shared key.":
+    "提供商未说明使用的是个人密钥还是共享密钥。",
+  "Check your model connection or choose another model.": "请检查模型连接或选择其他模型。",
   "Message from another agent": "来自其他智能体的消息",
   "Another agent": "其他智能体",
   "Update from {name}: {text}": "来自 {name} 的更新：{text}",

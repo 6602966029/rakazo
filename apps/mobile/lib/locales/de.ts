@@ -1,4 +1,12 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Model provider": "Modellanbieter",
+  "Connection settings": "Verbindungseinstellungen",
+  "Change model": "Modell wechseln",
+  "Technical details": "Technische Details",
+  "The provider did not report whether this was a personal or shared key.":
+    "Der Anbieter hat nicht angegeben, ob ein persönlicher oder geteilter Schlüssel verwendet wurde.",
+  "Check your model connection or choose another model.":
+    "Prüfe deine Modellverbindung oder wähle ein anderes Modell.",
   "Message from another agent": "Nachricht von einem anderen Agenten",
   "Another agent": "Ein anderer Agent",
   "Update from {name}: {text}": "Update von {name}: {text}",

@@ -41,6 +41,7 @@ export async function seedIosScreenshotFixture(input: {
   email: string;
   emptyEmail: string;
   password: string;
+  providerLimitError?: boolean;
 }): Promise<IosScreenshotFixture> {
   const populated = await ensureUser(input.apiUrl, input.email, input.password, "Screenshot User");
   const empty = await ensureUser(input.apiUrl, input.emptyEmail, input.password, "Empty User");
@@ -122,6 +123,19 @@ export async function seedIosScreenshotFixture(input: {
       spaceId: me.spaceId,
       userId: me.userId,
     });
+    if (input.providerLimitError) {
+      const run = await db.prisma.run.findFirstOrThrow({
+        where: { botId: researcher.id },
+        orderBy: { createdAt: "desc" },
+      });
+      await db.prisma.run.update({
+        where: { id: run.id },
+        data: {
+          status: "failed",
+          error: `403: ${JSON.stringify({ message: "OpenRouter key limit exceeded (weekly limit)", code: 403, metadata: { limit_source: "openrouter_key_limit", reset_at: new Date(Date.now() + 86_400_000).toISOString() } })}`,
+        },
+      });
+    }
     await ensureText(db.prisma, group.threadId, "bot", writer.id, GROUP_READY);
   } finally {
     await db.prisma.$disconnect();

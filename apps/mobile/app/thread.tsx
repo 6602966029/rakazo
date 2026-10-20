@@ -32,7 +32,6 @@ import {
   isRunTerminalEvent,
   isSecretAskBlock,
   leaveThreadWindow,
-  normalizeRunError,
   openThreadWindow,
   plainTextFromMarkdown,
   projectMessageReactions,
@@ -122,6 +121,7 @@ import { NativeActionButton } from "../components/native-action-button";
 import { NativeSymbol } from "../components/native-symbol";
 import { ReplyDismissButton } from "../components/reply-dismiss-button";
 import { ReplyLine } from "../components/reply-line";
+import { RunErrorSheet, useRunError } from "../components/run-error-sheet";
 import { ScrollToBottomButton } from "../components/scroll-to-bottom-button";
 import { SelectTextSheet } from "../components/select-text-sheet";
 import { trailingHeaderOptions } from "../components/sheet-header";
@@ -603,6 +603,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const feedback = useThreadFeedback(threadKey, newClientNonce);
   const { error, setError } = feedback;
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [runErrorDetailsOpen, setRunErrorDetailsOpen] = useState(false);
   const [selectableText, setSelectableText] = useState<string | null>(null);
   const [loadingNewer, setLoadingNewer] = useState(false);
   const loadingNewerContent = useRef(false);
@@ -856,6 +857,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: displayName || t("Thread"),
+      headerTitleAlign: "center",
       // Inversion swaps the visual edges; disable both native fades on iOS 26.
       headerTransparent: iosAtLeast(26),
       ...(iosAtLeast(26) ? { headerStyle: { backgroundColor: "transparent" } } : {}),
@@ -893,16 +895,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       ...(Platform.OS === "ios" && !readOnly && (!inGroup || iosAtLeast(26))
         ? {
             unstable_headerRightItems: () => [
-              ...(inGroup
-                ? []
-                : [
-                    {
-                      type: "button" as const,
-                      accessibilityLabel: t("Open computer"),
-                      icon: { type: "sfSymbol" as const, name: "desktopcomputer" },
-                      onPress: openBotComputer,
-                    },
-                  ]),
               inGroup
                 ? {
                     type: "button" as const,
@@ -924,6 +916,9 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
                         type: "action" as const,
                         label: action.text,
                         destructive: action.destructive,
+                        ...(action.text === t("Open computer")
+                          ? { icon: { type: "sfSymbol" as const, name: "desktopcomputer" } }
+                          : {}),
                         onPress: action.onPress,
                       })),
                     },
@@ -953,21 +948,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           </Pressable>
         ) : (
           <View style={styles.headerActions}>
-            {readOnly ? null : (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Open computer")}
-                hitSlop={8}
-                onPress={openBotComputer}
-              >
-                <NativeSymbol
-                  ios="desktopcomputer"
-                  android="desktop-outline"
-                  size={21}
-                  color={tokens.foreground}
-                />
-              </Pressable>
-            )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t("Bot actions")}
@@ -1071,6 +1051,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   }
 
   const botActions = [
+    ...(!readOnly && botId ? [{ text: t("Open computer"), onPress: openBotComputer }] : []),
     {
       text: t("Profile"),
       onPress: () =>
@@ -2008,6 +1989,15 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   const answerableAskIds = useMemo(() => answerableAskMessageIds(snap), [snap]);
   const runError = snap?.run?.status === "failed" ? (snap.run.error ?? null) : null;
+  const normalizedRunError = useRunError(runError);
+  function openErrorConnection() {
+    setRunErrorDetailsOpen(false);
+    router.push("/(settings)/models");
+  }
+  function openErrorModel() {
+    setRunErrorDetailsOpen(false);
+    router.push({ pathname: "/bot-settings", params: { botId: snap?.run?.botId ?? botId ?? "" } });
+  }
   const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2422,8 +2412,14 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
               : error
             : null
         }
-        summary={runError ? normalizeRunError(runError, t, locale).summary : null}
-        onDetails={() => setSelectableText(runError)}
+        summary={normalizedRunError?.summary ?? null}
+        onDetails={() => setRunErrorDetailsOpen(true)}
+        onConnection={
+          normalizedRunError?.recovery === "connection" ? openErrorConnection : undefined
+        }
+        onModel={
+          normalizedRunError?.recovery && (snap?.run?.botId ?? botId) ? openErrorModel : undefined
+        }
       />
       {/* The floor keeps a tall suggestion list from sliding under the transparent header. */}
       <View style={{ flex: 1, minHeight: headerHeight, position: "relative" }}>
@@ -2724,53 +2720,63 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           onSlashAction={runSlashAction}
         />
       </Animated.View>
-      <Modal
-        visible={botActionsOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setBotActionsOpen(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            padding: 24,
-            backgroundColor: tokens.overlay,
-          }}
+      {botActionsOpen ? (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setBotActionsOpen(false)}
         >
-          <Pressable
-            accessibilityLabel={t("Cancel")}
-            onPress={() => setBotActionsOpen(false)}
-            style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
-          />
           <View
-            accessibilityViewIsModal
-            style={{ backgroundColor: tokens.popover, borderRadius: 24, paddingVertical: 12 }}
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              padding: 24,
+              backgroundColor: tokens.overlay,
+            }}
           >
-            {botActions.map((action) => (
-              <Pressable
-                key={action.text}
-                accessibilityRole="button"
-                onPress={() => {
-                  setBotActionsOpen(false);
-                  action.onPress();
-                }}
-                style={{ minHeight: 56, justifyContent: "center", paddingHorizontal: 24 }}
-              >
-                <Text
-                  style={{
-                    color: action.destructive ? tokens.destructive : tokens.popoverForeground,
-                    fontSize: 16,
+            <Pressable
+              accessibilityLabel={t("Cancel")}
+              onPress={() => setBotActionsOpen(false)}
+              style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
+            />
+            <View
+              accessibilityViewIsModal
+              style={{ backgroundColor: tokens.popover, borderRadius: 24, paddingVertical: 12 }}
+            >
+              {botActions.map((action) => (
+                <Pressable
+                  key={action.text}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setBotActionsOpen(false);
+                    action.onPress();
                   }}
+                  style={{ minHeight: 56, justifyContent: "center", paddingHorizontal: 24 }}
                 >
-                  {action.text}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={{
+                      color: action.destructive ? tokens.destructive : tokens.popoverForeground,
+                      fontSize: 16,
+                    }}
+                  >
+                    {action.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
-      </Modal>
-      <SelectTextSheet text={selectableText} onClose={() => setSelectableText(null)} />
+        </Modal>
+      ) : null}
+      {selectableText !== null ? (
+        <SelectTextSheet text={selectableText} onClose={() => setSelectableText(null)} />
+      ) : null}
+      <RunErrorSheet
+        details={runErrorDetailsOpen ? runError : null}
+        onClose={() => setRunErrorDetailsOpen(false)}
+        onConnection={openErrorConnection}
+        onModel={(snap?.run?.botId ?? botId) ? openErrorModel : undefined}
+      />
       {markdownPreview && artifactTarget ? (
         <MarkdownArtifactPreview
           threadTarget={artifactTarget}

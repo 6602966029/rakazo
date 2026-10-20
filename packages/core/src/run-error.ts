@@ -39,7 +39,8 @@ export function normalizeRunError(
   details: string,
   translate: RunErrorTranslator = english,
   locale = "en-US",
-): { summary: string; details: string } {
+  now = Date.now(),
+): { summary: string; details: string; recovery?: "connection" | "model"; resetAt?: number } {
   const prefix = details.trim().match(/^(\d{3})\s*:\s*/);
   const body = details.trim().slice(prefix?.[0].length ?? 0);
   let parsed: unknown;
@@ -67,17 +68,22 @@ export function normalizeRunError(
         ? translate("Your Anthropic")
         : translate("Your model provider");
 
+  let resetAt: number | undefined;
+  let recovery: "connection" | "model" | undefined;
   let summary = translate("The model provider returned an error.");
   if (
     /rate[_ -]limit|too many requests/i.test(signals) &&
     !/insufficient[_ ]quota/i.test(signals)
   ) {
+    recovery = "connection";
     summary = translate("{provider} is rate limiting requests. Try again shortly.", { provider });
   } else if (
-    /\b(?:quota|insufficient[_ ](?:quota|credits?|funds)|credit[_ ]balance)\b|(?:key|credit|spend|spending|budget|billing)[\s\S]{0,40}(?:limit|exceed|exhaust|insufficient)|(?:limit|insufficient)[\s\S]{0,30}(?:credit|spend|budget)/i.test(
+    status === 402 ||
+    /\b(?:daily|weekly|monthly|usage)[\s\S]{0,30}limit|\b(?:quota|insufficient[_ ](?:quota|credits?|funds)|credit[_ ]balance)\b|(?:key|credit|spend|spending|budget|billing)[\s\S]{0,40}(?:limit|exceed|exhaust|insufficient)|(?:limit|insufficient)[\s\S]{0,30}(?:credit|spend|budget)/i.test(
       signals,
     )
   ) {
+    recovery = "connection";
     const period = /\bweekly\b/i.test(message)
       ? "weekly"
       : /\bmonthly\b/i.test(message)
@@ -99,7 +105,8 @@ export function normalizeRunError(
       metadata.reset;
     if (typeof reset === "string" && /^\d{4}-\d{2}-\d{2}(?:T[\d:.]+Z)?$/.test(reset)) {
       const date = new Date(reset);
-      if (!Number.isNaN(date.getTime())) {
+      if (date.getTime() > now) {
+        resetAt = date.getTime();
         summary = translate("{summary} Resets {date}.", {
           summary,
           date: new Intl.DateTimeFormat(locale, {
@@ -111,12 +118,14 @@ export function normalizeRunError(
       }
     }
   } else if (status === 429) {
+    recovery = "connection";
     summary = translate("{provider} is rate limiting requests. Try again shortly.", { provider });
   } else if (
     status === 401 ||
     ((status === 403 || /invalid[_ -](?:api[_ -])?key|authentication_error/i.test(signals)) &&
       /auth|unauthorized|forbidden|invalid|key|permission|access denied/i.test(signals))
   ) {
+    recovery = "connection";
     summary = translate("{provider} rejected the API key. Check your connection settings.", {
       provider,
     });
@@ -126,6 +135,7 @@ export function normalizeRunError(
       signals,
     )
   ) {
+    recovery = "model";
     summary = translate("{provider} could not find the requested model.", { provider });
   } else if (
     status === 408 ||
@@ -134,7 +144,7 @@ export function normalizeRunError(
   ) {
     summary = translate("{provider} took too long to respond. Try again.", { provider });
   }
-  return { summary, details };
+  return { summary, details, ...(recovery ? { recovery } : {}), ...(resetAt ? { resetAt } : {}) };
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
