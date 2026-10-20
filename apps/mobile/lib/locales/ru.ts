@@ -1,6 +1,11 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Set your own key": "Добавить свой ключ",
+  "Add your own key or switch models to keep chatting.":
+    "Добавьте свой ключ или смените модель, чтобы продолжить общение.",
+  "Choose another model to keep chatting.": "Выберите другую модель, чтобы продолжить общение.",
+  "Resets {date}.": "Сброс {date}.",
+
   "Model provider": "Провайдер модели",
-  "Connection settings": "Настройки подключения",
   "Change model": "Сменить модель",
   "Technical details": "Технические сведения",
   "The provider did not report whether this was a personal or shared key.":

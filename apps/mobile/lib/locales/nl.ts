@@ -1,6 +1,11 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "Set your own key": "Eigen sleutel instellen",
+  "Add your own key or switch models to keep chatting.":
+    "Voeg je eigen sleutel toe of wissel van model om verder te chatten.",
+  "Choose another model to keep chatting.": "Kies een ander model om verder te chatten.",
+  "Resets {date}.": "Wordt gereset op {date}.",
+
   "Model provider": "Modelprovider",
-  "Connection settings": "Verbindingsinstellingen",
   "Change model": "Model wijzigen",
   "Technical details": "Technische details",
   "The provider did not report whether this was a personal or shared key.":

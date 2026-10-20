@@ -1,6 +1,10 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Set your own key": "设置自己的密钥",
+  "Add your own key or switch models to keep chatting.": "添加自己的密钥或切换模型以继续聊天。",
+  "Choose another model to keep chatting.": "选择其他模型以继续聊天。",
+  "Resets {date}.": "将于 {date} 重置。",
+
   "Model provider": "模型提供商",
-  "Connection settings": "连接设置",
   "Change model": "更换模型",
   "Technical details": "技术详情",
   "The provider did not report whether this was a personal or shared key.":

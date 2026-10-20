@@ -6,8 +6,13 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RunErrorSheet, useRunError } from "../components/run-error-sheet";
+import { ThreadErrorNotice } from "../components/thread-error-notice";
 
 vi.mock("react-native", () => ({
+  useWindowDimensions: () => ({ width: 402, fontScale: 1 }),
+  StyleSheet: { create: (styles: unknown) => styles },
+  Pressable: ({ children, onPress }: { children: ReactNode; onPress: () => void }) =>
+    createElement("button", { type: "button", onClick: onPress }, children),
   Modal: ({ children }: { children: ReactNode }) =>
     createElement("dialog", { open: true }, children),
   View: ({ children }: { children: ReactNode }) => createElement("div", null, children),
@@ -15,6 +20,7 @@ vi.mock("react-native", () => ({
   Text: ({ children }: { children: ReactNode }) => createElement("p", null, children),
   Platform: { OS: "ios" },
 }));
+vi.mock("../components/native-symbol", () => ({ NativeSymbol: () => null }));
 vi.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
 }));
@@ -26,10 +32,6 @@ vi.mock("./i18n", () => ({
     t: (key: string, values?: Record<string, string>) =>
       key.replace(/\{(\w+)\}/g, (_, name: string) => values?.[name] ?? name),
   }),
-}));
-vi.mock("../components/native-action-button", () => ({
-  NativeActionButton: ({ label, onPress }: { label: string; onPress: () => void }) =>
-    createElement("button", { type: "button", onClick: onPress }, label),
 }));
 
 const details =
@@ -75,7 +77,7 @@ describe("run error recovery", () => {
           .find((button) => button.textContent === label)
           ?.click();
       });
-    click("Connection settings");
+    click("Set your own key");
     click("Change model");
     expect(onConnection).toHaveBeenCalledOnce();
     expect(onModel).toHaveBeenCalledOnce();
@@ -97,7 +99,7 @@ describe("run error recovery", () => {
       }),
     );
     expect(node.textContent).toContain("Change model");
-    expect(node.textContent).not.toContain("Connection settings");
+    expect(node.textContent).not.toContain("Set your own key");
     expect(node.textContent).not.toContain("personal or shared key");
   });
   it("does not mount a native modal when closed", () => {
@@ -105,5 +107,61 @@ describe("run error recovery", () => {
       createElement(RunErrorSheet, { details: null, onClose: vi.fn(), onConnection: vi.fn() }),
     );
     expect(node.querySelector("dialog")).toBeNull();
+  });
+});
+
+describe("inline error card", () => {
+  it.each([
+    ["403: OpenRouter weekly key limit exceeded", true, true],
+    ["401: Unauthorized", true, true],
+    ["429: Too many requests", true, true],
+    ["404: Model unavailable", false, true],
+    ["500: Internal server error", false, false],
+  ])("offers only applicable fixes for %s", (details, connection, model) => {
+    const onConnection = vi.fn();
+    const onModel = vi.fn();
+    const onDetails = vi.fn();
+    function Notice() {
+      const error = useRunError(details, false);
+      return createElement(ThreadErrorNotice, {
+        error: null,
+        summary: error?.summary ?? null,
+        resetAt: error?.resetAt,
+        onConnection: error?.recovery === "connection" ? onConnection : undefined,
+        onModel: error?.recovery ? onModel : undefined,
+        onDetails,
+      });
+    }
+    const node = mount(createElement(Notice));
+    expect(node.textContent?.includes("Set your own key")).toBe(connection);
+    expect(node.textContent?.includes("Change model")).toBe(model);
+    expect(node.textContent).toContain("Details");
+    if (connection) expect(node.textContent).toContain("Add your own key or switch models");
+    if (model && !connection) expect(node.textContent).toContain("Choose another model");
+    act(() => {
+      for (const button of node.querySelectorAll("button")) button.click();
+    });
+    expect(onDetails).toHaveBeenCalledOnce();
+    expect(onConnection).toHaveBeenCalledTimes(connection ? 1 : 0);
+    expect(onModel).toHaveBeenCalledTimes(model ? 1 : 0);
+  });
+  it("puts only future resets in the explanation and expires them while mounted", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-20T23:59:59Z"));
+    function Notice() {
+      const error = useRunError(details, false);
+      return createElement(ThreadErrorNotice, {
+        error: null,
+        summary: error?.summary ?? null,
+        resetAt: error?.resetAt,
+        onConnection: vi.fn(),
+        onDetails: vi.fn(),
+      });
+    }
+    const node = mount(createElement(Notice));
+    expect(node.querySelector("p")?.textContent).not.toContain("Resets");
+    expect(node.textContent).toContain("Resets Oct 21.");
+    act(() => vi.advanceTimersByTime(1000));
+    expect(node.textContent).not.toContain("Resets");
   });
 });

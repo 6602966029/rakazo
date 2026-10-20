@@ -1989,7 +1989,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   const answerableAskIds = useMemo(() => answerableAskMessageIds(snap), [snap]);
   const runError = snap?.run?.status === "failed" ? (snap.run.error ?? null) : null;
-  const normalizedRunError = useRunError(runError);
+  const normalizedRunError = useRunError(runError, false);
   const failedRunId = runError ? snap?.run?.id : null;
   useEffect(() => setRunErrorDetailsOpen(false), [failedRunId]);
   function openErrorConnection() {
@@ -2393,6 +2393,25 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     />
   ));
 
+  const errorNotice = (
+    <ThreadErrorNotice
+      error={
+        error
+          ? showingSaved
+            ? t("Couldn't refresh — showing the last loaded messages.")
+            : error
+          : null
+      }
+      summary={normalizedRunError?.summary ?? null}
+      resetAt={normalizedRunError?.resetAt}
+      onDetails={() => setRunErrorDetailsOpen(true)}
+      onConnection={normalizedRunError?.recovery === "connection" ? openErrorConnection : undefined}
+      onModel={
+        normalizedRunError?.recovery && (snap?.run?.botId ?? botId) ? openErrorModel : undefined
+      }
+    />
+  );
+
   return (
     <KeyboardAvoidingView
       behavior="height"
@@ -2404,25 +2423,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
         paddingHorizontal: 20 + columnInset,
       }}
     >
-      <ThreadErrorNotice
-        top={headerHeight + 8}
-        inset={20 + columnInset}
-        error={
-          error
-            ? showingSaved
-              ? t("Couldn't refresh — showing the last loaded messages.")
-              : error
-            : null
-        }
-        summary={normalizedRunError?.summary ?? null}
-        onDetails={() => setRunErrorDetailsOpen(true)}
-        onConnection={
-          normalizedRunError?.recovery === "connection" ? openErrorConnection : undefined
-        }
-        onModel={
-          normalizedRunError?.recovery && (snap?.run?.botId ?? botId) ? openErrorModel : undefined
-        }
-      />
       {/* The floor keeps a tall suggestion list from sliding under the transparent header. */}
       <View style={{ flex: 1, minHeight: headerHeight, position: "relative" }}>
         {showPinnedPage ? (
@@ -2479,6 +2479,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
               renderMessageRow(message, { enableJump: true, index }),
             )}
             {pinnedNewerCursor === null ? failedSendBubbles : null}
+            {pinnedNewerCursor === null ? errorNotice : null}
             {pinnedNewerCursor === null ? (
               workingFooter
             ) : loadingNewer ? (
@@ -2499,7 +2500,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             // Inverted, so the bottom padding is the visual top, clear of the transparent header.
             contentContainerStyle={listContentStyle}
-            maintainVisibleContentPosition={messageListPosition}
+            // Follow changes to the recovery card while already at the newest content.
+            maintainVisibleContentPosition={liveMessageListPosition}
             scrollEventThrottle={16}
             onScrollBeginDrag={() => {
               clearTimeout(scrollIdleTimer.current);
@@ -2550,6 +2552,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             ListFooterComponent={loadEarlierControl}
             ListHeaderComponent={
               <>
+                {errorNotice}
                 {failedSendBubbles}
                 {workingFooter}
               </>
@@ -2944,6 +2947,7 @@ const messageListStyles = StyleSheet.create({
   row: { marginTop: 12, width: "100%" },
 });
 const messageListPosition = { minIndexForVisible: 0 };
+const liveMessageListPosition = { ...messageListPosition, autoscrollToTopThreshold: 80 };
 function threadItemKey(item: ThreadItem<MobileMessage>) {
   return item.kind === "voiceChat" ? item.key : item.message.id;
 }

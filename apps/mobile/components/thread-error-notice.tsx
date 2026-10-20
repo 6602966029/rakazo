@@ -1,86 +1,94 @@
-import { Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useI18n } from "../lib/i18n";
 import { useMobileTokens } from "../lib/native";
-import { GlassSurface } from "./glass-surface";
-import { NativeActionButton } from "./native-action-button";
+import { NativeSymbol } from "./native-symbol";
+import { RunErrorActions } from "./run-error-actions";
 
-/** Floats below the header without reserving space in the message list. */
+/** A list item: its full height participates in scrolling above the composer. */
 export function ThreadErrorNotice({
-  top,
-  inset,
   error,
   summary,
+  resetAt,
   onDetails,
   onConnection,
   onModel,
 }: {
-  top: number;
-  inset: number;
   error: string | null;
   summary: string | null;
+  resetAt?: number;
   onDetails: () => void;
   onConnection?: () => void;
   onModel?: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const tokens = useMobileTokens();
+  const { fontScale } = useWindowDimensions();
   if (!error && !summary) return null;
+  const explanation = onConnection
+    ? t("Add your own key or switch models to keep chatting.")
+    : onModel
+      ? t("Choose another model to keep chatting.")
+      : null;
+  const upcomingReset =
+    resetAt && resetAt > Date.now()
+      ? t("Resets {date}.", {
+          date: new Intl.DateTimeFormat(locale, {
+            month: "short",
+            day: "numeric",
+            timeZone: "UTC",
+          }).format(resetAt),
+        })
+      : null;
   return (
     <View
       accessibilityRole="alert"
       accessibilityLiveRegion="assertive"
-      pointerEvents="box-none"
-      style={{ position: "absolute", top, left: inset, right: inset, zIndex: 1 }}
+      style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
     >
-      <GlassSurface
-        style={{
-          alignSelf: "flex-start",
-          maxWidth: "100%",
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-        }}
-        fallbackStyle={{
-          borderRadius: 24,
-          backgroundColor: tokens.card,
-          borderColor: tokens.border,
-          borderWidth: 1,
-        }}
-      >
-        {error ? <Text style={{ color: tokens.foreground }}>{error}</Text> : null}
-        {summary ? (
-          <View style={{ gap: 8 }}>
-            <Text style={{ color: tokens.foreground, fontSize: 13.5, flexShrink: 1 }}>
-              {summary}
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-              {onConnection ? (
-                <NativeActionButton
-                  label={t("Connection settings")}
-                  fill={false}
-                  prominence="plain"
-                  size="compact"
-                  onPress={onConnection}
-                />
-              ) : null}
-              {onModel ? (
-                <NativeActionButton
-                  label={t("Change model")}
-                  fill={false}
-                  prominence="quiet"
-                  size="compact"
-                  onPress={onModel}
-                />
-              ) : null}
-              <NativeActionButton
-                label={t("Details")}
-                prominence="quiet"
-                size="compact"
-                onPress={onDetails}
-              />
-            </View>
-          </View>
+      <View style={styles.header}>
+        <View style={{ paddingTop: Math.max(0, (20 * fontScale - 18) / 2) }}>
+          <NativeSymbol
+            ios="exclamationmark.triangle.fill"
+            android="warning"
+            size={18}
+            color={tokens.warning}
+          />
+        </View>
+        <Text style={[styles.headline, { color: tokens.foreground }]}>{summary ?? error}</Text>
+      </View>
+      <View style={styles.body}>
+        {summary && error ? (
+          <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>{error}</Text>
         ) : null}
-      </GlassSurface>
+        {explanation || upcomingReset ? (
+          <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>
+            {[explanation, upcomingReset].filter(Boolean).join(" ")}
+          </Text>
+        ) : null}
+        {onConnection || onModel ? (
+          <RunErrorActions onConnection={onConnection} onModel={onModel} />
+        ) : null}
+        {summary ? (
+          <Pressable
+            accessibilityRole="link"
+            onPress={onDetails}
+            hitSlop={8}
+            style={styles.details}
+          >
+            <Text style={{ color: tokens.primary, fontSize: 13.5, fontWeight: "500" }}>
+              {t("Details")}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { borderRadius: 12, borderWidth: 1, padding: 16, marginTop: 12, gap: 6 },
+  header: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  headline: { flex: 1, fontSize: 15, lineHeight: 20, fontWeight: "600" },
+  body: { marginLeft: 26, gap: 12 },
+  details: { alignSelf: "flex-end", paddingVertical: 4 },
+});

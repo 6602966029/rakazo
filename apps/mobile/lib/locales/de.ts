@@ -1,6 +1,11 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Set your own key": "Eigenen Schlüssel hinterlegen",
+  "Add your own key or switch models to keep chatting.":
+    "Füge deinen eigenen Schlüssel hinzu oder wechsle das Modell, um weiterzuchatten.",
+  "Choose another model to keep chatting.": "Wähle ein anderes Modell, um weiterzuchatten.",
+  "Resets {date}.": "Wird am {date} zurückgesetzt.",
+
   "Model provider": "Modellanbieter",
-  "Connection settings": "Verbindungseinstellungen",
   "Change model": "Modell wechseln",
   "Technical details": "Technische Details",
   "The provider did not report whether this was a personal or shared key.":

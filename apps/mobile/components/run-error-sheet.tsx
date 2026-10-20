@@ -5,16 +5,18 @@ import { Modal, Platform, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "../lib/i18n";
 import { useMobileTokens } from "../lib/native";
-import { NativeActionButton } from "./native-action-button";
+import { RunErrorActions, RunErrorTextAction } from "./run-error-actions";
 
 /** Saved provider diagnostics do not identify the credential owner. */
-export function useRunError(details: string | null) {
+export function useRunError(details: string | null, includeReset = true) {
   const { t, locale } = useI18n();
   const [clockVersion, refreshClock] = useReducer((version: number) => version + 1, 0);
   const error = details
     ? normalizeRunError(
         details,
         (message, values) => {
+          if (!includeReset && message === "{summary} Resets {date}.")
+            return String(values?.summary ?? "");
           if (message === "Your OpenRouter") return "OpenRouter";
           if (message === "Your OpenAI") return "OpenAI";
           if (message === "Your Anthropic") return "Anthropic";
@@ -67,7 +69,7 @@ export function RunErrorSheet({
         }}
       >
         <View style={{ flexDirection: "row", justifyContent: "flex-end", padding: 16 }}>
-          <NativeActionButton fill={false} label={t("Done")} onPress={onClose} />
+          <RunErrorTextAction label={t("Done")} onPress={onClose} />
         </View>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 16 }}>
           <Text style={textStyle}>{error.summary}</Text>
@@ -81,33 +83,14 @@ export function RunErrorSheet({
               <Text style={textStyle}>
                 {t("Check your model connection or choose another model.")}
               </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-                {error.recovery === "connection" ? (
-                  <NativeActionButton
-                    fill={false}
-                    label={t("Connection settings")}
-                    onPress={onConnection}
-                  />
-                ) : null}
-                {onModel ? (
-                  <NativeActionButton
-                    fill={false}
-                    label={t("Change model")}
-                    onPress={onModel}
-                    prominence="plain"
-                  />
-                ) : null}
-              </View>
+              <RunErrorActions
+                onConnection={error.recovery === "connection" ? onConnection : undefined}
+                onModel={onModel}
+              />
             </>
           ) : null}
-          <NativeActionButton
+          <RunErrorTextAction
             label={t("Technical details")}
-            prominence="quiet"
-            fill={false}
-            icon={{
-              ios: technical ? "chevron.down" : "chevron.right",
-              android: technical ? "chevron-down" : "chevron-forward",
-            }}
             onPress={() => setTechnical(!technical)}
           />
           {technical ? (
@@ -115,10 +98,8 @@ export function RunErrorSheet({
               <Text selectable style={textStyle}>
                 {details}
               </Text>
-              <NativeActionButton
+              <RunErrorTextAction
                 label={t("Copy")}
-                fill={false}
-                prominence="quiet"
                 onPress={() => {
                   void Clipboard.setStringAsync(details ?? "");
                 }}
