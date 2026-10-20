@@ -2156,6 +2156,10 @@ msgstr "Docker limits access to your computer for added security. Using {hostLab
 msgid "Docs"
 msgstr "Docs"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Document changed. Reopen to edit the latest version."
+msgstr "Document changed. Reopen to edit the latest version."
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "Don’t have an account?"

@@ -2156,6 +2156,10 @@ msgstr "Docker अतिरिक्त सुरक्षा के लिए �
 msgid "Docs"
 msgstr "दस्तावेज़"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Document changed. Reopen to edit the latest version."
+msgstr "दस्तावेज़ बदल गया है। नवीनतम संस्करण संपादित करने के लिए फिर से खोलें।"
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "खाता नहीं है?"

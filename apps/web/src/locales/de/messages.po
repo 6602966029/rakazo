@@ -2156,6 +2156,10 @@ msgstr "Docker begrenzt für mehr Sicherheit den Zugriff auf deinen Computer. We
 msgid "Docs"
 msgstr "Dokumentation"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Document changed. Reopen to edit the latest version."
+msgstr "Das Dokument wurde geändert. Öffne es erneut, um die neueste Version zu bearbeiten."
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "Du hast noch kein Konto?"

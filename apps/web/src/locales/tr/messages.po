@@ -2156,6 +2156,10 @@ msgstr "Docker, ek güvenlik için bilgisayarına erişimi sınırlar. {hostLabe
 msgid "Docs"
 msgstr "Belgeler"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Document changed. Reopen to edit the latest version."
+msgstr "Belge değişti. Son sürümü düzenlemek için yeniden açın."
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "Hesabın yok mu?"

@@ -2156,6 +2156,10 @@ msgstr "Docker מגביל את הגישה למחשב לאבטחה נוספת. ש
 msgid "Docs"
 msgstr "תיעוד"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Document changed. Reopen to edit the latest version."
+msgstr "המסמך השתנה. יש לפתוח אותו מחדש כדי לערוך את הגרסה העדכנית."
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "אין חשבון?"
