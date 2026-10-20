@@ -123,6 +123,7 @@ import { NativeSymbol } from "../components/native-symbol";
 import { ReplyDismissButton } from "../components/reply-dismiss-button";
 import { ReplyLine } from "../components/reply-line";
 import { ScrollToBottomButton } from "../components/scroll-to-bottom-button";
+import { SecretAskSheet } from "../components/secret-ask-sheet";
 import { SelectTextSheet } from "../components/select-text-sheet";
 import { trailingHeaderOptions } from "../components/sheet-header";
 import type { ThreadComposerHandle } from "../components/thread-composer";
@@ -214,6 +215,7 @@ import {
   writeSavedThread,
 } from "../lib/saved-chats";
 import { secretDestinationLabel } from "../lib/secret-destination";
+import { secretFieldTraits } from "../lib/secret-field-traits";
 import { selectableTextFromMarkdown } from "../lib/selectable-text";
 import {
   currentReadySessionGeneration,
@@ -1831,7 +1833,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
         answer,
         ...(username ? { username } : {}),
       });
-      if (isCurrentTarget(targetBotId, targetGroupId)) await refresh();
+      // The answer is saved once the server accepts it; a failed refresh only delays the card.
+      if (isCurrentTarget(targetBotId, targetGroupId)) await refresh().catch(() => undefined);
     },
     [botId, groupId, readOnly],
   );
@@ -4168,16 +4171,18 @@ function AskBlock({
   const tokens = useMobileTokens();
   const { t } = useI18n();
   const [answer, setAnswer] = useState("");
-  const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const answered = ask.status === "answered";
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetSession = useRef(0);
+  const session = sheetSession.current;
+  const [saved, setSaved] = useState(false);
+  const answered = saved || ask.status === "answered";
   const secretInput = isSecretAskBlock(ask);
   const loginInput = secretInput && ask.credential?.auth.type === "login";
-  const incomplete =
-    (secretInput ? answer.length === 0 : !answer.trim()) || (loginInput && !username.trim());
+  const incomplete = secretInput ? answer.length === 0 : !answer.trim();
   const secretLabel =
-    loginInput || ask.purpose === "password"
+    ask.purpose === "password"
       ? t("Password")
       : ask.purpose === "api_key"
         ? t("API key")
@@ -4188,12 +4193,12 @@ function AskBlock({
     if (submitting) return;
     if (incomplete) return;
     const submitValue = secretInput ? answer : answer.trim();
-    const submitUsername = loginInput ? username.trim() : undefined;
     setSubmitting(true);
     setError(null);
     if (secretInput) setAnswer("");
     try {
-      await onAnswer(submitValue, submitUsername);
+      await onAnswer(submitValue);
+      if (secretInput) setSaved(true);
     } catch (cause) {
       setError(
         secretInput ? t("Could not send answer") : errorText(cause, t("Could not send answer")),
@@ -4218,6 +4223,7 @@ function AskBlock({
     >
       <Text
         {...actionProps}
+        numberOfLines={secretInput ? 2 : undefined}
         style={{ color: tokens.foreground, fontSize: 15.5, fontWeight: "600" }}
       >
         {plainAskTitle(ask.text)}
@@ -4234,25 +4240,18 @@ function AskBlock({
         <Text style={{ color: tokens.success, fontSize: 14 }}>
           {secretInput ? t("Saved") : t("Answered: {answer}", { answer: ask.answer ?? t("Done") })}
         </Text>
+      ) : canAnswer && loginInput ? (
+        <NativeActionButton
+          label={t("Continue")}
+          fill={false}
+          onPress={() => {
+            sheetSession.current += 1;
+            setSheetOpen(true);
+          }}
+          style={{ alignSelf: "flex-end" }}
+        />
       ) : canAnswer ? (
         <>
-          {loginInput ? (
-            <TextInput
-              accessibilityLabel={t("Username")}
-              value={username}
-              onChangeText={setUsername}
-              placeholder={t("Username")}
-              placeholderTextColor={tokens.mutedForeground}
-              autoComplete="off"
-              autoCorrect={false}
-              autoCapitalize="none"
-              editable={!submitting}
-              style={[
-                askInputStyles.field,
-                { borderColor: tokens.border, color: tokens.foreground },
-              ]}
-            />
-          ) : null}
           <TextInput
             accessibilityLabel={secretInput ? secretLabel : t("Answer")}
             value={answer}
@@ -4261,6 +4260,7 @@ function AskBlock({
             placeholderTextColor={tokens.mutedForeground}
             secureTextEntry={secretInput}
             autoComplete="off"
+            {...(secretInput ? secretFieldTraits(ask.purpose, ask.credential) : {})}
             autoCorrect={secretInput ? false : undefined}
             autoCapitalize={secretInput ? "none" : "sentences"}
             editable={!submitting}
@@ -4282,6 +4282,22 @@ function AskBlock({
         </Text>
       )}
       {error ? <Text style={{ color: tokens.destructive, fontSize: 13 }}>{error}</Text> : null}
+      {sheetOpen && loginInput && ask.credential ? (
+        <SecretAskSheet
+          title={plainAskTitle(ask.text)}
+          destination={secretDestinationLabel(ask.credential)}
+          // Once any save is accepted the open sheet clears its own fields, then closes itself.
+          pending={canAnswer && !answered}
+          onClose={() => {
+            if (session === sheetSession.current) setSheetOpen(false);
+          }}
+          onSave={async (password, username) => {
+            await onAnswer(password, username);
+            setSaved(true);
+            if (session === sheetSession.current) setSheetOpen(false);
+          }}
+        />
+      ) : null}
     </View>
   );
 }
