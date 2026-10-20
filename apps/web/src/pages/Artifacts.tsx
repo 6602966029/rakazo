@@ -17,6 +17,8 @@ import {
   NativeSelectOption,
   parseBotAvatar,
   resolvePersonaColorDef,
+  ToggleGroup,
+  ToggleGroupItem,
 } from "@rakazo/ui-web";
 import {
   ChevronLeft,
@@ -246,22 +248,34 @@ export function ArtifactsPage() {
               <Trans>Filters</Trans>
             </button>
             {!artifactId ? (
-              <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
-                <ViewModeButton
-                  active={viewMode === "grid"}
-                  label={t`Card view`}
-                  onClick={() => setMode("grid")}
-                >
-                  <LayoutGrid size={15} strokeWidth={1.9} />
-                </ViewModeButton>
-                <ViewModeButton
-                  active={viewMode === "list"}
-                  label={t`List view`}
-                  onClick={() => setMode("list")}
-                >
-                  <List size={15} strokeWidth={1.9} />
-                </ViewModeButton>
-              </div>
+              <ToggleGroup
+                value={[viewMode]}
+                onValueChange={([next]) => {
+                  if (next) setMode(next as ViewMode);
+                }}
+                spacing={1}
+                size="sm"
+                className="rounded-lg border border-border p-0.5"
+              >
+                <IconTooltip label={t`Card view`}>
+                  <ToggleGroupItem
+                    value="grid"
+                    aria-label={t`Card view`}
+                    className="size-7 min-w-7 rounded-md px-0 text-muted-foreground aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+                  >
+                    <LayoutGrid size={15} strokeWidth={1.9} />
+                  </ToggleGroupItem>
+                </IconTooltip>
+                <IconTooltip label={t`List view`}>
+                  <ToggleGroupItem
+                    value="list"
+                    aria-label={t`List view`}
+                    className="size-7 min-w-7 rounded-md px-0 text-muted-foreground aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+                  >
+                    <List size={15} strokeWidth={1.9} />
+                  </ToggleGroupItem>
+                </IconTooltip>
+              </ToggleGroup>
             ) : null}
           </div>
         </div>
@@ -607,36 +621,6 @@ function BotFilterChip({
       <BotAvatar color={bot.color} identity={bot.id} size={16} status={bot.status} />
       <span className="max-w-[120px] truncate">{bot.name}</span>
     </button>
-  );
-}
-
-function ViewModeButton({
-  active,
-  label,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <IconTooltip label={label}>
-      <button
-        type="button"
-        aria-label={label}
-        aria-pressed={active}
-        onClick={onClick}
-        className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-          active
-            ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:text-foreground"
-        }`}
-      >
-        {children}
-      </button>
-    </IconTooltip>
   );
 }
 

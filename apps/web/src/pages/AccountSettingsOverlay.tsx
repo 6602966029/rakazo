@@ -13,6 +13,8 @@ import {
   OptionSelect,
   Switch,
   Toggle,
+  ToggleGroup,
+  ToggleGroupItem,
 } from "@rakazo/ui-web";
 import type { RefObject } from "react";
 import { useId, useRef, useState, useSyncExternalStore } from "react";
@@ -25,6 +27,7 @@ import { PasskeySettings } from "../components/PasskeySettings";
 import type { ServerUpdateLoad } from "../components/SoftwareUpdateSection";
 import { hasServerUpdates, SoftwareUpdateSection } from "../components/SoftwareUpdateSection";
 import { authClient } from "../lib/auth";
+import type { BotsSidebarDensity } from "../lib/bots-sidebar-density-pref";
 import {
   getBotsSidebarDensity,
   setBotsSidebarDensity,
@@ -198,28 +201,31 @@ export function GeneralSettingsPanels({
           <span id={sidebarDensityLabelId} className="text-[13px] text-foreground/75">
             <Trans>Sidebar density</Trans>
           </span>
-          <fieldset
+          <ToggleGroup
             aria-labelledby={sidebarDensityLabelId}
             data-testid="bots-sidebar-density-select"
-            className="grid min-w-0 grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+            value={[sidebarDensity]}
+            onValueChange={([next]) => {
+              if (next) setBotsSidebarDensity(next as BotsSidebarDensity);
+            }}
+            spacing={1}
+            className="grid min-w-0 grid-cols-2 rounded-lg bg-muted p-1"
           >
-            <Toggle
+            <ToggleGroupItem
+              value="comfortable"
               data-testid="bots-sidebar-density-comfortable"
-              pressed={sidebarDensity === "comfortable"}
-              onPressedChange={() => setBotsSidebarDensity("comfortable")}
               className="text-[13px] aria-pressed:bg-background aria-pressed:shadow-sm"
             >
               <Trans>Comfortable</Trans>
-            </Toggle>
-            <Toggle
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="compact"
               data-testid="bots-sidebar-density-compact"
-              pressed={sidebarDensity === "compact"}
-              onPressedChange={() => setBotsSidebarDensity("compact")}
               className="text-[13px] aria-pressed:bg-background aria-pressed:shadow-sm"
             >
               <Trans>Compact</Trans>
-            </Toggle>
-          </fieldset>
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
       </section>
 
@@ -604,23 +610,27 @@ function AppearancePicker({
   ];
 
   return (
-    <fieldset
+    <ToggleGroup
       aria-label={t`Appearance`}
       data-testid="ui-appearance-select"
-      className="mt-3 grid min-w-0 grid-cols-3 gap-1 rounded-lg bg-muted p-1"
+      value={[value]}
+      onValueChange={([next]) => {
+        if (next) onChange(next as AppearancePreference);
+      }}
+      spacing={1}
+      className="mt-3 grid w-full min-w-0 grid-cols-3 rounded-lg bg-muted p-1"
     >
       {options.map((option) => (
-        <Toggle
+        <ToggleGroupItem
           key={option.value}
+          value={option.value}
           data-testid={`ui-appearance-${option.value}`}
-          pressed={option.value === value}
-          onPressedChange={() => onChange(option.value)}
           className="text-[13px] aria-pressed:bg-background aria-pressed:shadow-sm"
         >
           {option.label}
-        </Toggle>
+        </ToggleGroupItem>
       ))}
-    </fieldset>
+    </ToggleGroup>
   );
 }
 
