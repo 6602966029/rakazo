@@ -40,6 +40,7 @@ import {
   replyAttachment,
   resolveComposerSendPlan,
   resolvePersonaColorDef,
+  displayName as safeDisplayName,
   selectedAskActionLabel,
   threadWindowMessages,
   timeSeparatorIds,
@@ -668,7 +669,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     [groupId, inGroup, mentionBots, mentionConnectors, mentionGroups, mentionRoutines],
   );
   const currentBot = botId ? mentionBots.find((bot) => bot.id === botId) : undefined;
-  const displayName = currentBot?.name ?? name;
+  const displayName = safeDisplayName(currentBot?.name ?? name, t("Bot"));
   const composerPrompt = displayName ? t("Message {name}", { name: displayName }) : t("Message…");
   const notificationThreadId = snap?.threadId ?? requestedThreadId ?? currentBot?.threadId;
   activeThreadId.current = notificationThreadId;
@@ -3520,7 +3521,7 @@ const MessageBubble = memo(function MessageBubble({
           }}
         >
           <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "600" }}>
-            {special.name || t("subagent")}
+            {safeDisplayName(special.name, t("subagent"))}
           </Text>
           <Text
             style={{

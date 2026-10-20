@@ -274,3 +274,12 @@ it("clears everything", () => {
   expect(state.files.size).toBe(0);
   expect(readSavedInbox(scope)).toBeNull();
 });
+
+it("guards legacy names restored while offline", () => {
+  const legacy = structuredClone(navigation);
+  legacy.current.bots[0]!.name = "__TestTok1__";
+  legacy.current.groups[0]!.name = "c123456789012345678901234";
+  writeSavedInbox(scope, legacy, me);
+  expect(readSavedInbox(scope)?.bots[0]?.name).toBe("Bot");
+  expect(readSavedInbox(scope)?.groups[0]?.name).toBe("Group");
+});

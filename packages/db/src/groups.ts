@@ -6,6 +6,7 @@ import {
   type GroupMember,
   type SpaceGroup,
 } from "@rakazo/contracts";
+import { displayName } from "@rakazo/core";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { expireComputerExecutionLeases } from "./computers.js";
@@ -51,7 +52,7 @@ type SpaceGroupRecord = Pick<
 function mapGroupMembers(members: GroupRecord["members"]): GroupMember[] {
   return members.map((member) => ({
     botId: member.bot.id,
-    name: member.bot.name,
+    name: displayName(member.bot.name, "Bot"),
     color: member.bot.color,
     status: member.bot.runs[0]?.status ?? "idle",
   }));
@@ -63,7 +64,7 @@ function mapGroup(group: GroupRecord): Group {
   return {
     id: group.id,
     spaceId: group.spaceId,
-    name: group.name,
+    name: displayName(group.name, "Group"),
     pinned: group.pinned,
     sectionId: group.sectionId,
     archivedAt: group.archivedAt?.toISOString() ?? null,
@@ -81,7 +82,7 @@ function mapSpaceGroup(group: SpaceGroupRecord): SpaceGroup {
   return {
     id: group.id,
     spaceId: group.spaceId,
-    name: group.name,
+    name: displayName(group.name, "Group"),
     pinned: group.pinned,
     sectionId: group.sectionId,
     members: mapGroupMembers(group.members),
@@ -120,7 +121,7 @@ async function assertOwnedBots(
   return unique.map((botId) => {
     const bot = botsById.get(botId);
     if (!bot) throw new IsolationError();
-    return { botId: bot.id, name: bot.name, color: bot.color };
+    return { botId: bot.id, name: displayName(bot.name, "Bot"), color: bot.color };
   });
 }
 
@@ -351,7 +352,7 @@ export function createGroupRepos(prisma: PrismaClient) {
           data: {
             spaceId: actor.spaceId,
             userId: actor.userId,
-            name: input.name.trim(),
+            name: displayName(input.name, "Group"),
           },
         });
         await tx.chatGroupMember.createMany({
@@ -445,7 +446,7 @@ export function createGroupRepos(prisma: PrismaClient) {
         if (input.name !== undefined) {
           await tx.chatGroup.update({
             where: { id: input.groupId },
-            data: { name: input.name.trim() },
+            data: { name: displayName(input.name, "Group") },
           });
         }
         if (members) {

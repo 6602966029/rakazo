@@ -15,6 +15,7 @@ import {
   ACTIVE_RUN_STATUSES,
   BACKGROUND_RUN_TRIGGERS,
   callIdFromClientNonce,
+  displayName,
   isConversationalRun,
   messageReaction,
   projectMessages,
@@ -274,7 +275,7 @@ async function lockAndLoadGroupMembers(
   if (!group || group.members.length < GROUP_MEMBER_MIN) throw new IsolationError();
   return group.members.map((member) => ({
     botId: member.bot.id,
-    name: member.bot.name,
+    name: displayName(member.bot.name, "Bot"),
     color: member.bot.color,
   }));
 }
@@ -302,7 +303,7 @@ export async function resolveThreadTarget(
     if (!group.thread) throw new IsolationError();
     const members = group.members.map((member) => ({
       botId: member.bot.id,
-      name: member.bot.name,
+      name: displayName(member.bot.name, "Bot"),
       color: member.bot.color,
       status: member.bot.runs[0]?.status ?? "idle",
     }));
@@ -310,7 +311,7 @@ export async function resolveThreadTarget(
       kind: "group",
       groupId: group.id,
       threadId: group.thread.id,
-      groupName: group.name,
+      groupName: displayName(group.name, "Group"),
       members,
       memberBotIds: members.map((member) => member.botId),
     };
@@ -340,7 +341,7 @@ export async function threadSnapshot(
       resolveBusyBotName(deps.prisma, {
         computerId: target.bot.computer?.id,
         botId: target.botId,
-        botName: target.bot.name,
+        botName: displayName(target.bot.name, "Bot"),
       }),
       deps.prisma.$transaction(
         async (tx) => {

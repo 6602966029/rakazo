@@ -142,6 +142,7 @@ import type {
   ExportManifest,
   McpServer,
   Me,
+  MessageBlock,
   ProductEvent,
   Routine,
   SpaceNavigation,
@@ -168,6 +169,8 @@ import {
   callClientNonce,
   clampCatalogThinkingLevel,
   containsSecret,
+  displayMessageBlock,
+  displayName,
   expandSkillReferencesInPrompt,
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
@@ -2251,7 +2254,18 @@ export function createRouter(deps: RouterDeps) {
             } else if (await isBackgroundRun(deps.prisma, event.runId, backgroundRunCache)) {
               if (!shouldForwardBackgroundThreadEvent(event)) continue;
             }
-            yield event;
+            yield {
+              ...event,
+              payload: {
+                ...event.payload,
+                ...(Array.isArray(event.payload.blocks)
+                  ? { blocks: (event.payload.blocks as MessageBlock[]).map(displayMessageBlock) }
+                  : {}),
+                ...(event.type === "thread.subagent"
+                  ? { name: displayName(String(event.payload.name ?? ""), "subagent") }
+                  : {}),
+              },
+            };
           }
         } finally {
           // Not awaited: closing can queue behind a read that the abort has not landed on yet.
@@ -6488,7 +6502,7 @@ async function spaceNavigationDto(
   return {
     current: {
       id: actor.spaceId,
-      name: currentMembership.space.name,
+      name: displayName(currentMembership.space.name, "Space"),
       bots: currentBots,
       groups: currentGroups,
       externalConversations: externalConversations.filter(
@@ -6501,7 +6515,7 @@ async function spaceNavigationDto(
       const spaceGroups = groupsFor(membership.spaceId);
       return {
         id: membership.spaceId,
-        name: membership.space.name,
+        name: displayName(membership.space.name, "Space"),
         isDefault: membership.space.isDefault,
         hasContent: spacesWithContent.has(membership.spaceId),
         canRename: membership.role === "owner" && membership.space.deletingAt === null,
@@ -6515,7 +6529,7 @@ async function spaceNavigationDto(
           id: bot.id,
           parentBotId: bot.parentBotId,
           spaceId: bot.spaceId,
-          name: bot.name,
+          name: displayName(bot.name, "Bot"),
           title: bot.title,
           color: bot.color,
           notifyOnFinish: bot.notifyOnFinish,
@@ -6530,7 +6544,7 @@ async function spaceNavigationDto(
         groups: spaceGroups.map((group) => ({
           id: group.id,
           spaceId: group.spaceId,
-          name: group.name,
+          name: displayName(group.name, "Group"),
           pinned: group.pinned,
           sectionId: group.sectionId,
           members: group.members,
@@ -6678,7 +6692,7 @@ async function computerStatus(
   const busyBotName = await resolveBusyBotName(deps.prisma, {
     computerId: bot.computer?.id,
     botId,
-    botName: bot.name,
+    botName: displayName(bot.name, "Bot"),
   });
   return toComputerStatus(botId, bot.computer, busyBotName);
 }
@@ -7343,7 +7357,7 @@ function exportFile(path: string, content: Uint8Array): ExportManifest["files"][
 }
 
 function duplicateBotName(name: string) {
-  return `${name.slice(0, 75)} copy`;
+  return `${displayName(name, "Bot").slice(0, 75)} copy`;
 }
 
 const ACTIVE_CHANNEL_MEMBERS = {
@@ -7381,7 +7395,7 @@ async function messagingIdentityDto(
     provider: identity.provider,
     address: identity.address,
     botId: identity.botId,
-    botName: bot?.name ?? "Assistant",
+    botName: displayName(bot?.name, "Assistant"),
   };
 }
 
@@ -7407,7 +7421,7 @@ function messagingChannelDto(membership: {
     channelId: membership.channelId,
     identityId: membership.identityId!,
     provider: membership.channel.provider,
-    name: membership.channel.name,
+    name: displayName(membership.channel.name, "Group"),
     status: membership.status as "invited" | "approved" | "declined" | "left",
     memberCount: membership.channel.members.length,
   };
@@ -7451,8 +7465,8 @@ async function messagingConnectionDto(
     : null;
   return {
     id: connection.id,
-    peerBotName: peerBot?.name ?? "agent",
-    peerOwnerLabel: peerOwner?.name.trim().split(/\s+/)[0] || "owner",
+    peerBotName: displayName(peerBot?.name, "agent"),
+    peerOwnerLabel: displayName(peerOwner?.name, "owner").split(/\s+/)[0]!,
     status: connection.status as "pending" | "approved" | "declined" | "revoked",
     incoming,
   };

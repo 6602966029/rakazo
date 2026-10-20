@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { displayName } from "@rakazo/core";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
 import { IsolationError } from "./scope.js";
@@ -181,7 +182,7 @@ async function copyProviderPreferences(
 
 function normalizeSpaceName(name: string): string {
   const trimmed = name.trim();
-  if (!trimmed || trimmed.length > 60) throw new InvalidSpaceNameError();
+  if (!displayName(trimmed, "") || trimmed.length > 60) throw new InvalidSpaceNameError();
   return trimmed;
 }
 

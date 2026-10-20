@@ -5,6 +5,7 @@ import {
   TicketStatusSchema,
   ticketRef,
 } from "@rakazo/contracts";
+import { displayName } from "@rakazo/core";
 import type {
   Board as BoardRow,
   Prisma,
@@ -135,7 +136,10 @@ export function toTicketCommentDto(
     body: row.body,
     authorBotId: row.authorBotId,
     authorUserId: row.authorUserId,
-    authorName: row.authorBot?.name ?? row.authorUser?.name ?? null,
+    authorName:
+      row.authorBot || row.authorUser
+        ? displayName(row.authorBot?.name ?? row.authorUser?.name, row.authorBot ? "Bot" : "Member")
+        : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

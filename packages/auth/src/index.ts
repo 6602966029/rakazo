@@ -2,6 +2,7 @@ import { expo } from "@better-auth/expo";
 import type { TransactionalEmail, TransactionalEmailProvider } from "@rakazo/adapter-kit";
 import {
   allowlistedSignupAdmission,
+  displayName,
   emailAllowed,
   firstAccountClaimDecision,
   isMessagingEmail,
@@ -553,6 +554,12 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             if (isMessagingEmail(user.email)) {
               throw new APIError("BAD_REQUEST", { message: "Email is not available" });
             }
+            return {
+              data: {
+                ...user,
+                ...(user.name !== undefined ? { name: displayName(user.name, "") } : {}),
+              },
+            };
           },
         },
         update: {
@@ -560,6 +567,12 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             if (user.email && isMessagingEmail(user.email)) {
               throw new APIError("BAD_REQUEST", { message: "Email is not available" });
             }
+            return {
+              data: {
+                ...user,
+                ...(user.name !== undefined ? { name: displayName(user.name, "") } : {}),
+              },
+            };
           },
         },
       },
@@ -584,7 +597,7 @@ export function passwordResetEmail(
   user: { id: string; email: string; name: string },
   resetUrl: string,
 ): TransactionalEmail {
-  const name = user.name.trim() || "there";
+  const name = displayName(user.name, "there");
   const safeName = escapeHtml(name);
   const safeUrl = escapeHtml(resetUrl);
   return {

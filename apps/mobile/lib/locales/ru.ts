@@ -1,4 +1,5 @@
 export const RU_MESSAGES: Record<string, string> = {
+  Chats: "Чаты",
   "Message from another agent": "Сообщение от другого агента",
   "Another agent": "Другой агент",
   "Update from {name}: {text}": "Обновление от {name}: {text}",

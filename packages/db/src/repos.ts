@@ -2,6 +2,7 @@ import type { Actor, Bot, BotSection, MessageBlock, SpaceBot } from "@rakazo/con
 import { BOT_COLORS, canonicalPiProviderId, InstructionVersionSchema } from "@rakazo/contracts";
 import {
   BACKGROUND_RUN_TRIGGERS,
+  displayName,
   isBackgroundRunTrigger,
   phoneCallSettings,
   ringingCall,
@@ -96,8 +97,8 @@ function mapBot(
   return {
     id: bot.id,
     spaceId: bot.spaceId,
-    name: bot.name,
-    title: bot.title,
+    name: displayName(bot.name, "Bot"),
+    title: displayName(bot.title, ""),
     description: bot.description,
     instructions: bot.instructions,
     selfUpdateInstructions: bot.selfUpdateInstructions ?? false,
@@ -148,7 +149,7 @@ export function createRepos(
     return sections.map((section) => ({
       id: section.id,
       spaceId: section.spaceId,
-      name: section.name,
+      name: displayName(section.name, "Chats"),
       position: section.position,
       createdAt: section.createdAt.toISOString(),
       updatedAt: section.updatedAt.toISOString(),
@@ -194,8 +195,8 @@ export function createRepos(
       return {
         id: bot.id,
         spaceId: bot.spaceId,
-        name: bot.name,
-        title: bot.title,
+        name: displayName(bot.name, "Bot"),
+        title: displayName(bot.title, ""),
         color: bot.color,
         notifyOnFinish: bot.notifyOnFinish,
         pinned: bot.pinned,
@@ -276,7 +277,7 @@ export function createRepos(
         }
         return {
           id: section.id,
-          name: section.name,
+          name: displayName(section.name, "Chats"),
           position: section.position,
           createdAt: section.createdAt.toISOString(),
           updatedAt: section.updatedAt.toISOString(),
@@ -296,7 +297,7 @@ export function createRepos(
       if (existing.name === input.name) {
         return {
           id: existing.id,
-          name: existing.name,
+          name: displayName(existing.name, "Chats"),
           position: existing.position,
           createdAt: existing.createdAt.toISOString(),
           updatedAt: existing.updatedAt.toISOString(),
@@ -309,7 +310,7 @@ export function createRepos(
         });
         return {
           id: section.id,
-          name: section.name,
+          name: displayName(section.name, "Chats"),
           position: section.position,
           createdAt: section.createdAt.toISOString(),
           updatedAt: section.updatedAt.toISOString(),
@@ -556,8 +557,8 @@ export function createRepos(
             data: {
               spaceId: actor.spaceId,
               userId: actor.userId,
-              name: input.name,
-              title: input.title,
+              name: displayName(input.name, "Bot"),
+              title: displayName(input.title, ""),
               description: input.description,
               instructions: input.instructions,
               notifyOnFinish: input.notifyOnFinish,

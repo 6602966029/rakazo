@@ -1,5 +1,6 @@
 import type { MessageBlock, ThreadMessage } from "@rakazo/contracts";
 import { cloudAgentBlockFromPayload } from "./cloud-agent.js";
+import { displayName } from "./display-name.js";
 
 export function projectMessages(
   events: Array<{
@@ -368,7 +369,7 @@ export function subagentBlockFromPayload(
   return {
     kind: "subagent",
     agentId: String(payload.agentId ?? ""),
-    name: String(payload.name ?? "subagent"),
+    name: displayName(String(payload.name ?? ""), "subagent"),
     task: String(payload.task ?? ""),
     status: status === "completed" || status === "failed" ? status : "running",
     progress: payload.progress ? String(payload.progress) : undefined,
