@@ -183,6 +183,7 @@ it.each([false, true])("keeps history fetch errors visible (provider failure: %s
   const footer = source.slice(footerStart, source.indexOf("</ScrollView>", footerStart));
   const scope = {
     createElement,
+    View: "div",
     ThreadErrorNotice,
     showPinnedPage: true,
     pinnedNewerCursor: 10,
@@ -201,7 +202,7 @@ it.each([false, true])("keeps history fetch errors visible (provider failure: %s
     workingFooter: null,
     loadingNewer: false,
   };
-  const script = ts.transpileModule(`${notice}\nreturn <>${footer}</>;`, {
+  const script = ts.transpileModule(`${notice}\nreturn <>{fetchErrorNotice}${footer}</>;`, {
     compilerOptions: {
       target: ts.ScriptTarget.ES2022,
       jsx: ts.JsxEmit.React,
@@ -216,4 +217,37 @@ it.each([false, true])("keeps history fetch errors visible (provider failure: %s
   expect(node.textContent).not.toContain("Set your own key");
   expect(node.textContent).not.toContain("Change model");
   expect(node.textContent).not.toContain("Details");
+});
+
+it("keeps fetch failures outside both native scrolling lists", () => {
+  const testFileUrl = import.meta.url;
+  const source = ts.createSourceFile(
+    "thread.tsx",
+    readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  let notices = 0;
+  function visit(node: ts.Node) {
+    if (
+      ts.isJsxExpression(node) &&
+      node.expression &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "fetchErrorNotice"
+    ) {
+      notices += 1;
+      for (let parent: ts.Node | undefined = node.parent; parent; parent = parent.parent) {
+        const tag = ts.isJsxElement(parent)
+          ? parent.openingElement.tagName
+          : ts.isJsxSelfClosingElement(parent)
+            ? parent.tagName
+            : undefined;
+        if (tag) expect(tag.getText(source)).not.toMatch(/^(ScrollView|FlatList)$/);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  expect(notices).toBe(1);
 });

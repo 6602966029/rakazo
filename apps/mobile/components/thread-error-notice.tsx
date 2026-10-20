@@ -17,7 +17,7 @@ export function ThreadErrorNotice({
   error: string | null;
   summary: string | null;
   resetAt?: number;
-  onDetails: () => void;
+  onDetails?: () => void;
   onConnection?: () => void;
   onModel?: () => void;
 }) {
@@ -65,7 +65,7 @@ export function ThreadErrorNotice({
         {onConnection || onModel ? (
           <RunErrorActions onConnection={onConnection} onModel={onModel} />
         ) : null}
-        {summary ? (
+        {summary && onDetails ? (
           <Pressable
             accessibilityRole="link"
             onPress={onDetails}

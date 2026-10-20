@@ -2400,17 +2400,11 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     />
   ));
 
-  // Fetch failures belong to the visible page; provider recovery belongs to the live end.
+  // Fetch failures stay visible at either paging edge; provider recovery belongs to the live end.
   const visibleRunError = showPinnedPage && pinnedNewerCursor !== null ? null : normalizedRunError;
   const errorNotice = (
     <ThreadErrorNotice
-      error={
-        error
-          ? showingSaved
-            ? t("Couldn't refresh — showing the last loaded messages.")
-            : error
-          : null
-      }
+      error={null}
       summary={visibleRunError?.summary ?? null}
       resetAt={visibleRunError?.resetAt}
       onDetails={() => setRunErrorDetailsOpen(true)}
@@ -2420,6 +2414,15 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       }
     />
   );
+
+  const fetchErrorNotice = error ? (
+    <View style={{ paddingBottom: 24 }}>
+      <ThreadErrorNotice
+        error={showingSaved ? t("Couldn't refresh — showing the last loaded messages.") : error}
+        summary={null}
+      />
+    </View>
+  ) : null;
 
   return (
     <KeyboardAvoidingView
@@ -2613,6 +2616,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           </View>
         ) : null}
       </View>
+      {fetchErrorNotice}
       {/* Shrinks (the suggestion lists scroll) so the input and Send stay above the keyboard. */}
       <Animated.View
         style={[{ display: readOnly ? "none" : "flex", flexShrink: 1 }, composerKeyboardPadding]}
