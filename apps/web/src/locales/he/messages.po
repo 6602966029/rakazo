@@ -337,6 +337,10 @@ msgstr "מזהה חשבון"
 msgid "Account label"
 msgstr "תווית חשבון"
 
+#: src/components/SidebarFooter.tsx
+msgid "Account menu for {name}"
+msgstr "תפריט החשבון של {name}"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Accounts"
 msgstr "חשבונות"
@@ -675,8 +679,8 @@ msgstr "הועבר לארכיון. הצ׳אט, הזיכרון והקבצים נ�
 msgid "Arguments"
 msgstr "ארגומנטים"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Artifacts.tsx
-#: src/pages/Shell.tsx
 msgid "Artifacts"
 msgstr "תוצרים"
 
@@ -826,8 +830,8 @@ msgstr "חיוב"
 msgid "Blocked"
 msgstr "חסום"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Board.tsx
-#: src/pages/Shell.tsx
 msgid "Board"
 msgstr "לוח"
 
@@ -1298,6 +1302,10 @@ msgstr "חיבור מודל"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Connect API key"
 msgstr "חיבור מפתח API"
+
+#: src/components/SidebarFooter.tsx
+msgid "Connect apps"
+msgstr "חיבור אפליקציות"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Executor"
@@ -2144,6 +2152,10 @@ msgstr "Docker מוגדר אבל המחשבים לא מגיבים. יש לווד
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker מגביל את הגישה למחשב לאבטחה נוספת. שימוש ב-{hostLabel} מאפשר לבוטים לעבוד עם הקבצים והכלים המקומיים."
 
+#: src/components/SidebarFooter.tsx
+msgid "Docs"
+msgstr "תיעוד"
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "אין חשבון?"
@@ -2470,6 +2482,10 @@ msgstr "קבלת פרטי גישה"
 msgid "Get notified when this Bot finishes or needs input"
 msgstr "קבלת התראה כשהבוט מסיים או צריך קלט"
 
+#: src/components/SidebarFooter.tsx
+msgid "Get the mobile app"
+msgstr "הורדת האפליקציה לנייד"
+
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
 msgstr "מתכונן"
@@ -2630,6 +2646,10 @@ msgstr "ירושה מברירת המחדל"
 msgid "Inputs"
 msgstr "קלטים"
 
+#: src/components/SidebarFooter.tsx
+msgid "Install update"
+msgstr "התקנת עדכון"
+
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 msgid "Instance API key"
 msgstr "מפתח API של המופע"
@@ -2660,7 +2680,6 @@ msgid "Integration options"
 msgstr "אפשרויות אינטגרציה"
 
 #: src/pages/PluginsOverlay.tsx
-#: src/pages/Shell.tsx
 msgid "Integrations"
 msgstr "אינטגרציות"
 
@@ -2853,8 +2872,8 @@ msgstr ""
 msgid "Local Server Settings"
 msgstr "הגדרות השרת המקומי"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
-#: src/pages/Shell.tsx
 msgid "Log out"
 msgstr "התנתקות"
 
@@ -4276,6 +4295,7 @@ msgid "Server URL"
 msgstr "URL של השרת"
 
 #: src/components/call/CallCard.tsx
+#: src/components/SidebarFooter.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -4972,9 +4992,9 @@ msgstr "העלאה"
 msgid "Urgent"
 msgstr "דחוף"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
-#: src/pages/Shell.tsx
 msgid "Usage"
 msgstr "שימוש"
 
