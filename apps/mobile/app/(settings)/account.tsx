@@ -334,6 +334,7 @@ export default function Account() {
   return (
     <SafeAreaView edges={["bottom"]} style={styles.screen}>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, stackOptions && styles.compactContent]}
         contentInsetAdjustmentBehavior="automatic"
       >
@@ -370,6 +371,7 @@ export default function Account() {
                 />
                 <NativeActionButton
                   label={t("Save")}
+                  fill={false}
                   disabled={namePending || !nameDraft.trim()}
                   onPress={() => void saveName()}
                 />
@@ -379,6 +381,7 @@ export default function Account() {
             <SettingsRow
               accessibilityRole="button"
               accessibilityLabel={t("Edit name")}
+              accessibilityValue={{ text: account.label }}
               chevron="right"
               disabled={!me}
               detail={me?.email && account.label !== me.email ? me.email : undefined}
