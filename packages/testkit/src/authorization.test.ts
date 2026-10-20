@@ -1482,11 +1482,17 @@ describeWithDatabase("API authorization and resource isolation", () => {
       await rpc(app, cookie, "bots/update", { ...update, thinkingLevel: "low" }),
     ).toMatchObject({ thinkingLevel: "low" });
     expect(
-      (await raw(app, cookie, "bots/update", { ...update, thinkingLevel: "xhigh" })).status,
-    ).toBe(400);
+      await rpc(app, cookie, "bots/update", { ...update, thinkingLevel: "xhigh" }),
+    ).toMatchObject({ thinkingLevel: "xhigh" });
+    expect(
+      await rpc(app, cookie, "bots/update", { ...update, thinkingLevel: "max" }),
+    ).toMatchObject({ thinkingLevel: "max" });
     await rpc(app, cookie, "models/connect", { ...connection, reasoning: false });
     expect(
       (await raw(app, cookie, "bots/update", { ...update, thinkingLevel: "low" })).status,
+    ).toBe(400);
+    expect(
+      (await raw(app, cookie, "bots/update", { ...update, thinkingLevel: "xhigh" })).status,
     ).toBe(400);
     expect(
       await rpc(app, cookie, "bots/update", { ...update, thinkingLevel: "off" }),
