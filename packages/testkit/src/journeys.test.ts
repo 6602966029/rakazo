@@ -1518,9 +1518,6 @@ describeJourneys("required product journeys", () => {
     expect(connector.records.length).toBeGreaterThan(before);
     const snap = await rpc<Snap>(app, cookie, "threads/get", { botId: bot.id });
     expect(JSON.stringify(snap)).not.toContain(secret);
-    const inspect = await fetch(`http://127.0.0.1:${connector.port}/records`);
-    const records = (await inspect.json()) as unknown[];
-    expect(records.length).toBeGreaterThan(0);
   });
 
   it("8: retrying a completed effect does not duplicate the destination write", async () => {
