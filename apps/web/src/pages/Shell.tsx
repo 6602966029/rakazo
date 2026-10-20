@@ -36,6 +36,7 @@ import {
 } from "@rakazo/contracts";
 import type { ComposerMention, FoldedTranscript, SlashActionId } from "@rakazo/core";
 import {
+  accountDisplay,
   answerableAskMessageIds,
   attachmentsForThread,
   buildComposerMentionOptions,
@@ -3029,13 +3030,7 @@ function SpaceShell() {
     !computerScreenError &&
     showComputerRecoveryHint;
 
-  const userName = session.data?.user.name ?? t`You`;
-  const initials = userName
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const { label: userName, initial: initials } = accountDisplay(session.data?.user ?? {}, t`You`);
 
   const shell = (
     <div

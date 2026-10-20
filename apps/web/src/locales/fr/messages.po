@@ -844,6 +844,7 @@ msgstr "Démarrage de l'ordinateur de {0}"
 msgid "bot"
 msgstr "bot"
 
+#: src/lib/identity-display.ts
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -991,6 +992,10 @@ msgstr "Applications de discussion"
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "Paramètres de discussion"
+
+#: src/lib/identity-display.ts
+msgid "Chats"
+msgstr "Discussions"
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/pages/HostComputerPrompt.tsx
@@ -2473,6 +2478,7 @@ msgstr "Préparation en cours"
 msgid "Git event"
 msgstr "Événement Git"
 
+#: src/lib/identity-display.ts
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Group"
@@ -2948,6 +2954,10 @@ msgstr "Moyen"
 #: src/lib/model-catalog.ts
 msgid "Medium"
 msgstr ""
+
+#: src/lib/identity-display.ts
+msgid "Member"
+msgstr "Membre"
 
 #. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
@@ -3509,9 +3519,10 @@ msgstr "Message d’origine indisponible"
 msgid "Other model…"
 msgstr "Autre modèle…"
 
+#: src/lib/identity-display.ts
 #: src/pages/Board.tsx
 msgid "Owner"
-msgstr ""
+msgstr "Propriétaire"
 
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
@@ -4027,6 +4038,7 @@ msgstr "Guide de la salle"
 msgid "Rotate key"
 msgstr "Tourner la clé"
 
+#: src/lib/identity-display.ts
 #: src/pages/RoutineEditor.tsx
 #: src/pages/Shell.tsx
 msgid "Routine"
@@ -4423,9 +4435,10 @@ msgstr "Mise à jour logicielle"
 msgid "Something went wrong. Try again."
 msgstr "Un problème est survenu. Réessayez."
 
+#: src/lib/identity-display.ts
 #: src/pages/SettingsOverlay.tsx
 msgid "Space"
-msgstr ""
+msgstr "Espace"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
@@ -4524,6 +4537,7 @@ msgstr "Stocké chiffré"
 msgid "Stream replies"
 msgstr "Diffuser les réponses"
 
+#: src/lib/identity-display.ts
 #: src/pages/Shell.tsx
 msgid "subagent"
 msgstr "sous-agent"
@@ -5149,6 +5163,7 @@ msgstr ""
 msgid "Yesterday"
 msgstr "Hier"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "You"
 msgstr "Vous"

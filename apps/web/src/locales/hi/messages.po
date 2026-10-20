@@ -844,6 +844,7 @@ msgstr "{0} का कंप्यूटर शुरू हो रहा है
 msgid "bot"
 msgstr "बॉट"
 
+#: src/lib/identity-display.ts
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -991,6 +992,10 @@ msgstr ""
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "चैट सेटिंग्स"
+
+#: src/lib/identity-display.ts
+msgid "Chats"
+msgstr "चैट"
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/pages/HostComputerPrompt.tsx
@@ -2473,6 +2478,7 @@ msgstr ""
 msgid "Git event"
 msgstr ""
 
+#: src/lib/identity-display.ts
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Group"
@@ -2948,6 +2954,10 @@ msgstr "मध्यम"
 #: src/lib/model-catalog.ts
 msgid "Medium"
 msgstr ""
+
+#: src/lib/identity-display.ts
+msgid "Member"
+msgstr "सदस्य"
 
 #. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
@@ -3509,9 +3519,10 @@ msgstr "मूल संदेश उपलब्ध नहीं है"
 msgid "Other model…"
 msgstr "अन्य मॉडल…"
 
+#: src/lib/identity-display.ts
 #: src/pages/Board.tsx
 msgid "Owner"
-msgstr ""
+msgstr "मालिक"
 
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
@@ -4027,6 +4038,7 @@ msgstr ""
 msgid "Rotate key"
 msgstr ""
 
+#: src/lib/identity-display.ts
 #: src/pages/RoutineEditor.tsx
 #: src/pages/Shell.tsx
 msgid "Routine"
@@ -4423,9 +4435,10 @@ msgstr ""
 msgid "Something went wrong. Try again."
 msgstr "कुछ गलत हो गया। फिर से कोशिश करें।"
 
+#: src/lib/identity-display.ts
 #: src/pages/SettingsOverlay.tsx
 msgid "Space"
-msgstr ""
+msgstr "कार्यस्थान"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
@@ -4524,6 +4537,7 @@ msgstr "एन्क्रिप्टेड रूप में संग्र
 msgid "Stream replies"
 msgstr "जवाब स्ट्रीम करें"
 
+#: src/lib/identity-display.ts
 #: src/pages/Shell.tsx
 msgid "subagent"
 msgstr "सबएजेंट"
@@ -5149,6 +5163,7 @@ msgstr ""
 msgid "Yesterday"
 msgstr "कल"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "You"
 msgstr "आप"

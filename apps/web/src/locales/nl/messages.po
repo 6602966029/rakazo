@@ -844,6 +844,7 @@ msgstr "De computer van {0} opstarten"
 msgid "bot"
 msgstr "bot"
 
+#: src/lib/identity-display.ts
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -991,6 +992,10 @@ msgstr "Chattoepassingen"
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "Chatinstellingen"
+
+#: src/lib/identity-display.ts
+msgid "Chats"
+msgstr "Chats"
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/pages/HostComputerPrompt.tsx
@@ -2473,6 +2478,7 @@ msgstr "Aan het voorbereiden"
 msgid "Git event"
 msgstr "Git-gebeurtenis"
 
+#: src/lib/identity-display.ts
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Group"
@@ -2948,6 +2954,10 @@ msgstr "Gemiddeld"
 #: src/lib/model-catalog.ts
 msgid "Medium"
 msgstr "Gemiddeld"
+
+#: src/lib/identity-display.ts
+msgid "Member"
+msgstr "Lid"
 
 #. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
@@ -3509,6 +3519,7 @@ msgstr "Oorspronkelijk bericht niet beschikbaar"
 msgid "Other model…"
 msgstr "Ander model…"
 
+#: src/lib/identity-display.ts
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "Eigenaar"
@@ -4027,6 +4038,7 @@ msgstr "Ruimte-instructies"
 msgid "Rotate key"
 msgstr "Sleutel roteren"
 
+#: src/lib/identity-display.ts
 #: src/pages/RoutineEditor.tsx
 #: src/pages/Shell.tsx
 msgid "Routine"
@@ -4423,6 +4435,7 @@ msgstr "Software-update"
 msgid "Something went wrong. Try again."
 msgstr "Er is iets misgegaan. Probeer het opnieuw."
 
+#: src/lib/identity-display.ts
 #: src/pages/SettingsOverlay.tsx
 msgid "Space"
 msgstr "Space"
@@ -4524,6 +4537,7 @@ msgstr "Versleuteld opgeslagen"
 msgid "Stream replies"
 msgstr "Antwoorden streamen"
 
+#: src/lib/identity-display.ts
 #: src/pages/Shell.tsx
 msgid "subagent"
 msgstr "subagent"
@@ -5149,6 +5163,7 @@ msgstr "jaar"
 msgid "Yesterday"
 msgstr "Gisteren"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "You"
 msgstr "Jij"
