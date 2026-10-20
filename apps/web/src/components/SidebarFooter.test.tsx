@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DesktopUpdatesProvider } from "./DesktopUpdates";
-import { SidebarFooter } from "./SidebarFooter";
+import { SidebarFooter, sidebarMarkCount } from "./SidebarFooter";
 
 vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({
@@ -218,3 +218,17 @@ it.each(["throw", "state"] as const)(
     expect(notice()).toBeNull();
   },
 );
+
+it.each([
+  [-20, 0],
+  [0, 0],
+  [25, 0],
+  [26, 1],
+  [43, 1],
+  [44, 2],
+  [61, 2],
+  [62, 3],
+  [200, 3],
+])("fits marks into %ipx without consuming label or padding space", (width, count) => {
+  expect(sidebarMarkCount(width)).toBe(count);
+});

@@ -249,6 +249,41 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   const boxes = await Promise.all(controls.map((control) => control.boundingBox()));
   expect(boxes.every((box) => box?.height === 36 && box.y === boxes[0]?.y)).toBe(true);
   expect(await footer.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const updateButton = controls[2]!;
+  await updateButton.click();
+  expect(await updateButton.evaluate((el) => el.matches(":focus-visible"))).toBe(false);
+  await avatar.click();
+  await avatar.click();
+  expect(await avatar.evaluate((el) => el.matches(":focus-visible"))).toBe(false);
+  await updateButton.focus();
+  expect(await updateButton.evaluate((el) => el.matches(":focus-visible"))).toBe(false);
+  await page.keyboard.press("Tab");
+  await updateButton.focus();
+  expect(await updateButton.evaluate((el) => el.matches(":focus-visible"))).toBe(true);
+  await updateButton.evaluate((el) => el.blur());
+
+  // Width changes must drop marks before taking space from the label or padding.
+  for (const [width, count] of [
+    [230, 0],
+    [258, 1],
+    [271, 2],
+    [315, 3],
+  ]) {
+    await footer.evaluate((el, width) => {
+      el.style.width = `${width}px`;
+    }, width!);
+    const marks = footer.locator('span[aria-hidden="true"] > span');
+    await expect(marks).toHaveCount(count!);
+    expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    if (count) {
+      const rightInset = await pill.evaluate((el) => {
+        const marks = el.querySelector('span[aria-hidden="true"]')!;
+        return el.getBoundingClientRect().right - marks.getBoundingClientRect().right;
+      });
+      expect(rightInset).toBeGreaterThanOrEqual(11);
+    }
+  }
+  await footer.evaluate((el) => el.style.removeProperty("width"));
 });
 
 test("account menu works on the mobile sidebar", async ({ page }) => {

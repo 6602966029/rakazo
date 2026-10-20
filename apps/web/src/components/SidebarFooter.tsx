@@ -11,7 +11,7 @@ import {
   SquareKanban,
   UserRound,
 } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useSidebarUpdate } from "./DesktopUpdates";
 
 type Props = {
@@ -31,6 +31,11 @@ type Props = {
   signingOut: boolean;
   logOutError: string | null;
 };
+
+// Marks are 24px wide, overlap by 6px, and need 2px for the outer ring.
+export function sidebarMarkCount(availableWidth: number) {
+  return Math.max(0, Math.min(3, Math.floor((availableWidth - 26) / 18) + 1));
+}
 
 export function SidebarFooter({
   name,
@@ -53,11 +58,31 @@ export function SidebarFooter({
   const update = useSidebarUpdate();
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const [failedLogos, setFailedLogos] = useState<string[]>([]);
+  const pillRef = useRef<HTMLButtonElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const [markCount, setMarkCount] = useState(3);
+  useLayoutEffect(() => {
+    const pill = pillRef.current;
+    const label = labelRef.current;
+    if (!pill || !label || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const style = getComputedStyle(pill);
+      const available =
+        pill.clientWidth -
+        Number.parseFloat(style.paddingLeft) -
+        Number.parseFloat(style.paddingRight) -
+        label.getBoundingClientRect().width -
+        Number.parseFloat(style.columnGap);
+      setMarkCount(sidebarMarkCount(available));
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(pill);
+    observer.observe(label);
+    measure();
+    return () => observer.disconnect();
+  }, []);
   return (
-    <div
-      data-testid="sidebar-footer"
-      className="@container flex shrink-0 items-center gap-2 px-2.5 py-3"
-    >
+    <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-2 px-2.5 py-3">
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger
           data-testid="user-menu-trigger"
@@ -180,17 +205,18 @@ export function SidebarFooter({
       </Popover>
       <Button
         variant="outline"
+        ref={pillRef}
         onClick={onIntegrations}
         className="h-9 min-w-0 flex-1 justify-between rounded-full bg-sidebar-accent hover:border-foreground/30 hover:bg-sidebar-accent"
       >
-        <span className="truncate">
+        <span ref={labelRef} className="shrink-0">
           <Trans>Connect apps</Trans>
         </span>
         <span aria-hidden="true" className="flex shrink-0 items-center -space-x-1.5">
-          {logos.slice(0, 3).map((app, index) => (
+          {logos.slice(0, markCount).map((app) => (
             <span
               key={app.name}
-              className={`size-6 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-medium text-foreground ring-2 ring-sidebar-accent ${index === 2 ? "hidden @min-[280px]:grid" : "grid"}`}
+              className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-medium text-foreground ring-2 ring-sidebar-accent dark:bg-input"
             >
               {app.logo && !failedLogos.includes(app.logo) ? (
                 <img
