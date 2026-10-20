@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import type { DesktopUpdateState } from "@rakazo/contracts";
+import { Toaster } from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -60,6 +61,7 @@ async function render(
           signingOut={false}
           logOutError={null}
         />
+        <Toaster />
       </DesktopUpdatesProvider>,
     ),
   );
@@ -195,25 +197,25 @@ it.each(["throw", "state"] as const)(
         message: "Update could not be installed",
       });
     await render();
+    // The notice is a toast, which mounts and leaves on the toaster's own timers.
     const notice = () => document.querySelector('[aria-label="Desktop update"]');
-    const later = [...notice()!.querySelectorAll("button")].find(
-      (button) => button.textContent === "Later",
-    )!;
-    await act(async () => later.click());
-    expect(notice()).toBeNull();
+    const later = () =>
+      [...notice()!.querySelectorAll("button")].find((button) => button.textContent === "Later")!;
+    await vi.waitFor(() => expect(notice()).not.toBeNull());
+    await act(async () => later().click());
+    await vi.waitFor(() => expect(notice()).toBeNull());
     await act(async () =>
       document.querySelector<HTMLButtonElement>('[aria-label="Install update"]')!.click(),
     );
-    expect(notice()?.querySelector('[role="status"]')?.textContent).toBe(
-      failure === "throw"
-        ? "Could not complete the update. Try again."
-        : "Update could not be installed",
+    await vi.waitFor(() =>
+      expect(notice()?.querySelector('[role="status"]')?.textContent).toBe(
+        failure === "throw"
+          ? "Could not complete the update. Try again."
+          : "Update could not be installed",
+      ),
     );
-    const dismiss = [...notice()!.querySelectorAll("button")].find(
-      (button) => button.textContent === "Later",
-    )!;
-    await act(async () => dismiss.click());
-    expect(notice()).toBeNull();
+    await act(async () => later().click());
+    await vi.waitFor(() => expect(notice()).toBeNull());
   },
 );
 
