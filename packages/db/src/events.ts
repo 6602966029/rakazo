@@ -14,6 +14,7 @@ import {
   isConversationalRun,
   isSecretAskBlock,
   messagingChannelId,
+  QUEUE_HOLDING_RUN_STATUSES,
   releasedTakeoverComputerBlocks,
   resolveAskChoice,
   sanitizeJsonValue,
@@ -427,7 +428,7 @@ export async function sendUserMessage(
                 threadId: input.threadId,
                 botId: input.botId,
                 status: {
-                  in: ["running", "queued", "leased", "waiting_input", "waiting_takeover"],
+                  in: [...QUEUE_HOLDING_RUN_STATUSES],
                 },
               },
               select: { id: true, taskId: true, trigger: true },
@@ -925,6 +926,7 @@ export async function answerWaitingRunWithTextInTransaction(
     runId: string;
     answeredByUserId: string;
     answer: string;
+    beforeMessageSeq?: number;
   },
 ): Promise<{ threadId: string; seq: number } | null> {
   const answer = input.answer.trim();
@@ -932,6 +934,15 @@ export async function answerWaitingRunWithTextInTransaction(
   const found = await findPendingAsk(tx, input);
   if (!found) return null;
   if (isApprovalAskBlock(found.pendingAsk) || isSecretAskBlock(found.pendingAsk)) return null;
+  const latest = await tx.message.findFirst({
+    where: {
+      threadId: input.threadId,
+      ...(input.beforeMessageSeq === undefined ? {} : { seq: { lt: input.beforeMessageSeq } }),
+    },
+    orderBy: { seq: "desc" },
+    select: { id: true },
+  });
+  if (latest?.id !== found.messageId) return null;
   return commitAnswerRunInput(tx, { ...input, messageId: found.messageId, answer });
 }
 
@@ -1494,7 +1505,7 @@ export async function createPendingSteeringRun(
     where: {
       threadId: input.threadId,
       botId: input.botId,
-      status: { in: ["queued", "leased", "running", "waiting_input", "waiting_takeover"] },
+      status: { in: [...QUEUE_HOLDING_RUN_STATUSES] },
     },
     select: { id: true },
   });

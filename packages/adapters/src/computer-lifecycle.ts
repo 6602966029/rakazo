@@ -530,6 +530,25 @@ export async function acquireDedicatedScreenLeaseFence(
       FOR UPDATE SKIP LOCKED`;
     if (currentRun.length !== 1) throw new ComputerBusyError();
 
+    // The retained fence records who acquired the computer first. Under the bot/computer
+    // locks, keep that owner until its worker lease ends or it pauses/completes. A second
+    // run must use the executor's existing ComputerBusyError requeue/backoff path.
+    const holder = await tx.computerExecutionLease.findUnique({
+      where: { computerId_botId: { computerId: input.computerId, botId: input.botId } },
+      select: { runId: true },
+    });
+    if (holder && holder.runId !== input.runId) {
+      const live = await tx.run.findFirst({
+        where: {
+          id: holder.runId,
+          status: { in: ["leased", "running"] },
+          leaseExpiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      });
+      if (live) throw new ComputerBusyError();
+    }
+
     const expiredAt = new Date(0);
     const now = new Date();
     const [existing] = await tx.computerExecutionLease.updateManyAndReturn({

@@ -172,6 +172,7 @@ import {
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
   nextCronDateAcrossStrict,
+  QUEUE_HOLDING_RUN_STATUSES,
 } from "@rakazo/core";
 import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
@@ -2407,7 +2408,7 @@ export function createRouter(deps: RouterDeps) {
             where: {
               threadId: target.threadId,
               botId,
-              status: { in: [...ACTIVE_RUN_STATUSES] },
+              status: { in: [...QUEUE_HOLDING_RUN_STATUSES] },
             },
             select: { id: true },
           });

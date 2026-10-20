@@ -1917,10 +1917,11 @@ describe("computer execution leases", () => {
     const tx = {
       $queryRaw: queryRaw,
       computerExecutionLease: {
+        findUnique: vi.fn().mockResolvedValue(null),
         updateManyAndReturn,
         create: vi.fn(),
       },
-      run: { aggregate: vi.fn() },
+      run: { aggregate: vi.fn(), findFirst: vi.fn().mockResolvedValue(null) },
     };
     const prisma = {
       $transaction: vi.fn(async (work: (client: typeof tx) => unknown) => work(tx)),
@@ -1944,6 +1945,65 @@ describe("computer execution leases", () => {
     ).rejects.toBeInstanceOf(ComputerBusyError);
     expect(updateManyAndReturn).toHaveBeenCalledTimes(2);
   });
+
+  it.each(["running", "leased", "waiting_input", "completed", "expired"])(
+    "dedicated computer keeps the first live worker ahead of a resumed card (%s)",
+    async (holderStatus) => {
+      const holder = {
+        id: "run-new-work",
+        status: holderStatus === "expired" ? "running" : holderStatus,
+        leaseExpiresAt: new Date(Date.now() + (holderStatus === "expired" ? -60_000 : 60_000)),
+      };
+      const tx = {
+        $queryRaw: vi
+          .fn()
+          .mockResolvedValueOnce([{ id: "bot-1" }])
+          .mockResolvedValueOnce([{ id: "computer-1", scope: "dedicated" }])
+          .mockResolvedValueOnce([{ id: "run-resumed-card" }]),
+        computerExecutionLease: {
+          findUnique: vi.fn().mockResolvedValue({ runId: holder.id }),
+          updateManyAndReturn: vi.fn().mockResolvedValue([{ fence: 8 }]),
+        },
+        run: {
+          findFirst: vi.fn(
+            async ({
+              where,
+            }: {
+              where: { status: { in: string[] }; leaseExpiresAt: { gt: Date } };
+            }) =>
+              where.status.in.includes(holder.status) &&
+              holder.leaseExpiresAt > where.leaseExpiresAt.gt
+                ? holder
+                : null,
+          ),
+        },
+      };
+      const prisma = {
+        $transaction: vi.fn(async (work: (client: typeof tx) => unknown) => work(tx)),
+      } as unknown as PrismaClient;
+      const acquiring = acquireDedicatedScreenLeaseFence(prisma, {
+        computerId: "computer-1",
+        botId: "bot-1",
+        runId: "run-resumed-card",
+        workerId: "worker-1",
+        runFence: 2,
+      });
+      if (holderStatus === "running" || holderStatus === "leased") {
+        await expect(acquiring).rejects.toBeInstanceOf(ComputerBusyError);
+        expect(tx.computerExecutionLease.updateManyAndReturn).not.toHaveBeenCalled();
+      } else {
+        await expect(acquiring).resolves.toMatchObject({ runId: "run-resumed-card", fence: 8 });
+      }
+      expect(tx.run.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: holder.id,
+          status: { in: ["leased", "running"] },
+          leaseExpiresAt: { gt: expect.any(Date) },
+        },
+        select: { id: true },
+      });
+    },
+  );
 
   it("acquires a team lease on a stale suspending computer", async () => {
     const prisma = leasePrisma({ scope: "team" });

@@ -4,7 +4,7 @@ import type {
   ThreadMessage,
   ThreadSnapshot,
 } from "@rakazo/contracts";
-import { withLiveStreamingProgress } from "@rakazo/core";
+import { answerableAskMessageIds, withLiveStreamingProgress } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import {
   activeThreadRuns,
@@ -42,6 +42,24 @@ describe("thread event reduction", () => {
     });
     expect(next?.activeRuns).toEqual([next?.run]);
     expect(next?.messages).toBe(initial.messages);
+  });
+
+  it("keeps a private card answerable through a new send receipt and run start", () => {
+    const paused = { ...threadRun("paused"), status: "waiting_input" as const };
+    const ask = {
+      ...message("ask", [{ kind: "ask", text: "Which city?", status: "pending" }], 1),
+      runId: paused.id,
+    };
+    const initial = { ...snapshot([ask]), run: paused, activeRuns: [paused] };
+    const receipt = applyThreadSendReceipt(initial, {
+      botId: "bot-1",
+      runId: "new",
+      taskId: "task-new",
+    });
+    expect(receipt?.activeRuns?.map((run) => run.id)).toEqual(["paused", "new"]);
+    const started = reduceThreadSnapshot(receipt, event({ type: "run.started", runId: "new" }));
+    expect(answerableAskMessageIds(started)).toEqual(new Set(["ask"]));
+    expect(started?.activeRuns?.map((run) => run.id)).toEqual(["paused", "new"]);
   });
 
   it("does not replace authoritative active or group run state with a send receipt", () => {

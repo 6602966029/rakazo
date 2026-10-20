@@ -36,6 +36,7 @@ import {
 } from "@rakazo/contracts";
 import type { ComposerMention, FoldedTranscript, SlashActionId } from "@rakazo/core";
 import {
+  answerableAskMessageIds,
   attachmentsForThread,
   buildComposerMentionOptions,
   clampMentionHighlightIndex,
@@ -49,7 +50,6 @@ import {
   isPeerReceiptBlocks,
   isRunTerminalEvent,
   isToolActivityBlock,
-  latestAnswerableAskMessageId,
   mentionChipKey,
   nestRosterByParent,
   normalizeRunError,
@@ -2040,7 +2040,7 @@ function SpaceShell() {
     setReplyQuote(null);
   }, []);
   const currentRuns = activeThreadRuns(activeSnapshot);
-  const answerableAskMessageId = latestAnswerableAskMessageId(activeSnapshot);
+  const answerableAskIds = answerableAskMessageIds(activeSnapshot);
   const workingRuns = currentRuns.filter((run) =>
     ["running", "queued", "leased"].includes(run.status),
   );
@@ -4021,7 +4021,7 @@ function SpaceShell() {
             showToolActivity={showToolActivity}
             olderCursor={activeSnapshot?.olderCursor ?? null}
             loadingOlder={loadingOlder}
-            answerableAskMessageId={answerableAskMessageId}
+            answerableAskIds={answerableAskIds}
             running={transcriptRunning}
             workingBots={workingBots}
             onCallBack={
@@ -5243,7 +5243,7 @@ const Transcript = memo(function Transcript({
   showToolActivity,
   olderCursor,
   loadingOlder,
-  answerableAskMessageId,
+  answerableAskIds,
   running,
   workingBots,
   onCallBack,
@@ -5273,7 +5273,7 @@ const Transcript = memo(function Transcript({
   showToolActivity: boolean;
   olderCursor: number | null;
   loadingOlder: boolean;
-  answerableAskMessageId: string | null;
+  answerableAskIds: Set<string>;
   running: boolean;
   workingBots: GroupAvatarMember[];
   /** Calls the bot back from a missed call in the transcript. */
@@ -5651,7 +5651,7 @@ const Transcript = memo(function Transcript({
                     <MessageView
                       artifactTarget={artifactTarget}
                       message={message}
-                      canAnswer={message.id === answerableAskMessageId}
+                      canAnswer={answerableAskIds.has(message.id)}
                       onOpenBot={onOpenBot}
                       onOpenPeerMessages={onOpenPeerMessages}
                       peerReplies={

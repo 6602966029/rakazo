@@ -17,6 +17,7 @@ import {
 import type { SlashActionId, ThreadItem } from "@rakazo/core";
 import {
   abortableDelay,
+  answerableAskMessageIds,
   appendNewerThreadPage,
   attachmentsForThread,
   buildComposerMentionOptions,
@@ -30,7 +31,6 @@ import {
   isPeerReceiptBlocks,
   isRunTerminalEvent,
   isSecretAskBlock,
-  latestAnswerableAskMessageId,
   leaveThreadWindow,
   normalizeRunError,
   openThreadWindow,
@@ -2006,7 +2006,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     );
   }
 
-  const answerableAskMessageId = latestAnswerableAskMessageId(snap);
+  const answerableAskIds = answerableAskMessageIds(snap);
   const runError = snap?.run?.status === "failed" ? (snap.run.error ?? null) : null;
   const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -2251,7 +2251,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           members={snap?.members}
           readOnly={readOnly}
           onCall={onCall}
-          canAnswer={!readOnly && message.id === answerableAskMessageId}
+          canAnswer={!readOnly && answerableAskIds.has(message.id)}
           highlighted={highlightedMessageId === message.id}
           separator={separatorIds.has(message.id)}
           replyAuthor={replyAuthor}
@@ -2292,7 +2292,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       rowActions,
       readOnly,
       onCall,
-      answerableAskMessageId,
+      answerableAskIds,
       highlightedMessageId,
       separatorIds,
       columnWidth,
