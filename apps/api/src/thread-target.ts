@@ -518,17 +518,11 @@ export async function threadSnapshot(
   };
 }
 
-/**
- * Prefer a waiting ask/takeover over a merely-busy run for the group's headline
- * `run` field, even when the busy run started more recently — createdAt-desc
- * ordering alone would let a fresh busy run for one bot bury an older waiting
- * card for another. `activeRuns` still carries every active run regardless of
- * which one is picked here, so nothing is hidden from the client, only the
- * single-run summary field.
- */
+/** Takeover is urgent; otherwise live work takes precedence over pending cards. */
 function pickPrimaryActiveRun<T extends { status: string }>(runs: readonly T[]): T | undefined {
   return (
-    runs.find((run) => run.status === "waiting_input" || run.status === "waiting_takeover") ??
+    runs.find((run) => run.status === "waiting_takeover") ??
+    runs.find((run) => QUEUE_HOLDING_RUN_STATUSES.some((status) => status === run.status)) ??
     runs[0]
   );
 }
@@ -1130,7 +1124,7 @@ async function startReactionTurn(
   actor: Actor,
   threadId: string,
   botId: string,
-  parent: { runId: string | null },
+  parent: { id: string; runId: string | null },
   message: { id: string; seq: number },
   input: { reaction: MessageReaction; clientNonce: string; canReleaseTakeover: boolean },
 ): Promise<Array<{ id: string; taskId: string; status: string }>> {
@@ -1171,7 +1165,7 @@ async function startReactionTurn(
         runId: active.id,
         answeredByUserId: actor.userId,
         answer: input.reaction === "👍" ? "yes" : "no",
-        beforeMessageSeq: message.seq,
+        messageId: parent.id,
       });
       if (answered) {
         await tx.message.update({ where: { id: message.id }, data: { runId: active.id } });

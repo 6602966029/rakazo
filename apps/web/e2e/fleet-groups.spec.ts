@@ -32,7 +32,9 @@ test("a group a bot creates after approval appears in the sidebar without a relo
   // A new question can run beside the approval, and both cards stay answerable.
   await composer.fill("ask me which city to use");
   await page.keyboard.press("Enter");
-  await expect(page.getByText("Which city should I use?", { exact: true })).toBeVisible({
+  await expect(
+    page.getByTestId("transcript").getByText("Which city should I use?", { exact: true }),
+  ).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByRole("button", { name: "Allow once", exact: true })).toBeEnabled();

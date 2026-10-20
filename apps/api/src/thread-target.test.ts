@@ -206,13 +206,13 @@ describe("reaction turns", () => {
             seq: 7,
             ...(options.parent ?? { role: "bot", botId: "bot-1", runId: "run-done" }),
           })
-          .mockResolvedValue({
-            ...ask,
+          .mockImplementation(async ({ where }: { where: { id?: string } }) => ({
+            ...(!where.id && options.newer?.length ? { id: "intervening-reaction" } : ask),
             blocks: options.askBlocks ?? ask.blocks,
             threadId: "thread-1",
             runId: "run-waiting",
             role: "bot",
-          }),
+          })),
         findUnique: vi.fn().mockResolvedValue(null),
         findMany: vi
           .fn()
@@ -483,6 +483,36 @@ describe("reaction turns", () => {
     expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ name: "run.continue" }));
   });
 
+  it.each(["👍", "👎"] as const)(
+    "answers its explicit question with %s after another reaction",
+    async (reaction) => {
+      const { tx, react, enqueue } = fixture({
+        reaction,
+        parent: { role: "bot", botId: "bot-1", runId: "run-waiting" },
+        activeRuns: [{ id: "run-waiting", taskId: "task-1", status: "waiting_input" }],
+        newer: [
+          { role: "user", blocks: [{ kind: "text", text: "❤️" }], replyToMessageId: "parent" },
+        ],
+      });
+      await expect(react()).resolves.toMatchObject({ runIds: ["run-waiting"] });
+      expect(tx.message.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "parent" },
+          data: expect.objectContaining({
+            blocks: expect.arrayContaining([
+              expect.objectContaining({
+                kind: "ask",
+                status: "answered",
+                answer: reaction === "👍" ? "yes" : "no",
+              }),
+            ]),
+          }),
+        }),
+      );
+      expect(enqueue).toHaveBeenCalled();
+    },
+  );
+
   it("answers a pending ask even inside the reaction cooldown", async () => {
     const { tx, enqueue, react } = fixture({
       reaction: "👍",
@@ -560,6 +590,7 @@ describe("threadSnapshot", () => {
       threadId: "thread-1",
       bot: { computer: null },
     } as ThreadTarget);
+    expect(snapshot.run).toMatchObject({ id: "new-work", status: "running" });
     expect(snapshot.activeRuns?.map((run) => run.id)).toEqual(["paused-a", "paused-b", "new-work"]);
     expect(findManyEvents).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -709,7 +740,7 @@ describe("threadSnapshot", () => {
     expect(findManyEvents).not.toHaveBeenCalled();
   });
 
-  it("prefers a waiting peer ask over a concurrent user run", async () => {
+  it("prefers a concurrent user run over a waiting peer ask", async () => {
     const waitingPeer = {
       id: "run-peer-waiting",
       botId: "bot-1",
@@ -765,9 +796,7 @@ describe("threadSnapshot", () => {
       } as ThreadTarget,
     );
 
-    expect(snapshot.run).toEqual(
-      expect.objectContaining({ id: "run-peer-waiting", status: "waiting_input" }),
-    );
+    expect(snapshot.run).toEqual(expect.objectContaining({ id: "run-user", status: "running" }));
   });
 
   it.each(["waiting_input", "running"])(
@@ -1054,7 +1083,14 @@ describe("threadSnapshot", () => {
     ]);
   });
 
-  it("keeps a waiting peer ask as the primary run even when a newer busy run exists", async () => {
+  it.each([
+    ["queued", "waiting_input"],
+    ["leased", "waiting_input"],
+    ["running", "waiting_input"],
+    ["queued", "waiting_takeover"],
+    ["leased", "waiting_takeover"],
+    ["running", "waiting_takeover"],
+  ])("prioritizes concurrent %s and %s runs", async (status, waitingStatus) => {
     // Real DB order is createdAt desc, so the newer busy run for bot-b comes
     // first here, ahead of the older waiting peer run for bot-a.
     const newerBusy = {
@@ -1062,7 +1098,7 @@ describe("threadSnapshot", () => {
       botId: "bot-b",
       threadId: "thread-1",
       taskId: "task-busy",
-      status: "running",
+      status,
       trigger: "user",
       modelProvider: null,
       modelId: null,
@@ -1076,7 +1112,7 @@ describe("threadSnapshot", () => {
       botId: "bot-a",
       threadId: "thread-1",
       taskId: "task-peer",
-      status: "waiting_input",
+      status: waitingStatus,
       trigger: "bot_message",
       modelProvider: null,
       modelId: null,
@@ -1088,7 +1124,11 @@ describe("threadSnapshot", () => {
     const findManyRuns = groupRunFindMany({ active: [newerBusy, olderWaiting] });
     const snapshot = await threadSnapshot({ prisma: groupPrisma(findManyRuns) }, groupTarget());
 
-    expect(snapshot.run).toEqual(expect.objectContaining({ id: "run-older-waiting" }));
+    expect(snapshot.run).toEqual(
+      expect.objectContaining({
+        id: waitingStatus === "waiting_takeover" ? "run-older-waiting" : "run-newer-busy",
+      }),
+    );
     // activeRuns is unaffected by which one is chosen as primary.
     expect(snapshot.activeRuns.map((run) => run.id)).toEqual([
       "run-newer-busy",

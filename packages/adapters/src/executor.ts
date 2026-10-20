@@ -3575,7 +3575,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
         );
       }
       let computerLease: ComputerExecutionLease | null = null;
-      let computerScreenLease: ComputerExecutionLease | null = null;
       try {
         computerLease = await acquireComputerExecutionLease(deps.prisma, {
           computerId: leaseTarget.computerId,
@@ -3583,9 +3582,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
           botId: run.botId,
           resumeHeldLease,
         });
-        computerScreenLease = computerLease;
-        if (!computerScreenLease && leaseTarget.computer?.scope === "dedicated") {
-          computerScreenLease = await acquireDedicatedScreenLeaseFence(deps.prisma, {
+        if (!computerLease && leaseTarget.computer?.scope === "dedicated") {
+          computerLease = await acquireDedicatedScreenLeaseFence(deps.prisma, {
             computerId: leaseTarget.computerId,
             runId,
             botId: run.botId,
@@ -3774,7 +3772,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           userId: run.userId,
           botId: bot.id,
           runId,
-          screenLeaseId: screenLeaseIdForRun(computerScreenLease, runId, fence),
+          screenLeaseId: screenLeaseIdForRun(computerLease, runId, fence),
           signal: runAbortController.signal,
           ...connectedContext(connectedPlugins),
           connectedProviders: connectedComposio.map((row) => row.provider),
@@ -5106,6 +5104,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
             // stuck in "running" with no ask card — fail instead so the user can retry.
             if (!paused) {
               throw new Error("Could not pause this run for approval; try sending again.");
+            }
+            if (paused.continuationRunId) {
+              await deps.jobs
+                .enqueue(runContinueJob(paused.continuationRunId))
+                .catch(() => undefined);
             }
             await notifyRun(deps, run, {
               kind: "help",
@@ -6611,6 +6614,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (!paused) {
               throw new Error("Could not pause this run for protected input; try sending again.");
             }
+            if (paused.continuationRunId) {
+              await deps.jobs
+                .enqueue(runContinueJob(paused.continuationRunId))
+                .catch(() => undefined);
+            }
             await notifyRun(deps, run, {
               kind: "help",
               title: `${bot.name} needs a code`,
@@ -7535,6 +7543,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 offeredActions: event.actions,
               });
               if (!paused) return;
+              if (paused.continuationRunId) {
+                await deps.jobs
+                  .enqueue(runContinueJob(paused.continuationRunId))
+                  .catch(() => undefined);
+              }
               await notifyRun(deps, run, {
                 kind: "help",
                 title: `${bot.name} needs an answer`,
