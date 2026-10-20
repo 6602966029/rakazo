@@ -195,16 +195,6 @@ button {
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
-.star-pill--icon {
-  padding: 7px 10px;
-}
-
-.star-pill--icon svg {
-  width: 18px;
-  height: 18px;
-  fill: currentColor;
-}
-
 .star-pill:hover,
 .star-pill:focus-visible,
 .button:hover,
@@ -346,29 +336,8 @@ button.button--secondary:focus-visible {
   text-align: center;
 }
 
-.hero__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 100%;
+.hero .hero__eyebrow {
   margin-bottom: 30px;
-  padding: 6px 14px 6px 8px;
-  border: 1px solid var(--blue-line);
-  border-radius: 999px;
-  background: linear-gradient(to bottom, var(--blue-soft), var(--blue-soft-2));
-  color: var(--blue);
-  font-size: 13px;
-  line-height: 1.4;
-  text-align: left;
-}
-
-.hero__badge {
-  flex: none;
-  border-radius: 999px;
-  background: #fff;
-  padding: 2px 8px;
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .hero h1,
@@ -505,7 +474,6 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 
 .card-grid-3,
 .card-grid-4,
-.comparison-grid,
 .stats-grid {
   display: grid;
   gap: 20px;
@@ -523,10 +491,9 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 }
 
 .feature-card,
-.roster-card,
-.comparison-card {
+.roster-card {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   box-shadow: var(--shadow-soft);
 }
 
@@ -535,8 +502,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   padding: 26px;
 }
 
-.feature-card h3,
-.comparison-card h3 {
+.feature-card h3 {
   margin: 0;
   color: var(--ink);
   font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
@@ -545,8 +511,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   letter-spacing: -0.02em;
 }
 
-.feature-card p,
-.comparison-card p {
+.feature-card p {
   margin: 10px 0 0;
   font-size: 15px;
   line-height: 1.6;
@@ -774,52 +739,6 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   }
 }
 
-.comparison-grid {
-  grid-template-columns: 1.15fr 1fr;
-  align-items: stretch;
-  margin-top: 40px;
-}
-
-.comparison-card {
-  display: flex;
-  flex-direction: column;
-  border-radius: 22px;
-  padding: 30px;
-}
-
-.comparison-card--muted {
-  background: var(--surface-soft);
-  box-shadow: none;
-}
-
-.comparison-meta {
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 14.5px;
-}
-
-.comparison-list {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  margin-top: 22px;
-  color: var(--body);
-  font-size: 14.5px;
-  line-height: 1.5;
-}
-
-.comparison-list--muted {
-  color: var(--muted-2);
-}
-
-.comparison-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: auto;
-  padding-top: 26px;
-}
-
 .selfhost-cta {
   display: flex;
   flex-wrap: wrap;
@@ -827,14 +746,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   margin-top: 28px;
 }
 
-.comparison-kicker {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.comparison-badge {
+.cloud-badge {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
@@ -2698,7 +2610,6 @@ button.product-demo__dock-icon {
 
 @media (max-width: 960px) {
   .card-grid-3,
-  .comparison-grid,
   .stats-band {
     grid-template-columns: 1fr;
   }
@@ -2716,7 +2627,7 @@ button.product-demo__dock-icon {
   }
 
   .site-nav,
-  .site-header__cta {
+  .site-header__right > .star-pill {
     display: none;
   }
 
@@ -2797,10 +2708,8 @@ button.product-demo__dock-icon {
     font-size: clamp(2.375rem, 9vw, 3rem);
   }
 
-  .hero__pill {
+  .hero .hero__eyebrow {
     margin-bottom: 22px;
-    padding: 5px 12px 5px 6px;
-    font-size: 12.5px;
   }
 
   .lead {
@@ -2813,8 +2722,7 @@ button.product-demo__dock-icon {
   }
 
   .hero__actions,
-  .cta-actions,
-  .comparison-actions {
+  .cta-actions {
     flex-direction: column;
     align-items: stretch;
   }
@@ -2871,62 +2779,6 @@ button.product-demo__dock-icon {
   .product-demo__bubble {
     max-width: 100%;
   }
-}
-
-.nav-drop {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  position: relative;
-}
-
-.nav-drop__menu > summary {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  list-style: none;
-  cursor: pointer;
-  color: #525252;
-}
-
-.nav-drop__menu > summary::-webkit-details-marker {
-  display: none;
-}
-
-.nav-drop__menu > summary svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.nav-drop__panel {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 10px);
-  left: 0;
-  display: grid;
-  min-width: 220px;
-  padding: 8px;
-  border: 1px solid var(--line-2);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
-}
-
-.nav-drop__panel a {
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: var(--ink);
-}
-
-.nav-drop__panel a:hover,
-.nav-drop__panel a:focus-visible {
-  background: var(--surface-soft);
 }
 
 .page-updated {
@@ -3164,5 +3016,60 @@ button.product-demo__dock-icon {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Homepage supporting details stay small beside the product examples. */
+.works-with,
+.source-links,
+.cloud-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.works-with {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.provider-chip {
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--body);
+  padding: 4px 8px;
+}
+
+.cloud-preview {
+  color: var(--muted-2);
+  font-size: 14px;
+}
+
+.cloud-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.cloud-link {
+  color: var(--blue);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cloud-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .cloud-preview {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
