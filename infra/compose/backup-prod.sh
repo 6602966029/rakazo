@@ -75,7 +75,7 @@ while ((${#verified_dirs[@]} > KEEP)); do
   unset 'verified_dirs[index]'
 done
 
-# Scale the previous compressed snapshot by source growth. Older snapshots without
+# Scale only the previous appdata archive by appdata source growth. Older snapshots without
 # size metadata use the uncompressed source as a conservative first-run estimate.
 # The per-output limit below still bounds actual writes when compressibility changes.
 last="${verified_dirs[0]:-}"
@@ -85,9 +85,11 @@ if [[ -n "${last}" ]]; then
   last_kb="$(du -sk "${last}" | awk '{ print $1 }')"
   last_source=""
   [[ ! -f "${last}/SOURCE_SIZE_KB" ]] || last_source="$(cat "${last}/SOURCE_SIZE_KB")"
-  if [[ "${last_source}" =~ ^[1-9][0-9]*$ ]]; then
-    need_kb="$(awk -v archive="${last_kb}" -v current="${source_kb}" -v previous="${last_source}" \
-      'BEGIN { printf "%.0f\n", archive * current / previous }')"
+  if [[ "${last_source}" =~ ^[1-9][0-9]*$ && -f "${last}/appdata.tgz" && -f "${last}/rakazo.dump" ]]; then
+    archive_kb="$(du -sk "${last}/appdata.tgz" | awk '{ print $1 }')"
+    dump_kb="$(du -sk "${last}/rakazo.dump" | awk '{ print $1 }')"
+    need_kb="$(awk -v archive="${archive_kb}" -v dump="${dump_kb}" -v current="${source_kb}" -v previous="${last_source}" \
+      'BEGIN { printf "%.0f\n", dump + archive * current / previous }')"
   fi
   ((last_kb <= need_kb)) || need_kb="${last_kb}"
 fi
@@ -147,8 +149,10 @@ tar -tzf "${SNAPSHOT_DIR}/appdata.tgz" >/dev/null
 
 (cd "${SNAPSHOT_DIR}" && sha256sum rakazo.dump appdata.tgz SOURCE_SIZE_KB > SHA256SUMS.pending)
 chmod 600 "${SNAPSHOT_DIR}"/*
+sync -- "${SNAPSHOT_DIR}"/*
 # Publish the completion marker only after every checksum is written.
 mv "${SNAPSHOT_DIR}/SHA256SUMS.pending" "${SNAPSHOT_DIR}/SHA256SUMS"
+sync -- "${SNAPSHOT_DIR}"
 
 verified=1
 

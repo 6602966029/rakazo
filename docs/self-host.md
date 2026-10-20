@@ -629,7 +629,8 @@ Postgres custom-format dump plus an application-data archive under `/var/backups
 `0600`. It keeps up to `RAKAZO_BACKUP_KEEP` verified snapshots (default `3`), bounded by
 `RAKAZO_BACKUP_MAX_GB` (default `50` GiB), and reserves `RAKAZO_BACKUP_MIN_FREE_GB` (default `5`
 GiB) of free disk space. Before starting, it removes abandoned partial snapshots and excess history,
-then checks capacity using the previous archive scaled by source growth. Snapshots without source-size
+then checks capacity by scaling only the previous appdata archive by appdata source growth,
+plus the previous database dump size. Snapshots without source-size
 metadata use the raw source size for their initial estimate. It preserves the newest
 verified snapshot when capacity is insufficient, caps output file sizes, and removes a failed run's
 partial snapshot. These local snapshots are not a substitute for an encrypted off-host backup or
@@ -667,10 +668,11 @@ installing units or drop-ins. The base backup service does not require the monit
 Host hardening preserves existing firewall rules and installs `firewall-change.sh` as
 `/usr/local/sbin/rakazo-firewall-change`. For subsequent firewall edits, use
 `sudo --preserve-env=SSH_CONNECTION /usr/local/sbin/rakazo-firewall-change apply COMMAND...`.
-This saves the UFW configuration and arms a three-minute rollback before running the command.
+This requires `SSH_CONNECTION` to be preserved, saves both `/etc/ufw` and `/etc/default/ufw`,
+and arms a three-minute rollback before running the command.
 Open a **new SSH connection** and run the printed `confirm TOKEN` command; confirmation from the
-original connection is rejected. An unconfirmed change restores the saved rules. The guard does
-not protect arbitrary direct `ufw` commands or SSH daemon configuration changes.
+original connection is rejected. An unconfirmed change restores the saved rules and default policies.
+The guard does not protect arbitrary direct `ufw` commands or SSH daemon configuration changes.
 
 To deploy from CI, install `infra/compose/deploy-main.sh` as `/usr/local/sbin/rakazo-deploy-main`
 and give CI a key restricted to it in the deploy user's `authorized_keys`

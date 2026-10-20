@@ -5,17 +5,22 @@ set -euo pipefail
 STATE=/var/lib/rakazo/firewall-change
 install -d -m 700 "${STATE}"
 exec 9>"${STATE}/lock"
-flock -n 9 || { echo "Another firewall operation is running" >&2; exit 1; }
 action="${1:-}"; shift || true
+if [[ "${action}" == rollback ]]; then
+  flock 9
+else
+  flock -n 9 || { echo "Another firewall operation is running" >&2; exit 1; }
+fi
 case "${action}" in
   apply)
+    [[ -n "${SSH_CONNECTION:-}" ]] || { echo "SSH_CONNECTION is required; preserve it through sudo" >&2; exit 1; }
     (($# > 0)) || { echo "Usage: firewall-change apply COMMAND [ARGS...]" >&2; exit 1; }
     [[ ! -f "${STATE}/token" ]] || { echo "A firewall change is awaiting confirmation" >&2; exit 1; }
     # Refuse edits when the configuration filesystem is nearly full.
     free_kb="$(df -Pk /etc/ufw | awk 'NR == 2 { print $4 }')"
     ((free_kb >= 102400)) || { echo "Need at least 100MiB free before changing the firewall" >&2; exit 1; }
     token="$(cat /proc/sys/kernel/random/uuid)"
-    tar -cpf "${STATE}/before.tar" -C /etc ufw
+    tar -cpf "${STATE}/before.tar" -C /etc ufw default/ufw
     status="$(LC_ALL=C ufw status)"
     if grep -q '^Status: active$' <<<"${status}"; then
       echo 1 >"${STATE}/enabled"

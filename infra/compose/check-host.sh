@@ -29,13 +29,13 @@ fi
 if systemctl is-failed --quiet rakazo-backup.service; then
   report "The last backup service run failed"
 else
-  /usr/local/sbin/rakazo-host-alert backup-failure ""
+  /usr/local/sbin/rakazo-host-alert backup-failure "" || report "Could not deliver backup recovery notification"
 fi
 if ! ports="$(/usr/sbin/sshd -T | awk '$1 == "port" { print $2 }')" || [[ -z "${ports}" ]]; then
   report "Could not inspect SSH configuration"
 else
   for port in ${ports}; do
-    if ! grep -qE "^### tuple ### (limit|allow) tcp ${port} " /etc/ufw/user.rules; then
+    if ! grep -qE "^### tuple ### (limit|allow) (tcp|any) ${port} " /etc/ufw/user.rules; then
       report "IPv4 SSH allow rule is missing for port ${port}"
     fi
   done

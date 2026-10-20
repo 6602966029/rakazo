@@ -66,6 +66,10 @@ if (args[0] === "inspect") {
 } else if (args.includes("sh")) {
   if (!args.at(-1).startsWith("pg_dump ")) process.exit(91);
   if (process.env.FAIL_DUMP === "1") process.exit(2);
+  if (process.env.OVERSIZE_DUMP === "1") {
+    let written = 0;
+    while (written < 65536) written += fs.writeSync(1, Buffer.alloc(65536 - written));
+  }
   console.log("fake custom-format dump");
 } else if (args.includes("psql")) {
   fs.writeFileSync(process.env.SQL_INPUT, fs.readFileSync(0));
@@ -90,6 +94,9 @@ if (args[0] === "inspect") {
     tar,
     `#!/bin/bash
 set -eu
+if [[ "$1" == "-czf" && "\${OVERSIZE_ARCHIVE:-0}" == "1" ]]; then
+  exec dd if=/dev/zero of="$2" bs=65536 count=1
+fi
 if [[ "$1" == "-czf" && "$*" == *" -C "* && -n "\${FAIL_TAR:-}" ]]; then
   echo "simulated archive read failure" >&2
   exit "$FAIL_TAR"
@@ -388,13 +395,15 @@ describe("production backup deployment and archive behavior", () => {
     const last = path.join(f.snapshots, "20261017T000000Z");
     write(path.join(last, "SHA256SUMS"), "verified");
     write(path.join(last, "SOURCE_SIZE_KB"), "10485760\n");
+    write(path.join(last, "appdata.tgz"), "archive");
+    write(path.join(last, "rakazo.dump"), "dump");
     const du = path.join(f.root, "bin/du");
     write(
       du,
       `#!/bin/bash
 if [[ "$2" == "$FAKE_APPDATA" ]]; then
   echo "$FAKE_RAW_KB $2"
-elif [[ "$2" == "${last}" ]]; then
+elif [[ "$2" == "${last}" || "$2" == "${last}/appdata.tgz" ]]; then
   echo "1048576 $2"
 else
   exec /usr/bin/du "$@"
@@ -410,6 +419,84 @@ fi
     expect(result.status, result.stderr).toBe(grown ? 1 : 0);
     expect(existsSync(path.join(last, "SHA256SUMS"))).toBe(true);
   });
+
+  it.each(["dump", "archive"])(
+    "enforces actual %s output limits and preserves the latest backup",
+    (output) => {
+      const f = fixture();
+      const last = path.join(f.snapshots, "20261017T000000Z");
+      write(path.join(last, "SHA256SUMS"), "verified");
+      const df = path.join(f.root, "bin/df");
+      write(
+        df,
+        `#!/bin/bash
+free=52428800
+for snapshot in "${f.snapshots}"/*; do
+  if [[ -f "$snapshot/SOURCE_SIZE_KB" && ! -f "$snapshot/SHA256SUMS" ]]; then
+    if [[ "${output}" == dump || -f "$snapshot/rakazo.dump" ]]; then free=1048584; fi
+  fi
+done
+echo "Filesystem Blocks Used Available Capacity Mounted"
+echo "/dev/fake 104857600 0 $free 0% /"
+`,
+      );
+      chmodSync(df, 0o755);
+      const result = f.run("infra/compose/backup-prod.sh", [], {
+        RAKAZO_BACKUP_MIN_FREE_GB: "1",
+        ...(output === "dump" ? { OVERSIZE_DUMP: "1" } : { OVERSIZE_ARCHIVE: "1" }),
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).not.toContain("Verified Rakazo backup");
+      expect(snapshotNames(f.snapshots)).toEqual(["20261017T000000Z"]);
+      expect(readFileSync(path.join(last, "SHA256SUMS"), "utf8")).toBe("verified");
+    },
+  );
+
+  it("does not multiply a large database dump by appdata growth", () => {
+    const f = fixture();
+    const last = path.join(f.snapshots, "20261017T000000Z");
+    for (const file of ["SHA256SUMS", "rakazo.dump", "appdata.tgz"])
+      write(path.join(last, file), "verified");
+    write(path.join(last, "SOURCE_SIZE_KB"), "102400");
+    const du = path.join(f.root, "bin/du");
+    write(
+      du,
+      `#!/bin/bash
+case "$2" in
+  "$FAKE_APPDATA") size=1048576 ;;
+  "${last}/rakazo.dump") size=10485760 ;;
+  "${last}/appdata.tgz") size=102400 ;;
+  "${last}") size=10588160 ;;
+  *) exec /usr/bin/du "$@" ;;
+esac
+echo "$size $2"
+`,
+    );
+    chmodSync(du, 0o755);
+    const result = f.run("infra/compose/backup-prod.sh");
+    expect(result.status, result.stderr).toBe(0);
+  });
+
+  it.each(["files", "directory"])(
+    "does not publish a verified backup after %s sync fails",
+    (stage) => {
+      const f = fixture();
+      write(path.join(f.snapshots, "20261017T000000Z/SHA256SUMS"), "verified");
+      const sync = path.join(f.root, "bin/sync");
+      write(
+        sync,
+        `#!/bin/bash
+if [[ "${stage}" == files && -f "$2" || "${stage}" == directory && -d "$2" ]]; then exit 1; fi
+exec /usr/bin/sync "$@"
+`,
+      );
+      chmodSync(sync, 0o755);
+      const result = f.run("infra/compose/backup-prod.sh");
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).not.toContain("Verified Rakazo backup");
+      expect(snapshotNames(f.snapshots)).toEqual(["20261017T000000Z"]);
+    },
+  );
 
   it("never overwrites a completed snapshot when a rerun has the same timestamp", () => {
     const f = fixture();

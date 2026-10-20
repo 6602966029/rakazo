@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Send deduplicated operational alerts using a root-owned Slack webhook config."""
 
+import fcntl
 import hashlib
 import json
 import os
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -18,6 +20,15 @@ def notify(
 ):
     state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     state_file = state_dir / (hashlib.sha256(key.encode()).hexdigest() + ".json")
+    with open(
+        state_file.with_suffix(".lock"),
+        "a", opener=lambda path, flags: os.open(path, flags, 0o600)
+    ) as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        _deliver(key, message, config_path, state_file)
+
+
+def _deliver(key, message, config_path, state_file):
     try:
         previous = json.loads(state_file.read_text())
     except FileNotFoundError:
@@ -47,10 +58,15 @@ def notify(
         with urllib.request.urlopen(request, timeout=20) as response:
             if response.status != 200 or response.read().strip() != b"ok":
                 raise RuntimeError("Slack did not accept the alert")
-    temporary = state_file.with_suffix(".tmp")
-    temporary.write_text(json.dumps({"message": message, "sent_at": now}))
-    os.chmod(temporary, 0o600)
-    temporary.replace(state_file)
+    # Unique files also avoid stale temporary files from interrupted deliveries.
+    fd, name = tempfile.mkstemp(dir=state_file.parent, suffix=".tmp")
+    temporary = Path(name)
+    try:
+        with os.fdopen(fd, "w") as output:
+            json.dump({"message": message, "sent_at": now}, output)
+        temporary.replace(state_file)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

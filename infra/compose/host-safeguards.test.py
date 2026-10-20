@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Offline tests; all state, firewall commands and alert delivery are isolated."""
 
+import concurrent.futures
 import contextlib
+import fcntl
 import importlib.util
 import io
 import json
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -63,6 +66,38 @@ class AlertTests(unittest.TestCase):
                 self.assertEqual(output.getvalue().count("Rakazo alert: Low space"), 1)
                 send.assert_not_called()
 
+    def test_concurrent_calls_deliver_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            response = MagicMock()
+            response.__enter__.return_value.status = 200
+            response.__enter__.return_value.read.return_value = b"ok"
+            config = root / "config.json"
+            config.write_text(
+                json.dumps(
+                    {"slack_webhook": "https://hooks.slack.com/services/example"}
+                )
+            )
+
+            def slow_send(*args, **kwargs):
+                time.sleep(0.05)
+                return response
+
+            with patch.object(
+                alerts.urllib.request, "urlopen", side_effect=slow_send
+            ) as send:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                    list(
+                        pool.map(
+                            lambda _: alerts.notify(
+                                "disk", "Low space", config, root / "state"
+                            ),
+                            range(4),
+                        )
+                    )
+                self.assertEqual(send.call_count, 1)
+                self.assertEqual(list((root / "state").glob("*.tmp")), [])
+
     def test_daily_reminder(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -92,6 +127,9 @@ class FirewallTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.etc = self.root / "etc"
         (self.etc / "ufw").mkdir(parents=True)
+        (self.etc / "default").mkdir()
+        self.defaults = self.etc / "default/ufw"
+        self.defaults.write_text('DEFAULT_OUTPUT_POLICY="DROP"\n')
         self.rules = self.etc / "ufw/user.rules"
         self.rules.write_text("original rules\n")
         self.state = self.root / "state"
@@ -154,11 +192,39 @@ class FirewallTests(unittest.TestCase):
 
     def test_rollback_restores_rules_and_rejects_wrong_token(self):
         token = self.apply()
+        self.defaults.write_text('DEFAULT_OUTPUT_POLICY="ACCEPT"\n')
         self.assertNotEqual(self.run_guard("rollback", "wrong-token").returncode, 0)
         result = self.run_guard("rollback", token)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.rules.read_text(), "original rules\n")
+        self.assertEqual(self.defaults.read_text(), 'DEFAULT_OUTPUT_POLICY="DROP"\n')
         self.assertFalse((self.state / "token").exists())
+
+    def test_apply_requires_connection_identity(self):
+        result = self.run_guard("apply", "true", SSH_CONNECTION="")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.state / "token").exists())
+        self.assertFalse((self.root / "timer").exists())
+
+    def test_rollback_waits_for_operation_lock(self):
+        token = self.apply()
+        with (self.state / "lock").open("w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            process = subprocess.Popen(
+                [str(self.script), "rollback", token],
+                env=self.env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                time.sleep(0.15)
+                self.assertIsNone(process.poll())
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+            _, stderr = process.communicate(timeout=5)
+            self.assertEqual(process.returncode, 0, stderr)
+        self.assertEqual(self.rules.read_text(), "original rules\n")
 
     def test_manual_rollback_allows_another_guarded_change(self):
         first = self.apply()
@@ -246,6 +312,31 @@ class HostCheckTests(unittest.TestCase):
                 ["bash", str(script)], env=env, capture_output=True, text=True
             )
             self.assertEqual(result.returncode, 0, result.stderr)
+            rules.write_text(
+                "### tuple ### allow any 2222 0.0.0.0/0 any 0.0.0.0/0 in\n"
+            )
+            result = subprocess.run(
+                ["bash", str(script)], env=env, capture_output=True, text=True
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            # A failed recovery delivery must not skip subsequent checks or their alert.
+            alert = bin_dir / "alert"
+            original_alert = alert.read_text()
+            alert.write_text(original_alert + '\n[[ "$1" != backup-failure ]]\n')
+            rules.write_text("")
+            alert_log.write_text("")
+            result = subprocess.run(
+                ["bash", str(script)], env=env, capture_output=True, text=True
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "Could not deliver backup recovery notification", alert_log.read_text()
+            )
+            self.assertIn("SSH allow rule is missing", alert_log.read_text())
+            alert.write_text(original_alert)
+            rules.write_text(
+                "### tuple ### allow any 2222 0.0.0.0/0 any 0.0.0.0/0 in\n"
+            )
             (bin_dir / "mountpoint").write_text("#!/bin/bash\nexit 1\n")
             result = subprocess.run(
                 ["bash", str(script)], env=env, capture_output=True, text=True
