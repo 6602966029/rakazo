@@ -350,6 +350,36 @@ describe("production backup deployment and archive behavior", () => {
     expect(f.commands().some((args) => args.includes("sh"))).toBe(false);
   });
 
+  it("cleans abandoned partials even when preflight refuses a new backup", () => {
+    const f = fixture();
+    write(path.join(f.snapshots, "20261017T000000Z/SHA256SUMS"), "verified");
+    write(path.join(f.snapshots, "20261018T000000Z/appdata.tgz"), "partial");
+    write(path.join(f.snapshots, "notes/keep.txt"), "operator note");
+    const result = f.run("infra/compose/backup-prod.sh", [], { FREE_KB: "1" });
+    expect(result.status).toBe(1);
+    expect(snapshotNames(f.snapshots).sort()).toEqual(["20261017T000000Z", "notes"]);
+  });
+
+  it("preserves the newest verified backup when the storage budget is too small", () => {
+    const f = fixture();
+    write(path.join(f.snapshots, "20261016T000000Z/SHA256SUMS"), "older");
+    write(path.join(f.snapshots, "20261017T000000Z/SHA256SUMS"), "newest");
+    const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_BACKUP_MAX_GB: "1" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Keeping the latest verified snapshot");
+    expect(snapshotNames(f.snapshots)).toEqual(["20261017T000000Z"]);
+    expect(f.commands().some((args) => args.includes("pg_dump"))).toBe(false);
+  });
+
+  it("refuses to fall back to root storage when a separate volume is required", () => {
+    const f = fixture();
+    const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_BACKUP_REQUIRE_VOLUME: "1" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("backup volume");
+    expect(f.commands()).toEqual([]);
+    expect(existsSync(f.snapshots)).toBe(false);
+  });
+
   it("refuses to run while another backup holds the lock", () => {
     const f = fixture();
     mkdirSync(f.snapshots, { recursive: true });
