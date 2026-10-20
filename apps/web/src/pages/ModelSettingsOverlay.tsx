@@ -1648,7 +1648,7 @@ function ModelPicker({
   }
 
   function moveHighlight(index: number) {
-    const count = filteredOptions.length;
+    const count = open ? filteredOptions.length : options.length;
     if (count === 0) return;
     const next = ((index % count) + count) % count;
     setHighlightedIndex(next);
@@ -1717,8 +1717,10 @@ function ModelPicker({
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
+      // Opening clears the search, so the last option comes from the full list.
+      const count = open ? filteredOptions.length : options.length;
       changeOpen(true);
-      setHighlightedIndex(Math.max(0, filteredOptions.length - 1));
+      setHighlightedIndex(Math.max(0, count - 1));
     }
   }
 
@@ -1779,7 +1781,7 @@ function ModelPicker({
           align="start"
           sideOffset={8}
           initialFocus={searchRef}
-          className="w-(--anchor-width) gap-0 overflow-hidden p-0"
+          className="w-(--anchor-width) gap-0 overflow-hidden p-0 motion-reduce:animate-none"
         >
           <input
             ref={searchRef}
