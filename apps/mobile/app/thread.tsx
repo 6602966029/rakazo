@@ -226,7 +226,7 @@ import {
 } from "../lib/session";
 import { setInboxHidden, useSplitView } from "../lib/split-view";
 import type { SendAttempt } from "../lib/thread-feedback";
-import { confirmEchoes, subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
+import { subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
 import { ThreadReadOnlyContext } from "../lib/thread-read-only";
 import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
@@ -606,7 +606,18 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const preparingSend = useRef(false);
-  const feedback = useThreadFeedback(threadKey, newClientNonce);
+  const echoed = useMemo(
+    () =>
+      snap && (snap.groupId ?? snap.botId) === threadKey
+        ? new Set(
+            snap.messages.flatMap((message) =>
+              message.role === "user" && message.seq !== undefined ? [message.seq] : [],
+            ),
+          )
+        : undefined,
+    [snap, threadKey],
+  );
+  const feedback = useThreadFeedback(threadKey, newClientNonce, echoed);
   const { error, setError } = feedback;
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [selectableText, setSelectableText] = useState<string | null>(null);
@@ -1781,16 +1792,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const afterDeliveredRef = useRef(afterDelivered);
   afterDeliveredRef.current = afterDelivered;
   useEffect(() => subscribeDelivered((attempt) => afterDeliveredRef.current(attempt)), []);
-  useEffect(() => {
-    if (snap && (snap.groupId ?? snap.botId) === threadKey) {
-      confirmEchoes(
-        threadKey!,
-        snap.messages.flatMap((message) =>
-          message.role === "user" && message.seq !== undefined ? [message.seq] : [],
-        ),
-      );
-    }
-  }, [snap, threadKey]);
 
   async function stop() {
     if (readOnly) return;

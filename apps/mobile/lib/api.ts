@@ -1435,8 +1435,11 @@ export function applyMobileThreadEvent(
     const { remaining } = takeLiveMessage(prev.messages, progressMessageId(event));
     const id = String(event.payload?.messageId ?? event.id ?? `msg:${event.seq ?? 0}`);
     const known = prev.messages.find((message) => message.id === id);
+    const seq = typeof event.payload?.seq === "number" ? event.payload.seq : known?.seq;
     const next: MobileMessage = {
       id,
+      // The seq lets a send that is still on screen as "Sending…" recognize its echo.
+      ...(seq === undefined ? {} : { seq }),
       createdAt: known?.createdAt ?? event.createdAt,
       runId: event.runId ? String(event.runId) : undefined,
       role: (event.payload?.role as MobileMessage["role"]) ?? "bot",
