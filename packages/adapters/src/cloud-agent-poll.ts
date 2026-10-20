@@ -4,7 +4,11 @@ import type {
   BackgroundJobPayloads,
   CloudAgentSnapshot,
 } from "@rakazo/adapter-kit";
-import { CloudAgentRequestRejected, runContinueJob } from "@rakazo/adapter-kit";
+import {
+  CloudAgentRequestRejected,
+  CloudAgentRetryLater,
+  runContinueJob,
+} from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
 import { cloudAgentHttpsUrl } from "@rakazo/core";
 import { appendEventInTransaction, type CloudAgent, Prisma } from "@rakazo/db";
@@ -91,7 +95,12 @@ export async function pollCloudAgent(
         );
       } catch (error) {
         if (!(error instanceof CloudAgentRequestRejected)) throw error;
-        await finishPoll(deps, agent, { status: "failed", launchRequest: {} }, abandoned);
+        await finishPoll(
+          deps,
+          agent,
+          { status: rejectedStatus(error), launchRequest: {} },
+          abandoned,
+        );
       }
       return;
     }
@@ -164,7 +173,7 @@ export async function pollCloudAgent(
         } catch (error) {
           if (!(error instanceof CloudAgentRequestRejected)) throw error;
           await finishPoll(deps, agent, {
-            status: "failed",
+            status: rejectedStatus(error),
             followup: Prisma.DbNull,
             followupDispatching: false,
           });
@@ -175,10 +184,28 @@ export async function pollCloudAgent(
     // A specific run cannot regress to stale agent-level metadata after a follow-up.
     const snapshot = await provider.get(agent.remoteId, context, agent.latestRunId ?? undefined);
     await finishPoll(deps, agent, snapshotData(snapshot));
-  } catch {
+  } catch (error) {
+    if (error instanceof CloudAgentRequestRejected && error.reason !== "invalid") {
+      // The remote agent or run is gone. Polling it again can never succeed.
+      await finishPoll(deps, agent, {
+        status:
+          agent.cancelRequested && error.reason === "not_found"
+            ? "cancelled"
+            : rejectedStatus(error),
+        followup: Prisma.DbNull,
+        followupDispatching: false,
+      });
+      return;
+    }
     // Provider response bodies and secrets never enter logs, cards, or model context.
-    getLogger().warn("cloud agent operation deferred to reconciliation");
-    await retryPoll(deps, agent);
+    if (error instanceof CloudAgentRetryLater && error.reason === "credential")
+      getLogger().warn("cloud agent credential rejected; check the provider connection");
+    else getLogger().warn("cloud agent operation deferred to reconciliation");
+    await retryPoll(
+      deps,
+      agent,
+      error instanceof CloudAgentRetryLater ? error.retryAfterMs : undefined,
+    );
   } finally {
     // A concurrent user action can change version while remote I/O is in flight.
     // Release only our lease, preserving that action's pending intent and due date.
@@ -204,10 +231,16 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
   };
 }
 
-async function retryPoll(deps: CloudAgentDeps, agent: CloudAgent) {
-  const nextPollAt = new Date(
-    Date.now() + Math.min(60_000, 5_000 * 2 ** Math.min(agent.errorCount, 4)),
-  );
+function rejectedStatus(error: CloudAgentRequestRejected) {
+  return error.reason === "expired" ? "expired" : "failed";
+}
+
+async function retryPoll(deps: CloudAgentDeps, agent: CloudAgent, retryAfterMs?: number) {
+  const backoff = Math.min(60_000, 5_000 * 2 ** Math.min(agent.errorCount, 4));
+  // Honor a provider's Retry-After, bounded so one response cannot park an agent for long.
+  const delay =
+    retryAfterMs === undefined ? backoff : Math.min(15 * 60_000, Math.max(backoff, retryAfterMs));
+  const nextPollAt = new Date(Date.now() + delay);
   const saved = await deps.prisma.cloudAgent.updateMany({
     where: fence(agent),
     data: {

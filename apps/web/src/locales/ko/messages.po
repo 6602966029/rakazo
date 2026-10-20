@@ -2330,6 +2330,10 @@ msgstr "{0} 펼치기"
 msgid "Expand {label}"
 msgstr "{label} 펼치기"
 
+#: src/components/CloudAgentCard.tsx
+msgid "expired"
+msgstr "만료됨"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
 msgstr "내보내기"

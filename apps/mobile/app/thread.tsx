@@ -3604,9 +3604,11 @@ const MessageBubble = memo(function MessageBubble({
           ? t("finished")
           : special.status === "cancelled"
             ? t("cancelled")
-            : t("failed");
+            : special.status === "expired"
+              ? t("expired")
+              : t("failed");
     const running = special.status === "running";
-    const failed = special.status === "failed" || special.status === "cancelled";
+    const failed = special.status !== "running" && special.status !== "finished";
     const prHref = cloudAgentHttpsUrl(special.prUrl);
     const href = prHref ?? cloudAgentHttpsUrl(special.url);
     return (
