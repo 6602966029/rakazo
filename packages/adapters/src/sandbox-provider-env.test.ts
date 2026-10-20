@@ -29,6 +29,9 @@ describe("resolveSandboxProvider", () => {
       boatApiKey: "test-box-key",
       boatApiUrl: "https://box.test/api/v1",
     });
+    expect(
+      sandboxProviderOptionsFromEnv({ BOX_BASE_URL: "https://box.test/api/v1" }).boatApiUrl,
+    ).toBe("https://box.test/api/v1");
     expect(resolveSandboxProvider({ SANDBOX_PROVIDER: "box" })).toBe("none");
   });
 

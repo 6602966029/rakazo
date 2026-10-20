@@ -1,14 +1,8 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import {
-  BoatApi,
-  type Sandbox as BoatMachine,
-  type Command200Response,
-  type CommandResponse,
-  Configuration,
-  ResponseError,
-} from "@boatdev/sdk";
+import type { Sandbox as BoatMachine, Command200Response, CommandResponse } from "@boatdev/sdk";
+import { BoatApi, Configuration, ResponseError } from "@boatdev/sdk";
 import type {
   AdapterContext,
   CommandRequest,

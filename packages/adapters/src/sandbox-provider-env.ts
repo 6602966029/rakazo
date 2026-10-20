@@ -83,5 +83,7 @@ export function boatApiKeyFromEnv(source: NodeJS.ProcessEnv): string | undefined
 }
 
 export function boatApiUrlFromEnv(source: NodeJS.ProcessEnv): string | undefined {
-  return optional(source.BOAT_API_URL) ?? optional(source.BOX_API_URL);
+  return (
+    optional(source.BOAT_API_URL) ?? optional(source.BOX_API_URL) ?? optional(source.BOX_BASE_URL)
+  );
 }

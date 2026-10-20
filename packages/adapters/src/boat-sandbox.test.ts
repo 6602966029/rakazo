@@ -1,11 +1,8 @@
 import type { Command200Response } from "@boatdev/sdk";
 import { parse } from "shell-quote";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  BoatSandboxProvider,
-  type BoatSandboxSdk,
-  isUnrecoverableBoatError,
-} from "./boat-sandbox.js";
+import type { BoatSandboxSdk } from "./boat-sandbox.js";
+import { BoatSandboxProvider, isUnrecoverableBoatError } from "./boat-sandbox.js";
 import { desktopCommandResponder } from "./linux-desktop.test-support.js";
 
 const context = {
