@@ -37,6 +37,7 @@ const BOAT_READY_TIMEOUT_MS = 5 * 60_000;
 const BOAT_API_COMMAND_TIMEOUT_SECONDS = 600;
 const BOAT_TTL_SECONDS = 2 * 60 * 60;
 const BOAT_DELETE_TIMEOUT_MS = 60_000;
+const BOAT_GONE_CHECK_TIMEOUT_MS = 10_000;
 const BOAT_EXPORT_CONCURRENCY = 16;
 
 export type BoatSandboxSdk = Pick<
@@ -736,7 +737,7 @@ function createBoatSdk(config: { apiKey: string; apiUrl?: string }): BoatSandbox
         if (
           error instanceof ResponseError &&
           error.response.status === 404 &&
-          (await sandboxMissing(get, sandboxId))
+          (await sandboxMissing(get, sandboxId, callerSignal(args[1])))
         ) {
           throw new ResponseError(error.response, `Boat sandbox ${sandboxId} not found`);
         }
@@ -792,15 +793,22 @@ function createBoatSdk(config: { apiKey: string; apiUrl?: string }): BoatSandbox
 }
 
 async function sandboxMissing(
-  get: (request: { sandboxId: string }) => Promise<unknown>,
+  get: (request: { sandboxId: string }, init: RequestInit) => Promise<unknown>,
   sandboxId: string,
+  signal: AbortSignal | undefined,
 ): Promise<boolean> {
+  const timeout = AbortSignal.timeout(BOAT_GONE_CHECK_TIMEOUT_MS);
   try {
-    await get({ sandboxId });
+    await get({ sandboxId }, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
     return false;
   } catch (error) {
     return error instanceof ResponseError && error.response.status === 404;
   }
+}
+
+function callerSignal(init: unknown): AbortSignal | undefined {
+  const signal = (init as RequestInit | undefined)?.signal;
+  return signal instanceof AbortSignal ? signal : undefined;
 }
 
 function timeoutCommand(command: string, timeoutMs: number, marker: string): string {

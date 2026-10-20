@@ -72,6 +72,22 @@ describe("Boat API errors", () => {
       .readFile(computer, "missing.txt", context)
       .catch((error: unknown) => error);
     expect(isSandboxGoneError(missingFile)).toBe(false);
+
+    const cancel = new AbortController();
+    const lookups: (AbortSignal | null | undefined)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        if (!new URL(String(input)).pathname.endsWith("/sandboxes/gone")) return notFound();
+        lookups.push(init?.signal);
+        cancel.abort(new Error("cancelled"));
+        throw init?.signal?.reason;
+      }),
+    );
+    await expect(
+      provider.readFile(computer, "missing.txt", { ...context, signal: cancel.signal }),
+    ).rejects.toThrow();
+    expect(lookups[0]?.aborted).toBe(true);
   });
 
   it("preserves 404 recovery and does not retry failed commands", async () => {
