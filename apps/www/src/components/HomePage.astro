@@ -82,7 +82,7 @@ const structuredData = homeStructuredData({
                 ? "android"
                 : /Windows/.test(ua)
                   ? "windows"
-                  : /Linux|X11/.test(ua) && !/CrOS/.test(ua)
+                  : /Linux|X11/.test(ua) && !/CrOS|aarch64|arm/i.test(ua)
                     ? "linux"
                     : /Macintosh/.test(ua)
                       ? "mac"

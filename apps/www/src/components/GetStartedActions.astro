@@ -6,7 +6,6 @@ import {
   APP_URL,
   GITHUB_URL,
   IOS_APP_URL,
-  LATEST_RELEASE_URL,
 } from "../site";
 
 type Props = {
@@ -17,14 +16,15 @@ type Props = {
 
 const { class: className, copy, downloads } = Astro.props;
 
-// `data-show` lists the platforms (set on <html> by PlatformScript) that see each action.
+// `data-show` lists the platforms (set on <html> by the HomePage script) that see each action.
 const desktopDownloads = [
-  { platform: "mac", href: downloads.mac ?? LATEST_RELEASE_URL, label: copy.download.mac },
-  { platform: "windows", href: downloads.windows, label: copy.download.windows },
-  { platform: "linux", href: downloads.linux, label: copy.download.linux },
-].filter((download): download is { platform: string; href: string; label: string } =>
-  Boolean(download.href),
-);
+  { platform: "mac", label: copy.download.mac, available: true },
+  { platform: "windows", label: copy.download.windows, available: Boolean(downloads.windows) },
+  { platform: "linux", label: copy.download.linux, available: Boolean(downloads.linux) },
+]
+  .filter((download) => download.available)
+  // The redirect resolves the newest installer per request, so releases need no site rebuild.
+  .map((download) => ({ ...download, href: `/api/download?platform=${download.platform}` }));
 const githubPlatforms = ["ios", "android", "web", "windows", "linux"]
   .filter((platform) => !desktopDownloads.some((download) => download.platform === platform))
   .join(" ");
