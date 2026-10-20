@@ -204,6 +204,11 @@ export class DockerSandboxProvider implements SandboxProvider {
       signal: context.signal,
     });
     if (!res.ok) {
+      cancelResponseBody(res);
+      // A stopped container cannot run anything; report it gone so the computer is booted again.
+      if ((await this.containerRunning(computer, context)) === false) {
+        throw sandboxGoneError(computer);
+      }
       yield { type: "stderr", data: `exec failed: ${res.status}` };
       yield { type: "exit", code: 1 };
       return;
