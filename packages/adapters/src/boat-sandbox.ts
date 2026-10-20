@@ -171,6 +171,7 @@ export class BoatSandboxProvider implements SandboxProvider {
           { sandboxId: request.providerRef },
           { signal: context.signal },
         );
+        if (existing.sandbox.dataExpiredAt) throw boatSandboxGone(request.providerRef);
         if (existing.sandbox.state === "archived") {
           await this.client.resume(
             {
@@ -463,6 +464,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       const sandbox = response.sandbox;
       if (sandbox.state === "ready" || sandbox.state === "idle" || sandbox.state === "running")
         return sandbox;
+      if (sandbox.dataExpiredAt) throw boatSandboxGone(id);
       if (sandbox.state === "archived" && !resumed) {
         await this.client.resume(
           { sandboxId: id, resumeRequest: { noEnv: true, ttlSeconds: BOAT_TTL_SECONDS } },
@@ -703,6 +705,11 @@ export class BoatSandboxProvider implements SandboxProvider {
     this.prepared.delete(id);
     this.preparations.delete(id);
   }
+}
+
+/** Boat deletes a stopped sandbox's data after 14 days but keeps the record; it cannot resume. */
+function boatSandboxGone(sandboxId: string) {
+  return Object.assign(new Error(`Boat sandbox ${sandboxId} not found`), { status: 404 });
 }
 
 export function isUnrecoverableBoatError(error: unknown): boolean {

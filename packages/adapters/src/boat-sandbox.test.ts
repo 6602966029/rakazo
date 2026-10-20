@@ -123,6 +123,22 @@ describe("BoatSandboxProvider", () => {
     expect(replacement).toMatchObject({ providerRef: "bx_testbox2", fresh: true });
   });
 
+  it("replaces archived sandboxes whose data Boat has deleted", async () => {
+    const expired = boatFixture({ state: "archived" });
+    expired.get.mockResolvedValueOnce({
+      ok: true,
+      type: "sandbox.info",
+      sandbox: sandbox("bx_expired2", "archived", new Date("2026-10-21T02:07:00Z")),
+    });
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, expired.client);
+    const replacement = await provider.provision(
+      { botId: "bot-a", homePath: "/unused", providerRef: "bx_expired2", providerKind: "boat" },
+      context,
+    );
+    expect(replacement).toMatchObject({ providerRef: "bx_testbox2", fresh: true });
+    expect(expired.resume).not.toHaveBeenCalled();
+  });
+
   it("downloads binary files over the JSON endpoint limit through the SDK artifact route", async () => {
     const content = Buffer.alloc(6 * 1024 * 1024, 0xff);
     content[0] = 0;
@@ -473,13 +489,14 @@ function boatFixture(options: { state?: string } = {}) {
   return { ...fixture, files, client: fixture as unknown as BoatSandboxSdk };
 }
 
-function sandbox(id: string, state: string) {
+function sandbox(id: string, state: string, dataExpiredAt: Date | null = null) {
   return {
     id,
     name: "Test Boat",
     state,
+    dataExpiredAt,
     desktopAvailable: true,
-    snapshotAvailable: state === "archived",
+    snapshotAvailable: state === "archived" && !dataExpiredAt,
   };
 }
 
