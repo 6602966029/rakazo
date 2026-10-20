@@ -280,6 +280,7 @@ export const NL_MESSAGES: Record<string, string> = {
   bot: "bot",
   cancelled: "geannuleerd",
   deleted: "verwijderd",
+  expired: "verlopen",
   failed: "mislukt",
   finished: "voltooid",
   running: "draait",

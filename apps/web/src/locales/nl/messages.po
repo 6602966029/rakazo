@@ -2330,6 +2330,10 @@ msgstr "{0} uitklappen"
 msgid "Expand {label}"
 msgstr "{label} uitklappen"
 
+#: src/components/CloudAgentCard.tsx
+msgid "expired"
+msgstr "verlopen"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
 msgstr "Exporteren"

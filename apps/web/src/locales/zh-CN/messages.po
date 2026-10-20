@@ -2330,6 +2330,10 @@ msgstr "展开 {0}"
 msgid "Expand {label}"
 msgstr "展开 {label}"
 
+#: src/components/CloudAgentCard.tsx
+msgid "expired"
+msgstr "已过期"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
 msgstr "导出"

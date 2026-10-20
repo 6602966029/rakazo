@@ -966,7 +966,7 @@ export type PageBrowserCommand =
 export type PageBrowserResult = Partial<BrowserSnapshotResult & BrowserActResult> & { ok: boolean };
 
 /** Vendor-neutral status for a remote cloud coding agent. */
-export type CloudAgentStatus = "running" | "finished" | "failed" | "cancelled";
+export type CloudAgentStatus = "running" | "finished" | "failed" | "cancelled" | "expired";
 
 export interface CloudAgentCapabilities {
   launch: boolean;
