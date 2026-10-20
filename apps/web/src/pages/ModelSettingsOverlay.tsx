@@ -1264,7 +1264,10 @@ export function ModelSettingsOverlay({
           </div>
         </div>
 
-        <div ref={detailScrollRef} className="rk-scroll min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div
+          ref={detailScrollRef}
+          className="rk-scroll -m-1 min-h-0 min-w-0 flex-1 overflow-y-auto p-1"
+        >
           {error ? (
             <p className="mb-4 text-sm text-destructive" role="alert">
               {error}
