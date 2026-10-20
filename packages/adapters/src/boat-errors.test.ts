@@ -2,6 +2,7 @@ import { ResponseError } from "@boatdev/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { boatResponseError, wrapBoatCall } from "./boat-errors.js";
 import { BoatSandboxProvider, isUnrecoverableBoatError } from "./boat-sandbox.js";
+import { isSandboxGoneError } from "./e2b-sandbox.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -36,6 +37,57 @@ describe("Boat API errors", () => {
     ).rejects.toThrow(
       "Boat API request failed (HTTP 400, sandbox_direct_failed): File is too large for read_file. Use artifact download instead. (request req_example)",
     );
+  });
+
+  it("reports a sandbox that no longer exists as gone, but not a missing file", async () => {
+    const notFound = () =>
+      Response.json({ code: "not_found", message: "not_found" }, { status: 404 });
+    const context = {
+      operationId: "test",
+      traceId: "test",
+      spaceId: "test",
+      userId: "test",
+      signal: new AbortController().signal,
+    };
+    const computer = { id: "gone", providerRef: "gone", botId: "bot-test", kind: "boat" as const };
+    const provider = new BoatSandboxProvider({ apiKey: "fake-boat-key" });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => notFound()),
+    );
+    const gone = await provider.keepAlive(computer).catch((error: unknown) => error);
+    expect(isSandboxGoneError(gone)).toBe(true);
+    expect(isUnrecoverableBoatError(gone)).toBe(true);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) =>
+        new URL(String(input)).pathname.endsWith("/sandboxes/gone")
+          ? Response.json({ ok: true, type: "sandbox.info", sandbox: { id: "gone" } })
+          : notFound(),
+      ),
+    );
+    const missingFile = await provider
+      .readFile(computer, "missing.txt", context)
+      .catch((error: unknown) => error);
+    expect(isSandboxGoneError(missingFile)).toBe(false);
+
+    const cancel = new AbortController();
+    const lookups: (AbortSignal | null | undefined)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        if (!new URL(String(input)).pathname.endsWith("/sandboxes/gone")) return notFound();
+        lookups.push(init?.signal);
+        cancel.abort(new Error("cancelled"));
+        throw init?.signal?.reason;
+      }),
+    );
+    await expect(
+      provider.readFile(computer, "missing.txt", { ...context, signal: cancel.signal }),
+    ).rejects.toThrow();
+    expect(lookups[0]?.aborted).toBe(true);
   });
 
   it("preserves 404 recovery and does not retry failed commands", async () => {
