@@ -54,6 +54,7 @@ case "${action}" in
       else
         ufw --force disable
       fi
+      systemctl stop rakazo-firewall-rollback.timer || true
       logger -p authpriv.warning -t rakazo-firewall-change "Restored firewall after an unconfirmed change"
     fi
     rm -f "${STATE}/token"

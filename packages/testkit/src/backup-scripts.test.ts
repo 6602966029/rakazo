@@ -411,6 +411,28 @@ fi
     expect(existsSync(path.join(last, "SHA256SUMS"))).toBe(true);
   });
 
+  it("never overwrites a completed snapshot when a rerun has the same timestamp", () => {
+    const f = fixture();
+    const first = f.run("infra/compose/backup-prod.sh");
+    expect(first.status, first.stderr).toBe(0);
+    const snapshot = first.stdout.trim().split("written to ")[1];
+    const manifest = readFileSync(path.join(snapshot, "SHA256SUMS"), "utf8");
+    const date = path.join(f.root, "bin/date");
+    write(date, `#!/bin/bash\necho '${path.basename(snapshot)}'\n`);
+    chmodSync(date, 0o755);
+    const commandsBefore = f.commands().length;
+    const second = f.run("infra/compose/backup-prod.sh", [], { FAIL_DUMP: "1" });
+    expect(second.status).not.toBe(0);
+    expect(second.stderr).toContain("File exists");
+    expect(
+      f
+        .commands()
+        .slice(commandsBefore)
+        .some((args) => args.includes("sh")),
+    ).toBe(false);
+    expect(readFileSync(path.join(snapshot, "SHA256SUMS"), "utf8")).toBe(manifest);
+  });
+
   it("refuses to run while another backup holds the lock", () => {
     const f = fixture();
     mkdirSync(f.snapshots, { recursive: true });

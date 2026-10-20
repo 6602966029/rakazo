@@ -109,7 +109,7 @@ if ((free_kb < need_kb + reserve_kb || used_kb + need_kb > budget_kb)); then
   exit 1
 fi
 
-install -d -m 700 "${SNAPSHOT_DIR}"
+mkdir -m 700 -- "${SNAPSHOT_DIR}"
 # Never leave a partial snapshot behind: it uses space and looks like a backup.
 verified=0
 trap '[[ "${verified}" == 1 ]] || rm -rf -- "${SNAPSHOT_DIR}"' EXIT

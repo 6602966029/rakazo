@@ -99,8 +99,8 @@ class FirewallTests(unittest.TestCase):
         self.bin.mkdir()
         for name, script in {
             "df": 'printf "Filesystem Blocks Used Available Capacity Mounted\\n/dev/fake 1000000 0 ${FAKE_FREE:-900000} 0%% /\\n"',
-            "systemd-run": 'test "${FAIL_SCHEDULE:-0}" != 1',
-            "systemctl": "exit 0",
+            "systemd-run": 'test "${FAIL_SCHEDULE:-0}" != 1 && test ! -e "$TIMER_STATE" && touch "$TIMER_STATE"',
+            "systemctl": '[[ "$1" != stop ]] || rm -f "$TIMER_STATE"',
             "ufw": 'echo "$*" >> "$UFW_LOG"; if [[ "$1" == status && "${WAS_ENABLED:-1}" == 1 ]]; then echo "Status: active"; elif [[ "$1" == status ]]; then echo "Status: inactive"; fi',
             "logger": "exit 0",
         }.items():
@@ -122,6 +122,7 @@ class FirewallTests(unittest.TestCase):
             "PATH": str(self.bin) + ":" + os.environ["PATH"],
             "SSH_CONNECTION": "client 1 server 22",
             "UFW_LOG": str(self.root / "ufw.log"),
+            "TIMER_STATE": str(self.root / "timer"),
         }
 
     def run_guard(self, *args, **env):
@@ -158,6 +159,12 @@ class FirewallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.rules.read_text(), "original rules\n")
         self.assertFalse((self.state / "token").exists())
+
+    def test_manual_rollback_allows_another_guarded_change(self):
+        first = self.apply()
+        self.assertEqual(self.run_guard("rollback", first).returncode, 0)
+        second = self.apply()
+        self.assertEqual(self.run_guard("rollback", second).returncode, 0)
 
     def test_rollback_restores_disabled_state(self):
         self.env["WAS_ENABLED"] = "0"
