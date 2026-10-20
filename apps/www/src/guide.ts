@@ -84,7 +84,7 @@ export const SELF_HOST_FAQS: readonly FaqItem[] = [
   {
     question: "Is hosted Rakazo available?",
     answer:
-      "Self-hosting is available now. Hosted Rakazo Cloud is not generally available. Get started includes a waitlist for Cloud.",
+      "Self-hosting is available now. Hosted Rakazo Cloud is not generally available.",
   },
   {
     question: "How does this compare with OpenClaw?",
