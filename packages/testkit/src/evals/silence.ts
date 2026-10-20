@@ -32,7 +32,7 @@ const hasVisibleMessage = (run: RoutineEvidence) =>
 /** Keep explicit uncertainty distinct from an unsupported all-clear in the same reply. */
 function hasFalseAllClear(text: string): boolean {
   const withoutUncertainty = text.replace(
-    /\b(?:cannot|can't|could not|couldn't|unable to)\s+(?:confirm|verify|tell|determine)\s+(?:(?:whether|that|if)\s+)?(?:there\s+(?:are|is)\s+)?(?:no new releases|nothing (?:new|changed)|everything is up.to.date)\b/gi,
+    /\b(?:cannot|can't|could not|couldn't|unable to)\s+(?:confirm|verify|tell|determine|say)\s+(?:(?:whether|that|if)\s+)?(?:there\s+(?:are|is)\s+)?(?:no new releases|nothing (?:new|changed)|everything is up.to.date)\b/gi,
     "",
   );
   return /\b(?:no new releases|nothing (?:new|changed)|everything is up.to.date)\b/i.test(
