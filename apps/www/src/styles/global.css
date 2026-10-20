@@ -36,6 +36,12 @@
   --panel-cream: #f1f1ef;
   --panel-cream-ink: #1a1a1a;
   --success: #30a24b;
+  --coral: #f2622a;
+  --coral-soft: #fde3d6;
+  --indigo: #6a6bf5;
+  --indigo-soft: #e2e2fd;
+  --green: #1f7f5f;
+  --green-soft: #d6f3e9;
   --shadow-soft: 0 2px 16px rgba(0, 0, 0, 0.03);
   --shadow-demo: 0 30px 80px -30px rgba(0, 0, 0, 0.35);
   --radius-card: 20px;
