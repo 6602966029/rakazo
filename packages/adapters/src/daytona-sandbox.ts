@@ -1,17 +1,15 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import type { CreateSandboxFromSnapshotParams, DaytonaConfig, Sandbox } from "@daytona/sdk";
 import {
-  type CreateSandboxFromSnapshotParams,
   Daytona,
   DaytonaBadRequestError,
-  type DaytonaConfig,
   DaytonaConflictError,
   DaytonaError,
   DaytonaGoneError,
   DaytonaNotFoundError,
   DaytonaProcessExecutionTimeoutError,
   DaytonaTimeoutError,
-  type Sandbox,
   SandboxState,
 } from "@daytona/sdk";
 import type {
@@ -677,13 +675,15 @@ async function refreshDaytonaSandbox(sandbox: DaytonaSandbox): Promise<void> {
  */
 async function startDaytonaSandbox(sandbox: DaytonaSandbox): Promise<boolean> {
   const wasRunning = sandbox.state === SandboxState.STARTED;
-  let deadline = Date.now() + DAYTONA_START_TIMEOUT_MS;
+  const begun = Date.now();
+  let deadline = begun + DAYTONA_START_TIMEOUT_MS;
   let recovered = false;
   const seconds = () => Math.max(1, Math.ceil((deadline - Date.now()) / 1_000));
   for (;;) {
     const state = sandbox.state ?? SandboxState.UNKNOWN;
+    // Restores get a longer budget, still counted from the start so polling cannot extend it.
     if (state === SandboxState.ARCHIVED || state === SandboxState.RESTORING) {
-      deadline = Math.max(deadline, Date.now() + DAYTONA_RESTORE_TIMEOUT_MS);
+      deadline = begun + DAYTONA_RESTORE_TIMEOUT_MS;
     }
     try {
       switch (state) {

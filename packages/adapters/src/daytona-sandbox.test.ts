@@ -1,5 +1,5 @@
+import type { CreateSandboxFromSnapshotParams, FileInfo, SandboxState } from "@daytona/sdk";
 import {
-  type CreateSandboxFromSnapshotParams,
   DaytonaAuthenticationError,
   DaytonaConflictError,
   DaytonaError,
@@ -8,15 +8,10 @@ import {
   DaytonaRateLimitError,
   DaytonaTimeoutError,
   DaytonaValidationError,
-  type FileInfo,
-  type SandboxState,
 } from "@daytona/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  type DaytonaSandbox,
-  DaytonaSandboxProvider,
-  type DaytonaSandboxSdk,
-} from "./daytona-sandbox.js";
+import type { DaytonaSandbox, DaytonaSandboxSdk } from "./daytona-sandbox.js";
+import { DaytonaSandboxProvider } from "./daytona-sandbox.js";
 import { isSandboxGoneError } from "./e2b-sandbox.js";
 import { desktopCommandResponder } from "./linux-desktop.test-support.js";
 
@@ -291,7 +286,8 @@ describe("DaytonaSandboxProvider", () => {
         later: ["archived"],
         expected: "started",
         call: "start",
-        timeout: 600,
+        // One poll of the restore budget has passed.
+        timeout: 599,
       },
       { state: "unknown", later: ["started"], expected: "started" },
       { state: "error", recoverable: true, expected: "started", call: "recover" },
@@ -413,6 +409,15 @@ describe("DaytonaSandboxProvider", () => {
         state: "stopping",
         arrange: () => undefined,
         expected: new DaytonaTimeoutError("Daytona sandbox existing is still stopping"),
+      },
+      {
+        name: "an archived sandbox that keeps conflicting times out instead of hanging",
+        state: "archived",
+        arrange: (fixture) =>
+          fixture.start.mockRejectedValue(
+            new DaytonaConflictError("Sandbox state change in progress", 409),
+          ),
+        expected: new DaytonaTimeoutError("Daytona sandbox existing is still archived"),
       },
     ];
 
