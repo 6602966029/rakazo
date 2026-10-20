@@ -1,6 +1,7 @@
 import type { AgentRunRequest, AgentRuntime, JobPublisher } from "@rakazo/adapter-kit";
 import { historyCompactJob } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
+import type { PlatformModelAllowlist } from "@rakazo/core";
 import { blocksToAgentHistoryText, escapePromptData } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { recordUsage } from "@rakazo/db";
@@ -207,7 +208,7 @@ export interface CompactHistoryDeps {
   runtime: AgentRuntime;
   jobs: JobPublisher;
   memoryProviders: MemoryProviderResolver;
-  platformModelAllowlist?: string[];
+  platformModelAllowlist?: PlatformModelAllowlist;
   deploymentModelKey?: string;
   deploymentModelConfigured?: boolean;
   resolveModel?: (scope: {

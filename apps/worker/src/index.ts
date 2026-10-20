@@ -1,6 +1,6 @@
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
 import { ComposioConnector, IntegrationProviderSettings } from "@rakazo/adapters";
-import { parseAllowlist, phoneCallSettings } from "@rakazo/core";
+import { parsePlatformModelAllowlist, phoneCallSettings } from "@rakazo/core";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import { createWorkerSecretStore } from "./secret-store.js";
 
@@ -99,7 +99,7 @@ async function main() {
       ? new ScriptedAgentRuntime()
       : new PiAgentRuntime({ sessionRoot: resolvePiSessionRoot(dataDir) });
   // Same resolver the API uses, so both processes agree on provider, model and key.
-  const platformModelAllowlist = parseAllowlist(process.env.PLATFORM_MODEL_ALLOWLIST);
+  const platformModelAllowlist = parsePlatformModelAllowlist(process.env.PLATFORM_MODEL_ALLOWLIST);
   const { key: deploymentModelKey, configured: deploymentModelConfigured } =
     resolveDeploymentModel();
   const sandboxProvider = resolveSandboxProvider(process.env);

@@ -3659,6 +3659,8 @@ describe("call_user availability", () => {
 
 describe("platform model fallback access", () => {
   it.each([
+    ["owner_only", null, undefined, false],
+    ["owner_only", "user-1", "deployment-test-key", false],
     [undefined, null, "deployment-test-key", false],
     [["allowed@example.test"], null, "deployment-test-key", false],
     [["@other.test"], "user-1", "deployment-test-key", false],

@@ -53,7 +53,7 @@ import {
   isAttachmentImageMimeType,
   OPENAI_COMPATIBLE_PROVIDER_ID,
 } from "@rakazo/contracts";
-import type { ActionApprovalRule, ToolCallStreak } from "@rakazo/core";
+import type { ActionApprovalRule, PlatformModelAllowlist, ToolCallStreak } from "@rakazo/core";
 import {
   appendTextSegment,
   appendToolCallSegment,
@@ -2702,7 +2702,7 @@ export interface ExecutorDeps {
   connectors?: { managed(id: string): ManagedConnectorProvider | undefined };
   secrets: string[];
   secretStore: SecretStore;
-  platformModelAllowlist?: string[];
+  platformModelAllowlist?: PlatformModelAllowlist;
   deploymentModelKey?: string;
   /** The deployment default model can run; see resolveDeploymentModel. */
   deploymentModelConfigured?: boolean;

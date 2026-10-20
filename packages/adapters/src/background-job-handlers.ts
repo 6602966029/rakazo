@@ -8,6 +8,7 @@ import type {
   SecretStore,
 } from "@rakazo/adapter-kit";
 import { messagingDeliverJob } from "@rakazo/adapter-kit";
+import type { PlatformModelAllowlist } from "@rakazo/core";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { settleCallRequest } from "./call-request.js";
@@ -33,7 +34,7 @@ export function createBackgroundJobHandlers(deps: {
   runtime: AgentRuntime;
   secretStore: SecretStore;
   memoryProviders: MemoryProviderResolver;
-  platformModelAllowlist?: string[];
+  platformModelAllowlist?: PlatformModelAllowlist;
   deploymentModelKey?: string;
   deploymentModelConfigured?: boolean;
   messaging?: MessagingSurface;

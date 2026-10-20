@@ -14,6 +14,7 @@ import {
   serializeModelSecret,
   toOAuthCredential,
 } from "@rakazo/adapters";
+import type { PlatformModelAllowlist } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import {
   findDefaultModelCredential,
@@ -120,7 +121,7 @@ interface ModelTeamChatEngagementJudgeDeps {
   secrets: SecretStore;
   deploymentProvider: string;
   deploymentModel: string;
-  platformModelAllowlist?: string[];
+  platformModelAllowlist?: PlatformModelAllowlist;
   deploymentModelKey?: string;
   providerOverride?: string;
   modelOverride?: string;

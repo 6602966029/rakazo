@@ -161,6 +161,7 @@ import {
   storedPiProviderIds,
   usableModelId,
 } from "@rakazo/contracts";
+import type { PlatformModelAllowlist } from "@rakazo/core";
 import {
   ACTIVE_RUN_STATUSES,
   AttachmentValidationError,
@@ -611,7 +612,7 @@ export interface RouterDeps {
     teamChatJudgeModel?: string;
     defaultProvider: string;
     defaultModel: string;
-    platformModelAllowlist?: string[];
+    platformModelAllowlist?: PlatformModelAllowlist;
     deploymentModelConfigured?: boolean;
     deploymentModelHostCredentials?: boolean;
     webOrigin: string;
