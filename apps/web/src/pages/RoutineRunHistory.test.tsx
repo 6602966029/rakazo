@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { i18n } from "@lingui/core";
 import type { RoutineRun } from "@rakazo/contracts";
+import type * as UiWeb from "@rakazo/ui-web";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -16,7 +17,8 @@ vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({ i18n: { locale: "en" }, t: (parts: TemplateStringsArray) => parts.join("") }),
   Trans: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock("@rakazo/ui-web", () => ({
+vi.mock("@rakazo/ui-web", async (importOriginal) => ({
+  ...(await importOriginal<typeof UiWeb>()),
   Button: ({
     size: _size,
     variant: _variant,

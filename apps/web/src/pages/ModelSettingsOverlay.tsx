@@ -1632,9 +1632,12 @@ function ModelPicker({
     setOpen(false);
   }, [selectedIndex, value]);
 
-  useEffect(() => {
-    if (!open) setQuery("");
-  }, [open]);
+  // Clear the search when the picker opens, not when it closes, so the list keeps its
+  // contents while it animates out.
+  function changeOpen(next: boolean) {
+    if (next && !open) setQuery("");
+    setOpen(next);
+  }
 
   function choose(index: number) {
     const option = filteredOptions[index];
@@ -1709,12 +1712,12 @@ function ModelPicker({
     }
     if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      setOpen(true);
+      changeOpen(true);
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      setOpen(true);
+      changeOpen(true);
       setHighlightedIndex(Math.max(0, filteredOptions.length - 1));
     }
   }
@@ -1744,7 +1747,7 @@ function ModelPicker({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={changeOpen}>
       <div className="mt-2">
         <span id={imagesHintId} hidden>
           {t`Can't read images`}
@@ -1771,72 +1774,68 @@ function ModelPicker({
             <ChevronDown size={16} strokeWidth={1.8} aria-hidden="true" />
           </span>
         </PopoverTrigger>
-        {open ? (
-          <PopoverContent
-            role="presentation"
-            align="start"
-            sideOffset={8}
-            initialFocus={searchRef}
-            className="w-(--anchor-width) gap-0 overflow-hidden p-0"
+        <PopoverContent
+          role="presentation"
+          align="start"
+          sideOffset={8}
+          initialFocus={searchRef}
+          className="w-(--anchor-width) gap-0 overflow-hidden p-0"
+        >
+          <input
+            ref={searchRef}
+            type="text"
+            value={query}
+            role="combobox"
+            aria-label={t`Search models`}
+            aria-controls={listboxId}
+            aria-expanded={open}
+            aria-autocomplete="list"
+            aria-activedescendant={activeDescendantId}
+            placeholder={t`Search`}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setHighlightedIndex(0);
+            }}
+            onKeyDown={onSearchKeyDown}
+            className="w-full border-b border-border bg-transparent px-3 py-2.5 text-[15px] text-foreground outline-none placeholder:text-muted-foreground/80"
+          />
+          <div
+            id={listboxId}
+            role="listbox"
+            aria-label={t`Model options`}
+            className="rk-scroll max-h-64 overflow-y-auto py-1"
           >
-            <input
-              ref={searchRef}
-              type="text"
-              value={query}
-              role="combobox"
-              aria-label={t`Search models`}
-              aria-controls={listboxId}
-              aria-expanded={open}
-              aria-autocomplete="list"
-              aria-activedescendant={activeDescendantId}
-              placeholder={t`Search`}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setHighlightedIndex(0);
-              }}
-              onKeyDown={onSearchKeyDown}
-              className="w-full border-b border-border bg-transparent px-3 py-2.5 text-[15px] text-foreground outline-none placeholder:text-muted-foreground/80"
-            />
-            <div
-              id={listboxId}
-              role="listbox"
-              aria-label={t`Model options`}
-              className="rk-scroll max-h-64 overflow-y-auto py-1"
-            >
-              {groupRanges.map((group) => (
-                <div key={group.name}>
-                  {groupRanges.length > 1 ? (
-                    <p className="px-3 pb-1 pt-2 text-[13.5px] text-muted-foreground">
-                      {group.name}
-                    </p>
-                  ) : null}
-                  {group.entries.map((option, groupIndex) => {
-                    const index = group.start + groupIndex;
-                    return (
-                      <ModelOption
-                        key={`${option.provider}:${option.id}`}
-                        option={option}
-                        optionDomId={optionDomId(index)}
-                        index={index}
-                        value={value}
-                        highlighted={highlightedIndex === index}
-                        imagesHintId={imagesHintId}
-                        optionRefs={optionRefs}
-                        choose={choose}
-                        onOptionKeyDown={onOptionKeyDown}
-                      />
-                    );
-                  })}
-                </div>
-              ))}
-              {filteredOptions.length === 0 ? (
-                <p className="px-3 py-2 text-[13px] leading-[1.5] text-muted-foreground">
-                  <Trans>No matching models</Trans>
-                </p>
-              ) : null}
-            </div>
-          </PopoverContent>
-        ) : null}
+            {groupRanges.map((group) => (
+              <div key={group.name}>
+                {groupRanges.length > 1 ? (
+                  <p className="px-3 pb-1 pt-2 text-[13.5px] text-muted-foreground">{group.name}</p>
+                ) : null}
+                {group.entries.map((option, groupIndex) => {
+                  const index = group.start + groupIndex;
+                  return (
+                    <ModelOption
+                      key={`${option.provider}:${option.id}`}
+                      option={option}
+                      optionDomId={optionDomId(index)}
+                      index={index}
+                      value={value}
+                      highlighted={highlightedIndex === index}
+                      imagesHintId={imagesHintId}
+                      optionRefs={optionRefs}
+                      choose={choose}
+                      onOptionKeyDown={onOptionKeyDown}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+            {filteredOptions.length === 0 ? (
+              <p className="px-3 py-2 text-[13px] leading-[1.5] text-muted-foreground">
+                <Trans>No matching models</Trans>
+              </p>
+            ) : null}
+          </div>
+        </PopoverContent>
       </div>
     </Popover>
   );

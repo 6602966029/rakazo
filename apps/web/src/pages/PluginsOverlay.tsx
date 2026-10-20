@@ -19,6 +19,8 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Collapsible,
+  CollapsibleContent,
   Dialog,
   DialogClose,
   DialogContent,
@@ -29,7 +31,7 @@ import {
   NativeSelectOption,
   Spinner,
 } from "@rakazo/ui-web";
-import { ChevronDown, ChevronLeft, ChevronUp, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
 import { connectedAppMarks } from "../lib/connected-apps";
@@ -639,33 +641,34 @@ export function PluginsOverlay({
                 <Plural value={toolCount} one="# tool" other="# tools" />
               )}
             </span>
-            {toolsOpen ? (
-              <ChevronUp className="size-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="size-4 text-muted-foreground" />
-            )}
+            <ChevronDown
+              aria-hidden="true"
+              className={`size-4 text-muted-foreground transition-transform duration-150 ease-out motion-reduce:transition-none ${toolsOpen ? "rotate-180" : ""}`}
+            />
           </button>
-          {toolsOpen ? (
-            <CardContent className="border-t border-border pt-3">
-              {toolsLoading ? (
-                <p className="text-sm text-muted-foreground">
-                  <Trans>Loading tools…</Trans>
-                </p>
-              ) : tools.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  <Trans>No tools available.</Trans>
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {tools.map((tool) => (
-                    <li key={tool.name} className="text-sm text-foreground">
-                      {humanizeToolName(tool.name)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          ) : null}
+          <Collapsible open={toolsOpen} className="contents">
+            <CollapsibleContent className="flex h-(--collapsible-panel-height) flex-col overflow-hidden transition-[height] duration-150 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
+              <CardContent className="border-t border-border pt-3">
+                {toolsLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    <Trans>Loading tools…</Trans>
+                  </p>
+                ) : tools.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    <Trans>No tools available.</Trans>
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {tools.map((tool) => (
+                      <li key={tool.name} className="text-sm text-foreground">
+                        {humanizeToolName(tool.name)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
       </div>
     );
