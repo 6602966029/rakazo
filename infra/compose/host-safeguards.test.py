@@ -205,7 +205,7 @@ class HostCheckTests(unittest.TestCase):
                 "stat": 'if [[ "$3" == / ]]; then echo 1; else echo 2; fi',
                 "systemctl": "exit 1",
                 "sshd": 'echo "port 2222"',
-                "alert": 'echo "$*" >> "$ALERT_LOG"; cat >> "$ALERT_LOG"',
+                "alert": 'echo "$*" >> "$ALERT_LOG"; if (($# < 2)); then cat >> "$ALERT_LOG"; fi',
             }
             for name, command in commands.items():
                 executable = bin_dir / name

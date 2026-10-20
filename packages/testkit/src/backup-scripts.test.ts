@@ -373,6 +373,9 @@ describe("production backup deployment and archive behavior", () => {
 
   it("refuses to fall back to root storage when a separate volume is required", () => {
     const f = fixture();
+    const mountpoint = path.join(f.root, "bin/mountpoint");
+    write(mountpoint, "#!/bin/bash\nexit 1\n");
+    chmodSync(mountpoint, 0o755);
     const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_BACKUP_REQUIRE_VOLUME: "1" });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("backup volume");
