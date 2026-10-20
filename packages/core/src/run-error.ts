@@ -71,10 +71,9 @@ export function normalizeRunError(
   let resetAt: number | undefined;
   let recovery: "connection" | "model" | undefined;
   let summary = translate("The model provider returned an error.");
-  if (
-    /rate[_ -]limit|too many requests/i.test(signals) &&
-    !/insufficient[_ ]quota/i.test(signals)
-  ) {
+  const financialQuota =
+    /insufficient[_ ]quota|credits?|funds|spend|budget|billing|openrouter_key_limit/i.test(signals);
+  if ((status === 429 || /rate[_ -]limit|too many requests/i.test(signals)) && !financialQuota) {
     recovery = "connection";
     summary = translate("{provider} is rate limiting requests. Try again shortly.", { provider });
   } else if (

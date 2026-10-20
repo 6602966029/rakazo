@@ -166,3 +166,22 @@ it("keeps a future reset and identifies recovery", () => {
   expect(normalizeRunError('429: {"message":"Too many requests"}').recovery).toBe("connection");
   expect(normalizeRunError('500: {"message":"Internal error"}').recovery).toBeUndefined();
 });
+
+it.each([
+  "Daily request limit exceeded",
+  "Weekly request limit exceeded",
+  "Per-minute quota exceeded",
+])("keeps request quotas as rate limits: %s", (message) => {
+  expect(normalizeRunError(`429: ${JSON.stringify({ message })}`)).toMatchObject({
+    summary: "Your model provider is rate limiting requests. Try again shortly.",
+    recovery: "connection",
+  });
+});
+it.each(["Insufficient credit balance", "Monthly spending limit exceeded"])(
+  "keeps financial 429 failures as quota errors: %s",
+  (message) => {
+    expect(normalizeRunError(`429: ${JSON.stringify({ message })}`).summary).not.toContain(
+      "rate limiting",
+    );
+  },
+);
