@@ -1,4 +1,4 @@
-import { displayMessageBlock, displayName } from "@rakazo/core";
+import { displayIdentityResult, identitySource } from "@rakazo/core";
 import { Directory, File, Paths } from "expo-file-system";
 import type {
   MobileBot,
@@ -11,7 +11,6 @@ import type {
 } from "./api";
 import { currentApiBase, selectedSpaceId } from "./api";
 import { artifactCacheSession } from "./artifact-cache-session";
-import { t } from "./i18n";
 import { identityLabels } from "./identity-display";
 import type { IntegrationsCacheScope } from "./integrations-cache";
 import { integrationsCacheScope, isIntegrationsScopeCurrent } from "./integrations-cache";
@@ -93,29 +92,7 @@ export function readSavedInbox(scope: SavedChatsScope): SavedInbox | null {
       typeof me.name !== "string"
     )
       return null;
-    const named = <T extends { name: string }>(row: T, fallback: string): T => ({
-      ...row,
-      name: displayName(row.name, fallback),
-    });
-    const group = <T extends { name: string; members: Array<{ name: string }> }>(row: T): T => ({
-      ...named(row, t("Group")),
-      members: row.members.map((member) => named(member, t("Bot"))),
-    });
-    return {
-      ...inbox,
-      bots: inbox.bots.map((bot) => ({
-        ...named(bot, t("Bot")),
-        title: displayName(bot.title, ""),
-      })),
-      groups: inbox.groups.map(group),
-      botSections: inbox.botSections.map((section) => named(section, t("Chats"))),
-      spaces: inbox.spaces.map((space) => ({
-        ...named(space, t("Space")),
-        bots: space.bots.map((bot) => named(bot, t("Bot"))),
-        groups: space.groups.map(group),
-        botSections: space.botSections.map((section) => named(section, t("Chats"))),
-      })),
-    };
+    return displayIdentityResult(["bootstrap"], inbox, identityLabels()) as SavedInbox;
   } catch {
     return null;
   }
@@ -127,6 +104,7 @@ export function writeSavedInbox(
   me: MobileMe,
 ): void {
   try {
+    navigation = identitySource(navigation);
     const inbox: SavedInbox = {
       bots: navigation.current.bots.slice(0, SAVED_INBOX_ROWS).map(
         ({
@@ -244,23 +222,14 @@ export function saveInbox(
 }
 
 export function savedThreadSnapshot(snapshot: MobileSnapshot): MobileSnapshot {
+  snapshot = identitySource(snapshot);
   const { cursor: _cursor, activeRuns: _activeRuns, computer: _computer, ...rest } = snapshot;
   return {
     ...rest,
-    ...(rest.groupName !== undefined ? { groupName: displayName(rest.groupName, t("Group")) } : {}),
-    ...(rest.members
-      ? {
-          members: rest.members.map((member) => ({
-            ...member,
-            name: displayName(member.name, t("Bot")),
-          })),
-        }
-      : {}),
     messages: snapshot.messages.slice(-SAVED_CHAT_MESSAGES).map((message) => ({
       ...message,
       blocks: message.blocks.map((block) => {
-        if (block.kind !== "ask" || block.input !== "secret")
-          return displayMessageBlock(block, identityLabels());
+        if (block.kind !== "ask" || block.input !== "secret") return block;
         // Offline cards cannot submit credentials. Keep their visible prompt and status,
         // but never persist hidden credential configuration or protected answers.
         const { credential: _credential, answer: _answer, detail: _detail, ...saved } = block;
@@ -287,7 +256,11 @@ export function readSavedThread(scope: SavedChatsScope, target: string): MobileS
       )
     )
       return null;
-    return savedThreadSnapshot(snapshot);
+    return displayIdentityResult(
+      ["threads", "get"],
+      savedThreadSnapshot(snapshot),
+      identityLabels(),
+    ) as MobileSnapshot;
   } catch {
     return null;
   }

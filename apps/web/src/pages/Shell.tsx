@@ -6963,20 +6963,14 @@ function MessageHoverActions({
   }
 
   const iconButtonClass =
-    "grid h-7 w-7 place-items-center text-muted-foreground transition-colors hover:text-foreground";
+    "grid h-11 w-11 place-items-center text-muted-foreground transition-colors hover:text-foreground [@media(hover:hover)_and_(pointer:fine)]:h-7 [@media(hover:hover)_and_(pointer:fine)]:w-7";
 
   return (
     <MessageHoverMetadata pinned={moreOpen || reactionsOpen} side={side}>
       <div data-testid="message-hover-actions" className="flex items-center gap-0.5">
         {canReactToThreadMessage(message) ? (
           <Popover open={reactionsOpen} onOpenChange={setReactionsOpen}>
-            <PopoverTrigger
-              aria-label={t`React`}
-              className={cn(
-                iconButtonClass,
-                "h-11 w-11 [@media(hover:hover)_and_(pointer:fine)]:h-7 [@media(hover:hover)_and_(pointer:fine)]:w-7",
-              )}
-            >
+            <PopoverTrigger aria-label={t`React`} className={iconButtonClass}>
               <Smile size={15} strokeWidth={1.7} />
             </PopoverTrigger>
             <PopoverContent
@@ -7005,21 +6999,12 @@ function MessageHoverActions({
           type="button"
           aria-label={t`Reply`}
           onClick={() => onReply(message)}
-          className={cn(
-            iconButtonClass,
-            "h-11 w-11 [@media(hover:hover)_and_(pointer:fine)]:h-7 [@media(hover:hover)_and_(pointer:fine)]:w-7",
-          )}
+          className={iconButtonClass}
         >
           <Reply size={15} strokeWidth={1.7} />
         </button>
         <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
-          <DropdownMenuTrigger
-            aria-label={t`More`}
-            className={cn(
-              iconButtonClass,
-              "h-11 w-11 [@media(hover:hover)_and_(pointer:fine)]:h-7 [@media(hover:hover)_and_(pointer:fine)]:w-7",
-            )}
-          >
+          <DropdownMenuTrigger aria-label={t`More`} className={iconButtonClass}>
             <MoreHorizontal size={15} strokeWidth={1.7} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align={side === "end" ? "start" : "end"}>

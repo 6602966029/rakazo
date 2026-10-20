@@ -74,7 +74,7 @@ it("guards identity metadata without changing literal message text", () => {
       fromBotName: "__TestTok1__",
       text: "Keep __TestTok1__ literal",
     }),
-  ).toEqual({
+  ).toMatchObject({
     kind: "bot_message_received",
     fromBotId: "peer",
     fromBotName: "Bot",

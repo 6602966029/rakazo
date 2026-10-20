@@ -1,4 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
+import { identitySource, preserveIdentitySource } from "./identity-source.js";
 
 /** Deliberately narrow: complete tokens only, never substrings of prose or short handles. */
 export function isOpaqueName(name: string): boolean {
@@ -46,17 +47,20 @@ export function displayMessageBlock(
   block: MessageBlock,
   labels = { bot: "Bot", member: "Member", subagent: "subagent" },
 ): MessageBlock {
+  const source = block;
+  block = identitySource(block);
+  const named = (next: MessageBlock) => preserveIdentitySource(source, next);
   switch (block.kind) {
     case "bot_message_sent":
-      return { ...block, toBotName: displayName(block.toBotName, labels.bot) };
+      return named({ ...block, toBotName: displayName(block.toBotName, labels.bot) });
     case "bot_message_received":
-      return { ...block, fromBotName: displayName(block.fromBotName, labels.bot) };
+      return named({ ...block, fromBotName: displayName(block.fromBotName, labels.bot) });
     case "subagent":
-      return { ...block, name: displayName(block.name, labels.subagent) };
+      return named({ ...block, name: displayName(block.name, labels.subagent) });
     case "child_bot":
-      return { ...block, name: displayName(block.name, labels.bot) };
+      return named({ ...block, name: displayName(block.name, labels.bot) });
     case "channel_message":
-      return { ...block, fromLabel: displayName(block.fromLabel, labels.member) };
+      return named({ ...block, fromLabel: displayName(block.fromLabel, labels.member) });
     default:
       return block;
   }

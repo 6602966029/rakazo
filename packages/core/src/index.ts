@@ -30,6 +30,7 @@ export * from "./format-file-size.js";
 export * from "./group-mentions.js";
 export * from "./http-response.js";
 export * from "./identity-display.js";
+export { identitySource } from "./identity-source.js";
 export * from "./instruction-diff.js";
 export * from "./markdown-plain.js";
 export * from "./mcp.js";

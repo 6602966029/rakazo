@@ -1,5 +1,6 @@
 import type { MessageBlock } from "@rakazo/contracts";
 import { displayMessageBlock, displayName } from "./display-name.js";
+import { identitySourceField, preserveIdentitySource } from "./identity-source.js";
 
 export type IdentityLabels = {
   bot: string;
@@ -22,12 +23,12 @@ function fields(value: unknown, projections: Record<string, Project>): unknown {
   let result = source;
   for (const [key, project] of Object.entries(projections)) {
     if (!Object.hasOwn(source, key)) continue;
-    const next = project(source[key]);
+    const next = project(identitySourceField(source, key));
     if (Object.is(next, source[key])) continue;
     if (result === source) result = { ...source };
     result[key] = next;
   }
-  return result;
+  return preserveIdentitySource(source, result);
 }
 const list =
   (project: Project): Project =>
@@ -68,7 +69,7 @@ export function displayIdentityResult(
   const routine: Project = (value) => fields(value, { name: label(labels.routine) });
   const thread: Project = (value) =>
     fields(value, {
-      groupName: label(labels.group),
+      groupName: (name) => (name === null ? null : label(labels.group)(name)),
       members: list(member),
       messages: list((message) =>
         fields(message, {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { projectMessages } from "./events.js";
 import { displayIdentityEvent, displayIdentityResult } from "./identity-display.js";
+import { identitySource } from "./identity-source.js";
 
 const labels = {
   bot: "Бот",
@@ -25,7 +26,7 @@ describe("localized identity projections", () => {
         ],
       },
     ];
-    expect(displayIdentityResult(["groups", "list"], source, labels)).toEqual([
+    expect(displayIdentityResult(["groups", "list"], source, labels)).toMatchObject([
       {
         ...source[0],
         name: "Группа",
@@ -73,7 +74,7 @@ describe("localized identity projections", () => {
     });
     expect(
       displayIdentityResult(["runs", "list"], { runs: [{ botName: "", groupName: null }] }, labels),
-    ).toEqual({ runs: [{ botName: "Бот", groupName: null }] });
+    ).toMatchObject({ runs: [{ botName: "Бот", groupName: null }] });
   });
   it("leaves provider configuration and file metadata alone", () => {
     const result = { name: "__TestTok1__", content: { botName: "__TestTok1__" } };
@@ -129,4 +130,29 @@ it("guards message search titles while preserving link URLs", () => {
   expect(result).toMatchObject({
     hits: [{ title: "Бот" }, { title: "Группа" }, { title: "https://example.com/__TestTok1__" }],
   });
+});
+
+it("preserves null thread group names", () => {
+  expect(displayIdentityResult(["threads", "get"], { groupName: null }, labels)).toEqual({
+    groupName: null,
+  });
+});
+
+it("keeps source names through live subagent projection and object spreads", () => {
+  const event = displayIdentityEvent(
+    {
+      id: "event",
+      threadId: "thread",
+      seq: 1,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      type: "thread.subagent",
+      payload: { agentId: "agent", name: "__TestTok1__", task: "Summarize" },
+    },
+    labels,
+  );
+  const messages = projectMessages([event]);
+  expect(messages[0]?.blocks[0]).toMatchObject({ kind: "subagent", name: "субагент" });
+  const block = { ...messages[0]!.blocks[0]! };
+  expect(identitySource(block)).toMatchObject({ kind: "subagent", name: "__TestTok1__" });
+  expect(identitySource({ ...block, name: "Ada" })).toMatchObject({ name: "Ada" });
 });
