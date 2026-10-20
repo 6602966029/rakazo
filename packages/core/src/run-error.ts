@@ -104,7 +104,12 @@ export function normalizeRunError(
       metadata.reset;
     if (typeof reset === "string" && /^\d{4}-\d{2}-\d{2}(?:T[\d:.]+Z)?$/.test(reset)) {
       const date = new Date(reset);
-      if (date.getTime() > now) {
+      if (
+        date.getUTCFullYear() === Number(reset.slice(0, 4)) &&
+        date.getUTCMonth() + 1 === Number(reset.slice(5, 7)) &&
+        date.getUTCDate() === Number(reset.slice(8, 10)) &&
+        date.getTime() > now
+      ) {
         resetAt = date.getTime();
         summary = translate("{summary} Resets {date}.", {
           summary,

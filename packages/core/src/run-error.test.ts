@@ -185,3 +185,27 @@ it.each(["Insufficient credit balance", "Monthly spending limit exceeded"])(
     );
   },
 );
+
+it.each(["2026-02-29", "2026-02-30", "2026-04-31", "2026-02-30T12:00:00Z"])(
+  "does not roll an invalid calendar reset forward: %s",
+  (reset) => {
+    expect(
+      normalizeRunError(
+        `403: ${JSON.stringify({ message: "OpenRouter weekly key limit exceeded", metadata: { reset_at: reset } })}`,
+        undefined,
+        "en",
+        Date.parse("2026-01-01T00:00:00Z"),
+      ).summary,
+    ).toBe("Your OpenRouter key hit its weekly limit.");
+  },
+);
+it("retains a valid future leap-day reset", () => {
+  expect(
+    normalizeRunError(
+      '403: {"message":"OpenRouter weekly key limit exceeded; resets 2028-02-29"}',
+      undefined,
+      "en",
+      Date.parse("2028-02-28T00:00:00Z"),
+    ).summary,
+  ).toBe("Your OpenRouter key hit its weekly limit. Resets Feb 29.");
+});
