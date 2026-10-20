@@ -128,6 +128,29 @@ function createDeps(overrides: {
           return nextMs <= now;
         });
       }),
+      // Earlier undelivered part of the same reply (see hasUndeliveredEarlierPart).
+      findFirst: vi.fn(
+        async ({
+          where,
+        }: {
+          where: {
+            sourceMessageId: string;
+            createdAt: { lt: Date };
+            OR: Array<{ status: string; updatedAt?: { gt: Date } }>;
+          };
+        }) =>
+          rows.find((row) => {
+            if (row.sourceMessageId !== where.sourceMessageId) return false;
+            if (!((row.createdAt as Date) < where.createdAt.lt)) return false;
+            return where.OR.some((condition) =>
+              condition.status === "pending"
+                ? row.status === "pending"
+                : row.status === "sent" &&
+                  row.providerHandle == null &&
+                  ((row.updatedAt as Date | undefined) ?? new Date()) > condition.updatedAt!.gt,
+            );
+          }) ?? null,
+      ),
       createMany: vi.fn(async ({ data }: { data: Array<Record<string, unknown>> }) => {
         let count = 0;
         for (const item of data) {
@@ -699,6 +722,29 @@ function createChannelDeps(
           return nextMs <= now;
         });
       }),
+      // Earlier undelivered part of the same reply (see hasUndeliveredEarlierPart).
+      findFirst: vi.fn(
+        async ({
+          where,
+        }: {
+          where: {
+            sourceMessageId: string;
+            createdAt: { lt: Date };
+            OR: Array<{ status: string; updatedAt?: { gt: Date } }>;
+          };
+        }) =>
+          rows.find((row) => {
+            if (row.sourceMessageId !== where.sourceMessageId) return false;
+            if (!((row.createdAt as Date) < where.createdAt.lt)) return false;
+            return where.OR.some((condition) =>
+              condition.status === "pending"
+                ? row.status === "pending"
+                : row.status === "sent" &&
+                  row.providerHandle == null &&
+                  ((row.updatedAt as Date | undefined) ?? new Date()) > condition.updatedAt!.gt,
+            );
+          }) ?? null,
+      ),
       createMany: vi.fn(async ({ data }: { data: Array<Record<string, unknown>> }) => {
         for (const item of data)
           rows.push({ id: `out-${rows.length + 1}`, status: "pending", ...item });
@@ -1035,6 +1081,41 @@ describe("deliverMessagingOutbound conversation order", () => {
     );
     expect(deps.rows.map((row) => row.status)).toEqual(["sent", "sent", "sent"]);
   });
+
+  it.each([
+    ["in flight in another drain", "sent", new Date(), false],
+    ["abandoned mid-send long ago", "sent", new Date(Date.now() - 10 * 60_000), true],
+    ["permanently failed", "failed", new Date(), true],
+  ] as const)(
+    "a later part whose first part is %s is sent=%s",
+    async (_label, status, updatedAt, sent) => {
+      const part = (id: string, key: string, offset: number, extra: Record<string, unknown>) => ({
+        id,
+        idempotencyKey: key,
+        kind: "dm",
+        identityId: "mi-1",
+        body: id,
+        sourceMessageId: "m-1",
+        providerHandle: null,
+        attempts: 0,
+        nextAttemptAt: null,
+        createdAt: new Date(1_000 + offset),
+        ...extra,
+      });
+      const deps = createDeps({
+        run: null,
+        identity: whatsapp,
+        outboundRows: [
+          part("p-1", "msg:m-1", 0, { status, updatedAt }),
+          part("p-2", "msg:m-1:2", 1, { status: "pending" }),
+        ],
+      });
+      await deliverMessagingOutbound(deps, {}, context);
+
+      expect(deps.sendToThread).toHaveBeenCalledTimes(sent ? 1 : 0);
+      expect(deps.rows[1]!.status).toBe(sent ? "sent" : "pending");
+    },
+  );
 
   it("holds later rows to a conversation while an earlier one waits out its backoff", async () => {
     const pendingRow = (id: string, body: string, nextAttemptAt: Date | null) => ({

@@ -351,6 +351,12 @@ async function drain(deps: MessagingDeliveryDeps, context: AdapterContext): Prom
       held.add(destination);
       continue;
     }
+    // A later part of a split reply waits until the earlier parts are out;
+    // another drain may hold one of them in flight.
+    if (await hasUndeliveredEarlierPart(deps, row, now)) {
+      held.add(destination);
+      continue;
+    }
     // Claim before sending: concurrent drains (job keys are per runId) and
     // crash retries must never deliver the same message twice.
     const claim = await deps.prisma.messagingOutbound.updateMany({
@@ -456,6 +462,33 @@ async function drain(deps: MessagingDeliveryDeps, context: AdapterContext): Prom
       }
     }
   }
+}
+
+/** A claimed part still without a handle after this long is treated as abandoned. */
+const MESSAGING_PART_IN_FLIGHT_MS = 2 * 60_000;
+
+async function hasUndeliveredEarlierPart(
+  deps: MessagingDeliveryDeps,
+  row: { idempotencyKey: string; sourceMessageId: string | null; createdAt: Date },
+  now: number,
+): Promise<boolean> {
+  if (!row.sourceMessageId || row.idempotencyKey === `msg:${row.sourceMessageId}`) return false;
+  const earlier = await deps.prisma.messagingOutbound.findFirst({
+    where: {
+      sourceMessageId: row.sourceMessageId,
+      createdAt: { lt: row.createdAt },
+      OR: [
+        { status: "pending" },
+        {
+          status: "sent",
+          providerHandle: null,
+          updatedAt: { gt: new Date(now - MESSAGING_PART_IN_FLIGHT_MS) },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  return earlier !== null;
 }
 
 /**

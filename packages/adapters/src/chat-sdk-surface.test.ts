@@ -602,6 +602,18 @@ describe("ChatSdkMessagingSurface outbound", () => {
     expect(adapter.openDM).toHaveBeenCalledWith("+15551234567");
   });
 
+  it("classifies a failed openDM like a failed send", async () => {
+    const error = new Error("invalid_auth");
+    const { surface } = createSurface(
+      { isPermanentSendError: (candidate) => candidate === error },
+      { openDM: vi.fn(async () => Promise.reject(error)) },
+    );
+    await expect(surface.openDirectThread("mock", "U1", context)).rejects.toMatchObject({
+      name: "MessagingSendError",
+      permanent: true,
+    });
+  });
+
   it("throws when the platform cannot open direct conversations", async () => {
     const { surface } = createSurface({}, { openDM: undefined });
     await expect(surface.openDirectThread("mock", "+15551234567", context)).rejects.toThrow(

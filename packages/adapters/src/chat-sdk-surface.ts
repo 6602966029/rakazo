@@ -184,10 +184,7 @@ export class ChatSdkMessagingSurface implements MessagingSurface {
       const handle = "id" in sent && typeof sent.id === "string" ? sent.id : "";
       return { handle };
     } catch (error) {
-      throw new MessagingSendError(error, {
-        permanent: mounted.platform.isPermanentSendError?.(error) ?? false,
-        retryAfterMs: retryAfterMs(error),
-      });
+      throw sendError(mounted.platform, error);
     }
   }
 
@@ -204,7 +201,11 @@ export class ChatSdkMessagingSurface implements MessagingSurface {
     if (!platform.adapter.openDM) {
       throw new Error(`${provider} cannot open direct conversations`);
     }
-    return toProviderThreadId(mounted, await platform.adapter.openDM(address));
+    try {
+      return toProviderThreadId(mounted, await platform.adapter.openDM(address));
+    } catch (error) {
+      throw sendError(platform, error);
+    }
   }
 
   async acknowledge(threadId: string, handle: string, context: AdapterContext): Promise<void> {
@@ -538,8 +539,11 @@ export class MessagingSendError extends Error {
   }
 }
 
-/** Chat SDK AdapterRateLimitError and Slack's rate-limited error both carry seconds. */
-function retryAfterMs(error: unknown): number | null {
+function sendError(platform: MessagingPlatform, error: unknown): MessagingSendError {
+  // Chat SDK AdapterRateLimitError and Slack's rate-limited error both carry seconds.
   const seconds = (error as { retryAfter?: unknown } | null)?.retryAfter;
-  return typeof seconds === "number" && seconds > 0 ? seconds * 1000 : null;
+  return new MessagingSendError(error, {
+    permanent: platform.isPermanentSendError?.(error) ?? false,
+    retryAfterMs: typeof seconds === "number" && seconds > 0 ? seconds * 1000 : null,
+  });
 }
