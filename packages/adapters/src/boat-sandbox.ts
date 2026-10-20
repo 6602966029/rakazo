@@ -519,8 +519,11 @@ export class BoatSandboxProvider implements SandboxProvider {
       if (error.code === "no_machine") return this.resume(id, signal);
       // Already answering again, or an earlier recover is still running.
       if (error.code === "sandbox_is_reachable" || error.code === "too_soon") return;
-      // `recover_unsupported` or `reset_failed`: Boat cannot bring this machine back.
-      throw boatSandboxGone(id, error);
+      // Boat cannot bring this machine back.
+      if (error.code === "recover_unsupported" || error.code === "reset_failed") {
+        throw boatSandboxGone(id, error);
+      }
+      throw error;
     }
   }
 

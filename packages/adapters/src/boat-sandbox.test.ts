@@ -1,5 +1,6 @@
 import type * as TimersPromises from "node:timers/promises";
 import type { SandboxStateEnum } from "@boatdev/sdk";
+import { ResponseError } from "@boatdev/sdk";
 import type { ComputerRef } from "@rakazo/adapter-kit";
 import { SandboxRateLimitError } from "@rakazo/adapter-kit";
 import { parse } from "shell-quote";
@@ -242,6 +243,19 @@ describe("BoatSandboxProvider", () => {
     api.expire(computer.id);
     const error = await provider.readFile(computer, "kept.txt", context).catch((e: unknown) => e);
     expect(isSandboxGoneError(error)).toBe(true);
+  });
+
+  it("keeps an errored sandbox when Boat refuses recover without a known code", async () => {
+    const recover = vi.spyOn(FakeBoatApi.prototype, "recover");
+    const { api, provider, computer } = await boat();
+    api.fail(computer.id);
+    recover.mockRejectedValueOnce(
+      new ResponseError(new Response("upstream HTML", { status: 409 }), "conflict"),
+    );
+
+    const error = await provider.prepare(computer, context).catch((failure: unknown) => failure);
+    expect((error as Error).message).toContain("HTTP 409");
+    expect(isSandboxGoneError(error)).toBe(false);
   });
 
   it("replaces a sandbox whose data expires between the lookup and the resume", async () => {
