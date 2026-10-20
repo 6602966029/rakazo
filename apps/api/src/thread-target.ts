@@ -377,7 +377,7 @@ export async function threadSnapshot(
               orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             }),
           ]);
-          const run = pickPrimaryActiveRun(activeRuns) ?? busyOrFailed;
+          const run = pickPrimaryPrivateActiveRun(activeRuns) ?? busyOrFailed;
           // A failed run is only the thread's word while it is still the newest
           // terminal run; otherwise a stale failure would resurface in the
           // composer error strip on every load, forever. Instead of comparing
@@ -518,8 +518,18 @@ export async function threadSnapshot(
   };
 }
 
-/** Takeover is urgent; otherwise live work takes precedence over pending cards. */
+/** Keep waiting asks and takeovers in the group headline ahead of newer busy runs. */
 function pickPrimaryActiveRun<T extends { status: string }>(runs: readonly T[]): T | undefined {
+  return (
+    runs.find((run) => run.status === "waiting_input" || run.status === "waiting_takeover") ??
+    runs[0]
+  );
+}
+
+/** Private threads prioritize takeover, then live work, while pending cards stay active. */
+function pickPrimaryPrivateActiveRun<T extends { status: string }>(
+  runs: readonly T[],
+): T | undefined {
   return (
     runs.find((run) => run.status === "waiting_takeover") ??
     runs.find((run) => QUEUE_HOLDING_RUN_STATUSES.some((status) => status === run.status)) ??

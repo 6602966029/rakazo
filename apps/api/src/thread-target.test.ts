@@ -1090,7 +1090,7 @@ describe("threadSnapshot", () => {
     ["queued", "waiting_takeover"],
     ["leased", "waiting_takeover"],
     ["running", "waiting_takeover"],
-  ])("prioritizes concurrent %s and %s runs", async (status, waitingStatus) => {
+  ])("keeps group %s work behind a %s headline", async (status, waitingStatus) => {
     // Real DB order is createdAt desc, so the newer busy run for bot-b comes
     // first here, ahead of the older waiting peer run for bot-a.
     const newerBusy = {
@@ -1124,11 +1124,7 @@ describe("threadSnapshot", () => {
     const findManyRuns = groupRunFindMany({ active: [newerBusy, olderWaiting] });
     const snapshot = await threadSnapshot({ prisma: groupPrisma(findManyRuns) }, groupTarget());
 
-    expect(snapshot.run).toEqual(
-      expect.objectContaining({
-        id: waitingStatus === "waiting_takeover" ? "run-older-waiting" : "run-newer-busy",
-      }),
-    );
+    expect(snapshot.run).toEqual(expect.objectContaining({ id: "run-older-waiting" }));
     // activeRuns is unaffected by which one is chosen as primary.
     expect(snapshot.activeRuns.map((run) => run.id)).toEqual([
       "run-newer-busy",

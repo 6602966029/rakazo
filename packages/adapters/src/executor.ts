@@ -5108,7 +5108,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (paused.continuationRunId) {
               await deps.jobs
                 .enqueue(runContinueJob(paused.continuationRunId))
-                .catch(() => undefined);
+                .catch((error) => getLogger().error("steering continuation enqueue", error));
             }
             await notifyRun(deps, run, {
               kind: "help",
@@ -6617,7 +6617,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (paused.continuationRunId) {
               await deps.jobs
                 .enqueue(runContinueJob(paused.continuationRunId))
-                .catch(() => undefined);
+                .catch((error) => getLogger().error("steering continuation enqueue", error));
             }
             await notifyRun(deps, run, {
               kind: "help",
@@ -7546,7 +7546,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               if (paused.continuationRunId) {
                 await deps.jobs
                   .enqueue(runContinueJob(paused.continuationRunId))
-                  .catch(() => undefined);
+                  .catch((error) => getLogger().error("steering continuation enqueue", error));
               }
               await notifyRun(deps, run, {
                 kind: "help",
