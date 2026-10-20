@@ -75,6 +75,8 @@ test("the missing-model send error opens model settings", async ({ page }, testI
   const settings = page.getByTestId("user-settings");
   await expect(settings).toBeVisible();
   await expect(settings.getByTestId("settings-nav-models")).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
   await expect(composer).toHaveValue("what can you do?");
 });
 
