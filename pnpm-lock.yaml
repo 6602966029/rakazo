@@ -744,6 +744,9 @@ importers:
       mermaid:
         specifier: 11.17.2
         version: 11.17.2
+      prism-react-renderer:
+        specifier: 2.4.1
+        version: 2.4.1(react@19.2.3)
       react-markdown:
         specifier: 10.1.0
         version: 10.1.0(@types/react@19.2.18)(react@19.2.3)
