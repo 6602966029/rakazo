@@ -75,12 +75,20 @@ while ((${#verified_dirs[@]} > KEEP)); do
   unset 'verified_dirs[index]'
 done
 
-# Use current uncompressed data as well as the previous archive, allowing for growth
-# and database dump overhead. A per-file limit below also bounds the actual write.
+# Scale the previous compressed snapshot by source growth. Older snapshots without
+# size metadata use the uncompressed source as a conservative first-run estimate.
+# The per-output limit below still bounds actual writes when compressibility changes.
 last="${verified_dirs[0]:-}"
-need_kb="$(du -sk "${appdata}" | awk '{ print $1 }')"
+source_kb="$(du -sk "${appdata}" | awk '{ print $1 }')"
+need_kb="${source_kb}"
 if [[ -n "${last}" ]]; then
   last_kb="$(du -sk "${last}" | awk '{ print $1 }')"
+  last_source=""
+  [[ ! -f "${last}/SOURCE_SIZE_KB" ]] || last_source="$(cat "${last}/SOURCE_SIZE_KB")"
+  if [[ "${last_source}" =~ ^[1-9][0-9]*$ ]]; then
+    need_kb="$(awk -v archive="${last_kb}" -v current="${source_kb}" -v previous="${last_source}" \
+      'BEGIN { printf "%.0f\n", archive * current / previous }')"
+  fi
   ((last_kb <= need_kb)) || need_kb="${last_kb}"
 fi
 need_kb=$((need_kb + need_kb / 4 + 1024 * 1024))
@@ -107,6 +115,7 @@ verified=0
 trap '[[ "${verified}" == 1 ]] || rm -rf -- "${SNAPSHOT_DIR}"' EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
+printf '%s\n' "${source_kb}" >"${SNAPSHOT_DIR}/SOURCE_SIZE_KB"
 
 # Cap each output at the smaller of the remaining budget and usable free space.
 output_limit() {
@@ -136,7 +145,7 @@ fi
   < "${SNAPSHOT_DIR}/rakazo.dump" >/dev/null
 tar -tzf "${SNAPSHOT_DIR}/appdata.tgz" >/dev/null
 
-(cd "${SNAPSHOT_DIR}" && sha256sum rakazo.dump appdata.tgz > SHA256SUMS.pending)
+(cd "${SNAPSHOT_DIR}" && sha256sum rakazo.dump appdata.tgz SOURCE_SIZE_KB > SHA256SUMS.pending)
 chmod 600 "${SNAPSHOT_DIR}"/*
 # Publish the completion marker only after every checksum is written.
 mv "${SNAPSHOT_DIR}/SHA256SUMS.pending" "${SNAPSHOT_DIR}/SHA256SUMS"

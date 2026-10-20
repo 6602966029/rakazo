@@ -629,7 +629,8 @@ Postgres custom-format dump plus an application-data archive under `/var/backups
 `0600`. It keeps up to `RAKAZO_BACKUP_KEEP` verified snapshots (default `3`), bounded by
 `RAKAZO_BACKUP_MAX_GB` (default `50` GiB), and reserves `RAKAZO_BACKUP_MIN_FREE_GB` (default `5`
 GiB) of free disk space. Before starting, it removes abandoned partial snapshots and excess history,
-then checks capacity against current data size and the previous archive. It preserves the newest
+then checks capacity using the previous archive scaled by source growth. Snapshots without source-size
+metadata use the raw source size for their initial estimate. It preserves the newest
 verified snapshot when capacity is insufficient, caps output file sizes, and removes a failed run's
 partial snapshot. These local snapshots are not a substitute for an encrypted off-host backup or
 provider snapshot.

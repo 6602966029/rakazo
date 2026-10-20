@@ -383,6 +383,34 @@ describe("production backup deployment and archive behavior", () => {
     expect(existsSync(f.snapshots)).toBe(false);
   });
 
+  it.each([false, true])("estimates compressed storage using source growth: %s", (grown) => {
+    const f = fixture();
+    const last = path.join(f.snapshots, "20261017T000000Z");
+    write(path.join(last, "SHA256SUMS"), "verified");
+    write(path.join(last, "SOURCE_SIZE_KB"), "10485760\n");
+    const du = path.join(f.root, "bin/du");
+    write(
+      du,
+      `#!/bin/bash
+if [[ "$2" == "$FAKE_APPDATA" ]]; then
+  echo "$FAKE_RAW_KB $2"
+elif [[ "$2" == "${last}" ]]; then
+  echo "1048576 $2"
+else
+  exec /usr/bin/du "$@"
+fi
+`,
+    );
+    chmodSync(du, 0o755);
+    const result = f.run("infra/compose/backup-prod.sh", [], {
+      FAKE_RAW_KB: grown ? "20971520" : "10485760",
+      RAKAZO_BACKUP_MAX_GB: "3",
+      RAKAZO_BACKUP_MIN_FREE_GB: "1",
+    });
+    expect(result.status, result.stderr).toBe(grown ? 1 : 0);
+    expect(existsSync(path.join(last, "SHA256SUMS"))).toBe(true);
+  });
+
   it("refuses to run while another backup holds the lock", () => {
     const f = fixture();
     mkdirSync(f.snapshots, { recursive: true });
