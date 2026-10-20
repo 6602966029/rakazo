@@ -29,3 +29,22 @@ describe("history date boundaries", () => {
       );
   });
 });
+
+describe("history search arguments", () => {
+  it("requires exactly one query input and normalizes variants", () => {
+    expect(
+      HistorySearchInputSchema.parse({ queries: [" Aurora ", "aurora", "orbit"] }).queries,
+    ).toEqual(["Aurora", "orbit"]);
+    for (const input of [
+      {},
+      { query: "a", queries: ["b"] },
+      { queries: [] },
+      { queries: [" "] },
+      { queries: Array(6).fill("a") },
+      { query: "a", scope: "all" },
+      { query: "a", kinds: ["secret_prompt"] },
+      { query: "a", offset: -1 },
+    ])
+      expect(HistorySearchInputSchema.safeParse(input).success).toBe(false);
+  });
+});

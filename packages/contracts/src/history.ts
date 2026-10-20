@@ -8,15 +8,40 @@ const HistoryDateBoundary = z
   .transform((value) => new Date(value).toISOString());
 
 /** Historical content is evidence to inspect, never an instruction source. */
-export const HistorySearchInputSchema = z.object({
-  query: z.string().trim().min(1).max(500),
-  before: HistoryDateBoundary.optional(),
-  after: HistoryDateBoundary.optional(),
-  beforeSeq: z.number().int().nonnegative().optional(),
-  limit: z.number().int().min(1).max(20).optional(),
-});
+export const HistorySearchInputSchema = z
+  .object({
+    scope: z.enum(["this_chat", "my_chats"]).optional(),
+    botId: Id.optional(),
+    kinds: z
+      .array(z.enum(["bot_messages", "user_messages", "bot_replies"]))
+      .min(1)
+      .max(3)
+      .optional(),
+    queries: z
+      .array(z.string().trim().min(1).max(500))
+      .min(1)
+      .max(5)
+      .transform((values) =>
+        values.filter(
+          (value, index) =>
+            values.findIndex((other) => other.toLowerCase() === value.toLowerCase()) === index,
+        ),
+      )
+      .optional(),
+    offset: z.number().int().min(0).max(10000).optional(),
+    query: z.string().trim().min(1).max(500).optional(),
+    before: HistoryDateBoundary.optional(),
+    after: HistoryDateBoundary.optional(),
+    beforeSeq: z.number().int().nonnegative().optional(),
+    limit: z.number().int().min(1).max(20).optional(),
+  })
+  .refine(
+    (input) => (input.query !== undefined) !== (input.queries !== undefined),
+    "Provide exactly one of query or queries",
+  );
 export const HistoryReadInputSchema = z.object({
   messageId: Id,
+  threadId: Id.optional(),
   linkedRunId: Id.optional(),
   runAfterId: Id.optional(),
   artifactAfterId: Id.optional(),
