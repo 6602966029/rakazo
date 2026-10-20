@@ -212,6 +212,8 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   const email = `footer-${Date.now()}@rakazo.test`;
   await signup(page, email, "password12", "Footer Demo");
   await completeOnboarding(page);
+  await page.request.post("/api/auth/update-user", { data: { name: "Footer Demo" } });
+  await page.reload();
   const footer = page.getByTestId("sidebar-footer");
   const avatar = page.getByTestId("user-menu-trigger");
   const session = await (await page.request.get("/api/auth/get-session")).json();
@@ -307,6 +309,8 @@ test("account menu works on the mobile sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signup(page, email, "password12", "Mobile Demo");
   await completeOnboarding(page);
+  await page.request.post("/api/auth/update-user", { data: { name: "Mobile Demo" } });
+  await page.reload();
   await page.getByRole("button", { name: "Open navigation", exact: true }).click();
   const avatar = page.getByTestId("user-menu-trigger");
   await expect(avatar).toBeVisible();
@@ -322,8 +326,16 @@ test("footer app marks follow the integrations overlay", async ({ page }) => {
   let connected = true;
   let listed = true;
   let failCatalog = false;
+  let failConnections = false;
   const logo =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ctext x='5' y='15'%3ES%3C/text%3E%3C/svg%3E";
+  await page.route("**/rpc/connections/list", async (route) => {
+    if (failConnections) {
+      await route.fulfill({ status: 503, json: { message: "Demo connections unavailable" } });
+      return;
+    }
+    await route.continue();
+  });
   await page.route("**/rpc/connections/catalog", async (route) => {
     if (failCatalog) {
       await route.fulfill({ status: 503, json: { message: "Demo catalog unavailable" } });
@@ -331,9 +343,19 @@ test("footer app marks follow the integrations overlay", async ({ page }) => {
     }
     await route.fulfill({
       json: {
-        json: listed
-          ? [{ connectorId: "demo", slug: "slack", name: "Slack", logo, connected, noAuth: false }]
-          : [],
+        json:
+          listed && !failConnections
+            ? [
+                {
+                  connectorId: "demo",
+                  slug: "slack",
+                  name: "Slack",
+                  logo,
+                  connected,
+                  noAuth: false,
+                },
+              ]
+            : [],
       },
     });
   });
@@ -367,7 +389,20 @@ test("footer app marks follow the integrations overlay", async ({ page }) => {
   await failedRefresh;
   await expect(footer.locator("img")).toHaveAttribute("src", logo);
   failCatalog = false;
-  for (const name of [/^Chief copy/, /^Chief/]) {
+  failConnections = true;
+  const failedConnections = page.waitForResponse(
+    (response) => response.url().includes("connections/list") && response.status() === 503,
+  );
+  await page
+    .getByRole("button", { name: /^Chief copy/ })
+    .first()
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Chief copy copy/ }).first()).toBeVisible();
+  await failedConnections;
+  await expect(footer.locator("img")).toHaveAttribute("src", logo);
+  failConnections = false;
+  for (const name of [/^Chief copy copy/, /^Chief copy/, /^Chief/]) {
     const bot = page.getByRole("button", { name }).first();
     await bot.click({ button: "right" });
     await page.getByRole("menuitem", { name: "Archive", exact: true }).click();

@@ -9,7 +9,6 @@ import type {
   ComputerMode,
   ComputerReleaseReason,
   ComputerStatus,
-  Connection,
   Group,
   Me,
   MessageReaction,
@@ -2164,12 +2163,12 @@ function SpaceShell() {
       if (!cancelled) setMentionRoutines(lists.flat());
     });
     void Promise.all([
-      rpc.connections.list().catch(() => [] as Connection[]),
+      rpc.connections.list().catch(() => null),
       rpc.connections.catalog({}).catch(() => null),
     ]).then(([connections, catalog]) => {
       if (cancelled) return;
-      const connected = connections.filter((row) => row.status === "connected");
-      if (catalog) setFooterLogos(connectedAppMarks(catalog, connections));
+      const connected = connections?.filter((row) => row.status === "connected") ?? [];
+      if (catalog && connections) setFooterLogos(connectedAppMarks(catalog, connections));
       const options: Array<{
         id: string;
         name: string;
