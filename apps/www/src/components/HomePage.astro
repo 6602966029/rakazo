@@ -3,8 +3,10 @@ import Button from "./Button.astro";
 import Footer from "./Footer.astro";
 import GetStartedActions from "./GetStartedActions.astro";
 import Header from "./Header.astro";
+import { LandingBotAvatar } from "./LandingBotAvatar";
 import { ProductDemo } from "./ProductDemo";
 import FeatureIllustration from "./FeatureIllustration.astro";
+import RosterBotAvatar from "./RosterBotAvatar.astro";
 import type { Locale } from "../i18n/locales";
 import { HOME_MODEL_PROVIDERS, getHomeCopy } from "../i18n/home";
 import {
@@ -26,11 +28,6 @@ import {
   SITE_URL,
 } from "../site";
 
-function testimonialInitials(attribution: string): string {
-  const name = attribution.startsWith("@") ? attribution.slice(1) : attribution;
-  const letters = name.replace(/[^a-z]/gi, "");
-  return (letters.slice(0, 2) || name.slice(0, 2)).toUpperCase();
-}
 
 const locale: Locale = isLocale(Astro.currentLocale)
   ? Astro.currentLocale
@@ -139,9 +136,9 @@ const structuredData = homeStructuredData({
         </div>
         <div class="card-grid-4">
           {
-            copy.roster.bots.map((bot, index) => (
+            copy.roster.bots.map((bot) => (
               <article class="roster-card">
-                <FeatureIllustration kind="job" job={index} labels={copy.selfHost.mock} />
+                <RosterBotAvatar color={bot.color} name={bot.name} />
                 <h3>{bot.name}</h3>
                 <p>{bot.desc}</p>
               </article>
@@ -156,11 +153,14 @@ const structuredData = homeStructuredData({
           <button
             class="testimonial-pause"
             type="button"
+            aria-label={copy.testimonials.pause}
+            title={copy.testimonials.pause}
             data-testimonial-pause
             data-pause-label={copy.testimonials.pause}
             data-play-label={copy.testimonials.play}
           >
-            {copy.testimonials.pause}
+            <svg class="testimonial-pause__pause" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="3" width="2.5" height="10" rx="1" /><rect x="9.5" y="3" width="2.5" height="10" rx="1" /></svg>
+            <svg class="testimonial-pause__play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.4v9.2a.8.8 0 0 0 1.2.7l7.4-4.6a.8.8 0 0 0 0-1.4L6.2 2.7A.8.8 0 0 0 5 3.4Z" /></svg>
           </button>
         </div>
         <div
@@ -179,15 +179,19 @@ const structuredData = homeStructuredData({
                   inert={clone ? true : undefined}
                   data-testimonial-clone={clone ? "" : undefined}
                 >
-                  {copy.testimonials.items.map((item) => (
+                  {copy.testimonials.items.map((item, index) => (
                     <figure class="testimonial-card" lang="en">
-                      <figcaption>
-                        <span class="testimonial-avatar" aria-hidden="true">{testimonialInitials(item.attribution)}</span>
-                        <span>{item.attribution}</span>
-                      </figcaption>
                       <blockquote>
                         <p>{item.quote}</p>
                       </blockquote>
+                      <figcaption>
+                        <LandingBotAvatar
+                          color={copy.roster.bots[index % copy.roster.bots.length].color}
+                          size={32}
+                          className="testimonial-avatar"
+                        />
+                        <span>{item.attribution}</span>
+                      </figcaption>
                     </figure>
                   ))}
                 </div>
@@ -430,7 +434,8 @@ const structuredData = homeStructuredData({
     pauseButton?.addEventListener("click", () => {
       held = !held;
       pauseButton.classList.toggle("is-paused", held);
-      pauseButton.textContent = held ? playLabel : pauseLabel;
+      pauseButton.setAttribute("aria-label", held ? playLabel : pauseLabel);
+      pauseButton.title = held ? playLabel : pauseLabel;
       if (held) stop();
       else resume();
     });

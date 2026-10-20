@@ -587,19 +587,38 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 }
 
 .testimonial-pause {
+  display: grid;
+  width: 36px;
+  height: 36px;
   flex: none;
-  border: 1px solid var(--blue-line);
+  place-items: center;
+  border: 1px solid var(--line-2);
   border-radius: 999px;
-  background: var(--blue-soft);
-  color: var(--blue);
-  padding: 6px 12px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  background: var(--surface);
+  color: var(--muted-2);
+  padding: 0;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
 }
 
-.testimonial-pause.is-paused {
-  background: var(--surface);
+.testimonial-pause:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.testimonial-pause svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.testimonial-pause__play,
+.testimonial-pause.is-paused .testimonial-pause__pause {
+  display: none;
+}
+
+.testimonial-pause.is-paused .testimonial-pause__play {
+  display: block;
 }
 
 .testimonial-viewport {
@@ -608,10 +627,8 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
-  border: 1px solid var(--blue-line);
-  border-radius: var(--radius-frame);
-  background: linear-gradient(to bottom, var(--blue-soft), var(--blue-soft-2));
-  padding: 22px;
+  padding-block: 4px 24px;
+  mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
   scrollbar-width: none;
 }
 
@@ -632,7 +649,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 .testimonial-group {
   display: flex;
   flex: none;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 16px;
   padding-inline-end: 16px;
 }
@@ -648,6 +665,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 .testimonial-card {
   display: flex;
   flex-direction: column;
+  gap: 20px;
   width: 340px;
   flex: none;
   min-width: 0;
@@ -655,18 +673,19 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   background: var(--surface);
-  padding: 22px;
+  padding: 24px;
   box-shadow: var(--shadow-soft);
 }
 
 .testimonial-card blockquote {
+  flex: 1;
   margin: 0;
   quotes: "“" "”";
 }
 
 .testimonial-card p {
   margin: 0;
-  color: var(--body);
+  color: var(--ink);
   font-size: 15px;
   line-height: 1.6;
   text-wrap: pretty;
@@ -685,34 +704,16 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 0 14px;
-  color: var(--ink);
+  margin: 0;
+  color: var(--muted-2);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .testimonial-avatar {
-  display: grid;
-  width: 36px;
-  height: 36px;
   flex: none;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--blue);
-  color: var(--surface);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.testimonial-group > :nth-child(3n + 2) .testimonial-avatar {
-  background: var(--ink);
-}
-
-.testimonial-group > :nth-child(3n + 3) .testimonial-avatar {
-  background: var(--blue-bottom);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2737,10 +2738,6 @@ button.product-demo__dock-icon {
   .card-grid-4,
   .stats-grid {
     grid-template-columns: 1fr;
-  }
-
-  .testimonial-viewport {
-    padding: 16px;
   }
 
   .testimonial-card {
