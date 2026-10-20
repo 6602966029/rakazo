@@ -1,7 +1,10 @@
 export const NL_MESSAGES: Record<string, string> = {
+  Resets: "Resetdatum",
+  Limit: "Limiet",
+  "Provider message": "Bericht van aanbieder",
+  Status: "Status",
   "Set your own key": "Eigen sleutel instellen",
-  "Add your own key or switch models to keep chatting.":
-    "Voeg je eigen sleutel toe of wissel van model om verder te chatten.",
+  "Add your own key or pick another model.": "Voeg je eigen sleutel toe of kies een ander model.",
   "Choose another model to keep chatting.": "Kies een ander model om verder te chatten.",
   "Resets {date}.": "Wordt gereset op {date}.",
 
@@ -10,8 +13,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Technical details": "Technische details",
   "The provider did not report whether this was a personal or shared key.":
     "De provider heeft niet gemeld of dit een persoonlijke of gedeelde sleutel was.",
-  "Check your model connection or choose another model.":
-    "Controleer je modelverbinding of kies een ander model.",
   "Message from another agent": "Bericht van een andere agent",
   "Another agent": "Een andere agent",
   "Update from {name}: {text}": "Update van {name}: {text}",

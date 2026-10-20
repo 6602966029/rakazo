@@ -2802,6 +2802,11 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           }}
         />
       ) : null}
+      {headerHeight > 0 ? (
+        <View pointerEvents="none" style={[styles.headerFade, { height: headerHeight }]}>
+          <View style={styles.headerFadeEdge} />
+        </View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }

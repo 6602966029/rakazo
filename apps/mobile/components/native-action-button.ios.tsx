@@ -58,7 +58,9 @@ export function NativeActionButton({
           textStyle: rectangular ? "subheadline" : "callout",
           weight: rectangular ? "semibold" : "medium",
         }),
-        foregroundStyle(rectangular && primary ? tokens.primaryForeground : tokens.primary),
+        foregroundStyle(
+          rectangular ? (primary ? tokens.primaryForeground : tokens.foreground) : tokens.link,
+        ),
         padding({ horizontal: rectangular ? 14 : 0, vertical: rectangular ? 11 : 8 }),
         frame({
           ...(stretches ? { maxWidth: Infinity } : {}),

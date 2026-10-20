@@ -1,7 +1,10 @@
 export const RU_MESSAGES: Record<string, string> = {
+  Resets: "Сброс",
+  Limit: "Лимит",
+  "Provider message": "Сообщение провайдера",
+  Status: "Статус",
   "Set your own key": "Добавить свой ключ",
-  "Add your own key or switch models to keep chatting.":
-    "Добавьте свой ключ или смените модель, чтобы продолжить общение.",
+  "Add your own key or pick another model.": "Добавьте свой ключ или выберите другую модель.",
   "Choose another model to keep chatting.": "Выберите другую модель, чтобы продолжить общение.",
   "Resets {date}.": "Сброс {date}.",
 
@@ -10,8 +13,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Technical details": "Технические сведения",
   "The provider did not report whether this was a personal or shared key.":
     "Провайдер не сообщил, был ли использован личный или общий ключ.",
-  "Check your model connection or choose another model.":
-    "Проверьте подключение к модели или выберите другую модель.",
   "Message from another agent": "Сообщение от другого агента",
   "Another agent": "Другой агент",
   "Update from {name}: {text}": "Обновление от {name}: {text}",

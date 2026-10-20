@@ -84,7 +84,9 @@ describe("run error recovery", () => {
     expect(onConnection).toHaveBeenCalledOnce();
     expect(onModel).toHaveBeenCalledOnce();
     click("Technical details");
-    expect(node.textContent).toContain(details);
+    expect(node.textContent).toContain("Provider message");
+    expect(node.textContent).toContain("403");
+    expect(node.textContent).not.toMatch(/[{}"]/);
     expect(Clipboard.setStringAsync).not.toHaveBeenCalled();
     click("Copy");
     expect(Clipboard.setStringAsync).toHaveBeenCalledWith(details);
@@ -138,7 +140,7 @@ describe("inline error card", () => {
     expect(node.textContent?.includes("Set your own key")).toBe(connection);
     expect(node.textContent?.includes("Change model")).toBe(model);
     expect(node.textContent).toContain("Details");
-    if (connection) expect(node.textContent).toContain("Add your own key or switch models");
+    if (connection) expect(node.textContent).toContain("Add your own key or pick another model.");
     if (model && !connection) expect(node.textContent).toContain("Choose another model");
     act(() => {
       for (const button of node.querySelectorAll("button")) button.click();

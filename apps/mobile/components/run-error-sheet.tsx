@@ -1,11 +1,14 @@
 import { normalizeRunError } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useReducer, useState } from "react";
-import { Modal, Platform, ScrollView, Text, View } from "react-native";
+import { Platform, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "../lib/i18n";
 import { useMobileTokens } from "../lib/native";
+import { parseRunDiagnostic, runErrorExplanation } from "../lib/run-error-presentation";
+import { NativeSymbol } from "./native-symbol";
 import { RunErrorActions, RunErrorTextAction } from "./run-error-actions";
+import { RunErrorSheetContainer } from "./run-error-sheet-container";
 
 /** Saved provider diagnostics do not identify the credential owner. */
 export function useRunError(details: string | null, includeReset = true) {
@@ -49,16 +52,22 @@ export function RunErrorSheet({
   onConnection: () => void;
   onModel?: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const tokens = useMobileTokens();
   const insets = useSafeAreaInsets();
-  const error = useRunError(details);
+  const error = useRunError(details, false);
   const [technical, setTechnical] = useState(false);
   useEffect(() => setTechnical(false), [details]);
   if (!error) return null;
+  const diagnostic = parseRunDiagnostic(details ?? "", locale);
+  const explanation = runErrorExplanation(
+    t,
+    error.recovery === "connection",
+    !!error.recovery && !!onModel,
+  );
   const textStyle = { color: tokens.foreground, fontSize: 16, lineHeight: 24 };
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <RunErrorSheetContainer onClose={onClose}>
       <View
         accessibilityViewIsModal
         style={{
@@ -72,17 +81,27 @@ export function RunErrorSheet({
           <RunErrorTextAction label={t("Done")} onPress={onClose} />
         </View>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 16 }}>
-          <Text style={textStyle}>{error.summary}</Text>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
+            <NativeSymbol
+              ios="exclamationmark.triangle.fill"
+              android="warning"
+              size={18}
+              color={tokens.warning}
+            />
+            <Text style={{ flex: 1, color: tokens.foreground, fontSize: 17, fontWeight: "600" }}>
+              {error.summary}
+            </Text>
+          </View>
+          {explanation ? (
+            <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{explanation}</Text>
+          ) : null}
           {error.recovery ? (
             <>
               {error.recovery === "connection" ? (
-                <Text style={textStyle}>
+                <Text style={{ color: tokens.mutedForeground, fontSize: 14, lineHeight: 20 }}>
                   {t("The provider did not report whether this was a personal or shared key.")}
                 </Text>
               ) : null}
-              <Text style={textStyle}>
-                {t("Check your model connection or choose another model.")}
-              </Text>
               <RunErrorActions
                 onConnection={error.recovery === "connection" ? onConnection : undefined}
                 onModel={onModel}
@@ -91,13 +110,26 @@ export function RunErrorSheet({
           ) : null}
           <RunErrorTextAction
             label={t("Technical details")}
+            expanded={technical}
             onPress={() => setTechnical(!technical)}
           />
           {technical ? (
             <>
-              <Text selectable style={textStyle}>
-                {details}
-              </Text>
+              {[
+                [t("Status"), diagnostic.status],
+                [t("Provider message"), diagnostic.message],
+                [t("Limit"), diagnostic.limit],
+                [t("Resets"), diagnostic.resets],
+              ].map(([label, value]) =>
+                value ? (
+                  <View key={label} style={{ gap: 4 }}>
+                    <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{label}</Text>
+                    <Text selectable style={textStyle}>
+                      {value}
+                    </Text>
+                  </View>
+                ) : null,
+              )}
               <RunErrorTextAction
                 label={t("Copy")}
                 onPress={() => {
@@ -108,6 +140,6 @@ export function RunErrorSheet({
           ) : null}
         </ScrollView>
       </View>
-    </Modal>
+    </RunErrorSheetContainer>
   );
 }

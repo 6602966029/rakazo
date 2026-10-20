@@ -30,7 +30,7 @@ export function NativeActionButton({
   const compact = prominence === "plain" || prominence === "quiet";
   const colors =
     variant === "text"
-      ? { background: "transparent", label: tokens.primary, border: undefined }
+      ? { background: "transparent", label: tokens.link, border: undefined }
       : variant === "rectangular"
         ? {
             background: effectiveProminence === "primary" ? tokens.primary : tokens.card,

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useI18n } from "../lib/i18n";
 import { useMobileTokens } from "../lib/native";
+import { runErrorExplanation } from "../lib/run-error-presentation";
 import { NativeSymbol } from "./native-symbol";
 import { RunErrorActions } from "./run-error-actions";
 
@@ -24,11 +25,7 @@ export function ThreadErrorNotice({
   const tokens = useMobileTokens();
   const { fontScale } = useWindowDimensions();
   if (!error && !summary) return null;
-  const explanation = onConnection
-    ? t("Add your own key or switch models to keep chatting.")
-    : onModel
-      ? t("Choose another model to keep chatting.")
-      : null;
+  const explanation = runErrorExplanation(t, !!onConnection, !!onModel);
   const upcomingReset =
     resetAt && resetAt > Date.now()
       ? t("Resets {date}.", {
@@ -58,11 +55,11 @@ export function ThreadErrorNotice({
       </View>
       <View style={styles.body}>
         {summary && error ? (
-          <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>{error}</Text>
+          <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{error}</Text>
         ) : null}
         {explanation || upcomingReset ? (
-          <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>
-            {[explanation, upcomingReset].filter(Boolean).join(" ")}
+          <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>
+            {[explanation, upcomingReset].filter(Boolean).join("\n")}
           </Text>
         ) : null}
         {onConnection || onModel ? (
@@ -72,10 +69,10 @@ export function ThreadErrorNotice({
           <Pressable
             accessibilityRole="link"
             onPress={onDetails}
-            hitSlop={8}
+            hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
             style={styles.details}
           >
-            <Text style={{ color: tokens.primary, fontSize: 13.5, fontWeight: "500" }}>
+            <Text style={{ color: tokens.link, fontSize: 14, fontWeight: "600" }}>
               {t("Details")}
             </Text>
           </Pressable>
@@ -90,5 +87,5 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   headline: { flex: 1, fontSize: 15, lineHeight: 20, fontWeight: "600" },
   body: { marginLeft: 26, gap: 12 },
-  details: { alignSelf: "flex-end", paddingVertical: 4 },
+  details: { alignSelf: "flex-start" },
 });

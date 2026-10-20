@@ -1,6 +1,10 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  Resets: "重置时间",
+  Limit: "限额",
+  "Provider message": "提供商消息",
+  Status: "状态",
   "Set your own key": "设置自己的密钥",
-  "Add your own key or switch models to keep chatting.": "添加自己的密钥或切换模型以继续聊天。",
+  "Add your own key or pick another model.": "添加自己的密钥或选择其他模型。",
   "Choose another model to keep chatting.": "选择其他模型以继续聊天。",
   "Resets {date}.": "将于 {date} 重置。",
 
@@ -9,7 +13,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Technical details": "技术详情",
   "The provider did not report whether this was a personal or shared key.":
     "提供商未说明使用的是个人密钥还是共享密钥。",
-  "Check your model connection or choose another model.": "请检查模型连接或选择其他模型。",
   "Message from another agent": "来自其他智能体的消息",
   "Another agent": "其他智能体",
   "Update from {name}: {text}": "来自 {name} 的更新：{text}",
