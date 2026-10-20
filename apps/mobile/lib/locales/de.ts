@@ -1,4 +1,6 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Edit name": "Namen bearbeiten",
+  "Could not update name": "Name konnte nicht aktualisiert werden",
   Member: "Mitglied",
   Owner: "Inhaber",
   Chats: "Chats",

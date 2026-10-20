@@ -570,6 +570,23 @@ export async function requestPasswordReset(email: string, redirectTo: string): P
   if (!response.ok) throw new Error(authErrorText(body, t("Could not send reset email")));
 }
 
+export async function updateAccountName(name: string): Promise<void> {
+  const { response, body } = await fetchMobileJson<unknown>(
+    `${currentApiBase()}/api/auth/update-user`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "rakazo://",
+        ...(await authHeaders()),
+      },
+      body: JSON.stringify({ name: name.trim() }),
+    },
+    {},
+  );
+  if (!response.ok) throw new Error(authErrorText(body, t("Could not update name")));
+}
+
 /** Revoking other sessions also refuses this one until the replacement is saved. */
 let passwordChangesInFlight = 0;
 

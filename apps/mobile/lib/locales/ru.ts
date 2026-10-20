@@ -1,4 +1,6 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Edit name": "Изменить имя",
+  "Could not update name": "Не удалось обновить имя",
   Member: "Участник",
   Owner: "Владелец",
   Chats: "Чаты",

@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { AccountSecurity, AvatarStyle } from "@rakazo/contracts";
-import { accountDisplay } from "@rakazo/core";
+import { accountDisplay, displayName } from "@rakazo/core";
 import {
   BotAvatar,
   Button,
@@ -58,6 +58,7 @@ export type SettingsGeneralProps = {
   name: string;
   avatarStyle: AvatarStyle;
   onAvatarStyleChange: (style: AvatarStyle) => Promise<void>;
+  onNameSaved?: () => Promise<void>;
   /** The user's saved IANA timezone, or null before one is set. */
   timezone?: string | null;
   onTimezoneChange?: (timezone: string) => Promise<void>;
@@ -71,6 +72,7 @@ export function GeneralSettingsPanels({
   name,
   avatarStyle,
   onAvatarStyleChange,
+  onNameSaved,
   timezone = null,
   onTimezoneChange,
   messagingEnabled = false,
@@ -79,6 +81,32 @@ export function GeneralSettingsPanels({
 }: SettingsGeneralProps) {
   const { t } = useLingui();
   const account = accountDisplay({ name, email }, t`You`);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [namePending, setNamePending] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const nameId = useId();
+
+  async function saveName() {
+    const nextName = nameDraft.trim();
+    if (namePending || !nextName || nextName.length > 80) return;
+    setNamePending(true);
+    setNameError(null);
+    try {
+      const result = await authClient.updateUser({ name: nextName });
+      if (result.error) {
+        setNameError(authErrorText(result.error, t`Could not update name`));
+        return;
+      }
+      await onNameSaved?.();
+      setEditingName(false);
+    } catch {
+      setNameError(t`Could not update name`);
+    } finally {
+      setNamePending(false);
+    }
+  }
+
   const [accountSecurity, setAccountSecurity] = useState<AccountSecurity | null>(null);
   const [locale, setLocale] = useState<UiLocale>(() => getActiveUiLocale());
   const localeRequestRef = useRef(0);
@@ -154,12 +182,83 @@ export function GeneralSettingsPanels({
 
   return (
     <div className="space-y-5">
-      <section className="rounded-xl border border-border px-4 py-4">
+      <section className="rounded-xl border border-border px-4 py-4" data-testid="account-card">
         <h3 className="text-[15px] font-medium text-foreground">
           <Trans>Account</Trans>
         </h3>
-        <p className="mt-3 text-[14px] text-foreground/75">{account.label}</p>
-        {email && account.label !== email ? (
+        {editingName ? (
+          <form
+            className="mt-3 space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveName();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                if (!namePending) setEditingName(false);
+              }
+            }}
+          >
+            <Field>
+              <FieldLabel htmlFor={nameId}>
+                <Trans>Name</Trans>
+              </FieldLabel>
+              <Input
+                id={nameId}
+                autoComplete="name"
+                autoFocus
+                maxLength={80}
+                value={nameDraft}
+                disabled={namePending}
+                onChange={(event) => {
+                  setNameDraft(event.target.value);
+                  setNameError(null);
+                }}
+              />
+            </Field>
+            {nameError ? (
+              <p role="alert" className="text-[12.5px] text-destructive">
+                {nameError}
+              </p>
+            ) : null}
+            <div className="flex items-center gap-3">
+              <Button
+                type="submit"
+                className="rounded-full"
+                disabled={namePending || !nameDraft.trim()}
+              >
+                <Trans>Save</Trans>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-full"
+                disabled={namePending}
+                onClick={() => setEditingName(false)}
+              >
+                <Trans>Cancel</Trans>
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="min-w-0 break-words text-[14px] text-foreground/75">{account.label}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 rounded-full"
+              onClick={() => {
+                setNameDraft(account.label === email ? "" : displayName(name, ""));
+                setNameError(null);
+                setEditingName(true);
+              }}
+            >
+              <Trans>Edit</Trans>
+            </Button>
+          </div>
+        )}
+        {!editingName && email && account.label !== email ? (
           <p className="mt-1 text-[13px] text-muted-foreground/70">{email}</p>
         ) : null}
       </section>

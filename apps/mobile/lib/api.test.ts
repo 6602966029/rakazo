@@ -40,6 +40,7 @@ import {
   subscribeServerReachable,
   subscribeSessionRejected,
   subscribeThread,
+  updateAccountName,
 } from "./api.js";
 import {
   AVATAR_STYLE_KEY,
@@ -274,6 +275,28 @@ describe("mobile API authentication", () => {
       resetUrl: "https://rakazo.test/reset-password",
       billing: false,
     });
+  });
+
+  it("updates the trimmed account name through the authenticated user endpoint", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      jsonResponse({ status: true }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await updateAccountName("  Alex Rivera  ");
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/api/auth/update-user");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      headers: expect.objectContaining({ origin: "rakazo://" }),
+      body: JSON.stringify({ name: "Alex Rivera" }),
+    });
+  });
+
+  it("reports a failed account name update", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({}, { status: 500 })),
+    );
+    await expect(updateAccountName("Alex Rivera")).rejects.toThrow();
   });
 
   it("uses original password change and deletion endpoints after account-security 404", async () => {

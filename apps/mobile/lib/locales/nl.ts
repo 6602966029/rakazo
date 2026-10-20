@@ -1,4 +1,6 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "Edit name": "Naam bewerken",
+  "Could not update name": "Naam kon niet worden bijgewerkt",
   Member: "Lid",
   Owner: "Eigenaar",
   Chats: "Chats",

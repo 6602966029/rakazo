@@ -1,4 +1,6 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Edit name": "编辑姓名",
+  "Could not update name": "无法更新姓名",
   Member: "成员",
   Owner: "所有者",
   Chats: "聊天",

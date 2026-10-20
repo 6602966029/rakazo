@@ -1,5 +1,5 @@
 import type { AccountSecurity, AvatarStyle } from "@rakazo/contracts";
-import { accountDisplay } from "@rakazo/core";
+import { accountDisplay, displayName } from "@rakazo/core";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
@@ -38,6 +38,7 @@ import {
   rpc,
   selectedSpaceId,
   signOut,
+  updateAccountName,
 } from "../../lib/api";
 import { formatUpdateLabel, getAppVersionInfo } from "../../lib/app-version";
 import {
@@ -81,6 +82,27 @@ export default function Account() {
   const { focus } = useLocalSearchParams<{ focus?: string }>();
   const [me, setMe] = useState<MobileMe | null>(null);
   const account = accountDisplay(me ?? {}, t("Your account"));
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [namePending, setNamePending] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  async function saveName() {
+    const name = nameDraft.trim();
+    if (namePending || !name || name.length > 80) return;
+    setNamePending(true);
+    setNameError(null);
+    try {
+      await updateAccountName(name);
+      setMe(await rpc<MobileMe>("me"));
+      setEditingName(false);
+    } catch {
+      setNameError(t("Could not update name"));
+    } finally {
+      setNamePending(false);
+    }
+  }
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [security, setSecurity] = useState<AccountSecurity | null>(null);
   const canChangePassword = security?.hasPassword && security.passwordChangeEnabled !== false;
@@ -317,12 +339,58 @@ export default function Account() {
       >
         {focus === "usage" ? <SettingsGroup>{usageBlock}</SettingsGroup> : null}
         <SettingsGroup>
-          <SettingsRow
-            accessible
-            detail={me?.email && account.label !== me.email ? me.email : undefined}
-            prominent
-            title={account.label}
-          />
+          {editingName ? (
+            <View style={styles.nameEditor}>
+              <TextInput
+                accessibilityLabel={t("Name")}
+                autoComplete="name"
+                autoFocus
+                editable={!namePending}
+                maxLength={80}
+                onChangeText={(value) => {
+                  setNameDraft(value);
+                  setNameError(null);
+                }}
+                onSubmitEditing={() => void saveName()}
+                returnKeyType="done"
+                style={styles.dialogInput}
+                value={nameDraft}
+              />
+              {nameError ? (
+                <Text accessibilityRole="alert" style={styles.dialogError}>
+                  {nameError}
+                </Text>
+              ) : null}
+              <View style={styles.dialogActions}>
+                <NativeActionButton
+                  label={t("Cancel")}
+                  prominence="secondary"
+                  disabled={namePending}
+                  onPress={() => setEditingName(false)}
+                />
+                <NativeActionButton
+                  label={t("Save")}
+                  disabled={namePending || !nameDraft.trim()}
+                  onPress={() => void saveName()}
+                />
+              </View>
+            </View>
+          ) : (
+            <SettingsRow
+              accessibilityRole="button"
+              accessibilityLabel={t("Edit name")}
+              chevron="right"
+              disabled={!me}
+              detail={me?.email && account.label !== me.email ? me.email : undefined}
+              prominent
+              title={account.label}
+              onPress={() => {
+                setNameDraft(account.label === me?.email ? "" : displayName(me?.name, ""));
+                setNameError(null);
+                setEditingName(true);
+              }}
+            />
+          )}
           {focus !== "usage" ? usageBlock : null}
         </SettingsGroup>
 
@@ -717,6 +785,10 @@ function createAccountStyles() {
     },
     compactContent: {
       paddingHorizontal: 8,
+    },
+    nameEditor: {
+      padding: 16,
+      gap: 12,
     },
     section: {
       gap: 7,
