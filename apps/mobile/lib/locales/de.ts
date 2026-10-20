@@ -286,6 +286,7 @@ export const DE_MESSAGES: Record<string, string> = {
   bot: "Bot",
   cancelled: "abgebrochen",
   deleted: "gelöscht",
+  expired: "abgelaufen",
   failed: "fehlgeschlagen",
   finished: "abgeschlossen",
   running: "läuft",
