@@ -84,6 +84,9 @@ export function e2bCreateOptions(botId: string, apiKey: string) {
 const SANDBOX_NOT_RUNNING =
   /likely due to sandbox timeout|killed or reached its end of life|probably not running anymore/i;
 
+// The SDK's wording for a command that outlived its own timeoutMs (gRPC DeadlineExceeded).
+const COMMAND_DEADLINE = /^deadline_exceeded|exceeding 'timeoutMs'/;
+
 function isSandboxNotRunning(error: unknown): boolean {
   return (
     error instanceof Error &&
@@ -487,7 +490,7 @@ export class E2BSandboxProvider implements SandboxProvider {
       try {
         return await whileAwake(desktop, desktop.commands.run(command, options));
       } catch (error) {
-        if (error instanceof TimeoutError && !isSandboxNotRunning(error)) {
+        if (error instanceof TimeoutError && COMMAND_DEADLINE.test(error.message)) {
           const message = `command timed out after ${options.timeoutMs} ms\n`;
           return { exitCode: 124, stdout: "", stderr: message, error: message };
         }

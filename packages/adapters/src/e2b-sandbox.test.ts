@@ -345,7 +345,9 @@ describe("E2B computer backend", () => {
 
   it("surfaces a setup timeout without treating it as a missing sandbox", async () => {
     const run = vi.fn(async () => {
-      throw new TimeoutError("the operation timed out");
+      throw new TimeoutError(
+        "deadline_exceeded: This error is likely due to exceeding 'timeoutMs' — the total time a long running request (like command execution or directory watch) can be active.",
+      );
     });
     const desktop = {
       sandboxId: "timeout-e2b-box",
@@ -516,7 +518,9 @@ describe("E2B computer backend", () => {
       const response = respond(value);
       if (response) return response;
       if (value.includes("hang")) {
-        throw new TimeoutError("command timed out");
+        throw new TimeoutError(
+          "deadline_exceeded: This error is likely due to exceeding 'timeoutMs' — the total time a long running request (like command execution or directory watch) can be active.",
+        );
       }
       return {
         stdout: "",
@@ -1209,6 +1213,14 @@ describe("E2B sandbox lifecycle", () => {
       { type: "stderr", data: "command timed out after 42 ms\n" },
       { type: "exit", code: 124 },
     ]);
+
+    const canceled = new TimeoutError(
+      "canceled: This error is likely due to exceeding 'requestTimeoutMs'. You can pass the request timeout value as an option when making the request.",
+    );
+    fake.command = async () => {
+      throw canceled;
+    };
+    await expect(runCommand(provider, computer)).rejects.toBe(canceled);
 
     fake.command = async () => {
       fake.state = "paused";
