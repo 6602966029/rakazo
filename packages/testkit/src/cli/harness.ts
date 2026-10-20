@@ -170,7 +170,8 @@ async function main() {
 
     const [
       {
-        ComposioEmulator,
+        ComposioConnector,
+        FakeComposioClient,
         DestinationEmulator,
         EmailEmulator,
         PipedreamConnector,
@@ -194,7 +195,7 @@ async function main() {
     const handles = await createApp({
       databaseUrl,
       prisma: undefined,
-      composio: new ComposioEmulator(),
+      composio: new ComposioConnector({ client: new FakeComposioClient() }),
       connectors: [new DestinationEmulator()],
       pipedream,
       email,

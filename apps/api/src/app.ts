@@ -380,7 +380,7 @@ export async function createApp(
     composio:
       composioOverride ??
       (isComposioEnabled(env.composioApiKey)
-        ? new ComposioConnector(env.composioApiKey)
+        ? new ComposioConnector({ apiKey: env.composioApiKey })
         : undefined),
     pipedream,
   });
