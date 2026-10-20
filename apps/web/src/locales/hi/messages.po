@@ -2647,10 +2647,6 @@ msgid "Inputs"
 msgstr "इनपुट"
 
 #: src/components/SidebarFooter.tsx
-msgid "Install"
-msgstr "इंस्टॉल करें"
-
-#: src/components/SidebarFooter.tsx
 msgid "Install update"
 msgstr "अपडेट इंस्टॉल करें"
 
@@ -3245,10 +3241,6 @@ msgstr ""
 #: src/pages/Board.tsx
 msgid "New ticket"
 msgstr ""
-
-#: src/components/SidebarFooter.tsx
-msgid "New update available"
-msgstr "नया अपडेट उपलब्ध है"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."

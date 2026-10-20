@@ -2647,10 +2647,6 @@ msgid "Inputs"
 msgstr "Entradas"
 
 #: src/components/SidebarFooter.tsx
-msgid "Install"
-msgstr "Instalar"
-
-#: src/components/SidebarFooter.tsx
 msgid "Install update"
 msgstr "Instalar actualización"
 
@@ -3245,10 +3241,6 @@ msgstr "Nuevo space"
 #: src/pages/Board.tsx
 msgid "New ticket"
 msgstr ""
-
-#: src/components/SidebarFooter.tsx
-msgid "New update available"
-msgstr "Nueva actualización disponible"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."

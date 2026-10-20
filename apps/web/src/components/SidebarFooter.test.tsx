@@ -106,19 +106,18 @@ it.each(["unsupported", "idle", "available", "downloading", "checking", "error"]
     expect(document.body.textContent).not.toContain("New update available");
   },
 );
-it("installs the ready update through either footer or menu button", async () => {
+it("installs the ready update only through the footer button", async () => {
   const install = bridge("ready");
   await render("Ada Lovelace");
   const icon = document.querySelector<HTMLButtonElement>('[aria-label="Install update"]')!;
   expect(icon).not.toBeNull();
-  expect(document.body.textContent).toContain("New update available");
+  expect(document.body.textContent).not.toContain("New update available");
+  expect(icon.title).toBe("Install update");
   await act(async () => icon.click());
   expect(install).toHaveBeenCalledTimes(1);
-  const menuInstall = [...document.querySelectorAll("button")].find(
-    (button) => button.textContent === "Install",
-  )!;
-  await act(async () => menuInstall.click());
-  expect(install).toHaveBeenCalledTimes(2);
+  expect(
+    [...document.querySelectorAll("button")].some((button) => button.textContent === "Install"),
+  ).toBe(false);
 });
 it("shows the account image and falls back to the initial after a load error", async () => {
   await render("Ada Lovelace", "https://example.test/avatar.png");

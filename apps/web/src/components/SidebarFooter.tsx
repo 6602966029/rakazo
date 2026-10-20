@@ -82,7 +82,10 @@ export function SidebarFooter({
     return () => observer.disconnect();
   }, []);
   return (
-    <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-2 px-2.5 py-3">
+    <div
+      data-testid="sidebar-footer"
+      className="flex shrink-0 items-center gap-2 bg-transparent px-2.5 py-3"
+    >
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger
           data-testid="user-menu-trigger"
@@ -109,16 +112,6 @@ export function SidebarFooter({
             align="start"
             className="max-h-(--available-height) w-[295px] max-w-[calc(100vw-69px)] gap-0 overflow-y-auto p-1 *:shrink-0 data-closed:animate-none"
           >
-            {update.available ? (
-              <div className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-2">
-                <span className="text-sm">
-                  <Trans>New update available</Trans>
-                </span>
-                <Button size="lg" disabled={update.busy} onClick={update.install}>
-                  <Trans>Install</Trans>
-                </Button>
-              </div>
-            ) : null}
             <div
               data-testid="account-menu-header"
               className="mb-1 min-w-0 border-b border-border px-2.5 py-2.5"
@@ -237,6 +230,7 @@ export function SidebarFooter({
           size="icon-lg"
           className="rounded-full"
           aria-label={t`Install update`}
+          title={t`Install update`}
           disabled={update.busy}
           onClick={update.install}
         >

@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, createNamedBot, signup } from "./helpers";
+import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { captureScreenshot, completeOnboarding, createNamedBot, rpc, signup } from "./helpers";
 
 async function captureSidebarSearchSelected(
   page: Page,
@@ -227,14 +228,17 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   await avatar.click();
   const header = page.getByTestId("account-menu-header");
   await expect(header).toHaveText(`${session.user.name}${email}`);
-  await expect(page.getByText("New update available", { exact: true })).toBeVisible();
+  await expect(page.getByText("New update available", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Install", exact: true })).toHaveCount(0);
+  await expect(footer.getByRole("button", { name: "Install update", exact: true })).toHaveAttribute(
+    "title",
+    "Install update",
+  );
   await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(3);
   await captureScreenshot(page, testInfo, "sidebar-footer-menu-update");
-  await page.getByRole("button", { name: "Install", exact: true }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-update-installed", "1");
   await page.keyboard.press("Escape");
   await footer.getByRole("button", { name: "Install update", exact: true }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-update-installed", "2");
+  await expect(page.locator("html")).toHaveAttribute("data-update-installed", "1");
 
   await page.setViewportSize({ width: 320, height: 900 });
   await page.getByRole("button", { name: "Open navigation", exact: true }).click();
@@ -328,7 +332,7 @@ test("sidebar footer keeps the account identity readable and installs a ready de
     })
     .toBe(true);
   await expect(header).toBeInViewport();
-  await expect(page.getByRole("button", { name: "Install", exact: true })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Install", exact: true })).toHaveCount(0);
   const logOut = menu.getByRole("button", { name: "Log out", exact: true });
   await logOut.scrollIntoViewIfNeeded();
   await expect(logOut).toBeInViewport();
@@ -447,4 +451,61 @@ test("footer app marks follow the integrations overlay", async ({ page }) => {
   listed = false;
   await footer.getByRole("button", { name: "Connect apps", exact: true }).click();
   await expect(footer.locator("img")).toHaveCount(0);
+});
+
+test("sidebar list fades above the transparent footer and keeps the last row reachable", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await signup(page, `footer-scroll-${Date.now()}@rakazo.test`, "password12", "Demo User");
+  await completeOnboarding(page);
+  for (let index = 0; index < 20; index++) {
+    await rpc(page, "bots/create", {
+      name: `Demo chat ${index}`,
+      title: "",
+      description: "",
+      notifyOnFinish: true,
+      computerMode: "team",
+    });
+  }
+  await page.reload();
+  const sidebar = page.getByTestId("bots-sidebar");
+  const footer = page.getByTestId("sidebar-footer");
+  const list = sidebar.locator(".rk-scroll").first();
+  const lastRow = list.getByRole("button", { name: /^Demo chat 19/ }).first();
+  await expect(lastRow).toHaveCount(1);
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((theme) => localStorage.setItem("rakazo.uiAppearance", theme), theme);
+    await page.reload();
+    await expect(lastRow).toHaveCount(1);
+    await expect(footer).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(footer).toHaveCSS("background-image", "none");
+    await list.evaluate((el) => (el.scrollTop = (el.scrollHeight - el.clientHeight) / 2));
+    await expect
+      .poll(() =>
+        list.evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue("--scroll-fade-b"))),
+      )
+      .toBeGreaterThan(20);
+    const listBox = await list.boundingBox();
+    const avatarBox = await page.getByTestId("user-menu-trigger").boundingBox();
+    expect(listBox!.y + listBox!.height).toBeLessThan(avatarBox!.y);
+    // Disabling animations fast-forwards the scroll timeline and removes its fade.
+    const screenshotPath = testInfo.outputPath(`sidebar-footer-scrolled-${theme}.png`);
+    await page.screenshot({ path: screenshotPath, animations: "allow" });
+    await testInfo.attach(`sidebar-footer-scrolled-${theme}`, {
+      contentType: "image/png",
+      path: screenshotPath,
+    });
+    await list.evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await expect
+      .poll(() =>
+        list.evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue("--scroll-fade-b"))),
+      )
+      .toBe(0);
+    await lastRow.focus();
+    await expect(lastRow).toBeFocused();
+    await expect(lastRow).toBeInViewport();
+    const rowBox = await lastRow.boundingBox();
+    expect(rowBox!.y + rowBox!.height).toBeLessThan(avatarBox!.y);
+  }
 });
