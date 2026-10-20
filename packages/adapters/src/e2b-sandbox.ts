@@ -328,7 +328,7 @@ export class E2BSandboxProvider implements SandboxProvider {
   ): AsyncIterable<PortableFile> {
     const desktop = await this.box(computer);
     await this.desktops.stopBrowsers(computer, context);
-    yield* walkE2BWorkspace(desktop, "", context);
+    yield* keepingAwake(desktop, walkE2BWorkspace(desktop, "", context));
   }
 
   async importWorkspace(
@@ -470,6 +470,25 @@ async function writeE2BFiles(
     await desktop.commands.run(`chmod 700 -- ${executable.join(" ")}`, {
       signal: context.signal,
     });
+  }
+}
+
+/**
+ * Reading a large workspace can outlast the idle window, and E2B pauses the sandbox mid-read
+ * when it does. Extend the timeout until the reader finishes.
+ */
+export async function* keepingAwake<T>(
+  desktop: Pick<Sandbox, "setTimeout">,
+  items: AsyncIterable<T>,
+): AsyncIterable<T> {
+  const idleMs = sandboxIdleMs();
+  const extend = () => desktop.setTimeout(idleMs).catch(() => undefined);
+  await extend();
+  const timer = setInterval(() => void extend(), Math.min(60_000, idleMs / 2));
+  try {
+    yield* items;
+  } finally {
+    clearInterval(timer);
   }
 }
 

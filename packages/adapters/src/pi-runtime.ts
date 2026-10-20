@@ -35,7 +35,12 @@ import {
   isTransientModelError,
   TransientModelError,
 } from "@rakazo/adapter-kit";
-import { canonicalPiProviderId, usableModelId } from "@rakazo/contracts";
+import {
+  BOT_INSTRUCTIONS_MAX_LENGTH,
+  canonicalPiProviderId,
+  FLEET_TOOL_NAMES,
+  usableModelId,
+} from "@rakazo/contracts";
 import { abortableDelay, MISSING_TOOL_FINAL_RESPONSE_ERROR } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "./approval-effect.js";
@@ -79,7 +84,9 @@ import { createRuntimeContextPolicy, VERBATIM_TOOL_RESULTS } from "./runtime-con
 import { SCHEDULE_TOOL_NAMES } from "./schedule-tools.js";
 import type { FinishedShellCommand } from "./shell-command-stream.js";
 import { deliverFinishedShells } from "./shell-command-stream.js";
+import { isThinkingSignatureMismatch, withoutThinkingBlocks } from "./thinking-signatures.js";
 import { textContentArg } from "./tool-text.js";
+import { argumentGiven } from "./update-bot-patch.js";
 
 const running = new Map<string, { controller: AbortController; work: Promise<void> }>();
 interface ToolCallBudget {
@@ -899,6 +906,14 @@ export function describeToolActivity(toolName: string, args: unknown): string {
   if (toolName === "computer_act") return "Operating the computer";
   if (toolName === "run_subagent") return `Delegating to helper: ${detail(record.name)}`;
   if (toolName === "create_space") return `Creating space: ${detail(record.name)}`;
+  if (toolName === "list_fleet") return "Checking the fleet";
+  if (toolName === "create_group") return `Creating group: ${detail(record.name)}`;
+  if (toolName === "update_group")
+    return `Updating group: ${detail(record.group_name ?? record.name)}`;
+  if (toolName === "organize_bot") return "Organizing the sidebar";
+  if (toolName === "set_child_instructions") return "Rewriting a bot's instructions";
+  if (toolName === "set_child_bot_model") return "Setting a bot's model";
+  if (toolName === "create_child_routine") return `Scheduling routine: ${detail(record.name)}`;
   if (toolName === "remember") return "Saving a note to memory";
   if (toolName === "save_shared_memory") return `Saving shared memory: ${detail(record.path)}`;
   if (toolName === "web_search") return `Searching the web: ${detail(record.query)}`;
@@ -1063,8 +1078,10 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
     // Pi runs a turn's tool calls concurrently by default, so a batch that
     // creates a routine and lists routines can read the list before the row
     // exists. Pi runs the whole batch in order when any call in it is
-    // sequential, which is what the schedule tools need.
-    ...(SCHEDULE_TOOL_NAMES.has(tool.name) ? { executionMode: "sequential" as const } : {}),
+    // sequential. Remember also needs this to avoid competing revision writes.
+    ...(SCHEDULE_TOOL_NAMES.has(tool.name) || tool.name === "remember"
+      ? { executionMode: "sequential" as const }
+      : {}),
     parameters: parametersFor(tool),
     prepareArguments: (args: unknown) => {
       const raw = args && typeof args === "object" ? (args as Record<string, unknown>) : {};
@@ -1145,19 +1162,8 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
           computer_mode: raw.computer_mode ? String(raw.computer_mode) : "",
         };
       }
-      if (tool.name === "update_bot") {
-        const notifyRaw = raw.notifyOnFinish ?? raw.notify_on_finish;
-        return {
-          ...(raw.name !== undefined ? { name: String(raw.name) } : {}),
-          ...(raw.title !== undefined ? { title: String(raw.title) } : {}),
-          ...(raw.description !== undefined ? { description: String(raw.description) } : {}),
-          ...(raw.color !== undefined ? { color: String(raw.color) } : {}),
-          ...(raw.artifact_id !== undefined ? { artifact_id: String(raw.artifact_id) } : {}),
-          ...(raw.use_attached_image !== undefined
-            ? { use_attached_image: raw.use_attached_image }
-            : {}),
-          ...(notifyRaw !== undefined ? { notifyOnFinish: notifyRaw } : {}),
-        };
+      if (tool.name === "update_bot" || FLEET_TOOL_NAMES.some((name) => name === tool.name)) {
+        return prepareFleetArguments(tool.name, raw);
       }
       if (tool.name === "create_space") {
         return { name: String(raw.name ?? "") };
@@ -1771,6 +1777,53 @@ function builtinParameters(tool: ConnectorTool) {
       artifact_id: Type.Optional(Type.String()),
       use_attached_image: Type.Optional(Type.Boolean()),
       notifyOnFinish: Type.Optional(Type.Boolean()),
+      bot_id: Type.Optional(Type.String()),
+    });
+  }
+  if (tool.name === "list_fleet") return Type.Object({ bot_id: Type.Optional(Type.String()) });
+  if (tool.name === "create_group") {
+    return Type.Object({
+      name: Type.String({ minLength: 1 }),
+      bot_ids: Type.Optional(Type.Array(Type.String())),
+      bot_names: Type.Optional(Type.Array(Type.String())),
+    });
+  }
+  if (tool.name === "update_group") {
+    return Type.Object({
+      group_id: Type.Optional(Type.String()),
+      group_name: Type.Optional(Type.String()),
+      name: Type.Optional(Type.String({ minLength: 1 })),
+      add_bot_ids: Type.Optional(Type.Array(Type.String())),
+      remove_bot_ids: Type.Optional(Type.Array(Type.String())),
+    });
+  }
+  if (tool.name === "organize_bot") {
+    return Type.Object({
+      bot_id: Type.Optional(Type.String()),
+      bot_name: Type.Optional(Type.String()),
+      group_id: Type.Optional(Type.String()),
+      group_name: Type.Optional(Type.String()),
+      section: Type.Optional(Type.String({ minLength: 1 })),
+      clear_section: Type.Optional(Type.Boolean()),
+      pinned: Type.Optional(Type.Boolean()),
+    });
+  }
+  if (tool.name === "set_child_instructions") {
+    return Type.Object({
+      bot_id: Type.Optional(Type.String()),
+      bot_name: Type.Optional(Type.String()),
+      instructions: Type.String({ minLength: 1, maxLength: BOT_INSTRUCTIONS_MAX_LENGTH }),
+      expected_version: Type.String(),
+    });
+  }
+  if (tool.name === "set_child_bot_model") {
+    return Type.Object({
+      bot_id: Type.Optional(Type.String()),
+      bot_name: Type.Optional(Type.String()),
+      provider: Type.Optional(Type.String()),
+      model: Type.Optional(Type.String()),
+      thinking_level: Type.Optional(Type.String()),
+      clear: Type.Optional(Type.Boolean()),
     });
   }
   if (tool.name === "create_space") {
@@ -1981,6 +2034,57 @@ function fieldOptions(definition: Record<string, unknown>): FieldOptions {
   return typeof definition.description === "string" && definition.description
     ? { description: definition.description }
     : {};
+}
+
+const FLEET_STRING_ARGS = [
+  "bot_id",
+  "bot_name",
+  "group_id",
+  "group_name",
+  "name",
+  "title",
+  "description",
+  "color",
+  "artifact_id",
+  "provider",
+  "model",
+  "thinking_level",
+  "section",
+  "instructions",
+  "expected_version",
+] as const;
+const FLEET_LIST_ARGS = ["bot_ids", "bot_names", "add_bot_ids", "remove_bot_ids"] as const;
+const FLEET_FLAG_ARGS = ["pinned", "clear_section", "clear", "use_attached_image"] as const;
+
+/**
+ * Keeps only the fleet and `update_bot` arguments a model sent, coerced to their declared types.
+ * Providers send omitted optional fields as null or blank, so those stay absent: `String(null)`
+ * would otherwise become the text "null".
+ */
+export function prepareFleetArguments(
+  toolName: string,
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  // A routine's timing fields are numbers and one-of branches; only the blanks are dropped.
+  if (toolName === "create_child_routine") {
+    return Object.fromEntries(Object.entries(raw).filter(([, value]) => argumentGiven(value)));
+  }
+  const out: Record<string, unknown> = {};
+  for (const key of FLEET_STRING_ARGS) {
+    // update_bot never carries instructions; set_child_instructions does, behind a card.
+    if (toolName === "update_bot" && (key === "instructions" || key === "expected_version"))
+      continue;
+    if (argumentGiven(raw[key])) out[key] = String(raw[key]);
+  }
+  for (const key of FLEET_LIST_ARGS) {
+    if (Array.isArray(raw[key])) out[key] = raw[key].map(String);
+  }
+  for (const key of FLEET_FLAG_ARGS) {
+    if (argumentGiven(raw[key])) out[key] = raw[key];
+  }
+  const notify = raw.notifyOnFinish ?? raw.notify_on_finish;
+  if (argumentGiven(notify)) out.notifyOnFinish = notify;
+  return out;
 }
 
 /** Use a plain string enum: some gateways discard the allowed values from anyOf/const unions. */
@@ -2329,6 +2433,8 @@ interface FallbackStreamState {
   nextIndex: number;
   onSwitch(target: RuntimeModelTarget): Promise<void>;
   isProviderFailure(message: AssistantMessage): boolean;
+  /** Set once a provider rejected replayed thinking signatures; see thinking-signatures.ts. */
+  dropThinkingBlocks?: boolean;
   stream(
     target: RuntimeModelTarget,
     context: TranscriptContext,
@@ -2431,6 +2537,10 @@ function fallbackAwareModelStream(
   const output = new AssistantMessageEventStream();
   let lastPartial: AssistantMessage | undefined;
   const signal = options?.signal ? AbortSignal.any([state.signal, options.signal]) : state.signal;
+  // Once a signature is rejected, requests omit those thinking blocks. Backup fit
+  // must use that same context, or a usable backup can be skipped on discarded text.
+  const requestContext = () =>
+    state.dropThinkingBlocks ? withoutThinkingBlocks(context) : context;
   const signalAborted = () => signal.aborted;
   const finishWithThrownError = (target: RuntimeModelTarget, error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
@@ -2502,7 +2612,7 @@ function fallbackAwareModelStream(
         if (
           !fallbackSupportsContext(
             candidate,
-            context,
+            requestContext(),
             options,
             state.request.model.thinkingLevel,
             state.request.tools,
@@ -2540,7 +2650,7 @@ function fallbackAwareModelStream(
         const reasoning = thinkingLevel === "off" ? undefined : thinkingLevel;
         stream = state.stream(
           target,
-          context,
+          requestContext(),
           state.request.fallbackModels?.length ? { ...options, apiKey, reasoning } : options,
         );
       } catch (error) {
@@ -2552,6 +2662,20 @@ function fallbackAwareModelStream(
           if (event.type === "error") {
             let terminalEvent = event;
             const hasTerminalPartialOutput = assistantHasPartialOutput(event.error);
+            if (
+              !sawPartialOutput &&
+              !hasTerminalPartialOutput &&
+              event.reason === "error" &&
+              !signalAborted() &&
+              !state.dropThinkingBlocks &&
+              isThinkingSignatureMismatch(event.error.errorMessage)
+            ) {
+              // Later calls in this run skip the stale thinking up front instead of failing first.
+              state.dropThinkingBlocks = true;
+              buffered = [];
+              restart = true;
+              break;
+            }
             if (
               !sawPartialOutput &&
               !hasTerminalPartialOutput &&

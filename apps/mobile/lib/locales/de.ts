@@ -1,6 +1,8 @@
 export const DE_MESSAGES: Record<string, string> = {
   Close: "Schließen",
   Link: "Link",
+  "Lets this bot organize, retune and schedule the bots it creates. You approve each change.":
+    "Erlaubt diesem Bot, die von ihm erstellten Bots zu organisieren, anzupassen und zu planen. Du genehmigst jede Änderung.",
   "Too many attempts. Try again in a few minutes.":
     "Zu viele Versuche. Versuche es in ein paar Minuten erneut.",
   "The server had a problem. Try again in a moment.":
@@ -196,6 +198,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Failed to stop work": "Arbeit konnte nicht gestoppt werden",
   File: "Datei",
   "Hide {label}": "{label} ausblenden",
+  Diagram: "Diagramm",
   Image: "Bild",
   "Jump to latest": "Zur neuesten Nachricht springen",
   "Jump to latest, new messages": "Zur neuesten Nachricht springen, neue Nachrichten",
@@ -324,6 +327,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Could not load routine": "Routine konnte nicht geladen werden",
   "Git event": "Git-Ereignis",
   "Message event": "Nachrichtenereignis",
+  "When something changes": "Wenn sich etwas ändert",
   "Open conversation": "Unterhaltung öffnen",
   Paused: "Pausiert",
   Prompt: "Prompt",
@@ -332,6 +336,12 @@ export const DE_MESSAGES: Record<string, string> = {
   "Teams message": "Teams-Nachricht",
   "This routine no longer exists": "Diese Routine gibt es nicht mehr",
   Webhook: "Webhook",
+  // app/bot-profile.tsx
+  Profile: "Profil",
+  Routines: "Routinen",
+  "Could not load routines": "Routinen konnten nicht geladen werden",
+  "Get notified when this Bot finishes or needs input":
+    "Benachrichtigung, wenn dieser Bot fertig ist oder Eingabe braucht",
   // app/computer.tsx
   "Booting {label}": "{label} wird gestartet",
   Bot: "Bot",
@@ -608,6 +618,11 @@ export const DE_MESSAGES: Record<string, string> = {
   "New section": "Neuer Abschnitt",
   Pin: "Anheften",
   "Rename section": "Abschnitt umbenennen",
+  "Section actions for {name}": "Abschnittsaktionen für {name}",
+  "Could not delete section": "Abschnitt konnte nicht gelöscht werden",
+  "Delete section": "Abschnitt löschen",
+  "Its bots and groups are kept and leave the section.":
+    "Seine Bots und Gruppen bleiben erhalten und verlassen den Abschnitt.",
   "Resume notifications": "Benachrichtigungen wieder einschalten",
   "Save section name": "Abschnittsnamen speichern",
   "Section name": "Abschnittsname",
@@ -832,6 +847,12 @@ export const DE_MESSAGES: Record<string, string> = {
     "Melde dich bei deinem bestehenden Konto an, um SSO zu verknüpfen",
   "SSO is temporarily unavailable. Try again.":
     "SSO ist vorübergehend nicht verfügbar. Versuche es erneut.",
+  "Members ({count})": "Mitglieder ({count})",
+  "Show all": "Alle anzeigen",
+  "Show selected": "Ausgewählte anzeigen",
+  "Filter bots": "Bots filtern",
+  "Pick {min}–{max}": "{min}–{max} auswählen",
+  "No members yet": "Noch keine Mitglieder",
   Applied: "Angewendet",
   Apply: "Anwenden",
   Dismissed: "Verworfen",
@@ -845,4 +866,13 @@ export const DE_MESSAGES: Record<string, string> = {
   Undo: "Rückgängig",
   "Update instructions?": "Anweisungen aktualisieren?",
   "Could not restore instructions": "Anweisungen konnten nicht wiederhergestellt werden",
+  "Hide chats": "Chats ausblenden",
+  "Show chats": "Chats einblenden",
+  "Remove photo": "Foto entfernen",
+  Shape: "Form",
+  "Shape {number}": "Form {number}",
+  "Fleet management": "Flottenverwaltung",
+  "Try again": "Erneut versuchen",
+  "Your session expired": "Deine Sitzung ist abgelaufen",
+  "The server had a problem": "Auf dem Server ist ein Problem aufgetreten",
 };

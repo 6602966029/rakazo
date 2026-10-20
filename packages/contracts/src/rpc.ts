@@ -36,6 +36,7 @@ import {
   BillingStatusSchema,
   BotMcpServerSchema,
   BotSchema,
+  BotSectionName,
   BotSectionSchema,
   CapabilityInstallSchema,
   ComputerModeSchema,
@@ -107,6 +108,7 @@ import {
   IntegrationSetupStateSchema,
 } from "./integration-settings.js";
 import { MessageReactionSchema } from "./reactions.js";
+import { RoutineWatchSchema } from "./routine-watch.js";
 import { RoutineHistorySchema, RoutineRunCursorSchema, RunsListOutputSchema } from "./runs.js";
 import { SearchQueryOutputSchema } from "./search.js";
 
@@ -347,12 +349,15 @@ export const appContract = {
   },
   botSections: {
     list: oc.output(z.array(BotSectionSchema)),
-    create: oc
-      .input(threadTarget.safeExtend({ name: z.string().trim().min(1).max(60) }))
-      .output(BotSectionSchema),
-    update: oc
-      .input(z.object({ sectionId: Id, name: z.string().trim().min(1).max(60) }))
-      .output(BotSectionSchema),
+    create: oc.input(threadTarget.safeExtend({ name: BotSectionName })).output(BotSectionSchema),
+    update: oc.input(z.object({ sectionId: Id, name: BotSectionName })).output(BotSectionSchema),
+    remove: oc.input(z.object({ sectionId: Id })).output(
+      z.object({
+        id: Id,
+        releasedBots: z.number().int().nonnegative(),
+        releasedGroups: z.number().int().nonnegative(),
+      }),
+    ),
   },
   threads: {
     head: oc.input(threadTarget).output(
@@ -417,6 +422,38 @@ export const appContract = {
             .min(1)
             .max(200)
             .regex(/^[^:]+$/),
+          /** How long the call was connected, measured from pickup on the caller's client. */
+          durationSeconds: z
+            .number()
+            .int()
+            .nonnegative()
+            .max(7 * 24 * 60 * 60)
+            .optional(),
+        }),
+      )
+      .output(z.object({ ok: z.literal(true) })),
+    /** The user picked up the bot's call: returns what the bot opens with. */
+    answerCall: oc
+      .input(
+        botId.safeExtend({
+          callId: z
+            .string()
+            .min(1)
+            .max(200)
+            .regex(/^[^:]+$/),
+        }),
+      )
+      .output(z.object({ opening: z.string(), reason: z.string() })),
+    /** The user turned the bot's call down, asked for it later, or it rang out. */
+    declineCall: oc
+      .input(
+        botId.safeExtend({
+          callId: z
+            .string()
+            .min(1)
+            .max(200)
+            .regex(/^[^:]+$/),
+          outcome: z.enum(["declined", "missed"]),
         }),
       )
       .output(z.object({ ok: z.literal(true) })),
@@ -501,6 +538,7 @@ export const appContract = {
     update: oc
       .input(z.object({ documentId: Id, content: z.string() }))
       .output(MemoryDocumentSchema),
+    remove: oc.input(z.object({ documentId: Id })).output(z.object({ ok: z.literal(true) })),
     exportMarkdown: oc.input(z.object({ botId: Id.optional() })).output(z.string()),
     providerConfig: oc.output(SpaceMemoryConfigSchema.nullable()),
     connectProvider: oc
@@ -550,6 +588,8 @@ export const appContract = {
             thinkingLevel: ThinkingLevelSchema.nullable().optional(),
             /** ISO datetime to arm a never-run one-shot. */
             runAt: IsoDate.optional(),
+            /** Null removes the change trigger. */
+            watch: RoutineWatchSchema.nullable().optional(),
           })
           .superRefine((value, ctx) => {
             if (
@@ -557,11 +597,12 @@ export const appContract = {
               value.crons.length === 0 &&
               value.webhookEnabled === false &&
               value.githubEnabled === false &&
-              value.messageProvider === null
+              value.messageProvider === null &&
+              value.watch === null
             ) {
               ctx.addIssue({
                 code: "custom",
-                message: "Add a schedule, webhook, GitHub, or message trigger",
+                message: "Add a schedule, webhook, GitHub, message, or change trigger",
                 path: ["crons"],
               });
             }

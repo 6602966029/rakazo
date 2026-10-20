@@ -827,7 +827,7 @@ describe("Pi connector tool dispatch", () => {
     );
   });
 
-  it("runs schedule tools sequentially so a list in the same turn sees a create", async () => {
+  it("runs schedule tools and remember sequentially", async () => {
     const executeTool = vi.fn(async () => ({ ok: true }));
     const runtime = new PiAgentRuntime();
 
@@ -839,7 +839,13 @@ describe("Pi connector tool dispatch", () => {
         prompt: "remind me in ten minutes",
         instructions: "Use schedule_create then schedule_list.",
         history: [],
-        tools: [scheduleCreateTool, scheduleListTool, scheduleCancelTool, destinationTool],
+        tools: [
+          scheduleCreateTool,
+          scheduleListTool,
+          scheduleCancelTool,
+          destinationTool,
+          builtinAgentTools.find((tool) => tool.name === "remember")!,
+        ],
         model: { provider: "test", id: "dispatch-test-model" },
         executeTool,
       },
@@ -862,6 +868,7 @@ describe("Pi connector tool dispatch", () => {
     expect(modes.get("schedule_create")).toBe("sequential");
     expect(modes.get("schedule_list")).toBe("sequential");
     expect(modes.get("schedule_cancel")).toBe("sequential");
+    expect(modes.get("remember")).toBe("sequential");
     expect(modes.get("destination_write")).toBe("default");
   });
 
@@ -2133,6 +2140,51 @@ describe("Pi connector tool dispatch", () => {
     const result = fakeAgentState.toolResult as { content: Array<{ type: string; text: string }> };
     expect(result.content[0]!.text.length).toBeGreaterThan(TOOL_RESULT_TEXT_LIMIT);
     expect(JSON.parse(result.content[0]!.text)).toEqual(skill);
+  });
+
+  it("delivers full child instructions and their version past the tool result bound", async () => {
+    const listing = {
+      bot: { id: "child", instructionsVersion: "v2", instructions: "x".repeat(20_000) },
+      bots: [],
+      groups: [],
+      sections: [],
+      truncated: false,
+    };
+    fakeAgentState.invoke = { name: "list_fleet", args: { bot_id: "child" } };
+    const runtime = new PiAgentRuntime();
+
+    for await (const _event of runtime.run(
+      {
+        botId: "b",
+        threadId: "t",
+        runId: "large-child",
+        prompt: "edit the child",
+        instructions: "Read the child before updating it.",
+        history: [],
+        tools: [
+          {
+            name: "list_fleet",
+            description: "Read a child by id",
+            inputSchema: { type: "object", properties: { bot_id: { type: "string" } } },
+          },
+        ],
+        model: { provider: "test", id: "dispatch-test-model" },
+        executeTool: vi.fn(async () => listing),
+      },
+      {
+        operationId: "large-child",
+        traceId: "large-child",
+        spaceId: "w",
+        userId: "u",
+        signal: new AbortController().signal,
+      },
+    )) {
+      // Exhaust so the fake agent executes the tool.
+    }
+
+    const result = fakeAgentState.toolResult as { content: Array<{ type: string; text: string }> };
+    expect(result.content[0]!.text.length).toBeGreaterThan(TOOL_RESULT_TEXT_LIMIT);
+    expect(JSON.parse(result.content[0]!.text)).toEqual(listing);
   });
 
   it("serialises object content instead of writing [object Object] for write_file", async () => {

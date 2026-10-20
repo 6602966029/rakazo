@@ -123,6 +123,14 @@ traffic from the match and nothing else. A computer provisioned before the flag 
 is replaced on its next provision — resuming it on an unnamed bridge would bypass the
 restriction.
 
+Computers resolve names through Docker's embedded DNS, which forwards each lookup to the
+host's resolvers from inside the computer's network. When the host's resolver has a private
+address, as a cloud VPC resolver or a LAN router does, the ruleset drops that forward too and
+every lookup times out while connections by IP still work. Set `SANDBOX_COMPUTER_DNS` to
+public resolvers (comma-separated IP addresses, such as `1.1.1.1,1.0.0.1`) and recreate the
+supervisor: Docker then forwards computers' lookups there, and each computer picks the
+servers up on its next provision.
+
 To disable restricted egress, set `SANDBOX_COMPUTER_EGRESS=open`, recreate the
 supervisor, and run `sudo bash infra/compose/restrict-computer-egress.sh --remove`.
 The flag alone does not uninstall the host rules, which keep matching the still-named
@@ -408,6 +416,25 @@ screenshot computer tools stay available. Existing connections default to disabl
 managed endpoints, the deployment-wide fallback remains
 `RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS=gpt4o-vision,llava`.
 
+### Prompt cache capabilities
+
+The model connection API accepts `cacheCapabilities`, including `scope`,
+`retentionMs`, `minimumTokens`, and `retentionMode`. Declare a positive
+`retentionMs` only when the endpoint supports prefix reuse for that window.
+For these connections with usable history-retrieval tools, the runtime
+automatically uses cache-aware context:
+recent history remains bounded on a cold request, and subsequent requests keep
+that selected prefix while it is likely warm and fits the context budget.
+Connections with unknown retention or `retentionMode: "none"` retain the default
+retrieval policy. An explicit executor context strategy still takes precedence.
+Callers without usable history-retrieval tools keep fitting original history
+under the model's context budget instead of replacing it with snapshots.
+
+Cache warmth is advisory. Changing instructions or tools, context pressure,
+worker eviction, or a process restart can require fresh prompt processing.
+These settings do not create backend KV snapshots or keep a model loaded;
+the inference server is responsible for retention and conversation switching.
+
 ### Web search and page reading
 
 Builtin `web_search` and `web_fetch` use keyless HTTP search (DuckDuckGo HTML) and local
@@ -442,11 +469,13 @@ support. Existing token limits still apply; effort is not a separate reasoning-t
 
 Do not commit `.env`. Never put `COMPOSIO_API_KEY`, OpenRouter keys, or provider tokens in git, logs, or chat.
 
-Optional messaging platforms (iMessage, Slack, WhatsApp, Telegram, Feishu/Lark) mount when their env credentials are set — see `.env.example`. Point a Feishu/Lark bot event subscription at `/api/v1/messaging/webhook/lark` (webhook/HTTP inbound only; do not enable long connection). Groups stay iMessage-only.
+Optional messaging platforms (iMessage, Slack, WhatsApp, Telegram, Feishu/Lark) mount when their env credentials are set — see `.env.example`. Point a Feishu/Lark bot event subscription at `/api/v1/messaging/webhook/lark` (webhook/HTTP inbound only; do not enable long connection). Groups stay iMessage-only. Telegram can run several bots side by side (`TELEGRAM_BOT_TOKEN_<NAME>` plus `TELEGRAM_WEBHOOK_SECRET_TOKEN_<NAME>`), for example one per space, so the same person can chat with a different Rakazo bot through each.
 
 ## Choosing a computer provider
 
-The Electron desktop app is a client of the same API. Docker and E2B still apply. On first launch, Electron asks the deployment owner whether bots should keep using Docker or run on this Mac as you. `SANDBOX_PROVIDER=desktop` is a separate, explicit provider that always runs commands on the service host.
+The Electron desktop app is a client of the same API. Docker remains the default. For an app-managed local instance, the deployment owner can choose **Use this Mac** (macOS) or **Use this computer** (Windows/Linux). After native confirmation, an authenticated bridge sends commands from the Docker backend to Electron, where they run under your OS account. **Computer Access…** in the app menu changes the choice; **Revoke Local Computer Access** immediately disconnects active operations and revokes the saved permission. Local execution requires the desktop app to remain running. Connecting to an existing remote instance does not grant it access to your computer. Browser and mobile clients use the deployment’s configured computer; they do not expose their own host. `SANDBOX_PROVIDER=desktop` remains a separate configuration for backends running directly on the intended host.
+
+Native file reads and workspace exports are limited to 8 MiB per file. A larger workspace file fails the checkpoint and preserves the previous saved workspace; local files remain on the computer. Writes are bounded by the 12 MiB encoded request limit.
 
 - **Published images** (`docker-compose.images.yml`) default to `SANDBOX_PROVIDER=docker` with a
   local supervisor and published `ghcr.io/elie222/rakazo/computer` image. No E2B account required.
@@ -468,10 +497,17 @@ The Electron desktop app is a client of the same API. Docker and E2B still apply
   workspace under `/home/user/rakazo-home`, and refreshes a two-hour TTL. Box uses the shared Linux
   desktop runtime and protected port routes for concurrent bot desktops. Each bot has its own
   persistent Chrome profile; logins are not shared between bots.
-- **Desktop provider** / **This Mac** runs commands on the API/worker host. Docker stays the default.
-  The Electron app asks once; if you choose This Mac, bots can use working directories under your home
-  folder. Do not enable it on a public or shared service. macOS does not show its own permission
-  dialog for this.
+- **Local computer access** in the app-managed Electron instance runs commands on Windows, macOS,
+  or Linux through the native bridge. Bots can read/change local files and launch installed apps
+  through OS commands, subject to your account and OS permissions. Portable file tools and
+  checkpoints remain scoped to bot workspaces; use commands for other local folders. Graphical
+  screen control is unavailable. Permission is remembered locally and can be revoked from the
+  app menu. Only enable this for a trusted personal instance: every bot on that instance can use
+  your account’s permissions.
+- **Desktop provider** (`SANDBOX_PROVIDER=desktop`) runs commands directly on the API/worker host.
+  Setting this inside a container does not grant access to the physical computer. Docker deployments
+  use the authenticated native bridge when local computer access is selected; they never silently
+  fall back to executing on the backend host.
 - **Fake** is only an emulator for verification.
 - **None** boots the product without a computer host (fallback when Docker/supervisor is not
   configured, or when a remote provider is selected without its API key).
@@ -590,25 +626,32 @@ content while a digest is present.
 For the single-VM production layout, install `infra/compose/backup-prod.sh` as
 `/usr/local/sbin/rakazo-backup` and enable the supplied `rakazo-backup.timer`. It creates a verified
 Postgres custom-format dump plus an application-data archive under `/var/backups/rakazo`, with mode
-`0600` and seven-day rotation. These local snapshots help with operator mistakes but are not a
-substitute for an encrypted off-host backup or provider snapshot.
+`0600`. It keeps the newest `RAKAZO_BACKUP_KEEP` verified snapshots (default `3`) and removes
+older ones only after a new snapshot verifies. It fails before writing if the disk has less free
+space than the last snapshot used, and a failed run removes its partial snapshot. These local
+snapshots help with operator mistakes but are not a substitute for an encrypted off-host backup or
+provider snapshot.
 
 The scheduled backup uses `/srv/rakazo` by default. For another deployment directory, set
 `RAKAZO_DEPLOY_DIR=/absolute/path/to/checkout` in a root-owned `/etc/rakazo/backup.env`
 (mode `0600`). The service reads this optional file on each run; the script uses the selected
 checkout's `.env` and production Compose file. If the stack was started with a custom `-p`,
 set the same `COMPOSE_PROJECT_NAME` in that file. For a manual run, export these variables instead.
-When updating an existing backup installation, reinstall both the script and service unit,
-then run `systemctl daemon-reload`.
+Set `RAKAZO_BACKUP_KEEP` in the same file. When updating an existing backup installation, reinstall
+both the script and service unit, then run `systemctl daemon-reload`.
 
 To deploy from CI, install `infra/compose/deploy-main.sh` as `/usr/local/sbin/rakazo-deploy-main`
 and give CI a key restricted to it in the deploy user's `authorized_keys`
 (`restrict,command="/usr/local/sbin/rakazo-deploy-main" ssh-ed25519 …`). It builds `origin/main`,
 restarts the stack, waits for `https://$RAKAZO_HOST/health`, and rolls back on failure. Build and
 start are time-limited so a stuck build fails the deploy instead of holding its lock; a deploy that
-finds the lock held exits non-zero. For a checkout outside `/srv/rakazo`, put
-`RAKAZO_DEPLOY_DIR=/absolute/path` in a root-owned `/etc/rakazo/deploy.env` readable by the
-deploy user.
+finds the lock held exits non-zero. A deploy refuses to start with less than
+`RAKAZO_DEPLOY_MIN_FREE_GB` (default `5`) free, and after a healthy rollout it removes untagged
+images and build cache unused for a day, keeping the previous images tagged `rakazo-rollback`.
+For a checkout outside `/srv/rakazo`, put `RAKAZO_DEPLOY_DIR=/absolute/path` (and any of these
+settings) in a root-owned `/etc/rakazo/deploy.env` readable by the deploy user. After pulling a new
+version of the script, reinstall it with
+`sudo install -m 0755 infra/compose/deploy-main.sh /usr/local/sbin/rakazo-deploy-main`.
 
 ### Docker computers on the production stack
 

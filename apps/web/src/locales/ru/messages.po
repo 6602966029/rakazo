@@ -60,6 +60,11 @@ msgstr "{0} по умолчанию"
 msgid "{0} handling"
 msgstr "Обработка {0}"
 
+#. placeholder {0}: bot.name
+#: src/components/call/IncomingCall.tsx
+msgid "{0} is calling you"
+msgstr "{0} звонит вам"
+
 #. placeholder {0}: format(size / 1024)
 #: src/components/ArtifactFileCard.tsx
 msgid "{0} KB"
@@ -120,7 +125,6 @@ msgid "{count} years"
 msgstr ""
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "{days}d ago"
 msgstr "{days} дн. назад"
 
@@ -129,12 +133,10 @@ msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
 msgstr ""
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "{hours}h ago"
 msgstr "{hours} ч назад"
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "{minutes}m ago"
 msgstr "{minutes} мин назад"
 
@@ -279,6 +281,10 @@ msgstr "@{0}"
 msgid "A bit of everything"
 msgstr ""
 
+#: src/pages/RoutineEditor.tsx
+msgid "A command's output"
+msgstr "Вывод команды"
+
 #. placeholder {0}: oauth.verificationUri.replace(/^https:\/\//, "")
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -327,10 +333,6 @@ msgstr "Ярлык аккаунта"
 msgid "Accounts"
 msgstr "Аккаунты"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Action confirmations"
-msgstr "Подтверждения действий"
-
 #. placeholder {0}: bot.name
 #. placeholder {0}: group.spaceName
 #. placeholder {0}: sectionMenu.section.name
@@ -363,6 +365,19 @@ msgstr "Активность"
 msgid "Add"
 msgstr "Добавить"
 
+#. placeholder {0}: bot.name
+#: src/pages/GroupPanel.tsx
+msgid "Add {0} to the group"
+msgstr ""
+
+#: src/pages/RoutineEditor.tsx
+msgid "Add a command to run"
+msgstr "Добавьте команду для выполнения"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Add a file or folder to watch"
+msgstr "Добавьте файл или папку для отслеживания"
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
 msgstr "Чтобы использовать это, добавьте модель в настройках."
@@ -371,14 +386,6 @@ msgstr "Чтобы использовать это, добавьте модел�
 msgid "Add a run time for this one-shot."
 msgstr "Добавьте время выполнения для разового запуска."
 
-#: src/pages/Shell.tsx
-msgid "Add a schedule, webhook, GitHub, or message trigger"
-msgstr "Добавьте расписание, вебхук, GitHub или триггер сообщения."
-
-#: src/pages/RoutineEditor.tsx
-msgid "Add a schedule, webhook, GitHub, or message trigger to run this routine."
-msgstr "Добавьте расписание, вебхук, GitHub или триггер сообщения для запуска этой задачи."
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Add a server name."
 msgstr "Добавьте имя сервера."
@@ -386,6 +393,11 @@ msgstr "Добавьте имя сервера."
 #: src/pages/McpServersOverlay.tsx
 msgid "Add a stdio command."
 msgstr "Добавьте команду stdio."
+
+#: src/pages/RoutineEditor.tsx
+#: src/pages/Shell.tsx
+msgid "Add a trigger to run this routine."
+msgstr "Добавьте триггер для запуска этой процедуры."
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Add an HTTPS server URL."
@@ -563,9 +575,18 @@ msgstr "Всегда разрешено"
 msgid "An API key is stored for this provider, not a subscription sign-in."
 msgstr "Для этого поставщика сохранен API-ключ, а не вход по подписке."
 
+#: src/pages/RoutineEditor.tsx
+msgid "An integration tool"
+msgstr "Инструмент интеграции"
+
 #: src/components/AskCard.tsx
 msgid "Answer"
 msgstr "Ответ"
+
+#: src/components/call/IncomingCall.tsx
+msgctxt "incoming call"
+msgid "Answer"
+msgstr "Ответить"
 
 #: src/components/AskCard.tsx
 msgid "Answered"
@@ -591,6 +612,7 @@ msgstr "API вернулся, но обновление не завершило�
 #: src/components/AskCard.tsx
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/lib/localized-provider-hint.ts
+#: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -871,6 +893,27 @@ msgstr ""
 msgid "Built-in"
 msgstr "Встроенный"
 
+#: src/pages/Shell.tsx
+msgid "Call"
+msgstr "Позвонить"
+
+#: src/components/call/VoiceChatCard.tsx
+msgid "Call back"
+msgstr "Перезвонить"
+
+#. placeholder {0}: call.botName
+#: src/components/call/CallCard.tsx
+msgid "Call with {0}"
+msgstr "Звонок с {0}"
+
+#: src/components/call/VoiceChatCard.tsx
+msgid "Calling you…"
+msgstr "Звонит вам…"
+
+#: src/components/call/CallCard.tsx
+msgid "Calling…"
+msgstr "Вызов…"
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "Не удаётся связаться с сервером."
@@ -952,9 +995,18 @@ msgstr "Настройки чата"
 msgid "Check again"
 msgstr ""
 
+#: src/pages/RoutineEditor.tsx
+msgid "Check every"
+msgstr "Проверять каждые"
+
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Check failed"
 msgstr "Проверка не удалась"
+
+#. placeholder {0}: state.detail ?? ""
+#: src/pages/RoutineEditor.tsx
+msgid "Check failed: {0}"
+msgstr "Ошибка проверки: {0}"
 
 #: src/components/DesktopUpdates.tsx
 #: src/components/SoftwareUpdateSection.tsx
@@ -1122,6 +1174,10 @@ msgstr "Код"
 msgid "Collapse {0}"
 msgstr "Свернуть {0}"
 
+#: src/pages/Shell.tsx
+msgid "Collapse {label}"
+msgstr "Свернуть {label}"
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Color"
 msgstr "Цвет"
@@ -1139,6 +1195,7 @@ msgid "Coming soon"
 msgstr "Скоро"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/RoutineEditor.tsx
 msgid "Command"
 msgstr "Команда"
 
@@ -1219,7 +1276,12 @@ msgstr "Подтвердите пароль"
 msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Убедитесь, что URL доступен из этого сеанса браузера, и повторите тест."
 
+#: src/pages/SettingsOverlay.tsx
+msgid "Confirmations"
+msgstr ""
+
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -1270,6 +1332,7 @@ msgstr "Подключено. Его инструменты доступны и�
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 #: src/pages/shell/message-cards.tsx
@@ -1439,6 +1502,10 @@ msgstr "Не удалось удалить сервер MCP."
 #: src/pages/shell/dialogs.tsx
 msgid "Could not delete routine"
 msgstr "Не удалось удалить задачу"
+
+#: src/pages/shell/dialogs.tsx
+msgid "Could not delete section"
+msgstr "Не удалось удалить раздел"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not delete skill"
@@ -1616,6 +1683,7 @@ msgstr "Не удалось связаться с сервером модели.
 msgid "Could not reach the server"
 msgstr "Не удалось связаться с сервером"
 
+#: src/pages/KnowledgeSection.tsx
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not remove"
 msgstr "Не удалось удалить"
@@ -1723,6 +1791,7 @@ msgstr "Не удалось выполнить поиск по каталогу"
 msgid "Could not send reset email"
 msgstr "Не удалось отправить электронное письмо для сброса"
 
+#: src/components/call/IncomingCall.tsx
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "Не удалось отправить это"
@@ -1902,6 +1971,7 @@ msgstr ""
 msgid "days"
 msgstr "дни"
 
+#: src/components/call/IncomingCall.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Decline"
 msgstr "Отклонить"
@@ -1972,6 +2042,10 @@ msgid "Delete memories too"
 msgstr "Удалите воспоминания тоже"
 
 #: src/pages/Shell.tsx
+msgid "Delete section"
+msgstr "Удалить раздел"
+
+#: src/pages/Shell.tsx
 msgid "Delete space"
 msgstr "Удалить пространство"
 
@@ -2017,6 +2091,7 @@ msgstr "Настольное приложение"
 msgid "Desktop update"
 msgstr "Обновление настольного приложения"
 
+#: src/pages/RoutineRunHistory.tsx
 #: src/pages/Shell.tsx
 msgid "Details"
 msgstr "Подробности"
@@ -2028,6 +2103,10 @@ msgstr "Прямой MCP"
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
 msgstr ""
+
+#: src/components/composer/HoldToTalk.tsx
+msgid "Discard recording"
+msgstr "Удалить запись"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
@@ -2255,6 +2334,10 @@ msgstr "Развернуть"
 msgid "Expand {0}"
 msgstr "Развернуть {0}"
 
+#: src/pages/Shell.tsx
+msgid "Expand {label}"
+msgstr "Развернуть {label}"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
 msgstr "Экспорт"
@@ -2303,6 +2386,14 @@ msgstr "Неуспешный."
 msgid "Failure handling"
 msgstr "Обработка сбоев"
 
+#: src/pages/RoutineEditor.tsx
+msgid "Fields that mark a change"
+msgstr "Поля, указывающие на изменение"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Fields to compare, e.g. id, modifiedTime (optional)"
+msgstr "Поля для сравнения, например id, modifiedTime (необязательно)"
+
 #. placeholder {0}: attachmentSizeLabel(getMaxUploadSizeBytes())
 #: src/components/computer/FilesApp.tsx
 msgid "File exceeds the {0} upload limit."
@@ -2310,6 +2401,18 @@ msgstr "Файл превышает ограничение загрузки в {
 
 #: src/components/computer/ComputerWorkspace.tsx
 msgid "Files"
+msgstr ""
+
+#: src/pages/RoutineEditor.tsx
+msgid "Files or folders on the computer"
+msgstr "Файлы или папки на компьютере"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Files or folders, one per line"
+msgstr "Файлы или папки, по одному на строку"
+
+#: src/pages/GroupPanel.tsx
+msgid "Filter bots"
 msgstr ""
 
 #: src/pages/Artifacts.tsx
@@ -2356,6 +2459,10 @@ msgstr "Завершение подключения MCP…"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Flag unexpected actions"
 msgstr "Пометить неожиданные действия"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Fleet management"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Forgot password?"
@@ -2481,6 +2588,14 @@ msgstr "Высокий"
 msgid "High"
 msgstr ""
 
+#: src/components/composer/HoldToTalk.tsx
+msgid "Hold to talk"
+msgstr "Удерживайте, чтобы говорить"
+
+#: src/components/composer/HoldToTalk.tsx
+msgid "Hold to talk, release to send"
+msgstr "Удерживайте и говорите, отпустите — отправится"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "hour"
 msgstr "час"
@@ -2533,6 +2648,10 @@ msgstr ""
 #: src/pages/shell/message-cards.tsx
 msgid "Inbox & email"
 msgstr ""
+
+#: src/components/call/VoiceChatCard.tsx
+msgid "Incoming call"
+msgstr "Входящий звонок"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
@@ -2598,6 +2717,10 @@ msgstr "изолированный"
 msgid "Isolated preview — no access to your account"
 msgstr ""
 
+#: src/pages/Shell.tsx
+msgid "Its bots and groups are kept and leave the section."
+msgstr "Боты и группы из него сохранятся и выйдут из раздела."
+
 #: src/pages/shell/dialogs.tsx
 msgid "Its conversation, files, and routines will be permanently deleted. Bots it created stay in your list."
 msgstr "Его диалог, файлы и задачи будут безвозвратно удалены. Созданные им боты останутся в вашем списке."
@@ -2611,7 +2734,6 @@ msgid "Jump to replied message: {excerpt}"
 msgstr "Перейти к исходному сообщению: {excerpt}"
 
 #: src/lib/relative-time.ts
-#: src/pages/ActivityList.tsx
 msgid "just now"
 msgstr "только что"
 
@@ -2631,6 +2753,16 @@ msgstr "Знание"
 msgid "Language"
 msgstr "Язык"
 
+#. placeholder {0}: new Date(state.checkedAt).toLocaleString()
+#: src/pages/RoutineEditor.tsx
+msgid "Last check {0}: changed"
+msgstr "Последняя проверка {0}: есть изменения"
+
+#. placeholder {0}: new Date(state.checkedAt).toLocaleString()
+#: src/pages/RoutineEditor.tsx
+msgid "Last check {0}: no changes"
+msgstr "Последняя проверка {0}: без изменений"
+
 #: src/components/DesktopUpdates.tsx
 msgid "Later"
 msgstr "Позже"
@@ -2642,6 +2774,10 @@ msgstr ""
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Leave"
 msgstr "Выйти"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Lets this bot organize, retune and schedule the bots it creates. You approve each change."
+msgstr "Позволяет этому боту организовывать, настраивать и планировать работу созданных им ботов. Вы одобряете каждое изменение."
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
@@ -2667,9 +2803,14 @@ msgstr ""
 msgid "Listen"
 msgstr "Слушать"
 
+#: src/components/call/CallCard.tsx
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Listening"
 msgstr "Прослушивание"
+
+#: src/components/composer/HoldToTalk.tsx
+msgid "Listening…"
+msgstr "Слушаю…"
 
 #: src/pages/Shell.tsx
 msgid "Load earlier messages"
@@ -2738,6 +2879,10 @@ msgstr "Местный"
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
 msgstr "Локальный доступ позволяет ботам выполнять команды без запроса разрешения. Не используйте его на общих или публичных серверах."
+
+#: src/pages/HostComputerPrompt.tsx
+msgid "Local computer access requires the latest desktop app."
+msgstr ""
 
 #: src/pages/LocalSettings.tsx
 msgid "Local Server Settings"
@@ -2845,13 +2990,10 @@ msgstr "Средний"
 msgid "Medium"
 msgstr ""
 
+#. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
-msgid "Members ({GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
-msgstr "Участники ({GROUP_MEMBER_MIN} – {GROUP_MEMBER_MAX})"
-
-#: src/pages/GroupPanel.tsx
-msgid "Members (pick {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
-msgstr "Участники (выберите {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX})"
+msgid "Members ({0})"
+msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/MemorySettingsOverlay.tsx
@@ -2931,13 +3073,22 @@ msgstr "Свернуть"
 msgid "Minimize bots"
 msgstr "Свернуть ботов"
 
+#: src/components/call/CallCard.tsx
+msgid "Minimize call"
+msgstr "Свернуть звонок"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "minute"
 msgstr "минута"
 
+#: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "minutes"
 msgstr "минуты"
+
+#: src/components/call/VoiceChatCard.tsx
+msgid "Missed call"
+msgstr "Пропущенный звонок"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3021,6 +3172,10 @@ msgstr "Переместить в"
 #: src/components/call/CallCard.tsx
 msgid "Mute"
 msgstr "Выключить микрофон"
+
+#: src/components/call/CallCard.tsx
+msgid "Muted"
+msgstr "микрофон выключен"
 
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Auth.tsx
@@ -3123,6 +3278,7 @@ msgstr "Активности бота пока нет."
 msgid "No bots"
 msgstr "Нет ботов"
 
+#: src/pages/GroupPanel.tsx
 #: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
 msgstr "Ни один бот не подходит"
@@ -3162,6 +3318,10 @@ msgstr "Источники инструментов MCP или API пока не
 #: src/pages/McpServersOverlay.tsx
 msgid "No MCP servers yet."
 msgstr "Серверов MCP пока нет."
+
+#: src/pages/GroupPanel.tsx
+msgid "No members yet"
+msgstr ""
 
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
@@ -3273,11 +3433,6 @@ msgstr "Соединение OAuth не удалось"
 msgid "OAuth expired"
 msgstr "Срок действия OAuth истек"
 
-#. placeholder {0}: call.botName
-#: src/components/call/CallCard.tsx
-msgid "On a call with {0}"
-msgstr "Звонок с {0}"
-
 #: src/pages/RoutineEditor.tsx
 msgid "On a schedule"
 msgstr "По расписанию"
@@ -3313,6 +3468,15 @@ msgstr ""
 #: src/pages/Onboarding.tsx
 msgid "Open <0>{0}</0> to finish signing in."
 msgstr ""
+
+#: src/pages/Shell.tsx
+msgid "Open call"
+msgstr "Открыть звонок"
+
+#. placeholder {0}: call.botName
+#: src/components/call/CallCard.tsx
+msgid "Open chat with {0}"
+msgstr "Открыть чат с {0}"
 
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Open computer settings"
@@ -3452,10 +3616,18 @@ msgstr "Вставьте API-ключ и повторите тест."
 msgid "Paused"
 msgstr "Приостановлено"
 
+#: src/components/call/VoiceChatCard.tsx
+msgid "Phone call"
+msgstr "Телефонный звонок"
+
 #: src/pages/Shell.tsx
 #: src/pages/shell/chat-context.tsx
 msgid "Photo"
 msgstr "Фото"
+
+#: src/pages/GroupPanel.tsx
+msgid "Pick {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX}"
+msgstr ""
 
 #: src/lib/model-connection-preflight.ts
 msgid "Pick a model from the catalog."
@@ -3464,6 +3636,10 @@ msgstr "Выберите модель из каталога."
 #: src/lib/model-connection-preflight.ts
 msgid "Pick a model from the list or enter a model id served by this endpoint."
 msgstr "Выберите модель из списка или введите id модели, который обслуживает этот адрес."
+
+#: src/pages/RoutineEditor.tsx
+msgid "Pick a tool to check"
+msgstr "Выберите инструмент для проверки"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Pin"
@@ -3480,6 +3656,10 @@ msgstr "Воспроизведение…"
 #: src/pages/KnowledgeSection.tsx
 msgid "Plugin"
 msgstr "Плагин"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Post \"No changes\" in chat"
+msgstr "Писать «Без изменений» в чат"
 
 #: src/pages/RoutineEditor.tsx
 msgid "POST to"
@@ -3681,6 +3861,11 @@ msgstr "Удалить"
 msgid "Remove {0}"
 msgstr "Удалить {0}"
 
+#. placeholder {0}: bot.name
+#: src/pages/GroupPanel.tsx
+msgid "Remove {0} from the group"
+msgstr ""
+
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Remove {full}"
 msgstr "Удалить {full}"
@@ -3688,6 +3873,10 @@ msgstr "Удалить {full}"
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
 msgstr ""
+
+#: src/pages/RoutineEditor.tsx
+msgid "Remove change trigger"
+msgstr "Удалить триггер изменений"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove Git event"
@@ -3836,6 +4025,7 @@ msgstr "Восстановление вашего рабочего простр�
 #: src/components/AccountAccess.tsx
 #: src/pages/Auth.tsx
 #: src/pages/ModelBackupsSettings.tsx
+#: src/pages/SettingsOverlay.tsx
 msgid "Retry"
 msgstr "Повторить"
 
@@ -3847,6 +4037,11 @@ msgstr "Повторить попытку сейчас"
 #: src/pages/Shell.tsx
 msgid "Retry screen"
 msgstr "Повторить загрузку экрана"
+
+#. placeholder {0}: call.botName
+#: src/components/call/CallCard.tsx
+msgid "Return to call with {0}"
+msgstr "Вернуться к звонку с {0}"
 
 #: src/pages/McpOAuthCallback.tsx
 msgid "Return to Rakazo"
@@ -4075,6 +4270,10 @@ msgstr "Отправить код удаления"
 msgid "Send it"
 msgstr "Отправить"
 
+#: src/components/composer/HoldToTalk.tsx
+msgid "Send recording"
+msgstr "Отправить запись"
+
 #: src/pages/Auth.tsx
 msgid "Send reset link"
 msgstr "Отправить ссылку для сброса"
@@ -4158,6 +4357,10 @@ msgstr "Общие навыки"
 msgid "Shell"
 msgstr "Оболочка"
 
+#: src/pages/GroupPanel.tsx
+msgid "Show all"
+msgstr ""
+
 #: src/pages/Shell.tsx
 msgid "Show bots"
 msgstr "Показать ботов"
@@ -4177,6 +4380,10 @@ msgstr "Показать ещё"
 #: src/components/I18nBootstrap.tsx
 msgid "Show password"
 msgstr "Показать пароль"
+
+#: src/pages/GroupPanel.tsx
+msgid "Show selected"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Show settings"
@@ -4256,6 +4463,10 @@ msgstr "Сообщение Slack"
 msgid "Slack not enabled"
 msgstr "Slack не включен"
 
+#: src/components/composer/HoldToTalk.tsx
+msgid "Slide up to lock"
+msgstr "Проведите вверх, чтобы закрепить"
+
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Software update"
 msgstr "Обновление программного обеспечения"
@@ -4264,6 +4475,10 @@ msgstr "Обновление программного обеспечения"
 #: src/lib/user-error.ts
 msgid "Something went wrong. Try again."
 msgstr "Что-то пошло не так. Попробуйте ещё раз."
+
+#: src/pages/SettingsOverlay.tsx
+msgid "Space"
+msgstr ""
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
@@ -4296,6 +4511,10 @@ msgstr "Только озвучить"
 #: src/pages/Shell.tsx
 msgid "Speak this reply"
 msgstr "Озвучить этот ответ"
+
+#: src/components/call/CallCard.tsx
+msgid "Speaking"
+msgstr "говорит"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Speech model"
@@ -4478,6 +4697,7 @@ msgstr "Выбранный поставщик памяти недоступен 
 msgid "These saved settings can't be read. Remove it and add it again."
 msgstr ""
 
+#: src/components/call/CallCard.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
@@ -4492,6 +4712,10 @@ msgstr ""
 #: src/pages/Shell.tsx
 msgid "This bot runs on this computer, not a Linux desktop. Shell and files use your home folder."
 msgstr "Этот бот работает на этом компьютере, а не на рабочем столе Linux. Оболочка и файлы используют вашу домашнюю папку."
+
+#: src/components/call/IncomingCall.tsx
+msgid "This call is no longer ringing."
+msgstr "Этот звонок уже не активен."
 
 #: src/pages/Artifacts.tsx
 msgid "This can't be undone."
@@ -4605,6 +4829,22 @@ msgstr "К:"
 msgid "Today"
 msgstr "Сегодня"
 
+#: src/pages/RoutineEditor.tsx
+msgid "Tool arguments (JSON)"
+msgstr "Аргументы инструмента (JSON)"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Tool arguments must be a JSON object"
+msgstr "Аргументы должны быть объектом JSON"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Tool arguments must be JSON"
+msgstr "Аргументы должны быть в формате JSON"
+
+#: src/pages/RoutineEditor.tsx
+msgid "Tool name"
+msgstr "Название инструмента"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Tool sources"
 msgstr "Источники инструментов"
@@ -4612,6 +4852,10 @@ msgstr "Источники инструментов"
 #: src/pages/PluginsOverlay.tsx
 msgid "Tools"
 msgstr "Инструменты"
+
+#: src/components/composer/HoldToTalk.tsx
+msgid "Transcribing…"
+msgstr "Распознаю…"
 
 #: src/components/call/CallCard.tsx
 msgid "Transcript"
@@ -4801,6 +5045,10 @@ msgstr ""
 msgid "Use this model"
 msgstr "Используйте эту модель"
 
+#: src/pages/memory-providers/HonchoSettingsForm.tsx
+msgid "Use up to 512 letters, digits, _ or -."
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Use your own key"
 msgstr "Использовать свой ключ"
@@ -4839,15 +5087,10 @@ msgid "View chat"
 msgstr "Открыть чат"
 
 #: src/pages/SettingsOverlay.tsx
-#: src/pages/Shell.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "Голос"
-
-#: src/components/call/VoiceChatCard.tsx
-msgid "Voice chat"
-msgstr "Голосовой чат"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Wait a moment and test again."
@@ -4911,8 +5154,16 @@ msgid "What to return"
 msgstr "Что вернуть"
 
 #: src/pages/RoutineEditor.tsx
+msgid "What to watch"
+msgstr "Что отслеживать"
+
+#: src/pages/RoutineEditor.tsx
 msgid "When a webhook fires"
 msgstr "Когда срабатывает вебхук"
+
+#: src/pages/RoutineEditor.tsx
+msgid "When something changes"
+msgstr "При изменениях"
 
 #: src/pages/RoutineEditor.tsx
 msgid "When to run"
@@ -4934,6 +5185,10 @@ msgstr ""
 #: src/pages/Auth.tsx
 msgid "Working…"
 msgstr "Выполняется…"
+
+#: src/pages/memory-providers/HonchoSettingsForm.tsx
+msgid "Workspace"
+msgstr ""
 
 #: src/components/computer/TerminalApp.tsx
 msgid "Wrote {path}"
@@ -4959,6 +5214,10 @@ msgstr "Вы можете закрыть эту вкладку, если она 
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this window."
 msgstr "Вы можете закрыть это окно."
+
+#: src/components/call/VoiceChatCard.tsx
+msgid "You declined"
+msgstr "Вы отклонили"
 
 #: src/pages/Shell.tsx
 msgid "You have control"

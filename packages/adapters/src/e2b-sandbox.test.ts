@@ -3,7 +3,12 @@ import { Sandbox, SandboxError, SandboxNotFoundError, TimeoutError } from "@e2b/
 import { describe, expect, it, vi } from "vitest";
 import { shouldSkipPortableWorkspaceFile } from "./computer-workspace.js";
 import type { E2BSandboxSdk } from "./e2b-sandbox.js";
-import { E2BSandboxProvider, e2bCreateOptions, isSandboxGoneError } from "./e2b-sandbox.js";
+import {
+  E2BSandboxProvider,
+  e2bCreateOptions,
+  isSandboxGoneError,
+  keepingAwake,
+} from "./e2b-sandbox.js";
 import { E2B_COMPUTER_TEMPLATE, E2B_DESKTOP_TEMPLATE } from "./e2b-template.js";
 import { desktopCommandResponder } from "./linux-desktop.test-support.js";
 
@@ -885,3 +890,58 @@ describe("sandbox-gone detection", () => {
 function _unwrapSetupCommand(command: string): string {
   return command.startsWith("bash -c '") ? command.slice(9, -1).replaceAll(`'"'"'`, "'") : command;
 }
+
+describe("keepingAwake", () => {
+  it("finishes the first timeout extension before reading", async () => {
+    const order: string[] = [];
+    const desktop = {
+      setTimeout: vi.fn(async () => {
+        await Promise.resolve();
+        order.push("extended");
+      }),
+    };
+    const items = (async function* () {
+      order.push("read");
+      yield 1;
+    })();
+    for await (const _ of keepingAwake(desktop, items)) {
+      // drain
+    }
+    expect(order).toEqual(["extended", "read"]);
+  });
+
+  it("extends the sandbox timeout while a long export is still reading", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("SANDBOX_IDLE_MS", "180000");
+    try {
+      const desktop = { setTimeout: vi.fn(async () => undefined) };
+      let finish!: () => void;
+      const slow = (async function* () {
+        yield "first";
+        await new Promise<void>((resolve) => (finish = resolve));
+        yield "last";
+      })();
+      const read: string[] = [];
+      const done = (async () => {
+        for await (const item of keepingAwake(desktop, slow)) read.push(item);
+      })();
+
+      await vi.advanceTimersByTimeAsync(0);
+      expect(desktop.setTimeout).toHaveBeenCalledTimes(1);
+      expect(read).toEqual(["first"]);
+      await vi.advanceTimersByTimeAsync(200_000);
+      expect(desktop.setTimeout).toHaveBeenCalledWith(180_000);
+      expect(desktop.setTimeout.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      finish();
+      await done;
+      const calls = desktop.setTimeout.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(600_000);
+      expect(desktop.setTimeout).toHaveBeenCalledTimes(calls);
+      expect(read).toEqual(["first", "last"]);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    }
+  });
+});

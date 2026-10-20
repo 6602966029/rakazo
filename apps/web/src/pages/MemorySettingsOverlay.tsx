@@ -15,7 +15,7 @@ import {
 } from "@rakazo/ui-web";
 import { XIcon } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { rpc } from "../lib/rpc";
+import { useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
 import { SpaceMemorySection } from "./KnowledgeSection";
 import {
@@ -69,6 +69,7 @@ export function MemorySettingsOverlay({
   embedded?: boolean;
   onBusyChange?: (busy: boolean) => void;
 }) {
+  const rpc = useSpaceRpc();
   const { t } = useLingui();
   const providerSelectId = useId();
   const defaultRegistration = defaultMemoryProviderSettings();
@@ -159,7 +160,7 @@ export function MemorySettingsOverlay({
             <DialogTitle className="text-2xl font-medium text-foreground">
               <Trans>Memory</Trans>
             </DialogTitle>
-            {registration ? (
+            {registration?.description ? (
               <DialogDescription className="mt-1 text-[13.5px] text-muted-foreground/70">
                 {registration.description}
               </DialogDescription>
@@ -173,7 +174,7 @@ export function MemorySettingsOverlay({
             <XIcon />
           </DialogClose>
         </div>
-      ) : registration ? (
+      ) : registration?.description ? (
         <p className="px-6 pt-1 text-[13.5px] text-muted-foreground/70 sm:px-8">
           {registration.description}
         </p>
