@@ -8,6 +8,7 @@ export function RunErrorSheetContainer({
 }: {
   children: ReactNode;
   onClose: () => void;
+  expanded: boolean;
 }) {
   const tokens = useMobileTokens();
   return (

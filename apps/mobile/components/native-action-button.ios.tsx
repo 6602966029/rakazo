@@ -18,7 +18,7 @@ import {
   strokeBorder,
   tint,
 } from "@expo/ui/swift-ui/modifiers";
-import { View } from "react-native";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 import { useMobileTokens, useResolvedAppearance } from "../lib/native";
 import type { ActionProminence, NativeActionButtonProps } from "../lib/native-controls";
 import { actionFills, actionProminence, iosAtLeast } from "../lib/native-controls";
@@ -41,6 +41,7 @@ export function NativeActionButton({
   selected,
 }: NativeActionButtonProps) {
   const tokens = useMobileTokens();
+  const { fontScale } = useWindowDimensions();
   const scheme = useResolvedAppearance();
   const inactive = disabled || busy;
   const stretches = actionFills(prominence, fill);
@@ -51,20 +52,25 @@ export function NativeActionButton({
   const filled = !inactive && effectiveProminence === "primary";
   const ownLabel = stretches || filled || variant !== undefined;
   const rectangular = variant === "rectangular";
+  const measuredWidth = StyleSheet.flatten(style)?.width;
   const primary = effectiveProminence === "primary";
   const labelModifiers = variant
     ? [
         font({
-          textStyle: rectangular ? "subheadline" : "callout",
+          ...(rectangular ? { size: 15 * fontScale } : { textStyle: "callout" as const }),
           weight: rectangular ? "semibold" : "medium",
         }),
         foregroundStyle(
           rectangular ? (primary ? tokens.primaryForeground : tokens.foreground) : tokens.link,
         ),
-        padding({ horizontal: rectangular ? 14 : 0, vertical: rectangular ? 11 : 8 }),
+        padding({ horizontal: rectangular ? 14 : 0, vertical: rectangular ? 0 : 8 }),
         frame({
-          ...(stretches ? { maxWidth: Infinity } : {}),
-          ...(rectangular ? { minHeight: 44 } : {}),
+          ...(stretches
+            ? typeof measuredWidth === "number"
+              ? { width: measuredWidth }
+              : { maxWidth: Infinity }
+            : {}),
+          ...(rectangular ? { height: 44 } : {}),
         }),
         ...(rectangular
           ? [
@@ -111,6 +117,7 @@ export function NativeActionButton({
         modifiers={[
           ...(accessibilityActions?.length ? [accessibilityHidden(true)] : []),
           buttonStyle(variant ? "plain" : swiftStyle(effectiveProminence)),
+          ...(rectangular && stretches ? [frame({ maxWidth: Infinity })] : []),
           controlSize(
             small ? "small" : stretches ? "large" : prominence === "quiet" ? "small" : "regular",
           ),

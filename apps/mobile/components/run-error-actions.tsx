@@ -14,12 +14,14 @@ export function RunErrorActions({
   const { t, locale } = useI18n();
   const { width, fontScale } = useWindowDimensions();
   const [wrapped, setWrapped] = useState(false);
+  const [actionWidth, setActionWidth] = useState(0);
   useEffect(() => setWrapped(false), [width, fontScale, locale]);
   const stacked = wrapped || fontScale > 1.3;
   return (
     <View
       style={styles.actions}
       onLayout={({ nativeEvent }) => {
+        setActionWidth(nativeEvent.layout.width);
         // Native intrinsic widths include translated labels. Once they wrap, fill both rows.
         if (!stacked && nativeEvent.layout.height >= 2 * 44) setWrapped(true);
       }}
@@ -36,7 +38,10 @@ export function RunErrorActions({
             prominence={primary ? "primary" : "secondary"}
             variant="rectangular"
             fill={stacked}
-            style={{ flexBasis: stacked ? "100%" : "auto" }}
+            style={{
+              width: stacked && actionWidth ? actionWidth : undefined,
+              flexBasis: stacked ? "100%" : "auto",
+            }}
           />
         ) : null,
       )}

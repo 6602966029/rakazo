@@ -209,3 +209,16 @@ it("retains a valid future leap-day reset", () => {
     ).summary,
   ).toBe("Your OpenRouter key hit its weekly limit. Resets Feb 29.");
 });
+
+it.each([
+  ["403: OpenRouter weekly key limit exceeded", "key", "weekly"],
+  ["402: Monthly spending limit exceeded", "spending", "monthly"],
+  ["429: insufficient_quota", "credit", "none"],
+  ["429: Too many requests", "rate", undefined],
+  ["401: Invalid API key", "auth", undefined],
+  ["404: Model unavailable", "model", undefined],
+])("exposes shared cause metadata for %s", (details, kind, period) => {
+  const error = normalizeRunError(details);
+  expect(error.kind).toBe(kind);
+  expect(error.period).toBe(period);
+});

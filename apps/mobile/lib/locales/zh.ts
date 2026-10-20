@@ -11,8 +11,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Model provider": "模型提供商",
   "Change model": "更换模型",
   "Technical details": "技术详情",
-  "The provider did not report whether this was a personal or shared key.":
-    "提供商未说明使用的是个人密钥还是共享密钥。",
   Member: "成员",
   Owner: "所有者",
   Chats: "聊天",
@@ -863,4 +861,32 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Try again": "重试",
   "Your session expired": "会话已过期",
   "The server had a problem": "服务器出现问题",
+  "The bot couldn't reply because its provider's daily limit was reached.":
+    "机器人无法回复，因为已达到其提供商的每日限额。",
+  "The bot couldn't reply because its provider's weekly limit was reached.":
+    "机器人无法回复，因为已达到其提供商的每周限额。",
+  "The bot couldn't reply because its provider's monthly limit was reached.":
+    "机器人无法回复，因为已达到其提供商的每月限额。",
+  "The bot couldn't reply because its provider's usage limit was reached.":
+    "机器人无法回复，因为已达到其提供商的使用限额。",
+  "The provider received too many requests to answer this bot.":
+    "提供商收到的请求过多，无法为此机器人提供回复。",
+  "The provider refused the key this bot used for its reply.":
+    "提供商拒绝了此机器人用于回复的密钥。",
+  "The provider couldn't serve the model selected for this bot.":
+    "提供商无法提供为此机器人选择的模型。",
+  "The bot couldn't finish its reply. Technical details includes the reported error.":
+    "机器人未能完成回复。技术详情包含报告的错误。",
+  "Set your own key opens connection settings to add a provider key.":
+    "“设置自己的密钥”会打开连接设置，以添加提供商密钥。",
+  "Change model opens this bot's settings to choose another model.":
+    "“更换模型”会打开此机器人的设置，以选择其他模型。",
+  "The bot couldn't reply because the key it uses reached its daily limit.":
+    "机器人无法回复，因为它使用的密钥已达到每日限额。",
+  "The bot couldn't reply because the key it uses reached its weekly limit.":
+    "机器人无法回复，因为它使用的密钥已达到每周限额。",
+  "The bot couldn't reply because the key it uses reached its monthly limit.":
+    "机器人无法回复，因为它使用的密钥已达到每月限额。",
+  "The bot couldn't reply because the key it uses reached its usage limit.":
+    "机器人无法回复，因为它使用的密钥已达到使用限额。",
 };

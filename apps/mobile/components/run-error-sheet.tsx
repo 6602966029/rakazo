@@ -1,11 +1,15 @@
 import { normalizeRunError } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useReducer, useState } from "react";
-import { Platform, ScrollView, Text, View } from "react-native";
+import { Platform, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "../lib/i18n";
 import { useMobileTokens } from "../lib/native";
-import { parseRunDiagnostic, runErrorExplanation } from "../lib/run-error-presentation";
+import {
+  parseRunDiagnostic,
+  runErrorExplanation,
+  runErrorWhatHappened,
+} from "../lib/run-error-presentation";
 import { NativeSymbol } from "./native-symbol";
 import { RunErrorActions, RunErrorTextAction } from "./run-error-actions";
 import { RunErrorSheetContainer } from "./run-error-sheet-container";
@@ -55,6 +59,7 @@ export function RunErrorSheet({
   const { t, locale } = useI18n();
   const tokens = useMobileTokens();
   const insets = useSafeAreaInsets();
+  const { fontScale, height } = useWindowDimensions();
   const error = useRunError(details, false);
   const [technical, setTechnical] = useState(false);
   useEffect(() => setTechnical(false), [details]);
@@ -67,46 +72,65 @@ export function RunErrorSheet({
   );
   const textStyle = { color: tokens.foreground, fontSize: 16, lineHeight: 24 };
   return (
-    <RunErrorSheetContainer onClose={onClose}>
+    <RunErrorSheetContainer onClose={onClose} expanded={technical}>
       <View
         accessibilityViewIsModal
         style={{
-          flex: 1,
+          flex: Platform.OS === "ios" ? undefined : 1,
           backgroundColor: tokens.background,
           paddingTop: Platform.OS === "ios" ? 12 : insets.top + 12,
-          paddingBottom: insets.bottom,
+          paddingBottom: Platform.OS === "ios" ? 0 : insets.bottom,
         }}
       >
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", padding: 16 }}>
-          <RunErrorTextAction label={t("Done")} onPress={onClose} />
-        </View>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 16 }}>
+        <ScrollView
+          style={{ flexGrow: 0, maxHeight: height * 0.9 - 28 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 16, gap: 16 }}
+        >
           <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-            <NativeSymbol
-              ios="exclamationmark.triangle.fill"
-              android="warning"
-              size={18}
-              color={tokens.warning}
-            />
-            <Text style={{ flex: 1, color: tokens.foreground, fontSize: 17, fontWeight: "600" }}>
+            <View style={{ paddingTop: 2.5 * fontScale }}>
+              <NativeSymbol
+                ios="exclamationmark.triangle.fill"
+                android="warning"
+                size={17 * fontScale}
+                color={tokens.warning}
+              />
+            </View>
+            <Text
+              style={{
+                flex: 1,
+                color: tokens.foreground,
+                fontSize: 17,
+                lineHeight: 22,
+                fontWeight: "600",
+              }}
+            >
               {error.summary}
             </Text>
+            <View style={{ marginTop: 1.5 * fontScale - 8 }}>
+              <RunErrorTextAction label={t("Done")} onPress={onClose} />
+            </View>
           </View>
           {explanation ? (
             <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{explanation}</Text>
           ) : null}
+          <Text style={{ color: tokens.mutedForeground, fontSize: 15, lineHeight: 21 }}>
+            {[
+              runErrorWhatHappened(t, error),
+              error.recovery === "connection"
+                ? t("Set your own key opens connection settings to add a provider key.")
+                : null,
+              error.recovery && onModel
+                ? t("Change model opens this bot's settings to choose another model.")
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          </Text>
           {error.recovery ? (
-            <>
-              {error.recovery === "connection" ? (
-                <Text style={{ color: tokens.mutedForeground, fontSize: 14, lineHeight: 20 }}>
-                  {t("The provider did not report whether this was a personal or shared key.")}
-                </Text>
-              ) : null}
-              <RunErrorActions
-                onConnection={error.recovery === "connection" ? onConnection : undefined}
-                onModel={onModel}
-              />
-            </>
+            <RunErrorActions
+              onConnection={error.recovery === "connection" ? onConnection : undefined}
+              onModel={onModel}
+            />
           ) : null}
           <RunErrorTextAction
             label={t("Technical details")}

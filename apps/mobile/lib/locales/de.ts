@@ -12,8 +12,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Model provider": "Modellanbieter",
   "Change model": "Modell wechseln",
   "Technical details": "Technische Details",
-  "The provider did not report whether this was a personal or shared key.":
-    "Der Anbieter hat nicht angegeben, ob ein persönlicher oder geteilter Schlüssel verwendet wurde.",
   Member: "Mitglied",
   Owner: "Inhaber",
   Chats: "Chats",
@@ -900,4 +898,32 @@ export const DE_MESSAGES: Record<string, string> = {
   "Try again": "Erneut versuchen",
   "Your session expired": "Deine Sitzung ist abgelaufen",
   "The server had a problem": "Auf dem Server ist ein Problem aufgetreten",
+  "The bot couldn't reply because its provider's daily limit was reached.":
+    "Der Bot konnte nicht antworten, weil das Tageslimit seines Anbieters erreicht wurde.",
+  "The bot couldn't reply because its provider's weekly limit was reached.":
+    "Der Bot konnte nicht antworten, weil das Wochenlimit seines Anbieters erreicht wurde.",
+  "The bot couldn't reply because its provider's monthly limit was reached.":
+    "Der Bot konnte nicht antworten, weil das Monatslimit seines Anbieters erreicht wurde.",
+  "The bot couldn't reply because its provider's usage limit was reached.":
+    "Der Bot konnte nicht antworten, weil das Nutzungslimit seines Anbieters erreicht wurde.",
+  "The provider received too many requests to answer this bot.":
+    "Der Anbieter hat zu viele Anfragen erhalten, um diesem Bot zu antworten.",
+  "The provider refused the key this bot used for its reply.":
+    "Der Anbieter hat den Schlüssel abgelehnt, den dieser Bot für seine Antwort verwendet hat.",
+  "The provider couldn't serve the model selected for this bot.":
+    "Der Anbieter konnte das für diesen Bot ausgewählte Modell nicht bereitstellen.",
+  "The bot couldn't finish its reply. Technical details includes the reported error.":
+    "Der Bot konnte seine Antwort nicht abschließen. Die technischen Details enthalten den gemeldeten Fehler.",
+  "Set your own key opens connection settings to add a provider key.":
+    "„Eigenen Schlüssel hinterlegen“ öffnet die Verbindungseinstellungen, um einen Anbieterschlüssel hinzuzufügen.",
+  "Change model opens this bot's settings to choose another model.":
+    "„Modell wechseln“ öffnet die Einstellungen dieses Bots, um ein anderes Modell auszuwählen.",
+  "The bot couldn't reply because the key it uses reached its daily limit.":
+    "Der Bot konnte nicht antworten, weil der verwendete Schlüssel sein Tageslimit erreicht hat.",
+  "The bot couldn't reply because the key it uses reached its weekly limit.":
+    "Der Bot konnte nicht antworten, weil der verwendete Schlüssel sein Wochenlimit erreicht hat.",
+  "The bot couldn't reply because the key it uses reached its monthly limit.":
+    "Der Bot konnte nicht antworten, weil der verwendete Schlüssel sein Monatslimit erreicht hat.",
+  "The bot couldn't reply because the key it uses reached its usage limit.":
+    "Der Bot konnte nicht antworten, weil der verwendete Schlüssel sein Nutzungslimit erreicht hat.",
 };

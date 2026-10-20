@@ -9,7 +9,7 @@ export function runErrorExplanation(t: RunErrorTranslator, connection: boolean, 
 }
 
 /** Only human-readable fields leave this boundary. Copy retains the original diagnostic. */
-export function parseRunDiagnostic(raw: string, locale: string) {
+export function parseRunDiagnostic(raw: string, locale: string, now = Date.now()) {
   const prefix = /^\s*(\d{3})\s*:\s*/.exec(raw);
   const body = raw.slice(prefix?.[0].length ?? 0);
   let record: Record<string, unknown> = {};
@@ -35,7 +35,7 @@ export function parseRunDiagnostic(raw: string, locale: string) {
   let resets: string | undefined;
   if (typeof reset === "string" && /^\d{4}-\d{2}-\d{2}(?:T[\d:.]+Z)?$/.test(reset)) {
     const date = new Date(reset);
-    if (Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === reset.slice(0, 10)) {
+    if (date.getTime() > now && date.toISOString().slice(0, 10) === reset.slice(0, 10)) {
       resets = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(
         date,
       );
@@ -56,4 +56,45 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 function readable(value: string) {
   return value.replace(/[{}[\]"“”]/g, "").trim();
+}
+
+/** The shared classifier owns error meaning; recovery actions only open settings. */
+export function runErrorWhatHappened(
+  t: RunErrorTranslator,
+  error: { kind?: string; period?: string },
+) {
+  if (error.kind === "key") {
+    switch (error.period) {
+      case "daily":
+        return t("The bot couldn't reply because the key it uses reached its daily limit.");
+      case "weekly":
+        return t("The bot couldn't reply because the key it uses reached its weekly limit.");
+      case "monthly":
+        return t("The bot couldn't reply because the key it uses reached its monthly limit.");
+      default:
+        return t("The bot couldn't reply because the key it uses reached its usage limit.");
+    }
+  }
+  if (error.kind === "credit" || error.kind === "spending") {
+    switch (error.period) {
+      case "daily":
+        return t("The bot couldn't reply because its provider's daily limit was reached.");
+      case "weekly":
+        return t("The bot couldn't reply because its provider's weekly limit was reached.");
+      case "monthly":
+        return t("The bot couldn't reply because its provider's monthly limit was reached.");
+      default:
+        return t("The bot couldn't reply because its provider's usage limit was reached.");
+    }
+  }
+  switch (error.kind) {
+    case "rate":
+      return t("The provider received too many requests to answer this bot.");
+    case "auth":
+      return t("The provider refused the key this bot used for its reply.");
+    case "model":
+      return t("The provider couldn't serve the model selected for this bot.");
+    default:
+      return t("The bot couldn't finish its reply. Technical details includes the reported error.");
+  }
 }

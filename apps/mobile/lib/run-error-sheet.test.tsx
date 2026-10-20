@@ -27,7 +27,7 @@ vi.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
 }));
 vi.mock("expo-clipboard", () => ({ setStringAsync: vi.fn() }));
-vi.mock("./native", () => ({ useMobileTokens: () => ({}) }));
+vi.mock("./native", () => ({ useMobileTokens: () => ({}), useResolvedAppearance: () => "light" }));
 vi.mock("./i18n", () => ({
   useI18n: () => ({
     locale: "en",
@@ -65,13 +65,15 @@ describe("run error recovery", () => {
     act(() => vi.advanceTimersByTime(1000));
     expect(node.textContent).toBe("OpenRouter key hit its weekly limit.");
   });
-  it("shows recovery and ownership uncertainty before diagnostics, and copies only on request", () => {
+  it("shows useful cause and recovery information before diagnostics, and copies only on request", () => {
     const onConnection = vi.fn();
     const onModel = vi.fn();
     const node = mount(
       createElement(RunErrorSheet, { details, onClose: vi.fn(), onConnection, onModel }),
     );
-    expect(node.textContent).toContain("personal or shared key");
+    expect(node.textContent).toContain("key it uses reached its weekly limit");
+    expect(node.textContent).toContain("opens connection settings");
+    expect(node.textContent).toContain("opens this bot's settings");
     expect(node.textContent).not.toContain("403:");
     const click = (label: string) =>
       act(() => {
@@ -104,7 +106,24 @@ describe("run error recovery", () => {
     );
     expect(node.textContent).toContain("Change model");
     expect(node.textContent).not.toContain("Set your own key");
-    expect(node.textContent).not.toContain("personal or shared key");
+    expect(node.textContent).not.toContain("your key or a shared key");
+  });
+  it("omits the reset field after its date passes while the sheet remains open", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-20T23:59:59Z"));
+    const node = mount(
+      createElement(RunErrorSheet, { details, onClose: vi.fn(), onConnection: vi.fn() }),
+    );
+    act(() => {
+      Array.from(node.querySelectorAll("button"))
+        .find((button) => button.textContent === "Technical details")
+        ?.click();
+    });
+    expect(node.textContent).toContain("Resets");
+    act(() => vi.advanceTimersByTime(1000));
+    expect(Array.from(node.querySelectorAll("p")).some((p) => p.textContent === "Resets")).toBe(
+      false,
+    );
   });
   it("does not mount a native modal when closed", () => {
     const node = mount(

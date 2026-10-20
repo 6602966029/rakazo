@@ -65,7 +65,7 @@ export function NativeActionButton({
           paddingHorizontal:
             variant === "rectangular" ? 14 : variant === "text" ? 0 : small ? 6 : compact ? 0 : 16,
           paddingVertical:
-            variant === "rectangular" ? 11 : variant === "text" ? 8 : small ? 6 : compact ? 8 : 12,
+            variant === "rectangular" ? 0 : variant === "text" ? 8 : small ? 6 : compact ? 8 : 12,
           backgroundColor: colors.background,
           borderWidth: colors.border ? 1 : 0,
           borderColor: colors.border,

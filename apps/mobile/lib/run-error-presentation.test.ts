@@ -6,6 +6,7 @@ describe("readable provider diagnostics", () => {
     const result = parseRunDiagnostic(
       `${prefix}{"status":403,"error":{"message":"Weekly key limit exceeded","metadata":{"reset_at":"2026-10-21T00:00:00Z"}}}`,
       "en",
+      Date.parse("2026-10-20T00:00:00Z"),
     );
     expect(result).toMatchObject({
       status: "403",
@@ -42,3 +43,16 @@ describe("readable provider diagnostics", () => {
     ).toBe("The weekly limit for key was reached");
   });
 });
+
+it.each(["2026-10-19T00:00:00Z", "2026-10-20T00:00:00Z"])(
+  "omits past or current reset %s",
+  (reset) => {
+    expect(
+      parseRunDiagnostic(
+        JSON.stringify({ message: "weekly limit", metadata: { reset_at: reset } }),
+        "en",
+        Date.parse("2026-10-20T00:00:00Z"),
+      ).resets,
+    ).toBeUndefined();
+  },
+);

@@ -11,8 +11,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Model provider": "Провайдер модели",
   "Change model": "Сменить модель",
   "Technical details": "Технические сведения",
-  "The provider did not report whether this was a personal or shared key.":
-    "Провайдер не сообщил, был ли использован личный или общий ключ.",
   Member: "Участник",
   Owner: "Владелец",
   Chats: "Чаты",
@@ -896,4 +894,32 @@ export const RU_MESSAGES: Record<string, string> = {
   "Try again": "Повторить",
   "Your session expired": "Сеанс истёк",
   "The server had a problem": "На сервере произошла ошибка",
+  "The bot couldn't reply because its provider's daily limit was reached.":
+    "Бот не смог ответить, потому что достигнут дневной лимит его провайдера.",
+  "The bot couldn't reply because its provider's weekly limit was reached.":
+    "Бот не смог ответить, потому что достигнут недельный лимит его провайдера.",
+  "The bot couldn't reply because its provider's monthly limit was reached.":
+    "Бот не смог ответить, потому что достигнут месячный лимит его провайдера.",
+  "The bot couldn't reply because its provider's usage limit was reached.":
+    "Бот не смог ответить, потому что достигнут лимит использования его провайдера.",
+  "The provider received too many requests to answer this bot.":
+    "Провайдер получил слишком много запросов и не смог ответить этому боту.",
+  "The provider refused the key this bot used for its reply.":
+    "Провайдер отклонил ключ, который бот использовал для ответа.",
+  "The provider couldn't serve the model selected for this bot.":
+    "Провайдер не смог предоставить модель, выбранную для этого бота.",
+  "The bot couldn't finish its reply. Technical details includes the reported error.":
+    "Бот не смог завершить ответ. В технических деталях указана полученная ошибка.",
+  "Set your own key opens connection settings to add a provider key.":
+    "«Добавить свой ключ» открывает настройки подключения для добавления ключа провайдера.",
+  "Change model opens this bot's settings to choose another model.":
+    "«Сменить модель» открывает настройки этого бота для выбора другой модели.",
+  "The bot couldn't reply because the key it uses reached its daily limit.":
+    "Бот не смог ответить, потому что используемый им ключ достиг дневного лимита.",
+  "The bot couldn't reply because the key it uses reached its weekly limit.":
+    "Бот не смог ответить, потому что используемый им ключ достиг недельного лимита.",
+  "The bot couldn't reply because the key it uses reached its monthly limit.":
+    "Бот не смог ответить, потому что используемый им ключ достиг месячного лимита.",
+  "The bot couldn't reply because the key it uses reached its usage limit.":
+    "Бот не смог ответить, потому что используемый им ключ достиг лимита использования.",
 };

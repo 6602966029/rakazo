@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useI18n } from "../lib/i18n";
-import { useMobileTokens } from "../lib/native";
+import { useMobileTokens, useResolvedAppearance } from "../lib/native";
 import { runErrorExplanation } from "../lib/run-error-presentation";
 import { NativeSymbol } from "./native-symbol";
 import { RunErrorActions } from "./run-error-actions";
@@ -23,6 +23,7 @@ export function ThreadErrorNotice({
 }) {
   const { t, locale } = useI18n();
   const tokens = useMobileTokens();
+  const dark = useResolvedAppearance() === "dark";
   const { fontScale } = useWindowDimensions();
   if (!error && !summary) return null;
   const explanation = runErrorExplanation(t, !!onConnection, !!onModel);
@@ -47,21 +48,32 @@ export function ThreadErrorNotice({
     <View
       accessibilityRole="alert"
       accessibilityLiveRegion="assertive"
-      style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+      style={[
+        styles.card,
+        {
+          backgroundColor: tokens.card,
+          borderColor: dark ? tokens.mutedForeground : tokens.border,
+        },
+      ]}
     >
       <View style={styles.header}>
-        <View style={{ paddingTop: Math.max(0, (20 * fontScale - 18) / 2) }}>
+        <View
+          style={{
+            width: 18 * fontScale,
+            paddingTop: Math.max(0, (20 * fontScale - 15 * fontScale) / 2),
+          }}
+        >
           <NativeSymbol
             ios="exclamationmark.triangle.fill"
             android="warning"
-            size={18}
+            size={15 * fontScale}
             color={tokens.warning}
           />
         </View>
         <Text style={[styles.headline, { color: tokens.foreground }]}>{summary ?? error}</Text>
       </View>
       {hasBody ? (
-        <View style={styles.body}>
+        <View style={[styles.body, { marginLeft: 18 * fontScale + 8 }]}>
           {summary && error ? (
             <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{error}</Text>
           ) : null}

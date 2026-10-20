@@ -11,8 +11,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Model provider": "Modelprovider",
   "Change model": "Model wijzigen",
   "Technical details": "Technische details",
-  "The provider did not report whether this was a personal or shared key.":
-    "De provider heeft niet gemeld of dit een persoonlijke of gedeelde sleutel was.",
   Member: "Lid",
   Owner: "Eigenaar",
   Chats: "Chats",
@@ -856,4 +854,32 @@ export const NL_MESSAGES: Record<string, string> = {
   "Try again": "Opnieuw proberen",
   "Your session expired": "Je sessie is verlopen",
   "The server had a problem": "Er is een probleem met de server",
+  "The bot couldn't reply because its provider's daily limit was reached.":
+    "De bot kon niet antwoorden omdat de daglimiet van zijn provider is bereikt.",
+  "The bot couldn't reply because its provider's weekly limit was reached.":
+    "De bot kon niet antwoorden omdat de weeklimiet van zijn provider is bereikt.",
+  "The bot couldn't reply because its provider's monthly limit was reached.":
+    "De bot kon niet antwoorden omdat de maandlimiet van zijn provider is bereikt.",
+  "The bot couldn't reply because its provider's usage limit was reached.":
+    "De bot kon niet antwoorden omdat de gebruikslimiet van zijn provider is bereikt.",
+  "The provider received too many requests to answer this bot.":
+    "De provider heeft te veel verzoeken ontvangen om deze bot te antwoorden.",
+  "The provider refused the key this bot used for its reply.":
+    "De provider heeft de sleutel geweigerd die deze bot voor zijn antwoord gebruikte.",
+  "The provider couldn't serve the model selected for this bot.":
+    "De provider kon het voor deze bot gekozen model niet aanbieden.",
+  "The bot couldn't finish its reply. Technical details includes the reported error.":
+    "De bot kon zijn antwoord niet afronden. De technische details bevatten de gemelde fout.",
+  "Set your own key opens connection settings to add a provider key.":
+    "‘Eigen sleutel instellen’ opent de verbindingsinstellingen om een providersleutel toe te voegen.",
+  "Change model opens this bot's settings to choose another model.":
+    "‘Model wijzigen’ opent de instellingen van deze bot om een ander model te kiezen.",
+  "The bot couldn't reply because the key it uses reached its daily limit.":
+    "De bot kon niet antwoorden omdat de gebruikte sleutel zijn daglimiet heeft bereikt.",
+  "The bot couldn't reply because the key it uses reached its weekly limit.":
+    "De bot kon niet antwoorden omdat de gebruikte sleutel zijn weeklimiet heeft bereikt.",
+  "The bot couldn't reply because the key it uses reached its monthly limit.":
+    "De bot kon niet antwoorden omdat de gebruikte sleutel zijn maandlimiet heeft bereikt.",
+  "The bot couldn't reply because the key it uses reached its usage limit.":
+    "De bot kon niet antwoorden omdat de gebruikte sleutel zijn gebruikslimiet heeft bereikt.",
 };
