@@ -13,8 +13,20 @@ import { ThreadErrorNotice } from "../components/thread-error-notice";
 vi.mock("react-native", () => ({
   useWindowDimensions: () => ({ width: 402, fontScale: 1 }),
   StyleSheet: { create: (styles: unknown) => styles },
-  Pressable: ({ children, onPress }: { children: ReactNode; onPress: () => void }) =>
-    createElement("button", { type: "button", onClick: onPress }, children),
+  Pressable: ({
+    children,
+    onPress,
+    accessibilityLabel,
+  }: {
+    children: ReactNode;
+    onPress: () => void;
+    accessibilityLabel?: string;
+  }) =>
+    createElement(
+      "button",
+      { type: "button", onClick: onPress, "aria-label": accessibilityLabel },
+      children,
+    ),
   Modal: ({ children }: { children: ReactNode }) =>
     createElement("dialog", { open: true }, children),
   View: ({ children }: { children: ReactNode }) => createElement("div", null, children),
@@ -27,7 +39,11 @@ vi.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
 }));
 vi.mock("expo-clipboard", () => ({ setStringAsync: vi.fn() }));
-vi.mock("./native", () => ({ useMobileTokens: () => ({}), useResolvedAppearance: () => "light" }));
+vi.mock("./native", () => ({
+  native: {},
+  useMobileTokens: () => ({}),
+  useResolvedAppearance: () => "light",
+}));
 vi.mock("./i18n", () => ({
   useI18n: () => ({
     locale: "en",
@@ -68,12 +84,13 @@ describe("run error recovery", () => {
   it("shows useful cause and recovery information before diagnostics, and copies only on request", () => {
     const onConnection = vi.fn();
     const onModel = vi.fn();
-    const node = mount(
-      createElement(RunErrorSheet, { details, onClose: vi.fn(), onConnection, onModel }),
+    const onClose = vi.fn();
+    const node = mount(createElement(RunErrorSheet, { details, onClose, onConnection, onModel }));
+    expect(node.textContent).toContain(
+      "This bot's reply stopped at its key's weekly limit. Your own key has its own limits.",
     );
-    expect(node.textContent).toContain("key it uses reached its weekly limit");
-    expect(node.textContent).toContain("opens connection settings");
-    expect(node.textContent).toContain("opens this bot's settings");
+    expect(node.textContent).not.toContain("opens connection settings");
+    expect(node.textContent).not.toContain("opens this bot's settings");
     expect(node.textContent).not.toContain("403:");
     const click = (label: string) =>
       act(() => {
@@ -94,6 +111,8 @@ describe("run error recovery", () => {
     expect(Clipboard.setStringAsync).toHaveBeenCalledWith(details);
     click("Technical details");
     expect(node.textContent).not.toContain("403:");
+    act(() => node.querySelector<HTMLButtonElement>('button[aria-label="Close"]')?.click());
+    expect(onClose).toHaveBeenCalledOnce();
   });
   it("offers model recovery without suggesting a key failure for a missing model", () => {
     const node = mount(

@@ -8,6 +8,7 @@ import {
   buttonStyle,
   controlSize,
   disabled as disable,
+  fixedSize,
   font,
   foregroundStyle,
   frame,
@@ -63,15 +64,18 @@ export function NativeActionButton({
         foregroundStyle(
           rectangular ? (primary ? tokens.primaryForeground : tokens.foreground) : tokens.link,
         ),
-        padding({ horizontal: rectangular ? 14 : 0, vertical: rectangular ? 0 : 8 }),
-        frame({
-          ...(stretches
-            ? typeof measuredWidth === "number"
-              ? { width: measuredWidth }
-              : { maxWidth: Infinity }
-            : {}),
-          ...(rectangular ? { height: 44 } : {}),
-        }),
+        ...(rectangular ? [fixedSize({ horizontal: false, vertical: true })] : []),
+        padding({ horizontal: rectangular ? 16 : 0, vertical: rectangular ? 12 : 8 }),
+        ...(stretches
+          ? [
+              frame(
+                typeof measuredWidth === "number"
+                  ? { width: measuredWidth }
+                  : { maxWidth: Infinity },
+              ),
+            ]
+          : []),
+        ...(rectangular ? [frame({ minHeight: 44 })] : []),
         ...(rectangular
           ? [
               background(

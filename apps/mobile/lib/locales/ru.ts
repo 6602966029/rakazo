@@ -910,16 +910,12 @@ export const RU_MESSAGES: Record<string, string> = {
     "Провайдер не смог предоставить модель, выбранную для этого бота.",
   "The bot couldn't finish its reply. Technical details includes the reported error.":
     "Бот не смог завершить ответ. В технических деталях указана полученная ошибка.",
-  "Set your own key opens connection settings to add a provider key.":
-    "«Добавить свой ключ» открывает настройки подключения для добавления ключа провайдера.",
-  "Change model opens this bot's settings to choose another model.":
-    "«Сменить модель» открывает настройки этого бота для выбора другой модели.",
-  "The bot couldn't reply because the key it uses reached its daily limit.":
-    "Бот не смог ответить, потому что используемый им ключ достиг дневного лимита.",
-  "The bot couldn't reply because the key it uses reached its weekly limit.":
-    "Бот не смог ответить, потому что используемый им ключ достиг недельного лимита.",
-  "The bot couldn't reply because the key it uses reached its monthly limit.":
-    "Бот не смог ответить, потому что используемый им ключ достиг месячного лимита.",
-  "The bot couldn't reply because the key it uses reached its usage limit.":
-    "Бот не смог ответить, потому что используемый им ключ достиг лимита использования.",
+  "This bot's reply stopped at its key's daily limit. Your own key has its own limits.":
+    "Ответ бота остановился из-за дневного лимита его ключа. У вашего ключа свои лимиты.",
+  "This bot's reply stopped at its key's weekly limit. Your own key has its own limits.":
+    "Ответ бота остановился из-за недельного лимита его ключа. У вашего ключа свои лимиты.",
+  "This bot's reply stopped at its key's monthly limit. Your own key has its own limits.":
+    "Ответ бота остановился из-за месячного лимита его ключа. У вашего ключа свои лимиты.",
+  "This bot's reply stopped at its key's usage limit. Your own key has its own limits.":
+    "Ответ бота остановился из-за лимита использования его ключа. У вашего ключа свои лимиты.",
 };

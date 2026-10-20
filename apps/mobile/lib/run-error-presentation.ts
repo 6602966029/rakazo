@@ -66,13 +66,21 @@ export function runErrorWhatHappened(
   if (error.kind === "key") {
     switch (error.period) {
       case "daily":
-        return t("The bot couldn't reply because the key it uses reached its daily limit.");
+        return t(
+          "This bot's reply stopped at its key's daily limit. Your own key has its own limits.",
+        );
       case "weekly":
-        return t("The bot couldn't reply because the key it uses reached its weekly limit.");
+        return t(
+          "This bot's reply stopped at its key's weekly limit. Your own key has its own limits.",
+        );
       case "monthly":
-        return t("The bot couldn't reply because the key it uses reached its monthly limit.");
+        return t(
+          "This bot's reply stopped at its key's monthly limit. Your own key has its own limits.",
+        );
       default:
-        return t("The bot couldn't reply because the key it uses reached its usage limit.");
+        return t(
+          "This bot's reply stopped at its key's usage limit. Your own key has its own limits.",
+        );
     }
   }
   if (error.kind === "credit" || error.kind === "spending") {

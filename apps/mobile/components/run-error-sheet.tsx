@@ -13,6 +13,7 @@ import {
 import { NativeSymbol } from "./native-symbol";
 import { RunErrorActions, RunErrorTextAction } from "./run-error-actions";
 import { RunErrorSheetContainer } from "./run-error-sheet-container";
+import { SheetCloseButton } from "./sheet-close-button";
 
 /** Saved provider diagnostics do not identify the credential owner. */
 export function useRunError(details: string | null, includeReset = true) {
@@ -106,26 +107,20 @@ export function RunErrorSheet({
             >
               {error.summary}
             </Text>
-            <View style={{ marginTop: 1.5 * fontScale - 8 }}>
-              <RunErrorTextAction label={t("Done")} onPress={onClose} />
+            <View>
+              <SheetCloseButton onPress={onClose} />
             </View>
           </View>
-          {explanation ? (
-            <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{explanation}</Text>
-          ) : null}
-          <Text style={{ color: tokens.mutedForeground, fontSize: 15, lineHeight: 21 }}>
-            {[
-              runErrorWhatHappened(t, error),
-              error.recovery === "connection"
-                ? t("Set your own key opens connection settings to add a provider key.")
-                : null,
-              error.recovery && onModel
-                ? t("Change model opens this bot's settings to choose another model.")
-                : null,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          </Text>
+          <View style={{ gap: 8 }}>
+            {explanation ? (
+              <Text style={{ color: tokens.mutedForeground, fontSize: 15, lineHeight: 21 }}>
+                {explanation}
+              </Text>
+            ) : null}
+            <Text style={{ color: tokens.mutedForeground, fontSize: 15, lineHeight: 21 }}>
+              {runErrorWhatHappened(t, error)}
+            </Text>
+          </View>
           {error.recovery ? (
             <RunErrorActions
               onConnection={error.recovery === "connection" ? onConnection : undefined}

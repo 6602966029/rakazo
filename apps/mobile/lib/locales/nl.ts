@@ -870,16 +870,12 @@ export const NL_MESSAGES: Record<string, string> = {
     "De provider kon het voor deze bot gekozen model niet aanbieden.",
   "The bot couldn't finish its reply. Technical details includes the reported error.":
     "De bot kon zijn antwoord niet afronden. De technische details bevatten de gemelde fout.",
-  "Set your own key opens connection settings to add a provider key.":
-    "‘Eigen sleutel instellen’ opent de verbindingsinstellingen om een providersleutel toe te voegen.",
-  "Change model opens this bot's settings to choose another model.":
-    "‘Model wijzigen’ opent de instellingen van deze bot om een ander model te kiezen.",
-  "The bot couldn't reply because the key it uses reached its daily limit.":
-    "De bot kon niet antwoorden omdat de gebruikte sleutel zijn daglimiet heeft bereikt.",
-  "The bot couldn't reply because the key it uses reached its weekly limit.":
-    "De bot kon niet antwoorden omdat de gebruikte sleutel zijn weeklimiet heeft bereikt.",
-  "The bot couldn't reply because the key it uses reached its monthly limit.":
-    "De bot kon niet antwoorden omdat de gebruikte sleutel zijn maandlimiet heeft bereikt.",
-  "The bot couldn't reply because the key it uses reached its usage limit.":
-    "De bot kon niet antwoorden omdat de gebruikte sleutel zijn gebruikslimiet heeft bereikt.",
+  "This bot's reply stopped at its key's daily limit. Your own key has its own limits.":
+    "Het antwoord van deze bot stopte bij de daglimiet van zijn sleutel. Je eigen sleutel heeft eigen limieten.",
+  "This bot's reply stopped at its key's weekly limit. Your own key has its own limits.":
+    "Het antwoord van deze bot stopte bij de weeklimiet van zijn sleutel. Je eigen sleutel heeft eigen limieten.",
+  "This bot's reply stopped at its key's monthly limit. Your own key has its own limits.":
+    "Het antwoord van deze bot stopte bij de maandlimiet van zijn sleutel. Je eigen sleutel heeft eigen limieten.",
+  "This bot's reply stopped at its key's usage limit. Your own key has its own limits.":
+    "Het antwoord van deze bot stopte bij de gebruikslimiet van zijn sleutel. Je eigen sleutel heeft eigen limieten.",
 };

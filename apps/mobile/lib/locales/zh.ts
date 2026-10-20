@@ -877,16 +877,12 @@ export const ZH_MESSAGES: Record<string, string> = {
     "提供商无法提供为此机器人选择的模型。",
   "The bot couldn't finish its reply. Technical details includes the reported error.":
     "机器人未能完成回复。技术详情包含报告的错误。",
-  "Set your own key opens connection settings to add a provider key.":
-    "“设置自己的密钥”会打开连接设置，以添加提供商密钥。",
-  "Change model opens this bot's settings to choose another model.":
-    "“更换模型”会打开此机器人的设置，以选择其他模型。",
-  "The bot couldn't reply because the key it uses reached its daily limit.":
-    "机器人无法回复，因为它使用的密钥已达到每日限额。",
-  "The bot couldn't reply because the key it uses reached its weekly limit.":
-    "机器人无法回复，因为它使用的密钥已达到每周限额。",
-  "The bot couldn't reply because the key it uses reached its monthly limit.":
-    "机器人无法回复，因为它使用的密钥已达到每月限额。",
-  "The bot couldn't reply because the key it uses reached its usage limit.":
-    "机器人无法回复，因为它使用的密钥已达到使用限额。",
+  "This bot's reply stopped at its key's daily limit. Your own key has its own limits.":
+    "此机器人的回复因其密钥达到每日限额而停止。你自己的密钥有独立的限额。",
+  "This bot's reply stopped at its key's weekly limit. Your own key has its own limits.":
+    "此机器人的回复因其密钥达到每周限额而停止。你自己的密钥有独立的限额。",
+  "This bot's reply stopped at its key's monthly limit. Your own key has its own limits.":
+    "此机器人的回复因其密钥达到每月限额而停止。你自己的密钥有独立的限额。",
+  "This bot's reply stopped at its key's usage limit. Your own key has its own limits.":
+    "此机器人的回复因其密钥达到使用限额而停止。你自己的密钥有独立的限额。",
 };

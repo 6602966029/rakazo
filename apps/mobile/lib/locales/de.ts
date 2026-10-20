@@ -914,16 +914,12 @@ export const DE_MESSAGES: Record<string, string> = {
     "Der Anbieter konnte das für diesen Bot ausgewählte Modell nicht bereitstellen.",
   "The bot couldn't finish its reply. Technical details includes the reported error.":
     "Der Bot konnte seine Antwort nicht abschließen. Die technischen Details enthalten den gemeldeten Fehler.",
-  "Set your own key opens connection settings to add a provider key.":
-    "„Eigenen Schlüssel hinterlegen“ öffnet die Verbindungseinstellungen, um einen Anbieterschlüssel hinzuzufügen.",
-  "Change model opens this bot's settings to choose another model.":
-    "„Modell wechseln“ öffnet die Einstellungen dieses Bots, um ein anderes Modell auszuwählen.",
-  "The bot couldn't reply because the key it uses reached its daily limit.":
-    "Der Bot konnte nicht antworten, weil der verwendete Schlüssel sein Tageslimit erreicht hat.",
-  "The bot couldn't reply because the key it uses reached its weekly limit.":
-    "Der Bot konnte nicht antworten, weil der verwendete Schlüssel sein Wochenlimit erreicht hat.",
-  "The bot couldn't reply because the key it uses reached its monthly limit.":
-    "Der Bot konnte nicht antworten, weil der verwendete Schlüssel sein Monatslimit erreicht hat.",
-  "The bot couldn't reply because the key it uses reached its usage limit.":
-    "Der Bot konnte nicht antworten, weil der verwendete Schlüssel sein Nutzungslimit erreicht hat.",
+  "This bot's reply stopped at its key's daily limit. Your own key has its own limits.":
+    "Die Antwort dieses Bots stoppte am Tageslimit seines Schlüssels. Dein eigener Schlüssel hat eigene Limits.",
+  "This bot's reply stopped at its key's weekly limit. Your own key has its own limits.":
+    "Die Antwort dieses Bots stoppte am Wochenlimit seines Schlüssels. Dein eigener Schlüssel hat eigene Limits.",
+  "This bot's reply stopped at its key's monthly limit. Your own key has its own limits.":
+    "Die Antwort dieses Bots stoppte am Monatslimit seines Schlüssels. Dein eigener Schlüssel hat eigene Limits.",
+  "This bot's reply stopped at its key's usage limit. Your own key has its own limits.":
+    "Die Antwort dieses Bots stoppte am Nutzungslimit seines Schlüssels. Dein eigener Schlüssel hat eigene Limits.",
 };

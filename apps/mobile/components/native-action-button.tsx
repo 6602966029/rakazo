@@ -63,9 +63,9 @@ export function NativeActionButton({
           justifyContent: "center",
           alignSelf: stretches ? "stretch" : "flex-start",
           paddingHorizontal:
-            variant === "rectangular" ? 14 : variant === "text" ? 0 : small ? 6 : compact ? 0 : 16,
+            variant === "rectangular" ? 16 : variant === "text" ? 0 : small ? 6 : compact ? 0 : 16,
           paddingVertical:
-            variant === "rectangular" ? 0 : variant === "text" ? 8 : small ? 6 : compact ? 8 : 12,
+            variant === "rectangular" ? 12 : variant === "text" ? 8 : small ? 6 : compact ? 8 : 12,
           backgroundColor: colors.background,
           borderWidth: colors.border ? 1 : 0,
           borderColor: colors.border,
