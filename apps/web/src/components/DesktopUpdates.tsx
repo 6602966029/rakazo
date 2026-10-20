@@ -125,6 +125,18 @@ export function DesktopUpdatesProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** Reuse the provider's bridge polling and guarded install action. */
+export function useSidebarUpdate() {
+  const updates = useContext(UpdatesContext);
+  return {
+    available: updates?.state?.phase === "ready",
+    busy: updates?.busy ?? false,
+    install: () => {
+      void updates?.act("install");
+    },
+  };
+}
+
 export function DesktopUpdateSection() {
   const updates = useContext(UpdatesContext);
   if (!updates?.state) return null;

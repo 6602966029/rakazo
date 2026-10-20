@@ -337,6 +337,10 @@ msgstr "ID da conta"
 msgid "Account label"
 msgstr ""
 
+#: src/components/SidebarFooter.tsx
+msgid "Account menu for {name}"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Accounts"
 msgstr ""
@@ -676,8 +680,8 @@ msgstr "Arquivado. Chat, memória e arquivos mantidos."
 msgid "Arguments"
 msgstr "Argumentos:"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Artifacts.tsx
-#: src/pages/Shell.tsx
 msgid "Artifacts"
 msgstr ""
 
@@ -832,8 +836,8 @@ msgstr ""
 msgid "Blocked"
 msgstr ""
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Board.tsx
-#: src/pages/Shell.tsx
 msgid "Board"
 msgstr ""
 
@@ -1307,6 +1311,10 @@ msgstr "Conectar um modelo"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Connect API key"
 msgstr "Conecte-se com a chave API"
+
+#: src/components/SidebarFooter.tsx
+msgid "Connect apps"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Executor"
@@ -2177,6 +2185,10 @@ msgstr ""
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "O Docker limita o acesso ao seu computador para maior segurança. Usar {hostLabel} permite que os bots trabalhem com seus arquivos e ferramentas locais."
 
+#: src/components/SidebarFooter.tsx
+msgid "Docs"
+msgstr ""
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "Não tem uma conta?"
@@ -2515,6 +2527,10 @@ msgstr ""
 msgid "Get notified when this Bot finishes or needs input"
 msgstr "Seja avisado quando este Bot terminar ou precisar de entrada"
 
+#: src/components/SidebarFooter.tsx
+msgid "Get the mobile app"
+msgstr ""
+
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
 msgstr ""
@@ -2674,6 +2690,14 @@ msgstr "Herdar (padrão)"
 msgid "Inputs"
 msgstr "Entradas"
 
+#: src/components/SidebarFooter.tsx
+msgid "Install"
+msgstr ""
+
+#: src/components/SidebarFooter.tsx
+msgid "Install update"
+msgstr ""
+
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 msgid "Instance API key"
 msgstr "Chave de API da instância"
@@ -2704,7 +2728,6 @@ msgid "Integration options"
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
-#: src/pages/Shell.tsx
 msgid "Integrations"
 msgstr "Integrações"
 
@@ -2901,8 +2924,8 @@ msgstr ""
 msgid "Local Server Settings"
 msgstr ""
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
-#: src/pages/Shell.tsx
 msgid "Log out"
 msgstr "Sair"
 
@@ -3265,6 +3288,10 @@ msgstr ""
 
 #: src/pages/Board.tsx
 msgid "New ticket"
+msgstr ""
+
+#: src/components/SidebarFooter.tsx
+msgid "New update available"
 msgstr ""
 
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -4326,6 +4353,7 @@ msgid "Server URL"
 msgstr "URL do servidor"
 
 #: src/components/call/CallCard.tsx
+#: src/components/SidebarFooter.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -5029,9 +5057,9 @@ msgstr "Enviar"
 msgid "Urgent"
 msgstr ""
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
-#: src/pages/Shell.tsx
 msgid "Usage"
 msgstr "Uso"
 

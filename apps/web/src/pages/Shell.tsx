@@ -97,11 +97,7 @@ import {
   CircleAlert,
   Clock,
   Copy,
-  FolderOpen,
-  Gauge,
-  LayoutGrid,
   Lock,
-  LogOut,
   Maximize2,
   Menu,
   Monitor,
@@ -119,7 +115,6 @@ import {
   SlidersHorizontal,
   Smile,
   Square,
-  SquareKanban,
   TextQuote,
   Trash2,
   X,
@@ -161,6 +156,7 @@ import {
 import { ComputerWorkspace } from "../components/computer/ComputerWorkspace";
 import { lazyOverlay } from "../components/ErrorBoundary";
 import { MessageHoverMetadata } from "../components/MessageHoverMetadata";
+import { SidebarFooter } from "../components/SidebarFooter";
 import {
   LIVE_TOOL_STEP_WINDOW,
   StandaloneToolActivity,
@@ -3789,110 +3785,46 @@ function SpaceShell() {
             </div>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={() => setPluginsOpen(true)}
-          className="mx-3 mb-1 flex items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-sidebar-accent"
-        >
-          <span className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-accent text-foreground/80">
-            <LayoutGrid size={15} strokeWidth={1.8} />
-          </span>
-          <span className="text-[14px] font-medium text-foreground/90">
-            <Trans>Integrations</Trans>
-          </span>
-        </button>
-        <Popover
+        <SidebarFooter
+          name={userName}
+          initials={initials}
+          image={session.data?.user.image}
+          email={session.data?.user.email}
           open={menuOpen}
           onOpenChange={(open) => {
             setMenuOpen(open);
             if (!open) setLogOutError(null);
           }}
-        >
-          <PopoverTrigger
-            data-testid="user-menu-trigger"
-            className="flex items-center gap-[11px] px-[18px] py-3.5"
-          >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-[12px] text-foreground/75">
-              {initials}
-            </span>
-            <span className="text-[14.5px] text-foreground/90">{userName}</span>
-          </PopoverTrigger>
-          {menuOpen ? (
-            <PopoverContent
-              side="top"
-              align="start"
-              className="w-[calc(316px-1.5rem)] max-w-[calc(100vw-3rem)] gap-0 p-1 data-closed:animate-none"
-            >
-              {bootstrapMe?.ticketBoardEnabled ? (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start font-normal"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setMobileSidebarOpen(false);
-                    navigate("/app/board");
-                  }}
-                >
-                  <SquareKanban className="text-muted-foreground" strokeWidth={1.75} />
-                  <Trans>Board</Trans>
-                </Button>
-              ) : null}
-              <Button
-                variant="ghost"
-                className="w-full justify-start font-normal"
-                onClick={() => {
+          onIntegrations={() => setPluginsOpen(true)}
+          onBoard={
+            bootstrapMe?.ticketBoardEnabled
+              ? () => {
                   setMenuOpen(false);
                   setMobileSidebarOpen(false);
-                  navigate("/app/artifacts");
-                }}
-              >
-                <FolderOpen className="text-muted-foreground" strokeWidth={1.75} />
-                <Trans>Artifacts</Trans>
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start font-normal"
-                aria-label={t`Settings`}
-                onClick={() => {
-                  setMenuOpen(false);
-                  openSettings("general");
-                }}
-              >
-                <Settings className="text-muted-foreground" strokeWidth={1.75} />
-                <Trans>Settings</Trans>
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start font-normal"
-                aria-label={t`Usage`}
-                onClick={() => {
-                  setMenuOpen(false);
-                  openSettings("usage");
-                }}
-              >
-                <Gauge className="text-muted-foreground" strokeWidth={1.75} />
-                <Trans>Usage</Trans>
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start font-normal"
-                disabled={signingOut}
-                onClick={() => {
-                  setLogOutError(null);
-                  void logOut();
-                }}
-              >
-                <LogOut className="text-muted-foreground" strokeWidth={1.75} />
-                <Trans>Log out</Trans>
-              </Button>
-              {logOutError ? (
-                <p role="alert" className="px-3 pt-1 pb-2 text-[13px] text-destructive">
-                  {logOutError}
-                </p>
-              ) : null}
-            </PopoverContent>
-          ) : null}
-        </Popover>
+                  navigate("/app/board");
+                }
+              : undefined
+          }
+          onArtifacts={() => {
+            setMenuOpen(false);
+            setMobileSidebarOpen(false);
+            navigate("/app/artifacts");
+          }}
+          onSettings={() => {
+            setMenuOpen(false);
+            openSettings("general");
+          }}
+          onUsage={() => {
+            setMenuOpen(false);
+            openSettings("usage");
+          }}
+          onLogOut={() => {
+            setLogOutError(null);
+            void logOut();
+          }}
+          signingOut={signingOut}
+          logOutError={logOutError}
+        />
       </aside>
 
       {/* The full-screen computer covers the sidebar, so its edge must not catch clicks there. */}

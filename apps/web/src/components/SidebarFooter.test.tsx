@@ -1,0 +1,118 @@
+// @vitest-environment jsdom
+import type { DesktopUpdateState } from "@rakazo/contracts";
+import type { ReactNode } from "react";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { DesktopUpdatesProvider } from "./DesktopUpdates";
+import { SidebarFooter } from "./SidebarFooter";
+
+vi.mock("@lingui/react/macro", () => ({
+  useLingui: () => ({
+    t: (strings: TemplateStringsArray, ...values: unknown[]) =>
+      strings.reduce((text, part, index) => text + part + (values[index] ?? ""), ""),
+  }),
+  Trans: ({ children }: { children: ReactNode }) => children,
+}));
+let host: HTMLDivElement;
+let root: ReturnType<typeof createRoot>;
+beforeEach(() => {
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+});
+afterEach(async () => {
+  await act(async () => root.unmount());
+  host.remove();
+  delete window.rakazoDesktop;
+  vi.restoreAllMocks();
+});
+async function render(name = "Demo User", image?: string) {
+  const email = "account@rakazo.test";
+  await act(async () =>
+    root.render(
+      <DesktopUpdatesProvider>
+        <SidebarFooter
+          name={name}
+          initials={name
+            .split(" ")
+            .map((part) => part[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase()}
+          image={image}
+          email={email}
+          open
+          onOpenChange={() => {}}
+          onIntegrations={() => {}}
+          onArtifacts={() => {}}
+          onSettings={() => {}}
+          onUsage={() => {}}
+          onLogOut={() => {}}
+          signingOut={false}
+          logOutError={null}
+        />
+      </DesktopUpdatesProvider>,
+    ),
+  );
+}
+function bridge(phase: DesktopUpdateState["phase"]) {
+  const state: DesktopUpdateState = {
+    phase,
+    currentVersion: "0.1.0",
+    availableVersion: "0.2.0",
+    percent: null,
+    message: null,
+    checkedAt: null,
+  };
+  const install = vi.fn(async () => state);
+  window.rakazoDesktop = {
+    platform: "darwin",
+    window: {
+      close: async () => {},
+      minimize: async () => {},
+      toggleMaximize: async () => {},
+      state: async () => ({ minimized: false, maximized: false, fullScreen: false }),
+    },
+    oauth: { onCallback: () => () => {} },
+    update: { state: async () => state, install, check: async () => state },
+  };
+  return install;
+}
+it("hides update controls without a desktop bridge", async () => {
+  await render();
+  expect(document.querySelector('[aria-label="Install update"]')).toBeNull();
+  expect(document.body.textContent).not.toContain("New update available");
+});
+it.each(["idle", "available", "downloading", "checking", "error"] as const)(
+  "hides install controls in phase %s",
+  async (phase) => {
+    bridge(phase);
+    await render();
+    expect(document.querySelector('[aria-label="Install update"]')).toBeNull();
+    expect(document.body.textContent).not.toContain("New update available");
+  },
+);
+it("installs the ready update through either footer or menu button", async () => {
+  const install = bridge("ready");
+  await render("Ada Lovelace");
+  const icon = document.querySelector<HTMLButtonElement>('[aria-label="Install update"]')!;
+  expect(icon).not.toBeNull();
+  expect(document.body.textContent).toContain("New update available");
+  await act(async () => icon.click());
+  expect(install).toHaveBeenCalledTimes(1);
+  const menuInstall = [...document.querySelectorAll("button")].find(
+    (button) => button.textContent === "Install",
+  )!;
+  await act(async () => menuInstall.click());
+  expect(install).toHaveBeenCalledTimes(2);
+});
+it("shows the account image and falls back to the initial after a load error", async () => {
+  await render("Ada Lovelace", "https://example.test/avatar.png");
+  const trigger = host.querySelector('[data-testid="user-menu-trigger"]')!;
+  const image = trigger.querySelector("img")!;
+  expect(image.src).toBe("https://example.test/avatar.png");
+  await act(async () => image.dispatchEvent(new Event("error")));
+  expect(trigger.querySelector("img")).toBeNull();
+  expect(trigger.textContent).toBe("AL");
+});

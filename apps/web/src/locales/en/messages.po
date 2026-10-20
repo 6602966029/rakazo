@@ -337,6 +337,10 @@ msgstr "Account ID"
 msgid "Account label"
 msgstr "Account label"
 
+#: src/components/SidebarFooter.tsx
+msgid "Account menu for {name}"
+msgstr "Account menu for {name}"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Accounts"
 msgstr "Accounts"
@@ -676,8 +680,8 @@ msgstr "Archived. Chat, memory, and files kept."
 msgid "Arguments"
 msgstr "Arguments"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Artifacts.tsx
-#: src/pages/Shell.tsx
 msgid "Artifacts"
 msgstr "Artifacts"
 
@@ -832,8 +836,8 @@ msgstr "Billing"
 msgid "Blocked"
 msgstr "Blocked"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Board.tsx
-#: src/pages/Shell.tsx
 msgid "Board"
 msgstr "Board"
 
@@ -1307,6 +1311,10 @@ msgstr "Connect a model"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Connect API key"
 msgstr "Connect API key"
+
+#: src/components/SidebarFooter.tsx
+msgid "Connect apps"
+msgstr "Connect apps"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Executor"
@@ -2177,6 +2185,10 @@ msgstr "Docker is configured but computers are not responding. Confirm the sandb
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 
+#: src/components/SidebarFooter.tsx
+msgid "Docs"
+msgstr "Docs"
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "Don’t have an account?"
@@ -2515,6 +2527,10 @@ msgstr "Get credentials"
 msgid "Get notified when this Bot finishes or needs input"
 msgstr "Get notified when this Bot finishes or needs input"
 
+#: src/components/SidebarFooter.tsx
+msgid "Get the mobile app"
+msgstr "Get the mobile app"
+
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
 msgstr "Getting ready"
@@ -2674,6 +2690,14 @@ msgstr "Inherit default"
 msgid "Inputs"
 msgstr "Inputs"
 
+#: src/components/SidebarFooter.tsx
+msgid "Install"
+msgstr "Install"
+
+#: src/components/SidebarFooter.tsx
+msgid "Install update"
+msgstr "Install update"
+
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 msgid "Instance API key"
 msgstr "Instance API key"
@@ -2704,7 +2728,6 @@ msgid "Integration options"
 msgstr "Integration options"
 
 #: src/pages/PluginsOverlay.tsx
-#: src/pages/Shell.tsx
 msgid "Integrations"
 msgstr "Integrations"
 
@@ -2901,8 +2924,8 @@ msgstr "Local computer access requires the latest desktop app."
 msgid "Local Server Settings"
 msgstr "Local Server Settings"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
-#: src/pages/Shell.tsx
 msgid "Log out"
 msgstr "Log out"
 
@@ -3266,6 +3289,10 @@ msgstr "New space"
 #: src/pages/Board.tsx
 msgid "New ticket"
 msgstr "New ticket"
+
+#: src/components/SidebarFooter.tsx
+msgid "New update available"
+msgstr "New update available"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."
@@ -4326,6 +4353,7 @@ msgid "Server URL"
 msgstr "Server URL"
 
 #: src/components/call/CallCard.tsx
+#: src/components/SidebarFooter.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -5029,9 +5057,9 @@ msgstr "Upload"
 msgid "Urgent"
 msgstr "Urgent"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
-#: src/pages/Shell.tsx
 msgid "Usage"
 msgstr "Usage"
 

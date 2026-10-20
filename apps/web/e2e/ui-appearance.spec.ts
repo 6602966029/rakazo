@@ -99,9 +99,7 @@ test("account settings appearance control switches to light mode", async ({ page
   await captureSidebarSearchSelected(page, testInfo, "sidebar-search-selected-dark");
 });
 
-test("sidebar bot rows hover with the same tone as the integrations row", async ({
-  page,
-}, testInfo) => {
+test("sidebar bot rows use the sidebar hover tone", async ({ page }, testInfo) => {
   const stamp = Date.now();
   await signup(page, `ui-hover-${stamp}@rakazo.test`, "password12", "Hover QA");
   await completeOnboarding(page, testInfo);
@@ -118,9 +116,82 @@ test("sidebar bot rows hover with the same tone as the integrations row", async 
   const chiefBg = await readChiefBg();
   await captureScreenshot(page, testInfo, "sidebar-row-hover");
 
-  const integrations = sidebar.getByRole("button", { name: "Integrations", exact: true });
+  const integrations = sidebar.getByRole("button", { name: "Connect apps", exact: true });
   await integrations.hover();
   await expect
     .poll(() => integrations.evaluate((el) => getComputedStyle(el).backgroundColor))
     .toBe(chiefBg);
+});
+
+test("sidebar footer keeps the account identity readable and installs a ready desktop update", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    const state = {
+      phase: "ready",
+      currentVersion: "0.1.0",
+      availableVersion: "0.2.0",
+      percent: 100,
+      message: null,
+      checkedAt: null,
+    };
+    Object.defineProperty(window, "rakazoDesktop", {
+      value: {
+        platform: "darwin",
+        window: {
+          close: async () => {},
+          minimize: async () => {},
+          toggleMaximize: async () => {},
+          state: async () => ({ minimized: false, maximized: false, fullScreen: false }),
+        },
+        oauth: { onCallback: () => () => {} },
+        update: {
+          state: async () => state,
+          check: async () => state,
+          install: async () => {
+            document.documentElement.dataset.updateInstalled = "true";
+            return state;
+          },
+        },
+      },
+    });
+  });
+  const email = `footer-${Date.now()}@rakazo.test`;
+  await signup(page, email, "password12", "Footer Demo");
+  await completeOnboarding(page);
+  const footer = page.getByTestId("sidebar-footer");
+  const avatar = page.getByTestId("user-menu-trigger");
+  await expect(avatar).toHaveAccessibleName("Account menu for Footer Demo");
+  await expect(footer.getByRole("button", { name: "Install update", exact: true })).toBeVisible();
+  // Dismiss the existing update toast so the two footer frames stay focused.
+  await page
+    .getByRole("complementary", { name: "Desktop update" })
+    .getByRole("button", { name: "Later" })
+    .click();
+  await captureScreenshot(page, testInfo, "sidebar-footer");
+  await avatar.click();
+  const header = page.getByTestId("account-menu-header");
+  await expect(header).toHaveText(`Footer Demo${email}`);
+  const session = await (await page.request.get("/api/auth/get-session")).json();
+  expect(await header.textContent()).not.toBe(session.user.id);
+  await expect(page.getByText("New update available", { exact: true })).toBeVisible();
+  await captureScreenshot(page, testInfo, "sidebar-footer-menu-update");
+  await page.getByRole("button", { name: "Install", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-update-installed", "true");
+  await page.keyboard.press("Escape");
+  await footer.getByRole("button", { name: "Install update", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-update-installed", "true");
+});
+
+test("account menu works on the mobile sidebar", async ({ page }) => {
+  const email = `footer-mobile-${Date.now()}@rakazo.test`;
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page, email, "password12", "Mobile Demo");
+  await completeOnboarding(page);
+  await page.getByRole("button", { name: "Open sidebar", exact: true }).click();
+  const avatar = page.getByTestId("user-menu-trigger");
+  await expect(avatar).toBeVisible();
+  await expect(page.getByRole("button", { name: "Install update", exact: true })).toHaveCount(0);
+  await avatar.click();
+  await expect(page.getByTestId("account-menu-header")).toHaveText(`Mobile Demo${email}`);
 });

@@ -337,6 +337,10 @@ msgstr "ID de compte"
 msgid "Account label"
 msgstr "Libellé du compte"
 
+#: src/components/SidebarFooter.tsx
+msgid "Account menu for {name}"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Accounts"
 msgstr "Comptes"
@@ -676,8 +680,8 @@ msgstr "Archivé. Conversation, mémoire et fichiers conservés."
 msgid "Arguments"
 msgstr "Arguments"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Artifacts.tsx
-#: src/pages/Shell.tsx
 msgid "Artifacts"
 msgstr "Artefacts"
 
@@ -832,8 +836,8 @@ msgstr ""
 msgid "Blocked"
 msgstr ""
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Board.tsx
-#: src/pages/Shell.tsx
 msgid "Board"
 msgstr ""
 
@@ -1307,6 +1311,10 @@ msgstr "Connecter un modèle"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Connect API key"
 msgstr "Connecter la clé API"
+
+#: src/components/SidebarFooter.tsx
+msgid "Connect apps"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Executor"
@@ -2177,6 +2185,10 @@ msgstr ""
 msgid "Docker limits access to your computer for added security. Using {hostLabel} lets bots work with your local files and tools."
 msgstr "Docker limite l'accès à votre ordinateur pour une sécurité renforcée. Utiliser {hostLabel} permet aux bots de travailler avec vos fichiers et outils locaux."
 
+#: src/components/SidebarFooter.tsx
+msgid "Docs"
+msgstr ""
+
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
 msgstr "Vous n'avez pas de compte ?"
@@ -2515,6 +2527,10 @@ msgstr "Obtenir les identifiants"
 msgid "Get notified when this Bot finishes or needs input"
 msgstr "Soyez averti lorsque ce bot termine ou a besoin d'une saisie"
 
+#: src/components/SidebarFooter.tsx
+msgid "Get the mobile app"
+msgstr ""
+
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
 msgstr "Préparation en cours"
@@ -2674,6 +2690,14 @@ msgstr "Hériter du défaut"
 msgid "Inputs"
 msgstr "Entrées"
 
+#: src/components/SidebarFooter.tsx
+msgid "Install"
+msgstr ""
+
+#: src/components/SidebarFooter.tsx
+msgid "Install update"
+msgstr ""
+
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 msgid "Instance API key"
 msgstr "Clé API de l'instance"
@@ -2704,7 +2728,6 @@ msgid "Integration options"
 msgstr "Options d'intégration"
 
 #: src/pages/PluginsOverlay.tsx
-#: src/pages/Shell.tsx
 msgid "Integrations"
 msgstr "Intégrations"
 
@@ -2901,8 +2924,8 @@ msgstr ""
 msgid "Local Server Settings"
 msgstr "Paramètres du serveur local"
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
-#: src/pages/Shell.tsx
 msgid "Log out"
 msgstr "Se déconnecter"
 
@@ -3265,6 +3288,10 @@ msgstr "Nouvel espace"
 
 #: src/pages/Board.tsx
 msgid "New ticket"
+msgstr ""
+
+#: src/components/SidebarFooter.tsx
+msgid "New update available"
 msgstr ""
 
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -4326,6 +4353,7 @@ msgid "Server URL"
 msgstr "URL du serveur"
 
 #: src/components/call/CallCard.tsx
+#: src/components/SidebarFooter.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -5029,9 +5057,9 @@ msgstr "Télécharger"
 msgid "Urgent"
 msgstr ""
 
+#: src/components/SidebarFooter.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
-#: src/pages/Shell.tsx
 msgid "Usage"
 msgstr "Utilisation"
 
