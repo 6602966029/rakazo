@@ -32,12 +32,14 @@ async function render(
   image?: string,
   onIntegrations = vi.fn(),
   onBoard?: () => void,
+  logos?: Array<{ name: string; logo: string }>,
 ) {
   const email = "account@rakazo.test";
   await act(async () =>
     root.render(
       <DesktopUpdatesProvider>
         <SidebarFooter
+          logos={logos}
           name={name}
           initials={name
             .split(" ")
@@ -167,3 +169,52 @@ it("offers the existing Android download on Android", async () => {
     "https://github.com/elie222/rakazo/releases/download/android/rakazo.apk",
   );
 });
+
+it("falls back when app artwork fails and accepts replacement artwork", async () => {
+  await render("Demo User", undefined, undefined, undefined, [
+    { name: "Slack", logo: "https://example.test/slack.svg" },
+  ]);
+  const pill = [...host.querySelectorAll("button")].find((button) =>
+    button.textContent?.includes("Connect apps"),
+  )!;
+  await act(async () => pill.querySelector("img")!.dispatchEvent(new Event("error")));
+  expect(pill.querySelector("img")).toBeNull();
+  expect(pill.textContent).toContain("S");
+  await render("Demo User", undefined, undefined, undefined, [
+    { name: "Slack", logo: "https://example.test/new-slack.svg" },
+  ]);
+  expect(pill.querySelector("img")?.src).toBe("https://example.test/new-slack.svg");
+});
+it.each(["throw", "state"] as const)(
+  "reveals a %s install failure after Later",
+  async (failure) => {
+    const install = bridge("ready");
+    if (failure === "throw") install.mockRejectedValueOnce(new Error("offline"));
+    else
+      install.mockResolvedValueOnce({
+        ...(await window.rakazoDesktop!.update.state()),
+        phase: "error",
+        message: "Update could not be installed",
+      });
+    await render();
+    const notice = () => document.querySelector('[aria-label="Desktop update"]');
+    const later = [...notice()!.querySelectorAll("button")].find(
+      (button) => button.textContent === "Later",
+    )!;
+    await act(async () => later.click());
+    expect(notice()).toBeNull();
+    await act(async () =>
+      document.querySelector<HTMLButtonElement>('[aria-label="Install update"]')!.click(),
+    );
+    expect(notice()?.querySelector('[role="status"]')?.textContent).toBe(
+      failure === "throw"
+        ? "Could not complete the update. Try again."
+        : "Update could not be installed",
+    );
+    const dismiss = [...notice()!.querySelectorAll("button")].find(
+      (button) => button.textContent === "Later",
+    )!;
+    await act(async () => dismiss.click());
+    expect(notice()).toBeNull();
+  },
+);

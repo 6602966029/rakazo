@@ -99,7 +99,9 @@ test("account settings appearance control switches to light mode", async ({ page
   await captureSidebarSearchSelected(page, testInfo, "sidebar-search-selected-dark");
 });
 
-test("sidebar bot rows use the sidebar hover tone", async ({ page }, testInfo) => {
+test("sidebar bot rows hover with the same tone as the integrations row", async ({
+  page,
+}, testInfo) => {
   const stamp = Date.now();
   await signup(page, `ui-hover-${stamp}@rakazo.test`, "password12", "Hover QA");
   await completeOnboarding(page, testInfo);
@@ -229,4 +231,31 @@ test("account menu works on the mobile sidebar", async ({ page }) => {
   await avatar.click();
   const session = await (await page.request.get("/api/auth/get-session")).json();
   await expect(page.getByTestId("account-menu-header")).toHaveText(`${session.user.name}${email}`);
+});
+
+test("footer app marks follow the integrations overlay", async ({ page }) => {
+  await signup(page, `footer-apps-${Date.now()}@rakazo.test`, "password12", "Footer Demo");
+  await completeOnboarding(page);
+  let connected = true;
+  const logo =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ctext x='5' y='15'%3ES%3C/text%3E%3C/svg%3E";
+  await page.route("**/rpc/connections/catalog", async (route) => {
+    await route.fulfill({
+      json: {
+        json: [
+          { connectorId: "demo", slug: "slack", name: "Slack", logo, connected, noAuth: false },
+        ],
+      },
+    });
+  });
+  const footer = page.getByTestId("sidebar-footer");
+  await footer.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await expect(footer.locator("img")).toHaveAttribute("src", logo);
+  await page.getByRole("button", { name: "Close integrations", exact: true }).click();
+  await expect(footer.locator("img")).toHaveAttribute("src", logo);
+  connected = false;
+  await footer.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await expect(footer.locator("img")).toHaveCount(0);
+  await page.getByRole("button", { name: "Close integrations", exact: true }).click();
+  await expect(footer.getByRole("button", { name: "Connect apps", exact: true })).toBeVisible();
 });

@@ -31,6 +31,7 @@ import {
 import { ChevronDown, ChevronLeft, ChevronUp, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
+import { connectedAppMarks } from "../lib/connected-apps";
 import { optionalCatalogFeedProbe } from "../lib/optional-catalog-feed";
 import { rpc } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
@@ -70,10 +71,12 @@ function nextAccountLabel(itemName: string, existingCount: number) {
   return existingCount <= 0 ? itemName : `${itemName} ${existingCount + 1}`;
 }
 export function PluginsOverlay({
+  onConnectedAppsChange,
   onClose,
   onOpenMcp,
   activeBotId,
 }: {
+  onConnectedAppsChange?: (apps: ReturnType<typeof connectedAppMarks>) => void;
   onClose: () => void;
   onOpenMcp?: () => void;
   activeBotId?: string;
@@ -143,6 +146,10 @@ export function PluginsOverlay({
       .finally(() => setLoading(false));
     return () => connectionAttempt.current?.abort();
   }, []);
+
+  useEffect(() => {
+    if (!loading) onConnectedAppsChange?.(connectedAppMarks(catalog, connections));
+  }, [catalog, connections, loading, onConnectedAppsChange]);
 
   const detailItem = useMemo(() => {
     if (!detailKey) return null;

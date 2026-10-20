@@ -52,6 +52,7 @@ export function SidebarFooter({
   const { t } = useLingui();
   const update = useSidebarUpdate();
   const [failedImage, setFailedImage] = useState<string | null>(null);
+  const [failedLogos, setFailedLogos] = useState<string[]>([]);
   return (
     <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-2 px-2.5 py-3">
       <Popover open={open} onOpenChange={onOpenChange}>
@@ -183,8 +184,13 @@ export function SidebarFooter({
               key={app.name}
               className="grid size-5 place-items-center overflow-hidden rounded-full bg-accent text-[10px] ring-2 ring-sidebar-accent"
             >
-              {app.logo ? (
-                <img src={app.logo} alt="" className="size-full object-contain" />
+              {app.logo && !failedLogos.includes(app.logo) ? (
+                <img
+                  src={app.logo}
+                  alt=""
+                  className="size-full object-contain"
+                  onError={() => setFailedLogos((failed) => [...failed, app.logo!])}
+                />
               ) : (
                 app.name[0]
               )}

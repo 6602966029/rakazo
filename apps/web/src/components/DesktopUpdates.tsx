@@ -84,6 +84,9 @@ export function DesktopUpdatesProvider({ children }: { children: ReactNode }) {
   const updates = useDesktopUpdates();
   const [dismissed, setDismissed] = useState<string | null>(null);
   const { state, busy, error, act } = updates;
+  useEffect(() => {
+    if (error) setDismissed(null);
+  }, [error]);
   return (
     <UpdatesContext.Provider value={updates}>
       {children}

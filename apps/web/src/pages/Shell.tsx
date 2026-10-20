@@ -217,6 +217,7 @@ import {
   screenIframeSandbox,
 } from "../lib/computer-screen";
 import { publishComputerCommand } from "../lib/computer-workspace";
+import { connectedAppMarks } from "../lib/connected-apps";
 import { desktopBridge } from "../lib/desktop";
 import { scheduleFocusPrompt } from "../lib/focus-prompt";
 import { localTimezone } from "../lib/local-timezone";
@@ -2172,21 +2173,7 @@ function SpaceShell() {
     ]).then(([connections, catalog]) => {
       if (cancelled) return;
       const connected = connections.filter((row) => row.status === "connected");
-      const connectedApps = catalog.filter(
-        (item) =>
-          item.connected ||
-          connected.some(
-            (row) =>
-              row.connectorId === item.connectorId &&
-              row.provider.toLowerCase() === item.slug.toLowerCase(),
-          ),
-      );
-      setFooterLogos(
-        connectedApps
-          .filter((item, index, apps) => apps.findIndex((app) => app.name === item.name) === index)
-          .slice(0, 3)
-          .map(({ name, logo }) => ({ name, logo })),
-      );
+      setFooterLogos(connectedAppMarks(catalog, connections));
       const options: Array<{
         id: string;
         name: string;
@@ -4961,6 +4948,7 @@ function SpaceShell() {
 
         {pluginsOpen ? (
           <PluginsOverlay
+            onConnectedAppsChange={setFooterLogos}
             activeBotId={activeBotId.current}
             onClose={() => setPluginsOpen(false)}
             onOpenMcp={() => {
