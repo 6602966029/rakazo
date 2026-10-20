@@ -5,8 +5,9 @@ import type {
   BillingSubscriptionSnapshot,
   BillingSubscriptionStatus,
 } from "@rakazo/adapter-kit";
-import { BillingCustomerNotFoundError } from "@rakazo/adapter-kit";
+import { BillingCheckoutCompletedError, BillingCustomerNotFoundError } from "@rakazo/adapter-kit";
 import {
+  holdsBillingSubscription,
   parseStripeWebhook,
   pickBillingSubscription,
   signStripeWebhook,
@@ -62,6 +63,8 @@ export class BillingEmulator implements BillingProvider {
 
   async createCheckout(input: BillingCheckoutRequest) {
     this.requireCustomer(input.customerId);
+    if (this.forCustomer(input.customerId).some((s) => holdsBillingSubscription(s.status)))
+      throw new BillingCheckoutCompletedError();
     this.checkouts.set(input.customerId, { ...input });
     return { url: `https://billing.emulator.invalid/checkout/${input.customerId}` };
   }

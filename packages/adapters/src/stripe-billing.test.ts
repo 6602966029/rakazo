@@ -30,6 +30,21 @@ function setup(wrapFetch?: (wire: StripeEmulator) => typeof fetch) {
 const urls = { successUrl: "https://app.example/ok", cancelUrl: "https://app.example/no" };
 const owner = { email: "owner@example.com", organizationId: "org_1" };
 
+/** Builds a subscription history oldest first; a held one would refuse the next checkout. */
+async function seedHistory(
+  wire: StripeEmulator,
+  provider: StripeBillingProvider,
+  customerId: string,
+  statuses: string[],
+) {
+  for (const _ of statuses) {
+    await provider.createCheckout({ customerId, seats: 1, ...urls });
+    wire.completeCheckout(customerId, "canceled");
+  }
+  for (const [i, status] of statuses.entries())
+    wire.subscriptions.at(i - statuses.length)!.status = status;
+}
+
 describe("Stripe billing HTTP boundary", () => {
   it("encodes nested form keys and omits undefined values", () => {
     expect(
@@ -89,9 +104,11 @@ describe("Stripe billing HTTP boundary", () => {
     expect(wire.subscriptions[0]!.items.data[0]!.quantity).toBe(4);
     expect(() => wire.completeCheckout(customerId)).toThrow(/open checkout/);
 
-    await provider.createCheckout({ customerId, seats: 1, ...urls });
+    await expect(provider.createCheckout({ customerId, seats: 1, ...urls })).rejects.toBeInstanceOf(
+      BillingCheckoutCompletedError,
+    );
     expect(wire.requests.filter((request) => request.path.endsWith("/expire"))).toHaveLength(3);
-    expect(wire.sessions.filter((session) => session.status === "complete")).toHaveLength(1);
+    expect(wire.sessions.filter((session) => session.status === "open")).toHaveLength(0);
   });
 
   for (const { name, race, opens } of [
@@ -128,10 +145,7 @@ describe("Stripe billing HTTP boundary", () => {
   it("does not let a newer ended subscription hide one that can still resume", async () => {
     const { wire, provider } = setup();
     const { customerId } = await provider.createCustomer(owner);
-    for (const status of ["unpaid", "incomplete_expired"]) {
-      await provider.createCheckout({ customerId, seats: 1, ...urls });
-      wire.completeCheckout(customerId, status);
-    }
+    await seedHistory(wire, provider, customerId, ["unpaid", "incomplete_expired"]);
     await expect(provider.getCustomerSubscription(customerId)).resolves.toMatchObject({
       status: "unpaid",
     });
@@ -141,10 +155,13 @@ describe("Stripe billing HTTP boundary", () => {
     const { wire, provider } = setup();
     wire.pageSize = 2;
     const { customerId } = await provider.createCustomer(owner);
-    for (const status of ["active", "canceled", "canceled", "canceled", "incomplete"]) {
-      await provider.createCheckout({ customerId, seats: 1, ...urls });
-      wire.completeCheckout(customerId, status);
-    }
+    await seedHistory(wire, provider, customerId, [
+      "active",
+      "canceled",
+      "canceled",
+      "canceled",
+      "incomplete",
+    ]);
     await expect(provider.getCustomerSubscription(customerId)).resolves.toMatchObject({
       status: "active",
     });
@@ -155,10 +172,12 @@ describe("Stripe billing HTTP boundary", () => {
   it("cancels unpaid and paused subscriptions, which can still resume, and skips terminal ones", async () => {
     const { wire, provider } = setup();
     const { customerId } = await provider.createCustomer(owner);
-    for (const status of ["unpaid", "paused", "incomplete_expired", "canceled"]) {
-      await provider.createCheckout({ customerId, seats: 1, ...urls });
-      wire.completeCheckout(customerId, status);
-    }
+    await seedHistory(wire, provider, customerId, [
+      "unpaid",
+      "paused",
+      "incomplete_expired",
+      "canceled",
+    ]);
     await provider.cancelCustomerSubscriptions(customerId);
     expect(wire.subscriptions.map((s) => s.status)).toEqual([
       "canceled",

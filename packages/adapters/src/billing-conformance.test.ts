@@ -1,5 +1,5 @@
 import type { BillingProvider, BillingSubscriptionStatus } from "@rakazo/adapter-kit";
-import { BillingCustomerNotFoundError } from "@rakazo/adapter-kit";
+import { BillingCheckoutCompletedError, BillingCustomerNotFoundError } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
 import { BillingEmulator } from "./billing-emulator.js";
 import { StripeBillingProvider, signStripeWebhook } from "./stripe-billing.js";
@@ -167,13 +167,19 @@ for (const [name, create] of Object.entries(factories)) {
       });
     });
 
-    it("prefers an older active subscription over a newer incomplete one", async () => {
+    it("refuses another checkout while a subscription is held", async () => {
+      for (const status of ["trialing", "past_due", "unpaid", "paused"] as const) {
+        const harness = create();
+        const customerId = await subscribe(harness);
+        harness.setStatus(customerId, status);
+        await expect(
+          harness.provider.createCheckout({ customerId, seats: 5, ...urls }),
+        ).rejects.toBeInstanceOf(BillingCheckoutCompletedError);
+      }
       const harness = create();
       const customerId = await subscribe(harness);
-      const active = await harness.provider.getCustomerSubscription(customerId);
+      harness.setStatus(customerId, "incomplete");
       await harness.provider.createCheckout({ customerId, seats: 5, ...urls });
-      harness.completeCheckout(customerId, "incomplete");
-      expect(await harness.provider.getCustomerSubscription(customerId)).toEqual(active);
     });
 
     it("updates seats and cancels", async () => {

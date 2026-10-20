@@ -62,7 +62,6 @@ const checkoutListSchema = z.object({
   data: z.array(z.object({ id: z.string().min(1) })),
   has_more: z.boolean(),
 });
-const sessionSchema = z.object({ status: z.string().nullish() });
 const errorSchema = z.object({
   error: z.object({
     type: z.string().optional(),
@@ -133,7 +132,12 @@ export class StripeBillingProvider implements BillingProvider {
   async createCheckout(input: BillingCheckoutRequest) {
     // An abandoned session has no subscription yet, so the access check still passes.
     // Expire it before opening another; a completed session is not open and stays paid once.
-    if (await this.expireOpenCheckouts(input.customerId)) throw new BillingCheckoutCompletedError();
+    await this.expireOpenCheckouts(input.customerId);
+    // With no open session left, any checkout that completed since the caller's access check,
+    // before or during the expiry, has already left its subscription behind.
+    const live = await this.listSubscriptions(input.customerId);
+    if (live.some((s) => holdsBillingSubscription(mapStripeSubscriptionStatus(s.status))))
+      throw new BillingCheckoutCompletedError();
     const body = encodeStripeForm({
       mode: "subscription",
       customer: input.customerId,
@@ -191,28 +195,26 @@ export class StripeBillingProvider implements BillingProvider {
     return parseStripeWebhook(this.config.webhookSecret, rawBody, headers, this.now());
   }
 
-  /** Returns whether a session completed after the list, so a subscription now exists. */
-  private async expireOpenCheckouts(customerId: string): Promise<boolean> {
+  private async expireOpenCheckouts(customerId: string): Promise<void> {
     const seen = new Set<string>();
-    let completed = false;
     for (;;) {
       const query = encodeStripeForm({ customer: customerId, status: "open", limit: 100 });
       const page = checkoutListSchema.parse(
         await this.request("GET", `/v1/checkout/sessions?${query}`),
       );
       const fresh = page.data.filter((session) => !seen.has(session.id));
-      if (fresh.length === 0) return completed;
+      if (fresh.length === 0) return;
       for (const session of fresh) {
         seen.add(session.id);
-        const path = `/v1/checkout/sessions/${encodeURIComponent(session.id)}`;
         try {
-          await this.request("POST", `${path}/expire`);
+          await this.request(
+            "POST",
+            `/v1/checkout/sessions/${encodeURIComponent(session.id)}/expire`,
+          );
         } catch (error) {
-          // No longer open: it either expired on its own or the customer just paid it.
+          // No longer open: it expired on its own or was just paid, which the caller rechecks.
           if (!(error instanceof StripeRequestError && error.type === "invalid_request_error"))
             throw error;
-          const { status } = sessionSchema.parse(await this.request("GET", path));
-          if (status === "complete") completed = true;
         }
       }
     }
@@ -331,10 +333,19 @@ export function pickBillingSubscription<
 >(subscriptions: T[]): T | undefined {
   const newestFirst = [...subscriptions].sort((a, b) => b.created - a.created);
   return (
-    newestFirst.find((s) => ["trialing", "active", "past_due"].includes(s.status)) ??
-    newestFirst.find((s) => s.status === "unpaid" || s.status === "paused") ??
+    newestFirst.find((s) => grantsAccess(s.status)) ??
+    newestFirst.find((s) => holdsBillingSubscription(s.status)) ??
     newestFirst[0]
   );
+}
+
+function grantsAccess(status: BillingSubscriptionStatus) {
+  return status === "trialing" || status === "active" || status === "past_due";
+}
+
+/** Grants access now or resumes once paid, so another checkout would bill twice. */
+export function holdsBillingSubscription(status: BillingSubscriptionStatus) {
+  return grantsAccess(status) || status === "unpaid" || status === "paused";
 }
 
 function toSnapshot(
