@@ -6968,7 +6968,7 @@ function MessageHoverActions({
   }
 
   const iconButtonClass =
-    "grid h-11 w-11 cursor-pointer place-items-center text-muted-foreground transition-colors hover:text-foreground [@media(hover:hover)_and_(pointer:fine)]:h-7 [@media(hover:hover)_and_(pointer:fine)]:w-7";
+    "grid h-11 w-11 place-items-center text-muted-foreground transition-colors hover:text-foreground [@media(hover:hover)_and_(pointer:fine)]:h-7 [@media(hover:hover)_and_(pointer:fine)]:w-7";
 
   return (
     <MessageHoverMetadata pinned={moreOpen || reactionsOpen} side={side}>
@@ -6991,7 +6991,7 @@ function MessageHoverActions({
                   key={emoji}
                   type="button"
                   aria-label={emoji}
-                  className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-2xl hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                  className="grid h-11 w-11 place-items-center rounded-xl text-2xl hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => {
                     setReactionsOpen(false);
                     void onReact(message, emoji);
