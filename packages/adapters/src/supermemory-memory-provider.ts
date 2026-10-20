@@ -27,6 +27,7 @@ import {
 export const SUPERMEMORY_PROVIDER_ID = "supermemory";
 export { SUPERMEMORY_CLOUD_BASE_URL };
 
+const DELETE_PERMISSION_PROBE_TAG = "rakazo:delete-permission-probe";
 const LOCAL_NETWORK_ERROR = "Local mode requires a loopback or private-network address.";
 const BLOCKED_TARGET_ERROR = "Local mode cannot target a blocked address.";
 
@@ -153,14 +154,19 @@ export async function prepareSupermemoryConnection(
   const { mode, baseUrl, apiKey } = parseSupermemoryConnection(settings, credentials);
   const pinnedAddresses =
     mode === "local" ? await pinSupermemoryPrivateHost(baseUrl, options) : undefined;
-  const probe = await probeSupermemory({
+  const connection: SupermemoryConnectionConfig = {
     baseUrl,
     apiKey,
     resolveHostname: options?.resolveHostname,
     fetch: options?.fetch,
     ...(pinnedAddresses ? { pinnedAddresses } : {}),
-  });
+  };
+  const probe = await probeSupermemory(connection);
   if (!probe.ok) throw new Error(probe.error);
+  // Clearing a conversation deletes its memory, which only owner and admin keys may do.
+  // Deleting a tag that never holds memory checks that without touching data.
+  const deletable = await deleteSupermemoryContainer(DELETE_PERMISSION_PROBE_TAG, connection);
+  if (!deletable.ok) throw new Error(deletable.error);
   return { settings: { mode, baseUrl }, credentials: { apiKey } };
 }
 
@@ -250,6 +256,8 @@ export class SupermemoryMemoryProvider implements SemanticMemoryProvider {
     request: SemanticMemoryRecallRequest,
     context: AdapterContext,
   ): Promise<SemanticMemoryResponse<SemanticMemoryResult[]>> {
+    // Supermemory rejects an empty search query.
+    if (!request.query.trim()) return { ok: true, value: [] };
     const blocked = await this.localBaseUrlBlock();
     if (blocked) return { ok: false, error: blocked };
     const result = await searchSupermemoryContainers(
