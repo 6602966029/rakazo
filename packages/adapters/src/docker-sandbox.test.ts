@@ -593,6 +593,29 @@ describe("Docker sandbox stopped containers", () => {
     expect(isSandboxGoneError(error)).toBe(true);
   });
 
+  it("reports a deleted container gone when running a command", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          stdout: "",
+          stderr: "(HTTP code 404) no such container - No such container: computer",
+          code: 1,
+        }),
+      ),
+    );
+    const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
+
+    const error = await (async () => {
+      for await (const _event of provider.execute(computer, { argv: ["true"] }, context));
+    })().then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(isSandboxGoneError(error)).toBe(true);
+  });
+
   it("reports a stopped container gone when granting interactive control", async () => {
     supervisorWith(() => Response.json({ id: "computer", running: false }));
     const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
