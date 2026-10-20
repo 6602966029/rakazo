@@ -2719,20 +2719,24 @@ function fallbackAwareModelStream(
                 restart = true;
                 break;
               }
-              firstRetryableError ??= event;
-              // Every retry, including its backoff, shares the original budget.
-              const delay = MODEL_PROVIDER_RETRY_DELAYS_MS[retries];
-              if (delay !== undefined && Date.now() - startedAt + delay < timeoutMs) {
-                retries += 1;
-                await abortableDelay(delay, signal);
-                if (failIfAborted(target)) return;
-                if (Date.now() - startedAt < timeoutMs) {
-                  buffered = [];
-                  restart = true;
-                  break;
+              // An exhausted quota or usage window can move to a backup but will not clear
+              // within the retry budget, so only transient failures retry the same model.
+              if (isTransientModelError(event.error)) {
+                firstRetryableError ??= event;
+                // Every retry, including its backoff, shares the original budget.
+                const delay = MODEL_PROVIDER_RETRY_DELAYS_MS[retries];
+                if (delay !== undefined && Date.now() - startedAt + delay < timeoutMs) {
+                  retries += 1;
+                  await abortableDelay(delay, signal);
+                  if (failIfAborted(target)) return;
+                  if (Date.now() - startedAt < timeoutMs) {
+                    buffered = [];
+                    restart = true;
+                    break;
+                  }
                 }
+                terminalEvent = firstRetryableError;
               }
-              terminalEvent = firstRetryableError;
             }
             for (const pending of buffered) output.push(pending);
             buffered = [];
