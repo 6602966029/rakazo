@@ -163,10 +163,7 @@ export class RailwaySandboxProvider implements SandboxProvider {
           context.signal.throwIfAborted();
           return response;
         },
-        // Railway destroys an idle sandbox, so it must outlast the checkpointing idle sleep.
-        idleTimeoutMinutes: computerIdleSleepEnabled()
-          ? Math.min(MAX_IDLE_TIMEOUT_MINUTES, Math.ceil((sandboxIdleMs() * 1.5) / 60_000))
-          : 0,
+        idleTimeoutMinutes: railwayIdleTimeoutMinutes(),
         // Railway public domains require the sandbox to join the private network.
         networkIsolation: "PRIVATE",
         domains: [{ port: SCREEN_PORT }],
@@ -526,6 +523,16 @@ export class RailwaySandboxProvider implements SandboxProvider {
   private ref(id: string, botId: string, fresh: boolean): ComputerRef {
     return { id, botId, kind: "railway", providerRef: id, fresh };
   }
+}
+
+/**
+ * Railway destroys an idle sandbox, so it must outlast the checkpointing idle sleep. When no
+ * finite timeout can, Railway never idles it out and Rakazo's own idle sleep stops it.
+ */
+function railwayIdleTimeoutMinutes() {
+  if (!computerIdleSleepEnabled()) return 0;
+  const minutes = Math.ceil((sandboxIdleMs() * 1.5) / 60_000);
+  return minutes <= MAX_IDLE_TIMEOUT_MINUTES ? minutes : 0;
 }
 
 async function connectSandbox(id: string, options: ConnectOptions) {

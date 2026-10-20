@@ -324,7 +324,9 @@ describe("Railway sandbox lifecycle", () => {
     [undefined, 15],
     ["30000", 1],
     ["1800000", 45],
-    ["7200000", 120],
+    ["4800000", 120],
+    ["4860000", 0],
+    ["10800000", 0],
     ["0", 0],
   ])("creates sandboxes that outlast idle sleep with SANDBOX_IDLE_MS=%s", async (idle, minutes) => {
     if (idle !== undefined) vi.stubEnv("SANDBOX_IDLE_MS", idle);
