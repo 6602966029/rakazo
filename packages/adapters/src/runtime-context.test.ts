@@ -249,7 +249,8 @@ describe("runtime context policy", () => {
     );
     expect(skill.length).toBeGreaterThan(2500);
     expect(body("read")).toBe(skill);
-    expect(body("shell-1")).toContain("[Tool result truncated to fit context");
+    expect(body("shell-1")).toContain("[Earlier result shortened after you read it");
+    expect(body("shell-1")).not.toContain("unavailable");
     expect(body("shell-2")).toBe(shellOutput);
   });
   it("leaves the baseline provider payload untouched", () => {
@@ -351,7 +352,7 @@ describe("runtime context policy", () => {
     expect(after.messages.length).toBe(before.messages.length + 1);
     // History is still bounded and old tool evidence is still shortened.
     expect(after.messages.length).toBeLessThan(steered.messages.length);
-    expect(JSON.stringify(after.messages)).toContain("[Tool result truncated to fit context");
+    expect(JSON.stringify(after.messages)).toContain("[Earlier result shortened after you read it");
   });
   it.each(["snapshots", "cache-aware"] as const)(
     "retains already-short history without lookup navigation under %s",

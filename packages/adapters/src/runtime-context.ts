@@ -393,7 +393,13 @@ export function createRuntimeContextPolicy(
           return message;
         const source = text(message);
         if (source.length <= 1024) return message;
-        const shortened = shortenToolResultText(source, 1024, { name: message.toolName });
+        // The model read this result on an earlier step, so mark it as shortened after use.
+        const shortened = shortenToolResultText(
+          source,
+          1024,
+          { name: message.toolName },
+          { afterUse: true },
+        );
         if (shortened.length >= source.length) return message;
         return {
           ...message,
