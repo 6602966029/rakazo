@@ -36,7 +36,13 @@ test("legacy opaque names never appear in navigation, account, chats or Activity
     await db.space.update({ where: { id: me.spaceId }, data: { name: "__SpaceTok1__" } });
     await page.goto(`/app/${bot.id}`);
     await expect(page.getByPlaceholder("Message Bot")).toBeVisible();
-    await expect(page.getByTestId("user-menu-trigger")).toContainText(email);
+    const accountTrigger = page.getByTestId("user-menu-trigger");
+    await expect(accountTrigger).toHaveAccessibleName(`Account menu for ${email}`);
+    await accountTrigger.click();
+    await expect(page.getByTestId("account-menu-header")).toContainText(email);
+    await expectReadableNames(page.locator("body"));
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("account-menu-header")).toBeHidden();
     await expectReadableNames(page.locator("body"));
     await captureScreenshot(page, testInfo, "readable-names-sidebar-chat");
     await openUserSettings(page);

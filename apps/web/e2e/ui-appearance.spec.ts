@@ -239,7 +239,8 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   await page.setViewportSize({ width: 320, height: 900 });
   await page.getByRole("button", { name: "Open navigation", exact: true }).click();
   await expect(avatar).toBeInViewport();
-  await expect(footer.locator('span[aria-hidden="true"] > span:visible')).toHaveCount(2);
+  // Font metrics can change the count at this viewport; exact bands are covered below.
+  await expect(footer.locator('span[aria-hidden="true"] > span:visible').first()).toBeVisible();
   const pill = footer.getByRole("button", { name: "Connect apps", exact: true });
   const label = pill.locator("span").first();
   expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -265,15 +266,29 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   await updateButton.evaluate((el) => el.blur());
 
   // Width changes must drop marks before taking space from the label or padding.
-  for (const [width, count] of [
-    [230, 0],
-    [258, 1],
-    [271, 2],
-    [315, 3],
+  // Measure the fixed controls and label, then target the middle of each band.
+  // Marks need 26px initially and 18px per additional mark, leaving 9px margin.
+  const fixedWidth = await pill.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return (
+      el.parentElement!.getBoundingClientRect().width -
+      el.clientWidth +
+      Number.parseFloat(style.paddingLeft) +
+      Number.parseFloat(style.paddingRight) +
+      el.querySelector("span")!.scrollWidth +
+      Number.parseFloat(style.columnGap)
+    );
+  });
+  for (const [availableWidth, count] of [
+    [17, 0],
+    [35, 1],
+    [53, 2],
+    [71, 3],
   ]) {
+    const width = fixedWidth + availableWidth!;
     await footer.evaluate((el, width) => {
       el.style.width = `${width}px`;
-    }, width!);
+    }, width);
     const marks = footer.locator('span[aria-hidden="true"] > span');
     await expect(marks).toHaveCount(count!);
     expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
