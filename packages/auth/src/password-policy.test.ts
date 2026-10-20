@@ -134,9 +134,21 @@ describe("breached password check", () => {
     const signup = await f.signup(strongPassword);
     expect(signup.status).toBe(400);
     expect(await signup.json()).toMatchObject({ code: "PASSWORD_COMPROMISED" });
-    const url = String((fetch.mock.calls[0] as unknown[])[0]);
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toMatch(/^https:\/\/api\.pwnedpasswords\.com\/range\/[0-9A-F]{5}$/);
     expect(url).not.toContain(strongPassword);
+    // The deadline aborts the request itself, so a stalled lookup does not outlive sign-up.
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("fails open when the service returns an error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("", { status: 503 })),
+    );
+    const f = fixture({ breachedPasswordCheck: true });
+    expect((await f.signup(strongPassword)).status).toBe(200);
+    expect(f.log).toHaveBeenCalled();
   });
 
   it("accepts a password the service does not list", async () => {

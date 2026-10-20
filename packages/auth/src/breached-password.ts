@@ -1,7 +1,7 @@
+import { createHash } from "node:crypto";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@rakazo/core";
 import type { BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { isPasswordCompromised } from "better-auth/plugins/haveibeenpwned";
 
 /** Routes that set a new password, and the body field that carries it. Sign-in is never checked. */
 const NEW_PASSWORD_FIELDS = new Map([
@@ -16,11 +16,10 @@ const CHECK_TIMEOUT_MS = 3_000;
 /**
  * Rejects new passwords found in the Have I Been Pwned corpus. Only a five-character SHA-1
  * prefix leaves the server. The check fails open: when the service is slow or unreachable the
- * password is accepted and the failure logged, so an outside service never blocks sign-up.
+ * request is aborted, the password accepted and the failure logged, so an outside service never
+ * blocks sign-up.
  */
-export function breachedPasswordCheck(
-  isCompromised: (password: string) => Promise<boolean> = isPasswordCompromised,
-) {
+export function breachedPasswordCheck() {
   return {
     id: "breached-password-check",
     hooks: {
@@ -39,7 +38,7 @@ export function breachedPasswordCheck(
               return;
             let compromised: boolean;
             try {
-              compromised = await withTimeout(isCompromised(password), CHECK_TIMEOUT_MS);
+              compromised = await isPasswordBreached(password);
             } catch (error) {
               ctx.context.logger.error("Breached password check unavailable", error);
               return;
@@ -57,10 +56,17 @@ export function breachedPasswordCheck(
   } satisfies BetterAuthPlugin;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("Breached password check timed out")), ms);
+/** Have I Been Pwned k-anonymity range lookup, aborted at the deadline. */
+async function isPasswordBreached(password: string): Promise<boolean> {
+  const hash = createHash("sha1").update(password).digest("hex").toUpperCase();
+  const response = await fetch(`https://api.pwnedpasswords.com/range/${hash.slice(0, 5)}`, {
+    headers: { "Add-Padding": "true" },
+    signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
   });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  if (!response.ok) throw new Error(`Breach lookup failed with status ${response.status}`);
+  const suffix = `${hash.slice(5)}:`;
+  for (const line of (await response.text()).split(/\r?\n/)) {
+    if (line.toUpperCase().startsWith(suffix)) return Number(line.slice(suffix.length)) > 0;
+  }
+  return false;
 }
