@@ -307,6 +307,7 @@ describe("CartesiaVoiceProvider", () => {
       | { headers: Record<string, string>; body: string }
       | undefined;
     expect(init?.headers["Cartesia-Version"]).toBe("2026-08-14");
+    expect(init?.headers.Authorization).toBe("Bearer sk-test");
     expect(JSON.parse(init?.body ?? "{}").voice).toEqual({ id: "sonic" });
   });
 

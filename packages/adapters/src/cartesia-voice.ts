@@ -98,7 +98,7 @@ export class CartesiaVoiceProvider implements VoiceProvider {
 }
 
 function cartesiaHeaders(apiKey: string): Record<string, string> {
-  return { "X-API-Key": apiKey, "Cartesia-Version": VERSION };
+  return { Authorization: `Bearer ${apiKey}`, "Cartesia-Version": VERSION };
 }
 
 /** The cursor for the next catalog page, or undefined when this was the last one. */

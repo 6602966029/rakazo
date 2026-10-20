@@ -261,12 +261,12 @@ describe("Infisical lifecycle and REST", () => {
   it.each([
     { retryAfter: undefined, sleeps: [100] },
     { retryAfter: "2", sleeps: [2000] },
-    { retryAfter: new Date(Date.now() + 3_000).toUTCString(), sleeps: [expect.any(Number)] },
+    { retryAfter: new Date(Date.UTC(2026, 0, 1, 0, 0, 3)).toUTCString(), sleeps: [3000] },
     { retryAfter: "60", sleeps: [] },
   ])("waits for Retry-After $retryAfter within a bound", async ({ retryAfter, sleeps }) => {
     const fake = infisicalFake();
     fake.retryAfter = retryAfter;
-    const store = new InfisicalSecretStore(fake.options);
+    const store = new InfisicalSecretStore({ ...fake.options, now: () => Date.UTC(2026, 0, 1) });
     await store.start();
     fake.statuses.push(429);
     const put = store.put("value", secretTestContext);
