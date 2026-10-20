@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { IconTooltip } from "../components/IconTooltip";
 import { PdfViewer } from "../components/PdfViewer";
 import { SandboxedHtmlViewer } from "../components/SandboxedHtmlViewer";
 import { decodeArtifactBase64, downloadArtifactBytes } from "../lib/artifact-open";
@@ -621,18 +622,21 @@ function ViewModeButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={active}
-      title={label}
-      onClick={onClick}
-      className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-        active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
-      }`}
-    >
-      {children}
-    </button>
+    <IconTooltip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={active}
+        onClick={onClick}
+        className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+          active
+            ? "bg-accent text-accent-foreground"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        {children}
+      </button>
+    </IconTooltip>
   );
 }
 
@@ -687,19 +691,20 @@ function ArtifactCard({
           <span className="shrink-0">{formatRelativeTime(artifact.createdAt)}</span>
         </div>
       </Link>
-      <button
-        type="button"
-        aria-label={t`Delete ${artifact.name}`}
-        title={t`Delete ${artifact.name}`}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onRequestDelete(artifact);
-        }}
-        className="absolute bottom-3 end-3 grid h-7 w-7 place-items-center rounded-lg bg-card text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100"
-      >
-        <Trash2 size={14} strokeWidth={1.9} />
-      </button>
+      <IconTooltip label={t`Delete ${artifact.name}`}>
+        <button
+          type="button"
+          aria-label={t`Delete ${artifact.name}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRequestDelete(artifact);
+          }}
+          className="absolute bottom-3 end-3 grid h-7 w-7 place-items-center rounded-lg bg-card text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100"
+        >
+          <Trash2 size={14} strokeWidth={1.9} />
+        </button>
+      </IconTooltip>
     </div>
   );
 }
@@ -746,19 +751,20 @@ function ArtifactRow({
           <span>{formatRelativeTime(artifact.createdAt)}</span>
         </div>
       </Link>
-      <button
-        type="button"
-        aria-label={t`Delete ${artifact.name}`}
-        title={t`Delete ${artifact.name}`}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onRequestDelete(artifact);
-        }}
-        className="absolute end-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100"
-      >
-        <Trash2 size={14} strokeWidth={1.9} />
-      </button>
+      <IconTooltip label={t`Delete ${artifact.name}`}>
+        <button
+          type="button"
+          aria-label={t`Delete ${artifact.name}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRequestDelete(artifact);
+          }}
+          className="absolute end-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100"
+        >
+          <Trash2 size={14} strokeWidth={1.9} />
+        </button>
+      </IconTooltip>
     </div>
   );
 }
@@ -903,19 +909,20 @@ function PreviewPane({
               <Download className="me-1.5" size={15} strokeWidth={1.9} />
               <Trans>Download</Trans>
             </Button>
-            <button
-              type="button"
-              aria-label={maximized ? t`Show list` : t`Maximize`}
-              title={maximized ? t`Show list` : t`Maximize`}
-              onClick={onToggleMaximize}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-accent"
-            >
-              {maximized ? (
-                <Minimize2 size={15} strokeWidth={1.9} />
-              ) : (
-                <Maximize2 size={15} strokeWidth={1.9} />
-              )}
-            </button>
+            <IconTooltip label={maximized ? t`Show list` : t`Maximize`}>
+              <button
+                type="button"
+                aria-label={maximized ? t`Show list` : t`Maximize`}
+                onClick={onToggleMaximize}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-accent"
+              >
+                {maximized ? (
+                  <Minimize2 size={15} strokeWidth={1.9} />
+                ) : (
+                  <Maximize2 size={15} strokeWidth={1.9} />
+                )}
+              </button>
+            </IconTooltip>
           </>
         ) : null}
       </header>
