@@ -6,7 +6,8 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import type * as React from "react";
-import { Toaster as Sonner, type ToasterProps, toast } from "sonner";
+import type { ToasterProps } from "sonner";
+import { Toaster as Sonner, toast } from "sonner";
 
 // Colors follow the app's semantic tokens, so the toaster needs no theme provider.
 const Toaster = ({ ...props }: ToasterProps) => {
