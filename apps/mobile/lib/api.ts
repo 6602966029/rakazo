@@ -25,6 +25,8 @@ import {
   aiConsentTarget,
   aiDataUsesForProcedure,
   cancelResponseBody,
+  displayIdentityEvent,
+  displayIdentityResult,
   ensureAiDataConsent,
   isRunTerminalEvent,
   isServerUnreachable,
@@ -48,6 +50,7 @@ import { getCachedAvatarStyle, saveAvatarStyle } from "./avatar-style";
 import type { EndpointResult } from "./endpoint";
 import { defaultApiBase, normalizeApiBase } from "./endpoint";
 import { t } from "./i18n";
+import { identityLabels } from "./identity-display";
 import { resumeLiveNotifications } from "./live-notifications";
 import {
   clearSessionToken,
@@ -928,7 +931,7 @@ export async function rpc<T>(
         selectionId: requestSpaceId ?? null,
       });
     }
-    return parsed.json as T;
+    return displayIdentityResult(proc.split("/"), parsed.json, identityLabels()) as T;
   } catch (error) {
     if (
       requestSessionGeneration === currentSessionGeneration() &&
@@ -1220,7 +1223,8 @@ export async function subscribeThread(
       try {
         const parsed = JSON.parse(data) as { json?: ThreadEvent; error?: { message?: string } };
         // Heartbeats prove liveness only; forwarding one would advance the caller's cursor.
-        if (parsed.json?.type && parsed.json.type !== "heartbeat") onEvent(parsed.json);
+        if (parsed.json?.type && parsed.json.type !== "heartbeat")
+          onEvent(displayIdentityEvent(parsed.json, identityLabels()));
       } catch {
         // ignore keepalives and partial frames
       }

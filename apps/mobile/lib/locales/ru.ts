@@ -13,6 +13,9 @@ export const RU_MESSAGES: Record<string, string> = {
   "Technical details": "Технические сведения",
   "The provider did not report whether this was a personal or shared key.":
     "Провайдер не сообщил, был ли использован личный или общий ключ.",
+  Member: "Участник",
+  Owner: "Владелец",
+  Chats: "Чаты",
   "Message from another agent": "Сообщение от другого агента",
   "Another agent": "Другой агент",
   "Update from {name}: {text}": "Обновление от {name}: {text}",

@@ -14,6 +14,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Technical details": "Technische Details",
   "The provider did not report whether this was a personal or shared key.":
     "Der Anbieter hat nicht angegeben, ob ein persönlicher oder geteilter Schlüssel verwendet wurde.",
+  Member: "Mitglied",
+  Owner: "Inhaber",
+  Chats: "Chats",
+  Space: "Space",
   "Message from another agent": "Nachricht von einem anderen Agenten",
   "Another agent": "Ein anderer Agent",
   "Update from {name}: {text}": "Update von {name}: {text}",

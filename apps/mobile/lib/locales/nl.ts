@@ -13,6 +13,10 @@ export const NL_MESSAGES: Record<string, string> = {
   "Technical details": "Technische details",
   "The provider did not report whether this was a personal or shared key.":
     "De provider heeft niet gemeld of dit een persoonlijke of gedeelde sleutel was.",
+  Member: "Lid",
+  Owner: "Eigenaar",
+  Chats: "Chats",
+  Space: "Space",
   "Message from another agent": "Bericht van een andere agent",
   "Another agent": "Een andere agent",
   "Update from {name}: {text}": "Update van {name}: {text}",
