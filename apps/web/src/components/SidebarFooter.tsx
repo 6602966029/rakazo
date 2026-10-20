@@ -16,7 +16,7 @@ import { useSidebarUpdate } from "./DesktopUpdates";
 
 type Props = {
   name: string;
-  initials: string;
+  initials: string | null;
   image?: string | null;
   logos?: Array<{ name: string; logo?: string | null }>;
   email?: string;
