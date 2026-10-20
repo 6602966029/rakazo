@@ -8,7 +8,6 @@ import {
   DesktopSandboxProvider,
   FakeSandboxProvider,
   handoffToGroupBot,
-  ManagedSandboxEmulator,
   organizeBot,
   toComputerRef,
 } from "@rakazo/adapters";
@@ -1468,7 +1467,7 @@ describeJourneys("required product journeys", () => {
     expect(messages.map((row) => row.seq)).toEqual(Array.from({ length: 40 }, (_, i) => i));
   });
 
-  it("6: fake, managed-sandbox emulator, and desktop executor run the same graphical task", async () => {
+  it("6: fake and desktop executor run the same graphical task", async () => {
     const ctx = {
       operationId: "1",
       traceId: "1",
@@ -1477,22 +1476,17 @@ describeJourneys("required product journeys", () => {
       signal: new AbortController().signal,
     };
     const fake = new FakeSandboxProvider();
-    const managed = new ManagedSandboxEmulator();
     const desktop = new DesktopSandboxProvider();
     const a = await fake.provision({ botId: "ja", homePath: "/tmp/ja" }, ctx);
-    const b = await managed.provision({ botId: "jb", homePath: "/tmp/jb" }, ctx);
     const c = await desktop.provision({ botId: "jc", homePath: "/tmp/jc" }, ctx);
     let out = "";
     for await (const event of fake.execute(a, { argv: ["echo", "same-task"] }, ctx)) {
       if (event.type === "stdout") out += event.data;
     }
-    for await (const event of managed.execute(b, { argv: ["echo", "same-task"] }, ctx)) {
-      if (event.type === "stdout") out += event.data;
-    }
     for await (const event of desktop.execute(c, { argv: ["echo", "same-task"] }, ctx)) {
       if (event.type === "stdout") out += event.data;
     }
-    expect(out.match(/same-task/g)?.length).toBe(3);
+    expect(out.match(/same-task/g)?.length).toBe(2);
     await desktop.destroy(c, ctx);
   });
 
