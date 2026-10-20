@@ -185,7 +185,12 @@ describe("Supermemory connection setup", () => {
     await prepareSupermemoryConnection({ mode: "cloud" }, credentials);
     expect(fetchMock.mock.calls.map(([url, init]) => [init?.method, String(url)])).toEqual([
       ["GET", "https://api.supermemory.ai/v3/container-tags/list"],
-      ["DELETE", "https://api.supermemory.ai/v3/container-tags/rakazo%3Adelete-permission-probe"],
+      [
+        "DELETE",
+        expect.stringMatching(
+          /^https:\/\/api\.supermemory\.ai\/v3\/container-tags\/rakazo%3Adelete-probe%3A[0-9a-f-]{36}$/,
+        ),
+      ],
     ]);
   });
 

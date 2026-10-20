@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import type {
@@ -27,7 +28,6 @@ import {
 export const SUPERMEMORY_PROVIDER_ID = "supermemory";
 export { SUPERMEMORY_CLOUD_BASE_URL };
 
-const DELETE_PERMISSION_PROBE_TAG = "rakazo:delete-permission-probe";
 const LOCAL_NETWORK_ERROR = "Local mode requires a loopback or private-network address.";
 const BLOCKED_TARGET_ERROR = "Local mode cannot target a blocked address.";
 
@@ -164,8 +164,11 @@ export async function prepareSupermemoryConnection(
   const probe = await probeSupermemory(connection);
   if (!probe.ok) throw new Error(probe.error);
   // Clearing a conversation deletes its memory, which only owner and admin keys may do.
-  // Deleting a tag that never holds memory checks that without touching data.
-  const deletable = await deleteSupermemoryContainer(DELETE_PERMISSION_PROBE_TAG, connection);
+  // Deleting a fresh random tag checks that without touching anyone's data.
+  const deletable = await deleteSupermemoryContainer(
+    `rakazo:delete-probe:${randomUUID()}`,
+    connection,
+  );
   if (!deletable.ok) throw new Error(deletable.error);
   return { settings: { mode, baseUrl }, credentials: { apiKey } };
 }

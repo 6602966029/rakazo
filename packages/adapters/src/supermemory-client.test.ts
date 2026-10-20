@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo, Socket } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SupermemorySaveResponse } from "./supermemory-client.js";
 import {
   deleteSupermemoryContainer,
   MAX_MEMORY_CONTENT_CHARS,
@@ -8,7 +9,6 @@ import {
   MAX_SUPERMEMORY_RESPONSE_BYTES,
   probeSupermemory,
   SUPERMEMORY_DELETE_FORBIDDEN_ERROR,
-  type SupermemorySaveResponse,
   saveSupermemoryMemory,
   saveSupermemoryMemoryToContainers,
   searchSupermemory,
