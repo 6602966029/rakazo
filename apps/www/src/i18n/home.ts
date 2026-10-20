@@ -65,6 +65,7 @@ export type HomeCopy = {
     cloudTitle: string;
     cloudBadge: string;
     cloudMeta: string;
+    tryCloud: string;
   };
   cta: {
     heading: string;
@@ -414,6 +415,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       cloudTitle: "Cloud",
       cloudBadge: "Beta",
       cloudMeta: "Bring your own keys, we run the computers",
+      tryCloud: "Try Rakazo Cloud",
     },
     cta: {
       heading: "Meet your first bot",
@@ -535,6 +537,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       cloudTitle: "Cloud",
       cloudBadge: "Beta",
       cloudMeta: "Deine Keys, wir betreiben die Computer",
+      tryCloud: "Rakazo Cloud ausprobieren",
     },
     cta: {
       heading: "Triff deinen ersten Bot",
@@ -655,6 +658,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       cloudTitle: "Cloud",
       cloudBadge: "베타",
       cloudMeta: "키는 당신 것, 컴퓨터는 우리가 운영",
+      tryCloud: "Rakazo Cloud 사용해 보기",
     },
     cta: {
       heading: "첫 봇을 만나보세요",
@@ -775,6 +779,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       cloudTitle: "云端",
       cloudBadge: "测试版",
       cloudMeta: "密钥归你，电脑由我们运行",
+      tryCloud: "试用 Rakazo Cloud",
     },
     cta: {
       heading: "认识你的第一个 Bot",
