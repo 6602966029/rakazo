@@ -5,7 +5,7 @@ import { completeOnboarding, rpc, signup } from "./helpers";
 test("shared memory save writes without an approval card", async ({ page }) => {
   const stamp = Date.now();
   const content = `Printing jobs go to Clyde. ${stamp}`;
-  await signup(page, `shared-memory-${stamp}@rakazo.test`, "password12", "Shared Memory");
+  await signup(page, `shared-memory-${stamp}@rakazo.test`, "password1234", "Shared Memory");
   await completeOnboarding(page);
 
   const composer = page.getByRole("combobox", { name: "Message Chief" });

@@ -27,7 +27,7 @@ async function captureSidebarRoster(page: Page, testInfo: TestInfo, name: string
 
 test("sidebar roster shows Working… while a run is active", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `work-status-${stamp}@rakazo.test`, "password12", "Work Status");
+  await signup(page, `work-status-${stamp}@rakazo.test`, "password1234", "Work Status");
   await completeOnboarding(page);
 
   const botId = activeBotId(page);

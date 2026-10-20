@@ -5,7 +5,7 @@ test("a failed overlay chunk keeps the shell and the draft, and Refresh loads it
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `overlay-load-${stamp}@rakazo.test`, "password12", "Overlay Load");
+  await signup(page, `overlay-load-${stamp}@rakazo.test`, "password1234", "Overlay Load");
   await completeOnboarding(page);
 
   const composer = page.getByRole("combobox", { name: "Message Chief" });
@@ -32,7 +32,7 @@ test("a failed overlay chunk keeps the shell and the draft, and Refresh loads it
 
 test("a failed page chunk shows Refresh instead of a blank app", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `page-load-${stamp}@rakazo.test`, "password12", "Page Load");
+  await signup(page, `page-load-${stamp}@rakazo.test`, "password1234", "Page Load");
   await completeOnboarding(page);
 
   const artifactsChunk = /\/pages\/Artifacts\.tsx/;
@@ -54,7 +54,7 @@ for (const [failing, intact] of [
 ] as const) {
   test(`a failed ${failing} chunk keeps the rest of the bot settings panel`, async ({ page }) => {
     const stamp = Date.now();
-    await signup(page, `section-load-${stamp}@rakazo.test`, "password12", "Section Load");
+    await signup(page, `section-load-${stamp}@rakazo.test`, "password1234", "Section Load");
     await completeOnboarding(page);
 
     const composer = page.getByRole("combobox", { name: "Message Chief" });
@@ -84,7 +84,7 @@ for (const overlay of ["settings", "integrations"] as const) {
     await signup(
       page,
       `preload-${overlay}-${Date.now()}@rakazo.test`,
-      "password12",
+      "password1234",
       "Preload Recovery",
     );
     await completeOnboarding(page);
@@ -126,7 +126,7 @@ for (const overlay of ["settings", "integrations"] as const) {
 }
 
 test("preload recovery keeps Settings bound to another space", async ({ page }, testInfo) => {
-  await signup(page, `preload-space-${Date.now()}@rakazo.test`, "password12", "Preload Recovery");
+  await signup(page, `preload-space-${Date.now()}@rakazo.test`, "password1234", "Preload Recovery");
   await completeOnboarding(page);
   const personalUrl = page.url();
   await openNewSpace(page);

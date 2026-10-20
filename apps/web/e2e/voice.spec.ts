@@ -13,7 +13,7 @@ test("voice settings connect a key, speak a reply, and open a call", async ({ pa
   });
   const stamp = Date.now();
   const userName = `Voice ${stamp}`;
-  await signup(page, `voice-${stamp}@rakazo.test`, "password12", userName);
+  await signup(page, `voice-${stamp}@rakazo.test`, "password1234", userName);
   await completeOnboarding(page);
 
   await expect(
@@ -129,7 +129,7 @@ test("voice settings connect a key, speak a reply, and open a call", async ({ pa
 });
 
 test("incoming calls keep failed actions available for retry", async ({ page }, testInfo) => {
-  await signup(page, `incoming-call-${Date.now()}@rakazo.test`, "password12", "Call tester");
+  await signup(page, `incoming-call-${Date.now()}@rakazo.test`, "password1234", "Call tester");
   await completeOnboarding(page);
   const bots = await rpc<Array<{ id: string }>>(page, "bots/list", {});
   const bot = bots[0];
@@ -169,7 +169,7 @@ test("incoming calls keep failed actions available for retry", async ({ page }, 
 
 test("voice settings take a self-hosted speech server by URL", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `voice-local-${stamp}@rakazo.test`, "password12", `Voice Local ${stamp}`);
+  await signup(page, `voice-local-${stamp}@rakazo.test`, "password1234", `Voice Local ${stamp}`);
   await completeOnboarding(page);
 
   await openUserSettings(page, "voice");

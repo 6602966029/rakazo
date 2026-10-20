@@ -48,7 +48,7 @@ test("restricted signup waits for mailbox verification", async ({ page }, testIn
   await page.goto("/sign-up");
   await page.getByLabel("Name").fill("Pending User");
   await page.getByLabel("Email").fill("pending@example.test");
-  await page.getByLabel("Password", { exact: true }).fill("password12");
+  await page.getByLabel("Password", { exact: true }).fill("password1234");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
   await expect(page).toHaveURL(/\/sign-up\?verify=email$/);
@@ -83,7 +83,7 @@ test("logout protects bot deep links and sign-in restores the session", async ({
 }, testInfo) => {
   const stamp = Date.now();
   const email = `auth-lifecycle-${stamp}@rakazo.test`;
-  const password = "password12";
+  const password = "password1234";
   const userName = "Auth Lifecycle";
 
   await page.goto("/sign-up");
@@ -222,7 +222,7 @@ test("logout protects bot deep links and sign-in restores the session", async ({
 test("changes and recovers an email password", async ({ page }, testInfo) => {
   const stamp = Date.now();
   const email = `password-recovery-${stamp}@rakazo.test`;
-  const originalPassword = "password12";
+  const originalPassword = "password1234";
   const changedPassword = "changed-password12";
   const resetPassword = "reset-password12";
   const userName = "Password Recovery";
@@ -253,6 +253,8 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
     "current-password",
   );
   await expect(settings.getByLabel("New password")).toHaveAttribute("autocomplete", "new-password");
+  await expect(settings.getByLabel("New password")).toHaveAttribute("minlength", "12");
+  await expect(settings.getByLabel("Current password")).not.toHaveAttribute("minlength");
   await expect(settings.getByLabel("Confirm password")).toHaveAttribute(
     "autocomplete",
     "new-password",
@@ -308,7 +310,7 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
 test("password-off account settings hide password changes and retain password deletion", async ({
   page,
 }, testInfo) => {
-  await signup(page, `password-off-${Date.now()}@rakazo.test`, "password12", "Password Off");
+  await signup(page, `password-off-${Date.now()}@rakazo.test`, "password1234", "Password Off");
   await completeOnboarding(page);
   await page.waitForURL(/\/app\/[^/]+$/);
   await page.route("**/api/auth/account-security", (route) =>

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, signup } from "./helpers";
 
 test("chat attachments use the upload limit from bootstrap", async ({ page }, testInfo) => {
-  await signup(page, `upload-limit-${Date.now()}@rakazo.test`, "password12", "Upload Test");
+  await signup(page, `upload-limit-${Date.now()}@rakazo.test`, "password1234", "Upload Test");
   await completeOnboarding(page);
   await page.route("**/rpc/bootstrap", async (route) => {
     const response = await route.fetch();

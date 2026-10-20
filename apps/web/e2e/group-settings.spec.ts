@@ -10,7 +10,7 @@ import {
 test("group settings shows members first, roster behind Show all", async ({ page }, testInfo) => {
   test.setTimeout(300_000);
   const stamp = Date.now();
-  await signup(page, `group-settings-${stamp}@rakazo.test`, "password12", "Settings E2E");
+  await signup(page, `group-settings-${stamp}@rakazo.test`, "password1234", "Settings E2E");
   await completeOnboarding(page);
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);

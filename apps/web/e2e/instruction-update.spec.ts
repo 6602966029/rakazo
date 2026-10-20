@@ -4,7 +4,12 @@ import { activeBotId, captureScreenshot, completeOnboarding, rpc, signup } from 
 test("instruction proposals support edit, approval, undo and mandatory human approval", async ({
   page,
 }, testInfo) => {
-  await signup(page, `instruction-update-${Date.now()}@rakazo.test`, "password12", "Instructions");
+  await signup(
+    page,
+    `instruction-update-${Date.now()}@rakazo.test`,
+    "password1234",
+    "Instructions",
+  );
   await completeOnboarding(page);
   const botId = await activeBotId(page);
   const original = (await rpc<{ instructions: string }>(page, "bots/get", { botId })).instructions;

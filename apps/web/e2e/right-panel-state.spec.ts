@@ -24,7 +24,7 @@ async function waitForStoredPanel(page: Page, panel: string | null) {
 }
 
 test("reload restores the open, closed and settings rail states", async ({ page }, testInfo) => {
-  await signup(page, `rail-state-${Date.now()}@rakazo.test`, "password12", "Panel Layout");
+  await signup(page, `rail-state-${Date.now()}@rakazo.test`, "password1234", "Panel Layout");
   await completeOnboarding(page);
   const panel = page.getByTestId("side-panel");
   await expect(panel).toHaveAttribute("data-panel", "closed");
@@ -65,7 +65,7 @@ test("reload restores the open, closed and settings rail states", async ({ page 
 test("reload restores the selected routine and scopes preferences to the chat", async ({
   page,
 }, testInfo) => {
-  await signup(page, `rail-routine-${Date.now()}@rakazo.test`, "password12", "Routine Layout");
+  await signup(page, `rail-routine-${Date.now()}@rakazo.test`, "password1234", "Routine Layout");
   await completeOnboarding(page);
   const botId = activeBotId(page);
   const routine = await rpc<Routine>(page, "routines/create", {

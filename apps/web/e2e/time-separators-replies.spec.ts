@@ -4,7 +4,7 @@ import { activeBotId, captureScreenshot, completeOnboarding, rpc, signup } from 
 test("a short reply thread shows one time separator and navigates to its parent", async ({
   page,
 }, testInfo) => {
-  await signup(page, `time-replies-${Date.now()}@rakazo.test`, "password12", "Reply Tester");
+  await signup(page, `time-replies-${Date.now()}@rakazo.test`, "password1234", "Reply Tester");
   await completeOnboarding(page);
   const botId = activeBotId(page);
   await rpc(page, "threads/clear", { botId });
@@ -52,7 +52,7 @@ test("a short reply thread shows one time separator and navigates to its parent"
 test("replying to a photo shows authenticated thumbnails before and after sending", async ({
   page,
 }, testInfo) => {
-  await signup(page, `photo-replies-${Date.now()}@rakazo.test`, "password12", "Reply Tester");
+  await signup(page, `photo-replies-${Date.now()}@rakazo.test`, "password1234", "Reply Tester");
   await completeOnboarding(page);
   const botId = activeBotId(page);
   await rpc(page, "threads/clear", { botId });

@@ -118,7 +118,7 @@ describe.skipIf(!databaseAvailable)("offline Pi computer approval", () => {
           headers: { "content-type": "application/json", origin: fixtureOrigin },
           body: JSON.stringify({
             email: `computer-approval-${randomUUID()}@rakazo.test`,
-            password: "password12",
+            password: "password1234",
             name: "Computer approval fixture",
           }),
         });

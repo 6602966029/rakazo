@@ -53,7 +53,7 @@ describeLive("live release-watch eval (GPT 5.6 Luna + GitHub emulator)", () => {
       headers: { "content-type": "application/json", origin: "http://127.0.0.1:5173" },
       body: JSON.stringify({
         email: `release-watch-${stamp}@rakazo.test`,
-        password: "password12",
+        password: "password1234",
         name: "Release Watch",
       }),
     });

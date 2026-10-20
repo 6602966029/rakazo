@@ -33,7 +33,7 @@ test("billing paywall holds the app until the subscription is active", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `billing-${stamp}@rakazo.test`, "password12", `Billing ${stamp}`);
+  await signup(page, `billing-${stamp}@rakazo.test`, "password1234", `Billing ${stamp}`);
   await completeOnboarding(page);
 
   await page.route("**/api/auth/capabilities", async (route) => {

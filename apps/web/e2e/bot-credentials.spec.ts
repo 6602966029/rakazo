@@ -11,7 +11,7 @@ test("bot credentials list, add, replace and remove without leaking values", asy
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `bot-credentials-${stamp}@rakazo.test`, "password12", "Bot Credentials");
+  await signup(page, `bot-credentials-${stamp}@rakazo.test`, "password1234", "Bot Credentials");
   await completeOnboarding(page);
   const botName = `Credentials ${stamp}`;
   const botId = await createNamedBot(page, botName);

@@ -23,11 +23,11 @@ test("two users are isolated and a bot completes durable work", async ({ browser
   const pageB = await b.newPage();
 
   const stamp = Date.now();
-  await signup(pageA, `ada-${stamp}@rakazo.test`, "password12", "Ada", testInfo);
+  await signup(pageA, `ada-${stamp}@rakazo.test`, "password1234", "Ada", testInfo);
   await completeOnboarding(pageA, testInfo);
   await expect(pageA.getByText("Chief").first()).toBeVisible();
 
-  await signup(pageB, `bob-${stamp}@rakazo.test`, "password12", "Bob");
+  await signup(pageB, `bob-${stamp}@rakazo.test`, "password1234", "Bob");
   await completeOnboarding(pageB);
   await expect(pageB.getByText("Chief").first()).toBeVisible();
   await expect(pageB.getByText("Ada", { exact: true })).toHaveCount(0);
@@ -51,7 +51,7 @@ test("two users are isolated and a bot completes durable work", async ({ browser
 
 test("takeover, routine, plugins, and export are reachable", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `flow-${stamp}@rakazo.test`, "password12", "Flow");
+  await signup(page, `flow-${stamp}@rakazo.test`, "password1234", "Flow");
   await completeOnboarding(page);
 
   const composer = page.getByPlaceholder(/Message/);
@@ -370,7 +370,7 @@ test("sign-in, spawn, and stop work in the shell", async ({ page }, testInfo) =>
   });
   const stamp = Date.now();
   const email = `shell-${stamp}@rakazo.test`;
-  await signup(page, email, "password12", "Shell");
+  await signup(page, email, "password1234", "Shell");
   await completeOnboarding(page);
   await page.evaluate(() => {
     Object.defineProperty(globalThis.crypto, "randomUUID", {
@@ -449,7 +449,7 @@ test("sign-in, spawn, and stop work in the shell", async ({ page }, testInfo) =>
   await page.context().clearCookies();
   await page.goto("/sign-in");
   await page.getByPlaceholder("Your email address").fill(email);
-  await page.getByPlaceholder("Password").fill("password12");
+  await page.getByPlaceholder("Password").fill("password1234");
   await page.getByRole("button", { name: "Continue with email" }).click();
   await page.waitForURL(/\/app/, { timeout: 20_000 });
   await expect(sidebarBotButton(page, /^Chief/)).toBeVisible();
@@ -461,7 +461,7 @@ test("bot context menu pins, duplicates, edits, and confirms deletion", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `menu-${stamp}@rakazo.test`, "password12", "Menu");
+  await signup(page, `menu-${stamp}@rakazo.test`, "password1234", "Menu");
   await completeOnboarding(page);
 
   const chief = page.getByRole("button", { name: /Chief/ }).first();

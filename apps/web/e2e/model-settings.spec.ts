@@ -19,7 +19,7 @@ const LOCAL_MODEL_REPLY = "OpenAI-compatible endpoint verified end to end.";
 test("model settings cleanup frames", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const stamp = Date.now();
-  await signup(page, `model-cleanup-${stamp}@rakazo.test`, "password12", "Model Preview");
+  await signup(page, `model-cleanup-${stamp}@rakazo.test`, "password1234", "Model Preview");
   await completeOnboarding(page);
 
   // Keep the account and persistence real; the scripted test runtime accepts fake keys.
@@ -95,7 +95,7 @@ test("custom connections persist reasoning support and bot thinking", async ({
 }, testInfo) => {
   const stamp = Date.now();
   const userName = `Reasoning ${stamp}`;
-  await signup(page, `reasoning-model-${stamp}@rakazo.test`, "password12", userName);
+  await signup(page, `reasoning-model-${stamp}@rakazo.test`, "password1234", userName);
   await completeOnboarding(page);
   await openUserSettings(page, "models");
   await page.getByPlaceholder("Search providers").fill("openai-compatible");
@@ -290,7 +290,7 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     // the fake endpoint from settings instead, so skip that step on the client.
     const skipModelStep = process.env.AGENT_RUNTIME === "pi";
     if (skipModelStep) await page.route("**/rpc/me", fulfillWithoutModelStep);
-    await signup(page, `local-model-${stamp}@rakazo.test`, "password12", userName);
+    await signup(page, `local-model-${stamp}@rakazo.test`, "password1234", userName);
     await completeOnboarding(page);
     if (skipModelStep) await page.unroute("**/rpc/me", fulfillWithoutModelStep);
 
@@ -412,7 +412,7 @@ test("model settings connect, replace, and cancel provider authentication", asyn
 }, testInfo) => {
   const stamp = Date.now();
   const userName = `Models ${stamp}`;
-  await signup(page, `models-${stamp}@rakazo.test`, "password12", userName);
+  await signup(page, `models-${stamp}@rakazo.test`, "password1234", userName);
   await completeOnboarding(page);
 
   await openUserSettings(page, "models");
@@ -605,7 +605,7 @@ test("a deployment default on server credentials says so and keeps an own key op
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `server-credentials-${stamp}@rakazo.test`, "password12", `Server ${stamp}`);
+  await signup(page, `server-credentials-${stamp}@rakazo.test`, "password1234", `Server ${stamp}`);
   await completeOnboarding(page);
   // The E2E deployment runs on a scripted model, so present the active default as one that
   // authenticates from the host, the way an Amazon Bedrock deployment on an AWS role does.
@@ -648,7 +648,7 @@ test("a key connected in another space can replace server credentials for the sa
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `shared-model-${stamp}@rakazo.test`, "password12", "Model Owner");
+  await signup(page, `shared-model-${stamp}@rakazo.test`, "password1234", "Model Owner");
   await completeOnboarding(page);
   const otherSpace = await rpc<{ id: string }>(page, "spaces/create", { name: "Other space" });
   const provider = "amazon-bedrock";
@@ -708,7 +708,7 @@ test("catalog models keep a space default thinking level per saved model", async
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `catalog-thinking-${stamp}@rakazo.test`, "password12", `Thinking ${stamp}`);
+  await signup(page, `catalog-thinking-${stamp}@rakazo.test`, "password1234", `Thinking ${stamp}`);
   await completeOnboarding(page);
 
   await openUserSettings(page, "models");
@@ -768,7 +768,7 @@ test("saves and reloads an ordered backup model list for connected models", asyn
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `backup-models-${stamp}@rakazo.test`, "password12", `Backups ${stamp}`);
+  await signup(page, `backup-models-${stamp}@rakazo.test`, "password1234", `Backups ${stamp}`);
   await completeOnboarding(page);
 
   const catalog = await rpc<

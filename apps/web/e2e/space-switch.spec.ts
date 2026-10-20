@@ -5,7 +5,7 @@ test("opening a bot in another space switches in place, without a page reload", 
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `space-switch-${stamp}@rakazo.test`, "password12", "Space Switcher");
+  await signup(page, `space-switch-${stamp}@rakazo.test`, "password1234", "Space Switcher");
   await completeOnboarding(page);
   const otherSpace = await page.request.post("/rpc/spaces/create", {
     data: { json: { name: "Second space" } },
@@ -58,7 +58,7 @@ test("opening a bot in another space switches in place, without a page reload", 
 
 test("going back during a slow switch keeps the user where they went", async ({ page }) => {
   const stamp = Date.now();
-  await signup(page, `space-switch-back-${stamp}@rakazo.test`, "password12", "Space Switcher");
+  await signup(page, `space-switch-back-${stamp}@rakazo.test`, "password1234", "Space Switcher");
   await completeOnboarding(page);
   const firstBot = new URL(page.url()).pathname;
   const helper = await page.request.post("/rpc/bots/create", {
