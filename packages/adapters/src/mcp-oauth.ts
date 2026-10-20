@@ -545,10 +545,15 @@ type MaterialSnapshot = {
   secret: { id: string; ciphertext: string } | null;
 };
 
-/** A refresh holds the credential lock across one token request and the write. */
+/**
+ * A refresh holds the credential lock across one token request and the write.
+ * The lock wait runs inside the transaction, so it gets its own cap. Whatever
+ * is left after the wait and the request goes to the secret write: a rotated
+ * token that never commits is lost.
+ */
+const REFRESH_LOCK_WAIT_MS = 10_000;
 const REFRESH_REQUEST_TIMEOUT_MS = 15_000;
-const REFRESH_LOCK_WAIT_MS = 20_000;
-const REFRESH_TRANSACTION_MS = 30_000;
+const REFRESH_TRANSACTION_MS = 60_000;
 
 function lockMaterial(tx: Prisma.TransactionClient, serverId: string): Promise<number> {
   return tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('mcp-oauth-material'), hashtext(${serverId}))`;
@@ -927,6 +932,7 @@ export class McpOAuthBroker {
         () =>
           this.prisma.$transaction(
             async (tx) => {
+              await tx.$executeRaw`SELECT set_config('lock_timeout', ${`${REFRESH_LOCK_WAIT_MS}ms`}, true)`;
               await lockMaterial(tx, serverId);
               const snapshot = await this.snapshot(tx, serverId, context, endpoint);
               const material = snapshot.secret

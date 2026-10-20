@@ -241,6 +241,7 @@ describe("MCP OAuth", () => {
       secretId: null as string | null,
     };
     let lock = Promise.resolve();
+    const lockSettings: string[] = [];
     const tables = {
       mcpServer: {
         findFirst: async () => ({ ...server }),
@@ -276,8 +277,9 @@ describe("MCP OAuth", () => {
         const tx = {
           ...tables,
           $queryRaw: async () => [],
-          $executeRaw: async () => {
-            if (release) return 1;
+          $executeRaw: async (sql: TemplateStringsArray) => {
+            lockSettings.push(sql.join("?"));
+            if (!sql.join("").includes("pg_advisory_xact_lock") || release) return 1;
             const held = lock;
             lock = new Promise<void>((resolve) => {
               release = resolve;
@@ -314,7 +316,7 @@ describe("MCP OAuth", () => {
       if (!(provider instanceof StoredMcpOAuthProvider)) throw new Error("expected a provider");
       return { broker, provider };
     };
-    return { startProcess, stored, server, context };
+    return { startProcess, stored, server, context, lockSettings };
   }
 
   /** A public-client authorization server: each refresh token works once. */
@@ -366,6 +368,8 @@ describe("MCP OAuth", () => {
     expect(server.requests[0]?.get("resource")).toBe("https://mcp.example.test/");
     expect((await shared.stored()).oauth?.tokens).toMatchObject({ refresh_token: "refresh-1" });
     expect(await broker.statusFor(shared.server, shared.context)).toBe("connected");
+    // Waiting for another process's refresh must not eat the budget for this one's write.
+    expect(shared.lockSettings[0]).toContain("lock_timeout");
   });
 
   it.each([
