@@ -338,16 +338,47 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect((await h.state(id)).followupDispatching).toBe(true);
     h.wire.staleLatestRunId = oldRun;
     await h.poll(id);
-    expect((await h.state(id)).status).toBe("running");
+    expect(await h.state(id)).toMatchObject({ status: "running", followup: null });
+    expect((await h.state(id)).latestRunId).not.toBe(oldRun);
     expect(await h.wakes()).toHaveLength(1);
-    h.wire.staleLatestRunId = undefined;
-    await h.poll(id);
-    expect((await h.state(id)).followup).toBeNull();
     expect(
       h.wire.requests.filter(
         (request) => request.method === "POST" && request.path.endsWith("/runs"),
       ),
     ).toHaveLength(1);
+  });
+
+  it.each([
+    ["the agent read before sending", "GET"],
+    ["the follow-up request itself", "POST"],
+  ])("sends a follow-up exactly once after %s fails transiently", async (_label, method) => {
+    const h = await setup();
+    const id = await h.launch();
+    await h.poll(id);
+    await h.finish(id);
+    const oldRun = (await h.state(id)).latestRunId!;
+    await h.tool("reply", { id, prompt: "Add tests" });
+    let failed = false;
+    h.connection.provider = new CursorCloudAgentProvider({
+      apiKey: "fake-key",
+      fetch: async (input, init) => {
+        if (!failed && (init?.method ?? "GET") === method) {
+          failed = true;
+          h.wire.failNextRequest = 503;
+        }
+        return h.wire.fetch(input, init);
+      },
+    });
+    await h.poll(id);
+    expect((await h.state(id)).status).toBe("running");
+    for (let attempt = 0; attempt < 3 && (await h.state(id)).followup; attempt++) await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ followup: null, status: "running" });
+    expect((await h.state(id)).latestRunId).not.toBe(oldRun);
+    const sent = h.wire.agents.get((await h.state(id)).remoteId!)!.runs.size;
+    expect(sent).toBe(2);
+    h.wire.complete((await h.state(id)).remoteId!);
+    await h.poll(id);
+    expect((await h.state(id)).status).toBe("finished");
   });
 
   it("does not report cancellation success while transport fails or the provider is still running", async () => {
@@ -367,30 +398,34 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.state(id)).toMatchObject({ status: "cancelled", cancelRequested: false });
   });
 
-  it("keeps cancellation pending while an ambiguous follow-up still reports the old run", async () => {
+  it.each([
+    ["accepted", true],
+    ["never accepted", false],
+  ])("cancels an ambiguous follow-up that was %s", async (_label, accepted) => {
     const h = await setup();
     const id = await h.launch();
     await h.poll(id);
     await h.finish(id);
     const oldRun = (await h.state(id)).latestRunId!;
     await h.tool("reply", { id, prompt: "Tests" });
-    h.wire.loseNextReplyResponse = true;
+    if (accepted) h.wire.loseNextReplyResponse = true;
+    else h.wire.failNextRequest = 503;
     await h.poll(id);
+    expect((await h.state(id)).followupDispatching).toBe(true);
     await h.tool("cancel", { id });
     h.wire.staleLatestRunId = oldRun;
-    await h.poll(id);
-    expect(await h.state(id)).toMatchObject({
-      status: "running",
-      cancelRequested: true,
-      followupDispatching: true,
-    });
-    h.wire.staleLatestRunId = undefined;
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({
       status: "cancelled",
       cancelRequested: false,
       followup: null,
+      followupDispatching: false,
+      nextPollAt: null,
     });
+    const remote = h.wire.agents.get((await h.state(id)).remoteId!)!;
+    expect([...remote.runs.values()].map((run) => run.status)).toEqual(
+      accepted ? ["FINISHED", "CANCELLED"] : ["FINISHED"],
+    );
   });
 
   it("cancels a queued follow-up without dispatching it", async () => {

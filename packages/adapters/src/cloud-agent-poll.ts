@@ -120,9 +120,18 @@ export async function pollCloudAgent(
         agent.followupDispatching ? undefined : (agent.latestRunId ?? undefined),
       );
       if (agent.followupDispatching && snapshot.latestRunId === agent.latestRunId) {
-        // The ambiguous follow-up may still be accepted. An old terminal run
-        // cannot confirm cancellation of the pending new run.
-        await retryPoll(deps, agent);
+        // No newer run exists, so the ambiguous follow-up was never accepted.
+        await finishPoll(
+          deps,
+          agent,
+          {
+            status: "cancelled",
+            followup: Prisma.DbNull,
+            followupDispatching: false,
+            cancelRequested: false,
+          },
+          abandoned,
+        );
         return;
       }
       await finishPoll(
@@ -140,10 +149,10 @@ export async function pollCloudAgent(
     }
     if (agent.followup) {
       if (agent.followupDispatching) {
-        // A lost reply response is ambiguous. Observe it; never resend the mutation.
+        // Follow-ups are not idempotent. Resend only once the run list shows no newer run.
         const snapshot = await provider.get(agent.remoteId, context);
-        if (!snapshot.latestRunId || snapshot.latestRunId === agent.latestRunId) {
-          await retryPoll(deps, agent);
+        if (snapshot.latestRunId === agent.latestRunId) {
+          await retryPoll(deps, agent, undefined, { followupDispatching: false });
           return;
         }
         await finishPoll(deps, agent, {
