@@ -1795,7 +1795,7 @@ function capabilityInput(name: string) {
 }
 
 function connectionInput(displayName: string) {
-  return { provider: "test-provider", displayName };
+  return { provider: "SLACK", displayName };
 }
 
 async function signup(app: App, email: string, name: string) {
