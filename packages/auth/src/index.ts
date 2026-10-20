@@ -1,4 +1,5 @@
 import { expo } from "@better-auth/expo";
+import { passkey } from "@better-auth/passkey";
 import type {
   ProductAnalytics,
   TransactionalEmail,
@@ -17,7 +18,7 @@ import {
 } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { bootstrapUserSpace } from "@rakazo/db";
-import type { BetterAuthOptions } from "better-auth";
+import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
@@ -31,8 +32,10 @@ import { accountSecurity, oidcProofKey, sessionForAuthHook } from "./account-sec
 import { breachedPasswordCheck } from "./breached-password.js";
 import type { OidcConfig } from "./oidc.js";
 import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
+import { passkeyRelyingParty } from "./passkey.js";
 
 export type { OidcConfig } from "./oidc.js";
+export { passkeyRelyingParty } from "./passkey.js";
 
 export interface AuthEnv {
   analytics?: ProductAnalytics;
@@ -46,6 +49,8 @@ export interface AuthEnv {
   signupsEnabled: string | undefined;
   signupAllowlist: string | undefined;
   extraOrigins?: string[];
+  /** SHA-256 signing certificate fingerprints of Android apps allowed to use this server's passkeys. */
+  androidAppCertFingerprints?: string[];
   email?: TransactionalEmailProvider;
   logger?: BetterAuthOptions["logger"];
   onEmailError?: (error: unknown) => void;
@@ -269,6 +274,10 @@ export function authRateLimitOptions(nodeEnv = process.env.NODE_ENV) {
     customRules: {
       ...Object.fromEntries(CREDENTIAL_PATHS.map((path) => [path, rule])),
       "/request-account-deletion": { window: 600, max: 3 },
+      "/passkey/verify-authentication": rule,
+      "/passkey/verify-registration": rule,
+      // Sign-in pages request a challenge on load for passkey autofill.
+      "/passkey/generate-authenticate-options": { window: 60, max: 30 },
     },
   };
 }
@@ -279,6 +288,11 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
   const discovery = env.oidc ? oidcDiscovery(env.oidc) : undefined;
   // SSO-only deployments keep every email credential closed, codes included.
   const emailCodeSignIn = Boolean(env.email) && env.passwordAuth !== false;
+  // SSO-only deployments keep the identity provider as the only way in.
+  const relyingParty =
+    env.passwordAuth === false
+      ? null
+      : passkeyRelyingParty(env.webOrigin, env.androidAppCertFingerprints);
   const auth = betterAuth({
     appName: "Rakazo",
     logger: env.logger,
@@ -385,6 +399,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             await tx.messagingIdentity.deleteMany({
               where: { userId: user.id },
             });
+            await tx.passkey.deleteMany({ where: { userId: user.id } });
             await tx.organization.deleteMany({
               where: { id: { in: personalOrganizationIds } },
             });
@@ -415,6 +430,17 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
           ]
         : []),
       ...(env.breachedPasswordCheck ? [breachedPasswordCheck()] : []),
+      // Registration keeps the plugin default: a fresh session of the signed-in user.
+      // Sign-in creates its session through the session hooks below like every other method.
+      ...(relyingParty
+        ? [
+            passkey({
+              rpID: relyingParty.rpID,
+              rpName: "Rakazo",
+              origin: relyingParty.origins,
+            }) as BetterAuthPlugin,
+          ]
+        : []),
       organization({
         allowUserToCreateOrganization: false,
         disableOrganizationDeletion: true,
@@ -682,6 +708,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
   return Object.assign(auth, {
     emailCodeSignIn,
     ssoAvailability: () => discovery?.availability(),
+    passkeyRpId: relyingParty?.rpID ?? null,
     disposeOidcDiscovery: () => discovery?.dispose(),
   });
 }

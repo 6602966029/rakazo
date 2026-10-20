@@ -393,6 +393,10 @@ msgstr "添加要监视的文件或文件夹"
 msgid "Add a model in Settings to use this."
 msgstr "请在设置中添加模型后再使用。"
 
+#: src/components/PasskeyOffer.tsx
+msgid "Add a passkey for faster sign-in?"
+msgstr "添加通行密钥以更快登录？"
+
 #: src/pages/Shell.tsx
 msgid "Add a run time for this one-shot."
 msgstr "为此一次性任务添加运行时间。"
@@ -454,6 +458,11 @@ msgstr "添加 MCP 服务器"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
 msgstr "添加 OpenAPI"
+
+#: src/components/PasskeyOffer.tsx
+#: src/components/PasskeySettings.tsx
+msgid "Add passkey"
+msgstr "添加通行密钥"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -934,6 +943,7 @@ msgstr "无法读取图像"
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
+#: src/components/PasskeySettings.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1481,6 +1491,8 @@ msgid "Could not connect to the computer screen"
 msgstr ""
 
 #: src/components/AccountAccess.tsx
+#: src/components/PasskeyOffer.tsx
+#: src/components/PasskeySettings.tsx
 #: src/lib/account-security.ts
 #: src/lib/sso-flow.ts
 #: src/lib/user-error.ts
@@ -1678,6 +1690,8 @@ msgstr "无法播放测试片段"
 msgid "Could not reach the model server."
 msgstr "无法连接到模型服务器。"
 
+#: src/components/PasskeyOffer.tsx
+#: src/components/PasskeySettings.tsx
 #: src/lib/computer-sandbox.ts
 #: src/lib/user-error.ts
 #: src/pages/AccountSettingsOverlay.tsx
@@ -1998,6 +2012,7 @@ msgstr "默认（{0}）"
 msgid "Default scope"
 msgstr "默认范围"
 
+#: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/BotContextMenu.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -2008,7 +2023,9 @@ msgstr "默认范围"
 msgid "Delete"
 msgstr "删除"
 
+#. placeholder {0}: passkeyLabel(deleting, t`Passkey`)
 #. placeholder {0}: pendingDelete.name
+#: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
 msgstr ""
@@ -2051,6 +2068,7 @@ msgstr ""
 msgid "deleted"
 msgstr "已删除"
 
+#: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Deleting…"
@@ -2130,6 +2148,7 @@ msgstr "正在断开…"
 
 #: src/components/AskCard.tsx
 #: src/components/ComputerUpdateProgress.tsx
+#: src/components/PasskeyOffer.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Dismiss"
@@ -3574,6 +3593,14 @@ msgstr "PagerDuty 事件"
 msgid "Park"
 msgstr "搁置"
 
+#: src/components/PasskeySettings.tsx
+msgid "Passkey"
+msgstr "通行密钥"
+
+#: src/components/PasskeySettings.tsx
+msgid "Passkeys"
+msgstr "通行密钥"
+
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Auth.tsx
@@ -3924,6 +3951,10 @@ msgstr "已移除，但列表刷新失败"
 msgid "Removing…"
 msgstr "正在移除…"
 
+#: src/components/PasskeySettings.tsx
+msgid "Rename"
+msgstr "重命名"
+
 #: src/pages/BotContextMenu.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4131,6 +4162,7 @@ msgid "Runs when this bot receives a verified message from this provider."
 msgstr ""
 
 #: src/components/AskCard.tsx
+#: src/components/PasskeySettings.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Board.tsx
 #: src/pages/ExternalConversationSettings.tsx
@@ -4416,6 +4448,7 @@ msgid "Sign in"
 msgstr "登录"
 
 #: src/components/AccountAccess.tsx
+#: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Sign in again"
@@ -4428,6 +4461,10 @@ msgstr "登录 Rakazo"
 #: src/lib/user-error.ts
 msgid "Sign in to your existing account to link SSO"
 msgstr "请登录现有账户以关联 SSO"
+
+#: src/components/PasskeySignIn.tsx
+msgid "Sign in with passkey"
+msgstr "使用通行密钥登录"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
@@ -4721,6 +4758,7 @@ msgstr "此 Bot 运行在这台电脑上，而不是 Linux 桌面。Shell 和文
 msgid "This call is no longer ringing."
 msgstr ""
 
+#: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "This can't be undone."
 msgstr ""

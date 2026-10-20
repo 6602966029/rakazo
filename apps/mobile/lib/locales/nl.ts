@@ -883,4 +883,10 @@ export const NL_MESSAGES: Record<string, string> = {
     "Het antwoord van deze bot stopte bij de maandlimiet van zijn sleutel. Je eigen sleutel heeft eigen limieten.",
   "This bot's reply stopped at its key's usage limit. Your own key has its own limits.":
     "Het antwoord van deze bot stopte bij de gebruikslimiet van zijn sleutel. Je eigen sleutel heeft eigen limieten.",
+  "Sign in with passkey": "Aanmelden met passkey",
+  Passkeys: "Passkeys",
+  Passkey: "Passkey",
+  "Add passkey": "Passkey toevoegen",
+  Rename: "Naam wijzigen",
+  "Add a passkey for faster sign-in?": "Passkey toevoegen om sneller aan te melden?",
 };

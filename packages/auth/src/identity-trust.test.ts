@@ -1,3 +1,4 @@
+import { createHash, generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import type { TransactionalEmail } from "@rakazo/adapter-kit";
 import { bootstrapUserSpace } from "@rakazo/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,6 +38,7 @@ function fixture({
     account: [],
     session: [],
     verification: [],
+    passkey: [],
   };
   const policy: {
     signupsEnabled: boolean;
@@ -109,6 +111,15 @@ function fixture({
     },
     member: { findMany: vi.fn(async () => []) },
     messagingIdentity: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+    passkey: {
+      deleteMany: vi.fn(async ({ where }: { where: { userId: string } }) => {
+        const rows = data.passkey!;
+        const kept = rows.filter((row) => row.userId !== where.userId);
+        const count = rows.length - kept.length;
+        rows.splice(0, rows.length, ...kept);
+        return { count };
+      }),
+    },
     organization: { deleteMany: vi.fn(async () => ({ count: 0 })) },
     spaceMember: {
       findFirst: vi.fn(async ({ where }: { where: { userId: string } }) =>
@@ -775,3 +786,230 @@ describe("email code sign-in", () => {
     expect(fixture().auth.emailCodeSignIn).toBe(true);
   });
 });
+describe("passkeys", () => {
+  const webOrigin = "https://web.example.test";
+  const passkeyFixture = (options: Parameters<typeof fixture>[0] = {}) => {
+    const f = fixture({ baseURL: "https://auth.example.test", webOrigin, ...options });
+    const call = async (
+      path: string,
+      { body, token, cookie }: { body?: unknown; token?: string; cookie?: string } = {},
+    ) =>
+      f.auth.handler(
+        new Request(`https://auth.example.test/api/auth${path}`, {
+          method: body ? "POST" : "GET",
+          headers: {
+            "content-type": "application/json",
+            origin: webOrigin,
+            ...(token ? { authorization: `Bearer ${token}` } : {}),
+            ...(cookie ? { cookie } : {}),
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        }),
+      );
+    const authenticator = softwareAuthenticator("web.example.test", webOrigin);
+    const register = async (token: string) => {
+      const options = await call("/passkey/generate-register-options", { token });
+      if (options.status !== 200) return options;
+      const { challenge } = (await options.json()) as { challenge: string };
+      return call("/passkey/verify-registration", {
+        token,
+        cookie: challengeCookie(options),
+        body: { response: authenticator.create(challenge) },
+      });
+    };
+    const signInWithPasskey = async () => {
+      const options = await call("/passkey/generate-authenticate-options");
+      const { challenge } = (await options.json()) as { challenge: string };
+      return call("/passkey/verify-authentication", {
+        cookie: challengeCookie(options),
+        body: { response: authenticator.get(challenge) },
+      });
+    };
+    return { ...f, call, register, signInWithPasskey };
+  };
+
+  it("registers from a signed-in session and signs in through the session hooks", async () => {
+    const f = passkeyFixture({ delivery: false });
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    const registered = await f.register(token);
+    expect(registered.status).toBe(200);
+    expect(f.data.passkey).toHaveLength(1);
+    const listed = await f.call("/passkey/list-user-passkeys", { token });
+    expect(await listed.json()).toEqual([expect.objectContaining({ userId: f.data.user![0]!.id })]);
+
+    const signedIn = await f.signInWithPasskey();
+    expect(signedIn.status).toBe(200);
+    const body = (await signedIn.json()) as { session: { token: string }; user: { id: string } };
+    expect(body.user.id).toBe(f.data.user![0]!.id);
+    expect(
+      await f.auth.api.getSession({
+        headers: new Headers({ authorization: `Bearer ${body.session.token}` }),
+      }),
+    ).toMatchObject({ user: { id: body.user.id } });
+    expect(bootstrapUserSpace).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers only from a fresh session of the account", async () => {
+    const f = passkeyFixture({ delivery: false });
+    expect((await f.call("/passkey/generate-register-options")).status).toBe(401);
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    for (const session of f.data.session!) {
+      session.createdAt = new Date(Date.now() - 2 * 86_400_000);
+    }
+    const stale = await f.register(token);
+    expect(stale.status).toBe(403);
+    expect(await stale.json()).toMatchObject({ code: "SESSION_NOT_FRESH" });
+    expect(f.data.passkey).toHaveLength(0);
+  });
+
+  it("applies the sign-in gates to passkey sessions", async () => {
+    const f = passkeyFixture();
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    expect((await f.register(token)).status).toBe(200);
+    const sessions = f.data.session!.length;
+
+    // An unverified email under a live allowlist, exactly like password sign-in.
+    f.policy.signupAllowlist = "@example.test";
+    const unverified = await f.signInWithPasskey();
+    expect(unverified.status).toBe(403);
+    expect(await unverified.json()).toMatchObject({ code: "EMAIL_VERIFICATION_REQUIRED" });
+    expect(f.data.session).toHaveLength(sessions);
+
+    f.policy.signupAllowlist = "";
+    f.data.user![0]!.email = "msg-taken@messaging.invalid";
+    expect((await f.signInWithPasskey()).status).toBe(403);
+    expect(f.data.session).toHaveLength(sessions);
+  });
+
+  it("deletes passkeys with the account", async () => {
+    const f = passkeyFixture({ delivery: false });
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    expect((await f.register(token)).status).toBe(200);
+    const deleted = await f.call("/delete-user", {
+      token,
+      body: { password: "offline-password12" },
+    });
+    expect(deleted.status).toBe(200);
+    expect(f.data.passkey).toHaveLength(0);
+    expect((await f.signInWithPasskey()).status).toBe(401);
+  });
+
+  it("does not offer passkeys where a browser cannot create them", async () => {
+    const f = fixture({ webOrigin: "http://web.example.test" });
+    expect(f.auth.passkeyRpId).toBeNull();
+    expect((await f.request("/passkey/generate-authenticate-options")).status).toBe(404);
+  });
+});
+
+function challengeCookie(response: Response): string {
+  const cookie = response.headers.get("set-cookie") ?? "";
+  const match = cookie.match(/(?:__Secure-)?better-auth\.better-auth-passkey=[^;]+/);
+  if (!match) throw new Error("missing passkey challenge cookie");
+  return match[0];
+}
+
+/** Minimal offline platform authenticator: "none" attestation, ES256, one credential. */
+function softwareAuthenticator(rpId: string, origin: string) {
+  const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const jwk = publicKey.export({ format: "jwk" });
+  const credentialId = randomBytes(16);
+  const id = credentialId.toString("base64url");
+  const rpIdHash = createHash("sha256").update(rpId).digest();
+  let counter = 0;
+  const clientData = (type: string, challenge: string) =>
+    Buffer.from(JSON.stringify({ type, challenge, origin, crossOrigin: false }));
+  const counterBytes = () => {
+    const bytes = Buffer.alloc(4);
+    bytes.writeUInt32BE(counter);
+    return bytes;
+  };
+  return {
+    create(challenge: string) {
+      const coseKey = cbor(
+        new Map<number, unknown>([
+          [1, 2],
+          [3, -7],
+          [-1, 1],
+          [-2, Buffer.from(jwk.x!, "base64url")],
+          [-3, Buffer.from(jwk.y!, "base64url")],
+        ]),
+      );
+      const length = Buffer.alloc(2);
+      length.writeUInt16BE(credentialId.length);
+      const authData = Buffer.concat([
+        rpIdHash,
+        Buffer.from([0x45]),
+        counterBytes(),
+        Buffer.alloc(16),
+        length,
+        credentialId,
+        coseKey,
+      ]);
+      const attestationObject = cbor(
+        new Map<string, unknown>([
+          ["fmt", "none"],
+          ["attStmt", new Map()],
+          ["authData", authData],
+        ]),
+      );
+      return {
+        id,
+        rawId: id,
+        type: "public-key",
+        clientExtensionResults: {},
+        authenticatorAttachment: "platform",
+        response: {
+          clientDataJSON: clientData("webauthn.create", challenge).toString("base64url"),
+          attestationObject: attestationObject.toString("base64url"),
+          transports: ["internal"],
+        },
+      };
+    },
+    get(challenge: string) {
+      counter += 1;
+      const authData = Buffer.concat([rpIdHash, Buffer.from([0x05]), counterBytes()]);
+      const data = clientData("webauthn.get", challenge);
+      const signature = sign(
+        "sha256",
+        Buffer.concat([authData, createHash("sha256").update(data).digest()]),
+        privateKey,
+      );
+      return {
+        id,
+        rawId: id,
+        type: "public-key",
+        clientExtensionResults: {},
+        response: {
+          clientDataJSON: data.toString("base64url"),
+          authenticatorData: authData.toString("base64url"),
+          signature: signature.toString("base64url"),
+        },
+      };
+    },
+  };
+}
+
+/** CBOR for the handful of types WebAuthn attestation needs. */
+function cbor(value: unknown): Buffer {
+  const head = (major: number, length: number) => {
+    if (length < 24) return Buffer.from([(major << 5) | length]);
+    if (length < 256) return Buffer.from([(major << 5) | 24, length]);
+    const bytes = Buffer.alloc(3);
+    bytes[0] = (major << 5) | 25;
+    bytes.writeUInt16BE(length, 1);
+    return bytes;
+  };
+  if (typeof value === "number") return value >= 0 ? head(0, value) : head(1, -1 - value);
+  if (typeof value === "string") {
+    const bytes = Buffer.from(value);
+    return Buffer.concat([head(3, bytes.length), bytes]);
+  }
+  if (Buffer.isBuffer(value)) return Buffer.concat([head(2, value.length), value]);
+  if (value instanceof Map) {
+    return Buffer.concat([
+      head(5, value.size),
+      ...[...value].flatMap(([key, item]) => [cbor(key), cbor(item)]),
+    ]);
+  }
+  throw new Error("unsupported CBOR value");
+}

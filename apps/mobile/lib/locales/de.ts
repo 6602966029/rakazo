@@ -927,4 +927,10 @@ export const DE_MESSAGES: Record<string, string> = {
     "Die Antwort dieses Bots stoppte am Monatslimit seines Schlüssels. Dein eigener Schlüssel hat eigene Limits.",
   "This bot's reply stopped at its key's usage limit. Your own key has its own limits.":
     "Die Antwort dieses Bots stoppte am Nutzungslimit seines Schlüssels. Dein eigener Schlüssel hat eigene Limits.",
+  "Sign in with passkey": "Mit Passkey anmelden",
+  Passkeys: "Passkeys",
+  Passkey: "Passkey",
+  "Add passkey": "Passkey hinzufügen",
+  Rename: "Umbenennen",
+  "Add a passkey for faster sign-in?": "Passkey für schnellere Anmeldung hinzufügen?",
 };
