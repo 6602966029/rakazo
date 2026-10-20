@@ -173,6 +173,7 @@ import {
   expandSkillReferencesInPrompt,
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
+  MODEL_REQUIRED_SEND_ERROR,
   nextCronDateAcrossStrict,
   QUEUE_HOLDING_RUN_STATUSES,
 } from "@rakazo/core";
@@ -2262,7 +2263,7 @@ export function createRouter(deps: RouterDeps) {
       }),
       send: authed.threads.send.handler(async ({ context, input }) => {
         if ((await modelSetup(deps, context.actor)).needsModel) {
-          throw new ORPCError("BAD_REQUEST", { message: "Connect a model to start a run." });
+          throw new ORPCError("BAD_REQUEST", { message: MODEL_REQUIRED_SEND_ERROR });
         }
         const target = await resolveThreadTarget(deps.prisma, context.actor, input);
         if (target.kind === "bot") {

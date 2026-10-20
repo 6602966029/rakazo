@@ -49,6 +49,7 @@ import {
   isPeerReceiptBlocks,
   isRunTerminalEvent,
   isToolActivityBlock,
+  MODEL_REQUIRED_SEND_ERROR,
   mentionChipKey,
   nestRosterByParent,
   normalizeRunError,
@@ -4044,6 +4045,7 @@ function SpaceShell() {
             pendingAttachments={activePendingAttachments}
             attachmentNotice={attachmentNotice}
             sendError={sendError}
+            onOpenModels={() => openSettings("models")}
             runError={displayedRunError}
             runErrorId={displayedRunErrorId}
             onRunErrorPresented={handleRunErrorPresented}
@@ -5823,6 +5825,7 @@ export const Composer = memo(function Composer({
   pendingAttachments,
   attachmentNotice,
   sendError,
+  onOpenModels,
   runError,
   runErrorId,
   onRunErrorPresented,
@@ -5852,6 +5855,7 @@ export const Composer = memo(function Composer({
   pendingAttachments: PendingAttachment[];
   attachmentNotice: string | null;
   sendError: string | null;
+  onOpenModels: () => void;
   runError: string | null;
   runErrorId: string | null;
   onRunErrorPresented: (runId: string) => void;
@@ -6363,10 +6367,21 @@ export const Composer = memo(function Composer({
           className="mb-3 flex items-center gap-2 rounded-[14px] border border-destructive/40 bg-destructive/10 px-4 py-2 text-[13px] text-destructive"
         >
           <div className="min-w-0 flex-1">
-            {sendError ??
+            {sendError === MODEL_REQUIRED_SEND_ERROR ? (
+              <button
+                type="button"
+                data-testid="composer-error-open-models"
+                onClick={onOpenModels}
+                className="text-left underline underline-offset-2 hover:text-foreground"
+              >
+                {sendError}
+              </button>
+            ) : (
+              (sendError ??
               (runError
                 ? normalizeRunError(runError, translateRunError, i18n.locale || "en").summary
-                : null)}
+                : null))
+            )}
             {!sendError && runError ? (
               <details key={runError} className="mt-1">
                 <summary className="w-fit cursor-pointer">{t`Details`}</summary>
