@@ -41,24 +41,22 @@ test("routine active switch keeps its thumb inside the track", async ({ page }, 
   }
 
   await expect(toggle).toHaveAttribute("aria-checked", "true");
-  await expectThumbInsets(20, 2);
+  await expectThumbInsets(15, 1);
   await captureScreenshot(page, testInfo, "routine-toggle-desktop-active");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", "false");
-  await expectThumbInsets(2, 20);
+  await expectThumbInsets(1, 15);
   await captureScreenshot(page, testInfo, "routine-toggle-desktop-inactive");
 
   await toggle.focus();
   await page.keyboard.press("Space");
   await expect(toggle).toHaveAttribute("aria-checked", "true");
-  expect(await toggle.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe(
-    "none",
-  );
+  expect(await toggle.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe("none");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expectThumbInsets(20, 2);
+  await expectThumbInsets(15, 1);
   await captureScreenshot(page, testInfo, "routine-toggle-mobile-active");
   await toggle.click();
-  await expectThumbInsets(2, 20);
+  await expectThumbInsets(1, 15);
   await captureScreenshot(page, testInfo, "routine-toggle-mobile-inactive");
 });
 
