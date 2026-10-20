@@ -291,12 +291,7 @@ export async function sleepComputerIfIdle(
     limitReached
       ? Promise.resolve(false)
       : hasActiveBackgroundWork(deps.sandbox, ref, ctx, computerId);
-  if (await runHolds()) {
-    scheduleComputerSleep(deps.jobs, computerId);
-    return;
-  }
-
-  if (await backgroundHolds()) {
+  if ((await runHolds()) || (await backgroundHolds())) {
     scheduleComputerSleep(deps.jobs, computerId);
     await deps.sandbox.keepAlive?.(ref);
     return;
