@@ -80,6 +80,7 @@ export function SidebarFooter({
         {open ? (
           <PopoverContent
             side="top"
+            sideOffset={8}
             align="start"
             className="w-[295px] max-w-[calc(100vw-69px)] gap-0 p-1 data-closed:animate-none"
           >
@@ -189,7 +190,7 @@ export function SidebarFooter({
           {logos.slice(0, 3).map((app, index) => (
             <span
               key={app.name}
-              className={`size-6 shrink-0 place-items-center overflow-hidden rounded-full bg-background text-xs font-medium text-foreground ring-2 ring-sidebar-accent ${index === 2 ? "hidden @min-[280px]:grid" : "grid"}`}
+              className={`size-6 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-medium text-foreground ring-2 ring-sidebar-accent ${index === 2 ? "hidden @min-[280px]:grid" : "grid"}`}
             >
               {app.logo && !failedLogos.includes(app.logo) ? (
                 <img

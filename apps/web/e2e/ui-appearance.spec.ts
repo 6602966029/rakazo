@@ -151,6 +151,20 @@ test("sidebar footer opens integrations and the account menu", async ({ page }, 
   await expect(page.getByRole("link", { name: "Get the mobile app", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Docs", exact: true })).toBeVisible();
   await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(3);
+  if (avatarBox && pillBox) {
+    await expect
+      .poll(async () => {
+        const menuBox = await page.locator('[data-slot="popover-content"]').boundingBox();
+        return (
+          menuBox && {
+            x: menuBox.x,
+            width: menuBox.width,
+            gap: avatarBox.y - menuBox.y - menuBox.height,
+          }
+        );
+      })
+      .toEqual({ x: avatarBox.x, width: pillBox.x + pillBox.width - avatarBox.x, gap: 8 });
+  }
   await captureScreenshot(page, testInfo, "sidebar-footer-menu");
   await page.keyboard.press("Escape");
   await page.getByTestId("minimize-bots-sidebar").click();
@@ -256,9 +270,14 @@ test("footer app marks follow the integrations overlay", async ({ page }) => {
   await completeOnboarding(page);
   let connected = true;
   let listed = true;
+  let failCatalog = false;
   const logo =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ctext x='5' y='15'%3ES%3C/text%3E%3C/svg%3E";
   await page.route("**/rpc/connections/catalog", async (route) => {
+    if (failCatalog) {
+      await route.fulfill({ status: 503, json: { message: "Demo catalog unavailable" } });
+      return;
+    }
     await route.fulfill({
       json: {
         json: listed
@@ -272,6 +291,12 @@ test("footer app marks follow the integrations overlay", async ({ page }) => {
   await expect(footer.locator("img")).toHaveAttribute("src", logo);
   await page.getByRole("button", { name: "Close integrations", exact: true }).click();
   await expect(footer.locator("img")).toHaveAttribute("src", logo);
+  failCatalog = true;
+  await footer.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await expect(page.getByText("Service Unavailable", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close integrations", exact: true }).click();
+  await expect(footer.locator("img")).toHaveAttribute("src", logo);
+  failCatalog = false;
   connected = false;
   await footer.getByRole("button", { name: "Connect apps", exact: true }).click();
   // Disconnected catalog entries remain available as suggestions.

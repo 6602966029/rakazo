@@ -56,3 +56,20 @@ it("deduplicates suggestions and preserves catalog order when artwork is missing
     letters.map(({ name, logo }) => ({ name, logo })),
   );
 });
+
+for (const connected of [false, true]) {
+  it(`prefers distinct fallback initials for ${connected ? "connected apps" : "suggestions"}`, () => {
+    const items = ["Gamma", "Garden", "Guide", "Alpha", "Beta"].map((name) => ({
+      ...catalog[0]!,
+      name,
+      slug: name.toLowerCase(),
+      connected,
+    }));
+    expect(connectedAppMarks(items, []).map((app) => app.name)).toEqual(["Gamma", "Alpha", "Beta"]);
+    expect(connectedAppMarks(items.slice(0, 3), []).map((app) => app.name)).toEqual([
+      "Gamma",
+      "Garden",
+      "Guide",
+    ]);
+  });
+}
