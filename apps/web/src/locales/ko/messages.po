@@ -848,6 +848,7 @@ msgstr "{0}의 컴퓨터를 켜는 중"
 msgid "bot"
 msgstr "Bot"
 
+#: src/lib/identity-display.ts
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -995,6 +996,10 @@ msgstr "채팅 앱"
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "채팅 설정"
+
+#: src/lib/identity-display.ts
+msgid "Chats"
+msgstr "채팅"
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/pages/HostComputerPrompt.tsx
@@ -2489,6 +2494,7 @@ msgstr ""
 msgid "Git event"
 msgstr "Git 이벤트"
 
+#: src/lib/identity-display.ts
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Group"
@@ -2971,6 +2977,10 @@ msgstr "보통"
 #: src/lib/model-catalog.ts
 msgid "Medium"
 msgstr ""
+
+#: src/lib/identity-display.ts
+msgid "Member"
+msgstr "멤버"
 
 #. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
@@ -3536,9 +3546,10 @@ msgstr "원본 메시지를 사용할 수 없습니다"
 msgid "Other model…"
 msgstr "다른 모델 직접 입력…"
 
+#: src/lib/identity-display.ts
 #: src/pages/Board.tsx
 msgid "Owner"
-msgstr ""
+msgstr "소유자"
 
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
@@ -3558,6 +3569,10 @@ msgstr "비밀번호"
 #: src/pages/Auth.tsx
 msgid "Password recovery is not configured for this server"
 msgstr "이 서버에는 비밀번호 복구가 설정되어 있지 않습니다"
+
+#: src/lib/user-error.ts
+msgid "Password sign-in is turned off on this server"
+msgstr "이 서버에서는 비밀번호 로그인이 비활성화되어 있습니다"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Auth.tsx
@@ -4050,6 +4065,7 @@ msgstr ""
 msgid "Rotate key"
 msgstr "key 교체"
 
+#: src/lib/identity-display.ts
 #: src/pages/RoutineEditor.tsx
 #: src/pages/Shell.tsx
 msgid "Routine"
@@ -4447,9 +4463,10 @@ msgstr "소프트웨어 업데이트"
 msgid "Something went wrong. Try again."
 msgstr "문제가 발생했습니다. 다시 시도하세요."
 
+#: src/lib/identity-display.ts
 #: src/pages/SettingsOverlay.tsx
 msgid "Space"
-msgstr ""
+msgstr "스페이스"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
@@ -4548,6 +4565,7 @@ msgstr "암호화해 저장"
 msgid "Stream replies"
 msgstr "답변 스트리밍"
 
+#: src/lib/identity-display.ts
 #: src/pages/Shell.tsx
 msgid "subagent"
 msgstr "보조 에이전트"
@@ -5173,6 +5191,7 @@ msgstr ""
 msgid "Yesterday"
 msgstr "어제"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "You"
 msgstr "나"

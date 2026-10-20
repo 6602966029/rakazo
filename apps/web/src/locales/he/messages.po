@@ -848,6 +848,7 @@ msgstr "מפעיל את המחשב של {0}"
 msgid "bot"
 msgstr "בוט"
 
+#: src/lib/identity-display.ts
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -995,6 +996,10 @@ msgstr "אפליקציות צ׳אט"
 #: src/pages/Shell.tsx
 msgid "Chat Settings"
 msgstr "הגדרות צ׳אט"
+
+#: src/lib/identity-display.ts
+msgid "Chats"
+msgstr "צ׳אטים"
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/pages/HostComputerPrompt.tsx
@@ -2489,6 +2494,7 @@ msgstr "מתכונן"
 msgid "Git event"
 msgstr "אירוע Git"
 
+#: src/lib/identity-display.ts
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Group"
@@ -2971,6 +2977,10 @@ msgstr "בינוני"
 #: src/lib/model-catalog.ts
 msgid "Medium"
 msgstr "בינוני"
+
+#: src/lib/identity-display.ts
+msgid "Member"
+msgstr "חבר"
 
 #. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
@@ -3536,6 +3546,7 @@ msgstr "ההודעה המקורית אינה זמינה"
 msgid "Other model…"
 msgstr "מודל אחר…"
 
+#: src/lib/identity-display.ts
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "בעלים"
@@ -3558,6 +3569,10 @@ msgstr "סיסמה"
 #: src/pages/Auth.tsx
 msgid "Password recovery is not configured for this server"
 msgstr "שחזור סיסמה לא הוגדר בשרת הזה"
+
+#: src/lib/user-error.ts
+msgid "Password sign-in is turned off on this server"
+msgstr "התחברות באמצעות סיסמה מושבתת בשרת הזה"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Auth.tsx
@@ -4050,6 +4065,7 @@ msgstr "הנחיות לחדר"
 msgid "Rotate key"
 msgstr "החלפת מפתח"
 
+#: src/lib/identity-display.ts
 #: src/pages/RoutineEditor.tsx
 #: src/pages/Shell.tsx
 msgid "Routine"
@@ -4447,9 +4463,10 @@ msgstr "עדכון תוכנה"
 msgid "Something went wrong. Try again."
 msgstr "משהו השתבש. אפשר לנסות שוב."
 
+#: src/lib/identity-display.ts
 #: src/pages/SettingsOverlay.tsx
 msgid "Space"
-msgstr ""
+msgstr "מרחב"
 
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
@@ -4548,6 +4565,7 @@ msgstr "נשמר מוצפן"
 msgid "Stream replies"
 msgstr "הזרמת תשובות"
 
+#: src/lib/identity-display.ts
 #: src/pages/Shell.tsx
 msgid "subagent"
 msgstr "סוכן משנה"
@@ -5173,6 +5191,7 @@ msgstr "שנה"
 msgid "Yesterday"
 msgstr "אתמול"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "You"
 msgstr "אני"
