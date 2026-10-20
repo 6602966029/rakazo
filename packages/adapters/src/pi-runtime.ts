@@ -510,6 +510,9 @@ export class PiAgentRuntime implements AgentRuntime {
           }
           if (event.type === "message_start" && event.message.role === "assistant") {
             currentMessageStreamed = "";
+            // A later message (after a finished shell or steering, not only a tool call)
+            // must not run its text straight on from the previous one.
+            if (streamed) queue.push({ type: "turn" });
           }
           if (
             event.type === "message_update" &&
