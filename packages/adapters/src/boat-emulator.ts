@@ -15,10 +15,13 @@ export class BoatSandboxEmulator extends ManagedSandboxEmulator {
     request: { botId: string; homePath: string },
     context: AdapterContext,
   ): Promise<ComputerRef> {
-    if (this.options.startLimit !== undefined && this.starts >= this.options.startLimit) {
-      throw new SandboxRateLimitError();
+    // Like Boat, only a create or a resume counts; reconnecting to a running computer is free.
+    if (!this.boxes.get(`fake-${request.botId}`)?.running) {
+      if (this.options.startLimit !== undefined && this.starts >= this.options.startLimit) {
+        throw new SandboxRateLimitError();
+      }
+      this.starts += 1;
     }
-    this.starts += 1;
     return super.provision(request, context);
   }
 }
