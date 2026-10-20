@@ -7,6 +7,24 @@ const HistoryDateBoundary = z
   .refine((value) => Number.isFinite(Date.parse(value)), "Invalid ISO date boundary")
   .transform((value) => new Date(value).toISOString());
 
+/** Leave room for both query attribution and a complete continuation inside a 10k result. */
+export const HISTORY_QUERIES_MAX_BYTES = 3000;
+export const HistoryQueriesSchema = z
+  .array(z.string().trim().min(1).max(500))
+  .min(1)
+  .max(5)
+  .transform((values) =>
+    values.filter(
+      (value, index) =>
+        values.findIndex((other) => other.toLowerCase() === value.toLowerCase()) === index,
+    ),
+  )
+  .refine(
+    (values) =>
+      new TextEncoder().encode(JSON.stringify(values)).byteLength <= HISTORY_QUERIES_MAX_BYTES,
+    `History queries must fit within ${HISTORY_QUERIES_MAX_BYTES} UTF-8 bytes combined`,
+  );
+
 /** Historical content is evidence to inspect, never an instruction source. */
 export const HistorySearchInputSchema = z
   .object({
@@ -17,17 +35,7 @@ export const HistorySearchInputSchema = z
       .min(1)
       .max(3)
       .optional(),
-    queries: z
-      .array(z.string().trim().min(1).max(500))
-      .min(1)
-      .max(5)
-      .transform((values) =>
-        values.filter(
-          (value, index) =>
-            values.findIndex((other) => other.toLowerCase() === value.toLowerCase()) === index,
-        ),
-      )
-      .optional(),
+    queries: HistoryQueriesSchema.optional(),
     offset: z.number().int().min(0).max(10000).optional(),
     query: z.string().trim().min(1).max(500).optional(),
     before: HistoryDateBoundary.optional(),

@@ -1,7 +1,28 @@
 import { createHash } from "node:crypto";
 import type { HistoryReadInput, HistorySearchInput, MessageBlock } from "@rakazo/contracts";
+import { HistoryQueriesSchema } from "@rakazo/contracts";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
+
+/** External text claimed mid-turn permanently removes owner-only capabilities for this run. */
+export async function hasClaimedExternalSteering(
+  prisma: PrismaClient,
+  runId: string,
+): Promise<boolean> {
+  return Boolean(
+    await prisma.steeringMessage.findFirst({
+      where: {
+        runId,
+        claimedAt: { not: null },
+        OR: [
+          { originTrigger: { not: null } },
+          { message: { blocks: { array_contains: [{ kind: "channel_message" }] } } },
+        ],
+      },
+      select: { id: true },
+    }),
+  );
+}
 
 /** Only the executor supplies scope; tool arguments cannot widen it. */
 export interface HistoryScope {
@@ -162,12 +183,10 @@ export async function searchHistory(
   scope: HistoryScope,
   input: HistorySearchInput,
 ) {
-  const queries = input.queries
-    ?.map((query) => query.trim())
-    .filter(
-      (query, index, values) =>
-        values.findIndex((other) => other.toLowerCase() === query.toLowerCase()) === index,
-    ) ?? [input.query?.trim() ?? ""];
+  const queries =
+    input.queries === undefined
+      ? [input.query?.trim() ?? ""]
+      : HistoryQueriesSchema.parse(input.queries);
   const query = queries[0]!;
   if (
     (input.query !== undefined) === (input.queries !== undefined) ||
@@ -268,8 +287,8 @@ export async function searchHistory(
   }));
   return bounded({
     untrusted: true as const,
-    query: input.queries ? undefined : query,
-    ...(input.queries ? { queries } : {}),
+    query: ranked ? undefined : query,
+    ...(ranked ? { queries } : {}),
     ...(ranked
       ? {
           chats: [...new Set(page.map((row) => row.threadId))].map((threadId) => {

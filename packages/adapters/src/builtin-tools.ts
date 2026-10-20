@@ -5,6 +5,7 @@ import {
   BotSecretName,
   botSecretDestinationSchema,
   FLEET_TOOL_NAMES,
+  HISTORY_QUERIES_MAX_BYTES,
   SecretAskPurpose,
   SecretHttpRequest,
   TICKET_PRIORITIES,
@@ -722,12 +723,19 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "search_history",
     description:
-      "Search earlier messages (default this_chat). To find an earlier conversation, fan out 2–4 keyword variants via queries with scope my_chats; narrow by date or botId when hinted. Each variant requires all its words. Returns up to five hits grouped by chat; matchedQueryIndexes are zero-based indexes into queries. Then read_history around the best hits using their threadId. my_chats requires a direct human app run. When nextSearch is present, call search_history with those arguments to continue. Coverage applies only to the requested literal query and range; an empty narrower query does not exhaust an unfinished broader query. Use read_history to check surrounding messages and corrections.",
+      "Search earlier messages (default this_chat). Provide exactly one of query or queries. To find an earlier conversation, fan out 2–4 keyword variants via queries with scope my_chats; narrow by date or botId when hinted. Each variant requires all its words. Returns up to five hits grouped by chat; matchedQueryIndexes are zero-based indexes into queries. Then read_history around the best hits using their threadId. my_chats requires a direct human app run. When nextSearch is present, call search_history with those arguments to continue. Coverage applies only to the requested literal query and range; an empty narrower query does not exhaust an unfinished broader query. Use read_history to check surrounding messages and corrections.",
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", minLength: 1, maxLength: 500 },
+        query: {
+          type: "string",
+          minLength: 1,
+          maxLength: 500,
+          description:
+            "Single keyword search. Provide query or queries, never both; one is required.",
+        },
         queries: {
+          description: `Keyword variants instead of query. Provide query or queries, never both; one is required. Combined normalized JSON must fit within ${HISTORY_QUERIES_MAX_BYTES} UTF-8 bytes.`,
           type: "array",
           items: { type: "string", minLength: 1, maxLength: 500 },
           minItems: 1,
@@ -764,7 +772,14 @@ export const builtinAgentTools: ConnectorTool[] = [
         },
         limit: { type: "integer", minimum: 1, maximum: 5 },
       },
-      oneOf: [{ required: ["query"] }, { required: ["queries"] }],
+      oneOf: [
+        { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+        {
+          type: "object",
+          properties: { queries: { type: "array", items: { type: "string" } } },
+          required: ["queries"],
+        },
+      ],
     },
   },
   {

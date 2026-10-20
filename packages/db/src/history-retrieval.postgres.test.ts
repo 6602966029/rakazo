@@ -4,7 +4,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Prisma } from "./client.js";
 import { PrismaClient } from "./client.js";
-import { readHistory, searchHistory } from "./history-retrieval.js";
+import { hasClaimedExternalSteering, readHistory, searchHistory } from "./history-retrieval.js";
 
 // Temporary synthetic tables shadow product tables. Never inspect existing chat content.
 const enabled = process.env.VERIFY_DATABASE && process.env.DATABASE_URL;
@@ -28,6 +28,7 @@ postgres("history retrieval (PostgreSQL)", () => {
       CREATE TEMP TABLE chat_group_members ("groupId" text, "botId" text);
       CREATE TEMP TABLE messages (id text PRIMARY KEY, "threadId" text, seq integer, role text, "runId" text,
         "replyToMessageId" text, "createdAt" timestamptz, blocks jsonb);
+      CREATE TEMP TABLE steering_messages (id text PRIMARY KEY, "messageId" text, "runId" text, "originTrigger" text, "claimedAt" timestamptz);
       CREATE TEMP TABLE runs (id text PRIMARY KEY, "spaceId" text, "userId" text, "threadId" text, "botId" text,
         "sourceMessageId" text, status text, "createdAt" timestamptz, "completedAt" timestamptz);
       CREATE TEMP TABLE artifacts (id text PRIMARY KEY, "spaceId" text, "userId" text, "botId" text, "groupId" text,
@@ -522,6 +523,9 @@ postgres("history retrieval (PostgreSQL)", () => {
     );
     expect(JSON.stringify(explained.rows)).toContain("synthetic_history_fts");
     expect(result.queries).toEqual(["quasar", "VIOLET"]);
+    const single = await searchHistory(prisma, grant, { scope: "my_chats", query: "quasar" });
+    expect(single.queries).toEqual(["quasar"]);
+    for (const hit of single.messages) expect(hit.matchedQueryIndexes).toEqual([0]);
     expect(result.messages).toHaveLength(4);
     expect(new Set(result.messages.map((hit) => hit.messageId)).size).toBe(4);
     expect(new Set(result.messages.map((hit) => hit.threadId))).toEqual(
@@ -629,5 +633,22 @@ postgres("history retrieval (PostgreSQL)", () => {
         messageId: "cross-structured",
       }),
     ).toEqual(missing);
+  });
+  it("recognizes claimed channel/webhook steering without blocking pending or app messages", async () => {
+    await pool.query(`INSERT INTO messages VALUES ('steering-channel','synthetic-thread',20000,'user',NULL,NULL,now(),
+      '[{"kind":"channel_message","channelId":"channel-a","text":"steering canary"}]');
+      INSERT INTO steering_messages VALUES ('steering-row','steering-channel','steered-run','messaging',NULL)`);
+    expect(await hasClaimedExternalSteering(prisma, "steered-run")).toBe(false);
+    await pool.query(`UPDATE steering_messages SET "claimedAt" = now()`);
+    expect(await hasClaimedExternalSteering(prisma, "steered-run")).toBe(true);
+    expect(await hasClaimedExternalSteering(prisma, "other-run")).toBe(false);
+    await pool.query(`UPDATE steering_messages SET "originTrigger" = NULL`);
+    expect(await hasClaimedExternalSteering(prisma, "steered-run")).toBe(true);
+    await pool.query(
+      `UPDATE steering_messages SET "messageId" = 'm-1', "originTrigger" = 'webhook'`,
+    );
+    expect(await hasClaimedExternalSteering(prisma, "steered-run")).toBe(true);
+    await pool.query(`UPDATE steering_messages SET "originTrigger" = NULL`);
+    expect(await hasClaimedExternalSteering(prisma, "steered-run")).toBe(false);
   });
 });
