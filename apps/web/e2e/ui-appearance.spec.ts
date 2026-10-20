@@ -284,6 +284,22 @@ test("sidebar footer keeps the account identity readable and installs a ready de
     }
   }
   await footer.evaluate((el) => el.style.removeProperty("width"));
+  // A translation wider than the pill must still leave room for the update control.
+  await label.evaluate((el) => {
+    el.textContent = "Connecter des applications";
+  });
+  await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(0);
+  const translatedPill = footer.getByRole("button", {
+    name: "Connecter des applications",
+    exact: true,
+  });
+  const translatedLabel = translatedPill.locator("span").first();
+  expect(await translatedLabel.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  await expect(translatedLabel).toHaveCSS("text-overflow", "ellipsis");
+  const labelBox = await translatedLabel.boundingBox();
+  const pillBox = await translatedPill.boundingBox();
+  expect(labelBox!.x + labelBox!.width).toBeLessThanOrEqual(pillBox!.x + pillBox!.width - 11);
+  expect(await footer.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
 
 test("account menu works on the mobile sidebar", async ({ page }) => {

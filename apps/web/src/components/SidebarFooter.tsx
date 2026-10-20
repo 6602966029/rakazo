@@ -71,7 +71,7 @@ export function SidebarFooter({
         pill.clientWidth -
         Number.parseFloat(style.paddingLeft) -
         Number.parseFloat(style.paddingRight) -
-        label.getBoundingClientRect().width -
+        label.scrollWidth -
         Number.parseFloat(style.columnGap);
       setMarkCount(sidebarMarkCount(available));
     };
@@ -209,14 +209,14 @@ export function SidebarFooter({
         onClick={onIntegrations}
         className="h-9 min-w-0 flex-1 justify-between rounded-full bg-sidebar-accent hover:border-foreground/30 hover:bg-sidebar-accent"
       >
-        <span ref={labelRef} className="shrink-0">
+        <span ref={labelRef} className="min-w-0 truncate">
           <Trans>Connect apps</Trans>
         </span>
         <span aria-hidden="true" className="flex shrink-0 items-center -space-x-1.5">
           {logos.slice(0, markCount).map((app) => (
             <span
               key={app.name}
-              className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-medium text-foreground ring-2 ring-sidebar-accent dark:bg-input"
+              className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-medium text-foreground ring-2 ring-sidebar-accent dark:border-foreground/15 dark:bg-sidebar-accent dark:bg-linear-to-b dark:from-foreground/10 dark:to-foreground/10"
             >
               {app.logo && !failedLogos.includes(app.logo) ? (
                 <img
