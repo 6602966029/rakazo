@@ -4243,7 +4243,7 @@ msgstr "搜索提供方"
 
 #: src/pages/Shell.tsx
 msgid "Search runs"
-msgstr "搜索运行"
+msgstr "搜索运行记录"
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
