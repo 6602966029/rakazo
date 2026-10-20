@@ -339,7 +339,7 @@ msgstr "Ярлык аккаунта"
 
 #: src/components/SidebarFooter.tsx
 msgid "Account menu for {name}"
-msgstr ""
+msgstr "Меню аккаунта {name}"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Accounts"
@@ -1314,7 +1314,7 @@ msgstr "Подключить API-ключ"
 
 #: src/components/SidebarFooter.tsx
 msgid "Connect apps"
-msgstr ""
+msgstr "Подключить приложения"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Executor"
@@ -2187,7 +2187,7 @@ msgstr "Docker ограничивает доступ к вашему компь�
 
 #: src/components/SidebarFooter.tsx
 msgid "Docs"
-msgstr ""
+msgstr "Документация"
 
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
@@ -2529,7 +2529,7 @@ msgstr "Получать уведомления, когда этот бот за
 
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
-msgstr ""
+msgstr "Скачать мобильное приложение"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
@@ -2692,11 +2692,11 @@ msgstr "Входы"
 
 #: src/components/SidebarFooter.tsx
 msgid "Install"
-msgstr ""
+msgstr "Установить"
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
-msgstr ""
+msgstr "Установить обновление"
 
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 msgid "Instance API key"
@@ -3292,7 +3292,7 @@ msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "New update available"
-msgstr ""
+msgstr "Доступно обновление"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."

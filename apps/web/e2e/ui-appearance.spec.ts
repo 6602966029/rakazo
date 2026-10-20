@@ -123,6 +123,39 @@ test("sidebar bot rows use the sidebar hover tone", async ({ page }, testInfo) =
     .toBe(chiefBg);
 });
 
+test("sidebar footer opens integrations and the account menu", async ({ page }, testInfo) => {
+  await signup(page, `footer-web-${Date.now()}@rakazo.test`, "password12", "Footer Demo");
+  await completeOnboarding(page);
+  const footer = page.getByTestId("sidebar-footer");
+  await expect(footer).toBeVisible();
+  const searchBox = await page.getByTestId("sidebar-search").boundingBox();
+  const avatarBox = await page.getByTestId("user-menu-trigger").boundingBox();
+  const pillBox = await footer
+    .getByRole("button", { name: "Connect apps", exact: true })
+    .boundingBox();
+  expect(searchBox).toBeTruthy();
+  expect(avatarBox).toBeTruthy();
+  expect(pillBox).toBeTruthy();
+  if (searchBox && avatarBox && pillBox) {
+    expect(avatarBox.x).toBe(searchBox.x);
+    expect(pillBox.x + pillBox.width).toBe(searchBox.x + searchBox.width);
+    expect(pillBox.height).toBe(avatarBox.height);
+  }
+  await expect(footer.getByRole("button", { name: "Install update", exact: true })).toHaveCount(0);
+  await footer.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Close integrations", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close integrations", exact: true }).click();
+  await page.getByTestId("user-menu-trigger").click();
+  await expect(page.getByRole("link", { name: "Get the mobile app", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Docs", exact: true })).toBeVisible();
+  await captureScreenshot(page, testInfo, "sidebar-footer-menu");
+  await page.keyboard.press("Escape");
+  await page.getByTestId("minimize-bots-sidebar").click();
+  await expect(footer).not.toBeInViewport();
+  await page.getByTestId("restore-bots-sidebar").click();
+  await expect(footer).toBeInViewport();
+});
+
 test("sidebar footer keeps the account identity readable and installs a ready desktop update", async ({
   page,
 }, testInfo) => {
@@ -148,8 +181,11 @@ test("sidebar footer keeps the account identity readable and installs a ready de
         update: {
           state: async () => state,
           check: async () => state,
+          download: async () => state,
           install: async () => {
-            document.documentElement.dataset.updateInstalled = "true";
+            document.documentElement.dataset.updateInstalled = String(
+              Number(document.documentElement.dataset.updateInstalled ?? 0) + 1,
+            );
             return state;
           },
         },
@@ -161,26 +197,24 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   await completeOnboarding(page);
   const footer = page.getByTestId("sidebar-footer");
   const avatar = page.getByTestId("user-menu-trigger");
-  await expect(avatar).toHaveAccessibleName("Account menu for Footer Demo");
+  const session = await (await page.request.get("/api/auth/get-session")).json();
+  await expect(avatar).toHaveAccessibleName(`Account menu for ${session.user.name}`);
   await expect(footer.getByRole("button", { name: "Install update", exact: true })).toBeVisible();
   // Dismiss the existing update toast so the two footer frames stay focused.
   await page
     .getByRole("complementary", { name: "Desktop update" })
     .getByRole("button", { name: "Later" })
     .click();
-  await captureScreenshot(page, testInfo, "sidebar-footer");
   await avatar.click();
   const header = page.getByTestId("account-menu-header");
-  await expect(header).toHaveText(`Footer Demo${email}`);
-  const session = await (await page.request.get("/api/auth/get-session")).json();
-  expect(await header.textContent()).not.toBe(session.user.id);
+  await expect(header).toHaveText(`${session.user.name}${email}`);
   await expect(page.getByText("New update available", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "sidebar-footer-menu-update");
   await page.getByRole("button", { name: "Install", exact: true }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-update-installed", "true");
+  await expect(page.locator("html")).toHaveAttribute("data-update-installed", "1");
   await page.keyboard.press("Escape");
   await footer.getByRole("button", { name: "Install update", exact: true }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-update-installed", "true");
+  await expect(page.locator("html")).toHaveAttribute("data-update-installed", "2");
 });
 
 test("account menu works on the mobile sidebar", async ({ page }) => {
@@ -188,10 +222,11 @@ test("account menu works on the mobile sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signup(page, email, "password12", "Mobile Demo");
   await completeOnboarding(page);
-  await page.getByRole("button", { name: "Open sidebar", exact: true }).click();
+  await page.getByRole("button", { name: "Open navigation", exact: true }).click();
   const avatar = page.getByTestId("user-menu-trigger");
   await expect(avatar).toBeVisible();
   await expect(page.getByRole("button", { name: "Install update", exact: true })).toHaveCount(0);
   await avatar.click();
-  await expect(page.getByTestId("account-menu-header")).toHaveText(`Mobile Demo${email}`);
+  const session = await (await page.request.get("/api/auth/get-session")).json();
+  await expect(page.getByTestId("account-menu-header")).toHaveText(`${session.user.name}${email}`);
 });

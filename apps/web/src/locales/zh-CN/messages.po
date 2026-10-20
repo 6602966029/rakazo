@@ -339,7 +339,7 @@ msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "Account menu for {name}"
-msgstr ""
+msgstr "{name} 的账户菜单"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Accounts"
@@ -1314,7 +1314,7 @@ msgstr "连接 API 密钥"
 
 #: src/components/SidebarFooter.tsx
 msgid "Connect apps"
-msgstr ""
+msgstr "连接应用"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Executor"
@@ -2187,7 +2187,7 @@ msgstr "Docker 限制对你电脑的访问，以提高安全性。使用{hostLab
 
 #: src/components/SidebarFooter.tsx
 msgid "Docs"
-msgstr ""
+msgstr "文档"
 
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
@@ -2529,7 +2529,7 @@ msgstr "在此机器人完成或需要输入时收到通知"
 
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
-msgstr ""
+msgstr "获取移动应用"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
@@ -2692,11 +2692,11 @@ msgstr "输入"
 
 #: src/components/SidebarFooter.tsx
 msgid "Install"
-msgstr ""
+msgstr "安装"
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
-msgstr ""
+msgstr "安装更新"
 
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 msgid "Instance API key"
@@ -3292,7 +3292,7 @@ msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "New update available"
-msgstr ""
+msgstr "有新更新可用"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."

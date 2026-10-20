@@ -339,7 +339,7 @@ msgstr "תווית חשבון"
 
 #: src/components/SidebarFooter.tsx
 msgid "Account menu for {name}"
-msgstr ""
+msgstr "תפריט החשבון של {name}"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Accounts"
@@ -1314,7 +1314,7 @@ msgstr "חיבור מפתח API"
 
 #: src/components/SidebarFooter.tsx
 msgid "Connect apps"
-msgstr ""
+msgstr "חיבור אפליקציות"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Executor"
@@ -2187,7 +2187,7 @@ msgstr "Docker מגביל את הגישה למחשב לאבטחה נוספת. ש
 
 #: src/components/SidebarFooter.tsx
 msgid "Docs"
-msgstr ""
+msgstr "תיעוד"
 
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
@@ -2529,7 +2529,7 @@ msgstr "קבלת התראה כשהבוט מסיים או צריך קלט"
 
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
-msgstr ""
+msgstr "הורדת האפליקציה לנייד"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
@@ -2692,11 +2692,11 @@ msgstr "קלטים"
 
 #: src/components/SidebarFooter.tsx
 msgid "Install"
-msgstr ""
+msgstr "התקנה"
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
-msgstr ""
+msgstr "התקנת עדכון"
 
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 msgid "Instance API key"
@@ -3292,7 +3292,7 @@ msgstr "כרטיס חדש"
 
 #: src/components/SidebarFooter.tsx
 msgid "New update available"
-msgstr ""
+msgstr "עדכון חדש זמין"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."

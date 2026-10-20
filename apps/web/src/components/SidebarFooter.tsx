@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Button, Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web";
+import { Button, buttonVariants, Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web";
 import {
   BookOpen,
   Download,
@@ -53,7 +53,7 @@ export function SidebarFooter({
   const update = useSidebarUpdate();
   const [failedImage, setFailedImage] = useState<string | null>(null);
   return (
-    <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-2 px-3 py-3">
+    <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-2 px-2.5 py-3">
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger
           data-testid="user-menu-trigger"
@@ -77,7 +77,7 @@ export function SidebarFooter({
           <PopoverContent
             side="top"
             align="start"
-            className="w-[calc(316px-1.5rem)] max-w-[calc(100vw-3rem)] gap-0 p-1 data-closed:animate-none"
+            className="w-[295px] max-w-[calc(100vw-69px)] gap-0 p-1 data-closed:animate-none"
           >
             {update.available ? (
               <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
@@ -102,34 +102,28 @@ export function SidebarFooter({
               <Gauge className="text-muted-foreground" strokeWidth={1.75} />
               <Trans>Usage</Trans>
             </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start font-normal"
-              render={
-                <a
-                  href="https://apps.apple.com/app/rakazo/id6801531099"
-                  target="_blank"
-                  rel="noreferrer"
-                />
+            <a
+              className={`${buttonVariants({ variant: "ghost" })} w-full justify-start font-normal`}
+              href={
+                /Android/i.test(navigator.userAgent)
+                  ? "https://github.com/elie222/rakazo/releases/download/android/rakazo.apk"
+                  : "https://apps.apple.com/app/rakazo/id6801531099"
               }
+              target="_blank"
+              rel="noreferrer"
             >
               <Smartphone className="text-muted-foreground" strokeWidth={1.75} />
               <Trans>Get the mobile app</Trans>
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start font-normal"
-              render={
-                <a
-                  href="https://github.com/elie222/rakazo/blob/main/docs/self-host.md"
-                  target="_blank"
-                  rel="noreferrer"
-                />
-              }
+            </a>
+            <a
+              className={`${buttonVariants({ variant: "ghost" })} w-full justify-start font-normal`}
+              href="https://github.com/elie222/rakazo/blob/main/docs/self-host.md"
+              target="_blank"
+              rel="noreferrer"
             >
               <BookOpen className="text-muted-foreground" strokeWidth={1.75} />
               <Trans>Docs</Trans>
-            </Button>
+            </a>
             {onBoard ? (
               <Button
                 variant="ghost"

@@ -572,6 +572,7 @@ function SpaceShell() {
   const [taughtSkillsBotId, setTaughtSkillsBotId] = useState<string | null>(null);
   const [agentSkills, setAgentSkills] = useState<AgentSkillCatalogEntry[]>([]);
   const [mentionRoutines, setMentionRoutines] = useState<Array<Routine & { botName?: string }>>([]);
+  const [footerLogos, setFooterLogos] = useState<Array<{ name: string; logo: string | null }>>([]);
   const [mentionConnectors, setMentionConnectors] = useState<
     Array<{
       id: string;
@@ -2171,6 +2172,21 @@ function SpaceShell() {
     ]).then(([connections, catalog]) => {
       if (cancelled) return;
       const connected = connections.filter((row) => row.status === "connected");
+      const connectedApps = catalog.filter(
+        (item) =>
+          item.connected ||
+          connected.some(
+            (row) =>
+              row.connectorId === item.connectorId &&
+              row.provider.toLowerCase() === item.slug.toLowerCase(),
+          ),
+      );
+      setFooterLogos(
+        connectedApps
+          .filter((item, index, apps) => apps.findIndex((app) => app.name === item.name) === index)
+          .slice(0, 3)
+          .map(({ name, logo }) => ({ name, logo })),
+      );
       const options: Array<{
         id: string;
         name: string;
@@ -3786,6 +3802,7 @@ function SpaceShell() {
           ) : null}
         </div>
         <SidebarFooter
+          logos={footerLogos.length ? footerLogos : undefined}
           name={userName}
           initials={initials}
           image={session.data?.user.image}

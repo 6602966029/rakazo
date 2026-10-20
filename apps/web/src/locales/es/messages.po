@@ -339,7 +339,7 @@ msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "Account menu for {name}"
-msgstr ""
+msgstr "Menú de cuenta de {name}"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Accounts"
@@ -1314,7 +1314,7 @@ msgstr "Conectar clave de API"
 
 #: src/components/SidebarFooter.tsx
 msgid "Connect apps"
-msgstr ""
+msgstr "Conectar aplicaciones"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Executor"
@@ -2187,7 +2187,7 @@ msgstr "Docker limita el acceso a tu computadora para mayor seguridad. Usar {hos
 
 #: src/components/SidebarFooter.tsx
 msgid "Docs"
-msgstr ""
+msgstr "Documentación"
 
 #: src/pages/Auth.tsx
 msgid "Don’t have an account?"
@@ -2529,7 +2529,7 @@ msgstr "Recibe avisos cuando este Bot termine o necesite entrada"
 
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
-msgstr ""
+msgstr "Obtener la aplicación móvil"
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Getting ready"
@@ -2692,11 +2692,11 @@ msgstr "Entradas"
 
 #: src/components/SidebarFooter.tsx
 msgid "Install"
-msgstr ""
+msgstr "Instalar"
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
-msgstr ""
+msgstr "Instalar actualización"
 
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 msgid "Instance API key"
@@ -3292,7 +3292,7 @@ msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "New update available"
-msgstr ""
+msgstr "Nueva actualización disponible"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."

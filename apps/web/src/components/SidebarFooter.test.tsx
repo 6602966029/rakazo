@@ -27,7 +27,12 @@ afterEach(async () => {
   delete window.rakazoDesktop;
   vi.restoreAllMocks();
 });
-async function render(name = "Demo User", image?: string) {
+async function render(
+  name = "Demo User",
+  image?: string,
+  onIntegrations = vi.fn(),
+  onBoard?: () => void,
+) {
   const email = "account@rakazo.test";
   await act(async () =>
     root.render(
@@ -44,7 +49,8 @@ async function render(name = "Demo User", image?: string) {
           email={email}
           open
           onOpenChange={() => {}}
-          onIntegrations={() => {}}
+          onIntegrations={onIntegrations}
+          onBoard={onBoard}
           onArtifacts={() => {}}
           onSettings={() => {}}
           onUsage={() => {}}
@@ -75,7 +81,12 @@ function bridge(phase: DesktopUpdateState["phase"]) {
       state: async () => ({ minimized: false, maximized: false, fullScreen: false }),
     },
     oauth: { onCallback: () => () => {} },
-    update: { state: async () => state, install, check: async () => state },
+    update: {
+      state: async () => state,
+      install,
+      download: async () => state,
+      check: async () => state,
+    },
   };
   return install;
 }
@@ -84,7 +95,7 @@ it("hides update controls without a desktop bridge", async () => {
   expect(document.querySelector('[aria-label="Install update"]')).toBeNull();
   expect(document.body.textContent).not.toContain("New update available");
 });
-it.each(["idle", "available", "downloading", "checking", "error"] as const)(
+it.each(["unsupported", "idle", "available", "downloading", "checking", "error"] as const)(
   "hides install controls in phase %s",
   async (phase) => {
     bridge(phase);
@@ -115,4 +126,44 @@ it("shows the account image and falls back to the initial after a load error", a
   await act(async () => image.dispatchEvent(new Event("error")));
   expect(trigger.querySelector("img")).toBeNull();
   expect(trigger.textContent).toBe("AL");
+});
+
+it("opens integrations and keeps the existing account actions and links", async () => {
+  const onIntegrations = vi.fn();
+  await render("Demo User", undefined, onIntegrations, vi.fn());
+  const connect = [...host.querySelectorAll("button")].find((button) =>
+    button.textContent?.includes("Connect apps"),
+  )!;
+  await act(async () => connect.click());
+  expect(onIntegrations).toHaveBeenCalledOnce();
+  const menu = document.querySelector('[data-slot="popover-content"]')!;
+  expect([...menu.querySelectorAll("button, a")].map((row) => row.textContent)).toEqual([
+    "Usage",
+    "Get the mobile app",
+    "Docs",
+    "Board",
+    "Artifacts",
+    "Settings",
+    "Log out",
+  ]);
+  expect(host.querySelector('[data-testid="user-menu-trigger"]')?.getAttribute("aria-label")).toBe(
+    "Account menu for Demo User",
+  );
+});
+it("omits Board when unavailable", async () => {
+  await render();
+  expect(document.querySelector('[data-slot="popover-content"]')?.textContent).not.toContain(
+    "Board",
+  );
+});
+
+it("offers the existing Android download on Android", async () => {
+  vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Android");
+  await render();
+  const mobile = [...document.querySelectorAll("a")].find(
+    (link) => link.textContent === "Get the mobile app",
+  )!;
+  expect(mobile.href).toBe(
+    "https://github.com/elie222/rakazo/releases/download/android/rakazo.apk",
+  );
 });
