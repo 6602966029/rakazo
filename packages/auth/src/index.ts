@@ -1,13 +1,12 @@
 import { expo } from "@better-auth/expo";
 import type { TransactionalEmail, TransactionalEmailProvider } from "@rakazo/adapter-kit";
 import {
+  allowlistedSignupAdmission,
   displayName,
   emailAllowed,
   firstAccountClaimDecision,
   isMessagingEmail,
   parseAllowlist,
-  signInRequiresEmailVerification,
-  signupAdmission,
   signupPolicyFromEnv,
 } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
@@ -299,6 +298,8 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
         : undefined,
     },
     emailVerification: {
+      // Open signups get a session at once; the link only marks the address verified.
+      sendOnSignUp: Boolean(env.email),
       sendOnSignIn: true,
       autoSignInAfterVerification: false,
       sendVerificationEmail: env.email
@@ -487,17 +488,14 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             requireEmailVerification = false;
           } else {
             requireEmailVerification =
-              signupAdmission({
+              allowlistedSignupAdmission({
                 allowlistSize: policy.allowlist.length,
                 hasEmailDelivery: Boolean(env.email),
                 existingHumanCount: 0,
               }) === "verify";
           }
         } else if (policy) {
-          requireEmailVerification = signInRequiresEmailVerification({
-            allowlistSize: policy.allowlist.length,
-            hasEmailDelivery: Boolean(env.email),
-          });
+          requireEmailVerification = policy.allowlist.length > 0;
         }
         const findSession = ctx.context.internalAdapter.findSession;
         // Return a request-local override; mutating the shared auth options
@@ -526,8 +524,6 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
                     );
                     if (accounts.some((account) => account.providerId === "oidc")) return session;
                   }
-                  // Under an open policy, sessions issued before email delivery
-                  // existed stay valid. Those users verify at their next sign-in.
                   policy ??= await resolveSignupPolicy(prisma, env);
                   return policy.allowlist.length === 0 ? session : null;
                 },

@@ -593,39 +593,29 @@ describe("session credentials", () => {
   });
 });
 
-describe("email delivery requires a verified address", () => {
-  it("withholds a session from an open password signup until the mailbox is proved", async () => {
+describe("verification email without blocking", () => {
+  it("signs an open password signup in at once and lets the emailed link mark it verified", async () => {
     const f = fixture();
     const response = await f.signup();
     expect(response.status).toBe(200);
-    expect(response.headers.get("set-cookie")).toBeNull();
-    expect(await response.json()).toMatchObject({ token: null, user: { emailVerified: false } });
-    expect(f.data.session).toHaveLength(0);
-    expect(bootstrapUserSpace).not.toHaveBeenCalled();
-    expect(f.messages).toHaveLength(1);
-    const refused = await f.signin();
-    expect(refused.status).toBe(403);
-    expect(await refused.json()).toMatchObject({ code: "EMAIL_NOT_VERIFIED" });
-    expect(f.messages).toHaveLength(2);
-    expect(f.data.session).toHaveLength(0);
-    await f.verify();
-    expect((await f.signin()).status).toBe(200);
+    const { token } = (await response.json()) as { token: string };
+    expect(await f.sessionFor(token)).toMatchObject({ user: { emailVerified: false } });
     expect(bootstrapUserSpace).toHaveBeenCalledTimes(1);
+    expect(f.messages).toHaveLength(1);
+    expect(f.messages[0]).toMatchObject({ subject: "Verify your Rakazo email" });
+    expect((await f.signin()).status).toBe(200);
+    expect(f.messages).toHaveLength(1);
+    await f.verify();
+    expect(await f.sessionFor(token)).toMatchObject({ user: { emailVerified: true } });
   });
 
-  it("keeps existing unverified sessions and asks for verification at the next sign-in", async () => {
+  it("keeps existing unverified accounts signing in with a password", async () => {
     const f = fixture();
     const { token } = await f.legacyAccount();
     expect(await f.sessionFor(token)).toMatchObject({ user: { emailVerified: false } });
-    expect((await f.request("/update-user", { name: "Still Here" }, token)).status).toBe(200);
-    const refused = await f.signin();
-    expect(refused.status).toBe(403);
-    expect(await refused.json()).toMatchObject({ code: "EMAIL_NOT_VERIFIED" });
-    expect(f.messages).toHaveLength(1);
-    expect(await f.sessionFor(token)).not.toBeNull();
-    await f.verify();
     expect((await f.signin()).status).toBe(200);
-    expect(await f.sessionFor(token)).toMatchObject({ user: { emailVerified: true } });
+    expect(await f.sessionFor(token)).not.toBeNull();
+    expect(f.messages).toHaveLength(0);
   });
 });
 
@@ -702,14 +692,39 @@ describe("email code sign-in", () => {
 
   it("drops access an unverified account gained before its mailbox owner signed in", async () => {
     const f = fixture();
-    const { id, token } = await f.legacyAccount();
+    // Someone registers the owner's address with their own password and keeps a session.
+    const squatter = await f.signup();
+    const { token } = (await squatter.json()) as { token: string };
+    const userId = f.data.user![0]!.id as string;
+    expect(await f.sessionFor(token)).not.toBeNull();
+    f.data.account!.push({
+      id: "oidc-link",
+      userId,
+      providerId: "oidc",
+      accountId: "squatter-subject",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     await f.sendCode();
-    const response = await f.codeSignIn(f.lastCode());
-    expect(response.status).toBe(200);
-    expect(f.data.user!.find((user) => user.id === id)).toMatchObject({ emailVerified: true });
+    const owner = await f.codeSignIn(f.lastCode());
+    expect(owner.status).toBe(200);
+    const { token: ownerToken } = (await owner.json()) as { token: string };
+    expect(f.data.user).toHaveLength(1);
+    expect(f.data.user![0]).toMatchObject({ id: userId, emailVerified: true });
     expect(await f.sessionFor(token)).toBeNull();
-    expect(f.data.account!.filter((account) => account.userId === id)).toHaveLength(0);
+    expect(f.data.account!.filter((account) => account.userId === userId)).toHaveLength(0);
     expect((await f.signin()).status).toBe(401);
+    expect(await f.sessionFor(ownerToken)).toMatchObject({ user: { id: userId } });
+  });
+
+  it("keeps a verified account's password and sessions on code sign-in", async () => {
+    const f = fixture();
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    await f.verify();
+    await f.sendCode();
+    expect((await f.codeSignIn(f.lastCode())).status).toBe(200);
+    expect(await f.sessionFor(token)).not.toBeNull();
+    expect((await f.signin()).status).toBe(200);
   });
 
   it("closes the OTP routes Rakazo does not use", async () => {

@@ -284,23 +284,3 @@ it("leaves the password form unchanged without email codes", async () => {
   expect(host.textContent).not.toContain("Use email code");
   expect(host.textContent).not.toContain("Use password");
 });
-
-it("asks an unverified password user to check their email", async () => {
-  vi.mocked(fetchAuthCapabilities).mockResolvedValue(codeCapabilities);
-  vi.mocked(authClient.signIn.email).mockResolvedValue({
-    data: null,
-    error: {
-      code: "EMAIL_NOT_VERIFIED",
-      message: "Email not verified",
-      status: 403,
-      statusText: "",
-    },
-  } as never);
-  await render();
-  await act(async () => button("Use password").click());
-  await enter(host.querySelector('input[name="email"]'), "person@example.com");
-  await enter(host.querySelector('input[type="password"]'), "correct horse");
-  await submit();
-  expect(host.querySelector("h1")!.textContent).toBe("Check your email");
-  expect(host.querySelector('[role="alert"]')).toBeNull();
-});

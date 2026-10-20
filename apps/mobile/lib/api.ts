@@ -513,19 +513,12 @@ async function postAuth(path: string, input: Record<string, string>) {
   );
 }
 
-function authCode(body: unknown): unknown {
-  return body && typeof body === "object" && "code" in body ? body.code : undefined;
-}
-
 async function authenticate(
   path: string,
   input: Record<string, string>,
   missingSession: string,
 ): Promise<{ verificationRequired: boolean }> {
   const { response, body, invalidJson } = await postAuth(path, input);
-  // A password sign-in from an unproven mailbox gets a fresh verification email instead.
-  if (response.status === 403 && authCode(body) === "EMAIL_NOT_VERIFIED")
-    return { verificationRequired: true };
   if (!response.ok || invalidJson) {
     throw new Error(authResponseErrorText(response.status, body, invalidJson));
   }

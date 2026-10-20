@@ -272,23 +272,6 @@ describe("mobile API authentication", () => {
     expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
-  it("reports an unverified password sign-in as awaiting email", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        jsonResponse(
-          { code: "EMAIL_NOT_VERIFIED", message: "Email not verified" },
-          { status: 403 },
-        ),
-      ),
-    );
-
-    await expect(signIn("ada@example.test", "correct horse")).resolves.toEqual({
-      verificationRequired: true,
-    });
-    expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
-  });
-
   it("loads password recovery capability and requests a server-approved redirect", async () => {
     const fetchMock = vi
       .fn()

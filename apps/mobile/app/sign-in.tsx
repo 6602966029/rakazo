@@ -156,11 +156,8 @@ export default function SignIn() {
           setResetSent(true);
           return;
         }
-      } else if ((await signIn(email.trim(), password)).verificationRequired) {
-        // Without delivery (an allowlist and no SMTP) no link was sent.
-        if (reset?.emailCode) setResetSent(true);
-        else setError(t("Email verification required"));
-        return;
+      } else {
+        await signIn(email.trim(), password);
       }
       const setup =
         mode === "up"

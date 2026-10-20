@@ -6,7 +6,7 @@ import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import SignIn from "../app/sign-in";
-import { passwordResetCapabilities, rpc, sendSignInCode, signIn, signInWithCode } from "./api";
+import { passwordResetCapabilities, rpc, sendSignInCode, signInWithCode } from "./api";
 import type { NativeActionButtonProps } from "./native-controls";
 
 const route = vi.hoisted(() => ({ mode: "in" }));
@@ -269,17 +269,4 @@ it("keeps the password form without code sign-in", async () => {
   expect(host.querySelector('input[type="password"]')).not.toBeNull();
   expect(button("Use password")).toBeUndefined();
   expect(button("Use email code")).toBeUndefined();
-});
-
-it("asks to check email when a password sign-in needs a verified mailbox", async () => {
-  vi.mocked(passwordResetCapabilities).mockResolvedValue({ ...capabilities, emailCode: true });
-  vi.mocked(signIn).mockResolvedValue({ verificationRequired: true });
-  await render();
-  await press("Use password");
-  await type(input("Email")!, "ada@example.test");
-  await type(host.querySelector<HTMLInputElement>('input[type="password"]')!, "correct horse");
-  await press("Sign in");
-  expect(signIn).toHaveBeenCalledWith("ada@example.test", "correct horse");
-  expect(host.textContent).toContain("Check your email");
-  expect(router.replace).not.toHaveBeenCalled();
 });

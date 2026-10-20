@@ -129,11 +129,6 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
             })
           : await authClient.signIn.email({ email: trimmedEmail, password });
       if (result.error) {
-        // The server emailed a verification link instead of signing in.
-        if (mode === "in" && reset.emailCode && result.error.code === "EMAIL_NOT_VERIFIED") {
-          setSearchParams({ verify: "email" });
-          return;
-        }
         setError(authErrorText(result.error, t`Could not continue`));
         return;
       }
