@@ -8,6 +8,8 @@ const home = getHomeCopy("en");
 
 export const HOME_MARKDOWN = `# Rakazo
 
+${home.hero.eyebrow}
+
 ${home.hero.lead}
 
 ## ${home.roster.heading}
@@ -18,7 +20,7 @@ ${home.roster.bots.map((bot) => `- **${bot.name}:** ${bot.desc}`).join("\n")}
 
 ## ${home.testimonials.heading}
 
-${home.testimonials.items.map((item) => `> ${item.quote}`).join("\n\n")}
+${home.testimonials.items.map((item) => `> ${item.quote}\n>\n> — ${item.attribution}`).join("\n\n")}
 
 ## ${home.selfHost.heading}
 

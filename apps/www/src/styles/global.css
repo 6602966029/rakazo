@@ -346,29 +346,8 @@ button.button--secondary:focus-visible {
   text-align: center;
 }
 
-.hero__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 100%;
+.hero .hero__eyebrow {
   margin-bottom: 30px;
-  padding: 6px 14px 6px 8px;
-  border: 1px solid var(--blue-line);
-  border-radius: 999px;
-  background: linear-gradient(to bottom, var(--blue-soft), var(--blue-soft-2));
-  color: var(--blue);
-  font-size: 13px;
-  line-height: 1.4;
-  text-align: left;
-}
-
-.hero__badge {
-  flex: none;
-  border-radius: 999px;
-  background: #fff;
-  padding: 2px 8px;
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .hero h1,
@@ -2797,10 +2776,8 @@ button.product-demo__dock-icon {
     font-size: clamp(2.375rem, 9vw, 3rem);
   }
 
-  .hero__pill {
+  .hero .hero__eyebrow {
     margin-bottom: 22px;
-    padding: 5px 12px 5px 6px;
-    font-size: 12.5px;
   }
 
   .lead {
@@ -2871,62 +2848,6 @@ button.product-demo__dock-icon {
   .product-demo__bubble {
     max-width: 100%;
   }
-}
-
-.nav-drop {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  position: relative;
-}
-
-.nav-drop__menu > summary {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  list-style: none;
-  cursor: pointer;
-  color: #525252;
-}
-
-.nav-drop__menu > summary::-webkit-details-marker {
-  display: none;
-}
-
-.nav-drop__menu > summary svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.nav-drop__panel {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 10px);
-  left: 0;
-  display: grid;
-  min-width: 220px;
-  padding: 8px;
-  border: 1px solid var(--line-2);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
-}
-
-.nav-drop__panel a {
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: var(--ink);
-}
-
-.nav-drop__panel a:hover,
-.nav-drop__panel a:focus-visible {
-  background: var(--surface-soft);
 }
 
 .page-updated {

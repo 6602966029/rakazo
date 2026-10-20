@@ -16,21 +16,13 @@ export type HomeCopy = {
     home: string;
     primary: string;
     menu: string;
-    product: string;
-    bots: string;
-    selfHost: string;
-    openSource: string;
-    grokBot: string;
     docs: string;
     blog: string;
-    alternatives: string;
-    alternativesMenu: string;
     viewOnGithub: string;
     iosApp: string;
   };
   hero: {
-    badge: string;
-    pill: string;
+    eyebrow: string;
     heading: string;
     lead: string;
     getStarted: string;
@@ -351,21 +343,13 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       home: "Rakazo home",
       primary: "Primary",
       menu: "Menu",
-      product: "Product",
-      bots: "Bots",
-      selfHost: "Self-host",
-      openSource: "Open source",
-      grokBot: "Grok Bot",
       docs: "Docs",
       blog: "Blog",
-      alternatives: "Alternatives",
-      alternativesMenu: "Alternative pages",
       viewOnGithub: "View on GitHub",
       iosApp: "Download Rakazo for iPhone",
     },
     hero: {
-      badge: "Apache-2.0",
-      pill: "Self-hosted",
+      eyebrow: "Open source",
       heading: "The open source Grok Bot alternative you actually own",
       lead: "Give your bots a job. Check in from any device.",
       getStarted: "Get started",
@@ -476,21 +460,13 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       home: "Rakazo-Startseite",
       primary: "Hauptnavigation",
       menu: "Menü",
-      product: "Produkt",
-      bots: "Bots",
-      selfHost: "Self-host",
-      openSource: "Open Source",
-      grokBot: "Grok Bot",
       docs: "Docs",
       blog: "Blog",
-      alternatives: "Alternativen",
-      alternativesMenu: "Vergleichsseiten",
       viewOnGithub: "Auf GitHub ansehen",
       iosApp: "Rakazo für iPhone laden",
     },
     hero: {
-      badge: "Apache-2.0",
-      pill: "Self-hosted",
+      eyebrow: "Open Source",
       heading: "Die Open-Source-Alternative zu Grok Bot, die dir wirklich gehört",
       lead: "Gib deinen Bots eine Aufgabe. Schau von jedem Gerät nach.",
       getStarted: "Loslegen",
@@ -604,21 +580,13 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       home: "Rakazo 홈",
       primary: "주 메뉴",
       menu: "메뉴",
-      product: "제품",
-      bots: "봇",
-      selfHost: "셀프 호스트",
-      openSource: "오픈소스",
-      grokBot: "Grok Bot",
       docs: "Docs",
       blog: "블로그",
-      alternatives: "대안",
-      alternativesMenu: "대안 페이지",
       viewOnGithub: "GitHub에서 보기",
       iosApp: "iPhone용 Rakazo 받기",
     },
     hero: {
-      badge: "Apache-2.0",
-      pill: "셀프 호스트",
+      eyebrow: "오픈 소스",
       heading: "진짜로 내 것인 오픈소스 Grok Bot 대안",
       lead: "봇에게 일을 맡기세요. 어떤 기기에서든 확인하세요.",
       getStarted: "시작하기",
@@ -732,21 +700,13 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       home: "Rakazo 首页",
       primary: "主导航",
       menu: "菜单",
-      product: "产品",
-      bots: "Bot",
-      selfHost: "自托管",
-      openSource: "开源",
-      grokBot: "Grok Bot",
       docs: "文档",
       blog: "博客",
-      alternatives: "替代方案",
-      alternativesMenu: "替代页面",
       viewOnGithub: "在 GitHub 上查看",
       iosApp: "下载 iPhone 版 Rakazo",
     },
     hero: {
-      badge: "Apache-2.0",
-      pill: "自托管",
+      eyebrow: "开源",
       heading: "真正属于你的开源 Grok Bot 替代品",
       lead: "把工作交给 Bot，随时用任意设备查看。",
       getStarted: "开始使用",
