@@ -782,6 +782,7 @@ msgstr "Estudio de avatares"
 msgid "Avatars"
 msgstr "Avatares"
 
+#: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1172,6 +1173,7 @@ msgid "Cloud"
 msgstr "Nube"
 
 #: src/components/AskCard.tsx
+#: src/pages/Auth.tsx
 msgid "Code"
 msgstr "Código"
 
@@ -1366,6 +1368,7 @@ msgid "Context limit"
 msgstr "Límite de contexto"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
 msgstr "Continuar"
@@ -2700,6 +2703,10 @@ msgstr "Cantidad del intervalo"
 msgid "Interval unit"
 msgstr "Unidad del intervalo"
 
+#: src/lib/user-error.ts
+msgid "Invalid code"
+msgstr "Código no válido"
+
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Isolated"
@@ -3949,6 +3956,10 @@ msgstr ""
 msgid "Replying to {0}"
 msgstr ""
 
+#: src/lib/user-error.ts
+msgid "Request a new code"
+msgstr "Solicita un código nuevo"
+
 #: src/pages/shell/message-cards.tsx
 msgid "Research & writing"
 msgstr ""
@@ -5024,6 +5035,14 @@ msgstr "Usa Conectar para verificar la clave."
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Use default guidance"
 msgstr ""
+
+#: src/pages/Auth.tsx
+msgid "Use email code"
+msgstr "Usar código por correo"
+
+#: src/pages/Auth.tsx
+msgid "Use password"
+msgstr "Usar contraseña"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

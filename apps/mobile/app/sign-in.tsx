@@ -24,7 +24,9 @@ import {
   passwordResetCapabilities,
   requestPasswordReset,
   rpc,
+  sendSignInCode,
   signIn,
+  signInWithCode,
   signUp,
   usesCustomApiBase,
 } from "../lib/api";
@@ -53,6 +55,9 @@ export default function SignIn() {
   const [capabilityError, setCapabilityError] = useState(false);
   const [capabilityAttempt, setCapabilityAttempt] = useState(0);
   const [resetSent, setResetSent] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -84,8 +89,8 @@ export default function SignIn() {
   }, [apiBase, capabilityAttempt]);
 
   useEffect(() => {
-    if (resetSent) AccessibilityInfo.announceForAccessibility(t("Check your email"));
-  }, [resetSent, t]);
+    if (resetSent || codeSent) AccessibilityInfo.announceForAccessibility(t("Check your email"));
+  }, [resetSent, codeSent, t]);
 
   if (!ready) {
     return (
@@ -103,9 +108,16 @@ export default function SignIn() {
   }
   if (hasSession) return <Redirect href="/" />;
 
-  async function submit() {
+  const codeFlow = Boolean(reset?.passwordAuth && reset.emailCode && mode !== "forgot");
+  const usingCode = codeFlow && !usePassword;
+  const codeStep = usingCode && codeSent;
+
+  async function submit(enteredCode = code) {
     if (pending || !reset?.passwordAuth) return;
-    const issue = credentialIssue({ email, password: mode === "forgot" ? undefined : password });
+    const issue = credentialIssue({
+      email,
+      password: mode === "forgot" || usingCode ? undefined : password,
+    });
     if (issue) {
       setError(credentialIssueText(issue));
       return;
@@ -121,7 +133,19 @@ export default function SignIn() {
         setResetSent(true);
         return;
       }
-      if (mode === "up") {
+      if (usingCode && !codeSent) {
+        await sendSignInCode(email.trim());
+        setCode("");
+        setCodeSent(true);
+        return;
+      }
+      if (usingCode) {
+        await signInWithCode(
+          email.trim(),
+          enteredCode,
+          mode === "up" ? name.trim() || undefined : undefined,
+        );
+      } else if (mode === "up") {
         const trimmedEmail = email.trim();
         const result = await signUp(
           trimmedEmail,
@@ -132,8 +156,11 @@ export default function SignIn() {
           setResetSent(true);
           return;
         }
-      } else {
-        await signIn(email.trim(), password);
+      } else if ((await signIn(email.trim(), password)).verificationRequired) {
+        // Without delivery (an allowlist and no SMTP) no link was sent.
+        if (reset?.emailCode) setResetSent(true);
+        else setError(t("Email verification required"));
+        return;
       }
       const setup =
         mode === "up"
@@ -188,7 +215,7 @@ export default function SignIn() {
                   textAlign: "center",
                 }}
               >
-                {resetSent
+                {resetSent || codeStep
                   ? t("Check your email")
                   : mode === "in"
                     ? t("Sign in to Rakazo")
@@ -203,6 +230,7 @@ export default function SignIn() {
                     onPress={() => {
                       setMode("in");
                       setResetSent(false);
+                      setCodeSent(false);
                     }}
                   >
                     <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "600" }}>
@@ -245,7 +273,55 @@ export default function SignIn() {
                       {error}
                     </Text>
                   ) : null}
-                  {reset?.passwordAuth ? (
+                  {reset?.passwordAuth && codeStep ? (
+                    <>
+                      <TextInput
+                        accessibilityLabel={t("Code")}
+                        autoComplete="one-time-code"
+                        autoFocus
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        placeholder={t("Code")}
+                        placeholderTextColor={tokens.mutedForeground}
+                        textContentType="oneTimeCode"
+                        value={code}
+                        onChangeText={(value) => {
+                          const digits = value.replace(/\D/g, "").slice(0, 6);
+                          setCode(digits);
+                          // iOS offers the code from Mail; a complete code signs in at once.
+                          if (digits.length === 6) void submit(digits);
+                        }}
+                        onSubmitEditing={() => void submit()}
+                        style={{
+                          marginTop: 28,
+                          backgroundColor: tokens.muted,
+                          borderRadius: 13,
+                          padding: 16,
+                          color: tokens.foreground,
+                        }}
+                      />
+                      {error ? (
+                        <Text style={{ color: tokens.destructive, marginTop: 12 }}>{error}</Text>
+                      ) : null}
+                      <NativeActionButton
+                        disabled={pending}
+                        label={pending ? t("Working…") : t("Continue")}
+                        onPress={() => void submit()}
+                        style={{ marginTop: 16 }}
+                      />
+                      <NativeActionButton
+                        label={t("Back")}
+                        prominence="quiet"
+                        disabled={pending}
+                        onPress={() => {
+                          setCodeSent(false);
+                          setCode("");
+                          setError(null);
+                        }}
+                        style={{ alignSelf: "center", marginTop: 16 }}
+                      />
+                    </>
+                  ) : reset?.passwordAuth ? (
                     <>
                       {mode === "up" ? (
                         <TextInput
@@ -279,7 +355,7 @@ export default function SignIn() {
                           color: tokens.foreground,
                         }}
                       />
-                      {mode !== "forgot" ? (
+                      {mode !== "forgot" && !usingCode ? (
                         <TextInput
                           autoComplete={mode === "in" ? "current-password" : "new-password"}
                           placeholder={t("Password")}
@@ -306,15 +382,29 @@ export default function SignIn() {
                         label={
                           pending
                             ? t("Working…")
-                            : mode === "in"
-                              ? t("Sign in")
-                              : mode === "up"
-                                ? t("Sign up")
-                                : t("Send reset link")
+                            : usingCode
+                              ? t("Continue")
+                              : mode === "in"
+                                ? t("Sign in")
+                                : mode === "up"
+                                  ? t("Sign up")
+                                  : t("Send reset link")
                         }
                         onPress={() => void submit()}
                         style={{ marginTop: 16 }}
                       />
+                      {codeFlow ? (
+                        <NativeActionButton
+                          label={usingCode ? t("Use password") : t("Use email code")}
+                          prominence="quiet"
+                          disabled={pending}
+                          onPress={() => {
+                            setUsePassword(usingCode);
+                            setError(null);
+                          }}
+                          style={{ alignSelf: "center", marginTop: 16 }}
+                        />
+                      ) : null}
                       {reset.sso && mode !== "forgot" ? (
                         <NativeActionButton
                           label={t("Continue with {name}", { name: reset.sso.name })}
@@ -324,7 +414,7 @@ export default function SignIn() {
                           style={{ alignSelf: "center", marginTop: 16 }}
                         />
                       ) : null}
-                      {mode === "in" && reset?.passwordReset && reset.resetUrl ? (
+                      {mode === "in" && !usingCode && reset?.passwordReset && reset.resetUrl ? (
                         <Pressable
                           accessibilityRole="button"
                           hitSlop={8}

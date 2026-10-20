@@ -782,6 +782,7 @@ msgstr "Avatar Stüdyosu"
 msgid "Avatars"
 msgstr ""
 
+#: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1172,6 +1173,7 @@ msgid "Cloud"
 msgstr "Bulut"
 
 #: src/components/AskCard.tsx
+#: src/pages/Auth.tsx
 msgid "Code"
 msgstr "Kod"
 
@@ -1366,6 +1368,7 @@ msgid "Context limit"
 msgstr "Bağlam sınırı"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
 msgstr "Devam"
@@ -2700,6 +2703,10 @@ msgstr "Aralık miktarı"
 msgid "Interval unit"
 msgstr "Aralık birimi"
 
+#: src/lib/user-error.ts
+msgid "Invalid code"
+msgstr "Geçersiz kod"
+
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Isolated"
@@ -3949,6 +3956,10 @@ msgstr ""
 msgid "Replying to {0}"
 msgstr ""
 
+#: src/lib/user-error.ts
+msgid "Request a new code"
+msgstr "Yeni bir kod isteyin"
+
 #: src/pages/shell/message-cards.tsx
 msgid "Research & writing"
 msgstr ""
@@ -5024,6 +5035,14 @@ msgstr "Anahtarı doğrulamak için Bağlan'ı kullan."
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Use default guidance"
 msgstr ""
+
+#: src/pages/Auth.tsx
+msgid "Use email code"
+msgstr "E-posta kodu kullan"
+
+#: src/pages/Auth.tsx
+msgid "Use password"
+msgstr "Parola kullan"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

@@ -782,6 +782,7 @@ msgstr "头像工作室"
 msgid "Avatars"
 msgstr "头像"
 
+#: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1172,6 +1173,7 @@ msgid "Cloud"
 msgstr "云端"
 
 #: src/components/AskCard.tsx
+#: src/pages/Auth.tsx
 msgid "Code"
 msgstr "代码"
 
@@ -1366,6 +1368,7 @@ msgid "Context limit"
 msgstr "上下文限制"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
 msgstr "继续"
@@ -2700,6 +2703,10 @@ msgstr "间隔数量"
 msgid "Interval unit"
 msgstr "间隔单位"
 
+#: src/lib/user-error.ts
+msgid "Invalid code"
+msgstr "验证码无效"
+
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Isolated"
@@ -3949,6 +3956,10 @@ msgstr ""
 msgid "Replying to {0}"
 msgstr ""
 
+#: src/lib/user-error.ts
+msgid "Request a new code"
+msgstr "请重新获取验证码"
+
 #: src/pages/shell/message-cards.tsx
 msgid "Research & writing"
 msgstr "调研和写作"
@@ -5024,6 +5035,14 @@ msgstr "请使用“连接”验证密钥。"
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Use default guidance"
 msgstr ""
+
+#: src/pages/Auth.tsx
+msgid "Use email code"
+msgstr "使用邮箱验证码"
+
+#: src/pages/Auth.tsx
+msgid "Use password"
+msgstr "使用密码"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

@@ -60,16 +60,32 @@ export function signupAllowlistBootUpdate(
   return next;
 }
 
-/** How an allowlisted signup proceeds when delivery may be missing. */
-export function allowlistedSignupAdmission(input: {
+/**
+ * How a password signup proceeds. Whenever mail can be sent the address must
+ * be proved, allowlist or not. Without delivery an open deployment stays open
+ * and an allowlisted one admits only its first account.
+ */
+export function signupAdmission(input: {
   allowlistSize: number;
   hasEmailDelivery: boolean;
   existingHumanCount: number;
 }): "open" | "verify" | "needs-delivery" {
-  if (input.allowlistSize === 0) return "open";
   if (input.hasEmailDelivery) return "verify";
+  if (input.allowlistSize === 0) return "open";
   if (input.existingHumanCount === 0) return "open";
   return "needs-delivery";
+}
+
+/**
+ * Password sign-in refuses an unverified account when mail can prove it, or
+ * when an allowlist makes mailbox proof part of admission. Sessions issued
+ * before delivery existed stay valid; only new sign-ins are asked to verify.
+ */
+export function signInRequiresEmailVerification(input: {
+  allowlistSize: number;
+  hasEmailDelivery: boolean;
+}): boolean {
+  return input.hasEmailDelivery || input.allowlistSize > 0;
 }
 
 /**

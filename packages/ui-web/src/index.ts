@@ -24,6 +24,7 @@ export * from "./components/ui/dropdown-menu.js";
 export * from "./components/ui/field.js";
 export * from "./components/ui/input.js";
 export * from "./components/ui/input-group.js";
+export * from "./components/ui/input-otp.js";
 export * from "./components/ui/kbd.js";
 export * from "./components/ui/label.js";
 export * from "./components/ui/native-select.js";

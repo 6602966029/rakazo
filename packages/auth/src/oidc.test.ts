@@ -97,6 +97,14 @@ function setup(options: Partial<AuthEnv> = {}, hasMembership = true) {
   });
 }
 
+/** Email delivery is configured here, so a password account proves its mailbox first. */
+async function passwordAccount(email: string) {
+  await request("/sign-up/email", { email, password: "test-password-123", name: "Local" });
+  const link = new URL(sentCodes.at(-1)!.match(/https:\/\/\S+/)![0]);
+  await request(`${link.pathname.replace("/api/auth", "")}${link.search}`);
+  return request("/sign-in/email", { email, password: "test-password-123" });
+}
+
 async function request(
   path: string,
   body?: unknown,
@@ -341,11 +349,7 @@ describe("OIDC callbacks", () => {
     expect(
       (await request("/link-social", { provider: "oidc", callbackURL: `${origin}/app` })).status,
     ).toBe(401);
-    await request("/sign-up/email", {
-      email: "sso@example.test",
-      password: "test-password-123",
-      name: "Local",
-    });
+    await passwordAccount("sso@example.test");
     const response = await request(await start(undefined, true));
     expect(response.headers.get("location")).toBe(`${origin}/app`);
     expect(rows("account")).toHaveLength(2);
@@ -353,11 +357,7 @@ describe("OIDC callbacks", () => {
   });
   it("offers linking after issuer replacement, retains old links, and preserves linking safety", async () => {
     setup();
-    await request("/sign-up/email", {
-      email: "sso@example.test",
-      password: "test-password-123",
-      name: "Local",
-    });
+    await passwordAccount("sso@example.test");
     await request(await start(undefined, true));
     expect(await (await request("/account-security")).json()).toMatchObject({ ssoLinked: true });
     const oldAccountId = rows("account").find(
@@ -397,11 +397,7 @@ describe("OIDC callbacks", () => {
   });
   it.each([false, undefined])("refuses unverified explicit linking (%s)", async (verified) => {
     setup();
-    await request("/sign-up/email", {
-      email: "sso@example.test",
-      password: "test-password-123",
-      name: "Local",
-    });
+    await passwordAccount("sso@example.test");
     const response = await request(
       await start({ sub: "subject-1", email: "sso@example.test", email_verified: verified }, true),
     );
@@ -582,6 +578,8 @@ describe("OIDC callbacks", () => {
       "/sign-up/email",
       "/request-password-reset",
       "/set-password",
+      "/email-otp/send-verification-otp",
+      "/sign-in/email-otp",
     ]) {
       expect(
         (await request(path, { email: "local@example.test", password: "test-password-123" }))
@@ -699,11 +697,7 @@ describe("SSO-only account deletion", () => {
 
   it("requires an existing link before starting reauthentication", async () => {
     setup();
-    await request("/sign-up/email", {
-      email: "local@example.test",
-      password: "test-password-123",
-      name: "Local",
-    });
+    await passwordAccount("local@example.test");
     expect(
       (
         await request("/sign-in/social", {
@@ -1171,11 +1165,7 @@ describe("SSO-only account deletion", () => {
     "keeps password deletion for credential accounts (password auth: %s)",
     async (passwordAuth) => {
       setup();
-      await request("/sign-up/email", {
-        email: "local@example.test",
-        password: "test-password-123",
-        name: "Local",
-      });
+      await passwordAccount("local@example.test");
       setup({ passwordAuth });
       expect(await (await request("/account-security")).json()).toMatchObject({
         hasPassword: true,

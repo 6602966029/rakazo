@@ -782,6 +782,7 @@ msgstr "अवतार स्टूडियो"
 msgid "Avatars"
 msgstr ""
 
+#: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1172,6 +1173,7 @@ msgid "Cloud"
 msgstr "क्लाउड"
 
 #: src/components/AskCard.tsx
+#: src/pages/Auth.tsx
 msgid "Code"
 msgstr "कोड"
 
@@ -1366,6 +1368,7 @@ msgid "Context limit"
 msgstr "कॉन्टेक्स्ट सीमा"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
 msgstr "जारी रखें"
@@ -2700,6 +2703,10 @@ msgstr "अंतराल मात्रा"
 msgid "Interval unit"
 msgstr "अंतराल इकाई"
 
+#: src/lib/user-error.ts
+msgid "Invalid code"
+msgstr "अमान्य कोड"
+
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Isolated"
@@ -3949,6 +3956,10 @@ msgstr ""
 msgid "Replying to {0}"
 msgstr ""
 
+#: src/lib/user-error.ts
+msgid "Request a new code"
+msgstr "नया कोड मँगाएँ"
+
 #: src/pages/shell/message-cards.tsx
 msgid "Research & writing"
 msgstr ""
@@ -5024,6 +5035,14 @@ msgstr "कुंजी जाँचने के लिए कनेक्ट �
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Use default guidance"
 msgstr ""
+
+#: src/pages/Auth.tsx
+msgid "Use email code"
+msgstr "ईमेल कोड का उपयोग करें"
+
+#: src/pages/Auth.tsx
+msgid "Use password"
+msgstr "पासवर्ड का उपयोग करें"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

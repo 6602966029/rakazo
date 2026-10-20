@@ -166,7 +166,62 @@ function fixture({
     const url = new URL(messages.at(-1)!.text.match(/http:\/\/\S+/)![0]);
     return request(`${url.pathname.replace("/api/auth", "")}${url.search}`);
   };
-  return { auth, request, signup, signin, verify, data, policy, messages, members };
+  const sendCode = (email = "approved@example.test", type = "sign-in") =>
+    request("/email-otp/send-verification-otp", { email, type });
+  const lastCode = () => messages.at(-1)!.text.match(/\b\d{6}\b/)![0];
+  const codeSignIn = (otp: string, email = "approved@example.test") =>
+    request("/sign-in/email-otp", { email, otp, name: "Code User" });
+  /** An unverified account and session created before email delivery was configured. */
+  const legacyAccount = async (email = "approved@example.test") => {
+    const now = new Date();
+    const id = `legacy-${data.user!.length}`;
+    data.user!.push({
+      id,
+      name: "Legacy",
+      email,
+      emailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    data.account!.push({
+      id: `account-${id}`,
+      userId: id,
+      providerId: "credential",
+      accountId: id,
+      password: await (await auth.$context).password.hash("offline-password12"),
+      createdAt: now,
+      updatedAt: now,
+    });
+    const token = `legacy-session-token-${id}`;
+    data.session!.push({
+      id: `session-${id}`,
+      token,
+      userId: id,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+      createdAt: now,
+      updatedAt: now,
+    });
+    members.add(id);
+    return { id, token };
+  };
+  const sessionFor = (token: string) =>
+    auth.api.getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) });
+  return {
+    auth,
+    request,
+    signup,
+    signin,
+    verify,
+    sendCode,
+    lastCode,
+    codeSignIn,
+    legacyAccount,
+    sessionFor,
+    data,
+    policy,
+    messages,
+    members,
+  };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -445,12 +500,9 @@ describe("identity trust through auth endpoints", () => {
 
   it("gates existing unverified sessions and auth mutations when the live allowlist is enabled", async () => {
     const f = fixture();
-    const signedUp = await f.signup();
-    const cookie = signedUp.headers.get("set-cookie")!.split(";")[0]!;
-    const { token } = (await signedUp.json()) as { token: string };
-    expect(await f.auth.api.getSession({ headers: new Headers({ cookie }) })).not.toBeNull();
+    const { token } = await f.legacyAccount();
+    expect(await f.sessionFor(token)).not.toBeNull();
     f.policy.signupAllowlist = "@example.test";
-    expect(await f.auth.api.getSession({ headers: new Headers({ cookie }) })).toBeNull();
     expect(await (await f.request("/get-session", undefined, token)).json()).toBeNull();
     expect(
       await f.auth.api.getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) }),
@@ -462,16 +514,14 @@ describe("identity trust through auth endpoints", () => {
   });
 
   it("does not leak request-local verification settings when signup policy changes", async () => {
-    const f = fixture({ allowlist: "@example.test" });
-    expect(await (await f.signup()).json()).toMatchObject({ token: null });
-    f.policy.signupAllowlist = "";
-    expect(await (await f.signup("open@example.test")).json()).toMatchObject({
-      token: expect.any(String),
-    });
-    expect(f.messages).toHaveLength(1);
+    const f = fixture({ delivery: false });
+    expect(await (await f.signup()).json()).toMatchObject({ token: expect.any(String) });
     f.policy.signupAllowlist = "@example.test";
-    expect(await (await f.signup("restricted@example.test")).json()).toMatchObject({ token: null });
-    expect(f.messages).toHaveLength(2);
+    expect((await f.signin()).status).toBe(403);
+    f.policy.signupAllowlist = "";
+    expect((await f.signin()).status).toBe(200);
+    f.policy.signupAllowlist = "@example.test";
+    expect((await f.signin()).status).toBe(403);
   });
 
   it("reserves internal messaging emails across registration, recovery and email changes", async () => {
@@ -484,9 +534,11 @@ describe("identity trust through auth endpoints", () => {
       expect((await f.signin(email)).status).toBe(400);
       expect((await f.request("/request-password-reset", { email })).status).toBe(400);
       expect((await f.request("/send-verification-email", { email })).status).toBe(400);
+      expect((await f.sendCode(email)).status).toBe(400);
+      expect((await f.codeSignIn("123456", email)).status).toBe(400);
     }
     expect(f.data.user).toHaveLength(0);
-    const { token } = (await (await f.signup()).json()) as { token: string };
+    const { token } = await f.legacyAccount();
     expect(
       (await f.request("/change-email", { newEmail: "msg-taken@messaging.invalid" }, token)).status,
     ).toBe(400);
@@ -538,5 +590,159 @@ describe("session credentials", () => {
     const deleted = await f.request("/delete-user", { password: "offline-password12" }, token);
     expect(deleted.status).toBe(200);
     expect(f.data.user).toHaveLength(0);
+  });
+});
+
+describe("email delivery requires a verified address", () => {
+  it("withholds a session from an open password signup until the mailbox is proved", async () => {
+    const f = fixture();
+    const response = await f.signup();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(await response.json()).toMatchObject({ token: null, user: { emailVerified: false } });
+    expect(f.data.session).toHaveLength(0);
+    expect(bootstrapUserSpace).not.toHaveBeenCalled();
+    expect(f.messages).toHaveLength(1);
+    const refused = await f.signin();
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toMatchObject({ code: "EMAIL_NOT_VERIFIED" });
+    expect(f.messages).toHaveLength(2);
+    expect(f.data.session).toHaveLength(0);
+    await f.verify();
+    expect((await f.signin()).status).toBe(200);
+    expect(bootstrapUserSpace).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps existing unverified sessions and asks for verification at the next sign-in", async () => {
+    const f = fixture();
+    const { token } = await f.legacyAccount();
+    expect(await f.sessionFor(token)).toMatchObject({ user: { emailVerified: false } });
+    expect((await f.request("/update-user", { name: "Still Here" }, token)).status).toBe(200);
+    const refused = await f.signin();
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toMatchObject({ code: "EMAIL_NOT_VERIFIED" });
+    expect(f.messages).toHaveLength(1);
+    expect(await f.sessionFor(token)).not.toBeNull();
+    await f.verify();
+    expect((await f.signin()).status).toBe(200);
+    expect(await f.sessionFor(token)).toMatchObject({ user: { emailVerified: true } });
+  });
+});
+
+describe("email code sign-in", () => {
+  it("creates a verified account and session from a single-use code", async () => {
+    const f = fixture();
+    expect((await f.sendCode()).status).toBe(200);
+    expect(f.messages).toHaveLength(1);
+    expect(f.messages[0]).toMatchObject({
+      to: "approved@example.test",
+      subject: "Your Rakazo sign-in code",
+    });
+    const code = f.lastCode();
+    expect(JSON.stringify(f.data.verification)).not.toContain(code);
+    const wrong = await f.codeSignIn(code === "000000" ? "111111" : "000000");
+    expect(wrong.status).toBe(400);
+    expect(await wrong.json()).toMatchObject({ code: "INVALID_OTP" });
+    const response = await f.codeSignIn(code);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { token: string; user: { emailVerified: boolean } };
+    expect(body.user.emailVerified).toBe(true);
+    expect(await f.sessionFor(body.token)).toMatchObject({ user: { emailVerified: true } });
+    expect(bootstrapUserSpace).toHaveBeenCalledTimes(1);
+    expect((await f.codeSignIn(code)).status).toBe(400);
+  });
+
+  it("locks a code after three wrong attempts", async () => {
+    const f = fixture();
+    await f.sendCode();
+    const code = f.lastCode();
+    const wrong = code === "000000" ? "111111" : "000000";
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect((await f.codeSignIn(wrong)).status).toBe(400);
+    }
+    expect((await f.codeSignIn(code)).status).toBeGreaterThanOrEqual(400);
+    expect(f.data.user).toHaveLength(0);
+  });
+
+  it("applies the signup policy before a code can create an account", async () => {
+    const f = fixture({ allowlist: "@example.test" });
+    expect((await f.sendCode("outsider@other.test")).status).toBe(200);
+    expect(f.messages).toHaveLength(0);
+    expect(f.data.verification).toHaveLength(0);
+    const refused = await f.codeSignIn("123456", "outsider@other.test");
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ code: "INVALID_OTP" });
+
+    await f.sendCode();
+    const code = f.lastCode();
+    f.policy.signupsEnabled = false;
+    expect((await f.codeSignIn(code)).status).toBe(400);
+    expect(f.data.user).toHaveLength(0);
+    expect(bootstrapUserSpace).not.toHaveBeenCalled();
+  });
+
+  it("still signs existing accounts in when registration is closed", async () => {
+    const f = fixture();
+    f.data.user!.push({
+      id: "member-1",
+      name: "Member",
+      email: "approved@example.test",
+      emailVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    f.members.add("member-1");
+    f.policy.signupsEnabled = false;
+    await f.sendCode();
+    expect(f.messages).toHaveLength(1);
+    const response = await f.codeSignIn(f.lastCode());
+    expect(response.status).toBe(200);
+    expect(f.data.user).toHaveLength(1);
+  });
+
+  it("drops access an unverified account gained before its mailbox owner signed in", async () => {
+    const f = fixture();
+    const { id, token } = await f.legacyAccount();
+    await f.sendCode();
+    const response = await f.codeSignIn(f.lastCode());
+    expect(response.status).toBe(200);
+    expect(f.data.user!.find((user) => user.id === id)).toMatchObject({ emailVerified: true });
+    expect(await f.sessionFor(token)).toBeNull();
+    expect(f.data.account!.filter((account) => account.userId === id)).toHaveLength(0);
+    expect((await f.signin()).status).toBe(401);
+  });
+
+  it("closes the OTP routes Rakazo does not use", async () => {
+    const f = fixture();
+    for (const type of ["email-verification", "forget-password", "change-email"]) {
+      expect((await f.sendCode("approved@example.test", type)).status, type).toBe(404);
+    }
+    for (const path of [
+      "/email-otp/check-verification-otp",
+      "/email-otp/verify-email",
+      "/email-otp/request-password-reset",
+      "/forget-password/email-otp",
+      "/email-otp/reset-password",
+      "/email-otp/request-email-change",
+      "/email-otp/change-email",
+    ]) {
+      const response = await f.request(path, {
+        email: "approved@example.test",
+        newEmail: "new@example.test",
+        type: "sign-in",
+        otp: "123456",
+        password: "offline-password12",
+      });
+      expect(response.status, path).toBe(404);
+    }
+    expect(f.messages).toHaveLength(0);
+  });
+
+  it("is unavailable without email delivery", async () => {
+    const f = fixture({ delivery: false });
+    expect(f.auth.emailCodeSignIn).toBe(false);
+    expect((await f.sendCode()).status).toBe(404);
+    expect((await f.codeSignIn("123456")).status).toBe(404);
+    expect(fixture().auth.emailCodeSignIn).toBe(true);
   });
 });

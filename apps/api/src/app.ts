@@ -632,6 +632,7 @@ export async function createApp(
       passwordReset: env.passwordAuth !== false && Boolean(email),
       resetUrl:
         env.passwordAuth !== false && email ? new URL("/reset-password", env.webOrigin).href : null,
+      emailCode: auth.emailCodeSignIn,
       billing: Boolean(billing),
     } satisfies AuthCapabilities);
   });

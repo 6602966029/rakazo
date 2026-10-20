@@ -782,6 +782,7 @@ msgstr "Студия аватаров"
 msgid "Avatars"
 msgstr "Аватары"
 
+#: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1172,6 +1173,7 @@ msgid "Cloud"
 msgstr "Облако"
 
 #: src/components/AskCard.tsx
+#: src/pages/Auth.tsx
 msgid "Code"
 msgstr "Код"
 
@@ -1366,6 +1368,7 @@ msgid "Context limit"
 msgstr ""
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
 msgstr "Продолжить"
@@ -2700,6 +2703,10 @@ msgstr "Значение интервала"
 msgid "Interval unit"
 msgstr "Единица интервала"
 
+#: src/lib/user-error.ts
+msgid "Invalid code"
+msgstr "Неверный код"
+
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Isolated"
@@ -3949,6 +3956,10 @@ msgstr ""
 msgid "Replying to {0}"
 msgstr ""
 
+#: src/lib/user-error.ts
+msgid "Request a new code"
+msgstr "Запросите новый код"
+
 #: src/pages/shell/message-cards.tsx
 msgid "Research & writing"
 msgstr ""
@@ -5024,6 +5035,14 @@ msgstr "Используйте «Подключить», чтобы провер
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Use default guidance"
 msgstr "Использовать рекомендации по умолчанию"
+
+#: src/pages/Auth.tsx
+msgid "Use email code"
+msgstr "Использовать код из письма"
+
+#: src/pages/Auth.tsx
+msgid "Use password"
+msgstr "Использовать пароль"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

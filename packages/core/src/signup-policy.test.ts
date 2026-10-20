@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  allowlistedSignupAdmission,
   emailAllowed,
   firstAccountClaimDecision,
   parseAllowlist,
+  signInRequiresEmailVerification,
+  signupAdmission,
   signupAllowlistBootUpdate,
   signupPolicyFromEnv,
   signupRequiresEmailVerification,
@@ -66,30 +67,48 @@ describe("signup policy", () => {
     expect(signupAllowlistBootUpdate("", "owner@example.test", false)).toBeNull();
   });
 
+  it("requires mailbox proof whenever delivery exists, even with an empty allowlist", () => {
+    expect(
+      signupAdmission({ allowlistSize: 0, hasEmailDelivery: true, existingHumanCount: 0 }),
+    ).toBe("verify");
+    expect(
+      signupAdmission({ allowlistSize: 0, hasEmailDelivery: true, existingHumanCount: 700 }),
+    ).toBe("verify");
+    expect(signInRequiresEmailVerification({ allowlistSize: 0, hasEmailDelivery: true })).toBe(
+      true,
+    );
+    expect(signInRequiresEmailVerification({ allowlistSize: 2, hasEmailDelivery: false })).toBe(
+      true,
+    );
+    expect(signInRequiresEmailVerification({ allowlistSize: 0, hasEmailDelivery: false })).toBe(
+      false,
+    );
+  });
+
   it("lets only the first allowlisted account skip delivery", () => {
     expect(
-      allowlistedSignupAdmission({
+      signupAdmission({
         allowlistSize: 0,
         hasEmailDelivery: false,
         existingHumanCount: 4,
       }),
     ).toBe("open");
     expect(
-      allowlistedSignupAdmission({
+      signupAdmission({
         allowlistSize: 1,
         hasEmailDelivery: true,
         existingHumanCount: 0,
       }),
     ).toBe("verify");
     expect(
-      allowlistedSignupAdmission({
+      signupAdmission({
         allowlistSize: 1,
         hasEmailDelivery: false,
         existingHumanCount: 0,
       }),
     ).toBe("open");
     expect(
-      allowlistedSignupAdmission({
+      signupAdmission({
         allowlistSize: 1,
         hasEmailDelivery: false,
         existingHumanCount: 1,
