@@ -278,6 +278,20 @@ email configured, **Send deletion code** sends a single-use code to the account 
 minutes. Enter it in account settings to confirm deletion. Email-code requests are rate-limited;
 invalid, expired or wrong-account codes fail. No password needs to be created for deletion.
 
+### Mobile push notifications
+
+The API and worker send iOS and Android notifications through Expo's push service. If the Expo
+project has [enhanced security for push notifications](https://docs.expo.dev/push-notifications/sending-notifications/#additional-security)
+enabled, every send needs an access token; without one Expo rejects all pushes. Create an access
+token in the Expo account that owns the project and set it for both services:
+
+```env
+EXPO_ACCESS_TOKEN=replace-with-your-expo-access-token
+```
+
+Leave it unset when enhanced security is off. A missing or revoked token fails the push with an
+error that names `EXPO_ACCESS_TOKEN`; the token itself is never logged.
+
 ### Verification and password recovery email
 
 Password changes for signed-in users require no email configuration. Forgotten-password recovery

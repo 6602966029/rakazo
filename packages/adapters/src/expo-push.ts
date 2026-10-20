@@ -396,15 +396,41 @@ export function expoPushErrorMessage(body: unknown, status: number): string | un
   return expoRequestError(body, status);
 }
 
+type ExpoRequestError = { code?: string; message?: string };
+
+function expoRequestErrorList(body: unknown): ExpoRequestError[] {
+  if (!body || typeof body !== "object" || !("errors" in body)) return [];
+  const errors = (body as { errors?: unknown }).errors;
+  return Array.isArray(errors) ? (errors as ExpoRequestError[]) : [];
+}
+
 function expoRequestErrors(body: unknown): string | undefined {
-  if (!body || typeof body !== "object" || !("errors" in body)) return undefined;
-  const errors = (body as { errors?: Array<{ message?: string }> }).errors;
-  if (!Array.isArray(errors) || errors.length === 0) return undefined;
+  const errors = expoRequestErrorList(body);
+  if (errors.length === 0) return undefined;
   return errors.map((error) => error.message ?? "expo push error").join("; ");
 }
 
+/**
+ * A project with enhanced push security rejects requests without a valid
+ * access token. Names the setting and never echoes the token.
+ */
+function expoUnauthorizedError(
+  body: unknown,
+  status: number,
+  accessToken: string | undefined,
+): string | undefined {
+  const unauthorized =
+    status === 401 || expoRequestErrorList(body).some((error) => error.code === "UNAUTHORIZED");
+  if (!unauthorized) return undefined;
+  return accessToken
+    ? "Expo rejected EXPO_ACCESS_TOKEN; it may be revoked or belong to another project."
+    : "Expo requires an access token for this project; set EXPO_ACCESS_TOKEN.";
+}
+
 /** A failure of the whole request, as opposed to one ticket or receipt. */
-function expoRequestError(body: unknown, status: number): string | undefined {
+function expoRequestError(body: unknown, status: number, accessToken?: string): string | undefined {
+  const unauthorized = expoUnauthorizedError(body, status, accessToken);
+  if (unauthorized) return unauthorized;
   const errors = expoRequestErrors(body);
   if (errors) return errors;
   if (status < 200 || status >= 300) return `expo push failed (${status})`;
@@ -418,14 +444,30 @@ function expoPushReceipts(body: unknown): Record<string, ExpoPushTicket | undefi
     : {};
 }
 
+export type ExpoPushOptions = {
+  sessionExpiresAt?: PushSessionExpiresAt;
+  /** Schedules the receipt check; without it receipts are not read. */
+  jobs?: JobPublisher;
+  /** Sent as a bearer token when the Expo project enforces enhanced push security. */
+  accessToken?: string;
+  retryDelaysMs?: readonly number[];
+};
+
 export class ExpoPushProvider implements NotificationProvider {
+  private readonly sessionExpiresAt?: PushSessionExpiresAt;
+  private readonly jobs?: JobPublisher;
+  private readonly accessToken?: string;
+  private readonly retryDelaysMs: readonly number[];
+
   constructor(
     private readonly dataDir: string,
-    private readonly sessionExpiresAt?: PushSessionExpiresAt,
-    /** Schedules the receipt check; without it receipts are not read. */
-    private readonly jobs?: JobPublisher,
-    private readonly retryDelaysMs: readonly number[] = EXPO_PUSH_RETRY_DELAYS_MS,
-  ) {}
+    options: ExpoPushOptions = {},
+  ) {
+    this.sessionExpiresAt = options.sessionExpiresAt;
+    this.jobs = options.jobs;
+    this.accessToken = options.accessToken?.trim() || undefined;
+    this.retryDelaysMs = options.retryDelaysMs ?? EXPO_PUSH_RETRY_DELAYS_MS;
+  }
 
   describe() {
     return {
@@ -461,7 +503,12 @@ export class ExpoPushProvider implements NotificationProvider {
       data: expoPushData(message, context.spaceId, randomUUID()),
     };
     for (let attempt = 0; ; attempt += 1) {
-      const { status, body } = await postToExpo(EXPO_PUSH_URL, payload, context.signal);
+      const { status, body } = await postToExpo(
+        EXPO_PUSH_URL,
+        payload,
+        this.accessToken,
+        context.signal,
+      );
       const [ticket] = expoPushTickets(body);
       const retryDelay = this.retryDelaysMs[attempt];
       if (
@@ -478,7 +525,8 @@ export class ExpoPushProvider implements NotificationProvider {
         await deleteUnregisteredPushToken(this.dataDir, context.userId, credentialDigest(token));
         return "undeliverable";
       }
-      const failure = expoPushErrorMessage(body, status);
+      const failure =
+        expoUnauthorizedError(body, status, this.accessToken) ?? expoPushErrorMessage(body, status);
       if (failure) {
         getLogger().error(failure);
         throw new Error(failure);
@@ -490,8 +538,12 @@ export class ExpoPushProvider implements NotificationProvider {
 
   /** Drops the token when the receipt says the device is no longer registered. */
   async checkReceipt(receipt: BackgroundJobPayloads["push.receipt"]): Promise<void> {
-    const { status, body } = await postToExpo(EXPO_RECEIPTS_URL, { ids: [receipt.ticketId] });
-    const failure = expoRequestError(body, status);
+    const { status, body } = await postToExpo(
+      EXPO_RECEIPTS_URL,
+      { ids: [receipt.ticketId] },
+      this.accessToken,
+    );
+    const failure = expoRequestError(body, status, this.accessToken);
     if (failure) throw new Error(failure);
     const result = expoPushReceipts(body)[receipt.ticketId];
     // Still missing 15 minutes on means Expo lost it; there is nothing left to check.
@@ -559,13 +611,18 @@ export type ExpoPushDelivery = "delivered" | "undeliverable";
 async function postToExpo(
   url: string,
   payload: unknown,
+  accessToken: string | undefined,
   signal?: AbortSignal,
 ): Promise<{ status: number; body: unknown }> {
   const attempt = combineSignals(signal, AbortSignal.timeout(EXPO_PUSH_TIMEOUT_MS));
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify(payload),
       signal: attempt,
     });
