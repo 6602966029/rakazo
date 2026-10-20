@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { MobileMe, MobileSnapshot, MobileSpaceNavigation } from "./api";
+import { resetI18nForTests } from "./i18n";
 import type { SavedChatsScope } from "./saved-chats";
 import {
   clearSavedChats,
@@ -282,4 +283,26 @@ it("guards legacy names restored while offline", () => {
   writeSavedInbox(scope, legacy, me);
   expect(readSavedInbox(scope)?.bots[0]?.name).toBe("Bot");
   expect(readSavedInbox(scope)?.groups[0]?.name).toBe("Group");
+});
+
+it("uses translated labels for legacy offline message metadata", () => {
+  resetI18nForTests("ru");
+  try {
+    const snapshot = thread(1);
+    snapshot.messages[0]!.blocks = [
+      {
+        kind: "bot_message_received",
+        fromBotId: "bot",
+        fromBotName: "__TestTok1__",
+        text: "Keep __TestTok1__ literal",
+      },
+    ];
+    writeSavedThread(scope, "bot:bot-a", snapshot);
+    expect(readSavedThread(scope, "bot:bot-a")?.messages[0]?.blocks[0]).toMatchObject({
+      fromBotName: "Бот",
+      text: "Keep __TestTok1__ literal",
+    });
+  } finally {
+    resetI18nForTests();
+  }
 });

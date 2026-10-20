@@ -64,9 +64,12 @@ test("legacy opaque names never appear in navigation, account, chats or Activity
     await expectReadableNames(page.locator("body"));
     await captureScreenshot(page, testInfo, "readable-names-activity");
   } finally {
-    await rpc(page, "threads/stop", { botId: bot.id });
-    await db.$disconnect();
-    await pool.end();
+    await rpc(page, "threads/stop", { botId: bot.id }).catch(() => undefined);
+    try {
+      await db.$disconnect();
+    } finally {
+      await pool.end();
+    }
   }
 });
 

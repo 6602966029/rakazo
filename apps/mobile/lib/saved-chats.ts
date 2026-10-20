@@ -12,6 +12,7 @@ import type {
 import { currentApiBase, selectedSpaceId } from "./api";
 import { artifactCacheSession } from "./artifact-cache-session";
 import { t } from "./i18n";
+import { identityLabels } from "./identity-display";
 import type { IntegrationsCacheScope } from "./integrations-cache";
 import { integrationsCacheScope, isIntegrationsScopeCurrent } from "./integrations-cache";
 import {
@@ -258,7 +259,8 @@ export function savedThreadSnapshot(snapshot: MobileSnapshot): MobileSnapshot {
     messages: snapshot.messages.slice(-SAVED_CHAT_MESSAGES).map((message) => ({
       ...message,
       blocks: message.blocks.map((block) => {
-        if (block.kind !== "ask" || block.input !== "secret") return displayMessageBlock(block);
+        if (block.kind !== "ask" || block.input !== "secret")
+          return displayMessageBlock(block, identityLabels());
         // Offline cards cannot submit credentials. Keep their visible prompt and status,
         // but never persist hidden credential configuration or protected answers.
         const { credential: _credential, answer: _answer, detail: _detail, ...saved } = block;

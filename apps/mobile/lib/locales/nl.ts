@@ -2,7 +2,7 @@ export const NL_MESSAGES: Record<string, string> = {
   Member: "Lid",
   Owner: "Eigenaar",
   Chats: "Chats",
-  Space: "Ruimte",
+  Space: "Space",
   "Message from another agent": "Bericht van een andere agent",
   "Another agent": "Een andere agent",
   "Update from {name}: {text}": "Update van {name}: {text}",

@@ -669,7 +669,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     [groupId, inGroup, mentionBots, mentionConnectors, mentionGroups, mentionRoutines],
   );
   const currentBot = botId ? mentionBots.find((bot) => bot.id === botId) : undefined;
-  const displayName = safeDisplayName(currentBot?.name ?? name, t("Bot"));
+  const displayName = safeDisplayName(currentBot?.name ?? name, inGroup ? t("Group") : t("Bot"));
   const composerPrompt = displayName ? t("Message {name}", { name: displayName }) : t("Message…");
   const notificationThreadId = snap?.threadId ?? requestedThreadId ?? currentBot?.threadId;
   activeThreadId.current = notificationThreadId;

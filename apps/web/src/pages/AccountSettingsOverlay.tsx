@@ -162,7 +162,6 @@ export function GeneralSettingsPanels({
         {email && account.label !== email ? (
           <p className="mt-1 text-[13px] text-muted-foreground/70">{email}</p>
         ) : null}
-        <AccountAccess onSecurity={setAccountSecurity} />
       </section>
 
       {accountSecurity?.hasPassword && accountSecurity.passwordChangeEnabled !== false ? (
@@ -387,6 +386,8 @@ export function GeneralSettingsPanels({
           </div>
         </div>
       </details>
+
+      <AccountAccess onSecurity={setAccountSecurity} />
     </div>
   );
 }

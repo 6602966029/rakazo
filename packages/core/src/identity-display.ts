@@ -128,7 +128,7 @@ export function displayIdentityResult(
         return fields(value, {
           botName: label(labels.bot),
           groupName: label(labels.group),
-          ...(hit.kind === "conversation"
+          ...(hit.kind === "conversation" || hit.kind === "message"
             ? { title: label(hit.groupId ? labels.group : labels.bot) }
             : {}),
           ...(hit.kind === "routine" ? { title: label(labels.routine) } : {}),
@@ -146,11 +146,12 @@ export function displayIdentityResult(
   if (procedure === "messaging/channels/respond") return channel(result);
   if (procedure === "messaging/connections/list") return list(connection)(result);
   if (procedure === "messaging/connections/respond") return connection(result);
-  if (procedure === "tickets/comments")
-    return list((value) => {
-      const comment = value as { authorBotId?: string | null };
-      return fields(value, { authorName: label(comment.authorBotId ? labels.bot : labels.member) });
-    })(result);
+  const comment: Project = (value) => {
+    const source = value as { authorBotId?: string | null };
+    return fields(value, { authorName: label(source.authorBotId ? labels.bot : labels.member) });
+  };
+  if (procedure === "tickets/comments") return list(comment)(result);
+  if (procedure === "tickets/comment") return comment(result);
   if (procedure === "computer/status")
     return fields(result, {
       busyBotName: (name) => (name === null ? null : label(labels.bot)(name)),

@@ -17,7 +17,7 @@ export class SpaceLimitError extends Error {
 
 export class InvalidSpaceNameError extends Error {
   constructor() {
-    super("Space name must be between 1 and 60 characters");
+    super("Space name must be readable and between 1 and 60 characters");
     this.name = "InvalidSpaceNameError";
   }
 }

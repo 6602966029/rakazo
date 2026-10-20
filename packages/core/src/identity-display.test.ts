@@ -104,3 +104,29 @@ it("keeps server-projected subagent names localizable at the client boundary", (
     messages: [{ blocks: [{ name: "субагент" }] }],
   });
 });
+
+it("guards newly posted board comments", () => {
+  expect(
+    displayIdentityResult(
+      ["tickets", "comment"],
+      { authorName: "__TestTok1__", authorBotId: null },
+      labels,
+    ),
+  ).toMatchObject({ authorName: "Участник" });
+});
+it("guards message search titles while preserving link URLs", () => {
+  const result = displayIdentityResult(
+    ["search", "query"],
+    {
+      hits: [
+        { kind: "message", botId: "bot", botName: "__TestTok1__", title: "__TestTok1__" },
+        { kind: "message", groupId: "group", groupName: "__TestTok1__", title: "__TestTok1__" },
+        { kind: "link", title: "https://example.com/__TestTok1__" },
+      ],
+    },
+    labels,
+  );
+  expect(result).toMatchObject({
+    hits: [{ title: "Бот" }, { title: "Группа" }, { title: "https://example.com/__TestTok1__" }],
+  });
+});

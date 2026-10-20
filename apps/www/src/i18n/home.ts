@@ -32,6 +32,7 @@ export type HomeCopy = {
     heading: string;
     lead: string;
     getStarted: string;
+    download: Record<"mac" | "windows" | "linux" | "ios" | "android", string>;
     viewOnGithub: string;
     setupWithAgent: string;
     copiedForAgent: string;
@@ -78,35 +79,9 @@ export type HomeCopy = {
   cta: {
     heading: string;
     copy: string;
-    getStarted: string;
-    viewOnGithub: string;
     openSourceValue: string;
     selfHostValue: string;
     stats: Array<{ value: "stars" | "license" | "openSource" | "selfHost"; label: string }>;
-  };
-  getStartedDialog: {
-    closeLabel: string;
-    eyebrow: string;
-    title: string;
-    copy: string;
-    selfHostNow: string;
-    selfHostHint: string;
-    cloudWaitlist: string;
-    cloudHint: string;
-    back: string;
-    successTitle: string;
-    successCopy: string;
-    done: string;
-    viewOnGithub: string;
-  };
-  waitlist: {
-    emailLabel: string;
-    placeholder: string;
-    submit: string;
-    joining: string;
-    success: string;
-    added: string;
-    error: string;
   };
   footer: {
     navLabel: string;
@@ -347,6 +322,13 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       heading: "The open source Grok Bot alternative you actually own",
       lead: "Give a bot real work. It signs in to your tools, uses them the way you do, and comes back when it needs you.",
       getStarted: "Get started",
+      download: {
+        mac: "Download for macOS",
+        windows: "Download for Windows",
+        linux: "Download for Linux",
+        ios: "Download for iOS",
+        android: "Download for Android",
+      },
       viewOnGithub: "View on GitHub",
       setupWithAgent: "Set up with your agent",
       copiedForAgent: "Copied for your agent",
@@ -416,7 +398,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       readTheDocs: "Read the docs",
       openClawAlternative: "OpenClaw alternative",
       cloudTitle: "Cloud",
-      cloudBadge: "Coming soon",
+      cloudBadge: "Beta",
       cloudMeta: "Bring your own keys, we run the computers",
       cloudItems: [
         "Managed sandboxes, always on",
@@ -428,8 +410,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     cta: {
       heading: "Meet your first bot",
       copy: "Give Rakazo something you have been putting off and let it handle the follow-through.",
-      getStarted: "Get started",
-      viewOnGithub: "View on GitHub",
       openSourceValue: "Open source",
       selfHostValue: "Self-host",
       stats: [
@@ -438,31 +418,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         { value: "openSource", label: "No seats, no gates" },
         { value: "selfHost", label: "Your machine" },
       ],
-    },
-    getStartedDialog: {
-      closeLabel: "Close get started dialog",
-      eyebrow: "Get started",
-      title: "How do you want to start?",
-      copy: "Self-host on your machine, or join the Cloud waitlist.",
-      selfHostNow: "Self-host now",
-      selfHostHint: "Install steps are in the docs.",
-      cloudWaitlist: "Cloud waitlist",
-      cloudHint: "Hosted Rakazo is coming. Leave your email.",
-      back: "Back",
-      successTitle: "You're in.",
-      successCopy:
-        "We'll email you when hosted Rakazo is ready. Want to start today? Jump to Self-host on this page.",
-      done: "Done",
-      viewOnGithub: "View on GitHub",
-    },
-    waitlist: {
-      emailLabel: "Email address",
-      placeholder: "you@company.com",
-      submit: "Continue",
-      joining: "Joining…",
-      success: "You’re in.",
-      added: "Added",
-      error: "Couldn’t add you. Try again.",
     },
     footer: {
       navLabel: "Footer",
@@ -515,6 +470,13 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       heading: "Die Open-Source-Alternative zu Grok Bot, die dir wirklich gehört",
       lead: "Gib einem Bot echte Arbeit. Er meldet sich in deinen Tools an, nutzt sie wie du. Er kommt zurück, wenn er dich braucht.",
       getStarted: "Loslegen",
+      download: {
+        mac: "Für macOS laden",
+        windows: "Für Windows laden",
+        linux: "Für Linux laden",
+        ios: "Für iOS laden",
+        android: "Für Android laden",
+      },
       viewOnGithub: "Auf GitHub ansehen",
       setupWithAgent: "Mit deinem Agenten einrichten",
       copiedForAgent: "Für deinen Agenten kopiert",
@@ -588,7 +550,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       readTheDocs: "Docs lesen",
       openClawAlternative: "OpenClaw-Alternative",
       cloudTitle: "Cloud",
-      cloudBadge: "Demnächst",
+      cloudBadge: "Beta",
       cloudMeta: "Deine Keys, wir betreiben die Computer",
       cloudItems: [
         "Managed Sandboxes, immer an",
@@ -600,8 +562,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     cta: {
       heading: "Triff deinen ersten Bot",
       copy: "Gib Rakazo etwas, das du aufgeschoben hast. Lass es den Follow-through übernehmen.",
-      getStarted: "Loslegen",
-      viewOnGithub: "Auf GitHub ansehen",
       openSourceValue: "Open Source",
       selfHostValue: "Self-host",
       stats: [
@@ -610,31 +570,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         { value: "openSource", label: "Keine Seats, keine Gates" },
         { value: "selfHost", label: "Deine Maschine" },
       ],
-    },
-    getStartedDialog: {
-      closeLabel: "Loslegen-Dialog schließen",
-      eyebrow: "Loslegen",
-      title: "Wie willst du starten?",
-      copy: "Self-host auf deiner Maschine, oder auf die Cloud-Warteliste.",
-      selfHostNow: "Jetzt self-hosten",
-      selfHostHint: "Installationsschritte stehen in den Docs.",
-      cloudWaitlist: "Cloud-Warteliste",
-      cloudHint: "Gehostetes Rakazo kommt. Hinterlasse deine E-Mail.",
-      back: "Zurück",
-      successTitle: "Du bist dabei.",
-      successCopy:
-        "Wir mailen dir, wenn gehostetes Rakazo bereit ist. Heute starten? Zum Self-host-Abschnitt auf dieser Seite.",
-      done: "Fertig",
-      viewOnGithub: "Auf GitHub ansehen",
-    },
-    waitlist: {
-      emailLabel: "E-Mail-Adresse",
-      placeholder: "du@firma.com",
-      submit: "Weiter",
-      joining: "Wird eingetragen…",
-      success: "Du bist dabei.",
-      added: "Hinzugefügt",
-      error: "Konnte dich nicht eintragen. Bitte erneut versuchen.",
     },
     footer: {
       navLabel: "Fußzeile",
@@ -686,6 +621,13 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       heading: "진짜로 내 것인 오픈소스 Grok Bot 대안",
       lead: "봇에게 실제 업무를 맡기세요. 봇이 도구에 로그인하고, 당신처럼 사용하며, 필요할 때 돌아와 묻습니다.",
       getStarted: "시작하기",
+      download: {
+        mac: "macOS용 다운로드",
+        windows: "Windows용 다운로드",
+        linux: "Linux용 다운로드",
+        ios: "iOS용 다운로드",
+        android: "Android용 다운로드",
+      },
       viewOnGithub: "GitHub에서 보기",
       setupWithAgent: "에이전트로 설정하기",
       copiedForAgent: "에이전트용으로 복사됨",
@@ -759,7 +701,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       readTheDocs: "문서 읽기",
       openClawAlternative: "OpenClaw 대안",
       cloudTitle: "Cloud",
-      cloudBadge: "곧 출시",
+      cloudBadge: "베타",
       cloudMeta: "키는 당신 것, 컴퓨터는 우리가 운영",
       cloudItems: [
         "상시 가동 관리형 샌드박스",
@@ -771,8 +713,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     cta: {
       heading: "첫 봇을 만나보세요",
       copy: "미뤄 두었던 일을 Rakazo에 맡기고, 후속까지 맡기세요.",
-      getStarted: "시작하기",
-      viewOnGithub: "GitHub에서 보기",
       openSourceValue: "오픈소스",
       selfHostValue: "셀프 호스트",
       stats: [
@@ -781,31 +721,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         { value: "openSource", label: "시트·게이트 없음" },
         { value: "selfHost", label: "당신 머신" },
       ],
-    },
-    getStartedDialog: {
-      closeLabel: "시작하기 대화상자 닫기",
-      eyebrow: "시작하기",
-      title: "어떻게 시작할까요?",
-      copy: "당신 머신에서 셀프 호스트하거나, Cloud 대기열에 등록하세요.",
-      selfHostNow: "지금 셀프 호스트",
-      selfHostHint: "설치 단계는 문서에 있습니다.",
-      cloudWaitlist: "Cloud 대기열",
-      cloudHint: "호스팅 Rakazo가 곧 옵니다. 이메일을 남겨 주세요.",
-      back: "뒤로",
-      successTitle: "등록되었습니다.",
-      successCopy:
-        "호스팅 Rakazo가 준비되면 메일로 알려 드립니다. 오늘 시작하려면 이 페이지의 셀프 호스트 섹션으로 이동하세요.",
-      done: "완료",
-      viewOnGithub: "GitHub에서 보기",
-    },
-    waitlist: {
-      emailLabel: "이메일 주소",
-      placeholder: "you@company.com",
-      submit: "계속",
-      joining: "등록 중…",
-      success: "등록되었습니다.",
-      added: "추가됨",
-      error: "등록하지 못했습니다. 다시 시도하세요.",
     },
     footer: {
       navLabel: "푸터",
@@ -857,6 +772,13 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       heading: "真正属于你的开源 Grok Bot 替代品",
       lead: "把真正的工作交给 Bot：它会登录你的工具，像你一样使用它们，并在需要你时回来询问。",
       getStarted: "开始使用",
+      download: {
+        mac: "下载 macOS 版",
+        windows: "下载 Windows 版",
+        linux: "下载 Linux 版",
+        ios: "下载 iOS 版",
+        android: "下载 Android 版",
+      },
       viewOnGithub: "在 GitHub 上查看",
       setupWithAgent: "用你的智能体安装",
       copiedForAgent: "已为你的智能体复制",
@@ -930,7 +852,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       readTheDocs: "阅读文档",
       openClawAlternative: "OpenClaw 替代方案",
       cloudTitle: "云端",
-      cloudBadge: "即将推出",
+      cloudBadge: "测试版",
       cloudMeta: "密钥归你，电脑由我们运行",
       cloudItems: [
         "托管沙箱，始终在线",
@@ -942,8 +864,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     cta: {
       heading: "认识你的第一个 Bot",
       copy: "把一件你一直拖延的事交给 Rakazo，让它负责跟进到底。",
-      getStarted: "开始使用",
-      viewOnGithub: "在 GitHub 上查看",
       openSourceValue: "开源",
       selfHostValue: "自托管",
       stats: [
@@ -952,31 +872,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         { value: "openSource", label: "无席位、无门槛" },
         { value: "selfHost", label: "你的机器" },
       ],
-    },
-    getStartedDialog: {
-      closeLabel: "关闭开始使用对话框",
-      eyebrow: "开始使用",
-      title: "你想如何开始？",
-      copy: "在你的机器上自托管，或加入云端候补名单。",
-      selfHostNow: "立即自托管",
-      selfHostHint: "安装步骤见文档。",
-      cloudWaitlist: "云端候补名单",
-      cloudHint: "托管版 Rakazo 即将推出。留下你的邮箱。",
-      back: "返回",
-      successTitle: "登记成功。",
-      successCopy:
-        "托管版 Rakazo 就绪时我们会邮件通知你。想今天就上手？跳到本页的自托管部分。",
-      done: "完成",
-      viewOnGithub: "在 GitHub 上查看",
-    },
-    waitlist: {
-      emailLabel: "邮箱地址",
-      placeholder: "you@company.com",
-      submit: "继续",
-      joining: "正在登记…",
-      success: "登记成功。",
-      added: "已添加",
-      error: "未能添加你，请重试。",
     },
     footer: {
       navLabel: "页脚",
