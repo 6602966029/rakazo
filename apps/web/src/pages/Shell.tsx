@@ -3236,7 +3236,7 @@ function SpaceShell() {
             </InputGroupAddon>
           ) : null}
         </InputGroup>
-        <div className="rk-scroll scroll-fade-b scroll-fade-b-6 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pb-2.5">
+        <div className="rk-scroll scroll-fade-y scroll-fade-12 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pb-2.5">
           {showSpaceSearch ? (
             <SpaceSearchResults
               hits={searchHits}
