@@ -36,6 +36,13 @@ export function ThreadErrorNotice({
           }).format(resetAt),
         })
       : null;
+  const hasBody =
+    (summary && error) ||
+    explanation ||
+    upcomingReset ||
+    onConnection ||
+    onModel ||
+    (summary && onDetails);
   return (
     <View
       accessibilityRole="alert"
@@ -53,31 +60,33 @@ export function ThreadErrorNotice({
         </View>
         <Text style={[styles.headline, { color: tokens.foreground }]}>{summary ?? error}</Text>
       </View>
-      <View style={styles.body}>
-        {summary && error ? (
-          <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{error}</Text>
-        ) : null}
-        {explanation || upcomingReset ? (
-          <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>
-            {[explanation, upcomingReset].filter(Boolean).join("\n")}
-          </Text>
-        ) : null}
-        {onConnection || onModel ? (
-          <RunErrorActions onConnection={onConnection} onModel={onModel} />
-        ) : null}
-        {summary && onDetails ? (
-          <Pressable
-            accessibilityRole="link"
-            onPress={onDetails}
-            hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
-            style={styles.details}
-          >
-            <Text style={{ color: tokens.link, fontSize: 14, fontWeight: "600" }}>
-              {t("Details")}
+      {hasBody ? (
+        <View style={styles.body}>
+          {summary && error ? (
+            <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{error}</Text>
+          ) : null}
+          {explanation || upcomingReset ? (
+            <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>
+              {[explanation, upcomingReset].filter(Boolean).join("\n")}
             </Text>
-          </Pressable>
-        ) : null}
-      </View>
+          ) : null}
+          {onConnection || onModel ? (
+            <RunErrorActions onConnection={onConnection} onModel={onModel} />
+          ) : null}
+          {summary && onDetails ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={onDetails}
+              hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
+              style={styles.details}
+            >
+              <Text style={{ color: tokens.link, fontSize: 14, fontWeight: "600" }}>
+                {t("Details")}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
