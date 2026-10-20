@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from "node:fs";
 import * as Clipboard from "expo-clipboard";
 import type { ReactNode } from "react";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
+import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RunErrorSheet, useRunError } from "../components/run-error-sheet";
 import { ThreadErrorNotice } from "../components/thread-error-notice";
@@ -164,4 +166,52 @@ describe("inline error card", () => {
     act(() => vi.advanceTimersByTime(1000));
     expect(node.textContent).not.toContain("Resets");
   });
+});
+
+it.each([false, true])("keeps history fetch errors visible (provider failure: %s)", (failedRun) => {
+  // Exercise the actual screen notice and pinned footer without its native dependencies.
+  const testFileUrl = import.meta.url;
+  const source = readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8");
+  const noticeStart = source.indexOf("  const visibleRunError =");
+  const notice = source.slice(
+    noticeStart,
+    source.indexOf("  return (\n    <KeyboardAvoidingView", noticeStart),
+  );
+  const footerStart = source.indexOf("{pinnedNewerCursor === null ? failedSendBubbles : null}");
+  const footer = source.slice(footerStart, source.indexOf("</ScrollView>", footerStart));
+  const scope = {
+    createElement,
+    ThreadErrorNotice,
+    showPinnedPage: true,
+    pinnedNewerCursor: 10,
+    normalizedRunError: failedRun
+      ? { summary: "OpenRouter key hit its weekly limit.", recovery: "connection" }
+      : null,
+    error: "Could not load newer messages",
+    showingSaved: false,
+    t: (key: string) => key,
+    setRunErrorDetailsOpen: vi.fn(),
+    openErrorConnection: vi.fn(),
+    openErrorModel: vi.fn(),
+    snap: { run: { botId: "fixture-bot" } },
+    botId: "fixture-bot",
+    failedSendBubbles: null,
+    workingFooter: null,
+    loadingNewer: false,
+  };
+  const script = ts.transpileModule(`${notice}\nreturn <>${footer}</>;`, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      jsx: ts.JsxEmit.React,
+      jsxFactory: "createElement",
+      jsxFragmentFactory: "Fragment",
+    },
+  }).outputText;
+  const render = new Function("Fragment", ...Object.keys(scope), script);
+  const node = mount(render("div", ...Object.values(scope)));
+  expect(node.textContent).toContain("Could not load newer messages");
+  expect(node.textContent).not.toContain("weekly limit");
+  expect(node.textContent).not.toContain("Set your own key");
+  expect(node.textContent).not.toContain("Change model");
+  expect(node.textContent).not.toContain("Details");
 });

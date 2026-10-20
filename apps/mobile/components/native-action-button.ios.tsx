@@ -4,6 +4,7 @@ import {
   accessibilityHidden,
   accessibilityLabel as accessibilityName,
   accessibilityRemoveTraits,
+  background,
   buttonStyle,
   controlSize,
   disabled as disable,
@@ -11,7 +12,10 @@ import {
   foregroundStyle,
   frame,
   labelStyle,
+  padding,
   progressViewStyle,
+  shapes,
+  strokeBorder,
   tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { View } from "react-native";
@@ -29,6 +33,7 @@ export function NativeActionButton({
   disabled = false,
   busy = false,
   prominence = "primary",
+  variant,
   fill,
   style,
   size = "default",
@@ -44,11 +49,40 @@ export function NativeActionButton({
   const role = prominence === "destructive" ? "destructive" : "default";
   // The prominent styles draw a white label, which disappears on the light dark-mode primary.
   const filled = !inactive && effectiveProminence === "primary";
-  const ownLabel = stretches || filled;
-  const labelModifiers = [
-    ...(stretches ? [frame({ maxWidth: Infinity, ...(small ? { minHeight: 16 } : {}) })] : []),
-    ...(filled ? [foregroundStyle(tokens.primaryForeground)] : []),
-  ];
+  const ownLabel = stretches || filled || variant !== undefined;
+  const rectangular = variant === "rectangular";
+  const primary = effectiveProminence === "primary";
+  const labelModifiers = variant
+    ? [
+        font({
+          textStyle: rectangular ? "subheadline" : "callout",
+          weight: rectangular ? "semibold" : "medium",
+        }),
+        foregroundStyle(rectangular && primary ? tokens.primaryForeground : tokens.primary),
+        padding({ horizontal: rectangular ? 14 : 0, vertical: rectangular ? 11 : 8 }),
+        frame({
+          ...(stretches ? { maxWidth: Infinity } : {}),
+          ...(rectangular ? { minHeight: 44 } : {}),
+        }),
+        ...(rectangular
+          ? [
+              background(
+                primary ? tokens.primary : tokens.card,
+                shapes.roundedRectangle({ cornerRadius: 9 }),
+              ),
+              strokeBorder({
+                content: primary ? tokens.primary : tokens.foreground,
+                shape: "roundedRectangle",
+                cornerRadius: 9,
+                style: { lineWidth: 1 },
+              }),
+            ]
+          : []),
+      ]
+    : [
+        ...(stretches ? [frame({ maxWidth: Infinity, ...(small ? { minHeight: 16 } : {}) })] : []),
+        ...(filled ? [foregroundStyle(tokens.primaryForeground)] : []),
+      ];
   const color =
     effectiveProminence === "destructive"
       ? tokens.destructive
@@ -62,7 +96,7 @@ export function NativeActionButton({
       matchContents={stretches ? { vertical: true } : true}
       style={[
         stretches
-          ? { alignSelf: "stretch", minHeight: small ? undefined : 48 }
+          ? { alignSelf: "stretch", minHeight: rectangular ? 44 : small ? undefined : 48 }
           : { alignSelf: "flex-start" },
         style,
       ]}
@@ -74,7 +108,7 @@ export function NativeActionButton({
         role={role}
         modifiers={[
           ...(accessibilityActions?.length ? [accessibilityHidden(true)] : []),
-          buttonStyle(swiftStyle(effectiveProminence)),
+          buttonStyle(variant ? "plain" : swiftStyle(effectiveProminence)),
           controlSize(
             small ? "small" : stretches ? "large" : prominence === "quiet" ? "small" : "regular",
           ),
@@ -87,12 +121,12 @@ export function NativeActionButton({
                   ? accessibilityAddTraits(["isSelected"])
                   : accessibilityRemoveTraits(["isSelected"]),
               ]),
-          ...(prominence === "quiet"
+          ...(!variant && prominence === "quiet"
             ? [font({ size: 15 }), foregroundStyle(tokens.mutedForeground)]
             : []),
           disable(inactive),
           ...(color ? [tint(color)] : []),
-          ...(busy || (accessibilityLabel && accessibilityLabel !== label)
+          ...(variant || busy || (accessibilityLabel && accessibilityLabel !== label)
             ? [accessibilityName(accessibilityLabel ?? label ?? "")]
             : []),
         ]}

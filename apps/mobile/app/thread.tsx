@@ -2393,6 +2393,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     />
   ));
 
+  // Fetch failures belong to the visible page; provider recovery belongs to the live end.
+  const visibleRunError = showPinnedPage && pinnedNewerCursor !== null ? null : normalizedRunError;
   const errorNotice = (
     <ThreadErrorNotice
       error={
@@ -2402,12 +2404,12 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             : error
           : null
       }
-      summary={normalizedRunError?.summary ?? null}
-      resetAt={normalizedRunError?.resetAt}
+      summary={visibleRunError?.summary ?? null}
+      resetAt={visibleRunError?.resetAt}
       onDetails={() => setRunErrorDetailsOpen(true)}
-      onConnection={normalizedRunError?.recovery === "connection" ? openErrorConnection : undefined}
+      onConnection={visibleRunError?.recovery === "connection" ? openErrorConnection : undefined}
       onModel={
-        normalizedRunError?.recovery && (snap?.run?.botId ?? botId) ? openErrorModel : undefined
+        visibleRunError?.recovery && (snap?.run?.botId ?? botId) ? openErrorModel : undefined
       }
     />
   );
@@ -2479,7 +2481,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
               renderMessageRow(message, { enableJump: true, index }),
             )}
             {pinnedNewerCursor === null ? failedSendBubbles : null}
-            {pinnedNewerCursor === null ? errorNotice : null}
+            {errorNotice}
             {pinnedNewerCursor === null ? (
               workingFooter
             ) : loadingNewer ? (
@@ -2551,11 +2553,11 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             }}
             ListFooterComponent={loadEarlierControl}
             ListHeaderComponent={
-              <>
+              <View onLayout={() => performScroll(scrollBehavior.current.onLayout())}>
                 {errorNotice}
                 {failedSendBubbles}
                 {workingFooter}
-              </>
+              </View>
             }
             renderItem={renderItem}
           />
