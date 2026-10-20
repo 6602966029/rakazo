@@ -430,6 +430,7 @@ export class CreateOSSandboxProvider implements SandboxProvider {
       try {
         await this.ensureRunning(id, context);
         // Sandboxes created under earlier idle settings keep their old auto-pause otherwise.
+        // Best-effort: a running sandbox stays usable without it.
         await this.requestJson(
           "PATCH",
           `/v1/sandboxes/${encodeURIComponent(id)}`,
@@ -437,7 +438,9 @@ export class CreateOSSandboxProvider implements SandboxProvider {
             ? { disable_auto_pause: true }
             : { auto_pause_after_seconds: autoPause },
           context,
-        );
+        ).catch((error: unknown) => {
+          if (isCreateOSSandboxGone(error)) throw error;
+        });
         return this.ref(id, request.botId, false);
       } catch (error) {
         if (!isCreateOSSandboxGone(error)) throw error;
@@ -721,6 +724,8 @@ print(json.dumps(out))
   }
 
   async releaseScreen(computer: ComputerRef, context: AdapterContext): Promise<void> {
+    // Releasing a screen must not resume a stopped sandbox. Its assignment stays for reuse.
+    if ((await this.getSandbox(computer.providerRef, context)).status !== "running") return;
     const screenKey = screenSessionKey(context);
     const gateKey = this.screenGateKey(computer.providerRef, screenKey);
     const screenId = await this.withScreenGate(gateKey, async () => {
@@ -1588,7 +1593,14 @@ raise SystemExit(1)
         throw createosSandboxGone(id, "not found", error);
       }
       await this.ensureRunning(id, context);
-      return this.send(method, path, context, init);
+      try {
+        return await this.send(method, path, context, init);
+      } catch (retryError) {
+        if (!isMissingCreateOSResource(retryError)) throw retryError;
+        // The sandbox runs, so this is not sandbox loss. Keep CreateOS's "sandbox not found
+        // or not running" wording out of the message, where shared gone checks would match it.
+        throw new CreateOSHttpError(404, `${resource} is missing`, retryError.code, retryError);
+      }
     }
   }
 
@@ -1634,8 +1646,9 @@ export class CreateOSHttpError extends Error {
     readonly status: number,
     detail: string,
     readonly code?: string,
+    cause?: unknown,
   ) {
-    super(`CreateOS request failed (${status})${detail ? `: ${detail}` : ""}`);
+    super(`CreateOS request failed (${status})${detail ? `: ${detail}` : ""}`, { cause });
   }
 }
 
@@ -1652,12 +1665,14 @@ function isCreateOSSandboxGone(error: unknown): boolean {
 
 /**
  * CreateOS auto-pause is only a backstop: our sleep job checkpoints before it pauses, so
- * CreateOS must fire clearly after that job, and not at all when idle sleep is disabled.
+ * CreateOS must fire clearly after that job. Off when idle sleep is disabled, or when that
+ * margin does not fit under CreateOS's maximum.
  */
 function createosAutoPauseSeconds(): number | undefined {
   if (!computerIdleSleepEnabled()) return undefined;
   const idleSeconds = Math.ceil(sandboxIdleMs() / 1_000);
-  return Math.min(MAX_CREATEOS_AUTO_PAUSE_SECONDS, idleSeconds + Math.max(idleSeconds, 600));
+  const seconds = idleSeconds + Math.max(idleSeconds, 600);
+  return seconds <= MAX_CREATEOS_AUTO_PAUSE_SECONDS ? seconds : undefined;
 }
 
 /**
@@ -1752,7 +1767,7 @@ function cancelCreateOSResponseBody(response: Response): void {
 }
 
 /** Once request() has ruled out a stopped sandbox, a 404 means a screen or file inside it is missing. */
-function isMissingCreateOSResource(error: unknown): boolean {
+function isMissingCreateOSResource(error: unknown): error is CreateOSHttpError {
   return error instanceof CreateOSHttpError && error.status === 404;
 }
 

@@ -2,6 +2,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import type * as TimersPromises from "node:timers/promises";
 import { promisify } from "node:util";
 import type { ComputerRef, PortableFile, ProcessEvent } from "@rakazo/adapter-kit";
 import {
@@ -23,7 +24,7 @@ import { isSandboxGoneError } from "./e2b-sandbox.js";
 
 // Status polls wait a second between reads; the fakes below settle on the next read.
 vi.mock("node:timers/promises", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("node:timers/promises")>()),
+  ...(await importOriginal<typeof TimersPromises>()),
   setTimeout: async <T>(_ms?: number, value?: T, options?: { signal?: AbortSignal }) => {
     options?.signal?.throwIfAborted();
     return value as T;
@@ -1017,6 +1018,26 @@ describe("CreateOS sandbox lifecycle", () => {
     expect(plane.calls).not.toContain("POST /v1/sandboxes/sbx-1/resume");
   });
 
+  it("does not resume a stopped sandbox to release its screen", async () => {
+    const plane = createosControlPlane({ status: "paused" });
+    await expect(plane.provider().releaseScreen(computer, context)).resolves.toBeUndefined();
+    expect(plane.status()).toBe("paused");
+    expect(plane.calls).not.toContain("POST /v1/sandboxes/sbx-1/resume");
+  });
+
+  it("reuses a running sandbox when the auto-pause update fails", async () => {
+    const plane = createosControlPlane({ status: "running" });
+    const fetchImpl = (async (input: URL | RequestInfo, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? errorResponse(503, "unavailable")
+        : plane.fetchImpl(input, init)) as typeof fetch;
+    const ref = await new CreateOSSandboxProvider({
+      apiKey: "test-key",
+      fetch: fetchImpl,
+    }).provision(existing, context);
+    expect(ref).toMatchObject({ providerRef: "sbx-1", fresh: false });
+  });
+
   it.each<{ status?: SandboxStatus; outcome: "resumed" | "gone" }>([
     { status: "paused", outcome: "resumed" },
     { status: "destroyed", outcome: "gone" },
@@ -1036,7 +1057,8 @@ describe("CreateOS sandbox lifecycle", () => {
     { idleMs: undefined, create: 1_200, patch: { auto_pause_after_seconds: 1_200 } },
     { idleMs: "30000", create: 630, patch: { auto_pause_after_seconds: 630 } },
     { idleMs: "3600000", create: 7_200, patch: { auto_pause_after_seconds: 7_200 } },
-    { idleMs: "86400000", create: 86_400, patch: { auto_pause_after_seconds: 86_400 } },
+    { idleMs: "43200000", create: 86_400, patch: { auto_pause_after_seconds: 86_400 } },
+    { idleMs: "86400000", create: undefined, patch: { disable_auto_pause: true } },
     { idleMs: "0", create: undefined, patch: { disable_auto_pause: true } },
   ])(
     "sets CreateOS auto-pause behind a $idleMs ms sleep window",
