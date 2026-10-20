@@ -87,6 +87,19 @@ describe("run error recovery", () => {
     click("Technical details");
     expect(node.textContent).not.toContain("403:");
   });
+  it("offers model recovery without suggesting a key failure for a missing model", () => {
+    const node = mount(
+      createElement(RunErrorSheet, {
+        details: '404: {"message":"Model unavailable"}',
+        onClose: vi.fn(),
+        onConnection: vi.fn(),
+        onModel: vi.fn(),
+      }),
+    );
+    expect(node.textContent).toContain("Change model");
+    expect(node.textContent).not.toContain("Connection settings");
+    expect(node.textContent).not.toContain("personal or shared key");
+  });
   it("does not mount a native modal when closed", () => {
     const node = mount(
       createElement(RunErrorSheet, { details: null, onClose: vi.fn(), onConnection: vi.fn() }),

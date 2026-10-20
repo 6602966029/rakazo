@@ -1990,6 +1990,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const answerableAskIds = useMemo(() => answerableAskMessageIds(snap), [snap]);
   const runError = snap?.run?.status === "failed" ? (snap.run.error ?? null) : null;
   const normalizedRunError = useRunError(runError);
+  const failedRunId = runError ? snap?.run?.id : null;
+  useEffect(() => setRunErrorDetailsOpen(false), [failedRunId]);
   function openErrorConnection() {
     setRunErrorDetailsOpen(false);
     router.push("/(settings)/models");

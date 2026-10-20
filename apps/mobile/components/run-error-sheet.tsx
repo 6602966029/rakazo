@@ -73,18 +73,22 @@ export function RunErrorSheet({
           <Text style={textStyle}>{error.summary}</Text>
           {error.recovery ? (
             <>
-              <Text style={textStyle}>
-                {t("The provider did not report whether this was a personal or shared key.")}
-              </Text>
+              {error.recovery === "connection" ? (
+                <Text style={textStyle}>
+                  {t("The provider did not report whether this was a personal or shared key.")}
+                </Text>
+              ) : null}
               <Text style={textStyle}>
                 {t("Check your model connection or choose another model.")}
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-                <NativeActionButton
-                  fill={false}
-                  label={t("Connection settings")}
-                  onPress={onConnection}
-                />
+                {error.recovery === "connection" ? (
+                  <NativeActionButton
+                    fill={false}
+                    label={t("Connection settings")}
+                    onPress={onConnection}
+                  />
+                ) : null}
                 {onModel ? (
                   <NativeActionButton
                     fill={false}
