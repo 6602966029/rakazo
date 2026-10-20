@@ -15,9 +15,9 @@ import {
 } from "railway";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
-import { isSandboxGoneError } from "./e2b-sandbox.js";
 import { LinuxDesktop } from "./linux-desktop.js";
 import { RailwaySandboxProvider } from "./railway-sandbox.js";
+import { isSandboxGoneError } from "./sandbox-errors.js";
 import { assertSandboxWorkspaceContract } from "./sandbox-test-support.js";
 
 const sdk = { connect: Sandbox.connect, create: Sandbox.create };
