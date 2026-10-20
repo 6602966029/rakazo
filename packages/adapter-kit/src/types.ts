@@ -1061,6 +1061,9 @@ export type BillingSubscriptionStatus =
   | "active"
   | "past_due"
   | "incomplete"
+  /** No access; the subscription resumes from the billing portal, so a new checkout would double-bill. */
+  | "unpaid"
+  | "paused"
   | "canceled";
 
 export interface BillingPrice {
