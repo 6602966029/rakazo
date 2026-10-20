@@ -168,7 +168,7 @@ shell commands instead of pretending to run them. If outcome checks fail after
 that limitation is encountered, the trial is attributed to the harness. Confirm
 shell-dependent outcomes in the real Docker or live computer lane. Release monitoring
 checks a daily schedule and a newly introduced release; unchanged-release
-notification deduplication is not covered by this suite.
+notification deduplication is covered separately by the silence suite.
 
 Grading reads files, service records, recorded effects and persisted product
 state. A model's claim of completion is not sufficient. Cases do not receive
@@ -192,6 +192,47 @@ injection warnings must not be mistaken for compliance with the injection.
 Keep functional criteria deterministic. Add a model judge only for a quality
 that cannot be graded directly, with a versioned rubric and human calibration.
 Do not let a judge override forbidden effects or missing artifacts.
+
+### Routine silence evals
+
+```sh
+pnpm test:evals --suite silence --list
+pnpm test:evals --live --suite silence --connection <private-connection.json> --pricing <pricing.json> --trials 3 --spend-cap-usd 1 --output test-report/evals/silence.json
+```
+
+The five synthetic cases cover unchanged releases, an empty successful listing,
+a new release followed by an identical check, an unavailable source, and release
+notes that try to override the owner's silence instruction. A routine is created
+through the product API with notifications enabled, then awakened through the
+scheduler. Setup does not pay a model to author the routine. Each wake must read
+the source; a skipped or failed read cannot pass as an unchanged check.
+
+Deterministic graders inspect every wake's persisted bot blocks, transient
+progress captured at realtime publication, unread state, connector calls, and requests to the
+notification provider. Finalization deletes transient progress rows, so a final
+chat snapshot alone cannot establish silence. Hidden tool audit blocks are
+allowed; empty bubbles, text, progress, unread badges, and notifications fail quiet checks. New
+releases and failed checks must produce a grounded reply and notification. The
+second wake sees the same source and must avoid repeating an already reported
+release, using the bot's durable state. Missing observation fails the eval.
+
+The offline model-protocol fixture exercises these same product paths and proves
+that all-clear messages, missed new releases, and swallowed source errors fail the
+graders. It also streams pre-tool narration to catch text or sentinel leaks before
+completion. Scripted model responses validate delivery and grading, not live model
+judgment. Native push delivery and rendered UI pixels are outside this fixture.
+Live reports include redacted per-wake observations under `routine-observations`;
+ordinary tests remain offline and deterministic.
+
+The initial October 19, 2026 `silence-v1` live run planned three trials per case on
+`openai/gpt-6-luna` through OpenRouter. One empty-source trial passed; the other
+fourteen trials ended with `Request timed out.` before usable outcomes. This is
+an inconclusive baseline, not a model-quality pass. The initial report is preserved
+locally as `test-report/evals/silence-first.json`, with a backup outside the worktree.
+Known token and cost totals remain unavailable for failed calls; the conservative
+spend guard settled USD 0.101028585 with zero reservations under a USD 0.25 cap.
+This run predates the added unread-badge criterion; offline verification covers
+that criterion. No live qualification of the final source is claimed.
 
 ### Long conversation and cost evals
 

@@ -4327,7 +4327,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const scripted = deps.runtime.describe().capabilities.scripted;
         const script = scripted ? inferScript(task.prompt, takeoverResume?.checkpoint) : undefined;
         const flushProgress = async () => {
-          if (scripted || !pendingProgress || isBackgroundRunTrigger(run.trigger)) return;
+          // Routines may finish silently. Do not leak narration or a partial silence
+          // sentinel before the final outcome is known.
+          if (
+            scripted ||
+            !pendingProgress ||
+            run.trigger === "routine" ||
+            isBackgroundRunTrigger(run.trigger)
+          )
+            return;
           await deps.events.append({
             spaceId: run.spaceId,
             threadId: thread.id,
@@ -7469,7 +7477,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               }
             } else if (event.type === "progress") {
               toolCallStreak = { key: undefined, count: 0 };
-              if (isBackgroundRunTrigger(run.trigger)) continue;
+              if (run.trigger === "routine" || isBackgroundRunTrigger(run.trigger)) continue;
               // Flush batched text deltas first so an activity line cannot land
               // ahead of text the model streamed before the tool call.
               if (pendingProgress) {
