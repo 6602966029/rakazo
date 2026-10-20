@@ -10,6 +10,7 @@ import {
   Label,
   NativeSelect,
   NativeSelectOption,
+  OptionSelect,
   Switch,
   Toggle,
 } from "@rakazo/ui-web";
@@ -20,7 +21,6 @@ import { AccountAccess } from "../components/AccountAccess";
 import { SuccessPop } from "../components/ai/primitives";
 import { ComputersUnavailableHint } from "../components/ComputersUnavailableHint";
 import { DesktopUpdateSection } from "../components/DesktopUpdates";
-import { ListboxSelect } from "../components/ListboxSelect";
 import { PasskeySettings } from "../components/PasskeySettings";
 import type { ServerUpdateLoad } from "../components/SoftwareUpdateSection";
 import { hasServerUpdates, SoftwareUpdateSection } from "../components/SoftwareUpdateSection";
@@ -633,13 +633,13 @@ function UiLocalePicker({
 }) {
   const { t } = useLingui();
   return (
-    <ListboxSelect
+    <OptionSelect
       className="mt-3"
-      testId="ui-locale-select"
-      label={t`Language`}
+      data-testid="ui-locale-select"
+      aria-label={t`Language`}
       options={UI_LOCALES.map((code) => ({ value: code, label: UI_LOCALE_LABELS[code] }))}
       value={value}
-      onChange={onChange}
+      onValueChange={onChange}
     />
   );
 }

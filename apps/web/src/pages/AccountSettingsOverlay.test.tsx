@@ -58,6 +58,9 @@ vi.mock("@rakazo/ui-web", () => ({
       {children}
     </button>
   ),
+  OptionSelect: ({ "data-testid": testId }: { "data-testid"?: string }) => (
+    <div data-testid={testId} />
+  ),
   cn: (...values: unknown[]) => values.filter(Boolean).join(" "),
 }));
 
