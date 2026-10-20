@@ -6,6 +6,7 @@ import {
   ComposioEmulator,
   createScheduleFromTool,
   DesktopSandboxProvider,
+  DestinationEmulator,
   FakeSandboxProvider,
   handoffToGroupBot,
   ManagedSandboxEmulator,
@@ -39,7 +40,7 @@ describeJourneys("required product journeys", () => {
   let app: App;
   let stop: () => Promise<void>;
   let prisma: Awaited<ReturnType<typeof createApp>>["prisma"];
-  let connector: Awaited<ReturnType<typeof createApp>>["connector"];
+  const connector = new DestinationEmulator();
   let executor: Awaited<ReturnType<typeof createApp>>["executor"];
   let jobs: Awaited<ReturnType<typeof createApp>>["jobs"];
   let sandbox: Awaited<ReturnType<typeof createApp>>["sandbox"];
@@ -122,11 +123,11 @@ describeJourneys("required product journeys", () => {
       sandboxProvider: "fake",
       agentRuntime: "scripted",
       composio: new ComposioEmulator(),
+      connectors: [connector],
     });
     app = handles.app;
     stop = handles.stop;
     prisma = handles.prisma;
-    connector = handles.connector;
     executor = handles.executor;
     jobs = handles.jobs;
     sandbox = handles.sandbox;
