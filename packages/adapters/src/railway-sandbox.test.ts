@@ -76,11 +76,19 @@ function backboard(stored?: Partial<SandboxInfo>) {
   if (stored) sandboxes.set("sandbox", sandboxInfo(stored));
   const operations: string[] = [];
   const failures = new Map<string, RailwayGraphQLErrorItem>();
+  // HTTP status for a failure, and failures that clear after one reply.
+  const failureStatus = new Map<string, number>();
+  const failOnce = new Set<string>();
   const created: Array<Record<string, unknown>> = [];
   const rejected: Array<Record<string, unknown>> = [];
   // Hobby and Pro allow 1-120 minutes or 0 (never); Trial and Free allow 1-5 and never 0.
-  const plan = { maxIdleTimeoutMinutes: 120, allowsNever: true };
-  const reply = (body: object) => new Response(JSON.stringify(body));
+  // Railway does not document the rejection's wording.
+  const plan = {
+    maxIdleTimeoutMinutes: 120,
+    allowsNever: true,
+    rejection: "idle timeout must be between 1 and 5 minutes",
+  };
+  const reply = (body: object, status = 200) => new Response(JSON.stringify(body), { status });
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_input: unknown, init?: RequestInit) => {
@@ -88,7 +96,10 @@ function backboard(stored?: Partial<SandboxInfo>) {
       const operation = /(?:query|mutation) (\w+)/.exec(query)?.[1] ?? "";
       operations.push(operation);
       const failure = failures.get(operation);
-      if (failure) return reply({ errors: [failure] });
+      if (failure) {
+        if (failOnce.has(operation)) failures.delete(operation);
+        return reply({ errors: [failure] }, failureStatus.get(operation));
+      }
       const existing = sandboxes.get(variables.id);
       switch (operation) {
         case "RailwaySandbox":
@@ -100,13 +111,7 @@ function backboard(stored?: Partial<SandboxInfo>) {
             (idle > plan.maxIdleTimeoutMinutes || (idle <= 0 && !plan.allowsNever))
           ) {
             rejected.push(variables.input);
-            return reply({
-              errors: [
-                {
-                  message: `idle timeout must be between 1 and ${plan.maxIdleTimeoutMinutes} minutes`,
-                },
-              ],
-            });
+            return reply({ errors: [{ message: plan.rejection }] });
           }
           created.push(variables.input);
           const info = sandboxInfo({ id: `created-${created.length}` });
@@ -126,7 +131,16 @@ function backboard(stored?: Partial<SandboxInfo>) {
       }
     }),
   );
-  return { sandboxes, operations, failures, created, rejected, plan };
+  return {
+    sandboxes,
+    operations,
+    failures,
+    failureStatus,
+    failOnce,
+    created,
+    rejected,
+    plan,
+  };
 }
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -354,42 +368,103 @@ describe("Railway sandbox lifecycle", () => {
     ]);
   });
 
-  it.each<[string | undefined, number]>([
-    [undefined, 15],
-    ["0", 0],
-    ["180000", 5],
-  ])("creates sandboxes on a Trial or Free plan with SANDBOX_IDLE_MS=%s", async (idle, minutes) => {
-    if (idle !== undefined) vi.stubEnv("SANDBOX_IDLE_MS", idle);
+  it.each<[string | undefined, number, string]>([
+    [undefined, 15, "idle timeout must be between 1 and 5 minutes"],
+    [undefined, 15, "Invalid input: value must be between 1 and 5"],
+    [undefined, 15, "Problem processing request"],
+    ["0", 0, "Invalid input: value must be between 1 and 5"],
+    ["180000", 5, "Invalid input: value must be between 1 and 5"],
+  ])(
+    "creates sandboxes on a Trial or Free plan with SANDBOX_IDLE_MS=%s when Railway says %j",
+    async (idle, minutes, rejection) => {
+      if (idle !== undefined) vi.stubEnv("SANDBOX_IDLE_MS", idle);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const api = backboard();
+      Object.assign(api.plan, { maxIdleTimeoutMinutes: 5, allowsNever: false, rejection });
+      try {
+        expect(await provider.provision({ botId: "bot", homePath: "/unused" }, ctx)).toMatchObject({
+          providerRef: "created-1",
+          fresh: true,
+        });
+        const rejected = minutes > 5 || minutes === 0;
+        expect(api.rejected).toEqual(
+          rejected ? [expect.objectContaining({ idleTimeoutMinutes: minutes })] : [],
+        );
+        expect(api.created).toEqual([
+          rejected
+            ? expect.not.objectContaining({ idleTimeoutMinutes: expect.anything() })
+            : expect.objectContaining({ idleTimeoutMinutes: minutes }),
+        ]);
+        expect(warn).toHaveBeenCalledTimes(rejected ? 1 : 0);
+      } finally {
+        warn.mockRestore();
+      }
+    },
+  );
+
+  it.each<[string, string, number | undefined, string]>([
+    ["a full sandbox cap", "Sandbox limit of 10 reached", undefined, "LIMIT_EXCEEDED"],
+    ["an authorization error", "Not Authorized", undefined, "UNAUTHORIZED"],
+    ["an HTTP 401", "fake-secret", 401, "REQUEST_FAILED"],
+    ["an HTTP 403", "fake-secret", 403, "REQUEST_FAILED"],
+  ])("does not retry a create rejected by %s", async (_name, message, status, code) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const api = backboard();
-    Object.assign(api.plan, { maxIdleTimeoutMinutes: 5, allowsNever: false });
+    api.failures.set("RailwaySandboxCreate", { message });
+    if (status) api.failureStatus.set("RailwaySandboxCreate", status);
     try {
-      expect(await provider.provision({ botId: "bot", homePath: "/unused" }, ctx)).toMatchObject({
-        providerRef: "created-1",
-        fresh: true,
-      });
-      const rejected = minutes > 5 || minutes === 0;
-      expect(api.rejected).toEqual(
-        rejected ? [expect.objectContaining({ idleTimeoutMinutes: minutes })] : [],
+      await expect(provider.provision({ botId: "bot", homePath: "/unused" }, ctx)).rejects.toThrow(
+        `Railway API request failed (${code})`,
       );
-      expect(api.created).toEqual([
-        rejected
-          ? expect.not.objectContaining({ idleTimeoutMinutes: expect.anything() })
-          : expect.objectContaining({ idleTimeoutMinutes: minutes }),
-      ]);
-      expect(warn).toHaveBeenCalledTimes(rejected ? 1 : 0);
+      expect(api.operations.filter((name) => name === "RailwaySandboxCreate")).toHaveLength(1);
+      expect(warn).not.toHaveBeenCalled();
     } finally {
       warn.mockRestore();
     }
   });
 
-  it("does not retry a create that fails for another reason", async () => {
+  it("does not retry a create after its caller cancels", async () => {
     const api = backboard();
-    api.failures.set("RailwaySandboxCreate", { message: "Sandbox limit of 10 reached" });
-    await expect(provider.provision({ botId: "bot", homePath: "/unused" }, ctx)).rejects.toThrow(
-      "LIMIT_EXCEEDED",
-    );
+    api.failures.set("RailwaySandboxCreate", { message: "Problem processing request" });
+    const controller = new AbortController();
+    const transport = vi.mocked(fetch);
+    const respond = transport.getMockImplementation();
+    transport.mockImplementationOnce(async (...args) => {
+      controller.abort(new Error("provision canceled"));
+      if (!respond) throw new Error("Missing fake Railway API");
+      return respond(...args);
+    });
+    await expect(
+      provider.provision(
+        { botId: "bot", homePath: "/unused" },
+        { ...ctx, signal: controller.signal },
+      ),
+    ).rejects.toThrow("provision canceled");
     expect(api.operations.filter((name) => name === "RailwaySandboxCreate")).toHaveLength(1);
+  });
+
+  it.each([
+    ["a server error", 502],
+    ["a network error", undefined],
+  ])("retries a create once after %s", async (_name, status) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const api = backboard();
+    if (status) {
+      api.failures.set("RailwaySandboxCreate", { message: "Bad gateway" });
+      api.failureStatus.set("RailwaySandboxCreate", status);
+      api.failOnce.add("RailwaySandboxCreate");
+    } else vi.mocked(fetch).mockRejectedValueOnce(new TypeError("fetch failed"));
+    try {
+      expect(await provider.provision({ botId: "bot", homePath: "/unused" }, ctx)).toMatchObject({
+        providerRef: "created-1",
+      });
+      expect(api.created).toEqual([
+        expect.not.objectContaining({ idleTimeoutMinutes: expect.anything() }),
+      ]);
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it.each<[string, RailwayGraphQLErrorItem, string]>([

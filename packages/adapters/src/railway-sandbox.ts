@@ -173,13 +173,14 @@ export class RailwaySandboxProvider implements SandboxProvider {
       try {
         sandbox = await create(railwayIdleTimeoutMinutes());
       } catch (error) {
-        if (createdId || !hasRailwayErrorCode(error, "IDLE_TIMEOUT_REJECTED")) throw error;
-        // Trial and Free plans allow 1-5 minutes and never 0; their plan default still applies.
+        // Trial and Free plans allow 1-5 minutes and never 0, and Railway does not document how
+        // it words that rejection. Retry with the plan default unless a retry cannot help.
+        if (createdId || context.signal.aborted || !retriesWithoutIdleTimeout(error)) throw error;
+        sandbox = await create();
         // biome-ignore lint/suspicious/noConsole: Operators need to know idle work can be lost.
         console.warn(
-          "[railway] plan rejected the sandbox idle timeout; using the plan default, which can destroy idle computers before they are saved",
+          "[railway] created the sandbox with the plan's idle timeout, which can destroy idle computers before they are saved",
         );
-        sandbox = await create();
       }
       createdId = sandbox.id;
       assertPrivateNetwork(sandbox);
@@ -580,6 +581,16 @@ function goneError(error: unknown, id: string, environmentId: string) {
     : error;
 }
 
+function retriesWithoutIdleTimeout(error: unknown) {
+  if (!(error instanceof RailwayGraphQLError)) return true;
+  return (
+    error.status !== 401 &&
+    error.status !== 403 &&
+    !hasRailwayErrorCode(error, "LIMIT_EXCEEDED") &&
+    !hasRailwayErrorCode(error, "UNAUTHORIZED")
+  );
+}
+
 function hasRailwayErrorCode(error: unknown, code: string) {
   return (
     error instanceof RailwayGraphQLError &&
@@ -656,9 +667,10 @@ const RailwayErrorItem = z
 
 function railwayErrorCode(error: unknown) {
   const { message, extensions } = RailwayErrorItem.parse(error);
-  // An out-of-range idle timeout names the allowed range, so check it before the cap wording.
+  // An out-of-range idle timeout may name a maximum; keep it from reading as the sandbox cap.
   if (/\bidle\b/i.test(message)) return "IDLE_TIMEOUT_REJECTED";
   if (/\bnot found\b/i.test(message)) return "NOT_FOUND";
+  if (/\b(?:not authori[sz]ed|unauthori[sz]ed|forbidden)\b/i.test(message)) return "UNAUTHORIZED";
   if (/\b(?:limit|quota|maximum)\b/i.test(message)) return "LIMIT_EXCEEDED";
   return extensions?.code ?? "REQUEST_FAILED";
 }
