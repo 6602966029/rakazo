@@ -18,8 +18,8 @@ export type HomeCopy = {
     menu: string;
     docs: string;
     blog: string;
-    viewOnGithub: string;
-    iosApp: string;
+    github: string;
+    getStarted: string;
   };
   hero: {
     eyebrow: string;
@@ -345,8 +345,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       menu: "Menu",
       docs: "Docs",
       blog: "Blog",
-      viewOnGithub: "View on GitHub",
-      iosApp: "Download Rakazo for iPhone",
+      github: "GitHub",
+      getStarted: "Get started",
     },
     hero: {
       eyebrow: "Open source",
@@ -462,8 +462,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       menu: "Menü",
       docs: "Docs",
       blog: "Blog",
-      viewOnGithub: "Auf GitHub ansehen",
-      iosApp: "Rakazo für iPhone laden",
+      github: "GitHub",
+      getStarted: "Loslegen",
     },
     hero: {
       eyebrow: "Open Source",
@@ -582,8 +582,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       menu: "메뉴",
       docs: "Docs",
       blog: "블로그",
-      viewOnGithub: "GitHub에서 보기",
-      iosApp: "iPhone용 Rakazo 받기",
+      github: "GitHub",
+      getStarted: "시작하기",
     },
     hero: {
       eyebrow: "오픈 소스",
@@ -702,8 +702,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       menu: "菜单",
       docs: "文档",
       blog: "博客",
-      viewOnGithub: "在 GitHub 上查看",
-      iosApp: "下载 iPhone 版 Rakazo",
+      github: "GitHub",
+      getStarted: "开始使用",
     },
     hero: {
       eyebrow: "开源",

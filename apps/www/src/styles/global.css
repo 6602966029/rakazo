@@ -195,16 +195,6 @@ button {
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
-.star-pill--icon {
-  padding: 7px 10px;
-}
-
-.star-pill--icon svg {
-  width: 18px;
-  height: 18px;
-  fill: currentColor;
-}
-
 .star-pill:hover,
 .star-pill:focus-visible,
 .button:hover,
@@ -2695,7 +2685,7 @@ button.product-demo__dock-icon {
   }
 
   .site-nav,
-  .site-header__cta {
+  .site-header__right > .star-pill {
     display: none;
   }
 
