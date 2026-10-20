@@ -164,20 +164,28 @@ export class StripeBillingProvider implements BillingProvider {
   }
 
   async getCustomerSubscription(customerId: string): Promise<BillingSubscriptionSnapshot | null> {
-    const subscriptions = (await this.listLiveSubscriptions(customerId)).map((subscription) => ({
-      subscription,
-      status: mapStripeSubscriptionStatus(subscription.status),
-      created: subscription.created,
-    }));
-    const chosen = pickBillingSubscription(subscriptions);
+    const chosen = pickStripeSubscription(await this.listLiveSubscriptions(customerId));
     return chosen ? toSnapshot(chosen.subscription, chosen.status) : null;
   }
 
-  async updateSeats(subscriptionItemId: string, seats: number) {
-    await this.request("POST", `/v1/subscription_items/${encodeURIComponent(subscriptionItemId)}`, {
-      quantity: seats,
-      proration_behavior: "create_prorations",
-    });
+  async updateSeats(customerId: string, seats: number) {
+    // Ended subscriptions refuse updates, as do incomplete ones from Checkout. Unpaid and paused
+    // ones accept them, so they resume with the right seats.
+    for (;;) {
+      const chosen = pickStripeSubscription(await this.listLiveSubscriptions(customerId));
+      if (!chosen || !holdsBillingSubscription(chosen.status)) return;
+      const item = chosen.subscription.items.data[0];
+      if (!item || item.quantity === seats) return;
+      try {
+        await this.request("POST", `/v1/subscription_items/${encodeURIComponent(item.id)}`, {
+          quantity: seats,
+          proration_behavior: "create_prorations",
+        });
+        return;
+      } catch (error) {
+        await this.rethrowUnlessEnded(error, customerId, chosen.subscription.id);
+      }
+    }
   }
 
   async cancelCustomerSubscriptions(customerId: string) {
@@ -185,9 +193,12 @@ export class StripeBillingProvider implements BillingProvider {
     await this.expireOpenCheckouts(customerId).catch(ignoreDeletedCustomer);
     for (const subscription of await this.listLiveSubscriptions(customerId)) {
       // Only terminal states; unpaid and paused subscriptions can still resume and charge.
-      if (subscription.status === "canceled" || subscription.status === "incomplete_expired")
-        continue;
-      await this.request("DELETE", `/v1/subscriptions/${encodeURIComponent(subscription.id)}`);
+      if (mapStripeSubscriptionStatus(subscription.status) === "canceled") continue;
+      try {
+        await this.request("DELETE", `/v1/subscriptions/${encodeURIComponent(subscription.id)}`);
+      } catch (error) {
+        await this.rethrowUnlessEnded(error, customerId, subscription.id);
+      }
     }
   }
 
@@ -218,6 +229,16 @@ export class StripeBillingProvider implements BillingProvider {
         }
       }
     }
+  }
+
+  /** A write Stripe refused because the subscription ended since it was read has nothing left to do. */
+  private async rethrowUnlessEnded(error: unknown, customerId: string, subscriptionId: string) {
+    if (!(error instanceof StripeRequestError && error.type === "invalid_request_error"))
+      throw error;
+    const fresh = (await this.listLiveSubscriptions(customerId)).find(
+      (s) => s.id === subscriptionId,
+    );
+    if (fresh && mapStripeSubscriptionStatus(fresh.status) !== "canceled") throw error;
   }
 
   /** Deleting a customer cancels its subscriptions, so a deleted one has none left. */
@@ -336,6 +357,16 @@ export function pickBillingSubscription<
     newestFirst.find((s) => grantsAccess(s.status)) ??
     newestFirst.find((s) => holdsBillingSubscription(s.status)) ??
     newestFirst[0]
+  );
+}
+
+function pickStripeSubscription(subscriptions: StripeSubscription[]) {
+  return pickBillingSubscription(
+    subscriptions.map((subscription) => ({
+      subscription,
+      status: mapStripeSubscriptionStatus(subscription.status),
+      created: subscription.created,
+    })),
   );
 }
 
