@@ -143,6 +143,51 @@ test("first run offers Rakazo Cloud first, with local and existing instances", a
   }
 });
 
+test("Rakazo Cloud saves the hosted address and is reselected when saved", async () => {
+  app = await launch();
+  const setup = await app.firstWindow();
+  await expect(setup.getByRole("radio", { name: /Rakazo Cloud/ })).toBeChecked();
+  await expect(setup.getByRole("button", { name: "Continue" })).toBeEnabled();
+
+  // Capture the request instead of reaching the hosted server, so CI stays offline.
+  const { cloudUrl } = await setup.evaluate(() =>
+    (
+      window as typeof window & { rakazoSetup: { state: () => Promise<{ cloudUrl: string }> } }
+    ).rakazoSetup.state(),
+  );
+  expect(cloudUrl).toMatch(/^https:\/\//);
+  await app.evaluate(({ ipcMain }) => {
+    const state = globalThis as typeof globalThis & { cloudSaves?: unknown[] };
+    state.cloudSaves = [];
+    ipcMain.removeHandler("desktop.setup.save");
+    ipcMain.handle("desktop.setup.save", (_event, payload: unknown) => {
+      state.cloudSaves?.push(payload);
+      return { ok: false, error: "Captured." };
+    });
+  });
+  await setup.getByRole("button", { name: "Continue" }).click();
+  await expect(setup.locator("#status")).toHaveText("Captured.");
+  expect(
+    await app.evaluate(
+      () => (globalThis as typeof globalThis & { cloudSaves?: unknown[] }).cloudSaves,
+    ),
+  ).toEqual([{ mode: "existing", serverUrl: cloudUrl }]);
+  expect(await readFile(path.join(userData, "setup.json"), "utf8").catch(() => null)).toBeNull();
+
+  // A saved Cloud setup reopens with Cloud chosen, not as a typed existing address.
+  await app.evaluate(({ ipcMain }, url) => {
+    ipcMain.removeHandler("desktop.setup.state");
+    ipcMain.handle("desktop.setup.state", () => ({
+      defaultLocalUrl: "http://127.0.0.1:45173",
+      cloudUrl: url,
+      saved: { mode: "existing", serverUrl: url },
+    }));
+  }, cloudUrl);
+  await setup.reload();
+  await expect(setup.getByRole("radio", { name: /Rakazo Cloud/ })).toBeChecked();
+  await expect(setup.locator("#panel-existing")).toBeHidden();
+});
+
 test("connecting to an existing instance verifies, saves, and opens it", async () => {
   app = await launch();
   const setup = await app.firstWindow();
