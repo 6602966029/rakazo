@@ -10,7 +10,6 @@ import type {
   ComputerReleaseReason,
   ComputerStatus,
   Connection,
-  ConnectionCatalogItem,
   Group,
   Me,
   MessageReaction,
@@ -2145,7 +2144,7 @@ function SpaceShell() {
     if (!initialBotsLoaded || bots.length === 0) {
       setMentionRoutines([]);
       setMentionConnectors([]);
-      return;
+      if (!initialBotsLoaded) return;
     }
     let cancelled = false;
     const botNameById = new Map(bots.map((bot) => [bot.id, bot.name]));
@@ -2166,11 +2165,11 @@ function SpaceShell() {
     });
     void Promise.all([
       rpc.connections.list().catch(() => [] as Connection[]),
-      rpc.connections.catalog({}).catch(() => [] as ConnectionCatalogItem[]),
+      rpc.connections.catalog({}).catch(() => null),
     ]).then(([connections, catalog]) => {
       if (cancelled) return;
       const connected = connections.filter((row) => row.status === "connected");
-      setFooterLogos(connectedAppMarks(catalog, connections));
+      if (catalog) setFooterLogos(connectedAppMarks(catalog, connections));
       const options: Array<{
         id: string;
         name: string;
@@ -2182,7 +2181,7 @@ function SpaceShell() {
         authStatus: "connected" as const,
         connectionId: row.id,
       }));
-      for (const item of catalog) {
+      for (const item of catalog ?? []) {
         if (item.connected || item.noAuth) continue;
         if (
           connected.some(
@@ -2199,7 +2198,7 @@ function SpaceShell() {
           authStatus: "needs_auth",
         });
       }
-      setMentionConnectors(options);
+      setMentionConnectors(bots.length ? options : []);
     });
     return () => {
       cancelled = true;

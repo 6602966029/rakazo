@@ -354,6 +354,27 @@ test("footer app marks follow the integrations overlay", async ({ page }) => {
   await expect(footer.locator("img")).toHaveAttribute("src", logo);
   await page.getByRole("button", { name: "Close integrations", exact: true }).click();
   await expect(footer.getByRole("button", { name: "Connect apps", exact: true })).toBeVisible();
+  failCatalog = true;
+  const failedRefresh = page.waitForResponse(
+    (response) => response.url().includes("connections/catalog") && response.status() === 503,
+  );
+  await page
+    .getByRole("button", { name: /^Chief/ })
+    .first()
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Chief copy/ }).first()).toBeVisible();
+  await failedRefresh;
+  await expect(footer.locator("img")).toHaveAttribute("src", logo);
+  failCatalog = false;
+  for (const name of [/^Chief copy/, /^Chief/]) {
+    const bot = page.getByRole("button", { name }).first();
+    await bot.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
+    await expect(bot).toBeHidden();
+  }
+  await page.reload();
+  await expect(footer.locator("img")).toHaveAttribute("src", logo);
   listed = false;
   await footer.getByRole("button", { name: "Connect apps", exact: true }).click();
   await expect(footer.locator("img")).toHaveCount(0);
