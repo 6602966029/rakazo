@@ -547,7 +547,7 @@ and conservative kernel/network protections. Keep the provider console open unti
 succeeds after the script reloads SSH.
 
 ```bash
-sudo DEPLOY_USER=deploy bash infra/compose/harden-host.sh
+sudo --preserve-env=SSH_CONNECTION DEPLOY_USER=deploy bash infra/compose/harden-host.sh
 ```
 
 The production host also uses `infra/compose/docker-daemon.json` to enable live restore, bounded local
@@ -634,19 +634,53 @@ content while a digest is present.
 For the single-VM production layout, install `infra/compose/backup-prod.sh` as
 `/usr/local/sbin/rakazo-backup` and enable the supplied `rakazo-backup.timer`. It creates a verified
 Postgres custom-format dump plus an application-data archive under `/var/backups/rakazo`, with mode
-`0600`. It keeps the newest `RAKAZO_BACKUP_KEEP` verified snapshots (default `3`) and removes
-older ones only after a new snapshot verifies. It fails before writing if the disk has less free
-space than the last snapshot used, and a failed run removes its partial snapshot. These local
-snapshots help with operator mistakes but are not a substitute for an encrypted off-host backup or
+`0600`. It keeps up to `RAKAZO_BACKUP_KEEP` verified snapshots (default `3`), bounded by
+`RAKAZO_BACKUP_MAX_GB` (default `50` GiB), and reserves `RAKAZO_BACKUP_MIN_FREE_GB` (default `5`
+GiB) of free disk space. Before starting, it removes abandoned partial snapshots and excess history,
+then checks capacity by scaling only the previous appdata archive by appdata source growth,
+plus the previous database dump size. Snapshots without source-size
+metadata use the raw source size for their initial estimate. It preserves the newest
+verified snapshot when capacity is insufficient, caps output file sizes, and removes a failed run's
+partial snapshot. These local snapshots are not a substitute for an encrypted off-host backup or
 provider snapshot.
 
 The scheduled backup uses `/srv/rakazo` by default. For another deployment directory, set
 `RAKAZO_DEPLOY_DIR=/absolute/path/to/checkout` in a root-owned `/etc/rakazo/backup.env`
 (mode `0600`). The service reads this optional file on each run; the script uses the selected
 checkout's `.env` and production Compose file. If the stack was started with a custom `-p`,
-set the same `COMPOSE_PROJECT_NAME` in that file. For a manual run, export these variables instead.
-Set `RAKAZO_BACKUP_KEEP` in the same file. When updating an existing backup installation, reinstall
-both the script and service unit, then run `systemctl daemon-reload`.
+set the same `COMPOSE_PROJECT_NAME` in that file. Set the retention and space settings there too.
+When updating an existing installation, reinstall the script and units, then run
+`systemctl daemon-reload`; pulling the repository does not update `/usr/local/sbin` copies.
+
+For a dedicated backup disk, mount it persistently and bind its `backups` directory onto
+`/var/backups` in `/etc/fstab`. Add `x-systemd.requires-mounts-for=/mnt/your-backup-volume` to the bind
+mount options. Set `RAKAZO_BACKUP_REQUIRE_VOLUME=1` and add a service drop-in containing
+`RequiresMountsFor=/var/backups` and `AssertPathIsMountPoint=/var/backups` under `[Unit]`. The script
+then refuses to fall back to root storage if the mount is missing or points at the root filesystem.
+
+Monitoring is opt-in. Install `host-alert.py` as `/usr/local/sbin/rakazo-host-alert` and
+`check-host.sh` as `/usr/local/sbin/rakazo-host-check`, then install the supplied host-check service
+and timer and enable `rakazo-host-check.timer`. Checks run every five minutes and report low disk
+space, failed backups, a verified backup older than 36 hours, or missing configured IPv4 SSH rules.
+The dedicated-volume check is enabled only by `RAKAZO_BACKUP_REQUIRE_VOLUME=1` in `backup.env`.
+Identical alerts are suppressed for a day; recovery sends a separate notification.
+
+Alerts go to the system journal by default; no external service is required. For optional Slack
+delivery, create a root-only `/etc/rakazo/alerts.json` containing
+`{"slack_webhook":"https://hooks.slack.com/services/REPLACE/ME/SECRET"}`. Never commit this file.
+To notify immediately on backup failure, also install `rakazo-backup-alert.service` and copy
+`infra/systemd/rakazo-backup-alerts.conf.example` to
+`/etc/systemd/system/rakazo-backup.service.d/alerts.conf`. Run `systemctl daemon-reload` after
+installing units or drop-ins. The base backup service does not require the monitoring tools.
+
+Host hardening preserves existing firewall rules and installs `firewall-change.sh` as
+`/usr/local/sbin/rakazo-firewall-change`. For subsequent firewall edits, use
+`sudo --preserve-env=SSH_CONNECTION /usr/local/sbin/rakazo-firewall-change apply COMMAND...`.
+This requires `SSH_CONNECTION` to be preserved, saves both `/etc/ufw` and `/etc/default/ufw`,
+and arms a three-minute rollback before running the command.
+Open a **new SSH connection** and run the printed `confirm TOKEN` command; confirmation from the
+original connection is rejected. An unconfirmed change restores the saved rules and default policies.
+The guard does not protect arbitrary direct `ufw` commands or SSH daemon configuration changes.
 
 To deploy from CI, install `infra/compose/deploy-main.sh` as `/usr/local/sbin/rakazo-deploy-main`
 and give CI a key restricted to it in the deploy user's `authorized_keys`
