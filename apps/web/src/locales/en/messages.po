@@ -2432,6 +2432,7 @@ msgid "Filter by date"
 msgstr "Filter by date"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/Shell.tsx
 msgid "Filters"
 msgstr "Filters"
 
@@ -4211,10 +4212,6 @@ msgstr "Say yes or no, or answer in a sentence."
 msgid "Search"
 msgstr "Search"
 
-#: src/pages/ActivityList.tsx
-msgid "Search activity"
-msgstr "Search activity"
-
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Search apps"
@@ -4244,7 +4241,7 @@ msgstr "Search models"
 msgid "Search providers"
 msgstr "Search providers"
 
-#: src/pages/ActivityList.tsx
+#: src/pages/Shell.tsx
 msgid "Search runs"
 msgstr "Search runs"
 

@@ -2432,6 +2432,7 @@ msgid "Filter by date"
 msgstr "סינון לפי תאריך"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/Shell.tsx
 msgid "Filters"
 msgstr "מסננים"
 
@@ -4211,10 +4212,6 @@ msgstr "אפשר לענות כן או לא, או במשפט."
 msgid "Search"
 msgstr "חיפוש"
 
-#: src/pages/ActivityList.tsx
-msgid "Search activity"
-msgstr "חיפוש בפעילות"
-
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Search apps"
@@ -4244,7 +4241,7 @@ msgstr "חיפוש מודלים"
 msgid "Search providers"
 msgstr "חיפוש ספקים"
 
-#: src/pages/ActivityList.tsx
+#: src/pages/Shell.tsx
 msgid "Search runs"
 msgstr "חיפוש הרצות"
 

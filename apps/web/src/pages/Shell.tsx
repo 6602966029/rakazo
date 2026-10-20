@@ -81,6 +81,7 @@ import {
   GroupAvatar,
   InputGroup,
   InputGroupAddon,
+  InputGroupButton,
   InputGroupInput,
   Popover,
   PopoverContent,
@@ -115,6 +116,7 @@ import {
   Reply,
   Search,
   Settings,
+  SlidersHorizontal,
   Smile,
   Square,
   SquareKanban,
@@ -170,6 +172,8 @@ import { SkillDraftCard } from "../components/teach/SkillDraftCard";
 import { TeachCaptureOverlay } from "../components/teach/TeachCaptureOverlay";
 import { TeachComputerOverlayControl } from "../components/teach/TeachComputerOverlay";
 import { TeachRecordingChrome, TeachStopButton } from "../components/teach/TeachRecordingChrome";
+import type { ActivityListFilters } from "../lib/activity-list-filters";
+import { emptyActivityFilters } from "../lib/activity-list-filters";
 import { readActivityMode, writeActivityMode } from "../lib/activity-mode";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { authClient } from "../lib/auth";
@@ -697,7 +701,17 @@ function SpaceShell() {
     return () => desktop.removeEventListener("change", closeMobileSidebar);
   }, []);
   const [activityMode, setActivityMode] = useState(readActivityMode);
+  const [activityFilters, setActivityFilters] = useState<ActivityListFilters>(emptyActivityFilters);
+  const [activityFiltersExpanded, setActivityFiltersExpanded] = useState(false);
+  const activityFiltersId = useId();
+  const activityFilterCount =
+    Number(activityFilters.status !== "all") +
+    Number(Boolean(activityFilters.dateRange.from)) +
+    Number(Boolean(activityFilters.dateRange.to));
   const toggleActivityMode = useCallback(() => {
+    setQuery("");
+    setActivityFilters(emptyActivityFilters());
+    setActivityFiltersExpanded(false);
     setActivityMode((on) => {
       const next = !on;
       writeActivityMode(next);
@@ -1869,7 +1883,7 @@ function SpaceShell() {
     [userId],
   );
   const spaceQuery = query.trim();
-  const showSpaceSearch = spaceQuery.length > 0;
+  const showSpaceSearch = !activityMode && spaceQuery.length > 0;
 
   useEffect(() => {
     if (!showSpaceSearch) {
@@ -3202,12 +3216,42 @@ function SpaceShell() {
             <Search size={16} strokeWidth={1.8} aria-hidden="true" />
           </InputGroupAddon>
           <InputGroupInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t`Search`}
+            value={activityMode ? activityFilters.query : query}
+            onChange={(e) => {
+              if (activityMode) setActivityFilters({ ...activityFilters, query: e.target.value });
+              else setQuery(e.target.value);
+            }}
+            onKeyDown={(event) => {
+              if (activityMode && event.key === "Escape") {
+                setActivityFilters({ ...activityFilters, query: "" });
+              }
+            }}
+            placeholder={activityMode ? t`Search runs` : t`Search`}
+            aria-label={activityMode ? t`Search runs` : t`Search`}
             autoComplete="off"
             name="sidebar-search"
           />
+          {activityMode ? (
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                size="icon-sm"
+                aria-label={t`Filters`}
+                aria-expanded={activityFiltersExpanded}
+                aria-controls={activityFiltersId}
+                onClick={() => setActivityFiltersExpanded((expanded) => !expanded)}
+                className="relative rounded-lg"
+              >
+                <SlidersHorizontal size={16} aria-hidden="true" />
+                {activityFilterCount > 0 ? (
+                  <span
+                    data-testid="activity-filter-indicator"
+                    aria-hidden="true"
+                    className="absolute end-1 top-1 size-1.5 rounded-full bg-primary"
+                  />
+                ) : null}
+              </InputGroupButton>
+            </InputGroupAddon>
+          ) : null}
         </InputGroup>
         <div className="rk-scroll flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pb-2.5">
           {showSpaceSearch ? (
@@ -3220,6 +3264,10 @@ function SpaceShell() {
             <>
               {activityMode ? (
                 <ActivityList
+                  filters={activityFilters}
+                  onFiltersChange={setActivityFilters}
+                  filtersExpanded={activityFiltersExpanded}
+                  filtersId={activityFiltersId}
                   onOpenRun={(run) => {
                     setMobileSidebarOpen(false);
                     if (run.groupId) navigate(`/app/g/${run.groupId}`);
