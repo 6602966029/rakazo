@@ -3290,7 +3290,11 @@ function SpaceShell() {
                     : null;
                 const headerDropKey = `header:${group.key}`;
                 return (
-                  <div key={group.key} data-sidebar-group={group.key}>
+                  <div
+                    key={group.key}
+                    data-sidebar-group={group.key}
+                    className="flex flex-col gap-0.5"
+                  >
                     {group.title || hasSpaceActions ? (
                       // biome-ignore lint/a11y/useSemanticElements: groups sidebar controls, not form fields; Move to remains the keyboard alternative.
                       <div
