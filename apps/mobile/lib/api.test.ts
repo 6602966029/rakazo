@@ -291,6 +291,16 @@ describe("mobile API authentication", () => {
     });
   });
 
+  it.each(["", "   ", "💬", "__AbCdEfGh__", "x".repeat(81)])(
+    "rejects an unsupported name before making a request (%s)",
+    async (name) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(updateAccountName(name)).rejects.toThrow("Could not update name");
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
   it("reports a failed account name update", async () => {
     vi.stubGlobal(
       "fetch",

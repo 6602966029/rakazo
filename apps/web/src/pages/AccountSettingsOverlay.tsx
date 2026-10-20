@@ -90,6 +90,10 @@ export function GeneralSettingsPanels({
   async function saveName() {
     const nextName = nameDraft.trim();
     if (namePending || !nextName || nextName.length > 80) return;
+    if (!displayName(nextName, "")) {
+      setNameError(t`Could not update name`);
+      return;
+    }
     setNamePending(true);
     setNameError(null);
     try {

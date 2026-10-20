@@ -381,7 +381,12 @@ export default function Account() {
             <SettingsRow
               accessibilityRole="button"
               accessibilityLabel={t("Edit name")}
-              accessibilityValue={{ text: account.label }}
+              accessibilityValue={{
+                text:
+                  me?.email && account.label !== me.email
+                    ? `${account.label}, ${me.email}`
+                    : account.label,
+              }}
               chevron="right"
               disabled={!me}
               detail={me?.email && account.label !== me.email ? me.email : undefined}

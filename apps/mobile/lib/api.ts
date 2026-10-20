@@ -27,6 +27,7 @@ import {
   cancelResponseBody,
   displayIdentityEvent,
   displayIdentityResult,
+  displayName,
   ensureAiDataConsent,
   isRunTerminalEvent,
   isServerUnreachable,
@@ -571,6 +572,10 @@ export async function requestPasswordReset(email: string, redirectTo: string): P
 }
 
 export async function updateAccountName(name: string): Promise<void> {
+  const nextName = name.trim();
+  if (!nextName || nextName.length > 80 || !displayName(nextName, "")) {
+    throw new Error(t("Could not update name"));
+  }
   const { response, body } = await fetchMobileJson<unknown>(
     `${currentApiBase()}/api/auth/update-user`,
     {
@@ -580,7 +585,7 @@ export async function updateAccountName(name: string): Promise<void> {
         origin: "rakazo://",
         ...(await authHeaders()),
       },
-      body: JSON.stringify({ name: name.trim() }),
+      body: JSON.stringify({ name: nextName }),
     },
     {},
   );

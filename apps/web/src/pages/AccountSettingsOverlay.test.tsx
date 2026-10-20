@@ -360,6 +360,28 @@ it.each(["__AbCdEfGh__", "demo", "demo@example.com"])(
   },
 );
 
+it.each(["💬", "__AbCdEfGh__"])(
+  "rejects unsupported name %s without losing the current name",
+  async (name) => {
+    vi.mocked(authClient.updateUser).mockClear();
+    const editor = await renderNameEditor();
+    try {
+      await editor.change(name);
+      await editor.submit();
+      expect(authClient.updateUser).not.toHaveBeenCalled();
+      expect(editor.onNameSaved).not.toHaveBeenCalled();
+      expect(editor.input.value).toBe(name);
+      expect(editor.card.querySelector('[role="alert"]')?.textContent).toBe(
+        "Could not update name",
+      );
+      await act(async () => editor.button("Cancel").click());
+      expect(editor.card.textContent).toContain("Alex Rivera");
+    } finally {
+      await editor.cleanup();
+    }
+  },
+);
+
 it.each(["response", "network"])(
   "keeps the draft and shows an inline %s error",
   async (failure) => {

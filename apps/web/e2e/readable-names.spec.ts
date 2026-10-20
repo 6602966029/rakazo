@@ -53,6 +53,11 @@ test("legacy opaque names never appear in navigation, account, chats or Activity
     await expect(page.getByTestId("user-settings")).toBeVisible();
     await expect(nameInput).toBeHidden();
     await accountCard.getByRole("button", { name: "Edit", exact: true }).click();
+    await nameInput.fill("💬");
+    await nameInput.press("Enter");
+    await expect(accountCard.getByRole("alert")).toHaveText("Could not update name");
+    await expect(nameInput).toHaveValue("💬");
+    await expect(page.getByTestId("user-menu-trigger")).toContainText(email);
     await nameInput.fill("  Alex Rivera  ");
     await nameInput.press("Enter");
     await expect(nameInput).toBeHidden();
