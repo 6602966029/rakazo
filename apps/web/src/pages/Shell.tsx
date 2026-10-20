@@ -1506,8 +1506,8 @@ function SpaceShell() {
         rpc.threads.head({ botId: active.id }, { signal: threadSnapshotSignal(abort.signal) }),
       refresh: () => refreshThread(active.id, threadSnapshotSignal(abort.signal)),
       currentSnapshot: () => snapshotRef.current,
-      subscribe: (cursor) =>
-        rpc.threads.subscribe({ botId: active.id, cursor }, { signal: abort.signal }),
+      subscribe: (cursor, signal) =>
+        rpc.threads.subscribe({ botId: active.id, cursor }, { signal }),
       beforeEvent: (event) => {
         if (isRunTerminalEvent(event) && event.runId) {
           terminalRunReceipts.current.add(event.runId);
@@ -1618,7 +1618,7 @@ function SpaceShell() {
       loadHead: () => rpc.threads.head({ groupId }, { signal: threadSnapshotSignal(abort.signal) }),
       refresh: () => refreshGroupThread(groupId, threadSnapshotSignal(abort.signal)),
       currentSnapshot: () => snapshotRef.current,
-      subscribe: (cursor) => rpc.threads.subscribe({ groupId, cursor }, { signal: abort.signal }),
+      subscribe: (cursor, signal) => rpc.threads.subscribe({ groupId, cursor }, { signal }),
       applyEvent: (event) =>
         applyThreadEvent(
           event,

@@ -72,6 +72,8 @@ const link = new RPCLink<RpcClientContext>({
     return fetch(request, {
       headers: withSpaceHeaders(request.headers, spaceId),
       credentials: "include",
+      // Keep cancellation attached directly to fetch rather than only a cloned Request.
+      signal: options.signal,
     });
   },
 });
