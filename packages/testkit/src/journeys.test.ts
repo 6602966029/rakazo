@@ -6,6 +6,7 @@ import {
   ComposioEmulator,
   createScheduleFromTool,
   DesktopSandboxProvider,
+  DestinationEmulator,
   FakeSandboxProvider,
   handoffToGroupBot,
   ManagedSandboxEmulator,
@@ -39,7 +40,7 @@ describeJourneys("required product journeys", () => {
   let app: App;
   let stop: () => Promise<void>;
   let prisma: Awaited<ReturnType<typeof createApp>>["prisma"];
-  let connector: Awaited<ReturnType<typeof createApp>>["connector"];
+  const connector = new DestinationEmulator();
   let executor: Awaited<ReturnType<typeof createApp>>["executor"];
   let jobs: Awaited<ReturnType<typeof createApp>>["jobs"];
   let sandbox: Awaited<ReturnType<typeof createApp>>["sandbox"];
@@ -122,11 +123,11 @@ describeJourneys("required product journeys", () => {
       sandboxProvider: "fake",
       agentRuntime: "scripted",
       composio: new ComposioEmulator(),
+      connectors: [connector],
     });
     app = handles.app;
     stop = handles.stop;
     prisma = handles.prisma;
-    connector = handles.connector;
     executor = handles.executor;
     jobs = handles.jobs;
     sandbox = handles.sandbox;
@@ -1517,9 +1518,6 @@ describeJourneys("required product journeys", () => {
     expect(connector.records.length).toBeGreaterThan(before);
     const snap = await rpc<Snap>(app, cookie, "threads/get", { botId: bot.id });
     expect(JSON.stringify(snap)).not.toContain(secret);
-    const inspect = await fetch(`http://127.0.0.1:${connector.port}/records`);
-    const records = (await inspect.json()) as unknown[];
-    expect(records.length).toBeGreaterThan(0);
   });
 
   it("8: retrying a completed effect does not duplicate the destination write", async () => {

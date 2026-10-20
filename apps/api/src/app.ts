@@ -4,6 +4,7 @@ import type {
   AgentContextStrategy,
   AgentRuntime,
   BillingProvider,
+  ConnectorProvider,
   JobPublisher,
   ManagedConnectorProvider,
   MessagingSurface,
@@ -16,7 +17,6 @@ import { SandboxRateLimitError } from "@rakazo/adapter-kit";
 import type {
   ComposioProvider,
   ConnectorRegistry,
-  DestinationEmulator,
   RemoteConnectorDependencies,
 } from "@rakazo/adapters";
 import {
@@ -148,7 +148,6 @@ export interface AppHandles {
   prisma: PrismaClient;
   jobs: JobPublisher;
   sandbox: SandboxProvider;
-  connector: DestinationEmulator;
   composio?: ComposioProvider;
   connectors: ConnectorRegistry;
   messaging?: MessagingSurface;
@@ -167,6 +166,8 @@ export async function createApp(
     realtime?: RealtimeFanout;
     sandbox?: SandboxProvider;
     composio?: ComposioProvider;
+    /** Test-only connector providers registered beside the configured ones. */
+    connectors?: ConnectorProvider[];
     pipedream?: ManagedConnectorProvider;
     messaging?: MessagingSurface;
     email?: TransactionalEmailProvider;
@@ -183,6 +184,7 @@ export async function createApp(
     realtime: realtimeOverride,
     sandbox: sandboxOverride,
     composio: composioOverride,
+    connectors: connectorOverrides = [],
     pipedream: pipedreamOverride,
     messaging: messagingOverride,
     email: emailOverride,
@@ -379,15 +381,14 @@ export async function createApp(
         : undefined),
     pipedream,
   });
-  const stack = createConnectorStack(false, composioOverride, [
+  const stack = createConnectorStack(composioOverride, [
     installed,
     ...integrationSettings
       .providers()
       .filter((provider) => !composioOverride || provider.describe().id !== "composio"),
     mcp,
+    ...connectorOverrides,
   ]);
-  const connector = stack.destination;
-  await connector.start();
   integrationSettings.warmDirectories();
   const runtime =
     runtimeOverride ??
@@ -999,7 +1000,6 @@ export async function createApp(
     prisma,
     jobs,
     sandbox,
-    connector,
     composio: stack.composio,
     connectors: stack.connector,
     messaging,
@@ -1035,7 +1035,6 @@ export async function createApp(
       await jobs.close();
       await secrets.close();
       await realtime.close();
-      await connector.stop();
       await mcp.close();
       await prisma.$disconnect().catch(() => undefined);
       await created.pool?.end().catch(() => undefined);
