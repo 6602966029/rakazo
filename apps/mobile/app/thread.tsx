@@ -3718,7 +3718,7 @@ const MessageBubble = memo(function MessageBubble({
       <View style={{ gap: 8, width: "100%" }}>
         <View
           style={{
-            width: "100%",
+            // No percentage width: the iOS menu host has no definite width to resolve it against.
             maxWidth: 576,
             borderRadius: 18,
             borderWidth: 1,
