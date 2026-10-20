@@ -83,11 +83,17 @@ export function RunErrorSheet({
           paddingBottom: Platform.OS === "ios" ? 0 : insets.bottom,
         }}
       >
+        {/* Keep the close target inside the scroll bounds without moving the headline. */}
         <ScrollView
-          style={{ flexGrow: 0, maxHeight: height * 0.9 - 28 }}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 16, gap: 16 }}
+          style={{ flexGrow: 0, maxHeight: height * 0.9 - 28, marginTop: -11 }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 11,
+            paddingBottom: 16,
+            gap: 16,
+          }}
         >
-          <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start", minHeight: 30 }}>
             <View style={{ paddingTop: 2.5 * fontScale }}>
               <NativeSymbol
                 ios="exclamationmark.triangle.fill"
@@ -107,7 +113,13 @@ export function RunErrorSheet({
             >
               {error.summary}
             </Text>
-            <View>
+            <View
+              style={{
+                height: 22 * fontScale,
+                justifyContent: "center",
+                transform: [{ translateY: 1.5 * fontScale }],
+              }}
+            >
               <SheetCloseButton onPress={onClose} />
             </View>
           </View>

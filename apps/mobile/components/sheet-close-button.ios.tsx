@@ -16,7 +16,7 @@ export function SheetCloseButton({ onPress }: { onPress: () => void }) {
   const { t } = useI18n();
   const tokens = useMobileTokens();
   return (
-    <View style={{ width: 30, height: 44, marginBottom: -14 }}>
+    <View style={{ width: 30, height: 44 }}>
       <Host
         colorScheme={useResolvedAppearance()}
         ignoreSafeArea="container"
@@ -29,7 +29,7 @@ export function SheetCloseButton({ onPress }: { onPress: () => void }) {
           <ZStack
             modifiers={[
               frame({ width: 30, height: 30 }),
-              background(tokens.muted, shapes.circle()),
+              background(tokens.accent, shapes.circle()),
               frame({ width: 44, height: 44 }),
             ]}
           >
