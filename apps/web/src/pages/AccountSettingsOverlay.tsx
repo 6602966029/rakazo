@@ -22,7 +22,7 @@ import { ComputersUnavailableHint } from "../components/ComputersUnavailableHint
 import { DesktopUpdateSection } from "../components/DesktopUpdates";
 import { ListboxSelect } from "../components/ListboxSelect";
 import type { ServerUpdateLoad } from "../components/SoftwareUpdateSection";
-import { SoftwareUpdateSection } from "../components/SoftwareUpdateSection";
+import { hasServerUpdates, SoftwareUpdateSection } from "../components/SoftwareUpdateSection";
 import { authClient } from "../lib/auth";
 import {
   getBotsSidebarDensity,
@@ -460,7 +460,7 @@ export function UpdatesSettingsPanel({ serverUpdate }: { serverUpdate: ServerUpd
   return (
     <div className="space-y-5">
       <DesktopUpdateSection />
-      {serverUpdate.loading ? null : <SoftwareUpdateSection load={serverUpdate} />}
+      {hasServerUpdates(serverUpdate) ? <SoftwareUpdateSection load={serverUpdate} /> : null}
     </div>
   );
 }

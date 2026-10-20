@@ -251,3 +251,26 @@ it("shows Updates in the desktop app", async () => {
     await cleanup();
   }
 });
+
+it("leaves Updates for General once the status shows nothing to update", async () => {
+  let resolveStatus: (status: unknown) => void = () => undefined;
+  updaterStatus.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveStatus = resolve;
+      }),
+  );
+  const { container, cleanup } = await render({
+    isDeploymentOwner: true,
+    initialSection: "updates",
+  });
+  const selected = () =>
+    container.querySelector('[data-testid="user-settings"]')?.getAttribute("data-settings-section");
+  try {
+    expect(selected()).toBe("updates");
+    await act(async () => resolveStatus({ installKind: "compose" }));
+    expect(selected()).toBe("general");
+  } finally {
+    await cleanup();
+  }
+});
