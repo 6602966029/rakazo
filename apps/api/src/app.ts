@@ -398,7 +398,7 @@ export async function createApp(
         }));
   const notifications =
     notificationsOverride ??
-    new ExpoPushProvider(env.dataDir, (sessionId) => pushSessionExpiresAt(prisma, sessionId));
+    new ExpoPushProvider(env.dataDir, (sessionId) => pushSessionExpiresAt(prisma, sessionId), jobs);
   const auth = createAuth(prisma, {
     passwordAuth: env.passwordAuth,
     oidc: env.oidc,

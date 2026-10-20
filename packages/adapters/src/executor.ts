@@ -8036,7 +8036,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             await notifyRun(deps, run, {
               kind: "failure",
               title: `${displayName(bot.name, "Bot")} failed`,
-              body: message.slice(0, 180),
+              body: message,
               botId: bot.id,
               threadId: thread.id,
             });
@@ -8222,7 +8222,7 @@ async function notifyFailedRoutineRun(
     {
       kind: "failure",
       title: `${displayName(bot.name, "Bot")} failed`,
-      body: (failed.error ?? "").slice(0, 180),
+      body: failed.error ?? "",
       botId: failed.botId,
       threadId: failed.threadId,
     },

@@ -179,8 +179,10 @@ async function main() {
   // One provider instance so emulator launches and polls share the same Map.
   const cloudAgent = createCloudAgentConnection();
   // Shared with the reconciler so a stuck wait uses the same push path as a finish notice.
-  const notifications = new ExpoPushProvider(dataDir, (sessionId) =>
-    pushSessionExpiresAt(prisma, sessionId),
+  const notifications = new ExpoPushProvider(
+    dataDir,
+    (sessionId) => pushSessionExpiresAt(prisma, sessionId),
+    jobs,
   );
   const executor = createRunExecutor({
     maxUploadSizeBytes: uploadSizeFromEnv(process.env),
@@ -249,6 +251,7 @@ async function main() {
     deploymentModelConfigured,
     messaging,
     cloudAgent,
+    notifications,
   });
   // graphile-worker run() connects through the shared pool. createPool already
   // retries connect() on 53300 a finite number of times. Keep retrying start
