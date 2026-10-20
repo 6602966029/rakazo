@@ -301,6 +301,14 @@ describe("mobile API authentication", () => {
     },
   );
 
+  it("keeps the recovery instruction from a rejected name update", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ code: "REAUTHENTICATION_REQUIRED" }, { status: 403 })),
+    );
+    await expect(updateAccountName("Alex Rivera")).rejects.toThrow("Sign in again");
+  });
+
   it("reports a failed account name update", async () => {
     vi.stubGlobal(
       "fetch",

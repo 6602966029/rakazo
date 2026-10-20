@@ -96,8 +96,8 @@ export default function Account() {
       await updateAccountName(name);
       setMe(await rpc<MobileMe>("me"));
       setEditingName(false);
-    } catch {
-      setNameError(t("Could not update name"));
+    } catch (err) {
+      setNameError(errorText(err, t("Could not update name")));
     } finally {
       setNamePending(false);
     }
