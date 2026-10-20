@@ -87,6 +87,15 @@ const structuredData = homeStructuredData({
                     : /Macintosh/.test(ua)
                       ? "mac"
                       : "web";
+          // Chromium freezes the Linux UA at x86_64; the AppImage is x64-only.
+          if (document.documentElement.dataset.platform === "linux") {
+            navigator.userAgentData
+              ?.getHighEntropyValues(["architecture"])
+              .then(({ architecture }) => {
+                if (architecture !== "x86") document.documentElement.dataset.platform = "web";
+              })
+              .catch(() => undefined);
+          }
         })();
       </script>
 
