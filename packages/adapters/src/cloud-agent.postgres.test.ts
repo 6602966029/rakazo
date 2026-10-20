@@ -532,4 +532,39 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     });
     expect(await h.wakes()).toHaveLength(2);
   });
+
+  it("resends a follow-up the provider refused for its key or rate limit", async () => {
+    const h = await setup();
+    const id = await h.launch();
+    await h.poll(id);
+    await h.finish(id);
+    await h.tool("reply", { id, prompt: "Add tests" });
+    h.wire.apiKey = "revoked-key";
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ status: "running", followupDispatching: false });
+    h.wire.apiKey = "fake-key";
+    const replies = () =>
+      h.wire.requests.filter(
+        (request) => request.method === "POST" && request.path.endsWith("/runs"),
+      ).length;
+    h.wire.requests.length = 0;
+    // The pre-read succeeds; the follow-up POST itself is rate limited.
+    let limited = false;
+    h.connection.provider = new CursorCloudAgentProvider({
+      apiKey: "fake-key",
+      fetch: async (input, init) => {
+        if (!limited && init?.method === "POST") {
+          limited = true;
+          h.wire.failNextRequest = 429;
+        }
+        return h.wire.fetch(input, init);
+      },
+    });
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ followupDispatching: false });
+    expect((await h.state(id)).nextPollAt!.getTime()).toBeGreaterThan(Date.now() + 29_000);
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ followup: null, status: "running" });
+    expect(replies()).toBe(2);
+  });
 });

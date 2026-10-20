@@ -171,6 +171,11 @@ export async function pollCloudAgent(
             followupDispatching: false,
           });
         } catch (error) {
+          if (error instanceof CloudAgentRetryLater) {
+            // A refused request was never accepted, so the next poll resends it.
+            await retryPoll(deps, agent, error.retryAfterMs, { followupDispatching: false });
+            return;
+          }
           if (!(error instanceof CloudAgentRequestRejected)) throw error;
           await finishPoll(deps, agent, {
             status: rejectedStatus(error),
@@ -235,7 +240,12 @@ function rejectedStatus(error: CloudAgentRequestRejected) {
   return error.reason === "expired" ? "expired" : "failed";
 }
 
-async function retryPoll(deps: CloudAgentDeps, agent: CloudAgent, retryAfterMs?: number) {
+async function retryPoll(
+  deps: CloudAgentDeps,
+  agent: CloudAgent,
+  retryAfterMs?: number,
+  data: Prisma.CloudAgentUpdateManyMutationInput = {},
+) {
   const backoff = Math.min(60_000, 5_000 * 2 ** Math.min(agent.errorCount, 4));
   // Honor a provider's Retry-After, bounded so one response cannot park an agent for long.
   const delay =
@@ -244,6 +254,7 @@ async function retryPoll(deps: CloudAgentDeps, agent: CloudAgent, retryAfterMs?:
   const saved = await deps.prisma.cloudAgent.updateMany({
     where: fence(agent),
     data: {
+      ...data,
       nextPollAt,
       errorCount: { increment: 1 },
       leaseToken: null,
