@@ -234,11 +234,7 @@ function ActivityFilters({
   return (
     <div className="flex flex-col">
       <Collapsible open={expanded} className="contents">
-        <CollapsibleContent
-          id={id}
-          keepMounted
-          className="flex h-(--collapsible-panel-height) flex-col overflow-hidden transition-[height] duration-150 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none"
-        >
+        <CollapsibleContent id={id} keepMounted className="flex flex-col">
           <div className="space-y-2 pt-1 pb-2">
             <div>
               <Label htmlFor={statusId} className="text-[12.5px] text-muted-foreground/80">

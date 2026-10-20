@@ -244,7 +244,7 @@ export function RoutineRunHistory({ routineId }: { routineId: string }) {
         <div id={listId} className="mt-2">
           <ul className="divide-y divide-border">{runs.slice(0, 1).map(renderRun)}</ul>
           <Collapsible open={expanded} className="contents">
-            <CollapsibleContent className="flex h-(--collapsible-panel-height) flex-col overflow-hidden transition-[height] duration-150 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
+            <CollapsibleContent className="flex flex-col">
               <ul className="divide-y divide-border border-t border-border">
                 {runs.slice(1).map(renderRun)}
               </ul>

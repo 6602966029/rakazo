@@ -82,6 +82,8 @@
   details::details-content {
     block-size: 0;
     overflow: clip;
+    /* Keep focus rings of full-width controls visible. */
+    overflow-clip-margin: 4px;
     transition:
       block-size 150ms ease-out,
       content-visibility 150ms allow-discrete;

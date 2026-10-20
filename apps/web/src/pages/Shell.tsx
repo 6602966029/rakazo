@@ -3417,7 +3417,7 @@ function SpaceShell() {
                       </div>
                     ) : null}
                     <Collapsible open={!collapsed} className="contents">
-                      <CollapsibleContent className="flex h-(--collapsible-panel-height) flex-col gap-0.5 overflow-hidden transition-[height] duration-150 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
+                      <CollapsibleContent className="flex flex-col gap-0.5">
                         {nestedRows.map(({ item, depth, hasChildren, parentId }) => {
                           const parentCollapsed =
                             hasChildren && collapsedRosterParents.has(item.chat.id);
@@ -3715,7 +3715,7 @@ function SpaceShell() {
                 <span>{archivedBots.length + archivedGroups.length}</span>
               </button>
               <Collapsible open={archivedOpen} className="contents">
-                <CollapsibleContent className="flex h-(--collapsible-panel-height) flex-col overflow-hidden transition-[height] duration-150 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
+                <CollapsibleContent className="flex flex-col">
                   {archivedBots.map((bot) => (
                     <div key={bot.id} className="flex items-center gap-2 rounded-lg px-2.5 py-2">
                       <BotAvatar

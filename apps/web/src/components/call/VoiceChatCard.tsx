@@ -128,7 +128,7 @@ export function VoiceChatCard({
         </p>
       ) : null}
       <Collapsible open={open} className="contents">
-        <CollapsibleContent className="flex h-(--collapsible-panel-height) flex-col overflow-hidden transition-[height] duration-150 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
+        <CollapsibleContent className="flex flex-col">
           <div className="space-y-1.5 px-3 pb-3 text-sm">
             {transcript.map((line) => {
               if (!line.text) {

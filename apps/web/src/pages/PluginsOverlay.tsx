@@ -647,7 +647,7 @@ export function PluginsOverlay({
             />
           </button>
           <Collapsible open={toolsOpen} className="contents">
-            <CollapsibleContent className="flex h-(--collapsible-panel-height) flex-col overflow-hidden transition-[height] duration-150 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
+            <CollapsibleContent className="flex flex-col">
               <CardContent className="border-t border-border pt-3">
                 {toolsLoading ? (
                   <p className="text-sm text-muted-foreground">
