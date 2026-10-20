@@ -675,6 +675,11 @@ export type BackgroundJob = {
      * replaced. Omit to replace, which is what an explicit continue does.
      */
     keepExisting?: boolean;
+    /**
+     * With `keepExisting`, still replace a job a worker locked at or before this
+     * time. A worker that died never unlocks its job, so it would never run again.
+     */
+    replaceLockedBefore?: Date;
     /** Cap retried executions; omit to use the job queue's default. */
     maxAttempts?: number;
   };
