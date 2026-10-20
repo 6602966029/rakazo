@@ -244,9 +244,13 @@ async function main() {
       return notRun(
         "Semantic cases require --judge-connection and --judge-pricing; no inference was scheduled",
       );
-    const parsedJudge = ModelConnectInputSchema.safeParse(
-      readConnection(values["judge-connection"]),
-    );
+    let rawJudgeConnection: unknown;
+    try {
+      rawJudgeConnection = readConnection(values["judge-connection"]);
+    } catch {
+      return notRun("A valid judge model connection file is required; no inference was scheduled");
+    }
+    const parsedJudge = ModelConnectInputSchema.safeParse(rawJudgeConnection);
     if (!parsedJudge.success || !parsedJudge.data.modelId?.trim())
       return notRun("A valid judge model connection is required");
     const judgeConnection = parsedJudge.data;

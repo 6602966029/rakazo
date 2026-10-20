@@ -80,6 +80,12 @@ export const SILENCE_JUDGE_CALIBRATION = [
   },
   {
     outcome: "release",
+    chat: "v2.1.0 adds CSV import validation.",
+    pushes: ["v2.1.0 adds CSV import validation."],
+    pass: false,
+  },
+  {
+    outcome: "release",
     chat: "v2.2.0 adds a calendar integration.",
     pushes: ["v2.2.0 adds a calendar integration."],
     pass: false,

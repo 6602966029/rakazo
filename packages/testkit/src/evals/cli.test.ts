@@ -218,75 +218,83 @@ it("requires explicit judge configuration before scheduling semantic live cases"
   }
 });
 
-it.each(["missing", "malformed"])(
-  "does not disclose private judge pricing data when %s",
-  (kind) => {
-    const dir = mkdtempSync(path.join(tmpdir(), "eval-judge-pricing-"));
+it.each([
+  { file: "pricing", kind: "missing" },
+  { file: "pricing", kind: "malformed" },
+  { file: "connection", kind: "missing" },
+  { file: "connection", kind: "malformed" },
+])("records a safe failure when judge $file is $kind", ({ file, kind }) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "eval-judge-config-"));
+  try {
+    const output = path.join(dir, "report.json");
+    const connection = path.join(dir, "connection.json");
+    const pricing = path.join(dir, "pricing.json");
+    const privateFile = path.join(dir, "private-config.json");
+    writeFileSync(
+      connection,
+      JSON.stringify({
+        provider: "openai-compatible",
+        modelId: "fixture",
+        apiKey: "synthetic-secret",
+        baseUrl: "http://127.0.0.1:1/v1",
+      }),
+    );
+    writeFileSync(
+      pricing,
+      JSON.stringify({
+        source: "synthetic",
+        version: "1",
+        input: 1,
+        output: 1,
+        cacheRead: 1,
+        cacheWrite: 1,
+      }),
+    );
+    if (kind === "malformed") writeFileSync(privateFile, '{ "synthetic-private-canary": ');
+    let diagnostic = "";
     try {
-      const output = path.join(dir, "report.json");
-      const connection = path.join(dir, "connection.json");
-      const pricing = path.join(dir, "pricing.json");
-      const judgePricing = path.join(dir, "private-pricing.json");
-      writeFileSync(
-        connection,
-        JSON.stringify({
-          provider: "openai-compatible",
-          modelId: "fixture",
-          apiKey: "synthetic-secret",
-          baseUrl: "http://127.0.0.1:1/v1",
-        }),
+      execFileSync(
+        process.execPath,
+        [
+          "--import",
+          "tsx",
+          path.resolve(import.meta.dirname, "../cli/evals.ts"),
+          "--live",
+          "--suite",
+          "silence",
+          "--case",
+          "silence-failed-check",
+          "--trials",
+          "1",
+          "--connection",
+          connection,
+          "--pricing",
+          pricing,
+          "--judge-connection",
+          file === "connection" ? privateFile : connection,
+          "--judge-pricing",
+          file === "pricing" ? privateFile : pricing,
+          "--output",
+          output,
+        ],
+        { encoding: "utf8", stdio: "pipe", timeout: 20_000 },
       );
-      writeFileSync(
-        pricing,
-        JSON.stringify({
-          source: "synthetic",
-          version: "1",
-          input: 1,
-          output: 1,
-          cacheRead: 1,
-          cacheWrite: 1,
-        }),
-      );
-      if (kind === "malformed") writeFileSync(judgePricing, '{ "synthetic-private-canary": ');
-      let diagnostic = "";
-      try {
-        execFileSync(
-          process.execPath,
-          [
-            "--import",
-            "tsx",
-            path.resolve(import.meta.dirname, "../cli/evals.ts"),
-            "--live",
-            "--suite",
-            "silence",
-            "--case",
-            "silence-failed-check",
-            "--trials",
-            "1",
-            "--connection",
-            connection,
-            "--pricing",
-            pricing,
-            "--judge-connection",
-            connection,
-            "--judge-pricing",
-            judgePricing,
-            "--output",
-            output,
-          ],
-          { encoding: "utf8", stdio: "pipe", timeout: 20_000 },
-        );
-      } catch (error) {
-        diagnostic = (error as { stderr: string }).stderr;
-      }
-      expect(diagnostic).toContain("valid judge pricing");
-      expect(diagnostic).not.toContain(dir);
-      expect(diagnostic).not.toContain("synthetic-private-canary");
-      const report = JSON.parse(readFileSync(output, "utf8"));
-      expect(report.trials[0].status).toBe("not-run");
-      expect(report.workflowTotals.modelCalls).toBe(0);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
+    } catch (error) {
+      diagnostic = (error as { stderr: string }).stderr;
     }
-  },
-);
+    expect(diagnostic).toContain(
+      file === "pricing" ? "valid judge pricing" : "valid judge model connection",
+    );
+    expect(diagnostic).not.toContain(dir);
+    expect(diagnostic).not.toContain("synthetic-private-canary");
+    const report = JSON.parse(readFileSync(output, "utf8"));
+    expect(report.trials[0].status).toBe("not-run");
+    expect(report.trials[0].reason).toContain(
+      file === "pricing" ? "valid judge pricing" : "valid judge model connection",
+    );
+    expect(report.model).toBe("fixture");
+    expect(report.workflowTotals.modelCalls).toBe(0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
