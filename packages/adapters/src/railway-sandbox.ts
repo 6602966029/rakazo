@@ -152,8 +152,8 @@ export class RailwaySandboxProvider implements SandboxProvider {
     }
     let sandbox: Sandbox;
     let createdId: string | undefined;
-    try {
-      sandbox = await Sandbox.create({
+    const create = (idleTimeoutMinutes?: number) =>
+      Sandbox.create({
         ...this.options,
         fetch: async (input, init) => {
           // Finish the bounded request so cancellation cannot hide a created sandbox's ID.
@@ -163,12 +163,24 @@ export class RailwaySandboxProvider implements SandboxProvider {
           context.signal.throwIfAborted();
           return response;
         },
-        idleTimeoutMinutes: railwayIdleTimeoutMinutes(),
+        ...(idleTimeoutMinutes !== undefined && { idleTimeoutMinutes }),
         // Railway public domains require the sandbox to join the private network.
         networkIsolation: "PRIVATE",
         domains: [{ port: SCREEN_PORT }],
         ...(this.region && { region: this.region }),
       });
+    try {
+      try {
+        sandbox = await create(railwayIdleTimeoutMinutes());
+      } catch (error) {
+        if (createdId || !hasRailwayErrorCode(error, "IDLE_TIMEOUT_REJECTED")) throw error;
+        // Trial and Free plans allow 1-5 minutes and never 0; their plan default still applies.
+        // biome-ignore lint/suspicious/noConsole: Operators need to know idle work can be lost.
+        console.warn(
+          "[railway] plan rejected the sandbox idle timeout; using the plan default, which can destroy idle computers before they are saved",
+        );
+        sandbox = await create();
+      }
       createdId = sandbox.id;
       assertPrivateNetwork(sandbox);
     } catch (error) {
@@ -563,10 +575,16 @@ async function remove(sandbox: Sandbox) {
 }
 
 function goneError(error: unknown, id: string, environmentId: string) {
-  return error instanceof RailwayGraphQLError &&
-    error.errors.some((item) => item.extensions?.code === "NOT_FOUND")
+  return hasRailwayErrorCode(error, "NOT_FOUND")
     ? new SandboxNotFoundError({ id, environmentId })
     : error;
+}
+
+function hasRailwayErrorCode(error: unknown, code: string) {
+  return (
+    error instanceof RailwayGraphQLError &&
+    error.errors.some((item) => item.extensions?.code === code)
+  );
 }
 
 function assertPrivateNetwork(sandbox: Sandbox) {
@@ -638,6 +656,8 @@ const RailwayErrorItem = z
 
 function railwayErrorCode(error: unknown) {
   const { message, extensions } = RailwayErrorItem.parse(error);
+  // An out-of-range idle timeout names the allowed range, so check it before the cap wording.
+  if (/\bidle\b/i.test(message)) return "IDLE_TIMEOUT_REJECTED";
   if (/\bnot found\b/i.test(message)) return "NOT_FOUND";
   if (/\b(?:limit|quota|maximum)\b/i.test(message)) return "LIMIT_EXCEEDED";
   return extensions?.code ?? "REQUEST_FAILED";

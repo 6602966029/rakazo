@@ -77,6 +77,9 @@ function backboard(stored?: Partial<SandboxInfo>) {
   const operations: string[] = [];
   const failures = new Map<string, RailwayGraphQLErrorItem>();
   const created: Array<Record<string, unknown>> = [];
+  const rejected: Array<Record<string, unknown>> = [];
+  // Hobby and Pro allow 1-120 minutes or 0 (never); Trial and Free allow 1-5 and never 0.
+  const plan = { maxIdleTimeoutMinutes: 120, allowsNever: true };
   const reply = (body: object) => new Response(JSON.stringify(body));
   vi.stubGlobal(
     "fetch",
@@ -91,6 +94,20 @@ function backboard(stored?: Partial<SandboxInfo>) {
         case "RailwaySandbox":
           return reply({ data: { sandbox: existing ?? null } });
         case "RailwaySandboxCreate": {
+          const idle = variables.input.idleTimeoutMinutes;
+          if (
+            typeof idle === "number" &&
+            (idle > plan.maxIdleTimeoutMinutes || (idle <= 0 && !plan.allowsNever))
+          ) {
+            rejected.push(variables.input);
+            return reply({
+              errors: [
+                {
+                  message: `idle timeout must be between 1 and ${plan.maxIdleTimeoutMinutes} minutes`,
+                },
+              ],
+            });
+          }
           created.push(variables.input);
           const info = sandboxInfo({ id: `created-${created.length}` });
           sandboxes.set(info.id, info);
@@ -109,7 +126,7 @@ function backboard(stored?: Partial<SandboxInfo>) {
       }
     }),
   );
-  return { sandboxes, operations, failures, created };
+  return { sandboxes, operations, failures, created, rejected, plan };
 }
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -335,6 +352,44 @@ describe("Railway sandbox lifecycle", () => {
     expect(api.created).toEqual([
       expect.objectContaining({ idleTimeoutMinutes: minutes, networkIsolation: "PRIVATE" }),
     ]);
+  });
+
+  it.each<[string | undefined, number]>([
+    [undefined, 15],
+    ["0", 0],
+    ["180000", 5],
+  ])("creates sandboxes on a Trial or Free plan with SANDBOX_IDLE_MS=%s", async (idle, minutes) => {
+    if (idle !== undefined) vi.stubEnv("SANDBOX_IDLE_MS", idle);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const api = backboard();
+    Object.assign(api.plan, { maxIdleTimeoutMinutes: 5, allowsNever: false });
+    try {
+      expect(await provider.provision({ botId: "bot", homePath: "/unused" }, ctx)).toMatchObject({
+        providerRef: "created-1",
+        fresh: true,
+      });
+      const rejected = minutes > 5 || minutes === 0;
+      expect(api.rejected).toEqual(
+        rejected ? [expect.objectContaining({ idleTimeoutMinutes: minutes })] : [],
+      );
+      expect(api.created).toEqual([
+        rejected
+          ? expect.not.objectContaining({ idleTimeoutMinutes: expect.anything() })
+          : expect.objectContaining({ idleTimeoutMinutes: minutes }),
+      ]);
+      expect(warn).toHaveBeenCalledTimes(rejected ? 1 : 0);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("does not retry a create that fails for another reason", async () => {
+    const api = backboard();
+    api.failures.set("RailwaySandboxCreate", { message: "Sandbox limit of 10 reached" });
+    await expect(provider.provision({ botId: "bot", homePath: "/unused" }, ctx)).rejects.toThrow(
+      "LIMIT_EXCEEDED",
+    );
+    expect(api.operations.filter((name) => name === "RailwaySandboxCreate")).toHaveLength(1);
   });
 
   it.each<[string, RailwayGraphQLErrorItem, string]>([
