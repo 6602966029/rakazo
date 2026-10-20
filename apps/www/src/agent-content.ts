@@ -3,6 +3,7 @@ import { GROK_ALTERNATIVE_MARKDOWN } from "./grok-alternative";
 import { OPENCLAW_MARKDOWN, SELF_HOST_MARKDOWN } from "./guide";
 import { HOME_MODEL_PROVIDERS, getHomeCopy } from "./i18n/home";
 import { roundupMarkdown } from "./roundup";
+import { APP_URL } from "./site";
 
 const home = getHomeCopy("en");
 
@@ -34,7 +35,7 @@ ${home.selfHost.worksWith}: ${HOME_MODEL_PROVIDERS.join(", ")}.
 
 ${home.openSource.copy}
 
-${home.openSource.cloudTitle}: ${home.openSource.cloudBadge}.
+[${home.openSource.cloudTitle}](${APP_URL}): ${home.openSource.cloudBadge}.
 
 ## FAQ
 

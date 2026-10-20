@@ -474,7 +474,6 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 
 .card-grid-3,
 .card-grid-4,
-.comparison-grid,
 .stats-grid {
   display: grid;
   gap: 20px;
@@ -492,8 +491,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 }
 
 .feature-card,
-.roster-card,
-.comparison-card {
+.roster-card {
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: var(--shadow-soft);
@@ -743,64 +741,11 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   }
 }
 
-.comparison-grid {
-  grid-template-columns: 1.15fr 1fr;
-  align-items: stretch;
-  margin-top: 40px;
-}
-
-.comparison-card {
-  display: flex;
-  flex-direction: column;
-  border-radius: 22px;
-  padding: 30px;
-}
-
-.comparison-card--muted {
-  background: var(--surface-soft);
-  box-shadow: none;
-}
-
-.comparison-meta {
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 14.5px;
-}
-
-.comparison-list {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  margin-top: 22px;
-  color: var(--body);
-  font-size: 14.5px;
-  line-height: 1.5;
-}
-
-.comparison-list--muted {
-  color: var(--muted-2);
-}
-
-.comparison-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: auto;
-  padding-top: 26px;
-}
-
 .selfhost-cta {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 28px;
-}
-
-.comparison-kicker {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .comparison-badge {
@@ -2667,7 +2612,6 @@ button.product-demo__dock-icon {
 
 @media (max-width: 960px) {
   .card-grid-3,
-  .comparison-grid,
   .stats-band {
     grid-template-columns: 1fr;
   }

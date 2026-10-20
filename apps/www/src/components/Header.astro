@@ -3,7 +3,7 @@ import { getHomeCopy } from "../i18n/home";
 import type { HomeCopy } from "../i18n/home";
 import { DEFAULT_LOCALE, localeHomePath } from "../i18n/locales";
 import type { Locale } from "../i18n/locales";
-import { GITHUB_URL, SELF_HOST_GUIDE_PATH } from "../site";
+import { APP_URL, GITHUB_URL, SELF_HOST_GUIDE_PATH } from "../site";
 import Logo from "./Logo.astro";
 
 type Props = {
@@ -52,7 +52,7 @@ function isCurrent(href: string): boolean {
       <span>{starsLabel}</span>
     </a>
     <div class="site-header__cta">
-      <a class="button button--primary button--small" href={`${homeHref}#get-started`} data-get-started-open>
+      <a class="button button--primary button--small" href={APP_URL}>
         {copy.getStarted}
       </a>
     </div>
