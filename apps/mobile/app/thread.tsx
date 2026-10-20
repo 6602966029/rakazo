@@ -32,7 +32,6 @@ import {
   isRunTerminalEvent,
   isSecretAskBlock,
   leaveThreadWindow,
-  normalizeRunError,
   openThreadWindow,
   plainTextFromMarkdown,
   projectMessageReactions,
@@ -123,6 +122,7 @@ import { NativeActionButton } from "../components/native-action-button";
 import { NativeSymbol } from "../components/native-symbol";
 import { ReplyDismissButton } from "../components/reply-dismiss-button";
 import { ReplyLine } from "../components/reply-line";
+import { RunErrorSheet, useRunError } from "../components/run-error-sheet";
 import { ScrollToBottomButton } from "../components/scroll-to-bottom-button";
 import { SecretAskSheet } from "../components/secret-ask-sheet";
 import { SelectTextSheet } from "../components/select-text-sheet";
@@ -620,6 +620,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   const feedback = useThreadFeedback(threadKey, newClientNonce, echoed);
   const { error, setError } = feedback;
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [runErrorDetailsOpen, setRunErrorDetailsOpen] = useState(false);
   const [selectableText, setSelectableText] = useState<string | null>(null);
   const [loadingNewer, setLoadingNewer] = useState(false);
   const loadingNewerContent = useRef(false);
@@ -873,6 +874,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: displayName || t("Thread"),
+      headerTitleAlign: "center",
       // Inversion swaps the visual edges; disable both native fades on iOS 26.
       headerTransparent: iosAtLeast(26),
       ...(iosAtLeast(26) ? { headerStyle: { backgroundColor: "transparent" } } : {}),
@@ -910,16 +912,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
       ...(Platform.OS === "ios" && !readOnly && (!inGroup || iosAtLeast(26))
         ? {
             unstable_headerRightItems: () => [
-              ...(inGroup
-                ? []
-                : [
-                    {
-                      type: "button" as const,
-                      accessibilityLabel: t("Open computer"),
-                      icon: { type: "sfSymbol" as const, name: "desktopcomputer" },
-                      onPress: openBotComputer,
-                    },
-                  ]),
               inGroup
                 ? {
                     type: "button" as const,
@@ -941,6 +933,9 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
                         type: "action" as const,
                         label: action.text,
                         destructive: action.destructive,
+                        ...(action.text === t("Open computer")
+                          ? { icon: { type: "sfSymbol" as const, name: "desktopcomputer" } }
+                          : {}),
                         onPress: action.onPress,
                       })),
                     },
@@ -970,21 +965,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           </Pressable>
         ) : (
           <View style={styles.headerActions}>
-            {readOnly ? null : (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Open computer")}
-                hitSlop={8}
-                onPress={openBotComputer}
-              >
-                <NativeSymbol
-                  ios="desktopcomputer"
-                  android="desktop-outline"
-                  size={21}
-                  color={tokens.foreground}
-                />
-              </Pressable>
-            )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t("Bot actions")}
@@ -1088,6 +1068,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
   }
 
   const botActions = [
+    ...(!readOnly && botId ? [{ text: t("Open computer"), onPress: openBotComputer }] : []),
     {
       text: t("Profile"),
       onPress: () =>
@@ -2016,6 +1997,17 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   const answerableAskIds = useMemo(() => answerableAskMessageIds(snap), [snap]);
   const runError = snap?.run?.status === "failed" ? (snap.run.error ?? null) : null;
+  const normalizedRunError = useRunError(runError, false);
+  const failedRunId = runError ? snap?.run?.id : null;
+  useEffect(() => setRunErrorDetailsOpen(false), [failedRunId]);
+  function openErrorConnection() {
+    setRunErrorDetailsOpen(false);
+    router.push("/(settings)/models");
+  }
+  function openErrorModel() {
+    setRunErrorDetailsOpen(false);
+    router.push({ pathname: "/bot-settings", params: { botId: snap?.run?.botId ?? botId ?? "" } });
+  }
   const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2409,6 +2401,30 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     />
   ));
 
+  // Fetch failures stay visible at either paging edge; provider recovery belongs to the live end.
+  const visibleRunError = showPinnedPage && pinnedNewerCursor !== null ? null : normalizedRunError;
+  const errorNotice = (
+    <ThreadErrorNotice
+      error={null}
+      summary={visibleRunError?.summary ?? null}
+      resetAt={visibleRunError?.resetAt}
+      onDetails={() => setRunErrorDetailsOpen(true)}
+      onConnection={visibleRunError?.recovery === "connection" ? openErrorConnection : undefined}
+      onModel={
+        visibleRunError?.recovery && (snap?.run?.botId ?? botId) ? openErrorModel : undefined
+      }
+    />
+  );
+
+  const fetchErrorNotice = error ? (
+    <View style={{ paddingBottom: 24 }}>
+      <ThreadErrorNotice
+        error={showingSaved ? t("Couldn't refresh — showing the last loaded messages.") : error}
+        summary={null}
+      />
+    </View>
+  ) : null;
+
   return (
     <KeyboardAvoidingView
       behavior="height"
@@ -2420,19 +2436,6 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
         paddingHorizontal: 20 + columnInset,
       }}
     >
-      <ThreadErrorNotice
-        top={headerHeight + 8}
-        inset={20 + columnInset}
-        error={
-          error
-            ? showingSaved
-              ? t("Couldn't refresh — showing the last loaded messages.")
-              : error
-            : null
-        }
-        summary={runError ? normalizeRunError(runError, t, locale).summary : null}
-        onDetails={() => setSelectableText(runError)}
-      />
       {/* The floor keeps a tall suggestion list from sliding under the transparent header. */}
       <View style={{ flex: 1, minHeight: headerHeight, position: "relative" }}>
         {showPinnedPage ? (
@@ -2496,6 +2499,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
               renderMessageRow(message, { enableJump: true, index }),
             )}
             {pinnedNewerCursor === null ? failedSendBubbles : null}
+            {errorNotice}
             {pinnedNewerCursor === null ? (
               workingFooter
             ) : loadingNewer ? (
@@ -2516,7 +2520,8 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             // Inverted, so the bottom padding is the visual top, clear of the transparent header.
             contentContainerStyle={listContentStyle}
-            maintainVisibleContentPosition={messageListPosition}
+            // Follow changes to the recovery card while already at the newest content.
+            maintainVisibleContentPosition={liveMessageListPosition}
             scrollEventThrottle={16}
             onScrollBeginDrag={(event) => {
               clearTimeout(scrollIdleTimer.current);
@@ -2571,10 +2576,11 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             }}
             ListFooterComponent={loadEarlierControl}
             ListHeaderComponent={
-              <>
+              <View onLayout={() => performScroll(scrollBehavior.current.onLayout())}>
+                {errorNotice}
                 {failedSendBubbles}
                 {workingFooter}
-              </>
+              </View>
             }
             renderItem={renderItem}
           />
@@ -2611,6 +2617,7 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           </View>
         ) : null}
       </View>
+      {fetchErrorNotice}
       {/* Shrinks (the suggestion lists scroll) so the input and Send stay above the keyboard. */}
       <Animated.View
         style={[{ display: readOnly ? "none" : "flex", flexShrink: 1 }, composerKeyboardPadding]}
@@ -2744,53 +2751,63 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
           onSlashAction={runSlashAction}
         />
       </Animated.View>
-      <Modal
-        visible={botActionsOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setBotActionsOpen(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            padding: 24,
-            backgroundColor: tokens.overlay,
-          }}
+      {botActionsOpen ? (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setBotActionsOpen(false)}
         >
-          <Pressable
-            accessibilityLabel={t("Cancel")}
-            onPress={() => setBotActionsOpen(false)}
-            style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
-          />
           <View
-            accessibilityViewIsModal
-            style={{ backgroundColor: tokens.popover, borderRadius: 24, paddingVertical: 12 }}
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              padding: 24,
+              backgroundColor: tokens.overlay,
+            }}
           >
-            {botActions.map((action) => (
-              <Pressable
-                key={action.text}
-                accessibilityRole="button"
-                onPress={() => {
-                  setBotActionsOpen(false);
-                  action.onPress();
-                }}
-                style={{ minHeight: 56, justifyContent: "center", paddingHorizontal: 24 }}
-              >
-                <Text
-                  style={{
-                    color: action.destructive ? tokens.destructive : tokens.popoverForeground,
-                    fontSize: 16,
+            <Pressable
+              accessibilityLabel={t("Cancel")}
+              onPress={() => setBotActionsOpen(false)}
+              style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
+            />
+            <View
+              accessibilityViewIsModal
+              style={{ backgroundColor: tokens.popover, borderRadius: 24, paddingVertical: 12 }}
+            >
+              {botActions.map((action) => (
+                <Pressable
+                  key={action.text}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setBotActionsOpen(false);
+                    action.onPress();
                   }}
+                  style={{ minHeight: 56, justifyContent: "center", paddingHorizontal: 24 }}
                 >
-                  {action.text}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={{
+                      color: action.destructive ? tokens.destructive : tokens.popoverForeground,
+                      fontSize: 16,
+                    }}
+                  >
+                    {action.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
-      </Modal>
-      <SelectTextSheet text={selectableText} onClose={() => setSelectableText(null)} />
+        </Modal>
+      ) : null}
+      {selectableText !== null ? (
+        <SelectTextSheet text={selectableText} onClose={() => setSelectableText(null)} />
+      ) : null}
+      <RunErrorSheet
+        details={runErrorDetailsOpen ? runError : null}
+        onClose={() => setRunErrorDetailsOpen(false)}
+        onConnection={openErrorConnection}
+        onModel={(snap?.run?.botId ?? botId) ? openErrorModel : undefined}
+      />
       {markdownPreview && artifactTarget ? (
         <MarkdownArtifactPreview
           threadTarget={artifactTarget}
@@ -2808,6 +2825,11 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
             setQuoteTarget(null);
           }}
         />
+      ) : null}
+      {headerHeight > 0 ? (
+        <View pointerEvents="none" style={[styles.headerFade, { height: headerHeight }]}>
+          <View style={styles.headerFadeEdge} />
+        </View>
       ) : null}
     </KeyboardAvoidingView>
   );
@@ -2956,6 +2978,7 @@ const messageListStyles = StyleSheet.create({
   row: { marginTop: 12, width: "100%" },
 });
 const messageListPosition = { minIndexForVisible: 0 };
+const liveMessageListPosition = { ...messageListPosition, autoscrollToTopThreshold: 80 };
 function threadItemKey(item: ThreadItem<MobileMessage>) {
   return item.kind === "voiceChat" ? item.key : item.message.id;
 }
