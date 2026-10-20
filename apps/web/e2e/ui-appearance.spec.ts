@@ -317,6 +317,25 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   const pillBox = await translatedPill.boundingBox();
   expect(labelBox!.x + labelBox!.width).toBeLessThanOrEqual(pillBox!.x + pillBox!.width - 11);
   expect(await footer.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 740, height: 320 });
+  await avatar.click();
+  const menu = page.locator('[data-slot="popover-content"]');
+  await expect
+    .poll(async () => {
+      const box = await menu.boundingBox();
+      return box && box.y >= 0 && box.y + box.height <= 320;
+    })
+    .toBe(true);
+  await expect(header).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Install", exact: true })).toBeInViewport();
+  const logOut = menu.getByRole("button", { name: "Log out", exact: true });
+  await logOut.scrollIntoViewIfNeeded();
+  await expect(logOut).toBeInViewport();
+  expect((await logOut.boundingBox())!.height).toBe(36);
+  await captureScreenshot(page, testInfo, "sidebar-footer-short-screen");
+  await menu.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByTestId("user-settings")).toBeVisible();
 });
 
 test("account menu works on the mobile sidebar", async ({ page }) => {

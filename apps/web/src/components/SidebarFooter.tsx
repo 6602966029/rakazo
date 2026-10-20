@@ -107,7 +107,7 @@ export function SidebarFooter({
             side="top"
             sideOffset={8}
             align="start"
-            className="w-[295px] max-w-[calc(100vw-69px)] gap-0 p-1 data-closed:animate-none"
+            className="max-h-(--available-height) w-[295px] max-w-[calc(100vw-69px)] gap-0 overflow-y-auto p-1 *:shrink-0 data-closed:animate-none"
           >
             {update.available ? (
               <div className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-2">
