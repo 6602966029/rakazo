@@ -36,7 +36,7 @@ export function SidebarFooter({
   name,
   initials,
   image,
-  logos = [{ name: "Gmail" }, { name: "Slack" }, { name: "Notion" }],
+  logos = [],
   email,
   open,
   onOpenChange,
@@ -54,12 +54,15 @@ export function SidebarFooter({
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const [failedLogos, setFailedLogos] = useState<string[]>([]);
   return (
-    <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-2 px-2.5 py-3">
+    <div
+      data-testid="sidebar-footer"
+      className="@container flex shrink-0 items-center gap-2 px-2.5 py-3"
+    >
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger
           data-testid="user-menu-trigger"
           aria-label={t`Account menu for ${name}`}
-          className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-accent text-sm font-medium text-foreground/75 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-sidebar-accent text-sm font-medium text-foreground outline-none hover:border-foreground/30 focus-visible:ring-2 focus-visible:ring-ring"
         >
           {image && failedImage !== image ? (
             <img
@@ -81,30 +84,34 @@ export function SidebarFooter({
             className="w-[295px] max-w-[calc(100vw-69px)] gap-0 p-1 data-closed:animate-none"
           >
             {update.available ? (
-              <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+              <div className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-2">
                 <span className="text-sm">
                   <Trans>New update available</Trans>
                 </span>
-                <Button size="sm" disabled={update.busy} onClick={update.install}>
+                <Button size="lg" disabled={update.busy} onClick={update.install}>
                   <Trans>Install</Trans>
                 </Button>
               </div>
             ) : null}
             <div
               data-testid="account-menu-header"
-              className="min-w-0 border-b border-border px-3 py-2.5"
+              className="mb-1 min-w-0 border-b border-border px-2.5 py-2.5"
             >
               <p className="truncate text-sm font-medium">{name}</p>
               {email && email !== name ? (
                 <p className="truncate text-xs text-muted-foreground">{email}</p>
               ) : null}
             </div>
-            <Button variant="ghost" className="w-full justify-start font-normal" onClick={onUsage}>
+            <Button
+              variant="ghost"
+              className="h-9 w-full justify-start gap-2.5 font-normal"
+              onClick={onUsage}
+            >
               <Gauge className="text-muted-foreground" strokeWidth={1.75} />
               <Trans>Usage</Trans>
             </Button>
             <a
-              className={`${buttonVariants({ variant: "ghost" })} w-full justify-start font-normal`}
+              className={`${buttonVariants({ variant: "ghost" })} h-9 w-full justify-start gap-2.5 font-normal`}
               href={
                 /Android/i.test(navigator.userAgent)
                   ? "https://github.com/elie222/rakazo/releases/download/android/rakazo.apk"
@@ -117,7 +124,7 @@ export function SidebarFooter({
               <Trans>Get the mobile app</Trans>
             </a>
             <a
-              className={`${buttonVariants({ variant: "ghost" })} w-full justify-start font-normal`}
+              className={`${buttonVariants({ variant: "ghost" })} h-9 w-full justify-start gap-2.5 font-normal`}
               href="https://github.com/elie222/rakazo/blob/main/docs/self-host.md"
               target="_blank"
               rel="noreferrer"
@@ -128,7 +135,7 @@ export function SidebarFooter({
             {onBoard ? (
               <Button
                 variant="ghost"
-                className="w-full justify-start font-normal"
+                className="h-9 w-full justify-start gap-2.5 font-normal"
                 onClick={onBoard}
               >
                 <SquareKanban className="text-muted-foreground" strokeWidth={1.75} />
@@ -137,7 +144,7 @@ export function SidebarFooter({
             ) : null}
             <Button
               variant="ghost"
-              className="w-full justify-start font-normal"
+              className="h-9 w-full justify-start gap-2.5 font-normal"
               onClick={onArtifacts}
             >
               <FolderOpen className="text-muted-foreground" strokeWidth={1.75} />
@@ -145,7 +152,7 @@ export function SidebarFooter({
             </Button>
             <Button
               variant="ghost"
-              className="w-full justify-start font-normal"
+              className="h-9 w-full justify-start gap-2.5 font-normal"
               aria-label={t`Settings`}
               onClick={onSettings}
             >
@@ -155,7 +162,7 @@ export function SidebarFooter({
             <div className="my-1 border-t border-border" />
             <Button
               variant="ghost"
-              className="w-full justify-start font-normal"
+              className="h-9 w-full justify-start gap-2.5 font-normal"
               disabled={signingOut}
               onClick={onLogOut}
             >
@@ -163,7 +170,7 @@ export function SidebarFooter({
               <Trans>Log out</Trans>
             </Button>
             {logOutError ? (
-              <p role="alert" className="px-3 pt-1 pb-2 text-[13px] text-destructive">
+              <p role="alert" className="px-2.5 pt-1 pb-2 text-[13px] text-destructive">
                 {logOutError}
               </p>
             ) : null}
@@ -173,16 +180,16 @@ export function SidebarFooter({
       <Button
         variant="outline"
         onClick={onIntegrations}
-        className="h-9 min-w-0 flex-1 justify-between rounded-full bg-sidebar-accent hover:bg-sidebar-accent"
+        className="h-9 min-w-0 flex-1 justify-between rounded-full bg-sidebar-accent hover:border-foreground/30 hover:bg-sidebar-accent"
       >
         <span className="truncate">
           <Trans>Connect apps</Trans>
         </span>
-        <span aria-hidden="true" className="flex shrink-0 -space-x-1.5">
-          {logos.slice(0, 3).map((app) => (
+        <span aria-hidden="true" className="flex shrink-0 items-center -space-x-1.5">
+          {logos.slice(0, 3).map((app, index) => (
             <span
               key={app.name}
-              className="grid size-5 place-items-center overflow-hidden rounded-full bg-accent text-[10px] ring-2 ring-sidebar-accent"
+              className={`size-6 shrink-0 place-items-center overflow-hidden rounded-full bg-background text-xs font-medium text-foreground ring-2 ring-sidebar-accent ${index === 2 ? "hidden @min-[280px]:grid" : "grid"}`}
             >
               {app.logo && !failedLogos.includes(app.logo) ? (
                 <img

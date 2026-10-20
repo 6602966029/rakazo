@@ -3789,7 +3789,7 @@ function SpaceShell() {
           ) : null}
         </div>
         <SidebarFooter
-          logos={footerLogos.length ? footerLogos : undefined}
+          logos={footerLogos}
           name={userName}
           initials={initials}
           image={session.data?.user.image}

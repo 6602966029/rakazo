@@ -150,6 +150,7 @@ test("sidebar footer opens integrations and the account menu", async ({ page }, 
   await page.getByTestId("user-menu-trigger").click();
   await expect(page.getByRole("link", { name: "Get the mobile app", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Docs", exact: true })).toBeVisible();
+  await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(3);
   await captureScreenshot(page, testInfo, "sidebar-footer-menu");
   await page.keyboard.press("Escape");
   await page.getByTestId("minimize-bots-sidebar").click();
@@ -211,12 +212,29 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   const header = page.getByTestId("account-menu-header");
   await expect(header).toHaveText(`${session.user.name}${email}`);
   await expect(page.getByText("New update available", { exact: true })).toBeVisible();
+  await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(3);
   await captureScreenshot(page, testInfo, "sidebar-footer-menu-update");
   await page.getByRole("button", { name: "Install", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-update-installed", "1");
   await page.keyboard.press("Escape");
   await footer.getByRole("button", { name: "Install update", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-update-installed", "2");
+
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+  await expect(avatar).toBeInViewport();
+  await expect(footer.locator('span[aria-hidden="true"] > span:visible')).toHaveCount(2);
+  const pill = footer.getByRole("button", { name: "Connect apps", exact: true });
+  const label = pill.locator("span").first();
+  expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const controls = [
+    avatar,
+    pill,
+    footer.getByRole("button", { name: "Install update", exact: true }),
+  ];
+  const boxes = await Promise.all(controls.map((control) => control.boundingBox()));
+  expect(boxes.every((box) => box?.height === 36 && box.y === boxes[0]?.y)).toBe(true);
+  expect(await footer.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });
 
 test("account menu works on the mobile sidebar", async ({ page }) => {
@@ -237,14 +255,15 @@ test("footer app marks follow the integrations overlay", async ({ page }) => {
   await signup(page, `footer-apps-${Date.now()}@rakazo.test`, "password12", "Footer Demo");
   await completeOnboarding(page);
   let connected = true;
+  let listed = true;
   const logo =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ctext x='5' y='15'%3ES%3C/text%3E%3C/svg%3E";
   await page.route("**/rpc/connections/catalog", async (route) => {
     await route.fulfill({
       json: {
-        json: [
-          { connectorId: "demo", slug: "slack", name: "Slack", logo, connected, noAuth: false },
-        ],
+        json: listed
+          ? [{ connectorId: "demo", slug: "slack", name: "Slack", logo, connected, noAuth: false }]
+          : [],
       },
     });
   });
@@ -255,7 +274,11 @@ test("footer app marks follow the integrations overlay", async ({ page }) => {
   await expect(footer.locator("img")).toHaveAttribute("src", logo);
   connected = false;
   await footer.getByRole("button", { name: "Connect apps", exact: true }).click();
-  await expect(footer.locator("img")).toHaveCount(0);
+  // Disconnected catalog entries remain available as suggestions.
+  await expect(footer.locator("img")).toHaveAttribute("src", logo);
   await page.getByRole("button", { name: "Close integrations", exact: true }).click();
   await expect(footer.getByRole("button", { name: "Connect apps", exact: true })).toBeVisible();
+  listed = false;
+  await footer.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await expect(footer.locator("img")).toHaveCount(0);
 });
