@@ -1,4 +1,4 @@
-import { BillingCustomerNotFoundError } from "@rakazo/adapter-kit";
+import { BillingCheckoutCompletedError, BillingCustomerNotFoundError } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
 import {
   encodeStripeForm,
@@ -94,19 +94,47 @@ describe("Stripe billing HTTP boundary", () => {
     expect(wire.sessions.filter((session) => session.status === "complete")).toHaveLength(1);
   });
 
-  it("opens the new checkout when an old one completes before it can be expired", async () => {
-    const { wire, provider } = setup((wire) => async (input, init) => {
-      if (String(input).endsWith("/expire")) {
-        const open = wire.sessions.find((session) => session.status === "open");
-        if (open) wire.completeCheckout(open.customer);
+  for (const { name, race, opens } of [
+    { name: "opens the new checkout when an old one expired first", race: "expired", opens: true },
+    {
+      name: "refuses a new checkout when an old one was just paid",
+      race: "complete",
+      opens: false,
+    },
+  ] as const) {
+    it(name, async () => {
+      const { wire, provider } = setup((wire) => async (input, init) => {
+        if (String(input).endsWith("/expire")) {
+          const open = wire.sessions.find((session) => session.status === "open");
+          if (open && race === "complete") wire.completeCheckout(open.customer);
+          else if (open) open.status = "expired";
+        }
+        return wire.fetch(input, init);
+      });
+      const { customerId } = await provider.createCustomer(owner);
+      await provider.createCheckout({ customerId, seats: 1, ...urls });
+      const second = provider.createCheckout({ customerId, seats: 2, ...urls });
+      if (opens) {
+        const { url } = await second;
+        expect(url).toBe(`https://checkout.stripe.com/c/pay/${wire.sessions.at(-1)!.id}`);
+        expect(wire.sessions.map((session) => session.status)).toEqual(["expired", "open"]);
+      } else {
+        await expect(second).rejects.toBeInstanceOf(BillingCheckoutCompletedError);
+        expect(wire.sessions.map((session) => session.status)).toEqual(["complete"]);
       }
-      return wire.fetch(input, init);
     });
+  }
+
+  it("does not let a newer ended subscription hide one that can still resume", async () => {
+    const { wire, provider } = setup();
     const { customerId } = await provider.createCustomer(owner);
-    await provider.createCheckout({ customerId, seats: 1, ...urls });
-    const second = await provider.createCheckout({ customerId, seats: 2, ...urls });
-    expect(second.url).toBe(`https://checkout.stripe.com/c/pay/${wire.sessions.at(-1)!.id}`);
-    expect(wire.sessions.map((session) => session.status)).toEqual(["complete", "open"]);
+    for (const status of ["unpaid", "incomplete_expired"]) {
+      await provider.createCheckout({ customerId, seats: 1, ...urls });
+      wire.completeCheckout(customerId, status);
+    }
+    await expect(provider.getCustomerSubscription(customerId)).resolves.toMatchObject({
+      status: "unpaid",
+    });
   });
 
   it("reads every page of subscriptions", async () => {

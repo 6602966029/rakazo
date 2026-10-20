@@ -6,3 +6,12 @@ export class BillingCustomerNotFoundError extends Error {
     this.name = "BillingCustomerNotFoundError";
   }
 }
+
+/** An earlier checkout completed while a new one was being opened; another would bill twice. */
+export class BillingCheckoutCompletedError extends Error {
+  readonly code = "BILLING_CHECKOUT_COMPLETED";
+  constructor() {
+    super("An earlier checkout has already completed");
+    this.name = "BillingCheckoutCompletedError";
+  }
+}

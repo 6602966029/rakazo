@@ -177,6 +177,14 @@ export class StripeEmulator {
       }));
       return Response.json({ object: "list", has_more: start + limit < matching.length, data });
     }
+    const retrieve = /^\/v1\/checkout\/sessions\/([^/]+)$/.exec(path);
+    if (method === "GET" && retrieve) {
+      const found = this.sessions.find(
+        (session) => session.id === decodeURIComponent(retrieve[1]!),
+      );
+      if (!found) return stripeError({ status: 404, message: "No such checkout session" });
+      return Response.json({ id: found.id, object: "checkout.session", status: found.status });
+    }
     const expire = /^\/v1\/checkout\/sessions\/([^/]+)\/expire$/.exec(path);
     if (method === "POST" && expire) {
       const found = this.sessions.find((session) => session.id === decodeURIComponent(expire[1]!));

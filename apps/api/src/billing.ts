@@ -1,6 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import type { BillingPrice, BillingProvider } from "@rakazo/adapter-kit";
-import { BillingCustomerNotFoundError } from "@rakazo/adapter-kit";
+import { BillingCheckoutCompletedError, BillingCustomerNotFoundError } from "@rakazo/adapter-kit";
 import type { Actor, BillingStatus } from "@rakazo/contracts";
 import type { BillingAccount, PrismaClient } from "@rakazo/db";
 import {
@@ -162,15 +162,21 @@ export function createBillingService(deps: {
       });
       const seats = await organizationSeatCount(prisma, organizationId);
       const trial = account.subscribedAt ? {} : { trialDays: TRIAL_DAYS };
-      return withLiveCustomer(actor, account, (customerId) =>
-        provider.createCheckout({
-          customerId,
-          seats,
-          ...trial,
-          successUrl: `${deps.webOrigin}${BILLING_RETURN_PATH}`,
-          cancelUrl: appUrl,
-        }),
-      );
+      try {
+        return await withLiveCustomer(actor, account, (customerId) =>
+          provider.createCheckout({
+            customerId,
+            seats,
+            ...trial,
+            successUrl: `${deps.webOrigin}${BILLING_RETURN_PATH}`,
+            cancelUrl: appUrl,
+          }),
+        );
+      } catch (error) {
+        if (!(error instanceof BillingCheckoutCompletedError)) throw error;
+        await sync(account.customerId);
+        throw new ORPCError("CONFLICT", { message: "Already subscribed" });
+      }
     },
 
     async portal(actor) {
