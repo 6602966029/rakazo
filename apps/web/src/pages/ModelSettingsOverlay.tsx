@@ -24,6 +24,7 @@ import {
   filterModelCatalog,
   initialModelProbeState,
   pickCatalogModelId,
+  popularModelProvidersFirst,
   savedCompatibleModelIds,
   toggleEnabledModelId,
 } from "@rakazo/core";
@@ -239,11 +240,14 @@ export function ModelSettingsOverlay({
       entries.push(entry);
       grouped.set(entry.provider, entries);
     }
-    return [...grouped].map(([id, entries]) => ({
-      id,
-      name: entries[0]?.providerName ?? id,
-      entries,
-    }));
+    return popularModelProvidersFirst(
+      [...grouped].map(([id, entries]) => ({
+        id,
+        name: entries[0]?.providerName ?? id,
+        entries,
+      })),
+      (group) => group.id,
+    );
   }, [catalog]);
   const credentialByProvider = useMemo(
     () => new Map(credentials.map((entry) => [entry.provider, entry])),
