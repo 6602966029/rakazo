@@ -29,6 +29,7 @@ const EXPO_RECEIPT_DELAY_MS = 15 * 60_000;
 const MAX_PUSH_TITLE_CHARS = 100;
 const MAX_PUSH_BODY_CHARS = 180;
 export const MAX_EXPO_PUSH_RESPONSE_BYTES = 64 * 1024;
+const RESPONSE_TOO_LARGE = "Expo push response is too large.";
 
 /** Data a notification tap uses to open the bot or group thread in its space.
  * `deliveryId` distinguishes this send from another push for the same thread:
@@ -551,27 +552,29 @@ export class ExpoPushProvider implements NotificationProvider {
 
 export type ExpoPushDelivery = "delivered" | "undeliverable";
 
-/** One POST to Expo. A network failure reads as a 503, so the caller retries it like one. */
+/**
+ * One POST to Expo. A network failure, while sending or reading the reply,
+ * reads as a 503 so the caller retries it like one.
+ */
 async function postToExpo(
   url: string,
   payload: unknown,
   signal?: AbortSignal,
 ): Promise<{ status: number; body: unknown }> {
   const attempt = combineSignals(signal, AbortSignal.timeout(EXPO_PUSH_TIMEOUT_MS));
-  let response: Response;
   try {
-    response = await fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify(payload),
       signal: attempt,
     });
+    return { status: response.status, body: await readExpoPushBody(response, attempt) };
   } catch (error) {
     getLogger().error("expo push request failed", error);
-    if (signal?.aborted) throw error;
+    if (signal?.aborted || errorMessage(error) === RESPONSE_TOO_LARGE) throw error;
     return { status: 503, body: { errors: [{ message: errorMessage(error) }] } };
   }
-  return { status: response.status, body: await readExpoPushBody(response, attempt) };
 }
 
 function errorMessage(error: unknown): string {
@@ -591,7 +594,7 @@ async function readExpoPushBody(response: Response, signal: AbortSignal): Promis
       cancel.catch(() => undefined),
       signal,
     ).catch(() => undefined);
-    throw new Error("Expo push response is too large.");
+    throw new Error(RESPONSE_TOO_LARGE);
   }
   try {
     const bytes = await readBodyCapped(response, MAX_EXPO_PUSH_RESPONSE_BYTES, signal);
@@ -599,7 +602,7 @@ async function readExpoPushBody(response: Response, signal: AbortSignal): Promis
     return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
   } catch (error) {
     if (error instanceof Error && error.message === "Response is too large") {
-      throw new Error("Expo push response is too large.");
+      throw new Error(RESPONSE_TOO_LARGE);
     }
     if (error instanceof SyntaxError) return undefined;
     throw error;

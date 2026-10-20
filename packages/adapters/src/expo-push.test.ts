@@ -6,10 +6,10 @@ import path from "node:path";
 import type { BackgroundJob, JobPublisher } from "@rakazo/adapter-kit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { credentialDigest } from "./credential-digest.js";
+import type { ExpoPushTicket } from "./expo-push.js";
 import {
   deletePushToken,
   ExpoPushProvider,
-  type ExpoPushTicket,
   endSessionPushToken,
   expoPushData,
   expoPushErrorMessage,
@@ -942,6 +942,26 @@ describe("expo push delivery outcomes", () => {
     await expect(loadPushToken(dataDir, "user-1")).resolves.toBe(
       tokenKept ? "ExponentPushToken[test]" : undefined,
     );
+  });
+
+  it("retries when the connection drops while the reply is read", async () => {
+    const dataDir = await mkdtemp(path.join(tmpdir(), "rakazo-push-"));
+    dirs.push(dataDir);
+    await savePushToken(dataDir, "user-1", "ExponentPushToken[test]");
+    const dropped = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.error(new TypeError("terminated"));
+      },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(dropped))
+      .mockResolvedValueOnce(jsonResponse({ data: { status: "ok", id: "ticket" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const push = new ExpoPushProvider(dataDir, undefined, undefined, [0]);
+
+    await expect(push.deliver(pushMessage, notifyContext)).resolves.toBe("delivered");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not fail a notification whose device is gone", async () => {

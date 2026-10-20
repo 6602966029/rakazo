@@ -528,6 +528,7 @@ export async function createApp(
     events,
     workerId: "api",
     runtime,
+    notifications: notifications instanceof ExpoPushProvider ? notifications : undefined,
     secretStore: secrets,
     memoryProviders,
     deploymentModelKey: env.deploymentModelKey,
