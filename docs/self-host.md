@@ -539,7 +539,7 @@ and conservative kernel/network protections. Keep the provider console open unti
 succeeds after the script reloads SSH.
 
 ```bash
-sudo DEPLOY_USER=deploy bash infra/compose/harden-host.sh
+sudo --preserve-env=SSH_CONNECTION DEPLOY_USER=deploy bash infra/compose/harden-host.sh
 ```
 
 The production host also uses `infra/compose/docker-daemon.json` to enable live restore, bounded local

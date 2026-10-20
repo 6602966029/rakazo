@@ -138,7 +138,7 @@ class FirewallTests(unittest.TestCase):
         for name, script in {
             "df": 'printf "Filesystem Blocks Used Available Capacity Mounted\\n/dev/fake 1000000 0 ${FAKE_FREE:-900000} 0%% /\\n"',
             "systemd-run": 'test "${FAIL_SCHEDULE:-0}" != 1 && test ! -e "$TIMER_STATE" && touch "$TIMER_STATE"',
-            "systemctl": '[[ "$1" != stop ]] || rm -f "$TIMER_STATE"',
+            "systemctl": 'if [[ "$1" == show ]]; then [[ "${FAIL_SHOW:-0}" != 1 ]] || exit 1; echo "${TIMER_STATUS:-active}"; elif [[ "$1" == stop ]]; then [[ "${FAIL_STOP:-0}" != 1 ]] || exit 1; rm -f "$TIMER_STATE"; fi',
             "ufw": 'echo "$*" >> "$UFW_LOG"; if [[ "$1" == status && "${WAS_ENABLED:-1}" == 1 ]]; then echo "Status: active"; elif [[ "$1" == status ]]; then echo "Status: inactive"; fi',
             "logger": "exit 0",
         }.items():
@@ -225,6 +225,43 @@ class FirewallTests(unittest.TestCase):
             _, stderr = process.communicate(timeout=5)
             self.assertEqual(process.returncode, 0, stderr)
         self.assertEqual(self.rules.read_text(), "original rules\n")
+
+    def test_failed_timer_cleanup_preserves_pending_token(self):
+        token = self.apply()
+        for overrides in ({"TIMER_STATUS": "active"}, {"FAIL_SHOW": "1"}):
+            result = self.run_guard("rollback", token, FAIL_STOP="1", **overrides)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual((self.state / "token").read_text().strip(), token)
+            self.assertNotEqual(self.run_guard("apply", "true").returncode, 0)
+        self.assertEqual(self.run_guard("rollback", token).returncode, 0)
+        self.assertFalse((self.state / "token").exists())
+
+    def test_failed_stop_with_known_inactive_timer_allows_cleanup(self):
+        token = self.apply()
+        result = self.run_guard(
+            "rollback", token, FAIL_STOP="1", TIMER_STATUS="inactive"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.state / "token").exists())
+
+    def test_hardening_rejects_missing_identity_before_host_changes(self):
+        source = (
+            (ROOT / "harden-host.sh")
+            .read_text()
+            .replace('[[ "${EUID}" -ne 0 ]]', "false")
+        )
+        script = self.root / "harden-host"
+        script.write_text(source)
+        result = subprocess.run(
+            ["bash", str(script)],
+            env={**self.env, "SSH_CONNECTION": ""},
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("SSH_CONNECTION is required", result.stderr)
+        self.assertNotIn("Deploy user", result.stderr)
+        self.assertEqual(result.stdout, "")
 
     def test_manual_rollback_allows_another_guarded_change(self):
         first = self.apply()

@@ -59,7 +59,10 @@ case "${action}" in
       else
         ufw --force disable
       fi
-      systemctl stop rakazo-firewall-rollback.timer || true
+      if ! systemctl stop rakazo-firewall-rollback.timer; then
+        timer_state="$(systemctl show rakazo-firewall-rollback.timer --property=ActiveState --value)" || exit 1
+        [[ "${timer_state}" == inactive ]] || { echo "Rollback timer cleanup failed; pending state retained" >&2; exit 1; }
+      fi
       logger -p authpriv.warning -t rakazo-firewall-change "Restored firewall after an unconfirmed change"
     fi
     rm -f "${STATE}/token"

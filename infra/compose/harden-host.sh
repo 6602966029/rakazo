@@ -10,6 +10,9 @@ if [[ "${EUID}" -ne 0 ]]; then
   exec sudo --preserve-env=DEPLOY_USER,SSH_PORT,SSH_CONNECTION bash "$0" "$@"
 fi
 
+# Validate the guard's session identity before installing packages or writing host settings.
+[[ -n "${SSH_CONNECTION:-}" ]] || { echo "SSH_CONNECTION is required; use sudo --preserve-env=SSH_CONNECTION" >&2; exit 1; }
+
 if ! id "${DEPLOY_USER}" >/dev/null 2>&1; then
   echo "Deploy user ${DEPLOY_USER} does not exist" >&2
   exit 1

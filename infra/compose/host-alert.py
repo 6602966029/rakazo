@@ -22,7 +22,8 @@ def notify(
     state_file = state_dir / (hashlib.sha256(key.encode()).hexdigest() + ".json")
     with open(
         state_file.with_suffix(".lock"),
-        "a", opener=lambda path, flags: os.open(path, flags, 0o600)
+        "a",
+        opener=lambda path, flags: os.open(path, flags, 0o600),
     ) as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         _deliver(key, message, config_path, state_file)
