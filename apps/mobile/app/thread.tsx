@@ -178,6 +178,7 @@ import { cancelFocusPrompt, focusPromptThreadActive } from "../lib/focus-prompt"
 import { t, useI18n } from "../lib/i18n";
 import { isInlineImageMimeType } from "../lib/inline-image";
 import { integrationsCacheScope, isIntegrationsScopeCurrent } from "../lib/integrations-cache";
+import { useKeyboardLayout } from "../lib/keyboard-layout";
 import { KeyboardScrollBack } from "../lib/keyboard-scroll-back";
 import { saveLastBotId } from "../lib/last-bot";
 import {
@@ -422,6 +423,7 @@ export default function ThreadRoute() {
 }
 
 function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string }) {
+  const keyboardLayout = useKeyboardLayout();
   const colorScheme = useResolvedAppearance();
   const tokens = mobileTokens();
   const styles = useThemedStyles(createThreadHeaderStyles);
@@ -2445,8 +2447,9 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       // Padding always settles to zero. "height" stays shrunk when the keyboard hides without
       // move frames, such as when a pushed screen closes with its own keyboard up.
       behavior="padding"
-      // Android lays out the screen below the opaque native navigation header.
-      keyboardVerticalOffset={Platform.OS === "android" ? nativeHeaderHeight : 0}
+      ref={keyboardLayout.container}
+      onLayout={keyboardLayout.onLayout}
+      keyboardVerticalOffset={keyboardLayout.offset}
       style={{
         flex: 1,
         backgroundColor: tokens.background,
@@ -2747,6 +2750,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           </View>
         ) : null}
         <ThreadComposer
+          onFocus={keyboardLayout.onFocus}
           key={threadKey}
           ref={composerRef}
           agentSkills={agentSkills}
