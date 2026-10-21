@@ -44,6 +44,7 @@ import { COMPUTER_LIFECYCLE_TIMEOUT_MS } from "../lib/computer";
 import { loadDeviceVoiceEnabled } from "../lib/device-voice";
 import { useI18n } from "../lib/i18n";
 import { native, useMobileTokens } from "../lib/native";
+import { createQueuedSave } from "../lib/queued-save";
 import { errorText } from "../lib/user-error";
 import { stopVoicePlayback } from "../lib/voice";
 
@@ -53,7 +54,7 @@ type BotSettingsRecord = MobileBot & {
 
 export default function BotSettingsScreen() {
   const tokens = useMobileTokens();
-  const fieldStyle = [styles.field, { color: tokens.foreground }];
+  const fieldStyle = [styles.field, { color: tokens.foreground, backgroundColor: native.fill }];
   const { t } = useI18n();
   const router = useRouter();
   const { botId, model: pickedModel } = useLocalSearchParams<{ botId: string; model?: string }>();
@@ -69,7 +70,6 @@ export default function BotSettingsScreen() {
   const [thinkingLevel, setThinkingLevel] = useState("");
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [fleetManagement, setFleetManagement] = useState(false);
-  const fleetSave = useRef({ confirmed: false, desired: false, saving: false });
   const [credentials, setCredentials] = useState<MobileModelCredential[]>([]);
   const [catalog, setCatalog] = useState<MobileModel[]>([]);
   const [me, setMe] = useState<MobileMe | null>(null);
@@ -83,6 +83,18 @@ export default function BotSettingsScreen() {
   const voiceChoice = useRef(0);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  const fleetSave = useMemo(
+    () =>
+      createQueuedSave<boolean>(false, {
+        save: async (value) => {
+          await rpc("bots/update", { botId, fleetManagement: value });
+        },
+        onChange: setFleetManagement,
+        onError: (err) => setError(errorText(err, t("Could not save bot"))),
+      }),
+    [botId, t],
+  );
 
   useEffect(() => {
     if (!botId) return;
@@ -103,11 +115,10 @@ export default function BotSettingsScreen() {
         setThinkingLevel(next.thinkingLevel ?? "");
         setAutoSpeak(next.autoSpeak);
         setFleetManagement(next.fleetManagement);
-        fleetSave.current.confirmed = next.fleetManagement;
-        fleetSave.current.desired = next.fleetManagement;
+        fleetSave.reset(next.fleetManagement);
       })
       .catch((err) => setError(errorText(err, t("Could not load bot"))));
-  }, [botId]);
+  }, [botId, fleetSave]);
 
   useEffect(() => {
     void Promise.all([
@@ -330,6 +341,7 @@ export default function BotSettingsScreen() {
       if (Object.keys(input).length > 1) {
         await rpc("bots/update", input);
       }
+      await fleetSave.flush();
       router.back();
     } catch (err) {
       setError(errorText(err, t("Could not save bot")));
@@ -660,27 +672,8 @@ export default function BotSettingsScreen() {
                 accessibilityLabel={t("Manage the bots it creates")}
                 onValueChange={(value) => {
                   if (!botId) return;
-                  setFleetManagement(value);
-                  const save = fleetSave.current;
-                  save.desired = value;
-                  if (save.saving) return;
-                  save.saving = true;
                   setError(null);
-                  void (async () => {
-                    try {
-                      while (save.desired !== save.confirmed) {
-                        const next = save.desired;
-                        await rpc("bots/update", { botId, fleetManagement: next });
-                        save.confirmed = next;
-                      }
-                    } catch (err) {
-                      save.desired = save.confirmed;
-                      setFleetManagement(save.confirmed);
-                      setError(errorText(err, t("Could not save bot")));
-                    } finally {
-                      save.saving = false;
-                    }
-                  })();
+                  fleetSave.update(value);
                 }}
                 value={fleetManagement}
               />
@@ -712,7 +705,6 @@ function thinkingLevelLabel(level: ThinkingLevel, t: (message: string) => string
 const styles = StyleSheet.create({
   field: {
     marginTop: 8,
-    backgroundColor: native.fill,
     borderRadius: 11,
     padding: 16,
   },

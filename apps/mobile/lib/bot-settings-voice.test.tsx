@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { BOT_SETTINGS_ADVANCED_ORDER } from "@rakazo/contracts";
+import { BOT_COLORS, BOT_SETTINGS_ADVANCED_ORDER } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act, createElement, useEffect } from "react";
 import type { Root } from "react-dom/client";
@@ -10,6 +10,7 @@ import BotSettingsScreen from "../app/bot-settings";
 import { MenuPicker } from "../components/menu-picker";
 
 const mocks = vi.hoisted(() => ({
+  fill: "light-fill",
   deviceVoices: vi.fn(),
   voiceForBot: vi.fn(),
   setVoiceForBot: vi.fn(),
@@ -57,6 +58,9 @@ vi.mock("./api", () => ({
         id: "bot-fixture",
         name: "Fixture",
         title: "",
+        instructions: "",
+        color: BOT_COLORS[0],
+        autoSpeak: false,
         computerMode: "team",
         fleetManagement: false,
       };
@@ -151,7 +155,12 @@ vi.mock("react-native", () => {
   };
 });
 vi.mock("./native", () => ({
-  native: { tertiaryLabel: "muted" },
+  native: {
+    tertiaryLabel: "muted",
+    get fill() {
+      return mocks.fill;
+    },
+  },
   useMobileTokens: () => ({ mutedForeground: "muted", foreground: "ink", destructive: "error" }),
   useResolvedAppearance: () => "light",
   useThemedStyles: (createStyles: () => unknown) => createStyles(),
@@ -260,6 +269,7 @@ describe("bot settings device voice menu", () => {
   let container: HTMLDivElement;
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.fill = "light-fill";
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     mocks.deviceVoices.mockResolvedValue(offered);
     mocks.voiceForBot.mockResolvedValue("voice-a");
@@ -297,6 +307,19 @@ describe("bot settings device voice menu", () => {
       textAlignVertical: "top",
     });
     expect(instructions.getAttribute("aria-multiline")).toBe("true");
+  });
+
+  it("refreshes input backgrounds when appearance changes", async () => {
+    await render();
+    const backgrounds = () =>
+      [...container.querySelectorAll<HTMLElement>("textarea")].map(
+        (input) =>
+          Object.assign({}, ...JSON.parse(input.dataset.style!).flat(Infinity)).backgroundColor,
+      );
+    expect(backgrounds()).toEqual(Array(4).fill("light-fill"));
+    mocks.fill = "dark-fill";
+    await act(async () => root.render(<BotSettingsScreen />));
+    expect(backgrounds()).toEqual(Array(4).fill("dark-fill"));
   });
 
   it("hides advanced controls until expanded and follows the shared order", async () => {
@@ -441,6 +464,59 @@ describe("bot settings device voice menu", () => {
     expect(toggle.getAttribute("aria-checked")).toBe("true");
     expect(container.textContent).toContain("latest save failed");
     expect(toggle.disabled).toBe(false);
+  });
+
+  it.each([false, true])(
+    "waits for the full fleet queue before leaving (failure: %s)",
+    async (fails) => {
+      const first = deferredSave();
+      const last = deferredSave();
+      mocks.rpc.mockReturnValueOnce(first.promise).mockReturnValueOnce(last.promise);
+      await render();
+      const toggle = container.querySelector<HTMLButtonElement>(
+        '[aria-label="Manage the bots it creates"]',
+      )!;
+      const save = [...container.querySelectorAll("button")].find(
+        (button) => button.textContent === "Save",
+      )!;
+      await act(async () => toggle.click());
+      await act(async () => save.click());
+      expect(mocks.back).not.toHaveBeenCalled();
+      expect(toggle.disabled).toBe(false);
+      await act(async () => toggle.click());
+      await act(async () => first.resolve());
+      expect(mocks.back).not.toHaveBeenCalled();
+      expect(mocks.rpc).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        if (fails) last.reject(new Error("fleet write failed"));
+        else last.resolve();
+      });
+      if (fails) {
+        expect(mocks.back).not.toHaveBeenCalled();
+        expect(toggle.getAttribute("aria-checked")).toBe("true");
+        expect(container.textContent).toContain("fleet write failed");
+        expect(toggle.disabled).toBe(false);
+      } else {
+        expect(mocks.back).toHaveBeenCalledOnce();
+      }
+    },
+  );
+
+  it("keeps a failed fleet write visible when Save is pressed after rollback", async () => {
+    mocks.rpc.mockRejectedValueOnce(new Error("offline"));
+    await render();
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Manage the bots it creates"]')!
+        .click(),
+    );
+    await act(async () =>
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Save")!
+        .click(),
+    );
+    expect(mocks.back).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("offline");
   });
 
   it("coalesces a queued value matching the confirmed save", async () => {
