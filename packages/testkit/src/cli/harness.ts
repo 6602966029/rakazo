@@ -19,6 +19,8 @@ const e2eSpec = specArg?.slice("--spec=".length);
 const e2eGrep = grepArg?.slice("--grep=".length);
 const agentRuntime = runtimeArg?.slice("--runtime=".length) ?? "scripted";
 
+const ROW_SECURITY_SUITE = "packages/db/src/row-security.postgres.test.ts";
+
 if (Number(integration) + Number(e2e) !== 1) {
   throw new Error("Pass exactly one of --integration or --e2e");
 }
@@ -47,12 +49,20 @@ async function main() {
   await mkdir(reportDir, { recursive: true });
   const container = await new PostgreSqlContainer("postgres:16-alpine").start();
   try {
-    const databaseUrl = container.getConnectionUri();
+    // Migrations run as the container superuser and the e2e API connects as the
+    // runtime login, so row-level security is enforced as in a deployment.
+    // Test code that seeds or inspects rows directly connects as the owner.
+    const migrationUrl = container.getConnectionUri();
+    const runtimeUrl = new URL(migrationUrl);
+    runtimeUrl.username = "rakazo_app";
+    runtimeUrl.password = "rakazo-test-runtime";
+    const databaseUrl = runtimeUrl.toString();
     const apiPort = Number(process.env.API_PORT ?? 3110);
     const webPort = Number(process.env.WEB_PORT ?? 5180);
     const webOrigin = `http://127.0.0.1:${webPort}`;
 
     process.env.DATABASE_URL = databaseUrl;
+    process.env.DATABASE_MIGRATION_URL = migrationUrl;
     process.env.REALTIME_DATABASE_URL = databaseUrl;
     process.env.VERIFY_DATABASE = "1";
     process.env.WAKEUP_DRIVER = "memory";
@@ -85,11 +95,7 @@ async function main() {
     process.env.CI = "1";
 
     execSync("pnpm --filter @rakazo/db generate", { stdio: "inherit", env: process.env });
-    execSync("pnpm --filter @rakazo/db exec prisma migrate deploy", {
-      stdio: "inherit",
-      env: process.env,
-      cwd: path.resolve("packages/db"),
-    });
+    execSync("pnpm db:migrate", { stdio: "inherit", env: process.env });
 
     if (integration) {
       const suites = [
@@ -116,6 +122,7 @@ async function main() {
         "packages/testkit/src/connections.test.ts",
         "packages/testkit/src/bot-secrets.test.ts",
         "packages/db/src/space-membership.postgres.test.ts",
+        ROW_SECURITY_SUITE,
         "packages/db/src/messaging.postgres.test.ts",
         "packages/db/src/billing.postgres.test.ts",
         "apps/api/src/billing.postgres.test.ts",
@@ -148,12 +155,17 @@ async function main() {
       for (const [index, suite] of suites.entries()) {
         const database = `integration_${index}`;
         await databaseCommand(`CREATE DATABASE "${database}" TEMPLATE "${template}"`);
-        const suiteUrl = new URL(databaseUrl);
+        const suiteMigrationUrl = new URL(migrationUrl);
+        suiteMigrationUrl.pathname = `/${database}`;
+        // Suites drive app code without a request or job around it, so they keep
+        // the owner login; the row-level security suite checks the runtime login.
+        const suiteUrl = new URL(suite === ROW_SECURITY_SUITE ? databaseUrl : migrationUrl);
         suiteUrl.pathname = `/${database}`;
         try {
           await runProcess("pnpm", ["exec", "vitest", "run", suite], {
             ...process.env,
             DATABASE_URL: suiteUrl.toString(),
+            DATABASE_MIGRATION_URL: suiteMigrationUrl.toString(),
             REALTIME_DATABASE_URL: suiteUrl.toString(),
             OPENROUTER_API_KEY: "",
             MODEL_API_KEY: "",
@@ -247,6 +259,7 @@ async function main() {
           {
             ...process.env,
             CI: "1",
+            DATABASE_URL: migrationUrl,
             // Pin English so e2e selectors match source messages regardless of runner locale.
             VITE_DEFAULT_UI_LOCALE: "en",
           },
