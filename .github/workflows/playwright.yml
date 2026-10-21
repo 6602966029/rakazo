@@ -114,7 +114,8 @@ jobs:
             blob-report
             playwright-report-www
             apps/web/test-results
-          retention-days: 1
+          # Matches the combined artifact, so re-running failed shards later still finds the others.
+          retention-days: 7
           if-no-files-found: ignore
 
   # Keeps the single "Web E2E" check and artifact that branch protection and the publisher expect.
@@ -146,6 +147,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p blob-report apps/web/test-results
+          missing=0
           # A re-run of failed jobs uploads new attempts only for the shards it re-ran.
           for shard in 1 2 3 4; do
             latest=""
@@ -154,23 +156,25 @@ jobs:
               if [[ -d "$candidate" ]]; then latest="$candidate"; break; fi
             done
             if [[ -z "$latest" ]]; then
-              echo "::warning::Shard $shard uploaded no results."
+              echo "::error::Shard $shard uploaded no results; the combined report is incomplete."
+              missing=1
               continue
             fi
             if [[ -d "$latest/blob-report" ]]; then cp -R "$latest/blob-report/." blob-report/; fi
             if [[ -d "$latest/apps/web/test-results" ]]; then cp -R "$latest/apps/web/test-results/." apps/web/test-results/; fi
             if [[ -d "$latest/playwright-report-www" ]]; then cp -R "$latest/playwright-report-www" .; fi
           done
+          exit "$missing"
       - name: Merge Playwright reports
-        if: hashFiles('blob-report/*.zip') != ''
+        if: ${{ !cancelled() && hashFiles('blob-report/*.zip') != '' }}
         env:
           PLAYWRIGHT_HTML_OUTPUT_DIR: ${{ github.workspace }}/playwright-report
           PLAYWRIGHT_HTML_OPEN: never
         run: pnpm --filter @rakazo/web exec playwright merge-reports --reporter html "$GITHUB_WORKSPACE/blob-report"
       - name: Record Playwright result
-        if: inputs.upload_artifacts
+        if: ${{ !cancelled() && inputs.upload_artifacts }}
         env:
-          PLAYWRIGHT_RESULT: ${{ needs.shard.result }}
+          PLAYWRIGHT_RESULT: ${{ needs.shard.result == 'success' && job.status == 'success' && 'success' || 'failure' }}
         run: |
           mkdir -p test-report/e2e
           if [[ "$PLAYWRIGHT_RESULT" == "success" ]]; then
@@ -179,7 +183,7 @@ jobs:
             printf 'failure\n' > test-report/e2e/outcome.txt
           fi
       - name: Upload Playwright artifacts
-        if: inputs.upload_artifacts
+        if: ${{ !cancelled() && inputs.upload_artifacts }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
@@ -191,7 +195,7 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
       - name: Publish Playwright visual report
-        if: inputs.publish_report
+        if: ${{ !cancelled() && inputs.publish_report }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
@@ -200,7 +204,7 @@ jobs:
           S3_BUCKET: ${{ vars.S3_BUCKET }}
           S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
           PLAYWRIGHT_PUBLIC_BASE_URL: ${{ vars.PLAYWRIGHT_PUBLIC_BASE_URL }}
-          PLAYWRIGHT_RESULT: ${{ needs.shard.result == 'success' && 'success' || 'failure' }}
+          PLAYWRIGHT_RESULT: ${{ needs.shard.result == 'success' && job.status == 'success' && 'success' || 'failure' }}
           PLAYWRIGHT_RUN_ATTEMPT: ${{ github.run_attempt }}
           PLAYWRIGHT_RUN_ID: ${{ github.run_id }}
           PLAYWRIGHT_RUN_NUMBER: ${{ github.run_number }}
