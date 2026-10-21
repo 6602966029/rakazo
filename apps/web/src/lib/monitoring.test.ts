@@ -79,6 +79,28 @@ describe("browser monitoring", () => {
     expect(beforeSend({})).toEqual({ user: { ip_address: null } });
   });
 
+  it("uses the startup pseudonym for errors queued before the session resolves", async () => {
+    vi.resetModules();
+    sentry.init.mockReset();
+    const fresh = await import("./monitoring");
+    const PSEUDONYM = "b".repeat(64);
+    await fresh.startMonitoring(
+      respond({ dsn: "https://key@errors.example.com/8", userId: PSEUDONYM }),
+    );
+    const beforeSend = sentry.init.mock.calls[0]![0].beforeSend;
+    expect(beforeSend({})).toEqual({ user: { id: PSEUDONYM, ip_address: null } });
+
+    // A sign-out that resolved before startup finished is not overridden.
+    vi.resetModules();
+    sentry.init.mockReset();
+    const signedOut = await import("./monitoring");
+    await signedOut.identifyMonitoringUser(false);
+    await signedOut.startMonitoring(
+      respond({ dsn: "https://key@errors.example.com/8", userId: PSEUDONYM }),
+    );
+    expect(sentry.init.mock.calls[0]![0].beforeSend({})).toEqual({ user: { ip_address: null } });
+  });
+
   it("does not ask for a pseudonym when monitoring is off", async () => {
     vi.resetModules();
     const fresh = await import("./monitoring");

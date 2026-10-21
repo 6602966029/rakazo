@@ -105,8 +105,10 @@ function SessionApp() {
   const analyticsUserId = session.data?.user.id;
   const lastScreen = useRef<string | undefined>(undefined);
   useEffect(() => {
+    // A pending session is not a sign-out; startup already tagged the signed-in user.
+    if (session.isPending) return;
     void identifyMonitoringUser(Boolean(analyticsUserId));
-  }, [analyticsUserId]);
+  }, [analyticsUserId, session.isPending]);
   useEffect(() => {
     if (!analyticsUserId) {
       lastScreen.current = undefined;
