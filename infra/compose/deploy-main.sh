@@ -44,10 +44,14 @@ healthy() {
 container_healthy() {
   local container="$1" state="" deadline=$((SECONDS + 300))
   while ((SECONDS < deadline)); do
+    # A container that exits keeps its last health status, so check that it still runs.
     state="$(sudo docker inspect --format \
-      '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${container}")"
-    [[ "${state}" == healthy || "${state}" == running ]] && return 0
-    [[ "${state}" == unhealthy || "${state}" == exited || "${state}" == dead ]] && break
+      '{{.State.Status}}{{if .State.Health}} {{.State.Health.Status}}{{end}}' "${container}")"
+    case "${state}" in
+      "running healthy" | running) return 0 ;;
+      "running starting" | created*) ;;
+      *) break ;;
+    esac
     sleep "${RAKAZO_DEPLOY_HEALTH_INTERVAL:-1}"
   done
   echo "Container ${container} did not become healthy (${state:-unknown})." >&2

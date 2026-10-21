@@ -15,7 +15,7 @@ const ROLLOUT = [
     `${COMPOSE} ps --all --quiet ${service}`,
     `${COMPOSE} up -d --no-deps --no-recreate --scale ${service}=2 ${service}`,
     `${COMPOSE} ps --all --quiet ${service}`,
-    `docker inspect --format {{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}} ${service}-new`,
+    `docker inspect --format {{.State.Status}}{{if .State.Health}} {{.State.Health.Status}}{{end}} ${service}-new`,
     `docker stop --time 30 ${service}-old`,
     `docker rm ${service}-old`,
   ]),
@@ -99,7 +99,7 @@ if [[ "$*" == *" ps --all --quiet "* ]]; then
 fi
 if [[ "$*" == *" --scale "* ]]; then touch "$COMMAND_LOG.$service"; fi
 if [[ "$1" == rm && "$2" == *-old ]]; then rm -f "$COMMAND_LOG.\${2%-old}"; fi
-if [[ "$1" == inspect ]]; then echo "\${CONTAINER_HEALTH:-healthy}"; fi
+if [[ "$1" == inspect ]]; then echo "\${CONTAINER_HEALTH:-running healthy}"; fi
 if [[ "$*" == "image ls "* ]]; then echo rakazo-rollback:old; fi
 exit 0
 `,
@@ -271,7 +271,7 @@ describe("production deploy script", () => {
   it("keeps the old container serving when the new one fails its health check", () => {
     const deploy = fixture();
     commit(deploy.upstream, "unhealthy");
-    const result = deploy.run({ CONTAINER_HEALTH: "unhealthy" });
+    const result = deploy.run({ CONTAINER_HEALTH: "running unhealthy" });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("did not become healthy");
     const commands = rollout(deploy.commands());
@@ -290,7 +290,7 @@ describe("production deploy script", () => {
   it("removes a replacement that exits before it is ready", () => {
     const deploy = fixture();
     commit(deploy.upstream, "next");
-    const result = deploy.run({ CONTAINER_HEALTH: "exited" });
+    const result = deploy.run({ CONTAINER_HEALTH: "exited healthy" });
     expect(result.status).toBe(1);
     expect(rollout(deploy.commands())).toContain("docker rm --force api-new");
   });
