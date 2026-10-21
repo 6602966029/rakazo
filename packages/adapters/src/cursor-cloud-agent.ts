@@ -120,8 +120,13 @@ export class CursorCloudAgentProvider implements CloudAgentProvider {
     request: CloudAgentReplyRequest,
     context: AdapterContext,
   ): Promise<CloudAgentHandle> {
-    // Read metadata first: no fallible GET after a successful mutating POST.
-    const agent = await this.agent(id, request.signal ?? context.signal);
+    // Read metadata first: no fallible GET after a successful mutating POST. A
+    // failed read means nothing was sent, so the caller can safely resend.
+    const agent = await this.agent(id, request.signal ?? context.signal).catch((error) => {
+      if (error instanceof CloudAgentRequestRejected || error instanceof CloudAgentRetryLater)
+        throw error;
+      throw new CloudAgentRetryLater("unavailable");
+    });
     if (agent.status === "ARCHIVED") throw new CloudAgentRequestRejected("expired");
     const response = await this.request(
       "POST",
