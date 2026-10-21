@@ -103,6 +103,8 @@ vi.mock("./native", () => ({
     separator: "separator",
   },
   useThemedStyles: <T,>(factory: () => T) => factory(),
+  useResolvedAppearance: () => "light",
+  systemGreen: () => "system-green",
 }));
 
 vi.mock("./appearance", () => ({
