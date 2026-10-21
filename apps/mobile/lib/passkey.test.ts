@@ -304,6 +304,17 @@ describe("one-time passkey offer", () => {
     expect(Alert.alert).toHaveBeenCalledOnce();
   });
 
+  it("asks again on the next visit after a failed check", async () => {
+    vi.mocked(fetchMobileJson)
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(session(60_000))
+      .mockResolvedValueOnce({ response: Response.json([]), body: [] });
+    await offerPasskeyOnce("user-1", () => true);
+    expect(Alert.alert).not.toHaveBeenCalled();
+    await offerPasskeyOnce("user-1", () => true);
+    expect(Alert.alert).toHaveBeenCalledOnce();
+  });
+
   it("starts registration from the offer", async () => {
     vi.mocked(fetchMobileJson)
       .mockResolvedValueOnce(session(60_000))

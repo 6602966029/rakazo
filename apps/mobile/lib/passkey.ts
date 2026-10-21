@@ -268,9 +268,17 @@ async function passkeyOfferDue(userId: string): Promise<boolean> {
 export async function offerPasskeyOnce(userId: string, isActive: () => boolean): Promise<void> {
   if (offered.has(userId)) return;
   offered.add(userId);
-  const due = await passkeyOfferDue(userId).catch(() => false);
-  if (!due || !isActive()) {
-    if (due) offered.delete(userId);
+  let due: boolean;
+  try {
+    due = await passkeyOfferDue(userId);
+  } catch {
+    // A failed check decides nothing, so the next visit to the inbox asks again.
+    offered.delete(userId);
+    return;
+  }
+  if (!due) return;
+  if (!isActive()) {
+    offered.delete(userId);
     return;
   }
   const dismiss = () =>
