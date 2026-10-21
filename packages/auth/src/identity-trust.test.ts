@@ -21,6 +21,7 @@ function fixture({
   webOrigin = "http://web.example.test",
   requestOrigin,
   expireAdmissionGate,
+  stalledDelivery = false,
 }: {
   allowlist?: string;
   delivery?: boolean;
@@ -28,6 +29,8 @@ function fixture({
   webOrigin?: string;
   requestOrigin?: string;
   expireAdmissionGate?: "before" | "after";
+  /** The provider accepts the message but never settles, like a hung SMTP connection. */
+  stalledDelivery?: boolean;
 } = {}) {
   const data: Record<string, Record<string, unknown>[]> = {
     user: [],
@@ -131,8 +134,9 @@ function fixture({
             adapterVersion: "1",
             capabilities: { transactional: true },
           }),
-          send: async (message) => {
+          send: (message) => {
             messages.push(message);
+            return stalledDelivery ? new Promise<void>(() => undefined) : Promise.resolve();
           },
         }
       : undefined,
@@ -640,6 +644,16 @@ describe("email code sign-in", () => {
     expect(await f.sessionFor(body.token)).toMatchObject({ user: { emailVerified: true } });
     expect(bootstrapUserSpace).toHaveBeenCalledTimes(1);
     expect((await f.codeSignIn(code)).status).toBe(400);
+  });
+
+  it("answers a code request without waiting for delivery", async () => {
+    const f = fixture({ stalledDelivery: true });
+    const timeout = new Promise<"timed out">((resolve) => setTimeout(resolve, 2_000, "timed out"));
+    const response = await Promise.race([f.sendCode(), timeout]);
+    expect(response).not.toBe("timed out");
+    expect((response as Response).status).toBe(200);
+    expect(f.messages).toHaveLength(1);
+    expect((await f.codeSignIn(f.lastCode())).status).toBe(200);
   });
 
   it("locks a code after three wrong attempts", async () => {

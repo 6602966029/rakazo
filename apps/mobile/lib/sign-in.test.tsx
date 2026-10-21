@@ -39,6 +39,7 @@ vi.mock("react-native", () => {
       maxLength,
       value,
       onChangeText,
+      onSubmitEditing,
     }: {
       accessibilityLabel?: string;
       placeholder: string;
@@ -49,6 +50,7 @@ vi.mock("react-native", () => {
       maxLength?: number;
       value?: string;
       onChangeText?: (value: string) => void;
+      onSubmitEditing?: () => void;
     }) => (
       <input
         aria-label={accessibilityLabel ?? placeholder}
@@ -59,6 +61,9 @@ vi.mock("react-native", () => {
         maxLength={maxLength}
         value={value}
         onChange={(event) => onChangeText?.(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onSubmitEditing?.();
+        }}
       />
     ),
     Pressable: ({ children, onPress }: { children: ReactNode; onPress: () => void }) => (
@@ -72,8 +77,13 @@ vi.mock("react-native-safe-area-context", () => ({
   SafeAreaView: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 vi.mock("../components/native-action-button", () => ({
-  NativeActionButton: ({ label, prominence = "primary", onPress }: NativeActionButtonProps) => (
-    <button type="button" data-prominence={prominence} onClick={onPress}>
+  NativeActionButton: ({
+    label,
+    prominence = "primary",
+    onPress,
+    disabled,
+  }: NativeActionButtonProps) => (
+    <button type="button" data-prominence={prominence} disabled={disabled} onClick={onPress}>
       {label}
     </button>
   ),
@@ -269,4 +279,33 @@ it("keeps the password form without code sign-in", async () => {
   expect(host.querySelector('input[type="password"]')).not.toBeNull();
   expect(button("Use password")).toBeUndefined();
   expect(button("Use email code")).toBeUndefined();
+});
+
+it("sends the code on the first Continue but never submits an unfinished code", async () => {
+  vi.mocked(passwordResetCapabilities).mockResolvedValue({ ...capabilities, emailCode: true });
+  await render();
+  await type(input("Email")!, "ada@example.test");
+  expect(button("Continue")!.disabled).toBe(false);
+  await press("Continue");
+  expect(sendSignInCode).toHaveBeenCalledTimes(1);
+  const code = input("Code")!;
+  await type(code, "12345");
+  expect(button("Continue")!.disabled).toBe(true);
+  await act(async () => {
+    code.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  });
+  expect(signInWithCode).not.toHaveBeenCalled();
+  expect(sendSignInCode).toHaveBeenCalledTimes(1);
+});
+
+it("opens integration setup after a code sign-in from the sign-in form", async () => {
+  vi.mocked(passwordResetCapabilities).mockResolvedValue({ ...capabilities, emailCode: true });
+  vi.mocked(rpc).mockResolvedValue({ needsSetup: true });
+  await render();
+  await type(input("Email")!, "ada@example.test");
+  await press("Continue");
+  await type(input("Code")!, "123456");
+  expect(signInWithCode).toHaveBeenCalledWith("ada@example.test", "123456", undefined);
+  expect(rpc).toHaveBeenCalledWith("integrationSetup/get");
+  expect(router.replace).toHaveBeenCalledWith("/integration-setup");
 });

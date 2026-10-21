@@ -268,6 +268,27 @@ it("names a new account and keeps the email when going back from the code", asyn
   expect(host.textContent).toBe("Onboarding");
 });
 
+it("sends the code on the first Continue but never submits an unfinished code", async () => {
+  vi.mocked(fetchAuthCapabilities).mockResolvedValue(codeCapabilities);
+  vi.mocked(authClient.emailOtp.sendVerificationOtp).mockResolvedValue({
+    data: { success: true },
+    error: null,
+  } as never);
+  await render();
+  await enter(host.querySelector('input[name="email"]'), "person@example.com");
+  expect(host.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
+  await submit();
+  expect(authClient.emailOtp.sendVerificationOtp).toHaveBeenCalledTimes(1);
+  const continueButton = host.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  expect(continueButton.disabled).toBe(true);
+  await submit();
+  await enter(host.querySelector('input[aria-label="Code"]'), "12345");
+  expect(continueButton.disabled).toBe(true);
+  await submit();
+  expect(authClient.signIn.emailOtp).not.toHaveBeenCalled();
+  expect(authClient.emailOtp.sendVerificationOtp).toHaveBeenCalledTimes(1);
+});
+
 it("keeps password sign-in one step away", async () => {
   vi.mocked(fetchAuthCapabilities).mockResolvedValue(codeCapabilities);
   await render();
