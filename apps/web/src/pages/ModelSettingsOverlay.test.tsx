@@ -49,8 +49,19 @@ vi.mock("@lingui/react/macro", () => {
   };
 });
 vi.mock("@rakazo/ui-web", async (importOriginal) => {
-  const { Checkbox, Label, Popover, PopoverContent, PopoverTrigger } =
-    await importOriginal<UiWebModule>();
+  const {
+    Checkbox,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+    Label,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+  } = await importOriginal<UiWebModule>();
   const Pass = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
   return {
     AlertDialog: ({ open, children }: { open?: boolean; children?: ReactNode }) =>
@@ -92,6 +103,12 @@ vi.mock("@rakazo/ui-web", async (importOriginal) => {
     ),
     Dialog: Pass,
     DialogClose: Pass,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
     DialogContent: Pass,
     DialogDescription: ({ children }: { children?: ReactNode }) => (
       <p data-testid="model-description">{children}</p>
