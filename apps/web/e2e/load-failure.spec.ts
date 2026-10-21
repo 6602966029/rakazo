@@ -199,7 +199,12 @@ test("a failed integrations load offers Retry instead of an empty catalog", asyn
 
   failCatalog = false;
   await retry.click();
-  await expect(page.getByTestId("connection-tile-slack")).toBeVisible();
+  // Add appears only on a tile backed by a loaded catalog entry.
+  const slack = page
+    .getByTestId("featured-connectors")
+    .getByText("Slack", { exact: true })
+    .locator("xpath=ancestor::*[.//button][1]");
+  await expect(slack.getByRole("button", { name: "Add", exact: true })).toBeVisible();
   await expect(page.getByText("Could not reach the server", { exact: true })).toHaveCount(0);
   await expect(retry).toHaveCount(0);
 });
