@@ -7105,6 +7105,8 @@ const MessageView = memo(function MessageView({
     </>
   );
   // Anchored below the speaker and reply line so the rail centers on the bubble itself.
+  // A message with text and attachments anchors it on its first text bubble.
+  const hoverAnchorIndex = message.blocks.findIndex((block) => block.kind === "text");
   const hoverActions = isPeerReceiptBlocks(message.blocks) ? null : (
     <MessageHoverActions
       message={message}
@@ -7187,7 +7189,7 @@ const MessageView = memo(function MessageView({
   return (
     <>
       {messageContext}
-      <div className="relative">
+      <div className="relative flex flex-col gap-2">
         {message.blocks.map((block, i) => {
           if (block.kind === "steps" && shouldRenderToolCard(block, showToolActivity)) {
             return (
@@ -7425,7 +7427,7 @@ const MessageView = memo(function MessageView({
             return (
               <div
                 key={i}
-                className="flex w-fit max-w-full justify-end [@media(hover:none)]:w-full"
+                className="relative flex w-fit max-w-full justify-end [@media(hover:none)]:w-full [@media(hover:none)]:flex-wrap"
               >
                 <div
                   data-testid="message-user-bubble"
@@ -7435,6 +7437,7 @@ const MessageView = memo(function MessageView({
                 >
                   <LinkifiedText>{block.text}</LinkifiedText>
                 </div>
+                {i === hoverAnchorIndex ? hoverActions : null}
               </div>
             );
           }
@@ -7442,7 +7445,7 @@ const MessageView = memo(function MessageView({
             return (
               <div
                 key={i}
-                className="flex w-fit max-w-full justify-start [@media(hover:none)]:w-full"
+                className="relative flex w-fit max-w-full justify-start [@media(hover:none)]:w-full [@media(hover:none)]:flex-wrap"
               >
                 <div
                   data-testid="message-bot-bubble"
@@ -7463,6 +7466,7 @@ const MessageView = memo(function MessageView({
                     </button>
                   ) : null}
                 </div>
+                {i === hoverAnchorIndex ? hoverActions : null}
               </div>
             );
           }
@@ -7539,7 +7543,7 @@ const MessageView = memo(function MessageView({
           }
           return null;
         })}
-        {hoverActions}
+        {hoverAnchorIndex === -1 ? hoverActions : null}
       </div>
     </>
   );

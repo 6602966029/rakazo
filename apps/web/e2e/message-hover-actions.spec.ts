@@ -291,6 +291,49 @@ test("message hover shows beside-bubble actions; reply links to parent", async (
   await captureScreenshot(page, testInfo, "message-user-actions-mobile");
 });
 
+test("a message with an attachment centers hover actions on its text bubble", async ({
+  page,
+}, testInfo) => {
+  const stamp = Date.now();
+  await signup(page, `hover-attach-${stamp}@rakazo.test`, "password12", "Hover Attach");
+  await completeOnboarding(page);
+  const composer = page.getByRole("combobox", { name: /^Message/ });
+  await expect(composer).toBeVisible();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("meeting notes"),
+  });
+  await expect(page.getByRole("button", { name: "Remove notes.txt" })).toBeVisible();
+  const text = `hover-attach-${stamp}`;
+  await sendComposerMessage(page, composer, text);
+
+  const row = page
+    .getByTestId("transcript")
+    .locator("[data-message-id]")
+    .filter({ hasText: text })
+    .first();
+  await expect(row).toBeVisible({ timeout: 20_000 });
+  await expect(row.getByText("notes.txt")).toBeVisible();
+  // Blocks in one message keep the same gap as separate messages instead of touching.
+  const bubbleBox = await row.getByTestId("message-user-bubble").boundingBox();
+  const fileBox = await row.getByRole("button", { name: /notes\.txt/ }).boundingBox();
+  expect(bubbleBox).not.toBeNull();
+  expect(fileBox).not.toBeNull();
+  expect(fileBox!.y - (bubbleBox!.y + bubbleBox!.height)).toBeGreaterThanOrEqual(6);
+  const rail = await revealHoverRail(row);
+  const bubble = row.getByTestId("message-user-bubble");
+  await expect
+    .poll(async () => {
+      const railBox = await rail.boundingBox();
+      const bubbleBox = await bubble.boundingBox();
+      if (!railBox || !bubbleBox) return null;
+      return Math.abs(railBox.y + railBox.height / 2 - (bubbleBox.y + bubbleBox.height / 2));
+    })
+    .toBeLessThan(2);
+  await captureScreenshot(page, testInfo, "message-attachment-actions-desktop");
+});
+
 test("reply preview jumps to parent outside the loaded page", async ({ page }) => {
   const stamp = Date.now();
   await signup(page, `hover-page-${stamp}@rakazo.test`, "password12", "Hover Page");
