@@ -886,12 +886,12 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 
 .platforms {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: clamp(48px, 9vw, 140px);
+  justify-items: center;
+  gap: 56px;
 }
 
 .platforms .section-intro {
+  justify-self: stretch;
   max-width: none;
 }
 
@@ -1108,18 +1108,6 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   background: var(--panel-cream);
   color: var(--panel-cream-ink);
   font-size: 14px;
-}
-
-@media (max-width: 1100px) {
-  .platforms {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    gap: 56px;
-  }
-
-  .platforms .section-intro {
-    justify-self: stretch;
-  }
 }
 
 @media (max-width: 720px) {
