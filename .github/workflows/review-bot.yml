@@ -1,0 +1,34 @@
+name: Review bot
+
+# Greptile reviews PRs by default. Setting the CODERABBIT_UNTIL repository
+# variable to a date (YYYY-MM-DD, e.g. when Greptile credits reset) hands new
+# PRs to CodeRabbit until that day by labeling them review:coderabbit, which
+# opts CodeRabbit in (.coderabbit.yaml) and Greptile out (greptile.json).
+#
+# pull_request_target so fork PRs can be labeled too; this job never checks
+# out or runs PR code.
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions: {}
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: vars.CODERABBIT_UNTIL != ''
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Hand the PR to CodeRabbit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          UNTIL: ${{ vars.CODERABBIT_UNTIL }}
+        run: |
+          if [[ "$(date -u +%F)" < "$UNTIL" ]]; then
+            gh api "repos/$REPO/issues/$PR/labels" -f "labels[]=review:coderabbit" --silent
+          fi
