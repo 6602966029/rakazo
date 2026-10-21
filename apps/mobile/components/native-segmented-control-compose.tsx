@@ -71,7 +71,11 @@ export default function ComposeSegmentedControl<T extends string>({
             accessible
             accessibilityRole="radio"
             accessibilityLabel={`${accessibilityLabel}, ${option.label}`}
-            accessibilityState={{ selected: value === option.value, disabled }}
+            accessibilityState={{
+              checked: value === option.value,
+              selected: value === option.value,
+              disabled,
+            }}
             disabled={disabled}
             onPress={() => {
               if (!disabled) onChange(option.value);

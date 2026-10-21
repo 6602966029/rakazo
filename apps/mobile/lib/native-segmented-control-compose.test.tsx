@@ -42,14 +42,14 @@ vi.mock("react-native", () => ({
     disabled: boolean;
     accessibilityLabel: string;
     accessibilityRole: string;
-    accessibilityState: { selected: boolean; disabled: boolean };
+    accessibilityState: { checked: boolean; selected: boolean; disabled: boolean };
   }) => (
     <input
       type="radio"
       data-accessibility-role={accessibilityRole}
       aria-label={accessibilityLabel}
-      aria-checked={accessibilityState.selected}
-      checked={accessibilityState.selected}
+      aria-checked={accessibilityState.checked && accessibilityState.selected}
+      checked={accessibilityState.checked && accessibilityState.selected}
       readOnly
       disabled={disabled}
       onClick={onPress}
