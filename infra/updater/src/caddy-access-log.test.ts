@@ -44,6 +44,14 @@ describe.each(caddyfiles)("%s access log", (filename) => {
     expect(redact("/webhook?hub.verify_token=v&hub.mode=subscribe")).toBe(
       "/webhook?hub.verify_token=REDACTED&hub.mode=subscribe",
     );
+    expect(
+      redact(
+        "/novnc/session/control/1792540000.c4p4b1l1ty/vnc.html?path=novnc%2Fsession%2Fcontrol%2F1792540000.c4p4b1l1ty%2Fwebsockify&view_only=false",
+      ),
+    ).toBe("/novnc/session/control/REDACTED/vnc.html?path=REDACTED&view_only=false");
+    expect(redact("/novnc/session/view/1792540000.c4p4b1l1ty/websockify")).toBe(
+      "/novnc/session/view/REDACTED/websockify",
+    );
     expect(redact("/rpc/threads/get?botId=b1")).toBe("/rpc/threads/get?botId=b1");
   });
 });
