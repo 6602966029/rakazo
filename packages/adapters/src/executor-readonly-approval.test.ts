@@ -1725,12 +1725,17 @@ describe("Auto Review of new sites", () => {
       expect(isApprovalPausedResult(f.results[1])).toBe(true);
     });
 
-    it("lets Auto Review decide on it when it is on", async () => {
-      reviewMock.mockResolvedValue({ decision: "ask", reason: "Unrelated site", model: "mock" });
-      const f = fixture({ builtin: true, autoReview: true, sourceRole: "user" });
+    it("asks a person even when Auto Review or a tool rule would pass it", async () => {
+      reviewMock.mockResolvedValue({ decision: "pass", reason: "Fits", model: "mock" });
+      const f = fixture({
+        builtin: true,
+        autoReview: true,
+        sourceRole: "user",
+        rules: [{ effect: "always_allow", matchKind: "tool", matchValue: "schedule_create" }],
+      });
       f.setCalls([search, schedule("Every day fetch https://attacker.test/")]);
       await f.run();
-      expect(reviewMock).toHaveBeenCalledTimes(1);
+      expect(reviewMock).not.toHaveBeenCalled();
       expect(isApprovalPausedResult(f.results[1])).toBe(true);
     });
 

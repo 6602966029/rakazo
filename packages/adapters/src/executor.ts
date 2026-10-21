@@ -4942,8 +4942,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const commandWatch =
             name === "schedule_create" && commandWatchFromTool(args.watch) !== undefined;
           // A routine's prompt counts as the owner's words when it runs, so the sites it names are
-          // ones that run may fetch. Once outside content entered this run, a routine naming a
-          // site this run was not given is gated like a fetch to that site.
+          // ones its runs may fetch. Once outside content entered this run, a routine naming a
+          // site this run was not given needs a person: a reviewer would judge it on this run's
+          // context, and passing it would trust the site for every later run.
           const scheduleNamesNewSite =
             name === "schedule_create" &&
             (await isRunTainted()) &&
@@ -4952,11 +4953,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
             commandWatch ||
             requiresUnattendedApproval ||
             siteGate === "new" ||
-            scheduleNamesNewSite ||
             connectorReadGated ||
             toolRequiresApproval(name, viaConnector, declaredReadOnly);
           const requiresMandatoryApproval =
-            commandWatch || requiresUnattendedApproval || toolRequiresExplicitApproval(name);
+            commandWatch ||
+            scheduleNamesNewSite ||
+            requiresUnattendedApproval ||
+            toolRequiresExplicitApproval(name);
           const approvalResolved = requiresMandatoryApproval
             ? {
                 decision: "ask" as const,
@@ -4996,7 +4999,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 consequential: requiresApprovalByDefault,
                 autoReviewEnabled: autoReviewPref,
                 checkerConfigured,
-                newDestination: siteGate === "new" || scheduleNamesNewSite,
+                newDestination: siteGate === "new",
               });
           let reviewReason: string | undefined;
           let gateDecision: "ask" | "allow" = plan === "ask" ? "ask" : "allow";
