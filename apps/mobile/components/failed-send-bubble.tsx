@@ -46,8 +46,8 @@ export function FailedSendBubble({
       ...(retryable && !modelRequired ? [{ text: t("Try Again"), onPress: onRetry }] : []),
       { text: t("Delete"), style: "destructive" as const, onPress: onDelete },
     ];
-    // No header for the missing-model sheet: the Add Model action already says it.
-    const message = modelRequired ? undefined : attempt.error;
+    // No header for a missing-model failure: Add Model says it, and once connected it's stale.
+    const message = isModelRequiredSendError(attempt.error) ? undefined : attempt.error;
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {

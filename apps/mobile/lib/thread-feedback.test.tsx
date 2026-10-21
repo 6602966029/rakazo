@@ -362,7 +362,7 @@ describe("scoped mobile outbox", () => {
       .mocked(ActionSheetIOS.showActionSheetWithOptions)
       .mock.calls.at(-1)!;
     expect(options.options).toEqual(["Try Again", "Delete", "Cancel"]);
-    expect(options.message).toBe(MODEL_REQUIRED_SEND_ERROR);
+    expect(options.message).toBeUndefined();
     act(() => choose(0));
     expect(retry).toHaveBeenCalledOnce();
     expect(router.push).not.toHaveBeenCalled();
