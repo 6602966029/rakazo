@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { AccountSecurity, AvatarStyle } from "@rakazo/contracts";
-import { accountDisplay } from "@rakazo/core";
+import { accountDisplay, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@rakazo/core";
 import {
   BotAvatar,
   Button,
@@ -21,7 +21,8 @@ import { SuccessPop } from "../components/ai/primitives";
 import { ComputersUnavailableHint } from "../components/ComputersUnavailableHint";
 import { DesktopUpdateSection } from "../components/DesktopUpdates";
 import { ListboxSelect } from "../components/ListboxSelect";
-import { SoftwareUpdateSection } from "../components/SoftwareUpdateSection";
+import type { ServerUpdateLoad } from "../components/SoftwareUpdateSection";
+import { hasServerUpdates, SoftwareUpdateSection } from "../components/SoftwareUpdateSection";
 import { authClient } from "../lib/auth";
 import {
   getBotsSidebarDensity,
@@ -455,15 +456,11 @@ export function ComputerSettingsPanel({
   );
 }
 
-export function UpdatesSettingsPanel({
-  isDeploymentOwner = false,
-}: {
-  isDeploymentOwner?: boolean;
-}) {
+export function UpdatesSettingsPanel({ serverUpdate }: { serverUpdate: ServerUpdateLoad }) {
   return (
     <div className="space-y-5">
       <DesktopUpdateSection />
-      <SoftwareUpdateSection isDeploymentOwner={isDeploymentOwner} />
+      {hasServerUpdates(serverUpdate) ? <SoftwareUpdateSection load={serverUpdate} /> : null}
     </div>
   );
 }
@@ -550,7 +547,7 @@ function ChangePasswordSection({ email }: { email?: string | null }) {
       <div className="mt-4 flex items-center gap-3">
         <Button
           className="rounded-full"
-          disabled={pending || currentPassword.length < 8 || newPassword.length < 8}
+          disabled={pending || !currentPassword || !newPassword}
           onClick={() => void changePassword()}
         >
           {pending ? <Trans>Changing…</Trans> : <Trans>Change password</Trans>}
@@ -580,7 +577,8 @@ function SettingsPasswordInput({
         id={id}
         type="password"
         autoComplete={autoComplete}
-        minLength={8}
+        minLength={autoComplete === "new-password" ? MIN_PASSWORD_LENGTH : undefined}
+        maxLength={MAX_PASSWORD_LENGTH}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />

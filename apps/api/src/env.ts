@@ -22,6 +22,8 @@ export { resolveCloudAgentProvider, resolveSandboxProvider } from "@rakazo/adapt
 
 export interface AppEnv {
   passwordAuth?: boolean;
+  /** Opt-in Have I Been Pwned check for new passwords. Default off: it calls an outside service. */
+  breachedPasswordCheck?: boolean;
   oidc?: OidcConfig;
   nodeEnv: string;
   desktopStackToken?: string;
@@ -74,6 +76,7 @@ export interface AppEnv {
   sendblueApiSecret: string | undefined;
   sendblueSigningSecret: string | undefined;
   sendbluePhoneNumber: string | undefined;
+  expoAccessToken: string | undefined;
   smtpUrl: string | undefined;
   emailFrom: string | undefined;
   /** Billing turns on only when all three are set; self-hosted installs leave them unset. */
@@ -142,7 +145,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
       throw new Error("OIDC_ISSUER must be an HTTPS issuer URL");
     }
   }
-  for (const key of ["AUTH_PASSWORD_ENABLED", "OIDC_ALLOW_SIGNUP_BYPASS"]) {
+  for (const key of [
+    "AUTH_PASSWORD_ENABLED",
+    "AUTH_BREACHED_PASSWORD_CHECK_ENABLED",
+    "OIDC_ALLOW_SIGNUP_BYPASS",
+  ]) {
     const value = source[key];
     if (value && !["true", "false"].includes(value))
       throw new Error(`${key} must be true or false`);
@@ -171,6 +178,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
   const updaterToken = optional(source.RAKAZO_UPDATER_TOKEN);
   return {
     passwordAuth,
+    breachedPasswordCheck: source.AUTH_BREACHED_PASSWORD_CHECK_ENABLED === "true",
     oidc,
     nodeEnv: source.NODE_ENV ?? "",
     databaseUrl: required(source, "DATABASE_URL"),
@@ -220,6 +228,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     sendblueApiSecret: optional(source.SENDBLUE_API_SECRET),
     sendblueSigningSecret: optional(source.SENDBLUE_SIGNING_SECRET),
     sendbluePhoneNumber: optional(source.SENDBLUE_PHONE_NUMBER),
+    expoAccessToken: optional(source.EXPO_ACCESS_TOKEN),
     smtpUrl: optional(source.SMTP_URL),
     emailFrom: optional(source.EMAIL_FROM),
     stripeSecretKey: optional(source.STRIPE_SECRET_KEY),

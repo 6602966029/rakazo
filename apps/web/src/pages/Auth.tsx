@@ -1,6 +1,19 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+<<<<<<< HEAD
 import { credentialIssue, signupRequiresEmailVerification } from "@rakazo/core";
 import { Button, Input, InputOTP, InputOTPGroup, InputOTPSlot, Label } from "@rakazo/ui-web";
+||||||| 6486e396
+import { credentialIssue, signupRequiresEmailVerification } from "@rakazo/core";
+import { Button, Input, Label } from "@rakazo/ui-web";
+=======
+import {
+  credentialIssue,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  signupRequiresEmailVerification,
+} from "@rakazo/core";
+import { Button, Input, Label } from "@rakazo/ui-web";
+>>>>>>> origin/main
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { authClient } from "../lib/auth";
@@ -328,7 +341,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                     placeholder={t`Password`}
                     type="password"
                     required
-                    minLength={8}
+                    minLength={mode === "up" ? MIN_PASSWORD_LENGTH : undefined}
+                    maxLength={MAX_PASSWORD_LENGTH}
                     className={fieldClass}
                   />
                   {mode === "in" && reset?.passwordReset ? (
@@ -556,7 +570,8 @@ function PasswordField({
         autoComplete="new-password"
         type="password"
         required
-        minLength={8}
+        minLength={MIN_PASSWORD_LENGTH}
+        maxLength={MAX_PASSWORD_LENGTH}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className={fieldClass}

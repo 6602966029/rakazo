@@ -805,7 +805,7 @@ msgstr "Reihenfolge der Backup-Modelle"
 msgid "Backup models saved."
 msgstr "Backup-Modelle gespeichert."
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "Basis-URL"
 
@@ -1168,7 +1168,7 @@ msgstr "Benutzereinstellungen schließen"
 msgid "Close voice settings"
 msgstr "Stimmeinstellungen schließen"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
 msgstr "Cloud"
 
@@ -1356,6 +1356,10 @@ msgstr "Verbunden. Die Tools sind ab deiner nächsten Nachricht verfügbar."
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connecting…"
 msgstr "Verbindung wird hergestellt…"
+
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Connection"
+msgstr "Verbindung"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Connection test failed."
@@ -2337,6 +2341,10 @@ msgstr ""
 msgid "Expand {label}"
 msgstr "{label} erweitern"
 
+#: src/components/CloudAgentCard.tsx
+msgid "expired"
+msgstr "abgelaufen"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Export"
 msgstr "Exportieren"
@@ -2871,7 +2879,7 @@ msgstr "Stimmanbieter werden geladen…"
 msgid "Loading…"
 msgstr "Wird geladen…"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Local"
 msgstr "Lokal"
 

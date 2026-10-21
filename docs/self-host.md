@@ -287,6 +287,20 @@ email configured, **Send deletion code** sends a single-use code to the account 
 minutes. Enter it in account settings to confirm deletion. Email-code requests are rate-limited;
 invalid, expired or wrong-account codes fail. No password needs to be created for deletion.
 
+### Mobile push notifications
+
+The API and worker send iOS and Android notifications through Expo's push service. If the Expo
+project has [enhanced security for push notifications](https://docs.expo.dev/push-notifications/sending-notifications/#additional-security)
+enabled, every send needs an access token; without one Expo rejects all pushes. Create an access
+token in the Expo account that owns the project and set it for both services:
+
+```env
+EXPO_ACCESS_TOKEN=replace-with-your-expo-access-token
+```
+
+Leave it unset when enhanced security is off. A missing or revoked token fails the push with an
+error that names `EXPO_ACCESS_TOKEN`; the token itself is never logged.
+
 ### Verification and password recovery email
 
 Password changes for signed-in users require no email configuration. Forgotten-password recovery
@@ -317,6 +331,19 @@ loopback host. In `NODE_ENV=development`, captured messages are available from
 `http://127.0.0.1:3100/api/dev/emails` with cache disabled; the API logs only delivery
 metadata, never reset tokens. The inbox route is not registered in test, staging, or production.
 
+### Password policy
+
+New passwords (signup, reset and change) must be 8 to 128 characters, with no composition rules.
+Optionally reject new passwords that appear in known breaches:
+
+```env
+AUTH_BREACHED_PASSWORD_CHECK_ENABLED=true
+```
+
+This queries the Have I Been Pwned range API, sending only the first five characters of the
+password's SHA-1 hash. It is off by default so the server makes no outside request. If the service
+is unreachable or takes longer than three seconds, the password is accepted and the failure logged.
+
 ### Billing
 
 Billing stays off, with no paywall, unless `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and
@@ -345,6 +372,33 @@ appropriate retention/access controls, since this content can contain secrets or
 data. Unknown attributes and exception messages/stacks stay excluded. Export is batched,
 best effort, and flushed when the worker shuts down; collector failures do not fail runs.
 
+### Product analytics
+
+Product analytics is off by default. To enable the PostHog adapter, set
+`ANALYTICS_PROVIDER=posthog`, `ANALYTICS_KEY` to a project capture token, and
+`ANALYTICS_HOST` to the HTTPS ingestion host (default `https://us.i.posthog.com`)
+on API and worker. Also set `ANALYTICS_PSEUDONYM_SECRET` to a server-only random
+value (`openssl rand -hex 32`), identical on API and worker. Retain it when rotating
+the public capture token so user and event identities stay stable. Never send this
+secret to the browser or collector. Set `ANALYTICS_PROVIDER=none` to disable it.
+The public website uses its separate `PUBLIC_POSTHOG_KEY` configuration.
+
+The backend sends account creation, session creation, fixed screen names, message
+counts, and run starts/outcomes. Run events include the shared trigger enum;
+analytics does not read or classify error text. User identifiers are pseudonymized
+with the server-only secret. No names,
+emails, prompts, responses, message text, DOM, URLs, search parameters, document
+contents, request metadata, or raw errors are exported. There is no browser or
+mobile analytics SDK, autocapture, session replay, or third-party script.
+Web, Electron, and mobile send only fixed screen/surface enums to the authenticated
+API; lifecycle events come from the shared backend. This works across clients
+without giving a collector access to their content. Local and self-hosted
+installations remain off until their backend is configured.
+
+Delivery is best effort: memory is bounded, requests time out, and shutdown flushes
+pending events. Analytics failure does not fail product operations. This is not a
+durable audit trail, and events from before enablement are not backfilled.
+
 ### Logging
 
 Backend services write structured logs to stdout. `LOG_LEVEL` is `debug`, `info`, `warn`, `error`,
@@ -355,6 +409,52 @@ Axiom is optional. Set both `AXIOM_TOKEN` and `AXIOM_DATASET` for ingest to one 
 Services set `service.name` (`rakazo-api`, `rakazo-worker`, `rakazo-sandbox-supervisor`,
 `rakazo-updater`). A partial Axiom config logs a one-time warning and stays off. `AXIOM_EDGE` is a
 regional hostname; `AXIOM_EDGE_URL` must be https and wins when both are set.
+
+Computer usage is recorded at several boundaries:
+
+- `run.computer`: one record per execution attempt, including runs that never request a computer
+  (`reason=none`). `reason` is `tool`, `takeover`, or `script` otherwise; `tool` is an allowlisted
+  built-in name and `trigger` identifies user, routine, or other run sources. Deduplicate `run.id`
+  when counting runs, because a run can have several attempts.
+- `computer.requested`: the first computer use in an attempt, with its reason, tool, and trigger.
+- `computer.provisioned`: completed setup, with `operation=create`, `resume`, or `reuse` and
+  `durationMs`. A setup request can reuse an already-running computer without spending a start.
+- `sandbox.start`: Boat's actual `create`, `resume`, and `recover` requests, including starts during
+  preparation or after the provider expires a computer. `outcome=accepted` means the provider
+  accepted the request, not that all later setup succeeded. `rate_limited` and `failed` are
+  separate outcomes. Count accepted creates/resumes for start usage; recoveries are shown separately
+  because their quota treatment depends on the provider.
+- `computer.suspended`: successful idle or active-limit suspension, with the active duration.
+
+These records use fixed metadata, opaque correlation IDs, durations, and booleans. They do not add
+prompts, responses, filenames, file contents, command arguments, or credentials. Request/job trace
+fields link non-run starts back to the API route or background job that initiated them. Axiom is
+an additional sink for the same logs; these events need no extra keys when ingest is configured.
+
+For example, substitute your own dataset in these APL queries:
+
+```apl
+['YOUR_DATASET']
+| where message == 'sandbox.start'
+| summarize requests=count() by provider, operation, outcome
+```
+
+```apl
+['YOUR_DATASET']
+| where message == 'computer.requested'
+| summarize requests=count() by trigger, reason, tool
+```
+
+```apl
+['YOUR_DATASET']
+| where message == 'run.computer'
+| summarize attempts=count(), withoutComputer=countif(reason == 'none') by trigger
+```
+
+Track accepted starts per hour/day, rate-limit refusals, first-use tools, and the proportion of
+attempts needing no computer before tuning `SANDBOX_IDLE_MS`. Increasing the idle window reduces
+resumes between nearby uses but increases billed runtime; changing it does not remove unnecessary
+starts caused by tools. Provider rolling-window limits remain the source of truth for quota.
 
 Error reporting to Sentry or a Sentry-compatible collector such as GlitchTip is optional:
 
@@ -467,6 +567,21 @@ option sends search queries and requested page URLs to Keenable, which retrieves
 servers. Anonymous access is rate limited per IP address; set `KEENABLE_API_KEY` on the API and
 worker to send a key and lift those limits. Errors, per-bot disabled tools and the way back to
 the default work as described for Parallel.
+
+### Self-hosted memory
+
+Supermemory and Honcho can run on your own network. In **Settings → Memory**, choose **Local**
+and enter the instance's base URL. Only the deployment owner can save a local endpoint. It must
+be loopback or resolve to private addresses (a Compose service name, an RFC1918 or unique-local
+address, or a `.internal` name such as Railway's private network); Rakazo pins the resolved
+address for every request. Space members use the saved connection without seeing its key.
+
+For [Honcho](https://github.com/plastic-labs/honcho), enable `AUTH_USE_AUTH` on the Honcho
+server and use an admin JWT from its `scripts/generate_jwt.py --admin` as the key, so each Space
+gets its own workspace. A workspace-scoped JWT works when you enter that workspace. Honcho needs
+its own PostgreSQL with pgvector, an LLM provider, and an embedding provider; set
+`EMBEDDING_VECTOR_DIMENSIONS` before its first start. Rakazo stores only explicitly saved facts
+in Honcho; conversation summaries stay in Rakazo.
 
 Remote MCP servers and installed API / GraphQL connectors default to public HTTPS. The deployment
 owner can attach one on localhost, the same LAN, or a Docker network. Set

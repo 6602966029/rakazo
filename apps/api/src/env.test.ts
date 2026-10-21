@@ -219,6 +219,13 @@ describe("loadEnv", () => {
     expect(env.updaterToken).toBe("fake-review-updater-token-000000000000");
   });
 
+  it("loads an optional Expo access token", () => {
+    expect(loadEnv(base).expoAccessToken).toBeUndefined();
+    expect(loadEnv({ ...base, EXPO_ACCESS_TOKEN: " fake-expo-token " }).expoAccessToken).toBe(
+      "fake-expo-token",
+    );
+  });
+
   it("loads SMTP configuration and keeps the email emulator out of production", () => {
     expect(
       loadEnv({
@@ -281,6 +288,15 @@ describe("OIDC environment", () => {
   it("guards password-only lockout without contacting discovery", () => {
     expect(() => loadEnv({ ...base, AUTH_PASSWORD_ENABLED: "false" })).toThrow(/requires OIDC/);
     expect(loadEnv({ ...base, ...oidc, AUTH_PASSWORD_ENABLED: "false" }).passwordAuth).toBe(false);
+  });
+  it("leaves the breached password check off unless explicitly enabled", () => {
+    expect(loadEnv(base).breachedPasswordCheck).toBe(false);
+    expect(
+      loadEnv({ ...base, AUTH_BREACHED_PASSWORD_CHECK_ENABLED: "true" }).breachedPasswordCheck,
+    ).toBe(true);
+    expect(() => loadEnv({ ...base, AUTH_BREACHED_PASSWORD_CHECK_ENABLED: "yes" })).toThrow(
+      "AUTH_BREACHED_PASSWORD_CHECK_ENABLED must be true or false",
+    );
   });
   it("defaults to SSO with no policy bypass", () => {
     expect(loadEnv({ ...base, ...oidc }).oidc).toMatchObject({

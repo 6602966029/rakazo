@@ -1,11 +1,17 @@
 import { expo } from "@better-auth/expo";
-import type { TransactionalEmail, TransactionalEmailProvider } from "@rakazo/adapter-kit";
+import type {
+  ProductAnalytics,
+  TransactionalEmail,
+  TransactionalEmailProvider,
+} from "@rakazo/adapter-kit";
 import {
   allowlistedSignupAdmission,
   displayName,
   emailAllowed,
   firstAccountClaimDecision,
   isMessagingEmail,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
   parseAllowlist,
   signupPolicyFromEnv,
 } from "@rakazo/core";
@@ -22,13 +28,17 @@ import {
 } from "better-auth/api";
 import { bearer, emailOTP, organization } from "better-auth/plugins";
 import { accountSecurity, oidcProofKey, sessionForAuthHook } from "./account-security.js";
+import { breachedPasswordCheck } from "./breached-password.js";
 import type { OidcConfig } from "./oidc.js";
 import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
 
 export type { OidcConfig } from "./oidc.js";
 
 export interface AuthEnv {
+  analytics?: ProductAnalytics;
   passwordAuth?: boolean;
+  /** Opt-in: rejects new passwords found in Have I Been Pwned. Calls an outside service. */
+  breachedPasswordCheck?: boolean;
   oidc?: OidcConfig;
   secret: string;
   baseURL: string;
@@ -285,6 +295,8 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       // Signup policy is mutable deployment state, so the request hook below
       // enforces it instead of freezing an environment value at process start.
       disableSignUp: false,
+      minPasswordLength: MIN_PASSWORD_LENGTH,
+      maxPasswordLength: MAX_PASSWORD_LENGTH,
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: 60 * 60,
       sendResetPassword: env.email
@@ -402,6 +414,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             }),
           ]
         : []),
+      ...(env.breachedPasswordCheck ? [breachedPasswordCheck()] : []),
       organization({
         allowUserToCreateOrganization: false,
         disableOrganizationDeletion: true,
@@ -599,6 +612,11 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             }
           },
           after: async (session, ctx) => {
+            env.analytics?.capture(
+              session.userId,
+              { name: "signed_in" },
+              { id: session.id, at: session.createdAt },
+            );
             const context =
               ctx && isOidcCallback(ctx) ? (await getOAuthState())?.serverContext : undefined;
             // Set only after ID-token verification and exact linked-account binding.
@@ -626,6 +644,13 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       },
       user: {
         create: {
+          after: async (user) => {
+            env.analytics?.capture(
+              user.id,
+              { name: "account_created" },
+              { id: user.id, at: user.createdAt },
+            );
+          },
           before: async (user) => {
             if (isMessagingEmail(user.email)) {
               throw new APIError("BAD_REQUEST", { message: "Email is not available" });

@@ -139,6 +139,7 @@ export const RU_MESSAGES: Record<string, string> = {
   finished: "завершено",
   failed: "ошибка",
   cancelled: "отменено",
+  expired: "истёк срок",
   Saved: "Сохранено",
   " (unread)": " (непрочитано)",
   Appearance: "Внешний вид",

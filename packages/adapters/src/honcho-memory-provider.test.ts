@@ -2,10 +2,14 @@ import type { AdapterContext } from "@rakazo/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import { MAX_HONCHO_CONCLUSION_BYTES } from "./honcho-client.js";
 import {
+  createHonchoProvider,
   HonchoMemoryProvider,
+  honchoRequiresDeploymentOwner,
   honchoWorkspaceId,
   prepareHonchoConnection,
 } from "./honcho-memory-provider.js";
+import type { ResolveHostname } from "./network-address.js";
+import { MemoryProviderDeploymentOwnerRequiredError } from "./serenity-memory-provider.js";
 
 const context: AdapterContext = {
   operationId: "op-1",
@@ -467,5 +471,145 @@ describe("Honcho scope and failures", () => {
       ok: true,
       value: [{ memory: "A fact" }],
     });
+  });
+});
+
+describe("Honcho local mode", () => {
+  const LOCAL_URL = "http://honcho-api.railway.internal:8000";
+  const privateResolver: ResolveHostname = async () => [{ address: "fd12:3456::7", family: 6 }];
+  const publicResolver: ResolveHostname = async () => [{ address: "203.0.113.10", family: 4 }];
+  const save = {
+    content: "Prefers short answers.",
+    scope: "isolated" as const,
+    botId: "bot-1",
+    source: { kind: "durable" as const },
+  };
+
+  function localFetch() {
+    return vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      expect(new URL(String(url)).origin).toBe(LOCAL_URL);
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer honcho-admin-token");
+      return Response.json({});
+    });
+  }
+
+  it("requires the deployment owner for every mode except Honcho Cloud", () => {
+    expect(honchoRequiresDeploymentOwner({})).toBe(false);
+    expect(honchoRequiresDeploymentOwner({ mode: "cloud" })).toBe(false);
+    for (const mode of ["local", " local ", "LOCAL", ""]) {
+      expect(honchoRequiresDeploymentOwner({ mode, baseUrl: LOCAL_URL })).toBe(true);
+    }
+  });
+
+  it.each([" local ", "LOCAL", " cloud "])(
+    "rejects the unnormalized mode %j instead of reinterpreting it",
+    async (mode) => {
+      const fetch = localFetch();
+      await expect(
+        prepareHonchoConnection(
+          { mode, baseUrl: "http://127.0.0.1:8000" },
+          { apiKey: "honcho-admin-token" },
+          { allowPrivateEndpoint: true, fetch },
+        ),
+      ).rejects.toThrow(/mode/);
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("probes a private service name and saves its endpoint", async () => {
+    const fetch = localFetch();
+    const resolveHostname = vi.fn(privateResolver);
+    const prepared = await prepareHonchoConnection(
+      { mode: "local", baseUrl: ` ${LOCAL_URL} ` },
+      { apiKey: "honcho-admin-token" },
+      { allowPrivateEndpoint: true, resolveHostname, fetch },
+    );
+    expect(prepared).toEqual({
+      settings: { mode: "local", baseUrl: LOCAL_URL, reasoningLevel: "low" },
+      credentials: { apiKey: "honcho-admin-token" },
+    });
+    expect(String(fetch.mock.calls[0]?.[0])).toBe(`${LOCAL_URL}/v3/workspaces/list?size=1`);
+    expect(resolveHostname).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["a public hostname", "https://honcho.example.com"],
+    ["a public address", "http://203.0.113.10:8000"],
+  ])("rejects %s before sending the key", async (_case, baseUrl) => {
+    const fetch = localFetch();
+    await expect(
+      prepareHonchoConnection(
+        { mode: "local", baseUrl },
+        { apiKey: "honcho-admin-token" },
+        { allowPrivateEndpoint: true, resolveHostname: publicResolver, fetch },
+      ),
+    ).rejects.toThrow(/private-network/);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([LOCAL_URL, "http://127.0.0.1:8000", "http://localhost:8000"])(
+    "refuses local endpoint %s for anyone but the deployment owner",
+    async (baseUrl) => {
+      const fetch = localFetch();
+      const resolveHostname = vi.fn(privateResolver);
+      for (const allowPrivateEndpoint of [false, undefined]) {
+        await expect(
+          prepareHonchoConnection(
+            { mode: "local", baseUrl, workspaceId: "team-notes" },
+            { apiKey: "honcho-admin-token" },
+            { allowPrivateEndpoint, resolveHostname, fetch },
+          ),
+        ).rejects.toBeInstanceOf(MemoryProviderDeploymentOwnerRequiredError);
+      }
+      expect(resolveHostname).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [{ mode: "remote", baseUrl: LOCAL_URL }, /mode/],
+    [{ mode: "local" }, /baseUrl/],
+    [{ mode: "local", baseUrl: `${LOCAL_URL}/?token=1` }, /base URL/],
+    [{ mode: "local", baseUrl: "https://api.honcho.dev" }, /Cloud URL/],
+    [{ mode: "local", baseUrl: "https://api.honcho.dev/v3/" }, /Cloud URL/],
+  ])("rejects invalid local settings %o", (settings, error) => {
+    expect(() => createHonchoProvider(settings, { apiKey: "honcho-admin-token" })).toThrow(error);
+  });
+
+  it("pins the checked address once and reuses it for every request", async () => {
+    const fetch = localFetch();
+    const resolveHostname = vi.fn(privateResolver);
+    const memory = new HonchoMemoryProvider(
+      {
+        baseUrl: LOCAL_URL,
+        apiKey: "honcho-admin-token",
+        reasoningLevel: "low",
+        fetch,
+        resolveHostname,
+      },
+      { mode: "local", baseUrl: LOCAL_URL },
+    );
+    await expect(memory.save(save, context)).resolves.toEqual({ ok: true, value: undefined });
+    await memory.save(save, context);
+    expect(fetch.mock.calls.length).toBeGreaterThan(1);
+    expect(resolveHostname).toHaveBeenCalledOnce();
+  });
+
+  it("returns an error instead of calling a host that now resolves publicly", async () => {
+    const fetch = localFetch();
+    const memory = new HonchoMemoryProvider(
+      {
+        baseUrl: LOCAL_URL,
+        apiKey: "honcho-admin-token",
+        reasoningLevel: "low",
+        fetch,
+        resolveHostname: publicResolver,
+      },
+      { mode: "local", baseUrl: LOCAL_URL },
+    );
+    await expect(
+      memory.recall({ query: "tone", scope: "isolated", botId: "bot-1", limit: 1 }, context),
+    ).resolves.toEqual({ ok: false, error: expect.stringMatching(/private-network/) });
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

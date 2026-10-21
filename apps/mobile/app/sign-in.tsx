@@ -1,5 +1,5 @@
 import type { IntegrationSetupState } from "@rakazo/contracts";
-import { credentialIssue } from "@rakazo/core";
+import { credentialIssue, MAX_PASSWORD_LENGTH, PASSWORD_RULES } from "@rakazo/core";
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -362,6 +362,9 @@ export default function SignIn() {
                       {mode !== "forgot" && !usingCode ? (
                         <TextInput
                           autoComplete={mode === "in" ? "current-password" : "new-password"}
+                          textContentType={mode === "in" ? "password" : "newPassword"}
+                          passwordRules={mode === "in" ? undefined : PASSWORD_RULES}
+                          maxLength={MAX_PASSWORD_LENGTH}
                           placeholder={t("Password")}
                           placeholderTextColor={tokens.mutedForeground}
                           returnKeyType="go"

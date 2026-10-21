@@ -255,6 +255,8 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
     "current-password",
   );
   await expect(settings.getByLabel("New password")).toHaveAttribute("autocomplete", "new-password");
+  await expect(settings.getByLabel("New password")).toHaveAttribute("minlength", "8");
+  await expect(settings.getByLabel("Current password")).not.toHaveAttribute("minlength");
   await expect(settings.getByLabel("Confirm password")).toHaveAttribute(
     "autocomplete",
     "new-password",

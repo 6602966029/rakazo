@@ -118,6 +118,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   finished: "已完成",
   failed: "失败",
   cancelled: "已取消",
+  expired: "已过期",
 
   Saved: "已保存",
   " (unread)": "（未读）",
