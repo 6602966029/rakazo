@@ -22,7 +22,16 @@ const entry: ConnectionCatalogItem = {
   noAuth: false,
 };
 function fixture(items = [entry]) {
-  const tx = { $executeRaw: vi.fn(), message: { findMany: vi.fn(async () => stored) } };
+  const tx = {
+    $executeRaw: vi.fn(),
+    message: {
+      findMany: vi.fn(async () => stored),
+      findFirst: vi.fn(
+        async ({ where }: { where: { clientNonce: string } }) =>
+          stored.find((message) => message.clientNonce === where.clientNonce) ?? null,
+      ),
+    },
+  };
   const deps = {
     prisma: { $transaction: vi.fn(async (fn) => fn(tx)) },
     events: { notify: vi.fn() },

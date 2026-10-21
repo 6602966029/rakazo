@@ -4,6 +4,8 @@ import { appConnectCard, matchAppCatalog, matchesAppConnection } from "@rakazo/c
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
 
+const RECENT_MESSAGES = 50;
+
 /** Catalog data is the only source of card content; serialize dedupe with the message write. */
 export async function connectApp(
   deps: { prisma: PrismaClient; events: ThreadEvents },
@@ -40,20 +42,26 @@ export async function connectApp(
   const block = appConnectCard(entry);
   const committed = await deps.prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR UPDATE`;
-    const messages = await tx.message.findMany({
-      where: { threadId: target.threadId },
-      select: { blocks: true, clientNonce: true },
-    });
     const nonce = `connect-app:${effectId}`;
+    const replayed = await tx.message.findFirst({
+      where: { threadId: target.threadId, clientNonce: nonce },
+      select: { id: true },
+    });
+    if (replayed) return null;
+    // Only recent cards count as already shown; an old one far up the chat should not block a new one.
+    const recent = await tx.message.findMany({
+      where: { threadId: target.threadId },
+      select: { blocks: true },
+      orderBy: { createdAt: "desc" },
+      take: RECENT_MESSAGES,
+    });
     if (
-      messages.some(
-        (message) =>
-          message.clientNonce === nonce ||
-          (message.blocks as MessageBlock[]).some(
-            (candidate) =>
-              matchesAppConnection(candidate, entry.connectorId, entry.slug) &&
-              candidate.status === "pending",
-          ),
+      recent.some((message) =>
+        (message.blocks as MessageBlock[]).some(
+          (candidate) =>
+            matchesAppConnection(candidate, entry.connectorId, entry.slug) &&
+            candidate.status === "pending",
+        ),
       )
     )
       return null;

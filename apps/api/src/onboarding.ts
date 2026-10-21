@@ -325,11 +325,22 @@ export async function markAppConnected(
   const updates = await deps.prisma.$transaction(async (tx) => {
     // Two authorizations may finish together on an onboarding message with multiple cards.
     await tx.$executeRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
-    const messages = await tx.message.findMany({
+    // Onboarding cards sit at the start of the chat and inline cards near the end;
+    // bound both reads so a long chat is never scanned in full.
+    const select = { id: true, blocks: true } as const;
+    const first = await tx.message.findMany({
       where: { threadId: thread.id },
-      select: { id: true, blocks: true },
+      select,
       orderBy: { createdAt: "asc" },
+      take: 100,
     });
+    const latest = await tx.message.findMany({
+      where: { threadId: thread.id },
+      select,
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    const messages = [...new Map([...first, ...latest].map((m) => [m.id, m])).values()];
     const events = [];
     for (const message of messages) {
       const blocks = message.blocks as MessageBlock[];
