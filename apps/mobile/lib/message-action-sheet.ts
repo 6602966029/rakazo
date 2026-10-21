@@ -8,6 +8,7 @@ export function isMessageActionSheetAvailable() {
     Platform.OS === "android" &&
     [
       "HostView",
+      "BoxView",
       "ModalBottomSheetView",
       "LazyColumnView",
       "ListItemView",
@@ -25,9 +26,12 @@ export function presentMessageActionSheet({
   cancel,
   more,
   colorScheme,
+  selected,
 }: {
   actions: MessageAction[];
   title?: string;
+  /** Index of the current action, displayed only by the Android sheet. */
+  selected?: number;
   cancel: string;
   more: string;
   colorScheme: "light" | "dark";
@@ -45,7 +49,10 @@ export function presentMessageActionSheet({
     return;
   }
 
-  if (isMessageActionSheetAvailable() && showMessageActionSheet({ actions, title, colorScheme })) {
+  if (
+    isMessageActionSheetAvailable() &&
+    showMessageActionSheet({ actions, title, colorScheme, selected })
+  ) {
     return;
   }
 

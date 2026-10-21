@@ -1,6 +1,7 @@
 export type MessageActionSheet = {
   actions: { text: string; onPress: () => void }[];
   title?: string;
+  selected?: number;
   colorScheme: "light" | "dark";
 };
 

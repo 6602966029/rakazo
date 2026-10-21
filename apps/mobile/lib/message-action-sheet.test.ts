@@ -23,6 +23,7 @@ function sheet() {
   presentMessageActionSheet({
     actions,
     title: "12:34",
+    selected: 2,
     cancel: "Cancel",
     more: "More",
     colorScheme: "light",
@@ -64,6 +65,7 @@ describe("native message action sheet", () => {
 
   it.each([
     "HostView",
+    "BoxView",
     "ModalBottomSheetView",
     "LazyColumnView",
     "ListItemView",
@@ -91,7 +93,7 @@ describe("native message action sheet", () => {
     try {
       const actions = sheet();
       const current = getMessageActionSheet()!;
-      expect(current).toEqual({ actions, title: "12:34", colorScheme: "light" });
+      expect(current).toEqual({ actions, title: "12:34", colorScheme: "light", selected: 2 });
       expect(Alert.alert).not.toHaveBeenCalled();
       let hidden!: () => void;
       const hide = vi.fn(
