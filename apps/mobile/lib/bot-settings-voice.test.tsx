@@ -231,7 +231,7 @@ describe("bot settings device voice menu", () => {
     );
     expect(help?.getAttribute("role")).toBe("button");
     const explanation =
-      "Organize the sidebar and tune its bots. Group and bot changes need your approval.";
+      "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.";
     expect(help?.getAttribute("data-hint")).toBe(explanation);
     expect(container.textContent).not.toContain(explanation);
     await act(async () => help?.click());

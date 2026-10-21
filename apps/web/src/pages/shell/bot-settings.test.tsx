@@ -172,13 +172,13 @@ describe("BotSettings help", () => {
     expect(speechRow?.lastElementChild).toBe(speechToggle);
     expect(toggle?.getAttribute("aria-checked")).toBe("false");
     expect(container.textContent).not.toContain("Get notified when this Bot finishes");
-    expect(container.textContent).not.toContain("Group and bot changes");
+    expect(container.textContent).not.toContain("Instruction, model, routine and group edits");
     const help = container.querySelector<HTMLButtonElement>(
       '[aria-label="About Manage the bots it creates"]',
     );
     await act(async () => help?.click());
     expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(
-      "Group and bot changes need your approval.",
+      "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.",
     );
     expect(toggle?.getAttribute("aria-checked")).toBe("false");
     expect(onSave).not.toHaveBeenCalled();

@@ -1,8 +1,8 @@
 export const ZH_MESSAGES: Record<string, string> = {
   "About {label}": "关于{label}",
   "Manage the bots it creates": "管理它创建的机器人",
-  "Organize the sidebar and tune its bots. Group and bot changes need your approval.":
-    "整理侧边栏并调整它创建的机器人。更改群组和机器人需要你的批准。",
+  "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
+    "整理侧边栏并编辑机器人。更改群组、指令、模型和例行任务需要你的批准。",
 
   Resets: "重置时间",
   Limit: "限额",

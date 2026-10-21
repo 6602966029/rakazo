@@ -1,8 +1,8 @@
 export const NL_MESSAGES: Record<string, string> = {
   "About {label}": "Over {label}",
   "Manage the bots it creates": "De bots beheren die deze bot maakt",
-  "Organize the sidebar and tune its bots. Group and bot changes need your approval.":
-    "Orden de zijbalk en pas de aangemaakte bots aan. Wijzigingen aan groepen en bots vereisen je goedkeuring.",
+  "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
+    "Orden de zijbalk en bewerk bots. Wijzigingen aan groepen, instructies, modellen en routines vereisen je goedkeuring.",
 
   Resets: "Resetdatum",
   Limit: "Limiet",

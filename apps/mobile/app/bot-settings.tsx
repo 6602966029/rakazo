@@ -550,7 +550,7 @@ export default function BotSettingsScreen() {
             </Text>
             <InfoButton label={t("Manage the bots it creates")}>
               {t(
-                "Organize the sidebar and tune its bots. Group and bot changes need your approval.",
+                "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.",
               )}
             </InfoButton>
           </View>

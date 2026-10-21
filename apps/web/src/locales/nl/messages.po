@@ -3574,8 +3574,8 @@ msgid "Organization API key"
 msgstr "Organisatie-API-sleutel"
 
 #: src/pages/shell/bot-panel.tsx
-msgid "Organize the sidebar and tune its bots. Group and bot changes need your approval."
-msgstr "Orden de zijbalk en pas de aangemaakte bots aan. Wijzigingen aan groepen en bots vereisen je goedkeuring."
+msgid "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval."
+msgstr "Orden de zijbalk en bewerk bots. Wijzigingen aan groepen, instructies, modellen en routines vereisen je goedkeuring."
 
 #: src/pages/shell/chat-context.tsx
 msgid "Original message unavailable"

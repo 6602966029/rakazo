@@ -47,7 +47,7 @@ export function InfoTooltip({ label, children }: { label: string; children: stri
       >
         <CircleHelp aria-hidden="true" size={14} />
       </TooltipTrigger>
-      <TooltipContent id={`${id}-content`} role="tooltip" className="max-w-[260px]">
+      <TooltipContent id={`${id}-content`} role="tooltip" className="max-w-[320px]">
         {children}
       </TooltipContent>
     </Tooltip>

@@ -220,7 +220,7 @@ test("bot management switch persists and settings help is accessible", async ({
   });
   await help.click();
   await expect(page.getByRole("tooltip")).toContainText(
-    "Group and bot changes need your approval.",
+    "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.",
   );
   await captureScreenshot(page, testInfo, "32-bot-settings-info-tooltip");
   await page.keyboard.press("Escape");
