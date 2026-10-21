@@ -10,6 +10,7 @@ import { useI18n } from "../lib/i18n";
 import { native, useMobileTokens } from "../lib/native";
 import { useThreadReadOnly } from "../lib/thread-read-only";
 import { errorText } from "../lib/user-error";
+import { ConnectorIcon } from "./connector-icon";
 import { NativeActionButton } from "./native-action-button";
 
 export function AppConnectCard({
@@ -97,20 +98,7 @@ export function AppConnectCard({
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 10,
-            backgroundColor: native.fillPressed,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "600" }}>
-            {block.name.slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
+        <ConnectorIcon name={block.name} logo={block.logo} size={40} />
         <View style={{ flex: 1, gap: 2 }}>
           <Text
             accessibilityActions={accessibilityActions}
@@ -119,7 +107,7 @@ export function AppConnectCard({
           >
             {view.title}
           </Text>
-          <Text style={{ color: tokens.mutedForeground, ...typeScale.secondary }} numberOfLines={2}>
+          <Text style={{ color: tokens.mutedForeground, ...typeScale.secondary }} numberOfLines={1}>
             {view.description}
           </Text>
         </View>

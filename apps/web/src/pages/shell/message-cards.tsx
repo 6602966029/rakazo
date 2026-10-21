@@ -206,7 +206,7 @@ export function AppConnectCard({
     <BuiCard
       role="group"
       aria-label={t`${block.name} connection`}
-      className="w-full max-w-full px-4 py-3.5"
+      className="w-full max-w-[440px] px-4 py-3.5"
     >
       <div className="flex items-center gap-3.5">
         {block.logo ? (
@@ -229,12 +229,7 @@ export function AppConnectCard({
         {status === "connected" ? (
           <SuccessPop label={t`Connected`} />
         ) : (
-          <Button
-            variant="secondary"
-            className="rounded-full hover:border-border hover:bg-accent hover:text-foreground"
-            disabled={busy}
-            onClick={() => void authorize()}
-          >
+          <Button className="rounded-full" disabled={busy} onClick={() => void authorize()}>
             {busy ? t`Waiting…` : t`Authorize`}
           </Button>
         )}
