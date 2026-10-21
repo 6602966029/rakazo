@@ -10,6 +10,8 @@ import {
   emailAllowed,
   firstAccountClaimDecision,
   isMessagingEmail,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
   parseAllowlist,
   signupPolicyFromEnv,
 } from "@rakazo/core";
@@ -26,6 +28,7 @@ import {
 } from "better-auth/api";
 import { bearer, organization } from "better-auth/plugins";
 import { accountSecurity, oidcProofKey, sessionForAuthHook } from "./account-security.js";
+import { breachedPasswordCheck } from "./breached-password.js";
 import type { OidcConfig } from "./oidc.js";
 import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
 
@@ -34,6 +37,8 @@ export type { OidcConfig } from "./oidc.js";
 export interface AuthEnv {
   analytics?: ProductAnalytics;
   passwordAuth?: boolean;
+  /** Opt-in: rejects new passwords found in Have I Been Pwned. Calls an outside service. */
+  breachedPasswordCheck?: boolean;
   oidc?: OidcConfig;
   secret: string;
   baseURL: string;
@@ -267,6 +272,8 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       // Signup policy is mutable deployment state, so the request hook below
       // enforces it instead of freezing an environment value at process start.
       disableSignUp: false,
+      minPasswordLength: MIN_PASSWORD_LENGTH,
+      maxPasswordLength: MAX_PASSWORD_LENGTH,
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: 60 * 60,
       sendResetPassword: env.email
@@ -365,6 +372,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       expo(),
       accountSecurity(env.email, env.oidc?.name, env.oidc?.issuer, env.passwordAuth !== false),
       ...(discovery ? [discovery.plugin] : []),
+      ...(env.breachedPasswordCheck ? [breachedPasswordCheck()] : []),
       organization({
         allowUserToCreateOrganization: false,
         disableOrganizationDeletion: true,

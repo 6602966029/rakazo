@@ -322,6 +322,19 @@ loopback host. In `NODE_ENV=development`, captured messages are available from
 `http://127.0.0.1:3100/api/dev/emails` with cache disabled; the API logs only delivery
 metadata, never reset tokens. The inbox route is not registered in test, staging, or production.
 
+### Password policy
+
+New passwords (signup, reset and change) must be 8 to 128 characters, with no composition rules.
+Optionally reject new passwords that appear in known breaches:
+
+```env
+AUTH_BREACHED_PASSWORD_CHECK_ENABLED=true
+```
+
+This queries the Have I Been Pwned range API, sending only the first five characters of the
+password's SHA-1 hash. It is off by default so the server makes no outside request. If the service
+is unreachable or takes longer than three seconds, the password is accepted and the failure logged.
+
 ### Billing
 
 Billing stays off, with no paywall, unless `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and

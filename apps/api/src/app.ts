@@ -410,6 +410,7 @@ export async function createApp(
   const auth = createAuth(prisma, {
     analytics,
     passwordAuth: env.passwordAuth,
+    breachedPasswordCheck: env.breachedPasswordCheck,
     oidc: env.oidc,
     secret: env.authSecret,
     baseURL: env.authUrl,
