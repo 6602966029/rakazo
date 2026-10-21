@@ -58,6 +58,16 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   await expect(settings.getByText("Stream replies", { exact: true })).toBeVisible();
   await streamReplies.scrollIntoViewIfNeeded();
   await captureScreenshot(page, testInfo, "settings-shell-general");
+  const scroller = settings.getByTestId("settings-scroll");
+  await scroller.evaluate((node) => {
+    node.scrollTop = Math.max(0, (node.scrollHeight - node.clientHeight) / 2);
+  });
+  await expect.poll(() => scroller.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+  const header = await settings.getByTestId("settings-header").boundingBox();
+  const scrollBox = await scroller.boundingBox();
+  // Scrolled content clips below the header's divider, never under its subtitle.
+  expect(scrollBox!.y).toBeGreaterThanOrEqual(header!.y + header!.height - 1);
+  await captureScreenshot(page, testInfo, "settings-shell-scrolled");
   await streamReplies.click();
   await expect(streamReplies).toBeChecked();
   await expect
