@@ -113,12 +113,18 @@ const structuredData = homeStructuredData({
       </script>
 
       <section class="hero">
-        <div class="eyebrow hero__eyebrow">{copy.hero.eyebrow}</div>
+        {/* Hidden while the headline already says open source. */}
+        {/* <a class="hero__pill" href="#open-source">{copy.hero.eyebrow}</a> */}
         <h1>{copy.hero.heading}</h1>
         <p class="lead">
           {copy.hero.lead}
         </p>
-        <GetStartedActions class="hero__actions" copy={copy.hero} placement="hero" />
+        <GetStartedActions
+          class="hero__actions"
+          copy={copy.hero}
+          placement="hero"
+          githubLabel={copy.openSource.starOnGithub}
+        />
         <div class="hero__agent-setup">
           <button
             class="setup-copy"
