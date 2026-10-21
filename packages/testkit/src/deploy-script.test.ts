@@ -15,7 +15,7 @@ const ROLLOUT = [
     `${COMPOSE} ps --all --quiet ${service}`,
     `${COMPOSE} up -d --no-deps --no-recreate --scale ${service}=2 ${service}`,
     `${COMPOSE} ps --all --quiet ${service}`,
-    `docker inspect --format {{.State.Health.Status}} ${service}-new`,
+    `docker inspect --format {{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}} ${service}-new`,
     `docker stop --time 30 ${service}-old`,
     `docker rm ${service}-old`,
   ]),
@@ -263,8 +263,8 @@ describe("production deploy script", () => {
     commit(deploy.upstream, "next");
     expect(deploy.run({ FRESH: "1" }).status).toBe(0);
     const commands = rollout(deploy.commands());
-    expect(commands).toContain(`${COMPOSE} up -d --no-deps --wait api`);
-    expect(commands).toContain(`${COMPOSE} up -d --no-deps --wait web`);
+    expect(commands).toContain(`${COMPOSE} up -d --wait api`);
+    expect(commands).toContain(`${COMPOSE} up -d --wait web`);
     expect(commands.some((line) => line.includes("--scale"))).toBe(false);
   });
 
@@ -278,6 +278,21 @@ describe("production deploy script", () => {
     expect(commands).toContain("docker rm --force api-new");
     expect(commands).not.toContain("docker stop --time 30 api-old");
     expect(deploy.head()).toBe(deploy.first);
+  });
+
+  it("accepts a running container whose revision has no health check", () => {
+    const deploy = fixture();
+    commit(deploy.upstream, "next");
+    expect(deploy.run({ CONTAINER_HEALTH: "running" }).status).toBe(0);
+    expect(rollout(deploy.commands())).toContain("docker stop --time 30 web-old");
+  });
+
+  it("removes a replacement that exits before it is ready", () => {
+    const deploy = fixture();
+    commit(deploy.upstream, "next");
+    const result = deploy.run({ CONTAINER_HEALTH: "exited" });
+    expect(result.status).toBe(1);
+    expect(rollout(deploy.commands())).toContain("docker rm --force api-new");
   });
 
   it("recreates Caddy only when its config changed", () => {

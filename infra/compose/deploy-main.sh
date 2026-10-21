@@ -38,14 +38,16 @@ healthy() {
   curl --fail --silent --show-error --max-time 15 "${RAKAZO_HEALTH_URL}" >/dev/null
 }
 
-# Waits for a container's own health check. A container that fails it is removed so the
-# containers it was meant to replace keep serving.
+# Waits for a container's own health check, or for it to run when its revision has none (a
+# rollback can restore one). A container that fails is removed so the containers it was meant to
+# replace keep serving.
 container_healthy() {
   local container="$1" state="" deadline=$((SECONDS + 300))
   while ((SECONDS < deadline)); do
-    state="$(sudo docker inspect --format '{{.State.Health.Status}}' "${container}")"
-    [[ "${state}" == healthy ]] && return 0
-    [[ "${state}" == unhealthy ]] && break
+    state="$(sudo docker inspect --format \
+      '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${container}")"
+    [[ "${state}" == healthy || "${state}" == running ]] && return 0
+    [[ "${state}" == unhealthy || "${state}" == exited || "${state}" == dead ]] && break
     sleep "${RAKAZO_DEPLOY_HEALTH_INTERVAL:-1}"
   done
   echo "Container ${container} did not become healthy (${state:-unknown})." >&2
@@ -62,7 +64,8 @@ roll_out() {
   for service in api web; do
     old="$(compose 1m ps --all --quiet "${service}")"
     if [[ -z "${old}" ]]; then
-      compose "${UP_TIMEOUT}" up -d --no-deps --wait "${service}"
+      # Nothing to keep serving, so start it with its dependencies (the database on a new host).
+      compose "${UP_TIMEOUT}" up -d --wait "${service}"
       continue
     fi
     compose "${UP_TIMEOUT}" up -d --no-deps --no-recreate \
