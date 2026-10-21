@@ -184,9 +184,11 @@ export function voiceRequestError(
   provider: string,
   what: string,
   body: unknown,
+  /** The provider's original body, when `body` was trimmed for display. */
+  rawBody: unknown = body,
 ): Error {
   const message = voiceHttpError(status, provider, what, body);
-  const code = voiceAccountIssue(status, body);
+  const code = voiceAccountIssue(status, rawBody);
   return code ? new VoiceAccountError(code, message) : new Error(message);
 }
 

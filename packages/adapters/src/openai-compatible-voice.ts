@@ -177,7 +177,7 @@ function serverError(status: number, what: string, body: unknown, apiKey?: strin
     ?.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ")
     .trim()
     .slice(0, MAX_SERVER_DETAIL_LENGTH);
-  return voiceRequestError(status, PROVIDER_NAME, what, short ? { detail: short } : null);
+  return voiceRequestError(status, PROVIDER_NAME, what, short ? { detail: short } : null, body);
 }
 
 const KOKORO_ID = /^([abefhijpz])([fm])_([a-z]+)$/;
