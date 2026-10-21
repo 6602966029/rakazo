@@ -209,10 +209,12 @@ export class StripeEmulator {
     }
     const item = /^\/v1\/subscription_items\/([^/]+)$/.exec(path);
     if (method === "POST" && item) {
-      const found = this.subscriptions
-        .flatMap((s) => s.items.data)
-        .find((i) => i.id === decodeURIComponent(item[1]!));
-      if (!found) return stripeError({ status: 404, message: "No such subscription item" });
+      const id = decodeURIComponent(item[1]!);
+      const parent = this.subscriptions.find((s) => s.items.data.some((i) => i.id === id));
+      const found = parent?.items.data.find((i) => i.id === id);
+      if (!parent || !found)
+        return stripeError({ status: 404, message: "No such subscription item" });
+      if (isTerminal(parent.status)) return canceledSubscriptionError();
       found.quantity = Number(form.quantity);
       return Response.json(found);
     }
@@ -220,12 +222,7 @@ export class StripeEmulator {
     if (method === "DELETE" && subscription) {
       const found = this.subscriptions.find((s) => s.id === decodeURIComponent(subscription[1]!));
       if (!found) return stripeError({ status: 404, message: "No such subscription" });
-      if (isTerminal(found.status)) {
-        return stripeError({
-          status: 400,
-          message: "A canceled subscription can only update its cancellation_details.",
-        });
-      }
+      if (isTerminal(found.status)) return canceledSubscriptionError();
       found.status = "canceled";
       found.ended_at = Math.floor(this.now() / 1000);
       return Response.json(found);
@@ -280,6 +277,13 @@ export interface StripeFailure {
 
 function isTerminal(status: string) {
   return status === "canceled" || status === "incomplete_expired";
+}
+
+function canceledSubscriptionError() {
+  return stripeError({
+    status: 400,
+    message: "A canceled subscription can only update its cancellation_details.",
+  });
 }
 
 function stripeError({ status, message, type, code, param, headers }: StripeFailure) {

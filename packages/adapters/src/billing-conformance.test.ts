@@ -185,14 +185,32 @@ for (const [name, create] of Object.entries(factories)) {
     it("updates seats and cancels", async () => {
       const harness = create();
       const customerId = await subscribe(harness);
-      const snapshot = await harness.provider.getCustomerSubscription(customerId);
-      await harness.provider.updateSeats(snapshot!.subscriptionItemId, 7);
+      await harness.provider.updateSeats(customerId, 7);
       expect((await harness.provider.getCustomerSubscription(customerId))?.seats).toBe(7);
       await harness.provider.cancelCustomerSubscriptions(customerId);
       const canceled = await harness.provider.getCustomerSubscription(customerId);
       expect(canceled?.status).toBe("canceled");
       expect(canceled?.endedAt).toBeInstanceOf(Date);
       await harness.provider.cancelCustomerSubscriptions(customerId);
+    });
+
+    it("sets seats only while the subscription can still take updates", async () => {
+      const cases: Array<[BillingSubscriptionStatus, number]> = [
+        ["past_due", 7],
+        ["unpaid", 7],
+        ["paused", 7],
+        ["incomplete", 3],
+        ["canceled", 3],
+      ];
+      for (const [status, seats] of cases) {
+        const harness = create();
+        const customerId = await subscribe(harness);
+        harness.setStatus(customerId, status);
+        await harness.provider.updateSeats(customerId, 7);
+        expect((await harness.provider.getCustomerSubscription(customerId))?.seats, status).toBe(
+          seats,
+        );
+      }
     });
 
     it("verifies webhooks", () => {
