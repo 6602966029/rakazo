@@ -35,7 +35,8 @@ export function FailedSendBubble({
   function showActions() {
     const actions = [
       ...(modelRequired ? [{ text: t("Add Model"), onPress: openModelSettings }] : []),
-      ...(retryable ? [{ text: t("Try Again"), onPress: onRetry }] : []),
+      // Retrying can't help until a model is added; tapping the bubble still retries.
+      ...(retryable && !modelRequired ? [{ text: t("Try Again"), onPress: onRetry }] : []),
       { text: t("Delete"), style: "destructive" as const, onPress: onDelete },
     ];
     // No header for the missing-model sheet: the Add Model action already says it.
@@ -52,12 +53,9 @@ export function FailedSendBubble({
       );
     } else {
       // Android supports three buttons; the sheet can also be dismissed outside it.
-      Alert.alert(
-        caption,
-        message,
-        [...actions, ...(!modelRequired ? [{ text: t("Cancel"), style: "cancel" as const }] : [])],
-        { cancelable: true },
-      );
+      Alert.alert(caption, message, [...actions, { text: t("Cancel"), style: "cancel" as const }], {
+        cancelable: true,
+      });
     }
   }
 

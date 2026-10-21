@@ -247,7 +247,7 @@ describe("scoped mobile outbox", () => {
     expect(disk.clear).toHaveBeenCalled();
   });
   it.each(["ios", "android"])(
-    "offers Models for missing-model failures on %s and retries only on request",
+    "offers Add Model instead of Try Again for missing-model failures on %s",
     async (os) => {
       Platform.OS = os as typeof Platform.OS;
       const attempt = feedback.sendAttempt(payload());
@@ -270,21 +270,23 @@ describe("scoped mobile outbox", () => {
         const [options, choose] = vi
           .mocked(ActionSheetIOS.showActionSheetWithOptions)
           .mock.calls.at(-1)!;
-        expect(options.options).toEqual(["Add Model", "Try Again", "Delete", "Cancel"]);
+        expect(options.options).toEqual(["Add Model", "Delete", "Cancel"]);
         expect(options.message).toBeUndefined();
-        expect(options.cancelButtonIndex).toBe(3);
-        expect(options.destructiveButtonIndex).toBe(2);
+        expect(options.cancelButtonIndex).toBe(2);
+        expect(options.destructiveButtonIndex).toBe(1);
         act(() => choose(0));
         expect(router.push).toHaveBeenCalledWith("/(settings)/models");
-        act(() => choose(1));
       } else {
         const buttons = vi.mocked(Alert.alert).mock.calls.at(-1)![2]!;
         expect(vi.mocked(Alert.alert).mock.calls.at(-1)![1]).toBeUndefined();
-        expect(buttons.map(({ text }) => text)).toEqual(["Add Model", "Try Again", "Delete"]);
+        expect(buttons.map(({ text }) => text)).toEqual(["Add Model", "Delete", "Cancel"]);
+        expect(buttons[2]!.style).toBe("cancel");
         act(() => buttons[0]!.onPress?.());
         expect(router.push).toHaveBeenCalledWith("/(settings)/models");
-        act(() => buttons[1]!.onPress?.());
       }
+      expect(retry).not.toHaveBeenCalled();
+      // Tapping the bubble is still the manual retry.
+      act(() => container.querySelector("button")!.click());
       expect(retry).toHaveBeenCalledOnce();
       const calls = request.mock.calls.length;
       await act(async () => {
@@ -300,6 +302,38 @@ describe("scoped mobile outbox", () => {
       Platform.OS = "ios";
     },
   );
+  it.each(["ios", "android"])("keeps Try Again for other send failures on %s", async (os) => {
+    Platform.OS = os as typeof Platform.OS;
+    const attempt = feedback.sendAttempt(payload());
+    request
+      .mockResolvedValueOnce({ id: "artifact-a" })
+      .mockRejectedValueOnce(new Error("Quota exceeded"));
+    await act(async () => {
+      await feedback.send(attempt);
+    });
+    expect(attempt.state).toBe("failed");
+    act(() =>
+      container
+        .querySelector("button")!
+        .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
+    );
+    if (os === "ios") {
+      const [options, choose] = vi
+        .mocked(ActionSheetIOS.showActionSheetWithOptions)
+        .mock.calls.at(-1)!;
+      expect(options.options).toEqual(["Try Again", "Delete", "Cancel"]);
+      expect(options.cancelButtonIndex).toBe(2);
+      expect(options.destructiveButtonIndex).toBe(1);
+      act(() => choose(0));
+    } else {
+      const buttons = vi.mocked(Alert.alert).mock.calls.at(-1)![2]!;
+      expect(buttons.map(({ text }) => text)).toEqual(["Try Again", "Delete", "Cancel"]);
+      act(() => buttons[0]!.onPress?.());
+    }
+    expect(retry).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+    Platform.OS = "ios";
+  });
   it("restores old missing-model rejections as manually retryable", async () => {
     act(() => clearFailedSends());
     const attempt = feedback.sendAttempt(payload());
