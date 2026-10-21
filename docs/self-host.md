@@ -191,7 +191,9 @@ Messages, events, threads, memory, artifacts, secrets, model and voice credentia
 row-level security. Each signed-in request sees only its Space's rows, plus the user's own
 account-level credentials. A query that leaves out its Space filter returns nothing from other
 Spaces. Background jobs, reconcilers and webhooks run in a named system scope (`runAsSystem` in
-`packages/db`).
+`packages/db`). The job queue's tables (`graphile_worker`) hold job metadata, not Space content:
+graphile-worker turns on row-level security for them, and `pnpm db:migrate` adds a policy that
+gives the app login every row.
 
 With only `DATABASE_URL` set, migrations and the app share one login. Everything keeps working,
 but `pnpm db:migrate`, the API and the worker warn that row-level security is not enforced. To fix
@@ -1160,7 +1162,8 @@ in `DATABASE_URL` (`rakazo_app` in Compose) as a superuser (the Compose owner is
 restart the API and worker. Role attributes are not inherited, so granting it to `rakazo_app` does
 nothing for a separate login. The app then runs as before, with a startup warning, and later
 migrations leave that login alone. Undo it with
-`NOBYPASSRLS` and another restart. Rolling back to an older release works without changes: it
+`NOBYPASSRLS` and another restart, then search the API and worker logs for
+`violates row-level security` and `without a tenant or system context`. Rolling back to an older release works without changes: it
 ignores the extra variable and connects as the owner.
 
 ### Space privacy-boundary migration
