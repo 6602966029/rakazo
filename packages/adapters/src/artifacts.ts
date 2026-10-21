@@ -114,6 +114,25 @@ export class LocalArtifactStore implements ArtifactStore {
     await rm(this.file(context.spaceId, id), { force: true });
   }
 
+  /** For `status`. `present` is false when the artifact directory is missing (not mounted). */
+  async fileCounts(): Promise<{ present: boolean; sealed: number; plaintext: number }> {
+    const present = await stat(path.join(this.root, "artifacts")).then(
+      (info) => info.isDirectory(),
+      () => false,
+    );
+    const counts = { present, sealed: 0, plaintext: 0 };
+    for await (const file of this.files()) {
+      const handle = await open(this.file(file.spaceId, file.id), constants.O_RDONLY | O_NOFOLLOW);
+      try {
+        if (isSealedArtifact(await readHead(handle))) counts.sealed += 1;
+        else counts.plaintext += 1;
+      } finally {
+        await handle.close();
+      }
+    }
+    return counts;
+  }
+
   /** Every stored file, for migrations. */
   async *files(): AsyncGenerator<{ spaceId: string; id: string }> {
     const base = path.join(this.root, "artifacts");
@@ -160,7 +179,12 @@ export class LocalArtifactStore implements ArtifactStore {
       } finally {
         await target.close();
       }
-      await stat(file);
+      // A file removed while it was being copied must stay removed. The open handle
+      // still sees the original: no remaining links means it was deleted, so drop the
+      // copy instead of renaming it back into place. Only the instant between this
+      // check and the rename remains, and a file restored there is encrypted and has
+      // no database row pointing at it.
+      if ((await source.stat()).nlink === 0) return "unchanged";
       await rename(temp, file);
       return "rewritten";
     } finally {

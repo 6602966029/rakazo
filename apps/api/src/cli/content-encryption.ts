@@ -45,6 +45,8 @@ process.once("SIGTERM", () => controller.abort());
 const write = (line: string) => process.stdout.write(`${line}\n`);
 
 async function rewriteContent(mode: ContentMigrationMode) {
+  if (!(await artifacts.fileCounts()).present)
+    write("artifacts: no artifact directory under DATA_DIR; files were not checked");
   for (const table of await migrateContent(prisma, {
     mode,
     dryRun,
@@ -97,6 +99,12 @@ try {
     for (const [masterKeyId, count] of Object.entries(status.masterKeys))
       write(`space keys under master key ${masterKeyId}: ${count}`);
     write(`active master key: ${contentKeys.provider.activeKeyId()}`);
+    const files = await artifacts.fileCounts();
+    write(
+      files.present
+        ? `artifacts: ${files.plaintext} of ${files.plaintext + files.sealed} in plaintext`
+        : "artifacts: no artifact directory under DATA_DIR; run where the data volume is mounted",
+    );
   } else if (command === "migrate") {
     await rewriteContent("encrypt");
     await upgradeCredentials();
