@@ -121,6 +121,9 @@ vi.mock("react-native", () => {
     Alert: { alert: vi.fn() },
   };
 });
+vi.mock("react-native-keyboard-controller", () => ({
+  KeyboardAvoidingView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+}));
 vi.mock("./native", () => ({ native: {}, useMobileTokens: () => ({}) }));
 vi.mock("./i18n", () => ({
   t: (text: string) => text,

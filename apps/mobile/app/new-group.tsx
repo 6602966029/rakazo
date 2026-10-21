@@ -3,6 +3,7 @@ import { Stack, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { useEffect, useRef, useState } from "react";
 import { BackHandler, Platform, ScrollView, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { BotChipPicker } from "../components/bot-chip-picker";
 import { GlassIconButton } from "../components/glass-icon-button";
 import { GroupAvatar } from "../components/group-avatar";
@@ -129,62 +130,72 @@ export default function NewGroup() {
             : {}),
         }}
       />
-      <ScrollView
-        automaticallyAdjustKeyboardInsets
-        contentInsetAdjustmentBehavior="automatic"
+      {/* Shrinks above the keyboard so Skip/Create and the last bot rows stay reachable. */}
+      <KeyboardAvoidingView
+        behavior="padding"
+        automaticOffset
         style={{ flex: 1, backgroundColor: tokens.background }}
-        contentContainerStyle={{
-          padding: 24,
-          paddingTop: Platform.OS === "ios" ? 24 : headerHeight + 24,
-        }}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
       >
-        {step === "bots" ? (
-          <BotChipPicker bots={bots} selected={selected} onChange={setSelected} />
-        ) : (
-          <View key="name">
-            <View style={{ alignItems: "center", marginTop: 24, marginBottom: 32 }}>
-              <GroupAvatar
-                size={80}
-                members={picked.slice(0, 3).map((bot) => ({ botId: bot.id, color: bot.color }))}
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            padding: 24,
+            paddingTop: Platform.OS === "ios" ? 24 : headerHeight + 24,
+          }}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === "bots" ? (
+            <BotChipPicker bots={bots} selected={selected} onChange={setSelected} />
+          ) : (
+            <View key="name">
+              <View style={{ alignItems: "center", marginTop: 24, marginBottom: 32 }}>
+                <GroupAvatar
+                  size={120}
+                  members={picked.slice(0, 3).map((bot) => ({ botId: bot.id, color: bot.color }))}
+                />
+              </View>
+              <TextInput
+                autoFocus
+                value={name}
+                onChangeText={setName}
+                maxLength={80}
+                autoCapitalize="words"
+                autoCorrect={false}
+                autoComplete="off"
+                textContentType="none"
+                editable={!pending}
+                placeholder={t("Ex: Project Falcon")}
+                placeholderTextColor={tokens.mutedForeground}
+                returnKeyType="done"
+                onSubmitEditing={() => void create()}
+                style={{
+                  height: 56,
+                  borderRadius: 11,
+                  backgroundColor: native.fill,
+                  color: tokens.foreground,
+                  fontSize: 22,
+                  fontWeight: "600",
+                  textAlign: "center",
+                  paddingHorizontal: 14,
+                }}
               />
+              <NativeActionButton
+                fill
+                label={pending ? t("Creating…") : name.trim() ? t("Create") : t("Skip")}
+                prominence={name.trim() ? "primary" : "secondary"}
+                disabled={pending}
+                onPress={() => void create()}
+                style={{ marginTop: 24, borderRadius: 28 }}
+              />
+              {error ? (
+                <Text style={{ color: tokens.destructive, marginTop: 12 }}>{error}</Text>
+              ) : null}
             </View>
-            <TextInput
-              autoFocus
-              value={name}
-              onChangeText={setName}
-              maxLength={80}
-              editable={!pending}
-              placeholder={t("Ex: Project Falcon")}
-              placeholderTextColor={tokens.mutedForeground}
-              returnKeyType="done"
-              onSubmitEditing={() => void create()}
-              style={{
-                height: 56,
-                borderRadius: 11,
-                backgroundColor: native.fill,
-                color: tokens.foreground,
-                fontSize: 22,
-                fontWeight: "600",
-                textAlign: "center",
-                paddingHorizontal: 14,
-              }}
-            />
-            <NativeActionButton
-              fill
-              label={pending ? t("Creating…") : name.trim() ? t("Create") : t("Skip")}
-              prominence={name.trim() ? "primary" : "secondary"}
-              disabled={pending}
-              onPress={() => void create()}
-              style={{ marginTop: 24, borderRadius: 28 }}
-            />
-            {error ? (
-              <Text style={{ color: tokens.destructive, marginTop: 12 }}>{error}</Text>
-            ) : null}
-          </View>
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </>
   );
 }

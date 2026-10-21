@@ -77,6 +77,11 @@ export function BotChipPicker({
           placeholder={selected.length ? t("Add another") : t("Search bots")}
           placeholderTextColor={tokens.mutedForeground}
           returnKeyType="search"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="off"
+          spellCheck={false}
+          textContentType="none"
           onKeyPress={({ nativeEvent }) => {
             if (nativeEvent.key === "Backspace" && !query) onChange(selected.slice(0, -1));
           }}
@@ -90,33 +95,35 @@ export function BotChipPicker({
           }}
         />
       </View>
-      {available.map((bot) => (
-        <Pressable
-          key={bot.id}
-          accessibilityRole="button"
-          accessibilityLabel={bot.name}
-          onPress={() => {
-            if (selected.length >= GROUP_MEMBER_MAX) {
-              AccessibilityInfo.announceForAccessibility(
-                t("Pick {min}–{max}", { min: GROUP_MEMBER_MIN, max: GROUP_MEMBER_MAX }),
-              );
-              return;
-            }
-            onChange([...selected, bot.id]);
-            setQuery("");
-          }}
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-            paddingVertical: 12,
-            opacity: pressed ? 0.6 : 1,
-          })}
-        >
-          <BotAvatar color={bot.color} identity={bot.id} size={36} status={bot.status} />
-          <Text style={{ color: tokens.foreground, fontSize: 16, flex: 1 }}>{bot.name}</Text>
-        </Pressable>
-      ))}
+      <View style={{ marginTop: 12 }}>
+        {available.map((bot) => (
+          <Pressable
+            key={bot.id}
+            accessibilityRole="button"
+            accessibilityLabel={bot.name}
+            onPress={() => {
+              if (selected.length >= GROUP_MEMBER_MAX) {
+                AccessibilityInfo.announceForAccessibility(
+                  t("Pick {min}–{max}", { min: GROUP_MEMBER_MIN, max: GROUP_MEMBER_MAX }),
+                );
+                return;
+              }
+              onChange([...selected, bot.id]);
+              setQuery("");
+            }}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              paddingVertical: 12,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <BotAvatar color={bot.color} identity={bot.id} size={36} status={bot.status} />
+            <Text style={{ color: tokens.foreground, fontSize: 16, flex: 1 }}>{bot.name}</Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }

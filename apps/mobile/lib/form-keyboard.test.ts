@@ -12,9 +12,11 @@ describe("form keyboard handling", () => {
   // scroll it clear, so it could only be reached after dismissing the keyboard.
   it("New group keeps Skip/Create reachable above the keyboard and submits on Return", () => {
     const source = screen("new-group.tsx");
-    const props = scrollViewProps(source);
-    expect(props).toContain("automaticallyAdjustKeyboardInsets");
-    expect(props).toContain('keyboardShouldPersistTaps="handled"');
+    const avoidingView = source.slice(source.indexOf("<KeyboardAvoidingView"));
+    expect(avoidingView).toContain('behavior="padding"');
+    // The scroll view sits inside the avoiding view, so it shrinks above the keyboard.
+    expect(source.indexOf("<ScrollView")).toBeGreaterThan(source.indexOf("<KeyboardAvoidingView"));
+    expect(scrollViewProps(source)).toContain('keyboardShouldPersistTaps="handled"');
     // Next lives in the floating header, so the keyboard never covers it.
     expect(source).toContain("headerRight:");
     expect(source).toContain('returnKeyType="done"');
