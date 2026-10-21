@@ -3757,6 +3757,10 @@ msgstr "En file d'attente"
 msgid "Quote"
 msgstr "Citer"
 
+#: src/pages/memory-providers/HonchoSettingsForm.tsx
+msgid "rakazo-shared and IDs starting with bot- are reserved for Rakazo."
+msgstr ""
+
 #: src/pages/Shell.tsx
 msgid "React"
 msgstr "Réagir"

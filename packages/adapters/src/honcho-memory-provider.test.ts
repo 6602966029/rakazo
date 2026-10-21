@@ -476,6 +476,8 @@ describe("prepareHonchoConnection", () => {
   it.each([
     [{ userPeerId: "user-alex" }, /requires the workspace/],
     [{ workspaceId: "existing-app", userPeerId: "bad peer" }, /userPeerId/],
+    [{ workspaceId: "existing-app", userPeerId: "rakazo-shared" }, /reserved/],
+    [{ workspaceId: "existing-app", userPeerId: "bot-bot_1" }, /reserved/],
   ])("rejects an invalid user peer before probing", async (settings, error) => {
     const fetch = vi.fn(() => {
       throw new Error("Unexpected request");

@@ -6,6 +6,10 @@ import { ConnectionModeFields } from "./ConnectionModeFields";
 import type { MemoryProviderConnectionDraft, MemoryProviderSettingsFormProps } from "./registry";
 
 const RESOURCE_ID_PATTERN = /^[A-Za-z0-9_-]{0,512}$/;
+// Rakazo writes to these peers, so they cannot be read as the user's own peer.
+function isReservedPeerId(value: string): boolean {
+  return value === "rakazo-shared" || value.startsWith("bot-");
+}
 const DEFAULT_LOCAL_BASE_URL = "http://localhost:8000";
 
 export function HonchoSettingsForm({ busy, onConnect }: MemoryProviderSettingsFormProps) {
@@ -21,7 +25,9 @@ export function HonchoSettingsForm({ busy, onConnect }: MemoryProviderSettingsFo
   const [workspace, setWorkspace] = useState("");
   const workspaceValid = RESOURCE_ID_PATTERN.test(workspace.trim());
   const showUserPeer = workspace.trim().length > 0;
-  const userPeerValid = !showUserPeer || RESOURCE_ID_PATTERN.test(userPeer.trim());
+  const userPeerFormatValid = RESOURCE_ID_PATTERN.test(userPeer.trim());
+  const userPeerReserved = isReservedPeerId(userPeer.trim());
+  const userPeerValid = !showUserPeer || (userPeerFormatValid && !userPeerReserved);
   const ready =
     apiKey.trim().length >= 8 &&
     workspaceValid &&
@@ -107,7 +113,11 @@ export function HonchoSettingsForm({ busy, onConnect }: MemoryProviderSettingsFo
           />
           {!userPeerValid ? (
             <FieldError id={userPeerErrorId}>
-              <Trans>Use up to 512 letters, digits, _ or -.</Trans>
+              {userPeerFormatValid ? (
+                <Trans>rakazo-shared and IDs starting with bot- are reserved for Rakazo.</Trans>
+              ) : (
+                <Trans>Use up to 512 letters, digits, _ or -.</Trans>
+              )}
             </FieldError>
           ) : null}
         </Field>
