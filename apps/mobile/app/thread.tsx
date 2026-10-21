@@ -1542,6 +1542,9 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
               }
               if (isRunTerminalEvent(event)) {
                 void refreshMentionBots();
+              }
+              if (isRunTerminalEvent(event) || event.type === "run.waiting_input") {
+                // Reconcile run ownership for ask cards first seen through live events.
                 if (!jumpScrollTarget.current && !expandedHistoryThread.current) {
                   void refresh().catch(() => undefined);
                 }
