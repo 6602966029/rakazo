@@ -9,14 +9,25 @@ import type { ThreadComposerHandle } from "../components/thread-composer";
 import { ThreadComposer } from "../components/thread-composer";
 import { settleComposer } from "./thread-feedback";
 
+const dimensions = vi.hoisted(() => ({ fontScale: 1 }));
+
 const input = vi.hoisted(() => ({
   change: (_value: string) => {},
   key: (_event: { nativeEvent: { key: string } }) => {},
 }));
 vi.mock("react-native", () => {
-  const Surface = ({ children, testID }: { children?: ReactNode; testID?: string }) =>
-    createElement("div", { "data-testid": testID }, children);
+  const Surface = ({
+    children,
+    testID,
+    style,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+    style?: object;
+  }) =>
+    createElement("div", { "data-testid": testID, "data-style": JSON.stringify(style) }, children);
   return {
+    useWindowDimensions: () => dimensions,
     View: Surface,
     ScrollView: Surface,
     Text: Surface,
@@ -48,14 +59,23 @@ vi.mock("react-native", () => {
       value,
       onChangeText,
       onKeyPress,
+      style,
+      scrollEnabled,
     }: {
       value: string;
       onChangeText: typeof input.change;
       onKeyPress: typeof input.key;
+      style: object;
+      scrollEnabled?: boolean;
     }) => {
       input.change = onChangeText;
       input.key = onKeyPress;
-      return createElement("input", { value, readOnly: true });
+      return createElement("input", {
+        value,
+        readOnly: true,
+        "data-style": JSON.stringify(style),
+        "data-scroll-enabled": scrollEnabled,
+      });
     },
   };
 });
@@ -131,6 +151,7 @@ describe("thread composer isolation", () => {
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     vi.clearAllMocks();
+    dimensions.fontScale = 1;
     threadRenders = 0;
     container = document.createElement("div");
     document.body.append(container);
@@ -218,6 +239,32 @@ describe("thread composer isolation", () => {
     press("Call");
     expect(props.startVoiceCall).toHaveBeenCalledOnce();
   });
+
+  it.each([1, 2, 3.2])(
+    "keeps a padded scrolling viewport with room for scaled lines at font scale %s",
+    (fontScale) => {
+      dimensions.fontScale = fontScale;
+      render();
+      for (const draft of ["Hello", "Hello\nworld", "مرحبا\nبالعالم", "line\n".repeat(20)]) {
+        type(draft);
+        const field = container.querySelector("input")!;
+        const fieldStyle = JSON.parse(field.dataset.style!);
+        const wrapperStyle = JSON.parse(field.parentElement!.dataset.style!);
+        // Padding belongs outside the native scroll viewport so it cannot scroll away.
+        expect(wrapperStyle.paddingVertical).toBe(11);
+        expect(fieldStyle.padding).toBe(0);
+        expect(fieldStyle.paddingTop).toBeUndefined();
+        expect(fieldStyle.paddingBottom).toBeUndefined();
+        expect(field.dataset.scrollEnabled).toBe("true");
+        expect(fieldStyle.minHeight).toBeGreaterThanOrEqual(fieldStyle.lineHeight * fontScale);
+        expect(fieldStyle.maxHeight).toBeGreaterThanOrEqual(5 * fieldStyle.lineHeight * fontScale);
+        expect(fieldStyle.height).toBeUndefined();
+        expect(fieldStyle.writingDirection).toBe("auto");
+      }
+      act(() => composer.current!.reset());
+      expect(container.querySelector("input")!.value).toBe("");
+    },
+  );
 
   it("insets the call and send pills equally from the capsule's bottom and trailing edges", () => {
     const style = (element: Element) => JSON.parse((element as HTMLElement).dataset.style!);
