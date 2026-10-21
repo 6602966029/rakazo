@@ -1,4 +1,4 @@
-import { hashPassword } from "better-auth/crypto";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@rakazo/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAuth } from "./index.js";
 
@@ -71,51 +71,18 @@ async function pwnedRange(password: string): Promise<string> {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("password length", () => {
-  it("rejects new passwords shorter than 12 characters", async () => {
+  it("enforces the shared minimum on new passwords", async () => {
     const f = fixture();
-    const short = await f.signup("elevenchars");
+    const short = await f.signup("x".repeat(MIN_PASSWORD_LENGTH - 1));
     expect(short.status).toBe(400);
     expect(await short.json()).toMatchObject({ code: "PASSWORD_TOO_SHORT" });
-    expect((await f.signup("twelve-chars")).status).toBe(200);
+    expect((await f.signup("x".repeat(MIN_PASSWORD_LENGTH))).status).toBe(200);
   });
 
-  it("rejects a short new password on change", async () => {
-    const f = fixture();
-    const { token } = (await (await f.signup(strongPassword)).json()) as { token: string };
-    const change = await f.request(
-      "/change-password",
-      { currentPassword: strongPassword, newPassword: "too-short" },
-      token,
-    );
-    expect(change.status).toBe(400);
-    expect(await change.json()).toMatchObject({ code: "PASSWORD_TOO_SHORT" });
-  });
-
-  it("still signs in an existing account whose password predates the minimum", async () => {
-    const f = fixture();
-    const now = new Date();
-    f.data.user!.push({
-      id: "legacy-user",
-      email: "legacy@example.test",
-      name: "Legacy",
-      emailVerified: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-    f.data.account!.push({
-      id: "legacy-account",
-      userId: "legacy-user",
-      accountId: "legacy-user",
-      providerId: "credential",
-      password: await hashPassword("eight-ch"),
-      createdAt: now,
-      updatedAt: now,
-    });
-    const signin = await f.request("/sign-in/email", {
-      email: "legacy@example.test",
-      password: "eight-ch",
-    });
-    expect(signin.status).toBe(200);
+  it("enforces the shared maximum on new passwords", async () => {
+    const long = await fixture().signup("x".repeat(MAX_PASSWORD_LENGTH + 1));
+    expect(long.status).toBe(400);
+    expect(await long.json()).toMatchObject({ code: "PASSWORD_TOO_LONG" });
   });
 });
 

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, openUserSettings, signup } from "./helpers";
 
 test("current subscription models appear in the picker", async ({ page }, testInfo) => {
-  await signup(page, `current-models-${Date.now()}@rakazo.test`, "password1234", "Model Picker");
+  await signup(page, `current-models-${Date.now()}@rakazo.test`, "password12", "Model Picker");
   await completeOnboarding(page);
   await openUserSettings(page, "models");
   for (const [provider, model, screenshot] of [
@@ -44,7 +44,7 @@ test("text-only models have a subtle image warning", async ({ page }, testInfo) 
       },
     });
   });
-  await signup(page, `text-only-models-${Date.now()}@rakazo.test`, "password1234", "Model Picker");
+  await signup(page, `text-only-models-${Date.now()}@rakazo.test`, "password12", "Model Picker");
   await completeOnboarding(page);
   await openUserSettings(page, "models");
   await page.getByPlaceholder("Search providers").fill("OpenRouter");

@@ -14,7 +14,7 @@ test("Slack message trigger uses the mounted messaging provider and persists", a
     }),
   );
   const stamp = Date.now();
-  await signup(page, `routine-slack-${stamp}@rakazo.test`, "password1234", "Slack Routine");
+  await signup(page, `routine-slack-${stamp}@rakazo.test`, "password12", "Slack Routine");
   await completeOnboarding(page);
   const botId = activeBotId(page);
 
@@ -53,7 +53,7 @@ test("GitHub event trigger exposes signed delivery settings and persists", async
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `routine-github-${stamp}@rakazo.test`, "password1234", "GitHub Routine");
+  await signup(page, `routine-github-${stamp}@rakazo.test`, "password12", "GitHub Routine");
   await completeOnboarding(page);
   const botId = activeBotId(page);
 
@@ -92,7 +92,7 @@ test("Korean webhook routine keeps technical field labels in English", async ({
 }, testInfo) => {
   const stamp = Date.now();
   const userName = `Korean Routine ${stamp}`;
-  await signup(page, `routine-ko-${stamp}@rakazo.test`, "password1234", userName);
+  await signup(page, `routine-ko-${stamp}@rakazo.test`, "password12", userName);
   await completeOnboarding(page);
 
   await page.getByRole("button", { name: new RegExp(userName) }).click();
@@ -120,7 +120,7 @@ test("Korean webhook routine keeps technical field labels in English", async ({
 
 test("routine test-run completes and survives reload", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `routine-${stamp}@rakazo.test`, "password1234", "Routine");
+  await signup(page, `routine-${stamp}@rakazo.test`, "password12", "Routine");
   await completeOnboarding(page);
 
   await page.getByTitle("Agent computer").click();
@@ -185,7 +185,7 @@ test("routine history expands from the latest run and pages older executions", a
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `routine-history-${stamp}@rakazo.test`, "password1234", "Routine History");
+  await signup(page, `routine-history-${stamp}@rakazo.test`, "password12", "Routine History");
   await completeOnboarding(page);
   const botId = activeBotId(page);
   await rpc<Routine>(page, "routines/create", {
@@ -248,7 +248,7 @@ test("routine history expands from the latest run and pages older executions", a
 });
 
 test("an unchanged routine completes without adding a chat reply", async ({ page }, testInfo) => {
-  await signup(page, `routine-silent-${Date.now()}@rakazo.test`, "password1234", "Quiet Routine");
+  await signup(page, `routine-silent-${Date.now()}@rakazo.test`, "password12", "Quiet Routine");
   await completeOnboarding(page);
   const botId = activeBotId(page);
   const routine = await rpc<Routine>(page, "routines/create", {

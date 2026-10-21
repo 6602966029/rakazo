@@ -433,7 +433,7 @@ test.describe("touch table controls", () => {
 
 test("bot replies render markdown tables as cards", async ({ page }) => {
   const stamp = Date.now();
-  await signup(page, `table-card-${stamp}@rakazo.test`, "password1234", "Table Card");
+  await signup(page, `table-card-${stamp}@rakazo.test`, "password12", "Table Card");
   await completeOnboarding(page);
 
   const composer = page.getByRole("combobox", { name: /^Message/ });

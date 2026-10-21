@@ -79,7 +79,7 @@ test("aged queued work is marked and an expired wait leaves a status line", asyn
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `stuck-${stamp}@rakazo.test`, "password1234", "Stuck");
+  await signup(page, `stuck-${stamp}@rakazo.test`, "password12", "Stuck");
   await completeOnboarding(page);
 
   const agedAt = new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString();

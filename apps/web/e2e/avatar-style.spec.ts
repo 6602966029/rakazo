@@ -5,7 +5,7 @@ test("account settings avatar style previews differ for robot and organic", asyn
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `avatar-style-${stamp}@rakazo.test`, "password1234", "Avatar style QA");
+  await signup(page, `avatar-style-${stamp}@rakazo.test`, "password12", "Avatar style QA");
   await completeOnboarding(page);
 
   const settings = await openUserSettings(page);

@@ -324,9 +324,7 @@ metadata, never reset tokens. The inbox route is not registered in test, staging
 
 ### Password policy
 
-New passwords (signup, reset and change) must be 12 to 128 characters, with no composition rules.
-Existing accounts keep signing in with their current password, whatever its length.
-
+New passwords (signup, reset and change) must be 8 to 128 characters, with no composition rules.
 Optionally reject new passwords that appear in known breaches:
 
 ```env

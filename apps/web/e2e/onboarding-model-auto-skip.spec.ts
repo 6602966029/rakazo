@@ -31,7 +31,7 @@ test("onboarding skips model connect when a default model is already available",
   await signup(
     page,
     `model-auto-skip-${stamp}@rakazo.test`,
-    "password1234",
+    "password12",
     `Model auto skip ${stamp}`,
   );
 

@@ -47,7 +47,7 @@ async function captureSidebarSearchSelected(
 
 test("account settings appearance control switches to light mode", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `ui-appearance-${stamp}@rakazo.test`, "password1234", "Appearance QA");
+  await signup(page, `ui-appearance-${stamp}@rakazo.test`, "password12", "Appearance QA");
   await completeOnboarding(page, testInfo);
 
   await page.getByTestId("user-menu-trigger").click();
@@ -104,7 +104,7 @@ test("sidebar bot rows hover with the same tone as the integrations row", async 
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `ui-hover-${stamp}@rakazo.test`, "password1234", "Hover QA");
+  await signup(page, `ui-hover-${stamp}@rakazo.test`, "password12", "Hover QA");
   await completeOnboarding(page, testInfo);
   await createNamedBot(page, "Second Bot");
 
@@ -127,7 +127,7 @@ test("sidebar bot rows hover with the same tone as the integrations row", async 
 });
 
 test("sidebar footer opens integrations and the account menu", async ({ page }, testInfo) => {
-  await signup(page, `footer-web-${Date.now()}@rakazo.test`, "password1234", "Footer Demo");
+  await signup(page, `footer-web-${Date.now()}@rakazo.test`, "password12", "Footer Demo");
   await completeOnboarding(page);
   const footer = page.getByTestId("sidebar-footer");
   await expect(footer).toBeVisible();
@@ -211,7 +211,7 @@ test("sidebar footer keeps the account identity readable and installs a ready de
     });
   });
   const email = `footer-${Date.now()}@rakazo.test`;
-  await signup(page, email, "password1234", "Footer Demo");
+  await signup(page, email, "password12", "Footer Demo");
   await completeOnboarding(page);
   await page.request.post("/api/auth/update-user", { data: { name: "Footer Demo" } });
   await page.reload();
@@ -345,7 +345,7 @@ test("sidebar footer keeps the account identity readable and installs a ready de
 test("account menu works on the mobile sidebar", async ({ page }) => {
   const email = `footer-mobile-${Date.now()}@rakazo.test`;
   await page.setViewportSize({ width: 390, height: 844 });
-  await signup(page, email, "password1234", "Mobile Demo");
+  await signup(page, email, "password12", "Mobile Demo");
   await completeOnboarding(page);
   await page.request.post("/api/auth/update-user", { data: { name: "Mobile Demo" } });
   await page.reload();
@@ -359,7 +359,7 @@ test("account menu works on the mobile sidebar", async ({ page }) => {
 });
 
 test("footer app marks follow the integrations overlay", async ({ page }) => {
-  await signup(page, `footer-apps-${Date.now()}@rakazo.test`, "password1234", "Footer Demo");
+  await signup(page, `footer-apps-${Date.now()}@rakazo.test`, "password12", "Footer Demo");
   await completeOnboarding(page);
   let connected = true;
   let listed = true;
@@ -457,7 +457,7 @@ test("sidebar list fades above the transparent footer and keeps the last row rea
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await signup(page, `footer-scroll-${Date.now()}@rakazo.test`, "password1234", "Demo User");
+  await signup(page, `footer-scroll-${Date.now()}@rakazo.test`, "password12", "Demo User");
   await completeOnboarding(page);
   for (let index = 0; index < 20; index++) {
     await rpc(page, "bots/create", {

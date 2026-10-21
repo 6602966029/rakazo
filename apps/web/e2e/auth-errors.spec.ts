@@ -17,7 +17,7 @@ test("sign-in shows translated password and callback errors", async ({ page }, t
 
   await page.goto("/sign-in");
   await page.getByLabel("Email", { exact: true }).fill("user@example.test");
-  await page.getByLabel("Password", { exact: true }).fill("password1234");
+  await page.getByLabel("Password", { exact: true }).fill("password12");
   await page.getByRole("button", { name: "Continue with email" }).click();
   await expect(
     page

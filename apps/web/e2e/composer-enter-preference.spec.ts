@@ -11,7 +11,7 @@ for (const touch of [false, true]) {
       await signup(
         page,
         `enter-pref-${touch}-${Date.now()}@rakazo.test`,
-        "password1234",
+        "password12",
         "Composer QA",
       );
       await completeOnboarding(page);

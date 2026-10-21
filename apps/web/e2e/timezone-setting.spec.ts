@@ -7,7 +7,7 @@ test("timezone setting adopts the browser zone, saves a choice, and offers this 
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `timezone-${stamp}@rakazo.test`, "password1234", "Timezone QA");
+  await signup(page, `timezone-${stamp}@rakazo.test`, "password12", "Timezone QA");
   await completeOnboarding(page);
 
   const settings = await openUserSettings(page);

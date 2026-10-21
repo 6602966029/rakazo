@@ -5,7 +5,7 @@ test("the only space is named in the sidebar and chat creation requires approval
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `spaces-${stamp}@rakazo.test`, "password1234", "Space Owner");
+  await signup(page, `spaces-${stamp}@rakazo.test`, "password12", "Space Owner");
   await completeOnboarding(page);
 
   const sidebar = page.locator("aside").first();
@@ -82,7 +82,7 @@ test("a new space auto-completes onboarding and can be deleted from its menu", a
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `spaces-delete-${stamp}@rakazo.test`, "password1234", "Space Owner");
+  await signup(page, `spaces-delete-${stamp}@rakazo.test`, "password12", "Space Owner");
   await completeOnboarding(page);
 
   const sidebar = page.locator("aside").first();
@@ -134,7 +134,7 @@ test("a new space auto-completes onboarding and can be deleted from its menu", a
 
 test("an occupied space can be renamed from its menu", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `spaces-rename-${stamp}@rakazo.test`, "password1234", "Space Owner");
+  await signup(page, `spaces-rename-${stamp}@rakazo.test`, "password12", "Space Owner");
   await completeOnboarding(page);
 
   const sidebar = page.locator("aside").first();
@@ -173,7 +173,7 @@ test("an occupied space can be renamed from its menu", async ({ page }, testInfo
 
 test("deleting the last bot in a space stays in the app after first use", async ({ page }) => {
   const stamp = Date.now();
-  await signup(page, `spaces-empty-${stamp}@rakazo.test`, "password1234", "Space Owner");
+  await signup(page, `spaces-empty-${stamp}@rakazo.test`, "password12", "Space Owner");
   await completeOnboarding(page);
   const [chief] = await rpc<Array<{ id: string }>>(page, "bots/list", {});
   expect(chief).toBeTruthy();
@@ -225,7 +225,7 @@ test("a space's menu opens its settings in place, and settings can switch space"
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `spaces-settings-${stamp}@rakazo.test`, "password1234", "Space Owner");
+  await signup(page, `spaces-settings-${stamp}@rakazo.test`, "password12", "Space Owner");
   await completeOnboarding(page);
 
   const sidebar = page.locator("aside").first();

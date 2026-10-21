@@ -1,8 +1,5 @@
-/**
- * Length limits for new passwords (NIST SP 800-63B): no composition rules.
- * Sign-in accepts any stored password, so raising the minimum never locks anyone out.
- */
-export const MIN_PASSWORD_LENGTH = 12;
+/** Length limits for new passwords, with no composition rules (NIST SP 800-63B). */
+export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 128;
 
 /** iOS AutoFill rules, so a generated password satisfies the server. */

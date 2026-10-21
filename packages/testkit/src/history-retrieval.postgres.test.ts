@@ -188,7 +188,7 @@ describe.skipIf(!enabled)("history retrieval through executor", () => {
           headers: { "content-type": "application/json", origin },
           body: JSON.stringify({
             email: `history-${randomUUID()}@rakazo.test`,
-            password: "password1234",
+            password: "password12",
             name: "History fixture",
           }),
         });

@@ -103,7 +103,7 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
         headers: { "content-type": "application/json", origin },
         body: JSON.stringify({
           email: `usage-${randomUUID()}@rakazo.test`,
-          password: "password1234",
+          password: "password12",
           name: "Usage fixture",
         }),
       });

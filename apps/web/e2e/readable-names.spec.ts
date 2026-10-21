@@ -7,7 +7,7 @@ test("legacy opaque names never appear in navigation, account, chats or Activity
   page,
 }, testInfo) => {
   const email = `names-${Date.now()}@example.test`;
-  await signup(page, email, "password1234", "Demo");
+  await signup(page, email, "password12", "Demo");
   await completeOnboarding(page);
   const bot = await rpc<{ id: string }>(page, "bots/create", {
     name: "Helper",

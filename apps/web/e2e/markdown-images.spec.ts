@@ -20,7 +20,7 @@ async function serveFakeImages(page: Page) {
 }
 
 async function sendImageReply(page: Page, name: string) {
-  await signup(page, `${name}-${Date.now()}@rakazo.test`, "password1234", "Markdown Image");
+  await signup(page, `${name}-${Date.now()}@rakazo.test`, "password12", "Markdown Image");
   await completeOnboarding(page);
   const composer = page.getByRole("combobox", { name: /^Message/ });
   await expect(composer).toBeVisible();

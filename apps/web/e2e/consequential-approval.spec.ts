@@ -12,7 +12,7 @@ test("actions run by default while optional confirmations live in space settings
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `action-confirmations-${stamp}@rakazo.test`, "password1234", "Approval UI");
+  await signup(page, `action-confirmations-${stamp}@rakazo.test`, "password12", "Approval UI");
   await completeOnboarding(page, testInfo);
 
   await sendDestinationWrite(page, "write this to the destination crm as a note");

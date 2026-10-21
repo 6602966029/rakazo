@@ -12,7 +12,7 @@ test("create opens form, then empty chat; picker lists bots; sidebar collapses",
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `new-bot-ux-${stamp}@rakazo.test`, "password1234", "New Bot UX");
+  await signup(page, `new-bot-ux-${stamp}@rakazo.test`, "password12", "New Bot UX");
   await completeOnboarding(page);
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
@@ -72,7 +72,7 @@ test("create opens form, then empty chat; picker lists bots; sidebar collapses",
 
 test("picker rows explain groups and spaces", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `picker-info-${stamp}@rakazo.test`, "password1234", "Picker Info");
+  await signup(page, `picker-info-${stamp}@rakazo.test`, "password12", "Picker Info");
   await completeOnboarding(page);
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
@@ -112,7 +112,7 @@ test("picker rows explain groups and spaces", async ({ page }, testInfo) => {
 });
 
 test("a stale sidebar refresh cannot leave a newly created bot", async ({ page }, testInfo) => {
-  await signup(page, `stale-create-${Date.now()}@rakazo.test`, "password1234", "Stale Create");
+  await signup(page, `stale-create-${Date.now()}@rakazo.test`, "password12", "Stale Create");
   await completeOnboarding(page);
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
 
@@ -170,7 +170,7 @@ test("a stale sidebar refresh cannot leave a newly created bot", async ({ page }
 
 test("later bot waits before showing the focus card; sending cancels it", async ({ page }) => {
   const stamp = Date.now();
-  await signup(page, `focus-delay-${stamp}@rakazo.test`, "password1234", "Focus Delay");
+  await signup(page, `focus-delay-${stamp}@rakazo.test`, "password12", "Focus Delay");
   await completeOnboarding(page);
   // First bot from onboarding shows the focus card immediately.
   await expect(page.getByText("What do you want me on first?", { exact: true })).toBeVisible();
@@ -211,7 +211,7 @@ test("later bot waits before showing the focus card; sending cancels it", async 
 });
 
 test("a roster refresh started before creation keeps the new bot selected", async ({ page }) => {
-  await signup(page, `create-refresh-${Date.now()}@rakazo.test`, "password1234", "Create Refresh");
+  await signup(page, `create-refresh-${Date.now()}@rakazo.test`, "password12", "Create Refresh");
   await completeOnboarding(page);
 
   let releaseRoster!: () => void;
@@ -260,7 +260,7 @@ test("a roster refresh started before creation keeps the new bot selected", asyn
 
 test("plus picker can create a Private computer bot", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `new-bot-private-${stamp}@rakazo.test`, "password1234", "New Bot Private");
+  await signup(page, `new-bot-private-${stamp}@rakazo.test`, "password12", "New Bot Private");
   await completeOnboarding(page);
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
@@ -276,7 +276,7 @@ test("plus picker can create a Private computer bot", async ({ page }, testInfo)
 
 test("second bot from plus opens create form before persist", async ({ page }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `second-bot-form-${stamp}@rakazo.test`, "password1234", "Second Bot Form");
+  await signup(page, `second-bot-form-${stamp}@rakazo.test`, "password12", "Second Bot Form");
   await completeOnboarding(page);
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
