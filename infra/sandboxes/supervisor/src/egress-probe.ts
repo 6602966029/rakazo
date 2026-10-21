@@ -8,7 +8,9 @@ import type Docker from "dockerode";
  * which is the Docker host. The ruleset's INPUT drop makes every attempt time out;
  * a refused or accepted connection means the host answered, so the rules are missing.
  * The script inserts that INPUT drop after its DOCKER-USER destination drops, so it
- * stands in for the forwarded rules, which no probe can see without a private responder.
+ * stands in for the forwarded rules. The forwarded path is also checked directly
+ * against the cloud metadata endpoint: where one exists it accepts connections unless
+ * the drop is in place, and elsewhere nothing answers, so only a connection fails.
  */
 export const EGRESS_PROBE_NETWORK = "rakazo-egress-probe";
 // Matches the ruleset's `rakazo-c+` interface pattern and Linux's 15-byte limit.
@@ -19,24 +21,35 @@ const PROBE_PORTS = [22, 1];
 const PROBE_SECONDS_PER_PORT = 2;
 const PROBE_DEADLINE_MS = 60_000;
 const HOST_REACHABLE = 3;
+const METADATA_ADDRESS = "169.254.169.254";
+const METADATA_REACHABLE = 4;
 
 export const EGRESS_NOT_ENFORCED =
   "SANDBOX_COMPUTER_EGRESS=restricted is not enforced on this Docker host: run infra/compose/restrict-computer-egress.sh on the host, or set SANDBOX_COMPUTER_EGRESS=open (see docs/self-host.md)";
 
-/** Shell run in the probe container; exits 0 only when every port timed out. */
+/**
+ * Shell run in the probe container; exits 0 only when every gateway port timed out
+ * and the metadata endpoint did not accept a connection.
+ */
 export function egressProbeScript(gateway: string) {
   const attempts = PROBE_PORTS.map(
     (port) =>
       `timeout ${PROBE_SECONDS_PER_PORT} bash -c 'exec 3<>/dev/tcp/${gateway}/${port}' 2>/dev/null; [ $? -eq 124 ] || exit ${HOST_REACHABLE}`,
   );
-  return [...attempts, "exit 0"].join("\n");
+  const metadata = `timeout ${PROBE_SECONDS_PER_PORT} bash -c 'exec 3<>/dev/tcp/${METADATA_ADDRESS}/80' 2>/dev/null && exit ${METADATA_REACHABLE}`;
+  return [...attempts, metadata, "exit 0"].join("\n");
 }
 
-export type EgressProbeVerdict = "enforced" | "host-reachable" | "inconclusive";
+export type EgressProbeVerdict =
+  | "enforced"
+  | "host-reachable"
+  | "metadata-reachable"
+  | "inconclusive";
 
 export function egressProbeVerdict(statusCode: number | undefined): EgressProbeVerdict {
   if (statusCode === 0) return "enforced";
   if (statusCode === HOST_REACHABLE) return "host-reachable";
+  if (statusCode === METADATA_REACHABLE) return "metadata-reachable";
   return "inconclusive";
 }
 
@@ -90,6 +103,9 @@ export async function verifyRestrictedEgress(docker: Docker, image: string) {
     const verdict = egressProbeVerdict(result?.StatusCode);
     if (verdict === "host-reachable") {
       throw new Error(`${EGRESS_NOT_ENFORCED} (a computer bridge reached the host)`);
+    }
+    if (verdict === "metadata-reachable") {
+      throw new Error(`${EGRESS_NOT_ENFORCED} (a computer bridge reached the metadata endpoint)`);
     }
     if (verdict === "inconclusive") {
       throw new Error(

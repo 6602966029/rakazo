@@ -45,6 +45,7 @@ describe("egress probe", () => {
   it("classifies probe exit codes", () => {
     expect(egressProbeVerdict(0)).toBe("enforced");
     expect(egressProbeVerdict(3)).toBe("host-reachable");
+    expect(egressProbeVerdict(4)).toBe("metadata-reachable");
     expect(egressProbeVerdict(1)).toBe("inconclusive");
     expect(egressProbeVerdict(undefined)).toBe("inconclusive");
   });
@@ -54,6 +55,8 @@ describe("egress probe", () => {
     expect(script).toContain("/dev/tcp/172.30.0.1/22");
     expect(script).toContain("/dev/tcp/172.30.0.1/1");
     expect(script).toContain("[ $? -eq 124 ] || exit 3");
+    // Only an accepted metadata connection fails: hosts without one time out or are unreachable.
+    expect(script).toContain("/dev/tcp/169.254.169.254/80' 2>/dev/null && exit 4");
     expect(script.trim().endsWith("exit 0")).toBe(true);
   });
 
@@ -89,6 +92,7 @@ describe("egress probe", () => {
 
   it.each([
     ["the host answered", { statusCode: 3 }, /reached the host/],
+    ["the metadata endpoint answered", { statusCode: 4 }, /reached the metadata endpoint/],
     ["the probe failed", { statusCode: 125 }, /probe exited 125/],
     ["the bridge is unnamed", { options: {} }, /lacks the named bridge/],
   ])("refuses when %s", async (_label, input, detail) => {
