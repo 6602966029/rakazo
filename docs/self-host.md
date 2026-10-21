@@ -181,7 +181,7 @@ Rakazo uses two Postgres logins:
   superuser, cannot bypass row-level security, cannot create objects, and can only read and write
   the app tables.
 
-`pnpm db:migrate`, which the API's start command runs, applies the migrations and the job queue
+`pnpm db:migrate`, which the API container also runs on start, applies the migrations and the job queue
 schema as the owner. It then creates the app login named in `DATABASE_URL`, or updates its
 password, and grants it the `rakazo_app` role. When migrations run as a role without
 `CREATEROLE`, as on some managed Postgres, create the login yourself and
@@ -1158,7 +1158,7 @@ GIT_SHA=$(git rev-parse HEAD) docker compose --env-file .env -f infra/compose/do
 ```
 
 `up --wait` does not report success until the new API is healthy and the worker and web containers
-are running. The API's start command runs `pnpm db:migrate` before it serves, so migration
+are running. The API's start command runs the migrations before it serves, so migration
 failure keeps health red. A failed CLI recreate does not auto-roll back; recover with the previous
 `RAKAZO_IMAGE_TAG` (or rebuild `local`) and `up -d --wait --pull never`.
 

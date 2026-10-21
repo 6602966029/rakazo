@@ -63,7 +63,7 @@ describe("source-checkout compose postgres hardening", () => {
     );
     expect(compose.services.worker?.environment).not.toHaveProperty("DATABASE_MIGRATION_URL");
     expect(JSON.stringify(compose.services.api?.command)).toContain(
-      "pnpm db:migrate && exec env -u DATABASE_MIGRATION_URL",
+      "pnpm --filter @rakazo/api db:deploy && exec env -u DATABASE_MIGRATION_URL",
     );
   });
 

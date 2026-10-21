@@ -73,7 +73,7 @@ services:
       - bash
       - -lc
       # The owner URL lives only in this command, so neither process environment holds it.
-      - DATABASE_MIGRATION_URL=postgres://rakazo:topology-only-password@postgres:5432/rakazo pnpm db:migrate && exec pnpm --filter @rakazo/api start
+      - DATABASE_MIGRATION_URL=postgres://rakazo:topology-only-password@postgres:5432/rakazo pnpm --filter @rakazo/api db:deploy && exec pnpm --filter @rakazo/api start
     environment: &app-environment
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
       NODE_ENV: production

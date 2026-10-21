@@ -288,10 +288,10 @@ services:
     build:
       context: ../..
       dockerfile: infra/compose/Dockerfile
-    command: ["bash", "-lc", "pnpm db:migrate && exec env -u DATABASE_MIGRATION_URL pnpm --filter @rakazo/api start"]
+    command: ["bash", "-lc", "pnpm --filter @rakazo/api db:deploy && exec env -u DATABASE_MIGRATION_URL pnpm --filter @rakazo/api start"]
     environment:
       <<: *app-environment
-      # Owner login for `pnpm db:migrate`; the start command drops it before serving.
+      # Owner login for migrations; the start command drops it before serving.
       DATABASE_MIGRATION_URL: postgres://${POSTGRES_USER:-rakazo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
       # Sign-in, sessions, billing and inbound webhooks: API only.
       API_HOST: "0.0.0.0"
