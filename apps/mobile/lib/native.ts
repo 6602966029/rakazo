@@ -41,21 +41,20 @@ export const native = {
     return systemColor("label", mobileTokens().foreground);
   },
   get secondaryLabel() {
+    if (resolveMobileAppearance() === "light") return mobileTokens().mutedForeground;
     return systemColor("secondaryLabel", mobileTokens().mutedForeground);
   },
   get tertiaryLabel() {
-    if (resolveMobileAppearance() === "dark") return mobileTokens().faintForeground;
-    return systemColor("tertiaryLabel", mobileTokens().faintForeground);
+    return mobileTokens().faintForeground;
   },
-  // Dark grouped colours always come from the tokens: iOS lifts the system ones inside sheets
-  // and with Increase Contrast until destructive text drops below 4.5:1.
+  // Grouped colours always come from the tokens: settings sit on the page colour with
+  // grey cells in both themes, and in dark iOS lifts the system ones inside sheets and with
+  // Increase Contrast until destructive text drops below 4.5:1.
   get groupedPage() {
-    if (resolveMobileAppearance() === "dark") return mobileTokens().background;
-    return systemColor("systemGroupedBackground", mobileTokens().muted);
+    return mobileTokens().background;
   },
   get groupedCell() {
-    if (resolveMobileAppearance() === "dark") return mobileTokens().card;
-    return systemColor("secondarySystemGroupedBackground", mobileTokens().card);
+    return mobileTokens().card;
   },
 } as const;
 

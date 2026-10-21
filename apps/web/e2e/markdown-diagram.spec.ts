@@ -69,7 +69,7 @@ test("diagrams follow the app theme", async ({ page }, testInfo) => {
 
   await page.goto(`${fixture}?theme=light`);
   await expectDrawn(page);
-  expect(await diagramMarkup(page)).toContain("fill:#1A1A1A");
+  expect(await diagramMarkup(page)).toContain("fill:#000000");
   await captureScreenshot(page, testInfo, "markdown-diagram-light");
 
   // Switching theme with the message open redraws it.
