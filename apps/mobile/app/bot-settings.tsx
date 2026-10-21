@@ -336,10 +336,14 @@ export default function BotSettingsScreen() {
           { botId, mode: computerMode },
           { timeoutMs: COMPUTER_LIFECYCLE_TIMEOUT_MS },
         );
+        setBot((prev) => (prev ? { ...prev, computerMode } : prev));
       }
       // Use key presence so clearing title/description to "" still persists.
       if (Object.keys(input).length > 1) {
         await rpc("bots/update", input);
+        // Saved edits become the baseline, so a retry after a failed switch write does not resend them.
+        const { botId: _botId, expectedInstructions: _expected, ...saved } = input;
+        setBot((prev) => (prev ? { ...prev, ...saved } : prev));
       }
       await fleetSave.flush();
       router.back();

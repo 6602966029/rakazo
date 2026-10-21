@@ -519,6 +519,34 @@ describe("bot settings device voice menu", () => {
     expect(container.textContent).toContain("offline");
   });
 
+  it("does not resend saved edits when Save is retried after a failed fleet write", async () => {
+    mocks.rpc.mockResolvedValue(undefined);
+    mocks.rpc.mockRejectedValueOnce(new Error("offline"));
+    await render();
+    const toggle = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Manage the bots it creates"]',
+    )!;
+    const save = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Save",
+    )!;
+    await act(async () => toggle.click());
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Read replies aloud"]')!.click(),
+    );
+    await act(async () => save.click());
+    expect(mocks.rpc).toHaveBeenLastCalledWith("bots/update", {
+      botId: "bot-fixture",
+      autoSpeak: true,
+    });
+    expect(mocks.back).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("offline");
+    await act(async () => toggle.click());
+    mocks.rpc.mockClear();
+    await act(async () => save.click());
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.back).toHaveBeenCalledOnce();
+  });
+
   it("coalesces a queued value matching the confirmed save", async () => {
     const first = deferredSave();
     mocks.rpc.mockReturnValueOnce(first.promise);
