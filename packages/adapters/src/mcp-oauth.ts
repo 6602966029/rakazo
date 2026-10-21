@@ -309,8 +309,14 @@ export class StoredMcpOAuthProvider implements OAuthClientProvider {
       if (!this.options.refresh || body?.get("grant_type") !== "refresh_token")
         return fetch(input, init);
       // Skip it when a concurrent request already renewed the token the SDK read.
-      if (body.get("refresh_token") === this.material.oauth?.tokens?.refresh_token)
-        await this.renew();
+      if (body.get("refresh_token") === this.material.oauth?.tokens?.refresh_token) {
+        try {
+          await this.renew();
+        } catch {
+          // The SDK starts re-authorization, which drops the grant, on any other failure.
+          return Response.json({ error: "temporarily_unavailable" }, { status: 503 });
+        }
+      }
       const tokens = this.material.oauth?.tokens;
       this.served = tokens;
       return tokens
