@@ -76,6 +76,15 @@ const markdownParser = createMarkdownIt();
 markdownParser.validateLink = keepMarkdownLinkToken;
 linkifyExplicitUrls(markdownParser);
 
+/** The code of each fenced or indented block in a message, as its copy button copies it. */
+export function markdownCodeBlocks(markdown: string): string[] {
+  const tokens: { type: string; content: string }[] = markdownParser.parse(markdown, {});
+  return tokens
+    .filter((token) => token.type === "fence" || token.type === "code_block")
+    .map((token) => token.content.replace(/\n$/, ""))
+    .filter((code) => /\S/.test(code));
+}
+
 // Hebrew, Arabic and the other right-to-left scripts, with their presentation forms.
 const RTL_LETTER =
   /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF\u{10800}-\u{10FFF}\u{1E800}-\u{1EFFF}]/u;
@@ -710,6 +719,25 @@ export type MermaidDiagramProps = {
  */
 export const MermaidDiagramContext = createContext<ComponentType<MermaidDiagramProps> | null>(null);
 
+/**
+ * The app's control for copying a code block, given the code exactly as written. Without one,
+ * code blocks have no copy control.
+ */
+export const CodeCopyButtonContext = createContext<ComponentType<{ code: string }> | null>(null);
+
+/** Code in a sideways scroll view, with its copy control beside it so the control stays put. */
+function CodeScrollView({ code, children }: { code: string; children?: ReactNode }) {
+  const CopyButton = useContext(CodeCopyButtonContext);
+  const scrollView = <SidewaysScrollView>{children}</SidewaysScrollView>;
+  if (!CopyButton || !/\S/.test(code)) return scrollView;
+  return (
+    <View style={layout.codeRow}>
+      {scrollView}
+      <CopyButton code={code} />
+    </View>
+  );
+}
+
 const DiagramSurfaceContext = createContext<{
   streaming: boolean;
   palette: ColorTokens;
@@ -749,7 +777,7 @@ function CodeFence({
           <Text style={styleMap.fence_language_label}>{language}</Text>
         </View>
       ) : null}
-      <SidewaysScrollView>
+      <CodeScrollView code={code}>
         <Highlight theme={theme} code={code} language={language || "text"}>
           {({ tokens, getTokenProps }) => (
             <View style={styleMap._VIEW_SAFE_fence_code}>
@@ -788,7 +816,7 @@ function CodeFence({
             </View>
           )}
         </Highlight>
-      </SidewaysScrollView>
+      </CodeScrollView>
     </View>
   );
 }
@@ -866,11 +894,27 @@ const renderRules: RenderRules = {
     if (!isMermaidFence(info)) return codeBlock;
     return <MermaidFence key={node.key} source={source} fallback={codeBlock} />;
   },
-  code_block: (node, children, parents, styleMap, ...extra) => (
-    <SidewaysScrollView key={node.key}>
-      {libraryRules.code_block?.(node, children, parents, styleMap, ...extra)}
-    </SidewaysScrollView>
-  ),
+  // The frame moves from the text to a view around it, so the copy control sits inside it.
+  code_block: (node, children, parents, styleMap, ...extra) => {
+    const { borderWidth, borderColor, borderRadius, backgroundColor, ...text } =
+      StyleSheet.flatten(styleMap.code_block) ?? {};
+    return (
+      <View
+        key={node.key}
+        style={[{ borderWidth, borderColor, borderRadius, backgroundColor }, layout.codeFrame]}
+      >
+        <CodeScrollView code={node.content.replace(/\n$/, "")}>
+          {libraryRules.code_block?.(
+            node,
+            children,
+            parents,
+            { ...styleMap, code_block: text },
+            ...extra,
+          )}
+        </CodeScrollView>
+      </View>
+    );
+  },
   textgroup: (node, children, _parent, styleMap) => (
     <Text
       key={node.key}
@@ -1244,6 +1288,13 @@ const layout = StyleSheet.create({
   },
   codeLine: {
     flexDirection: "row",
+  },
+  codeRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  codeFrame: {
+    overflow: "hidden",
   },
   // React Native mirrors `right` in a right-to-left app, so it is always the far side.
   farSideText: {

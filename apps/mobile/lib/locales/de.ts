@@ -795,6 +795,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Eine Anmeldeseite wurde geöffnet — gib dort diesen Code ein:",
   "All providers": "Alle Anbieter",
   Copied: "Kopiert",
+  "Copy code": "Code kopieren",
   "Could not disconnect this provider": "Anbieter konnte nicht getrennt werden",
   "Default ({level})": "Standard ({level})",
   "Disconnected {provider}.": "{provider} getrennt.",

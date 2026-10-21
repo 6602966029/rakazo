@@ -775,6 +775,7 @@ export const RU_MESSAGES: Record<string, string> = {
     "Открылась страница входа — введите там этот код:",
   "All providers": "Все провайдеры",
   Copied: "Скопировано",
+  "Copy code": "Копировать код",
   "Could not disconnect this provider": "Не удалось отключить этого провайдера",
   "Default ({level})": "По умолчанию ({level})",
   "Disconnected {provider}.": "{provider} отключён.",

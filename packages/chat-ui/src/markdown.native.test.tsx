@@ -184,10 +184,12 @@ import { Platform, Pressable } from "react-native";
 import type { LinkFavicons, MermaidDiagramProps } from "./markdown.native";
 import {
   ChatMarkdown,
+  CodeCopyButtonContext,
   LinkFaviconsContext,
   LinkifiedText,
   MarkdownLinkPromptProvider,
   MermaidDiagramContext,
+  markdownCodeBlocks,
   RemoteImagesContext,
   RemoteMarkdownImage,
 } from "./markdown.native";
@@ -519,6 +521,102 @@ describe("native markdown code blocks", () => {
       root.unmount();
     });
     container.remove();
+  });
+});
+
+describe("native markdown code copy", () => {
+  // Stands in for the app's copy button, recording the code it would copy.
+  function ProbeCopyButton({ code }: { code: string }) {
+    return createElement("copy-probe", { "data-code": code });
+  }
+
+  function renderWithCopy(markdown: string, props: { streaming?: boolean } = {}) {
+    const html = renderToStaticMarkup(
+      <CodeCopyButtonContext.Provider value={ProbeCopyButton}>
+        <ChatMarkdown palette={lightTokens} colorScheme="light" {...props}>
+          {markdown}
+        </ChatMarkdown>
+      </CodeCopyButtonContext.Provider>,
+    );
+    return new DOMParser().parseFromString(html, "text/html");
+  }
+
+  it.each([
+    ["a fence", "```ts\nconst a = 1;\n\n  return a;\n```", "const a = 1;\n\n  return a;"],
+    ["a fence without a language", "```\nnpm install\n```", "npm install"],
+    ["an indented block", "Run:\n\n    line one\n      line two\n", "line one\n  line two"],
+    [
+      "a mermaid fence shown as code",
+      "```mermaid\ngraph LR\n  A --> B\n```",
+      "graph LR\n  A --> B",
+    ],
+  ])("gives %s a copy button for its exact code", (_case, markdown, code) => {
+    const document = renderWithCopy(markdown);
+    const probes = document.querySelectorAll("copy-probe");
+    expect(probes).toHaveLength(1);
+    expect(probes[0]?.getAttribute("data-code")).toBe(code);
+  });
+
+  it("keeps the button inside the block's frame, beside the code rather than in its scroll view", () => {
+    for (const markdown of ["```ts\nconst a = 1;\n```", "    const a = 1;"]) {
+      const probe = renderWithCopy(markdown).querySelector("copy-probe");
+      expect(probe?.closest("rn-scroll-view")).toBeNull();
+      const row = probe?.parentElement;
+      expect(row?.getAttribute("data-flex-direction")).toBe("row");
+      expect(row?.querySelector("rn-scroll-view")).not.toBeNull();
+      const frame = row?.parentElement;
+      expect(frame?.getAttribute("data-border-width")).toBeTruthy();
+      expect(frame?.getAttribute("data-background-color")).toBe(lightTokens.background);
+    }
+  });
+
+  it("moves an indented block's frame off its text", () => {
+    const text = renderWithCopy("    const a = 1;").querySelector("rn-scroll-view rn-text");
+    expect(text?.textContent).toBe("const a = 1;");
+    expect(text?.getAttribute("data-border-width")).toBeNull();
+    expect(text?.getAttribute("data-background-color")).toBeNull();
+  });
+
+  it("shows the button while a reply streams", () => {
+    expect(
+      renderWithCopy("```ts\nconst live = true;", { streaming: true }).querySelector("copy-probe"),
+    ).not.toBeNull();
+  });
+
+  it("gives inline code and an empty fence no button", () => {
+    const blankFence = "```ts\n\n\n```";
+    expect(renderWithCopy(blankFence).querySelector("copy-probe")).toBeNull();
+    expect(markdownCodeBlocks(blankFence)).toEqual([]);
+    expect(renderWithCopy("Run `npm test` first.").querySelector("copy-probe")).toBeNull();
+    expect(renderWithCopy("```ts\n```").querySelector("copy-probe")).toBeNull();
+  });
+
+  it("lists the code of every block that gets a button, and nothing else", () => {
+    const markdown = [
+      "Run `npm test` first.",
+      "```ts\nconst a = 1;\n\n  return a;\n```",
+      "```\n```",
+      "> ```\n> quoted\n> ```",
+      "- item\n\n      indented in a list",
+      "```mermaid\ngraph LR\n  A --> B\n```",
+    ].join("\n\n");
+    const probes = [...renderWithCopy(markdown).querySelectorAll("copy-probe")].map((probe) =>
+      probe.getAttribute("data-code"),
+    );
+    expect(markdownCodeBlocks(markdown)).toEqual([
+      "const a = 1;\n\n  return a;",
+      "quoted",
+      "indented in a list",
+      "graph LR\n  A --> B",
+    ]);
+    expect(markdownCodeBlocks(markdown)).toEqual(probes);
+    expect(markdownCodeBlocks("No code here, only `inline`.")).toEqual([]);
+  });
+
+  it("draws no button when the app supplies none", () => {
+    const html = renderToStaticMarkup(<ChatMarkdown>{"```\nnpm test\n```"}</ChatMarkdown>);
+    expect(html).not.toContain("<copy-probe");
+    expect(html).toContain("npm test");
   });
 });
 
