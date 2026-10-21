@@ -2003,7 +2003,7 @@ button.product-demo__dock-icon {
 }
 
 .product-demo__text-btn:hover {
-  color: #ececee;
+  color: var(--panel-copy);
 }
 
 .product-demo__text-btn:focus {
@@ -2011,8 +2011,8 @@ button.product-demo__dock-icon {
 }
 
 .product-demo__text-btn:focus-visible {
-  color: #ececee;
-  outline: 2px solid rgb(236 236 238 / 0.5);
+  color: var(--panel-copy);
+  outline: 2px solid color-mix(in srgb, var(--panel-copy) 50%, transparent);
   outline-offset: 3px;
 }
 
@@ -2021,7 +2021,7 @@ button.product-demo__dock-icon {
   border-radius: 10px;
   background: transparent;
   padding: 5px 12px;
-  color: #ececee;
+  color: var(--panel-copy);
   font: inherit;
   font-size: 13px;
   font-weight: 500;
@@ -2029,7 +2029,7 @@ button.product-demo__dock-icon {
 }
 
 .product-demo__outline-btn:hover {
-  background: #17171a;
+  background: var(--panel-line);
 }
 
 .product-demo__outline-btn:focus {
@@ -2037,7 +2037,7 @@ button.product-demo__dock-icon {
 }
 
 .product-demo__outline-btn:focus-visible {
-  outline: 2px solid rgb(236 236 238 / 0.5);
+  outline: 2px solid color-mix(in srgb, var(--panel-copy) 50%, transparent);
   outline-offset: 2px;
 }
 
