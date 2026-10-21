@@ -4936,6 +4936,118 @@ afterEach(() => {
   delete process.env.SANDBOX_MAX_COMPUTERS_PER_USER;
 });
 
+describe("routine live Codex model validation", () => {
+  it.each(["create", "update"] as const)(
+    "saves a listed live-only model on %s and rejects an unlisted id",
+    async (operation) => {
+      const actor = { userId: "user-1", spaceId: "space-1", email: "user@rakazo.test" };
+      const modelId = "gpt-6-luna-latest";
+      const stamp = new Date("2026-01-01T00:00:00Z");
+      const row = {
+        id: "routine-1",
+        botId: "bot-1",
+        name: "Check",
+        prompt: "Check changes",
+        crons: ["0 9 * * *"],
+        timezone: "UTC",
+        active: false,
+        notify: false,
+        webhookEnabled: false,
+        githubEnabled: false,
+        messageProvider: null,
+        modelProvider: null,
+        modelId: null,
+        thinkingLevel: null,
+        lastRunAt: null,
+        nextRunAt: null,
+        createdAt: stamp,
+      };
+      const save = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+        ...row,
+        ...Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)),
+      }));
+      const read = vi.fn(async () => [
+        {
+          slug: modelId,
+          reasoningEfforts: [],
+          supportsImages: true,
+          supportsFastTier: false,
+        },
+      ]);
+      const client = createRouterClient(
+        createRouter({
+          prisma: {
+            bot: { findFirst: vi.fn(async () => ({ id: "bot-1", computer: null })) },
+            routine: { findFirst: vi.fn(async () => row), create: save, update: save },
+            spaceModelPreference: { findMany: vi.fn(async () => []) },
+            userModelCredential: {
+              findMany: vi.fn(async () => [
+                {
+                  id: "credential-1",
+                  provider: "openai-codex",
+                  secretId: "secret-1",
+                  updatedAt: stamp,
+                  createdAt: stamp,
+                },
+              ]),
+            },
+            secret: {
+              findFirst: vi.fn(async () => ({ id: "secret-1", ciphertext: "fake-cipher" })),
+            },
+          },
+          secrets: {
+            load: vi.fn(async () =>
+              JSON.stringify({
+                type: "oauth",
+                access: "fake-access",
+                refresh: "fake-refresh",
+                expires: Date.now() + 60_000,
+                accountId: "acct-test",
+              }),
+            ),
+          },
+          jobs: { cancel: vi.fn(async () => undefined) },
+          codexCatalog: { read },
+          env: { sandboxProvider: "fake" },
+        } as unknown as RouterDeps),
+        { context: { actor } as never },
+      );
+      const call = (id: string) =>
+        operation === "create"
+          ? client.routines.create({
+              botId: "bot-1",
+              name: "Check",
+              prompt: "Check changes",
+              crons: ["0 9 * * *"],
+              active: false,
+              modelProvider: "openai-codex",
+              modelId: id,
+            })
+          : client.routines.update({
+              routineId: "routine-1",
+              modelProvider: "openai-codex",
+              modelId: id,
+            });
+
+      await expect(call(modelId)).resolves.toMatchObject({
+        modelProvider: "openai-codex",
+        modelId,
+      });
+      expect(read).toHaveBeenCalledWith(
+        actor.userId,
+        expect.objectContaining({ accountId: "acct-test" }),
+        undefined,
+      );
+      expect(save).toHaveBeenCalledOnce();
+      await expect(call("gpt-6-luna-unlisted")).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Unknown model for that provider",
+      });
+      expect(save).toHaveBeenCalledOnce();
+    },
+  );
+});
+
 describe("routines.update", () => {
   const actor = {
     spaceId: "space-1",

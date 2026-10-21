@@ -1041,6 +1041,31 @@ describe("applyCodexLiveCatalog", () => {
     expect(ids).toEqual([LUNA, "gpt-7-codex-new"]);
   });
 
+  it("adds live-only models from their owning model-specific accounts once", () => {
+    const saved = "gpt-6-luna-latest";
+    const other = "gpt-7-codex-other";
+    const auth: CodexCatalogSpaceAuth = {
+      ...oauthAuth,
+      byModel: { [CHATGPT_OAUTH_PROVIDER]: { [saved]: "oauth" } },
+      secretIdByModel: { [CHATGPT_OAUTH_PROVIDER]: { [saved]: "secret-b" } },
+    };
+    const idsFor = (providerModels: CodexCatalogModel[], modelModels: CodexCatalogModel[]) =>
+      applyCodexLiveCatalog(
+        base,
+        auth,
+        liveFor({
+          "secret-a": [liveModel(LUNA), ...providerModels],
+          "secret-b": [liveModel(LUNA), ...modelModels],
+        }),
+      )
+        .filter((entry) => entry.provider === CHATGPT_OAUTH_PROVIDER)
+        .map((entry) => entry.id);
+
+    expect(idsFor([], [liveModel(saved), liveModel(other)])).toEqual([LUNA, saved]);
+    expect(idsFor([liveModel(saved)], [liveModel(saved)])).toEqual([LUNA, saved]);
+    expect(idsFor([liveModel(saved)], [])).toEqual([LUNA]);
+  });
+
   it("overrides thinking levels only when the endpoint supplies known efforts", () => {
     const staticEntry = listPiCatalog().find(
       (entry) => entry.provider === CHATGPT_OAUTH_PROVIDER && entry.id === LUNA,

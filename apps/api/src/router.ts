@@ -3749,7 +3749,7 @@ export function createRouter(deps: RouterDeps) {
             });
           }
         }
-        await assertRoutineModel(deps, context.actor, input);
+        await assertRoutineModel(deps, context.actor, input, codexCatalog);
         // Validate every recurring cron even when inactive; @once and webhook-only have no next date.
         let nextRunAt: Date | null = null;
         if (input.crons.length > 0 && !isOneShotRoutineCrons(input.crons)) {
@@ -3840,7 +3840,7 @@ export function createRouter(deps: RouterDeps) {
               : existing.thinkingLevel
             : input.thinkingLevel;
         if (modelChanged) {
-          await assertRoutineModel(deps, context.actor, { modelProvider, modelId });
+          await assertRoutineModel(deps, context.actor, { modelProvider, modelId }, codexCatalog);
         }
         const watch = input.watch === undefined ? parseRoutineWatch(existing.watch) : input.watch;
         if (input.watch) {
@@ -7607,6 +7607,7 @@ async function assertRoutineModel(
   deps: RouterDeps,
   actor: Actor,
   model: { modelProvider?: string | null; modelId?: string | null },
+  codexCatalog: CodexLiveCatalog,
 ) {
   if (!model.modelProvider || !model.modelId) return;
   const message = await validateConnectedModelChoice(
@@ -7615,6 +7616,7 @@ async function assertRoutineModel(
     actor,
     model.modelProvider,
     model.modelId,
+    { codexCatalog },
   );
   if (message) throw new ORPCError("BAD_REQUEST", { message });
 }

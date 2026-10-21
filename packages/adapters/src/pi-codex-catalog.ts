@@ -434,14 +434,14 @@ export function applyCodexLiveCatalog(
     return !live || live.has(entry.id);
   });
   const additions: PiCatalogEntry[] = [];
-  const providerLive =
-    auth.byProvider[CHATGPT_OAUTH_PROVIDER] === "oauth"
-      ? trusted.get(auth.secretIdByProvider?.[CHATGPT_OAUTH_PROVIDER] ?? "")
-      : undefined;
-  for (const model of providerLive?.values() ?? []) {
-    if (knownSlugs.has(model.slug)) continue;
-    const entry = liveCatalogEntry(CHATGPT_OAUTH_PROVIDER, model.slug);
-    if (entry && resolve(entry)?.has(entry.id)) additions.push(withLiveFields(entry, model));
+  const candidateIds = new Set(
+    oauthCodexSecretIds(auth).flatMap((secretId) => [...(trusted.get(secretId)?.keys() ?? [])]),
+  );
+  for (const id of candidateIds) {
+    if (knownSlugs.has(id)) continue;
+    const entry = liveCatalogEntry(CHATGPT_OAUTH_PROVIDER, id);
+    const model = entry && resolve(entry)?.get(id);
+    if (entry && model) additions.push(withLiveFields(entry, model));
   }
   return overlayLiveCatalog(
     retained,
