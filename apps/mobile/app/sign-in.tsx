@@ -78,6 +78,9 @@ export default function SignIn() {
     let active = true;
     setReset(null);
     setCapabilityError(false);
+    // A code belongs to the server that sent it.
+    setCodeSent(false);
+    setCode("");
     void passwordResetCapabilities()
       .then((capabilities) => {
         if (active) setReset(capabilities);
@@ -138,7 +141,9 @@ export default function SignIn() {
         return;
       }
       if (usingCode && !codeSent) {
+        const sentFrom = apiBase;
         await sendSignInCode(email.trim());
+        if (currentApiBase() !== sentFrom) return;
         setCode("");
         setCodeSent(true);
         return;

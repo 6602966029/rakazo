@@ -11,12 +11,15 @@ import type { NativeActionButtonProps } from "./native-controls";
 
 const route = vi.hoisted(() => ({ mode: "in" }));
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+const server = vi.hoisted(() => ({ base: "https://example.invalid", refocus: () => {} }));
 
 vi.mock("expo-router", () => ({
   Redirect: () => null,
   useRouter: () => router,
   useLocalSearchParams: () => route,
-  useFocusEffect: () => undefined,
+  useFocusEffect: (effect: () => void) => {
+    server.refocus = effect;
+  },
 }));
 vi.mock("react-native", () => {
   const Container = ({ children }: { children: ReactNode }) => <div>{children}</div>;
@@ -96,7 +99,7 @@ vi.mock("./i18n", () => ({
   }),
 }));
 vi.mock("./api", () => ({
-  currentApiBase: () => "https://example.invalid",
+  currentApiBase: () => server.base,
   displayApiHost: () => "example.invalid",
   usesCustomApiBase: () => false,
   loadSessionToken: vi.fn().mockResolvedValue(null),
@@ -122,6 +125,7 @@ let root: Root;
 
 beforeEach(() => {
   route.mode = "in";
+  server.base = "https://example.invalid";
   vi.clearAllMocks();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.mocked(passwordResetCapabilities).mockResolvedValue(capabilities);
@@ -214,6 +218,31 @@ it("hides SSO when switching to password recovery", async () => {
   expect(host.querySelector('button[data-prominence="primary"]')?.textContent).toBe(
     "Send reset link",
   );
+});
+
+it("drops the code step when the server changes", async () => {
+  vi.mocked(passwordResetCapabilities).mockResolvedValue({ ...capabilities, emailCode: true });
+  vi.mocked(sendSignInCode).mockResolvedValue();
+  await render();
+  await type(input("Email")!, "ada@example.test");
+  await press("Continue");
+  expect(input("Code")).not.toBeNull();
+
+  server.base = "https://other.invalid";
+  await act(async () => server.refocus());
+  expect(input("Code")).toBeNull();
+  expect(button("Continue")).toBeDefined();
+});
+
+it("ignores a code sent by the previous server", async () => {
+  vi.mocked(passwordResetCapabilities).mockResolvedValue({ ...capabilities, emailCode: true });
+  vi.mocked(sendSignInCode).mockImplementation(async () => {
+    server.base = "https://other.invalid";
+  });
+  await render();
+  await type(input("Email")!, "ada@example.test");
+  await press("Continue");
+  expect(input("Code")).toBeNull();
 });
 
 it.each(["in", "up"])("signs in with an emailed code by default in %s mode", async (mode) => {
