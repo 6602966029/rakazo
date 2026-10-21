@@ -521,8 +521,15 @@ describe("bot settings device voice menu", () => {
 
   it("does not resend saved edits when Save is retried after a failed fleet write", async () => {
     mocks.rpc.mockResolvedValue(undefined);
-    mocks.rpc.mockRejectedValueOnce(new Error("offline"));
+    mocks.rpc.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({
+      instructions: "",
+      autoSpeak: true,
+      instructionHistory: [
+        { id: "v1", instructions: "Older", reason: "edit", createdAt: "2026-10-21T18:00:00Z" },
+      ],
+    });
     await render();
+    expect(container.querySelector('[data-menu="Instruction history"]')).toBeNull();
     const toggle = container.querySelector<HTMLButtonElement>(
       '[aria-label="Manage the bots it creates"]',
     )!;
@@ -540,6 +547,7 @@ describe("bot settings device voice menu", () => {
     });
     expect(mocks.back).not.toHaveBeenCalled();
     expect(container.textContent).toContain("offline");
+    expect(container.querySelector('[data-menu="Instruction history"]')).not.toBeNull();
     await act(async () => toggle.click());
     mocks.rpc.mockClear();
     await act(async () => save.click());

@@ -340,10 +340,11 @@ export default function BotSettingsScreen() {
       }
       // Use key presence so clearing title/description to "" still persists.
       if (Object.keys(input).length > 1) {
-        await rpc("bots/update", input);
-        // Saved edits become the baseline, so a retry after a failed switch write does not resend them.
+        const updated = await rpc<BotSettingsRecord | undefined>("bots/update", input);
+        // Saved edits and their history become the baseline, so a retry after a failed switch write
+        // does not resend them.
         const { botId: _botId, expectedInstructions: _expected, ...saved } = input;
-        setBot((prev) => (prev ? { ...prev, ...saved } : prev));
+        setBot((prev) => (prev ? { ...prev, ...saved, ...updated } : prev));
       }
       await fleetSave.flush();
       router.back();
