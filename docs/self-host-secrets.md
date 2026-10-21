@@ -63,6 +63,12 @@ Rotating `ENCRYPTION_KEY` after credentials were stored makes old ciphertext
 unreadable. Keep the original key for an existing deployment unless you
 intentionally wipe encrypted material.
 
+`ENCRYPTION_KEY` also derives the default master key for chat, memory and file
+encryption. To rotate that master key, or to keep it apart from
+`ENCRYPTION_KEY`, set `ENCRYPTION_MASTER_KEYS` and run the rotation in
+[content-encryption.md](content-encryption.md); that rotation never strands
+content.
+
 ## Optional keys (leave blank if unused)
 
 From `.env.images.example` (images installer). Leave blank if unused:

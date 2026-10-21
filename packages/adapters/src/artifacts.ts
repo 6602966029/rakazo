@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { mkdir, open, rm } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
+import { mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import type {
   AdapterContext,
@@ -9,33 +10,62 @@ import type {
   NotificationMessage,
   NotificationProvider,
 } from "@rakazo/adapter-kit";
+import type { ContentKeyRing } from "@rakazo/db";
+import { artifactKeyId, isSealedArtifact, openArtifact, sealArtifact } from "@rakazo/db";
 
 const O_NOFOLLOW = constants.O_NOFOLLOW ?? 0;
+const CREATE_FLAGS = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | O_NOFOLLOW;
+const HEAD_BYTES = 512;
 
+export type ArtifactKeys = Pick<ContentKeyRing, "current" | "byId">;
+
+async function* once(bytes: Uint8Array) {
+  yield bytes;
+}
+
+async function readHead(handle: FileHandle): Promise<Buffer> {
+  const head = Buffer.alloc(HEAD_BYTES);
+  const { bytesRead } = await handle.read(head, 0, HEAD_BYTES, 0);
+  return head.subarray(0, bytesRead);
+}
+
+async function writeAll(handle: FileHandle, chunks: AsyncIterable<Uint8Array>) {
+  for await (const chunk of chunks) await handle.write(chunk);
+}
+
+/**
+ * Artifact bytes on local disk. With keys, files are sealed with the space's
+ * current key in 64 KiB authenticated segments; files written before
+ * encryption stay readable until `sealFile` rewrites them.
+ */
 export class LocalArtifactStore implements ArtifactStore {
-  constructor(private readonly root: string) {}
+  constructor(
+    private readonly root: string,
+    private readonly keys?: ArtifactKeys,
+  ) {}
 
   describe() {
     return {
       id: "local-artifacts",
       contractVersion: "1",
-      adapterVersion: "0.1.0",
+      adapterVersion: "0.2.0",
       capabilities: { stream: true },
     };
+  }
+
+  private file(spaceId: string, id: string) {
+    return path.join(this.root, "artifacts", spaceId, id);
   }
 
   async put(artifact: ArtifactPut, context: AdapterContext) {
     const id = randomUUID();
     const dir = path.join(this.root, "artifacts", context.spaceId);
     await mkdir(dir, { recursive: true });
-    const file = path.join(dir, id);
-    const handle = await open(
-      file,
-      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | O_NOFOLLOW,
-      0o600,
-    );
+    const key = this.keys ? await this.keys.current(context.spaceId) : undefined;
+    const handle = await open(path.join(dir, id), CREATE_FLAGS, 0o600);
     try {
-      await handle.writeFile(artifact.bytes);
+      if (key) await writeAll(handle, sealArtifact(key, id, once(artifact.bytes)));
+      else await handle.writeFile(artifact.bytes);
     } finally {
       await handle.close();
     }
@@ -43,19 +73,79 @@ export class LocalArtifactStore implements ArtifactStore {
   }
 
   async get(id: string, context: AdapterContext) {
-    const handle = await open(
-      path.join(this.root, "artifacts", context.spaceId, id),
-      constants.O_RDONLY | O_NOFOLLOW,
-    );
+    const handle = await open(this.file(context.spaceId, id), constants.O_RDONLY | O_NOFOLLOW);
     try {
-      return new Uint8Array(await handle.readFile());
+      if (!isSealedArtifact(await readHead(handle))) return new Uint8Array(await handle.readFile());
+      if (!this.keys) throw new Error("Artifact is encrypted but no content keys are configured");
+      const parts: Buffer[] = [];
+      const stream = handle.createReadStream({ start: 0, autoClose: false });
+      for await (const part of openArtifact((keyId) => this.keys!.byId(keyId), id, stream))
+        parts.push(part);
+      return new Uint8Array(Buffer.concat(parts));
     } finally {
       await handle.close();
     }
   }
 
   async remove(id: string, context: AdapterContext) {
-    await rm(path.join(this.root, "artifacts", context.spaceId, id), { force: true });
+    await rm(this.file(context.spaceId, id), { force: true });
+  }
+
+  /** Every stored file, for migrations. */
+  async *files(): AsyncGenerator<{ spaceId: string; id: string }> {
+    const base = path.join(this.root, "artifacts");
+    const spaces = await readdir(base, { withFileTypes: true }).catch(() => []);
+    for (const space of spaces) {
+      if (!space.isDirectory()) continue;
+      for (const file of await readdir(path.join(base, space.name), { withFileTypes: true }))
+        if (file.isFile() && !file.name.includes(".sealing-"))
+          yield { spaceId: space.name, id: file.name };
+    }
+  }
+
+  /**
+   * Migration rewrite of one file: `encrypt` seals plaintext, `reencrypt` also
+   * moves files off older key versions, `decrypt` restores plaintext for a
+   * rollback. Writes beside the original, syncs, then renames over it, so an
+   * interruption leaves the original intact.
+   */
+  async rewriteFile(
+    spaceId: string,
+    id: string,
+    mode: "encrypt" | "reencrypt" | "decrypt",
+  ): Promise<"rewritten" | "unchanged"> {
+    if (!this.keys) throw new Error("Content keys are required to rewrite artifacts");
+    const file = this.file(spaceId, id);
+    const source = await open(file, constants.O_RDONLY | O_NOFOLLOW);
+    const temp = `${file}.sealing-${randomUUID()}`;
+    try {
+      const head = await readHead(source);
+      const sealed = isSealedArtifact(head);
+      const key = mode === "decrypt" ? undefined : await this.keys.current(spaceId);
+      if (
+        mode === "decrypt"
+          ? !sealed
+          : sealed && (mode === "encrypt" || artifactKeyId(head) === key!.id)
+      )
+        return "unchanged";
+      const stream = source.createReadStream({ start: 0, autoClose: false });
+      const plaintext = sealed
+        ? openArtifact((keyId) => this.keys!.byId(keyId), id, stream)
+        : stream;
+      const target = await open(temp, CREATE_FLAGS, 0o600);
+      try {
+        await writeAll(target, key ? sealArtifact(key, id, plaintext) : plaintext);
+        await target.sync();
+      } finally {
+        await target.close();
+      }
+      await stat(file);
+      await rename(temp, file);
+      return "rewritten";
+    } finally {
+      await source.close();
+      await rm(temp, { force: true });
+    }
   }
 }
 

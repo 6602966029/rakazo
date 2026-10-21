@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
-import type { HistoryReadInput, HistorySearchInput, MessageBlock } from "@rakazo/contracts";
+import type { HistoryReadInput, HistorySearchInput } from "@rakazo/contracts";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
+import { contentEncryptionOf } from "./content-encryption.js";
+import { historyMessageText } from "./history-text.js";
+
+export { historyMessageText };
 
 /** Only the executor supplies scope; tool arguments cannot widen it. */
 export interface HistoryScope {
@@ -80,6 +84,30 @@ function visible(scope: HistoryScope): Prisma.Sql {
     }
   `;
 }
+/** Raw reads bypass the client extension, so decrypt here. */
+async function messageRows(prisma: PrismaClient, sql: Prisma.Sql): Promise<HistoryRow[]> {
+  const rows = await prisma.$queryRaw<HistoryRow[]>(sql);
+  return (await contentEncryptionOf(prisma)?.openRows("Message", rows)) ?? rows;
+}
+
+/**
+ * Encrypted rows match on blind-index word tokens (one token list per key
+ * version); rows not yet encrypted keep matching through the full-text index.
+ */
+async function historyMatch(
+  prisma: PrismaClient,
+  spaceId: string,
+  query: string,
+): Promise<Prisma.Sql> {
+  const fullText = Prisma.sql`to_tsvector('simple', ${searchableText}) @@ plainto_tsquery('simple', ${query})`;
+  const encryption = contentEncryptionOf(prisma);
+  if (!encryption) return fullText;
+  const tokenSets = (await encryption.messageSearchTokens(spaceId, query, "word")).filter(
+    (tokens) => tokens.length,
+  );
+  const encrypted = tokenSets.map((tokens) => Prisma.sql`m."searchTokens" @> ${tokens}::int[]`);
+  return Prisma.sql`(${Prisma.join([...encrypted, Prisma.sql`(m."searchTokens" IS NULL AND ${fullText})`], " OR ")})`;
+}
 function pageSize(value = 10): number {
   if (!Number.isInteger(value) || value < 1)
     throw new Error("History limit must be a positive integer");
@@ -90,30 +118,6 @@ function date(value: string | undefined): Date | undefined {
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime())) throw new Error("Invalid history date");
   return parsed;
-}
-/** Text only: progress, commands, secret prompts and tool traces are not retrieval content. */
-export function historyMessageText(blocks: Prisma.JsonValue): string {
-  if (!Array.isArray(blocks)) return "";
-  return (
-    blocks.filter(
-      (block) => block && typeof block === "object" && !Array.isArray(block),
-    ) as MessageBlock[]
-  )
-    .flatMap((block) => {
-      if (block.kind === "subagent") return [block.task, block.result ?? ""].filter(Boolean);
-      return [
-        "text",
-        "channel_message",
-        "bot_message_received",
-        "bot_message_sent",
-        "handoff",
-      ].includes(block.kind) &&
-        "text" in block &&
-        typeof block.text === "string"
-        ? [block.text]
-        : [];
-    })
-    .join("\n");
 }
 function reference(row: HistoryRow, query = "", maxLength = 800, textOffset = 0) {
   const text = historyMessageText(row.blocks);
@@ -137,7 +141,7 @@ function reference(row: HistoryRow, query = "", maxLength = 800, textOffset = 0)
   };
 }
 
-/** PostgreSQL full text search, descending sequence cursor, at most five excerpts. */
+/** Blind-index (or full-text) search, descending sequence cursor, at most five excerpts. */
 export async function searchHistory(
   prisma: PrismaClient,
   scope: HistoryScope,
@@ -164,15 +168,19 @@ export async function searchHistory(
     input.beforeSeq ?? Number.POSITIVE_INFINITY,
     scope.searchBeforeSeq ?? Number.POSITIVE_INFINITY,
   );
-  const rows = await prisma.$queryRaw<HistoryRow[]>(Prisma.sql`
+  const match = await historyMatch(prisma, scope.spaceId, query);
+  const rows = await messageRows(
+    prisma,
+    Prisma.sql`
     SELECT ${columns} FROM messages m JOIN threads t ON t.id = m."threadId"
     WHERE ${visible(scope)}
-      AND to_tsvector('simple', ${searchableText}) @@ plainto_tsquery('simple', ${query})
+      AND ${match}
       ${before ? Prisma.sql`AND m."createdAt" < ${before}` : Prisma.empty}
       ${after ? Prisma.sql`AND m."createdAt" >= ${after}` : Prisma.empty}
       ${Number.isFinite(beforeSeq) ? Prisma.sql`AND m.seq < ${beforeSeq}` : Prisma.empty}
     ORDER BY m.seq DESC LIMIT ${limit + 1}
-  `);
+  `,
+  );
   const page = rows.slice(0, limit);
   const nextBeforeSeq = rows.length > limit ? page.at(-1)!.seq : null;
   return bounded({
@@ -212,10 +220,13 @@ export async function readHistory(
     throw new Error("Invalid history text offset");
   if (!["around", "older", "newer"].includes(direction))
     throw new Error("Invalid history direction");
-  const anchors = await prisma.$queryRaw<HistoryRow[]>(Prisma.sql`
+  const anchors = await messageRows(
+    prisma,
+    Prisma.sql`
     SELECT ${columns} FROM messages m JOIN threads t ON t.id = m."threadId"
     WHERE ${visible(scope)} AND m.id = ${input.messageId} LIMIT 1
-  `);
+  `,
+  );
   const anchor = anchors[0];
   if (!anchor)
     return {
@@ -238,11 +249,14 @@ export async function readHistory(
   const rows =
     input.textOffset !== undefined
       ? [anchor]
-      : await prisma.$queryRaw<HistoryRow[]>(Prisma.sql`
+      : await messageRows(
+          prisma,
+          Prisma.sql`
     SELECT ${columns} FROM messages m JOIN threads t ON t.id = m."threadId"
     WHERE ${visible(scope)} AND ${bound}
     ORDER BY m.seq ${direction === "older" ? Prisma.sql`DESC` : Prisma.sql`ASC`} LIMIT ${limit}
-  `);
+  `,
+        );
   rows.sort((a, b) => a.seq - b.seq);
   const anchoredRunIds = rows.flatMap((row) =>
     row.role === "bot" && row.runId ? [row.runId] : [],
@@ -294,12 +308,15 @@ export async function readHistory(
   const runs = runRows.slice(0, LINK_PAGE_SIZE);
   const [outcomeRows, artifactRows] = await Promise.all([
     runs.length
-      ? prisma.$queryRaw<HistoryRow[]>(Prisma.sql`
+      ? messageRows(
+          prisma,
+          Prisma.sql`
     SELECT ${columns} FROM messages m JOIN threads t ON t.id = m."threadId"
     WHERE ${visible(scope)} AND m.role = 'bot' AND m."runId" IN (${Prisma.join(runs.map((run) => run.id))})
       ${input.outcomeAfterSeq !== undefined ? Prisma.sql`AND m.seq > ${input.outcomeAfterSeq}` : Prisma.empty}
     ORDER BY m.seq ASC LIMIT ${LINK_PAGE_SIZE + 1}
-  `)
+  `,
+        )
       : Promise.resolve([]),
     runs.length
       ? prisma.artifact.findMany({

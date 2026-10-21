@@ -54,6 +54,7 @@ import {
 } from "@rakazo/adapters";
 import { resolveEncryptionKey, resolveSupervisorToken, uploadSizeFromEnv } from "@rakazo/core";
 import {
+  contentEncryptionOf,
   createBoardEvents,
   createDb,
   createSecurityEventPruner,
@@ -172,7 +173,7 @@ async function main() {
   integrationSettings.warmDirectories();
   const memoryProviders = new SpaceMemoryProviderResolver(prisma, secrets);
   const home = new LocalAgentHomeStore(dataDir);
-  const artifacts = new LocalArtifactStore(dataDir);
+  const artifacts = new LocalArtifactStore(dataDir, contentEncryptionOf(prisma)?.ring);
   const inMemoryJobs = process.env.WAKEUP_DRIVER === "memory" ? new InMemoryJobQueue() : undefined;
   const jobs: JobPublisher = inMemoryJobs ?? new GraphileJobPublisher(pool);
   const ticketChanges = createTicketChangeNotifier({
