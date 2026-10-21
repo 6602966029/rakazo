@@ -133,8 +133,11 @@ function fill(element: HTMLInputElement | HTMLTextAreaElement | null, value: str
 function ModelShot() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    const details = document.querySelector("details");
-    if (details) details.open = true;
+    document
+      .querySelector<HTMLButtonElement>(
+        '[data-testid="bot-settings-advanced"] > button[aria-expanded="false"]',
+      )
+      ?.click();
     const timer = window.setTimeout(() => setReady(true), 400);
     return () => window.clearTimeout(timer);
   }, []);

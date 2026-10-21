@@ -28,7 +28,7 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Replies", exact: true })).toHaveCount(0);
   await expect(settings.getByTestId("response-streaming-toggle")).toBeHidden();
-  await settings.getByTestId("advanced-settings").locator("summary").click();
+  await settings.getByTestId("advanced-settings").locator("button[aria-expanded]").click();
   const streamReplies = settings.getByTestId("response-streaming-toggle");
   await expect(streamReplies).toBeVisible();
   await expect(streamReplies).not.toBeChecked();

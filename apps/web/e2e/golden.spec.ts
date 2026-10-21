@@ -3,6 +3,7 @@ import {
   activeBotId,
   captureScreenshot,
   completeOnboarding,
+  expandAdvancedSection,
   realSandboxTimeout,
   rpc,
   showPasswordForm,
@@ -257,9 +258,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   const browseMcp = page.getByRole("button", { name: "Browse MCP servers", exact: true });
   await expect(browseMcp).toBeHidden();
   await expect(page.getByRole("button", { name: "Add GraphQL", exact: true })).toBeHidden();
-  await advanced.evaluate((element) => {
-    (element as HTMLDetailsElement).open = true;
-  });
+  await expandAdvancedSection(advanced);
   await expect(
     advanced.getByRole("button", { name: "Browse MCP servers", exact: true }),
   ).toBeVisible();

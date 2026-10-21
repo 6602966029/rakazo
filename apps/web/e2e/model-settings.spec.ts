@@ -7,6 +7,7 @@ import {
   captureScreenshot,
   chooseOption,
   completeOnboarding,
+  expandAdvancedSection,
   openUserSettings,
   rpc,
   signup,
@@ -170,9 +171,7 @@ test("custom connections persist reasoning support and bot thinking", async ({
   const settings = page.getByTestId("bot-settings");
   await expect(settings).toBeVisible();
   const advanced = settings.getByTestId("bot-settings-advanced");
-  await advanced.evaluate((element) => {
-    (element as HTMLDetailsElement).open = true;
-  });
+  await expandAdvancedSection(advanced);
   // NativeSelect sits inside a wrapping <label>, so label text includes option
   // copy and getByLabel(..., { exact: true }) misses the control. Use the
   // combobox accessible name, matching other model E2E tests.
@@ -194,9 +193,7 @@ test("custom connections persist reasoning support and bot thinking", async ({
   await page.reload();
   await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
   await expect(settings).toBeVisible();
-  await advanced.evaluate((element) => {
-    (element as HTMLDetailsElement).open = true;
-  });
+  await expandAdvancedSection(advanced);
   await expect(thinking).toHaveValue("low");
 });
 
@@ -359,9 +356,7 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
     const settings = page.getByTestId("bot-settings");
     await expect(settings).toBeVisible();
-    await settings.getByTestId("bot-settings-advanced").evaluate((element) => {
-      (element as HTMLDetailsElement).open = true;
-    });
+    await expandAdvancedSection(settings.getByTestId("bot-settings-advanced"));
     // The Model select sits inside its wrapping <label>, so the label text includes
     // option copy and getByLabel(..., { exact: true }) misses it. Use the role name.
     const botModel = settings.getByRole("combobox", { name: "Model", exact: true });
@@ -794,9 +789,7 @@ test("chat settings search a long model list", async ({ page }, testInfo) => {
   await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
   const settings = page.getByTestId("bot-settings");
   await expect(settings).toBeVisible();
-  await settings.getByTestId("bot-settings-advanced").evaluate((element) => {
-    (element as HTMLDetailsElement).open = true;
-  });
+  await expandAdvancedSection(settings.getByTestId("bot-settings-advanced"));
   const model = settings
     .locator("label")
     .filter({ hasText: /^Model/ })
