@@ -4,7 +4,24 @@ import path from "node:path";
 import { MAX_DESKTOP_DISPLAY, screenPorts } from "@rakazo/core/node/desktop-runtime";
 import type Docker from "dockerode";
 
-export const COMPUTER_IMAGE = process.env.RAKAZO_COMPUTER_IMAGE ?? "rakazo/computer:local";
+/**
+ * The computer image. RAKAZO_COMPUTER_IMAGE_TAG is appended the way Compose does, so a
+ * supervisor started outside Compose pulls the same published tag instead of an untagged
+ * (`:latest`) name. An image that already carries a tag or digest is used as is.
+ */
+export function resolveComputerImage(
+  image = process.env.RAKAZO_COMPUTER_IMAGE,
+  tag = process.env.RAKAZO_COMPUTER_IMAGE_TAG,
+): string {
+  const name = image?.trim();
+  if (!name) return "rakazo/computer:local";
+  const wantedTag = tag?.trim();
+  const lastSegment = name.slice(name.lastIndexOf("/") + 1);
+  if (!wantedTag || name.includes("@") || lastSegment.includes(":")) return name;
+  return `${name}:${wantedTag}`;
+}
+
+export const COMPUTER_IMAGE = resolveComputerImage();
 export const COMPUTER_UID = 1000;
 export const COMPUTER_GID = 1000;
 export const COMPUTER_USER = `${COMPUTER_UID}:${COMPUTER_GID}`;
