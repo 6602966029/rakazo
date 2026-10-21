@@ -232,6 +232,15 @@ describePostgres("row-level security (PostgreSQL)", () => {
     );
   });
 
+  it("keeps security events append-only for the runtime login", async () => {
+    const id = `rls-security-event-${suffix}`;
+    await db.$executeRaw`INSERT INTO security_events (id, type) VALUES (${id}, 'rls.test')`;
+    await expect(
+      db.$executeRaw`UPDATE security_events SET type = 'changed' WHERE id = ${id}`,
+    ).rejects.toThrow(/permission denied/);
+    expect(await db.$executeRaw`DELETE FROM security_events WHERE id = ${id}`).toBe(1);
+  });
+
   it("returns no rows and rejects writes without a context", async () => {
     expect(await visible()).toEqual({
       threads: [],

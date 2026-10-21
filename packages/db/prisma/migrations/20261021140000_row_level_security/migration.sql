@@ -24,6 +24,8 @@ BEGIN
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rakazo_app;
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO rakazo_app;
     REVOKE ALL ON TABLE "_prisma_migrations" FROM rakazo_app;
+    -- Append-only: inserted and, past retention, deleted, never rewritten.
+    REVOKE UPDATE ON TABLE "security_events" FROM rakazo_app;
     -- Tables created by later migrations (run by this same owner role).
     ALTER DEFAULT PRIVILEGES IN SCHEMA public
       GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO rakazo_app;
