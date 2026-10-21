@@ -1,6 +1,67 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, openUserSettings, signup } from "./helpers";
 
+test("narrow settings reveals the active section and offers scroll controls", async ({
+  page,
+}, testInfo) => {
+  const stamp = Date.now();
+  await signup(page, `settings-narrow-${stamp}@rakazo.test`, "password12", "Settings");
+  await completeOnboarding(page);
+  const settings = await openUserSettings(page, "usage");
+  const nav = settings.getByTestId("settings-nav");
+  const usage = settings.getByTestId("settings-nav-usage");
+  const previous = settings.getByRole("button", { name: "Previous settings sections" });
+  const next = settings.getByRole("button", { name: "Next settings sections" });
+
+  for (const width of [640, 390]) {
+    await page.setViewportSize({ width, height: 700 });
+    await expect(usage).toHaveAttribute("aria-current", "page");
+    // Deep links and resizing must reveal the whole selected section.
+    await expect
+      .poll(async () => {
+        const viewport = await nav.boundingBox();
+        const active = await usage.boundingBox();
+        return Boolean(
+          viewport &&
+            active &&
+            active.x >= viewport.x - 1 &&
+            active.x + active.width <= viewport.x + viewport.width + 1,
+        );
+      })
+      .toBe(true);
+    await expect(previous).toBeEnabled();
+    await expect(next).toBeDisabled();
+    await captureScreenshot(page, testInfo, `settings-tabs-${width}`);
+    const offset = await nav.evaluate((node) => node.scrollLeft);
+    await previous.click();
+    await expect.poll(() => nav.evaluate((node) => node.scrollLeft)).toBeLessThan(offset);
+    await settings.getByTestId("settings-nav-general").click();
+    await expect(settings).toHaveAttribute("data-settings-section", "general");
+    await expect(next).toBeEnabled();
+    await next.click();
+    await expect.poll(() => nav.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
+    const header = settings.getByTestId("settings-header");
+    const before = await header.boundingBox();
+    await settings
+      .getByRole("button", { name: "Delete account", exact: true })
+      .scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => settings.getByTestId("settings-scroll").evaluate((node) => node.scrollTop))
+      .toBeGreaterThan(0);
+    expect(await header.boundingBox()).toEqual(before);
+    expect(await settings.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    await expect(settings.getByRole("button", { name: "Close user settings" })).toBeVisible();
+    await captureScreenshot(page, testInfo, `settings-narrow-scrolled-${width}`);
+    await usage.click();
+    await expect(settings).toHaveAttribute("data-settings-section", "usage");
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(previous).toBeHidden();
+  await expect(next).toBeHidden();
+  await expect(usage).toBeVisible();
+  await expect(usage).toHaveAttribute("aria-current", "page");
+});
+
 test("settings shell is two-pane and deep-links Models Memory Voice Usage", async ({
   page,
 }, testInfo) => {
