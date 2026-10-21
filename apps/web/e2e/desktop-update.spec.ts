@@ -91,10 +91,11 @@ test("desktop update can be checked, deferred, and installed from settings", asy
   await expect(page.locator("html")).toHaveAttribute("data-update-installed", "true");
 });
 
-test("ordinary web sessions do not show desktop update controls", async ({ page }) => {
+test("ordinary web sessions do not show desktop update controls", async ({ page }, testInfo) => {
   await signup(page, `web-update-${Date.now()}@rakazo.test`, "password12", "Web Tester");
   await completeOnboarding(page);
-  await openUserSettings(page, "updates");
-  await expect(page.getByTestId("desktop-update-settings")).toHaveCount(0);
+  const settings = await openUserSettings(page);
+  await expect(settings.getByTestId("settings-nav-updates")).toHaveCount(0);
+  await captureScreenshot(page, testInfo, "web-settings-without-updates");
   await expect(page.getByRole("complementary", { name: "Desktop update" })).toHaveCount(0);
 });

@@ -18,6 +18,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalRulesSettings } from "../components/ApprovalRulesSettings";
 import { computersAreUnavailable } from "../components/ComputersUnavailableHint";
 import { ListboxSelect } from "../components/ListboxSelect";
+import { hasServerUpdates, useServerUpdateStatus } from "../components/SoftwareUpdateSection";
+import { desktopBridge } from "../lib/desktop";
 import { rpcForSpace } from "../lib/rpc";
 import { SpaceRpcProvider } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
@@ -123,6 +125,8 @@ export function SettingsOverlay({
   const recoveryHoldTimer = useRef<number | undefined>(undefined);
   const showComputer =
     keepComputerRecovery || (isDeploymentOwner && computersAreUnavailable(sandboxProvider));
+  const serverUpdate = useServerUpdateStatus(isDeploymentOwner);
+  const showUpdates = Boolean(desktopBridge()?.update) || hasServerUpdates(serverUpdate);
   const panelBusy = memoryBusy || voiceBusy;
   const spaceScoped = SPACE_SECTIONS.has(section);
   const spaceId = spaceScoped ? (space?.id ?? null) : null;
@@ -187,6 +191,10 @@ export function SettingsOverlay({
   }, [billingEnabled, section]);
 
   useEffect(() => {
+    if (!showUpdates && !serverUpdate.loading && section === "updates") setSection("general");
+  }, [showUpdates, serverUpdate.loading, section]);
+
+  useEffect(() => {
     if (section !== "computer") releaseComputerRecovery();
   }, [section, releaseComputerRecovery]);
   useEffect(() => () => window.clearTimeout(recoveryHoldTimer.current), []);
@@ -207,7 +215,7 @@ export function SettingsOverlay({
     { id: "usage", label: t`Usage`, icon: Gauge },
     ...(showComputer ? [{ id: "computer" as const, label: t`Computer`, icon: Monitor }] : []),
     ...(billingEnabled ? [{ id: "billing" as const, label: t`Billing`, icon: CreditCard }] : []),
-    { id: "updates", label: t`Updates`, icon: CloudDownload },
+    ...(showUpdates ? [{ id: "updates" as const, label: t`Updates`, icon: CloudDownload }] : []),
   ];
 
   const sectionTitle =
@@ -360,8 +368,8 @@ export function SettingsOverlay({
                   />
                 ) : null}
                 {section === "billing" && billingEnabled ? <BillingSettingsPanel /> : null}
-                {section === "updates" ? (
-                  <UpdatesSettingsPanel isDeploymentOwner={isDeploymentOwner} />
+                {section === "updates" && showUpdates ? (
+                  <UpdatesSettingsPanel serverUpdate={serverUpdate} />
                 ) : null}
                 {section === "models" ? (
                   <ModelSettingsOverlay embedded onClose={requestClose} />

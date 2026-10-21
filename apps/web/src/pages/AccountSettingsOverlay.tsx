@@ -21,7 +21,8 @@ import { SuccessPop } from "../components/ai/primitives";
 import { ComputersUnavailableHint } from "../components/ComputersUnavailableHint";
 import { DesktopUpdateSection } from "../components/DesktopUpdates";
 import { ListboxSelect } from "../components/ListboxSelect";
-import { SoftwareUpdateSection } from "../components/SoftwareUpdateSection";
+import type { ServerUpdateLoad } from "../components/SoftwareUpdateSection";
+import { hasServerUpdates, SoftwareUpdateSection } from "../components/SoftwareUpdateSection";
 import { authClient } from "../lib/auth";
 import {
   getBotsSidebarDensity,
@@ -455,15 +456,11 @@ export function ComputerSettingsPanel({
   );
 }
 
-export function UpdatesSettingsPanel({
-  isDeploymentOwner = false,
-}: {
-  isDeploymentOwner?: boolean;
-}) {
+export function UpdatesSettingsPanel({ serverUpdate }: { serverUpdate: ServerUpdateLoad }) {
   return (
     <div className="space-y-5">
       <DesktopUpdateSection />
-      <SoftwareUpdateSection isDeploymentOwner={isDeploymentOwner} />
+      {hasServerUpdates(serverUpdate) ? <SoftwareUpdateSection load={serverUpdate} /> : null}
     </div>
   );
 }
