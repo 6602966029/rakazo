@@ -3337,6 +3337,10 @@ msgstr "New space"
 msgid "New ticket"
 msgstr "New ticket"
 
+#: src/pages/SettingsOverlay.tsx
+msgid "Next settings sections"
+msgstr "Next settings sections"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."
 msgstr "No agent connections yet."
@@ -3782,6 +3786,10 @@ msgstr "Preview {0}"
 #: src/pages/Artifacts.tsx
 msgid "Preview isn't available for this file type — download it to view it."
 msgstr "Preview isn't available for this file type — download it to view it."
+
+#: src/pages/SettingsOverlay.tsx
+msgid "Previous settings sections"
+msgstr "Previous settings sections"
 
 #: src/pages/Board.tsx
 msgid "Priority"
