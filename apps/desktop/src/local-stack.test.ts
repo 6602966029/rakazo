@@ -356,6 +356,7 @@ describe("LocalStackController", () => {
     for (const call of compose) {
       expect(call.env.SANDBOX_HOST_URL).toBe(hostComputer.url);
       expect(call.env.SANDBOX_HOST_TOKEN).toBe(hostComputer.token);
+      expect(call.env.SANDBOX_COMPUTER_EGRESS).toBe("open");
     }
     expect(
       await controller({

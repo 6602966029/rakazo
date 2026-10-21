@@ -418,18 +418,20 @@ export async function cancelScheduleFromTool(
     return { error: "Provide routineId or the exact schedule name to cancel." };
   }
 
+  const scope = {
+    spaceId: input.spaceId,
+    botId: input.botId,
+    userId: input.userId,
+    ...(input.threadId ? { threadId: input.threadId } : {}),
+  };
   const existing = await deps.prisma.routine.findFirst({
-    where: {
-      spaceId: input.spaceId,
-      botId: input.botId,
-      userId: input.userId,
-      ...(input.threadId ? { threadId: input.threadId } : {}),
-      ...(routineId ? { id: routineId } : { name: name! }),
-    },
+    where: { ...scope, ...(routineId ? { id: routineId } : { name: name! }) },
   });
   if (!existing) return { error: "Schedule not found." };
 
-  await deps.prisma.routine.delete({ where: { id: existing.id } });
+  // The scope is part of the delete, so the routine cannot change hands between the read and it.
+  const { count } = await deps.prisma.routine.deleteMany({ where: { ...scope, id: existing.id } });
+  if (count === 0) return { error: "Schedule not found." };
   await deps.jobs.cancel(routineJobKey(existing.id));
   return { ok: true as const, routineId: existing.id, name: existing.name };
 }

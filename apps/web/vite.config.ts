@@ -7,6 +7,7 @@ import path from "node:path";
 import tls from "node:tls";
 import { lingui } from "@lingui/vite-plugin";
 import type { DesktopStackProbeResponse } from "@rakazo/contracts";
+import { contentSecurityPolicyFor } from "@rakazo/contracts/content-security-policy";
 import {
   safeScreenProxyResponseHeaders,
   stripSensitiveHandshakeHeaders,
@@ -435,6 +436,17 @@ export default defineConfig(({ mode }) => {
       babel({ plugins: ["@lingui/babel-plugin-lingui-macro"] }),
       lingui(),
       tailwindcss(),
+      {
+        // Production only: the dev server injects inline scripts for React Refresh.
+        name: "rakazo-content-security-policy",
+        configurePreviewServer(server) {
+          server.middlewares.use((req, res, next) => {
+            const policy = contentSecurityPolicyFor(req.url?.split("?", 1)[0] ?? "/");
+            if (policy) res.setHeader("content-security-policy", policy);
+            next();
+          });
+        },
+      },
       {
         name: "rakazo-desktop-stack-probe",
         configureServer: (server) => attachDesktopStackProbe(server, desktopStackToken, imageTag),
