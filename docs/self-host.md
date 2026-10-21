@@ -668,8 +668,85 @@ then checks capacity by scaling only the previous appdata archive by appdata sou
 plus the previous database dump size. Snapshots without source-size
 metadata use the raw source size for their initial estimate. It preserves the newest
 verified snapshot when capacity is insufficient, caps output file sizes, and removes a failed run's
-partial snapshot. These local snapshots are not a substitute for an encrypted off-host backup or
-provider snapshot.
+partial snapshot. Local snapshots alone do not survive losing the host; encrypt them and copy them
+off-site as described below.
+
+#### Encrypted and off-site backups
+
+Backups are encrypted with [age](https://age-encryption.org) to public recipients only, so the host
+can write backups it cannot read. Generate the key pair on a machine you control, not on the server,
+and keep the identity file (the private key) offline, ideally with a second recipient held by
+another operator:
+
+```bash
+age-keygen -o rakazo-backup.key   # prints "Public key: age1..."
+```
+
+`harden-host.sh` installs `age`; on other hosts run `apt-get install age`. Then set the public keys in
+`/etc/rakazo/backup.env`, separated by spaces, or point at a recipients file with one key per line:
+
+```env
+RAKAZO_BACKUP_AGE_RECIPIENTS=age1exampleprimaryrecipient age1examplerecoveryrecipient
+# or: RAKAZO_BACKUP_AGE_RECIPIENTS_FILE=/etc/rakazo/backup-recipients.txt
+```
+
+With recipients set, each snapshot holds `rakazo.dump.age`, `appdata.tgz.age`, `SOURCE_SIZE_KB`,
+and `SHA256SUMS`. `pg_dump` and `tar` stream straight into age, so plaintext never touches disk.
+Verification needs no private key: `pg_restore --list` and `tar -t` read the same plaintext stream
+while it is encrypted, each file must carry an age header, and the checksums cover the encrypted
+files.
+
+Without recipients the backup stays plaintext as before, logs a warning, and the host check alerts
+that the latest backup is not encrypted. After the first encrypted backup, a run without recipients
+fails instead of quietly writing plaintext. Set `RAKAZO_BACKUP_ALLOW_PLAINTEXT=1` only to accept
+plaintext on purpose; it also silences the host-check alert.
+
+For an off-site copy, install `rclone` and set `RAKAZO_BACKUP_OFFSITE_REMOTE` to any
+[rclone remote](https://rclone.org/overview/) and path, such as an S3-compatible bucket or an SFTP
+server. Configure the remote with rclone's own settings in the same file, for example:
+
+```env
+RAKAZO_BACKUP_OFFSITE_REMOTE=offsite:rakazo-backups
+RAKAZO_BACKUP_OFFSITE_KEEP=14
+RCLONE_CONFIG_OFFSITE_TYPE=s3
+RCLONE_CONFIG_OFFSITE_PROVIDER=Other
+RCLONE_CONFIG_OFFSITE_ENDPOINT=https://s3.example.com
+RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID=replace-me
+RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY=replace-me
+```
+
+After each verified local snapshot, the encrypted files are uploaded to `<remote>/<stamp>/`,
+`SHA256SUMS` last, and checked with `rclone check`. Off-site copies require encryption. The remote
+keeps the newest `RAKAZO_BACKUP_OFFSITE_KEEP` complete snapshots (default `14`), independent of
+`RAKAZO_BACKUP_KEEP`; only stamp-named directories are removed. Set it to `0` to leave deletion to
+the bucket's lifecycle rules, which lets the credentials be write-only. A failed upload keeps the
+local snapshot but fails the service, so the backup alert fires.
+
+#### Restoring an encrypted backup
+
+Run these where the identity file lives, never leaving it on the server. Fetch a snapshot with
+`rclone copy offsite:rakazo-backups/<stamp> ./<stamp>` or `scp`, then run the drill, which checks the
+checksums and decrypts each file into `pg_restore --list` and `tar -t` without writing plaintext
+(it needs `age`, `pg_restore` of the server's major version or newer, and `tar`):
+
+```bash
+bash infra/compose/backup-drill.sh ./<stamp> rakazo-backup.key
+```
+
+To restore, stop the application services, then stream each file to the server:
+
+```bash
+COMPOSE="sudo docker compose --env-file .env -f infra/compose/docker-compose.prod.yml"
+ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE stop api worker web"
+age -d -i rakazo-backup.key <stamp>/rakazo.dump.age | ssh deploy@app.example.com \
+  "cd /srv/rakazo && $COMPOSE exec -T postgres sh -c 'pg_restore --clean --if-exists --no-owner -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'"
+age -d -i rakazo-backup.key <stamp>/appdata.tgz.age | ssh deploy@app.example.com \
+  "sudo tar -xzf - --numeric-owner -C \"\$(sudo docker volume inspect -f '{{.Mountpoint}}' rakazo-prod_appdata)\""
+ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE up -d --wait --pull never"
+```
+
+Replace `rakazo-prod_appdata` with the volume the api container mounts at `/data` if the stack uses another
+project name. Plaintext snapshots restore the same way with `cat` in place of `age -d`.
 
 The scheduled backup uses `/srv/rakazo` by default. For another deployment directory, set
 `RAKAZO_DEPLOY_DIR=/absolute/path/to/checkout` in a root-owned `/etc/rakazo/backup.env`
