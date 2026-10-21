@@ -591,6 +591,25 @@ header: `Caddyfile.cloudflare.example` does this with Cloudflare's ranges and `C
 For another CDN, copy that file and change the ranges and the header. If you copied the Cloudflare
 example before this change, copy it again.
 
+### Content-Security-Policy
+
+The web server sends a strict Content-Security-Policy: scripts and connections are limited to the
+app's own origin. When a CDN in front of the app injects a script, such as an analytics beacon, the
+browser blocks it until you add its origins. `RAKAZO_CSP_SCRIPT_SRC` extends `script-src` and
+`RAKAZO_CSP_CONNECT_SRC` extends `connect-src`. Each takes space-separated `https://` origins, with
+an optional port and leading `*.` wildcard (`https://*.example.com`). Keywords such as
+`'unsafe-inline'`, bare schemes, `*`, `http://` origins and paths are rejected, and the web server
+refuses to start until the value is fixed. Restart the web service after changing either one.
+
+For example, Cloudflare Web Analytics loads its script from one host and reports to another:
+
+```bash
+RAKAZO_CSP_SCRIPT_SRC=https://static.cloudflareinsights.com
+RAKAZO_CSP_CONNECT_SRC=https://cloudflareinsights.com
+```
+
+Add only origins you trust: a script these settings allow runs with the signed-in user's access.
+
 ### Security events
 
 The API and worker append a row to `security_events` and write a `security.event` log line for:
