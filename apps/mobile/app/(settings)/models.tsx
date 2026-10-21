@@ -113,13 +113,6 @@ export default function Models() {
   const pickerRequestRef = useRef<string | null>(null);
   const returningFromPickerRef = useRef(false);
 
-  useEffect(
-    () => () => {
-      if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
-    },
-    [],
-  );
-
   function pushModelPicker(request: ModelPickerRequest) {
     if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
     const requestId = openModelPicker(request);
@@ -220,6 +213,21 @@ export default function Models() {
     });
     if (loginId) void rpc("models/cancelOAuth", { loginId }).catch(() => undefined);
   }, []);
+
+  const cancelInFlightWork = useCallback(() => {
+    backupRequestGenerationRef.current += 1;
+    modelProbe.invalidate();
+    cancelOAuth();
+    if (codeCopiedTimerRef.current) clearTimeout(codeCopiedTimerRef.current);
+  }, [cancelOAuth, modelProbe]);
+
+  useEffect(
+    () => () => {
+      if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
+      cancelInFlightWork();
+    },
+    [cancelInFlightWork],
+  );
 
   const load = useCallback(async (preferred: ModelSelection = {}) => {
     setError(null);
@@ -366,7 +374,7 @@ export default function Models() {
           .finally(() => setLoading(false));
       return () => {
         if (returningFromPickerRef.current) return;
-        backupRequestGenerationRef.current += 1;
+        cancelInFlightWork();
         backupReadyRef.current = false;
         backupLoadingRef.current = true;
         backupSavingRef.current = false;
@@ -377,10 +385,8 @@ export default function Models() {
         setBackupSaving(false);
         setBackupError(null);
         setBackupNotice(null);
-        modelProbe.invalidate();
-        cancelOAuth();
       };
-    }, [cancelOAuth, load, loadBackupModels]),
+    }, [cancelInFlightWork, load, loadBackupModels]),
   );
 
   const groups = useMemo(() => {

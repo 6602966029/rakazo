@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   connected: true,
   catalogEmpty: false,
   vendorLabels: false,
+  subscriptionSignIn: false,
+  completeOAuth: vi.fn(),
   rpc: vi.fn(),
   dismissKeyboard: vi.fn(),
   listProps: {} as Record<string, unknown>,
@@ -51,8 +53,17 @@ vi.mock("./message-action-sheet", () => ({ presentMessageActionSheet: vi.fn() })
 vi.mock("./api", () => ({
   captureApiRequestContext: async () => ({}),
   selectedSpaceId: () => "space-fixture",
-  rpc: async (procedure: string, input?: unknown) => {
+  rpc: async (procedure: string, input?: unknown, options?: { signal?: AbortSignal }) => {
     mocks.rpc(procedure, input);
+    if (procedure === "models/beginOAuth")
+      return {
+        loginId: "login-fixture",
+        mode: "device-code",
+        verificationUri: "https://example.com/sign-in",
+        userCode: "FIXTURE",
+        expiresInSeconds: 600,
+      };
+    if (procedure === "models/completeOAuth") return mocks.completeOAuth(options?.signal);
     if (procedure === "bots/update") return mocks.update(input);
     if (procedure === "bots/get")
       return { id: "bot-fixture", name: "Fixture", title: "", computerMode: "team" };
@@ -76,7 +87,9 @@ vi.mock("./api", () => ({
                     ? "Google: Gemini"
                     : entry.label,
             }))
-          : catalog;
+          : mocks.subscriptionSignIn
+            ? catalog.map((entry) => ({ ...entry, signIn: "device-code" }))
+            : catalog;
     if (procedure === "models/credentials")
       return mocks.connected
         ? [
@@ -324,6 +337,7 @@ beforeEach(() => {
   mocks.connected = true;
   mocks.catalogEmpty = false;
   mocks.vendorLabels = false;
+  mocks.subscriptionSignIn = false;
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   container = document.createElement("div");
   root = createRoot(container);
@@ -585,6 +599,37 @@ describe("connection settings model picker", () => {
     expect(modelPickerRequest(id)).toBeDefined();
     act(() => root.render(null));
     expect(modelPickerRequest(id)).toBeUndefined();
+  });
+
+  it("aborts pending subscription sign-in when settings unmounts with the picker open", async () => {
+    mocks.subscriptionSignIn = true;
+    let completeSignIn!: (result: { status: "ready" }) => void;
+    mocks.completeOAuth.mockReturnValueOnce(
+      new Promise((resolve) => {
+        completeSignIn = resolve;
+      }),
+    );
+    await renderModels();
+    const signIn = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "Sign in again",
+    )!;
+    await act(async () => signIn.click());
+    expect(mocks.completeOAuth).toHaveBeenCalledOnce();
+    const signal = mocks.completeOAuth.mock.lastCall![0] as AbortSignal;
+    expect(signal.aborted).toBe(false);
+
+    act(() => modelRow().click());
+    const id = mocks.params.requestId!;
+    expect(modelPickerRequest(id)).toBeDefined();
+    expect(signal.aborted).toBe(false);
+    expect(mocks.rpc).not.toHaveBeenCalledWith("models/cancelOAuth", expect.anything());
+
+    act(() => root.render(null));
+    expect(modelPickerRequest(id)).toBeUndefined();
+    expect(signal.aborted).toBe(true);
+    expect(mocks.rpc).toHaveBeenCalledWith("models/cancelOAuth", { loginId: "login-fixture" });
+    await act(async () => completeSignIn({ status: "ready" }));
+    expect(mocks.rpc).not.toHaveBeenCalledWith("models/finishOAuth", expect.anything());
   });
 
   it("omits the model row for an empty catalog", async () => {
