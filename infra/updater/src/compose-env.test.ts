@@ -72,22 +72,11 @@ const INDIRECT = {
     "OTEL_EXPORTER_OTLP_HEADERS",
     "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
     "OTEL_EXPORTER_OTLP_TRACES_HEADERS",
-    // PI_DEFAULT_CREDENTIALS=host: Pi and the cloud SDKs resolve host credentials themselves.
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
+    // PI_DEFAULT_CREDENTIALS=host: the cloud SDKs also read these (Pi's own reads are below).
     "AWS_SESSION_TOKEN",
     "AWS_REGION",
     "AWS_DEFAULT_REGION",
-    "AWS_PROFILE",
-    "AWS_BEARER_TOKEN_BEDROCK",
-    "AWS_CONTAINER_CREDENTIALS_FULL_URI",
-    "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
-    "AWS_WEB_IDENTITY_TOKEN_FILE",
     "AWS_ROLE_ARN",
-    "GOOGLE_APPLICATION_CREDENTIALS",
-    "GOOGLE_CLOUD_PROJECT",
-    "GCLOUD_PROJECT",
-    "GOOGLE_CLOUD_LOCATION",
     // Outbound proxy, read by the HTTP stack.
     "HTTP_PROXY",
     "HTTPS_PROXY",
@@ -140,9 +129,23 @@ function scanEnvReads(dirs: readonly string[]): Set<string> {
   return names;
 }
 
+/**
+ * Provider keys Pi reads from the environment itself when a model has no stored credential.
+ * Read from the installed package, so a Pi upgrade that adds a provider fails here.
+ */
+function piEnvKeys(): string[] {
+  const file = path.join(
+    repoRoot,
+    "packages/adapters/node_modules/@earendil-works/pi-ai/dist/env-api-keys.js",
+  );
+  const names = [...readFileSync(file, "utf8").matchAll(new RegExp(`"(${ENV_NAME})"`, "g"))];
+  return names.map((match) => match[1] ?? "");
+}
+
 function expectedKeys(service: "api" | "worker"): string[] {
   const keys = new Set([
     ...scanEnvReads(SOURCES[service]),
+    ...piEnvKeys(),
     ...INDIRECT.shared,
     ...INDIRECT[service],
   ]);
@@ -183,6 +186,8 @@ describe("api and worker environment allowlists", () => {
       expect(api).toContain(key);
       expect(worker).not.toContain(key);
     }
+    expect(api).toContain("OPENAI_API_KEY");
+    expect(worker).toContain("AWS_BEARER_TOKEN_BEDROCK");
     expect(worker).toContain("GRAPHILE_WORKER_CONCURRENCY");
     expect(api).not.toContain("GRAPHILE_WORKER_CONCURRENCY");
   });

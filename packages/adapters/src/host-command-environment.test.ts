@@ -12,6 +12,8 @@ describe("host command environment", () => {
       LC_CTYPE: "UTF-8",
       TMPDIR: "/fake-tmp",
       https_proxy: "http://proxy.invalid:3128",
+      SSH_AUTH_SOCK: "/fake-tmp/agent.sock",
+      NODE_EXTRA_CA_CERTS: "/fake-home/ca.pem",
       DATABASE_URL: "postgres://fake:fake@127.0.0.1/fake",
       ENCRYPTION_KEY: "fake-encryption-key",
       BETTER_AUTH_SECRET: "fake-auth-secret",
@@ -30,6 +32,8 @@ describe("host command environment", () => {
       LANG: "C",
       LC_CTYPE: "UTF-8",
       https_proxy: "http://proxy.invalid:3128",
+      SSH_AUTH_SOCK: "/fake-tmp/agent.sock",
+      NODE_EXTRA_CA_CERTS: "/fake-home/ca.pem",
       BOT_TOKEN: "fake-bot-token",
     });
   });
