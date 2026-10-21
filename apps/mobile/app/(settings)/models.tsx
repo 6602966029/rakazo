@@ -25,17 +25,16 @@ import {
   compatibleModelRows,
   createModelProbe,
   featuredModelProviders,
-  filterModelCatalog,
+  groupModelChoices,
   initialModelProbeState,
-  MODEL_SEARCH_THRESHOLD,
   pickCatalogModelId,
   popularModelProvidersFirst,
   savedCompatibleModelIds,
   toggleEnabledModelId,
 } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
-import { useFocusEffect } from "expo-router";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -53,6 +52,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeActionButton } from "../../components/native-action-button";
 import { NativeSwitch } from "../../components/native-switch";
 import { Checkmark, Chevron } from "../../components/row-accessories";
+import { SettingsRow } from "../../components/settings-group";
 import type {
   ApiRequestContext,
   MobileMe,
@@ -69,6 +69,8 @@ import {
   waitForModelOAuth,
 } from "../../lib/model-auth";
 import { mobileBackupScopeIsCurrent } from "../../lib/model-backups";
+import type { ModelPickerRequest } from "../../lib/model-picker-selection";
+import { closeModelPicker, openModelPicker } from "../../lib/model-picker-selection";
 import { native, useResolvedAppearance, useThemedStyles } from "../../lib/native";
 import { errorText } from "../../lib/user-error";
 
@@ -107,6 +109,24 @@ type FeedbackAnchor = "probe" | "model" | "connection";
 
 export default function Models() {
   const styles = useThemedStyles(createModelsStyles);
+  const router = useRouter();
+  const pickerRequestRef = useRef<string | null>(null);
+  const returningFromPickerRef = useRef(false);
+
+  useEffect(
+    () => () => {
+      if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
+    },
+    [],
+  );
+
+  function pushModelPicker(request: ModelPickerRequest) {
+    if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
+    const requestId = openModelPicker(request);
+    pickerRequestRef.current = requestId;
+    returningFromPickerRef.current = true;
+    router.push({ pathname: "/model-picker", params: { requestId } });
+  }
   const { t } = useI18n();
   const colorScheme = useResolvedAppearance();
   const [catalog, setCatalog] = useState<MobileModel[]>([]);
@@ -118,7 +138,6 @@ export default function Models() {
   const [showAllProviders, setShowAllProviders] = useState(false);
   const [modelId, setModelId] = useState("");
   const [enabledModelIds, setEnabledModelIds] = useState<string[]>([]);
-  const [modelSearch, setModelSearch] = useState({ provider: "", query: "" });
   const [apiKey, setApiKey] = useState("");
   const [accountId, setAccountId] = useState("");
   const [gatewayId, setGatewayId] = useState("");
@@ -233,9 +252,6 @@ export default function Models() {
     setCredentials(nextCredentials);
     resetOpenAiCompatibleProbe();
     setProvider(nextProvider);
-    setModelSearch((current) =>
-      current.provider === nextProvider ? current : { provider: nextProvider, query: "" },
-    );
     setModelId(nextModel);
     setEnabledModelIds(nextCredential?.enabledModelIds ?? []);
     if (nextProvider === OPENAI_COMPATIBLE_PROVIDER_ID) {
@@ -334,15 +350,22 @@ export default function Models() {
 
   useFocusEffect(
     useCallback(() => {
-      void load()
-        .then((nextMe) => loadBackupModels(nextMe))
-        .catch((err: unknown) =>
-          publishFeedback("connection", {
-            error: errorText(err, t("Could not load model settings")),
-          }),
-        )
-        .finally(() => setLoading(false));
+      // A child picker edits this draft; refocusing must not reload saved values.
+      if (returningFromPickerRef.current) {
+        returningFromPickerRef.current = false;
+        if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
+        pickerRequestRef.current = null;
+      } else
+        void load()
+          .then((nextMe) => loadBackupModels(nextMe))
+          .catch((err: unknown) =>
+            publishFeedback("connection", {
+              error: errorText(err, t("Could not load model settings")),
+            }),
+          )
+          .finally(() => setLoading(false));
       return () => {
+        if (returningFromPickerRef.current) return;
         backupRequestGenerationRef.current += 1;
         backupReadyRef.current = false;
         backupLoadingRef.current = true;
@@ -425,26 +448,21 @@ export default function Models() {
   }, [groups, featuredProviders, showAllProviders, connectedProviderIds]);
   const modelsForProvider = catalog.filter((entry) => entry.provider === provider);
   const selected = modelsForProvider.find((entry) => entry.id === modelId) ?? modelsForProvider[0];
-  const showModelSearch = modelsForProvider.length > MODEL_SEARCH_THRESHOLD;
-  // Hide a query typed for another provider until load()/chooseProvider clears it.
-  const modelQuery = modelSearch.provider === provider ? modelSearch.query : "";
-  const matchedModels = showModelSearch
-    ? filterModelCatalog(modelsForProvider, modelQuery)
-    : modelsForProvider;
-  // Use and Save still apply to the staged model, so its radio stays visible.
-  const stagedModelHidden =
-    showModelSearch &&
-    selected !== undefined &&
-    modelQuery.trim().length > 0 &&
-    !matchedModels.some((entry) => entry.id === selected.id);
-  const visibleModels =
-    stagedModelHidden && selected ? [selected, ...matchedModels] : matchedModels;
-  const noModelMatches = showModelSearch && matchedModels.length === 0;
-
-  // The search field keeps focus, so tell screen readers once when the results run out.
-  useEffect(() => {
-    if (noModelMatches) AccessibilityInfo.announceForAccessibility(t("No matching models"));
-  }, [noModelMatches, t]);
+  const selectedProviderLabel = selected?.providerName ?? selected?.provider;
+  const selectedSection = selected
+    ? groupModelChoices(
+        [
+          {
+            key: selected.id,
+            label: selected.label,
+            modelLabel: selected.label,
+            providerLabel: selectedProviderLabel,
+          },
+        ],
+        "",
+      )[0]
+    : undefined;
+  const selectedChoice = selectedSection?.data[0];
   const isOpenAiCompatible = provider === OPENAI_COMPATIBLE_PROVIDER_ID;
   const isCloudflareGateway = provider === CLOUDFLARE_AI_GATEWAY_PROVIDER_ID;
   const cloudflareRoutingReady =
@@ -520,7 +538,6 @@ export default function Models() {
         : pickCatalogModelId(catalog, nextProvider, nextCredential?.modelId ?? me?.defaultModel);
     Keyboard.dismiss();
     setProvider(nextProvider);
-    setModelSearch({ provider: nextProvider, query: "" });
     setReasoning(nextCredential?.reasoning ?? false);
     const nextEntry = catalog.find(
       (entry) => entry.provider === nextProvider && entry.id === nextModelId,
@@ -1135,56 +1152,44 @@ export default function Models() {
   const catalogModelCard =
     !isOpenAiCompatible && selected ? (
       <>
-        {showModelSearch ? (
-          <TextInput
-            accessibilityLabel={t("Search models")}
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={(query) => setModelSearch({ provider, query })}
-            placeholder={t("Search")}
-            placeholderTextColor={native.tertiaryLabel}
-            returnKeyType="search"
-            style={styles.keyInput}
-            value={modelQuery}
-          />
-        ) : null}
         <View style={styles.card}>
-          {visibleModels.map((entry, index) => (
-            <Fragment key={`${entry.provider}:${entry.id}`}>
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{ selected: entry.id === selected.id }}
-                onPress={() => {
+          <SettingsRow
+            title={t("Model")}
+            value={selectedChoice?.title ?? selected.label}
+            accessibilityRole="button"
+            accessibilityLabel={t("Model")}
+            accessibilityValue={{ text: selectedChoice?.title ?? selected.label }}
+            chevron="right"
+            onPress={() =>
+              pushModelPicker({
+                selectedKey: selected.id,
+                providerLabel: selectedProviderLabel,
+                choices: modelsForProvider.map((entry) => ({
+                  key: entry.id,
+                  label: entry.label,
+                  modelLabel: entry.label,
+                  modelId: entry.id,
+                  provider: entry.provider,
+                  providerLabel: entry.providerName ?? entry.provider,
+                })),
+                onSelect: (choice) => {
+                  const entry = modelsForProvider.find((model) => model.id === choice.key);
+                  if (!entry) return;
                   Keyboard.dismiss();
                   cancelOAuth();
                   setModelId(entry.id);
                   setThinkingLevel(
                     clampCatalogThinkingLevel(
-                      entry.id === credential?.modelId ? credential?.thinkingLevel : null,
+                      entry.id === credential?.modelId ? credential.thinkingLevel : null,
                       entry.thinkingLevels,
                     ) as ThinkingLevel | null,
                   );
                   clearFeedback();
-                }}
-                style={({ pressed }) => [styles.modelRow, pressed && styles.pressed]}
-              >
-                <Text style={styles.modelLabel}>{entry.label}</Text>
-                {entry.id === selected.id ? <Checkmark /> : null}
-              </Pressable>
-              {stagedModelHidden && noModelMatches && index === 0 ? (
-                <View style={styles.modelRow}>
-                  <Text style={[styles.modelLabel, styles.mutedLabel]}>
-                    {t("No matching models")}
-                  </Text>
-                </View>
-              ) : null}
-            </Fragment>
-          ))}
-          {!stagedModelHidden && noModelMatches ? (
-            <View style={styles.modelRow}>
-              <Text style={[styles.modelLabel, styles.mutedLabel]}>{t("No matching models")}</Text>
-            </View>
-          ) : null}
+                },
+              })
+            }
+          />
+          {catalogThinkingLevels.length ? <View style={styles.modelDivider} /> : null}
           {catalogThinkingLevels.length ? (
             <Pressable
               accessibilityRole="button"
@@ -1423,15 +1428,22 @@ export default function Models() {
       backupModels.length >= MAX_MODEL_BACKUPS
     )
       return;
-    presentMessageActionSheet({
+    pushModelPicker({
       title: t("Add connected model"),
-      actions: addableBackupOptions.map((option) => ({
-        text: `${option.providerName} · ${option.label}`,
-        onPress: () => addBackupChoice({ provider: option.provider, modelId: option.modelId }),
+      selectedKey: "",
+      choices: addableBackupOptions.map((option) => ({
+        key: backupChoiceKey(option),
+        label: `${option.providerName} · ${option.label}`,
+        modelLabel: option.label,
+        providerLabel: option.providerName,
+        provider: option.provider,
+        modelId: option.modelId,
       })),
-      colorScheme,
-      cancel: t("Cancel"),
-      more: t("More"),
+      onSelect: (choice) => {
+        if (choice.provider && choice.modelId) {
+          addBackupChoice({ provider: choice.provider, modelId: choice.modelId });
+        }
+      },
     });
   }
 
@@ -1660,7 +1672,6 @@ export default function Models() {
             <>
               {provider === me?.hostCredentialProvider ? serverCredentialsNote : null}
               {connectedStatusRow}
-              <Text style={styles.sectionTitle}>{t("Model")}</Text>
               {catalogModelCard}
               {saveRow}
               {feedbackAnchor === "model" ? feedback : null}
@@ -1677,7 +1688,6 @@ export default function Models() {
                 <>
                   {catalogConnectionControls}
                   {feedback}
-                  <Text style={styles.sectionTitle}>{t("Model")}</Text>
                   {catalogModelCard}
                 </>
               ) : null}
@@ -1686,7 +1696,6 @@ export default function Models() {
             <>
               {catalogConnectionControls}
               {feedback}
-              <Text style={styles.sectionTitle}>{t("Model")}</Text>
               {catalogModelCard}
             </>
           )
@@ -1975,6 +1984,11 @@ function createModelsStyles() {
       borderTopColor: native.fillPressed,
       paddingTop: 8,
     },
+    modelDivider: {
+      height: StyleSheet.hairlineWidth,
+      marginStart: 16,
+      backgroundColor: native.separator,
+    },
     modelRow: {
       minHeight: 54,
       paddingHorizontal: 16,
@@ -1996,9 +2010,6 @@ function createModelsStyles() {
       flex: 1,
       color: native.label,
       fontSize: 15,
-    },
-    mutedLabel: {
-      color: native.secondaryLabel,
     },
     singleRow: {
       borderBottomWidth: 0,
