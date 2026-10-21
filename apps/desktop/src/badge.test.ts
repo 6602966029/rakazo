@@ -1,10 +1,14 @@
+import { EventEmitter } from "node:events";
 import type { IpcMainInvokeEvent, WebContents } from "electron";
 import { describe, expect, it, vi } from "vitest";
 import { createBadgeHandler } from "./badge.js";
 
 function setup(result = true) {
   const frame = { url: "https://app.example.com/app/bot" };
-  const contents = { mainFrame: frame, isDestroyed: () => false } as unknown as WebContents;
+  const contents = Object.assign(new EventEmitter(), {
+    mainFrame: frame,
+    isDestroyed: () => false,
+  }) as unknown as WebContents;
   const event = { sender: contents, senderFrame: frame } as IpcMainInvokeEvent;
   const target = { webContents: contents, url: "https://app.example.com" };
   const setBadgeCount = vi.fn(() => result);
@@ -62,5 +66,23 @@ describe("desktop badge handler", () => {
         },
       )(event, 2),
     ).toBe(false);
+  });
+
+  it("clears the count when the window that set it is destroyed, but not after a replacement", () => {
+    const { event, target, handle, setBadgeCount } = setup();
+    expect(handle(event, 5)).toBe(true);
+    (event.sender as unknown as EventEmitter).emit("destroyed");
+    expect(setBadgeCount.mock.calls).toEqual([[5], [0]]);
+
+    expect(handle(event, 2)).toBe(true);
+    const frame = { url: "https://app.example.com/app" };
+    const next = Object.assign(new EventEmitter(), {
+      mainFrame: frame,
+      isDestroyed: () => false,
+    }) as unknown as WebContents;
+    target.webContents = next;
+    expect(handle({ sender: next, senderFrame: frame } as IpcMainInvokeEvent, 4)).toBe(true);
+    (event.sender as unknown as EventEmitter).emit("destroyed");
+    expect(setBadgeCount.mock.calls).toEqual([[5], [0], [2], [4]]);
   });
 });
