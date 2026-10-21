@@ -158,3 +158,26 @@ test("preload recovery keeps Settings bound to another space", async ({ page }, 
   expect(await page.evaluate(() => localStorage.getItem("rakazo:space-id"))).toBe(selected);
   await captureScreenshot(page, testInfo, "preload-recovered-space-settings");
 });
+
+test("a failed integrations load offers Retry instead of an empty catalog", async ({
+  page,
+}, testInfo) => {
+  await signup(page, `catalog-load-${Date.now()}@rakazo.test`, "password12", "Catalog Load");
+  await completeOnboarding(page);
+
+  // What a proxy answers while the API restarts.
+  await page.route("**/rpc/connections/catalog", (route) => route.fulfill({ status: 502 }), {
+    times: 1,
+  });
+  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+
+  await expect(page.getByText("Could not reach the server", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Configure a plugin catalog on the server to connect apps.", { exact: true }),
+  ).toHaveCount(0);
+  await captureScreenshot(page, testInfo, "integrations-load-failed");
+
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.getByText("Could not reach the server", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
+});
