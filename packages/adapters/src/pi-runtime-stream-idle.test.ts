@@ -9,6 +9,7 @@ import type {
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createOpenAiCompatibleFetch } from "./pi-openai-compatible-provider.js";
 import {
   MODEL_STREAM_IDLE_TIMEOUT_MESSAGE,
   modelStreamIdleWatchdog,
@@ -486,4 +487,26 @@ it("terminates a silent compatible HTTP stream through the real Pi provider", as
     caller.abort();
     vi.useRealTimers();
   }
+});
+
+it("pairs the default stream transport with the compatible provider's guarded dispatcher", async () => {
+  const inner = new AssistantMessageEventStream();
+  const streamSimple = vi.fn(
+    (_model: Model<Api>, _context: Context, _options?: SimpleStreamOptions) => inner,
+  );
+  reliableModelStream(
+    { streamSimple } as unknown as Models,
+    { provider: "openai-compatible", api: "openai-completions" } as Model<Api>,
+    context,
+    undefined,
+    undefined,
+  );
+  const options = streamSimple.mock.calls[0]![2]!;
+  const resolve = vi.fn(async () => [{ address: "10.0.0.8", family: 4 }]);
+  const safeFetch = createOpenAiCompatibleFetch(options.fetch, resolve, { allowPublic: true });
+
+  await expect(safeFetch("https://models.example.test/v1/models")).rejects.toMatchObject({
+    cause: { message: "Public model server hostname resolved to a private address" },
+  });
+  expect(resolve).toHaveBeenCalledOnce();
 });
