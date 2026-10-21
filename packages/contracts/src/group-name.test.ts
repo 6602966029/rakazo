@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { defaultGroupName } from "./domain";
+import { defaultGroupName } from "./domain.js";
 
 it("joins names in pick order and trims the result", () => {
   expect(defaultGroupName([" Writer", "Researcher "])).toBe("Writer, Researcher");
