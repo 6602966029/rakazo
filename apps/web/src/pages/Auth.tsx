@@ -1,19 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-<<<<<<< HEAD
-import { credentialIssue, signupRequiresEmailVerification } from "@rakazo/core";
-import { Button, Input, InputOTP, InputOTPGroup, InputOTPSlot, Label } from "@rakazo/ui-web";
-||||||| 6486e396
-import { credentialIssue, signupRequiresEmailVerification } from "@rakazo/core";
-import { Button, Input, Label } from "@rakazo/ui-web";
-=======
 import {
   credentialIssue,
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
   signupRequiresEmailVerification,
 } from "@rakazo/core";
-import { Button, Input, Label } from "@rakazo/ui-web";
->>>>>>> origin/main
+import { Button, Input, InputOTP, InputOTPGroup, InputOTPSlot, Label } from "@rakazo/ui-web";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { authClient } from "../lib/auth";
