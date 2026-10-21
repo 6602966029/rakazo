@@ -500,7 +500,10 @@ Error reporting to Sentry or a Sentry-compatible collector such as GlitchTip is 
 - `SENTRY_ENVIRONMENT` names the deployment. `SENTRY_RELEASE` defaults to the image's `GIT_SHA`.
 
 Neither SDK sends cookies, headers, request bodies, user identity, console output, or log context.
-Reporting is off without a DSN; an invalid DSN logs a warning and stays off.
+When `ANALYTICS_PSEUDONYM_SECRET` is set, reports carry a keyed hash of the signed-in user's id so
+the collector can count affected users; the raw id, email and IP address are never sent, and the
+browser receives its hash from the API. Reporting is off without a DSN; an invalid DSN logs a
+warning and stays off.
 
 Compose passes these into the API, worker, supervisor, and updater. Computer containers and updater
 child commands do not receive them.
@@ -609,6 +612,10 @@ RAKAZO_CSP_CONNECT_SRC=https://cloudflareinsights.com
 ```
 
 Add only origins you trust: a script these settings allow runs with the signed-in user's access.
+
+Browsers report what the policy blocks to `/api/csp-report`. The API writes one `csp.violation`
+warning per violation, with the directive, the blocked origin and the page path, so search your logs
+for it to find the origins to add.
 
 ### Security events
 

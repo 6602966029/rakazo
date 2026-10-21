@@ -20,6 +20,7 @@ import { SubscriptionGate } from "./components/SubscriptionGate";
 import { authClient } from "./lib/auth";
 import { getTicketBoardEnabled, subscribeTicketBoardEnabled } from "./lib/bootstrap";
 import { desktopBridge } from "./lib/desktop";
+import { identifyMonitoringUser } from "./lib/monitoring";
 import { markAfterPaint, markOnce } from "./lib/performance";
 import { getRemoteImagesEnabled, subscribeRemoteImages } from "./lib/remote-images-preference";
 import { rpc } from "./lib/rpc";
@@ -103,6 +104,9 @@ function SessionApp() {
   const screen = analyticsScreen(pathname);
   const analyticsUserId = session.data?.user.id;
   const lastScreen = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    void identifyMonitoringUser(Boolean(analyticsUserId));
+  }, [analyticsUserId]);
   useEffect(() => {
     if (!analyticsUserId) {
       lastScreen.current = undefined;
