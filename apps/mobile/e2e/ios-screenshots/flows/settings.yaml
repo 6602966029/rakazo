@@ -127,7 +127,9 @@ name: Settings
 - assertVisible: "Artifacts"
 - takeScreenshot: 17-account-artifacts
 - tapOn: "Artifacts"
+# Only the Artifacts screen has the search field; the sheet must have closed.
 - extendedWaitUntil:
-    visible: "No artifacts yet|Artifacts"
+    visible: "Search artifacts.*"
     timeout: 15000
+- assertNotVisible: ".*Change password.*"
 - takeScreenshot: 18-artifacts
