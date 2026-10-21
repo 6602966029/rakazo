@@ -29,6 +29,9 @@ function memoryStore() {
       rows.push(record);
       return record;
     },
+    async sampleByMasterKey() {
+      return [...new Map(rows.map((row) => [row.masterKeyId, row])).values()];
+    },
     async rowContext(_source, id) {
       return id.startsWith("thread-") ? { spaceId: "space-1", owner: "user-1" } : undefined;
     },
@@ -136,6 +139,20 @@ describe("ContentKeyRing", () => {
     await expect(ring.spaceOf("threads", "other")).resolves.toBe("space-2");
     ring.forget("space-2");
     await expect(ring.spaceOf("threads", "other")).rejects.toThrow(/Cannot resolve/);
+  });
+
+  it("reports master keys that stored space keys need but cannot use", async () => {
+    const store = memoryStore();
+    const a = master("a");
+    await new ContentKeyRing(new LocalKeyProvider([a]), store).current("space-1");
+    const b = master("b");
+    await new ContentKeyRing(new LocalKeyProvider([b]), store).current("space-2");
+    expect(
+      await new ContentKeyRing(new LocalKeyProvider([b, a]), store).unreadableMasterKeys(),
+    ).toEqual([]);
+    expect(
+      await new ContentKeyRing(new LocalKeyProvider([b]), store).unreadableMasterKeys(),
+    ).toEqual(["a"]);
   });
 
   it("fails closed when a key no longer exists", async () => {

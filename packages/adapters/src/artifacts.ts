@@ -11,7 +11,13 @@ import type {
   NotificationProvider,
 } from "@rakazo/adapter-kit";
 import type { ContentKeyRing } from "@rakazo/db";
-import { artifactKeyId, isSealedArtifact, openArtifact, sealArtifact } from "@rakazo/db";
+import {
+  artifactKeyId,
+  ContentDecryptionError,
+  isSealedArtifact,
+  openArtifact,
+  sealArtifact,
+} from "@rakazo/db";
 
 const O_NOFOLLOW = constants.O_NOFOLLOW ?? 0;
 const CREATE_FLAGS = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | O_NOFOLLOW;
@@ -60,6 +66,16 @@ export class LocalArtifactStore implements ArtifactStore {
     };
   }
 
+  /** Resolves a file's key, refusing one from another space (a file copied across spaces). */
+  private keyIn(spaceId: string) {
+    return async (keyId: string) => {
+      const key = await this.keys!.byId(keyId);
+      if (key.spaceId !== spaceId)
+        throw new ContentDecryptionError("Encrypted artifact belongs to another space");
+      return key;
+    };
+  }
+
   private file(spaceId: string, id: string) {
     return path.join(this.root, "artifacts", spaceId, id);
   }
@@ -86,7 +102,7 @@ export class LocalArtifactStore implements ArtifactStore {
       if (!this.keys) throw new Error("Artifact is encrypted but no content keys are configured");
       const parts: Buffer[] = [];
       const stream = handle.createReadStream({ start: 0, autoClose: false });
-      for await (const part of openArtifact((keyId) => this.keys!.byId(keyId), id, stream))
+      for await (const part of openArtifact(this.keyIn(context.spaceId), id, stream))
         parts.push(part);
       return new Uint8Array(Buffer.concat(parts));
     } finally {
@@ -136,9 +152,7 @@ export class LocalArtifactStore implements ArtifactStore {
       )
         return "unchanged";
       const stream = source.createReadStream({ start: 0, autoClose: false });
-      const plaintext = sealed
-        ? openArtifact((keyId) => this.keys!.byId(keyId), id, stream)
-        : stream;
+      const plaintext = sealed ? openArtifact(this.keyIn(spaceId), id, stream) : stream;
       const target = await open(temp, CREATE_FLAGS, 0o600);
       try {
         await writeAll(target, key ? sealArtifact(key, id, plaintext) : plaintext);

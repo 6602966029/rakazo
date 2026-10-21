@@ -146,6 +146,15 @@ export function contentEncryptionOf(prisma: unknown): ContentEncryption | undefi
   return typeof accessor === "function" ? accessor.call(prisma) : undefined;
 }
 
+/**
+ * Boot check for composition roots. A malformed master key configuration throws,
+ * so the process fails at startup instead of on the first message; master key
+ * ids that stored space keys need but cannot use are returned for reporting.
+ */
+export async function verifyContentKeys(prisma: unknown): Promise<string[]> {
+  return (await contentEncryptionOf(prisma)?.ring.unreadableMasterKeys()) ?? [];
+}
+
 interface Plan {
   model: string;
   /** Context columns added to the selection only for decryption; removed afterwards. */

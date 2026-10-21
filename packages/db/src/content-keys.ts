@@ -147,6 +147,8 @@ export interface SpaceKeyStore {
   /** Inserts unless the (space, version) pair exists; returns the stored record either way. */
   insert(record: SpaceKeyRecord): Promise<SpaceKeyRecord>;
   rowContext(source: SpaceSource, id: string): Promise<RowContext | undefined>;
+  /** One stored key per master key id in use, to check each can still be unwrapped. */
+  sampleByMasterKey(): Promise<SpaceKeyRecord[]>;
 }
 
 /**
@@ -222,6 +224,13 @@ export class PgSpaceKeyStore implements SpaceKeyStore {
   async rowContext(source: SpaceSource, id: string) {
     const { rows } = await this.db.query<RowContext>(ROW_CONTEXT[source], [id]);
     return rows[0];
+  }
+
+  async sampleByMasterKey() {
+    const { rows } = await this.db.query<SpaceKeyRecord>(
+      `SELECT DISTINCT ON ("masterKeyId") ${COLUMNS} FROM space_keys ORDER BY "masterKeyId", id`,
+    );
+    return rows;
   }
 }
 
@@ -375,6 +384,24 @@ export class ContentKeyRing {
   async allFresh(spaceId: string): Promise<DataKey[]> {
     this.versions.deleteWhere((_, key) => key === spaceId);
     return this.all(spaceId);
+  }
+
+  /**
+   * Startup check: reads the master key configuration (throwing if it is malformed)
+   * and returns the master key ids that stored space keys use but that can no
+   * longer be unwrapped, for example after a key was removed too early.
+   */
+  async unreadableMasterKeys(): Promise<string[]> {
+    this.provider.activeKeyId();
+    const unreadable: string[] = [];
+    for (const record of await this.store.sampleByMasterKey()) {
+      try {
+        await this.provider.unwrap(record, { spaceId: record.spaceId, version: record.version });
+      } catch {
+        unreadable.push(record.masterKeyId);
+      }
+    }
+    return unreadable;
   }
 
   /** Drops a deleted space's unwrapped keys from memory. */

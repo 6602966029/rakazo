@@ -92,6 +92,7 @@ import {
   pushSessionExpiresAt,
   requireMembership,
   securityEventRetentionDays,
+  verifyContentKeys,
 } from "@rakazo/db";
 import type { Logger } from "@rakazo/logging";
 import {
@@ -238,6 +239,11 @@ export async function createApp(
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
   installSecurityEventStore(prisma);
+  const unreadableMasterKeys = await verifyContentKeys(prisma);
+  if (unreadableMasterKeys.length)
+    logger.error("Stored space keys need master keys that are not configured", undefined, {
+      masterKeyIds: unreadableMasterKeys,
+    });
   const analytics = createProductAnalytics();
   const events = createThreadEvents(prisma, realtime, {
     analytics,

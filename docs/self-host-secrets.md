@@ -64,10 +64,11 @@ unreadable. Keep the original key for an existing deployment unless you
 intentionally wipe encrypted material.
 
 `ENCRYPTION_KEY` also derives the default master key for chat, memory and file
-encryption. To rotate that master key, or to keep it apart from
-`ENCRYPTION_KEY`, set `ENCRYPTION_MASTER_KEYS` and run the rotation in
-[content-encryption.md](content-encryption.md); that rotation never strands
-content.
+encryption, so changing it also makes that content unreadable. To move content
+off it, set `ENCRYPTION_MASTER_KEYS` and run the rotation in
+[content-encryption.md](content-encryption.md), which re-wraps the space keys
+without stranding content. Keep `ENCRYPTION_KEY` unchanged afterwards: stored
+credentials still depend on it.
 
 ## Optional keys (leave blank if unused)
 

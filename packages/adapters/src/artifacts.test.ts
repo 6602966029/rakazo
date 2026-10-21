@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { SpaceKeyRecord, SpaceKeyStore } from "@rakazo/db";
@@ -57,6 +57,7 @@ function memoryKeys() {
       return record;
     },
     rowContext: async () => undefined,
+    sampleByMasterKey: async () => [],
   };
   return new ContentKeyRing(new LocalKeyProvider([{ id: "a", key: randomBytes(32) }]), store);
 }
@@ -112,6 +113,22 @@ describe("LocalArtifactStore with content keys", () => {
 
     expect(await store.rewriteFile("space-1", legacy.id, "decrypt")).toBe("rewritten");
     expect((await readFile(file)).toString()).toBe("before encryption");
+  });
+
+  it("refuses a sealed file copied into another space", async () => {
+    const { root, store } = await setup();
+    const stored = await store.put(
+      { name: "a.txt", mimeType: "text/plain", bytes: new TextEncoder().encode("space one") },
+      context,
+    );
+    await mkdir(path.join(root, "artifacts", "space-2"), { recursive: true });
+    await copyFile(
+      path.join(root, "artifacts", "space-1", stored.id),
+      path.join(root, "artifacts", "space-2", stored.id),
+    );
+    await expect(store.get(stored.id, { spaceId: "space-2" } as never)).rejects.toThrow(
+      /another space/,
+    );
   });
 
   it("refuses to serve a sealed file without keys or with a tampered body", async () => {

@@ -64,6 +64,7 @@ import {
   parsePositiveInteger,
   pushSessionExpiresAt,
   securityEventRetentionDays,
+  verifyContentKeys,
 } from "@rakazo/db";
 import { SERVICE_NAMES } from "@rakazo/logging";
 import { createRootLogger } from "@rakazo/logging/axiom";
@@ -94,6 +95,11 @@ async function main() {
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
   installSecurityEventStore(prisma);
+  const unreadableMasterKeys = await verifyContentKeys(prisma);
+  if (unreadableMasterKeys.length)
+    logger.error("Stored space keys need master keys that are not configured", undefined, {
+      masterKeyIds: unreadableMasterKeys,
+    });
   const analytics = createProductAnalytics();
   const events = createThreadEvents(prisma, realtime, {
     analytics,

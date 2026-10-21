@@ -15,6 +15,7 @@ const store: SpaceKeyStore = {
   byId: unreachable,
   insert: unreachable,
   rowContext: unreachable,
+  sampleByMasterKey: unreachable,
 };
 const ring = new ContentKeyRing(new LocalKeyProvider([{ id: "a", key: randomBytes(32) }]), store);
 const prisma = withContentEncryption(new PrismaClient({ adapter: new PrismaPg(pool) }), ring);
