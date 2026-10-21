@@ -1,5 +1,22 @@
 import { ActionSheetIOS, Alert, Platform } from "react-native";
 
+import { isComposeViewAvailable } from "./compose-available";
+import { showMessageActionSheet } from "./message-action-sheet-store";
+
+export function isMessageActionSheetAvailable() {
+  return (
+    Platform.OS === "android" &&
+    [
+      "HostView",
+      "ModalBottomSheetView",
+      "LazyColumnView",
+      "ListItemView",
+      "SlotView",
+      "TextView",
+    ].every(isComposeViewAvailable)
+  );
+}
+
 type MessageAction = { text: string; onPress: () => void };
 
 export function presentMessageActionSheet({
@@ -25,6 +42,10 @@ export function presentMessageActionSheet({
       },
       (index) => actions[index]?.onPress(),
     );
+    return;
+  }
+
+  if (isMessageActionSheetAvailable() && showMessageActionSheet({ actions, title, colorScheme })) {
     return;
   }
 

@@ -32,6 +32,7 @@ import { ComputerUpdateProgress } from "../components/computer-update-progress";
 import { floatingHeaderOptions, glassHeaderOptions } from "../components/glass-title";
 import { MermaidDiagram } from "../components/mermaid-diagram";
 import { MessageMenuHost } from "../components/message-action-menu";
+import { MessageActionSheetHost } from "../components/message-action-sheet-host";
 import { NativeSymbol } from "../components/native-symbol";
 import { VoicePlayerBar } from "../components/voice-player-bar";
 import {
@@ -428,6 +429,7 @@ function LayoutContent() {
                 </View>
                 <ComputerUpdateProgress />
                 <MessageMenuHost />
+                <MessageActionSheetHost />
                 <CallCard />
               </ThemeProvider>
             </ChatContentProviders>
