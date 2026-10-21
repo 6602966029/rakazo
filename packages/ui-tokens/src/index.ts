@@ -50,7 +50,7 @@ export type ColorTokens = {
   sidebarAccent: string;
   sidebarAccentForeground: string;
   link: string;
-  /** Backing behind a link's site icon: white in dark so dark logos stay visible, none in light. */
+  /** Backing behind a link's site icon. White in both themes so dark logos stay visible on any bubble. */
   faviconPlate: string;
   success: string;
   warning: string;
@@ -138,7 +138,7 @@ export const lightTokens = {
   sidebarAccent: "#FFFFFF",
   sidebarAccentForeground: "#000000",
   link: "#0C64C1",
-  faviconPlate: "#FFFFFF00",
+  faviconPlate: "#FFFFFF",
   success: "#007041",
   warning: "#885A07",
   statusWorking: "#0C64C1",

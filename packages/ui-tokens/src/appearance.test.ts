@@ -51,6 +51,7 @@ describe("appearance preference", () => {
         key === "chatUserForeground" ||
         key === "destructiveForeground" ||
         key === "destructiveFill" ||
+        key === "faviconPlate" ||
         key === "unread"
       )
         continue;
