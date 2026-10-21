@@ -47,6 +47,10 @@ const write = (line: string) => process.stdout.write(`${line}\n`);
 async function rewriteContent(mode: ContentMigrationMode) {
   if (!(await artifacts.hasDirectory()))
     write("artifacts: no artifact directory under DATA_DIR; files were not checked");
+  else if (!dryRun) {
+    const removed = await artifacts.removeAbandoned();
+    if (removed) write(`artifacts: removed ${removed} temporary files left by an interrupted run`);
+  }
   for (const table of await migrateContent(prisma, {
     mode,
     dryRun,
@@ -102,7 +106,11 @@ try {
     const files = await artifacts.fileCounts();
     write(
       files.present
-        ? `artifacts: ${files.plaintext} of ${files.plaintext + files.sealed} in plaintext`
+        ? `artifacts: ${files.plaintext} of ${files.plaintext + files.sealed} in plaintext${
+            files.abandoned
+              ? `, ${files.abandoned} temporary files from an interrupted run (migrate removes them)`
+              : ""
+          }`
         : "artifacts: no artifact directory under DATA_DIR; run where the data volume is mounted",
     );
   } else if (command === "migrate") {

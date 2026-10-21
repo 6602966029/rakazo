@@ -100,14 +100,25 @@ describe("LocalArtifactStore with content keys", () => {
     for await (const entry of store.files()) files.push(entry);
     expect(files).toEqual([{ spaceId: "space-1", id: legacy.id }]);
 
-    expect(await store.fileCounts()).toEqual({ present: true, sealed: 0, plaintext: 1 });
+    expect(await store.fileCounts()).toEqual({
+      present: true,
+      sealed: 0,
+      plaintext: 1,
+      abandoned: 0,
+    });
     expect(await store.rewriteFile("space-1", legacy.id, "encrypt")).toBe("rewritten");
     expect(await store.rewriteFile("space-1", legacy.id, "encrypt")).toBe("unchanged");
-    expect(await store.fileCounts()).toEqual({ present: true, sealed: 1, plaintext: 0 });
+    expect(await store.fileCounts()).toEqual({
+      present: true,
+      sealed: 1,
+      plaintext: 0,
+      abandoned: 0,
+    });
     expect(await new LocalArtifactStore(path.join(root, "missing"), keys).fileCounts()).toEqual({
       present: false,
       sealed: 0,
       plaintext: 0,
+      abandoned: 0,
     });
     expect((await readFile(file)).toString()).not.toContain("before encryption");
     expect((await stat(file)).mode & 0o777).toBe(0o600);
@@ -120,6 +131,18 @@ describe("LocalArtifactStore with content keys", () => {
 
     expect(await store.rewriteFile("space-1", legacy.id, "decrypt")).toBe("rewritten");
     expect((await readFile(file)).toString()).toBe("before encryption");
+  });
+
+  it("counts and removes temporary files an interrupted rewrite left behind", async () => {
+    const { root, store } = await setup();
+    const dir = path.join(root, "artifacts", "space-1");
+    await mkdir(dir, { recursive: true });
+    const leftover = path.join(dir, "file-1.sealing-abc");
+    await writeFile(leftover, "plaintext from an interrupted decrypt");
+    expect(await store.fileCounts()).toMatchObject({ plaintext: 0, abandoned: 1 });
+    expect(await store.removeAbandoned()).toBe(0);
+    expect(await store.removeAbandoned(0)).toBe(1);
+    expect(await store.fileCounts()).toMatchObject({ abandoned: 0 });
   });
 
   it("treats a file removed since it was listed as unchanged", async () => {

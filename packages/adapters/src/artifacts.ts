@@ -132,10 +132,22 @@ export class LocalArtifactStore implements ArtifactStore {
     );
   }
 
-  /** For `status`. Files removed while counting are skipped. */
-  async fileCounts(): Promise<{ present: boolean; sealed: number; plaintext: number }> {
-    const counts = { present: await this.hasDirectory(), sealed: 0, plaintext: 0 };
-    for await (const file of this.files()) {
+  /**
+   * For `status`. Files removed while counting are skipped. `abandoned` counts
+   * temporary files an interrupted rewrite left behind; they may hold plaintext.
+   */
+  async fileCounts(): Promise<{
+    present: boolean;
+    sealed: number;
+    plaintext: number;
+    abandoned: number;
+  }> {
+    const counts = { present: await this.hasDirectory(), sealed: 0, plaintext: 0, abandoned: 0 };
+    for await (const file of this.entries()) {
+      if (file.temporary) {
+        counts.abandoned += 1;
+        continue;
+      }
       const handle = await openExisting(this.file(file.spaceId, file.id));
       if (!handle) continue;
       try {
@@ -148,15 +160,45 @@ export class LocalArtifactStore implements ArtifactStore {
     return counts;
   }
 
+  /**
+   * Deletes temporary files left by an interrupted rewrite (a crash skips the
+   * cleanup in `rewriteFile`). Only files older than `olderThanMs` are removed,
+   * so a rewrite still in progress elsewhere keeps its file.
+   */
+  async removeAbandoned(olderThanMs = 10 * 60_000): Promise<number> {
+    let removed = 0;
+    for await (const file of this.entries()) {
+      if (!file.temporary) continue;
+      const target = this.file(file.spaceId, file.id);
+      const info = await stat(target).catch(() => undefined);
+      if (!info || (olderThanMs > 0 && Date.now() - info.mtimeMs < olderThanMs)) continue;
+      await rm(target, { force: true });
+      removed += 1;
+    }
+    return removed;
+  }
+
   /** Every stored file, for migrations. */
   async *files(): AsyncGenerator<{ spaceId: string; id: string }> {
+    for await (const file of this.entries())
+      if (!file.temporary) yield { spaceId: file.spaceId, id: file.id };
+  }
+
+  /** Directory listing; a space directory deleted while listing is skipped. */
+  private async *entries(): AsyncGenerator<{ spaceId: string; id: string; temporary: boolean }> {
     const base = path.join(this.root, "artifacts");
     const spaces = await readdir(base, { withFileTypes: true }).catch(() => []);
     for (const space of spaces) {
       if (!space.isDirectory()) continue;
-      for (const file of await readdir(path.join(base, space.name), { withFileTypes: true }))
-        if (file.isFile() && !file.name.includes(".sealing-"))
-          yield { spaceId: space.name, id: file.name };
+      const files = await readdir(path.join(base, space.name), { withFileTypes: true }).catch(
+        (error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") return [];
+          throw error;
+        },
+      );
+      for (const file of files)
+        if (file.isFile())
+          yield { spaceId: space.name, id: file.name, temporary: file.name.includes(".sealing-") };
     }
   }
 
