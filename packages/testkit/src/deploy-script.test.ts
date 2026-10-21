@@ -227,7 +227,7 @@ describe("production deploy script", () => {
       "docker rmi rakazo-rollback:old",
       "docker tag sha256:running rakazo-rollback:running",
       "docker image prune --force",
-      "docker builder prune --all --force --filter until=24h",
+      "docker builder prune --force --keep-storage 8GB",
     ]);
   });
 
