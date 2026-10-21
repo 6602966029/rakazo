@@ -36,6 +36,12 @@ describe("iosAtLeast", () => {
     expect(iosAtLeast(18)).toBe(true);
     platform.Version = "26.1";
     expect(iosAtLeast(26)).toBe(true);
+    for (const version of [27, "27.0", "27.0.1"]) {
+      platform.Version = version;
+      expect(iosAtLeast(26)).toBe(true);
+      expect(iosAtLeast(27)).toBe(true);
+      expect(iosAtLeast(28)).toBe(false);
+    }
   });
 });
 

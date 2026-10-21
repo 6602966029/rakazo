@@ -228,6 +228,7 @@ import {
 import { setInboxHidden, useSplitView } from "../lib/split-view";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
+import { threadHeaderOptions } from "../lib/thread-header";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
 import { ThreadReadOnlyContext } from "../lib/thread-read-only";
 import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
@@ -437,7 +438,8 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   // Beside the chat list on a wide window, the chat has only the width the list leaves.
   const { split, inboxHidden, contentWidth: windowWidth } = useSplitView();
   const nativeHeaderHeight = useHeaderHeight();
-  const headerHeight = iosAtLeast(26) ? nativeHeaderHeight : 0;
+  const headerOptions = useMemo(() => threadHeaderOptions(tokens.background), [tokens.background]);
+  const headerHeight = headerOptions.headerTransparent ? nativeHeaderHeight : 0;
   const insets = useSafeAreaInsets();
   // An unfolded or tablet window keeps messages and the composer in a centred reading column.
   const columnInset = readableGutter(windowWidth, Math.max(insets.left, insets.right));
@@ -885,8 +887,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       // Inversion swaps the visual edges, so both are hidden. The sides must be hidden too:
       // on an iOS 26 device the side effect of the inverted list covers the whole list and
       // dims every message. "hidden" for top and bottom leaves the sides at "automatic".
-      headerTransparent: iosAtLeast(26),
-      ...(iosAtLeast(26) ? { headerStyle: { backgroundColor: "transparent" } } : {}),
+      ...headerOptions,
       scrollEdgeEffects: { top: "hidden", bottom: "hidden", left: "hidden", right: "hidden" },
       headerTitle: () => (
         <Pressable
@@ -1015,6 +1016,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         : {}),
     });
   }, [
+    headerOptions,
     split,
     inboxHidden,
     readOnly,
