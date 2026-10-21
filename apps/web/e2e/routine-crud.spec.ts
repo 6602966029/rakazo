@@ -85,10 +85,6 @@ test("routine editing updates in place, preserves timezone, deletion persists, a
   await expect(updatedButton).toHaveCount(0);
   expect(await rpc<Routine[]>(page, "routines/list", { botId })).toEqual([]);
 
-  await page.reload();
-  await page.getByRole("button", { name: "Agent computer", exact: true }).click();
-  await expect(updatedButton).toHaveCount(0);
-
   // A routine runs on the bot's model until another is picked.
   await page.getByRole("button", { name: "Create Routine" }).click();
   await page.locator("label:has-text('Name') input").fill("Model check");
@@ -138,6 +134,14 @@ test("routine editing updates in place, preserves timezone, deletion persists, a
   const renamePatch = await saveAndReturn(page, "routines/update");
   for (const column of ["modelProvider", "modelId", "thinkingLevel"])
     expect(renamePatch).not.toHaveProperty(column);
+
+  // The deleted routine stays gone after a reload.
+  await page.reload();
+  await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
+  expect((await rpc<Routine[]>(page, "routines/list", { botId })).map((r) => r.name)).toEqual([
+    "Renamed model check",
+  ]);
+  await expect(updatedButton).toHaveCount(0);
 });
 
 test("invalid advanced cron is rejected without creating a routine", async ({ page }, testInfo) => {
