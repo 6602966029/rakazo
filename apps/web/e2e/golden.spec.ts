@@ -100,9 +100,9 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   // Agent computer toggles the panel. Re-open when closed so Open can refresh computer status.
   const sidePanel = page.getByTestId("side-panel");
   if ((await sidePanel.getAttribute("data-panel")) === "computer") {
-    await page.getByTitle("Agent computer").click();
+    await page.getByRole("button", { name: "Agent computer", exact: true }).click();
   }
-  await page.getByTitle("Agent computer").click();
+  await page.getByRole("button", { name: "Agent computer", exact: true }).click();
   await expect(sidePanel).toHaveAttribute("data-panel", "computer");
   await expect(sidePanel).toHaveCSS("width", "384px");
   const [mainBox, panelBox] = await Promise.all([
@@ -333,7 +333,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await page.getByText("Chief").first().click();
   const gear = page.getByRole("button", { name: "Show settings" });
   if (!(await gear.isVisible().catch(() => false))) {
-    await page.getByTitle("Agent computer").click();
+    await page.getByRole("button", { name: "Agent computer", exact: true }).click();
   }
   await gear.click();
   const downloadPromise = page.waitForEvent("download");

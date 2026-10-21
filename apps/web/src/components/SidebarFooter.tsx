@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useSidebarUpdate } from "./DesktopUpdates";
+import { IconTooltip } from "./IconTooltip";
 
 type Props = {
   name: string;
@@ -226,16 +227,17 @@ export function SidebarFooter({
         </span>
       </Button>
       {update.available ? (
-        <Button
-          size="icon-lg"
-          className="rounded-full"
-          aria-label={t`Install update`}
-          title={t`Install update`}
-          disabled={update.busy}
-          onClick={update.install}
-        >
-          <Download aria-hidden="true" />
-        </Button>
+        <IconTooltip label={t`Install update`}>
+          <Button
+            size="icon-lg"
+            className="rounded-full"
+            aria-label={t`Install update`}
+            disabled={update.busy}
+            onClick={update.install}
+          >
+            <Download aria-hidden="true" />
+          </Button>
+        </IconTooltip>
       ) : null}
     </div>
   );

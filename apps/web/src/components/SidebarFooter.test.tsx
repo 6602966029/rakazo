@@ -112,7 +112,6 @@ it("installs the ready update only through the footer button", async () => {
   const icon = document.querySelector<HTMLButtonElement>('[aria-label="Install update"]')!;
   expect(icon).not.toBeNull();
   expect(document.body.textContent).not.toContain("New update available");
-  expect(icon.title).toBe("Install update");
   await act(async () => icon.click());
   expect(install).toHaveBeenCalledTimes(1);
   expect(

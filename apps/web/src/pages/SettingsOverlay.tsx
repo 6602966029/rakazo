@@ -1,6 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
 import type { AvatarStyle, SpaceMemoryConfig } from "@rakazo/contracts";
-import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
+import {
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+  OptionSelect,
+} from "@rakazo/ui-web";
 import {
   Brain,
   CloudDownload,
@@ -17,7 +24,6 @@ import type { ComponentType } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalRulesSettings } from "../components/ApprovalRulesSettings";
 import { computersAreUnavailable } from "../components/ComputersUnavailableHint";
-import { ListboxSelect } from "../components/ListboxSelect";
 import { hasServerUpdates, useServerUpdateStatus } from "../components/SoftwareUpdateSection";
 import { desktopBridge } from "../lib/desktop";
 import { rpcForSpace } from "../lib/rpc";
@@ -303,14 +309,14 @@ export function SettingsOverlay({
                   {sectionTitle}
                 </DialogTitle>
                 {!spaceScoped ? null : space && spaces.length > 1 && onSpaceChange ? (
-                  <ListboxSelect
+                  <OptionSelect
                     className="w-56"
-                    testId="settings-space"
-                    label={t`Space`}
+                    data-testid="settings-space"
+                    aria-label={t`Space`}
                     options={spaces.map((option) => ({ value: option.id, label: option.name }))}
                     value={space.id}
                     disabled={panelBusy}
-                    onChange={(next) => {
+                    onValueChange={(next) => {
                       if (next !== space.id) leaveSettings(() => onSpaceChange(next));
                     }}
                   />
