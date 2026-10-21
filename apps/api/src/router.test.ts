@@ -2408,15 +2408,17 @@ describe("connections.complete", () => {
     return { complete, connector, securityEvents, row };
   }
 
-  it("records nothing when catalog reconciliation connected the row first", async () => {
+  it("records nothing but keeps the account id when the catalog connected the row first", async () => {
     const { complete, connector, securityEvents, row } = pollFixture("pending");
     // The catalog flips the row while complete is checking with the provider.
     connector.connectionReady.mockImplementation(async () => {
       row.status = "connected";
       return true;
     });
+    Object.assign(connector, { connectedAccountId: vi.fn(async () => "account-1") });
 
     await expect(complete()).resolves.toMatchObject({ body: { json: { status: "connected" } } });
+    expect(row.providerRef).toBe("account-1");
     expect(securityEvents()).toEqual([]);
   });
 

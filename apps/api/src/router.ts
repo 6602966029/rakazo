@@ -5614,8 +5614,9 @@ export function createRouter(deps: RouterDeps) {
                     },
                   );
                   await restoreRevokedForRetry();
-                  // Not a 404: the row is pending again, so clients keep polling and retry.
-                  throw new ORPCError("INTERNAL_SERVER_ERROR");
+                  // Still superseded: stop the poll so it cannot complete the restored row,
+                  // which stays pending in the account list for removal.
+                  throw new IsolationError();
                 }
                 // A newer attempt or a removal superseded this one. Report it so the
                 // caller stops polling instead of retrying an error.
@@ -5768,6 +5769,14 @@ export function createRouter(deps: RouterDeps) {
                 },
               });
               connectedNow = updated.count > 0;
+              if (!connectedNow && providerRef) {
+                // Reconciliation sets only the status; keep the resolved account id so
+                // revoke still deletes the right remote account.
+                await tx.connection.updateMany({
+                  where: { id: current.id, status: "connected" },
+                  data: { providerRef },
+                });
+              }
               const next = await tx.connection.findFirst({
                 where: {
                   id: current.id,
