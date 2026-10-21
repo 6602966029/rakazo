@@ -106,6 +106,29 @@ describe("thread subscription recovery", () => {
     await running;
   });
 
+  it("stops reconnecting once the server rejects the session", async () => {
+    vi.useFakeTimers();
+    const { callbacks } = setup();
+    callbacks.subscribe.mockRejectedValue(
+      Object.assign(new Error("Unauthorized"), { status: 401 }),
+    );
+    await expect(runThreadSubscription(callbacks)).resolves.toBeUndefined();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(callbacks.subscribe).toHaveBeenCalledTimes(1);
+    expect(callbacks.refresh).not.toHaveBeenCalled();
+  });
+
+  it("stops retrying the head lookup once the server rejects the session", async () => {
+    vi.useFakeTimers();
+    const { callbacks } = setup(null);
+    callbacks.loadInitial.mockResolvedValue(null);
+    callbacks.loadHead.mockRejectedValue(Object.assign(new Error("Unauthorized"), { status: 401 }));
+    await expect(runThreadSubscription(callbacks)).resolves.toBeUndefined();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(callbacks.loadHead).toHaveBeenCalledTimes(1);
+    expect(callbacks.subscribe).not.toHaveBeenCalled();
+  });
+
   it("cancels a reconnect delay without rejecting or starting another request", async () => {
     vi.useFakeTimers();
     const { abort, channel, callbacks } = setup();
