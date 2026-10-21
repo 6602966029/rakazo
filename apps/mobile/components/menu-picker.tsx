@@ -1,5 +1,7 @@
 import { MenuView } from "@expo/ui/community/menu";
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
+import { cloneElement, useState } from "react";
+import type { ViewProps } from "react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { native, useMobileTokens, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import { NativeSymbol } from "./native-symbol";
@@ -19,28 +21,40 @@ export function MenuPickerMenu({
   choices: readonly MenuPickerChoice[];
   value: string;
   onChange: (key: string) => void;
-  children: ReactNode;
+  children: ReactElement<ViewProps>;
 }) {
   const colorScheme = useResolvedAppearance();
+  // Native menu hosts size to their contents, so measure outside the host.
+  const [width, setWidth] = useState<number>();
   return (
-    <MenuView
-      actions={choices.map((choice) => ({
-        // MenuView reports an empty id as the title, so prefix keys to keep "" distinct.
-        id: `choice:${choice.key}`,
-        title: choice.label,
-        state: choice.key === value ? "on" : "off",
-      }))}
-      colorScheme={colorScheme}
-      onPressAction={(event) => {
-        const id = event.nativeEvent.event;
-        if (id.startsWith("choice:")) onChange(id.slice("choice:".length));
-      }}
-      title={label}
+    <View
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      style={menuStyles.fullWidth}
     >
-      {children}
-    </MenuView>
+      <MenuView
+        style={menuStyles.fullWidth}
+        actions={choices.map((choice) => ({
+          // MenuView reports an empty id as the title, so prefix keys to keep "" distinct.
+          id: `choice:${choice.key}`,
+          title: choice.label,
+          state: choice.key === value ? "on" : "off",
+        }))}
+        colorScheme={colorScheme}
+        onPressAction={(event) => {
+          const id = event.nativeEvent.event;
+          if (id.startsWith("choice:")) onChange(id.slice("choice:".length));
+        }}
+        title={label}
+      >
+        {cloneElement(children, { style: [children.props.style, menuStyles.fullWidth, { width }] })}
+      </MenuView>
+    </View>
   );
 }
+
+const menuStyles = StyleSheet.create({
+  fullWidth: { alignSelf: "stretch" },
+});
 
 /**
  * A list row that opens a native menu of choices; the current one carries the system checkmark.
@@ -114,7 +128,6 @@ export function MenuPicker({
       </View>
     </MenuPickerMenu>
   );
-  // The native menu sizes to its content; keep the divider at the group width.
   return divider ? <View style={styles.divider}>{menu}</View> : menu;
 }
 

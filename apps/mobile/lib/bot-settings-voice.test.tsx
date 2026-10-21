@@ -19,6 +19,10 @@ const mocks = vi.hoisted(() => ({
   stop: vi.fn(),
   speak: vi.fn(),
   alert: vi.fn(),
+  layouts: new WeakMap<
+    HTMLElement,
+    (event: { nativeEvent: { layout: { width: number } } }) => void
+  >(),
 }));
 const offered = [
   { identifier: "voice-a", name: "Alice", language: "en-US" },
@@ -73,12 +77,14 @@ vi.mock("react-native", () => {
     accessibilityLabel,
     accessibilityRole,
     accessibilityValue,
+    onLayout,
   }: {
     children?: ReactNode;
     style?: unknown;
     accessibilityLabel?: string;
     accessibilityRole?: string;
     accessibilityValue?: { text: string };
+    onLayout?: (event: { nativeEvent: { layout: { width: number } } }) => void;
   }) =>
     createElement(
       "div",
@@ -87,6 +93,9 @@ vi.mock("react-native", () => {
         "aria-label": accessibilityLabel,
         role: accessibilityRole,
         "aria-valuetext": accessibilityValue?.text,
+        ref: (element: HTMLElement | null) => {
+          if (element && onLayout) mocks.layouts.set(element, onLayout);
+        },
       },
       children,
     );
@@ -196,15 +205,17 @@ vi.mock("@expo/ui/community/menu", () => ({
     actions,
     onPressAction,
     children,
+    style,
   }: {
     title: string;
     actions: { id: string; title: string; state: string }[];
     onPressAction: (event: { nativeEvent: { event: string } }) => void;
     children: ReactNode;
+    style?: unknown;
   }) =>
     createElement(
       "section",
-      { "data-menu": title },
+      { "data-menu": title, "data-style": JSON.stringify(style) },
       children,
       ...actions.map((action) =>
         createElement(
@@ -380,11 +391,11 @@ describe("bot settings device voice menu", () => {
     const label = (text: string) => labels.find((item) => item.textContent === text)!;
     expect(label("Device voice").dataset.style).toBe(label("Read replies aloud").dataset.style);
     const row = label("Device voice").parentElement!;
-    expect(row.lastElementChild).toBe(menu());
-    expect(JSON.parse(row.dataset.style!)).toEqual(
+    expect(menu()!.firstElementChild).toBe(row);
+    expect(JSON.parse(row.dataset.style!)[0]).toEqual(
       JSON.parse(label("Read replies aloud").parentElement!.dataset.style!),
     );
-    expect(menu()!.contains(label("Device voice"))).toBe(false);
+    expect(menu()!.contains(label("Device voice"))).toBe(true);
     const trigger = menu()!.firstElementChild!;
     expect(trigger.getAttribute("role")).toBe("button");
     expect(trigger.getAttribute("aria-label")).toBe("Device voice");
@@ -394,6 +405,10 @@ describe("bot settings device voice menu", () => {
       ios: "chevron.up.chevron.down",
       android: "chevron-expand",
     });
+    await act(async () =>
+      mocks.layouts.get(menu()!.parentElement!)!({ nativeEvent: { layout: { width: 320 } } }),
+    );
+    expect(JSON.parse(row.dataset.style!).at(-1)).toEqual({ width: 320 });
     await act(async () => actions[1]!.click());
     expect(mocks.setVoiceForBot).toHaveBeenCalledWith("bot-fixture", "voice-b");
     expect(mocks.stopVoicePlayback).toHaveBeenCalledOnce();
@@ -530,4 +545,34 @@ describe("bot settings device voice menu", () => {
     expect(onChange).toHaveBeenCalledWith("");
     expect(container.querySelector("i")!.dataset.ios).toBe("chevron.up.chevron.down");
   });
+
+  it.each([false, true])(
+    "sizes the menu trigger to its measured width (plain=%s)",
+    async (plain) => {
+      await act(async () =>
+        root.render(
+          <MenuPicker
+            choices={[{ key: "", label: "Space default" }]}
+            divider
+            label="Model"
+            onChange={vi.fn()}
+            plain={plain}
+            value=""
+          />,
+        ),
+      );
+      const nativeMenu = container.querySelector<HTMLElement>('[data-menu="Model"]')!;
+      const trigger = nativeMenu.firstElementChild as HTMLElement;
+      const triggerStyle = () => Object.assign({}, ...JSON.parse(trigger.dataset.style!).flat());
+      expect(triggerStyle()).toMatchObject({ alignSelf: "stretch" });
+      expect(triggerStyle().width).toBeUndefined();
+      expect(JSON.parse(nativeMenu.dataset.style!)).toEqual({ alignSelf: "stretch" });
+      for (const width of [320, 480]) {
+        await act(async () =>
+          mocks.layouts.get(nativeMenu.parentElement!)!({ nativeEvent: { layout: { width } } }),
+        );
+        expect(triggerStyle().width).toBe(width);
+      }
+    },
+  );
 });
