@@ -1,0 +1,279 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createDb, type PrismaClient } from "./client.js";
+import { databaseUrls, describeRowSecurity } from "./database-access.js";
+import { ROW_SECURITY_MODELS, runAsSystem, runAsTenant } from "./row-security.js";
+
+// Needs DATABASE_URL as the runtime login and DATABASE_MIGRATION_URL as the
+// owner, as `pnpm test:integration` provides after `pnpm db:migrate`.
+const runtimeUrl = process.env.DATABASE_URL;
+const migrationUrl = process.env.DATABASE_MIGRATION_URL;
+const describePostgres =
+  process.env.VERIFY_DATABASE && runtimeUrl && migrationUrl && runtimeUrl !== migrationUrl
+    ? describe.sequential
+    : describe.skip;
+
+describePostgres("row-level security (PostgreSQL)", () => {
+  const suffix = `${process.pid}-${Date.now()}`;
+  const organizationId = `rls-org-${suffix}`;
+  const tenants = ["a", "b"].map((name) => ({
+    name,
+    userId: `rls-user-${name}-${suffix}`,
+    spaceId: `rls-space-${name}-${suffix}`,
+    botId: `rls-bot-${name}-${suffix}`,
+    threadId: `rls-thread-${name}-${suffix}`,
+    documentId: `rls-doc-${name}-${suffix}`,
+    secretId: `rls-secret-${name}-${suffix}`,
+    personalSecretId: `rls-personal-${name}-${suffix}`,
+  }));
+  const [a, b] = tenants as [(typeof tenants)[0], (typeof tenants)[0]];
+  let owner: ReturnType<typeof createDb>;
+  let app: ReturnType<typeof createDb>;
+  let db: PrismaClient;
+
+  beforeAll(async () => {
+    owner = createDb(migrationUrl!);
+    app = createDb(runtimeUrl!, { poolMax: 4 });
+    db = app.prisma;
+    const o = owner.prisma;
+    await o.organization.create({
+      data: { id: organizationId, name: "RLS", slug: organizationId, createdAt: new Date() },
+    });
+    for (const t of tenants) {
+      await o.user.create({
+        data: { id: t.userId, name: t.name, email: `${t.userId}@rakazo.test`, emailVerified: true },
+      });
+      await o.space.create({ data: { id: t.spaceId, organizationId, name: t.name } });
+      await o.bot.create({
+        data: { id: t.botId, spaceId: t.spaceId, userId: t.userId, name: t.name, color: "#000" },
+      });
+      await o.thread.create({
+        data: { id: t.threadId, spaceId: t.spaceId, userId: t.userId, botId: t.botId },
+      });
+      await o.message.create({
+        data: { threadId: t.threadId, seq: 1, role: "user", blocks: [{ text: t.name }] },
+      });
+      await o.event.create({
+        data: {
+          spaceId: t.spaceId,
+          threadId: t.threadId,
+          botId: t.botId,
+          seq: 1,
+          type: "note",
+          payload: {},
+        },
+      });
+      await o.memoryDocument.create({
+        data: {
+          id: t.documentId,
+          spaceId: t.spaceId,
+          userId: t.userId,
+          scope: "space",
+          path: "notes.md",
+          content: t.name,
+          revisions: { create: { revision: 1, content: t.name } },
+        },
+      });
+      await o.artifact.create({
+        data: {
+          spaceId: t.spaceId,
+          userId: t.userId,
+          name: "a.txt",
+          mimeType: "text/plain",
+          size: 1,
+          hash: "h",
+          storageKey: `k-${t.name}-${suffix}`,
+        },
+      });
+      await o.secret.create({
+        data: {
+          id: t.secretId,
+          userId: t.userId,
+          spaceId: t.spaceId,
+          kind: "test",
+          ciphertext: "c",
+        },
+      });
+      await o.secret.create({
+        data: { id: t.personalSecretId, userId: t.userId, kind: "model", ciphertext: "c" },
+      });
+      await o.userModelCredential.create({
+        data: { userId: t.userId, provider: "p", label: "l", secretId: t.personalSecretId },
+      });
+    }
+  });
+
+  afterAll(async () => {
+    if (!owner) return;
+    await owner.prisma.organization.deleteMany({ where: { id: organizationId } });
+    await owner.prisma.user.deleteMany({ where: { id: { in: tenants.map((t) => t.userId) } } });
+    for (const handle of [owner, app]) {
+      await handle.prisma.$disconnect();
+      await handle.pool.end();
+    }
+  });
+
+  const threadIds = () => tenants.map((t) => t.threadId);
+  const visible = () =>
+    Promise.all([
+      db.thread.findMany({ where: { id: { in: threadIds() } }, select: { id: true } }),
+      db.message.findMany({ where: { threadId: { in: threadIds() } }, select: { threadId: true } }),
+      db.event.findMany({ where: { threadId: { in: threadIds() } }, select: { threadId: true } }),
+      db.memoryDocument.findMany({
+        where: { id: { in: tenants.map((t) => t.documentId) } },
+        select: { id: true },
+      }),
+      db.memoryRevision.findMany({
+        where: { documentId: { in: tenants.map((t) => t.documentId) } },
+        select: { documentId: true },
+      }),
+      db.artifact.findMany({
+        where: { spaceId: { in: tenants.map((t) => t.spaceId) } },
+        select: { spaceId: true },
+      }),
+      db.secret.findMany({
+        where: { userId: { in: tenants.map((t) => t.userId) } },
+        select: { id: true },
+      }),
+      db.userModelCredential.findMany({
+        where: { userId: { in: tenants.map((t) => t.userId) } },
+        select: { userId: true },
+      }),
+    ]).then(
+      ([threads, messages, events, documents, revisions, artifacts, secrets, credentials]) => ({
+        threads: threads.map((row) => row.id),
+        messages: messages.map((row) => row.threadId),
+        events: events.map((row) => row.threadId),
+        documents: documents.map((row) => row.id),
+        revisions: revisions.map((row) => row.documentId),
+        artifacts: artifacts.map((row) => row.spaceId),
+        secrets: secrets.map((row) => row.id).sort(),
+        credentials: credentials.map((row) => row.userId),
+      }),
+    );
+
+  it("connects as a login that cannot bypass the policies", async () => {
+    await expect(describeRowSecurity(db)).resolves.toMatchObject({ enforced: true });
+    expect(databaseUrls(process.env).separate).toBe(true);
+    await expect(db.$executeRawUnsafe("CREATE TABLE rls_probe (id int)")).rejects.toThrow();
+  });
+
+  it("returns no rows and rejects writes without a context", async () => {
+    expect(await visible()).toEqual({
+      threads: [],
+      messages: [],
+      events: [],
+      documents: [],
+      revisions: [],
+      artifacts: [],
+      secrets: [],
+      credentials: [],
+    });
+    await expect(
+      db.message.create({ data: { threadId: a.threadId, seq: 50, role: "user", blocks: [] } }),
+    ).rejects.toThrow();
+    const raw = await db.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM messages`;
+    expect(Number(raw[0]!.count)).toBe(0);
+  });
+
+  it("limits a tenant to its own Space and user", async () => {
+    expect(await runAsTenant(a, visible)).toEqual({
+      threads: [a.threadId],
+      messages: [a.threadId],
+      events: [a.threadId],
+      documents: [a.documentId],
+      revisions: [a.documentId],
+      artifacts: [a.spaceId],
+      secrets: [a.personalSecretId, a.secretId].sort(),
+      credentials: [a.userId],
+    });
+    // Another tenant's ids are invisible even when asked for directly.
+    expect(
+      await runAsTenant(b, () => db.thread.findUnique({ where: { id: a.threadId } })),
+    ).toBeNull();
+    expect(
+      await runAsTenant(b, () =>
+        db.memoryDocument.updateMany({ where: { id: a.documentId }, data: { content: "x" } }),
+      ),
+    ).toEqual({ count: 0 });
+    await expect(
+      runAsTenant(b, () =>
+        db.message.create({ data: { threadId: a.threadId, seq: 51, role: "user", blocks: [] } }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("keeps normal reads, writes and transactions working for the tenant", async () => {
+    const count = await runAsTenant(b, () =>
+      db.$transaction(async (tx) => {
+        await tx.message.create({
+          data: { threadId: b.threadId, seq: 2, role: "assistant", blocks: [] },
+        });
+        return tx.message.count({ where: { threadId: { in: threadIds() } } });
+      }),
+    );
+    expect(count).toBe(2);
+    const thread = await runAsTenant(b, () =>
+      db.thread.findUniqueOrThrow({ where: { id: b.threadId }, include: { messages: true } }),
+    );
+    expect(thread.messages).toHaveLength(2);
+    // findUnique by a compound key, and a fluent relation read.
+    const byKey = { where: { threadId_seq: { threadId: b.threadId, seq: 1 } } };
+    expect(await runAsTenant(b, () => db.message.findUnique(byKey))).toMatchObject({ seq: 1 });
+    expect(await runAsTenant(a, () => db.message.findUnique(byKey))).toBeNull();
+    await expect(runAsTenant(a, () => db.message.findUniqueOrThrow(byKey))).rejects.toThrow();
+    const fluent = await runAsTenant(b, () =>
+      db.thread.findUnique({ where: { id: b.threadId } }).messages(),
+    );
+    expect(fluent).toHaveLength(2);
+  });
+
+  it("never lets one tenant's settings reach another's query", async () => {
+    // A small pool forces queued checkouts and connection reuse across tenants,
+    // and same-tick findUnique calls exercise Prisma's batching.
+    for (let round = 0; round < 5; round += 1) {
+      const results = await Promise.all(
+        Array.from({ length: 24 }, (_, index) => {
+          const tenant = tenants[index % 2]!;
+          const read = [
+            () =>
+              db.$transaction((tx) => tx.thread.findMany({ where: { id: { in: threadIds() } } })),
+            () => db.thread.findMany({ where: { id: { in: threadIds() } } }),
+            () =>
+              Promise.all(
+                tenants.map((t) => db.thread.findUnique({ where: { id: t.threadId } })),
+              ).then((rows) => rows.filter((row) => row !== null)),
+          ][index % 3]!;
+          return runAsTenant(tenant, read).then((rows) => ({
+            expected: tenant.threadId,
+            ids: rows.map((row) => row.id),
+          }));
+        }),
+      );
+      for (const { expected, ids } of results) expect(ids).toEqual([expected]);
+    }
+    expect(await db.thread.count({ where: { id: { in: threadIds() } } })).toBe(0);
+  });
+
+  it("rejects batch transactions inside a context", async () => {
+    await expect(runAsTenant(a, () => db.$transaction([db.thread.count()]))).rejects.toThrow(
+      /interactive transaction/,
+    );
+  });
+
+  it("lets an explicit system context work across tenants", async () => {
+    const all = await runAsSystem("row-level security test", visible);
+    expect(all.threads.sort()).toEqual(threadIds().sort());
+    expect(all.secrets).toHaveLength(4);
+  });
+
+  it("protects exactly the tables the client treats as protected", async () => {
+    const rows = await owner.prisma.$queryRaw<Array<{ relname: string }>>`
+      SELECT relname FROM pg_class
+      WHERE relnamespace = 'public'::regnamespace AND relkind = 'r' AND relrowsecurity`;
+    const tables = rows.map((row) => row.relname).sort();
+    const mapped = [...ROW_SECURITY_MODELS].map((model) =>
+      model.replace(/[A-Z]/g, (letter, index) => `${index ? "_" : ""}${letter.toLowerCase()}`),
+    );
+    expect(tables).toEqual(mapped.map((name) => `${name}s`).sort());
+  });
+});
