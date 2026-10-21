@@ -116,8 +116,10 @@ describePostgres("row-level security (PostgreSQL)", () => {
           scope: "space",
           path: "notes.md",
           content: t.name,
-          revisions: { create: { revision: 1, content: t.name } },
         },
+      });
+      await o.memoryRevision.create({
+        data: { documentId: t.documentId, revision: 1, content: t.name },
       });
       await o.artifact.create({
         data: {

@@ -68,6 +68,7 @@ export function createDb(
     keepAlive: true,
   });
   keyPool.on("error", () => undefined);
+  installDbContext(keyPool);
   const end = pool.end.bind(pool) as () => Promise<void>;
   pool.end = (async () => {
     await keyPool.end().catch(() => undefined);
