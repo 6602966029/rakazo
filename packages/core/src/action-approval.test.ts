@@ -3,15 +3,18 @@ import {
   type ActionApprovalRule,
   applyJudgeDecision,
   connectorKindFromToolName,
+  connectorReadRequiresApproval,
   connectorToolRequiresApproval,
   isApprovalAskBlock,
   isOwnerStartedRun,
   isSecretAskBlock,
+  outboundSiteGate,
   planActionGate,
   resolveActionApproval,
   resolveActionApprovalDetail,
   toolRequiresApproval,
   toolRequiresExplicitApproval,
+  toolResultTaintsRun,
   unattendedTriggerToolRequiresApproval,
   watchToolRefusal,
 } from "./action-approval.js";
@@ -393,6 +396,19 @@ describe("planActionGate", () => {
     ).toBe("allow");
   });
 
+  it("asks before a new site unless a rule always allows it, without judging", () => {
+    const gate = (source: "default" | "always_allow") =>
+      planActionGate({
+        resolved: { decision: "allow", source, matchingRules: [] },
+        consequential,
+        autoReviewEnabled: true,
+        checkerConfigured: true,
+        newDestination: true,
+      });
+    expect(gate("default")).toBe("ask");
+    expect(gate("always_allow")).toBe("allow");
+  });
+
   it("does not judge non-consequential tools", () => {
     expect(
       planActionGate({
@@ -448,5 +464,112 @@ describe("watchToolRefusal", () => {
         rules: [rule("tool", "brain_search", "always_allow")],
       }),
     ).toBeNull();
+  });
+});
+
+describe("outboundSiteGate", () => {
+  const siteRule: ActionApprovalRule = {
+    effect: "always_allow",
+    matchKind: "site",
+    matchValue: "example.com",
+  };
+
+  it("lets a run reach sites it was given", () => {
+    expect(
+      outboundSiteGate({ trigger: "user", site: "example.com", trusted: true, rules: [] }),
+    ).toBe("allow");
+  });
+
+  it("asks before a new site in a run a person can answer", () => {
+    for (const trigger of ["user", "follow_up", "routine", "bot_message", "messaging"]) {
+      expect(outboundSiteGate({ trigger, site: "attacker.test", trusted: false, rules: [] })).toBe(
+        "ask",
+      );
+    }
+  });
+
+  it("refuses a new site in a webhook run and never allows it on its own", () => {
+    expect(
+      outboundSiteGate({ trigger: "webhook", site: "attacker.test", trusted: false, rules: [] }),
+    ).toBe("deny");
+    expect(
+      outboundSiteGate({
+        trigger: "webhook",
+        site: "attacker.test",
+        trusted: false,
+        rules: [{ effect: "always_allow", matchKind: "tool", matchValue: "web_fetch" }],
+      }),
+    ).toBe("deny");
+  });
+
+  it("allows a site the owner always allowed, even in a webhook run", () => {
+    for (const trigger of ["user", "webhook"]) {
+      expect(
+        outboundSiteGate({ trigger, site: "example.com", trusted: false, rules: [siteRule] }),
+      ).toBe("allow");
+    }
+    expect(
+      outboundSiteGate({
+        trigger: "webhook",
+        site: "other.com",
+        trusted: false,
+        rules: [siteRule],
+      }),
+    ).toBe("deny");
+  });
+
+  it("matches site rules ahead of tool rules", () => {
+    expect(
+      resolveActionApprovalDetail({
+        toolName: "web_fetch",
+        site: "example.com",
+        rules: [
+          { effect: "require_approval", matchKind: "tool", matchValue: "web_fetch" },
+          siteRule,
+        ],
+      }).decision,
+    ).toBe("allow");
+    expect(
+      resolveActionApprovalDetail({ toolName: "web_fetch", site: "other.com", rules: [siteRule] })
+        .source,
+    ).toBe("default");
+  });
+});
+
+describe("connectorReadRequiresApproval", () => {
+  it("keeps reads free until outside content enters the run", () => {
+    expect(connectorReadRequiresApproval({ tainted: false, connectorTrusted: false })).toBe(false);
+  });
+
+  it("keeps reads free on a connector the run already used or was approved for", () => {
+    expect(connectorReadRequiresApproval({ tainted: true, connectorTrusted: true })).toBe(false);
+  });
+
+  it("asks before a read on a new connector once the run is tainted", () => {
+    expect(connectorReadRequiresApproval({ tainted: true, connectorTrusted: false })).toBe(true);
+  });
+});
+
+describe("toolResultTaintsRun", () => {
+  it("treats outside content as taint, including connector tools and new tools", () => {
+    for (const tool of [
+      "web_fetch",
+      "web_search",
+      "browser_snapshot",
+      "computer_observe",
+      "shell",
+      "read_file",
+      "run_subagent",
+      "gmail_list_messages",
+      "some_future_tool",
+    ]) {
+      expect(toolResultTaintsRun(tool)).toBe(true);
+    }
+  });
+
+  it("does not taint on the bot's own writes and saved state", () => {
+    for (const tool of ["ask_user", "remember", "recall_memory", "skill_read", "write_file"]) {
+      expect(toolResultTaintsRun(tool)).toBe(false);
+    }
   });
 });
