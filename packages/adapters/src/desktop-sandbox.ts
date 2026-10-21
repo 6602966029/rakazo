@@ -54,8 +54,8 @@ import { hostCommandEnvironment } from "./sandbox-command-environment.js";
 const O_NOFOLLOW = constants.O_NOFOLLOW ?? 0;
 
 /**
- * Bot commands run directly as this OS user, so only the desktop app's own process (the local
- * computer bridge) or a local development or test process may host them. Server images set
+ * Bot commands run directly as this OS user, so a backend may select SANDBOX_PROVIDER=desktop
+ * only inside the desktop app or a local development or test process. Server images set
  * NODE_ENV=production and must use an isolated provider.
  */
 export function assertHostCommandsAllowed(
@@ -146,9 +146,7 @@ export class DesktopSandboxProvider implements SandboxProvider {
 
   constructor(
     private readonly opts: { root?: string; hostRoots?: string[]; maxFileBytes?: number } = {},
-  ) {
-    assertHostCommandsAllowed();
-  }
+  ) {}
 
   describe() {
     return describeDesktopSandbox();

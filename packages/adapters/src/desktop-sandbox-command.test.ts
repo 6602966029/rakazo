@@ -32,6 +32,16 @@ describe("desktop command execution", () => {
     expect(() => assertHostCommandsAllowed({ NODE_ENV: "test" }, node)).not.toThrow();
   });
 
+  it("leaves the desktop app's own bridge free to build the provider", () => {
+    // The guard sits where a backend selects SANDBOX_PROVIDER=desktop, not in the constructor.
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      expect(() => new DesktopSandboxProvider()).not.toThrow();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("gives commands a shell environment and the request env, never backend secrets", async () => {
     const root = mkdtempSync(path.join(tmpdir(), "rakazo-desktop-command-"));
     roots.push(root);
