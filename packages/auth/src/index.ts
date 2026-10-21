@@ -34,7 +34,7 @@ import type { OidcConfig } from "./oidc.js";
 import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
 import { passkeyRelyingParty } from "./passkey.js";
 import type { TokenKey } from "./token-storage.js";
-import { encryptStoredOAuthTokens, sealIdToken } from "./token-storage.js";
+import { encryptStoredOAuthTokens, openIdToken, sealIdToken } from "./token-storage.js";
 
 export type { OidcConfig } from "./oidc.js";
 export { passkeyRelyingParty } from "./passkey.js";
@@ -598,7 +598,17 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
         if (ctx.path === "/sign-up/email") {
           await releaseSignupGate(String(ctx.body?.email ?? ""));
         }
-        const redacted = withoutSessionTokens(ctx.path, ctx.context.returned);
+        const returned = ctx.context.returned;
+        // These routes fall back to the stored ID token, which is sealed at rest.
+        if (
+          (ctx.path === "/get-access-token" || ctx.path === "/refresh-token") &&
+          isRecord(returned) &&
+          typeof returned.idToken === "string"
+        ) {
+          const idToken = await openIdToken(ctx.context.secretConfig, returned.idToken);
+          return ctx.json({ ...returned, idToken: idToken ?? undefined });
+        }
+        const redacted = withoutSessionTokens(ctx.path, returned);
         if (redacted) return ctx.json(redacted);
       }),
     },

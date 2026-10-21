@@ -331,6 +331,12 @@ describe("OIDC callbacks", () => {
     expect(String(first.idToken)).not.toContain(".");
     expect(await openIdToken(secret, String(first.idToken))).toMatch(/^ey/);
     expect(await (await request("/account-security")).json()).toMatchObject({ ssoLinked: true });
+    const tokens = await request("/get-access-token", { accountId: String(first.id) });
+    expect(tokens.status, await tokens.clone().text()).toBe(200);
+    expect(await tokens.json()).toMatchObject({
+      accessToken: "fake-access-token",
+      idToken: await openIdToken(secret, String(first.idToken)),
+    });
     cookies = "";
     const again = await signIn();
     expect(again.headers.get("location")).toBe(`${origin}/app`);
