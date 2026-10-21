@@ -397,6 +397,9 @@ describe("chat model list", () => {
     mocks.params = { botId: "bot-fixture", value: "openrouter::vendor/model-2" };
     await act(async () => root.render(<BotModelScreen />));
     expect(rows()).toHaveLength(12);
+    expect(mocks.setOptions.mock.lastCall![0].headerSearchBarOptions).toMatchObject({
+      hideNavigationBar: false,
+    });
     expect(mocks.listProps).toMatchObject({
       automaticallyAdjustKeyboardInsets: true,
       contentInsetAdjustmentBehavior: "automatic",

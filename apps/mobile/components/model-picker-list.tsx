@@ -44,6 +44,7 @@ export function ModelPickerList({
       headerSearchBarOptions: {
         placeholder: t("Search"),
         hideWhenScrolling: false,
+        hideNavigationBar: false,
         autoCapitalize: "none",
         onChangeText: (event: { nativeEvent: { text: string } }) =>
           setQuery(event.nativeEvent.text),
@@ -151,11 +152,11 @@ export function ModelPickerList({
 
 function createStyles() {
   return StyleSheet.create({
-    screen: { flex: 1, backgroundColor: native.groupedPage },
+    screen: { flex: 1, backgroundColor: native.page },
     content: { paddingHorizontal: 16, paddingTop: 16 },
     sectionHeading: { paddingBottom: 7 },
     sectionGap: { height: 20 },
-    cell: { backgroundColor: native.groupedCell, overflow: "hidden" },
+    cell: { backgroundColor: native.fill, overflow: "hidden" },
     first: { borderTopLeftRadius: 16, borderTopRightRadius: 16, borderCurve: "continuous" },
     last: { borderBottomLeftRadius: 16, borderBottomRightRadius: 16, borderCurve: "continuous" },
     separator: {
@@ -165,7 +166,7 @@ function createStyles() {
     },
     search: {
       color: native.label,
-      backgroundColor: native.groupedCell,
+      backgroundColor: native.fill,
       borderRadius: 10,
       padding: 12,
       marginBottom: 16,
