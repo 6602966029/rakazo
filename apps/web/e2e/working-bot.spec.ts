@@ -39,6 +39,16 @@ test("delegated work stays working and stoppable with a newer queued run", async
         leaseExpiresAt: new Date(Date.now() + 600_000),
       },
     });
+    // Keep reconciled queued work waiting behind the running fixture's computer lease.
+    await prisma.computerExecutionLease.create({
+      data: {
+        computerId: stored.computerId!,
+        botId: bot.id,
+        runId: running.id,
+        fence: 1,
+        expiresAt: running.leaseExpiresAt!,
+      },
+    });
     const queuedTask = await prisma.task.create({
       data: { ...scope, prompt: "Inspect the next sample", status: "queued" },
     });
