@@ -374,6 +374,7 @@ msgstr "מודל פעיל"
 msgid "Activity"
 msgstr "פעילות"
 
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -860,11 +861,6 @@ msgstr "לוח"
 #: src/pages/Shell.tsx
 msgid "Booting live desktop…"
 msgstr "מפעיל שולחן עבודה חי…"
-
-#. placeholder {0}: computerBot?.name ?? active?.name
-#: src/pages/Shell.tsx
-msgid "Booting up {0}’s computer"
-msgstr "מפעיל את המחשב של {0}"
 
 #: src/pages/Shell.tsx
 msgid "bot"
@@ -2254,6 +2250,10 @@ msgstr "שכפול"
 msgid "e.g. Hivenet Agent, Presales, Timesheets bot"
 msgstr "לדוגמה: Hivenet Agent, Presales, בוט דיווח שעות"
 
+#: src/pages/McpServersOverlay.tsx
+msgid "Each name can be used once."
+msgstr "ניתן להשתמש בכל שם פעם אחת בלבד."
+
 #: src/components/AskCard.tsx
 msgid "Edit"
 msgstr "עריכה"
@@ -2316,6 +2316,10 @@ msgstr "יש להזין מספר שלם בין 1 ל-1000 עבור מגבלת ה�
 #: src/lib/model-connection-preflight.ts
 msgid "Enter an API key before testing."
 msgstr "יש להזין מפתח API לפני הבדיקה."
+
+#: src/pages/McpServersOverlay.tsx
+msgid "Environment variables"
+msgstr "משתני סביבה"
 
 #: src/lib/roster-status.ts
 #: src/pages/Shell.tsx
@@ -3223,6 +3227,7 @@ msgstr ""
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3918,6 +3923,7 @@ msgid "Reload"
 msgstr "טעינה מחדש"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -5162,6 +5168,7 @@ msgstr "שם משתמש"
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "משתמש בפרטי הגישה של {hostCredentialSource} של השרת עצמו כדי לגשת ל-{selectedProviderName}."
 
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
 msgstr "ערך"
