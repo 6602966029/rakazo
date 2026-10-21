@@ -24,7 +24,6 @@ import {
   clampCatalogThinkingLevel,
   compatibleModelRows,
   createModelProbe,
-  featuredModelProviders,
   groupModelChoices,
   initialModelProbeState,
   pickCatalogModelId,
@@ -105,7 +104,7 @@ type ModelSelection = {
   modelId?: string;
 };
 
-type FeedbackAnchor = "probe" | "model" | "connection";
+type FeedbackAnchor = "probe" | "model" | "connection" | "limits";
 
 export default function Models() {
   const styles = useThemedStyles(createModelsStyles);
@@ -128,7 +127,6 @@ export default function Models() {
   const [provider, setProvider] = useState("");
   // The provider whose optional personal-key form is open.
   const [ownKeyProvider, setOwnKeyProvider] = useState<string | null>(null);
-  const [showAllProviders, setShowAllProviders] = useState(false);
   const [modelId, setModelId] = useState("");
   const [enabledModelIds, setEnabledModelIds] = useState<string[]>([]);
   const [apiKey, setApiKey] = useState("");
@@ -153,6 +151,7 @@ export default function Models() {
   const [pending, setPending] = useState<"connect" | "default" | "disconnect" | null>(null);
   const [oauthPending, setOauthPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [backupModels, setBackupModels] = useState<ModelBackupChoice[]>([]);
   const [savedBackupModels, setSavedBackupModels] = useState<ModelBackupChoice[]>([]);
   const [backupLoading, setBackupLoading] = useState(true);
@@ -183,15 +182,17 @@ export default function Models() {
     const nextError = next.error ?? null;
     setFeedbackAnchor(anchor);
     setError(nextError);
+    setSavedNotice(next.notice === t("Saved.") ? next.notice : null);
     const message = nextError ?? next.notice ?? null;
     // VoiceOver keeps focus on the tapped button, so speak the result from here.
-    // Success is spoken only: the selection already shows the active model.
+    // Saved limits also show their result beside the button that was pressed.
     if (message) AccessibilityInfo.announceForAccessibility(message);
   }
 
   function clearFeedback() {
     setFeedbackAnchor("connection");
     setError(null);
+    setSavedNotice(null);
   }
 
   const copyOAuthCode = useCallback((code: string) => {
@@ -405,18 +406,6 @@ export default function Models() {
       (group) => group.id,
     );
   }, [catalog]);
-  const featuredProviders = useMemo(
-    () =>
-      featuredModelProviders(
-        groups.map((group) => group.entries[0]!),
-        provider,
-      ),
-    [groups, provider],
-  );
-  const connectedProviderIds = useMemo(
-    () => new Set(credentials.map((entry) => entry.provider)),
-    [credentials],
-  );
   const credentialByProvider = useMemo(
     () => new Map(credentials.map((entry) => [entry.provider, entry])),
     [credentials],
@@ -435,23 +424,6 @@ export default function Models() {
   );
   const backupDirty = !sameBackupChoices(savedBackupModels, backupModels);
   const backupLocked = !backupReady || backupLoading || backupSaving;
-  // Connected providers always get their own top section; the rest follow the
-  // curated order (featured first, everything behind "Show more").
-  const connectedGroups = useMemo(
-    () => groups.filter((group) => connectedProviderIds.has(group.id)),
-    [groups, connectedProviderIds],
-  );
-  const otherGroups = useMemo(() => {
-    const list = showAllProviders
-      ? groups
-      : (() => {
-          const byId = new Map(groups.map((group) => [group.id, group]));
-          return featuredProviders
-            .map((entry) => byId.get(entry.provider))
-            .filter((group): group is (typeof groups)[number] => group !== undefined);
-        })();
-    return list.filter((group) => !connectedProviderIds.has(group.id));
-  }, [groups, featuredProviders, showAllProviders, connectedProviderIds]);
   const modelsForProvider = catalog.filter((entry) => entry.provider === provider);
   const selected = modelsForProvider.find((entry) => entry.id === modelId) ?? modelsForProvider[0];
   const selectedProviderLabel = selected?.providerName ?? selected?.provider;
@@ -520,7 +492,11 @@ export default function Models() {
     baseUrl: effectiveBaseUrl,
     modelId,
   });
-  const builtinLimitSave = !isOpenAiCompatible && Boolean(credential) && apiKey.trim().length === 0;
+  const limitsDirty = maxTokens !== connectionMaxTokensField(provider, credential?.maxTokens);
+  const gatewayDirty =
+    accountId.trim() !== (credential?.accountId ?? "") ||
+    gatewayId.trim() !== (credential?.gatewayId ?? "");
+  const gatewayOnlySave = isCloudflareGateway && Boolean(credential) && !apiKey.trim();
 
   function updateBaseUrl(nextBaseUrl: string) {
     setBaseUrl(nextBaseUrl);
@@ -533,6 +509,7 @@ export default function Models() {
   function updateApiKey(nextApiKey: string) {
     setApiKey(nextApiKey);
     resetOpenAiCompatibleProbe();
+    clearFeedback();
   }
 
   function chooseProvider(nextProvider: string) {
@@ -673,9 +650,10 @@ export default function Models() {
     );
   }
 
-  async function connectKey() {
+  async function connectKey(limitsOnly = false) {
     if (!selected) return;
-    const savingLimitOnly = !isOpenAiCompatible && !apiKey.trim();
+    const anchor = limitsOnly ? "limits" : "connection";
+    const savingLimitOnly = !isOpenAiCompatible && (limitsOnly || !apiKey.trim());
     const activeModelId = isOpenAiCompatible ? modelId.trim() : selected.id;
     const supportedThinking = isOpenAiCompatible
       ? reasoning
@@ -697,9 +675,10 @@ export default function Models() {
     // Drop the previous result before the limit check so it cannot sit beside the new one.
     Keyboard.dismiss();
     clearFeedback();
+    setFeedbackAnchor(anchor);
     const parsedMaxTokens = maxTokens.trim() ? parseModelMaxTokens(maxTokens) : undefined;
     if ((isOpenAiCompatible || maxTokens.trim()) && parsedMaxTokens === undefined) {
-      publishFeedback("connection", {
+      publishFeedback(anchor, {
         error: t("Enter a whole number from 1 to {max} for maximum output tokens.", {
           max: MAX_MODEL_MAX_TOKENS,
         }),
@@ -715,7 +694,7 @@ export default function Models() {
       maxImagesPerPrompt.trim() &&
       parsedMaxImagesPerPrompt === undefined
     ) {
-      publishFeedback("connection", {
+      publishFeedback(anchor, {
         error: t("Enter a whole number from 1 to 1000 for the image limit."),
       });
       return;
@@ -726,7 +705,7 @@ export default function Models() {
       ? parseModelContextWindow(contextWindow)
       : undefined;
     if (isOpenAiCompatible && parsedContextWindow === undefined) {
-      publishFeedback("connection", {
+      publishFeedback(anchor, {
         error: t("Enter a whole number from 1 to {max} for the context limit.", {
           max: MAX_MODEL_CONTEXT_WINDOW,
         }),
@@ -756,7 +735,7 @@ export default function Models() {
             }
           : {
               provider: selected.provider,
-              ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+              ...(!savingLimitOnly ? { apiKey: apiKey.trim() } : {}),
               ...(provider === CLOUDFLARE_AI_GATEWAY_PROVIDER_ID
                 ? { accountId: accountId.trim(), gatewayId: gatewayId.trim() }
                 : {}),
@@ -769,16 +748,16 @@ export default function Models() {
               label: selected.providerName ?? selected.provider,
             },
       );
-      setApiKey("");
+      if (!limitsOnly) setApiKey("");
       await load({ provider, modelId });
-      publishFeedback("connection", {
+      publishFeedback(anchor, {
         notice:
           isOpenAiCompatible || savingLimitOnly
             ? t("Saved.")
             : t("Connected and using {label}.", { label: selected.label }),
       });
     } catch (err) {
-      publishFeedback("connection", {
+      publishFeedback(anchor, {
         error: errorText(err, t("Could not connect this provider")),
       });
     } finally {
@@ -885,7 +864,11 @@ export default function Models() {
     }
   }
 
-  const feedback = error ? <Text style={styles.error}>{error}</Text> : null;
+  const feedback = error ? (
+    <Text style={styles.error}>{error}</Text>
+  ) : savedNotice ? (
+    <Text style={styles.secondary}>{savedNotice}</Text>
+  ) : null;
 
   function disclosureRow(label: string, expanded: boolean, onPress: () => void) {
     return (
@@ -1091,7 +1074,15 @@ export default function Models() {
             </View>
           </View>
           {limitField(t("Context limit"), contextWindow, setContextWindow, 7)}
-          {limitField(t("Maximum output tokens"), maxTokens, setMaxTokens, 6)}
+          {limitField(
+            t("Maximum output tokens"),
+            maxTokens,
+            (value) => {
+              setMaxTokens(value);
+              clearFeedback();
+            },
+            6,
+          )}
           {supportsImages
             ? limitField(
                 t("Maximum images per request"),
@@ -1155,10 +1146,51 @@ export default function Models() {
       </View>
     ) : null;
 
+  const providerRow = (
+    <SettingsRow
+      title={t("Provider")}
+      value={selectedProviderLabel ?? provider}
+      accessibilityRole="button"
+      accessibilityLabel={t("Provider")}
+      accessibilityValue={{ text: selectedProviderLabel ?? provider }}
+      chevron="right"
+      onPress={() =>
+        pushModelPicker({
+          title: t("Provider"),
+          emptyMessage: t("No matching providers"),
+          selectedKey: provider,
+          choices: [true, false].flatMap((connected) =>
+            groups
+              .filter((group) => credentialByProvider.has(group.id) === connected)
+              .map((group) => {
+                const savedModelId = credentialByProvider.get(group.id)?.modelId;
+                return {
+                  key: group.id,
+                  label: group.name,
+                  providerLabel: connected ? t("Connected") : t("All providers"),
+                  detail: connected
+                    ? (group.entries.find((entry) => entry.id === savedModelId)?.label ??
+                      savedModelId)
+                    : undefined,
+                };
+              }),
+          ),
+          onSelect: (choice) => chooseProvider(choice.key),
+        })
+      }
+    />
+  );
+
   const catalogModelCard =
     !isOpenAiCompatible && selected ? (
       <>
         <View style={styles.card}>
+          {credential ? (
+            <>
+              {providerRow}
+              <View style={styles.modelDivider} />
+            </>
+          ) : null}
           <SettingsRow
             title={t("Model")}
             value={selectedChoice?.title ?? selected.label}
@@ -1234,7 +1266,29 @@ export default function Models() {
           ) : null}
         </View>
         {disclosureRow(t("Advanced"), showAdvanced, () => setShowAdvanced((visible) => !visible))}
-        {showAdvanced ? limitField(t("Maximum output tokens"), maxTokens, setMaxTokens, 6) : null}
+        {showAdvanced ? (
+          <>
+            {limitField(
+              t("Maximum output tokens"),
+              maxTokens,
+              (value) => {
+                setMaxTokens(value);
+                clearFeedback();
+              },
+              6,
+            )}
+            {credential && limitsDirty ? (
+              <NativeActionButton
+                disabled={busy || !cloudflareRoutingReady}
+                label={
+                  pending === "connect" && feedbackAnchor === "limits" ? t("Saving…") : t("Save")
+                }
+                onPress={() => void connectKey(true)}
+              />
+            ) : null}
+            {feedbackAnchor === "limits" ? feedback : null}
+          </>
+        ) : null}
       </>
     ) : null;
 
@@ -1325,7 +1379,7 @@ export default function Models() {
             />
           )
         ) : null}
-        {acceptsKey || builtinLimitSave ? (
+        {acceptsKey || isCloudflareGateway ? (
           <View style={styles.keySection}>
             {isCloudflareGateway ? (
               <>
@@ -1336,7 +1390,10 @@ export default function Models() {
                   autoCorrect={false}
                   autoComplete="off"
                   editable={!busy}
-                  onChangeText={setAccountId}
+                  onChangeText={(value) => {
+                    setAccountId(value);
+                    clearFeedback();
+                  }}
                   style={styles.keyInput}
                   value={accountId}
                 />
@@ -1347,7 +1404,10 @@ export default function Models() {
                   autoCorrect={false}
                   autoComplete="off"
                   editable={!busy}
-                  onChangeText={setGatewayId}
+                  onChangeText={(value) => {
+                    setGatewayId(value);
+                    clearFeedback();
+                  }}
                   style={styles.keyInput}
                   value={gatewayId}
                 />
@@ -1356,11 +1416,7 @@ export default function Models() {
             {acceptsKey ? (
               <>
                 <Text style={styles.sectionTitle}>
-                  {credential
-                    ? t("Replace API key")
-                    : subscriptionSignIn
-                      ? t("Or connect an API key")
-                      : t("API key")}
+                  {!credential && subscriptionSignIn ? t("Or connect an API key") : t("API key")}
                 </Text>
                 <TextInput
                   accessibilityLabel={t("API key")}
@@ -1382,18 +1438,21 @@ export default function Models() {
 
             <NativeActionButton
               disabled={
-                busy || !cloudflareRoutingReady || (!builtinLimitSave && apiKey.trim().length < 8)
+                busy ||
+                !cloudflareRoutingReady ||
+                (gatewayOnlySave ? !gatewayDirty : apiKey.trim().length < 8)
               }
               label={
-                pending === "connect"
+                pending === "connect" && feedbackAnchor === "connection"
                   ? t("Saving…")
-                  : builtinLimitSave
-                    ? t("Save limits")
+                  : gatewayOnlySave
+                    ? t("Save")
                     : credential
                       ? t("Replace API key")
                       : t("Connect API key")
               }
               onPress={() => void connectKey()}
+              prominence={credential ? "secondary" : "primary"}
               style={{ marginTop: 12 }}
             />
           </View>
@@ -1548,9 +1607,7 @@ export default function Models() {
   const connectedStatusRow = credential ? (
     <View style={styles.statusRow}>
       <View style={styles.providerCopy}>
-        <Text style={styles.providerName}>
-          {t("Connected · {label}", { label: credential.label })}
-        </Text>
+        <Text style={styles.secondary}>{t("Connected")}</Text>
       </View>
       <NativeActionButton
         disabled={busy}
@@ -1604,67 +1661,9 @@ export default function Models() {
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>{t("Providers")}</Text>
-        <View style={styles.card}>
-          {connectedGroups.length ? (
-            <>
-              <Text style={styles.groupLabel}>{t("Connected")}</Text>
-              {connectedGroups.map((group) => {
-                const groupCredential = credentialByProvider.get(group.id);
-                const savedModelLabel = groupCredential?.modelId
-                  ? (group.entries.find((entry) => entry.id === groupCredential.modelId)?.label ??
-                    groupCredential.modelId)
-                  : null;
-                return (
-                  <Pressable
-                    key={group.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: group.id === provider }}
-                    onPress={() => chooseProvider(group.id)}
-                    style={({ pressed }) => [styles.providerRow, pressed && styles.pressed]}
-                  >
-                    <View style={styles.providerCopy}>
-                      <Text style={styles.providerName}>{group.name}</Text>
-                      {savedModelLabel ? (
-                        <Text style={styles.secondary}>{savedModelLabel}</Text>
-                      ) : null}
-                    </View>
-                    {group.id === provider ? <Checkmark /> : null}
-                  </Pressable>
-                );
-              })}
-              {otherGroups.length ? (
-                <Text style={styles.groupLabel}>{t("All providers")}</Text>
-              ) : null}
-            </>
-          ) : null}
-          {otherGroups.map((group) => (
-            <Pressable
-              key={group.id}
-              accessibilityRole="button"
-              accessibilityState={{ selected: group.id === provider }}
-              onPress={() => chooseProvider(group.id)}
-              style={({ pressed }) => [styles.providerRow, pressed && styles.pressed]}
-            >
-              <View style={styles.providerCopy}>
-                <Text style={styles.providerName}>{group.name}</Text>
-              </View>
-              {group.id === provider ? <Checkmark /> : null}
-            </Pressable>
-          ))}
-          {groups.length > featuredProviders.length ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showAllProviders }}
-              onPress={() => setShowAllProviders((value) => !value)}
-              style={styles.providerRow}
-            >
-              <Text style={styles.providerName}>
-                {showAllProviders ? t("Show less") : t("Show more")}
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
+        {!selected || isOpenAiCompatible || !credential ? (
+          <View style={styles.card}>{providerRow}</View>
+        ) : null}
 
         {selected ? (
           isOpenAiCompatible ? (
@@ -1677,12 +1676,14 @@ export default function Models() {
           ) : credential ? (
             <>
               {provider === me?.hostCredentialProvider ? serverCredentialsNote : null}
-              {connectedStatusRow}
               {catalogModelCard}
               {saveRow}
               {feedbackAnchor === "model" ? feedback : null}
-              <View style={styles.maintenanceSection}>{catalogConnectionControls}</View>
-              {feedbackAnchor === "model" ? null : feedback}
+              <View style={styles.maintenanceSection}>
+                {connectedStatusRow}
+                {catalogConnectionControls}
+                {feedbackAnchor === "connection" ? feedback : null}
+              </View>
             </>
           ) : provider === me?.hostCredentialProvider ? (
             <>
@@ -1951,32 +1952,8 @@ function createModelsStyles() {
       alignItems: "center",
       gap: 2,
     },
-    providerRow: {
-      minHeight: 62,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: native.fillPressed,
-    },
     providerCopy: {
       flex: 1,
-    },
-    providerName: {
-      color: native.label,
-      fontSize: 16,
-      fontWeight: "600",
-    },
-    groupLabel: {
-      color: native.tertiaryLabel,
-      fontSize: 12,
-      textTransform: "uppercase",
-      letterSpacing: 1,
-      paddingHorizontal: 16,
-      paddingTop: 14,
-      paddingBottom: 8,
     },
     statusRow: {
       flexDirection: "row",

@@ -2,6 +2,7 @@ import type { ChatModelChoice } from "@rakazo/core";
 
 export type ModelPickerRequest = {
   title?: string;
+  emptyMessage?: string;
   choices: ChatModelChoice[];
   selectedKey: string;
   providerLabel?: string;

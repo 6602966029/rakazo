@@ -20,7 +20,13 @@ const mocks = vi.hoisted(() => ({
   focused: true,
   platform: "ios",
   connected: true,
+  serverCredentials: false,
   catalogEmpty: false,
+  extraProviders: false,
+  gateway: false,
+  savedMaxTokens: undefined as number | undefined,
+  savedAccountId: "account-fixture",
+  savedGatewayId: "gateway-fixture",
   vendorLabels: false,
   subscriptionSignIn: false,
   completeOAuth: vi.fn(),
@@ -43,6 +49,7 @@ const catalog = Array.from({ length: 11 }, (_, index) => ({
   id: `vendor/model-${index + 1}`,
   label: `Model ${index + 1}`,
   billing: "",
+  auth: "api-key",
   thinkingLevels: ["low", "medium", "high"],
 }));
 
@@ -59,7 +66,15 @@ vi.mock("./api", () => ({
   captureApiRequestContext: async () => ({}),
   selectedSpaceId: () => "space-fixture",
   rpc: async (procedure: string, input?: unknown, options?: { signal?: AbortSignal }) => {
-    mocks.rpc(procedure, input);
+    const result = mocks.rpc(procedure, input);
+    if (procedure === "models/connect") {
+      await result;
+      const saved = input as { maxTokens?: number; accountId?: string; gatewayId?: string };
+      mocks.savedMaxTokens = saved.maxTokens;
+      if (saved.accountId) mocks.savedAccountId = saved.accountId;
+      if (saved.gatewayId) mocks.savedGatewayId = saved.gatewayId;
+      return {};
+    }
     if (procedure === "models/beginOAuth")
       return {
         loginId: "login-fixture",
@@ -76,8 +91,9 @@ vi.mock("./api", () => ({
       return {
         userId: "user-fixture",
         spaceId: "space-fixture",
-        defaultProvider: "openrouter",
+        defaultProvider: mocks.gateway ? "cloudflare-ai-gateway" : "openrouter",
         defaultModel: "vendor/model-1",
+        hostCredentialProvider: mocks.serverCredentials ? "openrouter" : undefined,
       };
     if (procedure === "models/list")
       return mocks.catalogEmpty
@@ -94,13 +110,30 @@ vi.mock("./api", () => ({
             }))
           : mocks.subscriptionSignIn
             ? catalog.map((entry) => ({ ...entry, signIn: "device-code" }))
-            : catalog;
+            : [
+                ...catalog.map((entry) => ({
+                  ...entry,
+                  provider: mocks.gateway ? "cloudflare-ai-gateway" : entry.provider,
+                  providerName: mocks.gateway ? "Cloudflare AI Gateway" : entry.providerName,
+                })),
+                ...(mocks.extraProviders
+                  ? ["Anthropic", "Google", "OpenAI", "Other", "Last"].map((name) => ({
+                      ...catalog[0],
+                      provider: name.toLowerCase(),
+                      providerName: name,
+                    }))
+                  : []),
+              ];
     if (procedure === "models/credentials")
       return mocks.connected
         ? [
             {
-              provider: "openrouter",
-              label: "OpenRouter",
+              provider: mocks.gateway ? "cloudflare-ai-gateway" : "openrouter",
+              label: mocks.gateway ? "Cloudflare AI Gateway" : "OpenRouter",
+              maxTokens: mocks.savedMaxTokens,
+              ...(mocks.gateway
+                ? { accountId: mocks.savedAccountId, gatewayId: mocks.savedGatewayId }
+                : {}),
               modelId: "vendor/model-1",
               thinkingLevel: "high",
             },
@@ -342,8 +375,22 @@ vi.mock("./bot-avatar-edit", () => ({
 }));
 vi.mock("../components/computer-mode-picker", () => ({ ComputerModePicker: () => null }));
 vi.mock("../components/native-action-button", () => ({
-  NativeActionButton: ({ label, onPress }: { label: string; onPress: () => void }) =>
-    createElement("button", { type: "button", onClick: onPress }, label),
+  NativeActionButton: ({
+    label,
+    onPress,
+    disabled,
+    prominence = "primary",
+  }: {
+    label: string;
+    onPress: () => void;
+    disabled?: boolean;
+    prominence?: string;
+  }) =>
+    createElement(
+      "button",
+      { type: "button", onClick: onPress, disabled, "data-prominence": prominence },
+      label,
+    ),
 }));
 vi.mock("../components/native-switch", () => ({ NativeSwitch: () => null }));
 vi.mock("../components/row-accessories", () => ({
@@ -365,7 +412,13 @@ beforeEach(() => {
   mocks.focused = true;
   mocks.platform = "ios";
   mocks.connected = true;
+  mocks.serverCredentials = false;
   mocks.catalogEmpty = false;
+  mocks.extraProviders = false;
+  mocks.gateway = false;
+  mocks.savedMaxTokens = undefined;
+  mocks.savedAccountId = "account-fixture";
+  mocks.savedGatewayId = "gateway-fixture";
   mocks.vendorLabels = false;
   mocks.subscriptionSignIn = false;
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -540,6 +593,242 @@ function searchModels(text: string) {
 function pickerRows() {
   return [...container.querySelectorAll<HTMLButtonElement>("li button")];
 }
+
+function buttonWithText(text: string) {
+  return [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+    (button) => button.textContent === text,
+  );
+}
+
+function editField(label: string, value: string) {
+  const input = container.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+  act(() => {
+    setter.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+describe("connection settings provider picker", () => {
+  it("renders Provider, Model and Thinking once in one connected card and groups connection management below", async () => {
+    await renderModels();
+    const providers = container.querySelectorAll('button[aria-label="Provider"]');
+    const models = container.querySelectorAll('button[aria-label="Model"]');
+    const thinking = container.querySelectorAll('button[aria-label="Thinking"]');
+    expect(providers).toHaveLength(1);
+    expect(models).toHaveLength(1);
+    expect(thinking).toHaveLength(1);
+    const card = providers[0]!.parentElement!;
+    expect([...card.children]).toEqual([
+      providers[0],
+      providers[0]!.nextElementSibling,
+      models[0],
+      models[0]!.nextElementSibling,
+      thinking[0],
+    ]);
+    expect(providers[0]!.nextElementSibling?.tagName).toBe("DIV");
+    expect(models[0]!.nextElementSibling?.tagName).toBe("DIV");
+    const status = buttonWithText("Disconnect")!.parentElement!;
+    expect(status.textContent).toBe("ConnectedDisconnect");
+    const keySection = buttonWithText("Replace API key")!.parentElement!;
+    expect(keySection.firstElementChild?.textContent).toBe("API key");
+    expect(buttonWithText("Replace API key")?.dataset.prominence).toBe("secondary");
+    expect(status.parentElement?.contains(buttonWithText("Replace API key")!)).toBe(true);
+    expect(status.parentElement?.firstElementChild).toBe(status);
+    expect(card.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps one standalone Provider row when server credentials reveal the own-key Model card", async () => {
+    mocks.connected = false;
+    mocks.serverCredentials = true;
+    await renderModels();
+    expect(container.querySelectorAll('button[aria-label="Provider"]')).toHaveLength(1);
+    expect(modelRow()).toBeNull();
+    act(() => buttonWithText("Use your own key")!.click());
+    const providers = container.querySelectorAll('button[aria-label="Provider"]');
+    expect(providers).toHaveLength(1);
+    expect(container.querySelectorAll('button[aria-label="Model"]')).toHaveLength(1);
+    expect(providers[0]!.parentElement).not.toBe(modelRow().parentElement);
+    expect(buttonWithText("Disconnect")).toBeUndefined();
+  });
+
+  it("groups connected providers first, checks the current provider, filters names and returns a pick", async () => {
+    mocks.extraProviders = true;
+    await renderModels();
+    const providerRow = () =>
+      container.querySelector<HTMLButtonElement>('button[aria-label="Provider"]')!;
+    expect(providerRow().getAttribute("aria-valuetext")).toBe("OpenRouter");
+    expect(container.textContent).not.toContain("Show more");
+    expect(container.textContent).not.toContain("Anthropic");
+    act(() => providerRow().click());
+    const id = mocks.params.requestId!;
+    expect(modelPickerRequest(id)?.emptyMessage).toBe("No matching providers");
+    expect(mocks.setOptions).toHaveBeenCalledWith({ title: "Provider" });
+    expect(
+      mocks.setOptions.mock.calls.findLast(([options]) => options.headerSearchBarOptions)![0]
+        .headerSearchBarOptions.placeholder,
+    ).toBe("Search");
+    expect([...container.querySelectorAll("h2")].map((heading) => heading.textContent)).toEqual([
+      "Connected",
+      "All providers",
+    ]);
+    expect(pickerRows()).toHaveLength(6);
+    expect(pickerRows()[0]!.getAttribute("aria-selected")).toBe("true");
+    expect(pickerRows()[0]!.querySelector("[data-checkmark]")).not.toBeNull();
+    searchModels("Model 1");
+    expect(pickerRows()).toHaveLength(0);
+    expect(container.querySelector("ul")?.textContent).toBe("No matching providers");
+    expect(mocks.announce).toHaveBeenLastCalledWith("No matching providers");
+    searchModels("ANTHROPIC");
+    expect(pickerRows().map((row) => row.textContent)).toEqual(["Anthropic"]);
+    expect([...container.querySelectorAll("h2")].map((heading) => heading.textContent)).toEqual([
+      "All providers",
+    ]);
+    act(() => pickerRows()[0]!.click());
+    expect(mocks.back).toHaveBeenCalledOnce();
+    expect(modelPickerRequest(id)).toBeUndefined();
+    expect(providerRow().getAttribute("aria-valuetext")).toBe("Anthropic");
+    expect(buttonWithText("Connect API key")?.disabled).toBe(true);
+    expect(buttonWithText("Connect API key")?.dataset.prominence).toBe("primary");
+    editField("API key", "fixture-key");
+    expect(buttonWithText("Connect API key")?.disabled).toBe(false);
+    await act(async () => buttonWithText("Connect API key")!.click());
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "models/connect",
+      expect.objectContaining({
+        provider: "anthropic",
+        apiKey: "fixture-key",
+      }),
+    );
+  });
+
+  it("scrolls to the current provider outside the first visible rows", async () => {
+    mocks.extraProviders = true;
+    await renderModels();
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Provider"]')!.click());
+    searchModels("Last");
+    act(() => pickerRows()[0]!.click());
+    mocks.scrollToLocation.mockClear();
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Provider"]')!.click());
+    expect(
+      pickerRows()
+        .find((row) => row.textContent === "Last")
+        ?.getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(mocks.scrollToLocation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sectionIndex: 1,
+        animated: false,
+      }),
+    );
+  });
+});
+
+describe("connection settings limit saves", () => {
+  it("shows Save under Advanced only when connected limits differ and saves without replacing a draft key", async () => {
+    mocks.savedMaxTokens = 1000;
+    await renderModels();
+    expect(container.textContent).not.toContain("Save limits");
+    expect(buttonWithText("Replace API key")?.disabled).toBe(true);
+    editField("API key", "1234567");
+    expect(buttonWithText("Replace API key")?.disabled).toBe(true);
+    editField("API key", "12345678");
+    expect(buttonWithText("Replace API key")?.disabled).toBe(false);
+    editField("API key", "fixture-replacement-key");
+    expect(buttonWithText("Replace API key")?.disabled).toBe(false);
+    act(() => buttonWithText("Advanced")!.click());
+    expect(buttonWithText("Save")).toBeUndefined();
+    editField("Maximum output tokens", "2000");
+    const save = buttonWithText("Save")!;
+    expect(save).toBeDefined();
+    expect(save.previousElementSibling?.textContent).toContain("Maximum output tokens");
+    editField("Maximum output tokens", "1000");
+    expect(buttonWithText("Save")).toBeUndefined();
+    editField("Maximum output tokens", "2000");
+    await act(async () => buttonWithText("Save")!.click());
+    expect(mocks.rpc).toHaveBeenCalledWith("models/connect", {
+      provider: "openrouter",
+      modelId: "vendor/model-1",
+      maxTokens: 2000,
+      label: "OpenRouter",
+    });
+    expect(buttonWithText("Save")).toBeUndefined();
+    const field = container.querySelector('input[aria-label="Maximum output tokens"]')!;
+    expect(field.parentElement?.nextElementSibling?.textContent).toBe("Saved.");
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="API key"]')!.value).toBe(
+      "fixture-replacement-key",
+    );
+  });
+
+  it("shows Saving while the Advanced save is pending", async () => {
+    await renderModels();
+    act(() => buttonWithText("Advanced")!.click());
+    editField("Maximum output tokens", "2000");
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    mocks.rpc.mockImplementation((procedure) =>
+      procedure === "models/connect" ? pending : undefined,
+    );
+    await act(async () => buttonWithText("Save")!.click());
+    expect(buttonWithText("Saving…")?.disabled).toBe(true);
+    expect(buttonWithText("Replace API key")?.disabled).toBe(true);
+    await act(async () => finish());
+    expect(buttonWithText("Saving…")).toBeUndefined();
+    expect(container.textContent).toContain("Saved.");
+    mocks.rpc.mockReset();
+  });
+
+  it("does not offer a limits save before connecting", async () => {
+    mocks.connected = false;
+    await renderModels();
+    act(() => buttonWithText("Advanced")!.click());
+    editField("Maximum output tokens", "2000");
+    expect(buttonWithText("Save")).toBeUndefined();
+    expect(buttonWithText("Connect API key")?.disabled).toBe(true);
+  });
+
+  it("keeps invalid limits feedback beside Advanced Save", async () => {
+    await renderModels();
+    act(() => buttonWithText("Advanced")!.click());
+    editField("Maximum output tokens", "0");
+    await act(async () => buttonWithText("Save")!.click());
+    expect(mocks.rpc.mock.calls.some(([procedure]) => procedure === "models/connect")).toBe(false);
+    expect(buttonWithText("Save")?.nextElementSibling?.textContent).toContain(
+      "Enter a whole number",
+    );
+  });
+
+  it("enables the connected gateway Save only for changed routing and keeps feedback at that button", async () => {
+    mocks.gateway = true;
+    await renderModels();
+    expect(buttonWithText("Save")?.disabled).toBe(true);
+    editField("Account ID", "account-updated");
+    expect(buttonWithText("Save")?.disabled).toBe(false);
+    await act(async () => buttonWithText("Save")!.click());
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "models/connect",
+      expect.objectContaining({
+        provider: "cloudflare-ai-gateway",
+        accountId: "account-updated",
+        gatewayId: "gateway-fixture",
+      }),
+    );
+    expect(buttonWithText("Save")?.disabled).toBe(true);
+    expect(
+      container.querySelector('input[aria-label="API key"]')?.parentElement?.nextElementSibling
+        ?.textContent,
+    ).toBe("Saved.");
+    editField("Gateway ID", "gateway-updated");
+    expect(container.textContent).not.toContain("Saved.");
+    expect(buttonWithText("Save")?.disabled).toBe(false);
+    editField("Gateway ID", "gateway-fixture");
+    expect(buttonWithText("Save")?.disabled).toBe(true);
+    editField("API key", "fixture-key");
+    expect(buttonWithText("Replace API key")?.disabled).toBe(false);
+  });
+});
 
 describe("connection settings model picker", () => {
   it("replaces the catalog radios and search with one row and preserves a pick until Use", async () => {

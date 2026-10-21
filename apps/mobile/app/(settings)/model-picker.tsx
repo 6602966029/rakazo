@@ -19,6 +19,7 @@ export default function SettingsModelPickerScreen() {
       choices={request?.choices ?? []}
       selectedKey={request?.selectedKey ?? ""}
       providerLabel={request?.providerLabel}
+      emptyMessage={request?.emptyMessage}
       error={request ? null : t("Could not load model settings")}
       onSelect={(choice) => {
         if (selectPickerModel(requestId, choice.key)) router.back();

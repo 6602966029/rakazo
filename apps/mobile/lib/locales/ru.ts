@@ -1,4 +1,6 @@
 export const RU_MESSAGES: Record<string, string> = {
+  Provider: "Провайдер",
+  "No matching providers": "Подходящие провайдеры не найдены",
   "About {label}": "О настройке «{label}»",
   "Manage the bots it creates": "Управлять созданными им ботами",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
@@ -272,7 +274,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Connect MCP server {name}": "Подключение MCP-сервера {name}",
   "Connect Treg": "Подключить Treg",
   Connected: "Подключено",
-  "Connected · {label}": "Подключено · {label}",
   "Connected. Its tools are available from your next message.":
     "Подключено. Его инструменты доступны со следующего сообщения.",
   "Connected and using {label}.": "Подключено и используется {label}.",
@@ -783,7 +784,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Could not disconnect this provider": "Не удалось отключить этого провайдера",
   "Default ({level})": "По умолчанию ({level})",
   "Disconnected {provider}.": "{provider} отключён.",
-  "Save limits": "Сохранить лимиты",
   "Sign in again": "Войти снова",
   "Thinking: {level}": "Рассуждение: {level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":

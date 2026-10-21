@@ -1,4 +1,6 @@
 export const DE_MESSAGES: Record<string, string> = {
+  Provider: "Anbieter",
+  "No matching providers": "Keine passenden Anbieter",
   "About {label}": "Über {label}",
   "Manage the bots it creates": "Die von ihm erstellten Bots verwalten",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
@@ -408,7 +410,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Connect API key": "API-Schlüssel verbinden",
   "Connect MCP server {name}": "MCP-Server „{name}“ verbinden",
   "Connected and using {label}.": "Verbunden, {label} ist aktiv.",
-  "Connected · {label}": "Verbunden · {label}",
   "Connected. Its tools are available from your next message.":
     "Verbunden. Seine Tools sind ab deiner nächsten Nachricht verfügbar.",
   "Context limit": "Kontextlimit",
@@ -803,7 +804,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Could not disconnect this provider": "Anbieter konnte nicht getrennt werden",
   "Default ({level})": "Standard ({level})",
   "Disconnected {provider}.": "{provider} getrennt.",
-  "Save limits": "Limits speichern",
   "Sign in again": "Erneut anmelden",
   "Thinking: {level}": "Denkmodus: {level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":

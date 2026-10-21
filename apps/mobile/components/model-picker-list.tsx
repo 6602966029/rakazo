@@ -27,11 +27,13 @@ export function ModelPickerList({
   onSelect,
   error,
   providerLabel,
+  emptyMessage,
 }: {
   choices: readonly ChatModelChoice[] | null;
   selectedKey: string;
   onSelect: (choice: ChatModelChoice) => void;
   error?: string | null;
+  emptyMessage?: string;
   /** A single-provider picker only needs vendor headings. */
   providerLabel?: string;
 }) {
@@ -162,12 +164,13 @@ export function ModelPickerList({
     [],
   );
 
+  const noMatchesMessage = emptyMessage ?? t("No matching models");
   const noMatches = choices !== null && sections.length === 0;
 
   // The search field keeps focus, so tell screen readers once when the results run out.
   useEffect(() => {
-    if (noMatches) AccessibilityInfo.announceForAccessibility(t("No matching models"));
-  }, [noMatches, t]);
+    if (noMatches) AccessibilityInfo.announceForAccessibility(noMatchesMessage);
+  }, [noMatches, noMatchesMessage]);
 
   return (
     <SectionList
@@ -219,7 +222,7 @@ export function ModelPickerList({
       }
       ListEmptyComponent={
         error || noMatches ? (
-          <Text style={styles.empty}>{error ?? t("No matching models")}</Text>
+          <Text style={styles.empty}>{error ?? noMatchesMessage}</Text>
         ) : (
           <ActivityIndicator color={native.secondaryLabel} />
         )

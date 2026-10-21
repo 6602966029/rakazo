@@ -1,4 +1,6 @@
 export const NL_MESSAGES: Record<string, string> = {
+  Provider: "Provider",
+  "No matching providers": "Geen overeenkomende providers",
   "About {label}": "Over {label}",
   "Manage the bots it creates": "De bots beheren die deze bot maakt",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
@@ -392,7 +394,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Connect API key": "API-sleutel koppelen",
   "Connect MCP server {name}": "MCP-server {name} koppelen",
   "Connected and using {label}.": "Gekoppeld en gebruikt {label}.",
-  "Connected · {label}": "Gekoppeld · {label}",
   "Connected. Its tools are available from your next message.":
     "Gekoppeld. Zijn tools zijn beschikbaar vanaf je volgende bericht.",
   "Context limit": "Contextlimiet",
@@ -762,7 +763,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Could not disconnect this provider": "Deze aanbieder loskoppelen mislukt",
   "Default ({level})": "Standaard ({level})",
   "Disconnected {provider}.": "{provider} losgekoppeld.",
-  "Save limits": "Limieten opslaan",
   "Sign in again": "Opnieuw aanmelden",
   "Thinking: {level}": "Denkt: {level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":
