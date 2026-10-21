@@ -86,7 +86,8 @@ export function securityEventMetadata(
     if (CONTENT_KEY.test(key) || key.length > 64) continue;
     if (value === undefined) continue;
     if (typeof value === "string") kept[key] = value.slice(0, MAX_METADATA_STRING);
-    else if (typeof value === "number" ? Number.isFinite(value) : true) kept[key] = value;
+    else if (typeof value === "boolean" || value === null) kept[key] = value;
+    else if (typeof value === "number" && Number.isFinite(value)) kept[key] = value;
   }
   // Values are identifiers, but an email or key pasted where an id belongs is still redacted.
   return redactBindings(kept) as SecurityEventMetadata;

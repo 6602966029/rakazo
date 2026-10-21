@@ -97,6 +97,8 @@ export function procedureSecurityEvent(
 
 const FAILED_CREDENTIAL_PATHS: Record<string, SecurityEventType> = {
   "/sign-in/email": "auth.sign_in.failed",
+  "/sign-in/email-otp": "auth.sign_in.failed",
+  "/passkey/verify-authentication": "auth.sign_in.failed",
   "/sign-up/email": "auth.sign_up.failed",
 };
 const RATE_LIMIT_EVENT_WINDOW_MS = 60_000;

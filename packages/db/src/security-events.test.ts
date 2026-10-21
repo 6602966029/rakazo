@@ -99,9 +99,9 @@ describe("recordSecurityEvent", () => {
     });
     const metadata = row.metadata as Record<string, unknown>;
     expect(metadata).toMatchObject({ kind: "model", provider: "openrouter" });
-    expect(Object.keys(metadata)).not.toEqual(
-      expect.arrayContaining(["apiKey", "token", "message", "content", "nested"]),
-    );
+    for (const dropped of ["apiKey", "token", "message", "content", "nested"]) {
+      expect(metadata, dropped).not.toHaveProperty(dropped);
+    }
     expect((metadata.long as string).length).toBe(200);
     const stored = JSON.stringify(row);
     for (const leaked of [

@@ -133,7 +133,7 @@ import {
   validateInstructionProposal,
   writeBotInstructions,
 } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { enrichLogContext, getLogger } from "@rakazo/logging";
 import { parse as parseShellCommand } from "shell-quote";
 import {
   connectAgent,
@@ -3533,6 +3533,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
     async continueRun(runId: string, workerId: string) {
       const run = await deps.prisma.run.findUnique({ where: { id: runId } });
       if (!run) return;
+      // Logs and security events raised by this run's tools name its account and space.
+      enrichLogContext({
+        "run.id": runId,
+        "space.id": run.spaceId,
+        ...(run.userId ? { "user.id": run.userId } : {}),
+      });
       if (isTerminal(run.status as RunStatus)) return;
       let { resumeCheckpoint, heldForTakeover, resumeHeldLease, takeoverResume } =
         takeoverContinuePlan(run);

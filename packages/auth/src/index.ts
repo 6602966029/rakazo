@@ -280,6 +280,9 @@ const ACCOUNT_EVENT_PATHS: Record<string, SecurityEventType> = {
   "/revoke-other-sessions": "auth.session.revoked",
   "/change-password": "auth.password.changed",
   "/set-password": "auth.password.changed",
+  "/passkey/verify-registration": "auth.passkey.added",
+  "/passkey/update-passkey": "auth.passkey.changed",
+  "/passkey/delete-passkey": "auth.passkey.removed",
 };
 
 /** Shared across API processes. Off outside production so tests can sign in freely. */
