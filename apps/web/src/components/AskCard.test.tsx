@@ -179,3 +179,44 @@ for (const input of ["secret", "login"]) {
     expect(button("Save")?.classList.contains("flex-1")).toBe(true);
   });
 }
+
+it("keeps an accepted secret Save answered without a block update", async () => {
+  const onAnswer = vi.fn(async () => undefined);
+  await render(secretCard, undefined, onAnswer);
+  await type("API key", "example-key");
+
+  await act(async () => button("Save")!.click());
+
+  expect(onAnswer).toHaveBeenCalledWith("example-key", undefined);
+  expect(container.textContent).toContain("Saved");
+  expect(container.textContent).not.toContain("example-key");
+  expect(container.querySelector("input")).toBeNull();
+  expect(container.querySelector("button")).toBeNull();
+  expect(container.querySelector(".text-destructive")).toBeNull();
+});
+
+it("keeps an accepted question choice answered until the block updates", async () => {
+  const block: AskBlock = {
+    kind: "ask",
+    text: "Which city?",
+    status: "pending",
+    actions: [
+      { id: "paris", label: "Paris" },
+      { id: "london", label: "London" },
+    ],
+  };
+  const onAnswer = vi.fn(async () => undefined);
+  await render(block, undefined, onAnswer);
+
+  await act(async () => button("Paris")!.click());
+
+  expect(onAnswer).toHaveBeenCalledWith("paris", undefined);
+  expect(container.textContent).toContain("Answered: Paris");
+  expect(container.querySelector("input")).toBeNull();
+  expect(container.querySelector("button")).toBeNull();
+  expect(container.querySelector(".text-destructive")).toBeNull();
+
+  await render({ ...block, status: "answered", answer: "london" });
+  expect(container.textContent).toContain("Answered: London");
+  expect(container.textContent).not.toContain("Answered: Paris");
+});

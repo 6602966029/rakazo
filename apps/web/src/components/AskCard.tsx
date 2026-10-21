@@ -68,11 +68,15 @@ export function AskCard({
   const [editing, setEditing] = useState(false);
   const [answer, setAnswer] = useState(block.instructionUpdate?.after ?? "");
   const [dismissed, setDismissed] = useState(false);
+  const [acceptedAnswer, setAcceptedAnswer] = useState<string>();
   const [undone, setUndone] = useState(false);
   const [username, setUsername] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const submitting = pendingAction !== null;
+  const answered = block.status === "answered" || acceptedAnswer !== undefined || dismissed;
+  const displayedAnswer = block.status === "answered" ? block.answer : acceptedAnswer;
+  const displayedDismissed = block.status === "answered" ? block.dismissed : dismissed;
   const approvalActions = isApprovalAskBlock(block) ? block.actions : undefined;
   const askActions = block.actions;
   const displayActions = block.instructionUpdate
@@ -98,6 +102,7 @@ export function AskCard({
     }
     try {
       await onAnswer(submitValue, submitUsername);
+      setAcceptedAnswer(secretInput ? "" : submitValue);
     } catch (err) {
       // A secret answer's failure may echo the secret, so never show its message.
       setError(
@@ -198,7 +203,7 @@ export function AskCard({
           {block.detail}
         </pre>
       ) : null}
-      {block.instructionUpdate && editing && canAnswer && block.status !== "answered" ? (
+      {block.instructionUpdate && editing && canAnswer && !answered ? (
         <form
           className="mt-3 space-y-2"
           onSubmit={(event) => {
@@ -219,21 +224,21 @@ export function AskCard({
             <Trans>Cancel</Trans>
           </Button>
         </form>
-      ) : block.status === "answered" || dismissed ? (
+      ) : answered ? (
         <div
-          className={`mt-3.5 text-[13.5px] font-medium ${block.answer === "deny" || block.dismissed || dismissed ? "text-muted-foreground" : "text-success"}`}
+          className={`mt-3.5 text-[13.5px] font-medium ${displayedAnswer === "deny" || displayedDismissed ? "text-muted-foreground" : "text-success"}`}
         >
           {block.instructionUpdate
-            ? block.answer === "deny"
+            ? displayedAnswer === "deny"
               ? t`Dismissed`
               : t`Allowed once`
             : formatAnsweredState(
-                block.answer,
+                displayedAnswer,
                 Boolean(approvalActions),
                 secretInput,
-                approvalActions?.find((action) => action.id === block.answer)?.outcome,
+                approvalActions?.find((action) => action.id === displayedAnswer)?.outcome,
                 askActions,
-                block.dismissed || dismissed,
+                displayedDismissed,
               )}
         </div>
       ) : !canAnswer ? (
