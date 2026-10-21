@@ -165,15 +165,20 @@ describe("BotSettings help", () => {
       (entry) => entry.textContent === "Manage the bots it creates",
     );
     const toggle = document.getElementById(label?.htmlFor ?? "");
+    const speechToggle = container.querySelector<HTMLButtonElement>('[id$="-auto-speak"]');
+    const speechRow = speechToggle?.closest("label");
+    expect(speechRow?.htmlFor).toBe(speechToggle?.id);
+    expect(speechRow?.firstElementChild?.textContent).toBe("Read replies aloud");
+    expect(speechRow?.lastElementChild).toBe(speechToggle);
     expect(toggle?.getAttribute("aria-checked")).toBe("false");
     expect(container.textContent).not.toContain("Get notified when this Bot finishes");
-    expect(container.textContent).not.toContain("Changes to groups or child bots");
+    expect(container.textContent).not.toContain("Group and bot changes");
     const help = container.querySelector<HTMLButtonElement>(
       '[aria-label="About Manage the bots it creates"]',
     );
     await act(async () => help?.click());
     expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(
-      "Changes to groups or child bots’ instructions, models and routines need your approval.",
+      "Group and bot changes need your approval.",
     );
     expect(toggle?.getAttribute("aria-checked")).toBe("false");
     expect(onSave).not.toHaveBeenCalled();

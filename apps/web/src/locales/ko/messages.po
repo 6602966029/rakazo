@@ -3574,8 +3574,8 @@ msgid "Organization API key"
 msgstr "조직 API 키"
 
 #: src/pages/shell/bot-panel.tsx
-msgid "Organize bots and groups. Changes to groups or child bots’ instructions, models and routines need your approval."
-msgstr "봇과 그룹을 정리합니다. 그룹이나 하위 봇의 지침, 모델, 루틴을 변경하려면 승인이 필요합니다."
+msgid "Organize the sidebar and tune its bots. Group and bot changes need your approval."
+msgstr "사이드바를 정리하고 생성한 봇을 조정합니다. 그룹과 봇 변경에는 승인이 필요합니다."
 
 #: src/pages/shell/chat-context.tsx
 msgid "Original message unavailable"

@@ -215,9 +215,12 @@ test("bot management switch persists and settings help is accessible", async ({
   await help.scrollIntoViewIfNeeded();
   await expect(page.getByRole("tooltip")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "32-bot-settings-advanced");
+  await fleetSwitch.evaluate((element) => {
+    element.parentElement?.scrollIntoView({ block: "center" });
+  });
   await help.click();
   await expect(page.getByRole("tooltip")).toContainText(
-    "Changes to groups or child bots’ instructions, models and routines need your approval.",
+    "Group and bot changes need your approval.",
   );
   await captureScreenshot(page, testInfo, "32-bot-settings-info-tooltip");
   await page.keyboard.press("Escape");

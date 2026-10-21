@@ -1,8 +1,8 @@
 export const RU_MESSAGES: Record<string, string> = {
   "About {label}": "О настройке «{label}»",
   "Manage the bots it creates": "Управлять созданными им ботами",
-  "Organize bots and groups. Changes to groups or child bots’ instructions, models and routines need your approval.":
-    "Организовывать ботов и группы. Изменения групп, инструкций, моделей и расписаний дочерних ботов требуют вашего одобрения.",
+  "Organize the sidebar and tune its bots. Group and bot changes need your approval.":
+    "Упорядочивать боковую панель и настраивать созданных ботов. Изменения групп и ботов требуют вашего одобрения.",
 
   Resets: "Сброс",
   Limit: "Лимит",

@@ -15,7 +15,7 @@ import { errorText } from "../../lib/user-error";
 type ReadableCredentialAuth = NonNullable<BotSecretMetadata["auth"]>;
 type CredentialAuthType = ReadableCredentialAuth["type"];
 
-const fieldLabelClass = "mt-3 block text-[13px] text-muted-foreground";
+const fieldLabelClass = "mt-3 block text-[14px] text-muted-foreground";
 
 /** The stored value: a website login is saved as one encoded username and password pair. */
 function credentialPlaintext(type: CredentialAuthType, username: string, value: string) {

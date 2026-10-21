@@ -510,7 +510,7 @@ export function BotSettings({
           }}
         />
       </div>
-      <label htmlFor={`${ids}-name`} className="mt-4 block text-[13.5px] text-muted-foreground/80">
+      <label htmlFor={`${ids}-name`} className={fieldLabelClass}>
         <Trans>Name</Trans>
         <Input
           id={`${ids}-name`}
@@ -547,10 +547,7 @@ export function BotSettings({
       </label>
       <div className="mt-6 flex items-center justify-between pt-4 border-t border-border/20">
         <div className="flex items-center gap-1 pe-4">
-          <div
-            id={`${ids}-notify-finish-label`}
-            className="text-[13.5px] font-medium text-foreground"
-          >
+          <div id={`${ids}-notify-finish-label`} className="text-[14px] text-muted-foreground">
             <Trans>Notifications</Trans>
           </div>
           <InfoTooltip label={t`Notifications`}>
@@ -657,22 +654,24 @@ export function BotSettings({
         ) : null}
         <label
           htmlFor={`${ids}-auto-speak`}
-          className="mt-5 flex cursor-pointer items-center gap-3 text-[14px] text-foreground/75"
+          className="mt-5 flex cursor-pointer items-center justify-between gap-3 text-[14px] text-muted-foreground"
         >
+          <span>
+            <Trans>Read replies aloud</Trans>
+          </span>
           <Switch
             id={`${ids}-auto-speak`}
             checked={autoSpeak}
             onCheckedChange={(checked) => setAutoSpeak(checked)}
           />
-          <Trans>Read replies aloud</Trans>
         </label>
-        <div className="mt-5 flex items-center justify-between gap-3 text-[14px] text-foreground/75">
+        <div className="mt-5 flex items-center justify-between gap-3 text-[14px] text-muted-foreground">
           <div className="flex items-center gap-1">
             <label htmlFor={`${ids}-fleet-management`}>
               <Trans>Manage the bots it creates</Trans>
             </label>
             <InfoTooltip label={t`Manage the bots it creates`}>
-              {t`Organize bots and groups. Changes to groups or child bots’ instructions, models and routines need your approval.`}
+              {t`Organize the sidebar and tune its bots. Group and bot changes need your approval.`}
             </InfoTooltip>
           </div>
           <Switch
@@ -732,7 +731,7 @@ export function BotSettings({
           <label
             key={toolName}
             htmlFor={`${ids}-disabled-${toolName}`}
-            className="mt-2 flex items-center justify-between gap-3 text-[13px] text-foreground/80"
+            className="mt-2 flex items-center justify-between gap-3 text-[14px] text-muted-foreground"
           >
             <span className="font-mono">{toolName}</span>
             <Switch
