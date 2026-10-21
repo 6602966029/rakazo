@@ -120,6 +120,7 @@ import {
   requestClientIp,
   withClientIp,
 } from "./client-ip.js";
+import { cspReportRoutes } from "./csp-report.js";
 import { mountDiagramScript } from "./diagram-script.js";
 import type { AppEnv } from "./env.js";
 import { loadEnv } from "./env.js";
@@ -706,7 +707,15 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
         }),
     );
   }
-  app.route("/", monitoringRoutes(env.browserMonitoring));
+  app.route(
+    "/",
+    monitoringRoutes(
+      env.browserMonitoring,
+      fetch,
+      async (request) => (await auth.api.getSession({ headers: sessionHeaders(request) }))?.user.id,
+    ),
+  );
+  app.route("/", cspReportRoutes(requestClientIp));
   mountApiRequestBodyLimits(app, env.maxUploadSizeBytes);
   mountScreenTarget(app, prisma, env.screenProxySecret);
   mountDiagramScript(app);
