@@ -26,7 +26,7 @@ describe("notDelivered", () => {
     notDelivered(attempt(` ${MODEL_REQUIRED_SEND_ERROR} `));
     const [title, message, buttons] = vi.mocked(Alert.alert).mock.calls[0]!;
     expect(title).toBe("translated: Connect a model");
-    expect(message).toBe(`translated: ${MODEL_REQUIRED_SEND_ERROR}`);
+    expect(message).toBe("translated: Add an API key in Models, then tap your message to send it.");
     expect(buttons).toEqual([
       { text: "translated: Not Now", style: "cancel" },
       { text: "translated: Open Models", onPress: expect.any(Function), isPreferred: true },

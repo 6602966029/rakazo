@@ -1,4 +1,4 @@
-import { isModelRequiredSendError, MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
+import { isModelRequiredSendError } from "@rakazo/core";
 import { Alert, AppState } from "react-native";
 import {
   captureApiRequestContext,
@@ -79,10 +79,14 @@ configureUnsentSends({
   errorText: (error) => errorText(error, t("Failed to send message")),
   notDelivered: (attempt) => {
     if (isModelRequiredSendError(attempt.error)) {
-      Alert.alert(t("Connect a model"), t(MODEL_REQUIRED_SEND_ERROR), [
-        { text: t("Not Now"), style: "cancel" },
-        { text: t("Open Models"), onPress: openModelSettings, isPreferred: true },
-      ]);
+      Alert.alert(
+        t("Connect a model"),
+        t("Add an API key in Models, then tap your message to send it."),
+        [
+          { text: t("Not Now"), style: "cancel" },
+          { text: t("Open Models"), onPress: openModelSettings, isPreferred: true },
+        ],
+      );
     } else {
       Alert.alert(t("Failed to send message"), attempt.error);
     }

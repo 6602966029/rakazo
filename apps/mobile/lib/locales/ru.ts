@@ -4,6 +4,8 @@ export const RU_MESSAGES: Record<string, string> = {
   "Connect a model": "Подключить модель",
   [MODEL_REQUIRED_SEND_ERROR]: "Подключите модель, чтобы начать запуск.",
   "Not Now": "Не сейчас",
+  "Add an API key in Models, then tap your message to send it.":
+    "Добавьте API-ключ в разделе «Модели», затем нажмите на сообщение, чтобы отправить его.",
   "Open Models": "Открыть модели",
 
   "About {label}": "О настройке «{label}»",

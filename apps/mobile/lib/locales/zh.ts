@@ -4,6 +4,8 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Connect a model": "连接模型",
   [MODEL_REQUIRED_SEND_ERROR]: "连接模型以开始运行。",
   "Not Now": "暂不",
+  "Add an API key in Models, then tap your message to send it.":
+    "请在“模型”中添加 API 密钥，然后点按你的消息进行发送。",
   "Open Models": "打开模型设置",
 
   "About {label}": "关于{label}",

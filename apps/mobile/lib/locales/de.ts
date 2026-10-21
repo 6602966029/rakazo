@@ -4,6 +4,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Connect a model": "Modell verbinden",
   [MODEL_REQUIRED_SEND_ERROR]: "Verbinde ein Modell, um einen Lauf zu starten.",
   "Not Now": "Jetzt nicht",
+  "Add an API key in Models, then tap your message to send it.":
+    "Füge unter Modelle einen API-Schlüssel hinzu und tippe dann auf deine Nachricht, um sie zu senden.",
   "Open Models": "Modelle öffnen",
 
   "About {label}": "Über {label}",
