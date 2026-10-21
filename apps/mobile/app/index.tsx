@@ -2,7 +2,7 @@ import { MenuView } from "@expo/ui/community/menu";
 import type { RunActivityRow, SpaceBot, SpaceGroup } from "@rakazo/contracts";
 import { normalizeCreateBotProfile } from "@rakazo/contracts";
 import { accountDisplay, isRunWorking } from "@rakazo/core";
-import { botColors } from "@rakazo/ui-tokens";
+import { botColors, fontWeight, typeScale } from "@rakazo/ui-tokens";
 import type { Href } from "expo-router";
 import {
   Redirect,
@@ -130,6 +130,7 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import { useSplitView } from "../lib/split-view";
+import { stacksAtTextScale } from "../lib/text-scale";
 import type { LoadFailureKind } from "../lib/user-error";
 import { errorText, loadFailureKind } from "../lib/user-error";
 
@@ -773,12 +774,6 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         },
         {
           type: "button" as const,
-          accessibilityLabel: t("Artifacts"),
-          icon: { type: "sfSymbol" as const, name: "square.stack.3d.up" },
-          onPress: () => router.push("/artifacts"),
-        },
-        {
-          type: "button" as const,
           accessibilityLabel: t("Search"),
           identifier: "home-search-button",
           icon: { type: "sfSymbol" as const, name: "magnifyingglass" },
@@ -1282,12 +1277,6 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
               />
             </HeaderButton>
             <HeaderButton
-              accessibilityLabel={t("Artifacts")}
-              onPress={() => router.push("/artifacts")}
-            >
-              <NativeSymbol ios="square.stack.3d.up" android="layers-outline" size={17} />
-            </HeaderButton>
-            <HeaderButton
               testID="home-search-button"
               accessibilityLabel={t("Search")}
               onPress={() => router.push("/search")}
@@ -1555,6 +1544,7 @@ function ConversationRow({
   const styles = useThemedStyles(createHomeStyles);
   const { t } = useI18n();
   const compact = useContext(CompactRowsContext);
+  const tagBelow = stacksAtTextScale(useWindowDimensions().fontScale);
   const openChatId = useContext(SelectedChatContext);
   const selected = chatId !== undefined && openChatId === chatId;
   const toggleLabel = collapsed
@@ -1612,7 +1602,7 @@ function ConversationRow({
       {avatar}
       <View style={styles.rowBody}>
         <View style={styles.rowTop}>
-          <View style={styles.titleRow}>
+          <View style={[styles.titleRow, tagBelow && styles.titleRowWrapped]}>
             <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
               {title}
             </Text>
@@ -1784,7 +1774,7 @@ const PinnedTiles = memo(function PinnedTiles({
             onLongPress={organize}
             style={({ pressed }) => [
               styles.pinnedTile,
-              selectedId === id ? { backgroundColor: native.fill } : null,
+              selectedId === id ? { backgroundColor: native.fillPressed } : null,
               pressed && styles.rowPressed,
             ]}
           >
@@ -2068,7 +2058,7 @@ function createHomeStyles() {
       marginHorizontal: 12,
       paddingHorizontal: 4,
       borderRadius: 12,
-      backgroundColor: native.fill,
+      backgroundColor: native.fillPressed,
     },
     pinnedTiles: {
       flexDirection: "row",
@@ -2117,15 +2107,20 @@ function createHomeStyles() {
     },
     rowTop: {
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
       gap: 8,
     },
     titleRow: {
       flex: 1,
       minWidth: 0,
+      overflow: "hidden",
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
+    },
+    // At the largest text sizes a tag that doesn't fit beside the name moves under it.
+    titleRowWrapped: {
+      flexWrap: "wrap",
     },
     rowMeta: {
       flexDirection: "row",
@@ -2133,33 +2128,34 @@ function createHomeStyles() {
       gap: 7,
     },
     name: {
-      flexShrink: 1,
+      flexShrink: 0,
+      maxWidth: "100%",
       color: native.label,
-      fontSize: 17,
-      fontWeight: "600",
+      ...typeScale.cardTitle,
       writingDirection: "auto",
     },
     tag: {
       flexShrink: 1,
+      minWidth: 0,
+      overflow: "hidden",
       borderRadius: 999,
-      backgroundColor: native.fill,
+      backgroundColor: native.quietFill,
       paddingHorizontal: 7,
       paddingVertical: 2,
     },
     tagLabel: {
       color: native.secondaryLabel,
-      fontSize: 11,
-      fontWeight: "500",
+      fontSize: typeScale.caption.fontSize,
+      fontWeight: fontWeight.medium,
       writingDirection: "auto",
     },
     time: {
-      color: native.secondaryLabel,
-      fontSize: 15,
+      color: native.tertiaryLabel,
+      ...typeScale.caption,
     },
     preview: {
       color: native.secondaryLabel,
-      fontSize: 15,
-      lineHeight: 20,
+      ...typeScale.secondary,
       writingDirection: "auto",
     },
     unreadPreview: {
@@ -2170,7 +2166,7 @@ function createHomeStyles() {
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: tokens.foreground,
+      backgroundColor: tokens.unread,
     },
     spaceHeading: {
       flexDirection: "row",
@@ -2216,18 +2212,16 @@ function createHomeStyles() {
     sectionTitle: {
       flexShrink: 1,
       color: native.secondaryLabel,
-      fontSize: 14,
-      fontWeight: "600",
+      ...typeScale.secondary,
     },
     sectionCount: {
       color: native.tertiaryLabel,
-      fontSize: 13,
+      ...typeScale.caption,
       fontVariant: ["tabular-nums"],
     },
     sectionHeading: {
       color: native.secondaryLabel,
-      fontSize: 14,
-      fontWeight: "600",
+      ...typeScale.secondary,
       paddingHorizontal: 16,
       paddingTop: 12,
       paddingBottom: 4,

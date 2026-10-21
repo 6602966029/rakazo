@@ -435,7 +435,7 @@ export function ThreadComposer({
                     end: 0,
                     fontSize: 17,
                     lineHeight: 22,
-                    color: tokens.mutedForeground,
+                    color: tokens.faintForeground,
                   }}
                 >
                   {composerPrompt}
@@ -526,7 +526,7 @@ export function ThreadComposer({
             <GlassSurface
               shape="circle"
               style={styles.circleButton}
-              fallbackStyle={{ borderColor: tokens.border, borderWidth: 1 }}
+              fallbackStyle={{ borderColor: tokens.glassStroke, borderWidth: 1 }}
             >
               <NativeSymbol ios="stop.fill" android="stop" size={15} color={tokens.foreground} />
             </GlassSurface>

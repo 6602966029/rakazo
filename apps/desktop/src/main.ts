@@ -23,6 +23,7 @@ import {
   type ElectronAutoUpdater,
   LAUNCH_CHECK_DELAY_MS,
 } from "./auto-update.js";
+import { createBadgeHandler } from "./badge.js";
 import { openBrowserAuth } from "./browser-auth.js";
 import { DOCKER_INSTALL_LINKS, isDesktopSetupLink, runDocker } from "./docker-cli.js";
 import { prepareHostComputer } from "./host-computer.js";
@@ -530,7 +531,7 @@ function oauthPopupWindowOptions(partition: string | null) {
     frame: true,
     titleBarStyle: "default" as const,
     autoHideMenuBar: true,
-    backgroundColor: "#0B0C0E",
+    backgroundColor: "#141414",
     webPreferences: oauthPopupSessionPreferences(partition),
   };
 }
@@ -1201,6 +1202,10 @@ app.whenReady().then(async () => {
       installApplicationMenu();
     }
   });
+  ipcMain.handle(
+    "desktop.badge.set",
+    createBadgeHandler(permissionTarget, (count) => app.setBadgeCount(count)),
+  );
   ipcMain.handle("desktop.platform", () => process.platform);
   ipcMain.handle("desktop.window.close", (event) => {
     windowFrom(event)?.close();

@@ -48,7 +48,7 @@ import {
   timeSeparatorIds,
   withLiveStreamingProgress,
 } from "@rakazo/core";
-import { typeScale } from "@rakazo/ui-tokens";
+import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import * as Clipboard from "expo-clipboard";
 import {
   useFocusEffect,
@@ -2683,8 +2683,8 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
               fallbackStyle={{
                 borderRadius: 14,
                 borderWidth: 1,
-                borderColor: tokens.border,
-                backgroundColor: tokens.card,
+                borderColor: tokens.glassStroke,
+                backgroundColor: tokens.glassFill,
                 paddingStart: 12,
                 paddingEnd: 12,
                 paddingVertical: 10,
@@ -3397,8 +3397,6 @@ const MessageRow = memo(function MessageRow({
                   style={{
                     color: tokens.foreground,
                     backgroundColor: tokens.muted,
-                    borderColor: tokens.border,
-                    borderWidth: 1,
                     borderRadius: 16,
                     paddingHorizontal: 8,
                     paddingVertical: 2,
@@ -3629,8 +3627,6 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           width: "90%",
           borderRadius: 18,
-          borderWidth: 1,
-          borderColor: tokens.border,
           backgroundColor: tokens.card,
           paddingHorizontal: 16,
           paddingVertical: 14,
@@ -3643,13 +3639,13 @@ const MessageBubble = memo(function MessageBubble({
             gap: 8,
           }}
         >
-          <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "600" }}>
+          <Text style={{ flexShrink: 1, color: tokens.foreground, ...typeScale.cardTitle }}>
             {safeDisplayName(special.name, t("subagent"))}
           </Text>
           <Text
             style={{
               color: failed ? tokens.destructive : running ? tokens.warning : tokens.success,
-              fontSize: 13,
+              ...typeScale.caption,
             }}
           >
             {running
@@ -3662,7 +3658,7 @@ const MessageBubble = memo(function MessageBubble({
           </Text>
         </View>
         {special.task ? (
-          <Text style={{ color: tokens.mutedForeground, marginTop: 8, fontSize: 13.5 }}>
+          <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
             {special.task}
           </Text>
         ) : null}
@@ -3704,32 +3700,30 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           width: "90%",
           borderRadius: 18,
-          borderWidth: 1,
-          borderColor: tokens.border,
           backgroundColor: tokens.card,
           paddingHorizontal: 16,
           paddingVertical: 14,
         }}
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-          <Text style={{ color: tokens.cardForeground, fontSize: 15, fontWeight: "600" }}>
+          <Text style={{ flexShrink: 1, color: tokens.cardForeground, ...typeScale.cardTitle }}>
             {title}
           </Text>
           <Text
             style={{
               color: failed ? tokens.destructive : running ? tokens.warning : tokens.success,
-              fontSize: 13,
+              ...typeScale.caption,
             }}
           >
             {statusLabel}
           </Text>
         </View>
         {prHref ? (
-          <Text style={{ color: tokens.mutedForeground, marginTop: 8, fontSize: 14.5 }}>
+          <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
             {t("Pull request")}
           </Text>
         ) : special.branch ? (
-          <Text style={{ color: tokens.mutedForeground, marginTop: 8, fontSize: 13.5 }}>
+          <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
             {special.branch}
           </Text>
         ) : null}
@@ -3747,8 +3741,6 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           width: "90%",
           borderRadius: 18,
-          borderWidth: 1,
-          borderColor: tokens.border,
           backgroundColor: tokens.card,
           paddingHorizontal: 16,
           paddingVertical: 14,
@@ -3762,10 +3754,12 @@ const MessageBubble = memo(function MessageBubble({
             gap: 8,
           }}
         >
-          <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "600" }}>
+          <Text style={{ flexShrink: 1, color: tokens.foreground, ...typeScale.cardTitle }}>
             {special.name || t("Bot")}
           </Text>
-          <Text style={{ color: removed ? tokens.destructive : tokens.success, fontSize: 13 }}>
+          <Text
+            style={{ color: removed ? tokens.destructive : tokens.success, ...typeScale.caption }}
+          >
             {special.status === "archived"
               ? t("archived")
               : special.status === "deleted"
@@ -3773,14 +3767,7 @@ const MessageBubble = memo(function MessageBubble({
                 : t("bot")}
           </Text>
         </View>
-        <Text
-          style={{
-            color: tokens.mutedForeground,
-            marginTop: 8,
-            fontSize: 14.5,
-            lineHeight: 21,
-          }}
-        >
+        <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
           {removed
             ? special.status === "archived"
               ? t("Archived. Chat, memory, and files kept.")
@@ -3827,8 +3814,6 @@ const MessageBubble = memo(function MessageBubble({
             // No percentage width: the iOS menu host has no definite width to resolve it against.
             maxWidth: 576,
             borderRadius: 18,
-            borderWidth: 1,
-            borderColor: tokens.border,
             backgroundColor: tokens.card,
             paddingHorizontal: 16,
             paddingVertical: 14,
@@ -3843,10 +3828,7 @@ const MessageBubble = memo(function MessageBubble({
           ) : (
             <>
               {askBlock.text ? (
-                <Text
-                  {...actionProps}
-                  style={{ color: tokens.foreground, fontSize: 15.5, lineHeight: 23 }}
-                >
+                <Text {...actionProps} style={{ color: tokens.foreground, ...typeScale.cardTitle }}>
                   {askBlock.instructionUpdate
                     ? t("Update instructions?")
                     : plainAskTitle(askBlock.text)}
@@ -3859,9 +3841,12 @@ const MessageBubble = memo(function MessageBubble({
                     color:
                       askBlock.detailFormat === "text" ? tokens.foreground : tokens.mutedForeground,
                     marginTop: askBlock.text ? 8 : 0,
-                    fontSize: askBlock.detailFormat === "text" ? 15.5 : 12.5,
-                    fontFamily: askBlock.detailFormat === "text" ? undefined : "Menlo",
-                    lineHeight: askBlock.detailFormat === "text" ? 23 : 20,
+                    // Commands and an approval's tool arguments read as code; a bot's own note
+                    // under its question is text.
+                    ...(askBlock.detailFormat === "code" ||
+                    (!askBlock.detailFormat && askBlock.approvalEffectId)
+                      ? { ...typeScale.caption, fontFamily: "Menlo" }
+                      : typeScale.secondary),
                   }}
                 >
                   {askBlock.detail}
@@ -3873,8 +3858,8 @@ const MessageBubble = memo(function MessageBubble({
                   style={{
                     color: askBlock.answer === "deny" ? tokens.mutedForeground : tokens.success,
                     marginTop: 12,
-                    fontSize: 13.5,
-                    fontWeight: "600",
+                    ...typeScale.secondary,
+                    fontWeight: fontWeight.medium,
                   }}
                 >
                   {askBlock.instructionUpdate
@@ -3896,7 +3881,7 @@ const MessageBubble = memo(function MessageBubble({
               ) : (
                 <Text
                   {...actionProps}
-                  style={{ color: tokens.mutedForeground, marginTop: 12, fontSize: 13.5 }}
+                  style={{ color: tokens.mutedForeground, marginTop: 12, ...typeScale.caption }}
                 >
                   {t("No longer active")}
                 </Text>
@@ -3949,9 +3934,7 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           maxWidth: "100%",
           borderRadius: 20,
-          borderWidth: 1,
-          borderColor: tokens.border,
-          backgroundColor: message.role === "user" ? tokens.secondary : tokens.muted,
+          backgroundColor: message.role === "user" ? tokens.chatUser : tokens.muted,
           paddingHorizontal: 14,
           paddingVertical: 12,
           gap: 8,
@@ -3980,9 +3963,7 @@ const MessageBubble = memo(function MessageBubble({
                 artifactId={attachment.artifactId}
                 name={attachment.name ?? t("Image")}
                 mimeType={attachment.mimeType ?? "image/png"}
-                labelColor={
-                  message.role === "user" ? tokens.secondaryForeground : tokens.foreground
-                }
+                labelColor={message.role === "user" ? tokens.chatUserForeground : tokens.foreground}
                 pressableProps={actionProps}
                 onOpen={() =>
                   onPreviewImage({
@@ -4011,7 +3992,7 @@ const MessageBubble = memo(function MessageBubble({
               >
                 <Text
                   style={{
-                    color: message.role === "user" ? tokens.secondaryForeground : tokens.foreground,
+                    color: message.role === "user" ? tokens.chatUserForeground : tokens.foreground,
                     fontSize: 15,
                   }}
                 >
@@ -4027,6 +4008,7 @@ const MessageBubble = memo(function MessageBubble({
               artifactId={attachment.artifactId}
               name={attachment.name ?? t("File")}
               mimeType={attachment.mimeType!}
+              labelColor={message.role === "user" ? tokens.chatUserForeground : undefined}
             />
           ) : (
             <Pressable
@@ -4053,7 +4035,7 @@ const MessageBubble = memo(function MessageBubble({
             >
               <Text
                 style={{
-                  color: message.role === "user" ? tokens.secondaryForeground : tokens.foreground,
+                  color: message.role === "user" ? tokens.chatUserForeground : tokens.foreground,
                   fontSize: 15,
                 }}
               >
@@ -4062,7 +4044,8 @@ const MessageBubble = memo(function MessageBubble({
               {formatFileSize(attachment.size) ? (
                 <Text
                   style={{
-                    color: tokens.mutedForeground,
+                    color:
+                      message.role === "user" ? tokens.chatUserForeground : tokens.mutedForeground,
                     marginTop: 4,
                     fontSize: 13,
                   }}
@@ -4174,7 +4157,7 @@ function MessageTextCard({
         flexShrink: 1,
         minWidth: 0,
         maxWidth: "100%",
-        backgroundColor: message.role === "user" ? tokens.secondary : tokens.muted,
+        backgroundColor: message.role === "user" ? tokens.chatUser : tokens.muted,
         paddingHorizontal: 14,
         paddingVertical: 9,
         borderRadius: 20,
@@ -4243,8 +4226,6 @@ function AgentEventLabel({
             width: "100%",
             marginTop: 6,
             borderRadius: 14,
-            borderWidth: 1,
-            borderColor: tokens.border,
             backgroundColor: tokens.card,
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -4339,8 +4320,6 @@ function AskBlock({
       style={{
         width: secretInput ? "100%" : "90%",
         borderRadius: 18,
-        borderWidth: 1,
-        borderColor: tokens.border,
         backgroundColor: tokens.card,
         paddingHorizontal: 16,
         paddingVertical: 14,
@@ -4350,26 +4329,26 @@ function AskBlock({
       <Text
         {...actionProps}
         numberOfLines={secretInput ? 2 : undefined}
-        style={{ color: tokens.foreground, fontSize: 15.5, fontWeight: "600" }}
+        style={{ color: tokens.foreground, ...typeScale.cardTitle }}
       >
         {plainAskTitle(ask.text)}
       </Text>
       {secretInput && ask.credential ? (
-        <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>
+        <Text style={{ color: tokens.mutedForeground, ...typeScale.secondary }}>
           {secretDestinationLabel(ask.credential)}
         </Text>
       ) : null}
       {ask.detail && !secretInput ? (
-        <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>{ask.detail}</Text>
+        <Text style={{ color: tokens.mutedForeground, ...typeScale.secondary }}>{ask.detail}</Text>
       ) : null}
       {answered ? (
         <Text
           style={{
             // Dismissed reads like a declined approval, not a success.
             color: dismissed || ask.dismissed ? tokens.mutedForeground : tokens.success,
-            ...(secretInput
-              ? { fontSize: 13.5, fontWeight: "600" as const, marginTop: 12 }
-              : { fontSize: 14 }),
+            ...typeScale.secondary,
+            fontWeight: fontWeight.medium,
+            ...(secretInput ? { marginTop: 12 } : null),
           }}
         >
           {secretInput
@@ -4406,7 +4385,7 @@ function AskBlock({
             value={answer}
             onChangeText={setAnswer}
             placeholder={secretInput ? secretLabel : t("Type your answer")}
-            placeholderTextColor={tokens.mutedForeground}
+            placeholderTextColor={tokens.faintForeground}
             secureTextEntry={secretInput}
             autoComplete="off"
             {...(secretInput ? secretFieldTraits(ask.purpose, ask.credential) : {})}
@@ -4442,11 +4421,13 @@ function AskBlock({
           </View>
         </>
       ) : (
-        <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>
+        <Text style={{ color: tokens.mutedForeground, ...typeScale.caption }}>
           {t("Waiting for this bot’s response.")}
         </Text>
       )}
-      {error ? <Text style={{ color: tokens.destructive, fontSize: 13 }}>{error}</Text> : null}
+      {error ? (
+        <Text style={{ color: tokens.destructive, ...typeScale.caption }}>{error}</Text>
+      ) : null}
       {sheetOpen && loginInput && ask.credential ? (
         <SecretAskSheet
           title={plainAskTitle(ask.text)}
