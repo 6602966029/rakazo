@@ -242,7 +242,16 @@ async function runRoutine(
   const sleepJobs = enqueue.mock.calls
     .map((call) => (call as unknown[])[0] as { name: string })
     .filter((job) => job.name === "computer.sleep");
-  return { finalizeRun, sandbox, sleepJobs, toolResults, enqueue, runtimeRun, steeringInputs };
+  return {
+    finalizeRun,
+    sandbox,
+    sleepJobs,
+    toolResults,
+    enqueue,
+    runtimeRun,
+    steeringInputs,
+    prisma,
+  };
 }
 
 beforeEach(() => {
@@ -431,17 +440,21 @@ describe("run computer provisioning", () => {
   it("fails the run instead of retrying once setup has failed too many times in a row", async () => {
     provisionComputer.mockRejectedValue(new Error("provider unavailable"));
 
-    const { finalizeRun, enqueue } = await runRoutine(
+    const { finalizeRun, enqueue, prisma } = await runRoutine(
       [{ name: "list_files", args: { path: "" } }],
-      {
-        priorSetupFailures: 7,
-      },
+      { priorSetupFailures: 7 },
     );
 
     expect(finalizeRun).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ outcome: "failed", error: "provider unavailable" }),
     );
     expect(enqueue).not.toHaveBeenCalled();
+    // Busy-computer and database waits between failures neither count nor reset the streak.
+    expect(prisma.attempt.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ NOT: { status: "setup_failed", error: null } }),
+      }),
+    );
   });
 
   it.each([undefined, "abort", "recover"] as const)(

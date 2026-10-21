@@ -8617,17 +8617,22 @@ async function renewRunLease(
 /** Consecutive setup failures, including this one, after which a run fails instead of retrying. */
 const RUN_SETUP_FAILURE_LIMIT = 8;
 
-/** Setup failures in a row before the current attempt; a busy-computer wait does not count. */
+/**
+ * Setup failures in a row before the current attempt. Busy-computer and database waits are
+ * setup_failed attempts without an error; they neither count nor break the streak.
+ */
 async function setupFailureStreak(prisma: PrismaClient, runId: string): Promise<number> {
   const recent = await prisma.attempt.findMany({
-    where: { runId, status: { not: "running" } },
+    where: {
+      runId,
+      status: { not: "running" },
+      NOT: { status: "setup_failed", error: null },
+    },
     orderBy: { fence: "desc" },
     take: RUN_SETUP_FAILURE_LIMIT,
-    select: { status: true, error: true },
+    select: { status: true },
   });
-  const streak = recent.findIndex(
-    (attempt) => attempt.status !== "setup_failed" || attempt.error === null,
-  );
+  const streak = recent.findIndex((attempt) => attempt.status !== "setup_failed");
   return streak === -1 ? recent.length : streak;
 }
 
