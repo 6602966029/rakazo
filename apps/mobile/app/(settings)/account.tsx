@@ -274,7 +274,7 @@ export default function Account() {
       .catch(() => undefined);
     void passwordResetCapabilities()
       .then(async (capabilities) => {
-        if (await passkeysAvailable(capabilities.passkeyRpId)) await loadPasskeys();
+        if (await passkeysAvailable(capabilities)) await loadPasskeys();
       })
       .catch(() => undefined);
   }, [loadPasskeys]);

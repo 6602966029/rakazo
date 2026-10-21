@@ -1,7 +1,8 @@
+import type { AuthCapabilities } from "@rakazo/contracts";
 import { passkeyOfferDismissedKey, shouldOfferPasskey } from "@rakazo/core";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import type * as NativePasskeys from "react-native-passkeys";
 import {
   authHeaders,
@@ -39,9 +40,17 @@ function associatedRpIds(): string[] {
   return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
 }
 
-/** Passkeys work only on a device that supports them, for a server this binary is associated with. */
-export async function passkeysAvailable(rpId: string | null | undefined): Promise<boolean> {
+/**
+ * Passkeys work only on a device that supports them, for a server this binary is associated
+ * with, whose domain also vouches for this platform's app. Older servers omit that, so: hidden.
+ */
+export async function passkeysAvailable(
+  capabilities: Pick<AuthCapabilities, "passkeyRpId" | "nativePasskeys"> | null | undefined,
+): Promise<boolean> {
+  const rpId = capabilities?.passkeyRpId;
   if (!rpId || !associatedRpIds().includes(rpId.toLowerCase())) return false;
+  const platform = Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : null;
+  if (!platform || capabilities.nativePasskeys?.[platform] !== true) return false;
   return (await loadNative()) !== null;
 }
 
@@ -233,7 +242,7 @@ const offered = new Set<string>();
 /** Whether this account should see the one-time offer: right after signup, never after dismissal. */
 async function passkeyOfferDue(userId: string): Promise<boolean> {
   const capabilities = await passwordResetCapabilities();
-  if (!(await passkeysAvailable(capabilities.passkeyRpId))) return false;
+  if (!(await passkeysAvailable(capabilities))) return false;
   if ((await SecureStore.getItemAsync(passkeyOfferDismissedKey(userId))) === "1") return false;
   const { response, body } = await fetchMobileJson<{
     user?: { id?: string; createdAt?: string };

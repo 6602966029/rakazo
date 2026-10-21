@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { mountAppAssociation } from "./app-association.js";
+import { mountAppAssociation, nativePasskeys } from "./app-association.js";
 import { loadEnv } from "./env.js";
 
 const fingerprint = Array.from({ length: 32 }, () => "AB").join(":");
@@ -17,6 +17,26 @@ function association(env: Record<string, string>) {
   );
   return app;
 }
+
+describe("nativePasskeys", () => {
+  const none = { passkeyAppleAppIds: [], passkeyAndroidCertFingerprints: [] };
+  const both = {
+    passkeyAppleAppIds: ["TEAMID0000.com.example.app"],
+    passkeyAndroidCertFingerprints: [fingerprint],
+  };
+
+  it("offers native passkeys only on platforms the domain vouches for", () => {
+    expect(nativePasskeys(none, "chat.example.org")).toEqual({ ios: false, android: false });
+    expect(
+      nativePasskeys({ ...none, passkeyAppleAppIds: both.passkeyAppleAppIds }, "chat.example.org"),
+    ).toEqual({ ios: true, android: false });
+    expect(nativePasskeys(both, "chat.example.org")).toEqual({ ios: true, android: true });
+  });
+
+  it("offers none when the server has no passkeys", () => {
+    expect(nativePasskeys(both, null)).toEqual({ ios: false, android: false });
+  });
+});
 
 describe("native app association", () => {
   it("serves only the files a deployment configures", async () => {

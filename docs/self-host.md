@@ -1197,7 +1197,8 @@ PASSKEY_APPLE_APP_IDS=ABCDE12345.com.rakazo.app
 PASSKEY_ANDROID_CERT_SHA256=AA:BB:...:FF
 ```
 
-Both files are served through the web origin, so a reverse proxy in front of the web container
+Until a platform's setting is set, the native app on that platform hides passkeys for this
+server. Both files are served through the web origin, so a reverse proxy in front of the web container
 must pass `/.well-known/` through to it.
 
 ## Upload size

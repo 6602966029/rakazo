@@ -98,13 +98,13 @@ export default function SignIn() {
   useEffect(() => {
     let active = true;
     setPasskeys(false);
-    void passkeysAvailable(reset?.passkeyRpId).then((available) => {
+    void passkeysAvailable(reset).then((available) => {
       if (active) setPasskeys(available);
     });
     return () => {
       active = false;
     };
-  }, [reset?.passkeyRpId]);
+  }, [reset]);
 
   useEffect(() => {
     if (resetSent || codeSent) AccessibilityInfo.announceForAccessibility(t("Check your email"));

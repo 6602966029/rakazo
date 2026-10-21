@@ -356,7 +356,9 @@ it("offers a quiet passkey sign-in only in sign-in mode on a supported server", 
   vi.mocked(signInWithPasskey).mockResolvedValue(false);
   await render();
   const passkey = buttonNamed("Sign in with passkey")!;
-  expect(passkeysAvailable).toHaveBeenLastCalledWith("example.invalid");
+  expect(passkeysAvailable).toHaveBeenLastCalledWith(
+    expect.objectContaining({ passkeyRpId: "example.invalid" }),
+  );
   expect(passkey.dataset.prominence).toBe("quiet");
   expectBefore(host.querySelector('button[data-prominence="primary"]')!, passkey);
   await act(async () => passkey.click());

@@ -101,7 +101,7 @@ import { requestLogging } from "@rakazo/logging/hono";
 import { MarkdownMemoryStore } from "@rakazo/memory";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { mountAppAssociation } from "./app-association.js";
+import { mountAppAssociation, nativePasskeys } from "./app-association.js";
 import { storeInboundAttachment } from "./artifacts.js";
 import { createBillingService } from "./billing.js";
 import { mountBillingRoutes } from "./billing-webhook.js";
@@ -649,6 +649,7 @@ export async function createApp(
       emailCode: auth.emailCodeSignIn,
       billing: Boolean(billing),
       passkeyRpId: auth.passkeyRpId,
+      nativePasskeys: nativePasskeys(env, auth.passkeyRpId),
     } satisfies AuthCapabilities);
   });
   mountAppAssociation(app, env);

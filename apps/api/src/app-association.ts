@@ -4,6 +4,20 @@ import type { Hono } from "hono";
 const ANDROID_PACKAGE = "com.rakazo.app";
 
 /**
+ * Which native apps can use this server's passkeys: only those the domain vouches for
+ * below. Without the association file the OS refuses every ceremony, so apps hide passkeys.
+ */
+export function nativePasskeys(
+  env: { passkeyAppleAppIds: string[]; passkeyAndroidCertFingerprints: string[] },
+  passkeyRpId: string | null,
+): { ios: boolean; android: boolean } {
+  return {
+    ios: Boolean(passkeyRpId) && env.passkeyAppleAppIds.length > 0,
+    android: Boolean(passkeyRpId) && env.passkeyAndroidCertFingerprints.length > 0,
+  };
+}
+
+/**
  * Domain association files that let the native apps use this domain's
  * passkeys. Each file exists only when the deployment names its apps.
  */

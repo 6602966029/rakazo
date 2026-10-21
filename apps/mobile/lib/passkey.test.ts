@@ -26,7 +26,8 @@ const constants = vi.hoisted(() => ({
 
 vi.mock("expo-constants", () => ({ default: constants }));
 vi.mock("expo-secure-store", () => ({ getItemAsync: vi.fn(), setItemAsync: vi.fn() }));
-vi.mock("react-native", () => ({ Alert: { alert: vi.fn() } }));
+const platform = vi.hoisted(() => ({ OS: "ios" }));
+vi.mock("react-native", () => ({ Alert: { alert: vi.fn() }, Platform: platform }));
 vi.mock("react-native-passkeys", () => ({ isSupported: vi.fn(), get: vi.fn(), create: vi.fn() }));
 vi.mock("./api", () => ({
   authHeaders: vi.fn(async () => ({ authorization: "Bearer current-session" })),
@@ -54,6 +55,13 @@ function challengeResponse(body: unknown = { challenge: "challenge" }) {
   };
 }
 
+function server(
+  passkeyRpId: string | null,
+  nativePasskeys: { ios: boolean; android: boolean } = { ios: true, android: true },
+) {
+  return { passkeyRpId, nativePasskeys };
+}
+
 function requests() {
   return vi.mocked(fetchMobileJson).mock.calls.map(([url, init]) => ({
     path: new URL(String(url)).pathname,
@@ -66,6 +74,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   resetPasskeysForTests();
   constants.expoConfig.extra.passkeyRpIds = ["rakazo.example.test"];
+  platform.OS = "ios";
   vi.mocked(isSupported).mockReturnValue(true);
   vi.mocked(currentApiBase).mockReturnValue("https://rakazo.example.test");
   vi.mocked(currentSessionGeneration).mockReturnValue(1);
@@ -79,21 +88,35 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("passkey availability", () => {
   it("needs a server this binary is associated with and a supporting device", async () => {
-    await expect(passkeysAvailable("rakazo.example.test")).resolves.toBe(true);
-    await expect(passkeysAvailable("RAKAZO.example.test")).resolves.toBe(true);
-    await expect(passkeysAvailable("self-hosted.example.test")).resolves.toBe(false);
-    await expect(passkeysAvailable(null)).resolves.toBe(false);
+    await expect(passkeysAvailable(server("rakazo.example.test"))).resolves.toBe(true);
+    await expect(passkeysAvailable(server("RAKAZO.example.test"))).resolves.toBe(true);
+    await expect(passkeysAvailable(server("self-hosted.example.test"))).resolves.toBe(false);
+    await expect(passkeysAvailable(server(null))).resolves.toBe(false);
     await expect(passkeysAvailable(undefined)).resolves.toBe(false);
+  });
+
+  it("hides passkeys on a platform the server's domain does not vouch for", async () => {
+    const iosOnly = server("rakazo.example.test", { ios: true, android: false });
+    await expect(passkeysAvailable(iosOnly)).resolves.toBe(true);
+    platform.OS = "android";
+    await expect(passkeysAvailable(iosOnly)).resolves.toBe(false);
+    await expect(
+      passkeysAvailable(server("rakazo.example.test", { ios: false, android: true })),
+    ).resolves.toBe(true);
+  });
+
+  it("hides passkeys when an older server does not say which apps it vouches for", async () => {
+    await expect(passkeysAvailable({ passkeyRpId: "rakazo.example.test" })).resolves.toBe(false);
   });
 
   it("hides passkeys when the device does not support them", async () => {
     vi.mocked(isSupported).mockReturnValue(false);
-    await expect(passkeysAvailable("rakazo.example.test")).resolves.toBe(false);
+    await expect(passkeysAvailable(server("rakazo.example.test"))).resolves.toBe(false);
   });
 
   it("hides passkeys on a binary built without associated domains", async () => {
     constants.expoConfig.extra.passkeyRpIds = [];
-    await expect(passkeysAvailable("rakazo.example.test")).resolves.toBe(false);
+    await expect(passkeysAvailable(server("rakazo.example.test"))).resolves.toBe(false);
   });
 });
 
@@ -263,6 +286,7 @@ describe("one-time passkey offer", () => {
       passwordReset: false,
       resetUrl: null,
       passkeyRpId: "rakazo.example.test",
+      nativePasskeys: { ios: true, android: true },
     });
   });
 
@@ -334,6 +358,7 @@ describe("one-time passkey offer", () => {
       passwordReset: false,
       resetUrl: null,
       passkeyRpId: "self-hosted.example.test",
+      nativePasskeys: { ios: true, android: true },
     });
     await offerPasskeyOnce("user-1", () => true);
     expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
@@ -348,5 +373,5 @@ it("hides passkeys when the native module is missing from the binary", async () 
     throw new Error("Cannot find native module 'ReactNativePasskeys'");
   });
   const fresh = await import("./passkey");
-  await expect(fresh.passkeysAvailable("rakazo.example.test")).resolves.toBe(false);
+  await expect(fresh.passkeysAvailable(server("rakazo.example.test"))).resolves.toBe(false);
 });
