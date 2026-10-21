@@ -131,10 +131,16 @@ export function PluginsOverlay({
     return items;
   }
 
-  useEffect(() => {
+  function load() {
+    setLoading(true);
+    setCatalogError(null);
     void refresh()
       .catch((err: unknown) => setCatalogError(errorText(err, t`Could not load integrations`)))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    load();
     return () => connectionAttempt.current?.abort();
   }, []);
 
@@ -692,15 +698,24 @@ export function PluginsOverlay({
           hidden={loading}
           className="rk-scroll flex-1 overflow-y-auto px-8 py-6"
         >
-          {catalogError ? <p className="mb-4 text-sm text-destructive">{catalogError}</p> : null}
+          {catalogError ? (
+            <div className="mb-4 flex items-center gap-3">
+              <p className="text-sm text-destructive">{catalogError}</p>
+              {!catalogLoaded ? (
+                <Button variant="outline" size="sm" onClick={load}>
+                  <Trans>Retry</Trans>
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
 
           {detailItem ? (
             renderDetail(detailItem)
           ) : (
             <>
-              {!loading && showFeatured ? (
+              {catalogLoaded && showFeatured ? (
                 <div className="mb-6" data-testid="featured-connectors">
-                  {!loading && catalog.length === 0 ? (
+                  {catalog.length === 0 ? (
                     <p className="text-[13.5px] leading-6 text-muted-foreground/80">
                       <Trans>Configure a plugin catalog on the server to connect apps.</Trans>
                     </p>
@@ -744,12 +759,12 @@ export function PluginsOverlay({
                 </div>
               ) : null}
 
-              {!loading && catalog.length === 0 && !showFeatured ? (
+              {catalogLoaded && catalog.length === 0 && !showFeatured ? (
                 <p className="text-muted-foreground/80">
                   <Trans>No managed app catalog is configured on this deployment.</Trans>
                 </p>
               ) : null}
-              {!loading && catalog.length > 0 && visible.length === 0 && !showFeatured ? (
+              {catalogLoaded && catalog.length > 0 && visible.length === 0 && !showFeatured ? (
                 <p className="text-muted-foreground/80">
                   <Trans>No apps match your search.</Trans>
                 </p>
