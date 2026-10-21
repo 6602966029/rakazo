@@ -143,6 +143,8 @@ describe("pr-digest", () => {
       0,
     ],
     ["reviewer", "User", "<h3>Greptile Summary</h3>", 11],
+    ["greptile-apps[bot]", "Bot", "<!-- greptile_summary -->\n\n<h2>Summary</h2>", 0],
+    ["reviewer", "User", "<!-- greptile_summary -->", 11],
   ])("requires matching automation for noise: %s %s %s", (user, kind, body, expected) => {
     expect(runDigest({ conversation: [comment({ body, user, kind })] }).status).toBe(expected);
   });
