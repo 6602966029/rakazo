@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 
-import { AiConsentBlocked, resolveComposerSendPlan } from "@rakazo/core";
+import { AiConsentBlocked, MODEL_REQUIRED_SEND_ERROR, resolveComposerSendPlan } from "@rakazo/core";
+import { router } from "expo-router";
 import type { ReactNode } from "react";
 import { act, createElement, useMemo } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
+import { ActionSheetIOS, Alert, Platform } from "react-native";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FailedSendBubble } from "../components/failed-send-bubble";
 import type { MobileSnapshot } from "./api";
 import { applyMobileThreadEvent } from "./api";
-import type { ComposerSnapshot, SendPayload } from "./thread-feedback";
+import type { ComposerSnapshot, SendAttempt, SendPayload } from "./thread-feedback";
 import {
   clearFailedSends,
   configureUnsentSends,
@@ -55,6 +57,7 @@ vi.mock("react-native", () => ({
   ActionSheetIOS: { showActionSheetWithOptions: vi.fn() },
   Alert: { alert: vi.fn() },
 }));
+vi.mock("expo-router", () => ({ router: { push: vi.fn() } }));
 vi.mock("expo-secure-store", () => ({}));
 vi.mock("./live-notifications", () => ({ resumeLiveNotifications: vi.fn() }));
 vi.mock("./network-cache", () => ({ clearNetworkCache: vi.fn() }));
@@ -141,7 +144,7 @@ describe("scoped mobile outbox", () => {
     admit: vi.fn(() => true),
     hydrate: vi.fn(async () => undefined),
     forget: vi.fn(),
-    load: vi.fn(() => []),
+    load: vi.fn((): SendAttempt[] => []),
     save: vi.fn(),
     clear: vi.fn(),
   };
@@ -160,7 +163,7 @@ describe("scoped mobile outbox", () => {
       scope: () => scope,
       serverReachable: () => reachable,
       disk,
-      errorText: String,
+      errorText: (error) => (error instanceof Error ? error.message : String(error)),
       notDelivered,
     });
     restoreUnsentSends();
@@ -242,6 +245,81 @@ describe("scoped mobile outbox", () => {
     expect(notDelivered).not.toHaveBeenCalled();
     expect(container.textContent).toBe("");
     expect(disk.clear).toHaveBeenCalled();
+  });
+  it.each(["ios", "android"])(
+    "offers Models for missing-model failures on %s and retries only on request",
+    async (os) => {
+      Platform.OS = os as typeof Platform.OS;
+      const attempt = feedback.sendAttempt(payload());
+      request
+        .mockResolvedValueOnce({ id: "artifact-a" })
+        .mockRejectedValueOnce(
+          Object.assign(new Error(MODEL_REQUIRED_SEND_ERROR), { status: 400 }),
+        );
+      await act(async () => {
+        await feedback.send(attempt);
+      });
+      expect(attempt.state).toBe("failed");
+      expect(container.textContent).toContain("Not sent · Tap to retry");
+      act(() =>
+        container
+          .querySelector("button")!
+          .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
+      );
+      if (os === "ios") {
+        const [options, choose] = vi
+          .mocked(ActionSheetIOS.showActionSheetWithOptions)
+          .mock.calls.at(-1)!;
+        expect(options.options).toEqual(["Open Models", "Try Again", "Delete", "Cancel"]);
+        expect(options.cancelButtonIndex).toBe(3);
+        expect(options.destructiveButtonIndex).toBe(2);
+        act(() => choose(0));
+        expect(router.push).toHaveBeenCalledWith("/(settings)/models");
+        act(() => choose(1));
+      } else {
+        const buttons = vi.mocked(Alert.alert).mock.calls.at(-1)![2]!;
+        expect(buttons.map(({ text }) => text)).toEqual(["Open Models", "Try Again", "Delete"]);
+        act(() => buttons[0]!.onPress?.());
+        expect(router.push).toHaveBeenCalledWith("/(settings)/models");
+        act(() => buttons[1]!.onPress?.());
+      }
+      expect(retry).toHaveBeenCalledOnce();
+      const calls = request.mock.calls.length;
+      await act(async () => {
+        await sendWaitingMessages(true);
+      });
+      expect(request).toHaveBeenCalledTimes(calls);
+      await act(async () => {
+        await feedback.send(attempt);
+      });
+      const sends = request.mock.calls.filter(([proc]) => proc === "threads/send");
+      expect(sends).toHaveLength(2);
+      expect(sends[1]).toEqual(sends[0]);
+      Platform.OS = "ios";
+    },
+  );
+  it("restores old missing-model rejections as manually retryable", async () => {
+    act(() => clearFailedSends());
+    const attempt = feedback.sendAttempt(payload());
+    attempt.state = "refused";
+    attempt.error = MODEL_REQUIRED_SEND_ERROR;
+    disk.load.mockReturnValueOnce([attempt]);
+    act(() => restoreUnsentSends());
+    expect(attempt.state).toBe("failed");
+    await sendWaitingMessages(true);
+    expect(request).not.toHaveBeenCalled();
+  });
+  it("keeps unrelated client rejections refused and inert on tap", async () => {
+    const attempt = feedback.sendAttempt(payload());
+    request.mockRejectedValueOnce(Object.assign(new Error("Rejected"), { status: 400 }));
+    await act(async () => {
+      await feedback.send(attempt);
+    });
+    expect(attempt.state).toBe("refused");
+    expect(container.textContent).toContain("Not sent");
+    act(() => container.querySelector("button")!.click());
+    expect(router.push).not.toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
   });
   it("reports real errors and reuses uploaded artifacts on manual retry", async () => {
     const attempt = feedback.sendAttempt(payload());

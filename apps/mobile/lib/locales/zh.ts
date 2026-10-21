@@ -1,4 +1,11 @@
+import { MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
+
 export const ZH_MESSAGES: Record<string, string> = {
+  "Connect a model": "连接模型",
+  [MODEL_REQUIRED_SEND_ERROR]: "连接模型以开始运行。",
+  "Not Now": "暂不",
+  "Open Models": "打开模型设置",
+
   "About {label}": "关于{label}",
   "Manage the bots it creates": "管理它创建的机器人",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":

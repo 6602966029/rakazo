@@ -118,9 +118,12 @@ describe("mobile i18n", () => {
     const { RU_MESSAGES } = await import("./locales/ru");
     const { DE_MESSAGES } = await import("./locales/de");
     const { NL_MESSAGES } = await import("./locales/nl");
-    const { EMPTY_PLUGIN_CATALOG_MESSAGE, SLASH_ACTIONS, RUN_ERROR_LIMIT_MESSAGES } = await import(
-      "@rakazo/core"
-    );
+    const {
+      EMPTY_PLUGIN_CATALOG_MESSAGE,
+      SLASH_ACTIONS,
+      RUN_ERROR_LIMIT_MESSAGES,
+      MODEL_REQUIRED_SEND_ERROR,
+    } = await import("@rakazo/core");
     const { AI_DATA_DISCLOSURES, OPENAI_COMPATIBLE_BASE_URL_HINT } = await import(
       "@rakazo/contracts"
     );
@@ -139,6 +142,7 @@ describe("mobile i18n", () => {
       "{provider} could not find the requested model.",
       "{provider} took too long to respond. Try again.",
 
+      MODEL_REQUIRED_SEND_ERROR,
       EMPTY_PLUGIN_CATALOG_MESSAGE,
       OPENAI_COMPATIBLE_BASE_URL_HINT,
       ...SLASH_ACTIONS.map((action) => action.label),

@@ -198,6 +198,7 @@ import {
   quotableMessageSegments,
   truncateQuoteExcerpt,
 } from "../lib/message-presentation";
+import { openModelSettings } from "../lib/model-settings";
 import { useMobileTokens, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import { HEADER_TITLE_MAX_FONT_SCALE, iosAtLeast } from "../lib/native-controls";
 import {
@@ -2027,7 +2028,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   useEffect(() => setRunErrorDetailsOpen(false), [failedRunId]);
   function openErrorConnection() {
     setRunErrorDetailsOpen(false);
-    router.push("/(settings)/models");
+    openModelSettings();
   }
   function openErrorModel() {
     setRunErrorDetailsOpen(false);

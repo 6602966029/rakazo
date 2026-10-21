@@ -1,4 +1,11 @@
+import { MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
+
 export const DE_MESSAGES: Record<string, string> = {
+  "Connect a model": "Modell verbinden",
+  [MODEL_REQUIRED_SEND_ERROR]: "Verbinde ein Modell, um einen Lauf zu starten.",
+  "Not Now": "Jetzt nicht",
+  "Open Models": "Modelle öffnen",
+
   "About {label}": "Über {label}",
   "Manage the bots it creates": "Die von ihm erstellten Bots verwalten",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":

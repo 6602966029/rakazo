@@ -1,6 +1,8 @@
+import { isModelRequiredSendError, MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { ActionSheetIOS, Alert, Image, Platform, Pressable, Text, View } from "react-native";
 import { useI18n } from "../lib/i18n";
+import { openModelSettings } from "../lib/model-settings";
 import { useMobileTokens } from "../lib/native";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { NativeSymbol } from "./native-symbol";
@@ -19,6 +21,7 @@ export function FailedSendBubble({
   const { payload, state } = attempt;
   const sending = state === "pending";
   const retryable = state === "failed" || state === "queued";
+  const modelRequired = isModelRequiredSendError(attempt.error);
   const caption = sending
     ? t("Sending…")
     : retryable
@@ -30,27 +33,30 @@ export function FailedSendBubble({
   const color = sending ? tokens.mutedForeground : tokens.destructive;
 
   function showActions() {
+    const actions = [
+      ...(modelRequired ? [{ text: t("Open Models"), onPress: openModelSettings }] : []),
+      ...(retryable ? [{ text: t("Try Again"), onPress: onRetry }] : []),
+      { text: t("Delete"), style: "destructive" as const, onPress: onDelete },
+    ];
+    const message = modelRequired ? t(MODEL_REQUIRED_SEND_ERROR) : attempt.error;
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          message: attempt.error,
-          options: retryable
-            ? [t("Try Again"), t("Delete"), t("Cancel")]
-            : [t("Delete"), t("Cancel")],
-          destructiveButtonIndex: retryable ? 1 : 0,
-          cancelButtonIndex: retryable ? 2 : 1,
+          message,
+          options: [...actions.map((action) => action.text), t("Cancel")],
+          destructiveButtonIndex: actions.length - 1,
+          cancelButtonIndex: actions.length,
         },
-        (index) => {
-          if (retryable && index === 0) onRetry();
-          if (index === (retryable ? 1 : 0)) onDelete();
-        },
+        (index) => actions[index]?.onPress(),
       );
     } else {
-      Alert.alert(caption, attempt.error, [
-        ...(retryable ? [{ text: t("Try Again"), onPress: onRetry }] : []),
-        { text: t("Delete"), style: "destructive", onPress: onDelete },
-        { text: t("Cancel"), style: "cancel" },
-      ]);
+      // Android supports three buttons; the sheet can also be dismissed outside it.
+      Alert.alert(
+        caption,
+        message,
+        [...actions, ...(!modelRequired ? [{ text: t("Cancel"), style: "cancel" as const }] : [])],
+        { cancelable: true },
+      );
     }
   }
 

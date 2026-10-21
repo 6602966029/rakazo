@@ -1,3 +1,4 @@
+import { isModelRequiredSendError, MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
 import { Alert, AppState } from "react-native";
 import {
   captureApiRequestContext,
@@ -10,6 +11,7 @@ import {
 import { artifactCacheSession } from "./artifact-cache-session";
 import { t } from "./i18n";
 import { integrationsCacheScope } from "./integrations-cache";
+import { openModelSettings } from "./model-settings";
 import { outboxDisk } from "./outbox-disk";
 import {
   currentSessionGeneration,
@@ -75,7 +77,16 @@ configureUnsentSends({
   scope,
   disk: outboxDisk,
   errorText: (error) => errorText(error, t("Failed to send message")),
-  notDelivered: (attempt) => Alert.alert(t("Failed to send message"), attempt.error),
+  notDelivered: (attempt) => {
+    if (isModelRequiredSendError(attempt.error)) {
+      Alert.alert(t("Connect a model"), t(MODEL_REQUIRED_SEND_ERROR), [
+        { text: t("Not Now"), style: "cancel" },
+        { text: t("Open Models"), onPress: openModelSettings, isPreferred: true },
+      ]);
+    } else {
+      Alert.alert(t("Failed to send message"), attempt.error);
+    }
+  },
 });
 export function startUnsentSends(): () => void {
   let stopped = false;
