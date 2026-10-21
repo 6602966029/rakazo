@@ -28,6 +28,11 @@ vi.mock("expo-router", () => ({
       options: {
         headerLeft: () => ReactNode;
         headerRight: () => ReactNode;
+        unstable_headerLeftItems?: () => {
+          label: string;
+          disabled?: boolean;
+          onPress: () => void;
+        }[];
         unstable_headerRightItems?: () => {
           label: string;
           disabled?: boolean;
@@ -36,7 +41,18 @@ vi.mock("expo-router", () => ({
       };
     }) => (
       <header>
-        {options.headerLeft()}
+        {nativeHeader.current
+          ? options.unstable_headerLeftItems?.().map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                disabled={item.disabled}
+                onClick={item.onPress}
+              >
+                {item.label}
+              </button>
+            ))
+          : options.headerLeft()}
         {nativeHeader.current
           ? options.unstable_headerRightItems?.().map((item) => (
               <button
@@ -350,6 +366,41 @@ it("disables submission while pending and shows errors inline for retry", async 
   expect(container.textContent).toContain("Could not create group");
   expect(button("Skip")?.disabled).toBe(false);
 });
+it.each(["header", "native header", "hardware"])(
+  "blocks %s back while creating and allows it after failure",
+  async (control) => {
+    nativeHeader.current = control === "native header";
+    let reject!: (reason: Error) => void;
+    rpc.mockImplementation(async (procedure: string) =>
+      procedure === "bots/list"
+        ? bots
+        : new Promise((_resolve, fail) => {
+            reject = fail;
+          }),
+    );
+    await start();
+    await pickPair();
+    await click("Skip");
+    const pressBack = async () => {
+      if (control === "hardware") {
+        await act(async () => {
+          expect(hardwareBack.current?.()).toBe(true);
+        });
+      } else await click("Back");
+    };
+    await pressBack();
+    expect(button("Creating…")?.disabled).toBe(true);
+    expect(button("Next")).toBeUndefined();
+    expect(rpc).toHaveBeenCalledWith("groups/create", {
+      name: "Writer, Researcher",
+      botIds: ["bot-2", "bot-1"],
+    });
+    await act(async () => reject(new Error("Could not create group")));
+    await pressBack();
+    expect(button("Remove Writer")).toBeDefined();
+    expect(button("Remove Researcher")).toBeDefined();
+  },
+);
 it("closes a standalone deep link to home", async () => {
   await start();
   await click("Close");

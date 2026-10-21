@@ -30,7 +30,9 @@ export default function NewGroup() {
   const creating = useRef(false);
   const valid = selected.length >= GROUP_MEMBER_MIN && selected.length <= GROUP_MEMBER_MAX;
   const picked = selected.flatMap((id) => bots.find((bot) => bot.id === id) ?? []);
-  const goBack = () => setStep("bots");
+  const goBack = () => {
+    if (!creating.current) setStep("bots");
+  };
   function close() {
     if (router.canDismiss()) router.dismiss();
     else if (router.canGoBack()) router.back();
@@ -44,7 +46,7 @@ export default function NewGroup() {
   useEffect(() => {
     if (step !== "name") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      setStep("bots");
+      if (!creating.current) setStep("bots");
       return true;
     });
     return () => subscription.remove();
@@ -111,6 +113,7 @@ export default function NewGroup() {
                       name: step === "bots" ? "xmark" : "chevron.left",
                     },
                     onPress: step === "bots" ? close : goBack,
+                    disabled: pending,
                   },
                 ],
                 unstable_headerRightItems: () =>
