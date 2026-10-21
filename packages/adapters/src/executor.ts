@@ -5639,8 +5639,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               return { guide: PLOT_TOOL_GUIDE };
             }
             // Data and spec mistakes are the model's to fix from the returned error;
-            // only failures after a successful render are ours.
-            let rendered = false;
+            // everything else (reading the data file, rasterizing, attaching) is ours.
+            let checkingSpec = false;
             try {
               let rows = Array.isArray(args.data) ? (args.data as unknown[]) : undefined;
               const dataPath =
@@ -5652,8 +5652,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   context,
                   { maxBytes: deps.maxUploadSizeBytes ?? ATTACHMENT_MAX_BYTES },
                 );
+                checkingSpec = true;
                 rows = parsePlotData(dataPath, new TextDecoder().decode(bytes));
               }
+              checkingSpec = true;
               assertPlotDataWithinLimits(args.spec as PlotSpec, rows);
               // jsdom and sharp load lazily so chart-free runs never pay for them.
               const { JSDOM } = await import("jsdom");
@@ -5662,7 +5664,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 rows,
                 new JSDOM("").window.document,
               );
-              rendered = true;
+              checkingSpec = false;
               const png = await plotSvgToPng(svg);
               const outPath =
                 typeof args.path === "string" && args.path
@@ -5720,7 +5722,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               return finish({ ok: true, path: outPath, attached });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              if (rendered) getLogger().error(`render_plot failed for bot ${bot.id}: ${message}`);
+              if (!checkingSpec) getLogger().error(`render_plot failed for bot ${bot.id}: ${message}`);
               return finish({
                 error: message,
                 hint: 'Call render_plot with {"charts": true} for runnable example specs, or {"help": true} for the full guide.',
