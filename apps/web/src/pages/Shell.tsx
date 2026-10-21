@@ -40,6 +40,7 @@ import {
   buildComposerMentionOptions,
   clampMentionHighlightIndex,
   cronFromPreset,
+  dismissableAskMessageIds,
   expandPeerReplies,
   foldPeerReplies,
   groupVoiceChats,
@@ -2052,6 +2053,10 @@ function SpaceShell() {
   }, []);
   const currentRuns = activeThreadRuns(activeSnapshot);
   const answerableAskIds = useMemo(() => answerableAskMessageIds(activeSnapshot), [activeSnapshot]);
+  const dismissableAskIds = useMemo(
+    () => dismissableAskMessageIds(activeSnapshot, userId),
+    [activeSnapshot, userId],
+  );
   const workingRuns = currentRuns.filter((run) =>
     ["running", "queued", "leased"].includes(run.status),
   );
@@ -2266,7 +2271,7 @@ function SpaceShell() {
     if (botId) void jumpToMessageRef.current({ botId, messageId }).catch(() => undefined);
   }, []);
   const answerMessage = useCallback(
-    async (message: ThreadMessage, text: string, username?: string) => {
+    async (message: ThreadMessage, text: string, username?: string, dismiss?: boolean) => {
       const botId = activeBotId.current;
       const groupId = activeGroupId.current;
       if (!botId && !groupId) return;
@@ -2276,6 +2281,7 @@ function SpaceShell() {
         messageId: message.id,
         answer: text,
         ...(username ? { username } : {}),
+        ...(dismiss ? { dismiss: true as const } : {}),
       });
       if (groupId && activeGroupId.current === groupId) {
         await refreshGroupThreadRef.current(groupId);
@@ -4004,6 +4010,7 @@ function SpaceShell() {
             olderCursor={activeSnapshot?.olderCursor ?? null}
             loadingOlder={loadingOlder}
             answerableAskIds={answerableAskIds}
+            dismissableAskIds={dismissableAskIds}
             running={transcriptRunning}
             workingBots={workingBots}
             onCallBack={
@@ -5214,6 +5221,7 @@ const Transcript = memo(function Transcript({
   olderCursor,
   loadingOlder,
   answerableAskIds,
+  dismissableAskIds,
   running,
   workingBots,
   onCallBack,
@@ -5244,13 +5252,19 @@ const Transcript = memo(function Transcript({
   olderCursor: number | null;
   loadingOlder: boolean;
   answerableAskIds: Set<string>;
+  dismissableAskIds: Set<string>;
   running: boolean;
   workingBots: GroupAvatarMember[];
   /** Calls the bot back from a missed call in the transcript. */
   onCallBack?: () => void;
   onLoadOlder: () => void | Promise<void>;
   onOpenBot: (botId: string) => void;
-  onAnswer: (message: ThreadMessage, text: string, username?: string) => Promise<void>;
+  onAnswer: (
+    message: ThreadMessage,
+    text: string,
+    username?: string,
+    dismiss?: boolean,
+  ) => Promise<void>;
   onReply: (message: ThreadMessage) => void;
   onQuote: (message: ThreadMessage, quote: string) => void;
   onReact: (message: ThreadMessage, reaction: MessageReaction) => Promise<void>;
@@ -5622,6 +5636,7 @@ const Transcript = memo(function Transcript({
                       artifactTarget={artifactTarget}
                       message={message}
                       canAnswer={answerableAskIds.has(message.id)}
+                      canDismiss={dismissableAskIds.has(message.id)}
                       onOpenBot={onOpenBot}
                       onOpenPeerMessages={onOpenPeerMessages}
                       peerReplies={
@@ -7013,6 +7028,7 @@ function ComputerReleaseActions({
 const MessageView = memo(function MessageView({
   artifactTarget,
   canAnswer,
+  canDismiss,
   message,
   onAnswer,
   onOpenBot,
@@ -7037,8 +7053,14 @@ const MessageView = memo(function MessageView({
 }: {
   artifactTarget: ArtifactTarget;
   canAnswer: boolean;
+  canDismiss: boolean;
   message: ThreadMessage;
-  onAnswer: (message: ThreadMessage, text: string, username?: string) => Promise<void>;
+  onAnswer: (
+    message: ThreadMessage,
+    text: string,
+    username?: string,
+    dismiss?: boolean,
+  ) => Promise<void>;
   onOpenBot: (botId: string) => void;
   onOpenPeerMessages: (peer: { peerBotId: string; peerBotName: string }) => void;
   /** Set on a received marker whose peer run has folded replies. */
@@ -7496,7 +7518,9 @@ const MessageView = memo(function MessageView({
                 key={i}
                 block={block}
                 canAnswer={canAnswer}
+                canDismiss={canDismiss}
                 onAnswer={(text, username) => onAnswer(message, text, username)}
+                onDismiss={() => onAnswer(message, "", undefined, true)}
               />
             );
           }

@@ -26,6 +26,7 @@ function setup(refresh: () => Promise<void>) {
     message: { id: string; runId: string },
     answer: string,
     username?: string,
+    dismiss?: boolean,
   ) => Promise<void>;
   return { ...scope, answerMessage };
 }
@@ -40,6 +41,19 @@ describe("mobile ask answers", () => {
       messageId: "message-1",
       answer: "example-password",
       username: "ada",
+    });
+    expect(h.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends a dismissal with an empty answer and no username", async () => {
+    const h = setup(async () => undefined);
+    await h.answerMessage({ id: "message-1", runId: "run-1" }, "", undefined, true);
+    expect(h.rpc).toHaveBeenCalledWith("threads/answer", {
+      botId: "bot-1",
+      runId: "run-1",
+      messageId: "message-1",
+      answer: "",
+      dismiss: true,
     });
     expect(h.refresh).toHaveBeenCalledTimes(1);
   });
