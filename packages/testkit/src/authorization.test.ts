@@ -654,9 +654,9 @@ describeWithDatabase("API authorization and resource isolation", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
-      const push = new ExpoPushProvider(dataDir, (sessionId) =>
-        pushSessionExpiresAt(handles.prisma, sessionId),
-      );
+      const push = new ExpoPushProvider(dataDir, {
+        sessionExpiresAt: (sessionId) => pushSessionExpiresAt(handles.prisma, sessionId),
+      });
       await expect(
         push.deliver(
           { kind: "completion", title: "done", body: "secret", botId: "b", threadId: "t" },

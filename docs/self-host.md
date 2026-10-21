@@ -278,6 +278,20 @@ email configured, **Send deletion code** sends a single-use code to the account 
 minutes. Enter it in account settings to confirm deletion. Email-code requests are rate-limited;
 invalid, expired or wrong-account codes fail. No password needs to be created for deletion.
 
+### Mobile push notifications
+
+The API and worker send iOS and Android notifications through Expo's push service. If the Expo
+project has [enhanced security for push notifications](https://docs.expo.dev/push-notifications/sending-notifications/#additional-security)
+enabled, every send needs an access token; without one Expo rejects all pushes. Create an access
+token in the Expo account that owns the project and set it for both services:
+
+```env
+EXPO_ACCESS_TOKEN=replace-with-your-expo-access-token
+```
+
+Leave it unset when enhanced security is off. A missing or revoked token fails the push with an
+error that names `EXPO_ACCESS_TOKEN`; the token itself is never logged.
+
 ### Verification and password recovery email
 
 Password changes for signed-in users require no email configuration. Forgotten-password recovery
@@ -500,6 +514,21 @@ option sends search queries and requested page URLs to Keenable, which retrieves
 servers. Anonymous access is rate limited per IP address; set `KEENABLE_API_KEY` on the API and
 worker to send a key and lift those limits. Errors, per-bot disabled tools and the way back to
 the default work as described for Parallel.
+
+### Self-hosted memory
+
+Supermemory and Honcho can run on your own network. In **Settings → Memory**, choose **Local**
+and enter the instance's base URL. Only the deployment owner can save a local endpoint. It must
+be loopback or resolve to private addresses (a Compose service name, an RFC1918 or unique-local
+address, or a `.internal` name such as Railway's private network); Rakazo pins the resolved
+address for every request. Space members use the saved connection without seeing its key.
+
+For [Honcho](https://github.com/plastic-labs/honcho), enable `AUTH_USE_AUTH` on the Honcho
+server and use an admin JWT from its `scripts/generate_jwt.py --admin` as the key, so each Space
+gets its own workspace. A workspace-scoped JWT works when you enter that workspace. Honcho needs
+its own PostgreSQL with pgvector, an LLM provider, and an embedding provider; set
+`EMBEDDING_VECTOR_DIMENSIONS` before its first start. Rakazo stores only explicitly saved facts
+in Honcho; conversation summaries stay in Rakazo.
 
 Remote MCP servers and installed API / GraphQL connectors default to public HTTPS. The deployment
 owner can attach one on localhost, the same LAN, or a Docker network. Set

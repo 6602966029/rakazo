@@ -81,12 +81,9 @@ export class BillingEmulator implements BillingProvider {
     return { ...snapshot };
   }
 
-  async updateSeats(subscriptionItemId: string, seats: number) {
-    const subscription = this.subscriptions.find(
-      (s) => s.subscriptionItemId === subscriptionItemId,
-    );
-    if (!subscription) throw new Error(`Unknown subscription item ${subscriptionItemId}`);
-    subscription.seats = seats;
+  async updateSeats(customerId: string, seats: number) {
+    const chosen = pickBillingSubscription(this.forCustomer(customerId));
+    if (chosen && holdsBillingSubscription(chosen.status)) chosen.seats = seats;
   }
 
   async cancelCustomerSubscriptions(customerId: string) {

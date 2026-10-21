@@ -219,6 +219,13 @@ describe("loadEnv", () => {
     expect(env.updaterToken).toBe("fake-review-updater-token-000000000000");
   });
 
+  it("loads an optional Expo access token", () => {
+    expect(loadEnv(base).expoAccessToken).toBeUndefined();
+    expect(loadEnv({ ...base, EXPO_ACCESS_TOKEN: " fake-expo-token " }).expoAccessToken).toBe(
+      "fake-expo-token",
+    );
+  });
+
   it("loads SMTP configuration and keeps the email emulator out of production", () => {
     expect(
       loadEnv({

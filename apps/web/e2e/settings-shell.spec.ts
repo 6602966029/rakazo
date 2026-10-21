@@ -112,9 +112,53 @@ test("Honcho memory settings empty and filled", async ({ page }, testInfo) => {
   await expect(memory.getByLabel("API key", { exact: true })).toBeVisible();
   await expect(memory.getByLabel("Workspace", { exact: true })).toBeVisible();
   await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeDisabled();
+  await page.setViewportSize({ width: 1280, height: 900 });
   await captureScreenshot(page, testInfo, "memory-honcho-empty");
   await memory.getByLabel("API key", { exact: true }).fill("hch-test-key");
   await memory.getByLabel("Workspace", { exact: true }).fill("team-notes");
   await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeEnabled();
   await captureScreenshot(page, testInfo, "memory-honcho-filled");
+  await memory.getByRole("button", { name: "Local", exact: true }).click();
+  await expect(memory.getByLabel("Base URL", { exact: true })).toHaveValue("http://localhost:8000");
+  await memory
+    .getByLabel("Base URL", { exact: true })
+    .fill("http://honcho-api.railway.internal:8000");
+  await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeEnabled();
+  await memory.getByLabel("Base URL", { exact: true }).fill("");
+  await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeDisabled();
+  await memory
+    .getByLabel("Base URL", { exact: true })
+    .fill("http://honcho-api.railway.internal:8000");
+  await captureScreenshot(page, testInfo, "memory-honcho-local");
+  const documents = memory.getByTestId("space-memory-documents");
+  await documents.scrollIntoViewIfNeeded();
+  await expect(documents).toBeVisible();
+  await captureScreenshot(page, testInfo, "memory-honcho-local-bottom");
+
+  const scrollToTop = () =>
+    memory.locator(".rk-scroll").evaluate((element) => {
+      element.scrollTop = 0;
+    });
+  await memory.getByLabel("Provider").selectOption("supermemory");
+  await scrollToTop();
+  await expect(memory.getByLabel("Organization API key", { exact: true })).toBeVisible();
+  await captureScreenshot(page, testInfo, "memory-supermemory-cloud");
+  await memory.getByRole("button", { name: "Local", exact: true }).click();
+  await expect(memory.getByLabel("Base URL", { exact: true })).toHaveValue("http://localhost:6767");
+  await expect(memory.getByLabel("Instance API key", { exact: true })).toBeVisible();
+  await captureScreenshot(page, testInfo, "memory-supermemory-local");
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await memory.getByLabel("Provider").selectOption("honcho");
+  await scrollToTop();
+  await expect(memory.getByRole("button", { name: "Cloud", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(memory.getByLabel("API key", { exact: true })).toBeVisible();
+  await captureScreenshot(page, testInfo, "memory-honcho-cloud-dark");
+  await documents.scrollIntoViewIfNeeded();
+  await expect(documents).toBeVisible();
+  await captureScreenshot(page, testInfo, "memory-dark-bottom");
 });

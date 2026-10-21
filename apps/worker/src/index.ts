@@ -180,11 +180,11 @@ async function main() {
   // One provider instance so emulator launches and polls share the same Map.
   const cloudAgent = createCloudAgentConnection();
   // Shared with the reconciler so a stuck wait uses the same push path as a finish notice.
-  const notifications = new ExpoPushProvider(
-    dataDir,
-    (sessionId) => pushSessionExpiresAt(prisma, sessionId),
+  const notifications = new ExpoPushProvider(dataDir, {
+    sessionExpiresAt: (sessionId) => pushSessionExpiresAt(prisma, sessionId),
     jobs,
-  );
+    accessToken: process.env.EXPO_ACCESS_TOKEN,
+  });
   const executor = createRunExecutor({
     maxUploadSizeBytes: uploadSizeFromEnv(process.env),
     prisma,

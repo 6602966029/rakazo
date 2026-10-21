@@ -804,7 +804,7 @@ msgstr "备用模型顺序"
 msgid "Backup models saved."
 msgstr "备用模型已保存。"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "Base URL"
 
@@ -1167,7 +1167,7 @@ msgstr "关闭用户设置"
 msgid "Close voice settings"
 msgstr "关闭语音设置"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
 msgstr "云端"
 
@@ -1350,6 +1350,10 @@ msgstr "已连接，下一条消息起即可使用其工具。"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connecting…"
 msgstr "正在连接…"
+
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Connection"
+msgstr "连接"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Connection test failed."
@@ -2864,7 +2868,7 @@ msgstr "正在加载语音提供方…"
 msgid "Loading…"
 msgstr "加载中…"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Local"
 msgstr "本地"
 

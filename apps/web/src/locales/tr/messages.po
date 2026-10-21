@@ -804,7 +804,7 @@ msgstr "Yedek model sırası"
 msgid "Backup models saved."
 msgstr "Yedek modeller kaydedildi."
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "Temel URL"
 
@@ -1167,7 +1167,7 @@ msgstr "Kullanıcı ayarlarını kapat"
 msgid "Close voice settings"
 msgstr "Ses ayarlarını kapat"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
 msgstr "Bulut"
 
@@ -1350,6 +1350,10 @@ msgstr "Bağlandı. Araçları bir sonraki mesajından itibaren kullanılabilir.
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connecting…"
 msgstr "Bağlanıyor…"
+
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Connection"
+msgstr "Bağlantı"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Connection test failed."
@@ -2864,7 +2868,7 @@ msgstr "Ses sağlayıcıları yükleniyor…"
 msgid "Loading…"
 msgstr "Yükleniyor…"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Local"
 msgstr "Yerel"
 

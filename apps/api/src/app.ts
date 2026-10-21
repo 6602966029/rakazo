@@ -402,7 +402,11 @@ export async function createApp(
         }));
   const notifications =
     notificationsOverride ??
-    new ExpoPushProvider(env.dataDir, (sessionId) => pushSessionExpiresAt(prisma, sessionId), jobs);
+    new ExpoPushProvider(env.dataDir, {
+      sessionExpiresAt: (sessionId) => pushSessionExpiresAt(prisma, sessionId),
+      jobs,
+      accessToken: env.expoAccessToken,
+    });
   const auth = createAuth(prisma, {
     analytics,
     passwordAuth: env.passwordAuth,

@@ -804,7 +804,7 @@ msgstr "Порядок резервных моделей"
 msgid "Backup models saved."
 msgstr "Резервные модели сохранены."
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "Базовый URL"
 
@@ -1167,7 +1167,7 @@ msgstr "Закрыть настройки пользователя"
 msgid "Close voice settings"
 msgstr "Закрыть настройки голоса"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
 msgstr "Облако"
 
@@ -1350,6 +1350,10 @@ msgstr "Подключено. Его инструменты доступны и�
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connecting…"
 msgstr "Подключение…"
+
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Connection"
+msgstr "Подключение"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Connection test failed."
@@ -2864,7 +2868,7 @@ msgstr "Загрузка поставщиков голосовой связи…
 msgid "Loading…"
 msgstr "Загрузка…"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Local"
 msgstr "Местный"
 

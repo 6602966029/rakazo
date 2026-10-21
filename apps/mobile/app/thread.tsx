@@ -875,10 +875,12 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     navigation.setOptions({
       title: displayName || t("Thread"),
       headerTitleAlign: "center",
-      // Inversion swaps the visual edges; disable both native fades on iOS 26.
+      // Inversion swaps the visual edges, so both are hidden. The sides must be hidden too:
+      // on an iOS 26 device the side effect of the inverted list covers the whole list and
+      // dims every message. "hidden" for top and bottom leaves the sides at "automatic".
       headerTransparent: iosAtLeast(26),
       ...(iosAtLeast(26) ? { headerStyle: { backgroundColor: "transparent" } } : {}),
-      scrollEdgeEffects: { top: "hidden", bottom: "hidden" },
+      scrollEdgeEffects: { top: "hidden", bottom: "hidden", left: "hidden", right: "hidden" },
       headerTitle: () => (
         <Pressable
           accessibilityRole="button"
