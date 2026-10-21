@@ -5427,3 +5427,11 @@ msgstr "आपका OpenRouter"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "हमेशा चालू रहने वाले एजेंटों की आपकी टीम<0/>जिन्हें आप असली काम सौंप सकते हैं।"
+
+#: src/lib/user-error.ts
+msgid "Your voice provider is out of credit."
+msgstr "आपके आवाज़ प्रोवाइडर का क्रेडिट खत्म हो गया है।"
+
+#: src/lib/user-error.ts
+msgid "Your voice provider key was rejected."
+msgstr "आपके आवाज़ प्रोवाइडर ने कुंजी अस्वीकार कर दी।"

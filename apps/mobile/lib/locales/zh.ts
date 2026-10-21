@@ -905,4 +905,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Couldn't start the computer": "无法启动电脑",
   "Something went wrong while it was starting. Try again in a moment.":
     "启动时出了点问题。请稍后重试。",
+  "Your voice provider is out of credit.": "你的语音提供方额度已用完。",
+  "Your voice provider key was rejected.": "你的语音提供方拒绝了该密钥。",
 };

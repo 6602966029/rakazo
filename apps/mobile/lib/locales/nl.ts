@@ -898,4 +898,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Couldn't start the computer": "De computer kon niet worden gestart",
   "Something went wrong while it was starting. Try again in a moment.":
     "Er ging iets mis tijdens het opstarten. Probeer het over een moment opnieuw.",
+  "Your voice provider is out of credit.": "Je spraakaanbieder heeft geen tegoed meer.",
+  "Your voice provider key was rejected.": "Je spraakaanbieder heeft de sleutel geweigerd.",
 };

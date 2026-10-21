@@ -125,6 +125,30 @@ describe("Speaker", () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    ["VOICE_OUT_OF_CREDIT", 402, "Your voice provider is out of credit."],
+    ["VOICE_KEY_REJECTED", 403, "Your voice provider key was rejected."],
+  ])("shows its own copy for %s", async (code, status, copy) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ error: "Insufficient API credit at fish.audio", code }), {
+            status,
+          }),
+      ),
+    );
+    const speaker = new Speaker();
+    vi.spyOn(
+      speaker as unknown as { prepare: () => Promise<string[]> },
+      "prepare",
+    ).mockResolvedValue(["Hello."]);
+
+    await speaker.speak("Hello.");
+
+    expect(speaker.state.error).toBe(copy);
+  });
+
   it("times out while a voice response body is stalled", async () => {
     vi.useFakeTimers();
     vi.stubGlobal(

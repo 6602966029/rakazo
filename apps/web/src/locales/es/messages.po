@@ -5427,3 +5427,11 @@ msgstr "Tu OpenRouter"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Tu equipo de agentes siempre activos<0/>a los que puedes dar trabajo real."
+
+#: src/lib/user-error.ts
+msgid "Your voice provider is out of credit."
+msgstr "Tu proveedor de voz se quedó sin crédito."
+
+#: src/lib/user-error.ts
+msgid "Your voice provider key was rejected."
+msgstr "Tu proveedor de voz rechazó la clave."
