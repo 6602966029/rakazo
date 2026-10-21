@@ -107,7 +107,23 @@ vi.mock("react-native", () => {
     View: view,
     Text: ({ children, style }: { children?: ReactNode; style: unknown }) =>
       createElement("span", { "data-style": JSON.stringify(style) }, children),
-    TextInput: () => null,
+    TextInput: ({
+      style,
+      accessibilityLabel,
+      placeholder,
+      multiline,
+    }: {
+      style?: unknown;
+      accessibilityLabel?: string;
+      placeholder?: string;
+      multiline?: boolean;
+    }) =>
+      createElement("textarea", {
+        "data-style": JSON.stringify(style),
+        "aria-label": accessibilityLabel,
+        "aria-multiline": multiline,
+        placeholder,
+      }),
     Pressable: ({
       children,
       onPress,
@@ -256,6 +272,25 @@ describe("bot settings device voice menu", () => {
     await expand();
   };
   const menu = () => container.querySelector('[data-menu="Device voice"]');
+
+  it("matches Instructions to the rounded Description field", async () => {
+    await render();
+    const description = container.querySelector<HTMLElement>(
+      '[placeholder="What this bot is for"]',
+    )!;
+    const instructions = container.querySelector<HTMLElement>('[aria-label="Instructions"]')!;
+    const resolvedStyle = (input: HTMLElement) =>
+      Object.assign({}, ...JSON.parse(input.dataset.style!).flat(Infinity));
+    const descriptionStyle = resolvedStyle(description);
+    expect(descriptionStyle).toMatchObject({ borderRadius: 11, padding: 16 });
+    expect(resolvedStyle(instructions)).toMatchObject({
+      borderRadius: descriptionStyle.borderRadius,
+      padding: descriptionStyle.padding,
+      minHeight: 120,
+      textAlignVertical: "top",
+    });
+    expect(instructions.getAttribute("aria-multiline")).toBe("true");
+  });
 
   it("hides advanced controls until expanded and follows the shared order", async () => {
     await act(async () => root.render(<BotSettingsScreen />));

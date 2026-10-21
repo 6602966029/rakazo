@@ -53,6 +53,7 @@ type BotSettingsRecord = MobileBot & {
 
 export default function BotSettingsScreen() {
   const tokens = useMobileTokens();
+  const fieldStyle = [styles.field, { color: tokens.foreground }];
   const { t } = useI18n();
   const router = useRouter();
   const { botId, model: pickedModel } = useLocalSearchParams<{ botId: string; model?: string }>();
@@ -417,13 +418,7 @@ export default function BotSettingsScreen() {
           onChangeText={setName}
           placeholder={t("Name this bot")}
           placeholderTextColor={tokens.mutedForeground}
-          style={{
-            marginTop: 8,
-            backgroundColor: native.fill,
-            borderRadius: 11,
-            padding: 16,
-            color: tokens.foreground,
-          }}
+          style={fieldStyle}
         />
         <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
           {t("Title")}
@@ -434,13 +429,7 @@ export default function BotSettingsScreen() {
           onChangeText={setTitle}
           placeholder={t("Describe what this bot does")}
           placeholderTextColor={tokens.mutedForeground}
-          style={{
-            marginTop: 8,
-            backgroundColor: native.fill,
-            borderRadius: 11,
-            padding: 16,
-            color: tokens.foreground,
-          }}
+          style={fieldStyle}
         />
         <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
           {t("Description")}
@@ -452,15 +441,7 @@ export default function BotSettingsScreen() {
           placeholder={t("What this bot is for")}
           placeholderTextColor={tokens.mutedForeground}
           multiline
-          style={{
-            marginTop: 8,
-            backgroundColor: native.fill,
-            borderRadius: 11,
-            padding: 16,
-            color: tokens.foreground,
-            minHeight: 120,
-            textAlignVertical: "top",
-          }}
+          style={[fieldStyle, styles.multilineField]}
         />
         <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
           {t("Color")}
@@ -562,12 +543,7 @@ export default function BotSettingsScreen() {
                 maxLength={BOT_INSTRUCTIONS_MAX_LENGTH}
                 value={instructions}
                 onChangeText={setInstructions}
-                style={{
-                  color: tokens.foreground,
-                  backgroundColor: native.fill,
-                  padding: 12,
-                  marginTop: 8,
-                }}
+                style={[fieldStyle, styles.multilineField]}
               />
               {bot?.instructionHistory?.length && instructions === bot.instructions ? (
                 <MenuPicker
@@ -719,6 +695,13 @@ function thinkingLevelLabel(level: ThinkingLevel, t: (message: string) => string
 }
 
 const styles = StyleSheet.create({
+  field: {
+    marginTop: 8,
+    backgroundColor: native.fill,
+    borderRadius: 11,
+    padding: 16,
+  },
+  multilineField: { minHeight: 120, textAlignVertical: "top" },
   row: {
     minHeight: 44,
     flexDirection: "row",
