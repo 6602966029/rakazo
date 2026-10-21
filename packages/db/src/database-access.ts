@@ -104,8 +104,8 @@ async function provisionWith(owner: Client, runtimeUrl: string): Promise<{ warni
     };
   }
   const [admin] = (
-    await owner.query<{ can: boolean }>(
-      "SELECT rolsuper OR rolcreaterole AS can FROM pg_roles WHERE rolname = current_user",
+    await owner.query<{ can: boolean; superuser: boolean }>(
+      "SELECT rolsuper OR rolcreaterole AS can, rolsuper AS superuser FROM pg_roles WHERE rolname = current_user",
     )
   ).rows;
   if (!admin?.can) {
@@ -126,7 +126,12 @@ async function provisionWith(owner: Client, runtimeUrl: string): Promise<{ warni
   }
   const name = escapeIdentifier(login);
   const secret = password ? `PASSWORD ${escapeLiteral(password)}` : "";
-  const limits = "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION";
+  // Only a superuser may set SUPERUSER, BYPASSRLS or REPLICATION, even to false. A
+  // CREATEROLE owner leaves them at their defaults (off), and a login that already has
+  // one of them was returned above.
+  const limits = admin.superuser
+    ? "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION"
+    : "";
   if (!role) await owner.query(`CREATE ROLE ${name} LOGIN ${secret} ${limits}`);
   else await owner.query(`ALTER ROLE ${name} LOGIN ${secret} ${limits}`);
   if (login !== RUNTIME_ROLE) await owner.query(`GRANT ${RUNTIME_ROLE} TO ${name}`);
