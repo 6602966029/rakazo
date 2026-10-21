@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hostSite, normalizedHttpUrl, sitesInText, urlSite } from "./egress.js";
+import { hostSite, normalizedHttpUrl, registrableDomain, sitesInText, urlSite } from "./egress.js";
 
 describe("urlSite", () => {
   it.each([
@@ -22,8 +22,15 @@ describe("urlSite", () => {
     },
   );
 
-  it("keeps hosts on a private suffix under the ICANN registrable domain", () => {
-    expect(hostSite("someone.github.io")).toBe("github.io");
+  it("counts each tenant of a shared host as its own site", () => {
+    expect(hostSite("alice.github.io")).toBe("alice.github.io");
+    expect(hostSite("docs.alice.github.io")).toBe("alice.github.io");
+    expect(hostSite("attacker.github.io")).toBe("attacker.github.io");
+  });
+
+  it("contacts only the ICANN registrable domain, ignoring private suffixes", () => {
+    expect(registrableDomain("c2VjcmV0.github.io")).toBe("github.io");
+    expect(registrableDomain("c2VjcmV0.leak.example.co.uk")).toBe("example.co.uk");
   });
 });
 

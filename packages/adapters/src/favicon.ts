@@ -1,4 +1,4 @@
-import { hostSite } from "@rakazo/core/egress";
+import { registrableDomain } from "@rakazo/core/egress";
 import { JSDOM } from "jsdom";
 import type { ResolveHostname } from "./network-address.js";
 import { fetchSafeWebBytes } from "./web-ssrf.js";
@@ -129,7 +129,7 @@ export function faviconOrigin(input: string): string | undefined {
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
   if (url.port || url.href !== `${url.origin}/`) return undefined;
-  const site = hostSite(url.hostname);
+  const site = registrableDomain(url.hostname);
   return site ? `${url.protocol}//${site}` : undefined;
 }
 

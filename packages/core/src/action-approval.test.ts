@@ -396,7 +396,7 @@ describe("planActionGate", () => {
     ).toBe("allow");
   });
 
-  it("asks before a new site unless a rule always allows it, without judging", () => {
+  it("asks before a new site without judging, even with a rule for the whole tool", () => {
     const gate = (source: "default" | "always_allow") =>
       planActionGate({
         resolved: { decision: "allow", source, matchingRules: [] },
@@ -406,7 +406,7 @@ describe("planActionGate", () => {
         newDestination: true,
       });
     expect(gate("default")).toBe("ask");
-    expect(gate("always_allow")).toBe("allow");
+    expect(gate("always_allow")).toBe("ask");
   });
 
   it("does not judge non-consequential tools", () => {

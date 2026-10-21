@@ -360,9 +360,11 @@ export function planActionGate(input: {
   newDestination?: boolean;
 }): "ask" | "allow" | "judge" {
   if (input.resolved.decision === "ask") return "ask";
-  if (input.resolved.source === "always_allow") return "allow";
-  // A new site always needs a person: a reviewer reading the same injected text is no check.
+  // A new site always needs a person: a reviewer reading the same injected text is no check, and
+  // a rule for the whole tool is not a choice of sites. Only a site rule allows one (see
+  // outboundSiteGate), and that makes it no longer new.
   if (input.newDestination) return "ask";
+  if (input.resolved.source === "always_allow") return "allow";
   if (
     input.consequential &&
     input.autoReviewEnabled &&

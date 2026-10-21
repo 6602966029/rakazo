@@ -1,17 +1,30 @@
 import { parse } from "tldts";
 
 /**
- * Where outbound requests go, by site: the registrable domain (eTLD+1 on ICANN suffixes), or the
- * address itself for an IP literal. Every subdomain of a site belongs to it, so a name like
- * `<data>.example.com` is the same destination as `example.com`, and nothing in the subdomain
- * needs to leave to decide or to fetch it.
+ * Who a request trusts, by site: the registrable domain, or the address itself for an IP literal.
+ * Every subdomain of a site belongs to it, so `docs.example.com` is the same site as
+ * `example.com`. Shared hosts on the public suffix list's private section count each tenant as its
+ * own site, so trusting `alice.github.io` never trusts `attacker.github.io`.
  *
  * This lives behind its own entry point so clients that never decide policy skip the suffix list.
  */
 export function hostSite(hostname: string): string | undefined {
+  return siteOf(hostname, true);
+}
+
+/**
+ * The registrable domain on ICANN suffixes only, for contacting a host without sending anything a
+ * subdomain carries. A private suffix entry is not used here: anyone can request one for a domain
+ * they control, which would let its subdomains reach their DNS.
+ */
+export function registrableDomain(hostname: string): string | undefined {
+  return siteOf(hostname, false);
+}
+
+function siteOf(hostname: string, allowPrivateDomains: boolean): string | undefined {
   const host = hostname.trim().toLowerCase().replace(/\.$/, "");
   if (!host) return undefined;
-  const parsed = parse(host);
+  const parsed = parse(host, { allowPrivateDomains });
   if (parsed.isIp || host.startsWith("[")) return host;
   return parsed.domain ?? host;
 }
@@ -44,8 +57,8 @@ export function sitesInText(text: string): Set<string> {
   // A link grants only its own host: a domain in its path or query is not one the person named.
   const withoutLinks = text.replace(URL_IN_TEXT, " ");
   for (const [match] of withoutLinks.matchAll(DOMAIN_IN_TEXT)) {
-    const parsed = parse(match.toLowerCase());
-    if (parsed.isIcann && parsed.domain) sites.add(parsed.domain);
+    const parsed = parse(match.toLowerCase(), { allowPrivateDomains: true });
+    if ((parsed.isIcann || parsed.isPrivate) && parsed.domain) sites.add(parsed.domain);
   }
   return sites;
 }

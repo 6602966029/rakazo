@@ -4878,6 +4878,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (name === "web_fetch" && !fetchSite) return { error: "url must be an http(s) URL" };
           if (fetchUrl && fetchUrl.length > MAX_FETCH_URL_LENGTH)
             return { error: `url must be at most ${MAX_FETCH_URL_LENGTH} characters` };
+          // The card, the stored effect and the request all use the URL the gate checked.
+          if (fetchUrl) {
+            args = { ...args, url: fetchUrl };
+            effectRequest = args;
+          }
           const connectorTrust = connectorTrustKey(connectorCall.route, connectorKind);
           const siteGate =
             fetchUrl && fetchSite
@@ -5981,8 +5986,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return finish(found);
           }
           if (name === "web_fetch") {
-            // The URL the gate checked is the one sent.
-            return finish(await webFetchFromTool(web, context, { ...args, url: fetchUrl }));
+            return finish(await webFetchFromTool(web, context, args));
           }
           if (PAGE_BROWSER_TOOL_NAMES.has(name)) {
             if (heldForTakeover) {
