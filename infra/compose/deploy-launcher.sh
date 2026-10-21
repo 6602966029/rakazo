@@ -15,5 +15,7 @@ cd "${APP_DIR}"
 git fetch --quiet --prune origin main
 # Run it from memory: the deploy resets the checkout, which would rewrite a script file that bash
 # is still reading.
-script="$(git show origin/main:infra/compose/deploy-main.sh)"
-exec bash -c "${script}" rakazo-deploy-main "$@"
+# Deploy the commit this script came from, even if main moves before the deploy fetches again.
+revision="$(git rev-parse origin/main)"
+script="$(git show "${revision}:infra/compose/deploy-main.sh")"
+RAKAZO_DEPLOY_REVISION="${revision}" exec bash -c "${script}" rakazo-deploy-main "$@"

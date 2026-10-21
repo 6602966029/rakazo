@@ -114,7 +114,8 @@ done
 
 previous_revision="$(git rev-parse HEAD)"
 git fetch --quiet --prune origin main
-target_revision="$(git rev-parse origin/main)"
+# The launcher pins the commit its copy of this script came from.
+target_revision="$(git rev-parse --verify "${RAKAZO_DEPLOY_REVISION:-origin/main}^{commit}")"
 
 # Written only after a healthy rollout. A reset can make HEAD match before containers change.
 deployed_revision=""

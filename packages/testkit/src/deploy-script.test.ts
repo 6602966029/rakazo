@@ -184,6 +184,16 @@ describe("production deploy script", () => {
     expect(rollout(deploy.commands())).toEqual(ROLLOUT);
   });
 
+  it("deploys the revision the launcher pinned even after main moves on", () => {
+    const deploy = fixture();
+    const pinned = commit(deploy.upstream, "pinned");
+    commit(deploy.upstream, "later");
+    const result = deploy.run({ RAKAZO_DEPLOY_REVISION: pinned });
+    expect(result.status).toBe(0);
+    expect(deploy.head()).toBe(pinned);
+    expect(deploy.deployed()).toBe(pinned);
+  });
+
   it("deploys when the recorded revision is not the checkout", () => {
     const deploy = fixture();
     write(path.join(deploy.checkout, ".last-deployed-revision"), "outdated\n");
@@ -333,9 +343,9 @@ describe("production deploy launcher", () => {
     git(upstream, "add", script);
     commit(upstream, "first");
     git(root, "clone", "-q", upstream, checkout);
-    write(path.join(upstream, script), 'echo "current $0 $*"\n');
+    write(path.join(upstream, script), 'echo "current $0 $* $RAKAZO_DEPLOY_REVISION"\n');
     git(upstream, "add", script);
-    commit(upstream, "next");
+    const next = commit(upstream, "next");
 
     const result = spawnSync(
       "/bin/bash",
@@ -349,7 +359,7 @@ describe("production deploy launcher", () => {
     );
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
-    expect(result.stdout.trim()).toBe("current rakazo-deploy-main --flag");
+    expect(result.stdout.trim()).toBe(`current rakazo-deploy-main --flag ${next}`);
   });
 
   it("refuses a relative checkout path", () => {
