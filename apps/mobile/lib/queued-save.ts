@@ -27,14 +27,21 @@ export function createQueuedSave<T>(
     try {
       while (!equals(latest, confirmed)) {
         const next = latest;
-        await save(next);
+        try {
+          await save(next);
+        } catch (error) {
+          latest = confirmed;
+          onChange(confirmed);
+          onError(error);
+          break;
+        }
         confirmed = next;
-        await onSaved?.(next);
+        try {
+          await onSaved?.(next);
+        } catch (error) {
+          onError(error);
+        }
       }
-    } catch (error) {
-      latest = confirmed;
-      onChange(confirmed);
-      onError(error);
     } finally {
       saving = false;
       onSavingChange?.(false);

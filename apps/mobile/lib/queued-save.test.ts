@@ -80,6 +80,46 @@ describe("queued save", () => {
     expect(save).toHaveBeenCalledTimes(2);
   });
 
+  it("saves a waiting edit when onSaved rejects and retains the successful baseline", async () => {
+    const reconciliation = deferred();
+    const save = vi.fn().mockResolvedValue(undefined);
+    const onSaved = vi
+      .fn()
+      .mockReturnValueOnce(reconciliation.promise)
+      .mockResolvedValue(undefined);
+    const onChange = vi.fn();
+    const onError = vi.fn();
+    const onSavingChange = vi.fn();
+    const queue = createQueuedSave<number>(0, {
+      save,
+      onSaved,
+      onChange,
+      onError,
+      onSavingChange,
+    });
+
+    queue.update(1);
+    await settle();
+    expect(onSaved).toHaveBeenCalledExactlyOnceWith(1);
+    queue.update(2);
+    const error = new Error("settings unavailable");
+    reconciliation.reject(error);
+    await settle();
+
+    expect(save.mock.calls).toEqual([[1], [2]]);
+    expect(onSaved.mock.calls).toEqual([[1], [2]]);
+    expect(onChange.mock.calls).toEqual([[1], [2]]);
+    expect(onError).toHaveBeenCalledExactlyOnceWith(error);
+    expect(onSavingChange.mock.calls).toEqual([[true], [false]]);
+    queue.update(2);
+    expect(save).toHaveBeenCalledTimes(2);
+
+    save.mockRejectedValueOnce(new Error("offline"));
+    queue.update(3);
+    await settle();
+    expect(onChange).toHaveBeenLastCalledWith(2);
+  });
+
   it("restores an initial settings object on failure and compares settings by value", async () => {
     const initial = { messages: false, scheduledTasks: true };
     const request = deferred();
