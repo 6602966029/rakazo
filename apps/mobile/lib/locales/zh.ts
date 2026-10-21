@@ -3,6 +3,10 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Not Now": "暂不",
   "Add Model": "添加模型",
 
+  "To:": "收件人：",
+  Next: "下一步",
+  "Ex: Project Falcon": "例如：猎鹰计划",
+  "Search bots": "搜索 Bot",
   "About {label}": "关于{label}",
   "Manage the bots it creates": "管理它创建的机器人",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
@@ -342,7 +346,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Could not update reaction": "无法更新反应",
   "Couldn't update avatars": "无法更新头像",
   Create: "创建",
-  "Create group": "创建群组",
   "Create section": "创建分组",
   "Create space": "创建空间",
   Creating: "创建中",
@@ -447,7 +450,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Move to": "移动到",
   Name: "名称",
   "Name this bot": "为这个 Bot 命名",
-  "Name this group": "为这个群组命名",
   "Needs attention": "需要处理",
   "Needs input": "等待输入",
   "Needs takeover": "等待接管",

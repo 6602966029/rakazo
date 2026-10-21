@@ -86,7 +86,10 @@ export default function GroupSettingsScreen() {
       <ScrollView
         style={{ flex: 1, backgroundColor: tokens.background }}
         contentContainerStyle={{ padding: 24 }}
+        automaticallyAdjustKeyboardInsets
         contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{t("Name")}</Text>
         <TextInput
@@ -94,6 +97,7 @@ export default function GroupSettingsScreen() {
           onChangeText={setName}
           placeholder={t("Group name")}
           placeholderTextColor={tokens.mutedForeground}
+          returnKeyType="done"
           style={{
             marginTop: 8,
             backgroundColor: native.fill,

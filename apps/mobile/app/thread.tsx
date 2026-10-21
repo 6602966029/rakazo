@@ -48,7 +48,7 @@ import {
   timeSeparatorIds,
   withLiveStreamingProgress,
 } from "@rakazo/core";
-import { typeScale } from "@rakazo/ui-tokens";
+import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import * as Clipboard from "expo-clipboard";
 import {
   useFocusEffect,
@@ -135,6 +135,7 @@ import type { ThreadComposerHandle } from "../components/thread-composer";
 import { ThreadComposer } from "../components/thread-composer";
 import { ThreadErrorNotice } from "../components/thread-error-notice";
 import { createThreadHeaderStyles } from "../components/thread-header-styles";
+import { ThreadScrollSurface } from "../components/thread-scroll-surface";
 import { TimeSeparator } from "../components/time-separator";
 import { VoiceChatCard } from "../components/VoiceChatCard";
 import { WorkingIndicator } from "../components/WorkingIndicator";
@@ -232,6 +233,7 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import { setInboxHidden, useSplitView } from "../lib/split-view";
+import { threadEdgeOptions } from "../lib/thread-edges";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
@@ -886,12 +888,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     navigation.setOptions({
       title: displayName || t("Thread"),
       headerTitleAlign: "center",
-      // Inversion swaps the visual edges, so both are hidden. The sides must be hidden too:
-      // on an iOS 26 device the side effect of the inverted list covers the whole list and
-      // dims every message. "hidden" for top and bottom leaves the sides at "automatic".
-      headerTransparent: iosAtLeast(26),
-      ...(iosAtLeast(26) ? { headerStyle: { backgroundColor: "transparent" } } : {}),
-      scrollEdgeEffects: { top: "hidden", bottom: "hidden", left: "hidden", right: "hidden" },
+      ...threadEdgeOptions(),
       headerTitle: () => (
         <Pressable
           accessibilityRole="button"
@@ -2469,153 +2466,169 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         {/* The floor keeps a tall suggestion list from sliding under the transparent header. */}
         <View style={{ flex: 1, minHeight: headerHeight, position: "relative" }}>
           {showPinnedPage ? (
-            <ScrollView
-              key={jumpScrollTarget.current ?? pinnedTarget?.messageId ?? threadKey}
-              ref={pinnedScroll}
-              style={{ flex: 1 }}
-              // A pinned page always shows the floating jump button (44pt, 12pt from the
-              // bottom), so its last message must be able to scroll clear of it.
-              contentContainerStyle={{ paddingTop: headerHeight + 8, paddingBottom: 12 + 44 + 16 }}
-              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-              maintainVisibleContentPosition={messageListPosition}
-              scrollEventThrottle={16}
-              onLayout={(event) => {
-                pinnedScrollMetrics.current.viewport = event.nativeEvent.layout.height;
-                loadNewerNearEnd();
-              }}
-              onContentSizeChange={(_, height) => {
-                pinnedScrollMetrics.current.content = height;
-                const jumpOffset = jumpAnchor.current.align(headerHeight + 24);
-                if (jumpOffset != null) scrollPinnedTo(jumpOffset);
-                const armedAt = joinPinnedAfterLayout.current;
-                if (armedAt != null && height !== armedAt) {
-                  joinPinnedAfterLayout.current = null;
+            <ThreadScrollSurface
+              key={`pinned:${jumpScrollTarget.current ?? pinnedTarget?.messageId ?? threadKey}`}
+            >
+              <ScrollView
+                key={jumpScrollTarget.current ?? pinnedTarget?.messageId ?? threadKey}
+                ref={pinnedScroll}
+                style={{ flex: 1 }}
+                // A pinned page always shows the floating jump button (44pt, 12pt from the
+                // bottom), so its last message must be able to scroll clear of it.
+                contentContainerStyle={{
+                  paddingTop: headerHeight + 8,
+                  paddingBottom: 12 + 44 + 16,
+                }}
+                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+                maintainVisibleContentPosition={messageListPosition}
+                scrollEventThrottle={16}
+                onLayout={(event) => {
+                  pinnedScrollMetrics.current.viewport = event.nativeEvent.layout.height;
+                  loadNewerNearEnd();
+                }}
+                onContentSizeChange={(_, height) => {
+                  pinnedScrollMetrics.current.content = height;
+                  const jumpOffset = jumpAnchor.current.align(headerHeight + 24);
+                  if (jumpOffset != null) scrollPinnedTo(jumpOffset);
+                  const armedAt = joinPinnedAfterLayout.current;
+                  if (armedAt != null && height !== armedAt) {
+                    joinPinnedAfterLayout.current = null;
+                    if (
+                      !jumpAnchor.current.holds() &&
+                      pinnedAroundRef.current?.newerCursor == null &&
+                      pinnedNearEnd()
+                    ) {
+                      showLatest();
+                      return;
+                    }
+                  }
+                  loadNewerNearEnd();
+                }}
+                onScroll={(event) => {
+                  const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+                  pinnedScrollMetrics.current = {
+                    offset: contentOffset.y,
+                    viewport: layoutMeasurement.height,
+                    content: contentSize.height,
+                  };
                   if (
-                    !jumpAnchor.current.holds() &&
-                    pinnedAroundRef.current?.newerCursor == null &&
-                    pinnedNearEnd()
+                    pinnedScrollBack.current.onScroll(event.nativeEvent) &&
+                    Platform.OS === "ios"
                   ) {
-                    showLatest();
+                    KeyboardController.dismiss();
+                  }
+                  loadNewerNearEnd();
+                }}
+                onScrollBeginDrag={(event) => {
+                  pinnedScrollBack.current.onDragStart(event.nativeEvent);
+                  newerLoadFailed.current = false;
+                  if (!jumpAnchor.current.holds()) return;
+                  jumpAnchor.current.release();
+                  jumpScrollTarget.current = null;
+                }}
+                onScrollEndDrag={(event) => {
+                  pinnedScrollBack.current.onDragEnd();
+                  updatePinnedScroll(event);
+                }}
+                onMomentumScrollEnd={updatePinnedScroll}
+              >
+                {loadEarlierControl}
+                {threadWindowMessages(visibleMessages, pinnedNewerCursor).map((message, index) =>
+                  renderMessageRow(message, { enableJump: true, index }),
+                )}
+                {pinnedNewerCursor === null ? failedSendBubbles : null}
+                {errorNotice}
+                {pinnedNewerCursor === null ? (
+                  workingFooter
+                ) : loadingNewer ? (
+                  <ActivityIndicator
+                    color={tokens.mutedForeground}
+                    style={{ marginVertical: 12 }}
+                  />
+                ) : null}
+              </ScrollView>
+            </ThreadScrollSurface>
+          ) : (
+            <ThreadScrollSurface key={`live:${threadKey}`}>
+              <FlatList
+                key={threadKey}
+                ref={scroll}
+                data={liveItems}
+                inverted
+                keyExtractor={threadItemKey}
+                // This callback tracks every row input, including reply, reaction and highlight state.
+                extraData={renderMessageRow}
+                style={messageListStyles.list}
+                // Swiping down hides the keyboard; on iOS it follows the finger.
+                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+                // Inverted, so the bottom padding is the visual top, clear of the transparent header.
+                contentContainerStyle={listContentStyle}
+                // Follow changes to the recovery card while already at the newest content.
+                maintainVisibleContentPosition={liveMessageListPosition}
+                scrollEventThrottle={16}
+                onScrollBeginDrag={(event) => {
+                  clearTimeout(scrollIdleTimer.current);
+                  nativeMomentumActive.current = false;
+                  scrollBehavior.current.onUserDragStart();
+                  liveScrollBack.current.onDragStart(event.nativeEvent);
+                }}
+                onScroll={(event) => {
+                  if (liveScrollBack.current.onScroll(event.nativeEvent) && Platform.OS === "ios") {
+                    KeyboardController.dismiss();
+                  }
+                  if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
+                }}
+                // Keep tracking after release: a fling can cross the threshold mid-momentum.
+                onScrollEndDrag={(event) => {
+                  updateUserScroll(event);
+                  scrollBehavior.current.onUserDragEnd();
+                  liveScrollBack.current.onDragEnd();
+                  scheduleScrollIdle();
+                }}
+                onMomentumScrollBegin={() => {
+                  nativeMomentumActive.current = true;
+                  scheduleScrollIdle();
+                }}
+                onMomentumScrollEnd={(event) => {
+                  nativeMomentumActive.current = false;
+                  if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
+                  clearTimeout(scrollIdleTimer.current);
+                  performScroll(scrollBehavior.current.onUserMomentumEnd());
+                  publishThreadScrollState(scrollBehavior.current.state());
+                }}
+                onLayout={(event) => {
+                  performScroll(scrollBehavior.current.onLayout(event.nativeEvent.layout.height));
+                  publishThreadScrollState(scrollBehavior.current.state());
+                }}
+                onContentSizeChange={(_, height) => {
+                  publishThreadScrollState(scrollBehavior.current.onContentSizeChanged(height));
+                  if (loadingOlderContent.current) {
+                    loadingOlderContent.current = false;
                     return;
                   }
+                  const blocked = Boolean(
+                    jumpScrollTarget.current ||
+                      (pinnedAroundRef.current &&
+                        ((pinnedAroundRef.current.botId &&
+                          pinnedAroundRef.current.botId === botId) ||
+                          (pinnedAroundRef.current.groupId &&
+                            pinnedAroundRef.current.groupId === groupId))) ||
+                      expandedHistoryThread.current === snap?.threadId,
+                  );
+                  performScroll(scrollBehavior.current.onContentChanged(blocked, latestMessageId));
+                  publishThreadScrollState(scrollBehavior.current.state());
+                }}
+                ListFooterComponent={loadEarlierControl}
+                ListHeaderComponent={
+                  <View onLayout={() => performScroll(scrollBehavior.current.onLayout())}>
+                    {errorNotice}
+                    {failedSendBubbles}
+                    {workingFooter}
+                  </View>
                 }
-                loadNewerNearEnd();
-              }}
-              onScroll={(event) => {
-                const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-                pinnedScrollMetrics.current = {
-                  offset: contentOffset.y,
-                  viewport: layoutMeasurement.height,
-                  content: contentSize.height,
-                };
-                if (pinnedScrollBack.current.onScroll(event.nativeEvent) && Platform.OS === "ios") {
-                  KeyboardController.dismiss();
-                }
-                loadNewerNearEnd();
-              }}
-              onScrollBeginDrag={(event) => {
-                pinnedScrollBack.current.onDragStart(event.nativeEvent);
-                newerLoadFailed.current = false;
-                if (!jumpAnchor.current.holds()) return;
-                jumpAnchor.current.release();
-                jumpScrollTarget.current = null;
-              }}
-              onScrollEndDrag={(event) => {
-                pinnedScrollBack.current.onDragEnd();
-                updatePinnedScroll(event);
-              }}
-              onMomentumScrollEnd={updatePinnedScroll}
-            >
-              {loadEarlierControl}
-              {threadWindowMessages(visibleMessages, pinnedNewerCursor).map((message, index) =>
-                renderMessageRow(message, { enableJump: true, index }),
-              )}
-              {pinnedNewerCursor === null ? failedSendBubbles : null}
-              {errorNotice}
-              {pinnedNewerCursor === null ? (
-                workingFooter
-              ) : loadingNewer ? (
-                <ActivityIndicator color={tokens.mutedForeground} style={{ marginVertical: 12 }} />
-              ) : null}
-            </ScrollView>
-          ) : (
-            <FlatList
-              key={threadKey}
-              ref={scroll}
-              data={liveItems}
-              inverted
-              keyExtractor={threadItemKey}
-              // This callback tracks every row input, including reply, reaction and highlight state.
-              extraData={renderMessageRow}
-              style={messageListStyles.list}
-              // Swiping down hides the keyboard; on iOS it follows the finger.
-              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-              // Inverted, so the bottom padding is the visual top, clear of the transparent header.
-              contentContainerStyle={listContentStyle}
-              // Follow changes to the recovery card while already at the newest content.
-              maintainVisibleContentPosition={liveMessageListPosition}
-              scrollEventThrottle={16}
-              onScrollBeginDrag={(event) => {
-                clearTimeout(scrollIdleTimer.current);
-                nativeMomentumActive.current = false;
-                scrollBehavior.current.onUserDragStart();
-                liveScrollBack.current.onDragStart(event.nativeEvent);
-              }}
-              onScroll={(event) => {
-                if (liveScrollBack.current.onScroll(event.nativeEvent) && Platform.OS === "ios") {
-                  KeyboardController.dismiss();
-                }
-                if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
-              }}
-              // Keep tracking after release: a fling can cross the threshold mid-momentum.
-              onScrollEndDrag={(event) => {
-                updateUserScroll(event);
-                scrollBehavior.current.onUserDragEnd();
-                liveScrollBack.current.onDragEnd();
-                scheduleScrollIdle();
-              }}
-              onMomentumScrollBegin={() => {
-                nativeMomentumActive.current = true;
-                scheduleScrollIdle();
-              }}
-              onMomentumScrollEnd={(event) => {
-                nativeMomentumActive.current = false;
-                if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
-                clearTimeout(scrollIdleTimer.current);
-                performScroll(scrollBehavior.current.onUserMomentumEnd());
-                publishThreadScrollState(scrollBehavior.current.state());
-              }}
-              onLayout={(event) => {
-                performScroll(scrollBehavior.current.onLayout(event.nativeEvent.layout.height));
-                publishThreadScrollState(scrollBehavior.current.state());
-              }}
-              onContentSizeChange={(_, height) => {
-                publishThreadScrollState(scrollBehavior.current.onContentSizeChanged(height));
-                if (loadingOlderContent.current) {
-                  loadingOlderContent.current = false;
-                  return;
-                }
-                const blocked = Boolean(
-                  jumpScrollTarget.current ||
-                    (pinnedAroundRef.current &&
-                      ((pinnedAroundRef.current.botId && pinnedAroundRef.current.botId === botId) ||
-                        (pinnedAroundRef.current.groupId &&
-                          pinnedAroundRef.current.groupId === groupId))) ||
-                    expandedHistoryThread.current === snap?.threadId,
-                );
-                performScroll(scrollBehavior.current.onContentChanged(blocked, latestMessageId));
-                publishThreadScrollState(scrollBehavior.current.state());
-              }}
-              ListFooterComponent={loadEarlierControl}
-              ListHeaderComponent={
-                <View onLayout={() => performScroll(scrollBehavior.current.onLayout())}>
-                  {errorNotice}
-                  {failedSendBubbles}
-                  {workingFooter}
-                </View>
-              }
-              renderItem={renderItem}
-            />
+                renderItem={renderItem}
+              />
+            </ThreadScrollSurface>
           )}
           {showPinnedPage || threadScrollState.detached ? (
             <View style={{ position: "absolute", end: 0, bottom: 12 }}>
@@ -2671,8 +2684,8 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
               fallbackStyle={{
                 borderRadius: 14,
                 borderWidth: 1,
-                borderColor: tokens.border,
-                backgroundColor: tokens.card,
+                borderColor: tokens.glassStroke,
+                backgroundColor: tokens.glassFill,
                 paddingStart: 12,
                 paddingEnd: 12,
                 paddingVertical: 10,
@@ -3385,8 +3398,6 @@ const MessageRow = memo(function MessageRow({
                   style={{
                     color: tokens.foreground,
                     backgroundColor: tokens.muted,
-                    borderColor: tokens.border,
-                    borderWidth: 1,
                     borderRadius: 16,
                     paddingHorizontal: 8,
                     paddingVertical: 2,
@@ -3617,8 +3628,6 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           width: "90%",
           borderRadius: 18,
-          borderWidth: 1,
-          borderColor: tokens.border,
           backgroundColor: tokens.card,
           paddingHorizontal: 16,
           paddingVertical: 14,
@@ -3631,13 +3640,13 @@ const MessageBubble = memo(function MessageBubble({
             gap: 8,
           }}
         >
-          <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "600" }}>
+          <Text style={{ flexShrink: 1, color: tokens.foreground, ...typeScale.cardTitle }}>
             {safeDisplayName(special.name, t("subagent"))}
           </Text>
           <Text
             style={{
               color: failed ? tokens.destructive : running ? tokens.warning : tokens.success,
-              fontSize: 13,
+              ...typeScale.caption,
             }}
           >
             {running
@@ -3650,7 +3659,7 @@ const MessageBubble = memo(function MessageBubble({
           </Text>
         </View>
         {special.task ? (
-          <Text style={{ color: tokens.mutedForeground, marginTop: 8, fontSize: 13.5 }}>
+          <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
             {special.task}
           </Text>
         ) : null}
@@ -3692,32 +3701,30 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           width: "90%",
           borderRadius: 18,
-          borderWidth: 1,
-          borderColor: tokens.border,
           backgroundColor: tokens.card,
           paddingHorizontal: 16,
           paddingVertical: 14,
         }}
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-          <Text style={{ color: tokens.cardForeground, fontSize: 15, fontWeight: "600" }}>
+          <Text style={{ flexShrink: 1, color: tokens.cardForeground, ...typeScale.cardTitle }}>
             {title}
           </Text>
           <Text
             style={{
               color: failed ? tokens.destructive : running ? tokens.warning : tokens.success,
-              fontSize: 13,
+              ...typeScale.caption,
             }}
           >
             {statusLabel}
           </Text>
         </View>
         {prHref ? (
-          <Text style={{ color: tokens.mutedForeground, marginTop: 8, fontSize: 14.5 }}>
+          <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
             {t("Pull request")}
           </Text>
         ) : special.branch ? (
-          <Text style={{ color: tokens.mutedForeground, marginTop: 8, fontSize: 13.5 }}>
+          <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
             {special.branch}
           </Text>
         ) : null}
@@ -3735,8 +3742,6 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           width: "90%",
           borderRadius: 18,
-          borderWidth: 1,
-          borderColor: tokens.border,
           backgroundColor: tokens.card,
           paddingHorizontal: 16,
           paddingVertical: 14,
@@ -3750,10 +3755,12 @@ const MessageBubble = memo(function MessageBubble({
             gap: 8,
           }}
         >
-          <Text style={{ color: tokens.foreground, fontSize: 15, fontWeight: "600" }}>
+          <Text style={{ flexShrink: 1, color: tokens.foreground, ...typeScale.cardTitle }}>
             {special.name || t("Bot")}
           </Text>
-          <Text style={{ color: removed ? tokens.destructive : tokens.success, fontSize: 13 }}>
+          <Text
+            style={{ color: removed ? tokens.destructive : tokens.success, ...typeScale.caption }}
+          >
             {special.status === "archived"
               ? t("archived")
               : special.status === "deleted"
@@ -3761,14 +3768,7 @@ const MessageBubble = memo(function MessageBubble({
                 : t("bot")}
           </Text>
         </View>
-        <Text
-          style={{
-            color: tokens.mutedForeground,
-            marginTop: 8,
-            fontSize: 14.5,
-            lineHeight: 21,
-          }}
-        >
+        <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
           {removed
             ? special.status === "archived"
               ? t("Archived. Chat, memory, and files kept.")
@@ -3815,8 +3815,6 @@ const MessageBubble = memo(function MessageBubble({
             // No percentage width: the iOS menu host has no definite width to resolve it against.
             maxWidth: 576,
             borderRadius: 18,
-            borderWidth: 1,
-            borderColor: tokens.border,
             backgroundColor: tokens.card,
             paddingHorizontal: 16,
             paddingVertical: 14,
@@ -3831,10 +3829,7 @@ const MessageBubble = memo(function MessageBubble({
           ) : (
             <>
               {askBlock.text ? (
-                <Text
-                  {...actionProps}
-                  style={{ color: tokens.foreground, fontSize: 15.5, lineHeight: 23 }}
-                >
+                <Text {...actionProps} style={{ color: tokens.foreground, ...typeScale.cardTitle }}>
                   {askBlock.instructionUpdate
                     ? t("Update instructions?")
                     : plainAskTitle(askBlock.text)}
@@ -3847,9 +3842,12 @@ const MessageBubble = memo(function MessageBubble({
                     color:
                       askBlock.detailFormat === "text" ? tokens.foreground : tokens.mutedForeground,
                     marginTop: askBlock.text ? 8 : 0,
-                    fontSize: askBlock.detailFormat === "text" ? 15.5 : 12.5,
-                    fontFamily: askBlock.detailFormat === "text" ? undefined : "Menlo",
-                    lineHeight: askBlock.detailFormat === "text" ? 23 : 20,
+                    // Commands and an approval's tool arguments read as code; a bot's own note
+                    // under its question is text.
+                    ...(askBlock.detailFormat === "code" ||
+                    (!askBlock.detailFormat && askBlock.approvalEffectId)
+                      ? { ...typeScale.caption, fontFamily: "Menlo" }
+                      : typeScale.secondary),
                   }}
                 >
                   {askBlock.detail}
@@ -3861,8 +3859,8 @@ const MessageBubble = memo(function MessageBubble({
                   style={{
                     color: askBlock.answer === "deny" ? tokens.mutedForeground : tokens.success,
                     marginTop: 12,
-                    fontSize: 13.5,
-                    fontWeight: "600",
+                    ...typeScale.secondary,
+                    fontWeight: fontWeight.medium,
                   }}
                 >
                   {askBlock.instructionUpdate
@@ -3884,7 +3882,7 @@ const MessageBubble = memo(function MessageBubble({
               ) : (
                 <Text
                   {...actionProps}
-                  style={{ color: tokens.mutedForeground, marginTop: 12, fontSize: 13.5 }}
+                  style={{ color: tokens.mutedForeground, marginTop: 12, ...typeScale.caption }}
                 >
                   {t("No longer active")}
                 </Text>
@@ -3937,9 +3935,7 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           maxWidth: "100%",
           borderRadius: 20,
-          borderWidth: 1,
-          borderColor: tokens.border,
-          backgroundColor: message.role === "user" ? tokens.secondary : tokens.muted,
+          backgroundColor: message.role === "user" ? tokens.chatUser : tokens.muted,
           paddingHorizontal: 14,
           paddingVertical: 12,
           gap: 8,
@@ -3968,9 +3964,7 @@ const MessageBubble = memo(function MessageBubble({
                 artifactId={attachment.artifactId}
                 name={attachment.name ?? t("Image")}
                 mimeType={attachment.mimeType ?? "image/png"}
-                labelColor={
-                  message.role === "user" ? tokens.secondaryForeground : tokens.foreground
-                }
+                labelColor={message.role === "user" ? tokens.chatUserForeground : tokens.foreground}
                 pressableProps={actionProps}
                 onOpen={() =>
                   onPreviewImage({
@@ -3999,7 +3993,7 @@ const MessageBubble = memo(function MessageBubble({
               >
                 <Text
                   style={{
-                    color: message.role === "user" ? tokens.secondaryForeground : tokens.foreground,
+                    color: message.role === "user" ? tokens.chatUserForeground : tokens.foreground,
                     fontSize: 15,
                   }}
                 >
@@ -4015,6 +4009,7 @@ const MessageBubble = memo(function MessageBubble({
               artifactId={attachment.artifactId}
               name={attachment.name ?? t("File")}
               mimeType={attachment.mimeType!}
+              labelColor={message.role === "user" ? tokens.chatUserForeground : undefined}
             />
           ) : (
             <Pressable
@@ -4041,7 +4036,7 @@ const MessageBubble = memo(function MessageBubble({
             >
               <Text
                 style={{
-                  color: message.role === "user" ? tokens.secondaryForeground : tokens.foreground,
+                  color: message.role === "user" ? tokens.chatUserForeground : tokens.foreground,
                   fontSize: 15,
                 }}
               >
@@ -4050,7 +4045,8 @@ const MessageBubble = memo(function MessageBubble({
               {formatFileSize(attachment.size) ? (
                 <Text
                   style={{
-                    color: tokens.mutedForeground,
+                    color:
+                      message.role === "user" ? tokens.chatUserForeground : tokens.mutedForeground,
                     marginTop: 4,
                     fontSize: 13,
                   }}
@@ -4162,7 +4158,7 @@ function MessageTextCard({
         flexShrink: 1,
         minWidth: 0,
         maxWidth: "100%",
-        backgroundColor: message.role === "user" ? tokens.secondary : tokens.muted,
+        backgroundColor: message.role === "user" ? tokens.chatUser : tokens.muted,
         paddingHorizontal: 14,
         paddingVertical: 9,
         borderRadius: 20,
@@ -4231,8 +4227,6 @@ function AgentEventLabel({
             width: "100%",
             marginTop: 6,
             borderRadius: 14,
-            borderWidth: 1,
-            borderColor: tokens.border,
             backgroundColor: tokens.card,
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -4327,8 +4321,6 @@ function AskBlock({
       style={{
         width: secretInput ? "100%" : "90%",
         borderRadius: 18,
-        borderWidth: 1,
-        borderColor: tokens.border,
         backgroundColor: tokens.card,
         paddingHorizontal: 16,
         paddingVertical: 14,
@@ -4338,26 +4330,26 @@ function AskBlock({
       <Text
         {...actionProps}
         numberOfLines={secretInput ? 2 : undefined}
-        style={{ color: tokens.foreground, fontSize: 15.5, fontWeight: "600" }}
+        style={{ color: tokens.foreground, ...typeScale.cardTitle }}
       >
         {plainAskTitle(ask.text)}
       </Text>
       {secretInput && ask.credential ? (
-        <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>
+        <Text style={{ color: tokens.mutedForeground, ...typeScale.secondary }}>
           {secretDestinationLabel(ask.credential)}
         </Text>
       ) : null}
       {ask.detail && !secretInput ? (
-        <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>{ask.detail}</Text>
+        <Text style={{ color: tokens.mutedForeground, ...typeScale.secondary }}>{ask.detail}</Text>
       ) : null}
       {answered ? (
         <Text
           style={{
             // Dismissed reads like a declined approval, not a success.
             color: dismissed || ask.dismissed ? tokens.mutedForeground : tokens.success,
-            ...(secretInput
-              ? { fontSize: 13.5, fontWeight: "600" as const, marginTop: 12 }
-              : { fontSize: 14 }),
+            ...typeScale.secondary,
+            fontWeight: fontWeight.medium,
+            ...(secretInput ? { marginTop: 12 } : null),
           }}
         >
           {secretInput
@@ -4394,7 +4386,7 @@ function AskBlock({
             value={answer}
             onChangeText={setAnswer}
             placeholder={secretInput ? secretLabel : t("Type your answer")}
-            placeholderTextColor={tokens.mutedForeground}
+            placeholderTextColor={tokens.faintForeground}
             secureTextEntry={secretInput}
             autoComplete="off"
             {...(secretInput ? secretFieldTraits(ask.purpose, ask.credential) : {})}
@@ -4430,11 +4422,13 @@ function AskBlock({
           </View>
         </>
       ) : (
-        <Text style={{ color: tokens.mutedForeground, fontSize: 13.5 }}>
+        <Text style={{ color: tokens.mutedForeground, ...typeScale.caption }}>
           {t("Waiting for this bot’s response.")}
         </Text>
       )}
-      {error ? <Text style={{ color: tokens.destructive, fontSize: 13 }}>{error}</Text> : null}
+      {error ? (
+        <Text style={{ color: tokens.destructive, ...typeScale.caption }}>{error}</Text>
+      ) : null}
       {sheetOpen && loginInput && ask.credential ? (
         <SecretAskSheet
           title={plainAskTitle(ask.text)}

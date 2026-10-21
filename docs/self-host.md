@@ -88,14 +88,14 @@ supervisor at startup naming the variable, rather than surfacing later as a fail
 
 ### Restricted computer egress
 
-Docker computers default to restricted egress: the public internet (browsing, DNS, apt, git
+Restricted egress gives Docker computers the public internet (browsing, DNS, apt, git
 over SSH) but not the Docker host, the LAN, or link-local cloud metadata such as
 `169.254.169.254`, which on a cloud VM would hand instance credentials to anything a bot runs.
 
 It takes two parts:
 
-1. `SANDBOX_COMPUTER_EGRESS=restricted`, the Compose default, gives each computer network a
-   deterministic host bridge name (`rakazo-c…`) instead of a generic `br-*`.
+1. `SANDBOX_COMPUTER_EGRESS=restricted` gives each computer network a deterministic host
+   bridge name (`rakazo-c…`) instead of a generic `br-*`.
 2. The host ruleset, applied once per Docker host:
 
    ```bash
@@ -114,7 +114,14 @@ It takes two parts:
 Before the first restricted computer starts, the supervisor checks that the host drops
 connections from a `rakazo-c*` bridge. Without the ruleset, computers fail to start with an
 error naming the script instead of running unrestricted; run the script (no restart needed)
-or set `SANDBOX_COMPUTER_EGRESS=open` and recreate the supervisor. A host-run supervisor
+or set `SANDBOX_COMPUTER_EGRESS=open` and recreate the supervisor.
+
+When `SANDBOX_COMPUTER_EGRESS` is unset, the Compose files use `auto`: the supervisor runs the
+same check and uses restricted egress if the ruleset is in place, otherwise open egress with a
+warning in its log. It keeps the first completed answer; a check that could not finish (a Docker
+error or timeout) fails that computer's start and runs again on the next one. An install from before the ruleset existed therefore
+keeps working when it upgrades. After installing the ruleset, recreate the supervisor, or set
+`restricted` to refuse computers whenever the rules are missing. A host-run supervisor
 (`pnpm dev`) and the desktop app's **This computer** stack default to open: Docker Desktop
 keeps its bridges in a VM the host rules cannot reach.
 
@@ -188,10 +195,15 @@ password, and grants it the `rakazo_app` role. When migrations run as a role wit
 `CREATEROLE`, as on some managed Postgres, create the login yourself and
 `GRANT rakazo_app TO <login>`.
 
-Messages, events, threads, memory, artifacts, secrets, model and voice credentials, and skills have
-row-level security. Each signed-in request sees only its Space's rows, plus the user's own
-account-level credentials. A query that leaves out its Space filter returns nothing from other
-Spaces. Background jobs, reconcilers and webhooks run in a named system scope (`runAsSystem` in
+Messages, events, threads, memory, artifacts, secrets, model and voice credentials, skills, bots,
+runs, tasks, routines, connections, MCP servers and sign-ins, computers, boards and tickets,
+messaging identities and outbox, external conversations, steering messages, usage, scratchpad
+items and approval rules have row-level security. Each signed-in request sees only its Space's
+rows, plus the user's own account-level credentials. A query that leaves out its Space filter
+returns nothing from other Spaces. A background job that acts for one run, routine, computer,
+skill, thread or cloud agent runs as that row's Space and user, so agent tools get the same
+backstop. Security events are written and read only in system scope. Reconcilers, queue sweeps,
+the messaging outbox drain and webhooks run in a named system scope (`runAsSystem` in
 `packages/db`). The job queue's tables (`graphile_worker`) hold job metadata, not Space content:
 graphile-worker turns on row-level security for them, and `pnpm db:migrate` adds a policy that
 gives the app login every row.
@@ -582,12 +594,15 @@ Sessions, logs, and security events carry the caller's address. The API believes
 header only when the TCP peer is in `TRUSTED_PROXIES` (IPs, CIDR ranges, or hostnames such as a
 Compose service name). It reads that header (`CLIENT_IP_HEADER`, default `x-forwarded-for`) right
 to left past trusted hops. Anyone else is the TCP peer, so a client cannot choose its own address.
-Compose sets `TRUSTED_PROXIES` to the hop in front of the API: `caddy` in production, `web`
-elsewhere. The web app's `/api` proxy appends the address it saw, so with only `web` trusted the
-API records the address of whatever connects to the web container, such as your host proxy. To
-record each client instead, also trust that proxy's address as the web container sees it, and make
-sure that proxy overwrites or appends `X-Forwarded-For`. For any other layout, list every proxy
-between the internet and the API.
+Unset, `TRUSTED_PROXIES` in a container is `local-networks`: loopback and every network the API
+has an interface on. Outside a container it is loopback only, since the host's networks can hold
+direct clients. `none` trusts no proxy. In Compose those networks are the stack's own, which hold the web container and the network
+gateway a reverse proxy on the Docker host connects from, so a host proxy that sets
+`X-Forwarded-For` (Caddy does; nginx needs `proxy_set_header X-Forwarded-For
+$proxy_add_x_forwarded_for`) is believed without configuration. Bot computers are never on those
+networks, so they cannot choose an address. Production Compose sets `caddy` instead. For any
+other layout, list every proxy between the internet and the API. Sign-in rate limits count per
+client address, so a proxy that is not believed makes every user share one limit.
 
 Caddy resolves the client first. `Caddyfile.prod` takes the TCP peer and overwrites
 `X-Forwarded-For` with it. Behind a CDN, Caddy has to trust the CDN's ranges and read its client
@@ -774,6 +789,47 @@ credentials and survives **Disconnect**; switching to a different client drops t
 On first use the client is bound to the authorization server the MCP server pointed to, and Rakazo
 refuses to send it anywhere else afterwards. Replacing the client clears the binding.
 
+Stdio MCP servers can use OAuth too. They do not authorize themselves (the MCP spec has them
+read credentials from the environment), so Rakazo runs the flow for them. They are off unless
+the API and worker have `MCP_STDIO_ENABLED=true` and the command is listed in
+`MCP_STDIO_ALLOWED_COMMANDS`. When adding the server, enter the OAuth client, its
+**Authorization server** (the issuer, for example `https://accounts.google.com`) and the
+**Scopes**, then click **Connect OAuth** as for a remote server. Some providers issue a refresh
+token only when asked through extra parameters: for Google, set **Authorization parameters** to
+`access_type=offline&prompt=consent`. Pass the grant to the process
+through its environment variables:
+
+- A value can reference `{{oauth.access_token}}`, `{{oauth.refresh_token}}`,
+  `{{oauth.client_id}}`, `{{oauth.client_secret}}`, `{{oauth.expires_at}}` (epoch milliseconds),
+  `{{oauth.scope}}` or `{{oauth.token_type}}`, alone or inside other text.
+- A variable can be a **File** instead: its template (often JSON, with the same references) is
+  written to a private temporary directory when the process starts, and the variable receives
+  the file's path. Use this for packages that read a credentials or token file path.
+
+Rakazo refreshes the grant and restarts the process shortly before an access token it passed
+expires, so a long-running process never keeps a dead token. A process that only receives the
+refresh token refreshes on its own. Temporary files are removed when the process stops.
+
+A server launched as `npx [-y] <package>[@version]` (or `npx -p <package> <bin>`) is not
+downloaded on every start. Rakazo installs the package once with `npm install` into
+`MCP_PACKAGES_DIR` (default `DATA_DIR/mcp-packages`, shared by the API and worker), then runs
+its bin directly; `npx` must still be in `MCP_STDIO_ALLOWED_COMMANDS`. The install has its own
+timeout, `MCP_STDIO_INSTALL_TIMEOUT_MS` (default 180000), separate from the handshake timeout
+`MCP_STDIO_STARTUP_TIMEOUT_MS` (default 30000). Pin a version so every start runs the same
+code; npm settings such as `NPM_CONFIG_REGISTRY` can be set in the server's environment
+variables. Local paths, git and tarball URLs, and unknown `npx` flags fall back to running the
+command as configured. Each server runs as one process per user in each of the API and worker,
+shared by that user's bots, and stops after `MCP_STDIO_IDLE_MS` (default 900000, 15 minutes)
+without use. When a server fails to start, the reason (including the end of its stderr, with
+credentials redacted) appears on the server in **Settings**, and its bots are told it is
+unavailable instead of silently losing its tools.
+
+A run never waits long on one server. It gives each server `MCP_DISCOVERY_TIMEOUT_MS` (default
+20000) to list its tools, then goes on without it; a package still installing finishes in the
+background and its tools appear on a later turn. After a failure, runs skip that server for 30
+seconds, doubling up to 5 minutes while it keeps failing. A successful **Test connection** or
+discovery, or a change to the server's settings, ends the wait at once.
+
 For servers that accept standard `reasoning_effort`, enable **Supports thinking** under
 **Advanced** when connecting. The setting is saved on the connection (no env var or restart).
 Existing connections default to disabled. Reconnect former Qwen-list or deployment-local models
@@ -789,7 +845,25 @@ Do not commit `.env`. Never put `COMPOSIO_API_KEY`, OpenRouter keys, or provider
 
 Optional messaging platforms (iMessage, Slack, WhatsApp, Telegram, Feishu/Lark) mount when their env credentials are set — see `.env.example`. Point a Feishu/Lark bot event subscription at `/api/v1/messaging/webhook/lark` (webhook/HTTP inbound only; do not enable long connection). Groups stay iMessage-only. Telegram can run several bots side by side (`TELEGRAM_BOT_TOKEN_<NAME>` plus `TELEGRAM_WEBHOOK_SECRET_TOKEN_<NAME>`), for example one per space, so the same person can chat with a different Rakazo bot through each.
 
-The Compose files pass the API and worker only the settings each one reads, listed by name, rather than the whole `.env`. A setting whose name you choose, such as `TELEGRAM_BOT_TOKEN_<NAME>`, therefore needs its own line: add it under `api` and `worker` `environment` in an override file layered after the base file (and in `RAKAZO_COMPOSE_FILE` when the updater is enabled), with no value so Compose fills it from `.env`.
+### Settings with names you choose
+
+The Compose files pass the API and worker only the settings each one reads, listed by name, rather than the whole `.env`. A setting whose name you choose, such as `TELEGRAM_BOT_TOKEN_<NAME>`, therefore needs its own line: add it under `api` and `worker` `environment` in an override file layered after the base file (and in `RAKAZO_COMPOSE_FILE` when the updater is enabled), with no value so Compose fills it from `.env`. `install-images.sh` names any `.env` setting that no container receives.
+
+```yaml
+# docker-compose.override.yml
+services:
+  api:
+    environment:
+      TELEGRAM_BOT_TOKEN_SUPPORT:
+      TELEGRAM_WEBHOOK_SECRET_TOKEN_SUPPORT:
+  worker:
+    environment:
+      TELEGRAM_BOT_TOKEN_SUPPORT:
+      TELEGRAM_WEBHOOK_SECRET_TOKEN_SUPPORT:
+```
+
+`install-images.sh` layers a `docker-compose.override.yml` next to it automatically. In your own
+commands, add `-f docker-compose.override.yml` after the base file.
 
 ## Choosing a computer provider
 
@@ -1084,7 +1158,7 @@ release: add first, and drop or rename only in a later deploy. Build and
 start are time-limited so a stuck build fails the deploy instead of holding its lock; a deploy that
 finds the lock held exits non-zero. A deploy refuses to start with less than
 `RAKAZO_DEPLOY_MIN_FREE_GB` (default `5`) free, and after a healthy rollout it removes untagged
-images and build cache unused for a day, keeping the previous images tagged `rakazo-rollback`.
+images and trims the build cache to `RAKAZO_DEPLOY_BUILD_CACHE_GB` (8 GB by default), keeping the previous images tagged `rakazo-rollback`.
 For a checkout outside `/srv/rakazo`, put `RAKAZO_DEPLOY_DIR=/absolute/path` (and any of these
 settings) in a root-owned `/etc/rakazo/deploy.env` readable by the deploy user. The launcher runs
 `infra/compose/deploy-main.sh` from `origin/main`, so deploy changes apply on the next deploy; only
@@ -1192,7 +1266,8 @@ Product contracts stay compatible across cloud and self-hosted.
 ### Upgrading to the separate app database login
 
 Releases with [database roles](#database-roles) need `POSTGRES_APP_PASSWORD` in `.env`. The
-desktop app, `install-images.sh` and `infra/compose/deploy-main.sh` add it when it is missing.
+desktop app, `install-images.sh`, the updater sidecar and `infra/compose/deploy-main.sh` add it
+when it is missing.
 Elsewhere, add it yourself (`openssl rand -hex 16`) before you pull, or Compose stops at config
 validation with `Set POSTGRES_APP_PASSWORD in .env`. On first start, the API creates the
 `rakazo_app` login, and the API and worker then connect as it. Nothing else changes, and the
@@ -1204,8 +1279,10 @@ restart the API and worker. Role attributes are not inherited, so granting it to
 nothing for a separate login. The app then runs as before, with a startup warning, and later
 migrations leave that login alone. Undo it with
 `NOBYPASSRLS` and another restart, then search the API and worker logs for
-`violates row-level security` and `without a tenant or system context`. Rolling back to an older release works without changes: it
-ignores the extra variable and connects as the owner.
+`violates row-level security` and `without a tenant or system context`. An older release ignores
+the extra variable and connects as the owner, but releases from the same day also encrypt content
+at rest: run `content-encryption decrypt` before rolling back past them
+([content encryption](./content-encryption.md#rollout)), or older releases show ciphertext.
 
 ### Space privacy-boundary migration
 

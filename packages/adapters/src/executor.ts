@@ -127,10 +127,12 @@ import {
   loadRunHistoryMessages,
   Prisma,
   parseComputerMode,
+  RunHistoryWriteError,
   readHistory,
   recordUsage,
   reserveInstructionProposal,
   retireModelCredential,
+  runAsSystem,
   SpaceLimitError,
   searchHistory,
   settleReleasedTakeoverCards,
@@ -2886,9 +2888,11 @@ export async function appendToolCompletionAudit(
       payload: toolCompletionAuditPayload(completion, secrets),
     });
   } catch (error) {
+    // A tool that finishes after its run was cancelled has no history to join.
+    if (error instanceof RunHistoryWriteError) return;
     // Audit persistence must not change the tool result or strand the run.
     getLogger().warn("agent tool completion audit append failed", {
-      error: sanitizeConnectorError(error, secrets),
+      "error.detail": sanitizeConnectorError(error, secrets),
       tool: redactSecrets(completion.name, secrets),
       executionId: redactSecrets(completion.executionId, secrets),
     });
@@ -3976,45 +3980,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const { credential, thinkingLevel } = selected;
         const runModelProvider = selected.provider ?? runtimeFallback?.provider;
         const runModelId = selected.id ?? runtimeFallback?.id;
-        const failRunBeforeModel = async (message: string) => {
-          const failed = await deps.events.finalizeRun({
-            spaceId: run.spaceId,
-            threadId: thread.id,
-            botId: bot.id,
-            runId,
-            taskId: run.taskId,
-            attemptId: attempt.id,
-            leaseOwner: workerId,
-            leaseFence: fence,
-            outcome: "failed",
-            error: message,
-          });
-          if (!failed) return;
-          if (failed.continuationRunId) {
-            await deps.jobs
-              .enqueue(runContinueJob(failed.continuationRunId))
-              .catch((error) => getLogger().error("steering continuation enqueue", error));
-          }
-          if (run.trigger === "bot_message") {
-            await returnBotMessageOutcome(
-              deps,
-              { ...run, sourceMessageId: run.sourceMessageId },
-              { id: bot.id, name: bot.name },
-              `Could not complete the delegated request: ${message}`,
-              "status",
-              { forceUnread: true },
-            ).catch((error) => getLogger().error("bot message failure return", error));
-          }
-          if (!failed.continuationRunId) {
-            await notifyRun(deps, run, {
-              kind: "failure",
-              title: `${displayName(bot.name, "Bot")} failed`,
-              body: message,
-              botId: bot.id,
-              threadId: thread.id,
-            });
-          }
-        };
+        const failRunBeforeModel = (message: string) =>
+          failRunBeforeTurn(
+            deps,
+            run,
+            bot.name,
+            { attemptId: attempt.id, workerId, fence },
+            message,
+          );
         if (pinError) {
           await failRunBeforeModel(pinError);
           return;
@@ -5466,7 +5439,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 payload,
               })
               // The Activity feed is a view; losing an entry must not fail the tool.
-              .catch((error: unknown) => getLogger().error("computer command event", error));
+              // Output that arrives after the run was cancelled has no history to join.
+              .catch((error: unknown) => {
+                if (!(error instanceof RunHistoryWriteError)) {
+                  getLogger().error("computer command event", error);
+                }
+              });
           /** Record a finished file/app action for the terminal's Activity view. */
           const recordComputerAction = (
             kind: Exclude<ComputerCommand["kind"], "shell">,
@@ -5630,6 +5608,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (args.help === true || !args.spec || typeof args.spec !== "object") {
               return { guide: PLOT_TOOL_GUIDE };
             }
+            // Data and spec mistakes are the model's to fix from the returned error;
+            // everything else (reading the data file, rasterizing, attaching) is ours.
+            let checkingSpec = false;
             try {
               let rows = Array.isArray(args.data) ? (args.data as unknown[]) : undefined;
               const dataPath =
@@ -5641,8 +5622,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   context,
                   { maxBytes: deps.maxUploadSizeBytes ?? ATTACHMENT_MAX_BYTES },
                 );
+                checkingSpec = true;
                 rows = parsePlotData(dataPath, new TextDecoder().decode(bytes));
               }
+              checkingSpec = true;
               assertPlotDataWithinLimits(args.spec as PlotSpec, rows);
               // jsdom and sharp load lazily so chart-free runs never pay for them.
               const { JSDOM } = await import("jsdom");
@@ -5651,6 +5634,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 rows,
                 new JSDOM("").window.document,
               );
+              checkingSpec = false;
               const png = await plotSvgToPng(svg);
               const outPath =
                 typeof args.path === "string" && args.path
@@ -5708,7 +5692,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               return finish({ ok: true, path: outPath, attached });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              getLogger().error(`render_plot failed for bot ${bot.id}: ${message}`);
+              if (!checkingSpec)
+                getLogger().error(`render_plot failed for bot ${bot.id}: ${message}`);
               return finish({
                 error: message,
                 hint: 'Call render_plot with {"charts": true} for runnable example specs, or {"help": true} for the full guide.',
@@ -6971,11 +6956,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
           if (name === "create_space") {
             try {
-              const space = await createSpaceForMember(deps.prisma, {
-                currentSpaceId: run.spaceId,
-                userId: run.userId,
-                name: String(args.name ?? ""),
-              });
+              // The new Space's rows are outside the run's tenant until it exists.
+              const space = await runAsSystem("create a Space for its member", () =>
+                createSpaceForMember(deps.prisma, {
+                  currentSpaceId: run.spaceId,
+                  userId: run.userId,
+                  name: String(args.name ?? ""),
+                }),
+              );
               return finish({ ok: true, spaceId: space.id, name: space.name });
             } catch (error) {
               if (error instanceof SpaceLimitError || error instanceof InvalidSpaceNameError) {
@@ -8323,22 +8311,37 @@ export function createRunExecutor(deps: ExecutorDeps) {
       } catch (setupError) {
         const computerBusy = setupError instanceof ComputerBusyError;
         const retryForever = computerBusy || isTooManyDatabaseConnections(setupError);
+        const setupMessage = redactSecrets(
+          setupError instanceof Error ? setupError.message : String(setupError),
+          runSecrets,
+        );
         if (!computerBusy) {
           // undici collapses every network failure to "fetch failed"; the cause names the
           // host and errno, which is the only part worth paging over.
           const causeMessage =
             setupError instanceof Error && setupError.cause instanceof Error
-              ? `: ${setupError.cause.message}`
+              ? `: ${redactSecrets(setupError.cause.message, runSecrets)}`
               : "";
-          getLogger().error(
-            "run setup failed",
-            redactSecrets(
-              setupError instanceof Error
-                ? `${setupError.message}${causeMessage}`
-                : String(setupError),
-              runSecrets,
-            ),
+          getLogger().error("run setup failed", `${setupMessage}${causeMessage}`);
+        }
+        // The job reconciler re-enqueues a queued run whose job ran out of attempts, so a
+        // setup that fails every time would retry forever. End the run instead.
+        if (
+          !retryForever &&
+          (await setupFailureStreak(deps.prisma, runId)) >= RUN_SETUP_FAILURE_LIMIT - 1
+        ) {
+          const bot = await deps.prisma.bot.findUnique({
+            where: { id: run.botId },
+            select: { name: true },
+          });
+          await failRunBeforeTurn(
+            deps,
+            run,
+            bot?.name ?? "",
+            { attemptId: attempt.id, workerId, fence },
+            setupMessage,
           );
+          return;
         }
         const released = await writeComputerRunRequeue(
           deps,
@@ -8515,6 +8518,63 @@ async function notifyFailedRoutineRun(
   );
 }
 
+/** Fails a run that never reached the model and tells the people waiting on it. */
+async function failRunBeforeTurn(
+  deps: ExecutorDeps,
+  run: {
+    id: string;
+    spaceId: string;
+    userId: string;
+    botId: string;
+    threadId: string;
+    taskId: string;
+    trigger: string;
+    routineId?: string | null;
+    sourceMessageId?: string | null;
+  },
+  botName: string,
+  lease: { attemptId: string; workerId: string; fence: number },
+  message: string,
+): Promise<void> {
+  const failed = await deps.events.finalizeRun({
+    spaceId: run.spaceId,
+    threadId: run.threadId,
+    botId: run.botId,
+    runId: run.id,
+    taskId: run.taskId,
+    attemptId: lease.attemptId,
+    leaseOwner: lease.workerId,
+    leaseFence: lease.fence,
+    outcome: "failed",
+    error: message,
+  });
+  if (!failed) return;
+  if (failed.continuationRunId) {
+    await deps.jobs
+      .enqueue(runContinueJob(failed.continuationRunId))
+      .catch((error) => getLogger().error("steering continuation enqueue", error));
+  }
+  if (run.trigger === "bot_message") {
+    await returnBotMessageOutcome(
+      deps,
+      run,
+      { id: run.botId, name: botName },
+      `Could not complete the delegated request: ${message}`,
+      "status",
+      { forceUnread: true },
+    ).catch((error) => getLogger().error("bot message failure return", error));
+  }
+  if (!failed.continuationRunId) {
+    await notifyRun(deps, run, {
+      kind: "failure",
+      title: `${displayName(botName, "Bot")} failed`,
+      body: message,
+      botId: run.botId,
+      threadId: run.threadId,
+    });
+  }
+}
+
 async function notifyRun(
   deps: ExecutorDeps,
   run: {
@@ -8571,6 +8631,28 @@ async function renewRunLease(
     data: { leaseExpiresAt: new Date(Date.now() + 5 * 60_000) },
   });
   return renewed.count === 1;
+}
+
+/** Consecutive setup failures, including this one, after which a run fails instead of retrying. */
+const RUN_SETUP_FAILURE_LIMIT = 8;
+
+/**
+ * Setup failures in a row before the current attempt. Busy-computer and database waits are
+ * setup_failed attempts without an error; they neither count nor break the streak.
+ */
+async function setupFailureStreak(prisma: PrismaClient, runId: string): Promise<number> {
+  const recent = await prisma.attempt.findMany({
+    where: {
+      runId,
+      status: { not: "running" },
+      NOT: { status: "setup_failed", error: null },
+    },
+    orderBy: { fence: "desc" },
+    take: RUN_SETUP_FAILURE_LIMIT,
+    select: { status: true },
+  });
+  const streak = recent.findIndex((attempt) => attempt.status !== "setup_failed");
+  return streak === -1 ? recent.length : streak;
 }
 
 function computerRetryDelay(fence: number): number {

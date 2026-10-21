@@ -36,6 +36,7 @@ import type { ComposerMention, FoldedTranscript, SlashActionId } from "@rakazo/c
 import {
   accountDisplay,
   answerableAskMessageIds,
+  anySignal,
   attachmentsForThread,
   buildComposerMentionOptions,
   clampMentionHighlightIndex,
@@ -297,6 +298,7 @@ import {
   transcriptMovedDown,
 } from "../lib/transcript-scroll";
 import { speaker } from "../lib/tts";
+import { useDesktopBadge } from "../lib/use-desktop-badge";
 import { errorText } from "../lib/user-error";
 import { ActivityList } from "./ActivityList";
 import { CreateGroupForm, GroupSettings, memberName } from "./GroupPanel";
@@ -337,7 +339,7 @@ import {
 } from "./shell/message-cards";
 import type { RosterDropTarget } from "./shell/roster-drop";
 import { resolveRosterDrop } from "./shell/roster-drop";
-import { commitSpaceRename, sidebarGroupsForSpaces } from "./shell/space-sidebar";
+import { commitSpaceRename, countUnreadChats, sidebarGroupsForSpaces } from "./shell/space-sidebar";
 import { WindowChrome } from "./WindowChrome";
 
 const BotContextMenu = lazyOverlay(() =>
@@ -389,7 +391,7 @@ const COMPOSER_ONE_LINE_GAP_PX = 14;
 const COMPOSER_COLLAPSE_SLACK_PX = 16;
 
 function threadSnapshotSignal(parent: AbortSignal): AbortSignal {
-  return AbortSignal.any([parent, AbortSignal.timeout(THREAD_SNAPSHOT_TIMEOUT_MS)]);
+  return anySignal([parent, AbortSignal.timeout(THREAD_SNAPSHOT_TIMEOUT_MS)]);
 }
 
 function voiceStatusRefreshTimeout(): Promise<never> {
@@ -1670,8 +1672,8 @@ function SpaceShell() {
     };
   }, [activeGroup?.id, groupId, notifyBrowserForEvent]);
 
-  const sidebarGroups = useMemo(() => {
-    const sidebarSpaces =
+  const sidebarSpaces = useMemo(
+    () =>
       spaces.length > 0
         ? spaces.map((space) =>
             space.id === bootstrapMe?.spaceId ? { ...space, bots, groups, botSections } : space,
@@ -1690,12 +1692,23 @@ function SpaceShell() {
                 botSections,
               },
             ]
-          : [];
-    return sidebarGroupsForSpaces(sidebarSpaces, query, {
-      pinned: t`Pinned`,
-      unassigned: t`Unassigned`,
-    });
-  }, [bootstrapMe, botSections, bots, groups, spaces, query, t]);
+          : [],
+    [bootstrapMe, botSections, bots, groups, spaces],
+  );
+  const sidebarGroups = useMemo(
+    () =>
+      sidebarGroupsForSpaces(sidebarSpaces, query, {
+        pinned: t`Pinned`,
+        unassigned: t`Unassigned`,
+      }),
+    [sidebarSpaces, query, t],
+  );
+  // The Dock badge ignores the roster search box: a filter must not hide unread chats.
+  const unreadChatCount = useMemo(
+    () => countUnreadChats(sidebarGroupsForSpaces(sidebarSpaces, "")),
+    [sidebarSpaces],
+  );
+  useDesktopBadge(userId ? unreadChatCount : 0);
 
   const spaceSwitchRequest = useRef(0);
   useEffect(
@@ -3812,7 +3825,8 @@ function SpaceShell() {
                                         {item.chat.unread ? (
                                           <span
                                             aria-hidden="true"
-                                            className="inline-block h-2 w-2 rounded-full bg-foreground"
+                                            data-roster-unread-dot
+                                            className="inline-block h-2 w-2 rounded-full bg-unread"
                                           />
                                         ) : null}
                                       </div>

@@ -10,6 +10,7 @@ import type {
   VoiceInfo,
 } from "@rakazo/contracts";
 import {
+  BOT_COMPUTER_MODES,
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
   BOT_TITLE_MAX_LENGTH,
@@ -54,7 +55,8 @@ const KnowledgeSection = lazyComponent(() =>
   import("../KnowledgeSection").then((module) => module.KnowledgeSection),
 );
 
-const fieldLabelClass = "mt-4 block text-[14px] text-muted-foreground";
+const rowLabelClass = "text-[14px] text-muted-foreground";
+const fieldLabelClass = `mt-4 block ${rowLabelClass}`;
 
 function ComputerModePicker({
   value,
@@ -73,7 +75,7 @@ function ComputerModePicker({
         <Trans>Computer</Trans>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
-        {(["team", "dedicated"] as const).map((mode) => (
+        {BOT_COMPUTER_MODES.map((mode) => (
           <Toggle
             key={mode}
             variant="outline"
@@ -582,18 +584,6 @@ export function BotSettings({
         </summary>
         <InstructionSettings key={bot.id} bot={bot} />
         <ComputerModePicker value={computerMode} onChange={setComputerMode} />
-        <ErrorBoundary fallback={<SectionLoadFailed />}>
-          <Suspense fallback={null}>
-            <ScratchpadSection botId={bot.id} />
-          </Suspense>
-        </ErrorBoundary>
-        {advancedOpened ? (
-          <ErrorBoundary fallback={<SectionLoadFailed />}>
-            <Suspense fallback={null}>
-              <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
-            </Suspense>
-          </ErrorBoundary>
-        ) : null}
         <label htmlFor={`${ids}-model`} className={fieldLabelClass}>
           <Trans>Model</Trans>
           <ChatModelPicker
@@ -657,7 +647,7 @@ export function BotSettings({
           htmlFor={`${ids}-auto-speak`}
           className="mt-5 flex cursor-pointer items-center justify-between gap-3 text-[14px] text-muted-foreground"
         >
-          <span>
+          <span className={rowLabelClass}>
             <Trans>Read replies aloud</Trans>
           </span>
           <Switch
@@ -666,25 +656,6 @@ export function BotSettings({
             onCheckedChange={(checked) => setAutoSpeak(checked)}
           />
         </label>
-        <div className="mt-5 flex items-center justify-between gap-3 text-[14px] text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <label htmlFor={`${ids}-fleet-management`}>
-              <Trans>Manage the bots it creates</Trans>
-            </label>
-            <InfoTooltip label={t`Manage the bots it creates`}>
-              {t`Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.`}
-            </InfoTooltip>
-          </div>
-          <Switch
-            id={`${ids}-fleet-management`}
-            checked={fleetManagement}
-            disabled={saving}
-            onCheckedChange={(checked) => {
-              setFleetManagement(checked);
-              void enqueueSave({ fleetManagement: checked });
-            }}
-          />
-        </div>
         {voices.length ? (
           <label htmlFor={`${ids}-voice`} className={fieldLabelClass}>
             <Trans>Voice</Trans>
@@ -702,6 +673,37 @@ export function BotSettings({
               ))}
             </NativeSelect>
           </label>
+        ) : null}
+        <div className="mt-5 flex items-center justify-between gap-3 text-[14px] text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <label htmlFor={`${ids}-fleet-management`} className={rowLabelClass}>
+              <Trans>Manage the bots it creates</Trans>
+            </label>
+            <InfoTooltip label={t`Manage the bots it creates`}>
+              {t`Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.`}
+            </InfoTooltip>
+          </div>
+          <Switch
+            id={`${ids}-fleet-management`}
+            checked={fleetManagement}
+            disabled={saving}
+            onCheckedChange={(checked) => {
+              setFleetManagement(checked);
+              void enqueueSave({ fleetManagement: checked });
+            }}
+          />
+        </div>
+        <ErrorBoundary fallback={<SectionLoadFailed />}>
+          <Suspense fallback={null}>
+            <ScratchpadSection botId={bot.id} />
+          </Suspense>
+        </ErrorBoundary>
+        {advancedOpened ? (
+          <ErrorBoundary fallback={<SectionLoadFailed />}>
+            <Suspense fallback={null}>
+              <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
+            </Suspense>
+          </ErrorBoundary>
         ) : null}
         <label htmlFor={`${ids}-disabled-tools`} className={fieldLabelClass}>
           <Trans>Disabled tools</Trans>

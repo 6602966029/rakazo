@@ -1808,7 +1808,7 @@ describeJourneys("required product journeys", () => {
     expect((await rpc<Bot[]>(app, cookie, "bots/list")).map((bot) => bot.name)).toEqual(["Nested"]);
   });
 
-  it("duplicating a fleet-managing bot does not copy fleet management", async () => {
+  it("duplicating a bot uses the new-bot management default", async () => {
     const cookie = await signup(app, `fleet-dup-j-${stamp}@rakazo.test`, "Fleet");
     const source = await rpc<Bot>(app, cookie, "bots/create", {
       name: "Chief",
@@ -1817,13 +1817,14 @@ describeJourneys("required product journeys", () => {
       instructions: "",
       notifyOnFinish: true,
     });
-    await rpc(app, cookie, "bots/update", { botId: source.id, fleetManagement: true });
+    expect(source.fleetManagement).toBe(true);
+    await rpc(app, cookie, "bots/update", { botId: source.id, fleetManagement: false });
 
     const copy = await rpc<Bot>(app, cookie, "bots/duplicate", { botId: source.id });
 
-    expect(copy.fleetManagement).toBe(false);
+    expect(copy.fleetManagement).toBe(true);
     const bots = await rpc<Bot[]>(app, cookie, "bots/list");
-    expect(bots.find((bot) => bot.id === source.id)?.fleetManagement).toBe(true);
+    expect(bots.find((bot) => bot.id === source.id)?.fleetManagement).toBe(false);
   });
 
   it("untrusted bot_message run cannot rewrite a child's instructions", async () => {
@@ -2305,13 +2306,13 @@ describeJourneys("required product journeys", () => {
       orderBy: { seq: "desc" },
     });
     expect(answerEvent.botId).toBe(botD.id);
-    await appPrisma.$transaction([
-      appPrisma.run.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.run.update({
         where: { id: concurrentRun.id },
         data: { status: "cancelled", completedAt: new Date() },
-      }),
-      appPrisma.task.update({ where: { id: concurrentTask.id }, data: { status: "cancelled" } }),
-    ]);
+      });
+      await tx.task.update({ where: { id: concurrentTask.id }, data: { status: "cancelled" } });
+    });
 
     const staleTask = await prisma.task.create({
       data: {

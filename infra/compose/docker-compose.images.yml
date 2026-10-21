@@ -199,6 +199,11 @@ x-app-environment: &app-environment
   PIPEDREAM_ENVIRONMENT:
   MCP_STDIO_ENABLED:
   MCP_STDIO_ALLOWED_COMMANDS:
+  MCP_STDIO_INSTALL_TIMEOUT_MS:
+  MCP_STDIO_STARTUP_TIMEOUT_MS:
+  MCP_STDIO_IDLE_MS:
+  MCP_DISCOVERY_TIMEOUT_MS:
+  MCP_PACKAGES_DIR:
   MCP_ALLOW_PRIVATE_ENDPOINT:
   # Messaging (outbound delivery runs in the worker)
   MESSAGING_OPEN_SIGNUP:
@@ -292,7 +297,7 @@ services:
       SANDBOX_COMMAND_TIMEOUT_MS: ${SANDBOX_COMMAND_TIMEOUT_MS:-300000}
       SANDBOX_SUPERVISOR_TOKEN: ${SANDBOX_SUPERVISOR_TOKEN:?Set SANDBOX_SUPERVISOR_TOKEN in .env}
       SANDBOX_SCREEN_NETWORK: isolated
-      SANDBOX_COMPUTER_EGRESS: ${SANDBOX_COMPUTER_EGRESS:-restricted}
+      SANDBOX_COMPUTER_EGRESS: ${SANDBOX_COMPUTER_EGRESS:-auto}
       SANDBOX_COMPUTER_DNS: ${SANDBOX_COMPUTER_DNS:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: ${LOG_FORMAT:-}
@@ -356,8 +361,9 @@ services:
       AUTH_BREACHED_PASSWORD_CHECK_ENABLED: ${AUTH_BREACHED_PASSWORD_CHECK_ENABLED:-false}
       PASSKEY_APPLE_APP_IDS:
       PASSKEY_ANDROID_CERT_SHA256:
-      # The hop in front of the API whose X-Forwarded-For is believed; see docs/self-host.md.
-      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-web}
+      # Proxies whose X-Forwarded-For is believed. Unset trusts this stack's own networks: the web
+      # proxy and a reverse proxy on the host. See docs/self-host.md#client-addresses.
+      TRUSTED_PROXIES:
       CLIENT_IP_HEADER:
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}

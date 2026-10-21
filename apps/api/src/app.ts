@@ -117,6 +117,7 @@ import { mountBillingRoutes } from "./billing-webhook.js";
 import {
   clientIpMiddleware,
   createClientIpResolver,
+  defaultTrustedProxies,
   requestClientIp,
   withClientIp,
 } from "./client-ip.js";
@@ -234,7 +235,9 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   let { prisma } = created;
   // Built before anything listens, so a bad TRUSTED_PROXIES entry stops startup.
   const clientIp = createClientIpResolver({
-    trustedProxies: env.trustedProxies,
+    // Unset trusts the proxies a stack is built with: on loopback or on the API's own networks.
+    // Trusting none would make the web proxy every client, one sign-in rate-limit bucket for all.
+    trustedProxies: env.trustedProxies.length > 0 ? env.trustedProxies : defaultTrustedProxies(),
     header: env.clientIpHeader,
   });
   const rowSecurity = rowSecurityWarning(await describeRowSecurity(prisma));
@@ -363,6 +366,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     {
       stdioEnabled: env.mcpStdioEnabled,
       allowedCommands: env.mcpStdioAllowedCommands,
+      ...env.mcpStdio,
       network: remoteConnectors,
       events,
       allowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
@@ -625,6 +629,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     oauthLogins,
     integrationSettings,
     mcpOAuth,
+    mcp,
     composio: stack.composio,
     connectors: stack.connector,
     remoteConnectors,
@@ -1208,8 +1213,14 @@ function emptyAuthBodyAsJson(request: Request) {
  * The cause chain matters as much as the message: undici and most SDKs report a bare
  * "fetch failed" and keep the host and errno one level down.
  */
-/** Log the failure, then give a provider rate limit its own status instead of a generic 500. */
+/** Log the failure, then give known failures their own status instead of a generic 500. */
 export function handleRpcError(error: unknown, path: readonly string[]): void {
+  // A missing or foreign resource is the caller's mistake (a stale client, a deleted bot),
+  // not a server failure, so it is a warning rather than an error report.
+  if (error instanceof IsolationError) {
+    getLogger().warn(`rpc ${path.join("/")} not found`, { "error.stack": error.stack });
+    throw new ORPCError("NOT_FOUND", { message: error.message, cause: error });
+  }
   logUnexpectedRpcError(error, path);
   if (error instanceof SandboxRateLimitError) {
     throw new ORPCError("TOO_MANY_REQUESTS", { message: error.message, cause: error });

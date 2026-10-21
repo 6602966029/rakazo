@@ -1,4 +1,5 @@
 import { Switch } from "react-native";
+import { systemGreen, useResolvedAppearance } from "../lib/native";
 import type { NativeSwitchProps } from "../lib/native-controls";
 
 /** Android switch. iOS uses a SwiftUI toggle. */
@@ -12,6 +13,7 @@ export function NativeSwitch({
   thumbColor,
   tintColor,
 }: NativeSwitchProps) {
+  const scheme = useResolvedAppearance();
   return (
     <Switch
       accessibilityHint={accessibilityHint}
@@ -19,7 +21,7 @@ export function NativeSwitch({
       disabled={disabled}
       onValueChange={onValueChange}
       thumbColor={thumbColor}
-      trackColor={trackColor ?? (tintColor ? { true: tintColor } : undefined)}
+      trackColor={trackColor ?? { true: tintColor ?? systemGreen(scheme) }}
       value={value}
     />
   );

@@ -3,6 +3,10 @@ export const NL_MESSAGES: Record<string, string> = {
   "Not Now": "Niet nu",
   "Add Model": "Model toevoegen",
 
+  "To:": "Aan:",
+  Next: "Volgende",
+  "Ex: Project Falcon": "Bijv. Project Falcon",
+  "Search bots": "Bots zoeken",
   "About {label}": "Over {label}",
   "Manage the bots it creates": "De bots beheren die deze bot maakt",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
@@ -338,9 +342,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Group not found": "Groep niet gevonden",
   Members: "Leden",
   "Could not create group": "Groep aanmaken mislukt",
-  "Create group": "Groep aanmaken",
   "Creating…": "Bezig met aanmaken…",
-  "Name this group": "Geef deze groep een naam",
   "Could not create space": "Space aanmaken mislukt",
   "Create space": "Space aanmaken",
   "Customer support": "Klantenservice",

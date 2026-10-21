@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { MessageBlock } from "@rakazo/contracts";
-import { abortableDelay } from "@rakazo/core";
+import { waitForConnection } from "@rakazo/core";
 import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -85,7 +85,7 @@ export function ChoiceCard({
                 type="button"
                 disabled={Boolean(block.answerId) || pending}
                 onClick={() => void choose(option.id)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-3.5 text-start text-foreground disabled:opacity-60 ${block.answerId ? "bg-accent" : "bg-muted hover:bg-accent"}`}
+                className={`flex w-full items-center gap-3 rounded-xl border border-input px-3.5 py-3.5 text-start text-foreground disabled:opacity-60 ${block.answerId ? "bg-accent" : "bg-secondary hover:bg-accent"}`}
               >
                 <span className="grid h-[24px] w-[24px] shrink-0 place-items-center rounded-[7px] bg-background text-[12.5px] leading-none font-medium text-foreground/75">
                   {option.letter}
@@ -173,22 +173,20 @@ export function AppConnectCard({
       if (started.authorizationUrl) {
         window.open(started.authorizationUrl, "rakazo-app-connect", "popup,width=560,height=720");
       }
-      for (let i = 0; i < 60; i += 1) {
-        if (controller.signal.aborted) return;
-        const row = await rpc.connections
-          .complete({ connectionId: started.connectionId })
+      const result = await waitForConnection(
+        started.connectionId,
+        (input) => rpc.connections.complete(input, { signal: controller.signal }),
+        { signal: controller.signal, attempts: 60 },
+      );
+      if (result.status === "aborted") return;
+      if (result.status === "connected") {
+        setLocalStatus("connected");
+        await rpc.onboarding
+          .appConnected({ botId, provider: block.provider, connectorId: block.connectorId })
           .catch(() => undefined);
-        if (row?.status === "connected") {
-          if (controller.signal.aborted) return;
-          setLocalStatus("connected");
-          await rpc.onboarding
-            .appConnected({ botId, provider: block.provider, connectorId: block.connectorId })
-            .catch(() => undefined);
-          return;
-        }
-        await abortableDelay(2_000, controller.signal);
+        return;
       }
-      if (!controller.signal.aborted) setError(t`Authorization timed out. Please try again.`);
+      setError(t`Authorization timed out. Please try again.`);
     } catch (error) {
       if (!controller.signal.aborted) {
         setError(errorText(error, t`Could not authorize this app`));
