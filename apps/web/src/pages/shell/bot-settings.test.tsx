@@ -171,13 +171,23 @@ describe("BotSettings help", () => {
     expect(speechRow?.firstElementChild?.textContent).toBe("Read replies aloud");
     expect(speechRow?.lastElementChild).toBe(speechToggle);
     expect(toggle?.getAttribute("aria-checked")).toBe("false");
-    expect(container.textContent).not.toContain("Get notified when this Bot finishes");
-    expect(container.textContent).not.toContain("Instruction, model, routine and group edits");
+    for (const label of ["Notifications", "Manage the bots it creates"]) {
+      const help = container.querySelector(`[aria-label="About ${label}"]`);
+      const description = document.getElementById(help?.getAttribute("aria-describedby") ?? "");
+      expect(description?.textContent).toContain(
+        label === "Notifications"
+          ? "Get notified when this Bot finishes"
+          : "Instruction, model, routine and group edits",
+      );
+      expect(description?.classList.contains("sr-only")).toBe(true);
+      expect(description?.closest('[aria-hidden="true"], [hidden]')).toBeNull();
+    }
+    expect(document.querySelector('[data-slot="tooltip-content"]')).toBeNull();
     const help = container.querySelector<HTMLButtonElement>(
       '[aria-label="About Manage the bots it creates"]',
     );
     await act(async () => help?.click());
-    expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(
+    expect(document.querySelector('[data-slot="tooltip-content"]')?.textContent).toContain(
       "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.",
     );
     expect(toggle?.getAttribute("aria-checked")).toBe("false");

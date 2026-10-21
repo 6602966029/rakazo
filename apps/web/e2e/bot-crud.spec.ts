@@ -212,19 +212,32 @@ test("bot management switch persists and settings help is accessible", async ({
   const fleetSwitch = await openAdvanced();
   await expect(fleetSwitch).not.toBeChecked();
   const help = page.getByRole("button", { name: "About Manage the bots it creates" });
+  const explanation =
+    "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.";
+  const descriptionId = await help.getAttribute("aria-describedby");
+  expect(descriptionId).toBeTruthy();
+  const description = page.locator(`[id="${descriptionId}"]`);
+  const tooltip = page.locator('[data-slot="tooltip-content"]');
+  await expect(help).toHaveAccessibleDescription(explanation);
+  await expect(description).toHaveText(explanation);
+  await expect(description).toHaveCSS("position", "absolute");
+  await expect(description).toHaveCSS("width", "1px");
+  await expect(description).toHaveCSS("height", "1px");
+  await expect(description).toHaveCSS("overflow", "hidden");
+  await expect(description).toHaveCSS("clip-path", "inset(50%)");
   await help.scrollIntoViewIfNeeded();
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await expect(tooltip).toHaveCount(0);
   await captureScreenshot(page, testInfo, "32-bot-settings-advanced");
   await fleetSwitch.evaluate((element) => {
     element.parentElement?.scrollIntoView({ block: "center" });
   });
   await help.click();
-  await expect(page.getByRole("tooltip")).toContainText(
-    "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.",
-  );
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveText(explanation);
+  await expect(help).toHaveAccessibleDescription(explanation);
   await captureScreenshot(page, testInfo, "32-bot-settings-info-tooltip");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await expect(tooltip).toHaveCount(0);
   await fleetSwitch.click();
   await expect(fleetSwitch).toBeChecked();
   await page.getByRole("button", { name: "Save", exact: true }).click();

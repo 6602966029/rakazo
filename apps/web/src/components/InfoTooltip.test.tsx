@@ -73,6 +73,8 @@ describe("InfoTooltip", () => {
     await vi.waitFor(() => expect(tooltip()).toBeNull());
     expect(description()).toBe(initialDescription);
     expect(description()?.textContent).toBe(explanation);
+    expect(description()?.classList.contains("sr-only")).toBe(true);
+    expect(description()?.closest('[aria-hidden="true"], [hidden]')).toBeNull();
   });
 
   it("opens on hover", async () => {
