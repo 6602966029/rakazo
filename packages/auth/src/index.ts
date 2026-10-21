@@ -28,8 +28,13 @@ import {
   getOAuthState,
 } from "better-auth/api";
 import { parseSetCookieHeader } from "better-auth/cookies";
-import { bearer, emailOTP, organization } from "better-auth/plugins";
-import { accountSecurity, oidcProofKey, sessionForAuthHook } from "./account-security.js";
+import { emailOTP, organization } from "better-auth/plugins";
+import {
+  accountSecurity,
+  oidcProofKey,
+  sessionForAuthHook,
+  signedBearer,
+} from "./account-security.js";
 import { breachedPasswordCheck } from "./breached-password.js";
 import type { OidcConfig } from "./oidc.js";
 import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
@@ -452,9 +457,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       },
     },
     plugins: [
-      // Session rows hold the raw token, so a raw bearer could be replayed from a
-      // database copy. A bearer must carry the signature the session cookie has.
-      bearer({ requireSignature: true }),
+      signedBearer,
       expo(),
       accountSecurity(env.email, env.oidc?.name, env.oidc?.issuer, env.passwordAuth !== false),
       ...(discovery ? [discovery.plugin] : []),
