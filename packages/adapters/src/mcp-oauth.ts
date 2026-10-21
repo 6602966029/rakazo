@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import type {
   OAuthClientProvider,
   OAuthDiscoveryState,
@@ -238,6 +239,8 @@ export class StoredMcpOAuthProvider implements OAuthClientProvider {
   private readonly runtimeState = randomUUID();
   private persistQueue = Promise.resolve();
   private refreshing?: Promise<void>;
+  /** The stored grant `wrapFetch` last handed the SDK in place of a token response. */
+  private served?: OAuthTokens;
   /** The refresh token storage held when this provider last read or wrote it. */
   private storedRefreshToken: string | null;
 
@@ -309,6 +312,7 @@ export class StoredMcpOAuthProvider implements OAuthClientProvider {
       if (body.get("refresh_token") === this.material.oauth?.tokens?.refresh_token)
         await this.renew();
       const tokens = this.material.oauth?.tokens;
+      this.served = tokens;
       return tokens
         ? Response.json(tokens)
         : Response.json({ error: "invalid_grant" }, { status: 400 });
@@ -337,7 +341,8 @@ export class StoredMcpOAuthProvider implements OAuthClientProvider {
   async saveTokens(value: OAuthTokens): Promise<void> {
     const oauth = this.oauth();
     // The locked refresh behind `wrapFetch` already stored this grant.
-    if (value.access_token === oauth.tokens?.access_token) return;
+    if (this.served && oauth.tokens === this.served && isDeepStrictEqual(value, this.served))
+      return;
     oauth.tokens = value;
     oauth.obtainedAt = Date.now();
     await this.persist(true);

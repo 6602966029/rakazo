@@ -521,6 +521,16 @@ describe("MCP OAuth", () => {
     expect((await shared.stored()).oauth?.tokens).toMatchObject({
       refresh_token: "reauthorized-refresh",
     });
+
+    // A reused access token still carries a newly issued refresh token.
+    await worker.provider.saveTokens({
+      access_token: "reauthorized",
+      refresh_token: "reissued-refresh",
+      token_type: "Bearer",
+    });
+    expect((await shared.stored()).oauth?.tokens).toMatchObject({
+      refresh_token: "reissued-refresh",
+    });
   });
 
   it("clears only the tokens when the stored grant is revoked", async () => {
