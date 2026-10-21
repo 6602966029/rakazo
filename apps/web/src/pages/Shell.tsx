@@ -74,6 +74,10 @@ import {
   Button,
   Collapsible,
   CollapsibleContent,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
   cn,
   DropdownMenu,
   DropdownMenuContent,
@@ -291,7 +295,6 @@ import {
 import { speaker } from "../lib/tts";
 import { errorText } from "../lib/user-error";
 import { ActivityList } from "./ActivityList";
-import type { ContextMenuPosition } from "./BotContextMenu";
 import { CreateGroupForm, GroupSettings, memberName } from "./GroupPanel";
 import { HostComputerPrompt } from "./HostComputerPrompt";
 import { ResizableSidePanel } from "./ResizableSidePanel";
@@ -716,25 +719,14 @@ function SpaceShell() {
       return next;
     });
   }, []);
-  const [botMenu, setBotMenu] = useState<{
-    kind: "bot" | "group";
-    id: string;
-    position: ContextMenuPosition;
-  } | null>(null);
-  // The context menu anchors to the pointer, so return focus to the row that opened it.
-  const botMenuAnchor = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (botMenu || !botMenuAnchor.current) return;
-    botMenuAnchor.current.focus();
-    botMenuAnchor.current = null;
-  }, [botMenu]);
+  const [botMenu, setBotMenu] = useState<{ kind: "bot" | "group"; id: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Bot | null>(null);
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<Group | null>(null);
   const [deleteSpaceTarget, setDeleteSpaceTarget] = useState<Space | null>(null);
   const [renameSpaceTarget, setRenameSpaceTarget] = useState<Space | null>(null);
   const [spaceMenu, setSpaceMenu] = useState<{
     id: string;
-    position: ContextMenuPosition;
+    position: { x: number; y: number };
   } | null>(null);
   const spaceMenuAnchor = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -760,18 +752,6 @@ function SpaceShell() {
     section: BotSection;
     spaceId: string;
   } | null>(null);
-  const [sectionMenu, setSectionMenu] = useState<{
-    section: BotSection;
-    spaceId: string;
-    position: ContextMenuPosition;
-  } | null>(null);
-  const sectionMenuAnchor = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (sectionMenu || !sectionMenuAnchor.current) return;
-    sectionMenuAnchor.current.focus();
-    sectionMenuAnchor.current = null;
-  }, [sectionMenu]);
-  const closeSectionMenu = useCallback(() => setSectionMenu(null), []);
   const [booting, setBooting] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [initialBotsLoaded, setInitialBotsLoaded] = useState(false);
@@ -3035,6 +3015,110 @@ function SpaceShell() {
 
   const { label: userName, initial: initials } = accountDisplay(session.data?.user ?? {}, t`You`);
 
+  const botMenuContent = contextChat ? (
+    <BotContextMenu
+      bot={contextChat}
+      onClose={closeBotMenu}
+      sections={botSections}
+      onTogglePinned={() => {
+        setBotMenu(null);
+        const request = contextBot
+          ? rpc.bots.update({ botId: contextBot.id, pinned: !contextBot.pinned })
+          : rpc.groups.update({
+              groupId: contextGroup!.id,
+              pinned: !contextGroup!.pinned,
+            });
+        void request.then(() => refreshBots());
+      }}
+      onToggleUnread={() => {
+        const unread = !contextChat.unread;
+        setBotMenu(null);
+        if (contextBot) {
+          const request = unread ? markBotUnread(contextBot.id) : markBotRead(contextBot.id);
+          void request.catch(() => undefined);
+        } else {
+          const request = unread
+            ? rpc.threads.markUnread({ groupId: contextGroup!.id })
+            : rpc.threads.markRead({ groupId: contextGroup!.id });
+          void request
+            .then(() =>
+              setGroups((current) =>
+                current.map((group) =>
+                  group.id === contextGroup!.id ? { ...group, unread } : group,
+                ),
+              ),
+            )
+            .catch(() => undefined);
+        }
+      }}
+      onMoveToSection={(sectionId) => {
+        setBotMenu(null);
+        if (sectionId === contextChat.sectionId) return;
+        const request = contextBot
+          ? rpc.bots.update({ botId: contextBot.id, sectionId })
+          : rpc.groups.update({ groupId: contextGroup!.id, sectionId });
+        void request.then(() => refreshBots());
+      }}
+      onCreateSection={() => {
+        setNewSectionTarget(
+          contextBot ? { kind: "bot", chat: contextBot } : { kind: "group", chat: contextGroup! },
+        );
+        setBotMenu(null);
+      }}
+      onRenameSection={(sectionId) => {
+        const section = botSections.find((item) => item.id === sectionId);
+        const spaceId = bootstrapMe?.spaceId;
+        if (section && spaceId) setRenameSectionTarget({ section, spaceId });
+        setBotMenu(null);
+      }}
+      onEdit={() => {
+        const destKey =
+          userId && bootstrapMe?.spaceId
+            ? rightPanelStorageKey(
+                userId,
+                bootstrapMe.spaceId,
+                contextBot ? "bot" : "group",
+                contextChat.id,
+              )
+            : null;
+        explicitPanelTarget.current = destKey;
+        pendingPanelRestore.current = null;
+        navigate(contextBot ? `/app/${contextBot.id}` : `/app/g/${contextGroup!.id}`);
+        // Mark the destination key restored so we do not write settings onto the source chat.
+        setPanelState(contextBot ? "settings" : "group-settings");
+        setRestoredPanelKey(destKey);
+        setBotMenu(null);
+      }}
+      onDuplicate={() => {
+        setBotMenu(null);
+        const request = contextBot
+          ? rpc.bots.duplicate({ botId: contextBot.id })
+          : rpc.groups.duplicate({ groupId: contextGroup!.id });
+        void request.then(async (chat) => {
+          await refreshBots();
+          navigate(contextBot ? `/app/${chat.id}` : `/app/g/${chat.id}`);
+        });
+      }}
+      onClear={() => {
+        setClearTarget(
+          contextBot ? { kind: "bot", chat: contextBot } : { kind: "group", chat: contextGroup! },
+        );
+        setBotMenu(null);
+      }}
+      onArchive={() => {
+        setBotMenu(null);
+        const request = contextBot
+          ? rpc.bots.archive({ botId: contextBot.id })
+          : rpc.groups.archive({ groupId: contextGroup!.id });
+        void request.then(() => refreshBots(true));
+      }}
+      onDelete={() => {
+        if (contextBot) setDeleteTarget(contextBot);
+        else setDeleteGroupTarget(contextGroup!);
+        setBotMenu(null);
+      }}
+    />
+  ) : null;
   const shell = (
     <div
       data-testid="shell-root"
@@ -3294,6 +3378,12 @@ function SpaceShell() {
                     ? { kind: "section", sectionId: group.sectionId }
                     : null;
                 const headerDropKey = `header:${group.key}`;
+                const section = group.sectionId
+                  ? (group.spaceId === bootstrapMe?.spaceId
+                      ? botSections
+                      : (spaces.find((space) => space.id === group.spaceId)?.botSections ?? [])
+                    ).find((item) => item.id === group.sectionId)
+                  : undefined;
                 return (
                   <div
                     key={group.key}
@@ -3327,77 +3417,86 @@ function SpaceShell() {
                         }}
                       >
                         {group.title ? (
-                          <button
-                            type="button"
-                            className={`flex min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/60 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring ${hasSpaceActions ? "col-start-1 row-start-1 w-full pe-8" : "flex-1"}`}
-                            onClick={() => {
-                              if (group.emptySpaceId) {
-                                openSpaceChat(group.emptySpaceId, "/onboarding");
-                                return;
-                              }
-                              toggleSidebarSection(group.key);
-                            }}
-                            onContextMenu={
-                              group.sectionId
-                                ? (event) => {
-                                    event.preventDefault();
-                                    // Prefer section rename over the space menu when both apply;
-                                    // the dedicated space-actions button still opens the space menu.
-                                    const sections =
-                                      group.spaceId === bootstrapMe?.spaceId
-                                        ? botSections
-                                        : (spaces.find((space) => space.id === group.spaceId)
-                                            ?.botSections ?? []);
-                                    const section = sections.find(
-                                      (item) => item.id === group.sectionId,
-                                    );
-                                    if (!section) return;
-                                    sectionMenuAnchor.current = event.currentTarget;
-                                    setSectionMenu({
-                                      section,
-                                      spaceId: group.spaceId,
-                                      position: { x: event.clientX, y: event.clientY },
-                                    });
-                                  }
-                                : hasSpaceActions
-                                  ? (event) => {
-                                      event.preventDefault();
-                                      spaceMenuAnchor.current = event.currentTarget;
-                                      setSpaceMenu({
-                                        id: group.spaceId,
-                                        position: { x: event.clientX, y: event.clientY },
-                                      });
-                                    }
-                                  : undefined
-                            }
-                            aria-expanded={group.emptySpaceId ? undefined : !collapsed}
-                            aria-label={
-                              group.emptySpaceId
-                                ? t`Open ${group.title}`
-                                : collapsed
-                                  ? t`Expand ${group.title}`
-                                  : t`Collapse ${group.title}`
-                            }
-                          >
-                            <span className="flex min-w-0 items-center gap-1.5 truncate">
-                              {group.showLock ? (
-                                <Lock size={11} strokeWidth={2} aria-hidden="true" />
-                              ) : null}
-                              <span className="truncate">{group.title}</span>
-                            </span>
-                            {group.emptySpaceId ? null : (
-                              <ChevronDown
-                                size={14}
-                                strokeWidth={1.8}
-                                className={
-                                  collapsed
-                                    ? "-rotate-90 transition-transform"
-                                    : "transition-transform"
+                          // Prefer the section menu over the space menu when both apply;
+                          // the dedicated space-actions button still opens the space menu.
+                          <ContextMenu disabled={!section}>
+                            <ContextMenuTrigger
+                              render={<button type="button" />}
+                              className={`flex min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/60 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring ${hasSpaceActions ? "col-start-1 row-start-1 w-full pe-8" : "flex-1"}`}
+                              onClick={() => {
+                                if (group.emptySpaceId) {
+                                  openSpaceChat(group.emptySpaceId, "/onboarding");
+                                  return;
                                 }
-                                aria-hidden="true"
-                              />
-                            )}
-                          </button>
+                                toggleSidebarSection(group.key);
+                              }}
+                              onContextMenu={
+                                section
+                                  ? (event) => event.currentTarget.focus()
+                                  : hasSpaceActions
+                                    ? (event) => {
+                                        event.preventDefault();
+                                        spaceMenuAnchor.current = event.currentTarget;
+                                        setSpaceMenu({
+                                          id: group.spaceId,
+                                          position: { x: event.clientX, y: event.clientY },
+                                        });
+                                      }
+                                    : undefined
+                              }
+                              aria-expanded={group.emptySpaceId ? undefined : !collapsed}
+                              aria-label={
+                                group.emptySpaceId
+                                  ? t`Open ${group.title}`
+                                  : collapsed
+                                    ? t`Expand ${group.title}`
+                                    : t`Collapse ${group.title}`
+                              }
+                            >
+                              <span className="flex min-w-0 items-center gap-1.5 truncate">
+                                {group.showLock ? (
+                                  <Lock size={11} strokeWidth={2} aria-hidden="true" />
+                                ) : null}
+                                <span className="truncate">{group.title}</span>
+                              </span>
+                              {group.emptySpaceId ? null : (
+                                <ChevronDown
+                                  size={14}
+                                  strokeWidth={1.8}
+                                  className={
+                                    collapsed
+                                      ? "-rotate-90 transition-transform"
+                                      : "transition-transform"
+                                  }
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </ContextMenuTrigger>
+                            {section ? (
+                              <ContextMenuContent
+                                aria-label={t`Actions for ${section.name}`}
+                                className="w-[220px]"
+                              >
+                                <ContextMenuItem
+                                  onClick={() =>
+                                    setRenameSectionTarget({ section, spaceId: group.spaceId })
+                                  }
+                                >
+                                  <Pencil />
+                                  {t`Rename section`}
+                                </ContextMenuItem>
+                                <ContextMenuItem
+                                  variant="destructive"
+                                  onClick={() =>
+                                    setDeleteSectionTarget({ section, spaceId: group.spaceId })
+                                  }
+                                >
+                                  <Trash2 />
+                                  {t`Delete section`}
+                                </ContextMenuItem>
+                              </ContextMenuContent>
+                            ) : null}
+                          </ContextMenu>
                         ) : null}
                         {hasSpaceActions ? (
                           <Button
@@ -3508,196 +3607,212 @@ function SpaceShell() {
                                   </button>
                                 </span>
                               ) : null}
-                              <button
-                                type="button"
-                                draggable={item.kind === "bot"}
-                                data-roster-bot-id={item.kind === "bot" ? item.chat.id : undefined}
-                                data-roster-unread={item.chat.unread ? "true" : undefined}
-                                data-roster-error={rowError && compact ? "true" : undefined}
-                                data-roster-depth={
-                                  item.kind === "bot" && treeActive ? depth : undefined
-                                }
-                                aria-current={selected ? "page" : undefined}
-                                aria-keyshortcuts={
-                                  item.kind === "bot" ? "Alt+ArrowUp Alt+ArrowDown" : undefined
-                                }
-                                onDragStart={(event) => {
-                                  if (item.kind !== "bot") return;
-                                  setDraggedBotId(item.chat.id);
-                                  event.dataTransfer.effectAllowed = "move";
-                                  event.dataTransfer.setData("text/plain", item.chat.id);
-                                }}
-                                onDragOver={(event) => {
-                                  if (
-                                    !rowDropTarget ||
-                                    !rosterDropAction(rowDropTarget, rowSameParent)
+                              <ContextMenu
+                                disabled={item.chat.spaceId !== bootstrapMe?.spaceId}
+                                open={botMenu?.kind === item.kind && botMenu.id === item.chat.id}
+                                // A sibling row's menu may already own the state; only clear our own.
+                                onOpenChange={(open) =>
+                                  setBotMenu((current) =>
+                                    open
+                                      ? { kind: item.kind, id: item.chat.id }
+                                      : current?.kind === item.kind && current.id === item.chat.id
+                                        ? null
+                                        : current,
                                   )
-                                    return;
-                                  event.preventDefault();
-                                  event.dataTransfer.dropEffect = "move";
-                                  if (rosterDropKey !== rowDropKey) setRosterDropKey(rowDropKey);
-                                }}
-                                onDragLeave={() => {
-                                  if (rosterDropKey === rowDropKey) setRosterDropKey(null);
-                                }}
-                                onDrop={(event) => {
-                                  if (!rowDropTarget) return;
-                                  event.preventDefault();
-                                  applyRosterDrop(rowDropTarget, rowSameParent, groupBotIds);
-                                }}
-                                onDragEnd={() => {
-                                  setDraggedBotId(null);
-                                  setRosterDropKey(null);
-                                }}
-                                data-roster-drop={rosterDropKey === rowDropKey ? "true" : undefined}
-                                onKeyDown={(event) => {
-                                  if (
-                                    item.kind !== "bot" ||
-                                    !event.altKey ||
-                                    (event.key !== "ArrowUp" && event.key !== "ArrowDown")
-                                  )
-                                    return;
-                                  const siblings = siblingBotIds(parentId);
-                                  const index = siblings.indexOf(item.chat.id);
-                                  const target =
-                                    siblings[index + (event.key === "ArrowUp" ? -1 : 1)];
-                                  if (!target) return;
-                                  event.preventDefault();
-                                  reorderRosterBot(item.chat.id, target, groupBotIds);
-                                }}
-                                onClick={() => {
-                                  openSpaceChat(
-                                    item.chat.spaceId,
-                                    item.kind === "bot"
-                                      ? `/app/${item.chat.id}`
-                                      : `/app/g/${item.chat.id}`,
-                                  );
-                                }}
-                                onContextMenu={(event) => {
-                                  if (item.chat.spaceId !== bootstrapMe?.spaceId) return;
-                                  event.preventDefault();
-                                  botMenuAnchor.current = event.currentTarget;
-                                  setBotMenu({
-                                    kind: item.kind,
-                                    id: item.chat.id,
-                                    position: { x: event.clientX, y: event.clientY },
-                                  });
-                                }}
-                                className={`flex w-full items-center ${
-                                  compact
-                                    ? "min-h-11 gap-2 rounded-xl px-2.5 py-1.5"
-                                    : "gap-3 rounded-xl px-2.5 py-[10px]"
-                                } text-start ${
-                                  item.kind === "bot" ? "cursor-grab active:cursor-grabbing" : ""
-                                } ${
-                                  selected || rosterDropKey === rowDropKey
-                                    ? "bg-sidebar-accent"
-                                    : "group-hover/row:bg-sidebar-accent"
-                                }`}
-                                style={
-                                  treeActive
-                                    ? { paddingInlineStart: `${24 + depth * 14}px` }
-                                    : undefined
                                 }
                               >
-                                {item.kind === "bot" ? (
-                                  <BotAvatar
-                                    color={item.chat.color}
-                                    identity={item.chat.id}
-                                    size={compact ? 28 : 38}
-                                    status={item.chat.status}
-                                  />
-                                ) : (
-                                  <GroupAvatar
-                                    members={
-                                      item.chat.id === activeSnapshot?.groupId
-                                        ? (activeSnapshot.members ?? item.chat.members)
-                                        : item.chat.members
-                                    }
-                                    size={compact ? 28 : 38}
-                                  />
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center justify-between gap-1.5">
-                                    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                                      <span
-                                        dir="auto"
-                                        data-roster-bot-name={item.kind === "bot" ? "" : undefined}
-                                        className={`min-w-0 truncate text-[14px] text-foreground ${
-                                          item.chat.unread ? "font-semibold" : "font-medium"
-                                        }`}
-                                      >
-                                        {item.chat.name}
-                                      </span>
-                                      {item.chat.unread ? (
-                                        <span className="sr-only">
-                                          <Trans> (unread)</Trans>
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                    <div className="flex shrink-0 items-center gap-1.5">
-                                      {!compact ? (
-                                        <span className="text-[11.5px] text-muted-foreground/60 tabular-nums">
-                                          {formatRosterTime(item.chat.updatedAt)}
-                                        </span>
-                                      ) : null}
-                                      {item.chat.unread ? (
+                                <ContextMenuTrigger
+                                  render={<button type="button" />}
+                                  draggable={item.kind === "bot"}
+                                  data-roster-bot-id={
+                                    item.kind === "bot" ? item.chat.id : undefined
+                                  }
+                                  data-roster-unread={item.chat.unread ? "true" : undefined}
+                                  data-roster-error={rowError && compact ? "true" : undefined}
+                                  data-roster-depth={
+                                    item.kind === "bot" && treeActive ? depth : undefined
+                                  }
+                                  aria-current={selected ? "page" : undefined}
+                                  aria-keyshortcuts={
+                                    item.kind === "bot" ? "Alt+ArrowUp Alt+ArrowDown" : undefined
+                                  }
+                                  onDragStart={(event) => {
+                                    if (item.kind !== "bot") return;
+                                    setDraggedBotId(item.chat.id);
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData("text/plain", item.chat.id);
+                                  }}
+                                  onDragOver={(event) => {
+                                    if (
+                                      !rowDropTarget ||
+                                      !rosterDropAction(rowDropTarget, rowSameParent)
+                                    )
+                                      return;
+                                    event.preventDefault();
+                                    event.dataTransfer.dropEffect = "move";
+                                    if (rosterDropKey !== rowDropKey) setRosterDropKey(rowDropKey);
+                                  }}
+                                  onDragLeave={() => {
+                                    if (rosterDropKey === rowDropKey) setRosterDropKey(null);
+                                  }}
+                                  onDrop={(event) => {
+                                    if (!rowDropTarget) return;
+                                    event.preventDefault();
+                                    applyRosterDrop(rowDropTarget, rowSameParent, groupBotIds);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggedBotId(null);
+                                    setRosterDropKey(null);
+                                  }}
+                                  data-roster-drop={
+                                    rosterDropKey === rowDropKey ? "true" : undefined
+                                  }
+                                  onKeyDown={(event) => {
+                                    if (
+                                      item.kind !== "bot" ||
+                                      !event.altKey ||
+                                      (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+                                    )
+                                      return;
+                                    const siblings = siblingBotIds(parentId);
+                                    const index = siblings.indexOf(item.chat.id);
+                                    const target =
+                                      siblings[index + (event.key === "ArrowUp" ? -1 : 1)];
+                                    if (!target) return;
+                                    event.preventDefault();
+                                    reorderRosterBot(item.chat.id, target, groupBotIds);
+                                  }}
+                                  onClick={() => {
+                                    openSpaceChat(
+                                      item.chat.spaceId,
+                                      item.kind === "bot"
+                                        ? `/app/${item.chat.id}`
+                                        : `/app/g/${item.chat.id}`,
+                                    );
+                                  }}
+                                  // Focus the row so closing the menu returns focus here.
+                                  onContextMenu={(event) => event.currentTarget.focus()}
+                                  className={`flex w-full items-center ${
+                                    compact
+                                      ? "min-h-11 gap-2 rounded-xl px-2.5 py-1.5"
+                                      : "gap-3 rounded-xl px-2.5 py-[10px]"
+                                  } text-start ${
+                                    item.kind === "bot" ? "cursor-grab active:cursor-grabbing" : ""
+                                  } ${
+                                    selected || rosterDropKey === rowDropKey
+                                      ? "bg-sidebar-accent"
+                                      : "group-hover/row:bg-sidebar-accent"
+                                  }`}
+                                  style={
+                                    treeActive
+                                      ? { paddingInlineStart: `${24 + depth * 14}px` }
+                                      : undefined
+                                  }
+                                >
+                                  {item.kind === "bot" ? (
+                                    <BotAvatar
+                                      color={item.chat.color}
+                                      identity={item.chat.id}
+                                      size={compact ? 28 : 38}
+                                      status={item.chat.status}
+                                    />
+                                  ) : (
+                                    <GroupAvatar
+                                      members={
+                                        item.chat.id === activeSnapshot?.groupId
+                                          ? (activeSnapshot.members ?? item.chat.members)
+                                          : item.chat.members
+                                      }
+                                      size={compact ? 28 : 38}
+                                    />
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between gap-1.5">
+                                      <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                                         <span
-                                          aria-hidden="true"
-                                          className="inline-block h-2 w-2 rounded-full bg-foreground"
-                                        />
-                                      ) : null}
+                                          dir="auto"
+                                          data-roster-bot-name={
+                                            item.kind === "bot" ? "" : undefined
+                                          }
+                                          className={`min-w-0 truncate text-[14px] text-foreground ${
+                                            item.chat.unread ? "font-semibold" : "font-medium"
+                                          }`}
+                                        >
+                                          {item.chat.name}
+                                        </span>
+                                        {item.chat.unread ? (
+                                          <span className="sr-only">
+                                            <Trans> (unread)</Trans>
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <div className="flex shrink-0 items-center gap-1.5">
+                                        {!compact ? (
+                                          <span className="text-[11.5px] text-muted-foreground/60 tabular-nums">
+                                            {formatRosterTime(item.chat.updatedAt)}
+                                          </span>
+                                        ) : null}
+                                        {item.chat.unread ? (
+                                          <span
+                                            aria-hidden="true"
+                                            className="inline-block h-2 w-2 rounded-full bg-foreground"
+                                          />
+                                        ) : null}
+                                      </div>
                                     </div>
-                                  </div>
-                                  {!compact && item.kind === "bot" && item.chat.title ? (
-                                    <div className="mt-1 flex">
-                                      <span className="max-w-full truncate rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-normal text-muted-foreground">
-                                        {item.chat.title}
-                                      </span>
-                                    </div>
-                                  ) : null}
-                                  {compact ? (
-                                    compactStatusLabel ? (
+                                    {!compact && item.kind === "bot" && item.chat.title ? (
+                                      <div className="mt-1 flex">
+                                        <span className="max-w-full truncate rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-normal text-muted-foreground">
+                                          {item.chat.title}
+                                        </span>
+                                      </div>
+                                    ) : null}
+                                    {compact ? (
+                                      compactStatusLabel ? (
+                                        <div
+                                          dir="auto"
+                                          data-roster-status={
+                                            rowError
+                                              ? "error"
+                                              : item.kind === "bot"
+                                                ? item.chat.status
+                                                : undefined
+                                          }
+                                          className={`mt-0.5 flex items-center gap-1 text-[11.5px] ${
+                                            rowError
+                                              ? "font-medium text-destructive"
+                                              : workStatusLabel
+                                                ? "font-semibold text-status-working"
+                                                : "font-medium text-foreground/75"
+                                          }`}
+                                        >
+                                          {rowError ? (
+                                            <CircleAlert size={12} aria-hidden="true" />
+                                          ) : null}
+                                          <span>{compactStatusLabel}</span>
+                                        </div>
+                                      ) : null
+                                    ) : (
                                       <div
                                         dir="auto"
-                                        data-roster-status={
-                                          rowError
-                                            ? "error"
-                                            : item.kind === "bot"
-                                              ? item.chat.status
-                                              : undefined
-                                        }
-                                        className={`mt-0.5 flex items-center gap-1 text-[11.5px] ${
-                                          rowError
-                                            ? "font-medium text-destructive"
-                                            : workStatusLabel
-                                              ? "font-semibold text-status-working"
-                                              : "font-medium text-foreground/75"
+                                        data-roster-preview={!workStatusLabel ? "true" : undefined}
+                                        className={`mt-1 line-clamp-2 text-[12.5px] break-words whitespace-normal ${
+                                          workStatusLabel
+                                            ? "font-semibold text-status-working"
+                                            : item.chat.unread
+                                              ? "font-medium text-foreground/75"
+                                              : "text-muted-foreground/60"
                                         }`}
                                       >
-                                        {rowError ? (
-                                          <CircleAlert size={12} aria-hidden="true" />
-                                        ) : null}
-                                        <span>{compactStatusLabel}</span>
+                                        {rosterLine}
                                       </div>
-                                    ) : null
-                                  ) : (
-                                    <div
-                                      dir="auto"
-                                      data-roster-preview={!workStatusLabel ? "true" : undefined}
-                                      className={`mt-1 line-clamp-2 text-[12.5px] break-words whitespace-normal ${
-                                        workStatusLabel
-                                          ? "font-semibold text-status-working"
-                                          : item.chat.unread
-                                            ? "font-medium text-foreground/75"
-                                            : "text-muted-foreground/60"
-                                      }`}
-                                    >
-                                      {rosterLine}
-                                    </div>
-                                  )}
-                                </div>
-                              </button>
+                                    )}
+                                  </div>
+                                </ContextMenuTrigger>
+                                {botMenu?.kind === item.kind && botMenu.id === item.chat.id ? (
+                                  <Suspense fallback={null}>{botMenuContent}</Suspense>
+                                ) : null}
+                              </ContextMenu>
                             </div>
                           );
                         })}
@@ -4529,116 +4644,6 @@ function SpaceShell() {
       </ResizableSidePanel>
 
       <Suspense fallback={null}>
-        {contextChat && botMenu ? (
-          <BotContextMenu
-            bot={contextChat}
-            position={botMenu.position}
-            onClose={closeBotMenu}
-            sections={botSections}
-            onTogglePinned={() => {
-              setBotMenu(null);
-              const request = contextBot
-                ? rpc.bots.update({ botId: contextBot.id, pinned: !contextBot.pinned })
-                : rpc.groups.update({
-                    groupId: contextGroup!.id,
-                    pinned: !contextGroup!.pinned,
-                  });
-              void request.then(() => refreshBots());
-            }}
-            onToggleUnread={() => {
-              const unread = !contextChat.unread;
-              setBotMenu(null);
-              if (contextBot) {
-                const request = unread ? markBotUnread(contextBot.id) : markBotRead(contextBot.id);
-                void request.catch(() => undefined);
-              } else {
-                const request = unread
-                  ? rpc.threads.markUnread({ groupId: contextGroup!.id })
-                  : rpc.threads.markRead({ groupId: contextGroup!.id });
-                void request
-                  .then(() =>
-                    setGroups((current) =>
-                      current.map((group) =>
-                        group.id === contextGroup!.id ? { ...group, unread } : group,
-                      ),
-                    ),
-                  )
-                  .catch(() => undefined);
-              }
-            }}
-            onMoveToSection={(sectionId) => {
-              setBotMenu(null);
-              if (sectionId === contextChat.sectionId) return;
-              const request = contextBot
-                ? rpc.bots.update({ botId: contextBot.id, sectionId })
-                : rpc.groups.update({ groupId: contextGroup!.id, sectionId });
-              void request.then(() => refreshBots());
-            }}
-            onCreateSection={() => {
-              setNewSectionTarget(
-                contextBot
-                  ? { kind: "bot", chat: contextBot }
-                  : { kind: "group", chat: contextGroup! },
-              );
-              setBotMenu(null);
-            }}
-            onRenameSection={(sectionId) => {
-              const section = botSections.find((item) => item.id === sectionId);
-              const spaceId = bootstrapMe?.spaceId;
-              if (section && spaceId) setRenameSectionTarget({ section, spaceId });
-              setBotMenu(null);
-            }}
-            onEdit={() => {
-              const destKey =
-                userId && bootstrapMe?.spaceId
-                  ? rightPanelStorageKey(
-                      userId,
-                      bootstrapMe.spaceId,
-                      contextBot ? "bot" : "group",
-                      contextChat.id,
-                    )
-                  : null;
-              explicitPanelTarget.current = destKey;
-              pendingPanelRestore.current = null;
-              navigate(contextBot ? `/app/${contextBot.id}` : `/app/g/${contextGroup!.id}`);
-              // Mark the destination key restored so we do not write settings onto the source chat.
-              setPanelState(contextBot ? "settings" : "group-settings");
-              setRestoredPanelKey(destKey);
-              setBotMenu(null);
-            }}
-            onDuplicate={() => {
-              setBotMenu(null);
-              const request = contextBot
-                ? rpc.bots.duplicate({ botId: contextBot.id })
-                : rpc.groups.duplicate({ groupId: contextGroup!.id });
-              void request.then(async (chat) => {
-                await refreshBots();
-                navigate(contextBot ? `/app/${chat.id}` : `/app/g/${chat.id}`);
-              });
-            }}
-            onClear={() => {
-              setClearTarget(
-                contextBot
-                  ? { kind: "bot", chat: contextBot }
-                  : { kind: "group", chat: contextGroup! },
-              );
-              setBotMenu(null);
-            }}
-            onArchive={() => {
-              setBotMenu(null);
-              const request = contextBot
-                ? rpc.bots.archive({ botId: contextBot.id })
-                : rpc.groups.archive({ groupId: contextGroup!.id });
-              void request.then(() => refreshBots(true));
-            }}
-            onDelete={() => {
-              if (contextBot) setDeleteTarget(contextBot);
-              else setDeleteGroupTarget(contextGroup!);
-              setBotMenu(null);
-            }}
-          />
-        ) : null}
-
         {spaceMenu ? (
           <DropdownMenu
             open
@@ -4827,59 +4832,6 @@ function SpaceShell() {
               await refreshBots();
             }}
           />
-        ) : null}
-
-        {sectionMenu ? (
-          <DropdownMenu
-            open
-            onOpenChange={(open) => {
-              if (!open) closeSectionMenu();
-            }}
-          >
-            <DropdownMenuTrigger
-              render={
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-hidden
-                  className="fixed size-0 p-0 opacity-0"
-                  style={{ left: sectionMenu.position.x, top: sectionMenu.position.y }}
-                />
-              }
-            />
-            <DropdownMenuContent
-              aria-label={t`Actions for ${sectionMenu.section.name}`}
-              align="start"
-              sideOffset={0}
-              className="w-[220px]"
-            >
-              <DropdownMenuItem
-                onClick={() => {
-                  setRenameSectionTarget({
-                    section: sectionMenu.section,
-                    spaceId: sectionMenu.spaceId,
-                  });
-                  setSectionMenu(null);
-                }}
-              >
-                <Pencil />
-                {t`Rename section`}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => {
-                  setDeleteSectionTarget({
-                    section: sectionMenu.section,
-                    spaceId: sectionMenu.spaceId,
-                  });
-                  setSectionMenu(null);
-                }}
-              >
-                <Trash2 />
-                {t`Delete section`}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         ) : null}
 
         <CommandPalette

@@ -1,4 +1,4 @@
-import { TooltipProvider } from "@rakazo/ui-web";
+import { Toaster, TooltipProvider } from "@rakazo/ui-web";
 import { StrictMode, useEffect, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -47,6 +47,7 @@ createRoot(document.getElementById("root")!, { onCaughtError: reportCaughtReactE
           <TooltipProvider>
             <App />
           </TooltipProvider>
+          <Toaster />
         </DesktopUpdatesProvider>
       </BrowserRouter>
     </I18nBootstrap>
