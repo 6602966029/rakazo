@@ -11,17 +11,21 @@ export function FailedSendBubble({
   attempt,
   onRetry,
   onDelete,
+  needsModel,
 }: {
   attempt: SendAttempt;
   onRetry: () => void;
   onDelete: () => void;
+  /** Whether the account still has no model; unknown keeps the saved send error. */
+  needsModel?: boolean;
 }) {
   const { t } = useI18n();
   const tokens = useMobileTokens();
   const { payload, state } = attempt;
   const sending = state === "pending";
   const retryable = state === "failed" || state === "queued";
-  const modelRequired = isModelRequiredSendError(attempt.error);
+  // Once a model is connected, the saved missing-model error is stale and retrying can work.
+  const modelRequired = isModelRequiredSendError(attempt.error) && needsModel !== false;
   // A missing model isn't fixed by retrying, so the caption names the cause instead.
   const caption = sending
     ? t("Sending…")

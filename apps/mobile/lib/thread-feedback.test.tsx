@@ -70,6 +70,7 @@ vi.mock("./i18n", () => ({
 
 let feedback: ReturnType<typeof useThreadFeedback>;
 let nonces = 0;
+let needsModel: boolean | undefined;
 const retry = vi.fn();
 function Probe({ threadKey }: { threadKey: string }) {
   feedback = useThreadFeedback(threadKey, () => `nonce-${++nonces}`);
@@ -79,6 +80,7 @@ function Probe({ threadKey }: { threadKey: string }) {
       attempt={attempt}
       onRetry={retry}
       onDelete={() => feedback.discard(attempt)}
+      needsModel={needsModel}
     />
   ));
 }
@@ -334,6 +336,37 @@ describe("scoped mobile outbox", () => {
     expect(retry).toHaveBeenCalledOnce();
     expect(router.push).not.toHaveBeenCalled();
     Platform.OS = "ios";
+  });
+  it("offers retry for a missing-model failure once a model is connected", async () => {
+    const attempt = feedback.sendAttempt(payload());
+    request
+      .mockResolvedValueOnce({ id: "artifact-a" })
+      .mockRejectedValueOnce(Object.assign(new Error(MODEL_REQUIRED_SEND_ERROR), { status: 400 }));
+    await act(async () => {
+      await feedback.send(attempt);
+    });
+    needsModel = true;
+    act(() => root.render(<Probe threadKey="bot-1" />));
+    expect(container.textContent).toContain("Not sent · No model");
+    expect(container.textContent).not.toContain("Tap to retry");
+    needsModel = false;
+    act(() => root.render(<Probe threadKey="bot-1" />));
+    expect(container.textContent).toContain("Not sent · Tap to retry");
+    expect(container.textContent).not.toContain("No model");
+    act(() =>
+      container
+        .querySelector("button")!
+        .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
+    );
+    const [options, choose] = vi
+      .mocked(ActionSheetIOS.showActionSheetWithOptions)
+      .mock.calls.at(-1)!;
+    expect(options.options).toEqual(["Try Again", "Delete", "Cancel"]);
+    expect(options.message).toBe(MODEL_REQUIRED_SEND_ERROR);
+    act(() => choose(0));
+    expect(retry).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+    needsModel = undefined;
   });
   it("restores old missing-model rejections as manually retryable", async () => {
     act(() => clearFailedSends());
