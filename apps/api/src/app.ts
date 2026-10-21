@@ -117,6 +117,7 @@ import { mountBillingRoutes } from "./billing-webhook.js";
 import {
   clientIpMiddleware,
   createClientIpResolver,
+  LOCAL_NETWORKS,
   requestClientIp,
   withClientIp,
 } from "./client-ip.js";
@@ -234,7 +235,9 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   let { prisma } = created;
   // Built before anything listens, so a bad TRUSTED_PROXIES entry stops startup.
   const clientIp = createClientIpResolver({
-    trustedProxies: env.trustedProxies,
+    // Unset trusts the proxies a stack is built with: on loopback or on the API's own networks.
+    // Trusting none would make the web proxy every client, one sign-in rate-limit bucket for all.
+    trustedProxies: env.trustedProxies.length > 0 ? env.trustedProxies : [LOCAL_NETWORKS],
     header: env.clientIpHeader,
   });
   const rowSecurity = rowSecurityWarning(await describeRowSecurity(prisma));

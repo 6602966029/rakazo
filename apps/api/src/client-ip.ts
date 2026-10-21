@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
+import { networkInterfaces } from "node:os";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { CLIENT_IP_HEADER } from "@rakazo/auth";
 import { securityRequestBindings } from "@rakazo/db";
@@ -14,6 +15,15 @@ export interface ClientIpConfig {
 }
 
 type ResolveHost = (hostname: string) => Promise<string[]>;
+type ListInterfaces = typeof networkInterfaces;
+
+/**
+ * Loopback and every network this process has an interface on, and what an unset
+ * TRUSTED_PROXIES means. In Compose those are the stack's own networks: the web proxy, and the
+ * network gateway a reverse proxy on the Docker host connects from. Bot computers sit on networks
+ * the API is never attached to, so they cannot vouch for an address.
+ */
+export const LOCAL_NETWORKS = "local-networks";
 
 const HOST_TTL_MS = 30_000;
 const HOSTNAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i;
@@ -28,13 +38,16 @@ const resolveHost: ResolveHost = async (hostname) =>
  */
 export function createClientIpResolver(
   config: ClientIpConfig,
-  options: { resolve?: ResolveHost; now?: () => number } = {},
+  options: { resolve?: ResolveHost; now?: () => number; interfaces?: ListInterfaces } = {},
 ) {
   const resolve = options.resolve ?? resolveHost;
   const now = options.now ?? Date.now;
   const ranges = new BlockList();
   const hostnames: string[] = [];
-  for (const entry of config.trustedProxies) {
+  const entries = config.trustedProxies.flatMap((entry) =>
+    entry === LOCAL_NETWORKS ? localNetworks(options.interfaces ?? networkInterfaces) : [entry],
+  );
+  for (const entry of entries) {
     const [address = "", prefix, extra] = entry.split("/");
     const family = isIP(address);
     const type = family === 6 ? "ipv6" : "ipv4";
@@ -88,6 +101,12 @@ export function createClientIpResolver(
 }
 
 export type ClientIpResolver = ReturnType<typeof createClientIpResolver>;
+
+function localNetworks(list: ListInterfaces): string[] {
+  return Object.values(list()).flatMap((addresses) =>
+    (addresses ?? []).flatMap((info) => (info.cidr ? [info.cidr.replace(/%[^/]*/, "")] : [])),
+  );
+}
 
 /** An address, with IPv4-mapped IPv6, brackets, and a trailing port stripped. */
 function parseIp(value: string): string | undefined {

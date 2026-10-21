@@ -41,7 +41,7 @@ export interface AppEnv {
   privacyPolicyUrl?: string;
   apiUrl: string;
   apiHost: string;
-  /** Proxies whose forwarded client address is believed; anyone else is the client. */
+  /** Proxies whose forwarded client address is believed; empty means local networks. */
   trustedProxies: string[];
   /** The header those proxies set. */
   clientIpHeader: string;

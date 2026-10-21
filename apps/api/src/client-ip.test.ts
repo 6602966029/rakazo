@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   clientIpMiddleware,
   createClientIpResolver,
+  LOCAL_NETWORKS,
   requestClientIp,
   withClientIp,
 } from "./client-ip.js";
@@ -82,6 +83,28 @@ describe("createClientIpResolver", () => {
     now = 31_000;
     lookup.mockRejectedValueOnce(new Error("EAI_AGAIN"));
     expect(await resolve({ peer: "172.20.0.9", forwarded: "203.0.113.5" })).toBe("203.0.113.5");
+  });
+
+  it("trusts the stack's own networks for local-networks, so a host proxy is believed", async () => {
+    // The API's view inside Compose: loopback, the app network and the internal data network.
+    const interfaces = () => ({
+      lo: [{ cidr: "127.0.0.1/8" }, { cidr: "::1/128" }],
+      eth0: [{ cidr: "192.168.172.3/24" }],
+      eth1: [{ cidr: "172.31.0.4/24" }, { cidr: "fe80::1%eth1/64" }],
+    });
+    const resolve = createClientIpResolver(
+      { trustedProxies: [LOCAL_NETWORKS], header },
+      { interfaces: interfaces as never },
+    );
+    // Host proxy -> network gateway -> web container -> API.
+    expect(await resolve({ peer: "192.168.172.4", forwarded: "203.0.113.5, 192.168.172.1" })).toBe(
+      "203.0.113.5",
+    );
+    // A bot computer reaching the web proxy from its own network cannot pick an address.
+    expect(await resolve({ peer: "192.168.172.4", forwarded: "198.51.100.1, 192.168.181.2" })).toBe(
+      "192.168.181.2",
+    );
+    expect(await resolve({ peer: "203.0.113.9", forwarded: "198.51.100.1" })).toBe("203.0.113.9");
   });
 
   it("returns nothing without a socket peer, whatever the header says", async () => {
