@@ -129,3 +129,17 @@ it("falls back to the catalog when search does not recognize a featured alias", 
     name: "Google Calendar",
   });
 });
+
+it("treats an app connected through a later provider as connected", async () => {
+  const f = fixture();
+  const providers = [
+    { describe: () => ({ id: "fake" }), catalog: async () => [entry] },
+    {
+      describe: () => ({ id: "other" }),
+      catalog: async () => [{ ...entry, connectorId: "other", connected: true }],
+    },
+  ] as unknown as ManagedConnectorProvider[];
+  const result = await connectApp(f.deps, providers, f.context, f.target, "Gmail", "effect");
+  expect(result).toMatchObject({ status: "connected" });
+  expect(stored).toHaveLength(0);
+});

@@ -32,7 +32,12 @@ export async function connectApp(
       }),
     )
   ).flat();
-  const entry = matchAppCatalog(catalog, app);
+  // An app connected through any provider counts, even if another provider lists it first.
+  const entry =
+    matchAppCatalog(
+      catalog.filter((item) => item.connected),
+      app,
+    ) ?? matchAppCatalog(catalog, app);
   if (!entry) return { error: "No such app is available in the connector catalog." };
   if (entry.connected)
     return {

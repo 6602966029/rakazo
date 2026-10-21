@@ -170,3 +170,27 @@ it("rejects another user's group even in the same space", async () => {
     expect.objectContaining({ where: { id: "bot", spaceId: actor.spaceId, userId: actor.userId } }),
   );
 });
+
+it("updates the authorized card's own message even outside the bounded scan", async () => {
+  const { deps, actor, tx } = fixture([
+    { connectorId: "pipedream", slug: "slack", name: "Slack", connected: true },
+  ]);
+  const card = {
+    kind: "app_connect",
+    connectorId: "pipedream",
+    provider: "slack",
+    name: "Slack",
+    status: "pending",
+  };
+  tx.message.findMany = vi.fn(async ({ where }: { where: { id?: string; threadId: string } }) =>
+    where.id === "middle" && where.threadId === "thread" ? [{ id: "middle", blocks: [card] }] : [],
+  ) as never;
+  await markAppConnected(deps, actor, "bot", "slack", "pipedream", "thread", "middle");
+  expect(tx.message.findMany).toHaveBeenCalledWith(
+    expect.objectContaining({ where: { id: "middle", threadId: "thread" } }),
+  );
+  expect(tx.message.update).toHaveBeenCalledWith({
+    where: { id: "middle" },
+    data: { blocks: [{ ...card, status: "connected" }] },
+  });
+});

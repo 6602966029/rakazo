@@ -834,6 +834,8 @@ export const appContract = {
         z.object({
           botId: Id,
           threadId: Id.optional(),
+          /** The card's own message, so it is found however far back it is. */
+          messageId: Id.optional(),
           provider: z.string(),
           connectorId: z.string().default("composio"),
         }),

@@ -291,6 +291,7 @@ export async function markAppConnected(
   provider: string,
   connectorId = "composio",
   threadId?: string,
+  messageId?: string,
 ): Promise<void> {
   const { bot, thread: ownThread } = await requireBotThread(deps, actor, botId);
   let thread = ownThread;
@@ -340,7 +341,10 @@ export async function markAppConnected(
       orderBy: { createdAt: "desc" },
       take: 200,
     });
-    const messages = [...new Map([...first, ...latest].map((m) => [m.id, m])).values()];
+    const own = messageId
+      ? await tx.message.findMany({ where: { id: messageId, threadId: thread.id }, select })
+      : [];
+    const messages = [...new Map([...first, ...latest, ...own].map((m) => [m.id, m])).values()];
     const events = [];
     for (const message of messages) {
       const blocks = message.blocks as MessageBlock[];

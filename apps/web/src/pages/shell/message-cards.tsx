@@ -146,10 +146,12 @@ function OnboardingFocusOptionLabel({
 export function AppConnectCard({
   botId,
   threadId,
+  messageId,
   block,
 }: {
   botId: string;
   threadId: string;
+  messageId?: string;
   block: Extract<MessageBlock, { kind: "app_connect" }>;
 }) {
   const { t } = useLingui();
@@ -184,7 +186,7 @@ export function AppConnectCard({
       if (result.status === "connected") {
         setLocalStatus("connected");
         await rpc.onboarding
-          .appConnected(appConnectedInput(botId, threadId, block))
+          .appConnected(appConnectedInput(botId, threadId, block, messageId))
           .catch(() => undefined);
         return;
       }

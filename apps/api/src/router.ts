@@ -5164,6 +5164,7 @@ export function createRouter(deps: RouterDeps) {
           input.provider,
           input.connectorId,
           input.threadId,
+          input.messageId,
         );
         return { ok: true as const };
       }),

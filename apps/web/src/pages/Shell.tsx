@@ -7417,7 +7417,12 @@ const MessageView = memo(function MessageView({
             if (!botId) return null;
             return (
               <div key={i} className="flex justify-start py-1">
-                <AppConnectCard botId={botId} threadId={message.threadId} block={block} />
+                <AppConnectCard
+                  botId={botId}
+                  threadId={message.threadId}
+                  messageId={message.id}
+                  block={block}
+                />
               </div>
             );
           }
