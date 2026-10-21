@@ -5722,7 +5722,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               return finish({ ok: true, path: outPath, attached });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              if (!checkingSpec) getLogger().error(`render_plot failed for bot ${bot.id}: ${message}`);
+              if (!checkingSpec)
+                getLogger().error(`render_plot failed for bot ${bot.id}: ${message}`);
               return finish({
                 error: message,
                 hint: 'Call render_plot with {"charts": true} for runnable example specs, or {"help": true} for the full guide.',
