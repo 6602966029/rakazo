@@ -39,9 +39,11 @@ for (const theme of ["light", "dark"]) {
     const pill = footer.getByRole("button", { name: "Connect apps", exact: true });
     const tiles = pill.locator('span[aria-hidden="true"] > span');
     await expect(tiles).toHaveCount(3);
-    for (const img of await tiles.locator("img").all()) {
+    const images = tiles.locator("img");
+    await expect(images).toHaveCount(apps.length);
+    for (const index of apps.keys()) {
       await expect
-        .poll(() => img.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+        .poll(() => images.nth(index).evaluate((el) => (el as HTMLImageElement).naturalWidth))
         .toBeGreaterThan(0);
     }
     for (const hover of [false, true]) {
