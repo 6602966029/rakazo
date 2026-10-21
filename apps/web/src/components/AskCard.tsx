@@ -67,6 +67,7 @@ export function AskCard({
   const { t } = useLingui();
   const [editing, setEditing] = useState(false);
   const [answer, setAnswer] = useState(block.instructionUpdate?.after ?? "");
+  const [dismissed, setDismissed] = useState(false);
   const [undone, setUndone] = useState(false);
   const [username, setUsername] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -117,6 +118,7 @@ export function AskCard({
     setUsername("");
     try {
       await onDismiss();
+      setDismissed(true);
     } catch {
       setError(t`Could not submit this answer`);
     } finally {
@@ -217,9 +219,9 @@ export function AskCard({
             <Trans>Cancel</Trans>
           </Button>
         </form>
-      ) : block.status === "answered" ? (
+      ) : block.status === "answered" || dismissed ? (
         <div
-          className={`mt-3.5 text-[13.5px] font-medium ${block.answer === "deny" || block.dismissed ? "text-muted-foreground" : "text-success"}`}
+          className={`mt-3.5 text-[13.5px] font-medium ${block.answer === "deny" || block.dismissed || dismissed ? "text-muted-foreground" : "text-success"}`}
         >
           {block.instructionUpdate
             ? block.answer === "deny"
@@ -231,7 +233,7 @@ export function AskCard({
                 secretInput,
                 approvalActions?.find((action) => action.id === block.answer)?.outcome,
                 askActions,
-                block.dismissed,
+                block.dismissed || dismissed,
               )}
         </div>
       ) : !canAnswer ? (

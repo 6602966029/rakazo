@@ -58,15 +58,23 @@ describe("mobile ask answers", () => {
     expect(h.refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("reports an accepted answer as sent when the refresh after it fails", async () => {
-    const h = setup(async () => {
-      throw new Error("offline");
-    });
-    await expect(
-      h.answerMessage({ id: "message-1", runId: "run-1" }, "example-password", "ada"),
-    ).resolves.toBeUndefined();
-    expect(h.refresh).toHaveBeenCalledTimes(1);
-  });
+  it.each([false, true])(
+    "reports an accepted answer or dismissal when refresh fails: %s",
+    async (dismiss) => {
+      const h = setup(async () => {
+        throw new Error("offline");
+      });
+      await expect(
+        h.answerMessage(
+          { id: "message-1", runId: "run-1" },
+          dismiss ? "" : "example-password",
+          undefined,
+          dismiss,
+        ),
+      ).resolves.toBeUndefined();
+      expect(h.refresh).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("still fails when the server doesn't accept the answer", async () => {
     const h = setup(async () => undefined);

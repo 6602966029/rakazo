@@ -2284,11 +2284,14 @@ function SpaceShell() {
         ...(username ? { username } : {}),
         ...(dismiss ? { dismiss: true as const } : {}),
       });
-      if (groupId && activeGroupId.current === groupId) {
-        await refreshGroupThreadRef.current(groupId);
-      } else if (botId && activeBotId.current === botId) {
-        await refreshThreadRef.current(botId);
-      }
+      // The answer is saved; live events can reconcile a failed refresh.
+      try {
+        if (groupId && activeGroupId.current === groupId) {
+          await refreshGroupThreadRef.current(groupId);
+        } else if (botId && activeBotId.current === botId) {
+          await refreshThreadRef.current(botId);
+        }
+      } catch {}
     },
     [],
   );

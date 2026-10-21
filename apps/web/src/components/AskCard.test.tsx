@@ -80,7 +80,9 @@ it("dismisses a secret card without sending the typed value", async () => {
   expect(onDismiss).toHaveBeenCalledTimes(1);
   expect(onDismiss).toHaveBeenCalledWith();
   expect(onAnswer).not.toHaveBeenCalled();
-  expect(container.querySelector<HTMLInputElement>('input[aria-label="API key"]')!.value).toBe("");
+  expect(container.textContent).toContain("Dismissed");
+  expect(button("Dismiss")).toBeUndefined();
+  expect(container.querySelector("input")).toBeNull();
 });
 
 it("shows a generic error when dismissing fails", async () => {
