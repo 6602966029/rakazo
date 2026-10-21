@@ -142,8 +142,12 @@ findings() {
     [.[] | select(.in_reply_to_id != null and .user.login == \$me)] as \$mine
     | [.[] | select(.in_reply_to_id == null and .user.login != \$me)
            | . as \$root
+           # A review bot marking its own finding addressed edits the root; that
+           # edit confirms the reply rather than reopening the finding.
+           | (if .user.type == \"Bot\" and (.body | test(\"Confirmed as addressed|Addressed in commit\"))
+              then .created_at else .updated_at end) as \$since
            | select([\$mine[] | select(.in_reply_to_id == \$root.id
-                        and .created_at > \$root.updated_at)] | length == 0)
+                        and .created_at > \$since)] | length == 0)
            | {key: \"\(.id):\(.updated_at)\", id, author: .user.login, path,
               line: (.line // .original_line), body: (.body | clean)}]" <<<"$inline")
 

@@ -205,6 +205,20 @@ describe("pr-digest", () => {
     expect(runDigest({ inline: [root, response] }).status).toBe(expected);
   });
 
+  it("treats a bot confirming its own finding as handled", () => {
+    const root = {
+      ...comment({ user: "coderabbitai[bot]", kind: "Bot" }),
+      body: "Please fix this ✅ Confirmed as addressed",
+      updated_at: "2026-01-03T00:00:00Z",
+      path: "example.sh",
+      line: 1,
+      in_reply_to_id: null,
+    };
+    const response = { ...reply("Fixed"), in_reply_to_id: root.id };
+    expect(runDigest({ inline: [root, response] }).status).toBe(0);
+    expect(runDigest({ inline: [root] }).status).toBe(11);
+  });
+
   it("removes terminal controls", () => {
     const result = runDigest({ conversation: [comment({ body: "Fix \x1b]0;title\x07 this" })] });
     expect(result.status).toBe(11);
