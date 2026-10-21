@@ -44,9 +44,15 @@ export interface ContentSecurityPolicyExtensions {
 // least two labels (https://*.example.com), so it cannot cover a whole top-level domain.
 const LABEL = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
 const EXTRA_SOURCE = new RegExp(
-  `^https://(?:\\*\\.${LABEL}(?:\\.${LABEL})+|${LABEL}(?:\\.${LABEL})*)(?::\\d{1,5})?$`,
+  `^https://(?:\\*\\.${LABEL}(?:\\.${LABEL})+|${LABEL}(?:\\.${LABEL})*)(?::(\\d{1,5}))?$`,
   "i",
 );
+
+function validSource(source: string) {
+  const match = EXTRA_SOURCE.exec(source);
+  const port = match?.[1];
+  return Boolean(match) && (port === undefined || (Number(port) >= 1 && Number(port) <= 65535));
+}
 
 /**
  * Parses an operator's space- or comma-separated list of extra origins. Anything but an https
@@ -54,7 +60,7 @@ const EXTRA_SOURCE = new RegExp(
  */
 export function parseContentSecuritySources(setting: string, value: string | undefined) {
   const sources = (value ?? "").split(/[\s,]+/).filter(Boolean);
-  const invalid = sources.filter((source) => !EXTRA_SOURCE.test(source));
+  const invalid = sources.filter((source) => !validSource(source));
   if (invalid.length > 0) {
     throw new Error(
       `${setting} accepts only https:// origins such as https://cdn.example.com or https://*.example.com. Invalid: ${invalid.join(" ")}`,

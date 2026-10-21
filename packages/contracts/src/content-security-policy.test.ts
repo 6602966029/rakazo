@@ -61,9 +61,9 @@ describe("operator-added origins", () => {
         " https://static.example.com\nhttps://*.Example.net:8443,https://static.example.com ",
       ),
     ).toEqual(["https://static.example.com", "https://*.example.net:8443"]);
-    expect(parseContentSecuritySources("SETTING", "https://localhost")).toEqual([
-      "https://localhost",
-    ]);
+    expect(
+      parseContentSecuritySources("SETTING", "https://localhost https://cdn.example.com:65535"),
+    ).toEqual(["https://localhost", "https://cdn.example.com:65535"]);
   });
 
   it.each([
@@ -89,6 +89,9 @@ describe("operator-added origins", () => {
     "https://cdn.example.com?x=1",
     "https://user@cdn.example.com",
     "https://cdn.example.com:",
+    "https://cdn.example.com:0",
+    "https://cdn.example.com:65536",
+    "https://cdn.example.com:99999",
     "https://-cdn.example.com",
     "https://cdn.example.com;script-src",
   ])("rejects %s and names the setting", (source) => {
