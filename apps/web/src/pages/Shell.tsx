@@ -36,6 +36,7 @@ import type { ComposerMention, FoldedTranscript, SlashActionId } from "@rakazo/c
 import {
   accountDisplay,
   answerableAskMessageIds,
+  anySignal,
   attachmentsForThread,
   buildComposerMentionOptions,
   clampMentionHighlightIndex,
@@ -390,7 +391,7 @@ const COMPOSER_ONE_LINE_GAP_PX = 14;
 const COMPOSER_COLLAPSE_SLACK_PX = 16;
 
 function threadSnapshotSignal(parent: AbortSignal): AbortSignal {
-  return AbortSignal.any([parent, AbortSignal.timeout(THREAD_SNAPSHOT_TIMEOUT_MS)]);
+  return anySignal([parent, AbortSignal.timeout(THREAD_SNAPSHOT_TIMEOUT_MS)]);
 }
 
 function voiceStatusRefreshTimeout(): Promise<never> {
