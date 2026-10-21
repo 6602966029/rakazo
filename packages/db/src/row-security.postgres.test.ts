@@ -12,6 +12,51 @@ const describePostgres =
     ? describe.sequential
     : describe.skip;
 
+type Tenant = {
+  spaceId: string;
+  userId: string;
+  botId: string;
+  secretId: string;
+  personalSecretId: string;
+};
+
+/** One row for each protected table not covered by the main fixtures, owned by `t`. */
+function rowsFor(t: Tenant, tag: string): Array<[string, Record<string, unknown>]> {
+  return [
+    [
+      "botSecret",
+      {
+        id: `rls-bot-secret-${tag}-${t.botId}`,
+        userId: t.userId,
+        spaceId: t.spaceId,
+        botId: t.botId,
+        name: `n-${tag}`,
+        origin: "https://example.test",
+        auth: {},
+        ciphertext: "c",
+      },
+    ],
+    [
+      "agentSecret",
+      {
+        spaceId: t.spaceId,
+        createdByUserId: t.userId,
+        name: `KEY_${tag.toUpperCase()}`,
+        secretId: tag === "fixture" ? t.secretId : `${t.secretId}-${tag}`,
+      },
+    ],
+    [
+      "taughtSkill",
+      { spaceId: t.spaceId, botId: t.botId, userId: t.userId, goal: "g", status: "s" },
+    ],
+    [
+      "agentSkill",
+      { spaceId: t.spaceId, userId: t.userId, name: `n-${tag}`, description: "d", content: "c" },
+    ],
+    ["userVoiceCredential", { userId: t.userId, provider: "p", secretId: t.personalSecretId }],
+  ];
+}
+
 describePostgres("row-level security (PostgreSQL)", () => {
   const suffix = `${process.pid}-${Date.now()}`;
   const organizationId = `rls-org-${suffix}`;
@@ -99,6 +144,19 @@ describePostgres("row-level security (PostgreSQL)", () => {
       await o.userModelCredential.create({
         data: { userId: t.userId, provider: "p", label: "l", secretId: t.personalSecretId },
       });
+      // Free secret for the agent secret the write test tries to create.
+      await o.secret.create({
+        data: {
+          id: `${t.secretId}-write`,
+          userId: t.userId,
+          spaceId: t.spaceId,
+          kind: "test",
+          ciphertext: "c",
+        },
+      });
+      for (const [table, data] of rowsFor(t, "fixture")) {
+        await Reflect.get(o, table).create({ data });
+      }
     }
   });
 
@@ -113,6 +171,20 @@ describePostgres("row-level security (PostgreSQL)", () => {
   });
 
   const threadIds = () => tenants.map((t) => t.threadId);
+  const owners = () =>
+    Promise.all(
+      ["botSecret", "agentSecret", "taughtSkill", "agentSkill", "userVoiceCredential"].map(
+        async (table) => {
+          const scope = table === "userVoiceCredential" ? "userId" : "spaceId";
+          const ids = tenants.map((t) => t[scope]);
+          const rows = (await Reflect.get(db, table).findMany({
+            where: { [scope]: { in: ids } },
+            select: { [scope]: true },
+          })) as Array<Record<string, string>>;
+          return [table, rows.map((row) => row[scope]).sort()] as const;
+        },
+      ),
+    ).then(Object.fromEntries);
   const visible = () =>
     Promise.all([
       db.thread.findMany({ where: { id: { in: threadIds() } }, select: { id: true } }),
@@ -154,7 +226,9 @@ describePostgres("row-level security (PostgreSQL)", () => {
   it("connects as a login that cannot bypass the policies", async () => {
     await expect(describeRowSecurity(db)).resolves.toMatchObject({ enforced: true });
     expect(databaseUrls(process.env).separate).toBe(true);
-    await expect(db.$executeRawUnsafe("CREATE TABLE rls_probe (id int)")).rejects.toThrow();
+    await expect(db.$executeRawUnsafe("CREATE TABLE rls_probe (id int)")).rejects.toThrow(
+      /permission denied/,
+    );
   });
 
   it("returns no rows and rejects writes without a context", async () => {
@@ -170,7 +244,7 @@ describePostgres("row-level security (PostgreSQL)", () => {
     });
     await expect(
       db.message.create({ data: { threadId: a.threadId, seq: 50, role: "user", blocks: [] } }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/row-level security/);
     const raw = await db.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM messages`;
     expect(Number(raw[0]!.count)).toBe(0);
   });
@@ -183,7 +257,7 @@ describePostgres("row-level security (PostgreSQL)", () => {
       documents: [a.documentId],
       revisions: [a.documentId],
       artifacts: [a.spaceId],
-      secrets: [a.personalSecretId, a.secretId].sort(),
+      secrets: [a.personalSecretId, a.secretId, `${a.secretId}-write`].sort(),
       credentials: [a.userId],
     });
     // Another tenant's ids are invisible even when asked for directly.
@@ -199,7 +273,34 @@ describePostgres("row-level security (PostgreSQL)", () => {
       runAsTenant(b, () =>
         db.message.create({ data: { threadId: a.threadId, seq: 51, role: "user", blocks: [] } }),
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it("applies the same rules to secrets, skills and voice credentials", async () => {
+    const none = {
+      botSecret: [],
+      agentSecret: [],
+      taughtSkill: [],
+      agentSkill: [],
+      userVoiceCredential: [],
+    };
+    expect(await owners()).toEqual(none);
+    expect(await runAsTenant(a, owners)).toEqual({
+      botSecret: [a.spaceId],
+      agentSecret: [a.spaceId],
+      taughtSkill: [a.spaceId],
+      agentSkill: [a.spaceId],
+      userVoiceCredential: [a.userId],
+    });
+    const everyone = await runAsSystem("row-level security test", owners);
+    expect(everyone.agentSkill).toEqual(tenants.map((t) => t.spaceId).sort());
+    // Writes into another tenant's Space or account are rejected, and so are
+    // writes without a context.
+    for (const [table, data] of rowsFor(a, "write")) {
+      const create = () => Reflect.get(db, table).create({ data });
+      await expect(runAsTenant(b, create), table).rejects.toThrow(/row-level security/);
+      await expect(create(), table).rejects.toThrow(/row-level security/);
+    }
   });
 
   it("keeps normal reads, writes and transactions working for the tenant", async () => {
@@ -263,7 +364,7 @@ describePostgres("row-level security (PostgreSQL)", () => {
   it("lets an explicit system context work across tenants", async () => {
     const all = await runAsSystem("row-level security test", visible);
     expect(all.threads.sort()).toEqual(threadIds().sort());
-    expect(all.secrets).toHaveLength(4);
+    expect(all.secrets).toHaveLength(6);
   });
 
   it("protects exactly the tables the client treats as protected", async () => {

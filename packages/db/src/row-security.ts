@@ -165,18 +165,25 @@ function uniqueAsFilter(where: Where, fields: Set<string>): Where | undefined {
 }
 
 const reportedMissing = new Set<string>();
+const MAX_REPORTED = 500;
 
-// The database already returns nothing here; log once per call so the missing
-// runAsTenant / runAsSystem is found instead of read as an empty result.
+// The database already returns nothing here, so log once per call site to point
+// at the missing runAsTenant / runAsSystem instead of an empty result.
 function missingContext(model: string, operation: string): void {
-  const key = `${model}.${operation}`;
-  if (reportedMissing.has(key)) return;
+  const error = new Error(`${model}.${operation} ran outside runAsTenant/runAsSystem`);
+  const callSite = (error.stack ?? "")
+    .split("\n")
+    .slice(1)
+    .filter((frame) => !/row-security|@prisma|node:internal/.test(frame))
+    .slice(0, 3)
+    .join("\n");
+  const key = `${model}.${operation}\n${callSite}`;
+  if (reportedMissing.has(key) || reportedMissing.size >= MAX_REPORTED) return;
   reportedMissing.add(key);
-  getLogger().error(
-    "database access without a tenant or system context",
-    new Error(`${key} ran outside runAsTenant/runAsSystem`),
-    { model, operation },
-  );
+  getLogger().error("database access without a tenant or system context", error, {
+    model,
+    operation,
+  });
 }
 
 /**
