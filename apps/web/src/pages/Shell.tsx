@@ -7183,7 +7183,7 @@ const MessageView = memo(function MessageView({
   return (
     <>
       {messageContext}
-      <div className="relative">
+      <div className="relative flex flex-col gap-2">
         {message.blocks.map((block, i) => {
           if (block.kind === "steps" && shouldRenderToolCard(block, showToolActivity)) {
             return (

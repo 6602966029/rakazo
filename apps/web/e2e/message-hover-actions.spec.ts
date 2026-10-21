@@ -315,6 +315,12 @@ test("a message with an attachment centers hover actions on its text bubble", as
     .first();
   await expect(row).toBeVisible({ timeout: 20_000 });
   await expect(row.getByText("notes.txt")).toBeVisible();
+  // Blocks in one message keep the same gap as separate messages instead of touching.
+  const bubbleBox = await row.getByTestId("message-user-bubble").boundingBox();
+  const fileBox = await row.getByRole("button", { name: /notes\.txt/ }).boundingBox();
+  expect(bubbleBox).not.toBeNull();
+  expect(fileBox).not.toBeNull();
+  expect(fileBox!.y - (bubbleBox!.y + bubbleBox!.height)).toBeGreaterThanOrEqual(6);
   const rail = await revealHoverRail(row);
   const bubble = row.getByTestId("message-user-bubble");
   await expect
