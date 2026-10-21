@@ -110,7 +110,7 @@ describe("DaytonaSandboxProvider", () => {
     const events = [];
     for await (const event of provider.execute(
       computer,
-      { argv: ["echo", "hello"], unsetEnv: ["FAILED"] },
+      { argv: ["echo", "hello"], env: { FAKE_TOKEN: "fake-secret" }, unsetEnv: ["FAILED"] },
       context,
     )) {
       events.push(event);
@@ -119,10 +119,11 @@ describe("DaytonaSandboxProvider", () => {
       { type: "stdout", data: "hello\n" },
       { type: "exit", code: 0 },
     ]);
+    // Secrets go in the env field, never in command text.
     expect(fixture.executeCommand).toHaveBeenCalledWith(
       "'env' '-u' 'FAILED' '--' 'echo' 'hello'",
       "/home/daytona/rakazo-home",
-      undefined,
+      { FAKE_TOKEN: "fake-secret" },
       300,
     );
 
