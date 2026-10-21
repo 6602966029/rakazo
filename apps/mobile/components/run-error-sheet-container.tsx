@@ -18,12 +18,16 @@ export function RunErrorSheetContainer({
 }) {
   const tokens = useMobileTokens();
   const Sheet = useNativeSheet();
+  if (Sheet === undefined) return null;
   if (Sheet) {
     return (
       <NativeSheet Sheet={Sheet} onClose={onClose} expanded={expanded} label={label}>
         {isValidElement(children)
           ? cloneElement(children as ReactElement<ViewProps>, {
-              style: [(children as ReactElement<ViewProps>).props.style, { flex: undefined }],
+              style: [
+                (children as ReactElement<ViewProps>).props.style,
+                { flex: undefined, paddingTop: 0, backgroundColor: tokens.card },
+              ],
             })
           : children}
       </NativeSheet>

@@ -7,18 +7,28 @@ import { useMobileTokens } from "../lib/native";
 
 const sheetViews = ["HostView", "ModalBottomSheetView", "RNHostView", "SlotView"];
 
+// Loading constructs native adapters, so even preloading must follow the view checks.
+let loadedSheet: ComponentType<BottomSheetProps> | null | undefined;
+const sheetLoad =
+  Platform.OS === "android" && sheetViews.every(isComposeViewAvailable)
+    ? import("@expo/ui/community/bottom-sheet").then(
+        ({ BottomSheet }) => {
+          loadedSheet = BottomSheet;
+        },
+        () => {
+          loadedSheet = null;
+        },
+      )
+    : undefined;
+if (!sheetLoad) loadedSheet = null;
+
 export function useNativeSheet() {
-  const [Sheet, setSheet] = useState<ComponentType<BottomSheetProps> | null>(null);
+  const [Sheet, setSheet] = useState(() => loadedSheet);
   useEffect(() => {
-    if (Platform.OS !== "android" || !sheetViews.every(isComposeViewAvailable)) return;
     let active = true;
-    // Loading the module constructs native adapters, so it must follow the view checks.
-    void import("@expo/ui/community/bottom-sheet").then(
-      ({ BottomSheet }) => {
-        if (active) setSheet(() => BottomSheet);
-      },
-      () => {},
-    );
+    void sheetLoad?.then(() => {
+      if (active) setSheet(() => loadedSheet);
+    });
     return () => {
       active = false;
     };
@@ -59,13 +69,26 @@ export function NativeSheet({
     <Sheet
       enableDynamicSizing
       enablePanDownToClose
-      backgroundStyle={{ backgroundColor: tokens.background }}
+      backgroundStyle={{ backgroundColor: tokens.card }}
+      handleComponent={null}
       onClose={() => {
         if (closed.current) return;
         closed.current = true;
         onClose();
       }}
     >
+      {/* The community adapter only supports hiding its stock handle. */}
+      <View accessible={false} style={{ alignItems: "center", paddingTop: 16, paddingBottom: 10 }}>
+        <View
+          style={{
+            width: 32,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: tokens.mutedForeground,
+            opacity: 0.4,
+          }}
+        />
+      </View>
       <View
         accessibilityViewIsModal
         accessibilityLabel={label}

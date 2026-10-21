@@ -88,6 +88,8 @@ export function BotOrganizeModal({
     );
   }
 
+  if (Sheet === undefined) return null;
+
   const content = (
     <View style={Sheet ? styles.nativeSheet : styles.sheet}>
       <Text style={styles.title} numberOfLines={1}>

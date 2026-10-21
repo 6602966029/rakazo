@@ -1,15 +1,23 @@
 // @vitest-environment jsdom
 
+import { tokensForAppearance } from "@rakazo/ui-tokens";
 import type { ReactNode } from "react";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BotOrganizeModal } from "../components/bot-organize-modal";
-import { NativeSheet, useNativeSheet } from "../components/native-sheet";
-import { RunErrorSheetContainer } from "../components/run-error-sheet-container";
+import type * as OrganizeModule from "../components/bot-organize-modal";
+import type * as SheetModule from "../components/native-sheet";
+import type * as ErrorModule from "../components/run-error-sheet-container";
+
+let BotOrganizeModal: typeof OrganizeModule.BotOrganizeModal;
+let NativeSheet: typeof SheetModule.NativeSheet;
+let useNativeSheet: typeof SheetModule.useNativeSheet;
+let RunErrorSheetContainer: typeof ErrorModule.RunErrorSheetContainer;
 
 const mocks = vi.hoisted(() => ({
   missing: "",
+  appearance: "dark" as "light" | "dark",
+  load: vi.fn(),
   platform: "android",
   sheet: vi.fn(),
   confirmDelete: vi.fn(),
@@ -27,15 +35,25 @@ vi.mock("./compose-available", () => ({
 vi.mock("./native", () => ({
   native: {},
   useThemedStyles: (factory: () => unknown) => factory(),
-  useMobileTokens: () => ({ background: "token-background" }),
+  useMobileTokens: () => tokensForAppearance(mocks.appearance),
 }));
-vi.mock("@expo/ui/community/bottom-sheet", () => ({
-  BottomSheet: (props: { children: ReactNode }) => {
-    mocks.sheet(props);
-    return props.children;
-  },
-}));
-vi.mock("./appearance", () => ({ mobileTokens: () => ({}) }));
+vi.mock("./appearance", () => ({ mobileTokens: () => tokensForAppearance(mocks.appearance) }));
+async function loadComponents(gate: Promise<void> = Promise.resolve()) {
+  vi.resetModules();
+  vi.doMock("@expo/ui/community/bottom-sheet", async () => {
+    mocks.load();
+    await gate;
+    return {
+      BottomSheet: (props: { children: ReactNode }) => {
+        mocks.sheet(props);
+        return props.children;
+      },
+    };
+  });
+  ({ NativeSheet, useNativeSheet } = await import("../components/native-sheet"));
+  ({ BotOrganizeModal } = await import("../components/bot-organize-modal"));
+  ({ RunErrorSheetContainer } = await import("../components/run-error-sheet-container"));
+}
 vi.mock("./i18n", () => ({ useI18n: () => ({ t: (text: string) => text }) }));
 vi.mock("./confirm-delete-section", () => ({
   confirmDeleteSection: (_section: unknown, _t: unknown, confirm: () => void) => {
@@ -109,11 +127,13 @@ async function mount(node: ReactNode) {
   await act(async () => root.render(node));
   return Object.assign(root, { element });
 }
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
   mocks.missing = "";
   mocks.platform = "android";
   mocks.styles.length = 0;
+  mocks.appearance = "dark";
+  await loadComponents();
 });
 afterEach(() =>
   act(() => {
@@ -122,16 +142,106 @@ afterEach(() =>
 );
 
 describe("Android sheet selection", () => {
+  it.each(["light", "dark"] as const)(
+    "uses the elevated %s surface and a neutral handle",
+    async (appearance) => {
+      mocks.appearance = appearance;
+      const tokens = tokensForAppearance(appearance);
+      const { View } = await import("react-native");
+      await mount(
+        <RunErrorSheetContainer expanded={false} onClose={vi.fn()}>
+          <View style={{ paddingTop: 60, paddingBottom: 24, backgroundColor: tokens.background }} />
+        </RunErrorSheetContainer>,
+      );
+      expect(mocks.sheet.mock.lastCall?.[0]).toMatchObject({
+        backgroundStyle: { backgroundColor: tokens.card },
+        handleComponent: null,
+      });
+      expect(mocks.styles).toContainEqual(
+        expect.objectContaining({ backgroundColor: tokens.mutedForeground, opacity: 0.4 }),
+      );
+      expect(tokens.card).not.toBe(tokens.background);
+    },
+  );
+  it("removes only the native top inset and preserves bottom clearance", async () => {
+    const { View } = await import("react-native");
+    await mount(
+      <RunErrorSheetContainer expanded={false} onClose={vi.fn()}>
+        <View style={{ flex: 1, paddingTop: 60, paddingBottom: 24 }} />
+      </RunErrorSheetContainer>,
+    );
+    const style = mocks.styles.find(Array.isArray);
+    expect(Object.assign({}, ...[style].flat())).toMatchObject({
+      flex: undefined,
+      paddingTop: 0,
+      paddingBottom: 24,
+      backgroundColor: tokensForAppearance("dark").card,
+    });
+  });
+  it("preserves full-screen content padding on the fallback path", async () => {
+    mocks.missing = "HostView";
+    await loadComponents();
+    const { View } = await import("react-native");
+    await mount(
+      <RunErrorSheetContainer expanded={false} onClose={vi.fn()}>
+        <View style={{ flex: 1, paddingTop: 60, paddingBottom: 24 }} />
+      </RunErrorSheetContainer>,
+    );
+    expect(mocks.styles).toContainEqual({ flex: 1, paddingTop: 60, paddingBottom: 24 });
+  });
+  it("preloads before opening and renders no fallback while loading", async () => {
+    let resolve!: () => void;
+    mocks.load.mockClear();
+    await loadComponents(
+      new Promise<void>((done) => {
+        resolve = done;
+      }),
+    );
+    expect(mocks.load).toHaveBeenCalledOnce();
+    const root = await mount(
+      <RunErrorSheetContainer expanded={false} onClose={vi.fn()}>
+        Error
+      </RunErrorSheetContainer>,
+    );
+    expect(root.element.textContent).toBe("");
+    expect(mocks.modal).not.toHaveBeenCalled();
+    await act(async () => resolve());
+    expect(root.element.textContent).toBe("Error");
+    expect(mocks.modal).not.toHaveBeenCalled();
+  });
+  it("falls back after an import failure and keeps dismissal working", async () => {
+    let reject!: (error: Error) => void;
+    await loadComponents(
+      new Promise<void>((_resolve, fail) => {
+        reject = fail;
+      }),
+    );
+    const close = vi.fn();
+    await mount(
+      <RunErrorSheetContainer expanded={false} onClose={close}>
+        Error
+      </RunErrorSheetContainer>,
+    );
+    expect(mocks.modal).not.toHaveBeenCalled();
+    await act(async () => reject(new Error("Unavailable")));
+    expect(mocks.modal.mock.lastCall?.[0]).toMatchObject({ visible: true, onRequestClose: close });
+    act(() => mocks.modal.mock.lastCall?.[0].onRequestClose());
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   it.each(["HostView", "ModalBottomSheetView", "RNHostView", "SlotView"])(
     "keeps the original run error Modal when %s is missing",
     async (missing) => {
       mocks.missing = missing;
+      mocks.load.mockClear();
+      await loadComponents();
       const close = vi.fn();
       await mount(
         <RunErrorSheetContainer expanded onClose={close}>
           Error
         </RunErrorSheetContainer>,
       );
+      expect(mocks.load).not.toHaveBeenCalled();
       expect(mocks.sheet).not.toHaveBeenCalled();
       expect(mocks.modal.mock.lastCall?.[0]).toMatchObject({
         visible: true,
@@ -155,11 +265,13 @@ describe("Android sheet selection", () => {
     expect(mocks.sheet.mock.lastCall?.[0]).toMatchObject({
       enableDynamicSizing: true,
       enablePanDownToClose: true,
-      backgroundStyle: { backgroundColor: "token-background" },
+      backgroundStyle: { backgroundColor: tokensForAppearance("dark").card },
     });
   });
   it("does not load a Compose sheet on iOS", async () => {
     mocks.platform = "ios";
+    mocks.views.mockClear();
+    await loadComponents();
     function Probe() {
       return useNativeSheet() ? "native" : "fallback";
     }
@@ -258,6 +370,49 @@ describe("inbox organization actions", () => {
     };
     return { props, root, click };
   }
+  it.each(["light", "dark"] as const)(
+    "uses an opaque elevated %s organize surface",
+    async (appearance) => {
+      mocks.appearance = appearance;
+      await organize();
+      expect(mocks.sheet.mock.lastCall?.[0].backgroundStyle.backgroundColor).toBe(
+        tokensForAppearance(appearance).card,
+      );
+      expect(mocks.modal).not.toHaveBeenCalled();
+    },
+  );
+  it("waits for preload without flashing a Modal and keeps Cancel working", async () => {
+    let resolve!: () => void;
+    await loadComponents(
+      new Promise<void>((done) => {
+        resolve = done;
+      }),
+    );
+    const { root, click, props } = await organize();
+    expect(root.element.textContent).toBe("");
+    expect(mocks.modal).not.toHaveBeenCalled();
+    await act(async () => resolve());
+    await click("Cancel");
+    expect(props.onClose).toHaveBeenCalledOnce();
+    expect(mocks.modal).not.toHaveBeenCalled();
+  });
+  it("falls back on import failure with Cancel and request-close intact", async () => {
+    let reject!: (error: Error) => void;
+    await loadComponents(
+      new Promise<void>((_resolve, fail) => {
+        reject = fail;
+      }),
+    );
+    const { click, props } = await organize();
+    expect(mocks.modal).not.toHaveBeenCalled();
+    await act(async () => reject(new Error("Unavailable")));
+    expect(mocks.modal.mock.lastCall?.[0]).toMatchObject({
+      transparent: true,
+      onRequestClose: props.onClose,
+    });
+    await click("Cancel");
+    expect(props.onClose).toHaveBeenCalledOnce();
+  });
   it.each([
     ["Pin", { pinned: true }],
     ["Unpin", { pinned: false }],
@@ -310,6 +465,7 @@ describe("inbox organization actions", () => {
   });
   it("keeps the original fade Modal when native views are unavailable", async () => {
     mocks.missing = "SlotView";
+    await loadComponents();
     await organize();
     expect(mocks.sheet).not.toHaveBeenCalled();
     expect(mocks.modal.mock.lastCall?.[0]).toMatchObject({
