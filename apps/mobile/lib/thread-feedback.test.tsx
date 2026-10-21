@@ -260,7 +260,8 @@ describe("scoped mobile outbox", () => {
         await feedback.send(attempt);
       });
       expect(attempt.state).toBe("failed");
-      expect(container.textContent).toContain("Not sent · Tap to retry");
+      expect(container.textContent).toContain("Not sent · No model");
+      expect(container.textContent).not.toContain("Tap to retry");
       act(() =>
         container
           .querySelector("button")!

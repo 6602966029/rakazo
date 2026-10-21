@@ -2,6 +2,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Add an AI model to keep chatting": "Voeg een AI-model toe om verder te chatten",
   "Not Now": "Niet nu",
   "Add Model": "Model toevoegen",
+  "Not sent · No model": "Niet verzonden · Geen model",
 
   "To:": "Aan:",
   Next: "Volgende",

@@ -2,6 +2,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Add an AI model to keep chatting": "添加一个 AI 模型以继续聊天",
   "Not Now": "暂不",
   "Add Model": "添加模型",
+  "Not sent · No model": "未发送 · 没有模型",
 
   "To:": "收件人：",
   Next: "下一步",

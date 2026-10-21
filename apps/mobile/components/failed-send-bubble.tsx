@@ -22,11 +22,14 @@ export function FailedSendBubble({
   const sending = state === "pending";
   const retryable = state === "failed" || state === "queued";
   const modelRequired = isModelRequiredSendError(attempt.error);
+  // A missing model isn't fixed by retrying, so the caption names the cause instead.
   const caption = sending
     ? t("Sending…")
-    : retryable
-      ? t("Not sent · Tap to retry")
-      : t("Not sent");
+    : modelRequired
+      ? t("Not sent · No model")
+      : retryable
+        ? t("Not sent · Tap to retry")
+        : t("Not sent");
   const messageLabel = [payload.displayText, ...payload.attachments.map(({ name }) => name)]
     .filter(Boolean)
     .join(", ");

@@ -2,6 +2,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Add an AI model to keep chatting": "Добавьте ИИ-модель, чтобы продолжить общение",
   "Not Now": "Не сейчас",
   "Add Model": "Добавить модель",
+  "Not sent · No model": "Не отправлено · Нет модели",
 
   "To:": "Кому:",
   Next: "Далее",
