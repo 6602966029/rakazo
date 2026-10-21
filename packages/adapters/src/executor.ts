@@ -127,6 +127,7 @@ import {
   loadRunHistoryMessages,
   Prisma,
   parseComputerMode,
+  RunHistoryWriteError,
   readHistory,
   recordUsage,
   reserveInstructionProposal,
@@ -2886,9 +2887,11 @@ export async function appendToolCompletionAudit(
       payload: toolCompletionAuditPayload(completion, secrets),
     });
   } catch (error) {
+    // A tool that finishes after its run was cancelled has no history to join.
+    if (error instanceof RunHistoryWriteError) return;
     // Audit persistence must not change the tool result or strand the run.
     getLogger().warn("agent tool completion audit append failed", {
-      error: sanitizeConnectorError(error, secrets),
+      "error.detail": sanitizeConnectorError(error, secrets),
       tool: redactSecrets(completion.name, secrets),
       executionId: redactSecrets(completion.executionId, secrets),
     });
@@ -5466,7 +5469,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 payload,
               })
               // The Activity feed is a view; losing an entry must not fail the tool.
-              .catch((error: unknown) => getLogger().error("computer command event", error));
+              // Output that arrives after the run was cancelled has no history to join.
+              .catch((error: unknown) => {
+                if (!(error instanceof RunHistoryWriteError)) {
+                  getLogger().error("computer command event", error);
+                }
+              });
           /** Record a finished file/app action for the terminal's Activity view. */
           const recordComputerAction = (
             kind: Exclude<ComputerCommand["kind"], "shell">,
@@ -5630,6 +5638,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (args.help === true || !args.spec || typeof args.spec !== "object") {
               return { guide: PLOT_TOOL_GUIDE };
             }
+            // Data and spec mistakes are the model's to fix from the returned error;
+            // only failures after a successful render are ours.
+            let rendered = false;
             try {
               let rows = Array.isArray(args.data) ? (args.data as unknown[]) : undefined;
               const dataPath =
@@ -5651,6 +5662,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 rows,
                 new JSDOM("").window.document,
               );
+              rendered = true;
               const png = await plotSvgToPng(svg);
               const outPath =
                 typeof args.path === "string" && args.path
@@ -5708,7 +5720,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               return finish({ ok: true, path: outPath, attached });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              getLogger().error(`render_plot failed for bot ${bot.id}: ${message}`);
+              if (rendered) getLogger().error(`render_plot failed for bot ${bot.id}: ${message}`);
               return finish({
                 error: message,
                 hint: 'Call render_plot with {"charts": true} for runnable example specs, or {"help": true} for the full guide.',

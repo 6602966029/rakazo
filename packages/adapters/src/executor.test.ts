@@ -2,6 +2,8 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE, FLEET_TOOL_NAMES } from "@rakazo/contracts";
 import { ONCE_ROUTINE_CRON } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
+import { RunHistoryWriteError } from "@rakazo/db";
+import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { describe, expect, it, vi } from "vitest";
 import {
   appendToolCompletionAudit,
@@ -97,6 +99,8 @@ describe("tool completion audit", () => {
 
   it("does not fail the run when the audit append fails", async () => {
     const append = vi.fn().mockRejectedValue(new Error("database unavailable"));
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "test", sinks: [sink] }));
 
     await expect(
       appendToolCompletionAudit(
@@ -120,6 +124,29 @@ describe("tool completion audit", () => {
         }),
       }),
     );
+    expect(sink.events).toEqual([
+      expect.objectContaining({
+        message: "agent tool completion audit append failed",
+        "error.detail": "database unavailable",
+      }),
+    ]);
+    installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+  });
+
+  it("drops the audit quietly when the run was cancelled before the tool finished", async () => {
+    const append = vi.fn().mockRejectedValue(new RunHistoryWriteError());
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "test", sinks: [sink] }));
+
+    await appendToolCompletionAudit(
+      { events: { append } },
+      { spaceId: "space-1", threadId: "thread-1", botId: "bot-1", runId: "run-1" },
+      { name: "shell", executionId: "call-1", durationMs: 4 },
+    );
+
+    expect(append).toHaveBeenCalledOnce();
+    expect(sink.events).toEqual([]);
+    installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
   });
 
   it("records rejected scripted tool results as errors", () => {
