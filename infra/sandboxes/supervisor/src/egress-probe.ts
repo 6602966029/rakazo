@@ -7,6 +7,8 @@ import type Docker from "dockerode";
  * throwaway container on a `rakazo-c*` bridge tries TCP to that bridge's gateway,
  * which is the Docker host. The ruleset's INPUT drop makes every attempt time out;
  * a refused or accepted connection means the host answered, so the rules are missing.
+ * The script inserts that INPUT drop after its DOCKER-USER destination drops, so it
+ * stands in for the forwarded rules, which no probe can see without a private responder.
  */
 export const EGRESS_PROBE_NETWORK = "rakazo-egress-probe";
 // Matches the ruleset's `rakazo-c+` interface pattern and Linux's 15-byte limit.

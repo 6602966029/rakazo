@@ -40,10 +40,20 @@ STUB
   : >"$work/cwd/docker-compose.images.yml"
   : >"$work/cwd/.env.images.example"
   printf 'POSTGRES_PASSWORD=p\n%s\n' "$6" >"$work/cwd/.env"
+  # Without the stub, drop PATH entries holding a real iptables (CI runners have one).
+  local search="$PATH"
+  if [[ "$4" != 1 ]]; then
+    search=""
+    local dir
+    IFS=: read -ra dirs <<<"$PATH"
+    for dir in "${dirs[@]}"; do
+      [[ -x "$dir/iptables" ]] || search="${search:+$search:}$dir"
+    done
+  fi
   (
     cd "$work/cwd"
     unset SANDBOX_COMPUTER_EGRESS
-    PATH="$work/bin:$PATH" bash "$src" --offline
+    PATH="$work/bin:$search" bash "$src" --offline
   ) >"$work/out.log" 2>&1 || fail "$1: installer exited non-zero: $(cat "$work/out.log")"
 }
 
