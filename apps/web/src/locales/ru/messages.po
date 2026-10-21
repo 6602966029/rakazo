@@ -17,6 +17,11 @@ msgstr ""
 msgid " (unread)"
 msgstr " (непрочитано)"
 
+#. placeholder {0}: tools.length
+#: src/pages/PluginsOverlay.tsx
+msgid "{0, plural, one {# tool} other {# tools}}"
+msgstr ""
+
 #. placeholder {0}: health.toolCount
 #: src/components/McpServerHealthLine.tsx
 msgid "{0, plural, one {Running · # tool} other {Running · # tools}}"
@@ -287,10 +292,6 @@ msgstr "{summary} Сброс: {date}."
 msgid "{title}, {label}"
 msgstr "{title}, {label}"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "{toolCount, plural, one {# tool} other {# tools}}"
-msgstr "{toolCount, plural, one {# инструмент} few {# инструмента} many {# инструментов} other {# инструмента}}"
-
 #: src/pages/Shell.tsx
 msgid "{workingBotName} is working"
 msgstr "{workingBotName} работает"
@@ -359,10 +360,6 @@ msgstr "Ярлык аккаунта"
 #: src/components/SidebarFooter.tsx
 msgid "Account menu for {name}"
 msgstr "Меню аккаунта {name}"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Accounts"
-msgstr "Аккаунты"
 
 #. placeholder {0}: bot.name
 #. placeholder {0}: group.spaceName
@@ -2934,10 +2931,6 @@ msgstr "Загрузка предварительного просмотра…"
 msgid "Loading rules…"
 msgstr "Загрузка правил…"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Loading tools…"
-msgstr "Загрузка инструментов…"
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Loading voice providers…"
 msgstr "Загрузка поставщиков голосовой связи…"
@@ -3459,10 +3452,6 @@ msgstr "Командных диалогов пока нет."
 #: src/pages/Board.tsx
 msgid "No tickets yet"
 msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "No tools available."
-msgstr "Нет доступных инструментов."
 
 #: src/pages/RoutineEditor.tsx
 msgid "No trigger"
