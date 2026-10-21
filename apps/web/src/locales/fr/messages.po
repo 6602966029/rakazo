@@ -289,7 +289,7 @@ msgstr "{title}, {label}"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "{toolCount, plural, one {# tool} other {# tools}}"
-msgstr ""
+msgstr "{toolCount, plural, one {# outil} other {# outils}}"
 
 #: src/pages/Shell.tsx
 msgid "{workingBotName} is working"
