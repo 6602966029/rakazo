@@ -1173,9 +1173,13 @@ msgid "Cloud"
 msgstr "클라우드"
 
 #: src/components/AskCard.tsx
-#: src/pages/Auth.tsx
 msgid "Code"
 msgstr "코드"
+
+#: src/pages/Auth.tsx
+msgctxt "email sign-in"
+msgid "Code"
+msgstr "인증 코드"
 
 #. placeholder {0}: group.title
 #. placeholder {0}: item.chat.name

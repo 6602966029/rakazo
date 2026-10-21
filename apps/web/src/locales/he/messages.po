@@ -1173,7 +1173,11 @@ msgid "Cloud"
 msgstr "ענן"
 
 #: src/components/AskCard.tsx
+msgid "Code"
+msgstr "קוד"
+
 #: src/pages/Auth.tsx
+msgctxt "email sign-in"
 msgid "Code"
 msgstr "קוד"
 

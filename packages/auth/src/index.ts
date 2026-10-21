@@ -393,7 +393,11 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
               allowedAttempts: 3,
               storeOTP: "hashed",
               sendVerificationOTP: async ({ email, otp }) => {
-                await env.email!.send(signInCodeEmail(email, otp));
+                // Like password reset, do not wait on delivery: a refused address
+                // answers at once, so waiting would reveal which addresses are admitted.
+                void env.email
+                  ?.send(signInCodeEmail(email, otp))
+                  .catch((error) => env.onEmailError?.(error));
               },
             }),
           ]

@@ -787,7 +787,7 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 msgid "Back"
-msgstr ""
+msgstr "Zurück"
 
 #: src/pages/Auth.tsx
 msgid "Back to sign in"
@@ -1173,7 +1173,11 @@ msgid "Cloud"
 msgstr "Cloud"
 
 #: src/components/AskCard.tsx
+msgid "Code"
+msgstr "Code"
+
 #: src/pages/Auth.tsx
+msgctxt "email sign-in"
 msgid "Code"
 msgstr "Code"
 

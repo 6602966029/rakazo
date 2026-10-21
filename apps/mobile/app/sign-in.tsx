@@ -37,6 +37,8 @@ import { useMobileTokens } from "../lib/native";
 import { continueWithSso } from "../lib/sso";
 import { credentialIssueText, errorText } from "../lib/user-error";
 
+const CODE_LENGTH = 6;
+
 export default function SignIn() {
   const { t } = useI18n();
   const tokens = useMobileTokens();
@@ -122,6 +124,8 @@ export default function SignIn() {
       setError(credentialIssueText(issue));
       return;
     }
+    // An unfinished code would spend one of the code's three attempts.
+    if (codeStep && enteredCode.length !== CODE_LENGTH) return;
     setPending(true);
     setError(null);
     try {
@@ -140,10 +144,12 @@ export default function SignIn() {
         return;
       }
       if (usingCode) {
+        const trimmedEmail = email.trim();
         await signInWithCode(
-          email.trim(),
+          trimmedEmail,
           enteredCode,
-          mode === "up" ? name.trim() || undefined : undefined,
+          // Only used when this creates the account.
+          mode === "up" ? name.trim() || trimmedEmail.split("@")[0] || "User" : undefined,
         );
       } else if (mode === "up") {
         const trimmedEmail = email.trim();
@@ -159,8 +165,9 @@ export default function SignIn() {
       } else {
         await signIn(email.trim(), password);
       }
+      // A code can create the account from either form.
       const setup =
-        mode === "up"
+        mode === "up" || usingCode
           ? await rpc<IntegrationSetupState>("integrationSetup/get").catch(() => null)
           : null;
       router.replace(setup?.needsSetup ? "/integration-setup" : "/");
@@ -277,16 +284,16 @@ export default function SignIn() {
                         autoComplete="one-time-code"
                         autoFocus
                         keyboardType="number-pad"
-                        maxLength={6}
+                        maxLength={CODE_LENGTH}
                         placeholder={t("Code")}
                         placeholderTextColor={tokens.mutedForeground}
                         textContentType="oneTimeCode"
                         value={code}
                         onChangeText={(value) => {
-                          const digits = value.replace(/\D/g, "").slice(0, 6);
+                          const digits = value.replace(/\D/g, "").slice(0, CODE_LENGTH);
                           setCode(digits);
                           // iOS offers the code from Mail; a complete code signs in at once.
-                          if (digits.length === 6) void submit(digits);
+                          if (digits.length === CODE_LENGTH) void submit(digits);
                         }}
                         onSubmitEditing={() => void submit()}
                         style={{
@@ -301,7 +308,7 @@ export default function SignIn() {
                         <Text style={{ color: tokens.destructive, marginTop: 12 }}>{error}</Text>
                       ) : null}
                       <NativeActionButton
-                        disabled={pending}
+                        disabled={pending || code.length < CODE_LENGTH}
                         label={pending ? t("Working…") : t("Continue")}
                         onPress={() => void submit()}
                         style={{ marginTop: 16 }}

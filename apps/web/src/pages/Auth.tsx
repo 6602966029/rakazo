@@ -13,6 +13,7 @@ import { authErrorText, credentialIssueText } from "../lib/user-error";
 type AuthMode = "in" | "up" | "forgot";
 
 const fieldClass = "mt-2 h-12 rounded-xl px-4 text-base md:text-base";
+const CODE_LENGTH = 6;
 export const submitClass = "mt-3 h-12 w-full rounded-xl text-base";
 
 export function AuthPage({ mode }: { mode: AuthMode }) {
@@ -76,7 +77,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     e.preventDefault();
     if (!reset?.passwordAuth) return;
     if (codeStep) {
-      await verifyCode(code);
+      // An unfinished code would spend one of the code's three attempts.
+      if (code.length === CODE_LENGTH) await verifyCode(code);
       return;
     }
     const issue = credentialIssue({
@@ -273,8 +275,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               {codeStep ? (
                 <div className="flex w-full justify-center">
                   <InputOTP
-                    aria-label={t`Code`}
-                    maxLength={6}
+                    aria-label={t({ message: "Code", context: "email sign-in" })}
+                    maxLength={CODE_LENGTH}
                     pattern={"^\\d+$"}
                     inputMode="numeric"
                     autoComplete="one-time-code"
@@ -343,7 +345,12 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   {error}
                 </p>
               ) : null}
-              <Button type="submit" size="lg" disabled={pending} className={submitClass}>
+              <Button
+                type="submit"
+                size="lg"
+                disabled={pending || (codeStep && code.length < CODE_LENGTH)}
+                className={submitClass}
+              >
                 {pending ? (
                   <Trans>Working…</Trans>
                 ) : codeMode ? (

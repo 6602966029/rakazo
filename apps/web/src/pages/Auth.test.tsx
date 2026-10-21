@@ -11,8 +11,10 @@ import { AuthPage } from "./Auth";
 
 vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({
-    t: (strings: TemplateStringsArray, ...values: unknown[]) =>
-      strings.reduce((text, part, index) => text + part + (values[index] ?? ""), ""),
+    t: (strings: TemplateStringsArray | { message: string }, ...values: unknown[]) =>
+      "message" in strings
+        ? strings.message
+        : strings.reduce((text, part, index) => text + part + (values[index] ?? ""), ""),
   }),
   Trans: ({ children }: { children: ReactNode }) => children,
 }));
