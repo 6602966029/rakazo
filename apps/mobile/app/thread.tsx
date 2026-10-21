@@ -2429,7 +2429,9 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
 
   return (
     <KeyboardAvoidingView
-      behavior="height"
+      // Padding always settles to zero. "height" stays shrunk when the keyboard hides without
+      // move frames, such as when a pushed screen closes with its own keyboard up.
+      behavior="padding"
       // Android lays out the screen below the opaque native navigation header.
       keyboardVerticalOffset={Platform.OS === "android" ? nativeHeaderHeight : 0}
       style={{
