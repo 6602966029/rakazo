@@ -719,7 +719,7 @@ After each verified local snapshot, the encrypted files are uploaded to `<remote
 checked with `rclone check`, and only then given `SHA256SUMS`, which marks the copy complete. Off-site copies require encryption. The remote
 keeps the newest `RAKAZO_BACKUP_OFFSITE_KEEP` complete snapshots (default `14`), independent of
 `RAKAZO_BACKUP_KEEP`; only stamp-named directories are removed. Set it to `0` to leave deletion to
-the bucket's lifecycle rules, which lets the credentials be write-only. A failed upload keeps the
+the bucket's lifecycle rules, so the credentials need list, read and write but no delete permission. A failed upload keeps the
 local snapshot but fails the service, so the backup alert fires.
 
 #### Restoring an encrypted backup
