@@ -1,4 +1,8 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "To:": "Кому:",
+  Next: "Далее",
+  "Ex: Project Falcon": "Например: проект «Сокол»",
+  "Search bots": "Поиск ботов",
   "About {label}": "О настройке «{label}»",
   "Manage the bots it creates": "Управлять созданными им ботами",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
@@ -361,7 +365,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Could not update reaction": "Не удалось обновить реакцию",
   "Couldn't update avatars": "Не удалось обновить аватары",
   Create: "Создать",
-  "Create group": "Создать группу",
   "Create section": "Создать раздел",
   "Create space": "Создать пространство",
   Creating: "Создание",
@@ -468,7 +471,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Move to": "Переместить в",
   Name: "Имя",
   "Name this bot": "Назовите этого бота",
-  "Name this group": "Назовите эту группу",
   "Needs attention": "Требует внимания",
   "Needs input": "Требуется ввод данных",
   "Needs takeover": "Ожидает передачи управления",
