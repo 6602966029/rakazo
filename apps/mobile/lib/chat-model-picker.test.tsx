@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ReactNode, Ref } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import { act, createElement, useEffect, useImperativeHandle } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
@@ -340,13 +340,17 @@ vi.mock("../components/settings-group", () => ({
     value,
     accessibilityLabel,
     accessibilityValue,
+    disabled,
+    chevron,
   }: {
+    disabled?: boolean;
+    chevron?: "right" | "down";
     value?: string;
     accessibilityLabel?: string;
     accessibilityValue?: { text: string };
     title: string;
     detail?: string;
-    accessibilityState?: { selected: boolean };
+    accessibilityState?: { selected?: boolean; expanded?: boolean };
     onPress: () => void;
     trailing: ReactNode;
   }) =>
@@ -354,7 +358,11 @@ vi.mock("../components/settings-group", () => ({
       "button",
       {
         type: "button",
-        "aria-label": accessibilityLabel,
+        "aria-label": accessibilityLabel ?? title,
+        "data-settings-row": true,
+        "data-chevron": chevron,
+        "aria-expanded": accessibilityState?.expanded,
+        disabled,
         "aria-valuetext": accessibilityValue?.text,
         "aria-selected": accessibilityState?.selected,
         onClick: onPress,
@@ -380,7 +388,13 @@ vi.mock("../components/native-action-button", () => ({
     onPress,
     disabled,
     prominence = "primary",
+    variant,
+    fill,
+    style,
   }: {
+    variant?: string;
+    fill?: boolean;
+    style?: CSSProperties;
     label: string;
     onPress: () => void;
     disabled?: boolean;
@@ -388,7 +402,15 @@ vi.mock("../components/native-action-button", () => ({
   }) =>
     createElement(
       "button",
-      { type: "button", onClick: onPress, disabled, "data-prominence": prominence },
+      {
+        type: "button",
+        onClick: onPress,
+        disabled,
+        "data-prominence": prominence,
+        "data-variant": variant,
+        "data-fill": fill ?? (prominence === "primary" || prominence === "destructive"),
+        style,
+      },
       label,
     ),
 }));
@@ -618,6 +640,15 @@ describe("connection settings provider picker", () => {
     expect(providers).toHaveLength(1);
     expect(models).toHaveLength(1);
     expect(thinking).toHaveLength(1);
+    expect(thinking[0]!.getAttribute("data-settings-row")).toBe("true");
+    expect(thinking[0]!.getAttribute("aria-valuetext")).toBeTruthy();
+    const advanced = buttonWithText("Advanced")!;
+    expect(advanced.dataset.settingsRow).toBe("true");
+    expect(advanced.getAttribute("aria-expanded")).toBe("false");
+    expect(advanced.dataset.chevron).toBe("right");
+    act(() => advanced.click());
+    expect(advanced.getAttribute("aria-expanded")).toBe("true");
+    expect(advanced.dataset.chevron).toBe("down");
     const card = providers[0]!.parentElement!;
     expect([...card.children]).toEqual([
       providers[0],
@@ -628,7 +659,11 @@ describe("connection settings provider picker", () => {
     ]);
     expect(providers[0]!.nextElementSibling?.tagName).toBe("DIV");
     expect(models[0]!.nextElementSibling?.tagName).toBe("DIV");
-    const status = buttonWithText("Disconnect")!.parentElement!;
+    const disconnect = buttonWithText("Disconnect")!;
+    expect(disconnect.dataset.prominence).toBe("destructive");
+    expect(disconnect.dataset.variant).toBe("text");
+    expect(disconnect.dataset.fill).toBe("false");
+    const status = disconnect.parentElement!;
     expect(status.textContent).toBe("ConnectedDisconnect");
     const keySection = buttonWithText("Replace API key")!.parentElement!;
     expect(keySection.firstElementChild?.textContent).toBe("API key");
@@ -741,6 +776,9 @@ describe("connection settings limit saves", () => {
     editField("Maximum output tokens", "2000");
     const save = buttonWithText("Save")!;
     expect(save).toBeDefined();
+    expect(save.dataset.prominence).toBe("secondary");
+    expect(save.dataset.fill).toBe("false");
+    expect(save.style.marginTop).toBe("12px");
     expect(save.previousElementSibling?.textContent).toContain("Maximum output tokens");
     editField("Maximum output tokens", "1000");
     expect(buttonWithText("Save")).toBeUndefined();

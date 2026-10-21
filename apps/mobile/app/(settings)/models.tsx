@@ -50,7 +50,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeActionButton } from "../../components/native-action-button";
 import { NativeSwitch } from "../../components/native-switch";
-import { Checkmark, Chevron } from "../../components/row-accessories";
+import { Checkmark } from "../../components/row-accessories";
 import { SettingsRow } from "../../components/settings-group";
 import type {
   ApiRequestContext,
@@ -873,17 +873,13 @@ export default function Models() {
   function disclosureRow(label: string, expanded: boolean, onPress: () => void) {
     return (
       <View style={styles.card}>
-        <Pressable
+        <SettingsRow
+          title={label}
           accessibilityRole="button"
           accessibilityState={{ expanded }}
+          chevron={expanded ? "down" : "right"}
           onPress={onPress}
-          style={({ pressed }) => [styles.modelRow, styles.singleRow, pressed && styles.pressed]}
-        >
-          <Text style={styles.modelLabel}>{label}</Text>
-          <View style={styles.chevron}>
-            <Chevron expanded={expanded} />
-          </View>
-        </Pressable>
+        />
       </View>
     );
   }
@@ -1229,7 +1225,9 @@ export default function Models() {
           />
           {catalogThinkingLevels.length ? <View style={styles.modelDivider} /> : null}
           {catalogThinkingLevels.length ? (
-            <Pressable
+            <SettingsRow
+              title={t("Thinking")}
+              value={catalogThinkingValue}
               accessibilityRole="button"
               accessibilityLabel={t("Thinking")}
               accessibilityValue={{ text: catalogThinkingValue }}
@@ -1254,15 +1252,7 @@ export default function Models() {
                   ],
                 });
               }}
-              style={({ pressed }) => [
-                styles.modelRow,
-                styles.singleRow,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.modelLabel}>{t("Thinking")}</Text>
-              <Text style={styles.rowValue}>{catalogThinkingValue}</Text>
-            </Pressable>
+            />
           ) : null}
         </View>
         {disclosureRow(t("Advanced"), showAdvanced, () => setShowAdvanced((visible) => !visible))}
@@ -1284,6 +1274,8 @@ export default function Models() {
                   pending === "connect" && feedbackAnchor === "limits" ? t("Saving…") : t("Save")
                 }
                 onPress={() => void connectKey(true)}
+                prominence="secondary"
+                style={{ marginTop: 12 }}
               />
             ) : null}
             {feedbackAnchor === "limits" ? feedback : null}
@@ -1629,6 +1621,7 @@ export default function Models() {
           );
         }}
         prominence="destructive"
+        variant="text"
       />
     </View>
   ) : null;
@@ -1960,6 +1953,7 @@ function createModelsStyles() {
       alignItems: "center",
       gap: 12,
       marginTop: 8,
+      marginBottom: 16,
     },
     maintenanceSection: {
       marginTop: 16,
@@ -2011,10 +2005,6 @@ function createModelsStyles() {
       color: native.secondaryLabel,
       fontSize: 15,
       marginTop: 8,
-    },
-    chevron: {
-      width: 16,
-      alignItems: "center",
     },
     oauthCard: {
       borderRadius: 14,
