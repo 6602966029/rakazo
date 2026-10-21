@@ -286,25 +286,23 @@ describe("native sheet behavior", () => {
     mocks.sheet(props);
     return props.children;
   };
-  it.each(["swipe", "scrim", "Back"])(
-    "closes once for %s and duplicate native notifications",
-    async () => {
-      const close = vi.fn();
-      await mount(
-        <NativeSheet Sheet={Sheet} onClose={close}>
-          Actions
-        </NativeSheet>,
-      );
-      const props = mocks.sheet.mock.lastCall?.[0];
-      // Material routes all three dismiss gestures through onClose in the community adapter.
-      act(() => {
-        props.onClose();
-        props.onClose();
-      });
-      expect(close).toHaveBeenCalledOnce();
-      expect(props.enablePanDownToClose).toBe(true);
-    },
-  );
+  it("enables native dismissal and ignores duplicate close notifications", async () => {
+    const close = vi.fn();
+    await mount(
+      <NativeSheet Sheet={Sheet} onClose={close}>
+        Actions
+      </NativeSheet>,
+    );
+    const props = mocks.sheet.mock.lastCall?.[0];
+    // Swipe, scrim tap and Back all reach onClose through the community adapter, which can
+    // report the same dismissal twice; gestures themselves are checked on a device.
+    expect(props.enablePanDownToClose).toBe(true);
+    act(() => {
+      props.onClose();
+      props.onClose();
+    });
+    expect(close).toHaveBeenCalledOnce();
+  });
   it("switches from content sizing to a tall expanded run error sheet", async () => {
     const root = await mount(
       <RunErrorSheetContainer expanded={false} onClose={vi.fn()}>
