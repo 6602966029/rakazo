@@ -74,7 +74,7 @@ export const AUDITED_PROCEDURES: Record<string, AuditedProcedure> = {
  * this on the transition instead of the table recording every call.
  */
 export function connectionCreatedEvent(
-  procedure: "connections.begin" | "connections.complete",
+  procedure: "connections.begin" | "connections.catalog" | "connections.complete",
   connectionId: string,
   actor: { userId: string; spaceId: string },
 ): SecurityEventInput {

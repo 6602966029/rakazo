@@ -374,21 +374,16 @@ async function reconcileConnections(
     connectedProviderKeys.has(row.provider.trim().toLowerCase()),
   );
   const sync = planLiveConnectionSync(rows, connectedProviders);
+  // One update per row so the credential event goes only to rows this call actually connected.
+  const connectedIds: string[] = [];
   const updates = [
-    ...(sync.connectIds.length > 0
-      ? [
-          (tx: Prisma.TransactionClient) =>
-            tx.connection.updateMany({
-              where: {
-                id: { in: sync.connectIds },
-                spaceId: owner.spaceId,
-                userId: owner.userId,
-                status: "pending",
-              },
-              data: { status: "connected" },
-            }),
-        ]
-      : []),
+    ...sync.connectIds.map((id) => async (tx: Prisma.TransactionClient) => {
+      const updated = await tx.connection.updateMany({
+        where: { id, spaceId: owner.spaceId, userId: owner.userId, status: "pending" },
+        data: { status: "connected" },
+      });
+      if (updated.count > 0) connectedIds.push(id);
+    }),
     ...(sync.revokeIds.length > 0
       ? [
           (tx: Prisma.TransactionClient) =>
@@ -425,6 +420,9 @@ async function reconcileConnections(
     await prisma.$transaction(async (tx) => {
       for (const update of updates) await update(tx);
     });
+  for (const id of connectedIds) {
+    await recordSecurityEvent(connectionCreatedEvent("connections.catalog", id, owner));
+  }
 }
 
 /** Serialize begin/revoke for one user+provider so slug-wide remote deletes cannot race a new connect. */

@@ -2438,6 +2438,70 @@ describe("connections.complete", () => {
     });
   });
 
+  it("records the credential once when the catalog finds the app connected", async () => {
+    const row = { id: "conn-1", provider: "gmail", displayName: "Gmail", status: "pending" };
+    const connection = {
+      findMany: vi.fn(async () => [{ ...row }]),
+      updateMany: vi.fn(async ({ where }: { where: { id?: string; status: string } }) => {
+        if (where.id !== row.id || row.status !== where.status) return { count: 0 };
+        row.status = "connected";
+        return { count: 1 };
+      }),
+    };
+    const prisma = {
+      connection,
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({ connection })),
+    } as unknown as PrismaClient;
+    const provider = {
+      describe: () => ({ id: "composio" }),
+      catalog: vi.fn(async () => [
+        {
+          connectorId: "composio",
+          slug: "gmail",
+          name: "Gmail",
+          logo: null,
+          connected: true,
+          noAuth: false,
+        },
+      ]),
+    };
+    const client = createRouterClient(
+      createRouter({
+        prisma,
+        connectors: { managed: () => provider },
+        env: {
+          defaultProvider: "fake",
+          defaultModel: "fake-model",
+          webOrigin: "http://127.0.0.1:5173",
+          screenProxySecret: "fake-test-secret",
+          sandboxProvider: "fake",
+        },
+      } as unknown as RouterDeps),
+      {
+        context: {
+          actor: {
+            spaceId: "workspace-1",
+            userId: "user-1",
+            email: "user@rakazo.test",
+            isDeploymentOwner: true,
+          },
+        } as never,
+      },
+    );
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+
+    await client.connections.catalog({ connectorId: "composio" });
+    await client.connections.catalog({ connectorId: "composio" });
+
+    const events = sink.events.filter((event) => event.message === "security.event");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      "security.event.type": "credential.created",
+      "security.event.metadata": { procedure: "connections.catalog", connectionId: "conn-1" },
+    });
+  });
+
   it("records nothing while the connection is still pending", async () => {
     const { complete, connector, securityEvents } = pollFixture("pending");
     connector.connectionReady.mockResolvedValue(false);
