@@ -173,6 +173,14 @@ test("opening and releasing the computer keep a view-only stream; a failed relea
   await expect(page.getByRole("menuitem", { name: "Recover computer" })).toBeVisible();
   await more.click();
   await captureScreenshot(page, testInfo, "computer-controlling");
+  await release.click();
+  await checkViewOnly();
+  expect(takeovers).toBe(1);
+  await captureScreenshot(page, testInfo, "computer-released-view-only");
+
+  // A release that fails keeps the computer open so it can be retried.
+  await take.click();
+  await expect(release).toBeVisible();
   await page.route("**/rpc/computer/release", (route) =>
     route.fulfill({ status: 500, body: "release unavailable" }),
   );
@@ -182,9 +190,7 @@ test("opening and releasing the computer keep a view-only stream; a failed relea
   await captureScreenshot(page, testInfo, "48-team-computer-release-retry");
   await page.unroute("**/rpc/computer/release");
   await release.click();
-  await checkViewOnly();
-  expect(takeovers).toBe(1);
-  await captureScreenshot(page, testInfo, "computer-released-view-only");
+  await expect(take).toBeVisible();
   await chrome.getByRole("button", { name: "Close computer" }).click();
   await expect(chrome).toBeHidden();
 });
