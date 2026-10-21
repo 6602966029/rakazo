@@ -1,6 +1,6 @@
 import { Button } from "@rakazo/ui-web";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   type DemoBot,
   type DemoMessage,
@@ -445,7 +445,7 @@ function OnboardThread({
         if (answer !== undefined) {
           const letter = String.fromCharCode(65 + Math.max(0, step.opts.indexOf(answer)));
           return (
-            <div key={step.q}>
+            <Fragment key={step.q}>
               <div className="product-demo__choice product-demo__choice--done">
                 <div className="product-demo__choice-q">{text(step.q)}</div>
                 <div className="product-demo__choice-picked">
@@ -459,7 +459,7 @@ function OnboardThread({
                   {text(step.ack, { answer: text(answer) })}
                 </div>
               </div>
-            </div>
+            </Fragment>
           );
         }
         if (answers.length !== index) {
