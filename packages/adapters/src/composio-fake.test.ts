@@ -218,9 +218,50 @@ describe("ComposioConnector over the fake Composio client", () => {
     await expect(
       run(connector, "GITHUB_LIST_RELEASES", { owner: "elie222", repo: "rakazo" }, ctx),
     ).resolves.toEqual([
-      { type: "error", message: "Toolkit GITHUB is not enabled in this session" },
+      {
+        type: "error",
+        message: "Toolkit for GITHUB_LIST_RELEASES is not enabled in this session",
+      },
     ]);
     expect(fake.executions).toEqual([]);
+  });
+
+  it("requires an account in the session when several are pinned", async () => {
+    const { fake, connector } = setup();
+    const work = await connect(connector, "GMAIL");
+    const personal = await connect(connector, "GMAIL");
+    const ctx = context([connection("GMAIL", work), connection("GMAIL", personal)]);
+    const listing = (account?: string) => ({
+      tool_slug: "DROPBOX_LIST_FOLDERS",
+      arguments: { path: "/" },
+      ...(account ? { account } : {}),
+    });
+
+    await expect(run(connector, "GMAIL_LIST_LABELS", {}, ctx)).resolves.toEqual([
+      { type: "error", message: "Select which GMAIL account to use" },
+    ]);
+    await expect(
+      run(connector, "COMPOSIO_MULTI_EXECUTE_TOOL", { tools: [listing("ca_other")] }, ctx),
+    ).resolves.toEqual([
+      { type: "error", message: "Toolkit for DROPBOX_LIST_FOLDERS is not enabled in this session" },
+    ]);
+    expect(fake.executions).toEqual([]);
+  });
+
+  it("rejects an account the session did not pin", async () => {
+    const { fake } = setup();
+    const work = fake.connect(USER, "gmail");
+    const session = await fake.create(USER, {
+      toolkits: ["GMAIL"],
+      connectedAccounts: { GMAIL: [work] },
+    });
+
+    await expect(
+      session.execute("GMAIL_LIST_LABELS", {}, { account: "ca_other" }),
+    ).resolves.toMatchObject({ error: "Account ca_other is not available in this session" });
+    await expect(
+      session.execute("GMAIL_LIST_LABELS", {}, { account: work }),
+    ).resolves.toMatchObject({ error: null });
   });
 
   it("returns a tool error when a Dropbox listing has malformed arguments", async () => {

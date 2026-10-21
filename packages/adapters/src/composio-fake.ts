@@ -9,9 +9,9 @@ import type {
 } from "@composio/core";
 import type { ToolkitDirectoryEntry } from "./composio-catalog-cache.js";
 import type { ComposioClient, ComposioSession } from "./composio-connector.js";
+import type { EmulatedGithubRelease } from "./release-watch.js";
 import {
   DEFAULT_RAKAZO_EMULATED_RELEASES,
-  type EmulatedGithubRelease,
   RELEASE_WATCH_GITHUB_TOOL_NAMES,
 } from "./release-watch.js";
 
@@ -204,7 +204,12 @@ export class FakeComposioClient implements ComposioClient {
   readonly accounts: FakeAccount[] = [];
   readonly created: Array<{ userId: string; config: ToolRouterCreateSessionConfig }> = [];
   readonly accountListCalls: ConnectedAccountListParams[] = [];
-  readonly executions: Array<{ userId: string; tool: string; args: Record<string, unknown> }> = [];
+  readonly executions: Array<{
+    userId: string;
+    tool: string;
+    args: Record<string, unknown>;
+    result: Record<string, unknown>;
+  }> = [];
   /** When set, connected-account listing fails like an API outage. */
   failAccountList = false;
   private readonly sessionsById = new Map<string, ComposioSession>();
@@ -284,17 +289,26 @@ export class FakeComposioClient implements ComposioClient {
       sessionId,
       toolkits: async (options) => this.toolkitPage(userId, options),
       tools: async () => [...enabled].flatMap((toolkit) => toolsFor(toolkit)),
-      execute: async (tool, args = {}) => {
-        const toolkit = this.directory.find((entry) => tool.startsWith(`${entry.slug}_`));
-        if (toolkit && !enabled.has(toolkit.slug)) {
-          return {
-            data: {},
-            error: `Toolkit ${toolkit.slug} is not enabled in this session`,
-            logId: "",
-          };
+      execute: async (tool, args = {}, options) => {
+        const refused = (error: string) => ({ data: {}, error, logId: "" });
+        const toolkit = [...enabled].find((slug) => tool.startsWith(`${slug}_`));
+        if (!toolkit && !tool.startsWith("COMPOSIO_")) {
+          return refused(`Toolkit for ${tool} is not enabled in this session`);
         }
-        this.executions.push({ userId, tool, args });
-        return { ...this.run(userId, tool, args), logId: `log_${++this.nextId}` };
+        const pinned = toolkit ? (config.connectedAccounts?.[toolkit] ?? []) : [];
+        if (options?.account && !pinned.includes(options.account)) {
+          return refused(`Account ${options.account} is not available in this session`);
+        }
+        if (
+          !options?.account &&
+          pinned.length > 1 &&
+          config.multiAccount?.requireExplicitSelection
+        ) {
+          return refused(`Select which ${toolkit} account to use`);
+        }
+        const result = this.run(userId, tool, args);
+        this.executions.push({ userId, tool, args, result: result.data });
+        return { ...result, logId: `log_${++this.nextId}` };
       },
       authorize: async (toolkit) => this.authorize(userId, toolkit),
     };

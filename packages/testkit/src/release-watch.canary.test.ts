@@ -152,9 +152,8 @@ describeLive("live release-watch eval (GPT 5.6 Luna + GitHub emulator)", () => {
       const payload = event.payload as { name?: string };
       return String(payload.name ?? "");
     });
-    const routineExecutions = fake.executions.filter(
-      (row) => row.botId === bot.id && (routineRunId ? row.runId === routineRunId : true),
-    );
+    // Cleared before the routine woke, so every row belongs to this run.
+    const routineExecutions = fake.executions;
     const calledToolNames = [...calledFromEvents, ...routineExecutions.map((row) => row.tool)];
     const seededReleaseTags = fake.listGithubReleases().map((release) => release.tag);
     const resultText = JSON.stringify(snap);
