@@ -6809,3 +6809,77 @@ describe("routine watch creation boundaries", () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+describe("API-key live model catalog", () => {
+  it.each([false, true])(
+    "merges a fake provider probe and keeps saved selections (failure=%s)",
+    async (fails) => {
+      const bundled = listPiCatalog().filter((entry) => entry.provider === "openai");
+      const retired = bundled[0]!.id;
+      const saved = bundled[1]!.id;
+      const liveOnly = "gpt-future-live-chat";
+      const probe = vi.fn(async () => {
+        if (fails) throw new Error("fake provider failure");
+        return [...bundled.slice(2).map((entry) => entry.id), liveOnly, "text-embedding-future"];
+      });
+      const credential = {
+        id: "credential-test",
+        provider: "openai",
+        secretId: "secret-test",
+        createdAt: new Date(0),
+        updatedAt: new Date(0),
+      };
+      const prisma = {
+        userModelCredential: { findMany: vi.fn(async () => [credential]) },
+        spaceModelPreference: { findMany: vi.fn(async () => []) },
+        secret: {
+          findMany: vi.fn(async () => [{ id: "secret-test", ciphertext: "fake-ciphertext" }]),
+        },
+        bot: { findMany: vi.fn(async () => [{ modelProvider: "openai", modelId: saved }]) },
+        routine: { findMany: vi.fn(async () => []) },
+        spaceBackupModel: { findMany: vi.fn(async () => []) },
+        deploymentSettings: { findFirst: vi.fn(async () => null) },
+      };
+      const load = vi.fn(async () => "fake-api-key");
+      const deps = {
+        prisma,
+        secrets: { load },
+        providerCatalog: new adapters.ProviderCatalogCache({ probe }),
+        env: { agentRuntime: "pi", defaultProvider: "fake", defaultModel: "fake" },
+      } as unknown as RouterDeps;
+      const actor = {
+        userId: "user-test",
+        spaceId: "space-test",
+        email: "user@example.test",
+        isDeploymentOwner: false,
+      } satisfies Actor;
+      const client = createRouterClient(createRouter(deps), { context: { actor } as never });
+      const entries = await client.models.list();
+      const openai = entries.filter((entry) => entry.provider === "openai");
+      expect(openai.some((entry) => entry.id === retired)).toBe(fails);
+      expect(openai.some((entry) => entry.id === saved)).toBe(true);
+      expect(openai.some((entry) => entry.id === liveOnly)).toBe(!fails);
+      expect(openai.some((entry) => entry.id === "text-embedding-future")).toBe(false);
+      if (!fails)
+        expect(openai.at(-1)).toMatchObject({
+          provider: "openai",
+          providerName: "OpenAI",
+          id: liveOnly,
+          label: liveOnly,
+          auth: "api-key",
+        });
+      await client.models.list();
+      expect(probe).toHaveBeenCalledTimes(1);
+      expect(probe).toHaveBeenCalledWith(
+        { provider: "openai", apiKey: "fake-api-key" },
+        undefined,
+        expect.any(AbortSignal),
+      );
+      expect(prisma.secret.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ userId: actor.userId, spaceId: null }),
+        }),
+      );
+    },
+  );
+});

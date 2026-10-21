@@ -107,7 +107,7 @@ const toolCallBudgetsByRun = new Map<string, ToolCallBudget>();
 let catalogModelsCache: Models | undefined;
 function catalogModels(): Models {
   catalogModelsCache ??= registerOpenAiCompatibleCatalog(
-    registerLocalProvider(applyPiModelCompatibility(builtinModels())),
+    registerLocalProvider(applyPiModelCompatibility(builtinModels(), true)),
   );
   return catalogModelsCache;
 }
@@ -756,8 +756,11 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
     model = models.getModel("openrouter", modelId);
   }
   if (
-    !model &&
     provider === "openrouter" &&
+    !models
+      .getProvider(provider)
+      ?.getModels()
+      .some((entry) => entry.id === modelId) &&
     modelId &&
     ((envDefaultProvider === "openrouter" && modelId === envDefaultModel) ||
       modelConfig.contextWindow !== undefined)
@@ -807,7 +810,7 @@ export function modelsForRequest(
   const store = credentials ?? credentialStoreForRequest(request, provider);
   if (store) {
     return registerOpenAiCompatibleCatalog(
-      registerLocalProvider(applyPiModelCompatibility(builtinModels({ credentials: store }))),
+      registerLocalProvider(applyPiModelCompatibility(builtinModels({ credentials: store }), true)),
     );
   }
   if (
@@ -816,7 +819,7 @@ export function modelsForRequest(
     request.model.id.trim()
   ) {
     const models = registerOpenAiCompatibleCatalog(
-      registerLocalProvider(applyPiModelCompatibility(builtinModels())),
+      registerLocalProvider(applyPiModelCompatibility(builtinModels(), true)),
     );
     return registerOpenAiCompatibleRuntime(models, {
       modelId: request.model.id,

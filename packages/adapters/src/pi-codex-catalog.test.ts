@@ -947,7 +947,7 @@ describe("applyCodexLiveCatalog", () => {
     expect(codexIds).toEqual([LUNA]);
   });
 
-  it("ignores live-only slugs that cannot resolve to a runnable pi model", () => {
+  it("adds live-only slugs using a runnable sibling", () => {
     const merged = applyCodexLiveCatalog(
       base,
       oauthAuth,
@@ -962,8 +962,7 @@ describe("applyCodexLiveCatalog", () => {
     const ids = merged
       .filter((entry) => entry.provider === CHATGPT_OAUTH_PROVIDER)
       .map((entry) => entry.id);
-    expect(ids).toEqual([LUNA]);
-    expect(ids).not.toContain("gpt-7-codex-new");
+    expect(ids).toEqual([LUNA, "gpt-7-codex-new"]);
   });
 
   it("overrides thinking levels only when the endpoint supplies known efforts", () => {
