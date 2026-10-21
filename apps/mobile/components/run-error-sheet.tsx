@@ -73,7 +73,7 @@ export function RunErrorSheet({
   );
   const textStyle = { color: tokens.foreground, fontSize: 16, lineHeight: 24 };
   return (
-    <RunErrorSheetContainer onClose={onClose} expanded={technical}>
+    <RunErrorSheetContainer onClose={onClose} expanded={technical} label={error.summary}>
       <View
         accessibilityViewIsModal
         style={{
