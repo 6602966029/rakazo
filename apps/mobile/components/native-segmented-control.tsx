@@ -20,7 +20,12 @@ const requiredViews = [
 /** Android segmented control. iOS uses a SwiftUI segmented picker. */
 export function NativeSegmentedControl<T extends string>(props: NativeSegmentedControlProps<T>) {
   const fallback = <SegmentedPills {...props} />;
-  if (Platform.OS !== "android" || !requiredViews.every(isComposeViewAvailable)) return fallback;
+  if (
+    props.options.length >= 4 ||
+    Platform.OS !== "android" ||
+    !requiredViews.every(isComposeViewAvailable)
+  )
+    return fallback;
   return (
     <Suspense fallback={fallback}>
       <ComposeSegmentedControl {...props} />

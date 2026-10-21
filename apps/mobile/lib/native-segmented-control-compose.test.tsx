@@ -8,27 +8,15 @@ import ComposeSegmentedControl from "../components/native-segmented-control-comp
 
 vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 
-const state = vi.hoisted(() => ({
-  scheme: "light" as "light" | "dark",
-  layout: (_event: unknown) => {},
-}));
+const state = vi.hoisted(() => ({ scheme: "light" as "light" | "dark" }));
 vi.mock("./native", () => ({
   useResolvedAppearance: () => state.scheme,
   useMobileTokens: () => tokensForAppearance(state.scheme),
 }));
 vi.mock("react-native", () => ({
   StyleSheet: { absoluteFill: { position: "absolute" } },
-  ScrollView: ({
-    children,
-    style,
-    onLayout,
-  }: {
-    children: ReactNode;
-    style: unknown;
-    onLayout: (event: unknown) => void;
-  }) => {
-    state.layout = onLayout;
-    return <div data-scroll-style={JSON.stringify(style)}>{children}</div>;
+  ScrollView: () => {
+    throw new Error("Segmented controls must not scroll");
   },
   View: ({
     children,
@@ -90,14 +78,14 @@ vi.mock("@expo/ui/jetpack-compose", () => ({
 vi.mock("@expo/ui/jetpack-compose/modifiers", () => ({
   alpha: (value: number) => ({ alpha: value }),
   height: (value: number) => ({ height: value }),
-  defaultMinSize: (value: unknown) => ({ defaultMinSize: value }),
+  fillMaxWidth: () => ({ fillMaxWidth: true }),
+  weight: (value: number) => ({ weight: value }),
 }));
 
 const options = [
   { value: "direct", label: "Direct MCP" },
   { value: "composio", label: "Composio" },
   { value: "pipedream", label: "Pipedream" },
-  { value: "executor", label: "Executor" },
 ];
 const onChange = vi.fn();
 let root: ReturnType<typeof createRoot>;
@@ -129,46 +117,47 @@ function props(selector: string) {
     JSON.parse(element.getAttribute(`data-${selector}`) ?? "null"),
   );
 }
-it.each(["light", "dark"] as const)(
-  "uses neutral %s tokens for every enabled and disabled color",
-  async (scheme) => {
-    state.scheme = scheme;
-    await render("composio");
-    const tokens = tokensForAppearance(scheme);
-    const fill = scheme === "light" ? tokens.popover : tokens.chatUser;
-    expect(props("host")[0]).toMatchObject({
-      colorScheme: scheme,
-      seedColor: tokens.foreground,
-      matchContents: { horizontal: true },
-      style: { height: 40 },
-    });
-    expect(props("segment")[1]).toMatchObject({
-      selected: true,
-      enabled: true,
-      colors: {
-        activeContainerColor: fill,
-        inactiveContainerColor: tokens.accent,
-        activeContentColor: tokens.foreground,
-        inactiveContentColor: tokens.mutedForeground,
-        activeBorderColor: tokens.border,
-        inactiveBorderColor: tokens.border,
-        disabledActiveContainerColor: fill,
-        disabledInactiveContainerColor: tokens.accent,
-        disabledActiveContentColor: tokens.mutedForeground,
-        disabledInactiveContentColor: tokens.mutedForeground,
-        disabledActiveBorderColor: tokens.border,
-        disabledInactiveBorderColor: tokens.border,
-      },
-    });
-  },
-);
+it.each([
+  { scheme: "light", disabled: false },
+  { scheme: "light", disabled: true },
+  { scheme: "dark", disabled: false },
+  { scheme: "dark", disabled: true },
+] as const)("uses neutral $scheme tokens with disabled=$disabled", async ({ scheme, disabled }) => {
+  state.scheme = scheme;
+  await render("composio", disabled);
+  const tokens = tokensForAppearance(scheme);
+  const fill = scheme === "light" ? tokens.accent : tokens.chatUser;
+  expect(props("host")[0]).toMatchObject({
+    colorScheme: scheme,
+    seedColor: tokens.foreground,
+    style: { height: 40 },
+  });
+  expect(props("segment")[1]).toMatchObject({
+    selected: true,
+    enabled: !disabled,
+    colors: {
+      activeContainerColor: fill,
+      inactiveContainerColor: "transparent",
+      activeContentColor: tokens.foreground,
+      inactiveContentColor: tokens.mutedForeground,
+      activeBorderColor: tokens.border,
+      inactiveBorderColor: tokens.border,
+      disabledActiveContainerColor: fill,
+      disabledInactiveContainerColor: "transparent",
+      disabledActiveContentColor: tokens.foreground,
+      disabledInactiveContentColor: tokens.mutedForeground,
+      disabledActiveBorderColor: tokens.border,
+      disabledInactiveBorderColor: tokens.border,
+    },
+  });
+});
 it("stays controlled when the parent ignores a press and follows later parent changes", async () => {
   await render("direct");
   await act(async () => container.querySelectorAll<HTMLElement>('input[type="radio"]')[1]?.click());
   expect(onChange).toHaveBeenCalledExactlyOnceWith("composio");
-  expect(props("segment").map((item) => item.selected)).toEqual([true, false, false, false]);
+  expect(props("segment").map((item) => item.selected)).toEqual([true, false, false]);
   await render("pipedream");
-  expect(props("segment").map((item) => item.selected)).toEqual([false, false, true, false]);
+  expect(props("segment").map((item) => item.selected)).toEqual([false, false, true]);
 });
 it.each([undefined, "unmatched"])("keeps every segment unselected for %s", async (value) => {
   await render(value);
@@ -177,7 +166,7 @@ it.each([undefined, "unmatched"])("keeps every segment unselected for %s", async
     Array.from(container.querySelectorAll('input[type="radio"]'), (button) =>
       button.getAttribute("aria-checked"),
     ),
-  ).toEqual(["false", "false", "false", "false"]);
+  ).toEqual(["false", "false", "false"]);
 });
 it("dims and disables every segment, including the native callback", async () => {
   await render("direct", true);
@@ -192,7 +181,7 @@ it("dims and disables every segment, including the native callback", async () =>
 it("owns one radio per segment with group, label and selected state; hides native descendants", async () => {
   await render("direct");
   const radios = container.querySelectorAll('input[type="radio"]');
-  expect(radios).toHaveLength(4);
+  expect(radios).toHaveLength(3);
   expect(radios[0]?.getAttribute("aria-label")).toBe("Server integrations, Direct MCP");
   expect(radios[0]?.getAttribute("aria-checked")).toBe("true");
   expect(
@@ -202,7 +191,6 @@ it("owns one radio per segment with group, label and selected state; hides nativ
   ).not.toBeNull();
 });
 it.each([
-  { choices: options },
   {
     choices: [
       { value: "system", label: "System" },
@@ -216,17 +204,29 @@ it.each([
       { value: "private", label: "Private" },
     ],
   },
-])("preserves caller labels at 14sp on one line with intrinsic width", async ({ choices }) => {
-  await render(undefined, false, choices);
-  expect(Array.from(container.querySelectorAll("span"), (text) => text.textContent)).toEqual(
-    choices.map((option) => option.label),
-  );
-  expect(
-    props("text").every(
-      (item) => item.maxLines === 1 && !item.softWrap && item.style.fontSize === 14,
-    ),
-  ).toBe(true);
-  await act(async () => state.layout({ nativeEvent: { layout: { width: 320 } } }));
-  expect(props("row")[0].modifiers).toContainEqual({ defaultMinSize: { minWidth: 320 } });
-  expect(props("row")[0].modifiers).toContainEqual({ height: 40 });
-});
+])(
+  "preserves caller labels at 14sp on one line with equal shares of the full width",
+  async ({ choices }) => {
+    await render(undefined, false, choices);
+    expect(Array.from(container.querySelectorAll("span"), (text) => text.textContent)).toEqual(
+      choices.map((option) => option.label),
+    );
+    expect(
+      props("text").every(
+        (item) =>
+          item.maxLines === 1 &&
+          !item.softWrap &&
+          item.overflow === "clip" &&
+          item.style.fontSize === 14,
+      ),
+    ).toBe(true);
+    expect(props("host")[0].matchContents).toBeUndefined();
+    expect(props("row")[0].modifiers).toContainEqual({ fillMaxWidth: true });
+    expect(
+      props("segment").every((item) =>
+        item.modifiers.some((modifier: { weight?: number }) => modifier.weight === 1),
+      ),
+    ).toBe(true);
+    expect(props("row")[0].modifiers).toContainEqual({ height: 40 });
+  },
+);

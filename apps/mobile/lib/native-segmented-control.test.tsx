@@ -43,7 +43,11 @@ const props = {
   accessibilityLabel: "Appearance",
   value: "system",
   onChange: vi.fn(),
-  options: [{ value: "system", label: "System" }],
+  options: [
+    { value: "system", label: "System" },
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+  ],
   disabled: true,
 };
 let root: ReturnType<typeof createRoot>;
@@ -80,6 +84,21 @@ describe("Compose availability guard", () => {
     ).not.toBeNull();
     expect(state.imports).toBe(0);
     state.os = "android";
+  });
+  it.each([4, 5])("uses pills for %i options without importing Compose", async (count) => {
+    state.missing = "";
+    const fallbackProps = {
+      ...props,
+      options: Array.from({ length: count }, (_, index) => ({
+        value: String(index),
+        label: `Option ${index}`,
+      })),
+    };
+    const container = await render(<NativeSegmentedControl {...fallbackProps} />);
+    expect(
+      JSON.parse(container.firstElementChild?.getAttribute("data-fallback") ?? "null"),
+    ).toEqual(JSON.parse(JSON.stringify(fallbackProps)));
+    expect(state.imports).toBe(0);
   });
   it("keeps the fallback while loading and then renders Compose", async () => {
     state.missing = "";
