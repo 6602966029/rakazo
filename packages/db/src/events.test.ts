@@ -25,6 +25,7 @@ import {
   settleReleasedTakeoverCards,
 } from "./events.js";
 import { RunHistoryWriteError } from "./messages.js";
+import { installSecurityEventStore } from "./security-events.js";
 
 class TestFanout implements RealtimeFanout {
   subscriber: ((payload: string) => void) | undefined;
@@ -1916,7 +1917,9 @@ describe("answerRunInput", () => {
       },
       task: { updateMany: vi.fn() },
       externalEffect: {
-        findFirst: vi.fn().mockResolvedValue({ id: "effect-1", status: "intended" }),
+        findFirst: vi
+          .fn()
+          .mockResolvedValue({ id: "effect-1", kind: "connector_write", status: "intended" }),
         update: vi.fn().mockResolvedValue({ id: "effect-1" }),
       },
       thread: { update: vi.fn().mockResolvedValue({ nextEventSeq: 10 }) },
@@ -1930,6 +1933,8 @@ describe("answerRunInput", () => {
     const prisma = {
       $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
     } as unknown as PrismaClient;
+    const audit = { securityEvent: { create: vi.fn(async () => ({})) } };
+    installSecurityEventStore(audit as never);
 
     await expect(
       answerRunInput(
@@ -1945,6 +1950,16 @@ describe("answerRunInput", () => {
         fanout,
       ),
     ).resolves.toBe(true);
+
+    installSecurityEventStore(undefined);
+    expect(audit.securityEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        type: "approval.decided",
+        userId: "user-1",
+        spaceId: "workspace-1",
+        metadata: { decision: "allow", effectKind: "connector_write", runId: "run-1" },
+      }),
+    });
 
     expect(tx.task.updateMany).not.toHaveBeenCalled();
     expect(tx.externalEffect.findFirst).toHaveBeenCalledWith({

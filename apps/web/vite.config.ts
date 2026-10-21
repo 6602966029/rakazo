@@ -15,10 +15,11 @@ import {
 import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import type { PreviewServer, ViteDevServer } from "vite";
+import type { PreviewServer, ProxyOptions, ViteDevServer } from "vite";
 import { defineConfig, loadEnv } from "vite";
 import { resolveScreenProxySecret } from "../../packages/core/src/secrets-guard.ts";
 import { createServiceLogger } from "../../packages/logging/src/env.ts";
+import { appendForwardedFor } from "./src/forwarded-for.js";
 import { collectNovncHtml, MAX_NOVNC_HTML_BYTES } from "./src/novnc-html.js";
 import {
   resolveNovncTarget,
@@ -408,7 +409,20 @@ export default defineConfig(({ mode }) => {
       // Native app domain association, served by the API from deployment settings.
       "/.well-known/apple-app-site-association",
       "/.well-known/assetlinks.json",
-    ].map((path) => [path, { target: api, changeOrigin: true }]),
+    ].map((path) => [
+      path,
+      {
+        target: api,
+        changeOrigin: true,
+        // Append the hop this proxy saw, so the API never mistakes a caller's own header for its
+        // address. The API reads past this hop only when it is listed in TRUSTED_PROXIES.
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            proxyReq.setHeader("x-forwarded-for", appendForwardedFor(req));
+          });
+        },
+      } satisfies ProxyOptions,
+    ]),
   );
   const previewHost = process.env.RAKAZO_HOST ?? rootEnv.RAKAZO_HOST ?? "localhost";
   const allowedHosts = [

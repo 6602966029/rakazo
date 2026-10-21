@@ -101,6 +101,8 @@ services:
       no_proxy: ${no_proxy:-${NO_PROXY:-}}
       API_PORT: "3100"
       API_HOST: "0.0.0.0"
+      # The hop in front of the API whose X-Forwarded-For is believed; see docs/self-host.md.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-web}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}

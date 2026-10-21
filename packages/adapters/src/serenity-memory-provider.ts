@@ -9,6 +9,7 @@ import type {
   SemanticMemoryResult,
   SemanticMemorySaveRequest,
 } from "@rakazo/adapter-kit";
+import { egressRefused } from "./network-address.js";
 import {
   classifySerenityEndpointTrust,
   forgetSerenity,
@@ -105,7 +106,10 @@ export async function prepareSerenityConnection(
   // Reclassification can flip public→private between the API owner check and this probe.
   // Non-owners must fail closed here before any credentialed MCP request.
   if (classifiedSettings.endpointTrust === "private" && options?.allowPrivateEndpoint === false) {
-    throw new MemoryProviderDeploymentOwnerRequiredError();
+    throw egressRefused(
+      URL.parse(classifiedSettings.endpoint ?? "")?.hostname ?? "",
+      new MemoryProviderDeploymentOwnerRequiredError(),
+    );
   }
   const connection = parseSerenityConnection(classifiedSettings, credentials);
   const probe = await probeSerenity(

@@ -211,6 +211,7 @@ import {
   IsolationError,
   issueMessagingLinkCode,
   listBoards,
+  listSecurityEvents,
   listSpaceBackupModels,
   listTicketComments,
   lockOwnedGroup,
@@ -220,6 +221,7 @@ import {
   Prisma,
   parseComputerMode,
   pushSessionExpiresAt,
+  recordSecurityEvent,
   releaseSpaceDeletionClaim,
   renameSpaceForMember,
   renewSpaceDeletionClaim,
@@ -281,6 +283,7 @@ import { listRoutineRuns } from "./routine-runs.js";
 import { listSpaceRuns } from "./runs.js";
 import { addScreenProxyCapability } from "./screen-proxy.js";
 import { querySpaceSearch } from "./search.js";
+import { procedureSecurityEvent } from "./security-audit.js";
 import { withSerializableRetry } from "./serializable-retry.js";
 import type { UpdaterProxyConfig } from "./server-update.js";
 import {
@@ -826,10 +829,17 @@ export function createRouter(deps: RouterDeps) {
   });
   const agentSkills = createAgentSkillsService(deps.prisma);
 
-  const authed = os.use(async ({ context, next }) => {
-    if (!context.actor) throw new ORPCError("UNAUTHORIZED");
-    return next({ context: { ...context, actor: context.actor } });
-  });
+  const authed = os
+    .use(async ({ context, next }) => {
+      if (!context.actor) throw new ORPCError("UNAUTHORIZED");
+      return next({ context: { ...context, actor: context.actor } });
+    })
+    .use(async ({ context, next, path }, input) => {
+      const result = await next();
+      const event = procedureSecurityEvent(path, input, context.actor);
+      if (event) await recordSecurityEvent(event);
+      return result;
+    });
 
   const callsEnabled = authed.use(async ({ next }) => {
     if (!deps.env?.phoneCallsEnabled) throw new ORPCError("NOT_FOUND");
@@ -1154,6 +1164,12 @@ export function createRouter(deps: RouterDeps) {
           },
         });
         return deploymentDto(deps.prisma, deps.env.sandboxProvider);
+      }),
+    },
+    security: {
+      events: authed.security.events.handler(async ({ context, input }) => {
+        if (!context.actor.isDeploymentOwner) throw new ORPCError("FORBIDDEN");
+        return listSecurityEvents(deps.prisma, input);
       }),
     },
     updater: {

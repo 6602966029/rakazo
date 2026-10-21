@@ -47,6 +47,7 @@ x-app-environment: &app-environment
   INFISICAL_FOLDER: ${INFISICAL_FOLDER:-}
   # Logs, errors, traces and analytics
   LOG_LEVEL:
+  SECURITY_EVENT_RETENTION_DAYS:
   LOG_FORMAT:
   AXIOM_TOKEN:
   AXIOM_DATASET:
@@ -348,6 +349,9 @@ services:
       AUTH_BREACHED_PASSWORD_CHECK_ENABLED: ${AUTH_BREACHED_PASSWORD_CHECK_ENABLED:-false}
       PASSKEY_APPLE_APP_IDS:
       PASSKEY_ANDROID_CERT_SHA256:
+      # The hop in front of the API whose X-Forwarded-For is believed; see docs/self-host.md.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-web}
+      CLIENT_IP_HEADER:
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}

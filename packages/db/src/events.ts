@@ -34,6 +34,7 @@ import {
   createThreadMessageInTransaction,
   RunHistoryWriteError,
 } from "./messages.js";
+import { recordSecurityEvent } from "./security-events.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 const EVENT_BATCH_SIZE = 200;
@@ -659,7 +660,11 @@ async function commitAnswerRunInput(
   tx: Prisma.TransactionClient,
   input: AnswerRunInput,
   runSecretWriter?: RunSecretWriter,
-): Promise<{ threadId: string; seq: number } | null> {
+): Promise<{
+  threadId: string;
+  seq: number;
+  approval?: { decision: string; effectKind: string };
+} | null> {
   // Thread row first, then run rows — the same order as clearThread and finalizeRun, so a
   // concurrent clear cannot deadlock against this transaction.
   await tx.$queryRaw`SELECT id FROM threads WHERE id = ${input.threadId} FOR UPDATE`;
@@ -904,7 +909,13 @@ async function commitAnswerRunInput(
     runId: input.runId,
     payload: { messageId: message.id, role: "bot", blocks },
   });
-  return { threadId: updated.threadId, seq: updated.seq };
+  return {
+    threadId: updated.threadId,
+    seq: updated.seq,
+    ...(approvalEffect
+      ? { approval: { decision: approvalAnswer, effectKind: approvalEffect.kind } }
+      : {}),
+  };
 }
 
 export async function answerRunInput(
@@ -922,6 +933,18 @@ export async function answerRunInput(
     : await commit();
 
   if (!committed) return false;
+  if (committed.approval) {
+    await recordSecurityEvent({
+      type: "approval.decided",
+      userId: input.answeredByUserId,
+      spaceId: input.spaceId,
+      metadata: {
+        decision: committed.approval.decision,
+        effectKind: committed.approval.effectKind,
+        runId: input.runId,
+      },
+    });
+  }
   await notifyRealtime(realtime, committed.threadId, committed.seq);
   return true;
 }

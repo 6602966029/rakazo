@@ -21,6 +21,7 @@ export * from "./model-backups.js";
 export * from "./model-credentials.js";
 export * from "./repos.js";
 export * from "./scope.js";
+export * from "./security-events.js";
 export * from "./sessions.js";
 export * from "./spaces.js";
 export * from "./transaction-retry.js";

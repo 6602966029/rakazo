@@ -1,8 +1,8 @@
 import { createHash, generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import type { TransactionalEmail } from "@rakazo/adapter-kit";
-import { bootstrapUserSpace } from "@rakazo/db";
+import { bootstrapUserSpace, recordSecurityEvent } from "@rakazo/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createAuth } from "./index.js";
+import { CLIENT_IP_HEADER, createAuth } from "./index.js";
 
 // Exercise Better Auth's real routing, password hashing, verification and
 // session hooks with its official offline adapter. Only persistence is faked.
@@ -13,7 +13,10 @@ vi.mock("better-auth/adapters/prisma", async () => {
       memoryAdapter(prisma.authData),
   };
 });
-vi.mock("@rakazo/db", () => ({ bootstrapUserSpace: vi.fn(async () => ({ spaceId: "space-1" })) }));
+vi.mock("@rakazo/db", () => ({
+  bootstrapUserSpace: vi.fn(async () => ({ spaceId: "space-1" })),
+  recordSecurityEvent: vi.fn(async () => undefined),
+}));
 
 function fixture({
   allowlist = "",
@@ -240,6 +243,64 @@ function fixture({
 }
 
 beforeEach(() => vi.clearAllMocks());
+
+describe("client address and security events", () => {
+  const signInWith = (f: ReturnType<typeof fixture>, headers: Record<string, string>) =>
+    f.auth.handler(
+      new Request("http://auth.example.test/api/auth/sign-in/email", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://web.example.test",
+          ...headers,
+        },
+        body: JSON.stringify({ email: "approved@example.test", password: "offline-password12" }),
+      }),
+    );
+  const events = () => vi.mocked(recordSecurityEvent).mock.calls.map(([event]) => event);
+
+  it("records the address the API resolved, never a client-supplied forwarding header", async () => {
+    const f = fixture({ delivery: false });
+    expect((await f.signup()).status).toBe(200);
+    vi.mocked(recordSecurityEvent).mockClear();
+
+    const resolved = await signInWith(f, {
+      "x-forwarded-for": "198.51.100.66",
+      [CLIENT_IP_HEADER]: "203.0.113.5",
+    });
+    expect(resolved.status).toBe(200);
+    expect(f.data.session!.at(-1)!.ipAddress).toBe("203.0.113.5");
+    expect(events()).toContainEqual(
+      expect.objectContaining({ type: "auth.sign_in", ip: "203.0.113.5" }),
+    );
+
+    const spoofed = await signInWith(f, { "x-forwarded-for": "198.51.100.66" });
+    expect(spoofed.status).toBe(200);
+    expect(f.data.session!.at(-1)!.ipAddress).not.toBe("198.51.100.66");
+    expect(JSON.stringify(events())).not.toContain("198.51.100.66");
+  });
+
+  it("records sign-up, sign-in, and sign-out without credentials", async () => {
+    const f = fixture({ delivery: false });
+    const signedUp = await f.signup();
+    const { token } = (await signedUp.json()) as { token: string };
+    // Revoking a token that is not a live session deletes nothing, so it records nothing.
+    expect((await f.request("/revoke-session", { token: "not-a-session" }, token)).status).toBe(
+      200,
+    );
+    expect(events().map((event) => event.type)).not.toContain("auth.session.revoked");
+    expect((await f.request("/sign-out", {}, token)).status).toBe(200);
+
+    const types = events().map((event) => event.type);
+    expect(types).toEqual(
+      expect.arrayContaining(["auth.sign_up", "auth.sign_in", "auth.sign_out"]),
+    );
+    const serialized = JSON.stringify(events());
+    expect(serialized).not.toContain("offline-password12");
+    expect(serialized).not.toContain(token);
+    expect(serialized).not.toContain("approved@example.test");
+  });
+});
 
 describe("loopback trusted origins", () => {
   it("accepts Origin localhost when webOrigin is 127.0.0.1", async () => {
