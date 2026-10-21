@@ -3,6 +3,7 @@ import { Button } from "@rakazo/ui-web";
 import { useEffect, useRef, useState } from "react";
 import { authClient } from "../lib/auth";
 import {
+  cancelPasskeyRequest,
   conditionalPasskeyAvailable,
   passkeyErrorText,
   usePasskeysSupported,
@@ -49,6 +50,8 @@ export function PasskeySignIn({
     mounted.current = true;
     return () => {
       mounted.current = false;
+      // Leaving the form (or switching to the code step) must not leave autofill waiting.
+      cancelPasskeyRequest();
     };
   }, []);
 

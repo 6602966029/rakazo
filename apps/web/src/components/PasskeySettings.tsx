@@ -11,9 +11,14 @@ import {
   Button,
   Input,
 } from "@rakazo/ui-web";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth";
-import { passkeyErrorText, usePasskeysSupported } from "../lib/passkeys";
+import {
+  passkeyErrorText,
+  passkeysChanged,
+  usePasskeysSupported,
+  usePasskeysVersion,
+} from "../lib/passkeys";
 import { formatRelativeTime } from "../lib/relative-time";
 
 type PasskeyRow = { id: string; name?: string | null; createdAt: Date | string };
@@ -21,25 +26,39 @@ type PasskeyRow = { id: string; name?: string | null; createdAt: Date | string }
 /** The account's passkeys, shown only where this browser can use them. */
 export function PasskeySettings() {
   const supported = usePasskeysSupported();
-  return supported ? <PasskeyList /> : null;
+  // Reloads after this page adds or removes a passkey anywhere, the sidebar offer included.
+  const version = usePasskeysVersion();
+  const [attempt, setAttempt] = useState(0);
+  return supported ? (
+    <PasskeyList key={`${version}:${attempt}`} onRetry={() => setAttempt((value) => value + 1)} />
+  ) : null;
 }
 
-function PasskeyList() {
+function PasskeyList({ onRetry }: { onRetry: () => void }) {
   const { t } = useLingui();
   const [passkeys, setPasskeys] = useState<PasskeyRow[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState<PasskeyRow | null>(null);
-
-  const refresh = useCallback(async () => {
-    const result = await authClient.passkey.listUserPasskeys();
-    if (result.data) setPasskeys(result.data);
-  }, []);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    void refresh().catch(() => undefined);
-  }, [refresh]);
+    let active = true;
+    void authClient.passkey.listUserPasskeys().then(
+      (result) => {
+        if (!active) return;
+        setLoadFailed(!result.data);
+        if (result.data) setPasskeys(result.data);
+      },
+      () => {
+        if (active) setLoadFailed(true);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function run(action: () => Promise<{ error?: unknown }>): Promise<boolean> {
     setPending(true);
@@ -50,7 +69,8 @@ function PasskeyList() {
         setError(passkeyErrorText(result.error, t`Could not continue`));
         return false;
       }
-      await refresh();
+      // Remounts this list with fresh data and closes the offer if it is open.
+      passkeysChanged();
       return true;
     } catch {
       setError(t`Could not reach the server`);
@@ -80,6 +100,14 @@ function PasskeyList() {
       <h3 className="text-[15px] font-medium text-foreground">
         <Trans>Passkeys</Trans>
       </h3>
+      {loadFailed ? (
+        <div role="alert" className="mt-3 flex items-center gap-2 text-[13.5px] text-destructive">
+          <Trans>Could not load</Trans>
+          <Button variant="outline" size="xs" onClick={onRetry}>
+            <Trans>Retry</Trans>
+          </Button>
+        </div>
+      ) : null}
       {passkeys.length > 0 ? (
         <ul className="mt-3 divide-y divide-border">
           {passkeys.map((passkey) => (

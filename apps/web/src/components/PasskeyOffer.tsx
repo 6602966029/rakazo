@@ -4,7 +4,12 @@ import { Button } from "@rakazo/ui-web";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth";
-import { passkeyErrorText, usePasskeysSupported } from "../lib/passkeys";
+import {
+  passkeyErrorText,
+  passkeysChanged,
+  usePasskeysSupported,
+  usePasskeysVersion,
+} from "../lib/passkeys";
 
 function readDismissed(key: string): boolean {
   try {
@@ -27,6 +32,8 @@ export function PasskeyOffer() {
   const { t } = useLingui();
   const session = authClient.useSession().data;
   const supported = usePasskeysSupported();
+  // A passkey added in settings must close the offer too.
+  const passkeysVersion = usePasskeysVersion();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +65,7 @@ export function PasskeyOffer() {
     return () => {
       active = false;
     };
-  }, [supported, key, userCreatedAt, sessionCreatedAt]);
+  }, [supported, key, userCreatedAt, sessionCreatedAt, passkeysVersion]);
 
   if (!open || !key) return null;
 
@@ -77,6 +84,7 @@ export function PasskeyOffer() {
         return;
       }
       close();
+      passkeysChanged();
     } catch {
       setError(t`Could not reach the server`);
     } finally {

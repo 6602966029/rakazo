@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { authClient } from "../lib/auth";
 import type * as Passkeys from "../lib/passkeys";
-import { usePasskeysSupported } from "../lib/passkeys";
+import { passkeysChanged, usePasskeysSupported } from "../lib/passkeys";
 import { PasskeyOffer } from "./PasskeyOffer";
 
 vi.mock("@lingui/react/macro", () => ({
@@ -139,4 +139,15 @@ it("keeps the offer without an error when the user closes the dialog", async () 
   await act(async () => add?.click());
   expect(offer()).not.toBeNull();
   expect(host.querySelector('[role="alert"]')).toBeNull();
+});
+
+it("closes when a passkey is added elsewhere on the page", async () => {
+  await render();
+  expect(offer()).not.toBeNull();
+  vi.mocked(authClient.passkey.listUserPasskeys).mockResolvedValue({
+    data: [{ id: "passkey-1" }],
+    error: null,
+  } as never);
+  await act(async () => passkeysChanged());
+  expect(offer()).toBeNull();
 });

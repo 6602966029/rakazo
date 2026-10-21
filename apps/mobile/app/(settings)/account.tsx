@@ -118,6 +118,17 @@ export default function Account() {
   const [passkeys, setPasskeys] = useState<MobilePasskey[] | null>(null);
   const [passkeyPending, setPasskeyPending] = useState(false);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
+  const [passkeyLoadError, setPasskeyLoadError] = useState<string | null>(null);
+  // A failed load keeps the section, with Add and a retry, instead of hiding it.
+  const loadPasskeys = useCallback(async () => {
+    setPasskeyLoadError(null);
+    try {
+      setPasskeys(await listPasskeys());
+    } catch (err) {
+      setPasskeys((current) => current ?? []);
+      setPasskeyLoadError(errorText(err, t("Could not continue")));
+    }
+  }, [t]);
   const colorScheme = useResolvedAppearance();
   const [archivedCount, setArchivedCount] = useState(0);
   // A list that fails to refresh keeps its last count, so a passing error doesn't hide the row.
@@ -263,17 +274,17 @@ export default function Account() {
       .catch(() => undefined);
     void passwordResetCapabilities()
       .then(async (capabilities) => {
-        if (await passkeysAvailable(capabilities.passkeyRpId)) setPasskeys(await listPasskeys());
+        if (await passkeysAvailable(capabilities.passkeyRpId)) await loadPasskeys();
       })
       .catch(() => undefined);
-  }, []);
+  }, [loadPasskeys]);
 
   async function passkeyAction(run: () => Promise<unknown>) {
     setPasskeyPending(true);
     setPasskeyError(null);
     try {
       await run();
-      setPasskeys(await listPasskeys());
+      await loadPasskeys();
     } catch (err) {
       setPasskeyError(errorText(err, t("Could not continue")));
     } finally {
@@ -450,6 +461,18 @@ export default function Account() {
               onPress={() => void passkeyAction(addPasskey)}
               title={t("Add passkey")}
             />
+            {passkeyLoadError ? (
+              <>
+                <Text accessibilityRole="alert" style={styles.error}>
+                  {passkeyLoadError}
+                </Text>
+                <SettingsRow
+                  accessibilityRole="button"
+                  onPress={() => void loadPasskeys()}
+                  title={t("Retry")}
+                />
+              </>
+            ) : null}
             {passkeyError ? (
               <Text accessibilityRole="alert" style={styles.error}>
                 {passkeyError}

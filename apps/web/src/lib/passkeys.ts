@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { hostMatchesPasskeyRpId } from "@rakazo/core";
-import { useEffect, useState } from "react";
+import { WebAuthnAbortService } from "@simplewebauthn/browser";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { fetchAuthCapabilities } from "./auth-capabilities";
 import { authErrorText } from "./user-error";
 
@@ -52,6 +53,31 @@ export function usePasskeysSupported(): boolean {
     };
   }, []);
   return supported;
+}
+
+let passkeysVersion = 0;
+const passkeyListeners = new Set<() => void>();
+
+/** Tells every passkey view on the page that the account's passkeys changed. */
+export function passkeysChanged() {
+  passkeysVersion += 1;
+  for (const listener of passkeyListeners) listener();
+}
+
+/** Changes whenever this page adds or removes a passkey, so views can reload their list. */
+export function usePasskeysVersion(): number {
+  return useSyncExternalStore(
+    (listener) => {
+      passkeyListeners.add(listener);
+      return () => passkeyListeners.delete(listener);
+    },
+    () => passkeysVersion,
+  );
+}
+
+/** Cancels a pending WebAuthn request, such as browser autofill, when its view goes away. */
+export function cancelPasskeyRequest() {
+  WebAuthnAbortService.cancelCeremony();
 }
 
 export async function conditionalPasskeyAvailable(): Promise<boolean> {
