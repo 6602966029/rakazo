@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type {
   AdapterContext,
@@ -109,6 +110,51 @@ function withDeadline<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   promise.catch(() => undefined);
   return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }
+/**
+ * A failure the user resolves rather than a bug: `reconnect` needs new credentials or
+ * config (each of which bumps the server's revision), `unreachable` a host that is down
+ * or gone. Both are logged as warnings, so they stay out of error reporting.
+ */
+type ExpectedFailure = "reconnect" | "unreachable";
+const UNREACHABLE_CODES = new Set([
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "UND_ERR_CONNECT_TIMEOUT",
+]);
+
+function expectedFailure(error: unknown, depth = 0): ExpectedFailure | undefined {
+  if (depth > 5 || !(error instanceof Error)) return undefined;
+  if (error instanceof McpConnectFailure) return error.expected;
+  if (error instanceof McpReauthorizationRequiredError || error instanceof UnauthorizedError)
+    return "reconnect";
+  if (error instanceof StreamableHTTPError && (error.code === 401 || error.code === 403))
+    return "reconnect";
+  const code = (error as { code?: unknown }).code;
+  if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return "unreachable";
+  const inner = error instanceof AggregateError ? error.errors : [error.cause];
+  for (const cause of inner) {
+    const kind = expectedFailure(cause, depth + 1);
+    if (kind) return kind;
+  }
+  return undefined;
+}
+
+/** A redacted connect failure that keeps whether it was expected, which its message loses. */
+class McpConnectFailure extends Error {
+  constructor(
+    message: string,
+    readonly expected: ExpectedFailure | undefined,
+  ) {
+    super(message);
+    this.name = "McpConnectFailure";
+  }
+}
+
 /** Whether a check after `since` (by this or another process) found the server working. */
 function recoveredSince(
   server: { healthStatus?: string | null; healthCheckedAt?: Date | null },
@@ -427,7 +473,13 @@ export class McpConnector implements ConnectorProvider {
             ? "it is still installing its package; its tools will be available on a later turn"
             : sanitizeConnectorError(error, secrets);
           // A single unavailable server must not hide tools from other connectors.
-          getLogger().error(`mcp discovery failed for server ${assignment.server.slug}:`, reason);
+          const expected = expectedFailure(error);
+          if (expected)
+            getLogger().warn(`mcp discovery failed for server ${assignment.server.slug}`, {
+              reason,
+            });
+          else
+            getLogger().error(`mcp discovery failed for server ${assignment.server.slug}:`, reason);
           await this.evict(key);
           this.unavailable.set(key, reason);
           // A cancelled run says nothing about the server, and an install that outlived the
@@ -442,7 +494,9 @@ export class McpConnector implements ConnectorProvider {
             this.discoveryBackoff.set(key, {
               revision: server.revision,
               since: Date.now(),
-              until: Date.now() + delayMs,
+              // Retrying cannot fix missing or expired credentials; reconnecting or editing
+              // the server bumps its revision, and Test connection records a recovery.
+              until: expected === "reconnect" ? Number.POSITIVE_INFINITY : Date.now() + delayMs,
               delayMs,
               reason,
             });
@@ -1103,8 +1157,9 @@ export class McpConnector implements ConnectorProvider {
       // cover only whoever looked first.
       if (!material) throw error;
       if (error instanceof McpReauthorizationRequiredError) throw error;
-      throw new Error(
+      throw new McpConnectFailure(
         sanitizeConnectorError(error, [...oauthMaterialSecrets(material), ...launchSecrets]),
+        expectedFailure(error),
       );
     }
   }
