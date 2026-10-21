@@ -1,6 +1,5 @@
 export const RU_MESSAGES: Record<string, string> = {
-  "Add a model": "Добавьте модель",
-  "Add an AI model to keep chatting.": "Добавьте ИИ-модель, чтобы продолжить общение.",
+  "Add an AI model to keep chatting": "Добавьте ИИ-модель, чтобы продолжить общение",
   "Not Now": "Не сейчас",
   "Add Model": "Добавить модель",
 

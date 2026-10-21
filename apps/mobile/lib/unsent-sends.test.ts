@@ -25,8 +25,8 @@ describe("notDelivered", () => {
   it("offers Models settings and cancellation for the missing-model rejection", () => {
     notDelivered(attempt(` ${MODEL_REQUIRED_SEND_ERROR} `));
     const [title, message, buttons] = vi.mocked(Alert.alert).mock.calls[0]!;
-    expect(title).toBe("translated: Add a model");
-    expect(message).toBe("translated: Add an AI model to keep chatting.");
+    expect(title).toBe("translated: Add an AI model to keep chatting");
+    expect(message).toBeUndefined();
     expect(buttons).toEqual([
       { text: "translated: Not Now", style: "cancel" },
       { text: "translated: Add Model", onPress: expect.any(Function), isPreferred: true },

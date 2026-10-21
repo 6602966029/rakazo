@@ -38,7 +38,8 @@ export function FailedSendBubble({
       ...(retryable ? [{ text: t("Try Again"), onPress: onRetry }] : []),
       { text: t("Delete"), style: "destructive" as const, onPress: onDelete },
     ];
-    const message = modelRequired ? t("Add an AI model to keep chatting.") : attempt.error;
+    // No header for the missing-model sheet: the Add Model action already says it.
+    const message = modelRequired ? undefined : attempt.error;
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
