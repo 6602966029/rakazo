@@ -99,6 +99,8 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   const teamComputer = settings.getByRole("button", { name: "Team" });
   const openWork = settings.getByTestId("bot-scratchpad");
   await expect(teamComputer).toBeHidden();
+  await expect(settings.getByRole("switch", { name: "Read replies aloud" })).toBeHidden();
+  await expect(settings.getByRole("switch", { name: "Manage the bots it creates" })).toBeHidden();
   await expect(modelSelect).toBeHidden();
   await expect(openWork).toBeHidden();
   await expect(settings.getByRole("button", { name: "Save", exact: true })).toBeVisible();
@@ -117,6 +119,8 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(settings.getByRole("switch", { name: "web_search" })).toBeChecked();
   await captureScreenshot(page, testInfo, "27c-disabled-builtin-tools");
   await expect(teamComputer).toBeVisible();
+  await expect(settings.getByRole("switch", { name: "Read replies aloud" })).toBeVisible();
+  await expect(settings.getByRole("switch", { name: "Manage the bots it creates" })).toBeVisible();
   await expect(openWork).toBeVisible();
   await expect(modelSelect).toBeVisible();
   await expect(modelSelect).toContainText("Space default");

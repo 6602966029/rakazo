@@ -1,7 +1,7 @@
 import { MenuView } from "@expo/ui/community/menu";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { native, useResolvedAppearance, useThemedStyles } from "../lib/native";
+import { native, useMobileTokens, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import { NativeSymbol } from "./native-symbol";
 import { Chevron } from "./row-accessories";
 
@@ -53,6 +53,7 @@ export function MenuPicker({
   onChange,
   onPress,
   divider = false,
+  plain = false,
 }: {
   label: string;
   choices: readonly MenuPickerChoice[];
@@ -60,8 +61,11 @@ export function MenuPicker({
   onChange: (key: string) => void;
   onPress?: () => void;
   divider?: boolean;
+  plain?: boolean;
 }) {
   const styles = useThemedStyles(createStyles);
+  const tokens = useMobileTokens();
+  const rowStyle = [styles.row, plain && { paddingHorizontal: 0, minHeight: 44 }];
   const current = choices.find((choice) => choice.key === value)?.label ?? choices[0]?.label ?? "";
   const row = {
     accessibilityLabel: label,
@@ -71,8 +75,13 @@ export function MenuPicker({
   } as const;
   const content = (
     <>
-      <Text style={styles.label}>{label}</Text>
-      <Text numberOfLines={1} style={styles.value}>
+      <Text style={[styles.label, plain && { color: tokens.mutedForeground, fontSize: 14 }]}>
+        {label}
+      </Text>
+      <Text
+        numberOfLines={1}
+        style={[styles.value, plain && { color: tokens.foreground, fontSize: 14 }]}
+      >
         {current}
       </Text>
       {onPress ? (
@@ -92,7 +101,7 @@ export function MenuPicker({
       <Pressable
         {...row}
         onPress={onPress}
-        style={({ pressed }) => [styles.row, divider && styles.divider, pressed && styles.pressed]}
+        style={({ pressed }) => [rowStyle, divider && styles.divider, pressed && styles.pressed]}
       >
         {content}
       </Pressable>
@@ -100,7 +109,7 @@ export function MenuPicker({
   }
   const menu = (
     <MenuPickerMenu choices={choices} label={label} onChange={onChange} value={value}>
-      <View {...row} style={styles.row}>
+      <View {...row} style={rowStyle}>
         {content}
       </View>
     </MenuPickerMenu>

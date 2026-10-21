@@ -3,6 +3,7 @@
 import { i18n } from "@lingui/core";
 import { ORPCError } from "@orpc/client";
 import type { Bot } from "@rakazo/contracts";
+import { BOT_SETTINGS_ADVANCED_ORDER } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import type { Root } from "react-dom/client";
@@ -191,6 +192,45 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   vi.unstubAllGlobals();
+});
+
+it("keeps advanced controls inside details in the shared order", async () => {
+  vi.mocked(rpc.voice.voices).mockResolvedValueOnce([
+    { id: "fixture-voice", label: "Fixture voice" },
+  ]);
+  await render();
+  const advanced = container.querySelector<HTMLDetailsElement>(
+    '[data-testid="bot-settings-advanced"]',
+  )!;
+  expect(advanced.open).toBe(false);
+  const labels = {
+    instructions: "Instructions",
+    computer: "Computer",
+    model: "Model",
+    readAloud: "Read replies aloud",
+    voice: "Voice",
+    fleetManagement: "Manage the bots it creates",
+    disabledTools: "Disabled tools",
+  };
+  const controls = [...container.querySelectorAll("div, span, label")].filter((node) =>
+    [...node.childNodes].some(
+      (child) =>
+        child.nodeType === Node.TEXT_NODE &&
+        Object.values(labels).some((label) => child.textContent === label),
+    ),
+  );
+  expect(controls).toHaveLength(Object.keys(labels).length);
+  for (const control of controls) expect(control.closest("details")).toBe(advanced);
+  expect(
+    controls.map(
+      (node) =>
+        Object.entries(labels).find(([, label]) =>
+          [...node.childNodes].some(
+            (child) => child.nodeType === Node.TEXT_NODE && child.textContent === label,
+          ),
+        )![0],
+    ),
+  ).toEqual(BOT_SETTINGS_ADVANCED_ORDER.filter((key) => key in labels));
 });
 
 describe("BotSettings model choices", () => {

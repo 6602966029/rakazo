@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { BOT_SETTINGS_ADVANCED_ORDER } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act, createElement, useEffect } from "react";
 import type { Root } from "react-dom/client";
@@ -45,7 +46,8 @@ vi.mock("./voice", () => ({ stopVoicePlayback: mocks.stopVoicePlayback }));
 vi.mock("expo-speech", () => ({ stop: mocks.stop, speak: mocks.speak }));
 vi.mock("./api", () => ({
   rpc: async (procedure: string, input?: unknown) => {
-    if (procedure === "bots/update") return mocks.rpc(procedure, input);
+    if (procedure === "bots/update" || procedure === "bots/setComputer")
+      return mocks.rpc(procedure, input);
     if (procedure === "bots/get")
       return {
         id: "bot-fixture",
@@ -142,7 +144,22 @@ vi.mock("./bot-avatar-edit", () => ({
   withAvatarColor: (_value: string, color: string) => color,
   withAvatarShape: (value: string) => value,
 }));
-vi.mock("../components/computer-mode-picker", () => ({ ComputerModePicker: () => null }));
+vi.mock("../components/native-segmented-control", () => ({
+  NativeSegmentedControl: ({
+    options,
+    onChange,
+  }: {
+    options: { value: string; label: string }[];
+    onChange: (value: string) => void;
+  }) =>
+    options.map((option) =>
+      createElement(
+        "button",
+        { type: "button", key: option.value, onClick: () => onChange(option.value) },
+        option.label,
+      ),
+    ),
+}));
 vi.mock("../components/native-action-button", () => ({
   NativeActionButton: ({ label, onPress }: { label: string; onPress: () => void }) =>
     createElement("button", { type: "button", onClick: onPress }, label),
@@ -221,8 +238,77 @@ describe("bot settings device voice menu", () => {
     act(() => root.unmount());
     vi.unstubAllGlobals();
   });
-  const render = async () => act(async () => root.render(<BotSettingsScreen />));
+  const expand = async () =>
+    act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Advanced"]')!.click());
+  const render = async () => {
+    await act(async () => root.render(<BotSettingsScreen />));
+    await expand();
+  };
   const menu = () => container.querySelector('[data-menu="Device voice"]');
+
+  it("hides advanced controls until expanded and follows the shared order", async () => {
+    await act(async () => root.render(<BotSettingsScreen />));
+    for (const label of [
+      "Computer",
+      "Read replies aloud",
+      "Device voice",
+      "Manage the bots it creates",
+    ]) {
+      expect(container.textContent).not.toContain(label);
+    }
+    await expand();
+    const labels = {
+      instructions: "Instructions",
+      computer: "Computer",
+      model: "Model",
+      readAloud: "Read replies aloud",
+      voice: "Device voice",
+      fleetManagement: "Manage the bots it creates",
+    };
+    const actual = [...container.querySelectorAll("span")].flatMap((span) =>
+      Object.entries(labels)
+        .filter(([, label]) => label === span.textContent)
+        .map(([key]) => key),
+    );
+    expect(actual).toEqual(BOT_SETTINGS_ADVANCED_ORDER.filter((key) => key in labels));
+    for (const label of Object.values(labels)) {
+      const span = [...container.querySelectorAll("span")].find(
+        (span) => span.textContent === label,
+      )!;
+      const style = JSON.parse(span.dataset.style!);
+      const resolved = Object.assign({}, ...[style].flat(Infinity).filter(Boolean));
+      expect(resolved).toMatchObject({ color: "muted", fontSize: 14 });
+    }
+
+    await expand();
+    expect(container.textContent).not.toContain("Read replies aloud");
+  });
+
+  it("saves read aloud and computer mode after expanding Advanced", async () => {
+    mocks.rpc.mockResolvedValue(undefined);
+    await render();
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Read replies aloud"]')!.click(),
+    );
+    await act(async () =>
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Private")!
+        .click(),
+    );
+    await act(async () =>
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Save")!
+        .click(),
+    );
+    expect(mocks.rpc).toHaveBeenCalledWith("bots/setComputer", {
+      botId: "bot-fixture",
+      mode: "dedicated",
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "bots/update",
+      expect.objectContaining({ botId: "bot-fixture", autoSpeak: true }),
+    );
+  });
 
   it("shows fleet help in a native alert from an accessible button", async () => {
     await render();
@@ -296,7 +382,7 @@ describe("bot settings device voice menu", () => {
     const row = label("Device voice").parentElement!;
     expect(row.lastElementChild).toBe(menu());
     expect(JSON.parse(row.dataset.style!)).toEqual(
-      JSON.parse(label("Read replies aloud").parentElement!.dataset.style!)[0],
+      JSON.parse(label("Read replies aloud").parentElement!.dataset.style!),
     );
     expect(menu()!.contains(label("Device voice"))).toBe(false);
     const trigger = menu()!.firstElementChild!;
@@ -395,7 +481,11 @@ describe("bot settings device voice menu", () => {
       expect(label.parentElement!.lastElementChild!.getAttribute("data-style")).toContain(
         '"textAlign":"right"',
       );
-      expect(container.querySelector('i[data-ios="chevron.up.chevron.down"]')).toBeNull();
+      expect(
+        [...container.querySelectorAll("span")]
+          .find((span) => span.textContent === "Device voice")!
+          .parentElement!.querySelector('i[data-ios="chevron.up.chevron.down"]'),
+      ).toBeNull();
     },
   );
 
@@ -403,7 +493,11 @@ describe("bot settings device voice menu", () => {
     mocks.deviceVoices.mockRejectedValueOnce(new Error("Load failed"));
     await render();
     expect(menu()).toBeNull();
-    expect(container.querySelector('i[data-ios="chevron.up.chevron.down"]')).toBeNull();
+    expect(
+      [...container.querySelectorAll("span")]
+        .find((span) => span.textContent === "Device voice")!
+        .parentElement!.querySelector('i[data-ios="chevron.up.chevron.down"]'),
+    ).toBeNull();
     const retry = () =>
       [...container.querySelectorAll("button")].find((item) =>
         item.textContent?.includes("Could not load voices"),

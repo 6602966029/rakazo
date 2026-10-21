@@ -10,6 +10,7 @@ import type {
   VoiceInfo,
 } from "@rakazo/contracts";
 import {
+  BOT_COMPUTER_MODES,
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
   BOT_TITLE_MAX_LENGTH,
@@ -73,7 +74,7 @@ function ComputerModePicker({
         <Trans>Computer</Trans>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
-        {(["team", "dedicated"] as const).map((mode) => (
+        {BOT_COMPUTER_MODES.map((mode) => (
           <Toggle
             key={mode}
             variant="outline"
@@ -582,18 +583,6 @@ export function BotSettings({
         </summary>
         <InstructionSettings key={bot.id} bot={bot} />
         <ComputerModePicker value={computerMode} onChange={setComputerMode} />
-        <ErrorBoundary fallback={<SectionLoadFailed />}>
-          <Suspense fallback={null}>
-            <ScratchpadSection botId={bot.id} />
-          </Suspense>
-        </ErrorBoundary>
-        {advancedOpened ? (
-          <ErrorBoundary fallback={<SectionLoadFailed />}>
-            <Suspense fallback={null}>
-              <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
-            </Suspense>
-          </ErrorBoundary>
-        ) : null}
         <label htmlFor={`${ids}-model`} className={fieldLabelClass}>
           <Trans>Model</Trans>
           <ChatModelPicker
@@ -653,6 +642,18 @@ export function BotSettings({
             </div>
           </div>
         ) : null}
+        <ErrorBoundary fallback={<SectionLoadFailed />}>
+          <Suspense fallback={null}>
+            <ScratchpadSection botId={bot.id} />
+          </Suspense>
+        </ErrorBoundary>
+        {advancedOpened ? (
+          <ErrorBoundary fallback={<SectionLoadFailed />}>
+            <Suspense fallback={null}>
+              <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
+            </Suspense>
+          </ErrorBoundary>
+        ) : null}
         <label
           htmlFor={`${ids}-auto-speak`}
           className="mt-5 flex cursor-pointer items-center justify-between gap-3 text-[14px] text-muted-foreground"
@@ -666,6 +667,24 @@ export function BotSettings({
             onCheckedChange={(checked) => setAutoSpeak(checked)}
           />
         </label>
+        {voices.length ? (
+          <label htmlFor={`${ids}-voice`} className={fieldLabelClass}>
+            <Trans>Voice</Trans>
+            <NativeSelect
+              id={`${ids}-voice`}
+              className="mt-2 w-full"
+              value={voiceId}
+              onChange={(event) => setVoiceId(event.target.value)}
+            >
+              <NativeSelectOption value="">{t`Account default`}</NativeSelectOption>
+              {voices.map((voice) => (
+                <NativeSelectOption key={voice.id} value={voice.id}>
+                  {voice.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </label>
+        ) : null}
         <div className="mt-5 flex items-center justify-between gap-3 text-[14px] text-muted-foreground">
           <div className="flex items-center gap-1">
             <label htmlFor={`${ids}-fleet-management`}>
@@ -685,24 +704,6 @@ export function BotSettings({
             }}
           />
         </div>
-        {voices.length ? (
-          <label htmlFor={`${ids}-voice`} className={fieldLabelClass}>
-            <Trans>Voice</Trans>
-            <NativeSelect
-              id={`${ids}-voice`}
-              className="mt-2 w-full"
-              value={voiceId}
-              onChange={(event) => setVoiceId(event.target.value)}
-            >
-              <NativeSelectOption value="">{t`Account default`}</NativeSelectOption>
-              {voices.map((voice) => (
-                <NativeSelectOption key={voice.id} value={voice.id}>
-                  {voice.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </label>
-        ) : null}
         <label htmlFor={`${ids}-disabled-tools`} className={fieldLabelClass}>
           <Trans>Disabled tools</Trans>
           <Input
