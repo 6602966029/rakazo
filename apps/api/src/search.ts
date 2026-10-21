@@ -6,7 +6,7 @@ import {
   snippetAroundMatch,
 } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
-import { contentEncryptionOf, Prisma } from "@rakazo/db";
+import { contentEncryptionOf, INDEXED_MESSAGE, Prisma, UNINDEXED_MESSAGE } from "@rakazo/db";
 
 const SEARCH_LIMIT = 25;
 /** Cap name matches so content hits (messages/files/links/routines) keep most of the budget. */
@@ -24,18 +24,19 @@ async function messageMatch(prisma: PrismaClient, spaceId: string, query: string
   const plaintext = Prisma.sql`m.blocks::text ILIKE ${`%${query}%`}`;
   const encryption = contentEncryptionOf(prisma);
   if (!encryption) return { sql: plaintext, limit: SEARCH_LIMIT, pages: 1 };
-  const tokenSets = (await encryption.messageSearchTokens(spaceId, query, "prefix")).filter(
-    (tokens) => tokens.length,
-  );
+  const keyTokens = await encryption.messageSearchTokens(spaceId, query, "prefix");
+  // No keys: nothing in the space was ever encrypted (encryption off from the start).
+  if (!keyTokens.length) return { sql: plaintext, limit: SEARCH_LIMIT, pages: 1 };
+  const tokenSets = keyTokens.filter((tokens) => tokens.length);
   if (!tokenSets.length)
     return {
-      sql: Prisma.sql`(m."searchTokens" IS NOT NULL OR ${plaintext})`,
+      sql: Prisma.sql`(${INDEXED_MESSAGE} OR ${plaintext})`,
       limit: UNINDEXED_SCAN_LIMIT,
       pages: 1,
     };
   const encrypted = tokenSets.map((tokens) => Prisma.sql`m."searchTokens" @> ${tokens}::int[]`);
   return {
-    sql: Prisma.sql`(${Prisma.join([...encrypted, Prisma.sql`(m."searchTokens" IS NULL AND ${plaintext})`], " OR ")})`,
+    sql: Prisma.sql`(${Prisma.join([...encrypted, Prisma.sql`(${UNINDEXED_MESSAGE} AND ${plaintext})`], " OR ")})`,
     limit: SEARCH_LIMIT * 4,
     // Candidates can share the query's words without containing the phrase, so
     // keep fetching until results fill or candidates run out, within a bound.

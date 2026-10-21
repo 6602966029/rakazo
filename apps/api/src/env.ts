@@ -13,6 +13,7 @@ import type { OidcConfig } from "@rakazo/auth";
 import {
   phoneCallSettings,
   resolveAuthSecret,
+  resolveContentEncryption,
   resolveEncryptionKey,
   resolveScreenProxySecret,
   resolveSupervisorToken,
@@ -48,6 +49,8 @@ export interface AppEnv {
   signupsEnabled: string | undefined;
   signupAllowlist: string | undefined;
   encryptionKey: string;
+  /** CONTENT_ENCRYPTION: whether new content is encrypted at rest. */
+  contentEncryption: boolean;
   dataDir: string;
   /** Opt-in Pi JSONL session recording under DATA_DIR/pi-sessions. Default off. */
   piSessionRecording: boolean;
@@ -214,6 +217,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     signupsEnabled: source.SIGNUPS_ENABLED,
     signupAllowlist: source.SIGNUP_ALLOWLIST,
     encryptionKey: resolveEncryptionKey(source),
+    contentEncryption: resolveContentEncryption(source),
     dataDir: source.DATA_DIR ?? "./data",
     piSessionRecording: source.PI_SESSION_RECORDING === "true",
     ticketBoardEnabled: source.TICKET_BOARD_ENABLED === "true",
