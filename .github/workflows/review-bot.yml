@@ -1,15 +1,18 @@
 name: Review bot
 
-# Greptile reviews PRs by default. Setting the CODERABBIT_UNTIL repository
-# variable to a date (YYYY-MM-DD, e.g. when Greptile credits reset) hands new
-# PRs to CodeRabbit until that day by labeling them review:coderabbit, which
-# opts CodeRabbit in (.coderabbit.yaml) and Greptile out (greptile.json).
+# Greptile reviews PRs by default. A PR labeled review:coderabbit goes to
+# CodeRabbit instead (.coderabbit.yaml opts it in, greptile.json opts it out).
+# The label is added when Greptile replies that it can no longer review, or,
+# while the CODERABBIT_UNTIL repository variable holds a later date
+# (YYYY-MM-DD), to every new PR.
 #
-# pull_request_target so fork PRs can be labeled too; this job never checks
-# out or runs PR code.
+# pull_request_target so fork PRs can be labeled on open; this workflow never
+# checks out or runs PR code.
 on:
   pull_request_target:
     types: [opened, reopened]
+  pull_request_review:
+    types: [submitted]
 
 permissions: {}
 
@@ -17,7 +20,10 @@ jobs:
   label:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: vars.CODERABBIT_UNTIL != ''
+    if: >-
+      (github.event_name == 'pull_request_target' && vars.CODERABBIT_UNTIL != '') ||
+      (github.event.review.user.login == 'greptile-apps[bot]' &&
+        contains(github.event.review.body, 'Reactivate Greptile'))
     permissions:
       issues: write
       pull-requests: write
@@ -27,8 +33,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          EVENT: ${{ github.event_name }}
           UNTIL: ${{ vars.CODERABBIT_UNTIL }}
         run: |
-          if [[ "$(date -u +%F)" < "$UNTIL" ]]; then
+          if [[ "$EVENT" == pull_request_review || "$(date -u +%F)" < "$UNTIL" ]]; then
             gh api "repos/$REPO/issues/$PR/labels" -f "labels[]=review:coderabbit" --silent
           fi
