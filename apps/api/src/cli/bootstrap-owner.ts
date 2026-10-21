@@ -31,6 +31,7 @@ try {
       webOrigin: baseURL,
       signupsEnabled: "true",
       signupAllowlist: "",
+      breachedPasswordCheck: process.env.AUTH_BREACHED_PASSWORD_CHECK_ENABLED === "true",
     });
     const existing = await prisma.user.findUnique({ where: { email } });
     // A failed first boot may have created the account before its owner claim.
