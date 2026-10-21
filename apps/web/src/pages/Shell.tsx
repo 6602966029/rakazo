@@ -48,6 +48,7 @@ import {
   isActive,
   isPeerReceiptBlocks,
   isRunTerminalEvent,
+  isRunWorking,
   isToolActivityBlock,
   MODEL_REQUIRED_SEND_ERROR,
   mentionChipKey,
@@ -2041,9 +2042,7 @@ function SpaceShell() {
     () => dismissableAskMessageIds(activeSnapshot, userId),
     [activeSnapshot, userId],
   );
-  const workingRuns = currentRuns.filter((run) =>
-    ["running", "queued", "leased"].includes(run.status),
-  );
+  const workingRuns = currentRuns.filter((run) => isRunWorking(run.status));
   const transcriptRunning = workingRuns.length > 0;
   const composerRunning = currentRuns.some((run) => isActive(run.status));
   const runError = threadRunError(activeSnapshot, dismissedRunErrorIds);
