@@ -1059,7 +1059,11 @@ The guard does not protect arbitrary direct `ufw` commands or SSH daemon configu
 To deploy from CI, install `infra/compose/deploy-main.sh` as `/usr/local/sbin/rakazo-deploy-main`
 and give CI a key restricted to it in the deploy user's `authorized_keys`
 (`restrict,command="/usr/local/sbin/rakazo-deploy-main" ssh-ed25519 …`). It builds `origin/main`,
-restarts the stack, waits for `https://$RAKAZO_HOST/health`, and rolls back on failure. Build and
+starts each new API and web container beside the running one and stops the old one only once the
+new one is healthy, so a deploy does not take the site offline, then waits for
+`https://$RAKAZO_HOST/health` and rolls back on failure. Old and new API containers serve together
+for a few seconds after migrations run, so a migration must keep working with the previous
+release: add first, and drop or rename only in a later deploy. Build and
 start are time-limited so a stuck build fails the deploy instead of holding its lock; a deploy that
 finds the lock held exits non-zero. A deploy refuses to start with less than
 `RAKAZO_DEPLOY_MIN_FREE_GB` (default `5`) free, and after a healthy rollout it removes untagged
