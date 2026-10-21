@@ -187,20 +187,6 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(botList.getByRole("button", { name: /^Chief/ })).toBeVisible();
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
   await captureScreenshot(page, testInfo, "31-deleted-bot-fallback");
-});
-
-test("bot management switch persists and settings help is accessible", async ({
-  page,
-}, testInfo) => {
-  await signup(
-    page,
-    `fleet-management-${Date.now()}@rakazo.test`,
-    "password12",
-    "Fleet Management",
-  );
-  await completeOnboarding(page);
-  await page.goto("/app");
-  await page.waitForURL(/\/app\/[^/]+$/);
 
   const openAdvanced = async () => {
     await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();

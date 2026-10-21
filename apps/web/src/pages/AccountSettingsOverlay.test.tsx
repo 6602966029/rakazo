@@ -114,7 +114,7 @@ import {
 } from "../lib/composer-enter-to-send-pref";
 import { getRemoteImagesEnabled } from "../lib/remote-images-preference";
 import { TOOL_ACTIVITY_STORAGE_KEY } from "../lib/tool-activity-preference";
-import { GeneralSettingsPanels } from "./AccountSettingsOverlay";
+import { GeneralSettingsPanels, UsageSettingsPanel } from "./AccountSettingsOverlay";
 
 afterEach(() => {
   localStorage.clear();
@@ -255,6 +255,26 @@ it("updates the Enter preference from Settings and reflects external changes", a
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     await act(async () => setComposerEnterToSend(true));
     expect(toggle.getAttribute("aria-checked")).toBe("true");
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  }
+});
+
+it.each([
+  [201, "2 runs · 201 tokens"],
+  [null, "2 runs · — tokens"],
+])("shows usage totals (%s)", async (totalTokens, expected) => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(
+        <UsageSettingsPanel usage={{ runs: 2, inputTokens: 10, outputTokens: 1, totalTokens }} />,
+      ),
+    );
+    expect(container.textContent).toContain(expected);
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();
