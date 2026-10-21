@@ -125,25 +125,60 @@ describe("keyboard layout recovery", () => {
     expect(layout.offset).toBe(92);
     expect(measured).toHaveBeenCalledTimes(41);
   });
-  it("refreshes foreground coordinates and stops when backgrounded or unfocused", async () => {
-    layout.container.current = view(88, 712);
+  it("remeasures on app state changes, refreshes only in foreground, and stops when unfocused", async () => {
+    const measured = vi.fn((callback: (...values: number[]) => void) => callback(0, 88, 400, 712));
+    layout.container.current = { measureInWindow: measured } as unknown as View;
     await act(async () => vi.advanceTimersByTimeAsync(350));
     expect(layout.offset).toBe(88);
-    layout.container.current = view(96, 704);
+    expect(measured).toHaveBeenCalledTimes(1);
+    measured.mockImplementation((callback) => callback(0, 96, 400, 704));
     await act(async () => vi.advanceTimersByTimeAsync(5_000));
     expect(layout.offset).toBe(96);
-    native.appState = "background";
-    layout.container.current = view(100, 700);
+    expect(measured).toHaveBeenCalledTimes(2);
+
+    measured.mockImplementation((callback) => callback(0, 100, 400, 700));
+    await act(async () => {
+      native.appState = "background";
+      native.listeners.get("app")?.(native.appState);
+    });
+    expect(layout.offset).toBe(100);
+    expect(measured).toHaveBeenCalledTimes(3);
+    measured.mockImplementation((callback) => callback(0, 104, 400, 696));
+    await act(async () => vi.advanceTimersByTimeAsync(349));
+    expect(measured).toHaveBeenCalledTimes(3);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(layout.offset).toBe(104);
+    expect(measured).toHaveBeenCalledTimes(4);
     await act(async () => vi.advanceTimersByTimeAsync(5_000));
-    expect(layout.offset).toBe(96);
-    native.appState = "active";
+    expect(measured).toHaveBeenCalledTimes(4);
+
+    measured.mockImplementation((callback) => callback(0, 108, 400, 692));
+    await act(async () => {
+      native.appState = "active";
+      native.listeners.get("app")?.(native.appState);
+    });
+    expect(layout.offset).toBe(108);
+    expect(measured).toHaveBeenCalledTimes(5);
+    measured.mockImplementation((callback) => callback(0, 112, 400, 688));
+    await act(async () => vi.advanceTimersByTimeAsync(349));
+    expect(measured).toHaveBeenCalledTimes(5);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(layout.offset).toBe(112);
+    expect(measured).toHaveBeenCalledTimes(6);
+
+    // Unfocusing also cancels a pending app-state re-check.
+    await act(async () => native.listeners.get("app")?.(native.appState));
+    expect(measured).toHaveBeenCalledTimes(7);
     native.focused = false;
     await act(async () => root.render(createElement(Harness)));
+    measured.mockImplementation((callback) => callback(0, 116, 400, 684));
     await act(async () => vi.advanceTimersByTimeAsync(5_000));
-    expect(layout.offset).toBe(96);
+    expect(layout.offset).toBe(112);
+    expect(measured).toHaveBeenCalledTimes(7);
     native.focused = true;
     await act(async () => root.render(createElement(Harness)));
-    expect(layout.offset).toBe(100);
+    expect(layout.offset).toBe(116);
+    expect(measured).toHaveBeenCalledTimes(8);
   });
   it("keeps a known offset when native measurement stalls and recovers on the next focus", async () => {
     layout.container.current = view(88, 712);
