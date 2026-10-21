@@ -297,7 +297,7 @@ import { listRoutineRuns } from "./routine-runs.js";
 import { listSpaceRuns } from "./runs.js";
 import { addScreenProxyCapability } from "./screen-proxy.js";
 import { querySpaceSearch } from "./search.js";
-import { procedureSecurityEvent } from "./security-audit.js";
+import { connectionCreatedEvent, procedureSecurityEvent } from "./security-audit.js";
 import { withSerializableRetry } from "./serializable-retry.js";
 import type { UpdaterProxyConfig } from "./server-update.js";
 import {
@@ -5331,6 +5331,11 @@ export function createRouter(deps: RouterDeps) {
             });
             return updated.count > 0;
           });
+          if (applied && !auth.authorizationUrl) {
+            await recordSecurityEvent(
+              connectionCreatedEvent("connections.begin", row.id, context.actor),
+            );
+          }
           if (!applied) {
             // Revoke won the race. Clean up without a provider-wide slug delete.
             const state = auth.state?.trim();
@@ -5478,6 +5483,7 @@ export function createRouter(deps: RouterDeps) {
         if (!transactionConnector)
           throw new ORPCError("BAD_REQUEST", { message: "Integration provider is not configured" });
         let row = existing;
+        let connectedNow = false;
         if (existing.status !== "connected") {
           // Hold the provider lock across remote completion, account-id resolution,
           // providerRef persistence, and any overlapping revokeUnreferenced cleanup
@@ -5610,8 +5616,11 @@ export function createRouter(deps: RouterDeps) {
                     },
                   );
                   await restoreRevokedForRetry();
+                  throw new IsolationError();
                 }
-                throw new IsolationError();
+                // A newer attempt or a removal superseded this one. Report it so the
+                // caller stops polling instead of retrying an error.
+                return current;
               }
 
               const adapterContext = connectionContext(
@@ -5750,6 +5759,7 @@ export function createRouter(deps: RouterDeps) {
                   return current;
                 }
               }
+              connectedNow = true;
               return tx.connection.update({
                 where: { id: current.id },
                 data: {
@@ -5759,6 +5769,12 @@ export function createRouter(deps: RouterDeps) {
               });
             },
             { timeout: 60_000 },
+          );
+        }
+        // Clients poll this procedure, so it records the credential once, on the transition.
+        if (connectedNow) {
+          await recordSecurityEvent(
+            connectionCreatedEvent("connections.complete", row.id, context.actor),
           );
         }
         return {

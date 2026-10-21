@@ -1,6 +1,7 @@
 import { ORPCError, onError, os } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { SandboxRateLimitError } from "@rakazo/adapter-kit";
+import { IsolationError } from "@rakazo/db";
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterEach, describe, expect, it } from "vitest";
 import { handleRpcError, logUnexpectedRpcError } from "./app.js";
@@ -84,5 +85,31 @@ describe("logUnexpectedRpcError", () => {
 
     expect(response?.status).toBe(429);
     expect(await response?.text()).toContain("Too many computer requests. Try again later.");
+  });
+
+  it("sends a missing or foreign resource to the client as HTTP 404", async () => {
+    installLogger(createLogger({ service: "rakazo-api", sinks: [createTestSink()] }));
+    const router = {
+      read: os.handler(() => {
+        throw new IsolationError();
+      }),
+    };
+    const rpc = new RPCHandler(router, {
+      clientInterceptors: [onError((error, { path }) => handleRpcError(error, path))],
+    });
+
+    const { response } = await rpc.handle(
+      new Request("http://localhost/rpc/read", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+      { prefix: "/rpc", context: {} },
+    );
+
+    expect(response?.status).toBe(404);
+    expect(await response?.json()).toMatchObject({
+      json: { code: "NOT_FOUND", message: "Resource not found" },
+    });
   });
 });

@@ -2329,6 +2329,122 @@ describe("connections.complete", () => {
     );
     expect(connectionReady).toHaveBeenCalled();
   });
+
+  afterEach(() => {
+    installLogger(createLogger({ service: "rakazo-api", level: "off", sinks: [] }));
+  });
+
+  function pollFixture(status: string) {
+    const row = {
+      id: "conn-1",
+      spaceId: "workspace-1",
+      userId: "user-1",
+      connectorId: "composio",
+      provider: "gmail",
+      displayName: "Gmail",
+      providerRef: "gmail",
+      status,
+      createdAt: new Date("2026-08-26T00:00:00.000Z"),
+    };
+    const connection = {
+      findFirst: vi.fn(async ({ where }: { where: { id: string } }) =>
+        where.id === row.id ? { ...row } : null,
+      ),
+      findMany: vi.fn(async () => []),
+      update: vi.fn(async ({ data }: { data: Partial<typeof row> }) => {
+        Object.assign(row, data);
+        return { ...row };
+      }),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+    };
+    const client = { connection, $executeRaw: vi.fn(async () => undefined) };
+    const prisma = {
+      ...client,
+      $transaction: vi.fn(async (fn: (tx: typeof client) => Promise<unknown>) => fn(client)),
+    } as unknown as PrismaClient;
+    const connector = {
+      complete: vi.fn(),
+      revoke: vi.fn(),
+      connectionReady: vi.fn(async () => true),
+    };
+    const handler = new RPCHandler(
+      createRouter({
+        prisma,
+        connectors: { managed: () => connector },
+        env: {
+          defaultProvider: "fake",
+          defaultModel: "fake-model",
+          webOrigin: "http://127.0.0.1:5173",
+          screenProxySecret: "fake-test-secret",
+          sandboxProvider: "fake",
+        },
+      } as unknown as RouterDeps),
+    );
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
+    async function complete(connectionId = row.id) {
+      const { response } = await handler.handle(
+        new Request("http://127.0.0.1/rpc/connections/complete", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ json: { connectionId } }),
+        }),
+        {
+          prefix: "/rpc",
+          context: {
+            actor: {
+              spaceId: "workspace-1",
+              userId: "user-1",
+              email: "user@rakazo.test",
+              isDeploymentOwner: true,
+            },
+          },
+        },
+      );
+      return { status: response.status, body: await response.json() };
+    }
+    const securityEvents = () => sink.events.filter((event) => event.message === "security.event");
+    return { complete, connector, securityEvents };
+  }
+
+  it("reports a superseded connection as revoked instead of failing", async () => {
+    const { complete, connector, securityEvents } = pollFixture("revoked");
+
+    await expect(complete()).resolves.toMatchObject({
+      status: 200,
+      body: { json: { id: "conn-1", status: "revoked" } },
+    });
+    expect(connector.connectionReady).not.toHaveBeenCalled();
+    expect(securityEvents()).toEqual([]);
+  });
+
+  it("records one credential event per connection, not per poll", async () => {
+    const { complete, securityEvents } = pollFixture("pending");
+
+    for (let poll = 0; poll < 3; poll += 1) {
+      await expect(complete()).resolves.toMatchObject({
+        status: 200,
+        body: { json: { status: "connected" } },
+      });
+    }
+    expect(securityEvents()).toHaveLength(1);
+    expect(securityEvents()[0]).toMatchObject({
+      "security.event.type": "credential.created",
+      "security.event.metadata": {
+        procedure: "connections.complete",
+        kind: "connection",
+        connectionId: "conn-1",
+      },
+    });
+  });
+
+  it("records nothing while the connection is still pending", async () => {
+    const { complete, connector, securityEvents } = pollFixture("pending");
+    connector.connectionReady.mockResolvedValue(false);
+
+    await expect(complete()).resolves.toMatchObject({ body: { json: { status: "pending" } } });
+    expect(securityEvents()).toEqual([]);
+  });
 });
 
 describe("updater owner gate", () => {
