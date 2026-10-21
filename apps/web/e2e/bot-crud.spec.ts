@@ -189,7 +189,9 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await captureScreenshot(page, testInfo, "31-deleted-bot-fallback");
 });
 
-test("fleet management switch persists", async ({ page }, testInfo) => {
+test("bot management switch persists and settings help is accessible", async ({
+  page,
+}, testInfo) => {
   await signup(
     page,
     `fleet-management-${Date.now()}@rakazo.test`,
@@ -204,22 +206,22 @@ test("fleet management switch persists", async ({ page }, testInfo) => {
     await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
     const settings = page.getByTestId("bot-settings");
     await settings.getByText("Advanced", { exact: true }).click();
-    return settings.getByRole("switch", { name: "Fleet management" });
+    return settings.getByRole("switch", { name: "Manage the bots it creates" });
   };
 
   const fleetSwitch = await openAdvanced();
   await expect(fleetSwitch).not.toBeChecked();
-  await expect(
-    page.getByText(
-      "Lets this bot organize, retune and schedule the bots it creates. You approve each change.",
-    ),
-  ).toBeVisible();
-  await page
-    .getByText(
-      "Lets this bot organize, retune and schedule the bots it creates. You approve each change.",
-    )
-    .scrollIntoViewIfNeeded();
-  await captureScreenshot(page, testInfo, "32-fleet-management-switch-off");
+  const help = page.getByRole("button", { name: "About Manage the bots it creates" });
+  await help.scrollIntoViewIfNeeded();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await captureScreenshot(page, testInfo, "32-bot-settings-advanced");
+  await help.click();
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Changes to groups or child bots’ instructions, models and routines need your approval.",
+  );
+  await captureScreenshot(page, testInfo, "32-bot-settings-info-tooltip");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   await fleetSwitch.click();
   await expect(fleetSwitch).toBeChecked();
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -229,10 +231,4 @@ test("fleet management switch persists", async ({ page }, testInfo) => {
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
   const reloadedSwitch = await openAdvanced();
   await expect(reloadedSwitch).toBeChecked();
-  await page
-    .getByText(
-      "Lets this bot organize, retune and schedule the bots it creates. You approve each change.",
-    )
-    .scrollIntoViewIfNeeded();
-  await captureScreenshot(page, testInfo, "32-fleet-management-switch");
 });

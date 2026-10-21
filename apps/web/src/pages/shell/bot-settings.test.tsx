@@ -120,7 +120,12 @@ afterEach(() => {
   container.remove();
 });
 
-type SavePatch = { disabledBuiltinTools?: string[]; name?: string; title?: string };
+type SavePatch = {
+  disabledBuiltinTools?: string[];
+  name?: string;
+  title?: string;
+  fleetManagement?: boolean;
+};
 
 function setField(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -151,6 +156,31 @@ async function renderSettings(onSave: (patch: SavePatch) => Promise<void>, curre
   });
   await flush();
 }
+
+describe("BotSettings help", () => {
+  it("keeps row explainers behind help without changing the management switch", async () => {
+    const onSave = vi.fn<(patch: SavePatch) => Promise<void>>(async () => undefined);
+    await renderSettings(onSave, { ...bot, fleetManagement: false });
+    const label = [...container.querySelectorAll("label")].find(
+      (entry) => entry.textContent === "Manage the bots it creates",
+    );
+    const toggle = document.getElementById(label?.htmlFor ?? "");
+    expect(toggle?.getAttribute("aria-checked")).toBe("false");
+    expect(container.textContent).not.toContain("Get notified when this Bot finishes");
+    expect(container.textContent).not.toContain("Changes to groups or child bots");
+    const help = container.querySelector<HTMLButtonElement>(
+      '[aria-label="About Manage the bots it creates"]',
+    );
+    await act(async () => help?.click());
+    expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(
+      "Changes to groups or child bots’ instructions, models and routines need your approval.",
+    );
+    expect(toggle?.getAttribute("aria-checked")).toBe("false");
+    expect(onSave).not.toHaveBeenCalled();
+    await act(async () => toggle?.click());
+    expect(onSave).toHaveBeenCalledWith({ fleetManagement: true });
+  });
+});
 
 describe("BotSettings disabled tools", () => {
   it("omits the disabled-tool list from an unrelated save", async () => {

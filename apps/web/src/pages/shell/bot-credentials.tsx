@@ -8,6 +8,7 @@ import {
 } from "@rakazo/contracts";
 import { Button, Input, NativeSelect, NativeSelectOption } from "@rakazo/ui-web";
 import { useEffect, useId, useState } from "react";
+import { InfoTooltip } from "../../components/InfoTooltip";
 import { rpc } from "../../lib/rpc";
 import { errorText } from "../../lib/user-error";
 
@@ -392,8 +393,15 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
             void submitAdd();
           }}
         >
-          <label htmlFor={`${ids}-name`} className={fieldLabelClass}>
-            <Trans>Name</Trans>
+          <div className={fieldLabelClass}>
+            <div className="flex items-center gap-1">
+              <label htmlFor={`${ids}-name`}>
+                <Trans>Name</Trans>
+              </label>
+              <InfoTooltip label={t`Name`}>
+                {t`Lowercase letters, numbers, hyphens and underscores, starting with a letter.`}
+              </InfoTooltip>
+            </div>
             <Input
               id={`${ids}-name`}
               data-testid="credential-name"
@@ -405,11 +413,6 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
               placeholder="github"
               className="mt-1.5"
             />
-            <span className="mt-1 block text-[12px] text-muted-foreground/70">
-              <Trans>
-                Lowercase letters, numbers, hyphens and underscores, starting with a letter.
-              </Trans>
-            </span>
             {commandVariableError ? (
               <span
                 data-testid="credential-command-variable-error"
@@ -425,7 +428,7 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
                 {t`Available to this bot's shell commands as ${commandVariable}`}
               </span>
             ) : null}
-          </label>
+          </div>
           {authType === "command" ? null : (
             <label htmlFor={`${ids}-origin`} className={fieldLabelClass}>
               <Trans>Site</Trans>

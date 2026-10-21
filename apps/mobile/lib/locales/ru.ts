@@ -1,4 +1,9 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "About {label}": "О настройке «{label}»",
+  "Manage the bots it creates": "Управлять созданными им ботами",
+  "Organize bots and groups. Changes to groups or child bots’ instructions, models and routines need your approval.":
+    "Организовывать ботов и группы. Изменения групп, инструкций, моделей и расписаний дочерних ботов требуют вашего одобрения.",
+
   Resets: "Сброс",
   Limit: "Лимит",
   "Provider message": "Сообщение провайдера",
@@ -22,8 +27,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "{name} asked": "{name} спрашивает",
   Close: "Закрыть",
   Link: "Ссылка",
-  "Lets this bot organize, retune and schedule the bots it creates. You approve each change.":
-    "Позволяет этому боту организовывать, настраивать и планировать работу созданных им ботов. Вы одобряете каждое изменение.",
   "Too many attempts. Try again in a few minutes.":
     "Слишком много попыток. Попробуйте снова через несколько минут.",
   "The server had a problem. Try again in a moment.":
@@ -895,7 +898,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Remove photo": "Удалить фото",
   Shape: "Форма",
   "Shape {number}": "Форма {number}",
-  "Fleet management": "Управление флотом",
   "Try again": "Повторить",
   "Your session expired": "Сеанс истёк",
   "The server had a problem": "На сервере произошла ошибка",

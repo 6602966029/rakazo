@@ -1,4 +1,9 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "About {label}": "Über {label}",
+  "Manage the bots it creates": "Die von ihm erstellten Bots verwalten",
+  "Organize bots and groups. Changes to groups or child bots’ instructions, models and routines need your approval.":
+    "Bots und Gruppen organisieren. Änderungen an Gruppen oder an Anweisungen, Modellen und Routinen erstellter Bots erfordern deine Zustimmung.",
+
   Resets: "Zurückgesetzt",
   Limit: "Limit",
   "Provider message": "Anbieternachricht",
@@ -24,8 +29,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "{name} asked": "{name} fragt",
   Close: "Schließen",
   Link: "Link",
-  "Lets this bot organize, retune and schedule the bots it creates. You approve each change.":
-    "Erlaubt diesem Bot, die von ihm erstellten Bots zu organisieren, anzupassen und zu planen. Du genehmigst jede Änderung.",
   "Too many attempts. Try again in a few minutes.":
     "Zu viele Versuche. Versuche es in ein paar Minuten erneut.",
   "The server had a problem. Try again in a moment.":
@@ -899,7 +902,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Remove photo": "Foto entfernen",
   Shape: "Form",
   "Shape {number}": "Form {number}",
-  "Fleet management": "Flottenverwaltung",
   "Try again": "Erneut versuchen",
   "Your session expired": "Deine Sitzung ist abgelaufen",
   "The server had a problem": "Auf dem Server ist ein Problem aufgetreten",

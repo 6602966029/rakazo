@@ -35,6 +35,7 @@ import {
 import { X } from "lucide-react";
 import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import { ErrorBoundary, SectionLoadFailed } from "../../components/ErrorBoundary";
+import { InfoTooltip } from "../../components/InfoTooltip";
 import { InstructionSettings } from "../../components/InstructionSettings";
 import { botProfilePatch } from "../../lib/bot-profile-patch";
 import { thinkingLevelLabel } from "../../lib/model-catalog";
@@ -545,22 +546,21 @@ export function BotSettings({
         />
       </label>
       <div className="mt-6 flex items-center justify-between pt-4 border-t border-border/20">
-        <div className="space-y-0.5 pe-4">
+        <div className="flex items-center gap-1 pe-4">
           <div
             id={`${ids}-notify-finish-label`}
             className="text-[13.5px] font-medium text-foreground"
           >
             <Trans>Notifications</Trans>
           </div>
-          <div id={`${ids}-notify-finish-desc`} className="text-[12px] text-muted-foreground/70">
-            <Trans>Get notified when this Bot finishes or needs input</Trans>
-          </div>
+          <InfoTooltip label={t`Notifications`}>
+            {t`Get notified when this Bot finishes or needs input`}
+          </InfoTooltip>
         </div>
         <Switch
           id={`${ids}-notify-finish`}
           checked={notifyOnFinish}
           aria-labelledby={`${ids}-notify-finish-label`}
-          aria-describedby={`${ids}-notify-finish-desc`}
           onCheckedChange={(checked) => {
             setNotifyOnFinish(checked);
             void enqueueSave({ notifyOnFinish: checked });
@@ -666,10 +666,15 @@ export function BotSettings({
           />
           <Trans>Read replies aloud</Trans>
         </label>
-        <label
-          htmlFor={`${ids}-fleet-management`}
-          className="mt-5 flex cursor-pointer items-center gap-3 text-[14px] text-foreground/75"
-        >
+        <div className="mt-5 flex items-center justify-between gap-3 text-[14px] text-foreground/75">
+          <div className="flex items-center gap-1">
+            <label htmlFor={`${ids}-fleet-management`}>
+              <Trans>Manage the bots it creates</Trans>
+            </label>
+            <InfoTooltip label={t`Manage the bots it creates`}>
+              {t`Organize bots and groups. Changes to groups or child bots’ instructions, models and routines need your approval.`}
+            </InfoTooltip>
+          </div>
           <Switch
             id={`${ids}-fleet-management`}
             checked={fleetManagement}
@@ -679,13 +684,6 @@ export function BotSettings({
               void enqueueSave({ fleetManagement: checked });
             }}
           />
-          <Trans>Fleet management</Trans>
-        </label>
-        <div className="text-[12px] text-muted-foreground/70">
-          <Trans>
-            Lets this bot organize, retune and schedule the bots it creates. You approve each
-            change.
-          </Trans>
         </div>
         {voices.length ? (
           <label htmlFor={`${ids}-voice`} className={fieldLabelClass}>
