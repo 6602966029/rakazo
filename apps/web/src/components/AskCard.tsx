@@ -33,11 +33,12 @@ function approvalActionLabel(
   id: string,
   fallback: string,
   outcome?: "created" | "cancelled",
+  site?: string,
 ): string {
   if (outcome === "created") return t`Create space`;
   if (outcome === "cancelled") return t`Cancel`;
   if (id === "allow") return t`Allow once`;
-  if (id === "always") return t`Always allow this tool`;
+  if (id === "always") return site ? t`Always allow ${site}` : t`Always allow this tool`;
   if (id === "deny") return t`Deny`;
   return fallback;
 }
@@ -241,7 +242,7 @@ export function AskCard({
                     t`Dismiss`
                   )
                 ) : (
-                  approvalActionLabel(action.id, action.label, action.outcome)
+                  approvalActionLabel(action.id, action.label, action.outcome, block.site)
                 )
               ) : (
                 action.label

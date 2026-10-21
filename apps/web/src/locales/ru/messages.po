@@ -584,6 +584,10 @@ msgid "Always act"
 msgstr "Всегда выполнять"
 
 #: src/components/AskCard.tsx
+msgid "Always allow {site}"
+msgstr "Всегда разрешать {site}"
+
+#: src/components/AskCard.tsx
 msgid "Always allow this tool"
 msgstr "Всегда разрешать этот инструмент"
 
