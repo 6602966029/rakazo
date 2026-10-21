@@ -91,9 +91,16 @@ export async function* exportContent(
       },
     });
     for (const thread of threads) {
-      yield { type: "thread", ...thread, createdAt: thread.createdAt.toISOString() };
-      // In another bot's or a group's thread, only the bot's own messages.
-      const own = botId && thread.botId !== botId ? { botId } : {};
+      // In another bot's or a group's thread, only the bot's own messages, and not
+      // the thread's summary, which covers everyone's.
+      const foreign = Boolean(botId) && thread.botId !== botId;
+      yield {
+        type: "thread",
+        ...thread,
+        createdAt: thread.createdAt.toISOString(),
+        historyCompactionSummary: foreign ? null : thread.historyCompactionSummary,
+      };
+      const own = foreign ? { botId } : {};
       for (let seq = -1; ; ) {
         options.signal?.throwIfAborted();
         const messages = await prisma.message.findMany({

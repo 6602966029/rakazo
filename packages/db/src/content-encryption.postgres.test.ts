@@ -577,6 +577,42 @@ describePostgres("content encryption (PostgreSQL)", () => {
         expect(JSON.stringify(bySpace)).not.toContain("rkz1:");
         expect(await collect({ botId: switchBotId })).toEqual(bySpace);
         expect(await collect({ botId: `missing-${suffix}` })).toEqual([]);
+
+        // In another bot's thread, a bot export keeps only that bot's messages and
+        // leaves out the thread's summary, which covers the whole conversation.
+        const otherBot = `enc-switch-other-${suffix}`;
+        await prisma.bot.create({
+          data: { id: otherBot, spaceId: switchSpaceId, userId, name: "Cy", color: "ink" },
+        });
+        const otherThread = await off.prisma.thread.create({
+          data: {
+            spaceId: switchSpaceId,
+            userId,
+            botId: otherBot,
+            historyCompactionSummary: "Private chatter",
+          },
+        });
+        await createThreadMessage(off.prisma, {
+          threadId: otherThread.id,
+          role: "user",
+          blocks: [{ kind: "text", text: "only for Cy" }],
+        });
+        await createThreadMessage(off.prisma, {
+          threadId: otherThread.id,
+          role: "bot",
+          botId: switchBotId,
+          blocks: [{ kind: "text", text: "Bo dropped in" }],
+        });
+        const visiting = (await collect({ botId: switchBotId })).filter(
+          (record) =>
+            record.id === otherThread.id ||
+            (record.type === "message" && record.threadId === otherThread.id),
+        );
+        expect(visiting).toMatchObject([
+          { type: "thread", historyCompactionSummary: null },
+          { type: "message", text: "Bo dropped in" },
+        ]);
+        expect(visiting).toHaveLength(2);
       }));
   });
 });

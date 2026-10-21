@@ -1,5 +1,5 @@
-import { once } from "node:events";
 import { createWriteStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
 import { parseArgs } from "node:util";
 import { EncryptedSecretStore, LocalArtifactStore, upgradeLegacySecrets } from "@rakazo/adapters";
 import { resolveContentEncryption, resolveEncryptionKey } from "@rakazo/core";
@@ -87,25 +87,25 @@ const write = (line: string) => process.stdout.write(`${line}\n`);
 
 /** JSON lines to stdout, or to a new owner-only file; the export holds plaintext. */
 async function exportJsonLines() {
-  const output = flags.output
-    ? createWriteStream(flags.output, { flags: "wx", mode: 0o600 })
-    : process.stdout;
-  if (flags.output) await once(output, "open");
   let records = 0;
-  for await (const record of exportContent(
-    prisma,
-    { spaceId: flags.space, threadId: flags.thread, botId: flags.bot },
-    { signal: controller.signal },
-  )) {
-    records += 1;
-    if (!output.write(`${JSON.stringify(record)}\n`)) await once(output, "drain");
+  async function* lines() {
+    for await (const record of exportContent(
+      prisma,
+      { spaceId: flags.space, threadId: flags.thread, botId: flags.bot },
+      { signal: controller.signal },
+    )) {
+      records += 1;
+      yield `${JSON.stringify(record)}\n`;
+    }
   }
-  if (output !== process.stdout) {
-    await new Promise<void>((resolve, reject) =>
-      output.end((error?: Error | null) => (error ? reject(error) : resolve())),
-    );
+  // pipeline surfaces write errors (a full disk, a closed pipe) and closes the file on failure.
+  if (flags.output) {
+    await pipeline(lines(), createWriteStream(flags.output, { flags: "wx", mode: 0o600 }));
     write(`export: ${records} records written to ${flags.output}`);
-  } else process.stderr.write(`export: ${records} records\n`);
+  } else {
+    await pipeline(lines(), process.stdout, { end: false });
+    process.stderr.write(`export: ${records} records\n`);
+  }
 }
 
 async function rewriteContent(mode: ContentMigrationMode) {
