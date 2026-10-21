@@ -782,6 +782,7 @@ msgstr "Avatar Studio"
 msgid "Avatars"
 msgstr "אווטארים"
 
+#: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -1175,6 +1176,11 @@ msgstr "ענן"
 msgid "Code"
 msgstr "קוד"
 
+#: src/pages/Auth.tsx
+msgctxt "email sign-in"
+msgid "Code"
+msgstr "קוד"
+
 #. placeholder {0}: group.title
 #. placeholder {0}: item.chat.name
 #: src/pages/Shell.tsx
@@ -1370,6 +1376,7 @@ msgid "Context limit"
 msgstr "מגבלת הקשר"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
 msgstr "המשך"
@@ -2708,6 +2715,10 @@ msgstr "גודל המרווח"
 msgid "Interval unit"
 msgstr "יחידת המרווח"
 
+#: src/lib/user-error.ts
+msgid "Invalid code"
+msgstr "קוד לא תקין"
+
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Isolated"
@@ -3957,6 +3968,10 @@ msgstr "התשובה בוטלה"
 msgid "Replying to {0}"
 msgstr "תשובה ל-{0}"
 
+#: src/lib/user-error.ts
+msgid "Request a new code"
+msgstr "יש לבקש קוד חדש"
+
 #: src/pages/shell/message-cards.tsx
 msgid "Research & writing"
 msgstr "מחקר וכתיבה"
@@ -5032,6 +5047,14 @@ msgstr "יש ללחוץ על חיבור כדי לאמת את המפתח."
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Use default guidance"
 msgstr "שימוש בהנחיות ברירת המחדל"
+
+#: src/pages/Auth.tsx
+msgid "Use email code"
+msgstr "שימוש בקוד מהאימייל"
+
+#: src/pages/Auth.tsx
+msgid "Use password"
+msgstr "שימוש בסיסמה"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

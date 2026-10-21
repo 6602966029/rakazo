@@ -582,6 +582,8 @@ describe("OIDC callbacks", () => {
       "/sign-up/email",
       "/request-password-reset",
       "/set-password",
+      "/email-otp/send-verification-otp",
+      "/sign-in/email-otp",
     ]) {
       expect(
         (await request(path, { email: "local@example.test", password: "test-password-123" }))

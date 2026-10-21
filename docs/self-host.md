@@ -189,9 +189,18 @@ when the API starts for the first time and is not reapplied on restart. A non-em
 Leave it empty to keep that stored list.
 
 With a nonempty signup allowlist and SMTP configured, users—including existing accounts—must
-verify their email to sign in. On a fresh instance with no SMTP, the first allowlisted account
-can register without verification. That signup does not prove mailbox ownership, so create the
-account before exposing the service. Further accounts still need SMTP.
+verify their email to sign in. Without an allowlist, verification never blocks: a password signup
+signs in at once and is sent a verification link that only marks the address verified.
+
+SMTP also enables sign-in with a six-digit emailed code, which expires after ten minutes and allows
+three attempts. A code can create an account, so it follows the same registration and allowlist
+rules as password signup. Signing in with a code to an existing unverified account removes that
+account's password, SSO links and sessions, since nothing proved they belonged to the mailbox
+owner. This is what stops someone who registered another person's address from keeping access.
+
+On a fresh instance with no SMTP, the first allowlisted account can register without verification.
+That signup does not prove mailbox ownership, so create the account before exposing the service.
+Further accounts still need SMTP.
 
 For a public deployment, configure SMTP and an allowlist before the API's first start.
 Keep an installation without email on a trusted local network.

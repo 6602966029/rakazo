@@ -32,8 +32,10 @@ import {
   selectedSpaceId,
   selectInitialSpace,
   selectSpace,
+  sendSignInCode,
   shouldApplyMobileThreadRefresh,
   signIn,
+  signInWithCode,
   signOut,
   signUp,
   spaceSelectionSeq,
@@ -219,6 +221,55 @@ describe("mobile API authentication", () => {
       }),
     );
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith("rakazo.session_token", "signup-token");
+  });
+
+  it("emails a sign-in code and persists the session the code returns", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ success: true }))
+      .mockResolvedValueOnce(jsonResponse({ token: "code-token", user: {} }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendSignInCode("ada@example.test");
+    await signInWithCode("ada@example.test", "123456", "Ada");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://127.0.0.1:3100/api/auth/email-otp/send-verification-otp",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "rakazo://" },
+        body: JSON.stringify({ email: "ada@example.test", type: "sign-in" }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://127.0.0.1:3100/api/auth/sign-in/email-otp",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "rakazo://" },
+        body: JSON.stringify({ email: "ada@example.test", otp: "123456", name: "Ada" }),
+      }),
+    );
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith("rakazo.session_token", "code-token");
+  });
+
+  it.each([
+    ["INVALID_OTP", 400, "Invalid code"],
+    ["OTP_EXPIRED", 400, "Request a new code"],
+    ["TOO_MANY_ATTEMPTS", 403, "Request a new code"],
+  ])("explains a rejected %s sign-in code", async (code, status, message) => {
+    const fetchMock = vi.fn(async () => jsonResponse({ code, message: code }, { status }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(signInWithCode("ada@example.test", "000000")).rejects.toThrow(message);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:3100/api/auth/sign-in/email-otp",
+      expect.objectContaining({
+        body: JSON.stringify({ email: "ada@example.test", otp: "000000" }),
+      }),
+    );
+    expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
   it("loads password recovery capability and requests a server-approved redirect", async () => {

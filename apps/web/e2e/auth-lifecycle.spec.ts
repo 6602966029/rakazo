@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, signup } from "./helpers";
+import { captureScreenshot, completeOnboarding, showPasswordForm, signup } from "./helpers";
 
 for (const mode of ["sign-in", "sign-up", "sso-only"] as const) {
   test(`SSO is ${mode === "sso-only" ? "primary" : "secondary"} on ${mode}`, async ({
@@ -89,6 +89,7 @@ test("logout protects bot deep links and sign-in restores the session", async ({
   await page.goto("/sign-up");
   await expect(page.getByLabel("Name")).toHaveAttribute("autocomplete", "name");
   await expect(page.getByLabel("Email")).toHaveAttribute("autocomplete", "username");
+  await showPasswordForm(page);
   await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute(
     "autocomplete",
     "new-password",
@@ -164,6 +165,7 @@ test("logout protects bot deep links and sign-in restores the session", async ({
   await expect(page.getByText("Chief", { exact: true })).toHaveCount(0);
   await expect(page.getByText(userName, { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Email")).toHaveAttribute("autocomplete", "username");
+  await showPasswordForm(page);
   await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute(
     "autocomplete",
     "current-password",
@@ -269,6 +271,7 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
 
   await page.getByRole("button", { name: new RegExp(userName, "i") }).click();
   await page.getByRole("button", { name: "Log out" }).click();
+  await showPasswordForm(page);
   await expect(page.getByRole("link", { name: "Forgot password?" })).toBeVisible();
   await page.getByRole("link", { name: "Forgot password?" }).click();
   await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
@@ -302,6 +305,7 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
   await expect(page.getByText("Password updated")).toBeVisible();
   await page.getByRole("link", { name: "Sign in" }).click();
   await page.getByLabel("Email").fill(email);
+  await showPasswordForm(page);
   await page.getByLabel("Password", { exact: true }).fill(resetPassword);
   await page.getByRole("button", { name: "Continue with email" }).click();
   await page.waitForURL(/\/app(?:\/|$)/);

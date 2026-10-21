@@ -26,7 +26,7 @@ import {
   createAuthMiddleware,
   getOAuthState,
 } from "better-auth/api";
-import { bearer, organization } from "better-auth/plugins";
+import { bearer, emailOTP, organization } from "better-auth/plugins";
 import { accountSecurity, oidcProofKey, sessionForAuthHook } from "./account-security.js";
 import { breachedPasswordCheck } from "./breached-password.js";
 import type { OidcConfig } from "./oidc.js";
@@ -237,7 +237,28 @@ async function claimUnverifiedFirstAccount(prisma: PrismaClient, userId: string)
   });
 }
 
-const CREDENTIAL_PATHS = ["/sign-in/email", "/sign-up/email", "/request-password-reset"] as const;
+const SEND_SIGN_IN_CODE_PATH = "/email-otp/send-verification-otp";
+const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
+
+const CREDENTIAL_PATHS = [
+  "/sign-in/email",
+  "/sign-up/email",
+  "/request-password-reset",
+  SEND_SIGN_IN_CODE_PATH,
+  CODE_SIGN_IN_PATH,
+] as const;
+
+/** Sign-in codes are short-lived, single use and hashed at rest. */
+export const SIGN_IN_CODE_EXPIRES_IN_SECONDS = 10 * 60;
+
+/**
+ * The email OTP plugin also exposes OTP email verification, password reset and
+ * email change. Rakazo uses links for those, so only sign-in codes stay open.
+ */
+function isUnusedEmailCodePath(path: string, body: { type?: unknown } | undefined): boolean {
+  if (path === SEND_SIGN_IN_CODE_PATH) return body?.type !== "sign-in";
+  return path.startsWith("/email-otp/") || path === "/forget-password/email-otp";
+}
 
 /** Shared across API processes. Off outside production so tests can sign in freely. */
 export function authRateLimitOptions(nodeEnv = process.env.NODE_ENV) {
@@ -256,6 +277,8 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
   if (env.passwordAuth === false && !env.oidc)
     throw new Error("Password auth requires OIDC when disabled");
   const discovery = env.oidc ? oidcDiscovery(env.oidc) : undefined;
+  // SSO-only deployments keep every email credential closed, codes included.
+  const emailCodeSignIn = Boolean(env.email) && env.passwordAuth !== false;
   const auth = betterAuth({
     appName: "Rakazo",
     logger: env.logger,
@@ -287,6 +310,8 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
         : undefined,
     },
     emailVerification: {
+      // Open signups get a session at once; the link only marks the address verified.
+      sendOnSignUp: Boolean(env.email),
       sendOnSignIn: true,
       autoSignInAfterVerification: false,
       sendVerificationEmail: env.email
@@ -372,6 +397,23 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       expo(),
       accountSecurity(env.email, env.oidc?.name, env.oidc?.issuer, env.passwordAuth !== false),
       ...(discovery ? [discovery.plugin] : []),
+      ...(emailCodeSignIn
+        ? [
+            emailOTP({
+              otpLength: 6,
+              expiresIn: SIGN_IN_CODE_EXPIRES_IN_SECONDS,
+              allowedAttempts: 3,
+              storeOTP: "hashed",
+              sendVerificationOTP: async ({ email, otp }) => {
+                // Like password reset, do not wait on delivery: a refused address
+                // answers at once, so waiting would reveal which addresses are admitted.
+                void env.email
+                  ?.send(signInCodeEmail(email, otp))
+                  .catch((error) => env.onEmailError?.(error));
+              },
+            }),
+          ]
+        : []),
       ...(env.breachedPasswordCheck ? [breachedPasswordCheck()] : []),
       organization({
         allowUserToCreateOrganization: false,
@@ -415,6 +457,22 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             code: "PASSWORD_AUTH_DISABLED",
             message: "Password authentication is disabled",
           });
+        }
+        if (isUnusedEmailCodePath(ctx.path, ctx.body)) throw new APIError("NOT_FOUND");
+        if (ctx.path === SEND_SIGN_IN_CODE_PATH || ctx.path === CODE_SIGN_IN_PATH) {
+          // A code for an unknown address creates an account, so it passes the
+          // same registration policy as password signup. A refused address is
+          // answered like any other so replies do not reveal which accounts exist.
+          const email = String(ctx.body?.email ?? "")
+            .trim()
+            .toLowerCase();
+          if (!(await ctx.context.internalAdapter.findUserByEmail(email))) {
+            const admission = await resolveSignupPolicy(prisma, env);
+            if (!admission.enabled || !emailAllowed(email, admission.allowlist)) {
+              if (ctx.path === SEND_SIGN_IN_CODE_PATH) return ctx.json({ success: true });
+              throw new APIError("BAD_REQUEST", { code: "INVALID_OTP", message: "Invalid OTP" });
+            }
+          }
         }
         let policy =
           ctx.path === "/sign-up/email" || ctx.path === "/sign-in/email"
@@ -622,6 +680,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     },
   });
   return Object.assign(auth, {
+    emailCodeSignIn,
     ssoAvailability: () => discovery?.availability(),
     disposeOidcDiscovery: () => discovery?.dispose(),
   });
@@ -633,6 +692,15 @@ export function verificationEmail(email: string, url: string): TransactionalEmai
     subject: "Verify your Rakazo email",
     text: `Verify your email, then return to Rakazo to sign in:\n\n${url}\n\nThis link expires in one hour. If you did not register, ignore this email.`,
     html: `<p><a href="${escapeHtml(url)}">Verify email</a>, then return to Rakazo to sign in.</p><p>This link expires in one hour. If you did not register, ignore this email.</p>`,
+  };
+}
+
+export function signInCodeEmail(email: string, code: string): TransactionalEmail {
+  return {
+    to: email,
+    subject: "Your Rakazo sign-in code",
+    text: `Enter this code to sign in to Rakazo:\n\n${code}\n\nThis code expires in ten minutes. If you did not request it, ignore this email.`,
+    html: `<p>Enter this code to sign in to Rakazo:</p><p><strong>${escapeHtml(code)}</strong></p><p>This code expires in ten minutes. If you did not request it, ignore this email.</p>`,
   };
 }
 

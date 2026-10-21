@@ -501,12 +501,9 @@ export async function captureApiRequestContext(): Promise<ApiRequestContext> {
   return { apiBase, headers, sessionGeneration: generation };
 }
 
-async function authenticateWithEmail(
-  action: "sign-in" | "sign-up",
-  input: { email: string; password: string; name?: string },
-) {
-  const { response, body, invalidJson } = await fetchMobileJson<unknown>(
-    `${currentApiBase()}/api/auth/${action}/email`,
+async function postAuth(path: string, input: Record<string, string>) {
+  return fetchMobileJson<unknown>(
+    `${currentApiBase()}/api/auth/${path}`,
     {
       method: "POST",
       headers: { "content-type": "application/json", origin: "rakazo://" },
@@ -514,20 +511,21 @@ async function authenticateWithEmail(
     },
     {},
   );
+}
+
+async function authenticate(
+  path: string,
+  input: Record<string, string>,
+  missingSession: string,
+): Promise<{ verificationRequired: boolean }> {
+  const { response, body, invalidJson } = await postAuth(path, input);
   if (!response.ok || invalidJson) {
     throw new Error(authResponseErrorText(response.status, body, invalidJson));
   }
   const token = tokenFromAuthResponse(response, body);
-  if (action === "sign-up" && signupRequiresEmailVerification(body))
+  if (path === "sign-up/email" && signupRequiresEmailVerification(body))
     return { verificationRequired: true };
-  if (!token)
-    throw new Error(
-      t(
-        action === "sign-in"
-          ? "Sign-in did not return a session"
-          : "Sign-up did not return a session",
-      ),
-    );
+  if (!token) throw new Error(missingSession);
   try {
     if (!(await clearSpace()))
       throw new Error(t("Could not save your sign-in on this device. Try again."));
@@ -539,11 +537,33 @@ async function authenticateWithEmail(
 }
 
 export function signIn(email: string, password: string) {
-  return authenticateWithEmail("sign-in", { email, password });
+  return authenticate("sign-in/email", { email, password }, t("Sign-in did not return a session"));
 }
 
 export function signUp(email: string, password: string, name: string) {
-  return authenticateWithEmail("sign-up", { email, password, name });
+  return authenticate(
+    "sign-up/email",
+    { email, password, name },
+    t("Sign-up did not return a session"),
+  );
+}
+
+/** Always succeeds when the server accepts the request, whether or not an email was sent. */
+export async function sendSignInCode(email: string): Promise<void> {
+  const { response, body, invalidJson } = await postAuth("email-otp/send-verification-otp", {
+    email,
+    type: "sign-in",
+  });
+  if (!response.ok) throw new Error(authResponseErrorText(response.status, body, invalidJson));
+}
+
+/** Signs in with an emailed code, creating the account (with `name`) when none exists. */
+export async function signInWithCode(email: string, code: string, name?: string): Promise<void> {
+  await authenticate(
+    "sign-in/email-otp",
+    { email, otp: code, ...(name ? { name } : {}) },
+    t("Sign-in did not return a session"),
+  );
 }
 
 export type PasswordResetCapabilities = AuthCapabilities;

@@ -6,6 +6,7 @@ import {
   isBlockedAuthPath,
   passwordResetEmail,
   resolveSignupPolicy,
+  signInCodeEmail,
 } from "./index.js";
 
 describe("auth policy", () => {
@@ -102,6 +103,8 @@ describe("authRateLimitOptions", () => {
         "/sign-in/email": { window: 15 * 60, max: 10 },
         "/sign-up/email": { window: 15 * 60, max: 10 },
         "/request-password-reset": { window: 15 * 60, max: 10 },
+        "/email-otp/send-verification-otp": { window: 15 * 60, max: 10 },
+        "/sign-in/email-otp": { window: 15 * 60, max: 10 },
       },
     });
   });
@@ -151,6 +154,16 @@ describe("passwordResetEmail", () => {
     expect(message.html).toContain("&lt;Ada &amp; &quot;team&quot;&gt;");
     expect(message.html).toContain("token=secret&amp;next=1");
     expect(message.html).not.toContain('<Ada & "team">');
+  });
+});
+
+describe("signInCodeEmail", () => {
+  it("puts the code in plain text and HTML without links", () => {
+    const message = signInCodeEmail("ada@example.test", "042517");
+    expect(message).toMatchObject({ to: "ada@example.test", subject: "Your Rakazo sign-in code" });
+    expect(message.text).toContain("042517");
+    expect(message.html).toContain("042517");
+    expect(`${message.text}${message.html}`).not.toMatch(/https?:/);
   });
 });
 
