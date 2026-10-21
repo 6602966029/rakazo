@@ -77,6 +77,13 @@ export async function showPasswordForm(page: Page) {
 
 /** Waits for sidebar folds to finish so drag-and-drop targets have stopped moving. */
 export async function waitForSidebarTransitions(page: Page) {
+  // Base UI starts a fold a frame after the toggle, so let it begin before polling.
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+      ),
+  );
   await expect
     .poll(() =>
       page.evaluate(
