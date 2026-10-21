@@ -394,7 +394,10 @@ export class ContentKeyRing {
   async unreadableMasterKeys(): Promise<string[]> {
     this.provider.activeKeyId();
     const unreadable: string[] = [];
-    for (const record of await this.store.sampleByMasterKey()) {
+    // A database that is not migrated yet (a process starting before the API ran
+    // migrations) is not a key problem; content reads report it soon enough.
+    const records = await this.store.sampleByMasterKey().catch(() => []);
+    for (const record of records) {
       try {
         await this.provider.unwrap(record, { spaceId: record.spaceId, version: record.version });
       } catch {

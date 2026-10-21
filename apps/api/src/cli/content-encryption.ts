@@ -45,7 +45,7 @@ process.once("SIGTERM", () => controller.abort());
 const write = (line: string) => process.stdout.write(`${line}\n`);
 
 async function rewriteContent(mode: ContentMigrationMode) {
-  if (!(await artifacts.fileCounts()).present)
+  if (!(await artifacts.hasDirectory()))
     write("artifacts: no artifact directory under DATA_DIR; files were not checked");
   for (const table of await migrateContent(prisma, {
     mode,
@@ -112,7 +112,9 @@ try {
     const keys = await rewrapSpaceKeys(prisma, contentKeys, { dryRun, signal: controller.signal });
     write(`space keys: ${keys.rewrapped} re-wrapped, ${keys.current} already current`);
     if (flags.includes("--reencrypt") && !dryRun) {
-      write(`data keys: ${await rotateSpaceDataKeys(prisma, contentKeys)} spaces rotated`);
+      write(
+        `data keys: ${await rotateSpaceDataKeys(prisma, contentKeys, { signal: controller.signal })} spaces rotated`,
+      );
       await rewriteContent("reencrypt");
     }
   } else if (command === "reencrypt") {

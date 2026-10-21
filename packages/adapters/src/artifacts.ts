@@ -35,6 +35,16 @@ async function readHead(handle: FileHandle): Promise<Buffer> {
   return head.subarray(0, bytesRead);
 }
 
+/** Opens a file for reading, or returns undefined if it no longer exists. */
+async function openExisting(file: string): Promise<FileHandle | undefined> {
+  try {
+    return await open(file, constants.O_RDONLY | O_NOFOLLOW);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
 async function writeAll(handle: FileHandle, chunks: AsyncIterable<Uint8Array>) {
   for await (const chunk of chunks) {
     // A write may accept only part of a chunk; keep going until all of it lands.
@@ -114,15 +124,20 @@ export class LocalArtifactStore implements ArtifactStore {
     await rm(this.file(context.spaceId, id), { force: true });
   }
 
-  /** For `status`. `present` is false when the artifact directory is missing (not mounted). */
-  async fileCounts(): Promise<{ present: boolean; sealed: number; plaintext: number }> {
-    const present = await stat(path.join(this.root, "artifacts")).then(
+  /** False when the artifact directory is missing, for example when the volume is not mounted. */
+  hasDirectory(): Promise<boolean> {
+    return stat(path.join(this.root, "artifacts")).then(
       (info) => info.isDirectory(),
       () => false,
     );
-    const counts = { present, sealed: 0, plaintext: 0 };
+  }
+
+  /** For `status`. Files removed while counting are skipped. */
+  async fileCounts(): Promise<{ present: boolean; sealed: number; plaintext: number }> {
+    const counts = { present: await this.hasDirectory(), sealed: 0, plaintext: 0 };
     for await (const file of this.files()) {
-      const handle = await open(this.file(file.spaceId, file.id), constants.O_RDONLY | O_NOFOLLOW);
+      const handle = await openExisting(this.file(file.spaceId, file.id));
+      if (!handle) continue;
       try {
         if (isSealedArtifact(await readHead(handle))) counts.sealed += 1;
         else counts.plaintext += 1;
@@ -158,7 +173,9 @@ export class LocalArtifactStore implements ArtifactStore {
   ): Promise<"rewritten" | "unchanged"> {
     if (!this.keys) throw new Error("Content keys are required to rewrite artifacts");
     const file = this.file(spaceId, id);
-    const source = await open(file, constants.O_RDONLY | O_NOFOLLOW);
+    // Removed since it was listed: a concurrent delete, not a failure.
+    const source = await openExisting(file);
+    if (!source) return "unchanged";
     const temp = `${file}.sealing-${randomUUID()}`;
     try {
       const head = await readHead(source);

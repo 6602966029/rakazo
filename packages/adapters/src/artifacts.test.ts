@@ -122,6 +122,11 @@ describe("LocalArtifactStore with content keys", () => {
     expect((await readFile(file)).toString()).toBe("before encryption");
   });
 
+  it("treats a file removed since it was listed as unchanged", async () => {
+    const { store } = await setup();
+    expect(await store.rewriteFile("space-1", "already-deleted", "encrypt")).toBe("unchanged");
+  });
+
   it("refuses a sealed file copied into another space", async () => {
     const { root, store } = await setup();
     const stored = await store.put(
