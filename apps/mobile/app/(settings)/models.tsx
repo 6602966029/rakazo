@@ -68,7 +68,11 @@ import {
   finishModelOAuthAttempt,
   waitForModelOAuth,
 } from "../../lib/model-auth";
-import { mobileBackupScopeIsCurrent } from "../../lib/model-backups";
+import {
+  mobileBackupScopeIsCurrent,
+  pendingMobileBackupSaves,
+  queueMobileBackupSave,
+} from "../../lib/model-backups";
 import type { ModelPickerRequest } from "../../lib/model-picker-selection";
 import { closeModelPicker, openModelPicker } from "../../lib/model-picker-selection";
 import { native, useResolvedAppearance, useThemedStyles } from "../../lib/native";
@@ -164,10 +168,7 @@ export default function Models() {
   backupLoadingRef.current = backupLoading;
   const [backupError, setBackupError] = useState<string | null>(null);
   const backupRequestGenerationRef = useRef(0);
-  // Edits save immediately; saves run one at a time so the last edit is the one the server keeps.
   const confirmedBackupModelsRef = useRef<ModelBackupChoice[]>([]);
-  const backupSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const backupSaveSequenceRef = useRef(0);
   const meRef = useRef<MobileMe | null>(null);
   meRef.current = me;
   const [feedbackAnchor, setFeedbackAnchor] = useState<FeedbackAnchor>("connection");
@@ -321,6 +322,8 @@ export default function Models() {
         ) {
           throw new Error(t("Space changed. Reload Models to refresh backup models."));
         }
+        // Edits made before a reload may still be saving; read the list they leave behind.
+        await pendingMobileBackupSaves(expected);
         const saved = await rpc<ModelBackupChoice[]>("models/backups", {}, { requestContext });
         const liveMe = meRef.current;
         if (
@@ -1466,43 +1469,46 @@ export default function Models() {
     backupModelsRef.current = next;
     setBackupModels(next);
     setBackupError(null);
-    const expected = { userId: me.userId, spaceId: me.spaceId };
+    const scope = { userId: me.userId, spaceId: me.spaceId };
     const requestGeneration = backupRequestGenerationRef.current;
-    const sequence = ++backupSaveSequenceRef.current;
-    const scopeIsCurrent = (live: MobileMe | null) =>
-      live !== null &&
-      mobileBackupScopeIsCurrent({
-        expectedUserId: expected.userId,
-        expectedSpaceId: expected.spaceId,
-        currentUserId: live.userId,
-        currentSpaceId: live.spaceId,
-        selectedSpaceId: selectedSpaceId(),
-        requestGeneration,
-        currentGeneration: backupRequestGenerationRef.current,
-      });
-    backupSaveQueueRef.current = backupSaveQueueRef.current.then(async () => {
-      // A newer edit is queued and carries the full list, so this one has nothing to add.
-      if (sequence !== backupSaveSequenceRef.current) return;
-      if (requestGeneration !== backupRequestGenerationRef.current) return;
-      try {
-        const requestContext: ApiRequestContext = await captureApiRequestContext();
-        const currentMe = await rpc<MobileMe>("me", {}, { requestContext });
-        if (!scopeIsCurrent(currentMe)) {
-          throw new Error(t("Space changed. Reload Models before saving backups."));
-        }
-        await rpc("models/setBackups", next, { requestContext });
-        if (!scopeIsCurrent(meRef.current)) return;
-        confirmedBackupModelsRef.current = next;
-      } catch (err) {
-        if (requestGeneration !== backupRequestGenerationRef.current) return;
-        if (sequence !== backupSaveSequenceRef.current) return;
+    // The write targets the Space selected now, even if it runs after the user leaves.
+    const requestContext = captureApiRequestContext();
+    requestContext.catch(() => undefined);
+    const screenIsCurrent = () => {
+      const live = meRef.current;
+      return (
+        live !== null &&
+        mobileBackupScopeIsCurrent({
+          expectedUserId: scope.userId,
+          expectedSpaceId: scope.spaceId,
+          currentUserId: live.userId,
+          currentSpaceId: live.spaceId,
+          selectedSpaceId: selectedSpaceId(),
+          requestGeneration,
+          currentGeneration: backupRequestGenerationRef.current,
+        })
+      );
+    };
+    void queueMobileBackupSave(scope, async () => {
+      const context = await requestContext;
+      const currentMe = await rpc<MobileMe>("me", {}, { requestContext: context });
+      if (currentMe.userId !== scope.userId || currentMe.spaceId !== scope.spaceId) {
+        throw new Error(t("Space changed. Reload Models before saving backups."));
+      }
+      await rpc("models/setBackups", next, { requestContext: context });
+    }).then(
+      (saved) => {
+        if (saved && screenIsCurrent()) confirmedBackupModelsRef.current = next;
+      },
+      (err: unknown) => {
+        if (!screenIsCurrent()) return;
         backupModelsRef.current = confirmedBackupModelsRef.current;
         setBackupModels(confirmedBackupModelsRef.current);
         const message = err instanceof Error ? err.message : t("Could not save backup models");
         setBackupError(message);
         AccessibilityInfo.announceForAccessibility(message);
-      }
-    });
+      },
+    );
   }
 
   function openBackupModelPicker() {

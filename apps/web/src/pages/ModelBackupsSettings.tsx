@@ -40,6 +40,13 @@ function scopeKey(scope: Scope): string {
   return JSON.stringify([scope.userId, scope.spaceId]);
 }
 
+/**
+ * Saves still in flight per account and space. They outlive the component, so an edit made just
+ * before leaving Models still reaches the server, and reopening Models waits for them before
+ * loading the list.
+ */
+const pendingSaves = new Map<string, Promise<void>>();
+
 function loadingState(key: string): BackupsState {
   return { scopeKey: key, loading: true, ready: false, backups: [], error: null };
 }
@@ -66,8 +73,6 @@ export function ModelBackupsSettings({
   const requestGenerationRef = useRef(0);
   // The last list the server confirmed; a failed save reverts to it.
   const confirmedRef = useRef<ModelBackupChoice[]>([]);
-  // Saves run one at a time so the server always ends at the latest list.
-  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   // Bumped on a failed save so edits queued behind it are dropped with the revert.
   const saveEpochRef = useRef(0);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -96,13 +101,13 @@ export function ModelBackupsSettings({
       activeScopeRef.current === activeScopeKey &&
       isSelectedSpace(spaceId, boundSpaceId);
     confirmedRef.current = [];
-    saveChainRef.current = Promise.resolve();
     setState(loadingState(activeScopeKey));
     void (async () => {
       try {
         if (!isSelectedSpace(spaceId, boundSpaceId)) {
           throw new Error(t`Space changed. Reopen Models to load its backup list.`);
         }
+        await pendingSaves.get(activeScopeKey);
         const currentMe = (await rpc.me({ context: { spaceId } })) as Me;
         if (currentMe.userId !== userId || currentMe.spaceId !== spaceId || !isCurrent()) {
           throw new Error(t`Space changed. Reopen Models to load its backup list.`);
@@ -137,19 +142,19 @@ export function ModelBackupsSettings({
     };
   }, [activeScopeKey, reloadNonce, spaceId, t, userId]);
 
-  async function persist(choices: ModelBackupChoice[], isCurrent: () => boolean) {
+  // Writes go to the account and space the edit was made in, even after leaving Models; only
+  // the on-screen state stops following once the view moves on.
+  async function persist(choices: ModelBackupChoice[], onScreen: () => boolean) {
     try {
       const currentMe = (await rpc.me({ context: { spaceId } })) as Me;
-      if (!isCurrent()) return;
       if (currentMe.userId !== userId || currentMe.spaceId !== spaceId) {
         throw new Error(t`Space changed. Reopen Models to save its backup list.`);
       }
       await rpc.models.setBackups(choices, { context: { spaceId } });
-      if (!isCurrent()) return;
-      confirmedRef.current = choices;
+      if (onScreen()) confirmedRef.current = choices;
     } catch (error) {
-      if (!isCurrent()) return;
       saveEpochRef.current += 1;
+      if (!onScreen()) return;
       const confirmed = confirmedRef.current;
       setState((previous) =>
         previous.scopeKey === activeScopeKey
@@ -171,9 +176,8 @@ export function ModelBackupsSettings({
     }
     const generation = requestGenerationRef.current;
     const epoch = saveEpochRef.current;
-    const isCurrent = () =>
+    const onScreen = () =>
       generation === requestGenerationRef.current &&
-      epoch === saveEpochRef.current &&
       activeScopeRef.current === activeScopeKey &&
       isSelectedSpace(spaceId, boundSpaceId);
     setState((previous) =>
@@ -181,9 +185,15 @@ export function ModelBackupsSettings({
         ? { ...previous, backups: choices, error: null }
         : previous,
     );
-    saveChainRef.current = saveChainRef.current.then(() =>
-      isCurrent() ? persist(choices, isCurrent) : undefined,
+    // Saves run one at a time so the server ends at the latest list; a failed save drops the
+    // edits queued behind it along with the revert.
+    const chain = (pendingSaves.get(activeScopeKey) ?? Promise.resolve()).then(() =>
+      epoch === saveEpochRef.current ? persist(choices, onScreen) : undefined,
     );
+    pendingSaves.set(activeScopeKey, chain);
+    void chain.then(() => {
+      if (pendingSaves.get(activeScopeKey) === chain) pendingSaves.delete(activeScopeKey);
+    });
   }
 
   function add(option: ConnectedBackupOption) {

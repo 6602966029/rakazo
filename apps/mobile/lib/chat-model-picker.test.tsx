@@ -1113,24 +1113,79 @@ describe("connection settings model picker", () => {
     ]);
   });
 
-  it("runs saves one at a time and ends at the latest list", async () => {
-    mocks.backups = [backup(2), backup(3), backup(4)];
-    await renderModels();
-    let finishFirst!: () => void;
+  const holdFirstSave = () => {
+    const first: { finish: () => void; fail: (error: Error) => void } = {
+      finish: () => undefined,
+      fail: () => undefined,
+    };
     mocks.rpc.mockImplementation((procedure: string) =>
       procedure === "models/setBackups" && backupSaves().length === 1
-        ? new Promise<void>((resolve) => {
-            finishFirst = resolve;
+        ? new Promise<void>((resolve, reject) => {
+            first.finish = resolve;
+            first.fail = reject;
           })
         : undefined,
     );
+    return first;
+  };
+  const backupLoads = () =>
+    mocks.rpc.mock.calls.filter(([procedure]) => procedure === "models/backups").length;
+  const leaveModels = () => {
+    act(() => root.unmount());
+    root = createRoot(container);
+  };
+
+  it("runs saves one at a time in edit order", async () => {
+    mocks.backups = [backup(2), backup(3), backup(4)];
+    await renderModels();
+    const first = holdFirstSave();
+    await menuAction("Model 2", "moveDown");
+    await menuAction("Model 4", "remove");
+    expect(backupSaves()).toEqual([[backup(3), backup(2), backup(4)]]);
+    await act(async () => first.finish());
+    expect(backupSaves()).toEqual([
+      [backup(3), backup(2), backup(4)],
+      [backup(3), backup(2)],
+    ]);
+    expect(backupRows()).toEqual(["Model 3OpenRouter", "Model 2OpenRouter"]);
+  });
+
+  it("drops edits queued behind a failed save and reverts to the saved list", async () => {
+    mocks.backups = [backup(2), backup(3), backup(4)];
+    await renderModels();
+    const first = holdFirstSave();
     await menuAction("Model 2", "remove");
     await menuAction("Model 3", "remove");
-    await menuAction("Model 4", "moveUp");
+    await act(async () => first.fail(new Error("Save failed")));
     expect(backupSaves()).toEqual([[backup(3), backup(4)]]);
-    await act(async () => finishFirst());
+    expect(backupRows()).toEqual(["Model 2OpenRouter", "Model 3OpenRouter", "Model 4OpenRouter"]);
+    expect(container.textContent).toContain("Save failed");
+  });
+
+  it("keeps saving accepted edits after leaving Models", async () => {
+    mocks.backups = [backup(2), backup(3), backup(4)];
+    await renderModels();
+    const first = holdFirstSave();
+    await menuAction("Model 2", "remove");
+    await menuAction("Model 3", "remove");
+    leaveModels();
+    await act(async () => first.finish());
     expect(backupSaves()).toEqual([[backup(3), backup(4)], [backup(4)]]);
-    expect(backupRows()).toEqual(["Model 4OpenRouter"]);
+  });
+
+  it("waits for pending saves before reloading backups", async () => {
+    mocks.backups = [backup(2), backup(3)];
+    await renderModels();
+    const first = holdFirstSave();
+    await menuAction("Model 2", "remove");
+    leaveModels();
+    mocks.backups = [backup(3)];
+    await renderModels();
+    expect(backupLoads()).toBe(1);
+    expect(container.textContent).not.toContain("Backup models");
+    await act(async () => first.finish());
+    expect(backupLoads()).toBe(2);
+    expect(backupRows()).toEqual(["Model 3OpenRouter"]);
   });
 
   it("reverts to the saved list and shows the error when a save fails", async () => {

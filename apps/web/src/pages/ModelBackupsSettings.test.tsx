@@ -323,7 +323,45 @@ describe("ModelBackupsSettings", () => {
     expect(menuItems()).toEqual(["GPT test"]);
   });
 
-  it("does not let an old-space save overwrite the newly selected space", async () => {
+  it("keeps saving queued edits after leaving Models and reloads only once they land", async () => {
+    const first = deferred<{ ok: true }>();
+    backupApi.setBackups.mockReturnValueOnce(first.promise);
+    await renderSettings();
+    await addBackup("Claude Sonnet");
+    await flush();
+    await addBackup("GPT test");
+    await flush();
+
+    await act(async () => root.render(<div />));
+    await act(async () => first.resolve({ ok: true }));
+    await flush();
+    await flush();
+    expect(backupApi.setBackups).toHaveBeenCalledTimes(2);
+    expect(backupApi.setBackups.mock.calls[1]?.[0]).toEqual([
+      { provider: "anthropic", modelId: "claude-sonnet" },
+      { provider: "openai", modelId: "gpt-test" },
+    ]);
+  });
+
+  it("waits for pending saves before reloading the list", async () => {
+    const save = deferred<{ ok: true }>();
+    backupApi.setBackups.mockReturnValueOnce(save.promise);
+    await renderSettings();
+    await addBackup("Claude Sonnet");
+    await flush();
+
+    await act(async () => root.render(<div />));
+    backupApi.backups.mockClear();
+    await renderSettings();
+    expect(backupApi.backups).not.toHaveBeenCalled();
+
+    await act(async () => save.resolve({ ok: true }));
+    await flush();
+    await flush();
+    expect(backupApi.backups).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves an old-space edit to its own space, never the newly selected one", async () => {
     let resolveOldSpaceMe: ((value: { userId: string; spaceId: string }) => void) | undefined;
     backupApi.me.mockImplementation((options: { context: { spaceId: string } }) => {
       const requestedSpaceId = options.context.spaceId;
@@ -354,7 +392,8 @@ describe("ModelBackupsSettings", () => {
     await flush();
 
     expect(backupRows()).toEqual(["OpenAI · GPT test"]);
-    expect(backupApi.setBackups).not.toHaveBeenCalled();
+    expect(backupApi.setBackups).toHaveBeenCalledTimes(1);
+    expect(backupApi.setBackups.mock.calls[0]?.[1]).toEqual({ context: { spaceId: "space-a" } });
   });
 
   it("refuses to save when the session now belongs to another space", async () => {
