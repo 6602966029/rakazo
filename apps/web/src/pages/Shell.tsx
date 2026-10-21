@@ -297,6 +297,7 @@ import {
   transcriptMovedDown,
 } from "../lib/transcript-scroll";
 import { speaker } from "../lib/tts";
+import { useDesktopBadge } from "../lib/use-desktop-badge";
 import { errorText } from "../lib/user-error";
 import { ActivityList } from "./ActivityList";
 import { CreateGroupForm, GroupSettings, memberName } from "./GroupPanel";
@@ -337,7 +338,7 @@ import {
 } from "./shell/message-cards";
 import type { RosterDropTarget } from "./shell/roster-drop";
 import { resolveRosterDrop } from "./shell/roster-drop";
-import { commitSpaceRename, sidebarGroupsForSpaces } from "./shell/space-sidebar";
+import { commitSpaceRename, countUnreadChats, sidebarGroupsForSpaces } from "./shell/space-sidebar";
 import { WindowChrome } from "./WindowChrome";
 
 const BotContextMenu = lazyOverlay(() =>
@@ -1670,8 +1671,8 @@ function SpaceShell() {
     };
   }, [activeGroup?.id, groupId, notifyBrowserForEvent]);
 
-  const sidebarGroups = useMemo(() => {
-    const sidebarSpaces =
+  const sidebarSpaces = useMemo(
+    () =>
       spaces.length > 0
         ? spaces.map((space) =>
             space.id === bootstrapMe?.spaceId ? { ...space, bots, groups, botSections } : space,
@@ -1690,12 +1691,23 @@ function SpaceShell() {
                 botSections,
               },
             ]
-          : [];
-    return sidebarGroupsForSpaces(sidebarSpaces, query, {
-      pinned: t`Pinned`,
-      unassigned: t`Unassigned`,
-    });
-  }, [bootstrapMe, botSections, bots, groups, spaces, query, t]);
+          : [],
+    [bootstrapMe, botSections, bots, groups, spaces],
+  );
+  const sidebarGroups = useMemo(
+    () =>
+      sidebarGroupsForSpaces(sidebarSpaces, query, {
+        pinned: t`Pinned`,
+        unassigned: t`Unassigned`,
+      }),
+    [sidebarSpaces, query, t],
+  );
+  // The Dock badge ignores the roster search box: a filter must not hide unread chats.
+  const unreadChatCount = useMemo(
+    () => countUnreadChats(sidebarGroupsForSpaces(sidebarSpaces, "")),
+    [sidebarSpaces],
+  );
+  useDesktopBadge(userId ? unreadChatCount : 0);
 
   const spaceSwitchRequest = useRef(0);
   useEffect(
