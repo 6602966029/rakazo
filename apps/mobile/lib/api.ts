@@ -1470,7 +1470,7 @@ export function applyMobileThreadEvent(
     const next: MobileMessage = {
       id,
       // Inline cards act on the message's thread, so live messages need it too.
-      threadId: event.threadId ?? known?.threadId ?? prev.threadId,
+      threadId: known?.threadId ?? prev.threadId,
       // The seq lets a send that is still on screen as "Sending…" recognize its echo.
       ...(seq === undefined ? {} : { seq }),
       createdAt: known?.createdAt ?? event.createdAt,
