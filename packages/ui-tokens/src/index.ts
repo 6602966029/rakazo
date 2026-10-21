@@ -148,6 +148,12 @@ export const typeScale = {
   footnote: { fontSize: 12, lineHeight: 16 },
 } as const;
 
+/**
+ * Text grows with the iOS text size until body text reaches 23pt, the xxxLarge size. Larger
+ * accessibility sizes keep that size, so message bubbles, rows and cards keep their layout.
+ */
+export const MAX_FONT_SCALE = 23 / typeScale.body.fontSize;
+
 export const botColors = [
   "#3EC5A8",
   "#F5A03C",

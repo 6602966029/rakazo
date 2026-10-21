@@ -1,5 +1,5 @@
 import type { ColorTokens, ResolvedAppearance } from "@rakazo/ui-tokens";
-import { darkTokens, fontWeight, typeScale } from "@rakazo/ui-tokens";
+import { darkTokens, fontWeight, MAX_FONT_SCALE, typeScale } from "@rakazo/ui-tokens";
 import type {
   ASTNode,
   MarkdownStyleMap,
@@ -90,9 +90,6 @@ const ZERO_WIDTH_SPACE = "\u200B";
 // around the link.
 const ISOLATE = "\u2068";
 const POP_ISOLATE = "\u2069";
-
-// The library's own rules, for the blocks this file only sometimes replaces.
-const libraryRules = libraryRenderRules(Text);
 
 // One shared parser: the Markdown components memoize on its identity.
 const markdownParser = createMarkdownIt();
@@ -900,8 +897,8 @@ function NumberColumn({
   reversed: boolean;
   children: ReactNode;
 }) {
-  // The number grows with the iOS text size, so its column does too.
-  const { fontScale } = useWindowDimensions();
+  // The number grows with the iOS text size up to the app's limit, so its column does too.
+  const fontScale = Math.min(useWindowDimensions().fontScale, MAX_FONT_SCALE);
   return (
     <View
       style={[
@@ -1004,7 +1001,9 @@ const renderRules: RenderRules = {
         style={[{ borderWidth, borderColor, borderRadius, backgroundColor }, layout.codeFrame]}
       >
         <CodeScrollView code={node.content.replace(/\n$/, "")}>
-          {libraryRules.code_block?.(
+          {/* The library's own rule, made here so it draws with the app's Text, which the app
+              replaces after this file loads. */}
+          {libraryRenderRules(Text).code_block?.(
             node,
             children,
             parents,

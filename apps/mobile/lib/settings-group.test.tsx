@@ -278,7 +278,7 @@ describe("settings group", () => {
     act(() => root?.unmount());
     container?.remove();
 
-    fontScale = 2.643;
+    fontScale = 1.353;
     expect(columnText(render(row))).toBe("LanguageEnglish");
   });
 
@@ -291,7 +291,7 @@ describe("settings group", () => {
     act(() => root?.unmount());
     container?.remove();
 
-    fontScale = 2.643;
+    fontScale = 1.353;
     expect(beforeSwitch(render(row))).toBe("SPAN");
   });
 });

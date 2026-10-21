@@ -16,6 +16,9 @@ const i18n = vi.hoisted(() => ({ isRTL: false }));
 // The iOS text size, as React Native reports it.
 const windowSize = vi.hoisted(() => ({ fontScale: 1 }));
 
+// The module's Text, which the app replaces with a capped one after this package has loaded.
+const reactNativeText = vi.hoisted(() => ({ current: undefined as unknown }));
+
 // The load handler of each rendered Image, so a test can report its decoded size.
 const imageLoads = vi.hoisted(
   () =>
@@ -106,6 +109,24 @@ vi.mock("react-native", async () => {
       );
     };
 
+  reactNativeText.current = mockComponent("rn-text", [
+    "accessibilityRole",
+    "accessibilityLabel",
+    "textDecorationLine",
+    "color",
+    "fontWeight",
+    "fontFamily",
+    "fontSize",
+    "lineHeight",
+    "fontVariant",
+    "backgroundColor",
+    "borderWidth",
+    "textAlign",
+    "writingDirection",
+    "width",
+    "maxFontSizeMultiplier",
+  ]);
+
   return {
     View: mockComponent("rn-view", [
       "minWidth",
@@ -136,22 +157,9 @@ vi.mock("react-native", async () => {
       "accessibilityElementsHidden",
       "importantForAccessibility",
     ]),
-    Text: mockComponent("rn-text", [
-      "accessibilityRole",
-      "accessibilityLabel",
-      "textDecorationLine",
-      "color",
-      "fontWeight",
-      "fontFamily",
-      "fontSize",
-      "lineHeight",
-      "fontVariant",
-      "backgroundColor",
-      "borderWidth",
-      "textAlign",
-      "writingDirection",
-      "width",
-    ]),
+    get Text() {
+      return reactNativeText.current;
+    },
     ScrollView: mockComponent(
       "rn-scroll-view",
       ["horizontal", "borderColor", "borderWidth"],
@@ -192,10 +200,11 @@ vi.mock("react-native", async () => {
   };
 });
 
-import { darkTokens, lightTokens } from "@rakazo/ui-tokens";
+import { darkTokens, lightTokens, MAX_FONT_SCALE } from "@rakazo/ui-tokens";
 import { themes } from "prism-react-renderer";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
+import type { TextProps } from "react-native";
 import { Platform, Pressable, StyleSheet } from "react-native";
 import type { LinkFavicons, MermaidDiagramProps } from "./markdown.native";
 import {
@@ -631,6 +640,21 @@ describe("native markdown code copy", () => {
     }
   });
 
+  it("draws an indented block with the Text the app installs after this package loads", () => {
+    // As the app's text-size cap does when it starts.
+    const original = reactNativeText.current as (props: TextProps) => ReactNode;
+    reactNativeText.current = (props: TextProps) =>
+      createElement(original, { ...props, maxFontSizeMultiplier: MAX_FONT_SCALE });
+    try {
+      const html = renderToStaticMarkup(<ChatMarkdown>{"Run:\n\n    npm test"}</ChatMarkdown>);
+      expect(textStyle(html, "npm test")["data-max-font-size-multiplier"]).toBe(
+        String(MAX_FONT_SCALE),
+      );
+    } finally {
+      reactNativeText.current = original;
+    }
+  });
+
   it("moves an indented block's frame off its text", () => {
     const text = renderWithCopy("    const a = 1;").querySelector("rn-scroll-view rn-text");
     expect(text?.textContent).toBe("const a = 1;");
@@ -868,8 +892,9 @@ describe("native markdown lists", () => {
     ["10 items at the default text size", 1, 10, ".", 24],
     ["100 items at the default text size", 1, 100, ".", 33],
     ["10 items at the largest standard text size", 1.353, 10, ".", 32],
-    ["10 items at an accessibility text size", 2.143, 10, ".", 50],
-    ["10 items numbered 1) at an accessibility text size", 2.143, 10, ")", 54],
+    // Text stops growing at the largest standard size, and the column with it.
+    ["10 items at an accessibility text size", 2.143, 10, ".", 32],
+    ["10 items numbered 1) at an accessibility text size", 2.143, 10, ")", 34],
   ])(
     "gives every number in a list of %s one column, as wide as its longest number",
     (_, fontScale, count, markup, width) => {
