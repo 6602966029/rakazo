@@ -3,7 +3,7 @@ import type { SecretStore } from "@rakazo/adapter-kit";
 import type { ThinkingLevel } from "@rakazo/contracts";
 import { ThinkingLevelSchema } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
-import { LiveCatalogCache } from "./pi-live-cache.js";
+import { LiveCatalogCache, liveModelCatalogEnabled } from "./pi-live-cache.js";
 import type { CatalogSpaceAuth } from "./pi-live-catalog.js";
 import { liveCatalogEntry, overlayLiveCatalog } from "./pi-live-catalog.js";
 import type { PiCatalogEntry } from "./pi-models.js";
@@ -236,8 +236,10 @@ function stringListContains(value: unknown, expected: string): boolean | typeof 
 export class CodexCatalogCache implements CodexLiveCatalog {
   private readonly cache: LiveCatalogCache<CodexCatalogModel>;
   private readonly fetchImpl: typeof fetch;
+  private readonly enabledOverride: boolean | undefined;
   constructor(
     opts: {
+      enabled?: boolean;
       fetch?: typeof fetch;
       now?: () => number;
       ttlMs?: number;
@@ -247,6 +249,7 @@ export class CodexCatalogCache implements CodexLiveCatalog {
       staleMaxAgeMs?: number;
     } = {},
   ) {
+    this.enabledOverride = opts.enabled;
     this.fetchImpl = opts.fetch ?? fetch;
     this.cache = new LiveCatalogCache({
       now: opts.now,
@@ -263,6 +266,7 @@ export class CodexCatalogCache implements CodexLiveCatalog {
     account: CodexCatalogAccount,
     opts?: { waitMs?: number },
   ): Promise<CodexCatalogModel[] | undefined> {
+    if (!(this.enabledOverride ?? liveModelCatalogEnabled())) return Promise.resolve(undefined);
     return this.cache.read(
       `${userId}:${account.accountId}`,
       async () => {

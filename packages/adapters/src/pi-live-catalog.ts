@@ -4,7 +4,7 @@ import type { SecretStore } from "@rakazo/adapter-kit";
 import { canonicalPiProviderId } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import type { ModelCredentialAuthKind } from "./pi-catalog-availability.js";
-import { LiveCatalogCache } from "./pi-live-cache.js";
+import { LiveCatalogCache, liveModelCatalogEnabled } from "./pi-live-cache.js";
 import { isChatModelId, liveModelSibling } from "./pi-live-model.js";
 import type { PiCatalogEntry } from "./pi-models.js";
 import {
@@ -143,8 +143,13 @@ export type ProviderCatalogCredential = {
 export class ProviderCatalogCache {
   private readonly cache: LiveCatalogCache<string>;
   private readonly probe: typeof probeCatalogProviderModels;
+  private readonly enabledOverride: boolean | undefined;
+  get enabled(): boolean {
+    return this.enabledOverride ?? liveModelCatalogEnabled();
+  }
   constructor(
     options: {
+      enabled?: boolean;
       probe?: typeof probeCatalogProviderModels;
       now?: () => number;
       ttlMs?: number;
@@ -154,6 +159,7 @@ export class ProviderCatalogCache {
       maxEntries?: number;
     } = {},
   ) {
+    this.enabledOverride = options.enabled;
     this.probe = options.probe ?? probeCatalogProviderModels;
     this.cache = new LiveCatalogCache({
       now: options.now,
@@ -169,7 +175,8 @@ export class ProviderCatalogCache {
     this.cache.invalidate(`${provider}:`);
   }
   read(credential: ProviderCatalogCredential, waitMs?: number): Promise<string[] | undefined> {
-    if (!catalogProviderProbeBaseUrl(credential.provider)) return Promise.resolve(undefined);
+    if (!this.enabled || !catalogProviderProbeBaseUrl(credential.provider))
+      return Promise.resolve(undefined);
     return this.cache.read(
       `${credential.provider}:${credential.secretId}:${credential.version}`,
       async (signal) => {
@@ -193,6 +200,7 @@ export async function providerLiveCatalogsForSpace(
   auth: CatalogSpaceAuth,
   cache: ProviderCatalogCache,
 ): Promise<Map<string, string[]>> {
+  if (!cache.enabled) return new Map();
   const slots = new Map<string, string>();
   for (const provider of Object.keys(auth.byProvider)) {
     if (auth.byProvider[provider] === "api_key" && catalogProviderProbeBaseUrl(provider)) {
@@ -245,7 +253,12 @@ export async function providerLiveListsModel(
   cache = providerCatalogCache,
 ): Promise<boolean> {
   provider = canonicalPiProviderId(provider);
-  if (!catalogProviderProbeBaseUrl(provider) || !liveCatalogEntry(provider, modelId)) return false;
+  if (
+    !cache.enabled ||
+    !catalogProviderProbeBaseUrl(provider) ||
+    !liveCatalogEntry(provider, modelId)
+  )
+    return false;
   const row = await prisma.secret.findFirst({
     where: { id: secretId, userId, spaceId: null },
     select: { id: true, ciphertext: true },

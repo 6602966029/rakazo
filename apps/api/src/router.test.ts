@@ -4001,7 +4001,7 @@ describe("codex live catalog", () => {
         screenProxySecret: "fake-test-secret",
         sandboxProvider: "fake",
       },
-      codexCatalog: new CodexCatalogCache({ fetch: fetchImpl }),
+      codexCatalog: new CodexCatalogCache({ enabled: true, fetch: fetchImpl }),
       refreshExpiredModelCredential,
     } as unknown as RouterDeps;
 
@@ -6844,7 +6844,7 @@ describe("API-key live model catalog", () => {
       const deps = {
         prisma,
         secrets: { load },
-        providerCatalog: new adapters.ProviderCatalogCache({ probe }),
+        providerCatalog: new adapters.ProviderCatalogCache({ enabled: true, probe }),
         env: { agentRuntime: "pi", defaultProvider: "fake", defaultModel: "fake" },
       } as unknown as RouterDeps;
       const actor = {

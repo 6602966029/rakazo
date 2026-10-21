@@ -19,7 +19,7 @@ export function liveModelSibling(
   if (!isChatModelId(id)) return undefined;
   const siblings =
     models
-      .getProvider(provider)
+      .getProvider?.(provider)
       ?.getModels()
       .filter((model) =>
         ["openai-completions", "openai-responses", "openai-codex-responses"].includes(model.api),

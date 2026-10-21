@@ -58,6 +58,7 @@ import {
 } from "./openai-tool-parameters.js";
 import { PiRuntimeCredentialStore, toOAuthCredential } from "./pi-credentials.js";
 import { estimatePiImageTokens } from "./pi-image-context.js";
+import { liveModelSibling } from "./pi-live-model.js";
 import { registerLocalProvider } from "./pi-local-provider.js";
 import { applyPiModelCompatibility } from "./pi-model-compat.js";
 import { codexComputeResidency } from "./pi-oauth.js";
@@ -107,7 +108,7 @@ const toolCallBudgetsByRun = new Map<string, ToolCallBudget>();
 let catalogModelsCache: Models | undefined;
 function catalogModels(): Models {
   catalogModelsCache ??= registerOpenAiCompatibleCatalog(
-    registerLocalProvider(applyPiModelCompatibility(builtinModels(), true)),
+    registerLocalProvider(applyPiModelCompatibility(builtinModels())),
   );
   return catalogModelsCache;
 }
@@ -757,16 +758,15 @@ export function resolveRuntimeModel(modelConfig: AgentRunRequest["model"]): {
   }
   if (
     provider === "openrouter" &&
-    !models
-      .getProvider(provider)
-      ?.getModels()
-      .some((entry) => entry.id === modelId) &&
+    !model &&
     modelId &&
     ((envDefaultProvider === "openrouter" && modelId === envDefaultModel) ||
       modelConfig.contextWindow !== undefined)
   ) {
     model = configuredOpenRouterModel(modelId, modelConfig.contextWindow);
   }
+  // Saved generic limits and deployment defaults take precedence over inferred siblings.
+  model ??= liveModelSibling(models, provider, modelId);
   if (model && (modelConfig.contextWindow !== undefined || modelConfig.maxTokens !== undefined)) {
     model = {
       ...model,
@@ -810,7 +810,7 @@ export function modelsForRequest(
   const store = credentials ?? credentialStoreForRequest(request, provider);
   if (store) {
     return registerOpenAiCompatibleCatalog(
-      registerLocalProvider(applyPiModelCompatibility(builtinModels({ credentials: store }), true)),
+      registerLocalProvider(applyPiModelCompatibility(builtinModels({ credentials: store }))),
     );
   }
   if (
@@ -819,7 +819,7 @@ export function modelsForRequest(
     request.model.id.trim()
   ) {
     const models = registerOpenAiCompatibleCatalog(
-      registerLocalProvider(applyPiModelCompatibility(builtinModels(), true)),
+      registerLocalProvider(applyPiModelCompatibility(builtinModels())),
     );
     return registerOpenAiCompatibleRuntime(models, {
       modelId: request.model.id,

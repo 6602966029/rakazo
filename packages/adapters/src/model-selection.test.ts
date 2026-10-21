@@ -1493,6 +1493,7 @@ describe("live-only catalog validation", () => {
       },
     } as unknown as PrismaClient;
     const secretStore = { load: vi.fn(async () => "fake-api-key") };
+    const enabled = vi.spyOn(providerCatalogCache, "enabled", "get").mockReturnValue(true);
     const read = vi.spyOn(providerCatalogCache, "read").mockResolvedValue([model]);
     const actor = { userId: "user-1", spaceId: "space-1" };
     try {
@@ -1546,6 +1547,7 @@ describe("live-only catalog validation", () => {
       );
     } finally {
       read.mockRestore();
+      enabled.mockRestore();
     }
   });
 });

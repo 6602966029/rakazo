@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { applyProviderLiveCatalog, ProviderCatalogCache } from "./pi-live-catalog.js";
+import { CodexCatalogCache } from "./pi-codex-catalog.js";
+import { liveModelCatalogEnabled } from "./pi-live-cache.js";
+import {
+  applyProviderLiveCatalog,
+  ProviderCatalogCache,
+  providerLiveCatalogsForSpace,
+} from "./pi-live-catalog.js";
 import { isChatModelId } from "./pi-live-model.js";
 import { listPiCatalog } from "./pi-models.js";
 import { resolveRuntimeModel } from "./pi-runtime.js";
@@ -22,9 +28,63 @@ const auth = {
 };
 const merge = (live: string[], selected = new Set<string>()) =>
   applyProviderLiveCatalog(base, auth, new Map([[credential.secretId, live]]), selected);
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
+});
 
 describe("live catalog merge and execution", () => {
+  it("defaults probing on and honors the deployment off switch", () => {
+    expect(liveModelCatalogEnabled({})).toBe(true);
+    expect(liveModelCatalogEnabled({ RAKAZO_LIVE_MODEL_CATALOG: " off " })).toBe(false);
+  });
+  it("skips credential reads and both provider transports when probing is off", async () => {
+    vi.stubEnv("RAKAZO_LIVE_MODEL_CATALOG", "off");
+    const probe = vi.fn();
+    const cache = new ProviderCatalogCache({ probe });
+    expect(await cache.read(credential)).toBeUndefined();
+    expect(probe).not.toHaveBeenCalled();
+    const findMany = vi.fn();
+    const load = vi.fn();
+    expect(
+      await providerLiveCatalogsForSpace(
+        { secret: { findMany } } as unknown as Parameters<typeof providerLiveCatalogsForSpace>[0],
+        { load },
+        { userId: "user-test", spaceId: "space-test" },
+        auth,
+        cache,
+      ),
+    ).toEqual(new Map());
+    expect(findMany).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+    const fetch = vi.fn();
+    const accessToken = vi.fn();
+    expect(
+      await new CodexCatalogCache({ fetch }).read("user-test", {
+        accountId: "account-test",
+        accessToken,
+      }),
+    ).toBeUndefined();
+    expect(accessToken).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("keeps configured OpenRouter limits and defaults ahead of sibling inference", () => {
+    vi.stubEnv("PI_DEFAULT_PROVIDER", "openrouter");
+    vi.stubEnv("PI_DEFAULT_MODEL", " vendor/future-chat ");
+    const configured = resolveRuntimeModel({
+      provider: "openrouter",
+      id: "vendor/future-chat",
+      contextWindow: 32_768,
+      maxTokens: 4096,
+    }).model;
+    expect(configured).toMatchObject({ reasoning: true, contextWindow: 32_768, maxTokens: 4096 });
+    const scripted = resolveRuntimeModel({ provider: "scripted", id: "scripted" }).model;
+    expect(scripted).toMatchObject({
+      id: "vendor/future-chat",
+      reasoning: true,
+      contextWindow: 16_384,
+    });
+  });
   it("keeps bundled metadata, hides retired models, preserves saved models and appends runnable additions", () => {
     const retired = ids[0]!;
     const saved = ids[1]!;
@@ -134,7 +194,7 @@ describe("provider catalog cache", () => {
   it("never loads or probes credentials for an unpinned provider", async () => {
     const probe = vi.fn(async () => ids);
     const apiKey = vi.fn(async () => "fake-key");
-    const cache = new ProviderCatalogCache({ probe });
+    const cache = new ProviderCatalogCache({ enabled: true, probe });
     expect(
       await cache.read({ ...credential, provider: "openai-compatible", apiKey }),
     ).toBeUndefined();
@@ -145,7 +205,7 @@ describe("provider catalog cache", () => {
   it("dedupes cold reads, caches success, refreshes stale immediately, and never keys by raw key", async () => {
     let now = 0;
     const probe = vi.fn(async () => [...ids, added]);
-    const cache = new ProviderCatalogCache({ probe, now: () => now, ttlMs: 100 });
+    const cache = new ProviderCatalogCache({ enabled: true, probe, now: () => now, ttlMs: 100 });
     const [a, b] = await Promise.all([cache.read(credential), cache.read(credential)]);
     expect(a).toEqual(b);
     expect(probe).toHaveBeenCalledTimes(1);
@@ -173,7 +233,12 @@ describe("provider catalog cache", () => {
         if (kind === "failure") throw new Error("fake-secret-error");
         return kind === "empty" ? [] : [ids[0]!];
       });
-      const cache = new ProviderCatalogCache({ probe, now: () => now, failureTtlMs: 100 });
+      const cache = new ProviderCatalogCache({
+        enabled: true,
+        probe,
+        now: () => now,
+        failureTtlMs: 100,
+      });
       expect(await cache.read(credential)).toBeUndefined();
       expect(await cache.read(credential)).toBeUndefined();
       expect(probe).toHaveBeenCalledTimes(1);
@@ -191,7 +256,12 @@ describe("provider catalog cache", () => {
           finish = resolve;
         }),
     );
-    const cache = new ProviderCatalogCache({ probe, waitMs: 1_500, deadlineMs: 5_000 });
+    const cache = new ProviderCatalogCache({
+      enabled: true,
+      probe,
+      waitMs: 1_500,
+      deadlineMs: 5_000,
+    });
     const read = cache.read(credential);
     await vi.advanceTimersByTimeAsync(1_500);
     expect(await read).toBeUndefined();
@@ -207,7 +277,11 @@ describe("provider catalog cache", () => {
     expect(probe).toHaveBeenCalledTimes(2);
   });
   it("bounds entries", async () => {
-    const cache = new ProviderCatalogCache({ probe: async () => ids, maxEntries: 2 });
+    const cache = new ProviderCatalogCache({
+      enabled: true,
+      probe: async () => ids,
+      maxEntries: 2,
+    });
     for (const secretId of ["one", "two", "three"]) await cache.read({ ...credential, secretId });
     expect(
       (cache as unknown as { cache: { entries: Map<string, unknown> } }).cache.entries.size,
