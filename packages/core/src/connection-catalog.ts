@@ -105,6 +105,7 @@ export async function waitForConnection<Row extends { status: string }>(
   return stopped() ? { status: "aborted" } : { status: "pending" };
 }
 
+/** The server's NOT_FOUND code, not any 404 a proxy or an older server might send. */
 function isNotFound(error: unknown) {
-  return (error as { status?: unknown } | null)?.status === 404;
+  return (error as { code?: unknown } | null)?.code === "NOT_FOUND";
 }

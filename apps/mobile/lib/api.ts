@@ -851,7 +851,7 @@ export async function rpc<T>(
     if (!res.ok) {
       // oRPC sends a failure as `{ json: { code, status, message } }`; the message is the
       // server's user-facing copy.
-      const error = parsed.json as { message?: unknown } | undefined;
+      const error = parsed.json as { message?: unknown; code?: unknown } | undefined;
       const message = errorText(typeof error?.message === "string" ? error.message : "");
       const unauthorized = res.status === 401;
       // Without a Space header a 401 means the server no longer accepts the
@@ -939,7 +939,11 @@ export async function rpc<T>(
         if (!selectedSpaceId()) await clearStaleSpaceSelection();
         throw new Error(message);
       }
-      throw Object.defineProperty(new Error(message), "status", { value: res.status });
+      throw Object.defineProperties(new Error(message), {
+        status: { value: res.status },
+        // oRPC's error code; a proxy's bare 404 has none.
+        code: { value: typeof error?.code === "string" ? error.code : undefined },
+      });
     }
     const verifiedUser = parsed.json as { userId?: unknown; spaceId?: unknown } | null;
     if (

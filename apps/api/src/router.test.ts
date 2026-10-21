@@ -2272,14 +2272,13 @@ describe("connections.complete", () => {
         const tx = {
           $executeRaw: vi.fn().mockResolvedValue(undefined),
           connection: {
-            findFirst: vi.fn().mockResolvedValueOnce(row).mockResolvedValueOnce(null),
-            findMany: vi.fn().mockResolvedValue([]),
-            update: vi
+            findFirst: vi
               .fn()
-              .mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
-                ...row,
-                ...data,
-              })),
+              .mockResolvedValueOnce(row)
+              .mockResolvedValueOnce(null)
+              .mockResolvedValueOnce({ ...row, status: "connected" }),
+            findMany: vi.fn().mockResolvedValue([]),
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
           },
         };
         return fn(tx);
@@ -2351,11 +2350,13 @@ describe("connections.complete", () => {
         where.id === row.id ? { ...row } : null,
       ),
       findMany: vi.fn(async () => []),
-      update: vi.fn(async ({ data }: { data: Partial<typeof row> }) => {
-        Object.assign(row, data);
-        return { ...row };
-      }),
-      updateMany: vi.fn(async () => ({ count: 1 })),
+      updateMany: vi.fn(
+        async ({ where, data }: { where: { status?: string }; data: Partial<typeof row> }) => {
+          if (where.status && where.status !== row.status) return { count: 0 };
+          Object.assign(row, data);
+          return { count: 1 };
+        },
+      ),
     };
     const client = { connection, $executeRaw: vi.fn(async () => undefined) };
     const prisma = {
@@ -2404,8 +2405,20 @@ describe("connections.complete", () => {
       return { status: response.status, body: await response.json() };
     }
     const securityEvents = () => sink.events.filter((event) => event.message === "security.event");
-    return { complete, connector, securityEvents };
+    return { complete, connector, securityEvents, row };
   }
+
+  it("records nothing when catalog reconciliation connected the row first", async () => {
+    const { complete, connector, securityEvents, row } = pollFixture("pending");
+    // The catalog flips the row while complete is checking with the provider.
+    connector.connectionReady.mockImplementation(async () => {
+      row.status = "connected";
+      return true;
+    });
+
+    await expect(complete()).resolves.toMatchObject({ body: { json: { status: "connected" } } });
+    expect(securityEvents()).toEqual([]);
+  });
 
   it("reports a superseded connection as revoked instead of failing", async () => {
     const { complete, connector, securityEvents } = pollFixture("revoked");

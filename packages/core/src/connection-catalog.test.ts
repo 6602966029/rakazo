@@ -101,7 +101,10 @@ describe("waitForConnection", () => {
   });
 
   it("stops polling when the connection no longer exists", async () => {
-    const missing = Object.assign(new Error("Resource not found"), { status: 404 });
+    const missing = Object.assign(new Error("Resource not found"), {
+      status: 404,
+      code: "NOT_FOUND",
+    });
     const complete = vi.fn().mockRejectedValue(missing);
     await expect(waitForConnection("gone", complete, options())).resolves.toEqual({
       status: "aborted",
@@ -113,6 +116,8 @@ describe("waitForConnection", () => {
     const complete = vi
       .fn()
       .mockRejectedValueOnce(Object.assign(new Error("Unavailable"), { status: 503 }))
+      // A proxy's bare 404 is not the server saying the connection is gone.
+      .mockRejectedValueOnce(Object.assign(new Error("Not Found"), { status: 404 }))
       .mockResolvedValueOnce(account("new", "pending"))
       .mockResolvedValueOnce(account("new", "connected"));
     vi.useFakeTimers();
@@ -124,6 +129,6 @@ describe("waitForConnection", () => {
       vi.useRealTimers();
     }
     expect(await result).toEqual({ status: "connected", row: account("new", "connected") });
-    expect(complete).toHaveBeenCalledTimes(3);
+    expect(complete).toHaveBeenCalledTimes(4);
   });
 });

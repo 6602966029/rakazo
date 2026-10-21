@@ -5521,7 +5521,7 @@ export function createRouter(deps: RouterDeps) {
                 const restoreRevokedForRetry = async () => {
                   // Cleanup failed while the row is already revoked — restore pending
                   // so the UI can retry removal instead of leaving an orphan remote.
-                  // Use the root client (not tx): throwing IsolationError aborts this
+                  // Use the root client (not tx): throwing below aborts this
                   // transaction and would otherwise roll back a tx-scoped restore.
                   await deps.prisma.connection.updateMany({
                     where: {
@@ -5614,7 +5614,8 @@ export function createRouter(deps: RouterDeps) {
                     },
                   );
                   await restoreRevokedForRetry();
-                  throw new IsolationError();
+                  // Not a 404: the row is pending again, so clients keep polling and retry.
+                  throw new ORPCError("INTERNAL_SERVER_ERROR");
                 }
                 // A newer attempt or a removal superseded this one. Report it so the
                 // caller stops polling instead of retrying an error.
@@ -5757,14 +5758,25 @@ export function createRouter(deps: RouterDeps) {
                   return current;
                 }
               }
-              connectedNow = true;
-              return tx.connection.update({
-                where: { id: current.id },
+              // Catalog reconciliation does not take the provider lock, so it may have
+              // connected this row meanwhile; only the call that changes it records the event.
+              const updated = await tx.connection.updateMany({
+                where: { id: current.id, status: current.status },
                 data: {
                   status: "connected",
                   ...(providerRef ? { providerRef } : {}),
                 },
               });
+              connectedNow = updated.count > 0;
+              const next = await tx.connection.findFirst({
+                where: {
+                  id: current.id,
+                  spaceId: context.actor.spaceId,
+                  userId: context.actor.userId,
+                },
+              });
+              if (!next) throw new IsolationError();
+              return next;
             },
             { timeout: 60_000 },
           );
