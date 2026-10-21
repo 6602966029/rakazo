@@ -774,12 +774,6 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         },
         {
           type: "button" as const,
-          accessibilityLabel: t("Artifacts"),
-          icon: { type: "sfSymbol" as const, name: "square.stack.3d.up" },
-          onPress: () => router.push("/artifacts"),
-        },
-        {
-          type: "button" as const,
           accessibilityLabel: t("Search"),
           identifier: "home-search-button",
           icon: { type: "sfSymbol" as const, name: "magnifyingglass" },
@@ -1281,12 +1275,6 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
                 size={17}
                 color={activityMode ? tokens.primaryForeground : tokens.foreground}
               />
-            </HeaderButton>
-            <HeaderButton
-              accessibilityLabel={t("Artifacts")}
-              onPress={() => router.push("/artifacts")}
-            >
-              <NativeSymbol ios="square.stack.3d.up" android="layers-outline" size={17} />
             </HeaderButton>
             <HeaderButton
               testID="home-search-button"
