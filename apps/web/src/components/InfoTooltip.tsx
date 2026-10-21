@@ -7,6 +7,7 @@ import { useId, useRef, useState } from "react";
 export function InfoTooltip({ label, children }: { label: string; children: string }) {
   const { t } = useLingui();
   const id = useId();
+  const descriptionId = useId();
   const [open, setOpen] = useState(false);
   const pinned = useRef(false);
   const dismissed = useRef(false);
@@ -24,11 +25,14 @@ export function InfoTooltip({ label, children }: { label: string; children: stri
         setOpen(next);
       }}
     >
+      <span id={descriptionId} className="sr-only">
+        {children}
+      </span>
       <TooltipTrigger
         id={id}
         type="button"
         aria-label={t`About ${label}`}
-        aria-describedby={open ? `${id}-content` : undefined}
+        aria-describedby={descriptionId}
         delay={0}
         closeOnClick={false}
         className="-ms-1 -my-1 inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -47,7 +51,7 @@ export function InfoTooltip({ label, children }: { label: string; children: stri
       >
         <CircleHelp aria-hidden="true" size={14} />
       </TooltipTrigger>
-      <TooltipContent id={`${id}-content`} role="tooltip" className="max-w-[320px]">
+      <TooltipContent aria-hidden="true" role="presentation" className="max-w-[320px]">
         {children}
       </TooltipContent>
     </Tooltip>

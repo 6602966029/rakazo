@@ -17,7 +17,8 @@ let container: HTMLDivElement;
 let root: Root;
 let trigger: HTMLButtonElement;
 const explanation = "Get notified when this Bot finishes or needs input";
-const tooltip = () => document.querySelector('[role="tooltip"]');
+const tooltip = () => document.querySelector('[data-slot="tooltip-content"]');
+const description = () => document.getElementById(trigger.getAttribute("aria-describedby") ?? "");
 
 beforeEach(async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -38,7 +39,10 @@ afterEach(async () => {
 
 async function expectOpen() {
   await vi.waitFor(() => expect(tooltip()?.textContent).toContain(explanation));
-  expect(trigger.getAttribute("aria-describedby")?.split(" ")).toContain(tooltip()?.id);
+  expect(description()?.textContent).toBe(explanation);
+  expect(trigger.getAttribute("aria-describedby")?.split(" ")).toEqual([description()?.id]);
+  expect(tooltip()?.getAttribute("aria-hidden")).toBe("true");
+  expect(tooltip()?.getAttribute("role")).toBe("presentation");
 }
 
 async function press(detail = 0) {
@@ -53,6 +57,22 @@ describe("InfoTooltip", () => {
     expect(trigger.getAttribute("aria-label")).toBe("About Notifications");
     expect(trigger.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
     expect(tooltip()).toBeNull();
+  });
+
+  it("keeps its description available before opening and after closing", async () => {
+    const initialDescription = description();
+    expect(initialDescription?.textContent).toBe(explanation);
+    expect(initialDescription?.classList.contains("sr-only")).toBe(true);
+    expect(initialDescription?.closest('[aria-hidden="true"], [hidden]')).toBeNull();
+    expect(tooltip()).toBeNull();
+
+    await press();
+    await expectOpen();
+    expect(description()).toBe(initialDescription);
+    await press();
+    await vi.waitFor(() => expect(tooltip()).toBeNull());
+    expect(description()).toBe(initialDescription);
+    expect(description()?.textContent).toBe(explanation);
   });
 
   it("opens on hover", async () => {
