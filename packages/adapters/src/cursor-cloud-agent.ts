@@ -96,17 +96,21 @@ export class CursorCloudAgentProvider implements CloudAgentProvider {
 
   async get(id: string, context: AdapterContext, runId?: string): Promise<CloudAgentSnapshot> {
     const agent = await this.agent(id, context.signal);
-    const currentRunId = runId ?? agent.latestRunId;
-    if (!currentRunId) throw new Error("Cloud agent has no run to inspect");
+    const path = `/v1/agents/${encodeURIComponent(id)}/runs`;
+    if (!runId) {
+      // The newest-first run list, not agent metadata, says whether a follow-up was accepted.
+      const parsed = z
+        .object({ items: z.array(runSchema) })
+        .safeParse(await this.request("GET", `${path}?limit=1`, undefined, context.signal));
+      if (!parsed.success) throw new Error("Invalid cloud agent run response");
+      const [run] = parsed.data.items;
+      if (!run) throw new Error("Cloud agent has no run to inspect");
+      return this.handle(agent, run);
+    }
     const parsed = runSchema.safeParse(
-      await this.request(
-        "GET",
-        `/v1/agents/${encodeURIComponent(id)}/runs/${encodeURIComponent(currentRunId)}`,
-        undefined,
-        context.signal,
-      ),
+      await this.request("GET", `${path}/${encodeURIComponent(runId)}`, undefined, context.signal),
     );
-    if (!parsed.success || parsed.data.id !== currentRunId)
+    if (!parsed.success || parsed.data.id !== runId)
       throw new Error("Invalid cloud agent run response");
     return this.handle(agent, parsed.data);
   }
@@ -116,22 +120,30 @@ export class CursorCloudAgentProvider implements CloudAgentProvider {
     request: CloudAgentReplyRequest,
     context: AdapterContext,
   ): Promise<CloudAgentHandle> {
-    // Read metadata first: no fallible GET after a successful mutating POST.
-    const agent = await this.agent(id, request.signal ?? context.signal);
+    // Read metadata first: no fallible GET after a successful mutating POST. A
+    // failed read means nothing was sent, so the caller can safely resend.
+    const agent = await this.agent(id, request.signal ?? context.signal).catch((error) => {
+      if (error instanceof CloudAgentRequestRejected || error instanceof CloudAgentRetryLater)
+        throw error;
+      throw new CloudAgentRetryLater("unavailable");
+    });
     if (agent.status === "ARCHIVED") throw new CloudAgentRequestRejected("expired");
-    const parsed = z.object({ run: runSchema }).safeParse(
-      await this.request(
-        "POST",
-        `/v1/agents/${encodeURIComponent(id)}/runs`,
-        {
-          prompt: {
-            text: request.prompt,
-            ...(request.images?.length ? { images: request.images } : {}),
-          },
+    const response = await this.request(
+      "POST",
+      `/v1/agents/${encodeURIComponent(id)}/runs`,
+      {
+        prompt: {
+          text: request.prompt,
+          ...(request.images?.length ? { images: request.images } : {}),
         },
-        request.signal ?? context.signal,
-      ),
+      },
+      request.signal ?? context.signal,
+      true,
     );
+    // Follow-ups have no idempotency key. A busy agent may already be running an
+    // earlier attempt of this one, so the caller must observe the run list, not resend.
+    if (response === null) throw new Error("Cloud agent is busy with another run");
+    const parsed = z.object({ run: runSchema }).safeParse(response);
     if (!parsed.success) throw new Error("Invalid cloud agent follow-up response");
     return this.handle(agent, parsed.data.run);
   }

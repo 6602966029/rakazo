@@ -733,7 +733,7 @@ model CloudAgent {
   launchRequest       Json
   launchDispatched    Boolean  @default(false)
   followup            Json?
-  followupDispatching Boolean  @default(false)
+  followupDispatchedAt DateTime?
   cancelRequested     Boolean  @default(false)
   generation          Int      @default(0)
   wakeGeneration      Int      @default(-1)

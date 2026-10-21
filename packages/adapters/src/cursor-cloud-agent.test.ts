@@ -109,6 +109,33 @@ describe("Cursor HTTP boundary", () => {
     await provider.reply(agent.id, { prompt: "Tests" }, context);
     expect(wire.requests.map((request) => request.method)).toEqual(["GET", "POST"]);
   });
+  it("reads the newest run from the run list, not stale agent metadata", async () => {
+    const wire = new CursorCloudAgentEmulator();
+    const provider = new CursorCloudAgentProvider({ apiKey: "fake-key", fetch: wire.fetch });
+    const agent = await provider.launch({ idempotencyKey: "list", prompt: "Task" }, context);
+    wire.complete(agent.id);
+    const followup = await provider.reply(agent.id, { prompt: "Tests" }, context);
+    wire.staleLatestRunId = agent.latestRunId;
+    expect((await provider.get(agent.id, context)).latestRunId).toBe(followup.latestRunId);
+  });
+  it("reports a follow-up whose pre-send read failed as never sent", async () => {
+    const wire = new CursorCloudAgentEmulator();
+    const provider = new CursorCloudAgentProvider({ apiKey: "fake-key", fetch: wire.fetch });
+    const agent = await provider.launch({ idempotencyKey: "unsent", prompt: "Task" }, context);
+    wire.complete(agent.id);
+    wire.failNextRequest = 503;
+    const error = await provider.reply(agent.id, { prompt: "Tests" }, context).catch((e) => e);
+    expect(error).toMatchObject({ name: "CloudAgentRetryLater", reason: "unavailable" });
+    expect(wire.requests.filter((request) => request.method === "POST")).toHaveLength(1);
+  });
+  it("keeps a follow-up to a busy agent ambiguous instead of rejecting it", async () => {
+    const wire = new CursorCloudAgentEmulator();
+    const provider = new CursorCloudAgentProvider({ apiKey: "fake-key", fetch: wire.fetch });
+    const agent = await provider.launch({ idempotencyKey: "busy", prompt: "Task" }, context);
+    const error = await provider.reply(agent.id, { prompt: "Tests" }, context).catch((e) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(CloudAgentRequestRejected);
+  });
   it.each([
     ["CREATING", "running"],
     ["RUNNING", "running"],

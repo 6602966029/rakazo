@@ -128,6 +128,15 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       wire.complete((await state(agentId)).remoteId!);
       await poll(agentId);
     };
+    // Age an ambiguous follow-up past the window in which a late acceptance could appear.
+    const settle = (agentId: string) =>
+      prisma.cloudAgent.update({
+        where: { id: agentId },
+        data: { followupDispatchedAt: new Date(Date.now() - 10 * 60_000) },
+      });
+    const runs = async (agentId: string) => [
+      ...wire.agents.get((await state(agentId)).remoteId!)!.runs.values(),
+    ];
     return {
       id,
       bot,
@@ -145,6 +154,8 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       clear,
       wakes,
       finish,
+      settle,
+      runs,
     };
   }
 
@@ -335,19 +346,74 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     await h.tool("reply", { id, prompt: "Add tests" });
     h.wire.loseNextReplyResponse = true;
     await h.poll(id);
-    expect((await h.state(id)).followupDispatching).toBe(true);
+    expect((await h.state(id)).followupDispatchedAt).not.toBeNull();
     h.wire.staleLatestRunId = oldRun;
     await h.poll(id);
-    expect((await h.state(id)).status).toBe("running");
+    expect(await h.state(id)).toMatchObject({ status: "running", followup: null });
+    expect((await h.state(id)).latestRunId).not.toBe(oldRun);
     expect(await h.wakes()).toHaveLength(1);
-    h.wire.staleLatestRunId = undefined;
-    await h.poll(id);
-    expect((await h.state(id)).followup).toBeNull();
     expect(
       h.wire.requests.filter(
         (request) => request.method === "POST" && request.path.endsWith("/runs"),
       ),
     ).toHaveLength(1);
+  });
+
+  it("resends a follow-up whose pre-send read failed, since nothing was sent", async () => {
+    const h = await setup();
+    const id = await h.launch();
+    await h.poll(id);
+    await h.finish(id);
+    await h.tool("reply", { id, prompt: "Add tests" });
+    h.wire.failNextRequest = 503;
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ status: "running", followupDispatchedAt: null });
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ status: "running", followup: null });
+    expect(await h.runs(id)).toHaveLength(2);
+    await h.finish(id);
+    expect((await h.state(id)).status).toBe("finished");
+  });
+
+  it.each([
+    ["never accepted", false],
+    ["accepted after the client gave up", true],
+  ])("sends an ambiguous follow-up exactly once when it was %s", async (_label, late) => {
+    const h = await setup();
+    const id = await h.launch();
+    await h.poll(id);
+    await h.finish(id);
+    await h.tool("reply", { id, prompt: "Add tests" });
+    const remoteId = (await h.state(id)).remoteId!;
+    let failed = false;
+    h.connection.provider = new CursorCloudAgentProvider({
+      apiKey: "fake-key",
+      fetch: async (input, init) => {
+        if (failed || init?.method !== "POST") return h.wire.fetch(input, init);
+        failed = true;
+        return new Response(null, { status: 503 });
+      },
+    });
+    await h.poll(id);
+    await h.poll(id);
+    expect((await h.state(id)).followupDispatchedAt).not.toBeNull();
+    expect(await h.runs(id)).toHaveLength(1);
+    if (late) {
+      await h.wire.fetch(`https://api.cursor.com/v1/agents/${remoteId}/runs`, {
+        method: "POST",
+        headers: { authorization: "Bearer fake-key" },
+        body: JSON.stringify({ prompt: { text: "Add tests" } }),
+      });
+    } else {
+      await h.settle(id);
+      await h.poll(id);
+      expect((await h.state(id)).followupDispatchedAt).toBeNull();
+    }
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ status: "running", followup: null });
+    expect(await h.runs(id)).toHaveLength(2);
+    await h.finish(id);
+    expect((await h.state(id)).status).toBe("finished");
   });
 
   it("does not report cancellation success while transport fails or the provider is still running", async () => {
@@ -367,30 +433,44 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.state(id)).toMatchObject({ status: "cancelled", cancelRequested: false });
   });
 
-  it("keeps cancellation pending while an ambiguous follow-up still reports the old run", async () => {
+  it.each([
+    ["accepted", true],
+    ["never accepted", false],
+  ])("cancels an ambiguous follow-up that was %s", async (_label, accepted) => {
     const h = await setup();
     const id = await h.launch();
     await h.poll(id);
     await h.finish(id);
     const oldRun = (await h.state(id)).latestRunId!;
     await h.tool("reply", { id, prompt: "Tests" });
-    h.wire.loseNextReplyResponse = true;
+    if (accepted) h.wire.loseNextReplyResponse = true;
+    else
+      h.connection.provider = new CursorCloudAgentProvider({
+        apiKey: "fake-key",
+        fetch: async (input, init) =>
+          init?.method === "POST" ? new Response(null, { status: 503 }) : h.wire.fetch(input, init),
+      });
     await h.poll(id);
+    expect((await h.state(id)).followupDispatchedAt).not.toBeNull();
     await h.tool("cancel", { id });
     h.wire.staleLatestRunId = oldRun;
     await h.poll(id);
-    expect(await h.state(id)).toMatchObject({
-      status: "running",
-      cancelRequested: true,
-      followupDispatching: true,
-    });
-    h.wire.staleLatestRunId = undefined;
-    await h.poll(id);
+    if (!accepted) {
+      // A late acceptance could still appear, so cancellation waits for the run list to settle.
+      expect(await h.state(id)).toMatchObject({ status: "running", cancelRequested: true });
+      await h.settle(id);
+      await h.poll(id);
+    }
     expect(await h.state(id)).toMatchObject({
       status: "cancelled",
       cancelRequested: false,
       followup: null,
+      followupDispatchedAt: null,
+      nextPollAt: null,
     });
+    expect((await h.runs(id)).map((run) => run.status)).toEqual(
+      accepted ? ["FINISHED", "CANCELLED"] : ["FINISHED"],
+    );
   });
 
   it("cancels a queued follow-up without dispatching it", async () => {
@@ -527,7 +607,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.state(id)).toMatchObject({
       status: "expired",
       followup: null,
-      followupDispatching: false,
+      followupDispatchedAt: null,
       nextPollAt: null,
     });
     expect(await h.wakes()).toHaveLength(2);
@@ -541,7 +621,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     await h.tool("reply", { id, prompt: "Add tests" });
     h.wire.apiKey = "revoked-key";
     await h.poll(id);
-    expect(await h.state(id)).toMatchObject({ status: "running", followupDispatching: false });
+    expect(await h.state(id)).toMatchObject({ status: "running", followupDispatchedAt: null });
     h.wire.apiKey = "fake-key";
     const replies = () =>
       h.wire.requests.filter(
@@ -561,7 +641,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       },
     });
     await h.poll(id);
-    expect(await h.state(id)).toMatchObject({ followupDispatching: false });
+    expect(await h.state(id)).toMatchObject({ followupDispatchedAt: null });
     expect((await h.state(id)).nextPollAt!.getTime()).toBeGreaterThan(Date.now() + 29_000);
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({ followup: null, status: "running" });
