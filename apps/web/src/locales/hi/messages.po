@@ -374,6 +374,7 @@ msgstr "सक्रिय मॉडल"
 msgid "Activity"
 msgstr "गतिविधि"
 
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -2254,6 +2255,10 @@ msgstr "डुप्लिकेट"
 msgid "e.g. Hivenet Agent, Presales, Timesheets bot"
 msgstr "उदा. Hivenet Agent, Presales, टाइमशीट बॉट"
 
+#: src/pages/McpServersOverlay.tsx
+msgid "Each name can be used once."
+msgstr "हर नाम का इस्तेमाल केवल एक बार किया जा सकता है।"
+
 #: src/components/AskCard.tsx
 msgid "Edit"
 msgstr "संपादित करें"
@@ -2316,6 +2321,10 @@ msgstr "इमेज सीमा के लिए 1 से 1000 के बी�
 #: src/lib/model-connection-preflight.ts
 msgid "Enter an API key before testing."
 msgstr "परीक्षण से पहले API कुंजी दर्ज करें।"
+
+#: src/pages/McpServersOverlay.tsx
+msgid "Environment variables"
+msgstr "एनवायरनमेंट वेरिएबल"
 
 #: src/lib/roster-status.ts
 #: src/pages/Shell.tsx
@@ -3223,6 +3232,7 @@ msgstr "माइक बंद है"
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3918,6 +3928,7 @@ msgid "Reload"
 msgstr "फिर से लोड करें"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -5162,9 +5173,10 @@ msgstr ""
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "{selectedProviderName} तक पहुँचने के लिए इस सर्वर के अपने {hostCredentialSource} क्रेडेंशियल का उपयोग करता है।"
 
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
-msgstr ""
+msgstr "मान"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Values are encrypted and never shown again."

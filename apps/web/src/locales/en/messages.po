@@ -374,6 +374,7 @@ msgstr "Active model"
 msgid "Activity"
 msgstr "Activity"
 
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -2254,6 +2255,10 @@ msgstr "Duplicate"
 msgid "e.g. Hivenet Agent, Presales, Timesheets bot"
 msgstr "e.g. Hivenet Agent, Presales, Timesheets bot"
 
+#: src/pages/McpServersOverlay.tsx
+msgid "Each name can be used once."
+msgstr "Each name can be used once."
+
 #: src/components/AskCard.tsx
 msgid "Edit"
 msgstr "Edit"
@@ -2316,6 +2321,10 @@ msgstr "Enter a whole number from 1 to 1000 for the image limit."
 #: src/lib/model-connection-preflight.ts
 msgid "Enter an API key before testing."
 msgstr "Enter an API key before testing."
+
+#: src/pages/McpServersOverlay.tsx
+msgid "Environment variables"
+msgstr "Environment variables"
 
 #: src/lib/roster-status.ts
 #: src/pages/Shell.tsx
@@ -3223,6 +3232,7 @@ msgstr "Muted"
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3918,6 +3928,7 @@ msgid "Reload"
 msgstr "Reload"
 
 #: src/components/ApprovalRulesSettings.tsx
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
@@ -5162,6 +5173,7 @@ msgstr "Username"
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 
+#: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
 msgstr "Value"
