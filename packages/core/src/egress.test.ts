@@ -45,6 +45,12 @@ describe("sitesInText", () => {
     ).toEqual(["203.0.113.7", "example.com", "example.org"]);
   });
 
+  it("trusts only a link's host, not domains in its path or query", () => {
+    expect([
+      ...sitesInText("Summarize https://forum.example.org/topic/attacker.com?next=evil.net"),
+    ]).toEqual(["example.org"]);
+  });
+
   it("skips email addresses, file names and words without a public suffix", () => {
     expect([...sitesInText("Email bob@mail.example.com about notes.txt and index.ts")]).toEqual([]);
   });

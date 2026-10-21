@@ -146,7 +146,7 @@ import {
   redactShellStreams,
 } from "./agent-environment.js";
 import type { FleetCardSummary } from "./approval-ask.js";
-import { buildApprovalAskBlock } from "./approval-ask.js";
+import { buildApprovalAskBlock, MAX_FETCH_URL_LENGTH } from "./approval-ask.js";
 import {
   approvalPausedToolResult,
   approvalReplayPathError,
@@ -443,6 +443,19 @@ import {
 } from "./user-progress.js";
 import { createWebProvider } from "./web-provider-factory.js";
 import { webFetchFromTool, webSearchFromTool } from "./web-tools.js";
+
+/**
+ * The connection a connector call reaches, for read trust. Installed APIs are told apart by their
+ * resource, since their tool names share a prefix; other connectors by their tool-name kind.
+ */
+function connectorTrustKey(
+  route: { connectorId?: string; resourceId?: string } | undefined,
+  connectorKind: string,
+): string {
+  return route?.connectorId && route.resourceId
+    ? `resource:${route.connectorId}:${route.resourceId}`
+    : `kind:${connectorKind}`;
+}
 
 /** Effects that got past the approval gate: approved, allowed by a rule or review, or run. */
 const PASSED_EFFECT_STATUSES = ["approved", "executing", "uncertain", "completed"];
@@ -4278,14 +4291,20 @@ export function createRunExecutor(deps: ExecutorDeps) {
           trustedConnectorsPromise ??= deps.prisma.externalEffect
             .findMany({
               where: { runId, status: { in: PASSED_EFFECT_STATUSES } },
-              select: { kind: true },
+              select: { kind: true, request: true },
             })
             .then(
               (rows) =>
                 new Set(
                   rows
                     .filter((row) => !BUILTIN_AGENT_TOOL_NAMES.has(row.kind))
-                    .map((row) => connectorKindFromToolName(row.kind, providers)),
+                    .map((row) =>
+                      connectorTrustKey(
+                        boundDirectApprovalDetails(row.request, CATALOG_APPROVAL_TOOL)?.route ??
+                          catalogApprovalDetails(row.request, CATALOG_APPROVAL_TOOL)?.route,
+                        connectorKindFromToolName(row.kind, providers),
+                      ),
+                    ),
                 ),
             );
           return trustedConnectorsPromise;
@@ -4857,6 +4876,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
             name === "web_fetch" ? normalizedHttpUrl(String(args.url ?? "")) : undefined;
           const fetchSite = fetchUrl ? urlSite(fetchUrl) : undefined;
           if (name === "web_fetch" && !fetchSite) return { error: "url must be an http(s) URL" };
+          if (fetchUrl && fetchUrl.length > MAX_FETCH_URL_LENGTH)
+            return { error: `url must be at most ${MAX_FETCH_URL_LENGTH} characters` };
+          const connectorTrust = connectorTrustKey(connectorCall.route, connectorKind);
           const siteGate =
             fetchUrl && fetchSite
               ? outboundSiteGate({
@@ -4874,7 +4896,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             !connectorToolRequiresApproval(name, declaredReadOnly) &&
             connectorReadRequiresApproval({
               tainted: await isRunTainted(),
-              connectorTrusted: (await loadTrustedConnectors()).has(connectorKind),
+              connectorTrusted: (await loadTrustedConnectors()).has(connectorTrust),
             });
           // This schedules unattended shell execution; require a person to approve
           // the command once, rather than letting an allow rule or reviewer schedule it.
@@ -5336,7 +5358,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // Past the gate: this destination is now one the run was given. A search result's exact
           // URL trusts only that URL, never the rest of its site.
           if (fetchSite && siteGate === "ask") (await loadTrustedSites()).add(fetchSite);
-          if (viaConnector) (await loadTrustedConnectors()).add(connectorKind);
+          if (viaConnector) (await loadTrustedConnectors()).add(connectorTrust);
           const persistEffectResult = (result: unknown) =>
             applied
               ? completeEffect(

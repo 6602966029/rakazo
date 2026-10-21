@@ -82,7 +82,10 @@ function fixture({
   advanceRevisionAfterRead = false,
   fleetManagement = false,
   fleetBots = [] as { id: string; name: string }[],
+  secondResource = false,
 }: {
+  /** Adds `demo_get_other`, a read on a separate installed resource with the same name prefix. */
+  secondResource?: boolean;
   /** The switch as the run starts; `liveBot` is what a later read sees. */
   fleetManagement?: boolean;
   /** Other active bots of the same user, found by id or exact name. */
@@ -363,7 +366,20 @@ function fixture({
                   route: { connectorId: "demo", toolName: "__catalog_execute" },
                 },
               ]
-            : [tool],
+            : secondResource
+              ? [
+                  tool,
+                  {
+                    ...tool,
+                    name: "demo_get_other",
+                    route: {
+                      connectorId: "demo",
+                      resourceId: "resource-2",
+                      toolName: "demo_get_other",
+                    },
+                  },
+                ]
+              : [tool],
       resolveCall: async (call: ConnectorCall) =>
         catalog ? resolveCatalogCall(call, catalogEntries([tool])) : undefined,
       execute,
@@ -1476,6 +1492,30 @@ describe("outbound destinations", () => {
     expect(pausedCard(f)).toMatchObject({
       actions: expect.arrayContaining([{ id: "always", label: "Always allow this tool" }]),
     });
+  });
+
+  it("keeps read trust to the installed resource the run used, not its name prefix", async () => {
+    reviewMock.mockReset();
+    reviewMock.mockResolvedValue({ decision: "ask", reason: "Unexpected lookup", model: "mock" });
+    const f = fixture({ autoReview: true, secondResource: true });
+    f.setCalls([
+      { args: { id: "item-1" }, executionId: "call-1" },
+      { name: "web_search", args: { query: "news" }, executionId: "call-2" },
+      { name: "demo_get_other", args: { id: "item-2" }, executionId: "call-3" },
+    ]);
+    await f.run();
+    expect(f.execute).toHaveBeenCalledTimes(1);
+    expect(reviewMock).toHaveBeenCalledTimes(1);
+    expect(isApprovalPausedResult(f.results[2])).toBe(true);
+  });
+
+  it("refuses a fetch URL too long to show whole on the approval card", async () => {
+    const f = fixture({ builtin: true });
+    const url = `https://example.com/?pad=${"a".repeat(2_100)}`;
+    f.setCalls([{ name: "web_fetch", args: { url }, executionId: "call-1" }]);
+    await f.run();
+    expect(f.results[0]).toEqual({ error: "url must be at most 2048 characters" });
+    expect(f.fetchedUrls).toEqual([]);
   });
 
   it("keeps reads free on a connector the run used before outside content arrived", async () => {

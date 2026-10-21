@@ -41,7 +41,9 @@ export function sitesInText(text: string): Set<string> {
     const site = urlSite(match.replace(/[.,;:!?)\]}]+$/, ""));
     if (site) sites.add(site);
   }
-  for (const [match] of text.matchAll(DOMAIN_IN_TEXT)) {
+  // A link grants only its own host: a domain in its path or query is not one the person named.
+  const withoutLinks = text.replace(URL_IN_TEXT, " ");
+  for (const [match] of withoutLinks.matchAll(DOMAIN_IN_TEXT)) {
     const parsed = parse(match.toLowerCase());
     if (parsed.isIcann && parsed.domain) sites.add(parsed.domain);
   }

@@ -5,6 +5,8 @@ import { urlSite } from "@rakazo/core/egress";
 
 export const MAX_APPROVAL_SUMMARY_LENGTH = 500;
 export const MAX_APPROVAL_DETAIL_LENGTH = 4_000;
+/** Longer fetch URLs are refused, so an approval card always shows the whole URL it sends. */
+export const MAX_FETCH_URL_LENGTH = 2_048;
 
 /** A fleet card built from the resolved request: a title and the lines under it. */
 export type FleetCardSummary = { title: string; lines: string[] };
