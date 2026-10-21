@@ -73,6 +73,9 @@ Tradeoffs:
   the 200 most recent messages instead of the index.
 - Tokens are 32-bit, so unrelated words occasionally collide; those candidates
   are discarded after decryption.
+- Space search checks at most 500 index candidates per query, newest first, so
+  a phrase whose words are common may need a more specific query to reach
+  older messages. Agent history search pages through cursors instead.
 
 ## Threat model
 
