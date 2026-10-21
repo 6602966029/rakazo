@@ -269,6 +269,7 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
 
   await page.getByRole("button", { name: new RegExp(userName, "i") }).click();
   await page.getByRole("button", { name: "Log out" }).click();
+  await showPasswordForm(page);
   await expect(page.getByRole("link", { name: "Forgot password?" })).toBeVisible();
   await page.getByRole("link", { name: "Forgot password?" }).click();
   await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
