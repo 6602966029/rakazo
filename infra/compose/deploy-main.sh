@@ -38,6 +38,53 @@ healthy() {
   curl --fail --silent --show-error --max-time 15 "${RAKAZO_HEALTH_URL}" >/dev/null
 }
 
+# Waits for a container's own health check. A container that fails it is removed so the
+# containers it was meant to replace keep serving.
+container_healthy() {
+  local container="$1" state="" deadline=$((SECONDS + 300))
+  while ((SECONDS < deadline)); do
+    state="$(sudo docker inspect --format '{{.State.Health.Status}}' "${container}")"
+    [[ "${state}" == healthy ]] && return 0
+    [[ "${state}" == unhealthy ]] && break
+    sleep "${RAKAZO_DEPLOY_HEALTH_INTERVAL:-1}"
+  done
+  echo "Container ${container} did not become healthy (${state:-unknown})." >&2
+  sudo docker rm --force "${container}" >/dev/null || true
+  return 1
+}
+
+# Replaces the API and web without a gap: one new container starts beside the running ones, and
+# the old ones stop only once it passes its health check. Caddy dials whichever container
+# answers, so requests keep flowing through a deploy. Every other service is then reconciled
+# normally; the replaced containers already match the new configuration and stay as they are.
+roll_out() {
+  local service old new
+  for service in api web; do
+    old="$(compose 1m ps --all --quiet "${service}")"
+    if [[ -z "${old}" ]]; then
+      compose "${UP_TIMEOUT}" up -d --no-deps --wait "${service}"
+      continue
+    fi
+    compose "${UP_TIMEOUT}" up -d --no-deps --no-recreate \
+      --scale "${service}=$(($(wc -w <<<"${old}") + 1))" "${service}"
+    new="$(compose 1m ps --all --quiet "${service}" | grep -vxF "${old}")"
+    container_healthy "${new}"
+    # shellcheck disable=SC2086 # one container ID per word
+    sudo docker stop --time 30 ${old} >/dev/null
+    # shellcheck disable=SC2086
+    sudo docker rm ${old} >/dev/null
+  done
+  compose "${UP_TIMEOUT}" up -d --remove-orphans
+}
+
+# Caddy mounts its config as a single file, which keeps the old inode after a git checkout, so a
+# changed Caddyfile only applies when the container is recreated.
+apply_caddyfile() {
+  if ! git diff --quiet "$1" "$2" -- infra/compose/Caddyfile.prod; then
+    compose "${UP_TIMEOUT}" up -d --no-deps --force-recreate caddy
+  fi
+}
+
 exec 9>"${APP_DIR}/.deploy.lock"
 if ! flock -n 9; then
   # CI runs one deploy at a time, so a held lock means an earlier deploy is stuck. Fail loudly
@@ -76,7 +123,9 @@ rollback() {
   trap - ERR
   echo "Deployment failed; restoring the previous revision ${previous_revision}." >&2
   git reset --hard "${previous_revision}"
-  compose "${ROLLBACK_TIMEOUT}" up -d --build --remove-orphans
+  compose "${ROLLBACK_TIMEOUT}" build
+  roll_out
+  apply_caddyfile "${target_revision}" "${previous_revision}"
   exit 1
 }
 trap rollback ERR
@@ -116,7 +165,8 @@ if ! grep -Eq '^POSTGRES_APP_PASSWORD=[^[:space:]]' .env; then
 fi
 compose 1m config --quiet
 compose "${BUILD_TIMEOUT}" build
-compose "${UP_TIMEOUT}" up -d --remove-orphans
+roll_out
+apply_caddyfile "${previous_revision}" "${target_revision}"
 
 for _ in {1..30}; do
   if healthy; then

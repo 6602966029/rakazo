@@ -338,6 +338,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+      # Probe every second while starting, so a deploy hands traffic over as soon as it can.
+      start_period: 2m
+      start_interval: 1s
 
   worker:
     image: ${RAKAZO_IMAGE:-ghcr.io/elie222/rakazo/app}:${RAKAZO_IMAGE_TAG:-local}
@@ -400,6 +403,17 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:5173/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 2m
+      start_interval: 1s
 
   # The updater holds the Docker socket, which is root-equivalent on the host, so it is opt-in and
   # deliberately the narrowest service here: no `ports` (nothing on the host), only the dedicated
