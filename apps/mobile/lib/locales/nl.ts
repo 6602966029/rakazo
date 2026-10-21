@@ -1,12 +1,8 @@
-import { MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
-
 export const NL_MESSAGES: Record<string, string> = {
-  "Connect a model": "Een model verbinden",
-  [MODEL_REQUIRED_SEND_ERROR]: "Verbind een model om een uitvoering te starten.",
+  "Add a model": "Model toevoegen",
+  "Add an AI model to keep chatting.": "Voeg een AI-model toe om verder te chatten.",
   "Not Now": "Niet nu",
-  "Add an API key in Models, then tap your message to send it.":
-    "Voeg een API-sleutel toe bij Modellen en tik dan op je bericht om het te versturen.",
-  "Open Models": "Modellen openen",
+  "Add Model": "Model toevoegen",
 
   "About {label}": "Over {label}",
   "Manage the bots it creates": "De bots beheren die deze bot maakt",

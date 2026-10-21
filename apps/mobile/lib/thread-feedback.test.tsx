@@ -270,7 +270,7 @@ describe("scoped mobile outbox", () => {
         const [options, choose] = vi
           .mocked(ActionSheetIOS.showActionSheetWithOptions)
           .mock.calls.at(-1)!;
-        expect(options.options).toEqual(["Open Models", "Try Again", "Delete", "Cancel"]);
+        expect(options.options).toEqual(["Add Model", "Try Again", "Delete", "Cancel"]);
         expect(options.cancelButtonIndex).toBe(3);
         expect(options.destructiveButtonIndex).toBe(2);
         act(() => choose(0));
@@ -278,7 +278,7 @@ describe("scoped mobile outbox", () => {
         act(() => choose(1));
       } else {
         const buttons = vi.mocked(Alert.alert).mock.calls.at(-1)![2]!;
-        expect(buttons.map(({ text }) => text)).toEqual(["Open Models", "Try Again", "Delete"]);
+        expect(buttons.map(({ text }) => text)).toEqual(["Add Model", "Try Again", "Delete"]);
         act(() => buttons[0]!.onPress?.());
         expect(router.push).toHaveBeenCalledWith("/(settings)/models");
         act(() => buttons[1]!.onPress?.());

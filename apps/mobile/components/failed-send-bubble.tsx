@@ -1,4 +1,4 @@
-import { isModelRequiredSendError, MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
+import { isModelRequiredSendError } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { ActionSheetIOS, Alert, Image, Platform, Pressable, Text, View } from "react-native";
 import { useI18n } from "../lib/i18n";
@@ -34,11 +34,11 @@ export function FailedSendBubble({
 
   function showActions() {
     const actions = [
-      ...(modelRequired ? [{ text: t("Open Models"), onPress: openModelSettings }] : []),
+      ...(modelRequired ? [{ text: t("Add Model"), onPress: openModelSettings }] : []),
       ...(retryable ? [{ text: t("Try Again"), onPress: onRetry }] : []),
       { text: t("Delete"), style: "destructive" as const, onPress: onDelete },
     ];
-    const message = modelRequired ? t(MODEL_REQUIRED_SEND_ERROR) : attempt.error;
+    const message = modelRequired ? t("Add an AI model to keep chatting.") : attempt.error;
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {

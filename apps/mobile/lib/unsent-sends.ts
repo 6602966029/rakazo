@@ -79,14 +79,10 @@ configureUnsentSends({
   errorText: (error) => errorText(error, t("Failed to send message")),
   notDelivered: (attempt) => {
     if (isModelRequiredSendError(attempt.error)) {
-      Alert.alert(
-        t("Connect a model"),
-        t("Add an API key in Models, then tap your message to send it."),
-        [
-          { text: t("Not Now"), style: "cancel" },
-          { text: t("Open Models"), onPress: openModelSettings, isPreferred: true },
-        ],
-      );
+      Alert.alert(t("Add a model"), t("Add an AI model to keep chatting."), [
+        { text: t("Not Now"), style: "cancel" },
+        { text: t("Add Model"), onPress: openModelSettings, isPreferred: true },
+      ]);
     } else {
       Alert.alert(t("Failed to send message"), attempt.error);
     }
