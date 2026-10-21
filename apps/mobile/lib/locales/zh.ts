@@ -1,6 +1,10 @@
 export const ZH_MESSAGES: Record<string, string> = {
   Provider: "提供商",
   "No matching providers": "没有匹配的提供商",
+  "To:": "收件人：",
+  Next: "下一步",
+  "Ex: Project Falcon": "例如：猎鹰计划",
+  "Search bots": "搜索 Bot",
   "About {label}": "关于{label}",
   "Manage the bots it creates": "管理它创建的机器人",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
@@ -339,7 +343,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Could not update reaction": "无法更新反应",
   "Couldn't update avatars": "无法更新头像",
   Create: "创建",
-  "Create group": "创建群组",
   "Create section": "创建分组",
   "Create space": "创建空间",
   Creating: "创建中",
@@ -444,7 +447,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Move to": "移动到",
   Name: "名称",
   "Name this bot": "为这个 Bot 命名",
-  "Name this group": "为这个群组命名",
   "Needs attention": "需要处理",
   "Needs input": "等待输入",
   "Needs takeover": "等待接管",
@@ -903,4 +905,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Couldn't start the computer": "无法启动电脑",
   "Something went wrong while it was starting. Try again in a moment.":
     "启动时出了点问题。请稍后重试。",
+  "Your voice provider is out of credit.": "你的语音提供方额度已用完。",
+  "Your voice provider key was rejected.": "你的语音提供方拒绝了该密钥。",
 };

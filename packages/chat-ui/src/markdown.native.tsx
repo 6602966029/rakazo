@@ -1,5 +1,5 @@
 import type { ColorTokens, ResolvedAppearance } from "@rakazo/ui-tokens";
-import { darkTokens, fontWeight, typeScale } from "@rakazo/ui-tokens";
+import { darkTokens, fontWeight, MAX_FONT_SCALE, typeScale } from "@rakazo/ui-tokens";
 import type {
   ASTNode,
   MarkdownStyleMap,
@@ -90,9 +90,6 @@ const ZERO_WIDTH_SPACE = "\u200B";
 // around the link.
 const ISOLATE = "\u2068";
 const POP_ISOLATE = "\u2069";
-
-// The library's own rules, for the blocks this file only sometimes replaces.
-const libraryRules = libraryRenderRules(Text);
 
 // One shared parser: the Markdown components memoize on its identity.
 const markdownParser = createMarkdownIt();
@@ -199,44 +196,58 @@ function markdownStyles(palette: ColorTokens) {
     // Code blocks keep the monospaced font's own line spacing.
     code_block: {
       color: palette.foreground,
-      backgroundColor: palette.background,
+      backgroundColor: palette.secondary,
       borderColor: palette.border,
       ...codeText,
       ...codeBox,
     },
+    // The header and code sit inside the fence; a fill of their own would stack the translucent one.
     fence: {
-      backgroundColor: palette.background,
+      backgroundColor: palette.secondary,
       borderColor: palette.border,
       ...codeBox,
     },
     fence_code: {
-      backgroundColor: palette.background,
+      backgroundColor: "transparent",
+    },
+    fence_header: {
+      backgroundColor: "transparent",
+      borderBottomColor: palette.border,
     },
     fence_token: codeText,
     fence_language_label: {
+      color: palette.foreground,
       fontFamily: MONO_FONT,
     },
-    // Bot bubbles are filled with `muted`, which `border` matches in light mode,
-    // so rules drawn inside a message use the muted foreground to stay visible.
+    // Quotes read as secondary text behind a faint bar.
     blockquote: {
       backgroundColor: "transparent",
-      borderLeftColor: palette.mutedForeground,
+      color: palette.mutedForeground,
+      borderLeftColor: palette.faintForeground,
       borderLeftWidth: 3,
       gap: BLOCK_GAP,
     },
+    bullet_list_icon: {
+      color: palette.faintForeground,
+    },
+    // Tables are rules only: secondary-text cells under a primary-text header.
     table: {
-      borderColor: palette.mutedForeground,
+      borderColor: palette.input,
       borderWidth: StyleSheet.hairlineWidth,
     },
     tr: {
-      borderColor: palette.mutedForeground,
+      borderColor: palette.input,
       borderBottomWidth: StyleSheet.hairlineWidth,
     },
     th: {
       ...typeScale.caption,
+      color: palette.foreground,
       fontWeight: fontWeight.medium,
     },
-    td: typeScale.caption,
+    td: {
+      ...typeScale.caption,
+      color: palette.mutedForeground,
+    },
     bullet_list: {
       gap: BLOCK_GAP,
     },
@@ -244,13 +255,14 @@ function markdownStyles(palette: ColorTokens) {
       gap: BLOCK_GAP,
     },
     ordered_list_icon: {
+      color: palette.faintForeground,
       fontSize: typeScale.secondary.fontSize,
       fontVariant: ["tabular-nums"],
       marginLeft: 0,
       marginRight: 0,
     },
     hr: {
-      backgroundColor: palette.mutedForeground,
+      backgroundColor: palette.border,
       height: StyleSheet.hairlineWidth,
     },
     // Custom keys. An image label outside a text node inherits no color, so it carries the body color.
@@ -299,7 +311,7 @@ function markdownStyles(palette: ColorTokens) {
       color: palette.foreground,
       fontWeight: "500",
       textDecorationLine: "underline",
-      textDecorationColor: palette.mutedForeground,
+      textDecorationColor: palette.input,
     },
     link_favicon_plate: {
       backgroundColor: palette.faviconPlate,
@@ -900,8 +912,8 @@ function NumberColumn({
   reversed: boolean;
   children: ReactNode;
 }) {
-  // The number grows with the iOS text size, so its column does too.
-  const { fontScale } = useWindowDimensions();
+  // The number grows with the iOS text size up to the app's limit, so its column does too.
+  const fontScale = Math.min(useWindowDimensions().fontScale, MAX_FONT_SCALE);
   return (
     <View
       style={[
@@ -1004,7 +1016,9 @@ const renderRules: RenderRules = {
         style={[{ borderWidth, borderColor, borderRadius, backgroundColor }, layout.codeFrame]}
       >
         <CodeScrollView code={node.content.replace(/\n$/, "")}>
-          {libraryRules.code_block?.(
+          {/* The library's own rule, made here so it draws with the app's Text, which the app
+              replaces after this file loads. */}
+          {libraryRenderRules(Text).code_block?.(
             node,
             children,
             parents,
@@ -1279,7 +1293,8 @@ export const LinkifiedText = memo(function LinkifiedText({
     color,
     fontWeight: "500",
     textDecorationLine: "underline",
-    textDecorationColor: palette.mutedForeground,
+    // Links in a bubble are the bubble's text colour, so the underline is what marks them.
+    textDecorationColor: linkColor,
   };
   return (
     <Text style={[{ color, ...typeScale.body }, contraryDirection(children) && layout.farSideText]}>

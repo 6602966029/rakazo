@@ -1,6 +1,10 @@
 export const NL_MESSAGES: Record<string, string> = {
   Provider: "Provider",
   "No matching providers": "Geen overeenkomende providers",
+  "To:": "Aan:",
+  Next: "Volgende",
+  "Ex: Project Falcon": "Bijv. Project Falcon",
+  "Search bots": "Bots zoeken",
   "About {label}": "Over {label}",
   "Manage the bots it creates": "De bots beheren die deze bot maakt",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
@@ -336,9 +340,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Group not found": "Groep niet gevonden",
   Members: "Leden",
   "Could not create group": "Groep aanmaken mislukt",
-  "Create group": "Groep aanmaken",
   "Creating…": "Bezig met aanmaken…",
-  "Name this group": "Geef deze groep een naam",
   "Could not create space": "Space aanmaken mislukt",
   "Create space": "Space aanmaken",
   "Customer support": "Klantenservice",
@@ -896,4 +898,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Couldn't start the computer": "De computer kon niet worden gestart",
   "Something went wrong while it was starting. Try again in a moment.":
     "Er ging iets mis tijdens het opstarten. Probeer het over een moment opnieuw.",
+  "Your voice provider is out of credit.": "Je spraakaanbieder heeft geen tegoed meer.",
+  "Your voice provider key was rejected.": "Je spraakaanbieder heeft de sleutel geweigerd.",
 };

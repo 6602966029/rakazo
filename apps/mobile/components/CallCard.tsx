@@ -60,8 +60,8 @@ export function CallCard() {
       fallbackStyle={[
         styles.cardFallback,
         {
-          backgroundColor: tokens.card,
-          borderColor: tokens.border,
+          backgroundColor: tokens.glassFill,
+          borderColor: tokens.glassStroke,
           shadowColor: tokens.foreground,
         },
       ]}
@@ -117,8 +117,8 @@ export function CallCard() {
           ios="phone.down.fill"
           android="call-outline"
           color={tokens.destructiveForeground}
-          border={tokens.destructive}
-          background={tokens.destructive}
+          border={tokens.destructiveFill}
+          background={tokens.destructiveFill}
           onPress={endCall}
         />
       </View>

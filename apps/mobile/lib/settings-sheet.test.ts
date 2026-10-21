@@ -77,6 +77,8 @@ describe("settings links", () => {
     expect(isSettingsLink("rakazo:///thread?botId=bot-1")).toBe(false);
     expect(isSettingsLink("rakazo://group-thread?groupId=group-1")).toBe(false);
     expect(isSettingsLink("/new")).toBe(false);
+    expect(isSettingsLink("/artifacts")).toBe(false);
+    expect(isSettingsLink("rakazo:///artifacts")).toBe(false);
     expect(isSettingsLink("rakazo://")).toBe(false);
     expect(isSettingsLink("rakazo:///accounts")).toBe(false);
   });
@@ -95,6 +97,10 @@ describe("settings links", () => {
       "rakazo:///thread?botId=bot-1",
     );
     expect(close).toHaveBeenCalledTimes(1);
+    expect(redirectSystemPath({ path: "rakazo:///artifacts", initial: false })).toBe(
+      "rakazo:///artifacts",
+    );
+    expect(close).toHaveBeenCalledTimes(2);
     unregister();
   });
 });

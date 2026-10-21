@@ -68,9 +68,7 @@ export function FailedSendBubble({
       <View
         style={{
           borderRadius: 20,
-          borderWidth: 1,
-          borderColor: tokens.border,
-          backgroundColor: tokens.secondary,
+          backgroundColor: tokens.chatUser,
           paddingHorizontal: 14,
           paddingVertical: 12,
           gap: 8,
@@ -81,7 +79,7 @@ export function FailedSendBubble({
           <Text
             numberOfLines={3}
             style={{
-              color: tokens.mutedForeground,
+              color: tokens.chatUserForeground,
               fontSize: 13,
               borderLeftWidth: 2,
               borderLeftColor: tokens.border,
@@ -92,7 +90,7 @@ export function FailedSendBubble({
           </Text>
         ) : null}
         {payload.displayText ? (
-          <Text style={{ color: tokens.secondaryForeground, ...typeScale.body }}>
+          <Text style={{ color: tokens.chatUserForeground, ...typeScale.body }}>
             {payload.displayText}
           </Text>
         ) : null}
@@ -104,7 +102,7 @@ export function FailedSendBubble({
                 style={{ width: 180, height: 120, borderRadius: 12 }}
               />
             ) : null}
-            <Text style={{ color: tokens.secondaryForeground, fontSize: 13 }}>
+            <Text style={{ color: tokens.chatUserForeground, fontSize: 13 }}>
               {attachment.name}
             </Text>
           </View>
