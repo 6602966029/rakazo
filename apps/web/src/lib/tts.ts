@@ -1,6 +1,6 @@
 import { readBoundedResponseBytes } from "@rakazo/core";
 import { rpc, selectedSpaceId, withSpaceHeaders } from "./rpc.js";
-import { errorText } from "./user-error.js";
+import { errorText, voiceAccountErrorText } from "./user-error.js";
 
 export type SpeechStatus = "idle" | "preparing" | "speaking";
 
@@ -19,7 +19,7 @@ interface SpeakOptions {
   messageId?: string;
 }
 
-type TtsErrorBody = { error?: string };
+type TtsErrorBody = { error?: string; code?: string };
 
 const IDLE: SpeechSnapshot = { status: "idle" };
 export const VOICE_RESPONSE_TIMEOUT_MS = 70_000;
@@ -181,7 +181,7 @@ export class Speaker {
       );
       if (!res.ok) {
         const body = await readVoiceError(res, deadline.signal);
-        throw new Error(body.error ?? "");
+        throw new Error(voiceAccountErrorText(body) ?? body.error ?? "");
       }
       const bytes = await readResponseBytes(res, MAX_VOICE_AUDIO_BYTES, deadline.signal);
       return new Blob([new Uint8Array(bytes)], {

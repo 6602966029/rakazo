@@ -938,4 +938,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Couldn't start the computer": "Не удалось запустить компьютер",
   "Something went wrong while it was starting. Try again in a moment.":
     "При запуске что-то пошло не так. Попробуйте ещё раз чуть позже.",
+  "Your voice provider is out of credit.": "У вашего голосового провайдера закончились кредиты.",
+  "Your voice provider key was rejected.": "Ваш голосовой провайдер отклонил ключ.",
 };

@@ -5427,3 +5427,11 @@ msgstr "사용 중인 OpenRouter"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "언제든 실제 작업을 맡길 수 있는<0/>나만의 Agent 팀"
+
+#: src/lib/user-error.ts
+msgid "Your voice provider is out of credit."
+msgstr "음성 서비스 크레딧이 모두 소진되었습니다."
+
+#: src/lib/user-error.ts
+msgid "Your voice provider key was rejected."
+msgstr "음성 서비스에서 키를 거부했습니다."

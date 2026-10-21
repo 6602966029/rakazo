@@ -942,4 +942,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't start the computer": "Der Computer konnte nicht gestartet werden",
   "Something went wrong while it was starting. Try again in a moment.":
     "Beim Starten ist etwas schiefgelaufen. Versuche es in einem Moment erneut.",
+  "Your voice provider is out of credit.": "Dein Stimmanbieter hat kein Guthaben mehr.",
+  "Your voice provider key was rejected.": "Der Schlüssel deines Stimmanbieters wurde abgelehnt.",
 };

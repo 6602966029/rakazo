@@ -5427,3 +5427,11 @@ msgstr "OpenRouter sağlayıcınız"
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
 msgstr "Gerçek işler verebileceğin,<0/>her zaman açık agent takımın."
+
+#: src/lib/user-error.ts
+msgid "Your voice provider is out of credit."
+msgstr "Ses sağlayıcınızın kredisi bitti."
+
+#: src/lib/user-error.ts
+msgid "Your voice provider key was rejected."
+msgstr "Ses sağlayıcınız anahtarı reddetti."
