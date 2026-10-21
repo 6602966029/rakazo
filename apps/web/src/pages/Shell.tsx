@@ -3610,8 +3610,15 @@ function SpaceShell() {
                               <ContextMenu
                                 disabled={item.chat.spaceId !== bootstrapMe?.spaceId}
                                 open={botMenu?.kind === item.kind && botMenu.id === item.chat.id}
+                                // A sibling row's menu may already own the state; only clear our own.
                                 onOpenChange={(open) =>
-                                  setBotMenu(open ? { kind: item.kind, id: item.chat.id } : null)
+                                  setBotMenu((current) =>
+                                    open
+                                      ? { kind: item.kind, id: item.chat.id }
+                                      : current?.kind === item.kind && current.id === item.chat.id
+                                        ? null
+                                        : current,
+                                  )
                                 }
                               >
                                 <ContextMenuTrigger

@@ -93,8 +93,15 @@ export function DesktopUpdatesProvider({ children }: { children: ReactNode }) {
       (state.phase === "ready" || (error && state.availableVersion)) &&
       dismissed !== state.availableVersion,
   );
+  // Keep the toast up while a retry runs, so a quick failure reuses it instead of racing
+  // its dismissal.
+  const [shown, setShown] = useState(false);
+  const visible = prompt || (shown && updates.busy);
   useEffect(() => {
-    if (!prompt) return;
+    setShown(visible);
+  }, [visible]);
+  useEffect(() => {
+    if (!visible) return;
     // The app's Toaster renders inside this provider, so the toast reads live state from context.
     toast.custom(() => <DesktopUpdatePrompt onLater={setDismissed} />, {
       id: DESKTOP_UPDATE_TOAST,
@@ -104,7 +111,7 @@ export function DesktopUpdatesProvider({ children }: { children: ReactNode }) {
     return () => {
       toast.dismiss(DESKTOP_UPDATE_TOAST);
     };
-  }, [prompt]);
+  }, [visible]);
   return <UpdatesContext.Provider value={updates}>{children}</UpdatesContext.Provider>;
 }
 
