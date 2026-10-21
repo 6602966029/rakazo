@@ -11,10 +11,13 @@ import {
 const OWNER = { allowPrivate: true };
 
 const savedAllowPublic = process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC;
+const savedPrivateHosts = process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS;
 
 afterEach(() => {
   if (savedAllowPublic === undefined) delete process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC;
   else process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC = savedAllowPublic;
+  if (savedPrivateHosts === undefined) delete process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS;
+  else process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS = savedPrivateHosts;
 });
 
 describe("openai-compatible URL policy", () => {
@@ -150,6 +153,49 @@ describe("openai-compatible URL policy", () => {
     ).toThrow(/blocked metadata or link-local host/);
   });
 
+  it("allows only exact configured private hostnames without opening the public gate", () => {
+    delete process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC;
+    process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS =
+      " Models.Example.Test. , other.example.test, , *.wild.example.test";
+    for (const hostname of ["models.example.test", "MODELS.EXAMPLE.TEST.", "other.example.test"]) {
+      expect(assertAllowedOpenAiCompatibleUrl(`https://${hostname}/v1`, OWNER).hostname).toBe(
+        hostname.toLowerCase(),
+      );
+    }
+    for (const hostname of [
+      "sub.models.example.test",
+      "models.example.test.evil.test",
+      "example.test",
+      "sub.wild.example.test",
+    ]) {
+      expect(() => assertAllowedOpenAiCompatibleUrl(`https://${hostname}/v1`)).toThrow(
+        /Public model endpoints are blocked/,
+      );
+    }
+  });
+
+  it("requires private endpoint permission for allowlisted hostnames", () => {
+    process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS = "models.example.test";
+    expect(() => assertAllowedOpenAiCompatibleUrl("http://models.example.test/v1")).toThrow(
+      PRIVATE_MODEL_ENDPOINT_MESSAGE,
+    );
+  });
+
+  it("does not let the private hostname allowlist override blocked destinations", () => {
+    process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS =
+      "metadata.google.internal, metadata.goog, 169.254.169.254, 169.254.1.1";
+    for (const hostname of [
+      "metadata.google.internal",
+      "metadata.goog",
+      "169.254.169.254",
+      "169.254.1.1",
+    ]) {
+      expect(() => assertAllowedOpenAiCompatibleUrl(`http://${hostname}/v1`)).toThrow(
+        /blocked metadata or link-local host/,
+      );
+    }
+  });
+
   it("rejects public hosts unless explicitly allowed", () => {
     delete process.env.RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC;
     expect(openAiCompatAllowPublicHosts()).toBe(false);
@@ -184,6 +230,12 @@ describe("assertHttpsForKeyedOpenAiCompatibleUrl", () => {
     expect(() => assertHttpsForKeyedOpenAiCompatibleUrl(url, "local-secret")).not.toThrow();
     const lan = assertAllowedOpenAiCompatibleUrl("http://192.168.1.20:8080/v1", OWNER);
     expect(() => assertHttpsForKeyedOpenAiCompatibleUrl(lan, "local-secret")).not.toThrow();
+  });
+
+  it("treats explicitly trusted private hostnames like private IP endpoints", () => {
+    process.env.RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS = "models.example.test";
+    const url = assertAllowedOpenAiCompatibleUrl("http://models.example.test/v1", OWNER);
+    expect(() => assertHttpsForKeyedOpenAiCompatibleUrl(url, "fake-local-key")).not.toThrow();
   });
 
   it("skips the HTTPS check when no API key is set", () => {
