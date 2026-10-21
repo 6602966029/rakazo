@@ -1,3 +1,4 @@
+import { BotSecretPutInput } from "@rakazo/contracts";
 import type * as Db from "@rakazo/db";
 import { recordSecurityEvent } from "@rakazo/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,14 +31,19 @@ describe("procedureSecurityEvent", () => {
   it("keeps secret names but never secret values", () => {
     const event = procedureSecurityEvent(
       ["botSecrets", "put"],
-      { botId: "bot-1", name: "GITHUB_TOKEN", value: "ghp_secretvalue" },
+      // The real RPC shape, so a renamed field fails here instead of silently dropping the name.
+      BotSecretPutInput.parse({
+        botId: "bot-1",
+        destination: { name: "github-deploy", auth: { type: "command" } },
+        value: "ghp_secretvalue",
+      }),
       actor,
     );
     expect(event?.metadata).toEqual({
       procedure: "botSecrets.put",
       kind: "bot_secret",
       botId: "bot-1",
-      name: "GITHUB_TOKEN",
+      name: "github-deploy",
     });
     expect(JSON.stringify(event)).not.toContain("ghp_secretvalue");
   });

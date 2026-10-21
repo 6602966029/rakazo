@@ -23,6 +23,7 @@ describe.each(caddyfiles)("%s access log", (filename) => {
       "request>headers>Cookie delete",
       "request>headers>Referer delete",
       "resp_headers>Set-Cookie delete",
+      "resp_headers>Location delete",
     ]) {
       expect(config).toContain(field);
     }

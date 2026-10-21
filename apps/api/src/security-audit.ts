@@ -5,7 +5,10 @@ type AuditedProcedure = {
   type: SecurityEventType;
   /** What kind of credential or setting changed. */
   kind?: string;
-  /** Input fields copied into metadata. Identifiers and enums only, never values a user typed. */
+  /**
+   * Input fields copied into metadata, by dotted path; the metadata key is the last segment.
+   * Identifiers and enums only, never values a user typed.
+   */
   fields?: readonly string[];
 };
 
@@ -37,7 +40,11 @@ export const AUDITED_PROCEDURES: Record<string, AuditedProcedure> = {
   "integrationSetup.save": { type: "credential.changed", kind: "integration_provider" },
   "agentSecrets.put": { type: "credential.changed", kind: "agent_secret" },
   "agentSecrets.remove": { type: "credential.deleted", kind: "agent_secret", fields: ["id"] },
-  "botSecrets.put": { type: "credential.changed", kind: "bot_secret", fields: ["botId", "name"] },
+  "botSecrets.put": {
+    type: "credential.changed",
+    kind: "bot_secret",
+    fields: ["botId", "destination.name"],
+  },
   "botSecrets.remove": {
     type: "credential.deleted",
     kind: "bot_secret",
@@ -80,9 +87,11 @@ export function procedureSecurityEvent(
   const metadata: NonNullable<SecurityEventInput["metadata"]> = { procedure };
   if (audited.kind) metadata.kind = audited.kind;
   for (const field of audited.fields ?? []) {
-    const value = fields[field];
+    const value = field
+      .split(".")
+      .reduce<unknown>((parent, key) => (isRecord(parent) ? parent[key] : undefined), fields);
     if (typeof value === "string" || typeof value === "boolean" || value === null)
-      metadata[field] = value;
+      metadata[field.split(".").at(-1)!] = value;
   }
   if (procedure === "deployment.update") {
     metadata.changed = Object.keys(fields)

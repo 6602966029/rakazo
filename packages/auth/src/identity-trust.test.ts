@@ -284,6 +284,11 @@ describe("client address and security events", () => {
     const f = fixture({ delivery: false });
     const signedUp = await f.signup();
     const { token } = (await signedUp.json()) as { token: string };
+    // Revoking a token that is not a live session deletes nothing, so it records nothing.
+    expect((await f.request("/revoke-session", { token: "not-a-session" }, token)).status).toBe(
+      200,
+    );
+    expect(events().map((event) => event.type)).not.toContain("auth.session.revoked");
     expect((await f.request("/sign-out", {}, token)).status).toBe(200);
 
     const types = events().map((event) => event.type);

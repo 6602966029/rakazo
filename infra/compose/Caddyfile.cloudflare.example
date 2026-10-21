@@ -29,6 +29,8 @@
 			request>headers>Cookie delete
 			request>headers>Referer delete
 			resp_headers>Set-Cookie delete
+			# Native sign-in redirects carry the session cookie in the app callback URL.
+			resp_headers>Location delete
 			request>uri regexp "(/reset-password/|/novnc/session/[a-z]+/)[^/?#&]*|([?&](?:token|_token|code|state|ticket|access_token|id_token|hub\.verify_token|path)=)[^&#]*" "${1}${2}REDACTED"
 		}
 	}

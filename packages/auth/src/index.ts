@@ -273,11 +273,11 @@ function isUnusedEmailCodePath(path: string, body: { type?: unknown } | undefine
  */
 export const CLIENT_IP_HEADER = "x-rakazo-client-ip";
 
+/** Routes that end sessions other than the caller's own sign-out. Recorded per deleted session. */
+const REVOCATION_PATHS = new Set(["/revoke-session", "/revoke-sessions", "/revoke-other-sessions"]);
+
 /** Successful account changes worth an audit row. Sign-in, sign-up, sign-out and deletion use hooks. */
 const ACCOUNT_EVENT_PATHS: Record<string, SecurityEventType> = {
-  "/revoke-session": "auth.session.revoked",
-  "/revoke-sessions": "auth.session.revoked",
-  "/revoke-other-sessions": "auth.session.revoked",
   "/change-password": "auth.password.changed",
   "/set-password": "auth.password.changed",
   "/passkey/verify-registration": "auth.passkey.added",
@@ -759,6 +759,12 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
           after: async (session, ctx) => {
             if (ctx?.path === "/sign-out") {
               await recordSecurityEvent({ type: "auth.sign_out", userId: session.userId });
+            } else if (ctx?.path && REVOCATION_PATHS.has(ctx.path)) {
+              await recordSecurityEvent({
+                type: "auth.session.revoked",
+                userId: session.userId,
+                metadata: { via: ctx.path },
+              });
             }
             if (replacedSession(ctx)?.id !== session.id) await env.afterDeleteSession?.(session);
           },
