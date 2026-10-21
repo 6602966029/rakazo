@@ -109,13 +109,14 @@ async function provisionWith(owner: Client, runtimeUrl: string): Promise<{ warni
       "SELECT rolsuper OR rolcreaterole AS can, rolsuper AS superuser FROM pg_roles WHERE rolname = current_user",
     )
   ).rows;
-  // A login an administrator already created and granted rakazo_app is used as it
+  // A login an administrator already created and granted rakazo_app (inheritably, so
+  // it can use the grants without SET ROLE) is used as it
   // is when this role may not change it: no CREATEROLE (some managed Postgres), or,
   // on PostgreSQL 16+, CREATEROLE without ADMIN OPTION on that login.
   const provisioned =
     Boolean(role) &&
     (
-      await owner.query<{ member: boolean }>("SELECT pg_has_role($1, $2, 'MEMBER') AS member", [
+      await owner.query<{ member: boolean }>("SELECT pg_has_role($1, $2, 'USAGE') AS member", [
         login,
         RUNTIME_ROLE,
       ])
