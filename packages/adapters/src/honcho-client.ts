@@ -1,3 +1,5 @@
+import type { LocalServiceConnection } from "./local-service-endpoint.js";
+import { fetchLocalService } from "./local-service-endpoint.js";
 import { readBodyCapped } from "./web-ssrf.js";
 
 export const HONCHO_CLOUD_BASE_URL = "https://api.honcho.dev";
@@ -19,12 +21,9 @@ const MAX_HONCHO_CHAT_QUERY_CHARS = 10_000;
 export const HONCHO_REASONING_LEVELS = ["minimal", "low", "medium", "high", "max"] as const;
 export type HonchoReasoningLevel = (typeof HONCHO_REASONING_LEVELS)[number];
 
-export interface HonchoConnectionConfig {
-  baseUrl: string;
+export interface HonchoConnectionConfig extends LocalServiceConnection {
   apiKey: string;
   reasoningLevel: HonchoReasoningLevel;
-  /** Test seam. */
-  fetch?: typeof globalThis.fetch;
 }
 
 export type HonchoResponse<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -52,18 +51,23 @@ async function honchoRequest(
   options: { timeoutMs?: number; signal?: AbortSignal; readJson?: boolean } = {},
 ): Promise<HonchoResponse<unknown>> {
   const signal = requestSignal(options.timeoutMs ?? HONCHO_TIMEOUT_MS, options.signal);
+  const url = `${config.baseUrl.replace(/\/+$/, "")}${path}`;
+  const init: RequestInit = {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    redirect: "error",
+    signal,
+  };
   let response: Response;
   try {
-    response = await (config.fetch ?? fetch)(`${config.baseUrl}${path}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      redirect: "error",
-      signal,
-    });
+    response =
+      config.baseUrl === HONCHO_CLOUD_BASE_URL
+        ? await (config.fetch ?? fetch)(url, init)
+        : await fetchLocalService(config, url, init);
   } catch {
     return {
       ok: false,

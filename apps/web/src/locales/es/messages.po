@@ -804,7 +804,7 @@ msgstr "Orden de los modelos de respaldo"
 msgid "Backup models saved."
 msgstr "Modelos de respaldo guardados."
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "URL base"
 
@@ -1167,7 +1167,7 @@ msgstr "Cerrar configuración de usuario"
 msgid "Close voice settings"
 msgstr "Cerrar configuración de voz"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
 msgstr "Nube"
 
@@ -1350,6 +1350,10 @@ msgstr "Conectado: sus herramientas estarán disponibles desde tu próximo mensa
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connecting…"
 msgstr "Conectando…"
+
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Connection"
+msgstr "Conexión"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Connection test failed."
@@ -2864,7 +2868,7 @@ msgstr "Cargando proveedores de voz…"
 msgid "Loading…"
 msgstr "Cargando…"
 
-#: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Local"
 msgstr "Local"
 
