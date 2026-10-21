@@ -231,6 +231,25 @@ describe("production deploy script", () => {
     ]);
   });
 
+  it("trims the build cache to the configured size", () => {
+    const deploy = fixture();
+    commit(deploy.upstream, "next");
+    expect(deploy.run({ RAKAZO_DEPLOY_BUILD_CACHE_GB: "3" }).status).toBe(0);
+    expect(deploy.commands()).toContainEqual(
+      expect.stringContaining("docker builder prune --force --keep-storage 3GB"),
+    );
+  });
+
+  it("refuses a build cache size that is not a whole number before deploying", () => {
+    const deploy = fixture();
+    commit(deploy.upstream, "next");
+    const result = deploy.run({ RAKAZO_DEPLOY_BUILD_CACHE_GB: "8GB" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("RAKAZO_DEPLOY_BUILD_CACHE_GB must be a whole number");
+    expect(deploy.commands()).toEqual([]);
+    expect(deploy.head()).toBe(deploy.first);
+  });
+
   it("keeps every image when the previous ones could not be tagged", () => {
     const deploy = fixture();
     commit(deploy.upstream, "next");
