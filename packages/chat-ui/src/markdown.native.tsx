@@ -64,7 +64,9 @@ const BODY_FONT_SIZE = typeScale.body.fontSize;
 // "ui-monospace" is iOS's own monospaced system font, SF Mono.
 const MONO_FONT = Platform.select({ ios: "ui-monospace", default: "monospace" });
 const BULLET_SIZE = 5;
-const NUMBER_COLUMN_WIDTH = 28;
+// List markers sit in an 18 pt column, 8 pt before the item text.
+const MARKER_COLUMN = 18;
+const MARKER_GAP = 8;
 // Advances at the list-number size (15 pt): a tabular digit, and the "." or ")" after it.
 const NUMBER_DIGIT_WIDTH = 9.6;
 const NUMBER_MARK_WIDTH = { ".": 4.1, ")": 5.6 };
@@ -78,7 +80,7 @@ function numberColumnWidth(list: ASTNode, markup: string, fontScale: number) {
   const last = (Number.isFinite(start) ? start : 1) + list.children.length - 1;
   const digits = String(Math.max(1, last)).length;
   const mark = markup === ")" ? NUMBER_MARK_WIDTH[")"] : NUMBER_MARK_WIDTH["."];
-  return Math.max(NUMBER_COLUMN_WIDTH, Math.ceil((digits * NUMBER_DIGIT_WIDTH + mark) * fontScale));
+  return Math.max(MARKER_COLUMN, Math.ceil((digits * NUMBER_DIGIT_WIDTH + mark) * fontScale));
 }
 const LINK_TILE_SIZE = 18;
 // Keeps the site icon on the line of the label's first word.
@@ -235,6 +237,12 @@ function markdownStyles(palette: ColorTokens) {
       fontWeight: fontWeight.medium,
     },
     td: typeScale.caption,
+    bullet_list: {
+      gap: BLOCK_GAP,
+    },
+    ordered_list: {
+      gap: BLOCK_GAP,
+    },
     ordered_list_icon: {
       fontSize: typeScale.secondary.fontSize,
       fontVariant: ["tabular-nums"],
@@ -929,13 +937,13 @@ function listItemRule(
     (ancestor) => ancestor.type === "bullet_list" || ancestor.type === "ordered_list",
   );
   if (list?.type === "bullet_list") {
-    // A dot in the list-marker colour, centred on the item's first line. The invisible character
-    // gives the marker that line's height at the current text size.
+    // A dot in the list-marker colour, centred on the item's first line, at the end of the marker
+    // column. The invisible character gives the marker that line's height at the current text size.
     const dotColor = (StyleSheet.flatten(styleMap.bullet_list_icon) as TextStyle | undefined)
       ?.color;
     return (
       <View key={node.key} style={row}>
-        <View style={[styleMap._VIEW_SAFE_bullet_list_icon, layout.bulletMarker]}>
+        <View style={[layout.bulletMarker, direction ? layout.dotAfter : layout.dotBefore]}>
           <Text style={marker} accessible={false} importantForAccessibility="no">
             {ZERO_WIDTH_SPACE}
           </Text>
@@ -1364,14 +1372,22 @@ const layout = StyleSheet.create({
     minWidth: 0,
     flexShrink: 1,
   },
-  // The number ends where the item's text begins, on whichever side the row puts the text.
+  // The marker ends where the item's text begins, on whichever side the row puts the text.
   numberBefore: {
     alignItems: "flex-end",
-    marginRight: 10,
+    marginRight: MARKER_GAP,
   },
   numberAfter: {
     alignItems: "flex-start",
-    marginLeft: 10,
+    marginLeft: MARKER_GAP,
+  },
+  dotBefore: {
+    marginLeft: MARKER_COLUMN - BULLET_SIZE,
+    marginRight: MARKER_GAP,
+  },
+  dotAfter: {
+    marginLeft: MARKER_GAP,
+    marginRight: MARKER_COLUMN - BULLET_SIZE,
   },
   // Only as tall as the first line, so the dot stays on it when the item wraps. The dot sits
   // beside the invisible character and is centred on its line.

@@ -131,6 +131,8 @@ vi.mock("react-native", async () => {
       "alignSelf",
       "position",
       "top",
+      "marginLeft",
+      "marginRight",
       "accessibilityElementsHidden",
       "importantForAccessibility",
     ]),
@@ -240,7 +242,6 @@ function textStyle(html: string, content: string) {
 }
 
 const BULLET_DOT = 'rn-view[data-width="5"][data-height="5"]';
-const NUMBER_COLUMN = 'rn-view[data-min-width="28"]';
 
 function bulletDots(html: string) {
   return [...new DOMParser().parseFromString(html, "text/html").querySelectorAll(BULLET_DOT)];
@@ -249,6 +250,22 @@ function bulletDots(html: string) {
 // The view around a bullet dot, which also holds the line that centres it.
 function isBulletDot(element: Element | null | undefined) {
   return [...(element?.children ?? [])].some((child) => child.matches(BULLET_DOT));
+}
+
+// The view around an ordered-list number.
+function isNumberColumn(element: Element | null | undefined) {
+  const number = element?.firstElementChild;
+  return (
+    element?.tagName.toLowerCase() === "rn-view" &&
+    number?.tagName.toLowerCase() === "rn-text" &&
+    /^\d+[.)]$/.test(number.textContent ?? "")
+  );
+}
+
+function numberColumns(html: string) {
+  return [...new DOMParser().parseFromString(html, "text/html").querySelectorAll("rn-view")].filter(
+    isNumberColumn,
+  );
 }
 
 function tableRows(html: string) {
@@ -764,7 +781,7 @@ describe("native markdown lists", () => {
     expect(bulletDots(html)).toHaveLength(1);
   });
 
-  it("marks bullets with a 5pt dot centred on the first line", () => {
+  it("marks bullets with a 5pt dot centred on the first line, 26pt before the text", () => {
     const dots = bulletDots(renderToStaticMarkup(<ChatMarkdown>{"- one\n- two"}</ChatMarkdown>));
     expect(dots).toHaveLength(2);
     expect(dots[0]?.getAttribute("data-border-radius")).toBe("2.5");
@@ -782,6 +799,9 @@ describe("native markdown lists", () => {
     expect(line?.getAttribute("data-line-height")).toBe("22");
     expect(line?.getAttribute("data-font-size")).toBe("17");
     expect(dots[0]?.getAttribute("data-background-color")).toBe(darkTokens.foreground);
+    // 13 + 5 + 8: the dot ends where a one-digit number ends.
+    expect(dots[0]?.parentElement?.getAttribute("data-margin-left")).toBe("13");
+    expect(dots[0]?.parentElement?.getAttribute("data-margin-right")).toBe("8");
   });
 
   it("draws the bullet dot in the list-marker colour", () => {
@@ -802,26 +822,50 @@ describe("native markdown lists", () => {
     }
   });
 
-  it("ends every number at the same place so item text lines up past 9", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>
-        {Array.from({ length: 10 }, (_, i) => `${i + 1}. item`).join("\n")}
-      </ChatMarkdown>,
+  it("puts a short list's numbers in an 18pt column, 8pt before the text", () => {
+    const columns = numberColumns(
+      renderToStaticMarkup(<ChatMarkdown>{"1. one\n2. two\n3. three"}</ChatMarkdown>),
     );
-    const columns = [
-      ...new DOMParser().parseFromString(html, "text/html").querySelectorAll(NUMBER_COLUMN),
-    ];
+    expect(columns).toHaveLength(3);
+    for (const column of columns) {
+      expect(column.getAttribute("data-min-width")).toBe("18");
+      expect(column.getAttribute("data-margin-right")).toBe("8");
+      expect(column.getAttribute("data-align-items")).toBe("flex-end");
+    }
+  });
+
+  it("widens the number column for the whole list once it reaches 10, so item text lines up", () => {
+    const columns = numberColumns(
+      renderToStaticMarkup(
+        <ChatMarkdown>
+          {Array.from({ length: 10 }, (_, i) => `${i + 1}. item`).join("\n")}
+        </ChatMarkdown>,
+      ),
+    );
     expect(columns.map((column) => column.textContent)).toEqual(
       Array.from({ length: 10 }, (_, i) => `${i + 1}.`),
     );
-    for (const column of columns) {
-      expect(column.getAttribute("data-align-items")).toBe("flex-end");
+    const widths = new Set(columns.map((column) => Number(column.getAttribute("data-min-width"))));
+    expect(widths.size).toBe(1);
+    expect([...widths][0]).toBeGreaterThan(18);
+  });
+
+  it("separates list items by 8pt", () => {
+    for (const markdown of ["- one\n- two", "1. one\n2. two"]) {
+      const document = new DOMParser().parseFromString(
+        renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>),
+        "text/html",
+      );
+      const firstItem = [...document.querySelectorAll("rn-view")].find(
+        (view) => isBulletDot(view.firstElementChild) || isNumberColumn(view.firstElementChild),
+      );
+      expect(firstItem?.parentElement?.getAttribute("data-gap")).toBe("8");
     }
   });
 
   // iOS font scales: the default, xxxLarge and the second accessibility size.
   it.each([
-    ["10 items at the default text size", 1, 10, ".", 28],
+    ["10 items at the default text size", 1, 10, ".", 24],
     ["100 items at the default text size", 1, 100, ".", 33],
     ["10 items at the largest standard text size", 1.353, 10, ".", 32],
     ["10 items at an accessibility text size", 2.143, 10, ".", 50],
@@ -831,17 +875,13 @@ describe("native markdown lists", () => {
     (_, fontScale, count, markup, width) => {
       windowSize.fontScale = fontScale;
       try {
-        const html = renderToStaticMarkup(
-          <ChatMarkdown>
-            {Array.from({ length: count }, (_, i) => `${i + 1}${markup} item`).join("\n")}
-          </ChatMarkdown>,
+        const columns = numberColumns(
+          renderToStaticMarkup(
+            <ChatMarkdown>
+              {Array.from({ length: count }, (_, i) => `${i + 1}${markup} item`).join("\n")}
+            </ChatMarkdown>,
+          ),
         );
-        const columns = [
-          ...new DOMParser().parseFromString(html, "text/html").querySelectorAll("rn-view"),
-        ].filter((view) => {
-          const number = view.firstElementChild;
-          return number?.tagName === "RN-TEXT" && /^\d+[.)]$/.test(number.textContent ?? "");
-        });
         expect(columns).toHaveLength(count);
         for (const column of columns) {
           expect(column.getAttribute("data-min-width")).toBe(String(width));
@@ -1255,7 +1295,7 @@ describe("message direction", () => {
     );
     const items = [...document.querySelectorAll("rn-view")].filter((view) => {
       const marker = view.firstElementChild;
-      return isBulletDot(marker) || Boolean(marker?.matches(NUMBER_COLUMN));
+      return isBulletDot(marker) || isNumberColumn(marker);
     });
     expect(
       items.map((item) => [

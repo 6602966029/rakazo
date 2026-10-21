@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { readFileSync } from "node:fs";
+import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import type { ReactNode } from "react";
 import * as React from "react";
 import { act, useCallback, useEffect, useRef, useState } from "react";
@@ -40,10 +41,12 @@ describe("archived chats row", () => {
     "mobileTokens",
     "StyleSheet",
     "native",
+    "typeScale",
+    "fontWeight",
     compile(
       `${dimensions}\n${source.slice(source.indexOf("function createHomeStyles()"))}\nreturn createHomeStyles();`,
     ),
-  )(() => ({}), { create: (value: unknown) => value }, {});
+  )(() => ({}), { create: (value: unknown) => value }, {}, typeScale, fontWeight);
   const ArchivedChatsRow = new Function(
     "React",
     "useContext",
@@ -141,7 +144,7 @@ describe("archived chats row", () => {
       expect(button.style.width).toBe("100%");
       const label = button.querySelector("span")!;
       expect(label.style.fontSize).toBe(`${styles.sectionTitle.fontSize}px`);
-      expect(label.style.fontWeight).toBe(styles.sectionTitle.fontWeight);
+      expect(label.style.fontWeight).toBe(styles.sectionTitle.fontWeight ?? "");
       act(() => root.unmount());
       compact = false;
     },
