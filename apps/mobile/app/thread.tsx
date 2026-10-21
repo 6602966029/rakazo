@@ -3504,6 +3504,7 @@ const MessageBubble = memo(function MessageBubble({
           <AppConnectCard
             key={`${block.provider}-${index}`}
             botId={cardBotId}
+            threadId={message.threadId}
             block={block}
             accessibilityActions={actionProps.accessibilityActions}
             onAccessibilityAction={actionProps.onAccessibilityAction}
@@ -3785,6 +3786,7 @@ const MessageBubble = memo(function MessageBubble({
           <AppConnectCard
             key={`${block.provider}-${index}`}
             botId={cardBotId}
+            threadId={message.threadId}
             block={block}
             accessibilityActions={actionProps.accessibilityActions}
             onAccessibilityAction={actionProps.onAccessibilityAction}
@@ -3893,6 +3895,7 @@ const MessageBubble = memo(function MessageBubble({
           <AppConnectCard
             key={`${block.provider}-${index}`}
             botId={cardBotId}
+            threadId={message.threadId}
             block={block}
             accessibilityActions={actionProps.accessibilityActions}
             onAccessibilityAction={actionProps.onAccessibilityAction}
@@ -4060,6 +4063,7 @@ const MessageBubble = memo(function MessageBubble({
           <AppConnectCard
             key={`${block.provider}-${index}`}
             botId={cardBotId}
+            threadId={message.threadId}
             block={block}
             accessibilityActions={actionProps.accessibilityActions}
             onAccessibilityAction={actionProps.onAccessibilityAction}
@@ -4126,6 +4130,7 @@ const MessageBubble = memo(function MessageBubble({
         <AppConnectCard
           key={`${block.provider}-${index}`}
           botId={cardBotId}
+          threadId={message.threadId}
           block={block}
           accessibilityActions={actionProps.accessibilityActions}
           onAccessibilityAction={actionProps.onAccessibilityAction}

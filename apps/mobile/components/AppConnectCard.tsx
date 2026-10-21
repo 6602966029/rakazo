@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { waitForConnection } from "@rakazo/core";
+import { appConnectedInput, waitForConnection } from "@rakazo/core";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import { useEffect, useRef, useState } from "react";
 import type { ViewProps } from "react-native";
@@ -14,11 +14,13 @@ import { NativeActionButton } from "./native-action-button";
 
 export function AppConnectCard({
   botId,
+  threadId,
   block,
   accessibilityActions,
   onAccessibilityAction,
 }: {
   botId: string;
+  threadId?: string;
   block: Extract<MessageBlock, { kind: "app_connect" }>;
   accessibilityActions?: ViewProps["accessibilityActions"];
   onAccessibilityAction?: ViewProps["onAccessibilityAction"];
@@ -36,7 +38,7 @@ export function AppConnectCard({
   useEffect(() => () => connectionAttempt.current?.abort(), []);
 
   async function authorize() {
-    if (readOnly) return;
+    if (readOnly || !threadId) return;
     connectionAttempt.current?.abort();
     const controller = new AbortController();
     connectionAttempt.current = controller;
@@ -62,11 +64,7 @@ export function AppConnectCard({
       );
       if (result.status === "aborted") return;
       if (result.status === "connected") {
-        await rpc("onboarding/appConnected", {
-          botId,
-          provider: block.provider,
-          connectorId: block.connectorId,
-        });
+        await rpc("onboarding/appConnected", appConnectedInput(botId, threadId, block));
         if (controller.signal.aborted) return;
         setLocalStatus("connected");
         return;
@@ -88,7 +86,7 @@ export function AppConnectCard({
     <View
       accessibilityLabel={t("{name} connection", { name: block.name })}
       style={{
-        width: "90%",
+        width: "100%",
         borderRadius: 18,
         backgroundColor: native.fill,
         paddingHorizontal: 16,
@@ -123,7 +121,7 @@ export function AppConnectCard({
             {view.description}
           </Text>
         </View>
-        {view.showAuthorize && !readOnly ? (
+        {view.showAuthorize && !readOnly && threadId ? (
           <NativeActionButton
             label={view.actionLabel}
             accessibilityLabel={t("Authorize {name}", { name: block.name })}

@@ -5646,7 +5646,7 @@ const Transcript = memo(function Transcript({
                               (block) => block.kind === "ask" || block.kind === "mcp_approval",
                             )
                           ? "relative w-full min-w-0 max-w-full"
-                          : `relative w-fit min-w-0 ${
+                          : `relative ${message.blocks.some((block) => block.kind === "app_connect") ? "w-full" : "w-fit"} min-w-0 ${
                               message.role === "user"
                                 ? "max-w-[min(84%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[84%]"
                                 : "max-w-[min(88%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[88%]"
@@ -7417,7 +7417,7 @@ const MessageView = memo(function MessageView({
             if (!botId) return null;
             return (
               <div key={i} className="flex justify-start py-1">
-                <AppConnectCard botId={botId} block={block} />
+                <AppConnectCard botId={botId} threadId={message.threadId} block={block} />
               </div>
             );
           }

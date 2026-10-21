@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { MessageBlock } from "@rakazo/contracts";
-import { waitForConnection } from "@rakazo/core";
+import { appConnectedInput, waitForConnection } from "@rakazo/core";
 import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -145,9 +145,11 @@ function OnboardingFocusOptionLabel({
 
 export function AppConnectCard({
   botId,
+  threadId,
   block,
 }: {
   botId: string;
+  threadId: string;
   block: Extract<MessageBlock, { kind: "app_connect" }>;
 }) {
   const { t } = useLingui();
@@ -182,7 +184,7 @@ export function AppConnectCard({
       if (result.status === "connected") {
         setLocalStatus("connected");
         await rpc.onboarding
-          .appConnected({ botId, provider: block.provider, connectorId: block.connectorId })
+          .appConnected(appConnectedInput(botId, threadId, block))
           .catch(() => undefined);
         return;
       }
@@ -202,7 +204,7 @@ export function AppConnectCard({
     <BuiCard
       role="group"
       aria-label={t`${block.name} connection`}
-      className="w-[min(420px,80%)] px-4 py-3.5"
+      className="w-full max-w-full px-4 py-3.5"
     >
       <div className="flex items-center gap-3.5">
         {block.logo ? (
