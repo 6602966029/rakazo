@@ -111,11 +111,13 @@ test("Honcho memory settings empty and filled", async ({ page }, testInfo) => {
   await memory.getByLabel("Provider").selectOption("honcho");
   await expect(memory.getByLabel("API key", { exact: true })).toBeVisible();
   await expect(memory.getByLabel("Workspace", { exact: true })).toBeVisible();
+  await expect(memory.getByLabel("User peer", { exact: true })).toHaveCount(0);
   await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeDisabled();
   await page.setViewportSize({ width: 1280, height: 900 });
   await captureScreenshot(page, testInfo, "memory-honcho-empty");
   await memory.getByLabel("API key", { exact: true }).fill("hch-test-key");
   await memory.getByLabel("Workspace", { exact: true }).fill("team-notes");
+  await memory.getByLabel("User peer", { exact: true }).fill("user-alex");
   await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeEnabled();
   await captureScreenshot(page, testInfo, "memory-honcho-filled");
   await memory.getByRole("button", { name: "Local", exact: true }).click();

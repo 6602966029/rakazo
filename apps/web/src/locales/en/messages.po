@@ -5119,6 +5119,10 @@ msgstr "Use up to 512 letters, digits, _ or -."
 msgid "Use your own key"
 msgstr "Use your own key"
 
+#: src/pages/memory-providers/HonchoSettingsForm.tsx
+msgid "User peer"
+msgstr "User peer"
+
 #: src/components/AskCard.tsx
 #: src/pages/shell/bot-credentials.tsx
 msgid "Username"
