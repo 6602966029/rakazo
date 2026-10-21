@@ -90,6 +90,9 @@ export const DEFAULT_MCP_DISCOVERY_TIMEOUT_MS = 20_000;
 /** After a failed discovery, runs skip the server for this long, doubling up to the max. */
 const DISCOVERY_BACKOFF_MS = 30_000;
 const DISCOVERY_BACKOFF_MAX_MS = 5 * 60_000;
+/** A server that needs new credentials waits longer: retrying rarely helps, but a refresh
+ * that failed only because the provider was briefly down still gets another try. */
+const RECONNECT_BACKOFF_MS = 60 * 60_000;
 
 /** A server that did not list its tools within the discovery deadline. */
 class McpDiscoveryTimeoutError extends Error {
@@ -494,9 +497,9 @@ export class McpConnector implements ConnectorProvider {
             this.discoveryBackoff.set(key, {
               revision: server.revision,
               since: Date.now(),
-              // Retrying cannot fix missing or expired credentials; reconnecting or editing
-              // the server bumps its revision, and Test connection records a recovery.
-              until: expected === "reconnect" ? Number.POSITIVE_INFINITY : Date.now() + delayMs,
+              // Reconnecting or editing the server bumps its revision, and Test connection
+              // records a recovery, so either ends this wait early.
+              until: Date.now() + (expected === "reconnect" ? RECONNECT_BACKOFF_MS : delayMs),
               delayMs,
               reason,
             });

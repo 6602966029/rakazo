@@ -729,7 +729,7 @@ describe("MCP connector session cache", () => {
         { network },
       );
 
-    it("warns instead of reporting an error, and waits for a reconnect", async () => {
+    it("warns instead of reporting an error, and waits longer for a reconnect", async () => {
       const requests = vi.fn(async () => new Response("unauthorized", { status: 401 }));
       vi.stubGlobal("fetch", requests);
       const server = { ...SERVER };
@@ -745,16 +745,22 @@ describe("MCP connector session cache", () => {
         );
         const tried = requests.mock.calls.length;
 
-        // Hours later the credentials are still the same, so nothing is sent.
+        // Well past the usual backoff cap, nothing is sent yet.
         const now = Date.now();
-        vi.spyOn(Date, "now").mockReturnValue(now + 6 * 60 * 60_000);
+        const clock = vi.spyOn(Date, "now").mockReturnValue(now + 30 * 60_000);
         expect(await connector.discoverTools(context)).toEqual(unavailableOnly());
         expect(requests).toHaveBeenCalledTimes(tried);
 
         // Reconnecting bumps the revision, which ends the wait.
         server.revision = 2;
         await connector.discoverTools(context);
-        expect(requests.mock.calls.length).toBeGreaterThan(tried);
+        const retried = requests.mock.calls.length;
+        expect(retried).toBeGreaterThan(tried);
+
+        // A refresh that failed only briefly still gets another try after an hour.
+        clock.mockReturnValue(now + 2 * 60 * 60_000);
+        await connector.discoverTools(context);
+        expect(requests.mock.calls.length).toBeGreaterThan(retried);
       } finally {
         vi.restoreAllMocks();
         await connector.close();
