@@ -74,6 +74,7 @@ export type BoatSandboxSdk = Pick<
 };
 
 const RUNNABLE_STATES = new Set<SandboxStateEnum>(["ready", "idle", "running"]);
+const BOAT_NOT_RUNNING_CODES = new Set(["sandbox_not_ready", "machine_not_running"]);
 
 interface BoatCommandResult {
   stdout: string;
@@ -507,7 +508,8 @@ export class BoatSandboxProvider implements SandboxProvider {
 
   /**
    * Boat archives a sandbox by itself when its TTL runs out, and then refuses work with
-   * `sandbox_not_ready` without running it. Wake it and try once more.
+   * `sandbox_not_ready` without running it; a machine that stopped underneath it answers
+   * `machine_not_running`. Wake or recover it and try once more.
    */
   private async whenRunnable<Result>(
     id: string,
@@ -517,7 +519,9 @@ export class BoatSandboxProvider implements SandboxProvider {
     try {
       return await call();
     } catch (error) {
-      if (!(error instanceof BoatApiError) || error.code !== "sandbox_not_ready") throw error;
+      if (!(error instanceof BoatApiError) || !BOAT_NOT_RUNNING_CODES.has(error.code ?? "")) {
+        throw error;
+      }
       await this.ensureRunnable(id, signal);
       return call();
     }
