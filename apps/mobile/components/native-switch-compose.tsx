@@ -1,6 +1,7 @@
 import { Host, Switch } from "@expo/ui/jetpack-compose";
-import { alpha, semantics } from "@expo/ui/jetpack-compose/modifiers";
+import { alpha } from "@expo/ui/jetpack-compose/modifiers";
 import { tokensForAppearance } from "@rakazo/ui-tokens";
+import { Pressable, View } from "react-native";
 import { systemGreen, useResolvedAppearance } from "../lib/native";
 import type { NativeSwitchProps } from "../lib/native-controls";
 
@@ -20,40 +21,47 @@ export default function ComposeSwitch({
   const checkedTrack = trackColor?.true ?? tintColor ?? systemGreen(scheme);
   const checkedThumb = thumbColor ?? tokens.faviconPlate;
   const uncheckedTrack = trackColor?.false ?? tokens.secondary;
+  const uncheckedBorder = scheme === "light" ? tokens.ring : "transparent";
   const uncheckedThumb = thumbColor ?? (scheme === "dark" ? tokens.mutedForeground : tokens.muted);
 
   return (
-    // Constrain Compose's 48dp interactive minimum to the existing row accessory footprint.
-    <Host colorScheme={scheme} style={{ width: 52, height: 32, flexShrink: 0 }}>
-      <Switch
-        // SwitchContent reads props.value directly; SyncSwitch mutates native state first.
-        value={value}
-        onCheckedChange={onValueChange}
-        enabled={!disabled}
-        colors={{
-          checkedTrackColor: checkedTrack,
-          checkedThumbColor: checkedThumb,
-          checkedBorderColor: "transparent",
-          uncheckedTrackColor: uncheckedTrack,
-          uncheckedThumbColor: uncheckedThumb,
-          uncheckedBorderColor: "transparent",
-          disabledCheckedTrackColor: checkedTrack,
-          disabledCheckedThumbColor: checkedThumb,
-          disabledCheckedBorderColor: "transparent",
-          disabledUncheckedTrackColor: uncheckedTrack,
-          disabledUncheckedThumbColor: uncheckedThumb,
-          disabledUncheckedBorderColor: "transparent",
-        }}
-        modifiers={[
-          // Material Switch supplies the switch role, checked state and disabled semantics.
-          semantics({
-            contentDescription: accessibilityHint
-              ? `${accessibilityLabel}. ${accessibilityHint}`
-              : accessibilityLabel,
-          }),
-          alpha(disabled ? 0.38 : 1),
-        ]}
-      />
-    </Host>
+    // Expo UI's description modifier exposes a separate node from Material's toggle state.
+    // Own one accessible switch and hide Compose descendants from accessibility services.
+    <Pressable
+      accessible
+      accessibilityRole="switch"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ checked: value, disabled: !!disabled }}
+      disabled={disabled}
+      onPress={disabled ? undefined : () => onValueChange(!value)}
+      style={{ flexShrink: 0 }}
+    >
+      <View importantForAccessibility="no-hide-descendants" pointerEvents="none">
+        {/* Leave room for track rounding without increasing the row's height. */}
+        <Host colorScheme={scheme} style={{ width: 56, height: 32, flexShrink: 0 }}>
+          <Switch
+            // SwitchContent reads props.value directly; SyncSwitch mutates native state first.
+            value={value}
+            enabled={!disabled}
+            colors={{
+              checkedTrackColor: checkedTrack,
+              checkedThumbColor: checkedThumb,
+              checkedBorderColor: "transparent",
+              uncheckedTrackColor: uncheckedTrack,
+              uncheckedThumbColor: uncheckedThumb,
+              uncheckedBorderColor: uncheckedBorder,
+              disabledCheckedTrackColor: checkedTrack,
+              disabledCheckedThumbColor: checkedThumb,
+              disabledCheckedBorderColor: "transparent",
+              disabledUncheckedTrackColor: uncheckedTrack,
+              disabledUncheckedThumbColor: uncheckedThumb,
+              disabledUncheckedBorderColor: uncheckedBorder,
+            }}
+            modifiers={[alpha(disabled ? 0.38 : 1)]}
+          />
+        </Host>
+      </View>
+    </Pressable>
   );
 }

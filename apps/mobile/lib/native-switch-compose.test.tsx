@@ -10,11 +10,21 @@ const state = vi.hoisted(() => ({
   scheme: "light" as "light" | "dark",
   composeLoads: 0,
   host: vi.fn(),
+  pressable: vi.fn(),
+  view: vi.fn(),
   switch: vi.fn(),
   fallback: vi.fn(),
 }));
 vi.mock("react-native", () => ({
   Platform: { OS: "android" },
+  Pressable: (props: { children: ReactNode }) => {
+    state.pressable(props);
+    return props.children;
+  },
+  View: (props: { children: ReactNode }) => {
+    state.view(props);
+    return props.children;
+  },
   Switch: (props: unknown) => {
     state.fallback(props);
     return null;
@@ -38,7 +48,6 @@ vi.mock("@expo/ui/jetpack-compose", () => {
   };
 });
 vi.mock("@expo/ui/jetpack-compose/modifiers", () => ({
-  semantics: (value: unknown) => ({ name: "semantics", value }),
   alpha: (value: unknown) => ({ name: "alpha", value }),
 }));
 
@@ -98,11 +107,11 @@ describe("guarded Android Compose switch", () => {
   );
 
   it.each([
-    ["light", "#34C759", "#7676801F", "#F2F2F1"],
-    ["dark", "#30D158", "#7676803D", "#EBEBF599"],
+    ["light", "#34C759", "#7676801F", "#F2F2F1", "#6C6C70"],
+    ["dark", "#30D158", "#7676803D", "#EBEBF599", "transparent"],
   ] as const)(
     "uses green and neutral colors in %s with a compact host",
-    async (scheme, green, track, thumb) => {
+    async (scheme, green, track, thumb, border) => {
       state.scheme = scheme;
       const { render, getViewConfig } = await load();
       await render();
@@ -112,7 +121,7 @@ describe("guarded Android Compose switch", () => {
       ]);
       expect(state.host.mock.lastCall?.[0]).toMatchObject({
         colorScheme: scheme,
-        style: { width: 52, height: 32, flexShrink: 0 },
+        style: { width: 56, height: 32, flexShrink: 0 },
       });
       expect(state.switch.mock.lastCall?.[0]).toMatchObject({
         value: true,
@@ -122,14 +131,12 @@ describe("guarded Android Compose switch", () => {
           checkedThumbColor: "#FFFFFF",
           uncheckedTrackColor: track,
           uncheckedThumbColor: thumb,
-          uncheckedBorderColor: "transparent",
+          uncheckedBorderColor: border,
           disabledCheckedTrackColor: green,
           disabledUncheckedTrackColor: track,
+          disabledUncheckedBorderColor: border,
         },
-        modifiers: [
-          { name: "semantics", value: { contentDescription: "Notifications" } },
-          { name: "alpha", value: 1 },
-        ],
+        modifiers: [{ name: "alpha", value: 1 }],
       });
     },
   );
@@ -153,10 +160,16 @@ describe("guarded Android Compose switch", () => {
         disabledCheckedTrackColor: "blue",
         disabledUncheckedTrackColor: "grey",
       },
-      modifiers: [
-        { name: "semantics", value: { contentDescription: "Notifications. Updates" } },
-        { name: "alpha", value: 0.38 },
-      ],
+      modifiers: [{ name: "alpha", value: 0.38 }],
+    });
+    expect(state.pressable.mock.lastCall?.[0]).toMatchObject({
+      accessible: true,
+      accessibilityRole: "switch",
+      accessibilityLabel: "Notifications",
+      accessibilityHint: "Updates",
+      accessibilityState: { checked: true, disabled: true },
+      disabled: true,
+      onPress: undefined,
     });
     await render({ tintColor: "red", trackColor: { false: "grey" } });
     expect(state.switch.mock.lastCall?.[0].colors.checkedTrackColor).toBe("red");
@@ -165,13 +178,26 @@ describe("guarded Android Compose switch", () => {
   it("keeps the parent value when a change is rejected and follows accepted changes and reverts", async () => {
     const { render } = await load();
     await render({ value: false });
-    act(() => state.switch.mock.lastCall?.[0].onCheckedChange(true));
+    expect(state.view.mock.lastCall?.[0]).toMatchObject({
+      importantForAccessibility: "no-hide-descendants",
+      pointerEvents: "none",
+    });
+    expect(state.pressable.mock.lastCall?.[0]).toMatchObject({
+      accessible: true,
+      accessibilityRole: "switch",
+      accessibilityLabel: "Notifications",
+      accessibilityState: { checked: false, disabled: false },
+    });
+    act(() => state.pressable.mock.lastCall?.[0].onPress());
     expect(props.onValueChange).toHaveBeenCalledWith(true);
     expect(state.switch.mock.lastCall?.[0].value).toBe(false);
     await render({ value: false });
     expect(state.switch.mock.lastCall?.[0].value).toBe(false);
     await render({ value: true });
     expect(state.switch.mock.lastCall?.[0].value).toBe(true);
+    expect(state.pressable.mock.lastCall?.[0].accessibilityState.checked).toBe(true);
+    act(() => state.pressable.mock.lastCall?.[0].onPress());
+    expect(props.onValueChange).toHaveBeenLastCalledWith(false);
     await render({ value: false });
     expect(state.switch.mock.lastCall?.[0].value).toBe(false);
   });
