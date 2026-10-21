@@ -1155,9 +1155,11 @@ validation with `Set POSTGRES_APP_PASSWORD in .env`. On first start, the API cre
 `rakazo_app` login, and the API and worker then connect as it. Nothing else changes, and the
 upgrade does not rewrite any data.
 
-If a feature misbehaves under row-level security, run
-`ALTER ROLE rakazo_app BYPASSRLS;` as the owner and restart the API and worker. The app then runs
-as before, with a startup warning, and later migrations leave the role alone. Undo it with
+If a feature misbehaves under row-level security, run `ALTER ROLE <login> BYPASSRLS;` on the login
+in `DATABASE_URL` (`rakazo_app` in Compose) as a superuser (the Compose owner is one), then
+restart the API and worker. Role attributes are not inherited, so granting it to `rakazo_app` does
+nothing for a separate login. The app then runs as before, with a startup warning, and later
+migrations leave that login alone. Undo it with
 `NOBYPASSRLS` and another restart. Rolling back to an older release works without changes: it
 ignores the extra variable and connects as the owner.
 
