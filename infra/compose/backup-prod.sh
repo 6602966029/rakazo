@@ -15,7 +15,7 @@ KEEP="${RAKAZO_BACKUP_KEEP:-3}"
 OFFSITE="${RAKAZO_BACKUP_OFFSITE_REMOTE:-}"
 # Off-site snapshots to keep; 0 leaves pruning to the destination's own lifecycle rules.
 OFFSITE_KEEP="${RAKAZO_BACKUP_OFFSITE_KEEP:-14}"
-[[ "${OFFSITE_KEEP}" =~ ^[0-9]+$ ]] || { echo "RAKAZO_BACKUP_OFFSITE_KEEP must be a whole number" >&2; exit 1; }
+[[ "${OFFSITE_KEEP}" =~ ^(0|[1-9][0-9]*)$ ]] || { echo "RAKAZO_BACKUP_OFFSITE_KEEP must be a whole number" >&2; exit 1; }
 
 MIN_FREE_GB="${RAKAZO_BACKUP_MIN_FREE_GB:-5}"
 MAX_GB="${RAKAZO_BACKUP_MAX_GB:-50}"
@@ -256,10 +256,11 @@ command -v rclone >/dev/null || offsite_failed "rclone is not installed"
 # Accept "remote:", "remote:path" and "remote:path/".
 remote="${OFFSITE%/}"
 [[ "${remote}" == *: ]] || remote+="/"
-# The checksum file goes last, so a remote snapshot with SHA256SUMS is complete.
+# The checksum file goes only after the data checks out, so a remote snapshot with SHA256SUMS is
+# complete and verified; retention counts nothing else.
 rclone copy --exclude /SHA256SUMS -- "${SNAPSHOT_DIR}" "${remote}${STAMP}" || offsite_failed "upload"
+rclone check --one-way --exclude /SHA256SUMS -- "${SNAPSHOT_DIR}" "${remote}${STAMP}" || offsite_failed "verification"
 rclone copyto -- "${SNAPSHOT_DIR}/SHA256SUMS" "${remote}${STAMP}/SHA256SUMS" || offsite_failed "upload"
-rclone check --one-way -- "${SNAPSHOT_DIR}" "${remote}${STAMP}" || offsite_failed "verification"
 echo "Copied to ${remote}${STAMP}"
 
 # Keep the newest OFFSITE_KEEP complete remote snapshots; remove other stamp-named directories.

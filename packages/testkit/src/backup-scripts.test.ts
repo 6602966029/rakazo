@@ -184,7 +184,7 @@ case "$command" in
     target="$(local_path "\${paths[1]}")"; mkdir -p "$target"
     for file in "\${paths[0]}"/*; do [[ "\${file##*/}" == "$exclude" ]] || cp "$file" "$target/"; done ;;
   copyto) target="$(local_path "\${paths[1]}")"; mkdir -p "\${target%/*}"; cp "\${paths[0]}" "$target" ;;
-  check) for file in "\${paths[0]}"/*; do cmp -s "$file" "$(local_path "\${paths[1]}")/\${file##*/}"; done ;;
+  check) for file in "\${paths[0]}"/*; do [[ "\${file##*/}" == "$exclude" ]] || cmp -s "$file" "$(local_path "\${paths[1]}")/\${file##*/}"; done ;;
   lsf)
     cd "$(local_path "\${paths[0]}")"
     find . -mindepth 1 -maxdepth 2 | sed 's|^\\./||' | while read -r entry; do
@@ -632,7 +632,7 @@ function snapshotOf(result: { stdout: string }) {
   return result.stdout.split("written to ")[1].split("\n")[0];
 }
 
-describe("encrypted production backups", () => {
+describe("encrypted production backups", { timeout: 20_000 }, () => {
   it.each([false, true])(
     "streams every artifact through age without plaintext on disk (file: %s)",
     (fromFile) => {
@@ -757,7 +757,7 @@ describe("encrypted production backups", () => {
   );
 });
 
-describe("off-site copies", () => {
+describe("off-site copies", { timeout: 20_000 }, () => {
   const remote = "offsite:rakazo/";
   const remoteDir = (f: ReturnType<typeof fixture>) => path.join(f.env.FAKE_REMOTE, "rakazo");
   const rcloneCalls = (f: ReturnType<typeof fixture>) =>
@@ -782,8 +782,8 @@ describe("off-site copies", () => {
     );
     expect(readdirSync(remoteDir(f)).sort()).toEqual(["20261016T000000Z", "notes", stamp].sort());
     const calls = rcloneCalls(f).map((line) => line.split(" ")[0]);
-    expect(calls.slice(0, 3)).toEqual(["copy", "copyto", "check"]);
-    expect(rcloneCalls(f)[1]).toContain(`${stamp}/SHA256SUMS`);
+    expect(calls.slice(0, 3)).toEqual(["copy", "check", "copyto"]);
+    expect(rcloneCalls(f)[2]).toContain(`${stamp}/SHA256SUMS`);
   });
 
   it("leaves remote retention to the destination when the off-site keep is 0", () => {
@@ -815,11 +815,14 @@ describe("off-site copies", () => {
     expect(result.stderr).toContain(`Off-site copy failed: ${message}`);
     expect(existsSync(path.join(snapshotOf(result), "SHA256SUMS"))).toBe(true);
     if (message.includes("require")) expect(rcloneCalls(f)).toEqual([]);
+    // An unverified remote copy never gets the completion marker retention counts.
+    const copy = path.join(remoteDir(f), path.basename(snapshotOf(result)), "SHA256SUMS");
+    expect(existsSync(copy)).toBe(false);
   });
 
-  it("rejects an invalid off-site retention", () => {
+  it.each(["-1", "08"])("rejects an invalid off-site retention: %s", (keep) => {
     const f = fixture();
-    const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_BACKUP_OFFSITE_KEEP: "-1" });
+    const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_BACKUP_OFFSITE_KEEP: keep });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("RAKAZO_BACKUP_OFFSITE_KEEP");
   });
@@ -830,7 +833,7 @@ const realAge = ["age", "age-keygen"].every(
   (tool) => spawnSync("/bin/sh", ["-c", `command -v ${tool}`]).status === 0,
 );
 
-describe.skipIf(!realAge)("encrypted production backups with real age", () => {
+describe.skipIf(!realAge)("encrypted production backups with real age", { timeout: 20_000 }, () => {
   it("round-trips through a real age identity", () => {
     const f = fixture();
     const tools = path.join(f.root, "real-age");

@@ -716,7 +716,7 @@ RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY=replace-me
 ```
 
 After each verified local snapshot, the encrypted files are uploaded to `<remote>/<stamp>/`,
-`SHA256SUMS` last, and checked with `rclone check`. Off-site copies require encryption. The remote
+checked with `rclone check`, and only then given `SHA256SUMS`, which marks the copy complete. Off-site copies require encryption. The remote
 keeps the newest `RAKAZO_BACKUP_OFFSITE_KEEP` complete snapshots (default `14`), independent of
 `RAKAZO_BACKUP_KEEP`; only stamp-named directories are removed. Set it to `0` to leave deletion to
 the bucket's lifecycle rules, which lets the credentials be write-only. A failed upload keeps the
