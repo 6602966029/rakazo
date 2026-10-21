@@ -18,6 +18,11 @@ function systemColor(iosName: string, fallback: string): ColorValue {
   return fallback;
 }
 
+/** Apple's systemGreen for the resolved app appearance. */
+export function systemGreen(scheme: ResolvedAppearance): string {
+  return scheme === "dark" ? "#30D158" : "#34C759";
+}
+
 /** Theme-aware native colors backed by shared tokens (+ iOS platform colors in System). */
 export const native = {
   get page() {
