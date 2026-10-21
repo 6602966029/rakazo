@@ -542,6 +542,105 @@ screenshot computer tools stay available. Existing connections default to disabl
 managed endpoints, the deployment-wide fallback remains
 `RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS=gpt4o-vision,llava`.
 
+### Client addresses
+
+Sessions, logs, and security events carry the caller's address. The API believes a forwarded
+header only when the TCP peer is in `TRUSTED_PROXIES` (IPs, CIDR ranges, or hostnames such as a
+Compose service name). It reads that header (`CLIENT_IP_HEADER`, default `x-forwarded-for`) right
+to left past trusted hops. Anyone else is the TCP peer, so a client cannot choose its own address.
+Compose sets `TRUSTED_PROXIES` to the hop in front of the API: `caddy` in production, `web`
+elsewhere. For any other layout, list every proxy between the internet and the API.
+
+Caddy resolves the client first. `Caddyfile.prod` takes the TCP peer and overwrites
+`X-Forwarded-For` with it. Behind a CDN, Caddy has to trust the CDN's ranges and read its client
+header: `Caddyfile.cloudflare.example` does this with Cloudflare's ranges and `CF-Connecting-IP`.
+For another CDN, copy that file and change the ranges and the header. If you copied the Cloudflare
+example before this change, copy it again.
+
+### Security events
+
+The API and worker append a row to `security_events` and write a `security.event` log line for:
+
+- sign-up, sign-in, sign-out, and failed sign-in or sign-up
+- session revocation, password changes, and account deletion
+- model, MCP, connector, voice, memory, and secret credentials created, changed, or removed
+- deployment settings changes, approval decisions, and approval policy changes
+- refused private or internal destinations (`egress.refused`) and auth rate-limit hits
+
+Each event has the user, space, client address, user agent, time, and a few identifiers. Events
+never include message content, secrets, or tokens. Rows older than `SECURITY_EVENT_RETENTION_DAYS`
+(default 90) are deleted, and Postgres rejects updates to the rows that remain.
+
+The deployment owner can read recent events through the `security.events` RPC, filtered by `type`,
+`ip`, `userId`, or `before`. You can also query Postgres:
+
+```bash
+docker compose --env-file .env -f infra/compose/docker-compose.prod.yml exec postgres \
+  psql -U rakazo -d rakazo -c 'SELECT "createdAt", type, ip, "userId", "userAgent", metadata
+  FROM security_events ORDER BY "createdAt" DESC LIMIT 50'
+```
+
+Caddy writes a JSON access-log line for each request to stdout. The lines exclude
+`Authorization`, `Cookie`, and `Set-Cookie`, and URL tokens are replaced with `REDACTED`. Docker
+rotates container logs and drops them when it recreates a container. To keep Caddy's lines, ship
+container stdout to your log sink with a collector. Security events reach the sink through the
+API's own log shipping, and Postgres keeps them too.
+
+### What to alert on
+
+The queries below are pseudo-SQL over the JSON log lines, so translate them to your log sink. Field
+names are the literal keys in each line: `message`, `security.event.type`, `client.ip`,
+`user_agent.original`, `user.id`, and the `security.event.metadata` object. Tune the thresholds to
+your traffic.
+
+Sign-up bursts from one address:
+
+```sql
+SELECT "client.ip", count(*) FROM logs
+WHERE message = 'security.event' AND "security.event.type" = 'auth.sign_up'
+GROUP BY "client.ip", bucket(1 hour) HAVING count(*) > 3
+```
+
+Password guessing, from one address and across many:
+
+```sql
+SELECT "client.ip", count(*) FROM logs
+WHERE "security.event.type" IN ('auth.sign_in.failed', 'rate_limit.hit')
+GROUP BY "client.ip", bucket(15 minutes) HAVING count(*) > 10;
+
+SELECT count(DISTINCT "client.ip") FROM logs
+WHERE "security.event.type" = 'auth.sign_in.failed'
+GROUP BY bucket(15 minutes) HAVING count(*) > 50
+```
+
+Probes of internal addresses. Any hit deserves a look:
+
+```sql
+SELECT "user.id", "security.event.metadata.host", "security.event.metadata.reason", count(*)
+FROM logs WHERE "security.event.type" = 'egress.refused'
+GROUP BY 1, 2, 3
+```
+
+Scripted clients on account routes:
+
+```sql
+SELECT "client.ip", "user_agent.original", count(*) FROM logs
+WHERE "security.event.type" LIKE 'auth.%'
+  AND ("user_agent.original" IS NULL
+    OR lower("user_agent.original") SIMILAR TO '%(curl|wget|python|go-http-client|headless|okhttp|java/)%')
+GROUP BY 1, 2
+```
+
+Credential and settings changes from an address that user has not signed in from:
+
+```sql
+SELECT * FROM logs c
+WHERE (c."security.event.type" LIKE 'credential.%'
+    OR c."security.event.type" = 'deployment.settings.changed')
+  AND NOT EXISTS (SELECT 1 FROM logs s WHERE s."security.event.type" = 'auth.sign_in'
+    AND s."user.id" = c."user.id" AND s."client.ip" = c."client.ip")
+```
+
 ### Prompt cache capabilities
 
 The model connection API accepts `cacheCapabilities`, including `scope`,

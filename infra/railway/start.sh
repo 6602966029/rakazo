@@ -17,6 +17,9 @@ unset OWNER_PASSWORD
 trap 'kill $(jobs -pr) 2>/dev/null || true; wait || true' EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
+# The API is reached only through the web preview proxy on loopback, which passes on the
+# platform edge's X-Forwarded-For.
+export TRUSTED_PROXIES="${TRUSTED_PROXIES:-127.0.0.1}"
 pnpm --filter @rakazo/api start &
 pnpm --filter @rakazo/worker start &
 (

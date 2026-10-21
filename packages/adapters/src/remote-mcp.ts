@@ -11,6 +11,7 @@ import { Agent } from "undici";
 import { combineSignals } from "./connector-safety.js";
 import {
   createAddressCheckedLookup,
+  egressRefused,
   isCloudMetadataAddress,
   isLinkLocalAddress,
   isLoopbackAddress,
@@ -159,7 +160,8 @@ async function inspectSafeRemoteUrl(
   if (url.username || url.password) throw new Error("Connector URL must not contain credentials");
   if (url.hash) throw new Error("Connector URL must not contain a fragment");
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
-  if (isBlockedRemoteHostname(hostname)) throw new Error("Connector URL targets a private host");
+  if (isBlockedRemoteHostname(hostname))
+    throw egressRefused(hostname, new Error("Connector URL targets a private host"));
   // Loopback is a private endpoint too: only the private-endpoint escape reaches it.
   const allowPrivate = policy.allowPrivateEndpoint === true;
   const privateHost = isPrivateRemoteMcpHostname(hostname);
@@ -167,7 +169,7 @@ async function inspectSafeRemoteUrl(
     throw new Error("Connector URL must use HTTPS");
   }
   if (privateHost && !allowPrivate) {
-    throw new Error("Connector URL targets a private host");
+    throw egressRefused(hostname, new Error("Connector URL targets a private host"));
   }
   const literal = literalAddresses(hostname);
   if (url.protocol === "http:" && isLocalMcpHost(hostname)) {
@@ -175,7 +177,11 @@ async function inspectSafeRemoteUrl(
   }
   if (privateHost && literal) return { url, addresses: literal };
   const addresses = await resolve(hostname);
-  assertAllowedAddresses(addresses, policy);
+  try {
+    assertAllowedAddresses(addresses, policy);
+  } catch (error) {
+    throw egressRefused(hostname, error);
+  }
   if (url.protocol === "http:" && addresses.some((entry) => !isPrivateAddress(entry.address))) {
     throw new Error("Connector URL must use HTTPS");
   }

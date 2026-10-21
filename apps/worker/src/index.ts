@@ -56,10 +56,13 @@ import { resolveEncryptionKey, resolveSupervisorToken, uploadSizeFromEnv } from 
 import {
   createBoardEvents,
   createDb,
+  createSecurityEventPruner,
   createThreadEvents,
+  installSecurityEventStore,
   isTooManyDatabaseConnections,
   parsePositiveInteger,
   pushSessionExpiresAt,
+  securityEventRetentionDays,
 } from "@rakazo/db";
 import { SERVICE_NAMES } from "@rakazo/logging";
 import { createRootLogger } from "@rakazo/logging/axiom";
@@ -89,6 +92,7 @@ async function main() {
   if (secrets.describe().capabilities.degraded)
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
+  installSecurityEventStore(prisma);
   const analytics = createProductAnalytics();
   const events = createThreadEvents(prisma, realtime, {
     analytics,
@@ -286,6 +290,10 @@ async function main() {
       : createRoutineRetryNoticeReconciler(pool, (runId) =>
           executor.notifyRoutineRetryAttemptsExhausted(runId),
         ),
+    reconcileSecurityEventRetention: createSecurityEventPruner(
+      prisma,
+      securityEventRetentionDays(),
+    ),
   });
   reconciler.start();
 

@@ -326,6 +326,26 @@ model DeploymentSettings {
   @@map("deployment_settings")
 }
 
+/// Append-only security audit trail. No foreign keys, so an account deletion
+/// keeps the record of what happened; retention pruning is the only delete.
+/// Never stores message content, secrets, or tokens.
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String?
+  spaceId   String?
+  ip        String?
+  userAgent String?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type, createdAt])
+  @@index([ip, createdAt])
+  @@index([userId, createdAt])
+  @@map("security_events")
+}
+
 model UserModelCredential {
   id          String                 @id @default(cuid())
   userId      String

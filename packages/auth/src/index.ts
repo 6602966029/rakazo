@@ -16,8 +16,8 @@ import {
   parseAllowlist,
   signupPolicyFromEnv,
 } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
-import { bootstrapUserSpace } from "@rakazo/db";
+import type { PrismaClient, SecurityEventType } from "@rakazo/db";
+import { bootstrapUserSpace, recordSecurityEvent } from "@rakazo/db";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -267,6 +267,22 @@ function isUnusedEmailCodePath(path: string, body: { type?: unknown } | undefine
   return path.startsWith("/email-otp/") || path === "/forget-password/email-otp";
 }
 
+/**
+ * The only header Better Auth reads a client IP from. The API sets it from the socket peer and its
+ * trusted proxies and drops any client-supplied copy, so a caller cannot choose its own address.
+ */
+export const CLIENT_IP_HEADER = "x-rakazo-client-ip";
+
+/** Successful account changes worth an audit row. Sign-in, sign-up, sign-out and deletion use hooks. */
+const ACCOUNT_EVENT_PATHS: Record<string, SecurityEventType> = {
+  "/revoke-session": "auth.session.revoked",
+  "/revoke-sessions": "auth.session.revoked",
+  "/revoke-other-sessions": "auth.session.revoked",
+  "/change-password": "auth.password.changed",
+  "/reset-password": "auth.password.changed",
+  "/set-password": "auth.password.changed",
+};
+
 /** Shared across API processes. Off outside production so tests can sign in freely. */
 export function authRateLimitOptions(nodeEnv = process.env.NODE_ENV) {
   const rule = { window: 15 * 60, max: 10 };
@@ -317,6 +333,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       },
     },
     rateLimit: authRateLimitOptions(),
+    advanced: { ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] } },
     database: prismaAdapter(prisma, { provider: "postgresql" }),
     emailAndPassword: {
       enabled: env.passwordAuth !== false,
@@ -418,6 +435,9 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
               where: { id: { in: personalOrganizationIds } },
             });
           });
+        },
+        afterDelete: async (user) => {
+          await recordSecurityEvent({ type: "auth.account.deleted", userId: user.id });
         },
       },
     },
@@ -598,6 +618,14 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
         if (ctx.path === "/sign-up/email") {
           await releaseSignupGate(String(ctx.body?.email ?? ""));
         }
+        const accountEvent = ACCOUNT_EVENT_PATHS[ctx.path];
+        if (accountEvent && !(ctx.context.returned instanceof APIError)) {
+          await recordSecurityEvent({
+            type: accountEvent,
+            userId: ctx.context.session?.user.id,
+            metadata: { via: ctx.path },
+          });
+        }
         const returned = ctx.context.returned;
         // These routes fall back to the stored ID token, which is sealed at rest.
         if (
@@ -690,6 +718,15 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
               { name: "signed_in" },
               { id: session.id, at: session.createdAt },
             );
+            if (!replacedSession(ctx)) {
+              await recordSecurityEvent({
+                type: "auth.sign_in",
+                userId: session.userId,
+                ip: session.ipAddress,
+                userAgent: session.userAgent,
+                metadata: { via: ctx?.path ?? null },
+              });
+            }
             const context =
               ctx && isOidcCallback(ctx) ? (await getOAuthState())?.serverContext : undefined;
             // Set only after ID-token verification and exact linked-account binding.
@@ -711,18 +748,26 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
         },
         delete: {
           after: async (session, ctx) => {
+            if (ctx?.path === "/sign-out") {
+              await recordSecurityEvent({ type: "auth.sign_out", userId: session.userId });
+            }
             if (replacedSession(ctx)?.id !== session.id) await env.afterDeleteSession?.(session);
           },
         },
       },
       user: {
         create: {
-          after: async (user) => {
+          after: async (user, ctx) => {
             env.analytics?.capture(
               user.id,
               { name: "account_created" },
               { id: user.id, at: user.createdAt },
             );
+            await recordSecurityEvent({
+              type: "auth.sign_up",
+              userId: user.id,
+              metadata: { via: ctx?.path ?? null },
+            });
           },
           before: async (user) => {
             if (isMessagingEmail(user.email)) {

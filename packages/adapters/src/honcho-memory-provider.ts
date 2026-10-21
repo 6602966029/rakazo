@@ -25,6 +25,7 @@ import {
   pinLocalServiceHost,
 } from "./local-service-endpoint.js";
 import type { ResolveHostname } from "./network-address.js";
+import { egressRefused } from "./network-address.js";
 import { MemoryProviderDeploymentOwnerRequiredError } from "./serenity-memory-provider.js";
 import { truncateUtf8 } from "./utf8.js";
 
@@ -106,7 +107,10 @@ export async function prepareHonchoConnection(
   const { connection, workspaceId, local } = parseHonchoConnection(settings, credentials);
   // Loopback needs no DNS pin, so refuse non-owners here before any request is sent.
   if (local && options?.allowPrivateEndpoint !== true) {
-    throw new MemoryProviderDeploymentOwnerRequiredError();
+    throw egressRefused(
+      URL.parse(connection.baseUrl)?.hostname ?? "",
+      new MemoryProviderDeploymentOwnerRequiredError(),
+    );
   }
   const pinnedAddresses = local
     ? await pinLocalServiceHost(connection.baseUrl, options)

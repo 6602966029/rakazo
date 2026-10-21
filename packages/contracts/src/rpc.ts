@@ -112,6 +112,7 @@ import { MessageReactionSchema } from "./reactions.js";
 import { RoutineWatchSchema } from "./routine-watch.js";
 import { RoutineHistorySchema, RoutineRunCursorSchema, RunsListOutputSchema } from "./runs.js";
 import { SearchQueryOutputSchema } from "./search.js";
+import { SecurityEventListInputSchema, SecurityEventSchema } from "./security-events.js";
 
 const botId = z.object({ botId: Id });
 const groupId = z.object({ groupId: Id });
@@ -234,6 +235,10 @@ export const appContract = {
         }),
       )
       .output(DeploymentSettingsSchema),
+  },
+  /** Deployment-owner view of the append-only security event log, newest first. */
+  security: {
+    events: oc.input(SecurityEventListInputSchema).output(z.array(SecurityEventSchema)),
   },
   /**
    * Deployment-owner product updates. When the Compose updater sidecar is reachable, these proxy
