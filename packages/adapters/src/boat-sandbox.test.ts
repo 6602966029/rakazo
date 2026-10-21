@@ -139,9 +139,10 @@ describe("BoatSandboxProvider", () => {
     ]);
     const executeRequest = command.mock.calls
       .map(([request]) => ("commandRequest" in request ? request.commandRequest : undefined))
-      .find((request) => request?.command.includes("TEST_VALUE=works"));
-    expect(parse(executeRequest?.command ?? "").at(-1)).toBe(
-      "'env' 'TEST_VALUE=works' 'env' '-u' 'FAILED' '--' 'echo' 'hello'",
+      .find((request) => request?.command.includes("hello"));
+    expect(executeRequest?.command).not.toContain("works");
+    expect(parse(executeRequest?.command ?? "").at(-1)).toMatch(
+      /; 'env' '-u' 'FAILED' '--' 'echo' 'hello'$/,
     );
     expect(executeRequest?.cwd).toBe("rakazo-home/notes");
 
@@ -161,6 +162,86 @@ describe("BoatSandboxProvider", () => {
     expect(exported).toEqual([
       { path: "bin/tool", content: Uint8Array.from([0, 255, 1]), executable: true },
     ]);
+  });
+
+  it("keeps command secrets out of command text and removes the env file as the command starts", async () => {
+    const command = vi.spyOn(FakeBoatApi.prototype, "command");
+    const writeFile = vi.spyOn(FakeBoatApi.prototype, "writeFile");
+    const { api, provider, computer } = await boat();
+    const secret = "fake-secret-'value' $HOME";
+
+    const events = [];
+    for await (const event of provider.execute(
+      computer,
+      { argv: ["printenv", "FAKE_TOKEN"], env: { FAKE_TOKEN: secret } },
+      context,
+    )) {
+      events.push(event);
+    }
+
+    expect(events).toEqual([
+      { type: "stdout", data: `${secret}\n` },
+      { type: "exit", code: 0 },
+    ]);
+    const commands = command.mock.calls.map(([request]) => request.commandRequest.command);
+    expect(commands.some((text) => text.includes("fake-secret"))).toBe(false);
+    expect(commands.some((text) => text.includes("mkdir -p -m 700"))).toBe(true);
+    const [written] = writeFile.mock.calls.map(([request]) => request.fileWriteRequest);
+    const envFile = written?.path ?? "";
+    expect(envFile).toMatch(/^\/home\/user\/\.rakazo-command-env\/[0-9a-f-]{36}$/);
+    expect(Buffer.from(written?.content ?? "", "base64").toString("utf8")).toContain("fake-secret");
+    // The same command opens, deletes, and loads the file before running argv.
+    const run = parse(commands.find((text) => text.includes(envFile)) ?? "").at(-1);
+    expect(run).toBe(
+      `exec 3< '${envFile}' || exit 1; rm -f -- '${envFile}'; . /dev/fd/3 || exit 1; exec 3<&-; 'printenv' 'FAKE_TOKEN'`,
+    );
+    expect(api.files(computer.id).has(envFile)).toBe(false);
+  });
+
+  it("rejects env names that are not shell identifiers before writing anything", async () => {
+    const command = vi.spyOn(FakeBoatApi.prototype, "command");
+    const writeFile = vi.spyOn(FakeBoatApi.prototype, "writeFile");
+    const { provider, computer } = await boat();
+
+    const run = async () => {
+      for await (const _ of provider.execute(
+        computer,
+        { argv: ["true"], env: { "BAD;NAME": "fake-secret" } },
+        context,
+      ));
+    };
+    await expect(run()).rejects.toThrow("invalid environment variable name");
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(command).not.toHaveBeenCalled();
+  });
+
+  it("removes the env file when the command never starts", async () => {
+    const command = vi.spyOn(FakeBoatApi.prototype, "command");
+    const write = FakeBoatApi.prototype.writeFile;
+    vi.spyOn(FakeBoatApi.prototype, "writeFile").mockImplementationOnce(async function (
+      this: FakeBoatApi,
+      request,
+    ) {
+      await write.call(this, request);
+      throw new Error("connection reset");
+    });
+    const { api, provider, computer } = await boat();
+
+    const run = async () => {
+      for await (const _ of provider.execute(
+        computer,
+        { argv: ["true"], env: { FAKE_TOKEN: "fake-secret" } },
+        context,
+      ));
+    };
+    await expect(run()).rejects.toThrow("connection reset");
+    const commands = command.mock.calls.map(([request]) => request.commandRequest.command);
+    expect(commands.at(-1)).toMatch(
+      /^rm -f -- '\/home\/user\/\.rakazo-command-env\/[0-9a-f-]{36}'$/,
+    );
+    expect(
+      [...api.files(computer.id).keys()].some((file) => file.includes(".rakazo-command-env")),
+    ).toBe(false);
   });
 
   it("resumes an archived sandbox with no inherited environment", async () => {

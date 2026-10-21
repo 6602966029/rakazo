@@ -11,7 +11,7 @@ interface ComposeService {
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 
 function loadCompose(rel: string) {
-  return parse(readFileSync(path.resolve(repoRoot, rel), "utf8")) as {
+  return parse(readFileSync(path.resolve(repoRoot, rel), "utf8"), { merge: true }) as {
     services: Record<string, ComposeService>;
   };
 }

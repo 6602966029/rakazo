@@ -325,6 +325,25 @@ export class FakeBoatApi implements BoatSandboxSdk {
     const desktop = this.desktop(command);
     if (desktop) return finished(desktop);
 
+    // `exec 3< FILE || exit 1; rm -f -- FILE; . /dev/fd/3 || exit 1; exec 3<&-; argv`
+    const sourced = command.match(
+      /^exec 3< ('[^']*') \|\| exit 1; rm -f -- \1; \. \/dev\/fd\/3 \|\| exit 1; exec 3<&-; ([\s\S]*)$/,
+    );
+    if (sourced) {
+      const envFile = String(parse(sourced[1]!)[0]);
+      const file = box.files.get(envFile);
+      if (!file) return finished({ exitCode: 1, stderr: "No such file or directory\n" });
+      box.files.delete(envFile);
+      const env = { ...box.env };
+      for (const token of parse(Buffer.from(file.content).toString("utf8"))) {
+        if (typeof token !== "string" || token === "export") continue;
+        const [name, ...value] = token.split("=");
+        env[name!] = value.join("=");
+      }
+      const argv = parse(sourced[2]!).filter((token): token is string => typeof token === "string");
+      return finished(simpleCommand(argv, env));
+    }
+
     const directory = command.match(/^directory=(.*)$/m)?.[1];
     if (directory !== undefined) {
       const root = String(parse(directory)[0]);
@@ -355,6 +374,10 @@ export class FakeBoatApi implements BoatSandboxSdk {
         const file = box.files.get(argv[index + 2] ?? "");
         if (file) file.executable = argv[index + 1] === "700";
       }
+      return finished({});
+    }
+    if (argv[0] === "rm") {
+      for (const filePath of argv.slice(1)) box.files.delete(filePath);
       return finished({});
     }
     // Scripts with shell operators are setup the fake has no state for.
