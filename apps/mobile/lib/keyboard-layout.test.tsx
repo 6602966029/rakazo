@@ -82,19 +82,19 @@ describe("keyboard layout recovery", () => {
   beforeEach(async () => {
     await act(async () => root.render(createElement(Harness)));
   });
-  it("recovers an unavailable mount measurement on focus and remeasures after resume", async () => {
+  it("uses the wrapper window origin even with a nonzero parent-relative y and remeasures after resume", async () => {
     expect(layout.offset).toBe(0);
     layout.container.current = view(88, 712);
     await act(async () =>
       layout.onLayout({ nativeEvent: { layout: { y: 8 } } } as LayoutChangeEvent),
     );
-    expect(layout.offset).toBe(80);
+    expect(layout.offset).toBe(88);
     layout.container.current = view(100, 700);
     await act(async () => layout.onFocus());
-    expect(layout.offset).toBe(92);
+    expect(layout.offset).toBe(100);
     layout.container.current = view(64, 736);
     await act(async () => native.listeners.get("app")?.("active"));
-    expect(layout.offset).toBe(56);
+    expect(layout.offset).toBe(64);
   });
   it("ignores a stale asynchronous measurement from before a later keyboard event", async () => {
     let delayed: ((...values: number[]) => void) | undefined;
@@ -118,11 +118,11 @@ describe("keyboard layout recovery", () => {
         layout.onLayout({ nativeEvent: { layout: { y: 8 } } } as LayoutChangeEvent),
       );
     }
-    expect(layout.offset).toBe(80);
+    expect(layout.offset).toBe(88);
     expect(measured).toHaveBeenCalledTimes(40);
     measured.mockImplementation((callback) => callback(0, 100, 400, 700));
     await act(async () => vi.advanceTimersByTimeAsync(350));
-    expect(layout.offset).toBe(92);
+    expect(layout.offset).toBe(100);
     expect(measured).toHaveBeenCalledTimes(41);
   });
   it("remeasures on app state changes, refreshes only in foreground, and stops when unfocused", async () => {

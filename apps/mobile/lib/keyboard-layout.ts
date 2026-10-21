@@ -10,7 +10,6 @@ type Frame = { y: number; height: number };
 /** Re-measure screen coordinates when the keyboard is needed, including after resume. */
 export function useKeyboardLayout() {
   const container = useRef<View>(null);
-  const relativeY = useRef(0);
   const [offset, setOffset] = useState(0);
   const offsetRef = useRef(0);
   const safeArea = useSafeAreaInsets();
@@ -38,10 +37,9 @@ export function useKeyboardLayout() {
     });
     void frame.then((frame) => {
       if (!mounted.current || ownSequence !== sequence.current) return;
-      // The library's frame uses parent coordinates. Supply the measured difference,
-      // never a guessed header/status-bar height. Re-check after each navigation/resume.
-      const nextOffset =
-        frame && frame.height > 0 ? frame.y - relativeY.current : offsetRef.current;
+      // The avoiding view starts at y=0 inside this wrapper. Its parent coordinate
+      // origin is the wrapper's window y, including any parent-relative displacement.
+      const nextOffset = frame && frame.height > 0 ? frame.y : offsetRef.current;
       if (frame && frame.height > 0 && Number.isFinite(nextOffset)) {
         offsetRef.current = nextOffset;
         setOffset(nextOffset);
@@ -88,12 +86,6 @@ export function useKeyboardLayout() {
   // Insets can change independently of the window dimensions.
   useEffect(schedule, [safeArea, schedule]);
 
-  const onLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      relativeY.current = event.nativeEvent.layout.y;
-      schedule();
-    },
-    [schedule],
-  );
+  const onLayout = useCallback((_event: LayoutChangeEvent) => schedule(), [schedule]);
   return { container, offset, onLayout, onFocus: schedule };
 }
