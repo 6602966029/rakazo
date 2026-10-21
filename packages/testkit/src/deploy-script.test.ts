@@ -319,3 +319,49 @@ describe("production deploy script", () => {
     expect(deploy.head()).toBe(deploy.first);
   });
 });
+
+describe("production deploy launcher", () => {
+  it("runs the deploy script from origin/main, not the checkout", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "rakazo-launcher-"));
+    temporaryDirectories.push(root);
+    const upstream = path.join(root, "upstream");
+    const checkout = path.join(root, "checkout with spaces");
+    const script = path.join("infra", "compose", "deploy-main.sh");
+    mkdirSync(upstream);
+    git(upstream, "init", "-q", "-b", "main");
+    write(path.join(upstream, script), 'echo "stale $*"\n');
+    git(upstream, "add", script);
+    commit(upstream, "first");
+    git(root, "clone", "-q", upstream, checkout);
+    write(path.join(upstream, script), 'echo "current $0 $*"\n');
+    git(upstream, "add", script);
+    commit(upstream, "next");
+
+    const result = spawnSync(
+      "/bin/bash",
+      [path.join(repoRoot, "infra/compose/deploy-launcher.sh"), "--flag"],
+      {
+        cwd: root,
+        env: { PATH: process.env.PATH, HOME: root, RAKAZO_DEPLOY_DIR: checkout },
+        encoding: "utf8",
+        timeout: 20_000,
+      },
+    );
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe("current rakazo-deploy-main --flag");
+  });
+
+  it("refuses a relative checkout path", () => {
+    const result = spawnSync(
+      "/bin/bash",
+      [path.join(repoRoot, "infra/compose/deploy-launcher.sh")],
+      {
+        env: { PATH: process.env.PATH, RAKAZO_DEPLOY_DIR: "relative" },
+        encoding: "utf8",
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("absolute path");
+  });
+});

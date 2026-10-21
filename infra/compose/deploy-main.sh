@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build and roll out origin/main on the single-VM production stack.
 #
-# Install as /usr/local/sbin/rakazo-deploy-main and run it as the deploy user, for example
-# from CI through an SSH forced command. The deploy user needs passwordless sudo for Docker.
+# Runs as the deploy user through deploy-launcher.sh, which is installed as the CI forced command
+# and always runs this file from origin/main. The deploy user needs passwordless sudo for Docker.
 set -Eeuo pipefail
 
 # A forced SSH command carries no environment, so read the checkout path from a root-owned file.
