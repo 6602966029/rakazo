@@ -55,10 +55,8 @@ export function AudioAttachment({
       style={{
         gap: 6,
         padding: 12,
-        borderWidth: 1,
-        borderColor: tokens.border,
         borderRadius: 12,
-        backgroundColor: tokens.card,
+        backgroundColor: tokens.secondary,
       }}
     >
       <Text

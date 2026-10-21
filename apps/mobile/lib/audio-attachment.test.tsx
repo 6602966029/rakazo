@@ -24,7 +24,9 @@ vi.mock("react-native", () => ({
   ActivityIndicator: () => null,
   Alert: { alert: vi.fn() },
 }));
-vi.mock("../lib/appearance", () => ({ mobileTokens: () => ({}) }));
+vi.mock("../lib/appearance", () => ({
+  mobileTokens: () => ({ card: "token-card", muted: "token-muted", secondary: "token-secondary" }),
+}));
 vi.mock("../lib/i18n", () => ({ useI18n: () => ({ t: (text: string) => text }) }));
 vi.mock("../lib/artifact-open", () => ({
   audioArtifactUri: vi.fn(),
@@ -95,4 +97,28 @@ it("preserves message actions on the row and independent play/share controls", a
     vi.unstubAllGlobals();
   }
   expect(mocks.dispose).toHaveBeenCalledTimes(1);
+});
+
+it("sits on the inset fill, not the bubble's own fill, so it shows without an outline", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(
+        <AudioAttachment
+          target={{ botId: "bot-1" }}
+          artifactId="audio-1"
+          name="clip"
+          mimeType="audio/mpeg"
+        />,
+      ),
+    );
+    const style = mocks.root.mock.lastCall?.[0].style;
+    expect(style.backgroundColor).toBe("token-secondary");
+    expect(style).not.toHaveProperty("borderWidth");
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  }
 });
