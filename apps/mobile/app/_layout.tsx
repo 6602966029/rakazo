@@ -24,6 +24,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-g
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppErrorBoundary } from "../components/app-error-boundary";
 import { AvatarStyleProvider } from "../components/avatar-style";
 import { CallCard } from "../components/CallCard";
 import { CodeCopyButton } from "../components/code-copy-button";
@@ -214,7 +215,7 @@ function ChatContentProviders({
   );
 }
 
-export default function Layout() {
+function LayoutContent() {
   useEffect(() => {
     // Screen changes include folding; window resizing must not lock a tablet in split-screen.
     const subscription = Dimensions.addEventListener("change", () => {
@@ -436,5 +437,13 @@ export default function Layout() {
         )}
       </KeyboardProvider>
     </GestureHandlerRootView>
+  );
+}
+
+export default function Layout() {
+  return (
+    <AppErrorBoundary>
+      <LayoutContent />
+    </AppErrorBoundary>
   );
 }
