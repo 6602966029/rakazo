@@ -109,21 +109,24 @@ async function provisionWith(owner: Client, runtimeUrl: string): Promise<{ warni
       "SELECT rolsuper OR rolcreaterole AS can, rolsuper AS superuser FROM pg_roles WHERE rolname = current_user",
     )
   ).rows;
-  if (!admin?.can) {
-    // Managed Postgres may not give the owner CREATEROLE. A login created and
-    // granted rakazo_app by an administrator is used as it is.
-    const member = role
-      ? (
-          await owner.query<{ member: boolean }>("SELECT pg_has_role($1, $2, 'MEMBER') AS member", [
-            login,
-            RUNTIME_ROLE,
-          ])
-        ).rows[0]?.member
-      : false;
-    if (member) return {};
-    throw new Error(
-      `The migration role cannot create logins. Create ${login} (LOGIN NOBYPASSRLS) and GRANT ${RUNTIME_ROLE} TO it, then deploy again.`,
+  // A login an administrator already created and granted rakazo_app is used as it
+  // is when this role may not change it: no CREATEROLE (some managed Postgres), or,
+  // on PostgreSQL 16+, CREATEROLE without ADMIN OPTION on that login.
+  const provisioned =
+    Boolean(role) &&
+    (
+      await owner.query<{ member: boolean }>("SELECT pg_has_role($1, $2, 'MEMBER') AS member", [
+        login,
+        RUNTIME_ROLE,
+      ])
+    ).rows[0]?.member === true;
+  const cannotChange = () =>
+    new Error(
+      `The migration role cannot create or change ${login}. Create it (LOGIN NOBYPASSRLS) and GRANT ${RUNTIME_ROLE} TO it, then deploy again.`,
     );
+  if (!admin?.can) {
+    if (provisioned) return {};
+    throw cannotChange();
   }
   const name = escapeIdentifier(login);
   const secret = password ? `PASSWORD ${escapeLiteral(password)}` : "";
@@ -133,9 +136,16 @@ async function provisionWith(owner: Client, runtimeUrl: string): Promise<{ warni
   const limits = admin.superuser
     ? "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION"
     : "";
-  if (!role) await owner.query(`CREATE ROLE ${name} LOGIN ${secret} ${limits}`);
-  else await owner.query(`ALTER ROLE ${name} LOGIN ${secret} ${limits}`);
-  if (login !== RUNTIME_ROLE) await owner.query(`GRANT ${RUNTIME_ROLE} TO ${name}`);
+  try {
+    if (!role) await owner.query(`CREATE ROLE ${name} LOGIN ${secret} ${limits}`);
+    else await owner.query(`ALTER ROLE ${name} LOGIN ${secret} ${limits}`);
+    if (login !== RUNTIME_ROLE) await owner.query(`GRANT ${RUNTIME_ROLE} TO ${name}`);
+  } catch (error) {
+    const denied = (error as { code?: string }).code === "42501";
+    if (denied && provisioned) return {};
+    if (denied) throw Object.assign(cannotChange(), { cause: error });
+    throw error;
+  }
   return {};
 }
 

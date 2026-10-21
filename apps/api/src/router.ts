@@ -832,6 +832,24 @@ async function asTenant<T extends { output: unknown }>(
   return { ...result, output: scoped };
 }
 
+/**
+ * Runs `fn` scoped to another of the actor's Spaces. Membership is checked first,
+ * so a client-supplied Space id never opens that Space's rows on its own.
+ */
+async function asMemberOf<T>(
+  prisma: PrismaClient,
+  actor: Actor,
+  spaceId: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const member = await prisma.spaceMember.findFirst({
+    where: { spaceId, userId: actor.userId },
+    select: { id: true },
+  });
+  if (!member) throw new ORPCError("NOT_FOUND", { message: new SpaceNotFoundError().message });
+  return runAsTenant({ spaceId, userId: actor.userId }, fn);
+}
+
 export function createRouter(deps: RouterDeps) {
   const os = implement(appContract).$context<{
     actor: Actor | null;
@@ -994,7 +1012,7 @@ export function createRouter(deps: RouterDeps) {
       ),
       // Renames another of the member's Spaces; membership is checked inside.
       rename: authed.spaces.rename.handler(({ context, input }) =>
-        runAsTenant({ spaceId: input.spaceId, userId: context.actor.userId }, async () => {
+        asMemberOf(deps.prisma, context.actor, input.spaceId, async () => {
           try {
             return await renameSpaceForMember(deps.prisma, {
               currentSpaceId: context.actor.spaceId,
@@ -1022,7 +1040,7 @@ export function createRouter(deps: RouterDeps) {
       // Acts on the Space being deleted, not the current one, so its emptiness
       // check and teardown see that Space's rows. Ownership is checked inside.
       remove: authed.spaces.remove.handler(({ context, input }) =>
-        runAsTenant({ spaceId: input.spaceId, userId: context.actor.userId }, async () => {
+        asMemberOf(deps.prisma, context.actor, input.spaceId, async () => {
           let claimId: string | null = null;
           let claimActive = false;
           let claimHealthy = true;
