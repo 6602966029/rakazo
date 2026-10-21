@@ -20,6 +20,7 @@ export function HonchoSettingsForm({ busy, onConnect }: MemoryProviderSettingsFo
   const [baseUrl, setBaseUrl] = useState(DEFAULT_LOCAL_BASE_URL);
   const userPeerId = useId();
   const userPeerErrorId = useId();
+  const userPeerDescriptionId = useId();
   const [userPeer, setUserPeer] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [workspace, setWorkspace] = useState("");
@@ -106,11 +107,16 @@ export function HonchoSettingsForm({ busy, onConnect }: MemoryProviderSettingsFo
             value={userPeer}
             disabled={busy}
             aria-invalid={userPeerValid ? undefined : true}
-            aria-describedby={userPeerValid ? undefined : userPeerErrorId}
+            aria-describedby={
+              userPeerValid ? userPeerDescriptionId : `${userPeerDescriptionId} ${userPeerErrorId}`
+            }
             onChange={(event) => setUserPeer(event.target.value)}
             maxLength={512}
             autoComplete="off"
           />
+          <p id={userPeerDescriptionId} className="mt-2 text-[13px] text-muted-foreground">
+            <Trans>An existing Honcho peer to read from. Rakazo never writes to it.</Trans>
+          </p>
           {!userPeerValid ? (
             <FieldError id={userPeerErrorId}>
               {userPeerFormatValid ? (

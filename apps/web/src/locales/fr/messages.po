@@ -599,6 +599,10 @@ msgstr "Toujours autorisé"
 msgid "An API key is stored for this provider, not a subscription sign-in."
 msgstr "Une clé API est enregistrée pour ce fournisseur, et non une connexion par abonnement."
 
+#: src/pages/memory-providers/HonchoSettingsForm.tsx
+msgid "An existing Honcho peer to read from. Rakazo never writes to it."
+msgstr "Un pair Honcho existant à consulter. Rakazo n’y écrit jamais."
+
 #: src/pages/RoutineEditor.tsx
 msgid "An integration tool"
 msgstr "Un outil d’intégration"
