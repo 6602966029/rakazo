@@ -349,7 +349,7 @@ import { actorMayUsePrivateEndpoint } from "./private-endpoint.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
-import { tickRoutineWatch } from "./routine-watch.js";
+import { routineTaskInstructions, tickRoutineWatch } from "./routine-watch.js";
 import { lazyRunComputer } from "./run-computer.js";
 import {
   commitConsumedRunSecret,
@@ -4283,13 +4283,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 .flatMap((block) => (block.kind === "text" ? [block.text] : []))
                 .join("\n");
             }
-            if (run.trigger === "routine" && run.routineId) {
-              const routine = await deps.prisma.routine.findUnique({
-                where: { id: run.routineId },
-                select: { prompt: true },
-              });
-              return routine?.prompt ?? "";
-            }
+            // Saved when the routine fired, so a later edit cannot change what this run judges.
+            if (run.trigger === "routine") return routineTaskInstructions(task.prompt);
             if (run.trigger === "webhook") {
               const routines = await deps.prisma.routine.findMany({
                 where: { botId: bot.id, spaceId: run.spaceId, userId: run.userId },

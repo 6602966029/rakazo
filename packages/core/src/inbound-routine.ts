@@ -11,14 +11,19 @@ export function inboundRoutineBlock(routine: InboundRoutine): string {
  * payload can never be taken for the owner's instructions.
  */
 export function inboundRoutinePrompts(taskPrompt: string, routines: InboundRoutine[]): string[] {
+  // Longest first: names need not be unique, and one routine's block can begin another's.
+  const blocks = routines
+    .map((routine) => ({
+      block: `${inboundRoutineBlock(routine)}\n`,
+      prompt: routine.prompt.trim(),
+    }))
+    .sort((a, b) => b.block.length - a.block.length);
   const prompts: string[] = [];
   let rest = taskPrompt;
   for (;;) {
-    const routine = routines.find((candidate) =>
-      rest.startsWith(`${inboundRoutineBlock(candidate)}\n`),
-    );
-    if (!routine) return prompts;
-    prompts.push(routine.prompt.trim());
-    rest = rest.slice(inboundRoutineBlock(routine).length + 1);
+    const match = blocks.find(({ block }) => rest.startsWith(block));
+    if (!match) return prompts;
+    prompts.push(match.prompt);
+    rest = rest.slice(match.block.length);
   }
 }
