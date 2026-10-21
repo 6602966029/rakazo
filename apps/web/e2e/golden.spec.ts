@@ -249,6 +249,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   const advanced = page.getByTestId("integrations-advanced");
   const browseMcp = page.getByRole("button", { name: "Browse MCP servers", exact: true });
   await expect(browseMcp).toBeHidden();
+  await expect(page.getByRole("button", { name: "Add GraphQL", exact: true })).toBeHidden();
   await advanced.evaluate((element) => {
     (element as HTMLDetailsElement).open = true;
   });
@@ -263,7 +264,6 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await expect(page.getByRole("button", { name: "Add Treg", exact: true })).toBeVisible();
   await expect(page.getByText("Tool sources", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "MCP servers", exact: true })).toBeHidden();
-  // Thin Advanced smoke only. GraphQL install and order screenshots live in graphql-integrations.spec.ts.
   await expect(page.getByTestId("integrations-catalog-feed")).toBeVisible();
   // Catalog Search is optional chrome; add buttons stay MCP → OpenAPI → GraphQL → Executor → Treg.
   const advancedActions = advanced.getByTestId("integrations-advanced-add").locator("button");
@@ -273,6 +273,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await expect(advancedActions.nth(2)).toHaveText("Add GraphQL");
   await expect(advancedActions.nth(3)).toHaveText("Add Executor");
   await expect(advancedActions.nth(4)).toHaveText("Add Treg");
+  await captureScreenshot(page, testInfo, "01-graphql-advanced-order");
 
   const feed = page.getByTestId("integrations-catalog-feed");
   await feed.getByRole("textbox", { name: "Integration domain" }).fill("github.com");
@@ -332,6 +333,17 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
     page.getByText(/MCP · https:\/\/executor\.example\.test\/mcp · credential saved/),
   ).toBeVisible();
   await captureScreenshot(page, testInfo, "11d-provider-emulators");
+
+  await page.getByRole("button", { name: "Add GraphQL", exact: true }).click();
+  await page.getByPlaceholder("Display name").fill("Browser GraphQL");
+  await page
+    .getByPlaceholder("https://example.com/graphql")
+    .fill("https://graphql.example.test/graphql");
+  await page.getByRole("button", { name: "Verify and add", exact: true }).click();
+  await expect(
+    page.getByText(/GRAPHQL · https:\/\/graphql\.example\.test\/graphql · no auth/),
+  ).toBeVisible();
+  await captureScreenshot(page, testInfo, "02-graphql-installed");
 
   await page.getByRole("button", { name: "Close integrations" }).click();
 

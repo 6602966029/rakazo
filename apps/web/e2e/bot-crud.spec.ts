@@ -214,7 +214,7 @@ test("bot management switch persists and settings help is accessible", async ({
   };
 
   const fleetSwitch = await openAdvanced();
-  await expect(fleetSwitch).toBeChecked();
+  await expect(fleetSwitch).not.toBeChecked();
   const help = page.getByRole("button", { name: "About Manage the bots it creates" });
   const explanation =
     "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.";
@@ -243,12 +243,12 @@ test("bot management switch persists and settings help is accessible", async ({
   await page.keyboard.press("Escape");
   await expect(tooltip).toHaveCount(0);
   await fleetSwitch.click();
-  await expect(fleetSwitch).not.toBeChecked();
+  await expect(fleetSwitch).toBeChecked();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
 
   await page.reload();
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
   const reloadedSwitch = await openAdvanced();
-  await expect(reloadedSwitch).not.toBeChecked();
+  await expect(reloadedSwitch).toBeChecked();
 });

@@ -158,6 +158,13 @@ export function truncateReplyQuote(value: string): string {
 export const GROUP_MEMBER_MIN = 2;
 export const GROUP_MEMBER_MAX = 10;
 
+/** Preserve pick order and the group name limit without splitting a surrogate pair. */
+export function defaultGroupName(names: readonly string[]): string {
+  const value = names.join(", ").trim().slice(0, 80);
+  const last = value.charCodeAt(value.length - 1);
+  return (last >= 0xd800 && last <= 0xdbff ? value.slice(0, -1) : value).trim();
+}
+
 export const GroupSchema = z.object({
   id: Id,
   spaceId: Id,
