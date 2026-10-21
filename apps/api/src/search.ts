@@ -23,7 +23,7 @@ const UNINDEXED_SCAN_LIMIT = 200;
 async function messageMatch(prisma: PrismaClient, spaceId: string, query: string) {
   const plaintext = Prisma.sql`m.blocks::text ILIKE ${`%${query}%`}`;
   const encryption = contentEncryptionOf(prisma);
-  if (!encryption) return { sql: plaintext, limit: SEARCH_LIMIT };
+  if (!encryption) return { sql: plaintext, limit: SEARCH_LIMIT, pages: 1 };
   const tokenSets = (await encryption.messageSearchTokens(spaceId, query, "prefix")).filter(
     (tokens) => tokens.length,
   );
@@ -31,11 +31,15 @@ async function messageMatch(prisma: PrismaClient, spaceId: string, query: string
     return {
       sql: Prisma.sql`(m."searchTokens" IS NOT NULL OR ${plaintext})`,
       limit: UNINDEXED_SCAN_LIMIT,
+      pages: 1,
     };
   const encrypted = tokenSets.map((tokens) => Prisma.sql`m."searchTokens" @> ${tokens}::int[]`);
   return {
     sql: Prisma.sql`(${Prisma.join([...encrypted, Prisma.sql`(m."searchTokens" IS NULL AND ${plaintext})`], " OR ")})`,
     limit: SEARCH_LIMIT * 4,
+    // Candidates can share the query's words without containing the phrase, so
+    // keep fetching until results fill or candidates run out, within a bound.
+    pages: 5,
   };
 }
 
@@ -259,76 +263,81 @@ export async function querySpaceSearch(
   }
 
   const match = await messageMatch(prisma, actor.spaceId, query);
-  const messageRows = await openMessages(
-    prisma,
-    await prisma.$queryRaw<
-      Array<{
-        id: string;
-        threadId: string;
-        seq: number;
-        blocks: Prisma.JsonValue;
-        botId: string;
-        botName: string;
-      }>
-    >`
-    SELECT m.id, m."threadId", m.seq, m.blocks, b.id AS "botId", b.name AS "botName"
-    FROM messages m
-    INNER JOIN threads t ON t.id = m."threadId"
-    INNER JOIN bots b ON b.id = t."botId"
-    WHERE t."spaceId" = ${actor.spaceId}
-      AND t."userId" = ${actor.userId}
-      AND b."archivedAt" IS NULL
-      AND ${match.sql}
-    ORDER BY m."createdAt" DESC
-    LIMIT ${match.limit}
-  `,
-  );
-
-  for (const row of messageRows) {
-    pushMessageHits(row.blocks as MessageBlock[], {
-      botId: row.botId,
-      botName: row.botName,
-      messageId: row.id,
-      seq: row.seq,
-      query,
-      push: (hit) => pushInto(contentHits, hit, contentBudget),
-    });
+  const full = () => contentHits.length >= contentBudget;
+  for (let page = 0; page < match.pages && !full(); page += 1) {
+    const messageRows = await openMessages(
+      prisma,
+      await prisma.$queryRaw<
+        Array<{
+          id: string;
+          threadId: string;
+          seq: number;
+          blocks: Prisma.JsonValue;
+          botId: string;
+          botName: string;
+        }>
+      >`
+      SELECT m.id, m."threadId", m.seq, m.blocks, b.id AS "botId", b.name AS "botName"
+      FROM messages m
+      INNER JOIN threads t ON t.id = m."threadId"
+      INNER JOIN bots b ON b.id = t."botId"
+      WHERE t."spaceId" = ${actor.spaceId}
+        AND t."userId" = ${actor.userId}
+        AND b."archivedAt" IS NULL
+        AND ${match.sql}
+      ORDER BY m."createdAt" DESC, m.id DESC
+      LIMIT ${match.limit} OFFSET ${page * match.limit}
+    `,
+    );
+    for (const row of messageRows) {
+      pushMessageHits(row.blocks as MessageBlock[], {
+        botId: row.botId,
+        botName: row.botName,
+        messageId: row.id,
+        seq: row.seq,
+        query,
+        push: (hit) => pushInto(contentHits, hit, contentBudget),
+      });
+    }
+    if (messageRows.length < match.limit) break;
   }
 
-  const groupMessageRows = await openMessages(
-    prisma,
-    await prisma.$queryRaw<
-      Array<{
-        id: string;
-        threadId: string;
-        seq: number;
-        blocks: Prisma.JsonValue;
-        groupId: string;
-        groupName: string;
-      }>
-    >`
-    SELECT m.id, m."threadId", m.seq, m.blocks, g.id AS "groupId", g.name AS "groupName"
-    FROM messages m
-    INNER JOIN threads t ON t.id = m."threadId"
-    INNER JOIN chat_groups g ON g.id = t."groupId"
-    WHERE t."spaceId" = ${actor.spaceId}
-      AND t."userId" = ${actor.userId}
-      AND t."groupId" IS NOT NULL
-      AND ${match.sql}
-    ORDER BY m."createdAt" DESC
-    LIMIT ${match.limit}
-  `,
-  );
-
-  for (const row of groupMessageRows) {
-    pushMessageHits(row.blocks as MessageBlock[], {
-      groupId: row.groupId,
-      groupName: row.groupName,
-      messageId: row.id,
-      seq: row.seq,
-      query,
-      push: (hit) => pushInto(contentHits, hit, contentBudget),
-    });
+  for (let page = 0; page < match.pages && !full(); page += 1) {
+    const groupMessageRows = await openMessages(
+      prisma,
+      await prisma.$queryRaw<
+        Array<{
+          id: string;
+          threadId: string;
+          seq: number;
+          blocks: Prisma.JsonValue;
+          groupId: string;
+          groupName: string;
+        }>
+      >`
+      SELECT m.id, m."threadId", m.seq, m.blocks, g.id AS "groupId", g.name AS "groupName"
+      FROM messages m
+      INNER JOIN threads t ON t.id = m."threadId"
+      INNER JOIN chat_groups g ON g.id = t."groupId"
+      WHERE t."spaceId" = ${actor.spaceId}
+        AND t."userId" = ${actor.userId}
+        AND t."groupId" IS NOT NULL
+        AND ${match.sql}
+      ORDER BY m."createdAt" DESC, m.id DESC
+      LIMIT ${match.limit} OFFSET ${page * match.limit}
+    `,
+    );
+    for (const row of groupMessageRows) {
+      pushMessageHits(row.blocks as MessageBlock[], {
+        groupId: row.groupId,
+        groupName: row.groupName,
+        messageId: row.id,
+        seq: row.seq,
+        query,
+        push: (hit) => pushInto(contentHits, hit, contentBudget),
+      });
+    }
+    if (groupMessageRows.length < match.limit) break;
   }
 
   return [...conversationHits, ...contentHits].slice(0, SEARCH_LIMIT);

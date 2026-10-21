@@ -30,7 +30,14 @@ async function readHead(handle: FileHandle): Promise<Buffer> {
 }
 
 async function writeAll(handle: FileHandle, chunks: AsyncIterable<Uint8Array>) {
-  for await (const chunk of chunks) await handle.write(chunk);
+  for await (const chunk of chunks) {
+    // A write may accept only part of a chunk; keep going until all of it lands.
+    for (let offset = 0; offset < chunk.byteLength; ) {
+      const { bytesWritten } = await handle.write(chunk, offset, chunk.byteLength - offset);
+      if (bytesWritten <= 0) throw new Error("Artifact write made no progress");
+      offset += bytesWritten;
+    }
+  }
 }
 
 /**

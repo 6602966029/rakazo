@@ -19,7 +19,7 @@ import {
 } from "./content-crypto.js";
 
 const key: DataKey = { id: "key-1", spaceId: "space-1", version: 1, key: randomBytes(32) };
-const location = { table: "messages", column: "blocks", rowId: "row-1" };
+const location = { table: "messages", column: "blocks", rowId: "row-1", owner: "thread-1" };
 
 async function* from(...chunks: Uint8Array[]) {
   yield* chunks;
@@ -46,6 +46,7 @@ describe("content ciphertext", () => {
       { ...location, table: "events" },
       { ...location, column: "payload" },
       { ...location, rowId: "row-2" },
+      { ...location, owner: "thread-2" },
     ])
       expect(() => decryptText(key, moved, sealed)).toThrow(ContentDecryptionError);
     expect(() => decryptText({ ...key, spaceId: "space-2" }, location, sealed)).toThrow(

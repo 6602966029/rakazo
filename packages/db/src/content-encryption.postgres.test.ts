@@ -5,7 +5,7 @@ import type { PrismaClient } from "./client.js";
 import { createDb } from "./client.js";
 import { ContentDecryptionError } from "./content-crypto.js";
 import { contentEncryptionOf } from "./content-encryption.js";
-import { LocalKeyProvider } from "./content-keys.js";
+import { LocalKeyProvider, masterKeysFromEnv } from "./content-keys.js";
 import {
   contentEncryptionStatus,
   migrateContent,
@@ -36,7 +36,9 @@ describePostgres("content encryption (PostgreSQL)", () => {
   let raw: ReturnType<typeof createDb>["pool"];
 
   function client(keys = [masterA]) {
-    const db = createDb(databaseUrl!, { keyProvider: new LocalKeyProvider(keys) });
+    // The derived key keeps rows from other suites sharing this database readable.
+    const provider = new LocalKeyProvider([...keys, ...masterKeysFromEnv()]);
+    const db = createDb(databaseUrl!, { keyProvider: provider });
     clients.push(db);
     return db;
   }
@@ -123,6 +125,32 @@ describePostgres("content encryption (PostgreSQL)", () => {
       ContentDecryptionError,
     );
     await prisma.message.delete({ where: { id: target.id }, select: { id: true } });
+  });
+
+  it("rejects a message moved to another thread, including through raw reads", async () => {
+    const message = await createThreadMessage(prisma, {
+      threadId,
+      role: "user",
+      blocks: [{ kind: "text", text: "victim text" }],
+    });
+    const otherBot = `enc-bot-moved-${suffix}`;
+    await prisma.bot.create({ data: { id: otherBot, spaceId, userId, name: "Moe", color: "ink" } });
+    const other = await prisma.thread.create({ data: { spaceId, userId, botId: otherBot } });
+    await raw.query(`UPDATE messages SET "threadId" = $1, seq = 99999 WHERE id = $2`, [
+      other.id,
+      message.id,
+    ]);
+    const fresh = client();
+    await expect(
+      fresh.prisma.message.findUnique({ where: { id: message.id }, select: { blocks: true } }),
+    ).rejects.toBeInstanceOf(ContentDecryptionError);
+    const rows = (
+      await raw.query(`SELECT id, "threadId", blocks FROM messages WHERE id = $1`, [message.id])
+    ).rows;
+    await expect(
+      contentEncryptionOf(fresh.prisma)!.openRows("Message", rows),
+    ).rejects.toBeInstanceOf(ContentDecryptionError);
+    await raw.query(`DELETE FROM messages WHERE id = $1`, [message.id]);
   });
 
   it("reads and searches plaintext rows next to encrypted ones, then migrates them", async () => {

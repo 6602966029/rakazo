@@ -133,7 +133,7 @@ export interface SpaceKeyRecord {
   wrappedKey: string;
 }
 
-/** Tables whose rows the ring can resolve to a space. */
+/** Tables whose rows the ring can resolve to a space and an owner. */
 export type SpaceSource =
   | "threads"
   | "messages"
@@ -146,20 +146,39 @@ export interface SpaceKeyStore {
   byId(id: string): Promise<SpaceKeyRecord | undefined>;
   /** Inserts unless the (space, version) pair exists; returns the stored record either way. */
   insert(record: SpaceKeyRecord): Promise<SpaceKeyRecord>;
-  spaceOf(source: SpaceSource, id: string): Promise<string | undefined>;
+  rowContext(source: SpaceSource, id: string): Promise<RowContext | undefined>;
 }
+
+/**
+ * The space a row belongs to and the parent it is bound to (its thread, document
+ * or user). Both go into the ciphertext AAD, so a row moved to another thread,
+ * document or user fails to decrypt.
+ */
+export interface RowContext {
+  spaceId: string;
+  owner: string;
+}
+
+/** Column holding each table's owner. Application code never changes these. */
+export const ROW_OWNER: Record<SpaceSource, string> = {
+  threads: "userId",
+  messages: "threadId",
+  events: "threadId",
+  memory_documents: "userId",
+  memory_revisions: "documentId",
+};
 
 export interface Queryable {
   query<T>(text: string, values?: unknown[]): Promise<{ rows: T[] }>;
 }
 
 const COLUMNS = `id, "spaceId", version, "masterKeyId", "wrappedKey"`;
-const SPACE_OF: Record<SpaceSource, string> = {
-  threads: `SELECT "spaceId" FROM threads WHERE id = $1`,
-  events: `SELECT "spaceId" FROM events WHERE id = $1`,
-  memory_documents: `SELECT "spaceId" FROM memory_documents WHERE id = $1`,
-  messages: `SELECT t."spaceId" FROM messages m JOIN threads t ON t.id = m."threadId" WHERE m.id = $1`,
-  memory_revisions: `SELECT d."spaceId" FROM memory_revisions r JOIN memory_documents d ON d.id = r."documentId" WHERE r.id = $1`,
+const ROW_CONTEXT: Record<SpaceSource, string> = {
+  threads: `SELECT "spaceId", "userId" AS owner FROM threads WHERE id = $1`,
+  events: `SELECT "spaceId", "threadId" AS owner FROM events WHERE id = $1`,
+  memory_documents: `SELECT "spaceId", "userId" AS owner FROM memory_documents WHERE id = $1`,
+  messages: `SELECT t."spaceId", m."threadId" AS owner FROM messages m JOIN threads t ON t.id = m."threadId" WHERE m.id = $1`,
+  memory_revisions: `SELECT d."spaceId", r."documentId" AS owner FROM memory_revisions r JOIN memory_documents d ON d.id = r."documentId" WHERE r.id = $1`,
 };
 
 /**
@@ -200,9 +219,9 @@ export class PgSpaceKeyStore implements SpaceKeyStore {
     return existing;
   }
 
-  async spaceOf(source: SpaceSource, id: string) {
-    const { rows } = await this.db.query<{ spaceId: string }>(SPACE_OF[source], [id]);
-    return rows[0]?.spaceId;
+  async rowContext(source: SpaceSource, id: string) {
+    const { rows } = await this.db.query<RowContext>(ROW_CONTEXT[source], [id]);
+    return rows[0];
   }
 }
 
@@ -248,7 +267,7 @@ export interface ContentKeyRingOptions {
 export class ContentKeyRing {
   private readonly keys: TtlCache<DataKey>;
   private readonly versions: TtlCache<DataKey[]>;
-  private readonly rowSpaces = new TtlCache<string>(60 * 60_000, 50_000);
+  private readonly rows = new TtlCache<RowContext>(60 * 60_000, 50_000);
   private readonly inflight = new Map<string, Promise<unknown>>();
 
   constructor(
@@ -330,30 +349,44 @@ export class ContentKeyRing {
     });
   }
 
-  remember(source: SpaceSource, id: string, spaceId: string) {
-    this.rowSpaces.set(`${source}:${id}`, spaceId);
+  remember(source: SpaceSource, id: string, context: RowContext) {
+    this.rows.set(`${source}:${id}`, context);
+  }
+
+  /** A row's space and owner, from rows this process has seen or from the database. */
+  async rowContext(source: SpaceSource, id: string): Promise<RowContext> {
+    const cacheKey = `${source}:${id}`;
+    const cached = this.rows.get(cacheKey);
+    if (cached) return cached;
+    const context = await this.once(`row:${cacheKey}`, () => this.store.rowContext(source, id));
+    if (!context) throw new Error(`Cannot resolve the space for ${source} row`);
+    this.rows.set(cacheKey, context);
+    return context;
   }
 
   async spaceOf(source: SpaceSource, id: string): Promise<string> {
-    const cacheKey = `${source}:${id}`;
-    const cached = this.rowSpaces.get(cacheKey);
-    if (cached) return cached;
-    const spaceId = await this.once(`row:${cacheKey}`, () => this.store.spaceOf(source, id));
-    if (!spaceId) throw new Error(`Cannot resolve the space for ${source} row`);
-    this.rowSpaces.set(cacheKey, spaceId);
-    return spaceId;
+    return (await this.rowContext(source, id)).spaceId;
+  }
+
+  /**
+   * Every key version straight from the store, for search: another process may
+   * have rotated the space, and query tokens must cover its newest version.
+   */
+  async allFresh(spaceId: string): Promise<DataKey[]> {
+    this.versions.deleteWhere((_, key) => key === spaceId);
+    return this.all(spaceId);
   }
 
   /** Drops a deleted space's unwrapped keys from memory. */
   forget(spaceId: string) {
     this.keys.deleteWhere((key) => key.spaceId === spaceId);
     this.versions.deleteWhere((_, key) => key === spaceId);
-    this.rowSpaces.deleteWhere((value) => value === spaceId);
+    this.rows.deleteWhere((value) => value.spaceId === spaceId);
   }
 
   clear() {
     this.keys.clear();
     this.versions.clear();
-    this.rowSpaces.clear();
+    this.rows.clear();
   }
 }

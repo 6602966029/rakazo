@@ -14,7 +14,7 @@ const store: SpaceKeyStore = {
   forSpace: unreachable,
   byId: unreachable,
   insert: unreachable,
-  spaceOf: unreachable,
+  rowContext: unreachable,
 };
 const ring = new ContentKeyRing(new LocalKeyProvider([{ id: "a", key: randomBytes(32) }]), store);
 const prisma = withContentEncryption(new PrismaClient({ adapter: new PrismaPg(pool) }), ring);
@@ -36,6 +36,17 @@ describe("withContentEncryption", () => {
           spaceId: "s",
           userId: "u",
           messages: { create: { seq: 0, role: "user", blocks: [{ kind: "text", text: "x" }] } },
+        },
+      }),
+    ).rejects.toThrow(/nested write/);
+    await expect(
+      prisma.thread.create({
+        data: {
+          spaceId: "s",
+          userId: "u",
+          messages: {
+            createMany: { data: [{ seq: 0, role: "user", blocks: [{ kind: "text", text: "x" }] }] },
+          },
         },
       }),
     ).rejects.toThrow(/nested write/);

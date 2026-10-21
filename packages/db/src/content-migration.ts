@@ -26,6 +26,7 @@ interface ScannedRow {
   id: string;
   value: unknown;
   spaceId: string | null;
+  owner: string;
   tokens?: boolean;
 }
 
@@ -36,7 +37,8 @@ const TABLES: TableSpec[] = [
     column: "blocks",
     json: true,
     scan: (cursor, limit) => Prisma.sql`
-      SELECT m.id, m.blocks AS value, t."spaceId", m."searchTokens" IS NOT NULL AS tokens
+      SELECT m.id, m.blocks AS value, t."spaceId", m."threadId" AS owner,
+        m."searchTokens" IS NOT NULL AS tokens
       FROM messages m JOIN threads t ON t.id = m."threadId"
       WHERE m.id > ${cursor} ORDER BY m.id LIMIT ${limit}`,
     writePlaintext: (id, value) =>
@@ -48,7 +50,7 @@ const TABLES: TableSpec[] = [
     column: "payload",
     json: true,
     scan: (cursor, limit) => Prisma.sql`
-      SELECT id, payload AS value, "spaceId" FROM events
+      SELECT id, payload AS value, "spaceId", "threadId" AS owner FROM events
       WHERE id > ${cursor} ORDER BY id LIMIT ${limit}`,
     writePlaintext: (id, value) =>
       Prisma.sql`UPDATE events SET payload = ${JSON.stringify(value)}::jsonb WHERE id = ${id}`,
@@ -60,7 +62,7 @@ const TABLES: TableSpec[] = [
     json: false,
     updatedAt: true,
     scan: (cursor, limit) => Prisma.sql`
-      SELECT id, content AS value, "spaceId" FROM memory_documents
+      SELECT id, content AS value, "spaceId", "userId" AS owner FROM memory_documents
       WHERE id > ${cursor} ORDER BY id LIMIT ${limit}`,
     writePlaintext: (id, value) =>
       Prisma.sql`UPDATE memory_documents SET content = ${value as string} WHERE id = ${id}`,
@@ -71,7 +73,7 @@ const TABLES: TableSpec[] = [
     column: "content",
     json: false,
     scan: (cursor, limit) => Prisma.sql`
-      SELECT r.id, r.content AS value, d."spaceId"
+      SELECT r.id, r.content AS value, d."spaceId", r."documentId" AS owner
       FROM memory_revisions r JOIN memory_documents d ON d.id = r."documentId"
       WHERE r.id > ${cursor} ORDER BY r.id LIMIT ${limit}`,
     writePlaintext: (id, value) =>
@@ -83,7 +85,7 @@ const TABLES: TableSpec[] = [
     column: "historyCompactionSummary",
     json: false,
     scan: (cursor, limit) => Prisma.sql`
-      SELECT id, "historyCompactionSummary" AS value, "spaceId" FROM threads
+      SELECT id, "historyCompactionSummary" AS value, "spaceId", "userId" AS owner FROM threads
       WHERE id > ${cursor} AND "historyCompactionSummary" IS NOT NULL ORDER BY id LIMIT ${limit}`,
     writePlaintext: (id, value) =>
       Prisma.sql`UPDATE threads SET "historyCompactionSummary" = ${value as string} WHERE id = ${id}`,
@@ -149,7 +151,10 @@ export async function migrateContent(
       const ids: string[] = [];
       for (const row of batch) {
         if (row.spaceId)
-          encryption.ring.remember(ENCRYPTED_MODELS[table.model]!.table, row.id, row.spaceId);
+          encryption.ring.remember(ENCRYPTED_MODELS[table.model]!.table, row.id, {
+            spaceId: row.spaceId,
+            owner: row.owner,
+          });
         if (await needsWork(table, row, options.mode, encryption.ring)) ids.push(row.id);
       }
       if (ids.length && !options.dryRun) await rewrite(prisma, table, ids, options.mode);

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { HistoryReadInput, HistorySearchInput } from "@rakazo/contracts";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
+import { searchTerms } from "./content-crypto.js";
 import { contentEncryptionOf } from "./content-encryption.js";
 import { historyMessageText } from "./history-text.js";
 
@@ -26,7 +27,10 @@ interface HistoryRow {
   createdAt: Date;
   blocks: Prisma.JsonValue;
   groupId?: string | null;
+  indexed?: boolean;
 }
+/** Bounds the scan when blind-index collisions keep producing false candidates. */
+const MAX_SEARCH_SCANS = 20;
 // Bound complete JSON pages, including cursors. Current retains Pi's legacy 12k
 // result clipping; newer strategies preserve structured results within their context budget.
 const MAX_RESPONSE_BYTES = 10_000;
@@ -54,7 +58,7 @@ function bounded<T extends { messages: ReturnType<typeof reference>[] }>(respons
 }
 const searchableText = Prisma.sql`jsonb_path_query_array(m.blocks,
   '$[*] ? (@.kind == "text" || @.kind == "channel_message" || @.kind == "bot_message_received" || @.kind == "bot_message_sent" || @.kind == "handoff").text')::text || jsonb_path_query_array(m.blocks, '$[*] ? (@.kind == "subagent").task')::text || jsonb_path_query_array(m.blocks, '$[*] ? (@.kind == "subagent").result')::text`;
-const columns = Prisma.sql`m.id, m.seq, m.role, m."runId", m."replyToMessageId", m."createdAt", m.blocks, t."groupId" AS "groupId"`;
+const columns = Prisma.sql`m.id, m.seq, m.role, m."runId", m."replyToMessageId", m."createdAt", m.blocks, m."threadId", t."groupId" AS "groupId"`;
 
 function visible(scope: HistoryScope): Prisma.Sql {
   const channel = scope.channelId;
@@ -169,20 +173,48 @@ export async function searchHistory(
     scope.searchBeforeSeq ?? Number.POSITIVE_INFINITY,
   );
   const match = await historyMatch(prisma, scope.spaceId, query);
-  const rows = await messageRows(
-    prisma,
-    Prisma.sql`
-    SELECT ${columns} FROM messages m JOIN threads t ON t.id = m."threadId"
+  // Blind-index tokens are 32-bit and share the array with prefix tokens, so an
+  // indexed candidate is kept only if its decrypted text has every query word.
+  // False candidates are skipped and the scan continues, so pages stay full.
+  const words = searchTerms(query);
+  const indexed = contentEncryptionOf(prisma)
+    ? Prisma.sql`m."searchTokens" IS NOT NULL`
+    : Prisma.sql`false`;
+  const rows: HistoryRow[] = [];
+  let cursor = beforeSeq;
+  // Set when the scan budget runs out with candidates left: the page continues from there.
+  let unscanned = false;
+  for (let scans = 0; rows.length <= limit; scans += 1) {
+    if (scans === MAX_SEARCH_SCANS) {
+      unscanned = true;
+      break;
+    }
+    const batch = await messageRows(
+      prisma,
+      Prisma.sql`
+    SELECT ${columns}, ${indexed} AS indexed
+    FROM messages m JOIN threads t ON t.id = m."threadId"
     WHERE ${visible(scope)}
       AND ${match}
       ${before ? Prisma.sql`AND m."createdAt" < ${before}` : Prisma.empty}
       ${after ? Prisma.sql`AND m."createdAt" >= ${after}` : Prisma.empty}
-      ${Number.isFinite(beforeSeq) ? Prisma.sql`AND m.seq < ${beforeSeq}` : Prisma.empty}
+      ${Number.isFinite(cursor) ? Prisma.sql`AND m.seq < ${cursor}` : Prisma.empty}
     ORDER BY m.seq DESC LIMIT ${limit + 1}
   `,
-  );
+    );
+    for (const row of batch) {
+      if (!row.indexed) rows.push(row);
+      else {
+        const text = new Set(searchTerms(historyMessageText(row.blocks)));
+        if (words.every((word) => text.has(word))) rows.push(row);
+      }
+    }
+    if (batch.length <= limit) break;
+    cursor = batch.at(-1)!.seq;
+  }
   const page = rows.slice(0, limit);
-  const nextBeforeSeq = rows.length > limit ? page.at(-1)!.seq : null;
+  const nextBeforeSeq =
+    rows.length > limit ? page.at(-1)!.seq : unscanned ? (cursor as number) : null;
   return bounded({
     untrusted: true as const,
     query,

@@ -29,8 +29,8 @@ function memoryStore() {
       rows.push(record);
       return record;
     },
-    async spaceOf(_source, id) {
-      return id.startsWith("thread-") ? "space-1" : undefined;
+    async rowContext(_source, id) {
+      return id.startsWith("thread-") ? { spaceId: "space-1", owner: "user-1" } : undefined;
     },
   };
   return store;
@@ -128,7 +128,11 @@ describe("ContentKeyRing", () => {
     const ring = new ContentKeyRing(new LocalKeyProvider([master("a")]), memoryStore());
     await expect(ring.spaceOf("threads", "thread-1")).resolves.toBe("space-1");
     await expect(ring.spaceOf("threads", "other")).rejects.toThrow(/Cannot resolve/);
-    ring.remember("threads", "other", "space-2");
+    ring.remember("threads", "other", { spaceId: "space-2", owner: "user-2" });
+    await expect(ring.rowContext("threads", "other")).resolves.toEqual({
+      spaceId: "space-2",
+      owner: "user-2",
+    });
     await expect(ring.spaceOf("threads", "other")).resolves.toBe("space-2");
     ring.forget("space-2");
     await expect(ring.spaceOf("threads", "other")).rejects.toThrow(/Cannot resolve/);

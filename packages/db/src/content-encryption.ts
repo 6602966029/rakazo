@@ -10,7 +10,8 @@ import {
   sealJson,
   searchTokens,
 } from "./content-crypto.js";
-import type { ContentKeyRing, SpaceSource } from "./content-keys.js";
+import type { ContentKeyRing, RowContext, SpaceSource } from "./content-keys.js";
+import { ROW_OWNER } from "./content-keys.js";
 import type { PrismaClient } from "./generated/prisma/client.js";
 import { Prisma } from "./generated/prisma/client.js";
 import { historyMessageText } from "./history-text.js";
@@ -40,9 +41,9 @@ interface ModelSpec {
   table: SpaceSource;
   fields: Record<string, FieldSpec>;
   /** Where the owning space comes from: a column on the row, or a parent row. */
-  space:
-    | { column: "spaceId"; relation: "space" }
-    | { column: "threadId" | "documentId"; relation: "thread" | "document"; parent: SpaceSource };
+  space: { column: "spaceId" } | { parent: SpaceSource };
+  /** Relation field for the owner column (ROW_OWNER), for `connect` writes. */
+  ownerRelation: string;
   searchTokens?: boolean;
 }
 
@@ -51,29 +52,34 @@ export const ENCRYPTED_MODELS: Record<string, ModelSpec> = {
   Message: {
     table: "messages",
     fields: { blocks: { plainKeys: MESSAGE_BLOCK_PLAIN_KEYS } },
-    space: { column: "threadId", relation: "thread", parent: "threads" },
+    space: { parent: "threads" },
+    ownerRelation: "thread",
     searchTokens: true,
   },
   Event: {
     table: "events",
     fields: { payload: { plainKeys: EVENT_PAYLOAD_PLAIN_KEYS } },
-    space: { column: "spaceId", relation: "space" },
+    space: { column: "spaceId" },
+    ownerRelation: "thread",
   },
   MemoryDocument: {
     table: "memory_documents",
     fields: { content: {} },
-    space: { column: "spaceId", relation: "space" },
+    space: { column: "spaceId" },
+    ownerRelation: "user",
   },
   MemoryRevision: {
     table: "memory_revisions",
     fields: { content: {} },
-    space: { column: "documentId", relation: "document", parent: "memory_documents" },
+    space: { parent: "memory_documents" },
+    ownerRelation: "document",
   },
   /** The compacted summary of older history is derived message content. */
   Thread: {
     table: "threads",
     fields: { historyCompactionSummary: {} },
-    space: { column: "spaceId", relation: "space" },
+    space: { column: "spaceId" },
+    ownerRelation: "user",
   },
 };
 
@@ -111,9 +117,19 @@ function stringsIn(value: unknown, out: string[] = []): string[] {
   return out;
 }
 
+const ownerOf = (spec: ModelSpec) => ROW_OWNER[spec.table];
+
+/** Columns a row needs beside its encrypted fields to be decrypted and verified. */
+function contextColumns(spec: ModelSpec): string[] {
+  return ["id", ownerOf(spec), ...("column" in spec.space ? [spec.space.column] : [])];
+}
+
 export interface ContentEncryption {
   ring: ContentKeyRing;
-  /** Decrypts rows read with raw SQL. Rows must include `id`. */
+  /**
+   * Decrypts rows read with raw SQL. Rows must include `id` and the owner column
+   * (`threadId` for messages and events, `documentId` for revisions, `userId` otherwise).
+   */
   openRows<T extends { id: string }>(model: keyof typeof ENCRYPTED_MODELS, rows: T[]): Promise<T[]>;
   /** One token list per key version of the space; a match must contain every token of one list. */
   messageSearchTokens(
@@ -132,7 +148,8 @@ export function contentEncryptionOf(prisma: unknown): ContentEncryption | undefi
 
 interface Plan {
   model: string;
-  stripId: boolean;
+  /** Context columns added to the selection only for decryption; removed afterwards. */
+  strip: string[];
   relations: Map<string, Plan>;
 }
 
@@ -171,7 +188,7 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
   function plan(model: string, args: RecordValue | undefined): { args: RecordValue; plan?: Plan } {
     const spec = ENCRYPTED_MODELS[model];
     const next: RecordValue = { ...args };
-    const result: Plan = { model, stripId: false, relations: new Map() };
+    const result: Plan = { model, strip: [], relations: new Map() };
     const walk = (selection: RecordValue) => {
       for (const [field, value] of Object.entries(selection)) {
         const target = relationTarget(model, field);
@@ -185,19 +202,22 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
     if (isRecord(next.select)) {
       const select = { ...next.select };
       walk(select);
-      if (spec && !select.id && Object.keys(spec.fields).some((field) => select[field])) {
-        select.id = true;
-        result.stripId = true;
-      }
+      if (spec && Object.keys(spec.fields).some((field) => select[field]))
+        for (const column of contextColumns(spec))
+          if (!select[column]) {
+            select[column] = true;
+            result.strip.push(column);
+          }
       next.select = select;
     } else {
       if (spec) {
         const omit: RecordValue = isRecord(next.omit) ? { ...next.omit } : {};
         if (spec.searchTokens && omit.searchTokens === undefined) omit.searchTokens = true;
-        if (omit.id) {
-          delete omit.id;
-          result.stripId = true;
-        }
+        for (const column of contextColumns(spec))
+          if (omit[column]) {
+            delete omit[column];
+            result.strip.push(column);
+          }
         if (Object.keys(omit).length) next.omit = omit;
         else delete next.omit;
       }
@@ -212,7 +232,7 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
   }
 
   type Pending = { row: RecordValue; spec: ModelSpec };
-  type Collected = { pending: Pending[]; strip: RecordValue[] };
+  type Collected = { pending: Pending[]; strip: Array<{ row: RecordValue; columns: string[] }> };
   function collect(value: unknown, node: Plan, out: Collected) {
     if (Array.isArray(value)) {
       for (const item of value) collect(item, node, out);
@@ -222,17 +242,24 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
     const spec = ENCRYPTED_MODELS[node.model];
     if (spec) out.pending.push({ row: value, spec });
     const source = PARENT_SOURCES[node.model];
-    if (source && typeof value.id === "string" && typeof value.spaceId === "string")
-      ring.remember(source, value.id, value.spaceId);
+    const owner = source ? value[ROW_OWNER[source]] : undefined;
+    if (
+      source &&
+      typeof value.id === "string" &&
+      typeof value.spaceId === "string" &&
+      typeof owner === "string"
+    )
+      ring.remember(source, value.id, { spaceId: value.spaceId, owner });
     for (const [field, child] of node.relations) collect(value[field], child, out);
-    if (node.stripId) out.strip.push(value);
+    if (node.strip.length) out.strip.push({ row: value, columns: node.strip });
   }
 
   async function openAll(value: unknown, node: Plan) {
     const collected: Collected = { pending: [], strip: [] };
     collect(value, node, collected);
     await open(collected.pending);
-    for (const row of collected.strip) delete row.id;
+    for (const { row, columns } of collected.strip)
+      for (const column of columns) delete row[column];
   }
 
   function keyIdsOf(pending: Pending): string[] {
@@ -244,27 +271,36 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
     });
   }
 
+  /** The space the row belongs to now: its own column, or its parent's. */
+  function rowSpace(spec: ModelSpec, row: RecordValue, owner: string): Promise<string> | string {
+    if ("parent" in spec.space) return ring.spaceOf(spec.space.parent, owner);
+    const spaceId = row[spec.space.column];
+    if (typeof spaceId !== "string")
+      throw new ContentDecryptionError(`Encrypted ${spec.table} rows need their space`);
+    return spaceId;
+  }
+
   async function open(pending: Pending[]) {
-    const ids = [...new Set(pending.flatMap(keyIdsOf))];
+    const encrypted = pending.filter((entry) => keyIdsOf(entry).length);
+    const ids = [...new Set(encrypted.flatMap(keyIdsOf))];
     const keys = new Map(
       await Promise.all(ids.map(async (id) => [id, await ring.byId(id)] as const)),
     );
-    for (const { row, spec } of pending) {
+    for (const { row, spec } of encrypted) {
       const rowKeyIds = keyIdsOf({ row, spec });
-      if (!rowKeyIds.length) continue;
-      if (typeof row.id !== "string")
-        throw new ContentDecryptionError("Encrypted rows need their id");
+      const owner = row[ownerOf(spec)];
+      if (typeof row.id !== "string" || typeof owner !== "string")
+        throw new ContentDecryptionError("Encrypted rows need their id and owner");
       const rowId = row.id;
+      // The key names a space; the row must still belong to it. Together with the
+      // owner in the AAD, a row moved to another thread, user or space fails here.
+      const spaceId = await rowSpace(spec, row, owner);
       for (const [field, fieldSpec] of Object.entries(spec.fields)) {
         if (!(field in row)) continue;
-        const location: ContentLocation = { table: spec.table, column: field, rowId };
+        const location: ContentLocation = { table: spec.table, column: field, rowId, owner };
         const decrypt = (ciphertext: string) => {
           const key = keys.get(ciphertextKeyId(ciphertext)!)!;
-          if (
-            spec.space.column === "spaceId" &&
-            typeof row.spaceId === "string" &&
-            row.spaceId !== key.spaceId
-          )
+          if (key.spaceId !== spaceId)
             throw new ContentDecryptionError("Encrypted content belongs to another space");
           return decryptText(key, location, ciphertext);
         };
@@ -275,17 +311,22 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
             ? decrypt(value as string)
             : value;
       }
-      ring.remember(spec.table, rowId, keys.get(rowKeyIds[0]!)!.spaceId);
+      ring.remember(spec.table, rowId, { spaceId: keys.get(rowKeyIds[0]!)!.spaceId, owner });
     }
   }
 
-  async function seal(spec: ModelSpec, data: RecordValue, rowId: string, spaceId: string) {
+  async function seal(spec: ModelSpec, data: RecordValue, rowId: string, context: RowContext) {
     const fields = Object.keys(spec.fields).filter((field) => writable(data[field]));
     if (!fields.length) return data;
-    const key: DataKey = await ring.current(spaceId);
+    const key: DataKey = await ring.current(context.spaceId);
     const next = { ...data };
     for (const field of fields) {
-      const location: ContentLocation = { table: spec.table, column: field, rowId };
+      const location: ContentLocation = {
+        table: spec.table,
+        column: field,
+        rowId,
+        owner: context.owner,
+      };
       const encrypt = (plaintext: string) => encryptText(key, location, plaintext);
       const plainKeys = spec.fields[field]!.plainKeys;
       let value = next[field];
@@ -301,12 +342,15 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
       } else if (typeof value === "string") next[field] = encrypt(value);
       else throw new Error(`Unsupported write to encrypted ${spec.table}.${field}`);
     }
-    ring.remember(spec.table, rowId, spaceId);
+    ring.remember(spec.table, rowId, context);
     return next;
   }
 
   function touches(spec: ModelSpec, data: unknown): boolean {
-    return isRecord(data) && Object.keys(spec.fields).some((field) => writable(data[field]));
+    const rows = Array.isArray(data) ? data : [data];
+    return rows.some(
+      (row) => isRecord(row) && Object.keys(spec.fields).some((field) => writable(row[field])),
+    );
   }
 
   function assertNoNestedEncryptedWrites(model: string, data: unknown) {
@@ -318,8 +362,9 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
         for (const operation of NESTED_WRITES) {
           const nested = value[operation];
           if (nested === undefined) continue;
+          // `createMany: { data: [...] }` nests an array of rows one level deeper.
           const payloads = (Array.isArray(nested) ? nested : [nested]).flatMap((entry) =>
-            isRecord(entry) ? [entry.data, entry.create, entry.update, entry] : [],
+            isRecord(entry) ? [entry.data, entry.create, entry.update, entry].flat() : [],
           );
           const spec = ENCRYPTED_MODELS[target];
           if (spec && payloads.some((payload) => touches(spec, payload)))
@@ -330,20 +375,29 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
     }
   }
 
-  async function createSpace(spec: ModelSpec, data: RecordValue): Promise<string> {
-    const relation = data[spec.space.relation];
-    const connected =
-      isRecord(relation) && isRecord(relation.connect) ? relation.connect.id : undefined;
-    const id = data[spec.space.column] ?? connected;
-    if (typeof id !== "string")
+  function connected(data: RecordValue, column: string, relation: string): unknown {
+    const value = data[relation];
+    return (
+      data[column] ?? (isRecord(value) && isRecord(value.connect) ? value.connect.id : undefined)
+    );
+  }
+
+  async function createContext(spec: ModelSpec, data: RecordValue): Promise<RowContext> {
+    const owner = connected(data, ownerOf(spec), spec.ownerRelation);
+    if (typeof owner !== "string")
+      throw new Error(`Encrypted ${spec.table} writes must name their ${ownerOf(spec)}`);
+    if ("parent" in spec.space)
+      return { spaceId: await ring.spaceOf(spec.space.parent, owner), owner };
+    const spaceId = connected(data, spec.space.column, "space");
+    if (typeof spaceId !== "string")
       throw new Error(`Encrypted ${spec.table} writes must name their ${spec.space.column}`);
-    return "parent" in spec.space ? ring.spaceOf(spec.space.parent, id) : id;
+    return { spaceId, owner };
   }
 
   async function sealCreate(spec: ModelSpec, data: unknown): Promise<unknown> {
     if (!isRecord(data) || !touches(spec, data)) return data;
     const row = { ...data, id: typeof data.id === "string" ? data.id : createRowId() };
-    return seal(spec, row, row.id, await createSpace(spec, row));
+    return seal(spec, row, row.id, await createContext(spec, row));
   }
 
   async function sealWrites(
@@ -389,8 +443,8 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
       const where = isRecord(args.where) ? args.where : {};
       if (typeof where.id !== "string")
         throw new Error(`Encrypted ${model} content must be updated by id`);
-      const spaceId = await ring.spaceOf(spec.table, where.id);
-      return { ...args, data: await seal(spec, args.data as RecordValue, where.id, spaceId) };
+      const context = await ring.rowContext(spec.table, where.id);
+      return { ...args, data: await seal(spec, args.data as RecordValue, where.id, context) };
     }
     return args;
   }
@@ -398,11 +452,11 @@ export function withContentEncryption(prisma: PrismaClient, ring: ContentKeyRing
   const handle: ContentEncryption = {
     ring,
     async openRows(model, rows) {
-      await openAll(rows, { model, stripId: false, relations: new Map() });
+      await openAll(rows, { model, strip: [], relations: new Map() });
       return rows;
     },
     async messageSearchTokens(spaceId, query, domain) {
-      const keys = await ring.all(spaceId);
+      const keys = await ring.allFresh(spaceId);
       return keys.map((key) => querySearchTokens(key, query, domain));
     },
   };

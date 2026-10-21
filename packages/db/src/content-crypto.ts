@@ -3,8 +3,8 @@ import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes } f
 /**
  * Versioned content ciphertext: `rkz1:<space key id>:<base64url(iv | ciphertext | tag)>`.
  * AES-256-GCM with a fresh 96-bit IV per value. The AAD binds the table, column,
- * row id and the space that owns the key, so a value copied to another row,
- * column or space fails authentication instead of decrypting.
+ * row id, the row's owner (thread, document or user) and the key's space, so a
+ * value copied, or a row moved, anywhere else fails authentication.
  */
 export const CIPHERTEXT_PREFIX = "rkz1:";
 /** JSON values keep query-relevant scalar keys beside the sealed original. */
@@ -26,6 +26,8 @@ export interface ContentLocation {
   table: string;
   column: string;
   rowId: string;
+  /** The parent the row belongs to (thread, document or user), so moving the row fails. */
+  owner: string;
 }
 
 export class ContentDecryptionError extends Error {
@@ -37,7 +39,9 @@ export class ContentDecryptionError extends Error {
 
 function contentAad(location: ContentLocation, spaceId: string): Buffer {
   return Buffer.from(
-    [AAD_VERSION, location.table, location.column, location.rowId, spaceId].join("\0"),
+    [AAD_VERSION, location.table, location.column, location.rowId, location.owner, spaceId].join(
+      "\0",
+    ),
   );
 }
 

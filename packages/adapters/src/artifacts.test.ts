@@ -56,7 +56,7 @@ function memoryKeys() {
       rows.push(record);
       return record;
     },
-    spaceOf: async () => undefined,
+    rowContext: async () => undefined,
   };
   return new ContentKeyRing(new LocalKeyProvider([{ id: "a", key: randomBytes(32) }]), store);
 }
