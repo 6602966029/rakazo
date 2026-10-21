@@ -362,6 +362,61 @@ describe("production deploy launcher", () => {
     expect(result.stdout.trim()).toBe(`current rakazo-deploy-main --flag ${next}`);
   });
 
+  function launcherRepo() {
+    const root = mkdtempSync(path.join(os.tmpdir(), "rakazo-launcher-"));
+    temporaryDirectories.push(root);
+    const upstream = path.join(root, "upstream");
+    const checkout = path.join(root, "checkout");
+    const script = path.join("infra", "compose", "deploy-main.sh");
+    mkdirSync(upstream);
+    git(upstream, "init", "-q", "-b", "main");
+    write(path.join(upstream, script), 'echo "deploy $RAKAZO_DEPLOY_REVISION"\n');
+    git(upstream, "add", script);
+    const tested = commit(upstream, "tested");
+    const later = commit(upstream, "merged after the green run");
+    git(root, "clone", "-q", upstream, checkout);
+    const launch = (command: string) =>
+      spawnSync("/bin/bash", [path.join(repoRoot, "infra/compose/deploy-launcher.sh")], {
+        cwd: root,
+        env: {
+          PATH: process.env.PATH,
+          HOME: root,
+          RAKAZO_DEPLOY_DIR: checkout,
+          SSH_ORIGINAL_COMMAND: command,
+        },
+        encoding: "utf8",
+        timeout: 20_000,
+      });
+    return { checkout, tested, later, launch };
+  }
+
+  it("deploys the commit CI tested, not a newer main", () => {
+    const repo = launcherRepo();
+    const result = repo.launch(`deploy-main ${repo.tested}`);
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe(`deploy ${repo.tested}`);
+  });
+
+  it("does not roll back to an older commit than production runs", () => {
+    const repo = launcherRepo();
+    write(path.join(repo.checkout, ".last-deployed-revision"), `${repo.later}\n`);
+    const result = repo.launch(`deploy-main ${repo.tested}`);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("nothing to deploy");
+    expect(result.stdout).not.toContain("deploy ");
+  });
+
+  it("refuses a commit that is not on main or not a full SHA", () => {
+    const repo = launcherRepo();
+    const offMain = repo.launch(`deploy-main ${"a".repeat(40)}`);
+    expect(offMain.status).toBe(1);
+    expect(offMain.stderr).toContain("not on main");
+    const short = repo.launch("deploy-main main");
+    expect(short.status).toBe(1);
+    expect(short.stderr).toContain("full commit SHA");
+  });
+
   it("refuses a relative checkout path", () => {
     const result = spawnSync(
       "/bin/bash",
