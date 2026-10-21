@@ -26,12 +26,16 @@ export const native = {
   get fill() {
     return systemColor("tertiarySystemFill", mobileTokens().muted);
   },
+  /** The lightest fill, for small chips. */
+  get quietFill() {
+    return systemColor("quaternarySystemFill", mobileTokens().muted);
+  },
   get fillPressed() {
     return systemColor("secondarySystemFill", mobileTokens().accent);
   },
   get separator() {
-    // The page color reads as a gap between rows on a fill in either palette.
-    return systemColor("separator", mobileTokens().background);
+    // Rows are divided by the palette's divider in every mode, not the iOS separator.
+    return mobileTokens().border;
   },
   get label() {
     return systemColor("label", mobileTokens().foreground);
@@ -40,7 +44,8 @@ export const native = {
     return systemColor("secondaryLabel", mobileTokens().mutedForeground);
   },
   get tertiaryLabel() {
-    return systemColor("tertiaryLabel", mobileTokens().mutedForeground);
+    if (resolveMobileAppearance() === "dark") return mobileTokens().faintForeground;
+    return systemColor("tertiaryLabel", mobileTokens().faintForeground);
   },
   // Dark grouped colours always come from the tokens: iOS lifts the system ones inside sheets
   // and with Increase Contrast until destructive text drops below 4.5:1.

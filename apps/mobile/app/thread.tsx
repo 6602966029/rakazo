@@ -2670,8 +2670,8 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
               fallbackStyle={{
                 borderRadius: 14,
                 borderWidth: 1,
-                borderColor: tokens.border,
-                backgroundColor: tokens.card,
+                borderColor: tokens.glassStroke,
+                backgroundColor: tokens.glassFill,
                 paddingStart: 12,
                 paddingEnd: 12,
                 paddingVertical: 10,
@@ -3384,8 +3384,6 @@ const MessageRow = memo(function MessageRow({
                   style={{
                     color: tokens.foreground,
                     backgroundColor: tokens.muted,
-                    borderColor: tokens.border,
-                    borderWidth: 1,
                     borderRadius: 16,
                     paddingHorizontal: 8,
                     paddingVertical: 2,
@@ -3616,8 +3614,6 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           width: "90%",
           borderRadius: 18,
-          borderWidth: 1,
-          borderColor: tokens.border,
           backgroundColor: tokens.card,
           paddingHorizontal: 16,
           paddingVertical: 14,
@@ -3691,8 +3687,6 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           width: "90%",
           borderRadius: 18,
-          borderWidth: 1,
-          borderColor: tokens.border,
           backgroundColor: tokens.card,
           paddingHorizontal: 16,
           paddingVertical: 14,
@@ -3734,8 +3728,6 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           width: "90%",
           borderRadius: 18,
-          borderWidth: 1,
-          borderColor: tokens.border,
           backgroundColor: tokens.card,
           paddingHorizontal: 16,
           paddingVertical: 14,
@@ -3809,8 +3801,6 @@ const MessageBubble = memo(function MessageBubble({
             // No percentage width: the iOS menu host has no definite width to resolve it against.
             maxWidth: 576,
             borderRadius: 18,
-            borderWidth: 1,
-            borderColor: tokens.border,
             backgroundColor: tokens.card,
             paddingHorizontal: 16,
             paddingVertical: 14,
@@ -3931,9 +3921,7 @@ const MessageBubble = memo(function MessageBubble({
         style={{
           maxWidth: "100%",
           borderRadius: 20,
-          borderWidth: 1,
-          borderColor: tokens.border,
-          backgroundColor: message.role === "user" ? tokens.secondary : tokens.muted,
+          backgroundColor: message.role === "user" ? tokens.chatUser : tokens.muted,
           paddingHorizontal: 14,
           paddingVertical: 12,
           gap: 8,
@@ -3962,9 +3950,7 @@ const MessageBubble = memo(function MessageBubble({
                 artifactId={attachment.artifactId}
                 name={attachment.name ?? t("Image")}
                 mimeType={attachment.mimeType ?? "image/png"}
-                labelColor={
-                  message.role === "user" ? tokens.secondaryForeground : tokens.foreground
-                }
+                labelColor={message.role === "user" ? tokens.chatUserForeground : tokens.foreground}
                 pressableProps={actionProps}
                 onOpen={() =>
                   onPreviewImage({
@@ -3993,7 +3979,7 @@ const MessageBubble = memo(function MessageBubble({
               >
                 <Text
                   style={{
-                    color: message.role === "user" ? tokens.secondaryForeground : tokens.foreground,
+                    color: message.role === "user" ? tokens.chatUserForeground : tokens.foreground,
                     fontSize: 15,
                   }}
                 >
@@ -4035,7 +4021,7 @@ const MessageBubble = memo(function MessageBubble({
             >
               <Text
                 style={{
-                  color: message.role === "user" ? tokens.secondaryForeground : tokens.foreground,
+                  color: message.role === "user" ? tokens.chatUserForeground : tokens.foreground,
                   fontSize: 15,
                 }}
               >
@@ -4044,7 +4030,8 @@ const MessageBubble = memo(function MessageBubble({
               {formatFileSize(attachment.size) ? (
                 <Text
                   style={{
-                    color: tokens.mutedForeground,
+                    color:
+                      message.role === "user" ? tokens.chatUserForeground : tokens.mutedForeground,
                     marginTop: 4,
                     fontSize: 13,
                   }}
@@ -4156,7 +4143,7 @@ function MessageTextCard({
         flexShrink: 1,
         minWidth: 0,
         maxWidth: "100%",
-        backgroundColor: message.role === "user" ? tokens.secondary : tokens.muted,
+        backgroundColor: message.role === "user" ? tokens.chatUser : tokens.muted,
         paddingHorizontal: 14,
         paddingVertical: 9,
         borderRadius: 20,
@@ -4225,8 +4212,6 @@ function AgentEventLabel({
             width: "100%",
             marginTop: 6,
             borderRadius: 14,
-            borderWidth: 1,
-            borderColor: tokens.border,
             backgroundColor: tokens.card,
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -4321,8 +4306,6 @@ function AskBlock({
       style={{
         width: secretInput ? "100%" : "90%",
         borderRadius: 18,
-        borderWidth: 1,
-        borderColor: tokens.border,
         backgroundColor: tokens.card,
         paddingHorizontal: 16,
         paddingVertical: 14,
@@ -4388,7 +4371,7 @@ function AskBlock({
             value={answer}
             onChangeText={setAnswer}
             placeholder={secretInput ? secretLabel : t("Type your answer")}
-            placeholderTextColor={tokens.mutedForeground}
+            placeholderTextColor={tokens.faintForeground}
             secureTextEntry={secretInput}
             autoComplete="off"
             {...(secretInput ? secretFieldTraits(ask.purpose, ask.credential) : {})}
