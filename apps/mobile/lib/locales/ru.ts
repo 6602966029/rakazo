@@ -923,4 +923,10 @@ export const RU_MESSAGES: Record<string, string> = {
     "Ответ бота остановился из-за месячного лимита его ключа. У вашего ключа свои лимиты.",
   "This bot's reply stopped at its key's usage limit. Your own key has its own limits.":
     "Ответ бота остановился из-за лимита использования его ключа. У вашего ключа свои лимиты.",
+  "Sign in with passkey": "Войти с ключом доступа",
+  Passkeys: "Ключи доступа",
+  Passkey: "Ключ доступа",
+  "Add passkey": "Добавить ключ доступа",
+  Rename: "Переименовать",
+  "Add a passkey for faster sign-in?": "Добавить ключ доступа для быстрого входа?",
 };

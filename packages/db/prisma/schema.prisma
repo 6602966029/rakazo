@@ -35,6 +35,7 @@ model User {
   timezone                    String?
   sessions                    Session[]
   accounts                    Account[]
+  passkeys                    Passkey[]
   members                     Member[]
   invitations                 Invitation[]
   modelCredentials            UserModelCredential[]
@@ -101,6 +102,26 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+/// Better Auth WebAuthn credentials. `publicKey` is the base64 COSE key.
+model Passkey {
+  id           String    @id
+  name         String?
+  publicKey    String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  createdAt    DateTime? @default(now())
+  aaguid       String?
+
+  @@unique([credentialID])
+  @@index([userId])
+  @@map("passkey")
 }
 
 /// Better Auth credential rate limits. `lastRequest` is epoch milliseconds.

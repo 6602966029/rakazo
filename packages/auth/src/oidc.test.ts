@@ -63,6 +63,7 @@ function setup(options: Partial<AuthEnv> = {}, hasMembership = true) {
     },
     member: { findMany: vi.fn(async () => []) },
     messagingIdentity: { deleteMany: vi.fn(async () => ({})) },
+    passkey: { deleteMany: vi.fn(async () => ({})) },
     organization: { deleteMany: vi.fn(async () => ({})) },
   };
   prisma.$transaction = vi.fn(async (operations: (tx: unknown) => Promise<unknown>) =>

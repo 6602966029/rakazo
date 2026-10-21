@@ -101,6 +101,7 @@ import { requestLogging } from "@rakazo/logging/hono";
 import { MarkdownMemoryStore } from "@rakazo/memory";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { mountAppAssociation, nativePasskeys } from "./app-association.js";
 import { storeInboundAttachment } from "./artifacts.js";
 import { createBillingService } from "./billing.js";
 import { mountBillingRoutes } from "./billing-webhook.js";
@@ -428,6 +429,7 @@ export async function createApp(
     },
     onEmailError: (error) => getLogger().error("transactional email delivery failed", error),
     extraOrigins: MOBILE_AUTH_ORIGINS,
+    androidAppCertFingerprints: env.passkeyAndroidCertFingerprints,
     beforeDeleteUser: async (userId) => {
       // First, so a provider failure aborts deletion before anything is destroyed.
       await billing?.cancelForDeletedUser(userId);
@@ -646,8 +648,11 @@ export async function createApp(
         env.passwordAuth !== false && email ? new URL("/reset-password", env.webOrigin).href : null,
       emailCode: auth.emailCodeSignIn,
       billing: Boolean(billing),
+      passkeyRpId: auth.passkeyRpId,
+      nativePasskeys: nativePasskeys(env, auth.passkeyRpId),
     } satisfies AuthCapabilities);
   });
+  mountAppAssociation(app, env);
   if (localEmailEmulator && env.nodeEnv === "development") {
     app.get(
       "/api/dev/emails",

@@ -164,7 +164,7 @@ test("logout protects bot deep links and sign-in restores the session", async ({
   await expect(page.getByRole("heading", { name: "Sign in to Rakazo" })).toBeVisible();
   await expect(page.getByText("Chief", { exact: true })).toHaveCount(0);
   await expect(page.getByText(userName, { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Email")).toHaveAttribute("autocomplete", "username");
+  await expect(page.getByLabel("Email")).toHaveAttribute("autocomplete", "username webauthn");
   await showPasswordForm(page);
   await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute(
     "autocomplete",

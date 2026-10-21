@@ -400,6 +400,15 @@ Object.defineProperty(window, "localStorage", {
 export default defineConfig(({ mode }) => {
   const rootEnv = loadEnv(mode, path.resolve(import.meta.dirname, "../.."), "");
   const api = process.env.API_PROXY_TARGET ?? rootEnv.API_PROXY_TARGET ?? "http://127.0.0.1:3100";
+  const apiProxy = Object.fromEntries(
+    [
+      "/api",
+      "/rpc",
+      // Native app domain association, served by the API from deployment settings.
+      "/.well-known/apple-app-site-association",
+      "/.well-known/assetlinks.json",
+    ].map((path) => [path, { target: api, changeOrigin: true }]),
+  );
   const previewHost = process.env.RAKAZO_HOST ?? rootEnv.RAKAZO_HOST ?? "localhost";
   const allowedHosts = [
     previewHost,
@@ -457,19 +466,13 @@ export default defineConfig(({ mode }) => {
       port: webPort,
       strictPort: true,
       allowedHosts,
-      proxy: {
-        "/api": { target: api, changeOrigin: true },
-        "/rpc": { target: api, changeOrigin: true },
-      },
+      proxy: apiProxy,
     },
     preview: {
       host: "0.0.0.0",
       port: Number(process.env.WEB_PORT ?? 5173),
       allowedHosts,
-      proxy: {
-        "/api": { target: api, changeOrigin: true },
-        "/rpc": { target: api, changeOrigin: true },
-      },
+      proxy: apiProxy,
     },
   };
 });

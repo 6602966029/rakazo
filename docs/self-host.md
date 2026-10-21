@@ -1177,6 +1177,30 @@ native file flow on mobile. No new mobile player or settings screen is required.
 
 The iOS and Android app can also point at a self-hosted origin at runtime. On the sign-in screen, tap **Use a custom server** and enter the same HTTPS origin as `WEB_ORIGIN` (for example `https://app.example.com`). Store builds still default to `EXPO_PUBLIC_API_URL`; the in-app setting is an override for people running their own API. Changing the server signs the device out of any previous session.
 
+### Passkeys
+
+Passkeys are on whenever `WEB_ORIGIN` is an HTTPS domain (or `localhost` in development); the
+relying party is that origin's host, so existing passkeys keep working only while `WEB_ORIGIN`
+stays on the same domain. They are off when password sign-in is disabled for SSO-only
+deployments. On web, a browser offers them where it has a platform authenticator; the macOS
+desktop app does not, so it hides them.
+
+Native apps can use a domain's passkeys only when the domain vouches for them and the app was
+built for that domain (the app's associated domain comes from `EXPO_PUBLIC_API_URL` at build
+time). To let a build use this server's passkeys, set:
+
+```bash
+# iOS: <Apple Team ID>.<bundle id>, comma-separated. Served as /.well-known/apple-app-site-association.
+PASSKEY_APPLE_APP_IDS=ABCDE12345.com.rakazo.app
+# Android: SHA-256 fingerprints of the app signing certificates, comma-separated.
+# Served as /.well-known/assetlinks.json and accepted as passkey origins.
+PASSKEY_ANDROID_CERT_SHA256=AA:BB:...:FF
+```
+
+Until a platform's setting is set, the native app on that platform hides passkeys for this
+server. Both files are served through the web origin, so a reverse proxy in front of the web container
+must pass `/.well-known/` through to it.
+
 ## Upload size
 
 `MAX_UPLOAD_SIZE_MB` sets the per-file chat attachment and computer file transfer limit

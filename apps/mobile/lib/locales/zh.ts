@@ -890,4 +890,10 @@ export const ZH_MESSAGES: Record<string, string> = {
     "此机器人的回复因其密钥达到每月限额而停止。你自己的密钥有独立的限额。",
   "This bot's reply stopped at its key's usage limit. Your own key has its own limits.":
     "此机器人的回复因其密钥达到使用限额而停止。你自己的密钥有独立的限额。",
+  "Sign in with passkey": "使用通行密钥登录",
+  Passkeys: "通行密钥",
+  Passkey: "通行密钥",
+  "Add passkey": "添加通行密钥",
+  Rename: "重命名",
+  "Add a passkey for faster sign-in?": "添加通行密钥以便更快登录？",
 };

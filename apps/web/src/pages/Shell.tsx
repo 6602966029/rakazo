@@ -156,6 +156,7 @@ import {
 } from "../components/composer/HoldToTalk";
 import { lazyOverlay } from "../components/ErrorBoundary";
 import { MessageHoverMetadata } from "../components/MessageHoverMetadata";
+import { PasskeyOffer } from "../components/PasskeyOffer";
 import { SidebarFooter } from "../components/SidebarFooter";
 import {
   LIVE_TOOL_STEP_WINDOW,
@@ -3782,6 +3783,7 @@ function SpaceShell() {
             </div>
           ) : null}
         </div>
+        <PasskeyOffer />
         <SidebarFooter
           logos={footerLogos}
           name={userName}

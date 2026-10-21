@@ -393,6 +393,10 @@ msgstr "감시할 파일 또는 폴더 추가"
 msgid "Add a model in Settings to use this."
 msgstr "이 기능을 사용하려면 설정에서 모델을 추가하세요."
 
+#: src/components/PasskeyOffer.tsx
+msgid "Add a passkey for faster sign-in?"
+msgstr "더 빠르게 로그인하도록 패스키를 추가할까요?"
+
 #: src/pages/Shell.tsx
 msgid "Add a run time for this one-shot."
 msgstr "이 일회성 실행의 시간을 추가하세요."
@@ -454,6 +458,11 @@ msgstr "MCP 서버 추가"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
 msgstr "OpenAPI 추가"
+
+#: src/components/PasskeyOffer.tsx
+#: src/components/PasskeySettings.tsx
+msgid "Add passkey"
+msgstr "패스키 추가"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -934,6 +943,7 @@ msgstr "이미지를 읽을 수 없음"
 #: src/components/ComputerMaintenanceActions.tsx
 #: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
+#: src/components/PasskeySettings.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1481,6 +1491,8 @@ msgid "Could not connect to the computer screen"
 msgstr ""
 
 #: src/components/AccountAccess.tsx
+#: src/components/PasskeyOffer.tsx
+#: src/components/PasskeySettings.tsx
 #: src/lib/account-security.ts
 #: src/lib/sso-flow.ts
 #: src/lib/user-error.ts
@@ -1579,6 +1591,7 @@ msgid "Could not install connector"
 msgstr "도구 연결을 추가하지 못했습니다."
 
 #: src/components/ErrorBoundary.tsx
+#: src/components/PasskeySettings.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not load"
 msgstr "불러올 수 없음"
@@ -1678,6 +1691,8 @@ msgstr "샘플 음성을 재생하지 못했습니다."
 msgid "Could not reach the model server."
 msgstr "모델 서버에 연결하지 못했습니다."
 
+#: src/components/PasskeyOffer.tsx
+#: src/components/PasskeySettings.tsx
 #: src/lib/computer-sandbox.ts
 #: src/lib/user-error.ts
 #: src/pages/AccountSettingsOverlay.tsx
@@ -1998,6 +2013,7 @@ msgstr "기본값 ({0})"
 msgid "Default scope"
 msgstr "기본 기억 범위"
 
+#: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/BotContextMenu.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -2008,10 +2024,12 @@ msgstr "기본 기억 범위"
 msgid "Delete"
 msgstr "삭제"
 
+#. placeholder {0}: passkeyLabel(deleting, t`Passkey`)
 #. placeholder {0}: pendingDelete.name
+#: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr ""
+msgstr "\"{0}\"을(를) 삭제할까요?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -2051,6 +2069,7 @@ msgstr ""
 msgid "deleted"
 msgstr "삭제됨"
 
+#: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Deleting…"
@@ -2130,6 +2149,7 @@ msgstr "연결 해제 중…"
 
 #: src/components/AskCard.tsx
 #: src/components/ComputerUpdateProgress.tsx
+#: src/components/PasskeyOffer.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Dismiss"
@@ -3574,6 +3594,14 @@ msgstr "PagerDuty 인시던트"
 msgid "Park"
 msgstr "보류"
 
+#: src/components/PasskeySettings.tsx
+msgid "Passkey"
+msgstr "패스키"
+
+#: src/components/PasskeySettings.tsx
+msgid "Passkeys"
+msgstr "패스키"
+
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Auth.tsx
@@ -3924,6 +3952,10 @@ msgstr "삭제했지만 목록을 새로고침하지 못했습니다."
 msgid "Removing…"
 msgstr "삭제 중…"
 
+#: src/components/PasskeySettings.tsx
+msgid "Rename"
+msgstr "이름 변경"
+
 #: src/pages/BotContextMenu.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4035,6 +4067,7 @@ msgid "Restoring your workspace"
 msgstr ""
 
 #: src/components/AccountAccess.tsx
+#: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
 #: src/pages/ModelBackupsSettings.tsx
 #: src/pages/SettingsOverlay.tsx
@@ -4131,6 +4164,7 @@ msgid "Runs when this bot receives a verified message from this provider."
 msgstr ""
 
 #: src/components/AskCard.tsx
+#: src/components/PasskeySettings.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/Board.tsx
 #: src/pages/ExternalConversationSettings.tsx
@@ -4416,10 +4450,11 @@ msgid "Sign in"
 msgstr "로그인"
 
 #: src/components/AccountAccess.tsx
+#: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Sign in again"
-msgstr ""
+msgstr "다시 로그인"
 
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"
@@ -4428,6 +4463,10 @@ msgstr "Rakazo 로그인"
 #: src/lib/user-error.ts
 msgid "Sign in to your existing account to link SSO"
 msgstr "SSO를 연결하려면 기존 계정에 로그인하세요"
+
+#: src/components/PasskeySignIn.tsx
+msgid "Sign in with passkey"
+msgstr "패스키로 로그인"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Sign in with the subscription, or test the API key instead."
@@ -4721,9 +4760,10 @@ msgstr "이 Bot은 별도 Linux 화면이 아니라 현재 컴퓨터에서 실�
 msgid "This call is no longer ringing."
 msgstr ""
 
+#: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "This can't be undone."
-msgstr ""
+msgstr "되돌릴 수 없습니다."
 
 #: src/pages/shell/dialogs.tsx
 msgid "This cannot be undone."

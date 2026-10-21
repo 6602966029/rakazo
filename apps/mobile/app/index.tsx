@@ -112,6 +112,7 @@ import {
 import { afterChatNotifyChange } from "../lib/live-notifications";
 import { native, useThemedStyles } from "../lib/native";
 import { iosAtLeast } from "../lib/native-controls";
+import { offerPasskeyOnce } from "../lib/passkey";
 import { previewSnippet } from "../lib/preview";
 import { registerPushToken } from "../lib/push";
 import { loadSavedInbox, saveInbox } from "../lib/saved-chats";
@@ -282,6 +283,18 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   useEffect(() => {
     void loadActivityMode().then(setActivityMode);
   }, []);
+
+  // Only while the inbox is in front, so the offer waits until signup setup is done.
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      let active = true;
+      void offerPasskeyOnce(userId, () => active);
+      return () => {
+        active = false;
+      };
+    }, [userId]),
+  );
 
   const toggleActivityMode = useCallback(() => {
     setActivityMode((on) => {
