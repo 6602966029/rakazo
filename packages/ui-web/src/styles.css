@@ -74,6 +74,25 @@
   }
 }
 
+/* Native <details> fold-outs slide open and closed instead of snapping. */
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    interpolate-size: allow-keywords;
+  }
+  details::details-content {
+    block-size: 0;
+    overflow: clip;
+    /* Keep focus rings of full-width controls visible. */
+    overflow-clip-margin: 4px;
+    transition:
+      block-size 150ms ease-out,
+      content-visibility 150ms allow-discrete;
+  }
+  details[open]::details-content {
+    block-size: auto;
+  }
+}
+
 @keyframes rakazo-avatar-spin {
   0% {
     transform: rotate(0deg);

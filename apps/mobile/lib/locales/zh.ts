@@ -745,6 +745,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "A sign-in page opened — enter this code there:": "登录页面已打开——请在其中输入此代码：",
   "All providers": "所有提供商",
   Copied: "已复制",
+  "Copy code": "复制代码",
   "Could not disconnect this provider": "无法断开此提供商",
   "Default ({level})": "默认（{level}）",
   "Disconnected {provider}.": "已断开 {provider}。",

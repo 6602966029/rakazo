@@ -59,7 +59,6 @@ import {
   computerUpdateView,
   createFaviconResolver,
   createTicket,
-  createVoiceProvider,
   defaultCatalogModelId,
   deletePushToken,
   deploymentAutoReviewDefault,
@@ -135,6 +134,7 @@ import {
 } from "@rakazo/adapters";
 import type { Auth } from "@rakazo/auth";
 import type {
+  ActionApprovalRule,
   Actor,
   BoardEvent,
   Bot,
@@ -319,6 +319,7 @@ import {
   updateVoiceSpeechModel,
   voiceContext,
   voiceCredentialServer,
+  voiceProviderFor,
 } from "./voice.js";
 
 const MAX_COMPUTER_TEXT_FILE_BYTES = 2 * 1024 * 1024;
@@ -1345,6 +1346,7 @@ export function createRouter(deps: RouterDeps) {
           }
           plaintext = buildModelConnectPlaintext(input, previousPlaintext, {
             omitVisionModelIds,
+            allowPrivateEndpoint: mayUsePrivateEndpoint(context.actor, deps),
           });
         } catch (error) {
           throw new ORPCError("BAD_REQUEST", {
@@ -1426,6 +1428,7 @@ export function createRouter(deps: RouterDeps) {
               { ...input, apiKey },
               undefined,
               context.signal,
+              { allowPrivate: mayUsePrivateEndpoint(context.actor, deps) },
             );
             return { models };
           } catch (error) {
@@ -4069,13 +4072,18 @@ export function createRouter(deps: RouterDeps) {
         const result = await updateTicket(ticketDeps, {
           ...input,
           spaceId: context.actor.spaceId,
+          userId: context.actor.userId,
           ownerBotId: input.assigneeBotId,
         });
         if ("error" in result) throw new ORPCError("BAD_REQUEST", { message: result.error });
         return result.ticket;
       }),
       move: boardEnabled.tickets.move.handler(async ({ context, input }) => {
-        const result = await updateTicket(ticketDeps, { ...input, spaceId: context.actor.spaceId });
+        const result = await updateTicket(ticketDeps, {
+          ...input,
+          spaceId: context.actor.spaceId,
+          userId: context.actor.userId,
+        });
         if ("error" in result) throw new ORPCError("BAD_REQUEST", { message: result.error });
         return result.ticket;
       }),
@@ -6040,7 +6048,7 @@ export function createRouter(deps: RouterDeps) {
         return rows.map((row) => ({
           id: row.id,
           effect: row.effect as "always_allow" | "require_approval",
-          matchKind: row.matchKind as "tool" | "connector" | "category",
+          matchKind: row.matchKind as ActionApprovalRule["matchKind"],
           matchValue: row.matchValue,
           createdAt: row.createdAt.toISOString(),
         }));
@@ -6068,7 +6076,7 @@ export function createRouter(deps: RouterDeps) {
         return {
           id: row.id,
           effect: row.effect as "always_allow" | "require_approval",
-          matchKind: row.matchKind as "tool" | "connector" | "category",
+          matchKind: row.matchKind as ActionApprovalRule["matchKind"],
           matchValue: row.matchValue,
           createdAt: row.createdAt.toISOString(),
         };
@@ -6426,7 +6434,7 @@ export function createRouter(deps: RouterDeps) {
             ? loaded
             : await loadVoiceCredential(deps, context.actor, providerId);
         if (!row) return [];
-        return createVoiceProvider(row.cred.provider).listVoices(
+        return (await voiceProviderFor(deps, context.actor, row.cred.provider)).listVoices(
           row.apiKey,
           voiceContext(context.actor, context.signal),
         );

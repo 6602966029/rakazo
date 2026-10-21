@@ -205,6 +205,7 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
         runtime: handles.runtime,
         checker: { provider: model.model.provider, model: model.model.id },
         baseUrl: model.baseUrl,
+        allowPrivateEndpoint: true,
         contextWindow: 32768,
         maxTokens: 4096,
         prompt: "Review the synthetic fixture.",

@@ -170,6 +170,19 @@ test("the copy button copies the diagram source", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
 });
 
+test("a code block's copy button copies its code as written", async ({ page }, testInfo) => {
+  await page.goto(`${fixture}?case=plain`);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  const message = page.getByTestId("diagram-fixture");
+  await message.locator("pre").hover();
+  await message.getByRole("button", { name: "Copy code" }).click();
+  await expect
+    .poll(async () => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe("const ok = true;");
+  await expect(message.getByRole("button", { name: "Copied" })).toBeVisible();
+  await captureScreenshot(page, testInfo, "markdown-code-copied");
+});
+
 test("Mermaid loads only for a message with a diagram", async ({ page }) => {
   // The library itself, not this package's own mermaid*.ts modules or the fixture.
   const libraryRequests: string[] = [];

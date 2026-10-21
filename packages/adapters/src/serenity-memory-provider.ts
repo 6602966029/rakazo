@@ -351,8 +351,42 @@ export class SerenityMemoryProvider implements SemanticMemoryProvider {
           "Serenity writes are disabled for this Space. Enable writing in Memory settings to forget facts.",
       };
     }
-    // Serenity forget is id-scoped (opaque fact_id); entity namespaces do not apply.
-    const result = await forgetSerenity(request.id, this.connection, {
+    // Serenity forget deletes any fact id in the brain, so confirm the fact sits in one of
+    // this bot's recall namespaces first and fail closed when that cannot be shown.
+    const allowed = recallEntities(
+      request.scope,
+      request.botId,
+      context.spaceId,
+      this.connection.brainLabel,
+    );
+    if (request.entity && !allowed.includes(request.entity)) {
+      return { ok: false, error: "That memory belongs to another bot or Space." };
+    }
+    const factId = request.id.trim();
+    if (!factId) return { ok: false, error: "id is required" };
+    const entities = request.entity ? [request.entity] : allowed;
+    let owned = false;
+    const errors: string[] = [];
+    for (const entity of entities) {
+      const recalled = await recallSerenity(this.connection, { entity, signal: context.signal });
+      if (!recalled.ok) {
+        errors.push(recalled.error);
+        continue;
+      }
+      if (recalled.value.some((fact) => fact.factId === factId)) {
+        owned = true;
+        break;
+      }
+    }
+    if (!owned) {
+      return {
+        ok: false,
+        error: errors.length
+          ? `Could not confirm this memory belongs to this bot: ${errors.join("; ")}`
+          : "No memory with that id was found in this bot's recall results.",
+      };
+    }
+    const result = await forgetSerenity(factId, this.connection, {
       reason: request.reason,
       signal: context.signal,
     });

@@ -754,6 +754,7 @@ export const NL_MESSAGES: Record<string, string> = {
     "Er is een aanmeldpagina geopend — voer daar deze code in:",
   "All providers": "Alle aanbieders",
   Copied: "Gekopieerd",
+  "Copy code": "Code kopiëren",
   "Could not disconnect this provider": "Deze aanbieder loskoppelen mislukt",
   "Default ({level})": "Standaard ({level})",
   "Disconnected {provider}.": "{provider} losgekoppeld.",

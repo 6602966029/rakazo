@@ -230,10 +230,6 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   await expect(header).toHaveText(`${session.user.name}${email}`);
   await expect(page.getByText("New update available", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Install", exact: true })).toHaveCount(0);
-  await expect(footer.getByRole("button", { name: "Install update", exact: true })).toHaveAttribute(
-    "title",
-    "Install update",
-  );
   await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(3);
   await captureScreenshot(page, testInfo, "sidebar-footer-menu-update");
   await page.keyboard.press("Escape");

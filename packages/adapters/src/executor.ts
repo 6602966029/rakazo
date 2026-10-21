@@ -65,6 +65,8 @@ import {
   CALL_CLIENT_NONCE_PREFIX,
   callIdFromClientNonce,
   connectorKindFromToolName,
+  connectorReadRequiresApproval,
+  connectorToolRequiresApproval,
   containsSecret,
   createStreamingRedactor,
   displayName,
@@ -85,6 +87,7 @@ import {
   messagingDmSurfaceNote,
   nextCronDateAcross,
   nextFence,
+  outboundSiteGate,
   planActionGate,
   promptInvokesSkill,
   redactSecrets,
@@ -94,10 +97,12 @@ import {
   TAKEOVER_COMPUTER_PENDING_STATE,
   toolRequiresApproval,
   toolRequiresExplicitApproval,
+  toolResultTaintsRun,
   truncatedPlainText,
   unattendedTriggerToolRequiresApproval,
   userTurnMessageForRun,
 } from "@rakazo/core";
+import { normalizedHttpUrl, sitesInText, urlSite } from "@rakazo/core/egress";
 import {
   approvalEffectKey,
   isToolEffectIdempotencyKey,
@@ -141,7 +146,7 @@ import {
   redactShellStreams,
 } from "./agent-environment.js";
 import type { FleetCardSummary } from "./approval-ask.js";
-import { buildApprovalAskBlock } from "./approval-ask.js";
+import { buildApprovalAskBlock, MAX_FETCH_URL_LENGTH } from "./approval-ask.js";
 import {
   approvalPausedToolResult,
   approvalReplayPathError,
@@ -312,6 +317,7 @@ import {
   modelIdSupportsImages,
 } from "./model-vision.js";
 import { nativeShellCommandArgv } from "./native-shell.js";
+import { assertAllowedOpenAiCompatibleUrl } from "./openai-compatible-url.js";
 import type { CodexLiveCatalog } from "./pi-codex-catalog.js";
 import { codexLiveListsModel } from "./pi-codex-catalog.js";
 import { toOAuthCredential } from "./pi-credentials.js";
@@ -439,6 +445,21 @@ import {
 import { createWebProvider } from "./web-provider-factory.js";
 import { webFetchFromTool, webSearchFromTool } from "./web-tools.js";
 
+/**
+ * The connection a connector call reaches, for read trust. Installed APIs are told apart by their
+ * resource, since their tool names share a prefix; other connectors by their tool-name kind.
+ */
+function connectorTrustKey(
+  route: { connectorId?: string; resourceId?: string } | undefined,
+  connectorKind: string,
+): string {
+  return route?.connectorId && route.resourceId
+    ? `resource:${route.connectorId}:${route.resourceId}`
+    : `kind:${connectorKind}`;
+}
+
+/** Effects that got past the approval gate: approved, allowed by a rule or review, or run. */
+const PASSED_EFFECT_STATUSES = ["approved", "executing", "uncertain", "completed"];
 const READ_ONLY_AGENT_TOOLS = new Set([
   "computer_observe",
   "list_files",
@@ -3060,6 +3081,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       apiKey: resolved.oauth ? undefined : resolved.apiKey,
       ...cloudflareRunFields(resolved),
       baseUrl: resolved.baseUrl,
+      allowPrivateEndpoint: resolved.allowPrivateEndpoint,
       cacheCapabilities: resolved.cacheCapabilities,
       contextWindow: resolved.contextWindow,
 
@@ -3146,6 +3168,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         apiKey: resolved.oauth ? undefined : resolved.apiKey,
         ...cloudflareRunFields(resolved),
         baseUrl: resolved.baseUrl,
+        allowPrivateEndpoint: resolved.allowPrivateEndpoint,
         cacheCapabilities: resolved.cacheCapabilities,
         contextWindow: resolved.contextWindow,
 
@@ -4167,7 +4190,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           (run.trigger === "user" || run.trigger === "follow_up") && run.sourceMessageId
             ? await deps.prisma.message.findUnique({
                 where: { id: run.sourceMessageId },
-                select: { clientNonce: true, role: true },
+                select: { clientNonce: true, role: true, blocks: true },
               })
             : null;
         // Calls carry no schema flag: the sending client encodes them in the clientNonce.
@@ -4236,6 +4259,86 @@ export function createRunExecutor(deps: ExecutorDeps) {
             })
             .then((row) => row?.enabled ?? deploymentAutoReviewDefault());
           return autoReviewPreferencePromise;
+        };
+        // Outbound destinations this run may reach without asking. See outboundSiteGate and
+        // connectorReadRequiresApproval; approvals from earlier attempts are read back from effects.
+        const searchResultUrls = new Set<string>();
+        let trustedSitesPromise: Promise<Set<string>> | undefined;
+        const loadTrustedSites = () => {
+          trustedSitesPromise ??= deps.prisma.externalEffect
+            .findMany({
+              where: { runId, kind: "web_fetch", status: { in: PASSED_EFFECT_STATUSES } },
+              select: { request: true },
+            })
+            .then((rows) => {
+              const sites = new Set<string>();
+              // Only the owner's own words name sites; a bot, channel or webhook message does not.
+              if (ownerStartedRun && !messagingChannelRun && sourceMessage?.role === "user") {
+                for (const block of (sourceMessage.blocks ?? []) as MessageBlock[]) {
+                  if (block.kind !== "text") continue;
+                  for (const site of sitesInText(block.text)) sites.add(site);
+                }
+              }
+              for (const row of rows) {
+                const url = (row.request as { url?: unknown } | null)?.url;
+                const site = typeof url === "string" ? urlSite(url) : undefined;
+                if (site) sites.add(site);
+              }
+              return sites;
+            });
+          return trustedSitesPromise;
+        };
+        let trustedConnectorsPromise: Promise<Set<string>> | undefined;
+        const loadTrustedConnectors = () => {
+          const providers = connectedPlugins.map((plugin) => plugin.provider);
+          trustedConnectorsPromise ??= deps.prisma.externalEffect
+            .findMany({
+              where: { runId, status: { in: PASSED_EFFECT_STATUSES } },
+              select: { kind: true, request: true },
+            })
+            .then(
+              (rows) =>
+                new Set(
+                  rows
+                    .filter((row) => !BUILTIN_AGENT_TOOL_NAMES.has(row.kind))
+                    .map((row) =>
+                      connectorTrustKey(
+                        boundDirectApprovalDetails(row.request, CATALOG_APPROVAL_TOOL)?.route ??
+                          catalogApprovalDetails(row.request, CATALOG_APPROVAL_TOOL)?.route,
+                        connectorKindFromToolName(row.kind, providers),
+                      ),
+                    ),
+                ),
+            );
+          return trustedConnectorsPromise;
+        };
+        // Channel and webhook text this run took in mid-turn is not the owner's. Rows queued
+        // before origins were recorded are recognized by their channel message.
+        const receivedOutsideMessage = async () =>
+          Boolean(
+            await deps.prisma.steeringMessage.findFirst({
+              where: {
+                runId,
+                claimedAt: { not: null },
+                OR: [
+                  { originTrigger: { not: null } },
+                  { message: { blocks: { array_contains: [{ kind: "channel_message" }] } } },
+                ],
+              },
+              select: { id: true },
+            }),
+          );
+        // Whether outside content has entered the run. A run someone else started begins tainted,
+        // and so does a later attempt, whose earlier tool results this worker did not see.
+        let runTainted = !ownerStartedRun;
+        let earlierAttemptPromise: Promise<boolean> | undefined;
+        const isRunTainted = async () => {
+          if (runTainted) return true;
+          earlierAttemptPromise ??= deps.prisma.attempt
+            .count({ where: { runId } })
+            .then((count) => count > 1);
+          if ((await earlierAttemptPromise) || (await receivedOutsideMessage())) runTainted = true;
+          return runTainted;
         };
         // The intro turn confirms how a bot read its own role before anyone hands it
         // real work — it must not be able to act on that reading (shell, computer,
@@ -4701,22 +4804,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             });
             if (!live?.fleetManagement) return { error: "This tool is disabled for this bot." };
             if (!ownerStartedRun) return { error: "Fleet tools need a run you started." };
-            // Channel and webhook text this run took in mid-turn is not the owner's. Rows queued
-            // before origins were recorded are recognized by their channel message.
-            const outside =
-              fleetWrite &&
-              (await deps.prisma.steeringMessage.findFirst({
-                where: {
-                  runId,
-                  claimedAt: { not: null },
-                  OR: [
-                    { originTrigger: { not: null } },
-                    { message: { blocks: { array_contains: [{ kind: "channel_message" }] } } },
-                  ],
-                },
-                select: { id: true },
-              }));
-            if (outside)
+            if (fleetWrite && (await receivedOutsideMessage()))
               return {
                 error:
                   "Fleet changes are blocked for the rest of this run because it received a channel or webhook message.",
@@ -4783,6 +4871,41 @@ export function createRunExecutor(deps: ExecutorDeps) {
             viaConnector,
             declaredReadOnly,
           );
+          const connectorKind = connectorKindFromToolName(
+            name,
+            connectedPlugins.map((plugin) => plugin.provider),
+          );
+          const fetchUrl =
+            name === "web_fetch" ? normalizedHttpUrl(String(args.url ?? "")) : undefined;
+          const fetchSite = fetchUrl ? urlSite(fetchUrl) : undefined;
+          if (name === "web_fetch" && !fetchSite) return { error: "url must be an http(s) URL" };
+          if (fetchUrl && fetchUrl.length > MAX_FETCH_URL_LENGTH)
+            return { error: `url must be at most ${MAX_FETCH_URL_LENGTH} characters` };
+          // The card, the stored effect and the request all use the URL the gate checked.
+          if (fetchUrl) {
+            args = { ...args, url: fetchUrl };
+            effectRequest = args;
+          }
+          const connectorTrust = connectorTrustKey(connectorCall.route, connectorKind);
+          const siteGate =
+            fetchUrl && fetchSite
+              ? outboundSiteGate({
+                  trigger: run.trigger,
+                  site: fetchSite,
+                  trusted:
+                    searchResultUrls.has(fetchUrl) || (await loadTrustedSites()).has(fetchSite),
+                  rules: await loadApprovalRules(),
+                })
+              : "allow";
+          if (siteGate === "deny")
+            return { error: `Fetching ${fetchSite} needs approval, and a webhook run cannot ask.` };
+          const connectorReadGated =
+            viaConnector &&
+            !connectorToolRequiresApproval(name, declaredReadOnly) &&
+            connectorReadRequiresApproval({
+              tainted: await isRunTainted(),
+              connectorTrusted: (await loadTrustedConnectors()).has(connectorTrust),
+            });
           // This schedules unattended shell execution; require a person to approve
           // the command once, rather than letting an allow rule or reviewer schedule it.
           const commandWatch =
@@ -4790,13 +4913,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const requiresApprovalByDefault =
             commandWatch ||
             requiresUnattendedApproval ||
+            siteGate === "ask" ||
+            connectorReadGated ||
             toolRequiresApproval(name, viaConnector, declaredReadOnly);
           const requiresMandatoryApproval =
             commandWatch || requiresUnattendedApproval || toolRequiresExplicitApproval(name);
-          const connectorKind = connectorKindFromToolName(
-            name,
-            connectedPlugins.map((plugin) => plugin.provider),
-          );
           const approvalResolved = requiresMandatoryApproval
             ? {
                 decision: "ask" as const,
@@ -4807,6 +4928,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 toolName: name,
                 connectorKind,
                 readOnly: declaredReadOnly,
+                site: fetchSite,
                 rules: await loadApprovalRules(),
               });
           const autoReviewPref = requiresMandatoryApproval
@@ -4835,6 +4957,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 consequential: requiresApprovalByDefault,
                 autoReviewEnabled: autoReviewPref,
                 checkerConfigured,
+                newDestination: siteGate === "ask",
               });
           let reviewReason: string | undefined;
           let gateDecision: "ask" | "allow" = plan === "ask" ? "ask" : "allow";
@@ -4857,17 +4980,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
               ? approvalEffectKey(runId, replayEffectToolName, args)
               : toolEffectIdempotencyKey(runId, replayEffectToolName, args, occurrence);
           // Connector read-only hints must not bypass approval, review, or replay decisions.
-          const applied = READ_ONLY_AGENT_TOOLS.has(name)
-            ? undefined
-            : await recordEffect(
-                deps,
-                run,
-                replayEffectToolName,
-                effectKey,
-                effectRequest,
-                executionId,
-                consumedEffectIds,
-              );
+          // A fetch to a new site is gated like any action, so it needs an effect to approve.
+          const applied =
+            READ_ONLY_AGENT_TOOLS.has(name) && siteGate !== "ask" && nextApprovedTool !== name
+              ? undefined
+              : await recordEffect(
+                  deps,
+                  run,
+                  replayEffectToolName,
+                  effectKey,
+                  effectRequest,
+                  executionId,
+                  consumedEffectIds,
+                );
 
           const runAutoReview = async () => {
             if (!injectedReview && !checker) return;
@@ -4935,6 +5060,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                       accountId: judgeKey.accountId,
                       gatewayId: judgeKey.gatewayId,
                       baseUrl: judgeKey.baseUrl,
+                      allowPrivateEndpoint: judgeKey.allowPrivateEndpoint,
                       cacheCapabilities: judgeKey.cacheCapabilities,
                       contextWindow: judgeKey.contextWindow,
                       maxTokens: judgeKey.maxTokens,
@@ -5238,6 +5364,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
             const early = await claimOrReturn("intended");
             if (early !== undefined) return early;
           }
+          // Past the gate: this destination is now one the run was given. A search result's exact
+          // URL trusts only that URL, never the rest of its site.
+          if (fetchSite && siteGate === "ask") (await loadTrustedSites()).add(fetchSite);
+          if (viaConnector) (await loadTrustedConnectors()).add(connectorTrust);
           const persistEffectResult = (result: unknown) =>
             applied
               ? completeEffect(
@@ -5851,7 +5981,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
           }
           if (name === "web_search") {
-            return finish(await webSearchFromTool(web, context, args));
+            const found = await webSearchFromTool(web, context, args);
+            // A result's exact URL was chosen by the search index, not by text in this run.
+            for (const hit of ("results" in found && found.results) || []) {
+              const url = normalizedHttpUrl(hit.url);
+              if (url) searchResultUrls.add(url);
+            }
+            return finish(found);
           }
           if (name === "web_fetch") {
             return finish(await webFetchFromTool(web, context, args));
@@ -6024,6 +6160,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               await updateTicket(deps, {
                 spaceId: run.spaceId,
                 botId: bot.id,
+                userId: run.userId,
                 id: String(args.id ?? ""),
                 title: args.title !== undefined ? String(args.title) : undefined,
                 description: args.description !== undefined ? String(args.description) : undefined,
@@ -6348,6 +6485,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               await semanticMemory.forget(
                 {
                   id: String(args.id ?? ""),
+                  scope: memoryScope!,
+                  botId: bot.id,
                   ...(typeof args.entity === "string" && args.entity.trim()
                     ? { entity: args.entity.trim() }
                     : {}),
@@ -7115,7 +7254,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
 
         // Runtimes may dispatch parallel calls; a run can open only one proposal at a time.
         let instructionProposalInFlight = false;
-        const applyTool = async (...params: Parameters<typeof dispatchTool>) => {
+        const dispatchOneTool = async (...params: Parameters<typeof dispatchTool>) => {
           if (params[0] !== "propose_instructions_update") return dispatchTool(...params);
           if (instructionProposalInFlight)
             return { error: "This bot already has a pending instruction proposal." };
@@ -7124,6 +7263,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return await dispatchTool(...params);
           } finally {
             instructionProposalInFlight = false;
+          }
+        };
+        const applyTool = async (...params: Parameters<typeof dispatchTool>) => {
+          try {
+            return await dispatchOneTool(...params);
+          } finally {
+            if (toolResultTaintsRun(params[0])) runTainted = true;
           }
         };
 
@@ -7365,6 +7511,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 apiKey: resolved.oauth ? undefined : resolved.apiKey,
                 ...cloudflareRunFields(resolved),
                 baseUrl: resolved.baseUrl,
+                allowPrivateEndpoint: resolved.allowPrivateEndpoint,
                 cacheCapabilities: resolved.cacheCapabilities,
                 contextWindow: resolved.contextWindow,
 
@@ -9504,6 +9651,7 @@ async function resolveModelKey(
   accountId?: string;
   gatewayId?: string;
   baseUrl?: string;
+  allowPrivateEndpoint?: boolean;
   cacheCapabilities?: AgentRunRequest["model"]["cacheCapabilities"];
   contextWindow?: number;
   reasoning?: boolean;
@@ -9588,6 +9736,26 @@ async function resolveModelKey(
       const oauth = resolved.secret.kind === "oauth" ? resolved.secret.credential : undefined;
       const baseUrl =
         resolved.secret.kind === "openai_compatible" ? resolved.secret.baseUrl : undefined;
+      // Connections saved before the owner gate may already point at private hosts,
+      // so decide for the credential's owner on every run, not only on save.
+      const allowPrivateEndpoint = baseUrl
+        ? await actorMayUsePrivateEndpoint(
+            deps.prisma,
+            userId,
+            deps.mcpAllowPrivateEndpoint === true,
+          )
+        : undefined;
+      if (baseUrl) {
+        try {
+          // The public gate stays with the request-time fetch guard.
+          assertAllowedOpenAiCompatibleUrl(baseUrl, {
+            allowPublic: true,
+            allowPrivate: allowPrivateEndpoint,
+          });
+        } catch (error) {
+          throw new UnavailableModelForAuthError((error as Error).message);
+        }
+      }
       const acceptsImages =
         credential.provider === OPENAI_COMPATIBLE_PROVIDER_ID &&
         resolved.secret.kind === "openai_compatible" &&
@@ -9605,6 +9773,7 @@ async function resolveModelKey(
         accountId,
         gatewayId,
         baseUrl,
+        allowPrivateEndpoint,
         cacheCapabilities:
           resolved.secret.kind !== "oauth" ? resolved.secret.cacheCapabilities : undefined,
         contextWindow: resolved.secret.kind !== "oauth" ? resolved.secret.contextWindow : undefined,

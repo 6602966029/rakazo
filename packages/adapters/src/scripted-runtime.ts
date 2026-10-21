@@ -277,6 +277,16 @@ export function inferScript(
       },
     ];
   }
+  if (lower.includes("fetch approval card")) {
+    return [
+      {
+        assistant: "i will read that page.",
+        toolCalls: [
+          { name: "web_fetch", args: { url: "https://docs.example.test/page?q=fixture" } },
+        ],
+      },
+    ];
+  }
   if (lower.includes("mcp approval card")) {
     return [
       {

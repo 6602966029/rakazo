@@ -562,6 +562,11 @@ export class LocalStackController {
         SANDBOX_HOST_TOKEN: this.deps.hostComputer?.token ?? "",
         RAKAZO_IMAGE_TAG: this.deps.imageTag,
         RAKAZO_COMPUTER_IMAGE_TAG: this.deps.imageTag,
+        // Restricted egress needs host iptables rules. Docker Desktop keeps its
+        // bridges inside its VM where the host cannot add them, and the app cannot
+        // install root firewall rules on Linux either, so the stack would refuse
+        // every computer. This computer is the person's own machine.
+        SANDBOX_COMPUTER_EGRESS: "open",
         ...(this.currentStackToken === null
           ? {}
           : { RAKAZO_DESKTOP_STACK_TOKEN: this.currentStackToken }),

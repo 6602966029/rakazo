@@ -38,9 +38,8 @@ import {
 import { oauthCallbackFrom } from "./oauth-callback.js";
 import {
   bundledRendererCandidates,
-  contentType,
+  bundledRendererHeaders,
   forwardedRendererRequestInit,
-  immutableRendererAsset,
   isRendererAssetMiss,
 } from "./renderer-assets.js";
 import { installSessionPermissions } from "./session-permissions.js";
@@ -516,14 +515,7 @@ async function installBundledRenderer(
         if (isRendererAssetMiss(error)) continue;
         throw error;
       }
-      const headers = new Headers({
-        "cache-control": immutableRendererAsset(file)
-          ? "public, max-age=31536000, immutable"
-          : "no-cache",
-        "content-type": contentType(file),
-        "x-content-type-options": "nosniff",
-      });
-      return new Response(body, { headers });
+      return new Response(body, { headers: bundledRendererHeaders(file, request.url) });
     }
     return forward();
   });

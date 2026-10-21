@@ -58,6 +58,13 @@ vi.mock("@rakazo/ui-web", () => ({
       {children}
     </button>
   ),
+  ToggleGroup: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  ToggleGroupItem: ({ children }: { children?: ReactNode }) => (
+    <button type="button">{children}</button>
+  ),
+  OptionSelect: ({ "data-testid": testId }: { "data-testid"?: string }) => (
+    <div data-testid={testId} />
+  ),
   cn: (...values: unknown[]) => values.filter(Boolean).join(" "),
 }));
 

@@ -156,6 +156,7 @@ import {
   useHoldToTalk,
 } from "../components/composer/HoldToTalk";
 import { lazyOverlay } from "../components/ErrorBoundary";
+import { IconTooltip } from "../components/IconTooltip";
 import { MessageHoverMetadata } from "../components/MessageHoverMetadata";
 import { PasskeyOffer } from "../components/PasskeyOffer";
 import { SidebarFooter } from "../components/SidebarFooter";
@@ -3095,14 +3096,17 @@ function SpaceShell() {
       {bootstrapMe !== undefined ? (
         <HostComputerPrompt initialMe={bootstrapMe ?? undefined} onMeUpdated={setBootstrapMe} />
       ) : null}
-      {mobileSidebarOpen ? (
-        <button
-          type="button"
-          aria-label={t`Close navigation`}
-          onClick={() => setMobileSidebarOpen(false)}
-          className="absolute inset-y-0 end-0 start-[min(calc(100%-48px),316px)] z-30 bg-overlay md:hidden"
-        />
-      ) : null}
+      <button
+        type="button"
+        aria-label={t`Close navigation`}
+        aria-hidden={mobileSidebarOpen ? undefined : true}
+        inert={mobileSidebarOpen ? undefined : true}
+        tabIndex={mobileSidebarOpen ? undefined : -1}
+        onClick={() => setMobileSidebarOpen(false)}
+        className={`absolute inset-y-0 end-0 start-[min(calc(100%-48px),316px)] z-30 bg-overlay transition-opacity duration-150 ease-out motion-reduce:transition-none md:hidden ${
+          mobileSidebarOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
       <aside
         data-testid="bots-sidebar"
         data-space-switch="sidebar"
@@ -3120,44 +3124,48 @@ function SpaceShell() {
         <div className="app-drag flex items-center justify-between px-[18px] pb-3 pt-4">
           <WindowChrome />
           <div className="relative flex items-center gap-2.5">
-            <button
-              type="button"
-              aria-label={t`Activity`}
-              aria-pressed={activityMode}
-              title={t`Activity`}
-              data-activity-mode={activityMode ? "on" : "off"}
-              onClick={toggleActivityMode}
-              className={`app-no-drag flex h-7 w-7 items-center justify-center rounded-full ${
-                activityMode
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground/70 hover:text-foreground/75"
-              }`}
-            >
-              <Bell
-                size={15}
-                strokeWidth={1.8}
-                fill={activityMode ? "currentColor" : "none"}
-                aria-hidden="true"
-              />
-            </button>
-            <button
-              type="button"
-              className="app-no-drag hidden h-7 w-7 items-center justify-center rounded-full text-muted-foreground/70 hover:text-foreground/75 md:inline-flex"
-              aria-label={t`Minimize bots`}
-              title={t`Minimize bots`}
-              data-testid="minimize-bots-sidebar"
-              onClick={() => setBotsSidebarCollapsedPref(true)}
-            >
-              <PanelLeftClose size={15} strokeWidth={1.8} aria-hidden="true" />
-            </button>
-            <Popover open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
-              <PopoverTrigger
-                className="app-no-drag text-[21px] text-muted-foreground/70 hover:text-foreground/75"
-                title={t`Create`}
-                data-testid="create-menu-trigger"
+            <IconTooltip label={t`Activity`}>
+              <button
+                type="button"
+                aria-label={t`Activity`}
+                aria-pressed={activityMode}
+                data-activity-mode={activityMode ? "on" : "off"}
+                onClick={toggleActivityMode}
+                className={`app-no-drag flex h-7 w-7 items-center justify-center rounded-full ${
+                  activityMode
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground/70 hover:text-foreground/75"
+                }`}
               >
-                +
-              </PopoverTrigger>
+                <Bell
+                  size={15}
+                  strokeWidth={1.8}
+                  fill={activityMode ? "currentColor" : "none"}
+                  aria-hidden="true"
+                />
+              </button>
+            </IconTooltip>
+            <IconTooltip label={t`Minimize bots`}>
+              <button
+                type="button"
+                className="app-no-drag hidden h-7 w-7 items-center justify-center rounded-full text-muted-foreground/70 hover:text-foreground/75 md:inline-flex"
+                aria-label={t`Minimize bots`}
+                data-testid="minimize-bots-sidebar"
+                onClick={() => setBotsSidebarCollapsedPref(true)}
+              >
+                <PanelLeftClose size={15} strokeWidth={1.8} aria-hidden="true" />
+              </button>
+            </IconTooltip>
+            <Popover open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
+              <IconTooltip label={t`Create`}>
+                <PopoverTrigger
+                  className="app-no-drag text-[21px] text-muted-foreground/70 hover:text-foreground/75"
+                  aria-label={t`Create`}
+                  data-testid="create-menu-trigger"
+                >
+                  +
+                </PopoverTrigger>
+              </IconTooltip>
               {/* Unmount with the state change so the panel it opens never coexists with the menu. */}
               {createMenuOpen ? (
                 <PopoverContent
@@ -3422,7 +3430,7 @@ function SpaceShell() {
                       </div>
                     ) : null}
                     <Collapsible open={!collapsed} className="contents">
-                      <CollapsibleContent className="flex h-(--collapsible-panel-height) flex-col gap-0.5 overflow-hidden transition-[height] duration-150 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
+                      <CollapsibleContent className="flex flex-col gap-0.5">
                         {nestedRows.map(({ item, depth, hasChildren, parentId }) => {
                           const parentCollapsed =
                             hasChildren && collapsedRosterParents.has(item.chat.id);
@@ -3719,8 +3727,8 @@ function SpaceShell() {
                 </span>
                 <span>{archivedBots.length + archivedGroups.length}</span>
               </button>
-              {archivedOpen ? (
-                <>
+              <Collapsible open={archivedOpen} className="contents">
+                <CollapsibleContent className="flex flex-col">
                   {archivedBots.map((bot) => (
                     <div key={bot.id} className="flex items-center gap-2 rounded-lg px-2.5 py-2">
                       <BotAvatar
@@ -3786,8 +3794,8 @@ function SpaceShell() {
                       </Button>
                     </div>
                   ))}
-                </>
-              ) : null}
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           ) : null}
         </div>
@@ -3909,16 +3917,17 @@ function SpaceShell() {
               <Menu size={19} strokeWidth={1.7} />
             </button>
             {botsSidebarCollapsed ? (
-              <button
-                type="button"
-                data-testid="restore-bots-sidebar"
-                aria-label={t`Show bots`}
-                title={t`Show bots`}
-                onClick={() => setBotsSidebarCollapsedPref(false)}
-                className="app-no-drag hidden h-8 w-8 shrink-0 place-items-center rounded-lg text-foreground/75 hover:bg-accent md:grid"
-              >
-                <PanelLeftOpen size={19} strokeWidth={1.7} aria-hidden="true" />
-              </button>
+              <IconTooltip label={t`Show bots`}>
+                <button
+                  type="button"
+                  data-testid="restore-bots-sidebar"
+                  aria-label={t`Show bots`}
+                  onClick={() => setBotsSidebarCollapsedPref(false)}
+                  className="app-no-drag hidden h-8 w-8 shrink-0 place-items-center rounded-lg text-foreground/75 hover:bg-accent md:grid"
+                >
+                  <PanelLeftOpen size={19} strokeWidth={1.7} aria-hidden="true" />
+                </button>
+              </IconTooltip>
             ) : null}
             <button
               type="button"
@@ -3950,43 +3959,45 @@ function SpaceShell() {
           </div>
           <div className="flex items-center gap-1">
             {bootstrapMe?.phoneCallsEnabled && !inGroup && active ? (
-              <button
-                type="button"
-                data-testid="call-button"
-                aria-label={call?.botId === active.id ? t`Open call` : t`Call`}
-                title={call?.botId === active.id ? t`Open call` : t`Call`}
-                onClick={() => {
-                  if (call?.botId === active.id) {
-                    setCallMinimized(false);
-                    return;
-                  }
-                  callBot(active);
-                }}
-                data-active={call?.botId === active.id ? "" : undefined}
-                className="app-no-drag grid h-[30px] w-[34px] place-items-center rounded-[9px] hover:bg-accent data-active:bg-accent"
-              >
-                <Phone size={17} strokeWidth={1.6} className="text-foreground/75" />
-              </button>
+              <IconTooltip label={call?.botId === active.id ? t`Open call` : t`Call`}>
+                <button
+                  type="button"
+                  data-testid="call-button"
+                  aria-label={call?.botId === active.id ? t`Open call` : t`Call`}
+                  onClick={() => {
+                    if (call?.botId === active.id) {
+                      setCallMinimized(false);
+                      return;
+                    }
+                    callBot(active);
+                  }}
+                  data-active={call?.botId === active.id ? "" : undefined}
+                  className="app-no-drag grid h-[30px] w-[34px] place-items-center rounded-[9px] hover:bg-accent data-active:bg-accent"
+                >
+                  <Phone size={17} strokeWidth={1.6} className="text-foreground/75" />
+                </button>
+              </IconTooltip>
             ) : null}
             {!inGroup && active ? (
-              <button
-                type="button"
-                aria-label={t`Agent computer`}
-                aria-pressed={panel === "computer"}
-                title={t`Agent computer`}
-                onClick={() => {
-                  const next = panel === "computer" ? null : "computer";
-                  setPanel(next);
-                  if (next === "computer" && active) {
-                    // Refresh run/computer so Take control isn't stuck on a stale busyBotName.
-                    void refreshThread(active.id).catch(() => undefined);
-                  }
-                }}
-                data-active={panel === "computer" ? "" : undefined}
-                className="app-no-drag grid h-[30px] w-[34px] place-items-center rounded-[9px] hover:bg-accent data-active:bg-accent"
-              >
-                <Monitor size={18} strokeWidth={1.6} className="text-foreground/75" />
-              </button>
+              <IconTooltip label={t`Agent computer`}>
+                <button
+                  type="button"
+                  aria-label={t`Agent computer`}
+                  aria-pressed={panel === "computer"}
+                  onClick={() => {
+                    const next = panel === "computer" ? null : "computer";
+                    setPanel(next);
+                    if (next === "computer" && active) {
+                      // Refresh run/computer so Take control isn't stuck on a stale busyBotName.
+                      void refreshThread(active.id).catch(() => undefined);
+                    }
+                  }}
+                  data-active={panel === "computer" ? "" : undefined}
+                  className="app-no-drag grid h-[30px] w-[34px] place-items-center rounded-[9px] hover:bg-accent data-active:bg-accent"
+                >
+                  <Monitor size={18} strokeWidth={1.6} className="text-foreground/75" />
+                </button>
+              </IconTooltip>
             ) : null}
           </div>
         </div>
@@ -6359,7 +6370,7 @@ export const Composer = memo(function Composer({
           ref={runErrorRef}
           role="alert"
           data-testid="composer-error"
-          className="mb-3 flex items-center gap-2 rounded-[14px] border border-destructive/40 bg-destructive/10 px-4 py-2 text-[13px] text-destructive"
+          className="mb-3 flex items-center gap-2 rounded-[14px] border border-destructive/40 bg-destructive/10 px-4 py-2 text-[13px] text-destructive animate-in fade-in-0 slide-in-from-bottom-1 duration-150 motion-reduce:animate-none"
         >
           <div className="min-w-0 flex-1">
             {sendError === MODEL_REQUIRED_SEND_ERROR ? (
@@ -6459,7 +6470,7 @@ export const Composer = memo(function Composer({
           role="listbox"
           aria-label={t`Mentions`}
           data-testid="mention-picker"
-          className="mb-2 overflow-hidden rounded-[14px] border border-border bg-muted"
+          className="mb-2 overflow-hidden rounded-[14px] border border-border bg-muted animate-in fade-in-0 slide-in-from-bottom-1 duration-150 motion-reduce:animate-none"
         >
           {mentionOptions.map((mention, index) => {
             const optionId = `${mentionListboxId}-option-${index}`;

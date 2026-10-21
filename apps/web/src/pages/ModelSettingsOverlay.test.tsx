@@ -531,6 +531,34 @@ it("warns only on text-only models in the picker", async () => {
   }
 });
 
+it("highlights the last model when ArrowUp reopens a searched picker", async () => {
+  models.list.mockResolvedValue([
+    deepseekEntry,
+    { ...deepseekEntry, id: "deepseek-vision", label: "DeepSeek Vision" },
+    { ...deepseekEntry, id: "deepseek-unknown", label: "DeepSeek Unknown" },
+  ]);
+  const view = await renderSettings();
+  try {
+    const trigger = view.container.querySelector('button[role="combobox"]');
+    if (!(trigger instanceof HTMLButtonElement)) throw new Error("Missing model picker");
+    const search = () => document.querySelector('input[aria-label="Search models"]');
+    await act(async () => {
+      trigger.click();
+    });
+    await typeInto(search() as HTMLInputElement, "Vision");
+    await act(async () => {
+      trigger.click();
+    });
+    await act(async () => {
+      trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    });
+    const active = search()?.getAttribute("aria-activedescendant");
+    expect(active ? document.getElementById(active)?.textContent : null).toBe("DeepSeek Unknown");
+  } finally {
+    await view.unmount();
+  }
+});
+
 it("omits the redundant description and connection prompt", async () => {
   const view = await renderSettings(false);
   try {

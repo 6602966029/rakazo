@@ -254,9 +254,9 @@ test("a space's menu opens its settings in place, and settings can switch space"
   await captureScreenshot(page, testInfo, "space-settings-from-menu");
 
   await picker.click();
-  await expect(settings.getByRole("option", { name: "Support", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Support", exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "space-settings-switcher");
-  await settings.getByRole("option", { name: "Support", exact: true }).click();
+  await page.getByRole("option", { name: "Support", exact: true }).click();
   await expect(picker).toHaveText("Support");
   await expect(settings).toHaveAttribute("data-settings-section", "models");
   expect(page.url()).toBe(chatUrl);

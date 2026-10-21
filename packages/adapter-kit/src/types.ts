@@ -364,6 +364,9 @@ export interface SemanticMemoryResult {
 
 export interface SemanticMemoryForgetRequest {
   id: string;
+  /** Same scope as recall: providers delete only facts inside these namespaces. */
+  scope: DurableMemoryScope;
+  botId: string;
   reason?: string;
   /** Entity/namespace from a prior recall citation, when the backend scopes deletes. */
   entity?: string;
@@ -428,6 +431,8 @@ export interface AgentRunModel {
   /** Cloudflare AI Gateway id stored with a gateway BYOK credential. */
   gatewayId?: string;
   baseUrl?: string;
+  /** The connection owner may reach a private or loopback `baseUrl`; absent means deny. */
+  allowPrivateEndpoint?: boolean;
   /** Whether this custom connection accepts standard reasoning_effort. */
   reasoning?: boolean;
   /** Whether this custom connection accepts image input. */

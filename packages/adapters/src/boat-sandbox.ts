@@ -36,17 +36,22 @@ import {
 import { LinuxDesktop, PREPARE_LINUX_DESKTOP } from "./linux-desktop.js";
 import { sandboxCommandArgv } from "./sandbox-command-environment.js";
 import { isSandboxGoneError } from "./sandbox-errors.js";
+import { shellExportScript } from "./sandbox-shell-environment.js";
 import { withAbort } from "./web-ssrf.js";
 
 const BOAT_API_BASE = "https://boat.dev/api/v1";
 const BOAT_WORKSPACE = "/home/user/rakazo-home";
 const BOAT_BROWSER_PROFILES = `${BOAT_WORKSPACE}/.browser-profiles`;
+/** Outside the workspace so checkpoints never carry it. Boat runs every command as `user`. */
+const BOAT_COMMAND_ENV = "/home/user/.rakazo-command-env";
 const BOAT_READY_TIMEOUT_MS = 5 * 60_000;
 const BOAT_API_COMMAND_TIMEOUT_SECONDS = 600;
 const BOAT_TTL_SECONDS = 2 * 60 * 60;
 const BOAT_DELETE_TIMEOUT_MS = 60_000;
 const BOAT_GONE_CHECK_TIMEOUT_MS = 10_000;
 const BOAT_EXPORT_CONCURRENCY = 16;
+const BOAT_INLINE_FILE_MAX_BYTES = 5 * 1024 * 1024;
+const BOAT_UPLOAD_TIMEOUT_MS = 5 * 60_000;
 
 /** The Boat API surface the adapter uses. Failures are the SDK's raw `ResponseError`s. */
 export type BoatSandboxSdk = Pick<
@@ -55,6 +60,7 @@ export type BoatSandboxSdk = Pick<
   | "command"
   | "commandStatus"
   | "create"
+  | "createUploadUrl"
   | "get"
   | "hostPort"
   | "recover"
@@ -254,23 +260,28 @@ export class BoatSandboxProvider implements SandboxProvider {
       yield { type: "exit", code: 130 };
       return;
     }
+    const id = this.id(computer);
     const timeoutMs = boundedSandboxCommandTimeoutMs(request.timeoutMs);
     const argv = sandboxCommandArgv({
       ...request,
       argv: request.argv.length ? request.argv : ["true"],
-    });
-    const environment = Object.entries(request.env ?? {}).map(([key, value]) => `${key}=${value}`);
-    const command = [...(environment.length ? ["env", ...environment] : []), ...argv]
+    })
       .map(shellQuote)
       .join(" ");
+    // Boat's command API has no env field, and command text shows in `ps` and Boat's logs.
+    const environment = shellExportScript(request.env ?? {});
+    const envFile = environment ? `${BOAT_COMMAND_ENV}/${randomUUID()}` : undefined;
+    let envFileRemoved = !envFile;
     try {
+      if (envFile) await this.writeCommandEnvironment(id, envFile, environment, context.signal);
       const result = await this.runCommand(
-        this.id(computer),
-        command,
+        id,
+        envFile ? sourceEnvironmentCommand(envFile, argv) : argv,
         boatCwd(request.cwd),
         timeoutMs,
         context.signal,
       );
+      envFileRemoved = !result.timedOut;
       if (context.signal.aborted) {
         yield { type: "stderr", data: "command aborted\n" };
         yield { type: "exit", code: 130 };
@@ -291,6 +302,11 @@ export class BoatSandboxProvider implements SandboxProvider {
         return;
       }
       throw error;
+    } finally {
+      // The command removes the file as it starts; this covers a command that never did.
+      if (!envFileRemoved) {
+        await this.rawCommand(id, `rm -f -- ${shellQuote(envFile!)}`, 10).catch(() => undefined);
+      }
     }
   }
 
@@ -546,6 +562,42 @@ export class BoatSandboxProvider implements SandboxProvider {
     }
   }
 
+  private async writeCommandEnvironment(
+    id: string,
+    envFile: string,
+    environment: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    // Preparation makes the private directory; repeat it for commands that skipped preparation.
+    if (!this.prepared.has(id)) {
+      const result = await this.runCommand(
+        id,
+        commandEnvDirectoryCommand(),
+        undefined,
+        60_000,
+        signal,
+      );
+      if (result.exitCode !== 0) {
+        throw new Error(
+          result.stderr || result.stdout || "could not prepare Boat command environment",
+        );
+      }
+    }
+    await this.whenRunnable(id, signal, () =>
+      this.client.writeFile(
+        {
+          sandboxId: id,
+          fileWriteRequest: {
+            path: envFile,
+            content: Buffer.from(environment).toString("base64"),
+            encoding: "base64",
+          },
+        },
+        { signal },
+      ),
+    );
+  }
+
   private async writeFiles(
     id: string,
     files: readonly PortableFile[],
@@ -554,19 +606,21 @@ export class BoatSandboxProvider implements SandboxProvider {
     if (!files.length) return;
     await Promise.all(
       files.map((file) =>
-        this.whenRunnable(id, context.signal, () =>
-          this.client.writeFile(
-            {
-              sandboxId: id,
-              fileWriteRequest: {
-                path: workspacePath(BOAT_WORKSPACE, file.path),
-                content: Buffer.from(file.content).toString("base64"),
-                encoding: "base64",
-              },
-            },
-            { signal: context.signal },
-          ),
-        ),
+        file.content.byteLength > BOAT_INLINE_FILE_MAX_BYTES
+          ? this.uploadFile(id, file, context)
+          : this.whenRunnable(id, context.signal, () =>
+              this.client.writeFile(
+                {
+                  sandboxId: id,
+                  fileWriteRequest: {
+                    path: workspacePath(BOAT_WORKSPACE, file.path),
+                    content: Buffer.from(file.content).toString("base64"),
+                    encoding: "base64",
+                  },
+                },
+                { signal: context.signal },
+              ),
+            ),
       ),
     );
     const executable = files.map(
@@ -583,6 +637,55 @@ export class BoatSandboxProvider implements SandboxProvider {
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || result.stdout || "could not set Boat file permissions");
     }
+  }
+
+  private async uploadFile(id: string, file: PortableFile, context: AdapterContext): Promise<void> {
+    context.signal.throwIfAborted();
+    const filePath = workspacePath(BOAT_WORKSPACE, file.path);
+    const signed = await this.whenRunnable(id, context.signal, () =>
+      this.client.createUploadUrl(
+        { sandboxId: id, fileUrlRequest: { path: filePath } },
+        { signal: context.signal },
+      ),
+    );
+    // The provider's capability URL is a secret. Confine it to Boat's sandbox hosts and
+    // never forward API credentials, follow redirects, or expose transport errors containing it.
+    let url: URL;
+    try {
+      url = new URL(signed.url);
+    } catch {
+      throw new Error("Boat returned an invalid file upload URL");
+    }
+    if (
+      !signed.ok ||
+      signed.type !== "file.upload_url" ||
+      signed.method !== "PUT" ||
+      signed.path !== filePath ||
+      url.protocol !== "https:" ||
+      !url.hostname.endsWith(".on.boat.dev") ||
+      url.username ||
+      url.password ||
+      (url.port && url.port !== "443") ||
+      url.hash
+    )
+      throw new Error("Boat returned an invalid file upload URL");
+    const signal = AbortSignal.any([context.signal, AbortSignal.timeout(BOAT_UPLOAD_TIMEOUT_MS)]);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "PUT",
+        body: Buffer.from(file.content),
+        headers: { "Content-Type": "application/octet-stream" },
+        credentials: "omit",
+        redirect: "error",
+        signal,
+      });
+    } catch {
+      if (signal.aborted) throw signal.reason;
+      throw new Error("Boat file upload failed");
+    }
+    await response.body?.cancel().catch(() => undefined);
+    if (!response.ok) throw new Error(`Boat file upload failed (HTTP ${response.status})`);
   }
 
   private async listWorkspaceFiles(
@@ -829,6 +932,7 @@ function boatClient(api: BoatSandboxSdk, apiKey: string): BoatSandboxSdk {
     command: sandboxCall(api.command.bind(api)),
     commandStatus: sandboxCall(api.commandStatus.bind(api)),
     create: startCall("create", wrapBoatCall(api.create.bind(api), apiKey)),
+    createUploadUrl: sandboxCall(api.createUploadUrl.bind(api)),
     get: sandboxCall(api.get.bind(api)),
     hostPort: sandboxCall(api.hostPort.bind(api)),
     recover: startCall("recover", sandboxCall(api.recover.bind(api))),
@@ -956,7 +1060,23 @@ function boatCwd(cwd: string | undefined): string {
 }
 
 function configureBoatWorkspaceCommand(): string {
-  return `mkdir -p ${shellQuote(BOAT_BROWSER_PROFILES)}`;
+  return `mkdir -p ${shellQuote(BOAT_BROWSER_PROFILES)} && ${commandEnvDirectoryCommand()}`;
+}
+
+/** Only `user` may list or read command environment files. */
+function commandEnvDirectoryCommand(): string {
+  const directory = shellQuote(BOAT_COMMAND_ENV);
+  return `mkdir -p -m 700 ${directory} && chmod 700 ${directory}`;
+}
+
+/**
+ * Opens the env file, deletes it, then loads it from the open descriptor, so it is gone before
+ * the requested env (which may change PATH) applies and before `argv` runs. No shell variables:
+ * the requested env may set any name.
+ */
+function sourceEnvironmentCommand(envFile: string, argv: string): string {
+  const file = shellQuote(envFile);
+  return `exec 3< ${file} || exit 1; rm -f -- ${file}; . /dev/fd/3 || exit 1; exec 3<&-; ${argv}`;
 }
 
 function listBoatFilesCommand(directory: string): string {

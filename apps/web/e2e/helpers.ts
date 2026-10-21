@@ -75,6 +75,28 @@ export async function showPasswordForm(page: Page) {
   if (await usePassword.isVisible()) await usePassword.click();
 }
 
+/** Waits for sidebar folds to finish so drag-and-drop targets have stopped moving. */
+export async function waitForSidebarTransitions(page: Page) {
+  // Base UI starts a fold a frame after the toggle, so let it begin before polling.
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+      ),
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document
+            .querySelector("aside")
+            ?.getAnimations({ subtree: true })
+            .filter((animation) => animation instanceof CSSTransition).length ?? 0,
+      ),
+    )
+    .toBe(0);
+}
+
 export async function captureScreenshot(page: Page, testInfo: TestInfo, name: string) {
   const screenshotPath = testInfo.outputPath(`${name}.png`);
   await page.screenshot({

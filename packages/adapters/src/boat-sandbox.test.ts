@@ -1,5 +1,5 @@
 import type * as TimersPromises from "node:timers/promises";
-import type { SandboxStateEnum } from "@boatdev/sdk";
+import type { FileUrlResponse, SandboxStateEnum } from "@boatdev/sdk";
 import { ResponseError } from "@boatdev/sdk";
 import type { ComputerRef } from "@rakazo/adapter-kit";
 import { SandboxRateLimitError } from "@rakazo/adapter-kit";
@@ -139,9 +139,10 @@ describe("BoatSandboxProvider", () => {
     ]);
     const executeRequest = command.mock.calls
       .map(([request]) => ("commandRequest" in request ? request.commandRequest : undefined))
-      .find((request) => request?.command.includes("TEST_VALUE=works"));
-    expect(parse(executeRequest?.command ?? "").at(-1)).toBe(
-      "'env' 'TEST_VALUE=works' 'env' '-u' 'FAILED' '--' 'echo' 'hello'",
+      .find((request) => request?.command.includes("hello"));
+    expect(executeRequest?.command).not.toContain("works");
+    expect(parse(executeRequest?.command ?? "").at(-1)).toMatch(
+      /; 'env' '-u' 'FAILED' '--' 'echo' 'hello'$/,
     );
     expect(executeRequest?.cwd).toBe("rakazo-home/notes");
 
@@ -161,6 +162,86 @@ describe("BoatSandboxProvider", () => {
     expect(exported).toEqual([
       { path: "bin/tool", content: Uint8Array.from([0, 255, 1]), executable: true },
     ]);
+  });
+
+  it("keeps command secrets out of command text and removes the env file as the command starts", async () => {
+    const command = vi.spyOn(FakeBoatApi.prototype, "command");
+    const writeFile = vi.spyOn(FakeBoatApi.prototype, "writeFile");
+    const { api, provider, computer } = await boat();
+    const secret = "fake-secret-'value' $HOME";
+
+    const events = [];
+    for await (const event of provider.execute(
+      computer,
+      { argv: ["printenv", "FAKE_TOKEN"], env: { FAKE_TOKEN: secret } },
+      context,
+    )) {
+      events.push(event);
+    }
+
+    expect(events).toEqual([
+      { type: "stdout", data: `${secret}\n` },
+      { type: "exit", code: 0 },
+    ]);
+    const commands = command.mock.calls.map(([request]) => request.commandRequest.command);
+    expect(commands.some((text) => text.includes("fake-secret"))).toBe(false);
+    expect(commands.some((text) => text.includes("mkdir -p -m 700"))).toBe(true);
+    const [written] = writeFile.mock.calls.map(([request]) => request.fileWriteRequest);
+    const envFile = written?.path ?? "";
+    expect(envFile).toMatch(/^\/home\/user\/\.rakazo-command-env\/[0-9a-f-]{36}$/);
+    expect(Buffer.from(written?.content ?? "", "base64").toString("utf8")).toContain("fake-secret");
+    // The same command opens, deletes, and loads the file before running argv.
+    const run = parse(commands.find((text) => text.includes(envFile)) ?? "").at(-1);
+    expect(run).toBe(
+      `exec 3< '${envFile}' || exit 1; rm -f -- '${envFile}'; . /dev/fd/3 || exit 1; exec 3<&-; 'printenv' 'FAKE_TOKEN'`,
+    );
+    expect(api.files(computer.id).has(envFile)).toBe(false);
+  });
+
+  it("rejects env names that are not shell identifiers before writing anything", async () => {
+    const command = vi.spyOn(FakeBoatApi.prototype, "command");
+    const writeFile = vi.spyOn(FakeBoatApi.prototype, "writeFile");
+    const { provider, computer } = await boat();
+
+    const run = async () => {
+      for await (const _ of provider.execute(
+        computer,
+        { argv: ["true"], env: { "BAD;NAME": "fake-secret" } },
+        context,
+      ));
+    };
+    await expect(run()).rejects.toThrow("invalid environment variable name");
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(command).not.toHaveBeenCalled();
+  });
+
+  it("removes the env file when the command never starts", async () => {
+    const command = vi.spyOn(FakeBoatApi.prototype, "command");
+    const write = FakeBoatApi.prototype.writeFile;
+    vi.spyOn(FakeBoatApi.prototype, "writeFile").mockImplementationOnce(async function (
+      this: FakeBoatApi,
+      request,
+    ) {
+      await write.call(this, request);
+      throw new Error("connection reset");
+    });
+    const { api, provider, computer } = await boat();
+
+    const run = async () => {
+      for await (const _ of provider.execute(
+        computer,
+        { argv: ["true"], env: { FAKE_TOKEN: "fake-secret" } },
+        context,
+      ));
+    };
+    await expect(run()).rejects.toThrow("connection reset");
+    const commands = command.mock.calls.map(([request]) => request.commandRequest.command);
+    expect(commands.at(-1)).toMatch(
+      /^rm -f -- '\/home\/user\/\.rakazo-command-env\/[0-9a-f-]{36}'$/,
+    );
+    expect(
+      [...api.files(computer.id).keys()].some((file) => file.includes(".rakazo-command-env")),
+    ).toBe(false);
   });
 
   it("resumes an archived sandbox with no inherited environment", async () => {
@@ -368,6 +449,140 @@ describe("BoatSandboxProvider", () => {
     expect(url.searchParams.get("path")).toBe(`/home/user/rakazo-home/${filePath}`);
     expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer test-key");
     expect(init?.signal).toBe(context.signal);
+  });
+
+  it("restores mixed workspace files through inline writes and private binary uploads", async () => {
+    const create = vi.spyOn(FakeBoatApi.prototype, "create");
+    const resume = vi.spyOn(FakeBoatApi.prototype, "resume");
+    const inline = vi.spyOn(FakeBoatApi.prototype, "writeFile");
+    const upload = vi.spyOn(FakeBoatApi.prototype, "createUploadUrl");
+    const { api, provider, computer } = await boat();
+    create.mockClear();
+    const exact = Buffer.alloc(5 * 1024 * 1024, 0xab);
+    const large = Buffer.alloc(exact.length + 1, 0xff);
+    large[0] = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      api.completeUpload(String(url), new Uint8Array(init?.body as Buffer));
+      return new Response(null, { status: 204 });
+    });
+    async function* files() {
+      yield { path: "exact.bin", content: exact };
+      yield { path: ".browser-profiles/chrome/Default/History", content: large };
+      yield { path: "bin/a tool", content: large, executable: true };
+    }
+
+    await provider.importWorkspace(computer, files(), context);
+
+    expect(inline).toHaveBeenCalledOnce();
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(create).not.toHaveBeenCalled();
+    expect(resume).not.toHaveBeenCalled();
+    for (const [path, expected, executable] of [
+      ["exact.bin", exact, false],
+      [".browser-profiles/chrome/Default/History", large, false],
+      ["bin/a tool", large, true],
+    ] as const) {
+      const restored = api.files(computer.id).get(`/home/user/rakazo-home/${path}`);
+      expect(restored?.executable).toBe(executable);
+      expect(Buffer.from(restored!.content).equals(expected)).toBe(true);
+    }
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toMatchObject({ method: "PUT", credentials: "omit", redirect: "error" });
+      expect(new Headers(init?.headers).get("Authorization")).toBeNull();
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+    }
+  });
+
+  it.each([
+    { url: "not a URL" },
+    { url: "http://uploads.on.boat.dev/file" },
+    { url: "https://127.0.0.1/file" },
+    { url: "https://on.boat.dev.attacker.test/file" },
+    { url: "https://user:secret@uploads.on.boat.dev/file" },
+    { url: "https://uploads.on.boat.dev:8443/file" },
+    { url: "https://uploads.on.boat.dev/file#fragment" },
+    { path: "/tmp/other.bin" },
+    { method: "POST" },
+    { ok: false },
+  ])("rejects invalid upload capabilities before sending bytes: %j", async (override) => {
+    const mint = FakeBoatApi.prototype.createUploadUrl;
+    vi.spyOn(FakeBoatApi.prototype, "createUploadUrl").mockImplementation(async function (
+      this: FakeBoatApi,
+      request,
+    ) {
+      return { ...(await mint.call(this, request)), ...override } as FileUrlResponse;
+    });
+    const { provider, computer } = await boat();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("unexpected fetch"));
+    await expect(
+      provider.writeFile(
+        computer,
+        {
+          path: "large.bin",
+          content: Buffer.alloc(5 * 1024 * 1024 + 1),
+        },
+        context,
+      ),
+    ).rejects.toThrow("Boat returned an invalid file upload URL");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["transport", "http"])(
+    "fails uploads without exposing signed URLs or response bodies (%s)",
+    async (failure) => {
+      const command = vi.spyOn(FakeBoatApi.prototype, "command");
+      const { api, provider, computer } = await boat();
+      command.mockClear();
+      const secret = "fake-private-upload-token";
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        if (failure === "transport")
+          throw new Error(`https://uploads.on.boat.dev/?token=${secret}`);
+        return new Response(secret, { status: 503 });
+      });
+      const error = await provider
+        .writeFile(
+          computer,
+          {
+            path: "large.bin",
+            content: Buffer.alloc(5 * 1024 * 1024 + 1),
+            executable: true,
+          },
+          context,
+        )
+        .catch((error: unknown) => error);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        failure === "transport" ? "Boat file upload failed" : "Boat file upload failed (HTTP 503)",
+      );
+      expect((error as Error).cause).toBeUndefined();
+      expect((error as Error).stack).not.toContain(secret);
+      expect(command).not.toHaveBeenCalled();
+      expect(api.files(computer.id).has("/home/user/rakazo-home/large.bin")).toBe(false);
+    },
+  );
+
+  it("cancels in-flight uploads with the caller's signal", async () => {
+    const { provider, computer } = await boat();
+    const controller = new AbortController();
+    const reason = new Error("test cancelled");
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      controller.abort(reason);
+      init?.signal?.throwIfAborted();
+      throw new Error("expected cancellation");
+    });
+    await expect(
+      provider.writeFile(
+        computer,
+        {
+          path: "large.bin",
+          content: Buffer.alloc(5 * 1024 * 1024 + 1),
+        },
+        { ...context, signal: controller.signal },
+      ),
+    ).rejects.toBe(reason);
   });
 
   it("exports browser profile files over 5 MiB without losing their bytes", async () => {

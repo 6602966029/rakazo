@@ -22,6 +22,7 @@ import {
   resolveAskChoice,
   sanitizeJsonValue,
 } from "@rakazo/core";
+import { urlSite } from "@rakazo/core/egress";
 import { approvalEffectKey } from "@rakazo/core/node/approval-effect-key";
 import { getLogger } from "@rakazo/logging";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
@@ -726,7 +727,7 @@ async function commitAnswerRunInput(
     ? LoginSecretValue.safeParse({ username: input.username!.trim(), password: input.answer })
     : undefined;
   if (login && !login.success) return null;
-  let approvalEffect: { id: string; kind: string } | null = null;
+  let approvalEffect: { id: string; kind: string; request: Prisma.JsonValue } | null = null;
   let editedInstructions: string | undefined;
   let approvalAnswer = input.answer;
   if (approvalAsk && pendingAsk.instructionUpdate && input.answer.startsWith("{")) {
@@ -841,24 +842,19 @@ async function commitAnswerRunInput(
       where: { id: approvalEffect!.id },
       data: { status: allowed ? "approved" : "denied" },
     });
-    if (input.answer === "always") {
+    // "Always" on a fetch card allows that site, never every site the tool can reach.
+    const site = alwaysAllowedSite(approvalEffect!);
+    if (input.answer === "always" && (site || approvalEffect!.kind !== "web_fetch")) {
+      const rule = {
+        spaceId: input.spaceId,
+        createdByUserId: approvalUserId!,
+        effect: "always_allow",
+        matchKind: site ? "site" : "tool",
+        matchValue: site ?? approvalEffect!.kind,
+      };
       await tx.actionApprovalRule.upsert({
-        where: {
-          spaceId_createdByUserId_effect_matchKind_matchValue: {
-            spaceId: input.spaceId,
-            createdByUserId: approvalUserId!,
-            effect: "always_allow",
-            matchKind: "tool",
-            matchValue: approvalEffect!.kind,
-          },
-        },
-        create: {
-          spaceId: input.spaceId,
-          createdByUserId: approvalUserId!,
-          effect: "always_allow",
-          matchKind: "tool",
-          matchValue: approvalEffect!.kind,
-        },
+        where: { spaceId_createdByUserId_effect_matchKind_matchValue: rule },
+        create: rule,
         update: {},
       });
     }
@@ -1941,4 +1937,13 @@ async function captureRunAnalytics(
     // Measurement must never turn a committed run into a failed request or worker job.
     getLogger().warn("Run analytics unavailable.");
   }
+}
+
+function alwaysAllowedSite(effect: {
+  kind: string;
+  request: Prisma.JsonValue;
+}): string | undefined {
+  if (effect.kind !== "web_fetch") return undefined;
+  const request = effect.request as { url?: unknown } | null;
+  return typeof request?.url === "string" ? urlSite(request.url) : undefined;
 }
