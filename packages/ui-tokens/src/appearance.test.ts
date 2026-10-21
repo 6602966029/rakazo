@@ -51,11 +51,15 @@ describe("appearance preference", () => {
         key === "chatUserForeground" ||
         key === "destructiveForeground" ||
         key === "destructiveFill" ||
+        key === "faviconPlate" ||
         key === "unread"
       )
         continue;
       expect(darkTokens[key], key).not.toBe(lightTokens[key]);
     }
+    // Link icons keep a white plate in both themes; the light user bubble is near-black.
+    expect(lightTokens.faviconPlate).toBe("#FFFFFF");
+    expect(darkTokens.faviconPlate).toBe("#FFFFFF");
   });
 
   it("keeps working-state blue in its own semantic token across themes", () => {
