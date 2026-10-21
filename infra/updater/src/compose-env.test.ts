@@ -45,6 +45,7 @@ const NOT_PASSED: Record<string, string> = {
   INVOCATION_ID: "restart-supervisor detection for systemd hosts; Compose restarts containers",
   RAKAZO_ALLOW_DEV_SECRETS: "development-only escape hatch for placeholder secrets",
   EMAIL_EMULATOR: "ignored when NODE_ENV=production",
+  GIT_SHA: "baked into the image at build time; a pass-through entry would unset it",
   SHELL: "host shell for the desktop computer, which only the Electron app runs",
   CLOUDFLARE_ACCOUNT_ID: "written into Pi's environment from stored gateway settings",
   CLOUDFLARE_GATEWAY_ID: "written into Pi's environment from stored gateway settings",
@@ -225,6 +226,25 @@ describe("api and worker environment allowlists", () => {
       }
       // The database password reaches both processes only inside DATABASE_URL.
       expect(stackEnvironment(files, "api")).not.toHaveProperty("POSTGRES_PASSWORD");
+    },
+  );
+
+  it.each(STACKS.map((files) => [files.join(" + "), files] as const))(
+    "%s never unsets a value the app image bakes in",
+    (_name, files) => {
+      // A key with no value is removed from the container when unset, image ENV included.
+      const dockerfile = readFileSync(path.join(composeDir, "Dockerfile"), "utf8");
+      const baked = [...dockerfile.matchAll(/^ENV\s+([A-Za-z_][A-Za-z0-9_]*)=/gm)].map(
+        (match) => match[1] ?? "",
+      );
+      expect(baked).toContain("GIT_SHA");
+      for (const service of ["api", "worker"]) {
+        const environment = stackEnvironment(files, service);
+        for (const key of baked) {
+          if (key in environment)
+            expect({ key, value: environment[key] }).not.toEqual({ key, value: null });
+        }
+      }
     },
   );
 });

@@ -743,9 +743,9 @@ docker compose --env-file .env -f infra/compose/docker-compose.prod.yml exec api
 ```
 
 Passing `GIT_SHA` is what makes `/internal/health` report a `"revision"`; a locally built image has no
-other way to know its commit. Prebuilt images from the registry bake it in at publish time, so when
-you switch to a release tag you should leave `GIT_SHA` unset — a value in `.env` would override what
-the image already knows.
+other way to know its commit. Prebuilt images from the registry bake it in at publish time, so
+switching to a release tag needs nothing more: the containers report the revision the image was built
+from, not a `GIT_SHA` in `.env`.
 
 Once a release has been published you can switch this host to prebuilt images by setting
 `RAKAZO_IMAGE_TAG` to that release tag and running `pull` followed by `up -d --wait --pull never`.
