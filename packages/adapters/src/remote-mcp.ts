@@ -15,7 +15,6 @@ import {
   isLinkLocalAddress,
   isLoopbackAddress,
   isPrivateAddress,
-  isTailscaleAddress,
   type ResolvedAddress,
   type ResolveHostname,
   withPinnedDnsLookup,
@@ -176,7 +175,7 @@ async function inspectSafeRemoteUrl(
   }
   if (privateHost && literal) return { url, addresses: literal };
   const addresses = await resolve(hostname);
-  assertAllowedAddresses(addresses, hostname, policy);
+  assertAllowedAddresses(addresses, policy);
   if (url.protocol === "http:" && addresses.some((entry) => !isPrivateAddress(entry.address))) {
     throw new Error("Connector URL must use HTTPS");
   }
@@ -331,7 +330,7 @@ export function createSafeLookup(
       assertLoopbackAddresses(addresses);
       return;
     }
-    assertAllowedAddresses(addresses, hostname, policy);
+    assertAllowedAddresses(addresses, policy);
   });
 }
 
@@ -370,16 +369,12 @@ function assertLoopbackAddresses(addresses: ResolvedAddress[]): void {
   }
 }
 
-function assertAllowedAddresses(
-  addresses: ResolvedAddress[],
-  hostname: string | undefined,
-  policy: RemoteUrlPolicy,
-): void {
+function assertAllowedAddresses(addresses: ResolvedAddress[], policy: RemoteUrlPolicy): void {
   if (policy.allowPrivateEndpoint === true) {
     assertUnmixedAddresses(addresses);
     return;
   }
-  assertPublicAddresses(addresses, hostname);
+  assertPublicAddresses(addresses);
 }
 
 function assertUnmixedAddresses(addresses: ResolvedAddress[]): void {
@@ -401,18 +396,15 @@ function assertUnmixedAddresses(addresses: ResolvedAddress[]): void {
   }
 }
 
-function assertPublicAddresses(addresses: ResolvedAddress[], hostname?: string): void {
+/** Tailnet (*.ts.net) answers are private addresses too, so they need the private-endpoint escape. */
+function assertPublicAddresses(addresses: ResolvedAddress[]): void {
   if (addresses.length === 0) {
     throw new Error("Connector URL resolves to a private address");
   }
-  const magicDns = hostname != null && isTailscaleMagicDnsHostname(hostname);
   if (
-    addresses.some((entry) => {
-      if (isCloudMetadataAddress(entry.address)) return true;
-      if (!isPrivateAddress(entry.address)) return false;
-      // Allow only Tailscale ranges for MagicDNS; keep other private ranges blocked.
-      return !(magicDns && isTailscaleAddress(entry.address));
-    })
+    addresses.some(
+      (entry) => isCloudMetadataAddress(entry.address) || isPrivateAddress(entry.address),
+    )
   ) {
     throw new Error("Connector URL resolves to a private address");
   }

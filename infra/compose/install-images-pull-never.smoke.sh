@@ -148,6 +148,7 @@ BETTER_AUTH_SECRET=test-auth-secret
 ENCRYPTION_KEY=test-encryption-key
 SCREEN_PROXY_SECRET=test-screen-secret
 SANDBOX_SUPERVISOR_TOKEN=test-supervisor-token
+SANDBOX_COMPUTER_EGRESS=open
 EOF
   : > "$work/docker.log"
   : > "$work/curl.log"

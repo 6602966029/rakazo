@@ -18,6 +18,7 @@ readonly DOWNLOAD_BASE
 readonly COMPOSE_FILE="docker-compose.images.yml"
 readonly ENV_EXAMPLE=".env.images.example"
 readonly ENV_FILE=".env"
+readonly EGRESS_SCRIPT="restrict-computer-egress.sh"
 
 prepare_only=false
 skip_existing=false
@@ -283,6 +284,44 @@ YAML
   fi
 }
 
+# Why this host cannot take the restricted-egress firewall rules; empty when it can.
+egress_rules_unsupported() {
+  local os security
+  [[ "$(uname -s)" == Linux ]] || { echo "Docker runs in a VM on this OS"; return; }
+  os=$(docker info --format '{{.OperatingSystem}}' 2>/dev/null) || { echo "docker info failed"; return; }
+  [[ "$os" != *"Docker Desktop"* ]] || { echo "Docker Desktop keeps its networks in a VM"; return; }
+  security=$(docker info --format '{{json .SecurityOptions}}' 2>/dev/null) || security=""
+  [[ "$security" != *rootless* ]] || { echo "rootless Docker"; return; }
+  command -v iptables >/dev/null 2>&1 || echo "iptables is not installed"
+}
+
+# Compose defaults computers to restricted egress, which only works once the host
+# rules are in place. Install them where possible; otherwise record open explicitly
+# so computers keep working, and say what that leaves reachable.
+configure_computer_egress() {
+  local reason
+  # Compose takes the shell value over .env, so either one is the operator's choice.
+  if [[ -n "${SANDBOX_COMPUTER_EGRESS:-}" ]] ||
+    grep -Eq '^[[:space:]]*SANDBOX_COMPUTER_EGRESS=' "$ENV_FILE"; then
+    return 0
+  fi
+  reason=$(egress_rules_unsupported)
+  if [[ -z "$reason" ]] && ! (trap cleanup EXIT; download "$EGRESS_SCRIPT"); then
+    reason="$EGRESS_SCRIPT could not be downloaded"
+  fi
+  if [[ -z "$reason" ]]; then
+    echo "Restricting bot computer egress; installing host firewall rules needs root."
+    if bash "./$EGRESS_SCRIPT"; then
+      printf '\nSANDBOX_COMPUTER_EGRESS=restricted\n' >>"$ENV_FILE"
+      return 0
+    fi
+    reason="the host firewall rules could not be installed"
+  fi
+  printf '\nSANDBOX_COMPUTER_EGRESS=open\n' >>"$ENV_FILE"
+  echo "Warning: bot computers can reach this host, its LAN and cloud metadata ($reason)." >&2
+  echo "See Restricted computer egress in docs/self-host.md." >&2
+}
+
 download "$COMPOSE_FILE"
 download "$ENV_EXAMPLE"
 
@@ -298,6 +337,8 @@ if [[ "$prepare_only" == true ]]; then
   echo "Rakazo files are ready. Edit .env, then run: bash install-images.sh"
   exit 0
 fi
+
+configure_computer_egress
 
 prepare_proxy_env
 if [[ "$pull_never" == true ]]; then

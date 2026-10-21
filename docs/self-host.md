@@ -38,9 +38,8 @@ Optional: set `OPENROUTER_API_KEY` or connect a model in the UI after signup.
 A provider that authenticates from the host needs no key: for Amazon Bedrock with an ECS task,
 IRSA or EC2 instance role, opt in with `PI_DEFAULT_CREDENTIALS=host` and set
 `PI_DEFAULT_PROVIDER=amazon-bedrock`, `PI_DEFAULT_MODEL` and `AWS_REGION`. With an instance
-role, also complete both steps in [Restricted computer egress](#restricted-computer-egress):
-`SANDBOX_COMPUTER_EGRESS=restricted` alone does not stop bot computers reading the role's
-credentials from the metadata endpoint.
+role, keep [restricted computer egress](#restricted-computer-egress) on so bot computers
+cannot read the role's credentials from the metadata endpoint.
 Auto Review uses that LLM checker by default. To use TypeSafe Jev instead, set
 `RAKAZO_AUTO_REVIEW_PROVIDER=jev` and `TYPESAFE_API_KEY`. Core still runs with neither.
 
@@ -89,37 +88,42 @@ supervisor at startup naming the variable, rather than surfacing later as a fail
 
 ### Restricted computer egress
 
-Docker computers have full outbound access by default — the public internet plus the Docker
-host's own addresses, the LAN, and link-local cloud metadata endpoints such as
-`169.254.169.254`. On a cloud VM that last path is instance-credential theft for anything a
-bot runs. Restricted mode keeps public internet egress (browsing, DNS, apt, git over SSH)
-while dropping computer traffic to every non-public destination and to the host itself.
+Docker computers default to restricted egress: the public internet (browsing, DNS, apt, git
+over SSH) but not the Docker host, the LAN, or link-local cloud metadata such as
+`169.254.169.254`, which on a cloud VM would hand instance credentials to anything a bot runs.
 
-It takes two parts, both opt-in:
+It takes two parts:
 
-1. Set `SANDBOX_COMPUTER_EGRESS=restricted` in `.env` and recreate the supervisor. Each
-   computer network then gets a deterministic host bridge name (`rakazo-c…`) instead of a
-   generic `br-*`.
-2. Apply the host ruleset once per Docker host:
+1. `SANDBOX_COMPUTER_EGRESS=restricted`, the Compose default, gives each computer network a
+   deterministic host bridge name (`rakazo-c…`) instead of a generic `br-*`.
+2. The host ruleset, applied once per Docker host:
 
    ```bash
    sudo bash infra/compose/restrict-computer-egress.sh
    ```
 
-   On a no-checkout install, download it first:
-   `curl -fsSLO https://raw.githubusercontent.com/elie222/rakazo/main/infra/compose/restrict-computer-egress.sh`.
-   The script drops forwarded traffic from `rakazo-c*` bridges to all non-public IPv4/IPv6
+   `install-images.sh` downloads and runs it (asking for sudo) and records the result in
+   `.env`. Where the rules cannot be installed (macOS, Windows, Docker Desktop, rootless
+   Docker, no iptables, or a failed run) it writes `SANDBOX_COMPUTER_EGRESS=open` and says
+   why. The script drops forwarded traffic from `rakazo-c*` bridges to all non-public IPv4/IPv6
    destinations via the `DOCKER-USER` chain, adds an `INPUT` drop so computers cannot open
    connections to the host (established replies to host-initiated control and screen
    connections still flow), and installs a systemd oneshot so the rules return after a
    reboot. `--print` shows the exact rules without changing anything; `--remove` uninstalls.
+
+Before the first restricted computer starts, the supervisor checks that the host drops
+connections from a `rakazo-c*` bridge. Without the ruleset, computers fail to start with an
+error naming the script instead of running unrestricted; run the script (no restart needed)
+or set `SANDBOX_COMPUTER_EGRESS=open` and recreate the supervisor. A host-run supervisor
+(`pnpm dev`) and the desktop app's **This computer** stack default to open: Docker Desktop
+keeps its bridges in a VM the host rules cannot reach.
 
 Screen streaming is unaffected: the supervisor and web proxy join each computer's bridge,
 and the ruleset exempts traffic whose in- and out-interface are both `rakazo-c*` before
 any drop (that exemption is load-bearing on hosts where `br_netfilter` feeds bridged
 frames through `FORWARD`). Rules match interface names rather than subnets, so computer
 create/delete cycles need no firewall maintenance; deleting a computer removes its
-traffic from the match and nothing else. A computer provisioned before the flag flips
+traffic from the match and nothing else. A computer provisioned while egress was open
 is replaced on its next provision — resuming it on an unnamed bridge would bypass the
 restriction.
 
@@ -131,14 +135,14 @@ public resolvers (comma-separated IP addresses, such as `1.1.1.1,1.0.0.1`) and r
 supervisor: Docker then forwards computers' lookups there, and each computer picks the
 servers up on its next provision.
 
-To disable restricted egress, set `SANDBOX_COMPUTER_EGRESS=open`, recreate the
-supervisor, and run `sudo bash infra/compose/restrict-computer-egress.sh --remove`.
-The flag alone does not uninstall the host rules, which keep matching the still-named
-`rakazo-c*` bridges until removed.
+If computers must reach LAN services, an internal proxy, or endpoints bound to the host,
+set `SANDBOX_COMPUTER_EGRESS=open`, recreate the supervisor, and run
+`sudo bash infra/compose/restrict-computer-egress.sh --remove`. The flag alone does not
+uninstall the host rules, which keep matching the still-named `rakazo-c*` bridges until
+removed.
 
-Do not enable restricted egress if computers must reach LAN services, an internal proxy,
-or endpoints bound to the host. Requires Linux Docker Engine with the iptables backend —
-Docker Desktop, rootless Docker, and `firewall-backend: nftables` are unsupported. The
+The ruleset requires Linux Docker Engine with the iptables backend; Docker Desktop, rootless
+Docker, and `firewall-backend: nftables` are unsupported. The
 `SANDBOX_SCREEN_NETWORK=internal` topology shares one network instead of per-bot bridges,
 so the mode does not apply there.
 
