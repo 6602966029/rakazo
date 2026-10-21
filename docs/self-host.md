@@ -549,7 +549,11 @@ header only when the TCP peer is in `TRUSTED_PROXIES` (IPs, CIDR ranges, or host
 Compose service name). It reads that header (`CLIENT_IP_HEADER`, default `x-forwarded-for`) right
 to left past trusted hops. Anyone else is the TCP peer, so a client cannot choose its own address.
 Compose sets `TRUSTED_PROXIES` to the hop in front of the API: `caddy` in production, `web`
-elsewhere. For any other layout, list every proxy between the internet and the API.
+elsewhere. The web app's `/api` proxy appends the address it saw, so with only `web` trusted the
+API records the address of whatever connects to the web container, such as your host proxy. To
+record each client instead, also trust that proxy's address as the web container sees it, and make
+sure that proxy overwrites or appends `X-Forwarded-For`. For any other layout, list every proxy
+between the internet and the API.
 
 Caddy resolves the client first. `Caddyfile.prod` takes the TCP peer and overwrites
 `X-Forwarded-For` with it. Behind a CDN, Caddy has to trust the CDN's ranges and read its client
@@ -572,7 +576,7 @@ never include message content, secrets, or tokens. Rows older than `SECURITY_EVE
 (default 90) are deleted, and Postgres rejects updates to the rows that remain.
 
 The deployment owner can read recent events through the `security.events` RPC, filtered by `type`,
-`ip`, `userId`, or `before`. You can also query Postgres:
+`ip`, or `userId`, and paged with `cursor`. You can also query Postgres:
 
 ```bash
 docker compose --env-file .env -f infra/compose/docker-compose.prod.yml exec postgres \

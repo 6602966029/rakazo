@@ -20,6 +20,10 @@ function fakeStore() {
         return data;
       }),
       deleteMany: vi.fn(async (_args: unknown) => ({ count: 2 })),
+      findUnique: vi.fn(async (_args: unknown) => ({
+        id: "event-2",
+        createdAt: new Date("2026-10-20T10:00:00.000Z"),
+      })),
       findMany: vi.fn(async (_args: unknown) => [
         {
           id: "event-1",
@@ -180,18 +184,19 @@ describe("retention", () => {
 });
 
 describe("listSecurityEvents", () => {
-  it("pages newest first and skips types this release does not know", async () => {
+  it("pages newest first from a cursor and skips types this release does not know", async () => {
     const events = await listSecurityEvents(store as never, {
       type: "auth.sign_in.failed",
       ip: "203.0.113.5",
-      before: "2026-10-21T00:00:00.000Z",
+      cursor: "event-2",
       limit: 50,
     });
+    const at = new Date("2026-10-20T10:00:00.000Z");
     expect(store.securityEvent.findMany).toHaveBeenCalledWith({
       where: {
         type: "auth.sign_in.failed",
         ip: "203.0.113.5",
-        createdAt: { lt: new Date("2026-10-21T00:00:00.000Z") },
+        OR: [{ createdAt: { lt: at } }, { createdAt: at, id: { lt: "event-2" } }],
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 50,

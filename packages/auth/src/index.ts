@@ -279,7 +279,6 @@ const ACCOUNT_EVENT_PATHS: Record<string, SecurityEventType> = {
   "/revoke-sessions": "auth.session.revoked",
   "/revoke-other-sessions": "auth.session.revoked",
   "/change-password": "auth.password.changed",
-  "/reset-password": "auth.password.changed",
   "/set-password": "auth.password.changed",
 };
 
@@ -343,6 +342,13 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       minPasswordLength: MIN_PASSWORD_LENGTH,
       maxPasswordLength: MAX_PASSWORD_LENGTH,
       revokeSessionsOnPasswordReset: true,
+      onPasswordReset: async ({ user }) => {
+        await recordSecurityEvent({
+          type: "auth.password.changed",
+          userId: user.id,
+          metadata: { via: "/reset-password" },
+        });
+      },
       resetPasswordTokenExpiresIn: 60 * 60,
       sendResetPassword: env.email
         ? async ({ user, url }) => {

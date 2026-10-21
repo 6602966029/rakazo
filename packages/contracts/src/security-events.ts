@@ -46,7 +46,7 @@ export const SecurityEventListInputSchema = z.object({
   type: SecurityEventTypeSchema.optional(),
   ip: z.string().max(64).optional(),
   userId: z.string().max(128).optional(),
-  /** Exclusive upper bound, for paging back from the newest event. */
-  before: z.string().datetime().optional(),
+  /** The id of the last event on the previous page; the next page starts just after it. */
+  cursor: z.string().max(128).optional(),
   limit: z.number().int().min(1).max(500).default(100),
 });

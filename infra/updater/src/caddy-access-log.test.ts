@@ -21,6 +21,7 @@ describe.each(caddyfiles)("%s access log", (filename) => {
       "request>headers>Authorization delete",
       "request>headers>Proxy-Authorization delete",
       "request>headers>Cookie delete",
+      "request>headers>Referer delete",
       "resp_headers>Set-Cookie delete",
     ]) {
       expect(config).toContain(field);
