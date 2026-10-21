@@ -365,47 +365,54 @@ async function reconcileConnections(
   const updates = [
     ...(sync.connectIds.length > 0
       ? [
-          prisma.connection.updateMany({
-            where: {
-              id: { in: sync.connectIds },
-              spaceId: owner.spaceId,
-              userId: owner.userId,
-              status: "pending",
-            },
-            data: { status: "connected" },
-          }),
+          (tx: Prisma.TransactionClient) =>
+            tx.connection.updateMany({
+              where: {
+                id: { in: sync.connectIds },
+                spaceId: owner.spaceId,
+                userId: owner.userId,
+                status: "pending",
+              },
+              data: { status: "connected" },
+            }),
         ]
       : []),
     ...(sync.revokeIds.length > 0
       ? [
-          prisma.connection.updateMany({
-            where: {
-              id: { in: sync.revokeIds },
-              spaceId: owner.spaceId,
-              userId: owner.userId,
-              status: "pending",
-            },
-            data: { status: "revoked" },
-          }),
+          (tx: Prisma.TransactionClient) =>
+            tx.connection.updateMany({
+              where: {
+                id: { in: sync.revokeIds },
+                spaceId: owner.spaceId,
+                userId: owner.userId,
+                status: "pending",
+              },
+              data: { status: "revoked" },
+            }),
         ]
       : []),
     // The provider reports these accounts dead, so the app offers to connect them again.
     ...(reconnectRefs.length > 0
       ? [
-          prisma.connection.updateMany({
-            where: {
-              spaceId: owner.spaceId,
-              userId: owner.userId,
-              connectorId,
-              status: "connected",
-              providerRef: { in: reconnectRefs },
-            },
-            data: { status: "error" },
-          }),
+          (tx: Prisma.TransactionClient) =>
+            tx.connection.updateMany({
+              where: {
+                spaceId: owner.spaceId,
+                userId: owner.userId,
+                connectorId,
+                status: "connected",
+                providerRef: { in: reconnectRefs },
+              },
+              data: { status: "error" },
+            }),
         ]
       : []),
   ];
-  if (updates.length > 0) await prisma.$transaction(updates);
+  // Interactive rather than a batch: a batch cannot carry the request's database context.
+  if (updates.length > 0)
+    await prisma.$transaction(async (tx) => {
+      for (const update of updates) await update(tx);
+    });
 }
 
 /** Serialize begin/revoke for one user+provider so slug-wide remote deletes cannot race a new connect. */

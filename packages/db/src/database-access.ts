@@ -80,22 +80,6 @@ async function provisionWith(owner: Client, runtimeUrl: string): Promise<{ warni
   await owner.query(
     `DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO ${RUNTIME_ROLE}', current_database()); END $$`,
   );
-  const existing = await owner.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
-    "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = $1",
-    [login],
-  );
-  const role = existing.rows[0];
-  if (role && (role.rolsuper || role.rolbypassrls)) {
-    return {
-      warning: `DATABASE_URL logs in as ${login}, which ${role.rolsuper ? "is a superuser" : "bypasses row-level security"}; row-level security is not enforced.`,
-    };
-  }
-  const name = escapeIdentifier(login);
-  const secret = password ? `PASSWORD ${escapeLiteral(password)}` : "";
-  const limits = "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION";
-  if (!role) await owner.query(`CREATE ROLE ${name} LOGIN ${secret} ${limits}`);
-  else await owner.query(`ALTER ROLE ${name} LOGIN ${secret} ${limits}`);
-  if (login !== RUNTIME_ROLE) await owner.query(`GRANT ${RUNTIME_ROLE} TO ${name}`);
   // graphile-worker's schema is installed by the job queue migration that runs
   // just before this, so its grants cannot live in a Prisma migration.
   await owner.query(`
@@ -109,6 +93,43 @@ async function provisionWith(owner: Client, runtimeUrl: string): Promise<{ warni
       END IF;
     END $$;
   `);
+  const existing = await owner.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
+    "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = $1",
+    [login],
+  );
+  const role = existing.rows[0];
+  if (role && (role.rolsuper || role.rolbypassrls)) {
+    return {
+      warning: `DATABASE_URL logs in as ${login}, which ${role.rolsuper ? "is a superuser" : "bypasses row-level security"}; row-level security is not enforced.`,
+    };
+  }
+  const [admin] = (
+    await owner.query<{ can: boolean }>(
+      "SELECT rolsuper OR rolcreaterole AS can FROM pg_roles WHERE rolname = current_user",
+    )
+  ).rows;
+  if (!admin?.can) {
+    // Managed Postgres may not give the owner CREATEROLE. A login created and
+    // granted rakazo_app by an administrator is used as it is.
+    const member = role
+      ? (
+          await owner.query<{ member: boolean }>("SELECT pg_has_role($1, $2, 'MEMBER') AS member", [
+            login,
+            RUNTIME_ROLE,
+          ])
+        ).rows[0]?.member
+      : false;
+    if (member) return {};
+    throw new Error(
+      `The migration role cannot create logins. Create ${login} (LOGIN NOBYPASSRLS) and GRANT ${RUNTIME_ROLE} TO it, then deploy again.`,
+    );
+  }
+  const name = escapeIdentifier(login);
+  const secret = password ? `PASSWORD ${escapeLiteral(password)}` : "";
+  const limits = "NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION";
+  if (!role) await owner.query(`CREATE ROLE ${name} LOGIN ${secret} ${limits}`);
+  else await owner.query(`ALTER ROLE ${name} LOGIN ${secret} ${limits}`);
+  if (login !== RUNTIME_ROLE) await owner.query(`GRANT ${RUNTIME_ROLE} TO ${name}`);
   return {};
 }
 
