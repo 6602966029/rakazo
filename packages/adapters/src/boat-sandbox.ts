@@ -50,6 +50,8 @@ const BOAT_TTL_SECONDS = 2 * 60 * 60;
 const BOAT_DELETE_TIMEOUT_MS = 60_000;
 const BOAT_GONE_CHECK_TIMEOUT_MS = 10_000;
 const BOAT_EXPORT_CONCURRENCY = 16;
+const BOAT_INLINE_FILE_MAX_BYTES = 5 * 1024 * 1024;
+const BOAT_UPLOAD_TIMEOUT_MS = 5 * 60_000;
 
 /** The Boat API surface the adapter uses. Failures are the SDK's raw `ResponseError`s. */
 export type BoatSandboxSdk = Pick<
@@ -58,6 +60,7 @@ export type BoatSandboxSdk = Pick<
   | "command"
   | "commandStatus"
   | "create"
+  | "createUploadUrl"
   | "get"
   | "hostPort"
   | "recover"
@@ -603,19 +606,21 @@ export class BoatSandboxProvider implements SandboxProvider {
     if (!files.length) return;
     await Promise.all(
       files.map((file) =>
-        this.whenRunnable(id, context.signal, () =>
-          this.client.writeFile(
-            {
-              sandboxId: id,
-              fileWriteRequest: {
-                path: workspacePath(BOAT_WORKSPACE, file.path),
-                content: Buffer.from(file.content).toString("base64"),
-                encoding: "base64",
-              },
-            },
-            { signal: context.signal },
-          ),
-        ),
+        file.content.byteLength > BOAT_INLINE_FILE_MAX_BYTES
+          ? this.uploadFile(id, file, context)
+          : this.whenRunnable(id, context.signal, () =>
+              this.client.writeFile(
+                {
+                  sandboxId: id,
+                  fileWriteRequest: {
+                    path: workspacePath(BOAT_WORKSPACE, file.path),
+                    content: Buffer.from(file.content).toString("base64"),
+                    encoding: "base64",
+                  },
+                },
+                { signal: context.signal },
+              ),
+            ),
       ),
     );
     const executable = files.map(
@@ -632,6 +637,55 @@ export class BoatSandboxProvider implements SandboxProvider {
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || result.stdout || "could not set Boat file permissions");
     }
+  }
+
+  private async uploadFile(id: string, file: PortableFile, context: AdapterContext): Promise<void> {
+    context.signal.throwIfAborted();
+    const filePath = workspacePath(BOAT_WORKSPACE, file.path);
+    const signed = await this.whenRunnable(id, context.signal, () =>
+      this.client.createUploadUrl(
+        { sandboxId: id, fileUrlRequest: { path: filePath } },
+        { signal: context.signal },
+      ),
+    );
+    // The provider's capability URL is a secret. Confine it to Boat's sandbox hosts and
+    // never forward API credentials, follow redirects, or expose transport errors containing it.
+    let url: URL;
+    try {
+      url = new URL(signed.url);
+    } catch {
+      throw new Error("Boat returned an invalid file upload URL");
+    }
+    if (
+      !signed.ok ||
+      signed.type !== "file.upload_url" ||
+      signed.method !== "PUT" ||
+      signed.path !== filePath ||
+      url.protocol !== "https:" ||
+      !url.hostname.endsWith(".on.boat.dev") ||
+      url.username ||
+      url.password ||
+      (url.port && url.port !== "443") ||
+      url.hash
+    )
+      throw new Error("Boat returned an invalid file upload URL");
+    const signal = AbortSignal.any([context.signal, AbortSignal.timeout(BOAT_UPLOAD_TIMEOUT_MS)]);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "PUT",
+        body: Buffer.from(file.content),
+        headers: { "Content-Type": "application/octet-stream" },
+        credentials: "omit",
+        redirect: "error",
+        signal,
+      });
+    } catch {
+      if (signal.aborted) throw signal.reason;
+      throw new Error("Boat file upload failed");
+    }
+    await response.body?.cancel().catch(() => undefined);
+    if (!response.ok) throw new Error(`Boat file upload failed (HTTP ${response.status})`);
   }
 
   private async listWorkspaceFiles(
@@ -878,6 +932,7 @@ function boatClient(api: BoatSandboxSdk, apiKey: string): BoatSandboxSdk {
     command: sandboxCall(api.command.bind(api)),
     commandStatus: sandboxCall(api.commandStatus.bind(api)),
     create: startCall("create", wrapBoatCall(api.create.bind(api), apiKey)),
+    createUploadUrl: sandboxCall(api.createUploadUrl.bind(api)),
     get: sandboxCall(api.get.bind(api)),
     hostPort: sandboxCall(api.hostPort.bind(api)),
     recover: startCall("recover", sandboxCall(api.recover.bind(api))),

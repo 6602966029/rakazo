@@ -8,6 +8,8 @@ import type {
   CommandStatusResponse,
   CreateRequest,
   CreateSandboxResponse,
+  CreateUploadUrlRequest,
+  FileUrlResponse,
   FileWriteResponse,
   GetRequest,
   HostPortOperationRequest,
@@ -66,6 +68,7 @@ export class FakeBoatApi implements BoatSandboxSdk {
   private readonly desktop = desktopCommandResponder();
   private readonly detached = new Map<number, CommandResponse>();
   private created = 0;
+  private readonly uploads = new Map<string, { sandboxId: string; path: string }>();
   private startsExhausted = false;
   private rejectAll?: { status: number; code: string; message: string };
 
@@ -205,9 +208,35 @@ export class FakeBoatApi implements BoatSandboxSdk {
     };
   }
 
+  async createUploadUrl({
+    sandboxId,
+    fileUrlRequest,
+  }: CreateUploadUrlRequest): Promise<FileUrlResponse> {
+    this.runnable(sandboxId);
+    const url = `https://uploads.on.boat.dev/file?token=fake-upload-${this.uploads.size}`;
+    this.uploads.set(url, { sandboxId, path: fileUrlRequest.path });
+    return {
+      ok: true,
+      type: "file.upload_url",
+      method: "PUT",
+      url,
+      path: fileUrlRequest.path,
+      expiresAt: new Date(Date.now() + 900_000),
+    };
+  }
+
+  completeUpload(url: string, content: Uint8Array): void {
+    const upload = this.uploads.get(url);
+    if (!upload) throw new Error("Unknown fake upload");
+    this.runnable(upload.sandboxId).files.set(upload.path, { content, executable: false });
+  }
+
   async writeFile({ sandboxId, fileWriteRequest }: WriteFileRequest): Promise<FileWriteResponse> {
     const box = this.runnable(sandboxId);
     const content = Uint8Array.from(Buffer.from(fileWriteRequest.content, "base64"));
+    if (content.byteLength > 5 * 1024 * 1024) {
+      throw boatError(400, "sandbox_direct_failed", "File exceeds the inline write limit");
+    }
     box.files.set(fileWriteRequest.path, { content, executable: false });
     return {
       ok: true,

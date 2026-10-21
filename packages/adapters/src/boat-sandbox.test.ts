@@ -1,5 +1,5 @@
 import type * as TimersPromises from "node:timers/promises";
-import type { SandboxStateEnum } from "@boatdev/sdk";
+import type { FileUrlResponse, SandboxStateEnum } from "@boatdev/sdk";
 import { ResponseError } from "@boatdev/sdk";
 import type { ComputerRef } from "@rakazo/adapter-kit";
 import { SandboxRateLimitError } from "@rakazo/adapter-kit";
@@ -449,6 +449,140 @@ describe("BoatSandboxProvider", () => {
     expect(url.searchParams.get("path")).toBe(`/home/user/rakazo-home/${filePath}`);
     expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer test-key");
     expect(init?.signal).toBe(context.signal);
+  });
+
+  it("restores mixed workspace files through inline writes and private binary uploads", async () => {
+    const create = vi.spyOn(FakeBoatApi.prototype, "create");
+    const resume = vi.spyOn(FakeBoatApi.prototype, "resume");
+    const inline = vi.spyOn(FakeBoatApi.prototype, "writeFile");
+    const upload = vi.spyOn(FakeBoatApi.prototype, "createUploadUrl");
+    const { api, provider, computer } = await boat();
+    create.mockClear();
+    const exact = Buffer.alloc(5 * 1024 * 1024, 0xab);
+    const large = Buffer.alloc(exact.length + 1, 0xff);
+    large[0] = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      api.completeUpload(String(url), new Uint8Array(init?.body as Buffer));
+      return new Response(null, { status: 204 });
+    });
+    async function* files() {
+      yield { path: "exact.bin", content: exact };
+      yield { path: ".browser-profiles/chrome/Default/History", content: large };
+      yield { path: "bin/a tool", content: large, executable: true };
+    }
+
+    await provider.importWorkspace(computer, files(), context);
+
+    expect(inline).toHaveBeenCalledOnce();
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(create).not.toHaveBeenCalled();
+    expect(resume).not.toHaveBeenCalled();
+    for (const [path, expected, executable] of [
+      ["exact.bin", exact, false],
+      [".browser-profiles/chrome/Default/History", large, false],
+      ["bin/a tool", large, true],
+    ] as const) {
+      const restored = api.files(computer.id).get(`/home/user/rakazo-home/${path}`);
+      expect(restored?.executable).toBe(executable);
+      expect(Buffer.from(restored!.content).equals(expected)).toBe(true);
+    }
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toMatchObject({ method: "PUT", credentials: "omit", redirect: "error" });
+      expect(new Headers(init?.headers).get("Authorization")).toBeNull();
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+    }
+  });
+
+  it.each([
+    { url: "not a URL" },
+    { url: "http://uploads.on.boat.dev/file" },
+    { url: "https://127.0.0.1/file" },
+    { url: "https://on.boat.dev.attacker.test/file" },
+    { url: "https://user:secret@uploads.on.boat.dev/file" },
+    { url: "https://uploads.on.boat.dev:8443/file" },
+    { url: "https://uploads.on.boat.dev/file#fragment" },
+    { path: "/tmp/other.bin" },
+    { method: "POST" },
+    { ok: false },
+  ])("rejects invalid upload capabilities before sending bytes: %j", async (override) => {
+    const mint = FakeBoatApi.prototype.createUploadUrl;
+    vi.spyOn(FakeBoatApi.prototype, "createUploadUrl").mockImplementation(async function (
+      this: FakeBoatApi,
+      request,
+    ) {
+      return { ...(await mint.call(this, request)), ...override } as FileUrlResponse;
+    });
+    const { provider, computer } = await boat();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("unexpected fetch"));
+    await expect(
+      provider.writeFile(
+        computer,
+        {
+          path: "large.bin",
+          content: Buffer.alloc(5 * 1024 * 1024 + 1),
+        },
+        context,
+      ),
+    ).rejects.toThrow("Boat returned an invalid file upload URL");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["transport", "http"])(
+    "fails uploads without exposing signed URLs or response bodies (%s)",
+    async (failure) => {
+      const command = vi.spyOn(FakeBoatApi.prototype, "command");
+      const { api, provider, computer } = await boat();
+      command.mockClear();
+      const secret = "fake-private-upload-token";
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+        if (failure === "transport")
+          throw new Error(`https://uploads.on.boat.dev/?token=${secret}`);
+        return new Response(secret, { status: 503 });
+      });
+      const error = await provider
+        .writeFile(
+          computer,
+          {
+            path: "large.bin",
+            content: Buffer.alloc(5 * 1024 * 1024 + 1),
+            executable: true,
+          },
+          context,
+        )
+        .catch((error: unknown) => error);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        failure === "transport" ? "Boat file upload failed" : "Boat file upload failed (HTTP 503)",
+      );
+      expect((error as Error).cause).toBeUndefined();
+      expect((error as Error).stack).not.toContain(secret);
+      expect(command).not.toHaveBeenCalled();
+      expect(api.files(computer.id).has("/home/user/rakazo-home/large.bin")).toBe(false);
+    },
+  );
+
+  it("cancels in-flight uploads with the caller's signal", async () => {
+    const { provider, computer } = await boat();
+    const controller = new AbortController();
+    const reason = new Error("test cancelled");
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      controller.abort(reason);
+      init?.signal?.throwIfAborted();
+      throw new Error("expected cancellation");
+    });
+    await expect(
+      provider.writeFile(
+        computer,
+        {
+          path: "large.bin",
+          content: Buffer.alloc(5 * 1024 * 1024 + 1),
+        },
+        { ...context, signal: controller.signal },
+      ),
+    ).rejects.toBe(reason);
   });
 
   it("exports browser profile files over 5 MiB without losing their bytes", async () => {
