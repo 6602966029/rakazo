@@ -5513,11 +5513,9 @@ export function createRouter(deps: RouterDeps) {
                 // Authorization URLs from a revoke-win begin can still finish
                 // remotely. Cancel leftover Composio request ids / drop Pipedream
                 // remotes no active local row still references before rejecting.
-                const revokedContext = connectionContext(
-                  context.actor,
-                  "connections.complete",
-                  context.signal,
-                );
+                // Not the request signal: clients abort a poll they no longer need, and
+                // that must not cut short removing the leftover remote account.
+                const revokedContext = connectionContext(context.actor, "connections.complete");
                 const restoreRevokedForRetry = async () => {
                   // Cleanup failed while the row is already revoked — restore pending
                   // so the UI can retry removal instead of leaving an orphan remote.

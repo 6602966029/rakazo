@@ -1212,11 +1212,13 @@ function emptyAuthBodyAsJson(request: Request) {
  */
 /** Log the failure, then give known failures their own status instead of a generic 500. */
 export function handleRpcError(error: unknown, path: readonly string[]): void {
-  logUnexpectedRpcError(error, path);
-  // A missing or foreign resource is the caller's mistake, not a server failure.
+  // A missing or foreign resource is the caller's mistake (a stale client, a deleted bot),
+  // not a server failure, so it is a warning rather than an error report.
   if (error instanceof IsolationError) {
+    getLogger().warn(`rpc ${path.join("/")} not found`, { "error.stack": error.stack });
     throw new ORPCError("NOT_FOUND", { message: error.message, cause: error });
   }
+  logUnexpectedRpcError(error, path);
   if (error instanceof SandboxRateLimitError) {
     throw new ORPCError("TOO_MANY_REQUESTS", { message: error.message, cause: error });
   }

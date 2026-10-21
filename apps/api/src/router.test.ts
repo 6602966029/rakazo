@@ -2383,7 +2383,7 @@ describe("connections.complete", () => {
     );
     const sink = createTestSink();
     installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
-    async function complete(connectionId = row.id) {
+    async function complete(connectionId = row.id, signal?: AbortSignal) {
       const { response } = await handler.handle(
         new Request("http://127.0.0.1/rpc/connections/complete", {
           method: "POST",
@@ -2399,6 +2399,7 @@ describe("connections.complete", () => {
               email: "user@rakazo.test",
               isDeploymentOwner: true,
             },
+            signal,
           },
         },
       );
@@ -2431,6 +2432,21 @@ describe("connections.complete", () => {
     });
     expect(connector.connectionReady).not.toHaveBeenCalled();
     expect(securityEvents()).toEqual([]);
+  });
+
+  it("finishes removing a superseded remote after the poll that triggered it is aborted", async () => {
+    const { complete, connector, row } = pollFixture("revoked");
+    row.providerRef = "request-1";
+    const poll = new AbortController();
+    poll.abort();
+
+    await expect(complete(row.id, poll.signal)).resolves.toMatchObject({
+      body: { json: { status: "revoked" } },
+    });
+    expect(connector.revoke).toHaveBeenCalledWith(
+      "request-1",
+      expect.objectContaining({ signal: expect.objectContaining({ aborted: false }) }),
+    );
   });
 
   it("records one credential event per connection, not per poll", async () => {
