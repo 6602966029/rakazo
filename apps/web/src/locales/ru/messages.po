@@ -17,11 +17,6 @@ msgstr ""
 msgid " (unread)"
 msgstr " (непрочитано)"
 
-#. placeholder {0}: tools.length
-#: src/pages/PluginsOverlay.tsx
-msgid "{0, plural, one {# tool} other {# tools}}"
-msgstr ""
-
 #. placeholder {0}: health.toolCount
 #: src/components/McpServerHealthLine.tsx
 msgid "{0, plural, one {Running · # tool} other {Running · # tools}}"
@@ -291,6 +286,10 @@ msgstr "{summary} Сброс: {date}."
 #: src/pages/ActivityList.tsx
 msgid "{title}, {label}"
 msgstr "{title}, {label}"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "{toolCount, plural, one {# tool} other {# tools}}"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "{workingBotName} is working"

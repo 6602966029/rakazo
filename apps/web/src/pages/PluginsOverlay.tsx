@@ -515,6 +515,7 @@ export function PluginsOverlay({
     const key = catalogItemKey(item);
     const connecting = pending === key;
     const uninstalling = pending === `uninstall:${key}`;
+    const toolCount = tools.length;
 
     return (
       <div data-testid="connection-detail" className="space-y-5">
@@ -608,7 +609,7 @@ export function PluginsOverlay({
               toolsLoading ? (
                 <Trans>Tools</Trans>
               ) : (
-                <Plural value={tools.length} one="# tool" other="# tools" />
+                <Plural value={toolCount} one="# tool" other="# tools" />
               )
             }
           >
