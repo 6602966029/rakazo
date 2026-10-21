@@ -119,7 +119,12 @@ const structuredData = homeStructuredData({
         <p class="lead">
           {copy.hero.lead}
         </p>
-        <GetStartedActions class="hero__actions" copy={copy.hero} placement="hero" />
+        <GetStartedActions
+          class="hero__actions"
+          copy={copy.hero}
+          placement="hero"
+          githubLabel={copy.openSource.starOnGithub}
+        />
         <div class="hero__agent-setup">
           <button
             class="setup-copy"
