@@ -366,7 +366,10 @@ export function planActionGate(input: {
   consequential: boolean;
   autoReviewEnabled: boolean;
   checkerConfigured: boolean;
-  /** A fetch to a site the run was not given (see outboundSiteGate). */
+  /**
+   * A fetch to a site the run was not given (see outboundSiteGate), or a routine written after
+   * outside content entered the run that names one, since its prompt will count as the owner's.
+   */
   newDestination?: boolean;
 }): "ask" | "allow" | "judge" {
   if (input.resolved.decision === "ask") return "ask";

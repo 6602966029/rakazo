@@ -97,6 +97,7 @@ import {
   renderBotDirectory,
   resolveActionApprovalDetail,
   sandboxCommandTimeoutMs,
+  siteAlwaysAllowed,
   TAKEOVER_COMPUTER_PENDING_STATE,
   toolRequiresApproval,
   toolRequiresExplicitApproval,
@@ -4314,6 +4315,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
             });
           return trustedSitesPromise;
         };
+        const routineNamesNewSite = async (prompt: string) => {
+          const trusted = await loadTrustedSites();
+          const rules = await loadApprovalRules();
+          return [...sitesInText(prompt)].some(
+            (site) => !trusted.has(site) && !siteAlwaysAllowed(rules, site),
+          );
+        };
         let trustedConnectorsPromise: Promise<Set<string>> | undefined;
         const loadTrustedConnectors = () => {
           const providers = connectedPlugins.map((plugin) => plugin.provider);
@@ -4933,10 +4941,18 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // the command once, rather than letting an allow rule or reviewer schedule it.
           const commandWatch =
             name === "schedule_create" && commandWatchFromTool(args.watch) !== undefined;
+          // A routine's prompt counts as the owner's words when it runs, so the sites it names are
+          // ones that run may fetch. Once outside content entered this run, a routine naming a
+          // site this run was not given is gated like a fetch to that site.
+          const scheduleNamesNewSite =
+            name === "schedule_create" &&
+            (await isRunTainted()) &&
+            (await routineNamesNewSite(String(args.prompt ?? "")));
           const requiresApprovalByDefault =
             commandWatch ||
             requiresUnattendedApproval ||
             siteGate === "new" ||
+            scheduleNamesNewSite ||
             connectorReadGated ||
             toolRequiresApproval(name, viaConnector, declaredReadOnly);
           const requiresMandatoryApproval =
@@ -4980,7 +4996,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 consequential: requiresApprovalByDefault,
                 autoReviewEnabled: autoReviewPref,
                 checkerConfigured,
-                newDestination: siteGate === "new",
+                newDestination: siteGate === "new" || scheduleNamesNewSite,
               });
           let reviewReason: string | undefined;
           let gateDecision: "ask" | "allow" = plan === "ask" ? "ask" : "allow";
