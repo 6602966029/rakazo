@@ -38,7 +38,11 @@ else if (args[0] === "pr" && args[1] === "view") {
     process.stderr.write(result.stderr);
     process.exit(result.status);
   }
-  else if (endpoint.includes("/status?")) {}
+  else if (endpoint.includes("/status?")) {
+    const polls = fixture.statuses ?? [[]];
+    const count = readFileSync(process.env.POLLS, "utf8").length;
+    for (const status of polls[Math.min(count, polls.length) - 1]) print(status);
+  }
   else if (endpoint.includes("/issues/")) print(fixture.conversation ?? []);
   else if (endpoint.includes("/reviews?")) print(fixture.reviews ?? []);
   else if (endpoint.includes("/comments?")) print(fixture.inline ?? []);
@@ -70,6 +74,7 @@ function runDigest(
     reviews?: object[];
     check?: object;
     checks?: object[];
+    statuses?: object[][];
     steps?: object[];
     deadline?: number;
   },
@@ -225,6 +230,15 @@ describe("pr-digest", () => {
 
     it("wakes when a check fails while others are still running", () => {
       const result = runDigest({ checks: [running, [failed, running]] }, "--watch", "1");
+      expect(result.status).toBe(10);
+    });
+
+    it("wakes when a commit status fails while checks are still running", () => {
+      const result = runDigest(
+        { check: running, statuses: [[], [{ context: "deploy", state: "failure" }]] },
+        "--watch",
+        "1",
+      );
       expect(result.status).toBe(10);
     });
 

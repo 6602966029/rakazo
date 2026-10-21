@@ -24,8 +24,15 @@ die() { echo "pr-digest: $*" >&2; exit 1; }
 
 seen_path() { echo "$SEEN_DIR/${1//\//-}-$2"; }
 
-failed_names() {
-  jq -r '.[] | select(.conclusion != null and (.conclusion | test("^(success|neutral|skipped)$") | not)) | .name' <<<"$1" | sort -u
+# One line per failed check run or commit status on a head. The head and the
+# job URL make a re-run or a new commit's failure distinct from an earlier one.
+failure_ids() {
+  local head=$1 runs=$2 statuses=$3
+  {
+    jq -r --arg h "$head" '.[] | select(.conclusion != null and (.conclusion | test("^(success|neutral|skipped)$") | not))
+      | "\($h) run \(.name) \(.html_url // "")"' <<<"$runs"
+    jq -r --arg h "$head" '.[] | select(.state | test("^(failure|error)$")) | "\($h) status \(.context)"' <<<"$statuses"
+  } | sort -u
 }
 
 # A failed API call must never look like a clean PR, so every fetch is checked.
@@ -346,8 +353,8 @@ main() {
       # check settles: a check that newly failed, or a finding not yet shown.
       # Failures already present at the start were seen and do not wake it again.
       if [ "$first" = 1 ]; then
-        baseline=$(failed_names "$runs"); first=0
-      elif [ -n "$(comm -13 <(echo "$baseline") <(failed_names "$runs"))" ]; then
+        baseline=$(failure_ids "$head" "$runs" "$statuses"); first=0
+      elif [ -n "$(comm -13 <(echo "$baseline") <(failure_ids "$head" "$runs" "$statuses"))" ]; then
         break
       fi
       findings "$pr" "$repo" "$viewer"
