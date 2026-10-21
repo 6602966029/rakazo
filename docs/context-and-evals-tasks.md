@@ -592,8 +592,18 @@ whole checklist is complete. The implementation goal resumed after this handoff.
   UTF-8 bytes and framing provide a conservative text estimate rather than an
   exact tokenizer count. Unknown images use their encoded bytes; this is not a
   universal upper bound for every provider's vision processing. Provider-specific
-  image estimates can improve this bound. Required content that cannot fit the
-  estimated budget fails explicitly instead of being silently discarded.
+  image estimates can improve this bound. Pi estimates known image dimensions per
+  composited frame by fitting within 2048×2048 without upscaling, then taking
+  `max(1024, 85 + 170 * ceil(width / 512) * ceil(height / 512), ceil(width * height / 750))`.
+  This conservatively bounds the [OpenAI standard tile policy](https://developers.openai.com/api/docs/guides/images-vision)
+  (which further reduces the shortest side to 768px) and the
+  [Anthropic standard area policy](https://platform.claude.com/docs/en/build-with-claude/vision)
+  (which caps the long edge at 1568px). A 4000×3000 image estimates at 4,195 tokens.
+  This changes planning only; original image bytes are still submitted, usage is
+  provider-reported, and model-specific high/original-resolution modes may cost more.
+  Malformed or unsupported images retain the encoded-byte fallback. Required
+  content that cannot fit the estimated budget fails explicitly instead of being
+  silently discarded.
 - A full offline run with four workers and a supported Node release passed 3,740
   tests across 363 files; 164 opt-in tests across 30 files were skipped. Subsequent
   security and accounting fixes require their focused integration checks and a
