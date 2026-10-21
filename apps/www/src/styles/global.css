@@ -892,31 +892,29 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 }
 
 .platforms .section-intro {
-  max-width: 520px;
+  max-width: none;
 }
 
 .platforms__cards {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
   margin-top: 36px;
 }
 
 .platform-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  column-gap: 18px;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   background: var(--surface);
   box-shadow: var(--shadow-soft);
-  padding: 18px 20px;
+  padding: 22px 20px 20px;
 }
 
 .platform-card__icon {
-  grid-row: span 2;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   fill: none;
   stroke: var(--ink);
   stroke-width: 1.8;
@@ -930,7 +928,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 }
 
 .platform-card h3 {
-  margin: 0 0 8px;
+  margin: 18px 0 14px;
   color: var(--ink);
   font-size: 17px;
   font-weight: 600;
@@ -1121,19 +1119,31 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 
   .platforms .section-intro {
     justify-self: stretch;
-    max-width: none;
   }
 }
 
 @media (max-width: 720px) {
+  .platforms__cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
   .platform-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
     column-gap: 16px;
     padding: 16px;
   }
 
   .platform-card__icon {
+    grid-row: span 2;
     width: 36px;
     height: 36px;
+  }
+
+  .platform-card h3 {
+    margin: 0 0 8px;
   }
 
   .phone {
@@ -3313,10 +3323,19 @@ button.product-demo__dock-icon {
 }
 
 .provider-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--line-2);
   border-radius: 6px;
   background: var(--surface);
   color: var(--body);
   padding: 4px 8px;
+}
+
+.provider-chip svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
 
