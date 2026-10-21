@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   clientIpMiddleware,
   createClientIpResolver,
+  defaultTrustedProxies,
   LOCAL_NETWORKS,
   requestClientIp,
   withClientIp,
@@ -105,6 +106,16 @@ describe("createClientIpResolver", () => {
       "192.168.181.2",
     );
     expect(await resolve({ peer: "203.0.113.9", forwarded: "198.51.100.1" })).toBe("203.0.113.9");
+  });
+
+  it("defaults to local networks only in a container, so a host's LAN is never trusted", () => {
+    expect(defaultTrustedProxies(true)).toEqual([LOCAL_NETWORKS]);
+    expect(defaultTrustedProxies(false)).toEqual(["127.0.0.1", "::1"]);
+  });
+
+  it("trusts no proxy for none", async () => {
+    const resolve = createClientIpResolver({ trustedProxies: ["none"], header });
+    expect(await resolve({ peer: "127.0.0.1", forwarded: "203.0.113.5" })).toBe("127.0.0.1");
   });
 
   it("returns nothing without a socket peer, whatever the header says", async () => {

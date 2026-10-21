@@ -1,4 +1,5 @@
 import { lookup } from "node:dns/promises";
+import { existsSync } from "node:fs";
 import { BlockList, isIP } from "node:net";
 import { networkInterfaces } from "node:os";
 import { getConnInfo } from "@hono/node-server/conninfo";
@@ -18,12 +19,24 @@ type ResolveHost = (hostname: string) => Promise<string[]>;
 type ListInterfaces = typeof networkInterfaces;
 
 /**
- * Loopback and every network this process has an interface on, and what an unset
- * TRUSTED_PROXIES means. In Compose those are the stack's own networks: the web proxy, and the
- * network gateway a reverse proxy on the Docker host connects from. Bot computers sit on networks
- * the API is never attached to, so they cannot vouch for an address.
+ * Loopback and every network this process has an interface on. In Compose those are the stack's
+ * own networks: the web proxy, and the network gateway a reverse proxy on the Docker host connects
+ * from. Bot computers sit on networks the API is never attached to, so they cannot vouch for an
+ * address.
  */
 export const LOCAL_NETWORKS = "local-networks";
+/** A TRUSTED_PROXIES that believes no forwarded header. */
+const NO_PROXIES = "none";
+
+/**
+ * What an unset TRUSTED_PROXIES trusts. In a container, its own networks are the stack's; on a
+ * host they can be a whole LAN of direct clients, so only loopback (the dev web proxy) is trusted.
+ */
+export function defaultTrustedProxies(
+  inContainer = existsSync("/.dockerenv") || existsSync("/run/.containerenv"),
+): string[] {
+  return inContainer ? [LOCAL_NETWORKS] : ["127.0.0.1", "::1"];
+}
 
 const HOST_TTL_MS = 30_000;
 const HOSTNAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i;
@@ -44,9 +57,12 @@ export function createClientIpResolver(
   const now = options.now ?? Date.now;
   const ranges = new BlockList();
   const hostnames: string[] = [];
-  const entries = config.trustedProxies.flatMap((entry) =>
-    entry === LOCAL_NETWORKS ? localNetworks(options.interfaces ?? networkInterfaces) : [entry],
-  );
+  const entries = config.trustedProxies.flatMap((entry) => {
+    if (entry === NO_PROXIES) return [];
+    return entry === LOCAL_NETWORKS
+      ? localNetworks(options.interfaces ?? networkInterfaces)
+      : [entry];
+  });
   for (const entry of entries) {
     const [address = "", prefix, extra] = entry.split("/");
     const family = isIP(address);

@@ -56,7 +56,7 @@ import {
   screenUrlWithToken,
   xdotoolCommand,
 } from "./computer-spec.js";
-import { verifyRestrictedEgress } from "./egress-probe.js";
+import { EgressNotEnforced, verifyRestrictedEgress } from "./egress-probe.js";
 import { assertComputerHomeWritable } from "./home-ownership.js";
 import {
   assertRequestIdentity,
@@ -1195,8 +1195,9 @@ async function ensureComputerImage() {
 // Enforcement is host-side (DOCKER-USER/INPUT on rakazo-c* bridges); the flag only
 // names the interfaces. Refuse restricted computers until a probe shows the host
 // rules are in place. Only success is cached, so installing the rules needs no restart.
-// `auto` probes once per process and keeps the answer: restricted when the rules are in place,
-// otherwise open with a warning, which is how computers ran before the rules existed.
+// `auto` keeps the first answer a completed probe gives: restricted when the rules are in place,
+// otherwise open with a warning, which is how computers ran before the rules existed. A probe
+// that could not finish decides nothing: the provision fails and the next one probes again.
 let restrictedEgressVerified: Promise<void> | undefined;
 let autoEgressSettled: Promise<void> | undefined;
 async function ensureRestrictedEgressEnforced() {
@@ -1207,10 +1208,15 @@ async function ensureRestrictedEgressEnforced() {
         computerEgressMode = "restricted";
         getLogger().info("restricted computer egress verified");
       },
-      (error) =>
+      (error) => {
+        if (!(error instanceof EgressNotEnforced)) {
+          autoEgressSettled = undefined;
+          throw error;
+        }
         getLogger().warn("computer egress is open: the host firewall rules are not installed", {
-          error: error instanceof Error ? error.message : String(error),
-        }),
+          error: error.message,
+        });
+      },
     );
     return autoEgressSettled;
   }

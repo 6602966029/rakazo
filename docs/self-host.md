@@ -117,8 +117,9 @@ error naming the script instead of running unrestricted; run the script (no rest
 or set `SANDBOX_COMPUTER_EGRESS=open` and recreate the supervisor.
 
 When `SANDBOX_COMPUTER_EGRESS` is unset, the Compose files use `auto`: the supervisor runs the
-same check once when it starts and uses restricted egress if the ruleset is in place, otherwise
-open egress with a warning in its log. An install from before the ruleset existed therefore
+same check and uses restricted egress if the ruleset is in place, otherwise open egress with a
+warning in its log. It keeps the first completed answer; a check that could not finish (a Docker
+error or timeout) fails that computer's start and runs again on the next one. An install from before the ruleset existed therefore
 keeps working when it upgrades. After installing the ruleset, recreate the supervisor, or set
 `restricted` to refuse computers whenever the rules are missing. A host-run supervisor
 (`pnpm dev`) and the desktop app's **This computer** stack default to open: Docker Desktop
@@ -588,8 +589,9 @@ Sessions, logs, and security events carry the caller's address. The API believes
 header only when the TCP peer is in `TRUSTED_PROXIES` (IPs, CIDR ranges, or hostnames such as a
 Compose service name). It reads that header (`CLIENT_IP_HEADER`, default `x-forwarded-for`) right
 to left past trusted hops. Anyone else is the TCP peer, so a client cannot choose its own address.
-Unset, `TRUSTED_PROXIES` is `local-networks`: loopback and every network the API has an interface
-on. In Compose those are the stack's own networks, which hold the web container and the network
+Unset, `TRUSTED_PROXIES` in a container is `local-networks`: loopback and every network the API
+has an interface on. Outside a container it is loopback only, since the host's networks can hold
+direct clients. `none` trusts no proxy. In Compose those networks are the stack's own, which hold the web container and the network
 gateway a reverse proxy on the Docker host connects from, so a host proxy that sets
 `X-Forwarded-For` (Caddy does; nginx needs `proxy_set_header X-Forwarded-For
 $proxy_add_x_forwarded_for`) is believed without configuration. Bot computers are never on those
