@@ -76,7 +76,7 @@ export function ChoiceCard({
         {block.subtitle ? (
           <div className="mt-0.5 text-[13px] text-foreground/75">{block.subtitle}</div>
         ) : null}
-        <div className="mt-3 space-y-2.5">
+        <div className="mt-3 space-y-2">
           {block.options
             .filter((option) => !block.answerId || option.id === block.answerId)
             .map((option) => (
@@ -85,9 +85,9 @@ export function ChoiceCard({
                 type="button"
                 disabled={Boolean(block.answerId) || pending}
                 onClick={() => void choose(option.id)}
-                className={`flex w-full items-center gap-3 rounded-xl border border-input px-3.5 py-3.5 text-start text-foreground disabled:opacity-60 ${block.answerId ? "bg-accent" : "bg-secondary hover:bg-accent"}`}
+                className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-start text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:opacity-60 ${block.answerId ? "bg-foreground/10" : "bg-background enabled:hover:bg-foreground/5 enabled:active:bg-foreground/15"}`}
               >
-                <span className="grid h-[24px] w-[24px] shrink-0 place-items-center rounded-[7px] bg-background text-[12.5px] leading-none font-medium text-foreground/75">
+                <span className="grid h-[24px] w-[24px] shrink-0 place-items-center rounded-[7px] bg-card text-[12.5px] leading-none font-medium text-foreground/75">
                   {option.letter}
                 </span>
                 <span
