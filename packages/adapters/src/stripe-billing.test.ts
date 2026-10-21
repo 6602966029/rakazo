@@ -215,27 +215,41 @@ describe("Stripe billing HTTP boundary", () => {
     expect(wire.subscriptions.map((s) => s.items.data[0]!.quantity)).toEqual([7, 1]);
   });
 
-  it("treats a subscription canceled mid-write as nothing left to do", async () => {
-    const { wire, provider } = setup((wire) => async (input, init) => {
-      const path = new URL(String(input)).pathname;
-      if (path.startsWith("/v1/subscription_items/") || init?.method === "DELETE")
-        wire.subscriptions[0]!.status = "canceled";
-      return wire.fetch(input, init);
-    });
-    const { customerId } = await provider.createCustomer(owner);
-    await seedHistory(wire, provider, customerId, ["active"]);
-    await provider.updateSeats(customerId, 7);
-    expect(wire.subscriptions[0]!.items.data[0]!.quantity).toBe(1);
-    await provider.cancelCustomerSubscriptions(customerId);
-  });
+  const writes = {
+    seats: (provider: StripeBillingProvider, customerId: string) =>
+      provider.updateSeats(customerId, 7),
+    cancel: (provider: StripeBillingProvider, customerId: string) =>
+      provider.cancelCustomerSubscriptions(customerId),
+  };
+  const isWrite = (path: string, init?: RequestInit) =>
+    path.startsWith("/v1/subscription_items/") || init?.method === "DELETE";
 
-  it("still surfaces a refused write on a subscription that is live", async () => {
-    const { wire, provider } = setup();
-    const { customerId } = await provider.createCustomer(owner);
-    await seedHistory(wire, provider, customerId, ["active"]);
-    wire.failures.push({ status: 400, message: "Invalid quantity" });
-    await expect(provider.updateSeats(customerId, 7)).rejects.toThrow(/Invalid quantity/);
-  });
+  for (const [name, write] of Object.entries(writes)) {
+    it(`treats a subscription canceled before the ${name} write lands as done`, async () => {
+      const { wire, provider } = setup((wire) => async (input, init) => {
+        if (isWrite(new URL(String(input)).pathname, init))
+          wire.subscriptions[0]!.status = "canceled";
+        return wire.fetch(input, init);
+      });
+      const { customerId } = await provider.createCustomer(owner);
+      await seedHistory(wire, provider, customerId, ["active"]);
+      await write(provider, customerId);
+      expect(wire.requests.filter((r) => isWrite(r.path, r))).toHaveLength(1);
+      expect(wire.subscriptions[0]!.items.data[0]!.quantity).toBe(1);
+    });
+
+    it(`surfaces a refused ${name} write on a subscription that is still live`, async () => {
+      const { wire, provider } = setup((wire) => async (input, init) => {
+        if (isWrite(new URL(String(input)).pathname, init))
+          wire.failures.push({ status: 400, message: "Refused" });
+        return wire.fetch(input, init);
+      });
+      const { customerId } = await provider.createCustomer(owner);
+      await seedHistory(wire, provider, customerId, ["active"]);
+      await expect(write(provider, customerId)).rejects.toThrow(/Refused/);
+      expect(wire.requests.filter((r) => isWrite(r.path, r))).toHaveLength(1);
+    });
+  }
 
   it("expires open checkouts when canceling, so none can start a subscription later", async () => {
     const { wire, provider } = setup();
