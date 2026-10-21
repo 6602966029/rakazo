@@ -1,5 +1,5 @@
 import type { SecurityEvent, SecurityEventMetadata, SecurityEventType } from "@rakazo/contracts";
-import { SecurityEventTypeSchema } from "@rakazo/contracts";
+import { SECURITY_EVENT_TYPES, SecurityEventTypeSchema } from "@rakazo/contracts";
 import { getLogContext, getLogger, redactBindings } from "@rakazo/logging";
 import type { PrismaClient } from "./client.js";
 import { parsePositiveInteger } from "./client.js";
@@ -149,7 +149,9 @@ export async function listSecurityEvents(
   if (input.cursor && !after) return [];
   const rows = await db.securityEvent.findMany({
     where: {
-      ...(input.type ? { type: input.type } : {}),
+      // Only types this release knows, filtered before `take` so a page is never emptied by
+      // events a newer release wrote before a rollback.
+      type: input.type ?? { in: [...SECURITY_EVENT_TYPES] },
       ...(input.ip ? { ip: input.ip } : {}),
       ...(input.userId ? { userId: input.userId } : {}),
       // Same order as the sort, so events sharing a timestamp are neither skipped nor repeated.

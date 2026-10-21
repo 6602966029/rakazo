@@ -1,3 +1,4 @@
+import { SECURITY_EVENT_TYPES } from "@rakazo/contracts";
 import { createLogger, createTestSink, installLogger, runWithLogContext } from "@rakazo/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -184,6 +185,13 @@ describe("retention", () => {
 });
 
 describe("listSecurityEvents", () => {
+  it("filters to known types before the page limit, so a rollback cannot empty a page", async () => {
+    await listSecurityEvents(store as never, { limit: 10 });
+    const where = (store.securityEvent.findMany.mock.calls[0]![0] as { where: { type: unknown } })
+      .where;
+    expect(where.type).toEqual({ in: [...SECURITY_EVENT_TYPES] });
+  });
+
   it("pages newest first from a cursor and skips types this release does not know", async () => {
     const events = await listSecurityEvents(store as never, {
       type: "auth.sign_in.failed",
