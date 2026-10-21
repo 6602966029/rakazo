@@ -547,6 +547,7 @@ export function createRepos(
         description: string;
         instructions: string;
         notifyOnFinish: boolean;
+        fleetManagement?: boolean;
         color?: string;
         parentBotId?: string | null;
         computerMode?: ComputerMode;
@@ -620,6 +621,7 @@ export function createRepos(
               description: input.description,
               instructions: input.instructions,
               notifyOnFinish: input.notifyOnFinish,
+              fleetManagement: input.fleetManagement,
               color,
               position: (positions._max.position ?? -1) + 1,
               parentBotId: input.parentBotId ?? null,

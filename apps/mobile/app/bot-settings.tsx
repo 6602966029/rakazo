@@ -69,6 +69,7 @@ export default function BotSettingsScreen() {
   const [thinkingLevel, setThinkingLevel] = useState("");
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [fleetManagement, setFleetManagement] = useState(false);
+  const fleetSave = useRef({ confirmed: false, desired: false, saving: false });
   const [credentials, setCredentials] = useState<MobileModelCredential[]>([]);
   const [catalog, setCatalog] = useState<MobileModel[]>([]);
   const [me, setMe] = useState<MobileMe | null>(null);
@@ -102,6 +103,8 @@ export default function BotSettingsScreen() {
         setThinkingLevel(next.thinkingLevel ?? "");
         setAutoSpeak(next.autoSpeak);
         setFleetManagement(next.fleetManagement);
+        fleetSave.current.confirmed = next.fleetManagement;
+        fleetSave.current.desired = next.fleetManagement;
       })
       .catch((err) => setError(errorText(err, t("Could not load bot"))));
   }, [botId]);
@@ -655,17 +658,29 @@ export default function BotSettingsScreen() {
               </View>
               <NativeSwitch
                 accessibilityLabel={t("Manage the bots it creates")}
-                disabled={pending}
                 onValueChange={(value) => {
-                  if (!botId || pending) return;
+                  if (!botId) return;
                   setFleetManagement(value);
-                  setPending(true);
-                  void rpc("bots/update", { botId, fleetManagement: value })
-                    .catch((err) => {
-                      setFleetManagement(!value);
+                  const save = fleetSave.current;
+                  save.desired = value;
+                  if (save.saving) return;
+                  save.saving = true;
+                  setError(null);
+                  void (async () => {
+                    try {
+                      while (save.desired !== save.confirmed) {
+                        const next = save.desired;
+                        await rpc("bots/update", { botId, fleetManagement: next });
+                        save.confirmed = next;
+                      }
+                    } catch (err) {
+                      save.desired = save.confirmed;
+                      setFleetManagement(save.confirmed);
                       setError(errorText(err, t("Could not save bot")));
-                    })
-                    .finally(() => setPending(false));
+                    } finally {
+                      save.saving = false;
+                    }
+                  })();
                 }}
                 value={fleetManagement}
               />

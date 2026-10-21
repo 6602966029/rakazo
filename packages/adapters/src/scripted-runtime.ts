@@ -203,11 +203,11 @@ export function inferScript(
   }
   const childEdit = childEditCalls(prompt);
   if (childEdit) {
-    return [{ assistant: "updating the fleet.", toolCalls: childEdit, complete: true }];
+    return [{ assistant: "updating your bots.", toolCalls: childEdit, complete: true }];
   }
   const fleet = fleetCall(prompt);
   if (fleet) {
-    return [{ assistant: "updating the fleet.", toolCalls: [fleet], complete: true }];
+    return [{ assistant: "updating your bots.", toolCalls: [fleet], complete: true }];
   }
   if (
     lower.includes("launch a cloud agent") ||

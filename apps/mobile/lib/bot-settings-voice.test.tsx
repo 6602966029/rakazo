@@ -186,8 +186,15 @@ vi.mock("../components/native-segmented-control", () => ({
     ),
 }));
 vi.mock("../components/native-action-button", () => ({
-  NativeActionButton: ({ label, onPress }: { label: string; onPress: () => void }) =>
-    createElement("button", { type: "button", onClick: onPress }, label),
+  NativeActionButton: ({
+    label,
+    onPress,
+    disabled,
+  }: {
+    label: string;
+    onPress: () => void;
+    disabled?: boolean;
+  }) => createElement("button", { type: "button", onClick: onPress, disabled }, label),
 }));
 vi.mock("../components/native-switch", () => ({
   NativeSwitch: ({
@@ -402,6 +409,53 @@ describe("bot settings device voice menu", () => {
     });
     for (const [, input] of mocks.rpc.mock.calls)
       expect(input).not.toHaveProperty("fleetManagement");
+  });
+
+  it("keeps the switch and Save enabled while saving and coalesces rapid toggles", async () => {
+    const first = deferredSave();
+    const last = deferredSave();
+    mocks.rpc.mockReturnValueOnce(first.promise).mockReturnValueOnce(last.promise);
+    await render();
+    const toggle = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Manage the bots it creates"]',
+    )!;
+    const save = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Save",
+    )!;
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    expect(toggle.disabled).toBe(false);
+    expect(save.disabled).toBe(false);
+    await act(async () => toggle.click());
+    await act(async () => toggle.click());
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    await act(async () => first.resolve());
+    expect(mocks.rpc.mock.calls).toEqual([
+      ["bots/update", { botId: "bot-fixture", fleetManagement: true }],
+      ["bots/update", { botId: "bot-fixture", fleetManagement: false }],
+    ]);
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    await act(async () => last.reject(new Error("latest save failed")));
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    expect(container.textContent).toContain("latest save failed");
+    expect(toggle.disabled).toBe(false);
+  });
+
+  it("coalesces a queued value matching the confirmed save", async () => {
+    const first = deferredSave();
+    mocks.rpc.mockReturnValueOnce(first.promise);
+    await render();
+    const toggle = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Manage the bots it creates"]',
+    )!;
+    await act(async () => toggle.click());
+    await act(async () => toggle.click());
+    await act(async () => toggle.click());
+    await act(async () => first.resolve());
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
   });
 
   it("restores the fleet toggle when saving fails", async () => {
