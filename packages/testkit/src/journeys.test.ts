@@ -2305,13 +2305,13 @@ describeJourneys("required product journeys", () => {
       orderBy: { seq: "desc" },
     });
     expect(answerEvent.botId).toBe(botD.id);
-    await appPrisma.$transaction([
-      appPrisma.run.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.run.update({
         where: { id: concurrentRun.id },
         data: { status: "cancelled", completedAt: new Date() },
-      }),
-      appPrisma.task.update({ where: { id: concurrentTask.id }, data: { status: "cancelled" } }),
-    ]);
+      });
+      await tx.task.update({ where: { id: concurrentTask.id }, data: { status: "cancelled" } });
+    });
 
     const staleTask = await prisma.task.create({
       data: {

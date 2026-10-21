@@ -195,10 +195,15 @@ password, and grants it the `rakazo_app` role. When migrations run as a role wit
 `CREATEROLE`, as on some managed Postgres, create the login yourself and
 `GRANT rakazo_app TO <login>`.
 
-Messages, events, threads, memory, artifacts, secrets, model and voice credentials, and skills have
-row-level security. Each signed-in request sees only its Space's rows, plus the user's own
-account-level credentials. A query that leaves out its Space filter returns nothing from other
-Spaces. Background jobs, reconcilers and webhooks run in a named system scope (`runAsSystem` in
+Messages, events, threads, memory, artifacts, secrets, model and voice credentials, skills, bots,
+runs, tasks, routines, connections, MCP servers and sign-ins, computers, boards and tickets,
+messaging identities and outbox, external conversations, steering messages, usage, scratchpad
+items and approval rules have row-level security. Each signed-in request sees only its Space's
+rows, plus the user's own account-level credentials. A query that leaves out its Space filter
+returns nothing from other Spaces. A background job that acts for one run, routine, computer,
+skill, thread or cloud agent runs as that row's Space and user, so agent tools get the same
+backstop. Security events are written and read only in system scope. Reconcilers, queue sweeps,
+the messaging outbox drain and webhooks run in a named system scope (`runAsSystem` in
 `packages/db`). The job queue's tables (`graphile_worker`) hold job metadata, not Space content:
 graphile-worker turns on row-level security for them, and `pnpm db:migrate` adds a policy that
 gives the app login every row.
