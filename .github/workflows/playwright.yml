@@ -160,7 +160,12 @@ jobs:
               missing=1
               continue
             fi
-            if [[ -d "$latest/blob-report" ]]; then cp -R "$latest/blob-report/." blob-report/; fi
+            if compgen -G "$latest/blob-report/*.zip" >/dev/null; then
+              cp -R "$latest/blob-report/." blob-report/
+            else
+              echo "::error::Shard $shard has no Playwright blob report; the combined report is incomplete."
+              missing=1
+            fi
             if [[ -d "$latest/apps/web/test-results" ]]; then cp -R "$latest/apps/web/test-results/." apps/web/test-results/; fi
             if [[ -d "$latest/playwright-report-www" ]]; then cp -R "$latest/playwright-report-www" .; fi
           done
