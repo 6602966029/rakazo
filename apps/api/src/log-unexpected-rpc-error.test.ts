@@ -87,8 +87,9 @@ describe("logUnexpectedRpcError", () => {
     expect(await response?.text()).toContain("Too many computer requests. Try again later.");
   });
 
-  it("sends a missing or foreign resource to the client as HTTP 404", async () => {
-    installLogger(createLogger({ service: "rakazo-api", sinks: [createTestSink()] }));
+  it("sends a missing or foreign resource to the client as HTTP 404 without an error report", async () => {
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "rakazo-api", sinks: [sink] }));
     const router = {
       read: os.handler(() => {
         throw new IsolationError();
@@ -111,5 +112,8 @@ describe("logUnexpectedRpcError", () => {
     expect(await response?.json()).toMatchObject({
       json: { code: "NOT_FOUND", message: "Resource not found" },
     });
+    expect(sink.events.map((event) => [event.level, event.message])).toEqual([
+      ["warn", "rpc read not found"],
+    ]);
   });
 });
