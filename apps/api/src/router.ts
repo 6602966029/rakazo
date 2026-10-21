@@ -331,11 +331,12 @@ export const HEARTBEAT_MS = 20_000;
 export const SESSION_RECHECK_MS = 10_000;
 const EXPORT_MESSAGE_PAGE_SIZE = 500;
 
-async function reconcilePendingConnections(
+async function reconcileConnections(
   prisma: PrismaClient,
   owner: Pick<Actor, "spaceId" | "userId">,
   connectorId: string,
   connectedProviders: string[],
+  reconnectRefs: string[],
 ): Promise<void> {
   const connectedProviderKeys = new Set(
     connectedProviders.map((provider) => provider.trim().toLowerCase()),
@@ -379,6 +380,21 @@ async function reconcilePendingConnections(
               status: "pending",
             },
             data: { status: "revoked" },
+          }),
+        ]
+      : []),
+    // The provider reports these accounts dead, so the app offers to connect them again.
+    ...(reconnectRefs.length > 0
+      ? [
+          prisma.connection.updateMany({
+            where: {
+              spaceId: owner.spaceId,
+              userId: owner.userId,
+              connectorId,
+              status: "connected",
+              providerRef: { in: reconnectRefs },
+            },
+            data: { status: "error" },
           }),
         ]
       : []),
@@ -4871,17 +4887,21 @@ export function createRouter(deps: RouterDeps) {
         const catalogs = await Promise.all(
           providers.map(async (provider): Promise<ConnectorCatalogItem[]> => {
             try {
-              const items = await provider.catalog(adapterContext, input.query);
+              const [items, reconnectRefs] = await Promise.all([
+                provider.catalog(adapterContext, input.query),
+                provider.listReconnectRefs?.(adapterContext).catch(() => []) ?? [],
+              ]);
               const nowConnected = items.filter((item) => item.connected).map((item) => item.slug);
-              if (nowConnected.length > 0) {
-                await reconcilePendingConnections(
+              if (nowConnected.length > 0 || reconnectRefs.length > 0) {
+                await reconcileConnections(
                   deps.prisma,
                   context.actor,
                   provider.describe().id,
                   nowConnected,
+                  reconnectRefs,
                 ).catch((error) => {
                   getLogger().error(
-                    `${provider.describe().id} pending-connection reconciliation failed`,
+                    `${provider.describe().id} connection reconciliation failed`,
                     error,
                   );
                 });
