@@ -1,4 +1,8 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "To:": "An:",
+  Next: "Weiter",
+  "Ex: Project Falcon": "Z. B. Projekt Falcon",
+  "Search bots": "Bots suchen",
   "About {label}": "Über {label}",
   "Manage the bots it creates": "Die von ihm erstellten Bots verwalten",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
@@ -343,9 +347,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Members: "Mitglieder",
   // app/new-group.tsx
   "Could not create group": "Gruppe konnte nicht erstellt werden",
-  "Create group": "Gruppe erstellen",
   "Creating…": "Wird erstellt…",
-  "Name this group": "Gruppe benennen",
   // app/new-space.tsx
   "Could not create space": "Space konnte nicht erstellt werden",
   "Create space": "Space erstellen",
@@ -481,7 +483,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Add MCP server": "MCP-Server hinzufügen",
   "Add OpenAPI": "OpenAPI hinzufügen",
   "Add Treg": "Treg hinzufügen",
-  "Add another": "Weiteres Konto hinzufügen",
+  "Add another": "Weitere hinzufügen",
   "Add another {name}": "Weiteres {name}-Konto hinzufügen",
   "Add {name}": "{name} hinzufügen",
   Added: "Hinzugefügt",
