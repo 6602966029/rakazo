@@ -58,6 +58,15 @@ describePostgres("tenant-scoped background jobs (PostgreSQL)", () => {
       await o.message.create({
         data: { threadId: t.threadId, seq: 1, role: "user", blocks: [{ text: t.name }] },
       });
+      await o.connection.create({
+        data: {
+          spaceId: t.spaceId,
+          userId: t.userId,
+          provider: "test",
+          displayName: t.name,
+          status: "connected",
+        },
+      });
       const task = await o.task.create({
         data: {
           spaceId: t.spaceId,
@@ -95,12 +104,20 @@ describePostgres("tenant-scoped background jobs (PostgreSQL)", () => {
 
   /** A run whose tool forgets every filter: it sees only what the database lets it. */
   function careless(prisma: PrismaClient) {
-    const seen = new Map<string, { messages: string[] }>();
+    const seen = new Map<string, { messages: string[]; connections: string[] }>();
+    const ours = (ids: string[], key: "threadId" | "spaceId") =>
+      [...new Set(ids)].filter((id) => tenants.some((t) => t[key] === id));
     const continueRun = vi.fn(async (runId: string) => {
       const messages = await prisma.message.findMany({ select: { threadId: true } });
+      const connections = await prisma.connection.findMany({ select: { spaceId: true } });
       seen.set(runId, {
-        messages: [...new Set(messages.map((row) => row.threadId))].filter((id) =>
-          tenants.some((t) => t.threadId === id),
+        messages: ours(
+          messages.map((row) => row.threadId),
+          "threadId",
+        ),
+        connections: ours(
+          connections.map((row) => row.spaceId),
+          "spaceId",
         ),
       });
     });
@@ -123,8 +140,8 @@ describePostgres("tenant-scoped background jobs (PostgreSQL)", () => {
     const { handlers, seen } = careless(app.prisma);
     await handlers["run.continue"]({ runId: a.runId });
     await handlers["run.continue"]({ runId: b.runId });
-    expect(seen.get(a.runId)).toEqual({ messages: [a.threadId] });
-    expect(seen.get(b.runId)).toEqual({ messages: [b.threadId] });
+    expect(seen.get(a.runId)).toEqual({ messages: [a.threadId], connections: [a.spaceId] });
+    expect(seen.get(b.runId)).toEqual({ messages: [b.threadId], connections: [b.spaceId] });
   });
 
   it("runs tenant jobs through the Graphile queue", async () => {
@@ -139,8 +156,8 @@ describePostgres("tenant-scoped background jobs (PostgreSQL)", () => {
       // A job whose run is gone has nothing to act on and completes.
       await publisher.enqueue({ name: "run.continue", payload: { runId: `gone-${suffix}` } });
       await vi.waitFor(() => expect(seen.size).toBe(2), { timeout: 10_000, interval: 25 });
-      expect(seen.get(a.runId)).toEqual({ messages: [a.threadId] });
-      expect(seen.get(b.runId)).toEqual({ messages: [b.threadId] });
+      expect(seen.get(a.runId)).toEqual({ messages: [a.threadId], connections: [a.spaceId] });
+      expect(seen.get(b.runId)).toEqual({ messages: [b.threadId], connections: [b.spaceId] });
       await vi.waitFor(
         async () => {
           const pending = await owner.pool.query(
