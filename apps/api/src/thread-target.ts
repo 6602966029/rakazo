@@ -33,6 +33,7 @@ import {
   expireComputerExecutionLeases,
   IsolationError,
   lockOwnedGroup,
+  primaryActiveRun,
   touchGroupUpdatedAt,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -304,7 +305,7 @@ export async function resolveThreadTarget(
       botId: member.bot.id,
       name: member.bot.name,
       color: member.bot.color,
-      status: member.bot.runs[0]?.status ?? "idle",
+      status: primaryActiveRun(member.bot.runs)?.status ?? "idle",
     }));
     return {
       kind: "group",
@@ -346,7 +347,16 @@ export async function threadSnapshot(
         async (tx) => {
           await tx.$queryRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR SHARE`;
           const [messagePage, last, activeRuns, busyOrFailed] = await Promise.all([
-            loadMessagePage(tx, target.threadId, undefined, THREAD_MESSAGE_PAGE_SIZE),
+            loadMessagePage(
+              tx,
+              target.threadId,
+              undefined,
+              THREAD_MESSAGE_PAGE_SIZE,
+              undefined,
+              false,
+              false,
+              target.botId,
+            ),
             tx.event.findFirst({
               where: { threadId: target.threadId },
               orderBy: { seq: "desc" },
@@ -358,7 +368,7 @@ export async function threadSnapshot(
                 threadId: target.threadId,
                 status: { in: [...ACTIVE_RUN_STATUSES] },
                 OR: [
-                  { trigger: { notIn: ["bot_message", ...BACKGROUND_RUN_TRIGGERS] } },
+                  { trigger: { notIn: [...BACKGROUND_RUN_TRIGGERS] } },
                   { status: { in: ["waiting_input", "waiting_takeover"] } },
                 ],
               },
@@ -368,8 +378,8 @@ export async function threadSnapshot(
               where: {
                 botId: target.botId,
                 threadId: target.threadId,
-                // Hide peer bot_message and background ticket busy/failed noise; waiting is handled above.
-                trigger: { notIn: ["bot_message", ...BACKGROUND_RUN_TRIGGERS] },
+                // Background ticket work stays silent; waiting is handled above.
+                trigger: { notIn: [...BACKGROUND_RUN_TRIGGERS] },
                 status: { in: [...ACTIVE_RUN_STATUSES, "failed"] },
               },
               // The id tiebreak keeps ordering deterministic under equal
@@ -390,8 +400,8 @@ export async function threadSnapshot(
                   where: {
                     botId: target.botId,
                     threadId: target.threadId,
-                    // Peer bot_message and background failures must not bury a user-visible failure.
-                    trigger: { notIn: ["bot_message", ...BACKGROUND_RUN_TRIGGERS] },
+                    // Background failures must not bury a user-visible failure.
+                    trigger: { notIn: [...BACKGROUND_RUN_TRIGGERS] },
                     status: { in: ["failed", "completed", "cancelled"] },
                   },
                   orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -530,11 +540,7 @@ function pickPrimaryActiveRun<T extends { status: string }>(runs: readonly T[]):
 function pickPrimaryPrivateActiveRun<T extends { status: string }>(
   runs: readonly T[],
 ): T | undefined {
-  return (
-    runs.find((run) => run.status === "waiting_takeover") ??
-    runs.find((run) => QUEUE_HOLDING_RUN_STATUSES.some((status) => status === run.status)) ??
-    runs[0]
-  );
+  return runs.find((run) => run.status === "waiting_takeover") ?? primaryActiveRun(runs);
 }
 
 /** Latest terminal by end time (completedAt, else createdAt), then createdAt, then id. */

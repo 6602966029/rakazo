@@ -907,3 +907,42 @@ it("derives attachment metadata from a validated parent outside the loaded page"
   const page = await loadMessagePage(prisma, "thread", undefined, 1);
   expect(page.messages[0]?.replyPreview).toEqual({ role: "user", text: "", attachment: image });
 });
+
+it.each([undefined, "bot-1", "bot-other"])(
+  "only exposes delegated tool history for the thread's own bot (%s)",
+  async (ownBotId) => {
+    const row = {
+      id: "steps",
+      threadId: "thread-1",
+      seq: 1,
+      role: "bot",
+      botId: "bot-1",
+      blocks: [{ kind: "steps", steps: [{ label: "Inspect files", count: 1 }] }],
+      runId: "run-delegated",
+      replyToMessageId: null,
+      replyQuote: null,
+      createdAt: new Date("2026-08-23T00:00:00.000Z"),
+    };
+    const prisma = {
+      message: { findMany: vi.fn().mockResolvedValue([row]) },
+      run: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([{ id: "run-delegated", trigger: "bot_message", botId: "bot-1" }]),
+      },
+    } as unknown as PrismaClient;
+    const page = await loadMessagePage(
+      prisma,
+      "thread-1",
+      undefined,
+      2,
+      undefined,
+      false,
+      false,
+      ownBotId,
+    );
+    expect(page.messages.map((message) => message.id)).toEqual(
+      ownBotId === "bot-1" ? ["steps"] : [],
+    );
+  },
+);

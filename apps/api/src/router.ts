@@ -2208,6 +2208,7 @@ export function createRouter(deps: RouterDeps) {
           input.around,
           input.includePeerRuns,
           input.includePeerReceipts,
+          target.kind === "bot" ? target.botId : undefined,
         );
       }),
       subscribe: authed.threads.subscribe.handler(async function* ({ context, input }) {
@@ -2257,7 +2258,10 @@ export function createRouter(deps: RouterDeps) {
             const event = next.value;
             // Filtered peer events also restart the heartbeat, so check before skipping them.
             await assertStillAuthorized();
-            if (await isPeerRun(deps.prisma, event.runId, peerRunCache)) {
+            if (
+              !(target.kind === "bot" && event.botId === target.botId) &&
+              (await isPeerRun(deps.prisma, event.runId, peerRunCache))
+            ) {
               if (!shouldForwardPeerThreadEvent(event)) continue;
             } else if (await isBackgroundRun(deps.prisma, event.runId, backgroundRunCache)) {
               if (!shouldForwardBackgroundThreadEvent(event)) continue;

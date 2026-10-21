@@ -14,7 +14,12 @@ import { ensureComputerRecord, parseComputerMode } from "./computers.js";
 import { createThreadMessageInTransaction } from "./messages.js";
 import { BotSectionNameConflictError, IsolationError } from "./scope.js";
 import { lockSpaceForContentCreation } from "./spaces.js";
-import { activeRunSelection, latestBotRunSelection, previewFromBlocks } from "./thread-listing.js";
+import {
+  activeRunSelection,
+  latestBotRunSelection,
+  previewFromBlocks,
+  primaryActiveRun,
+} from "./thread-listing.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 /** Newest messages loaded for sidebar preview; enough to skip a short peer-run tail. */
@@ -204,8 +209,8 @@ export function createRepos(
         unread: bot.thread.unread,
         parentBotId: bot.parentBotId,
         preview: previewFromBlocks(bot.thread.messages[0]?.blocks),
-        status: bot.runs[0]?.status ?? "idle",
-        runErrorId: rosterRunErrorId(bot.thread.runs[0], bot.runs[0]),
+        status: primaryActiveRun(bot.runs)?.status ?? "idle",
+        runErrorId: rosterRunErrorId(bot.thread.runs[0], primaryActiveRun(bot.runs)),
         updatedAt: rosterUpdatedAt(bot.thread.messages[0], bot.updatedAt).toISOString(),
       };
     });
@@ -452,8 +457,8 @@ export function createRepos(
           return mapBot(
             bot,
             preview,
-            bot.runs[0]?.status ?? "idle",
-            rosterRunErrorId(bot.thread?.runs[0], bot.runs[0]),
+            primaryActiveRun(bot.runs)?.status ?? "idle",
+            rosterRunErrorId(bot.thread?.runs[0], primaryActiveRun(bot.runs)),
             updatedAt,
             ringingCall(
               bot.thread && callsByThread.has(bot.thread.id)

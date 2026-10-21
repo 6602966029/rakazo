@@ -4,12 +4,15 @@ import { messageReaction } from "./message-reactions.js";
 type PresentableMessage = {
   id: string;
   runId?: string;
+  botId?: string | null;
   role?: string;
   replyToMessageId?: string | null;
   blocks: readonly MessageBlock[];
 };
 
 export type UserVisibleMessagesOptions = {
+  /** A DM exposes its own bot's delegated work inline. Groups omit this. */
+  ownBotId?: string;
   /**
    * Keep `bot_message_sent` / `bot_message_received` rows as compact chips
    * (web CollaborationMarker; mobile AgentEventLabel). Peer replies fold under the received chip.
@@ -76,6 +79,7 @@ export function foldPeerReplies<T extends PresentableMessage>(
   for (const message of messages) {
     if (
       message.runId &&
+      (!options.ownBotId || message.botId !== options.ownBotId) &&
       !markerByRunId.has(message.runId) &&
       message.blocks.some((block) => block.kind === "bot_message_received")
     ) {
@@ -98,6 +102,7 @@ export function foldPeerReplies<T extends PresentableMessage>(
       return message.blocks.some(isBackgroundInputBlock);
     }
     if (isPeerReceiptBlocks(message.blocks)) return includePeerReceipts;
+    if (options.ownBotId && message.botId === options.ownBotId) return true;
     // A reaction folds with its folded parent so the count shows when the parent is expanded.
     const parentMarkerId = message.replyToMessageId
       ? markerOf.get(message.replyToMessageId)

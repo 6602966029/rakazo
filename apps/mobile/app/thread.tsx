@@ -638,8 +638,9 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     () => new Set(),
   );
   const peerTranscript = useMemo(
-    () => foldPeerReplies(snap?.messages ?? [], { includePeerReceipts: true }),
-    [snap?.messages],
+    () =>
+      foldPeerReplies(snap?.messages ?? [], { includePeerReceipts: true, ownBotId: snap?.botId }),
+    [snap?.messages, snap?.botId],
   );
   const reactionView = useMemo(
     () =>
@@ -1245,7 +1246,10 @@ function Thread({ sessionEpoch }: { sessionEpoch: number }) {
     const next = opened?.snapshot ?? snap;
     // A reply folded under its peer marker is only drawn once the marker is expanded.
     const markerId = targetInPage
-      ? foldPeerReplies(next.messages, { includePeerReceipts: true }).markerOf.get(target.messageId)
+      ? foldPeerReplies(next.messages, {
+          includePeerReceipts: true,
+          ownBotId: next.botId,
+        }).markerOf.get(target.messageId)
       : undefined;
     if (markerId) {
       setExpandedPeerMarkers((expanded) =>
