@@ -369,6 +369,16 @@ describe("OIDC callbacks", () => {
     expect(await openIdToken(secret, String(account.idToken))).toBe(idToken);
     expect(await (await request("/account-security")).json()).toMatchObject({ ssoLinked: true });
     expect(await encryptStoredOAuthTokens(prisma as never, secret)).toBe(0);
+
+    // A sign-in that refreshes the row after the upgrade read it must win.
+    account.accessToken = "legacy-access-token";
+    prisma.account.findMany.mockImplementationOnce(async () => {
+      const read = rows("account").map((row) => ({ ...row }));
+      account.accessToken = "refreshed-access-token";
+      return read;
+    });
+    expect(await encryptStoredOAuthTokens(prisma as never, secret)).toBe(0);
+    expect(account.accessToken).toBe("refreshed-access-token");
   });
   it("stores deletion codes hashed and accepts one stored before hashing", async () => {
     setup();
