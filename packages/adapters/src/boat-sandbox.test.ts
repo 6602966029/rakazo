@@ -8,7 +8,7 @@ import { parse } from "shell-quote";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BoatSandboxProvider } from "./boat-sandbox.js";
 import type { BoatRecovery } from "./boat-sandbox.test-support.js";
-import { FakeBoatApi } from "./boat-sandbox.test-support.js";
+import { boatError, FakeBoatApi } from "./boat-sandbox.test-support.js";
 import { isSandboxGoneError } from "./sandbox-errors.js";
 
 // Polling waits advance a virtual clock, so state and deadline tests run instantly.
@@ -359,6 +359,34 @@ describe("BoatSandboxProvider", () => {
     api.expire(computer.id);
     const error = await provider.readFile(computer, "kept.txt", context).catch((e: unknown) => e);
     expect(isSandboxGoneError(error)).toBe(true);
+  });
+
+  it("recovers a sandbox whose machine stopped underneath it and retries the work once", async () => {
+    const recover = vi.spyOn(FakeBoatApi.prototype, "recover");
+    const command = FakeBoatApi.prototype.command;
+    let machineStops = false;
+    vi.spyOn(FakeBoatApi.prototype, "command").mockImplementation(async function (
+      this: FakeBoatApi,
+      ...args
+    ) {
+      if (!machineStops) return command.apply(this, args);
+      machineStops = false;
+      this.fail(args[0].sandboxId);
+      throw boatError(409, "machine_not_running", "Sandbox machine is not running.");
+    });
+    const { provider, computer } = await boat();
+    await provider.prepare(computer, context);
+    machineStops = true;
+
+    const events = [];
+    for await (const event of provider.execute(computer, { argv: ["echo", "awake"] }, context)) {
+      events.push(event);
+    }
+    expect(recover).toHaveBeenCalledOnce();
+    expect(events).toEqual([
+      { type: "stdout", data: "awake\n" },
+      { type: "exit", code: 0 },
+    ]);
   });
 
   it("keeps an errored sandbox when Boat refuses recover without a known code", async () => {
