@@ -10,6 +10,7 @@ import type {
   AgentToolExecutionObserver,
   ArtifactStore,
   AutoReviewProvider,
+  AutoReviewRequest,
   BrowserProvider,
   ComputerRef,
   ConnectorCall,
@@ -75,6 +76,7 @@ import {
   formatSkillRunPrompt,
   formatSkillsCatalogInstruction,
   humanizeToolName,
+  inboundRoutinePrompts,
   inferAttachmentMimeType,
   isBackgroundRunTrigger,
   isCallClientNonce,
@@ -85,6 +87,7 @@ import {
   messagingChannelId,
   messagingChannelPrivacyBlock,
   messagingDmSurfaceNote,
+  newSiteOutcome,
   nextCronDateAcross,
   nextFence,
   outboundSiteGate,
@@ -4269,6 +4272,35 @@ export function createRunExecutor(deps: ExecutorDeps) {
         // Outbound destinations this run may reach without asking. See outboundSiteGate and
         // connectorReadRequiresApproval; approvals from earlier attempts are read back from effects.
         const searchResultUrls = new Set<string>();
+        // The owner's own words for this run: the message they sent, or the instructions of the
+        // routine that started it. Never a bot, channel or webhook message, or a tool result.
+        // These name the sites a run is given, and are all Auto Review sees of a new site's run.
+        let ownerWordsPromise: Promise<string> | undefined;
+        const loadOwnerWords = () => {
+          ownerWordsPromise ??= (async () => {
+            if (ownerStartedRun && !messagingChannelRun && sourceMessage?.role === "user") {
+              return ((sourceMessage.blocks ?? []) as MessageBlock[])
+                .flatMap((block) => (block.kind === "text" ? [block.text] : []))
+                .join("\n");
+            }
+            if (run.trigger === "routine" && run.routineId) {
+              const routine = await deps.prisma.routine.findUnique({
+                where: { id: run.routineId },
+                select: { prompt: true },
+              });
+              return routine?.prompt ?? "";
+            }
+            if (run.trigger === "webhook") {
+              const routines = await deps.prisma.routine.findMany({
+                where: { botId: bot.id, spaceId: run.spaceId, userId: run.userId },
+                select: { name: true, prompt: true },
+              });
+              return inboundRoutinePrompts(task.prompt, routines).join("\n\n");
+            }
+            return "";
+          })();
+          return ownerWordsPromise;
+        };
         let trustedSitesPromise: Promise<Set<string>> | undefined;
         const loadTrustedSites = () => {
           trustedSitesPromise ??= deps.prisma.externalEffect
@@ -4276,15 +4308,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               where: { runId, kind: "web_fetch", status: { in: PASSED_EFFECT_STATUSES } },
               select: { request: true },
             })
-            .then((rows) => {
-              const sites = new Set<string>();
-              // Only the owner's own words name sites; a bot, channel or webhook message does not.
-              if (ownerStartedRun && !messagingChannelRun && sourceMessage?.role === "user") {
-                for (const block of (sourceMessage.blocks ?? []) as MessageBlock[]) {
-                  if (block.kind !== "text") continue;
-                  for (const site of sitesInText(block.text)) sites.add(site);
-                }
-              }
+            .then(async (rows) => {
+              const sites = sitesInText(await loadOwnerWords());
               for (const row of rows) {
                 const url = (row.request as { url?: unknown } | null)?.url;
                 const site = typeof url === "string" ? urlSite(url) : undefined;
@@ -4896,15 +4921,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const siteGate =
             fetchUrl && fetchSite
               ? outboundSiteGate({
-                  trigger: run.trigger,
                   site: fetchSite,
                   trusted:
                     searchResultUrls.has(fetchUrl) || (await loadTrustedSites()).has(fetchSite),
                   rules: await loadApprovalRules(),
                 })
               : "allow";
-          if (siteGate === "deny")
-            return { error: `Fetching ${fetchSite} needs approval, and a webhook run cannot ask.` };
           const connectorReadGated =
             viaConnector &&
             !connectorToolRequiresApproval(name, declaredReadOnly) &&
@@ -4919,7 +4941,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const requiresApprovalByDefault =
             commandWatch ||
             requiresUnattendedApproval ||
-            siteGate === "ask" ||
+            siteGate === "new" ||
             connectorReadGated ||
             toolRequiresApproval(name, viaConnector, declaredReadOnly);
           const requiresMandatoryApproval =
@@ -4963,7 +4985,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 consequential: requiresApprovalByDefault,
                 autoReviewEnabled: autoReviewPref,
                 checkerConfigured,
-                newDestination: siteGate === "ask",
+                newDestination: siteGate === "new",
               });
           let reviewReason: string | undefined;
           let gateDecision: "ask" | "allow" = plan === "ask" ? "ask" : "allow";
@@ -4988,7 +5010,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // Connector read-only hints must not bypass approval, review, or replay decisions.
           // A fetch to a new site is gated like any action, so it needs an effect to approve.
           const applied =
-            READ_ONLY_AGENT_TOOLS.has(name) && siteGate !== "ask" && nextApprovedTool !== name
+            READ_ONLY_AGENT_TOOLS.has(name) && siteGate !== "new" && nextApprovedTool !== name
               ? undefined
               : await recordEffect(
                   deps,
@@ -5003,17 +5025,31 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const runAutoReview = async () => {
             if (!injectedReview && !checker) return;
             try {
-              const reviewRequest = {
-                toolName: name,
-                connectorKind,
-                args: redactToolArgsForReview(args, runSecrets),
-                userTask: redactSecrets(task.prompt, runSecrets),
-                botDescription: redactSecrets(
-                  `${bot.name}: ${bot.title}\n${bot.description}`,
-                  runSecrets,
-                ),
-                matchingRules: approvalResolved.matchingRules,
-              };
+              const botDescription = redactSecrets(
+                `${bot.name}: ${bot.title}\n${bot.description}`,
+                runSecrets,
+              );
+              // A new site is judged on the full URL and the owner's own words only: the task
+              // prompt of a webhook or bot-started run carries text someone else wrote.
+              const reviewRequest: AutoReviewRequest =
+                siteGate === "new" && fetchUrl
+                  ? {
+                      toolName: name,
+                      connectorKind,
+                      args: { url: redactSecrets(fetchUrl, runSecrets) },
+                      userTask: redactSecrets(await loadOwnerWords(), runSecrets),
+                      botDescription,
+                      matchingRules: approvalResolved.matchingRules,
+                      newSite: true,
+                    }
+                  : {
+                      toolName: name,
+                      connectorKind,
+                      args: redactToolArgsForReview(args, runSecrets),
+                      userTask: redactSecrets(task.prompt, runSecrets),
+                      botDescription,
+                      matchingRules: approvalResolved.matchingRules,
+                    };
               const reviewContext: AdapterContext = {
                 operationId: `auto-review:${runId}`,
                 traceId: `auto-review:${runId}`,
@@ -5154,6 +5190,18 @@ export function createRunExecutor(deps: ExecutorDeps) {
             gateDecision = "ask";
           }
           if (context.signal.aborted) return pauseForApproval();
+          if (
+            siteGate === "new" &&
+            newSiteOutcome({ trigger: run.trigger, decision: gateDecision }) === "deny"
+          ) {
+            if (applied) {
+              await deps.prisma.externalEffect.updateMany({
+                where: { id: applied.effect.id, status: "intended" },
+                data: { status: "denied" },
+              });
+            }
+            return { error: `Fetching ${fetchSite} needs approval, and a webhook run cannot ask.` };
+          }
 
           const needsApproval = gateDecision === "ask";
           const bypassApproval = gateDecision === "allow" && requiresApprovalByDefault;
@@ -5372,7 +5420,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
           // Past the gate: this destination is now one the run was given. A search result's exact
           // URL trusts only that URL, never the rest of its site.
-          if (fetchSite && siteGate === "ask") (await loadTrustedSites()).add(fetchSite);
+          if (fetchSite && siteGate === "new") (await loadTrustedSites()).add(fetchSite);
           if (viaConnector) (await loadTrustedConnectors()).add(connectorTrust);
           const persistEffectResult = (result: unknown) =>
             applied
