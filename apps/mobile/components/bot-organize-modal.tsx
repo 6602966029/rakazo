@@ -156,7 +156,7 @@ export function BotOrganizeModal({
             maxLength={60}
             placeholder={t("Section name")}
             placeholderTextColor={native.secondaryLabel}
-            style={styles.newSectionInput}
+            style={[styles.newSectionInput, Sheet ? styles.nativeSheetInput : null]}
           />
           <NativeActionButton
             label={mode === "rename" ? t("Save") : t("Create")}
@@ -348,6 +348,12 @@ function createBotOrganizeStyles() {
       gap: 8,
       paddingHorizontal: 8,
       paddingVertical: 6,
+    },
+    // The sheet surface is the card fill, so the field sits on the screen background.
+    nativeSheetInput: {
+      backgroundColor: tokens.background,
+      borderWidth: 1,
+      borderColor: tokens.border,
     },
     newSectionInput: {
       flex: 1,
