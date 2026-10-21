@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { abortableDelay } from "@rakazo/core";
+import { waitForConnection } from "@rakazo/core";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import { useEffect, useRef, useState } from "react";
 import type { ViewProps } from "react-native";
@@ -54,27 +54,24 @@ export function AppConnectCard({
       );
       if (controller.signal.aborted) return;
       if (started.authorizationUrl) await Linking.openURL(started.authorizationUrl);
-      for (let attempt = 0; attempt < 60; attempt += 1) {
+      const result = await waitForConnection(
+        started.connectionId,
+        (input) =>
+          rpc<{ status: string }>("connections/complete", input, { signal: controller.signal }),
+        { signal: controller.signal, attempts: 60 },
+      );
+      if (result.status === "aborted") return;
+      if (result.status === "connected") {
+        await rpc("onboarding/appConnected", {
+          botId,
+          provider: block.provider,
+          connectorId: block.connectorId,
+        });
         if (controller.signal.aborted) return;
-        const row = await rpc<{ status: string }>(
-          "connections/complete",
-          { connectionId: started.connectionId },
-          { signal: controller.signal },
-        ).catch(() => undefined);
-        if (row?.status === "connected") {
-          if (controller.signal.aborted) return;
-          await rpc("onboarding/appConnected", {
-            botId,
-            provider: block.provider,
-            connectorId: block.connectorId,
-          });
-          if (controller.signal.aborted) return;
-          setLocalStatus("connected");
-          return;
-        }
-        await abortableDelay(2_000, controller.signal);
+        setLocalStatus("connected");
+        return;
       }
-      if (!controller.signal.aborted) setError(t("Authorization timed out. Please try again."));
+      setError(t("Authorization timed out. Please try again."));
     } catch (reason) {
       if (!controller.signal.aborted) {
         setError(errorText(reason, t("Could not authorize this app")));

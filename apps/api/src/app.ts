@@ -1210,9 +1210,13 @@ function emptyAuthBodyAsJson(request: Request) {
  * The cause chain matters as much as the message: undici and most SDKs report a bare
  * "fetch failed" and keep the host and errno one level down.
  */
-/** Log the failure, then give a provider rate limit its own status instead of a generic 500. */
+/** Log the failure, then give known failures their own status instead of a generic 500. */
 export function handleRpcError(error: unknown, path: readonly string[]): void {
   logUnexpectedRpcError(error, path);
+  // A missing or foreign resource is the caller's mistake, not a server failure.
+  if (error instanceof IsolationError) {
+    throw new ORPCError("NOT_FOUND", { message: error.message, cause: error });
+  }
   if (error instanceof SandboxRateLimitError) {
     throw new ORPCError("TOO_MANY_REQUESTS", { message: error.message, cause: error });
   }

@@ -297,7 +297,7 @@ import { listRoutineRuns } from "./routine-runs.js";
 import { listSpaceRuns } from "./runs.js";
 import { addScreenProxyCapability } from "./screen-proxy.js";
 import { querySpaceSearch } from "./search.js";
-import { procedureSecurityEvent } from "./security-audit.js";
+import { connectionCreatedEvent, procedureSecurityEvent } from "./security-audit.js";
 import { withSerializableRetry } from "./serializable-retry.js";
 import type { UpdaterProxyConfig } from "./server-update.js";
 import {
@@ -374,21 +374,16 @@ async function reconcileConnections(
     connectedProviderKeys.has(row.provider.trim().toLowerCase()),
   );
   const sync = planLiveConnectionSync(rows, connectedProviders);
+  // One update per row so the credential event goes only to rows this call actually connected.
+  const connectedIds: string[] = [];
   const updates = [
-    ...(sync.connectIds.length > 0
-      ? [
-          (tx: Prisma.TransactionClient) =>
-            tx.connection.updateMany({
-              where: {
-                id: { in: sync.connectIds },
-                spaceId: owner.spaceId,
-                userId: owner.userId,
-                status: "pending",
-              },
-              data: { status: "connected" },
-            }),
-        ]
-      : []),
+    ...sync.connectIds.map((id) => async (tx: Prisma.TransactionClient) => {
+      const updated = await tx.connection.updateMany({
+        where: { id, spaceId: owner.spaceId, userId: owner.userId, status: "pending" },
+        data: { status: "connected" },
+      });
+      if (updated.count > 0) connectedIds.push(id);
+    }),
     ...(sync.revokeIds.length > 0
       ? [
           (tx: Prisma.TransactionClient) =>
@@ -425,6 +420,9 @@ async function reconcileConnections(
     await prisma.$transaction(async (tx) => {
       for (const update of updates) await update(tx);
     });
+  for (const id of connectedIds) {
+    await recordSecurityEvent(connectionCreatedEvent("connections.catalog", id, owner));
+  }
 }
 
 /** Serialize begin/revoke for one user+provider so slug-wide remote deletes cannot race a new connect. */
@@ -5331,6 +5329,11 @@ export function createRouter(deps: RouterDeps) {
             });
             return updated.count > 0;
           });
+          if (applied && !auth.authorizationUrl) {
+            await recordSecurityEvent(
+              connectionCreatedEvent("connections.begin", row.id, context.actor),
+            );
+          }
           if (!applied) {
             // Revoke won the race. Clean up without a provider-wide slug delete.
             const state = auth.state?.trim();
@@ -5478,6 +5481,7 @@ export function createRouter(deps: RouterDeps) {
         if (!transactionConnector)
           throw new ORPCError("BAD_REQUEST", { message: "Integration provider is not configured" });
         let row = existing;
+        let connectedNow = false;
         if (existing.status !== "connected") {
           // Hold the provider lock across remote completion, account-id resolution,
           // providerRef persistence, and any overlapping revokeUnreferenced cleanup
@@ -5517,7 +5521,7 @@ export function createRouter(deps: RouterDeps) {
                 const restoreRevokedForRetry = async () => {
                   // Cleanup failed while the row is already revoked — restore pending
                   // so the UI can retry removal instead of leaving an orphan remote.
-                  // Use the root client (not tx): throwing IsolationError aborts this
+                  // Use the root client (not tx): throwing below aborts this
                   // transaction and would otherwise roll back a tx-scoped restore.
                   await deps.prisma.connection.updateMany({
                     where: {
@@ -5610,8 +5614,13 @@ export function createRouter(deps: RouterDeps) {
                     },
                   );
                   await restoreRevokedForRetry();
+                  // Still superseded: stop the poll so it cannot complete the restored row,
+                  // which stays pending in the account list for removal.
+                  throw new IsolationError();
                 }
-                throw new IsolationError();
+                // A newer attempt or a removal superseded this one. Report it so the
+                // caller stops polling instead of retrying an error.
+                return current;
               }
 
               const adapterContext = connectionContext(
@@ -5750,15 +5759,41 @@ export function createRouter(deps: RouterDeps) {
                   return current;
                 }
               }
-              return tx.connection.update({
-                where: { id: current.id },
+              // Catalog reconciliation does not take the provider lock, so it may have
+              // connected this row meanwhile; only the call that changes it records the event.
+              const updated = await tx.connection.updateMany({
+                where: { id: current.id, status: current.status },
                 data: {
                   status: "connected",
                   ...(providerRef ? { providerRef } : {}),
                 },
               });
+              connectedNow = updated.count > 0;
+              if (!connectedNow && providerRef) {
+                // Reconciliation sets only the status; keep the resolved account id so
+                // revoke still deletes the right remote account.
+                await tx.connection.updateMany({
+                  where: { id: current.id, status: "connected" },
+                  data: { providerRef },
+                });
+              }
+              const next = await tx.connection.findFirst({
+                where: {
+                  id: current.id,
+                  spaceId: context.actor.spaceId,
+                  userId: context.actor.userId,
+                },
+              });
+              if (!next) throw new IsolationError();
+              return next;
             },
             { timeout: 60_000 },
+          );
+        }
+        // Clients poll this procedure, so it records the credential once, on the transition.
+        if (connectedNow) {
+          await recordSecurityEvent(
+            connectionCreatedEvent("connections.complete", row.id, context.actor),
           );
         }
         return {
