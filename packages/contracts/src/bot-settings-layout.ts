@@ -5,11 +5,11 @@ export const BOT_SETTINGS_ADVANCED_ORDER = [
   "model",
   "thinking",
   "memoryScope",
-  "scratchpad",
-  "knowledge",
   "readAloud",
   "voice",
   "fleetManagement",
+  "scratchpad",
+  "knowledge",
   "disabledTools",
   "credentials",
 ] as const;

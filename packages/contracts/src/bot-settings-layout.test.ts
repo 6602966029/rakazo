@@ -14,11 +14,11 @@ describe("bot settings layout", () => {
       "model",
       "thinking",
       "memoryScope",
-      "scratchpad",
-      "knowledge",
       "readAloud",
       "voice",
       "fleetManagement",
+      "scratchpad",
+      "knowledge",
       "disabledTools",
       "credentials",
     ]);

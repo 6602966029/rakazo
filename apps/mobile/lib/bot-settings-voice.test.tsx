@@ -282,6 +282,14 @@ describe("bot settings device voice menu", () => {
         .map(([key]) => key),
     );
     expect(actual).toEqual(BOT_SETTINGS_ADVANCED_ORDER.filter((key) => key in labels));
+    expect(actual).toEqual([
+      "instructions",
+      "computer",
+      "model",
+      "readAloud",
+      "voice",
+      "fleetManagement",
+    ]);
     for (const label of Object.values(labels)) {
       const span = [...container.querySelectorAll("span")].find(
         (span) => span.textContent === label,

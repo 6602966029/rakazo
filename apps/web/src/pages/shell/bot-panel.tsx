@@ -55,7 +55,8 @@ const KnowledgeSection = lazyComponent(() =>
   import("../KnowledgeSection").then((module) => module.KnowledgeSection),
 );
 
-const fieldLabelClass = "mt-4 block text-[14px] text-muted-foreground";
+const rowLabelClass = "text-[14px] text-muted-foreground";
+const fieldLabelClass = `mt-4 block ${rowLabelClass}`;
 
 function ComputerModePicker({
   value,
@@ -642,23 +643,11 @@ export function BotSettings({
             </div>
           </div>
         ) : null}
-        <ErrorBoundary fallback={<SectionLoadFailed />}>
-          <Suspense fallback={null}>
-            <ScratchpadSection botId={bot.id} />
-          </Suspense>
-        </ErrorBoundary>
-        {advancedOpened ? (
-          <ErrorBoundary fallback={<SectionLoadFailed />}>
-            <Suspense fallback={null}>
-              <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
-            </Suspense>
-          </ErrorBoundary>
-        ) : null}
         <label
           htmlFor={`${ids}-auto-speak`}
           className="mt-5 flex cursor-pointer items-center justify-between gap-3 text-[14px] text-muted-foreground"
         >
-          <span>
+          <span className={rowLabelClass}>
             <Trans>Read replies aloud</Trans>
           </span>
           <Switch
@@ -687,7 +676,7 @@ export function BotSettings({
         ) : null}
         <div className="mt-5 flex items-center justify-between gap-3 text-[14px] text-muted-foreground">
           <div className="flex items-center gap-1">
-            <label htmlFor={`${ids}-fleet-management`}>
+            <label htmlFor={`${ids}-fleet-management`} className={rowLabelClass}>
               <Trans>Manage the bots it creates</Trans>
             </label>
             <InfoTooltip label={t`Manage the bots it creates`}>
@@ -704,6 +693,18 @@ export function BotSettings({
             }}
           />
         </div>
+        <ErrorBoundary fallback={<SectionLoadFailed />}>
+          <Suspense fallback={null}>
+            <ScratchpadSection botId={bot.id} />
+          </Suspense>
+        </ErrorBoundary>
+        {advancedOpened ? (
+          <ErrorBoundary fallback={<SectionLoadFailed />}>
+            <Suspense fallback={null}>
+              <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
+            </Suspense>
+          </ErrorBoundary>
+        ) : null}
         <label htmlFor={`${ids}-disabled-tools`} className={fieldLabelClass}>
           <Trans>Disabled tools</Trans>
           <Input

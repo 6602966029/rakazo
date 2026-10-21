@@ -73,8 +73,10 @@ vi.mock("@rakazo/ui-web", () => ({
 }));
 vi.mock("./avatar-studio-popover", () => ({ AvatarStudioPopover: () => null }));
 vi.mock("./bot-credentials", () => ({ BotCredentialsSection: () => null }));
-vi.mock("../ScratchpadSection", () => ({ ScratchpadSection: () => null }));
-vi.mock("../KnowledgeSection", () => ({ KnowledgeSection: () => null }));
+vi.mock("../ScratchpadSection", () => ({ ScratchpadSection: () => <div>Open work</div> }));
+vi.mock("../KnowledgeSection", () => ({
+  KnowledgeSection: () => <div>Memory / Shared skills</div>,
+}));
 
 import { InstructionSettings } from "../../components/InstructionSettings";
 import { rpc } from "../../lib/rpc";
@@ -203,6 +205,10 @@ it("keeps advanced controls inside details in the shared order", async () => {
     '[data-testid="bot-settings-advanced"]',
   )!;
   expect(advanced.open).toBe(false);
+  await act(async () => {
+    advanced.open = true;
+    advanced.dispatchEvent(new Event("toggle"));
+  });
   const labels = {
     instructions: "Instructions",
     computer: "Computer",
@@ -210,6 +216,8 @@ it("keeps advanced controls inside details in the shared order", async () => {
     readAloud: "Read replies aloud",
     voice: "Voice",
     fleetManagement: "Manage the bots it creates",
+    scratchpad: "Open work",
+    knowledge: "Memory / Shared skills",
     disabledTools: "Disabled tools",
   };
   const controls = [...container.querySelectorAll("div, span, label")].filter((node) =>
@@ -221,6 +229,12 @@ it("keeps advanced controls inside details in the shared order", async () => {
   );
   expect(controls).toHaveLength(Object.keys(labels).length);
   for (const control of controls) expect(control.closest("details")).toBe(advanced);
+  for (const control of controls.filter(
+    (node) => !["Open work", "Memory / Shared skills"].includes(node.textContent ?? ""),
+  )) {
+    expect(control.classList.contains("text-[14px]")).toBe(true);
+    expect(control.classList.contains("text-muted-foreground")).toBe(true);
+  }
   expect(
     controls.map(
       (node) =>
