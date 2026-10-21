@@ -43,6 +43,7 @@ import { withAbort } from "./web-ssrf.js";
 
 const DAYTONA_SCREEN_TTL_SECONDS = 3_600;
 const DAYTONA_START_TIMEOUT_MS = 120_000;
+const DAYTONA_STOP_TIMEOUT_MS = 120_000;
 /** Waking an archived sandbox first copies its disk back from object storage. */
 const DAYTONA_RESTORE_TIMEOUT_MS = 600_000;
 const DAYTONA_POLL_MS = 1_000;
@@ -409,7 +410,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     );
     this.forget(id);
     await sandbox.computerUse.stop().catch(() => undefined);
-    await sandbox.stop(120);
+    await stopDaytonaSandbox(sandbox);
   }
 
   async destroy(computer: ComputerRef, _context: AdapterContext): Promise<void> {
@@ -750,6 +751,76 @@ async function startDaytonaSandbox(sandbox: DaytonaSandbox): Promise<boolean> {
     }
     await abortableDelay(DAYTONA_POLL_MS);
     await refreshDaytonaSandbox(sandbox);
+  }
+}
+
+/**
+ * Drives a sandbox to a state that no longer runs it. Already stopped, archived, errored and
+ * deleted sandboxes have nothing to stop, so teardown succeeds instead of failing every retry.
+ */
+async function stopDaytonaSandbox(sandbox: DaytonaSandbox): Promise<void> {
+  const deadline = Date.now() + DAYTONA_STOP_TIMEOUT_MS;
+  const seconds = () => Math.max(1, Math.ceil((deadline - Date.now()) / 1_000));
+  try {
+    for (;;) {
+      const state = sandbox.state ?? SandboxState.UNKNOWN;
+      try {
+        switch (state) {
+          case SandboxState.STOPPED:
+          case SandboxState.ARCHIVED:
+          case SandboxState.ARCHIVING:
+          case SandboxState.ERROR:
+          case SandboxState.BUILD_FAILED:
+          case SandboxState.DESTROYED:
+          case SandboxState.DESTROYING:
+            return;
+          case SandboxState.STARTED:
+          case SandboxState.PAUSED:
+            await sandbox.stop(seconds());
+            continue;
+          // Let these settle, then act on the state they land in.
+          case SandboxState.STOPPING:
+          case SandboxState.CREATING:
+          case SandboxState.RESTORING:
+          case SandboxState.STARTING:
+          case SandboxState.RESUMING:
+          case SandboxState.PAUSING:
+          case SandboxState.PENDING_BUILD:
+          case SandboxState.BUILDING_SNAPSHOT:
+          case SandboxState.PULLING_SNAPSHOT:
+          case SandboxState.RESIZING:
+          case SandboxState.SNAPSHOTTING:
+          case SandboxState.FORKING:
+          case SandboxState.UNKNOWN:
+          case SandboxState.UNKNOWN_DEFAULT_OPEN_API:
+            break;
+          default: {
+            const unexpected: never = state;
+            throw new Error(`unexpected Daytona sandbox state ${String(unexpected)}`);
+          }
+        }
+      } catch (error) {
+        if (error instanceof DaytonaGoneError) return;
+        // Stale cached state, or a 404 that may name something other than the sandbox.
+        if (error instanceof DaytonaBadRequestError || error instanceof DaytonaNotFoundError) {
+          await refreshDaytonaSandbox(sandbox);
+          if (sandbox.state === state) throw error;
+          continue;
+        }
+        // 409 or a wait that saw the sandbox fail: re-read the state and act on it.
+        if (!(error instanceof DaytonaConflictError) && !isFailedDaytonaTransition(error)) {
+          throw error;
+        }
+      }
+      if (Date.now() >= deadline) {
+        throw new DaytonaTimeoutError(`Daytona sandbox ${sandbox.id} is still ${sandbox.state}`);
+      }
+      await abortableDelay(DAYTONA_POLL_MS);
+      await refreshDaytonaSandbox(sandbox);
+    }
+  } catch (error) {
+    if (isSandboxGoneError(error)) return;
+    throw error;
   }
 }
 
