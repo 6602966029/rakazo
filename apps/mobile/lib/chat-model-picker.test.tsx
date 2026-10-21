@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ReactNode } from "react";
-import { act, createElement, useEffect } from "react";
+import type { ReactNode, Ref } from "react";
+import { act, createElement, useEffect, useImperativeHandle } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +13,10 @@ import { ModelPickerList } from "../components/model-picker-list";
 import { modelPickerRequest } from "./model-picker-selection";
 
 const mocks = vi.hoisted(() => ({
+  scrollToLocation: vi.fn(),
+  scrollTo: vi.fn(),
+  reportVisibleRows: true,
+  headerInset: 0,
   focused: true,
   platform: "ios",
   connected: true,
@@ -46,6 +50,7 @@ vi.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ bottom: 34 }),
   SafeAreaView: ({ children }: { children: ReactNode }) => createElement("div", {}, children),
 }));
+vi.mock("./floating-header", () => ({ useFloatingHeaderInset: () => mocks.headerInset }));
 vi.mock("expo-clipboard", () => ({ setStringAsync: vi.fn() }));
 vi.mock("./appearance", () => ({ mobileTokens: () => ({}) }));
 vi.mock("./message-action-sheet", () => ({ presentMessageActionSheet: vi.fn() }));
@@ -204,16 +209,19 @@ vi.mock("react-native", () => {
         children,
       ),
     SectionList: ({
-      sections,
-      renderItem,
-      renderSectionHeader,
-      keyExtractor,
-      ListEmptyComponent,
-      ListHeaderComponent,
-      automaticallyAdjustKeyboardInsets,
-      contentContainerStyle,
-      contentInsetAdjustmentBehavior,
+      ref,
+      onViewableItemsChanged,
+      ...props
     }: {
+      ref: Ref<{
+        scrollToLocation: typeof mocks.scrollToLocation;
+        getScrollResponder: () => { scrollTo: typeof mocks.scrollTo };
+      }>;
+      onViewableItemsChanged: (info: {
+        viewableItems: { index: number; item: { key: string } }[];
+      }) => void;
+      onScrollToIndexFailed: (info: { averageItemLength: number; index: number }) => void;
+      onScrollBeginDrag: () => void;
       sections: { key: string; heading?: string; data: { key: string }[] }[];
       renderItem: (info: {
         item: { key: string };
@@ -228,11 +236,31 @@ vi.mock("react-native", () => {
       contentContainerStyle: unknown;
       contentInsetAdjustmentBehavior: string;
     }) => {
-      mocks.listProps = {
-        automaticallyAdjustKeyboardInsets,
-        contentContainerStyle,
-        contentInsetAdjustmentBehavior,
-      };
+      const {
+        sections,
+        renderItem,
+        renderSectionHeader,
+        keyExtractor,
+        ListEmptyComponent,
+        ListHeaderComponent,
+      } = props;
+      useImperativeHandle(
+        ref,
+        () => ({
+          scrollToLocation: mocks.scrollToLocation,
+          getScrollResponder: () => ({ scrollTo: mocks.scrollTo }),
+        }),
+        [],
+      );
+      useEffect(() => {
+        if (mocks.reportVisibleRows)
+          onViewableItemsChanged({
+            viewableItems: sections
+              .flatMap((section) => section.data.map((item, index) => ({ index, item })))
+              .slice(0, 4),
+          });
+      }, [sections, onViewableItemsChanged]);
+      mocks.listProps = { ...props, onViewableItemsChanged };
       return createElement(
         "ul",
         {},
@@ -332,6 +360,8 @@ let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.reportVisibleRows = true;
+  mocks.headerInset = 0;
   mocks.focused = true;
   mocks.platform = "ios";
   mocks.connected = true;
@@ -344,6 +374,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   act(() => root.unmount());
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -660,6 +691,123 @@ describe("connection settings model picker", () => {
     expect(mocks.rpc).toHaveBeenCalledWith("models/setBackups", [
       { provider: "openrouter", modelId: "vendor/model-4" },
     ]);
+  });
+});
+
+describe("initial model picker scroll", () => {
+  const choices = [
+    { key: "first", label: "First", providerLabel: "First provider" },
+    ...Array.from({ length: 30 }, (_, index) => ({
+      key: `model-${index}`,
+      label: `Model ${index}`,
+      providerLabel: "Second provider",
+    })),
+  ];
+  const render = async (selectedKey = "model-20") => {
+    await act(async () =>
+      root.render(
+        <ModelPickerList choices={choices} selectedKey={selectedKey} onSelect={() => undefined} />,
+      ),
+    );
+  };
+  const report = () =>
+    act(() =>
+      (mocks.listProps.onViewableItemsChanged as (info: unknown) => void)({
+        viewableItems: [{ index: 0, item: choices[0] }],
+      }),
+    );
+  const fail = () =>
+    act(() =>
+      (mocks.listProps.onScrollToIndexFailed as (info: unknown) => void)({
+        averageItemLength: 50,
+        index: 24,
+      }),
+    );
+
+  it("reveals a distant selection once after the first visible rows are laid out", async () => {
+    await render();
+    expect(mocks.scrollToLocation).toHaveBeenCalledExactlyOnceWith({
+      sectionIndex: 1,
+      itemIndex: 20,
+      viewPosition: 0.5,
+      animated: false,
+    });
+    report();
+    await render("model-25");
+    searchModels("Model");
+    searchModels("");
+    report();
+    expect(mocks.scrollToLocation).toHaveBeenCalledOnce();
+  });
+
+  it("waits for an asynchronously loaded catalog", async () => {
+    await act(async () =>
+      root.render(
+        <ModelPickerList choices={null} selectedKey="model-20" onSelect={() => undefined} />,
+      ),
+    );
+    expect(mocks.scrollToLocation).not.toHaveBeenCalled();
+    await render();
+    expect(mocks.scrollToLocation).toHaveBeenCalledExactlyOnceWith({
+      sectionIndex: 1,
+      itemIndex: 20,
+      viewPosition: 0.5,
+      animated: false,
+    });
+  });
+
+  it.each(["first", "model-0", "", "missing"])(
+    "leaves the initial viewport alone for %s",
+    async (key) => {
+      await render(key);
+      report();
+      expect(mocks.scrollToLocation).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["query", "drag"])("cancels a pending reveal after %s", async (interaction) => {
+    mocks.reportVisibleRows = false;
+    await render();
+    if (interaction === "query") {
+      searchModels("Model");
+      searchModels("");
+    } else act(() => (mocks.listProps.onScrollBeginDrag as () => void)());
+    report();
+    expect(mocks.scrollToLocation).not.toHaveBeenCalled();
+  });
+
+  it("moves the render window and retries an unmeasured location only once", async () => {
+    vi.useFakeTimers();
+    await render();
+    fail();
+    expect(mocks.scrollTo).toHaveBeenCalledExactlyOnceWith({ y: 1200, animated: false });
+    act(() => vi.advanceTimersByTime(100));
+    expect(mocks.scrollToLocation).toHaveBeenCalledTimes(2);
+    fail();
+    act(() => vi.advanceTimersByTime(100));
+    expect(mocks.scrollToLocation).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["query", "drag", "unmount"])("cancels the retry after %s", async (interaction) => {
+    vi.useFakeTimers();
+    await render();
+    fail();
+    if (interaction === "query") searchModels("Model");
+    else if (interaction === "drag") act(() => (mocks.listProps.onScrollBeginDrag as () => void)());
+    else act(() => root.render(null));
+    act(() => vi.advanceTimersByTime(100));
+    expect(mocks.scrollToLocation).toHaveBeenCalledOnce();
+  });
+
+  it("reserves the floating header height without automatic double insets", async () => {
+    mocks.headerInset = 104;
+    await render("first");
+    expect(mocks.listProps).toMatchObject({
+      contentInsetAdjustmentBehavior: "never",
+      contentContainerStyle: expect.arrayContaining([expect.objectContaining({ paddingTop: 120 })]),
+    });
+    searchModels("Model");
+    expect(mocks.listProps.contentInsetAdjustmentBehavior).toBe("never");
   });
 });
 

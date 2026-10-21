@@ -1,7 +1,8 @@
 import type { ChatModelChoice } from "@rakazo/core";
 import { groupModelChoices } from "@rakazo/core";
 import { useNavigation } from "expo-router";
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ViewToken } from "react-native";
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -13,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFloatingHeaderInset } from "../lib/floating-header";
 import { useI18n } from "../lib/i18n";
 import { native, useThemedStyles } from "../lib/native";
 import { Checkmark } from "./row-accessories";
@@ -37,7 +39,34 @@ export function ModelPickerList({
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createStyles);
+  const headerInset = useFloatingHeaderInset();
+  const list = useRef<SectionList<ChatModelChoice>>(null);
+  const initialScroll = useRef({
+    ready: false,
+    handled: false,
+    cancelled: false,
+    retried: false,
+    target: null as { sectionIndex: number; itemIndex: number; key: string } | null,
+  });
+  const retry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelInitialScroll = useCallback(() => {
+    initialScroll.current.cancelled = true;
+    if (retry.current !== null) clearTimeout(retry.current);
+  }, []);
+  useEffect(
+    () => () => {
+      if (retry.current !== null) clearTimeout(retry.current);
+    },
+    [],
+  );
   const [query, setQuery] = useState("");
+  const changeQuery = useCallback(
+    (text: string) => {
+      cancelInitialScroll();
+      setQuery(text);
+    },
+    [cancelInitialScroll],
+  );
   useLayoutEffect(() => {
     if (Platform.OS === "android") return;
     navigation.setOptions({
@@ -47,12 +76,12 @@ export function ModelPickerList({
         hideNavigationBar: false,
         autoCapitalize: "none",
         onChangeText: (event: { nativeEvent: { text: string } }) =>
-          setQuery(event.nativeEvent.text),
-        onCancelButtonPress: () => setQuery(""),
-        onClose: () => setQuery(""),
+          changeQuery(event.nativeEvent.text),
+        onCancelButtonPress: () => changeQuery(""),
+        onClose: () => changeQuery(""),
       },
     });
-  }, [navigation, t]);
+  }, [navigation, t, changeQuery]);
 
   const sections = useMemo(
     () =>
@@ -69,6 +98,70 @@ export function ModelPickerList({
         : [],
     [choices, query, providerLabel],
   );
+  useLayoutEffect(() => {
+    const state = initialScroll.current;
+    if (state.handled || state.cancelled || choices === null) return;
+    state.ready = true;
+    state.target = null;
+    for (const [sectionIndex, section] of sections.entries()) {
+      const itemIndex = section.data.findIndex((item) => item.key === selectedKey);
+      if (itemIndex !== -1) {
+        state.target = { sectionIndex, itemIndex, key: selectedKey };
+        break;
+      }
+    }
+  }, [choices, sections, selectedKey]);
+
+  // Viewability is reported after layout, including when an async catalog arrives.
+  const revealInitialSelection = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken<ChatModelChoice>[] }) => {
+      const state = initialScroll.current;
+      if (
+        !state.ready ||
+        state.handled ||
+        state.cancelled ||
+        !viewableItems.some((item) => item.index !== null)
+      )
+        return;
+      state.handled = true;
+      if (
+        !state.target ||
+        viewableItems.some((item) => item.index !== null && item.item.key === state.target?.key)
+      )
+        return;
+      list.current?.scrollToLocation({
+        sectionIndex: state.target.sectionIndex,
+        itemIndex: state.target.itemIndex,
+        viewPosition: 0.5,
+        animated: false,
+      });
+    },
+    [],
+  );
+
+  const retryInitialSelection = useCallback(
+    ({ averageItemLength, index }: { averageItemLength: number; index: number }) => {
+      const state = initialScroll.current;
+      if (!state.handled || state.cancelled || state.retried || !state.target) return;
+      state.retried = true;
+      // Move the render window near an unmeasured row before trying its location once more.
+      list.current
+        ?.getScrollResponder()
+        ?.scrollTo({ y: averageItemLength * index, animated: false });
+      retry.current = setTimeout(() => {
+        if (!state.cancelled && state.target) {
+          list.current?.scrollToLocation({
+            sectionIndex: state.target.sectionIndex,
+            itemIndex: state.target.itemIndex,
+            viewPosition: 0.5,
+            animated: false,
+          });
+        }
+      }, 100);
+    },
+    [],
+  );
+
   const noMatches = choices !== null && sections.length === 0;
 
   // The search field keeps focus, so tell screen readers once when the results run out.
@@ -78,12 +171,19 @@ export function ModelPickerList({
 
   return (
     <SectionList
+      ref={list}
+      onViewableItemsChanged={revealInitialSelection}
+      onScrollToIndexFailed={retryInitialSelection}
+      onScrollBeginDrag={cancelInitialScroll}
       key={Platform.OS === "android" ? "android" : query}
       style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 72 }]}
-      // Reserve the floating search field; UIKit adds the keyboard and header insets.
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: headerInset + 16, paddingBottom: insets.bottom + 72 },
+      ]}
+      // Reserve the transparent bar explicitly: native search can drop its automatic inset.
       automaticallyAdjustKeyboardInsets
-      contentInsetAdjustmentBehavior="automatic"
+      contentInsetAdjustmentBehavior={headerInset > 0 ? "never" : "automatic"}
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       sections={sections}
@@ -109,7 +209,7 @@ export function ModelPickerList({
             placeholder={t("Search")}
             placeholderTextColor={native.secondaryLabel}
             value={query}
-            onChangeText={setQuery}
+            onChangeText={changeQuery}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
@@ -153,7 +253,7 @@ export function ModelPickerList({
 function createStyles() {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: native.page },
-    content: { paddingHorizontal: 16, paddingTop: 16 },
+    content: { paddingHorizontal: 16 },
     sectionHeading: { paddingBottom: 7 },
     sectionGap: { height: 20 },
     cell: { backgroundColor: native.fill, overflow: "hidden" },
