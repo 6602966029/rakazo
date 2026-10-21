@@ -192,7 +192,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     authUrl: source.BETTER_AUTH_URL ?? source.WEB_ORIGIN ?? "http://127.0.0.1:5173",
     webOrigin: source.WEB_ORIGIN ?? "http://127.0.0.1:5173",
     passkeyAppleAppIds: list(source.PASSKEY_APPLE_APP_IDS),
-    passkeyAndroidCertFingerprints: list(source.PASSKEY_ANDROID_CERT_SHA256),
+    passkeyAndroidCertFingerprints: androidCertFingerprints(source.PASSKEY_ANDROID_CERT_SHA256),
     privacyPolicyUrl: optional(source.PRIVACY_POLICY_URL),
     apiUrl: source.API_URL ?? "http://127.0.0.1:3100",
     apiHost: source.API_HOST ?? "127.0.0.1",
@@ -301,4 +301,15 @@ function optional(value: string | undefined): string | undefined {
 
 function list(value: string | undefined): string[] {
   return (value ?? "").split(/[\s,]+/).filter(Boolean);
+}
+
+/** SHA-256 signing certificate fingerprints, normalized to the `AA:BB:…` form Digital Asset Links uses. */
+function androidCertFingerprints(value: string | undefined): string[] {
+  return list(value).map((fingerprint) => {
+    const hex = fingerprint.replace(/:/g, "");
+    if (!/^[0-9a-f]{64}$/i.test(hex)) {
+      throw new Error("PASSKEY_ANDROID_CERT_SHA256 must list SHA-256 fingerprints");
+    }
+    return hex.toUpperCase().match(/../g)!.join(":");
+  });
 }

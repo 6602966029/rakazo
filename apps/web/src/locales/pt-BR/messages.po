@@ -2029,7 +2029,7 @@ msgstr "Excluir"
 #: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr ""
+msgstr "Excluir \"{0}\"?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -4454,7 +4454,7 @@ msgstr "Entrar"
 #: src/lib/user-error.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Sign in again"
-msgstr ""
+msgstr "Entre novamente"
 
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"
@@ -4763,7 +4763,7 @@ msgstr ""
 #: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "This can't be undone."
-msgstr ""
+msgstr "Não é possível desfazer."
 
 #: src/pages/shell/dialogs.tsx
 msgid "This cannot be undone."

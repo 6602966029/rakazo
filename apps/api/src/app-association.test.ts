@@ -39,6 +39,16 @@ describe("nativePasskeys", () => {
 });
 
 describe("native app association", () => {
+  it("normalizes Android fingerprints and rejects invalid ones", async () => {
+    const lowercase = fingerprint.replace(/:/g, "").toLowerCase();
+    const app = association({ PASSKEY_ANDROID_CERT_SHA256: lowercase });
+    const [link] = await (await app.request("/.well-known/assetlinks.json")).json();
+    expect(link.target.sha256_cert_fingerprints).toEqual([fingerprint]);
+    expect(() => association({ PASSKEY_ANDROID_CERT_SHA256: "AB:CD" })).toThrow(
+      "PASSKEY_ANDROID_CERT_SHA256 must list SHA-256 fingerprints",
+    );
+  });
+
   it("serves only the files a deployment configures", async () => {
     const app = association({});
     expect((await app.request("/.well-known/apple-app-site-association")).status).toBe(404);

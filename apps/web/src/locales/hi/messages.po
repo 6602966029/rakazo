@@ -2029,7 +2029,7 @@ msgstr "डिलीट करें"
 #: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr ""
+msgstr "\"{0}\" हटाएं?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -4454,7 +4454,7 @@ msgstr "साइन इन करें"
 #: src/lib/user-error.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Sign in again"
-msgstr ""
+msgstr "फिर से साइन इन करें"
 
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"
@@ -4763,7 +4763,7 @@ msgstr "यह कॉल अब नहीं बज रही है।"
 #: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "This can't be undone."
-msgstr ""
+msgstr "इसे पूर्ववत नहीं किया जा सकता।"
 
 #: src/pages/shell/dialogs.tsx
 msgid "This cannot be undone."

@@ -2029,7 +2029,7 @@ msgstr "Löschen"
 #: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr ""
+msgstr "„{0}“ löschen?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -4454,7 +4454,7 @@ msgstr "Anmelden"
 #: src/lib/user-error.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Sign in again"
-msgstr ""
+msgstr "Erneut anmelden"
 
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"
@@ -4763,7 +4763,7 @@ msgstr "Dieser Anruf klingelt nicht mehr."
 #: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "This can't be undone."
-msgstr ""
+msgstr "Das kann nicht rückgängig gemacht werden."
 
 #: src/pages/shell/dialogs.tsx
 msgid "This cannot be undone."

@@ -4454,7 +4454,7 @@ msgstr "Se connecter"
 #: src/lib/user-error.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Sign in again"
-msgstr ""
+msgstr "Se reconnecter"
 
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"

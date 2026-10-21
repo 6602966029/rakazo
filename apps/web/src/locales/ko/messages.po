@@ -2029,7 +2029,7 @@ msgstr "삭제"
 #: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "Delete \"{0}\"?"
-msgstr ""
+msgstr "\"{0}\"을(를) 삭제할까요?"
 
 #. placeholder {0}: artifact.name
 #. placeholder {0}: bot.name
@@ -4454,7 +4454,7 @@ msgstr "로그인"
 #: src/lib/user-error.ts
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Sign in again"
-msgstr ""
+msgstr "다시 로그인"
 
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"
@@ -4763,7 +4763,7 @@ msgstr ""
 #: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
 msgid "This can't be undone."
-msgstr ""
+msgstr "되돌릴 수 없습니다."
 
 #: src/pages/shell/dialogs.tsx
 msgid "This cannot be undone."

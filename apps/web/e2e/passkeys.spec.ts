@@ -77,8 +77,9 @@ test("adds a passkey after signup and signs in with it", async ({ page }, testIn
   await expect(signIn).toBeVisible();
   await expect(page.getByLabel("Email")).toHaveAttribute("autocomplete", "username webauthn");
   await captureScreenshot(page, testInfo, "passkey-sign-in");
-  await cdp.send("WebAuthn.setAutomaticPresenceSimulation", { authenticatorId, enabled: true });
+  // Listen first: the pending autofill request may answer as soon as presence returns.
   signedIn = verified();
+  await cdp.send("WebAuthn.setAutomaticPresenceSimulation", { authenticatorId, enabled: true });
   await signIn.click();
   await signedIn;
   await page.waitForURL(/\/app/);
