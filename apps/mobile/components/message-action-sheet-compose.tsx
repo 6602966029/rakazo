@@ -9,7 +9,6 @@ import {
   padding,
   Shapes,
   selectable,
-  semantics,
   size,
 } from "@expo/ui/jetpack-compose/modifiers";
 import { tokensForAppearance } from "@rakazo/ui-tokens";
@@ -81,7 +80,6 @@ export default function AndroidMessageActionSheetHost() {
                 modifiers={[
                   fillMaxWidth(),
                   defaultMinSize({ minHeight: 56 }),
-                  semantics({ contentDescription: action.text }),
                   sheet.selected === undefined
                     ? clickable(onPress)
                     : selectable(sheet.selected === index, onPress),

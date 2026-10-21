@@ -37,7 +37,6 @@ vi.mock("@expo/ui/jetpack-compose/modifiers", () => ({
   Shapes: { RoundedCorner: (radius: number) => ({ radius }) },
   background: (color: string) => ({ background: color }),
   defaultMinSize: (value: unknown) => ({ defaultMinSize: value }),
-  semantics: (value: unknown) => ({ semantics: value }),
   selectable: (selected: boolean, handler: () => void) => ({ selected, handler }),
 }));
 vi.mock("@expo/ui/jetpack-compose", () => ({
@@ -171,11 +170,13 @@ it.each(["light", "dark"] as const)(
     ).toBe(true);
     expect(native.list.mock.lastCall?.[0]).toMatchObject({ contentPadding: { bottom: 24 } });
     expect(native.row.mock.calls[42]?.[0].modifiers).toEqual(
-      expect.arrayContaining([
-        { defaultMinSize: { minHeight: 56 } },
-        { semantics: { contentDescription: "Model 42" } },
-      ]),
+      expect.arrayContaining([{ defaultMinSize: { minHeight: 56 } }]),
     );
+    for (const [row] of native.row.mock.calls) {
+      expect(row.modifiers).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ semantics: expect.anything() })]),
+      );
+    }
     expect(
       native.text.mock.calls.find(([props]) => props.children === "Models")?.[0],
     ).toMatchObject({
