@@ -26,7 +26,8 @@ export async function runThreadSubscription(options: {
   let lastFailure: unknown;
   const stopped = () => signal.aborted || refused;
   const noteFailure = (error: unknown) => {
-    lastFailure = error;
+    // Keep whichever failure asked for the longer wait (a 429's Retry-After).
+    if (retryDelayMs(error, 0) >= retryDelayMs(lastFailure, 0)) lastFailure = error;
     if (!isRetryableError(error)) refused = true;
     return null;
   };

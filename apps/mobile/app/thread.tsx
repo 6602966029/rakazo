@@ -1573,14 +1573,20 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         }
         // A 4xx other than 408/429 is the server's answer; reconnecting only polls it.
         if (abort.signal.aborted || !isRetryableError(failure)) break;
+        let refreshFailure: unknown;
         if (!jumpScrollTarget.current && !expandedHistoryThread.current) {
-          const refreshFailure = await refresh().then(
+          refreshFailure = await refresh().then(
             () => undefined,
             (error: unknown) => error,
           );
           if (!isRetryableError(refreshFailure)) break;
         }
-        await abortableDelay(retryDelayMs(failure, retryMs), abort.signal);
+        // Wait as long as either request was asked to (a 429's Retry-After).
+        const delay = Math.max(
+          retryDelayMs(failure, retryMs),
+          retryDelayMs(refreshFailure, retryMs),
+        );
+        await abortableDelay(delay, abort.signal);
         retryMs = Math.min(retryMs * 2, 5_000);
       }
     })();
