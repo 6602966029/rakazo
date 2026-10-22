@@ -107,6 +107,7 @@ test("choose free API keys or monthly credits, then add a one-time top-up", asyn
   await expect(page.getByText("Hosted computer included.", { exact: true })).toHaveCount(0);
   const planSelect = page.getByRole("combobox", { name: "Monthly credits" });
   await expect(planSelect).toHaveCSS("height", "48px");
+  await expect(planSelect).toContainText("$20 / month");
   await planSelect.click();
   const options = page.locator('[data-slot="select-content"]');
   await expect
@@ -119,7 +120,7 @@ test("choose free API keys or monthly credits, then add a one-time top-up", asyn
   const optionsBox = await options.boundingBox();
   expect(optionsBox!.y).toBeGreaterThanOrEqual(triggerBox!.y + triggerBox!.height);
   await captureScreenshot(page, testInfo, "billing-credit-options");
-  await page.getByRole("option", { name: "$20 / month", exact: true }).click();
+  await page.keyboard.press("Escape");
   await expect(
     page.getByText("$20 in monthly model credits. No API key needed.", { exact: true }),
   ).toBeVisible();
