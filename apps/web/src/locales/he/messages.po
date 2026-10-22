@@ -386,7 +386,6 @@ msgid "Activity"
 msgstr "פעילות"
 
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 msgid "Add"
@@ -439,12 +438,8 @@ msgid "Add another"
 msgstr "הוספת עוד"
 
 #: src/pages/ModelBackupsSettings.tsx
-msgid "Add connected model"
-msgstr "הוספת מודל מחובר"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Add connected models to use them as backups."
-msgstr "אפשר להוסיף מודלים מחוברים כדי להשתמש בהם כגיבוי."
+msgid "Add backup model"
+msgstr "הוספת מודל גיבוי"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
@@ -837,14 +832,6 @@ msgstr "חזרה להתחברות"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Backup models"
 msgstr "מודלי גיבוי"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Backup models order"
-msgstr "סדר מודלי הגיבוי"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Backup models saved."
-msgstr "מודלי הגיבוי נשמרו."
 
 #: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
@@ -2938,7 +2925,6 @@ msgstr "טוען ספקי קול…"
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineRunHistory.tsx
@@ -3040,10 +3026,6 @@ msgstr "הגדלה"
 #: src/pages/Onboarding.tsx
 msgid "Maximum images per request"
 msgstr "מספר תמונות מרבי לבקשה"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Maximum of 10 backup models."
-msgstr "עד 10 מודלי גיבוי."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3967,7 +3949,6 @@ msgstr "טעינה מחדש"
 
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4261,10 +4242,6 @@ msgstr "רץ כשהבוט הזה מקבל הודעה מאומתת מהספק ה�
 msgid "Save"
 msgstr "שמירה"
 
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Save backups"
-msgstr "שמירת גיבויים"
-
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
 msgstr "שמירת פרטי הגישה"
@@ -4306,7 +4283,6 @@ msgstr "שומר..."
 #: src/components/AskCard.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4378,10 +4354,6 @@ msgstr "מחפש…"
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "בחירת בוט"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Select a connected model"
-msgstr "בחירת מודל מחובר"
 
 #: src/pages/Shell.tsx
 msgid "Send"
@@ -5019,6 +4991,10 @@ msgstr "תקופת ניסיון"
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr "תקופת הניסיון מסתיימת {day}"
+
+#: src/pages/ModelBackupsSettings.tsx
+msgid "Tried in order if the active model fails."
+msgstr "ינוסו לפי הסדר אם המודל הפעיל נכשל."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx

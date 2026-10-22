@@ -123,6 +123,10 @@ export function SettingsRow({
     return (
       <View
         accessible={props.accessible}
+        accessibilityActions={props.accessibilityActions}
+        accessibilityLabel={props.accessibilityLabel}
+        accessibilityRole={props.accessibilityRole}
+        onAccessibilityAction={props.onAccessibilityAction}
         style={[styles.row, stacked && styles.compactRow, dimmed && styles.dimmed]}
       >
         {content}

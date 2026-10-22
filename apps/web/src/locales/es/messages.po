@@ -386,7 +386,6 @@ msgid "Activity"
 msgstr "Actividad"
 
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 msgid "Add"
@@ -439,12 +438,8 @@ msgid "Add another"
 msgstr ""
 
 #: src/pages/ModelBackupsSettings.tsx
-msgid "Add connected model"
-msgstr "Agregar modelo conectado"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Add connected models to use them as backups."
-msgstr "Agrega modelos conectados para usarlos como respaldo."
+msgid "Add backup model"
+msgstr "Añadir modelo de respaldo"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
@@ -837,14 +832,6 @@ msgstr "Volver a iniciar sesión"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Backup models"
 msgstr "Modelos de respaldo"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Backup models order"
-msgstr "Orden de los modelos de respaldo"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Backup models saved."
-msgstr "Modelos de respaldo guardados."
 
 #: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
@@ -2938,7 +2925,6 @@ msgstr "Cargando proveedores de voz…"
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineRunHistory.tsx
@@ -3040,10 +3026,6 @@ msgstr ""
 #: src/pages/Onboarding.tsx
 msgid "Maximum images per request"
 msgstr "Máximo de imágenes por solicitud"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Maximum of 10 backup models."
-msgstr "Máximo de 10 modelos de respaldo."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3967,7 +3949,6 @@ msgstr "Recargar"
 
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4261,10 +4242,6 @@ msgstr ""
 msgid "Save"
 msgstr "Guardar"
 
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Save backups"
-msgstr "Guardar respaldos"
-
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
 msgstr ""
@@ -4306,7 +4283,6 @@ msgstr ""
 #: src/components/AskCard.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4378,10 +4354,6 @@ msgstr "Buscando…"
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "Selecciona un bot"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Select a connected model"
-msgstr "Selecciona un modelo conectado"
 
 #: src/pages/Shell.tsx
 msgid "Send"
@@ -5019,6 +4991,10 @@ msgstr ""
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr ""
+
+#: src/pages/ModelBackupsSettings.tsx
+msgid "Tried in order if the active model fails."
+msgstr "Se prueban en orden si falla el modelo activo."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx

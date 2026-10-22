@@ -386,7 +386,6 @@ msgid "Activity"
 msgstr "Activity"
 
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 msgid "Add"
@@ -439,12 +438,8 @@ msgid "Add another"
 msgstr "Add another"
 
 #: src/pages/ModelBackupsSettings.tsx
-msgid "Add connected model"
-msgstr "Add connected model"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Add connected models to use them as backups."
-msgstr "Add connected models to use them as backups."
+msgid "Add backup model"
+msgstr "Add backup model"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
@@ -837,14 +832,6 @@ msgstr "Back to sign in"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Backup models"
 msgstr "Backup models"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Backup models order"
-msgstr "Backup models order"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Backup models saved."
-msgstr "Backup models saved."
 
 #: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
@@ -2938,7 +2925,6 @@ msgstr "Loading voice providers…"
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineRunHistory.tsx
@@ -3040,10 +3026,6 @@ msgstr "Maximize"
 #: src/pages/Onboarding.tsx
 msgid "Maximum images per request"
 msgstr "Maximum images per request"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Maximum of 10 backup models."
-msgstr "Maximum of 10 backup models."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3967,7 +3949,6 @@ msgstr "Reload"
 
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4261,10 +4242,6 @@ msgstr "Runs when this bot receives a verified message from this provider."
 msgid "Save"
 msgstr "Save"
 
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Save backups"
-msgstr "Save backups"
-
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
 msgstr "Save credential"
@@ -4306,7 +4283,6 @@ msgstr "Saving..."
 #: src/components/AskCard.tsx
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4378,10 +4354,6 @@ msgstr "Searching…"
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "Select a bot"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Select a connected model"
-msgstr "Select a connected model"
 
 #: src/pages/Shell.tsx
 msgid "Send"
@@ -5019,6 +4991,10 @@ msgstr "Trial"
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr "Trial ends {day}"
+
+#: src/pages/ModelBackupsSettings.tsx
+msgid "Tried in order if the active model fails."
+msgstr "Tried in order if the active model fails."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
