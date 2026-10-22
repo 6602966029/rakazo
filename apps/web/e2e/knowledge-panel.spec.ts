@@ -98,7 +98,12 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   );
   await captureScreenshot(page, testInfo, "84-space-memory-conflict");
   const downloadPromise = page.waitForEvent("download");
-  await spaceDocs.getByRole("button", { name: "Download", exact: true }).first().click();
+  // Document order is not fixed, so download from the MEMORY.md row itself.
+  await spaceDocs
+    .locator("div.border-b")
+    .filter({ has: page.getByRole("button", { name: "MEMORY.md", exact: true }) })
+    .getByRole("button", { name: "Download", exact: true })
+    .click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("MEMORY.md");
   const exported = await readFile((await download.path())!, "utf8");
