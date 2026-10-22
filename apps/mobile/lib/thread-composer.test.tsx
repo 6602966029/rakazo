@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { MAX_FONT_SCALE } from "@rakazo/ui-tokens";
 import type { ComponentProps, ReactNode, Ref } from "react";
 import { act, createElement, createRef } from "react";
 import type { Root } from "react-dom/client";
@@ -259,6 +260,7 @@ describe("thread composer isolation", () => {
     "keeps a padded scrolling viewport with room for scaled lines at font scale %s",
     (fontScale) => {
       dimensions.fontScale = fontScale;
+      const textScale = Math.min(fontScale, MAX_FONT_SCALE);
       render();
       for (const draft of ["Hello", "Hello\nworld", "مرحبا\nبالعالم", "line\n".repeat(20)]) {
         type(draft);
@@ -271,8 +273,8 @@ describe("thread composer isolation", () => {
         expect(fieldStyle.paddingTop).toBeUndefined();
         expect(fieldStyle.paddingBottom).toBeUndefined();
         expect(field.dataset.scrollEnabled).toBe("true");
-        expect(fieldStyle.minHeight).toBeGreaterThanOrEqual(fieldStyle.lineHeight * fontScale);
-        expect(fieldStyle.maxHeight).toBeGreaterThanOrEqual(5 * fieldStyle.lineHeight * fontScale);
+        expect(fieldStyle.minHeight).toBe(fieldStyle.lineHeight * textScale);
+        expect(fieldStyle.maxHeight).toBe(5 * fieldStyle.lineHeight * textScale);
         expect(fieldStyle.height).toBeUndefined();
         expect(fieldStyle.writingDirection).toBe("auto");
       }

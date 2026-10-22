@@ -8,6 +8,7 @@ import {
   serializeComposerPrompt,
   truncateSlashDescription,
 } from "@rakazo/core";
+import { MAX_FONT_SCALE } from "@rakazo/ui-tokens";
 import type { Ref } from "react";
 import { useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { ViewStyle } from "react-native";
@@ -68,6 +69,8 @@ export function ThreadComposer({
 }: ThreadComposerProps) {
   const tokens = useMobileTokens();
   const { fontScale } = useWindowDimensions();
+  // The input text stops growing at MAX_FONT_SCALE, so its height limits stop there too.
+  const textScale = Math.min(fontScale, MAX_FONT_SCALE);
   const colorScheme = useResolvedAppearance();
   const { t } = useI18n();
   const inputRef = useRef<TextInput>(null);
@@ -480,8 +483,8 @@ export function ThreadComposer({
                   lineHeight: 22,
                   padding: 0,
                   // Native text and lineHeight scale with Dynamic Type; the viewport must too.
-                  minHeight: 22 * fontScale,
-                  maxHeight: 110 * fontScale,
+                  minHeight: 22 * textScale,
+                  maxHeight: 110 * textScale,
                   writingDirection: "auto",
                 }}
               />
