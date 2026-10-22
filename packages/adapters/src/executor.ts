@@ -3705,15 +3705,27 @@ export function createRunExecutor(deps: ExecutorDeps) {
       >();
       const settleRunningHelpers = async () => {
         for (const [agentId, block] of runningHelpers) {
-          await deps.events.append({
-            spaceId: run.spaceId,
-            threadId: run.threadId,
-            botId: run.botId,
-            runId,
-            type: "thread.subagent",
-            payload: { ...block, status: "failed", result: "stopped" },
-          });
-          runningHelpers.delete(agentId);
+          try {
+            const stopped = {
+              ...block,
+              kind: "subagent",
+              status: "failed",
+              result: "stopped",
+            } as const;
+            await publishMessage(
+              deps,
+              run,
+              "bot",
+              [stopped],
+              subagentMarksUnread(run.trigger, "failed"),
+              undefined,
+              stopped,
+            );
+            runningHelpers.delete(agentId);
+          } catch (error) {
+            // Cleanup must not mask the run outcome or prevent other helpers settling.
+            getLogger().error("settle running helper", error);
+          }
         }
       };
 
@@ -9748,14 +9760,42 @@ async function publishMessage(
   blocks: MessageBlock[],
   markUnread: boolean | undefined = run.trigger === "bot_message" ? false : undefined,
   clientNonce?: string,
+  stoppedHelper?: Extract<MessageBlock, { kind: "subagent" }> & {
+    status: "failed";
+    result: "stopped";
+  },
 ) {
   if (isBackgroundRunTrigger(run.trigger)) {
     blocks = blocks.filter((block) => block.kind === "ask" || block.kind === "computer");
-    if (blocks.length === 0) return null;
+    if (blocks.length === 0 && !stoppedHelper) return null;
   }
-  const committed = await deps.prisma.$transaction((tx) =>
-    persistMessageInTransaction(tx, run, role, blocks, markUnread, clientNonce),
-  );
+  const committed = await deps.prisma.$transaction(async (tx) => {
+    // Only synthetic terminal helper writes may bypass the cancellation guard.
+    // Commit their event and durable message together so cleanup retries are safe.
+    let helperEvent: { seq: number } | undefined;
+    if (stoppedHelper) {
+      const { kind: _kind, ...payload } = stoppedHelper;
+      helperEvent = await appendEventInTransaction(tx, {
+        spaceId: run.spaceId,
+        threadId: run.threadId,
+        botId: run.botId,
+        runId: run.id,
+        type: "thread.subagent",
+        payload,
+        allowCancelledRun: true,
+      });
+    }
+    if (blocks.length === 0 && helperEvent) return { message: null, eventSeq: helperEvent.seq };
+    return persistMessageInTransaction(
+      tx,
+      run,
+      role,
+      blocks,
+      markUnread,
+      clientNonce,
+      Boolean(stoppedHelper),
+    );
+  });
   await deps.events.notify(run.threadId, committed.eventSeq).catch((error) => {
     getLogger().error("thread message realtime notification", error);
   });
@@ -9769,6 +9809,7 @@ async function persistMessageInTransaction(
   blocks: MessageBlock[],
   markUnread?: boolean,
   clientNonce?: string,
+  allowCancelledRun = false,
 ) {
   const message = await createThreadMessageInTransaction(tx, {
     threadId: run.threadId,
@@ -9778,6 +9819,7 @@ async function persistMessageInTransaction(
     runId: run.id,
     markUnread,
     clientNonce,
+    allowCancelledRun,
   });
   const event = await appendEventInTransaction(tx, {
     spaceId: run.spaceId,
@@ -9785,6 +9827,7 @@ async function persistMessageInTransaction(
     botId: run.botId,
     type: "thread.message.created",
     runId: run.id,
+    allowCancelledRun,
     payload: {
       messageId: message.id,
       role,

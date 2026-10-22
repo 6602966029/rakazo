@@ -525,6 +525,7 @@ describe("executor paused transcript", () => {
       await state.executor.continueRun(state.run.id, "fixture-worker");
       expect(state.reads).toHaveBeenCalledTimes(2);
       const saved = state.effects.find((effect) => effect.kind === "runtime_checkpoint")!;
+      expect(model.requests).toHaveLength(1);
       expect(JSON.parse(String(saved.result)).pendingToolCallId).toBe("pending-write");
       for (const effect of state.effects)
         if (effect.status === "intended") effect.status = "approved";
