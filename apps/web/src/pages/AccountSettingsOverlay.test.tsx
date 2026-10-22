@@ -379,6 +379,21 @@ it("saves a trimmed name and refreshes the account data", async () => {
   }
 });
 
+it("closes an unchanged name without saving", async () => {
+  vi.mocked(authClient.updateUser).mockClear();
+  const editor = await renderNameEditor();
+  try {
+    await editor.change("  Alex Rivera  ");
+    await editor.submit();
+    expect(authClient.updateUser).not.toHaveBeenCalled();
+    expect(editor.onNameSaved).not.toHaveBeenCalled();
+    expect(editor.card.querySelector("input")).toBeNull();
+    expect(editor.card.querySelector('[role="alert"]')).toBeNull();
+  } finally {
+    await editor.cleanup();
+  }
+});
+
 it.each(["button", "Escape"])("cancels a name edit with %s without saving", async (method) => {
   vi.mocked(authClient.updateUser).mockClear();
   const editor = await renderNameEditor();

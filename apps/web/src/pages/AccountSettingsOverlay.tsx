@@ -106,6 +106,12 @@ export function GeneralSettingsPanels({
       setNameError(t`Could not update name`);
       return;
     }
+    // Nothing to save, so close without a request that could only fail.
+    if (nextName === (account.label === email ? "" : displayName(name, ""))) {
+      setNameError(null);
+      setEditingName(false);
+      return;
+    }
     setNamePending(true);
     setNameError(null);
     try {
