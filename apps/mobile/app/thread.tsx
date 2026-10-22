@@ -46,6 +46,7 @@ import {
   retryDelayMs,
   displayName as safeDisplayName,
   selectedAskActionLabel,
+  shouldShowBotSenderName,
   threadWindowMessages,
   timeSeparatorIds,
   withLiveStreamingProgress,
@@ -654,6 +655,16 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   >(() => new Map());
   const [expandedPeerMarkers, setExpandedPeerMarkers] = useState<ReadonlySet<string>>(
     () => new Set(),
+  );
+  const showBotSenderName = useMemo(
+    () =>
+      shouldShowBotSenderName({
+        isGroup: inGroup,
+        speakerBotIds: (snap?.messages ?? [])
+          .filter((message) => message.role === "bot")
+          .map((message) => message.botId),
+      }),
+    [inGroup, snap?.messages],
   );
   const peerTranscript = useMemo(
     () => foldPeerReplies(snap?.messages ?? [], { includePeerReceipts: true }),
@@ -2305,6 +2316,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           bubbleBotId={botId ?? snap?.members?.[0]?.botId ?? ""}
           groupId={groupId}
           botName={displayName}
+          showBotSenderName={showBotSenderName}
           bots={mentionBots}
           members={snap?.members}
           readOnly={readOnly}
@@ -2335,6 +2347,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     },
     [
       messagesById,
+      showBotSenderName,
       snap?.members,
       snap?.activeRuns,
       snap?.run,
@@ -3094,6 +3107,7 @@ type MessageRowProps = {
   bubbleBotId: string;
   groupId?: string;
   botName?: string;
+  showBotSenderName: boolean;
   bots: MobileBot[];
   members?: MobileSnapshot["members"];
   readOnly: boolean;
@@ -3132,6 +3146,7 @@ const MessageRow = memo(function MessageRow({
   bubbleBotId,
   groupId,
   botName,
+  showBotSenderName,
   bots,
   members,
   readOnly,
@@ -3409,6 +3424,7 @@ const MessageRow = memo(function MessageRow({
                 groupId={groupId}
                 message={message}
                 botName={botName}
+                showBotSenderName={showBotSenderName}
                 bots={bots}
                 members={members}
                 canAnswer={canAnswer}
@@ -3462,6 +3478,7 @@ const MessageRow = memo(function MessageRow({
 const MessageBubble = memo(function MessageBubble({
   botId,
   botName,
+  showBotSenderName,
   bots,
   groupId,
   message,
@@ -3480,6 +3497,7 @@ const MessageBubble = memo(function MessageBubble({
 }: {
   botId: string;
   botName?: string;
+  showBotSenderName: boolean;
   bots: MobileBot[];
   groupId?: string;
   message: MobileMessage;
@@ -3990,7 +4008,7 @@ const MessageBubble = memo(function MessageBubble({
           gap: 8,
         }}
       >
-        {speaker ? (
+        {showBotSenderName && speaker ? (
           <Text style={{ color: speakerColor ?? tokens.mutedForeground, ...typeScale.footnote }}>
             {speaker}
           </Text>
@@ -4148,8 +4166,8 @@ const MessageBubble = memo(function MessageBubble({
         <MessageTextCard
           key={`${message.id}-content-${index}`}
           message={{ ...message, blocks: segment.blocks }}
-          speaker={index === firstContent ? speaker : undefined}
-          speakerColor={index === firstContent ? speakerColor : undefined}
+          speaker={showBotSenderName && index === firstContent ? speaker : undefined}
+          speakerColor={showBotSenderName && index === firstContent ? speakerColor : undefined}
           actionProps={actionProps}
         />
       ))}
