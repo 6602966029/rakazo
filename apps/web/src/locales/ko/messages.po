@@ -3328,6 +3328,10 @@ msgstr "새 스페이스"
 msgid "New ticket"
 msgstr ""
 
+#: src/pages/SettingsOverlay.tsx
+msgid "Next settings sections"
+msgstr ""
+
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No agent connections yet."
 msgstr "아직 Agent 연결이 없습니다."
@@ -3773,6 +3777,10 @@ msgstr "{0} 미리보기"
 
 #: src/pages/Artifacts.tsx
 msgid "Preview isn't available for this file type — download it to view it."
+msgstr ""
+
+#: src/pages/SettingsOverlay.tsx
+msgid "Previous settings sections"
 msgstr ""
 
 #: src/pages/Board.tsx
