@@ -96,28 +96,60 @@ export default function Account() {
   const { focus } = useLocalSearchParams<{ focus?: string }>();
   const [me, setMe] = useState<MobileMe | null>(null);
   const account = accountDisplay(me ?? {}, t("Your account"));
-  const [editingName, setEditingName] = useState(false);
+  // Android has no Alert.prompt, so its name dialog is drawn here; iOS uses the system prompt.
+  const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [namePending, setNamePending] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const currentName = account.label === me?.email ? "" : displayName(me?.name, "");
 
-  async function saveName() {
-    const name = nameDraft.trim();
+  async function saveName(value: string) {
+    const name = value.trim();
     if (namePending || !name || name.length > 80) return;
+    if (name === currentName) {
+      setNameDialogOpen(false);
+      return;
+    }
     setNamePending(true);
     setNameError(null);
     try {
       await updateAccountName(name);
       setMe((current) => (current ? { ...current, name } : current));
-      setEditingName(false);
+      setNameDialogOpen(false);
       void rpc<MobileMe>("me")
         .then(setMe)
         .catch(() => undefined);
     } catch (err) {
-      setNameError(errorText(err, t("Could not update name")));
+      const message = errorText(err, t("Could not update name"));
+      if (Platform.OS === "ios") Alert.alert(t("Could not update name"), message);
+      else setNameError(message);
     } finally {
       setNamePending(false);
     }
+  }
+
+  function editName() {
+    if (Platform.OS === "ios") {
+      Alert.prompt(
+        t("Edit name"),
+        undefined,
+        [
+          { text: t("Cancel"), style: "cancel" },
+          { text: t("Save"), onPress: (value?: string) => void saveName(value ?? "") },
+        ],
+        "plain-text",
+        currentName,
+      );
+      return;
+    }
+    setNameDraft(currentName);
+    setNameError(null);
+    setNameDialogOpen(true);
+  }
+
+  function closeNameDialog() {
+    if (namePending) return;
+    setNameDialogOpen(false);
   }
 
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -418,67 +450,23 @@ export default function Account() {
       >
         {focus === "usage" ? <SettingsGroup>{usageBlock}</SettingsGroup> : null}
         <SettingsGroup>
-          {editingName ? (
-            <View style={styles.nameEditor}>
-              <View style={styles.nameEditorRow}>
-                <TextInput
-                  accessibilityLabel={t("Name")}
-                  autoComplete="name"
-                  autoFocus
-                  editable={!namePending}
-                  maxLength={80}
-                  onChangeText={(value) => {
-                    setNameDraft(value);
-                    setNameError(null);
-                  }}
-                  onSubmitEditing={() => void saveName()}
-                  returnKeyType="done"
-                  style={[styles.dialogInput, styles.nameInput]}
-                  value={nameDraft}
-                />
-                <View style={[styles.dialogActions, styles.nameActions]}>
-                  <NativeActionButton
-                    label={t("Cancel")}
-                    prominence="secondary"
-                    disabled={namePending}
-                    onPress={() => setEditingName(false)}
-                  />
-                  <NativeActionButton
-                    label={t("Save")}
-                    fill={false}
-                    disabled={namePending || !nameDraft.trim()}
-                    onPress={() => void saveName()}
-                  />
-                </View>
-              </View>
-              {nameError ? (
-                <Text accessibilityRole="alert" style={styles.dialogError}>
-                  {nameError}
-                </Text>
-              ) : null}
-            </View>
-          ) : (
-            <SettingsRow
-              accessibilityRole="button"
-              accessibilityLabel={t("Edit name")}
-              accessibilityValue={{
-                text:
-                  me?.email && account.label !== me.email
-                    ? `${account.label}, ${me.email}`
-                    : account.label,
-              }}
-              chevron="right"
-              disabled={!me}
-              detail={me?.email && account.label !== me.email ? me.email : undefined}
-              prominent
-              title={account.label}
-              onPress={() => {
-                setNameDraft(account.label === me?.email ? "" : displayName(me?.name, ""));
-                setNameError(null);
-                setEditingName(true);
-              }}
-            />
-          )}
+          <SettingsRow
+            accessibilityRole="button"
+            accessibilityLabel={t("Edit name")}
+            accessibilityValue={{
+              text:
+                me?.email && account.label !== me.email
+                  ? `${account.label}, ${me.email}`
+                  : account.label,
+            }}
+            chevron="right"
+            disabled={!me}
+            detail={me?.email && account.label !== me.email ? me.email : undefined}
+            prominent
+            title={account.label}
+            dimmed={namePending}
+            onPress={editName}
+          />
           {focus !== "usage" ? usageBlock : null}
         </SettingsGroup>
 
@@ -809,6 +797,68 @@ export default function Account() {
           ) : null}
         </SettingsGroup>
       </ScrollView>
+      {nameDialogOpen ? (
+        <Modal transparent animationType="fade" onRequestClose={closeNameDialog}>
+          <KeyboardAvoidingView style={styles.dialogOverlay}>
+            <Pressable
+              accessibilityLabel={t("Cancel")}
+              style={StyleSheet.absoluteFill}
+              onPress={closeNameDialog}
+            />
+            <View accessibilityViewIsModal style={[styles.dialogScroll, styles.dialog]}>
+              <Text accessibilityRole="header" style={styles.dialogTitle}>
+                {t("Edit name")}
+              </Text>
+              <TextInput
+                accessibilityLabel={t("Name")}
+                autoComplete="name"
+                autoFocus
+                editable={!namePending}
+                maxLength={80}
+                onChangeText={(value) => {
+                  setNameDraft(value);
+                  setNameError(null);
+                }}
+                onSubmitEditing={() => void saveName(nameDraft)}
+                returnKeyType="done"
+                selectTextOnFocus
+                style={styles.dialogInput}
+                value={nameDraft}
+              />
+              {nameError ? (
+                <Text accessibilityRole="alert" style={styles.dialogError}>
+                  {nameError}
+                </Text>
+              ) : null}
+              <View style={styles.dialogActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={namePending}
+                  onPress={closeNameDialog}
+                  style={styles.dialogAction}
+                >
+                  <Text style={styles.dialogCancel}>{t("Cancel")}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={namePending || !nameDraft.trim()}
+                  onPress={() => void saveName(nameDraft)}
+                  style={styles.dialogAction}
+                >
+                  <Text
+                    style={[
+                      styles.dialogCancel,
+                      (namePending || !nameDraft.trim()) && styles.disabled,
+                    ]}
+                  >
+                    {t("Save")}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      ) : null}
       {deleteOpen ? (
         <Modal transparent animationType="fade" onRequestClose={closeDeletePrompt}>
           <KeyboardAvoidingView
@@ -928,25 +978,6 @@ function createAccountStyles() {
     },
     compactContent: {
       paddingHorizontal: 8,
-    },
-    nameEditor: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      gap: 8,
-    },
-    nameEditorRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      gap: 8,
-    },
-    nameInput: {
-      flexGrow: 1,
-      flexBasis: 160,
-      height: 44,
-    },
-    nameActions: {
-      marginLeft: "auto",
     },
     section: {
       gap: 7,
