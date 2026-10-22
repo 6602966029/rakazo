@@ -2530,9 +2530,10 @@ function fallbackAwareModelStream(
   const run = async () => {
     let buffered: AssistantMessageEvent[] = [];
     let retries = 0;
+    let recoveredIdle = false;
     // Bound same-model retries. Explicit backups retain their per-model header
     // timeout: a post-header idle watchdog can already exceed that timeout.
-    const startedAt = Date.now();
+    let startedAt = Date.now();
     const timeoutMs = options?.timeoutMs ?? MODEL_STREAM_TIMEOUT_MS;
     let firstRetryableError: Extract<AssistantMessageEvent, { type: "error" }> | undefined;
     while (!signalAborted()) {
@@ -2611,8 +2612,19 @@ function fallbackAwareModelStream(
               // within the retry budget, so only transient failures retry the same model.
               if (isTransientModelError(event.error)) {
                 firstRetryableError ??= event;
-                // Every retry, including its backoff, shares the original budget.
-                const delay = MODEL_PROVIDER_RETRY_DELAYS_MS[retries];
+                const idle = event.error.errorMessage === MODEL_STREAM_IDLE_TIMEOUT_MESSAGE;
+                const delay = idle
+                  ? recoveredIdle
+                    ? undefined
+                    : MODEL_PROVIDER_RETRY_DELAYS_MS[0]
+                  : MODEL_PROVIDER_RETRY_DELAYS_MS[retries];
+                if (idle && delay !== undefined) {
+                  // The post-header idle bound can outlast the header retry window.
+                  // Renew it once for this empty call, retaining completed tool results.
+                  recoveredIdle = true;
+                  startedAt = Date.now();
+                }
+                // Ordinary failures and backoff share the remaining retry window.
                 if (delay !== undefined && Date.now() - startedAt + delay < timeoutMs) {
                   retries += 1;
                   await abortableDelay(delay, signal);
