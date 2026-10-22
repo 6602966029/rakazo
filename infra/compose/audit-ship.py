@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""Ship SSH, sudo, identity and watched-file events to an HTTP sink so they outlive the host.
+
+The sink is any endpoint that accepts a JSON array of events with a bearer token. Offsets advance
+only after the sink accepts a pass, so delivery is at least once.
+"""
+
+import datetime
+import ipaddress
+import json
+import os
+import re
+import socket
+import sys
+import tempfile
+import time
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+AUTH_LOG = "/var/log/auth.log"
+AUDIT_LOG = "/var/log/audit/audit.log"
+# Keys from the audit rules that harden-host.sh installs.
+WATCH_KEYS = frozenset(
+    {
+        "sshd_config",
+        "sudoers",
+        "identity",
+        "ssh_keys",
+        "rakazo_config",
+        "app_secrets",
+        "host_scripts",
+        "persistence",
+        "docker_config",
+    }
+)
+IDENTITY_PROGRAMS = frozenset(
+    {"useradd", "userdel", "usermod", "groupadd", "groupdel", "groupmod", "passwd", "chpasswd", "gpasswd"}
+)
+MAX_READ = 4 * 1024 * 1024
+BATCH_SIZE = 500
+IDLE_SECONDS = 10
+MAX_BACKOFF = 300
+
+SYSLOG = re.compile(r"^(\S+T\S+) (\S+) ([^\s\[:]+)(?:\[\d+\])?: (.*)$")
+ACCEPTED = re.compile(r"^Accepted (\S+) for (\S+) from (\S+) port \d+(?: [^\s:]+)?(?:: (\S+) (\S+))?")
+FAILED = re.compile(r"^Failed \S+ for (?:invalid user )?(\S*) from (\S+) port")
+INVALID = re.compile(r"^Invalid user (\S*) from (\S+)")
+SUDO = re.compile(r"^\s*(\S+) : .*?USER=(\S+) ; COMMAND=(.*)$")
+AUDIT_HEADER = re.compile(r"\bmsg=audit\((\d+(?:\.\d+)?):(\d+)\)")
+AUDIT_FIELD = re.compile(r'\b(type|key|exe|comm|auid|uid|name|nametype)=("[^"]*"|\S+)')
+
+
+def parse_known_keys(text):
+    """Map SHA256 fingerprints to names from space-separated fingerprint=name pairs."""
+    names = {}
+    for pair in (text or "").split():
+        fingerprint, _, name = pair.rpartition("=")
+        if fingerprint and name:
+            names[fingerprint] = name
+    return names
+
+
+def _event(kind, source, host, message, **fields):
+    return {"event": kind, "source": source, "host": host, "message": message[:1000], **fields}
+
+
+def parse_auth_line(line, host, known_keys):
+    match = SYSLOG.match(line)
+    if not match:
+        return None
+    timestamp, _, program, message = match.groups()
+    fields = {"_time": timestamp}
+    if program in ("sshd", "sshd-session"):
+        if accepted := ACCEPTED.match(message):
+            method, user, ip, key_type, fingerprint = accepted.groups()
+            fields.update(user=user, ip=ip, method=method)
+            if fingerprint:
+                fields.update(
+                    key_type=key_type,
+                    key_fingerprint=fingerprint,
+                    key_name=known_keys.get(fingerprint, "unknown"),
+                )
+            return _event("ssh.login", "auth.log", host, message, **fields)
+        if failed := FAILED.match(message) or INVALID.match(message):
+            user, ip = failed.groups()
+            return _event("ssh.failed", "auth.log", host, message, user=user, ip=ip, **fields)
+        return None
+    if program == "sudo":
+        if sudo := SUDO.match(message):
+            user, as_user, command = sudo.groups()
+            return _event(
+                "sudo.command", "auth.log", host, message, user=user, as_user=as_user, command=command[:500], **fields
+            )
+        return None
+    if program in IDENTITY_PROGRAMS:
+        return _event("identity.change", "auth.log", host, message, program=program, **fields)
+    if program == "su":
+        return _event("su", "auth.log", host, message, **fields)
+    return None
+
+
+def parse_auth_lines(lines, host, known_keys):
+    return [event for event in (parse_auth_line(line, host, known_keys) for line in lines) if event]
+
+
+def _audit_value(raw):
+    return raw[1:-1] if raw.startswith('"') else raw
+
+
+def parse_audit_lines(lines, host):
+    """Turn keyed SYSCALL records into file.change events, adding paths from their PATH records."""
+    events = []
+    by_serial = {}
+    for line in lines:
+        # ENRICHED logs append translated names after a group separator; the raw fields suffice.
+        line = line.split("\x1d", 1)[0]
+        header = AUDIT_HEADER.search(line)
+        if not header:
+            continue
+        fields = {name: _audit_value(value) for name, value in AUDIT_FIELD.findall(line)}
+        serial = header.group(2)
+        if fields.get("type") == "SYSCALL" and fields.get("key") in WATCH_KEYS:
+            moment = datetime.datetime.fromtimestamp(float(header.group(1)), datetime.timezone.utc)
+            event = _event(
+                "file.change",
+                "audit.log",
+                host,
+                line,
+                _time=moment.isoformat(),
+                audit_serial=int(serial),
+                watch=fields["key"],
+                **{name: fields[name] for name in ("exe", "comm", "auid", "uid") if name in fields},
+            )
+            events.append(event)
+            by_serial[serial] = event
+        elif fields.get("type") == "PATH" and serial in by_serial and fields.get("nametype") != "PARENT":
+            if "name" in fields:
+                by_serial[serial].setdefault("paths", []).append(fields["name"])
+    return events
+
+
+def read_new(path, saved, start_at_end):
+    """Return complete new lines, the position after them, and whether more data is waiting."""
+    try:
+        handle = open(path, "rb")
+    except FileNotFoundError:
+        return b"", saved, False
+    with handle:
+        info = os.fstat(handle.fileno())
+        if saved is None:
+            offset = info.st_size if start_at_end else 0
+        elif saved["inode"] != info.st_ino or info.st_size < saved["offset"]:
+            # Rotated or truncated: the current file starts over.
+            offset = 0
+        else:
+            offset = saved["offset"]
+        handle.seek(offset)
+        data = handle.read(MAX_READ)
+    full = len(data) == MAX_READ
+    end = data.rfind(b"\n") + 1
+    # A partial last line waits for its newline, unless one line fills the whole read.
+    if end or not full:
+        data = data[:end]
+    return data, {"inode": info.st_ino, "offset": offset + len(data)}, full
+
+
+def load_state(path):
+    try:
+        return json.loads(Path(path).read_text())
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def save_state(path, state):
+    path = Path(path)
+    fd, name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as output:
+            json.dump(state, output)
+        os.replace(name, path)
+    finally:
+        Path(name).unlink(missing_ok=True)
+
+
+def check_sink_url(url):
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme == "https":
+        return
+    if parsed.scheme == "http":
+        try:
+            if parsed.hostname == "localhost" or ipaddress.ip_address(parsed.hostname or "").is_loopback:
+                return
+        except ValueError:
+            pass
+    raise ValueError("RAKAZO_AUDIT_SINK_URL must use https")
+
+
+def sender(url, token_file, timeout=20):
+    check_sink_url(url)
+
+    def send(events):
+        # Read the token per request so it can be rotated without a restart.
+        token = Path(token_file).read_text().strip()
+        request = urllib.request.Request(
+            url,
+            json.dumps(events).encode(),
+            {"Content-Type": "application/json", "Authorization": "Bearer " + token},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            if not 200 <= response.status < 300:
+                raise RuntimeError("Audit sink returned HTTP " + str(response.status))
+
+    return send
+
+
+def ship_once(sources, state_path, state, send):
+    """Ship one pass over every source. Returns whether a source has more data waiting."""
+    pending = False
+    for name, path, parse, start_at_end in sources:
+        data, position, more = read_new(path, state.get(name), start_at_end)
+        events = parse(data.decode("utf-8", "replace").splitlines())
+        for start in range(0, len(events), BATCH_SIZE):
+            send(events[start : start + BATCH_SIZE])
+        if position != state.get(name):
+            state[name] = position
+            save_state(state_path, state)
+        pending = pending or more
+    return pending
+
+
+def main():
+    url = os.environ.get("RAKAZO_AUDIT_SINK_URL", "")
+    token_file = os.environ.get("RAKAZO_AUDIT_TOKEN_FILE", "/etc/rakazo/audit-ship.token")
+    host = os.environ.get("RAKAZO_AUDIT_HOST") or socket.gethostname()
+    known_keys = parse_known_keys(os.environ.get("RAKAZO_AUDIT_KNOWN_KEYS", ""))
+    state_dir = os.environ.get("STATE_DIRECTORY", "/var/lib/rakazo/audit-ship").split(":")[0]
+    state_path = Path(state_dir) / "state.json"
+    if not url:
+        print("RAKAZO_AUDIT_SINK_URL is not set", file=sys.stderr)
+        return 1
+    send = sender(url, token_file)
+    sources = [
+        ("auth", AUTH_LOG, lambda lines: parse_auth_lines(lines, host, known_keys), False),
+        ("audit", AUDIT_LOG, lambda lines: parse_audit_lines(lines, host), True),
+    ]
+    state = load_state(state_path)
+    backoff = 0
+    while True:
+        try:
+            pending = ship_once(sources, state_path, state, send)
+        except Exception as error:
+            # Never log exception text, which can echo the sink URL or response.
+            backoff = min(MAX_BACKOFF, backoff * 2 or 5)
+            print(
+                "Audit shipping failed (" + type(error).__name__ + "); retrying in " + str(backoff) + "s",
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(backoff)
+            continue
+        if backoff:
+            print("Audit shipping recovered", flush=True)
+            backoff = 0
+        if not pending:
+            time.sleep(IDLE_SECONDS)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
