@@ -1,4 +1,5 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Use 80 characters or fewer": "Höchstens 80 Zeichen verwenden",
   "Edit name": "Namen bearbeiten",
   "Could not update name": "Name konnte nicht aktualisiert werden",
   "Add an AI model to keep chatting": "Füge ein KI-Modell hinzu, um weiterzuchatten",

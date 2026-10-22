@@ -1,4 +1,5 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Use 80 characters or fewer": "请使用不超过 80 个字符",
   "Edit name": "编辑姓名",
   "Could not update name": "无法更新姓名",
   "Add an AI model to keep chatting": "添加一个 AI 模型以继续聊天",

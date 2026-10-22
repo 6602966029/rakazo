@@ -1,4 +1,5 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "Use 80 characters or fewer": "Gebruik maximaal 80 tekens",
   "Edit name": "Naam bewerken",
   "Could not update name": "Naam kon niet worden bijgewerkt",
   "Add an AI model to keep chatting": "Voeg een AI-model toe om verder te chatten",

@@ -1,19 +1,10 @@
-import { readFileSync } from "node:fs";
-import ts from "typescript";
 import { expect, it, vi } from "vitest";
-
-const screen = readFileSync(new URL("../app/(settings)/account.tsx", import.meta.url), "utf8");
-const start = screen.indexOf("  async function saveName(");
-const end = screen.indexOf("\n  function closeNameDialog", start);
-if (start < 0 || end < 0) throw new Error("Missing account name handlers");
-const handlers = ts.transpileModule(screen.slice(start, end), {
-  compilerOptions: { target: ts.ScriptTarget.ES2022 },
-}).outputText;
+import { createAccountNameEditor } from "./account-name-editor";
 
 function nameEditor(os: "ios" | "android" = "android", currentName = "Old Name") {
   const dependencies = {
     currentName,
-    namePending: false,
+    pending: { current: false },
     Platform: { OS: os },
     Alert: { alert: vi.fn(), prompt: vi.fn() },
     setNameDraft: vi.fn(),
@@ -21,26 +12,19 @@ function nameEditor(os: "ios" | "android" = "android", currentName = "Old Name")
     setNameError: vi.fn(),
     setNameDialogOpen: vi.fn(),
     updateAccountName: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    rpc: vi.fn<() => Promise<unknown>>(),
-    setMe: vi.fn(),
+    refresh: vi.fn<() => Promise<unknown>>().mockResolvedValue({}),
+    onSaved: vi.fn(),
+    onRefreshed: vi.fn(),
     errorText: (_error: unknown, fallback: string) => fallback,
     t: (value: string) => value,
   };
-  // Execute the screen handlers without loading native modules.
-  const run = new Function(
-    ...Object.keys(dependencies),
-    `${handlers}; return { saveName, editName };`,
-  )(...Object.values(dependencies)) as {
-    saveName: (value: string) => Promise<void>;
-    editName: () => void;
-  };
-  return { ...dependencies, ...run };
+  return { ...dependencies, ...createAccountNameEditor(dependencies) };
 }
 
 it("saves the trimmed name, closes the dialog, and ignores a failed refresh", async () => {
   const editor = nameEditor();
   let rejectRefresh!: (error: Error) => void;
-  editor.rpc.mockReturnValue(
+  editor.refresh.mockReturnValue(
     new Promise((_resolve, reject) => {
       rejectRefresh = reject;
     }),
@@ -49,24 +33,20 @@ it("saves the trimmed name, closes the dialog, and ignores a failed refresh", as
   expect(editor.updateAccountName).toHaveBeenCalledWith("Sam Rivera");
   expect(editor.setNameDialogOpen).toHaveBeenCalledExactlyOnceWith(false);
   expect(editor.setNamePending).toHaveBeenLastCalledWith(false);
-  expect(editor.rpc).toHaveBeenCalledWith("me");
+  expect(editor.refresh).toHaveBeenCalledWith();
   rejectRefresh(new Error("offline"));
   await Promise.resolve();
   await Promise.resolve();
   expect(editor.setNameError).toHaveBeenCalledExactlyOnceWith(null);
-  // The saved name shows right away; the failed refresh leaves it in place.
-  expect(editor.setMe).toHaveBeenCalledOnce();
-  const update = editor.setMe.mock.calls[0]![0] as (me: { name: string } | null) => unknown;
-  expect(update({ name: "Old" })).toEqual({ name: "Sam Rivera" });
-  expect(update(null)).toBeNull();
+  expect(editor.onSaved).toHaveBeenCalledExactlyOnceWith("Sam Rivera");
 });
 
 it("updates the account data when refresh succeeds", async () => {
   const editor = nameEditor();
   const me = { name: "Sam Rivera" };
-  editor.rpc.mockResolvedValue(me);
+  editor.refresh.mockResolvedValue(me);
   await editor.saveName("Sam Rivera");
-  expect(editor.setMe).toHaveBeenCalledWith(me);
+  expect(editor.onRefreshed).toHaveBeenCalledWith(me);
   expect(editor.setNameDialogOpen).toHaveBeenCalledWith(false);
 });
 
@@ -83,18 +63,63 @@ it("keeps the Android dialog open with an inline error when saving fails", async
   editor.updateAccountName.mockRejectedValue(new Error("offline"));
   await editor.saveName("Sam Rivera");
   expect(editor.setNameDialogOpen).not.toHaveBeenCalled();
-  expect(editor.rpc).not.toHaveBeenCalled();
+  expect(editor.refresh).not.toHaveBeenCalled();
   expect(editor.setNameError).toHaveBeenLastCalledWith("Could not update name");
   expect(editor.Alert.alert).not.toHaveBeenCalled();
   expect(editor.setNamePending).toHaveBeenLastCalledWith(false);
+  expect(editor.setNameDraft).not.toHaveBeenCalled();
 });
 
-it("shows a system alert on iOS when saving fails", async () => {
+it("reopens the iOS prompt with the exact failed draft and error", async () => {
   const editor = nameEditor("ios");
   editor.updateAccountName.mockRejectedValue(new Error("offline"));
-  await editor.saveName("Sam Rivera");
-  expect(editor.Alert.alert).toHaveBeenCalledWith("Could not update name", "Could not update name");
-  expect(editor.setNameError).toHaveBeenCalledExactlyOnceWith(null);
+  await editor.saveName(" New name ");
+  expect(editor.Alert.alert).not.toHaveBeenCalled();
+  expect(editor.Alert.prompt.mock.lastCall).toMatchObject({
+    1: "Could not update name",
+    4: " New name ",
+  });
+  expect(editor.pending.current).toBe(false);
+  editor.updateAccountName.mockResolvedValue(undefined);
+  await editor.Alert.prompt.mock.lastCall![2][1].onPress(" New name ");
+  expect(editor.onSaved).toHaveBeenCalledWith("New name");
+});
+
+it("reopens overlong iOS drafts without saving and accepts 80 trimmed characters", async () => {
+  const editor = nameEditor("ios");
+  const draft = ` ${"a".repeat(81)} `;
+  await editor.saveName(draft);
+  expect(editor.updateAccountName).not.toHaveBeenCalled();
+  expect(editor.Alert.prompt.mock.lastCall).toMatchObject({
+    1: "Use 80 characters or fewer",
+    4: draft,
+  });
+  await editor.saveName(` ${"a".repeat(80)} `);
+  expect(editor.updateAccountName).toHaveBeenCalledWith("a".repeat(80));
+});
+
+it.each(["   ", " Old Name "])("closes iOS without reopening for %j", async (draft) => {
+  const editor = nameEditor("ios");
+  await editor.saveName(draft);
+  expect(editor.Alert.prompt).not.toHaveBeenCalled();
+  expect(editor.updateAccountName).not.toHaveBeenCalled();
+});
+
+it("ignores duplicate submissions and dismissal during a save", async () => {
+  const editor = nameEditor();
+  let finish!: () => void;
+  editor.updateAccountName.mockReturnValue(
+    new Promise<void>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const saving = editor.saveName("New name");
+  await editor.saveName("Another name");
+  editor.closeNameDialog();
+  expect(editor.updateAccountName).toHaveBeenCalledOnce();
+  expect(editor.setNameDialogOpen).not.toHaveBeenCalled();
+  finish();
+  await saving;
 });
 
 it("opens the system prompt prefilled on iOS and saves its value", async () => {
@@ -103,12 +128,15 @@ it("opens the system prompt prefilled on iOS and saves its value", async () => {
   expect(editor.setNameDialogOpen).not.toHaveBeenCalled();
   const [title, message, buttons, type, value] = editor.Alert.prompt.mock.calls[0]!;
   expect([title, message, type, value]).toEqual(["Edit name", undefined, "plain-text", "Old Name"]);
+  expect(buttons[0].style).toBe("cancel");
+  expect(buttons[0].onPress).toBeUndefined();
+  expect(buttons[1].isPreferred).toBe(true);
   expect(buttons.map((b: { text: string }) => b.text)).toEqual(["Cancel", "Save"]);
   await buttons[1].onPress(" Sam Rivera ");
   expect(editor.updateAccountName).toHaveBeenCalledWith("Sam Rivera");
 });
 
-it("opens the drawn dialog prefilled on Android", () => {
+it("opens the Android dialog prefilled", () => {
   const editor = nameEditor("android");
   editor.editName();
   expect(editor.Alert.prompt).not.toHaveBeenCalled();

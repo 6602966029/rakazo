@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppMark } from "../../components/app-mark";
 import { useAvatarStyle } from "../../components/avatar-style";
 import { BotAvatar } from "../../components/bot-avatar";
+import { NameDialog } from "../../components/name-dialog";
 import { NativeActionButton } from "../../components/native-action-button";
 import { NativeSegmentedControl } from "../../components/native-segmented-control";
 import { NativeSymbol } from "../../components/native-symbol";
@@ -30,6 +31,7 @@ import {
   SettingsSwitch,
   useStackedSettings,
 } from "../../components/settings-group";
+import { createAccountNameEditor } from "../../lib/account-name-editor";
 import type { MobileMe } from "../../lib/api";
 import {
   currentApiBase,
@@ -96,61 +98,29 @@ export default function Account() {
   const { focus } = useLocalSearchParams<{ focus?: string }>();
   const [me, setMe] = useState<MobileMe | null>(null);
   const account = accountDisplay(me ?? {}, t("Your account"));
-  // Android has no Alert.prompt, so its name dialog is drawn here; iOS uses the system prompt.
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [namePending, setNamePending] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const currentName = account.label === me?.email ? "" : displayName(me?.name, "");
 
-  async function saveName(value: string) {
-    const name = value.trim();
-    if (namePending || !name || name.length > 80) return;
-    if (name === currentName) {
-      setNameDialogOpen(false);
-      return;
-    }
-    setNamePending(true);
-    setNameError(null);
-    try {
-      await updateAccountName(name);
-      setMe((current) => (current ? { ...current, name } : current));
-      setNameDialogOpen(false);
-      void rpc<MobileMe>("me")
-        .then(setMe)
-        .catch(() => undefined);
-    } catch (err) {
-      const message = errorText(err, t("Could not update name"));
-      if (Platform.OS === "ios") Alert.alert(t("Could not update name"), message);
-      else setNameError(message);
-    } finally {
-      setNamePending(false);
-    }
-  }
-
-  function editName() {
-    if (Platform.OS === "ios") {
-      Alert.prompt(
-        t("Edit name"),
-        undefined,
-        [
-          { text: t("Cancel"), style: "cancel" },
-          { text: t("Save"), onPress: (value?: string) => void saveName(value ?? "") },
-        ],
-        "plain-text",
-        currentName,
-      );
-      return;
-    }
-    setNameDraft(currentName);
-    setNameError(null);
-    setNameDialogOpen(true);
-  }
-
-  function closeNameDialog() {
-    if (namePending) return;
-    setNameDialogOpen(false);
-  }
+  const nameSaving = useRef(false);
+  const { saveName, editName, closeNameDialog } = createAccountNameEditor({
+    currentName,
+    pending: nameSaving,
+    Platform,
+    Alert,
+    t,
+    errorText,
+    updateAccountName,
+    refresh: () => rpc<MobileMe>("me"),
+    onSaved: (name) => setMe((current) => (current ? { ...current, name } : current)),
+    onRefreshed: setMe,
+    setNameDraft,
+    setNamePending,
+    setNameError,
+    setNameDialogOpen,
+  });
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [security, setSecurity] = useState<AccountSecurity | null>(null);
@@ -798,68 +768,17 @@ export default function Account() {
         </SettingsGroup>
       </ScrollView>
       {nameDialogOpen ? (
-        <Modal transparent animationType="fade" onRequestClose={closeNameDialog}>
-          <KeyboardAvoidingView style={styles.dialogOverlay}>
-            {/* Tapping outside dismisses; the Cancel button is the accessible way out. */}
-            <Pressable
-              accessible={false}
-              importantForAccessibility="no"
-              style={StyleSheet.absoluteFill}
-              onPress={closeNameDialog}
-            />
-            <View accessibilityViewIsModal style={[styles.dialogScroll, styles.dialog]}>
-              <Text accessibilityRole="header" style={styles.dialogTitle}>
-                {t("Edit name")}
-              </Text>
-              <TextInput
-                accessibilityLabel={t("Name")}
-                autoComplete="name"
-                autoFocus
-                editable={!namePending}
-                maxLength={80}
-                onChangeText={(value) => {
-                  setNameDraft(value);
-                  setNameError(null);
-                }}
-                onSubmitEditing={() => void saveName(nameDraft)}
-                returnKeyType="done"
-                selectTextOnFocus
-                style={styles.dialogInput}
-                value={nameDraft}
-              />
-              {nameError ? (
-                <Text accessibilityRole="alert" style={styles.dialogError}>
-                  {nameError}
-                </Text>
-              ) : null}
-              <View style={styles.dialogActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={namePending}
-                  onPress={closeNameDialog}
-                  style={styles.dialogAction}
-                >
-                  <Text style={styles.dialogCancel}>{t("Cancel")}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={namePending || !nameDraft.trim()}
-                  onPress={() => void saveName(nameDraft)}
-                  style={styles.dialogAction}
-                >
-                  <Text
-                    style={[
-                      styles.dialogCancel,
-                      (namePending || !nameDraft.trim()) && styles.disabled,
-                    ]}
-                  >
-                    {t("Save")}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+        <NameDialog
+          draft={nameDraft}
+          error={nameError}
+          saving={namePending}
+          onChange={(value) => {
+            setNameDraft(value);
+            setNameError(null);
+          }}
+          onSave={(value) => void saveName(value)}
+          onClose={closeNameDialog}
+        />
       ) : null}
       {deleteOpen ? (
         <Modal transparent animationType="fade" onRequestClose={closeDeletePrompt}>

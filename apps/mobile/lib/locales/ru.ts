@@ -1,4 +1,5 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Use 80 characters or fewer": "Не более 80 символов",
   "Edit name": "Изменить имя",
   "Could not update name": "Не удалось обновить имя",
   "Add an AI model to keep chatting": "Добавьте ИИ-модель, чтобы продолжить общение",
