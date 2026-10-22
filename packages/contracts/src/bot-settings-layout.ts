@@ -8,6 +8,7 @@ export const BOT_SETTINGS_ADVANCED_ORDER = [
   "readAloud",
   "voice",
   "fleetManagement",
+  "webhookBotMessages",
   "scratchpad",
   "knowledge",
   "disabledTools",

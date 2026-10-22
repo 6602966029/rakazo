@@ -93,6 +93,7 @@ function inboxBot(): Bot {
     teamChatAmbientEnabled: false,
     teamChatRules: "",
     webhookConfigured: false,
+    webhookAllowBotMessages: false,
     spawnKey: null,
   };
 }

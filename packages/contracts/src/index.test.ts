@@ -265,6 +265,18 @@ describe("contracts", () => {
     }
   });
 
+  it("accepts webhook bot messaging only as an explicit boolean update", () => {
+    expect(UpdateBotInput.parse({ botId: "bot-1" }).webhookAllowBotMessages).toBeUndefined();
+    for (const webhookAllowBotMessages of [true, false]) {
+      expect(
+        UpdateBotInput.parse({ botId: "bot-1", webhookAllowBotMessages }).webhookAllowBotMessages,
+      ).toBe(webhookAllowBotMessages);
+    }
+    expect(
+      UpdateBotInput.safeParse({ botId: "bot-1", webhookAllowBotMessages: "yes" }).success,
+    ).toBe(false);
+  });
+
   it("accepts fleetManagement on bot updates and rejects non-boolean values", () => {
     expect(UpdateBotInput.parse({ botId: "bot-1", fleetManagement: true }).fleetManagement).toBe(
       true,

@@ -59,6 +59,8 @@ const bot: MobileBot = {
   thinkingLevel: null,
   autoSpeak: false,
   fleetManagement: false,
+  webhookConfigured: false,
+  webhookAllowBotMessages: false,
 };
 
 describe("spaceInboxItems", () => {

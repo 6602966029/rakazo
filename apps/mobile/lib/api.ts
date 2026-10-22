@@ -1014,6 +1014,8 @@ export type MobileBot = Pick<
   | "thinkingLevel"
   | "autoSpeak"
   | "fleetManagement"
+  | "webhookConfigured"
+  | "webhookAllowBotMessages"
 > &
   Partial<Pick<Bot, "parentBotId" | "spaceId" | "instructions">>;
 

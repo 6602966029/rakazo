@@ -17,6 +17,7 @@ describe("bot settings layout", () => {
       "readAloud",
       "voice",
       "fleetManagement",
+      "webhookBotMessages",
       "scratchpad",
       "knowledge",
       "disabledTools",

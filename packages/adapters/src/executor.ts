@@ -4177,10 +4177,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
         }
         const sourceMessage =
-          (run.trigger === "user" || run.trigger === "follow_up") && run.sourceMessageId
+          (run.trigger === "user" || run.trigger === "follow_up" || run.trigger === "webhook") &&
+          run.sourceMessageId
             ? await deps.prisma.message.findUnique({
                 where: { id: run.sourceMessageId },
-                select: { clientNonce: true, role: true, blocks: true },
+                select: { clientNonce: true, role: true, blocks: run.trigger !== "webhook" },
               })
             : null;
         // Calls carry no schema flag: the sending client encodes them in the clientNonce.
@@ -4887,6 +4888,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
             name,
             viaConnector,
             declaredReadOnly,
+            {
+              allowBotMessages: bot.webhookAllowBotMessages,
+              botId: bot.id,
+              sourceClientNonce: sourceMessage?.clientNonce,
+            },
           );
           const connectorKind = connectorKindFromToolName(
             name,

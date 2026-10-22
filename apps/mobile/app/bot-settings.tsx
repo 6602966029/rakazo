@@ -70,6 +70,7 @@ export default function BotSettingsScreen() {
   const [thinkingLevel, setThinkingLevel] = useState("");
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [fleetManagement, setFleetManagement] = useState(false);
+  const [webhookAllowBotMessages, setWebhookAllowBotMessages] = useState(false);
   const [credentials, setCredentials] = useState<MobileModelCredential[]>([]);
   const [catalog, setCatalog] = useState<MobileModel[]>([]);
   const [me, setMe] = useState<MobileMe | null>(null);
@@ -96,6 +97,18 @@ export default function BotSettingsScreen() {
     [botId, t],
   );
 
+  const webhookSave = useMemo(
+    () =>
+      createQueuedSave<boolean>(false, {
+        save: async (value) => {
+          await rpc("bots/update", { botId, webhookAllowBotMessages: value });
+        },
+        onChange: setWebhookAllowBotMessages,
+        onError: (err) => setError(errorText(err, t("Could not save bot"))),
+      }),
+    [botId, t],
+  );
+
   useEffect(() => {
     if (!botId) return;
     void rpc<BotSettingsRecord>("bots/get", { botId })
@@ -116,9 +129,10 @@ export default function BotSettingsScreen() {
         setAutoSpeak(next.autoSpeak);
         setFleetManagement(next.fleetManagement);
         fleetSave.reset(next.fleetManagement);
+        webhookSave.reset(next.webhookAllowBotMessages ?? false);
       })
       .catch((err) => setError(errorText(err, t("Could not load bot"))));
-  }, [botId, fleetSave]);
+  }, [botId, fleetSave, webhookSave]);
 
   useEffect(() => {
     void Promise.all([
@@ -346,7 +360,7 @@ export default function BotSettingsScreen() {
         const { botId: _botId, expectedInstructions: _expected, ...saved } = input;
         setBot((prev) => (prev ? { ...prev, ...saved, ...updated } : prev));
       }
-      await fleetSave.flush();
+      await Promise.all([fleetSave.flush(), webhookSave.flush()]);
       router.back();
     } catch (err) {
       setError(errorText(err, t("Could not save bot")));
@@ -683,6 +697,34 @@ export default function BotSettingsScreen() {
                 value={fleetManagement}
               />
             </View>
+            {bot?.webhookConfigured ? (
+              <View style={styles.row}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.rowLabel,
+                      { color: tokens.mutedForeground, flex: 0, flexShrink: 1 },
+                    ]}
+                  >
+                    {t("Allow webhook messages to other bots")}
+                  </Text>
+                  <InfoButton label={t("Allow webhook messages to other bots")}>
+                    {t(
+                      "This bot's webhook can message other bots without asking. Other actions keep their approval rules.",
+                    )}
+                  </InfoButton>
+                </View>
+                <NativeSwitch
+                  accessibilityLabel={t("Allow webhook messages to other bots")}
+                  onValueChange={(value) => {
+                    if (!botId) return;
+                    setError(null);
+                    webhookSave.update(value);
+                  }}
+                  value={webhookAllowBotMessages}
+                />
+              </View>
+            ) : null}
           </View>
         ) : null}
         {error ? <Text style={{ color: tokens.destructive, marginTop: 16 }}>{error}</Text> : null}

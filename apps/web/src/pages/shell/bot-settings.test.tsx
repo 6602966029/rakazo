@@ -125,6 +125,7 @@ type SavePatch = {
   name?: string;
   title?: string;
   fleetManagement?: boolean;
+  webhookAllowBotMessages?: boolean;
 };
 
 function setField(input: HTMLInputElement, value: string) {
@@ -502,4 +503,49 @@ it("omits projected identity values on unrelated saves but keeps explicit edits"
   await flush();
   expect(onSave.mock.calls[2]?.[0]).not.toHaveProperty("name");
   expect(onSave.mock.calls[2]?.[0]).not.toHaveProperty("title");
+});
+
+describe("BotSettings webhook messaging", () => {
+  async function openAdvanced() {
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-testid="bot-settings-advanced"] button[aria-expanded]',
+        )
+        ?.click(),
+    );
+  }
+  it("only offers the permission for configured webhooks and saves just the changed permission", async () => {
+    const onSave = vi.fn(async (_patch: SavePatch) => undefined);
+    await renderSettings(onSave, { ...bot, webhookAllowBotMessages: false });
+    await openAdvanced();
+    expect(container.querySelector('[id$="-webhook-bot-messages"]')).toBeNull();
+    await renderSettings(onSave, {
+      ...bot,
+      webhookConfigured: true,
+      webhookAllowBotMessages: false,
+    });
+    const toggle = container.querySelector<HTMLButtonElement>('[id$="-webhook-bot-messages"]');
+    expect(toggle?.getAttribute("aria-checked")).toBe("false");
+    await act(async () => toggle?.click());
+    expect(onSave).toHaveBeenCalledExactlyOnceWith({ webhookAllowBotMessages: true });
+    expect(toggle?.getAttribute("aria-checked")).toBe("true");
+    await act(async () => toggle?.click());
+    expect(onSave).toHaveBeenLastCalledWith({ webhookAllowBotMessages: false });
+  });
+  it("restores the permission when saving fails", async () => {
+    const onSave = vi.fn(async () => {
+      throw new Error("Save failed");
+    });
+    await renderSettings(onSave, {
+      ...bot,
+      webhookConfigured: true,
+      webhookAllowBotMessages: false,
+    });
+    await openAdvanced();
+    const toggle = container.querySelector<HTMLButtonElement>('[id$="-webhook-bot-messages"]');
+    await act(async () => toggle?.click());
+    expect(toggle?.getAttribute("aria-checked")).toBe("false");
+    expect(container.textContent).toContain("Save failed");
+  });
 });

@@ -146,6 +146,53 @@ describe("unattendedTriggerToolRequiresApproval", () => {
     }
   });
 
+  it("allows only opted-in bot messages from the bot's own webhook", () => {
+    const webhook = {
+      allowBotMessages: true,
+      botId: "bot-1",
+      sourceClientNonce: "webhook:bot-1:delivery",
+    };
+    expect(unattendedTriggerToolRequiresApproval("webhook", "message_bot", false)).toBe(true);
+    expect(
+      unattendedTriggerToolRequiresApproval("webhook", "message_bot", false, undefined, webhook),
+    ).toBe(false);
+    for (const sourceClientNonce of [
+      null,
+      undefined,
+      "github:bot-1:delivery",
+      "messaging:bot-1:delivery",
+      "webhook:bot-2:delivery",
+    ]) {
+      expect(
+        unattendedTriggerToolRequiresApproval("webhook", "message_bot", false, undefined, {
+          ...webhook,
+          sourceClientNonce,
+        }),
+      ).toBe(true);
+    }
+    expect(
+      unattendedTriggerToolRequiresApproval("webhook", "message_bot", false, undefined, {
+        ...webhook,
+        allowBotMessages: false,
+      }),
+    ).toBe(true);
+    for (const name of [
+      "message_agent",
+      "shell",
+      "write_file",
+      "schedule_create",
+      "gmail_send_email",
+      "stripe_create_charge",
+    ]) {
+      expect(
+        unattendedTriggerToolRequiresApproval("webhook", name, false, undefined, webhook),
+      ).toBe(true);
+    }
+    expect(
+      unattendedTriggerToolRequiresApproval("webhook", "message_bot", true, false, webhook),
+    ).toBe(true);
+  });
+
   it("allows webhook-triggered reads to stay unattended", () => {
     for (const name of [
       "computer_observe",

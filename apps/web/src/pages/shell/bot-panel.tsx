@@ -228,6 +228,7 @@ export function BotSettings({
     memoryScope?: "isolated" | "shared" | null;
     autoSpeak?: boolean;
     fleetManagement?: boolean;
+    webhookAllowBotMessages?: boolean;
     voiceId?: string | null;
     modelProvider?: string | null;
     modelId?: string | null;
@@ -257,6 +258,13 @@ export function BotSettings({
   const [autoSpeak, setAutoSpeak] = useState(bot.autoSpeak);
   const [fleetManagement, setFleetManagement] = useState(bot.fleetManagement);
   useEffect(() => setFleetManagement(bot.fleetManagement), [bot.fleetManagement]);
+  const [webhookAllowBotMessages, setWebhookAllowBotMessages] = useState(
+    bot.webhookAllowBotMessages,
+  );
+  useEffect(
+    () => setWebhookAllowBotMessages(bot.webhookAllowBotMessages),
+    [bot.webhookAllowBotMessages],
+  );
   const [voiceId, setVoiceId] = useState(bot.voiceId ?? "");
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [modelKey, setModelKey] = useState(
@@ -294,6 +302,7 @@ export function BotSettings({
       color?: string;
       notifyOnFinish?: boolean;
       fleetManagement?: boolean;
+      webhookAllowBotMessages?: boolean;
       disabledBuiltinTools?: string[];
       baseDisabledBuiltinTools?: string[];
     }) => Promise<void>
@@ -360,6 +369,7 @@ export function BotSettings({
     color?: string;
     notifyOnFinish?: boolean;
     fleetManagement?: boolean;
+    webhookAllowBotMessages?: boolean;
     disabledBuiltinTools?: string[];
     baseDisabledBuiltinTools?: string[];
   }) {
@@ -368,6 +378,10 @@ export function BotSettings({
       setError(null);
       if (patchOverrides?.fleetManagement !== undefined) {
         await onSave({ fleetManagement: patchOverrides.fleetManagement });
+        return;
+      }
+      if (patchOverrides?.webhookAllowBotMessages !== undefined) {
+        await onSave({ webhookAllowBotMessages: patchOverrides.webhookAllowBotMessages });
         return;
       }
       const selected = selectedModel;
@@ -448,6 +462,8 @@ export function BotSettings({
     } catch (err) {
       if (patchOverrides?.fleetManagement !== undefined)
         setFleetManagement(!patchOverrides.fleetManagement);
+      if (patchOverrides?.webhookAllowBotMessages !== undefined)
+        setWebhookAllowBotMessages(!patchOverrides.webhookAllowBotMessages);
       setError(errorText(err, t`Could not save`));
     } finally {
       pendingSavesRef.current -= 1;
@@ -481,6 +497,7 @@ export function BotSettings({
     color?: string;
     notifyOnFinish?: boolean;
     fleetManagement?: boolean;
+    webhookAllowBotMessages?: boolean;
     disabledBuiltinTools?: string[];
   }) {
     // Serialize full-object auto-saves so an older in-flight request cannot
@@ -688,6 +705,27 @@ export function BotSettings({
             }}
           />
         </div>
+        {bot.webhookConfigured ? (
+          <div className="mt-5 flex items-center justify-between gap-3 text-[14px] text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <label htmlFor={`${ids}-webhook-bot-messages`} className={rowLabelClass}>
+                <Trans>Allow webhook messages to other bots</Trans>
+              </label>
+              <InfoTooltip label={t`Allow webhook messages to other bots`}>
+                {t`This bot's webhook can message other bots without asking. Other actions keep their approval rules.`}
+              </InfoTooltip>
+            </div>
+            <Switch
+              id={`${ids}-webhook-bot-messages`}
+              checked={webhookAllowBotMessages}
+              disabled={saving}
+              onCheckedChange={(checked) => {
+                setWebhookAllowBotMessages(checked);
+                void enqueueSave({ webhookAllowBotMessages: checked });
+              }}
+            />
+          </div>
+        ) : null}
         <ErrorBoundary fallback={<SectionLoadFailed />}>
           <Suspense fallback={null}>
             <ScratchpadSection botId={bot.id} />

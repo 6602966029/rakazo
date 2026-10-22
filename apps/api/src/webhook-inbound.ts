@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { JobPublisher, SecretStore } from "@rakazo/adapter-kit";
 import { runContinueJob, SecretStoreUnavailableError } from "@rakazo/adapter-kit";
 import { inboundRoutineModelPin } from "@rakazo/adapters";
@@ -291,9 +291,13 @@ export async function deliverWebhookEvent(
         ].join("\n")
       : input.prompt;
 
+  // Mark every authenticated bot-webhook delivery, including calls without an idempotency key.
+  // The approval gate uses this server-assigned origin; GitHub and messaging keep their own.
   const clientNonce = input.idempotencyKey
     ? inboundDeliveryClientNonce(input.source, target.bot.id, input.idempotencyKey)
-    : undefined;
+    : input.source === "webhook"
+      ? inboundDeliveryClientNonce(input.source, target.bot.id, randomUUID())
+      : undefined;
   const pin = inboundRoutineModelPin(input.routines);
 
   const sent = await deps.events.sendUserMessage({

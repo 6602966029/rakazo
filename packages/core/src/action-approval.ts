@@ -153,14 +153,26 @@ export function isOwnerStartedRun(trigger: string, followUpFromUser: boolean): b
   return trigger === "user" || trigger === "call_end";
 }
 
-/** External webhook runs may inspect state unattended, but side effects always need the owner. */
+/** Webhook side effects need approval, except explicitly authorized bot messages. */
 export function unattendedTriggerToolRequiresApproval(
   trigger: string,
   toolName: string,
   viaConnector: boolean,
   readOnly?: boolean,
+  webhook?: {
+    allowBotMessages: boolean;
+    botId: string;
+    sourceClientNonce?: string | null;
+  },
 ): boolean {
   if (trigger !== "webhook") return false;
+  if (
+    !viaConnector &&
+    toolName === "message_bot" &&
+    webhook?.allowBotMessages &&
+    webhook.sourceClientNonce?.startsWith(`webhook:${webhook.botId}:`)
+  )
+    return false;
   return viaConnector
     ? connectorToolRequiresApproval(toolName, readOnly)
     : !UNATTENDED_SAFE_BUILTIN_TOOLS.has(toolName);

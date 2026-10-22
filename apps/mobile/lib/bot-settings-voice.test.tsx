@@ -11,6 +11,7 @@ import { MenuPicker } from "../components/menu-picker";
 
 const mocks = vi.hoisted(() => ({
   fill: "light-fill",
+  webhookConfigured: false,
   deviceVoices: vi.fn(),
   voiceForBot: vi.fn(),
   setVoiceForBot: vi.fn(),
@@ -63,6 +64,8 @@ vi.mock("./api", () => ({
         autoSpeak: false,
         computerMode: "team",
         fleetManagement: false,
+        webhookConfigured: mocks.webhookConfigured,
+        webhookAllowBotMessages: false,
       };
     if (procedure === "me") return {};
     return [];
@@ -270,6 +273,7 @@ describe("bot settings device voice menu", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.fill = "light-fill";
+    mocks.webhookConfigured = false;
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     mocks.deviceVoices.mockResolvedValue(offered);
     mocks.voiceForBot.mockResolvedValue("voice-a");
@@ -289,6 +293,43 @@ describe("bot settings device voice menu", () => {
     await expand();
   };
   const menu = () => container.querySelector('[data-menu="Device voice"]');
+
+  it("saves webhook permission separately and restores it on failure", async () => {
+    mocks.webhookConfigured = true;
+    mocks.rpc.mockRejectedValueOnce(new Error("offline"));
+    await render();
+    const toggle = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Allow webhook messages to other bots"]',
+    )!;
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    await act(async () => toggle.click());
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("bots/update", {
+      botId: "bot-fixture",
+      webhookAllowBotMessages: true,
+    });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(container.textContent).toContain("offline");
+  });
+
+  it("waits for webhook permission to save before leaving", async () => {
+    mocks.webhookConfigured = true;
+    const pending = deferredSave();
+    mocks.rpc.mockReturnValueOnce(pending.promise);
+    await render();
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Allow webhook messages to other bots"]')!
+        .click(),
+    );
+    await act(async () =>
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Save")!
+        .click(),
+    );
+    expect(mocks.back).not.toHaveBeenCalled();
+    await act(async () => pending.resolve());
+    expect(mocks.back).toHaveBeenCalledOnce();
+  });
 
   it("matches Instructions to the rounded Description field", async () => {
     await render();

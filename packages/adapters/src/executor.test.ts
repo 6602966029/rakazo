@@ -40,6 +40,13 @@ describe("bot tool permissions", () => {
     expect(parseUpdateBotPatch({ disabledBuiltinTools: [] }, "Scout")).toHaveProperty("error");
   });
 
+  it("never lets a bot grant itself webhook messaging permission", () => {
+    expect(parseUpdateBotPatch({ name: "Scout", webhookAllowBotMessages: true }, "Bot")).toEqual({
+      patch: { name: "Scout" },
+    });
+    expect(parseUpdateBotPatch({ webhookAllowBotMessages: true }, "Scout")).toHaveProperty("error");
+  });
+
   it("filters history and app connection tools without widening the capability-gated selection", () => {
     const options = {
       historyRetrievalEnabled: true,

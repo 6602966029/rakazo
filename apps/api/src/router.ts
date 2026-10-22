@@ -2072,6 +2072,9 @@ export function createRouter(deps: RouterDeps) {
             ...(input.fleetManagement !== undefined
               ? { fleetManagement: input.fleetManagement }
               : {}),
+            ...(input.webhookAllowBotMessages !== undefined
+              ? { webhookAllowBotMessages: input.webhookAllowBotMessages }
+              : {}),
             ...(input.disabledBuiltinTools !== undefined
               ? { disabledBuiltinTools: input.disabledBuiltinTools }
               : {}),
