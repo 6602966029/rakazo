@@ -20,15 +20,16 @@ export function BotContextCards({ botId }: { botId: string }) {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let current = true;
-    void Promise.all([
-      rpc<ScratchpadItem[]>("scratchpad/list", { botId }),
-      rpc<MemoryDocument[]>("memory/list", { botId, scope: "bot" }),
-    ])
-      .then(([items, documents]) => {
-        if (current) {
-          setWork(items);
-          setDocs(documents.filter((doc) => !isEmptyBotMemory(doc)));
-        }
+    void rpc<ScratchpadItem[]>("scratchpad/list", { botId })
+      .then((items) => {
+        if (current) setWork(items);
+      })
+      .catch((err) => {
+        if (current) setError(errorText(err));
+      });
+    void rpc<MemoryDocument[]>("memory/list", { botId, scope: "bot" })
+      .then((documents) => {
+        if (current) setDocs(documents.filter((doc) => !isEmptyBotMemory(doc)));
       })
       .catch((err) => {
         if (current) setError(errorText(err));

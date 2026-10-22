@@ -416,7 +416,7 @@ msgstr "Füge eine zu überwachende Datei oder einen Ordner hinzu"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Add a label"
-msgstr ""
+msgstr "Label hinzufügen"
 
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
@@ -486,7 +486,7 @@ msgstr "MCP-Server hinzufügen"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Add open work"
-msgstr ""
+msgstr "Offene Aufgabe hinzufügen"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -980,7 +980,7 @@ msgstr "Anruf läuft…"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Can edit and organise bots it creates"
-msgstr ""
+msgstr "Kann erstellte Bots bearbeiten und organisieren"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -2209,7 +2209,7 @@ msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disable a tool"
-msgstr ""
+msgstr "Tool deaktivieren"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Disabled"
@@ -2347,11 +2347,11 @@ msgstr "Zuerst bearbeiten"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Edit label"
-msgstr ""
+msgstr "Label bearbeiten"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Edit name"
-msgstr ""
+msgstr "Namen bearbeiten"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2372,7 +2372,7 @@ msgstr "E-Mail-Verifizierung erforderlich"
 #. placeholder {0}: humanizeTool(toolName)
 #: src/pages/shell/bot-panel.tsx
 msgid "Enable {0}"
-msgstr ""
+msgstr "{0} aktivieren"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Encrypted and never shown again"
@@ -2748,7 +2748,7 @@ msgstr "Wie oft"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "How other bots see it"
-msgstr ""
+msgstr "So sehen andere Bots ihn"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "How to check"
@@ -3253,7 +3253,7 @@ msgstr "Modell \"{modelId}\" wurde nicht aufgelistet."
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Model connections"
-msgstr ""
+msgstr "Modellverbindungen"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -3809,7 +3809,7 @@ msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
-msgstr ""
+msgstr "Berechtigungen"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
@@ -4672,7 +4672,7 @@ msgstr "Skill {0}"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Skills"
-msgstr ""
+msgstr "Skills"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/shell/computer-release-actions.tsx

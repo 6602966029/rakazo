@@ -416,7 +416,7 @@ msgstr "İzlenecek bir dosya veya klasör ekleyin"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Add a label"
-msgstr ""
+msgstr "Etiket ekle"
 
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
@@ -486,7 +486,7 @@ msgstr "MCP sunucusu ekle"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Add open work"
-msgstr ""
+msgstr "Açık iş ekle"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -980,7 +980,7 @@ msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Can edit and organise bots it creates"
-msgstr ""
+msgstr "Oluşturduğu botları düzenleyebilir ve organize edebilir"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -2209,7 +2209,7 @@ msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disable a tool"
-msgstr ""
+msgstr "Bir aracı devre dışı bırak"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Disabled"
@@ -2347,11 +2347,11 @@ msgstr "Önce düzenle"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Edit label"
-msgstr ""
+msgstr "Etiketi düzenle"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Edit name"
-msgstr ""
+msgstr "Adı düzenle"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2372,7 +2372,7 @@ msgstr "E-posta doğrulaması gerekiyor"
 #. placeholder {0}: humanizeTool(toolName)
 #: src/pages/shell/bot-panel.tsx
 msgid "Enable {0}"
-msgstr ""
+msgstr "{0} etkinleştir"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Encrypted and never shown again"
@@ -2748,7 +2748,7 @@ msgstr "Ne sıklıkla"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "How other bots see it"
-msgstr ""
+msgstr "Diğer botlar onu nasıl görüyor"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "How to check"
@@ -3253,7 +3253,7 @@ msgstr "\"{modelId}\" modeli listelenmedi."
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Model connections"
-msgstr ""
+msgstr "Model bağlantıları"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -3809,7 +3809,7 @@ msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
-msgstr ""
+msgstr "İzinler"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
@@ -4672,7 +4672,7 @@ msgstr "Beceri: {0}"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Skills"
-msgstr ""
+msgstr "Beceriler"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/shell/computer-release-actions.tsx
