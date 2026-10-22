@@ -711,7 +711,7 @@ export interface RouterDeps {
     gitSha?: string;
     integrationsCatalogUrl?: string;
     mcpAllowPrivateEndpoint?: boolean;
-    desktopStackToken?: string;
+    desktopHostChoiceEnabled?: boolean;
   };
 }
 
@@ -6948,7 +6948,7 @@ async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
     ),
     computerHost: computerHostFor(setup.settings?.computerHost, deps.env.sandboxProvider),
     canChooseHostComputer:
-      Boolean(deps.env.desktopStackToken) && deps.env.sandboxProvider === "docker",
+      Boolean(deps.env.desktopHostChoiceEnabled) && deps.env.sandboxProvider === "docker",
     sandboxProvider: deps.env.sandboxProvider,
     avatarStyle: user.avatarStyle === "robot" ? "robot" : "organic",
     timezone: user.timezone ?? null,

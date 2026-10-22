@@ -663,6 +663,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       gitSha: env.gitSha,
       integrationsCatalogUrl: env.integrationsCatalogUrl,
       mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
+      desktopHostChoiceEnabled: Boolean(env.desktopStackToken),
     },
   });
   const rpc = new RPCHandler(router, {
