@@ -4,7 +4,10 @@ import UIKit
 // The display link observes geometry even when folding changes no safe-area inset or bounds.
 private final class FoldObserver: NSObject {
   var onFrame: (() -> Void)?
+  weak var displayLink: CADisplayLink?
   @objc func frame() { onFrame?() }
+  @objc func resume() { displayLink?.isPaused = false }
+  @objc func pause() { displayLink?.isPaused = true }
 }
 
 public final class RakazoFoldRegionsModule: Module {
@@ -62,6 +65,13 @@ public final class RakazoFoldRegionsModule: Module {
         self.sendEvent("onChange", ["regions": self.payload(next)])
       }
       let link = CADisplayLink(target: observer, selector: #selector(FoldObserver.frame))
+      link.preferredFrameRateRange = CAFrameRateRange(minimum: 4, maximum: 15, preferred: 10)
+      link.isPaused = UIApplication.shared.applicationState != .active
+      observer.displayLink = link
+      NotificationCenter.default.addObserver(observer, selector: #selector(FoldObserver.resume),
+                                             name: UIApplication.didBecomeActiveNotification, object: nil)
+      NotificationCenter.default.addObserver(observer, selector: #selector(FoldObserver.pause),
+                                             name: UIApplication.willResignActiveNotification, object: nil)
       link.add(to: .main, forMode: .common)
       self.observer = observer
       displayLink = link
@@ -69,6 +79,7 @@ public final class RakazoFoldRegionsModule: Module {
   }
 
   @MainActor private func stop() {
+    if let observer { NotificationCenter.default.removeObserver(observer) }
     displayLink?.invalidate()
     displayLink = nil
     observer = nil
