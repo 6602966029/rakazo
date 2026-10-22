@@ -248,10 +248,9 @@ export class ModelTeamChatEngagementJudge implements TeamChatEngagementJudge {
     if (!credential || hosted) {
       const apiKey =
         provider === this.deps.deploymentProvider ? this.deps.deploymentModelKey : undefined;
-      const callObserver =
-        apiKey && settings?.modelCreditsEnabled
-          ? await hostedModelCreditObserver(this.deps.prisma, scope)
-          : undefined;
+      const callObserver = settings?.modelCreditsEnabled
+        ? await hostedModelCreditObserver(this.deps.prisma, scope)
+        : undefined;
       return { model: { provider, id: modelId, ...(apiKey ? { apiKey } : {}), callObserver } };
     }
 

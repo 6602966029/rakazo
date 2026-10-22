@@ -122,59 +122,73 @@ describe("team chat engagement judge", () => {
     });
   });
 
-  it("uses hosted credentials in credit mode while preserving a saved key", async () => {
-    vi.stubEnv("PI_DEFAULT_PROVIDER", "openrouter");
-    vi.stubEnv("OPENROUTER_API_KEY", "fixture-deployment-key");
-    try {
-      const load = vi.fn();
-      const run = vi.fn(async function* (_request: unknown) {
-        yield { type: "done", text: '{"act":false}' };
-      });
-      const judge = new ModelTeamChatEngagementJudge({
-        prisma: {
-          deploymentSettings: { findUnique: async () => ({ modelCreditsEnabled: true }) },
-          spaceModelPreference: {
-            findFirst: async () => ({
-              credential: { id: "personal", provider: "openrouter", secretId: "personal-secret" },
-              modelId: "fixture-model",
-            }),
+  it.each([
+    { provider: "openrouter", key: "fixture-deployment-key", personal: true },
+    { provider: "amazon-bedrock", key: undefined, personal: true },
+    { provider: "amazon-bedrock", key: undefined, personal: false },
+  ])(
+    "meters $provider host credentials with personal=$personal",
+    async ({ provider, key, personal }) => {
+      vi.stubEnv("PI_DEFAULT_PROVIDER", provider);
+      vi.stubEnv("PI_DEFAULT_MODEL", "fixture-model");
+      vi.stubEnv("PI_DEFAULT_CREDENTIALS", "host");
+      vi.stubEnv("OPENROUTER_API_KEY", "fixture-deployment-key");
+      try {
+        const load = vi.fn();
+        const run = vi.fn(async function* (_request: unknown) {
+          yield { type: "done", text: '{"act":false}' };
+        });
+        const judge = new ModelTeamChatEngagementJudge({
+          prisma: {
+            deploymentSettings: { findUnique: async () => ({ modelCreditsEnabled: true }) },
+            spaceModelPreference: {
+              findFirst: async () =>
+                personal
+                  ? {
+                      credential: { id: "personal", provider, secretId: "personal-secret" },
+                      modelId: "fixture-model",
+                    }
+                  : null,
+            },
+            space: {
+              findFirst: async () => ({ organization: { modelCredits: { mode: "credits" } } }),
+              findUnique: async () => ({ organizationId: "org" }),
+            },
+            member: { findUnique: async () => ({ role: "owner" }) },
+            billingAccount: { findUnique: async () => null },
+            modelCreditAccount: { upsert: async () => ({ mode: "credits" }) },
+          } as never,
+          runtime: { run } as never,
+          secrets: { load } as never,
+          deploymentProvider: provider,
+          deploymentModel: "fixture-model",
+          deploymentModelKey: key,
+        });
+        await judge.decide({
+          bot: {
+            id: "bot",
+            spaceId: "space",
+            userId: "user",
+            name: "Fixture",
+            modelProvider: null,
+            modelId: null,
           },
-          space: {
-            findFirst: async () => ({ organization: { modelCredits: { mode: "credits" } } }),
-            findUnique: async () => ({ organizationId: "org" }),
-          },
-          member: { findUnique: async () => ({ role: "owner" }) },
-          billingAccount: { findUnique: async () => null },
-          modelCreditAccount: { upsert: async () => ({ mode: "credits" }) },
-        } as never,
-        runtime: { run } as never,
-        secrets: { load } as never,
-        deploymentProvider: "openrouter",
-        deploymentModel: "fixture-model",
-        deploymentModelKey: "fixture-deployment-key",
-      });
-      await judge.decide({
-        bot: {
-          id: "bot",
-          spaceId: "space",
-          userId: "user",
-          name: "Fixture",
-          modelProvider: null,
-          modelId: null,
-        },
-        channelId: "channel",
-        rules: "",
-        messages: [],
-      });
-      expect(run).toHaveBeenCalledOnce();
-      expect(run.mock.calls[0]?.[0]).toMatchObject({
-        model: { apiKey: "fixture-deployment-key", callObserver: expect.any(Object) },
-      });
-      expect(load).not.toHaveBeenCalled();
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
+          channelId: "channel",
+          rules: "",
+          messages: [],
+        });
+        expect(run).toHaveBeenCalledOnce();
+        expect(run.mock.calls[0]?.[0]).toMatchObject({
+          model: { callObserver: expect.any(Object) },
+        });
+        if (key) expect(run.mock.calls[0]?.[0]).toHaveProperty("model.apiKey", key);
+        else expect(run.mock.calls[0]?.[0]).not.toHaveProperty("model.apiKey");
+        expect(load).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
 
   it("blocks a hosted judge without credit access before running the model", async () => {
     const run = vi.fn(async function* () {
