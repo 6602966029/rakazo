@@ -180,9 +180,32 @@ async function chatRpc(spaceId: string | undefined, proc: string, body: unknown)
 
 export default function HomeRoute() {
   const { split } = useSplitView();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createHomeStyles);
-  // A wide window shows the chat list beside the stack, so home itself stays empty.
-  return split ? <View style={styles.screen} /> : <HomeSession />;
+  const { t } = useI18n();
+  useLayoutEffect(() => {
+    // Home restores its native controls when the compact inbox mounts again.
+    if (split) navigation.setOptions({ headerShown: false });
+  }, [split, navigation]);
+  return split ? (
+    <View
+      style={[
+        styles.screen,
+        styles.centered,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}
+    >
+      <Text style={styles.emptyPane}>{t("Pick a chat")}</Text>
+    </View>
+  ) : (
+    <HomeSession />
+  );
 }
 
 /** The chat list beside the open chat on a wide window. */
@@ -1997,6 +2020,11 @@ function createHomeStyles() {
     centered: {
       alignItems: "center",
       justifyContent: "center",
+    },
+    emptyPane: {
+      color: native.secondaryLabel,
+      ...typeScale.secondary,
+      textAlign: "center",
     },
     header: {
       flexDirection: "row",
