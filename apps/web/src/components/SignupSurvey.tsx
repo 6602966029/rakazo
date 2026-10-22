@@ -34,12 +34,10 @@ export function SignupSurvey({ onDone }: { onDone: () => void }) {
   const [use, setUse] = useState<Use | null>(null);
   const [teamSize, setTeamSize] = useState<TeamSize | null>(null);
   const [source, setSource] = useState("");
-  const [pending, setPending] = useState(false);
 
-  async function submit() {
-    setPending(true);
-    // Answers are optional and never block signup.
-    await rpc.onboarding
+  function submit() {
+    // Answers are optional, so a slow or failed save never holds up onboarding.
+    void rpc.onboarding
       .signupSurvey({
         reason: reason.trim() || undefined,
         use: use ?? undefined,
@@ -54,7 +52,7 @@ export function SignupSurvey({ onDone }: { onDone: () => void }) {
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        void submit();
+        submit();
       }}
     >
       <h1 className="text-[32px] font-medium text-foreground">
@@ -131,7 +129,7 @@ export function SignupSurvey({ onDone }: { onDone: () => void }) {
         maxLength={500}
         className="mt-2"
       />
-      <Button type="submit" className="mt-8" disabled={pending}>
+      <Button type="submit" className="mt-8">
         <Trans>Continue</Trans>
       </Button>
     </form>

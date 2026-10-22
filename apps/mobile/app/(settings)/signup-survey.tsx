@@ -1,6 +1,6 @@
 import type { SignupSurvey as SignupSurveyAnswers } from "@rakazo/contracts";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -32,20 +32,21 @@ export default function SignupSurvey() {
   const [use, setUse] = useState<Use>();
   const [teamSize, setTeamSize] = useState<SignupSurveyTeamSize>();
   const [source, setSource] = useState("");
-  const [pending, setPending] = useState(false);
+  const finished = useRef(false);
   const uses = [
     { value: "personal" as const, label: t("Personal") },
     { value: "work" as const, label: t("Work") },
   ];
   const teamSizeLabel = t("How big is your team?");
 
-  async function finish() {
-    if (pending) return;
-    setPending(true);
-    // Answers are a courtesy: a failed save never holds up the new account.
-    await rpc("onboarding/signupSurvey", signupSurveyAnswers({ reason, use, teamSize, source }))
-      .catch(() => undefined)
-      .finally(() => setPending(false));
+  function finish() {
+    if (finished.current) return;
+    finished.current = true;
+    // Answers are optional, so a slow or failed save never holds up the new account.
+    void rpc(
+      "onboarding/signupSurvey",
+      signupSurveyAnswers({ reason, use, teamSize, source }),
+    ).catch(() => undefined);
     closeSettingsSheet();
   }
 
@@ -62,7 +63,6 @@ export default function SignupSurvey() {
         <SettingsGroup label={t("What are you hoping to use Rakazo for?")}>
           <TextInput
             accessibilityLabel={t("What are you hoping to use Rakazo for?")}
-            editable={!pending}
             maxLength={2000}
             multiline
             onChangeText={setReason}
@@ -73,7 +73,6 @@ export default function SignupSurvey() {
         </SettingsGroup>
         <NativeSegmentedControl
           accessibilityLabel={uses.map((option) => option.label).join(" / ")}
-          disabled={pending}
           onChange={setUse}
           options={uses}
           value={use ?? ("" as Use)}
@@ -115,7 +114,6 @@ export default function SignupSurvey() {
         <SettingsGroup label={t("How did you hear about us?")}>
           <TextInput
             accessibilityLabel={t("How did you hear about us?")}
-            editable={!pending}
             maxLength={500}
             onChangeText={setSource}
             onSubmitEditing={() => void finish()}
@@ -124,7 +122,7 @@ export default function SignupSurvey() {
             value={source}
           />
         </SettingsGroup>
-        <NativeActionButton busy={pending} label={t("Continue")} onPress={() => void finish()} />
+        <NativeActionButton label={t("Continue")} onPress={finish} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
