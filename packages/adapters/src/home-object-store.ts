@@ -205,13 +205,17 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
         tap(packHome(home, this.limits), digest),
       ),
     );
-    try {
-      if (options.verify) await this.verify(stored, revision, digest.digest("hex"));
-      if (!(await this.records.advance(botId, stored.storageId, base, revision)))
-        throw new Error("Agent home was saved elsewhere at the same time");
-    } catch (error) {
-      await this.storage.delete([key]).catch(() => undefined);
-      throw error;
+    const discard = () => this.storage.delete([key]).catch(() => undefined);
+    if (options.verify)
+      await this.verify(stored, revision, digest.digest("hex")).catch(async (error) => {
+        await discard();
+        throw error;
+      });
+    // Only a confirmed refusal discards the upload. An error may hide a committed update, so
+    // that object is left for the sweep, which keeps whatever revision the home points at.
+    if (!(await this.records.advance(botId, stored.storageId, base, revision))) {
+      await discard();
+      throw new Error("Agent home was saved elsewhere at the same time");
     }
     await super.writeRevision(botId, revision);
     if (base)

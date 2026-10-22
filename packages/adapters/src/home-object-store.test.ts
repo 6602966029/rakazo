@@ -221,6 +221,26 @@ describe("ObjectAgentHomeStore", () => {
     expect(storage.objects.size).toBe(1);
   });
 
+  it("keeps the upload when recording its revision fails without a reply", async () => {
+    const { root, storage, records, rows } = await setup();
+    const store = new ObjectAgentHomeStore(root, storage, {
+      load: (homeKey) => records.load(homeKey),
+      create: (homeKey) => records.create(homeKey),
+      revisions: (ids) => records.revisions(ids),
+      // The update commits, then the connection drops before the reply.
+      advance: async (...args) => {
+        await records.advance(...args);
+        throw new Error("connection terminated");
+      },
+    });
+    await expect(store.commit("bot-1", await staged({ "a.txt": "x" }), context)).rejects.toThrow(
+      "connection terminated",
+    );
+    expect([...storage.objects.keys()]).toEqual([
+      `homes/${rows[0]!.homeStorageId}/${rows[0]!.homeStorageRevision}`,
+    ]);
+  });
+
   it("keeps only the current revision once a newer one is saved", async () => {
     const { store, storage, rows } = await setup();
     await store.commit("bot-1", await staged({ "a.txt": "first" }), context);
