@@ -117,6 +117,7 @@ import {
 import type { McpServer, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
+  countUnreadInboxChats,
   createSpaceForMember,
   createThreadMessageInTransaction,
   effectiveMemoryScope,
@@ -8775,15 +8776,31 @@ async function notifyRun(
     return null;
   });
   if (!notice?.enabled) return;
+  // The icon shows what the inbox shows: unread chats across the user's Spaces. Without a
+  // count the push leaves the badge as it is.
+  const badge = await countUnreadInboxChats(deps.prisma, {
+    userId: run.userId,
+    spaceId: run.spaceId,
+  }).catch((error) => {
+    getLogger().error("unread chat count", error);
+    return undefined;
+  });
   await deps.notifications
-    .send(notice.groupId ? { ...message, groupId: notice.groupId } : message, {
-      operationId: "notify",
-      traceId: run.botId,
-      spaceId: run.spaceId,
-      userId: run.userId,
-      botId: run.botId,
-      signal: new AbortController().signal,
-    })
+    .send(
+      {
+        ...message,
+        ...(notice.groupId ? { groupId: notice.groupId } : {}),
+        ...(badge === undefined ? {} : { badge }),
+      },
+      {
+        operationId: "notify",
+        traceId: run.botId,
+        spaceId: run.spaceId,
+        userId: run.userId,
+        botId: run.botId,
+        signal: new AbortController().signal,
+      },
+    )
     .catch((error) => {
       if (options.retryOnFailure) throw error;
       getLogger().error("run notification", error);
