@@ -10,15 +10,13 @@ import BotSettingsScreen from "../app/bot-settings";
 import { MenuPicker } from "../components/menu-picker";
 
 const mocks = vi.hoisted(() => ({
+  instructions: "",
+  description: "",
   focus: undefined as string | undefined,
   os: "ios",
   work: [] as unknown[],
   history: [] as unknown[],
   share: vi.fn(),
-  contentSizes: new WeakMap<
-    HTMLElement,
-    (event: { nativeEvent: { contentSize: { height: number } } }) => void
-  >(),
   docs: [] as unknown[],
   fill: "light-fill",
   deviceVoices: vi.fn(),
@@ -79,7 +77,8 @@ vi.mock("./api", () => ({
         id: "bot-fixture",
         name: "Fixture",
         title: "",
-        instructions: "",
+        instructions: mocks.instructions,
+        description: mocks.description,
         instructionHistory: mocks.history,
         color: BOT_COLORS[0],
         autoSpeak: false,
@@ -165,18 +164,24 @@ vi.mock("react-native", () => {
       accessibilityLabel,
       placeholder,
       multiline,
-      onContentSizeChange,
+      value,
+      onChangeText,
+      scrollEnabled,
     }: {
-      onContentSizeChange?: (event: { nativeEvent: { contentSize: { height: number } } }) => void;
+      value: string;
+      onChangeText?: (value: string) => void;
+      scrollEnabled?: boolean;
       style?: unknown;
       accessibilityLabel?: string;
       placeholder?: string;
       multiline?: boolean;
     }) =>
       createElement("textarea", {
-        ref: (element: HTMLElement | null) => {
-          if (element && onContentSizeChange) mocks.contentSizes.set(element, onContentSizeChange);
-        },
+        value,
+        onChange: () => undefined,
+        onInput: (event: { currentTarget: HTMLTextAreaElement }) =>
+          onChangeText?.(event.currentTarget.value),
+        "data-scroll-enabled": scrollEnabled,
         "data-style": JSON.stringify(style),
         "aria-label": accessibilityLabel,
         "aria-multiline": multiline,
@@ -330,6 +335,8 @@ describe("bot settings device voice menu", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.focus = undefined;
+    mocks.instructions = "";
+    mocks.description = "";
     mocks.os = "ios";
     mocks.work = [];
     mocks.history = [];
@@ -529,31 +536,35 @@ describe("bot settings device voice menu", () => {
     expect(container.querySelector('[aria-label="Title"]')).toBeNull();
   });
 
-  it("keeps empty text fields compact", async () => {
+  it("sizes multiline editors from an unconstrained copy of their loaded content", async () => {
+    mocks.instructions = "First line\nSecond line\nThird line\nFourth line\nFifth line";
+    mocks.description = mocks.instructions;
     await render();
-    const instructions = container.querySelector<HTMLElement>('[aria-label="Instructions"]')!;
-    const description = container.querySelector<HTMLElement>('[aria-label="Description"]')!;
-    const style = (node: HTMLElement) =>
-      Object.assign({}, ...JSON.parse(node.dataset.style!).flat(Infinity));
-    expect(style(instructions)).toMatchObject({
-      height: 80,
-      minHeight: 64,
-      textAlignVertical: "top",
-    });
-    expect(style(description)).toMatchObject({ height: 64, textAlignVertical: "top" });
-    expect(description.getAttribute("placeholder")).toBe("What this bot is for");
-    await act(async () => {
-      mocks.contentSizes.get(instructions)!({ nativeEvent: { contentSize: { height: 320 } } });
-      mocks.contentSizes.get(description)!({ nativeEvent: { contentSize: { height: 240 } } });
-    });
-    expect(style(instructions).height).toBe(320);
-    expect(style(description).height).toBe(240);
-    await act(async () => {
-      mocks.contentSizes.get(instructions)!({ nativeEvent: { contentSize: { height: 20 } } });
-      mocks.contentSizes.get(description)!({ nativeEvent: { contentSize: { height: 20 } } });
-    });
-    expect(style(instructions).height).toBe(80);
-    expect(style(description).height).toBe(64);
+    for (const label of ["Instructions", "Description"]) {
+      const input = container.querySelector<HTMLElement>(`[aria-label="${label}"]`)!;
+      const style = Object.assign({}, ...JSON.parse(input.dataset.style!).flat(Infinity));
+      expect(style).toMatchObject({ position: "absolute", top: 0, bottom: 0, lineHeight: 22 });
+      expect(input.dataset.scrollEnabled).toBe("false");
+      expect(style.height).toBeUndefined();
+      expect(style.maxHeight).toBeUndefined();
+      const measure = input.previousElementSibling as HTMLElement;
+      expect(measure.textContent).toBe(`${mocks.instructions}\u200b`);
+      const measureStyle = Object.assign({}, ...JSON.parse(measure.dataset.style!).flat(Infinity));
+      expect(measureStyle).toMatchObject({ minHeight: 98, lineHeight: 22, opacity: 0 });
+      expect(measureStyle.height).toBeUndefined();
+      expect(measureStyle.maxHeight).toBeUndefined();
+      expect(style.padding).toBe(measureStyle.padding);
+      await act(async () => {
+        (input as HTMLTextAreaElement).value = "Short";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      expect(measure.textContent).toBe("Short\u200b");
+      await act(async () => {
+        (input as HTMLTextAreaElement).value = "Line\n".repeat(20);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      expect(measure.textContent).toBe(`${"Line\n".repeat(20)}\u200b`);
+    }
   });
 
   it("hides advanced controls until expanded and follows the shared order", async () => {
@@ -1047,8 +1058,8 @@ it("opens a native name prompt from the centred header", async () => {
   await act(async () => root.unmount());
 });
 
-it("hides whitespace-only memory documents", async () => {
-  mocks.docs = [{ id: "empty", path: "MEMORY.md", content: "  \n" }];
+it.each(["  \n", "# Fixture\n\n"])("hides empty memory: %j", async (content) => {
+  mocks.docs = [{ id: "empty", path: "MEMORY.md", content }];
   const host = document.createElement("div");
   const root = createRoot(host);
   try {

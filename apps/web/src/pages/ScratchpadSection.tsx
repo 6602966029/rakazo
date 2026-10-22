@@ -107,7 +107,7 @@ export function ScratchpadSection({ botId }: { botId: string }) {
 
   return (
     <div className="mt-6" data-testid="bot-scratchpad">
-      <h3 className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+      <h3 className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground pe-1">
         <Trans>Open work</Trans>
         <Button
           variant="ghost"

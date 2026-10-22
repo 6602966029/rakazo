@@ -44,8 +44,8 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
     }
   }
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="space-y-2">
+      <div className="flex items-center justify-between pe-1">
         <label htmlFor={`${id}-instructions`} className="text-xs font-medium text-muted-foreground">
           <Trans>Instructions</Trans>
         </label>

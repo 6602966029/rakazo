@@ -293,11 +293,9 @@ it("hides empty bot memory and limits long lists to five documents", async () =>
   }
 });
 
-it("hides memory when every document is empty", async () => {
+it.each([" \n", "# Fixture\n\n"])("hides empty memory: %j", async (content) => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  memoryApi.list.mockResolvedValueOnce([
-    { id: "empty", path: "MEMORY.md", content: " \n" },
-  ] as never);
+  memoryApi.list.mockResolvedValueOnce([{ id: "empty", path: "MEMORY.md", content }] as never);
   const host = document.createElement("div");
   const root = createRoot(host);
   try {

@@ -1,4 +1,5 @@
 import type { MemoryDocument, ScratchpadItem } from "@rakazo/contracts";
+import { isEmptyBotMemory } from "@rakazo/contracts";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { rpc } from "../lib/api";
@@ -26,7 +27,7 @@ export function BotContextCards({ botId }: { botId: string }) {
       .then(([items, documents]) => {
         if (current) {
           setWork(items);
-          setDocs(documents.filter((doc) => doc.content.trim()));
+          setDocs(documents.filter((doc) => !isEmptyBotMemory(doc)));
         }
       })
       .catch((err) => {
@@ -36,7 +37,7 @@ export function BotContextCards({ botId }: { botId: string }) {
       current = false;
     };
   }, [botId]);
-  const heading = { color: tokens.mutedForeground, fontSize: 12, marginBottom: 8 };
+  const heading = { color: tokens.mutedForeground, fontSize: 12 };
   const card = { backgroundColor: native.fill, borderRadius: 12, padding: 16, gap: 12 };
   return (
     <>
@@ -48,6 +49,7 @@ export function BotContextCards({ botId }: { botId: string }) {
               justifyContent: "space-between",
               alignItems: "center",
               marginBottom: 8,
+              paddingEnd: 16,
             }}
           >
             <Text accessibilityRole="header" style={heading}>
@@ -126,7 +128,7 @@ export function BotContextCards({ botId }: { botId: string }) {
       ) : null}
       {docs.length ? (
         <View style={{ marginTop: 24 }}>
-          <Text accessibilityRole="header" style={heading}>
+          <Text accessibilityRole="header" style={[heading, { marginBottom: 8 }]}>
             {t("Memory")}
           </Text>
           <View style={card}>

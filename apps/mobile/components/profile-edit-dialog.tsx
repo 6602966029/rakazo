@@ -43,6 +43,7 @@ export function ProfileEditDialog({
           justifyContent: icon ? "center" : large ? "flex-end" : "flex-start",
           maxWidth: "100%",
           minWidth: icon ? 44 : undefined,
+          alignItems: icon ? "flex-end" : undefined,
         }}
         onPress={() => {
           if (Platform.OS === "ios")

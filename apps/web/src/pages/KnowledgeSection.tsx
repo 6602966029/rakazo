@@ -1,10 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ORPCError } from "@orpc/client";
 import type { AgentSkill, AgentSkillCatalogEntry, MemoryDocument } from "@rakazo/contracts";
-import { isDeletableMemoryDocument } from "@rakazo/contracts";
+import { isDeletableMemoryDocument, isEmptyBotMemory } from "@rakazo/contracts";
 import { Badge, Button, Skeleton, Textarea } from "@rakazo/ui-web";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@rakazo/ui-web/components/ui/tooltip";
-import { Download } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { SettingsSectionHeading } from "../components/SettingsSectionHeading";
 import { downloadArtifactBytes } from "../lib/artifact-open";
@@ -187,7 +187,7 @@ function MemoryDocumentList({
     );
   }
 
-  if (compact && !docs.some((doc) => doc.content.trim()) && !error) return null;
+  if (compact && docs.every(isEmptyBotMemory) && !error) return null;
   return (
     <section className={compact ? "mt-6" : undefined}>
       {compact ? (
@@ -459,10 +459,13 @@ function AgentSkills({
               type="button"
               disabled={busy}
               onClick={() => void openSkill(entry)}
-              className={`${rowClass(false)} block`}
+              className={`${rowClass(false)} -mx-2.5 w-[calc(100%+1.25rem)] block`}
             >
               <span className="flex w-full items-center justify-between gap-3">
-                <span className="min-w-0 truncate text-[14px] text-foreground" dir="auto">
+                <span
+                  className="min-w-0 truncate text-[14px] font-normal text-foreground"
+                  dir="auto"
+                >
                   {entry.name}
                 </span>
                 <SkillSourceBadge source={entry.source} />
@@ -480,7 +483,7 @@ function AgentSkills({
         <div className="px-2.5 pb-2">
           {open ? (
             <div className="flex items-center gap-2 pb-1">
-              <div className="min-w-0 truncate text-[14px] text-foreground" dir="auto">
+              <div className="min-w-0 truncate text-[14px] font-normal text-foreground" dir="auto">
                 {open.name}
               </div>
               <SkillSourceBadge source={open.source} />
@@ -550,9 +553,10 @@ function AgentSkills({
             setDraft(NEW_SKILL_TEMPLATE);
             setError(null);
           }}
-          className="mt-2 px-2.5 text-[13px] text-muted-foreground hover:text-foreground"
+          className="-mx-2.5 mt-2 h-auto min-h-11 w-[calc(100%+1.25rem)] justify-between px-2.5 py-2.5 text-sm font-normal text-foreground"
         >
           <Trans>New skill</Trans>
+          <Plus aria-hidden="true" className="size-4 text-muted-foreground" />
         </Button>
       )}
     </div>

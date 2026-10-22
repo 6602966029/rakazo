@@ -18,6 +18,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import type { Voice } from "expo-speech";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ColorValue } from "react-native";
 import {
   Alert,
   Modal,
@@ -65,7 +66,6 @@ type BotSettingsRecord = MobileBot & {
 
 export default function BotSettingsScreen() {
   const tokens = useMobileTokens();
-  const fieldStyle = [styles.field, { color: tokens.foreground, backgroundColor: native.fill }];
   const { t } = useI18n();
   const router = useRouter();
   const {
@@ -83,8 +83,6 @@ export default function BotSettingsScreen() {
   const [color, setColor] = useState<string>(BOT_COLORS[0]);
   const [computerMode, setComputerMode] = useState<ComputerMode>("team");
   const [avatarOpen, setAvatarOpen] = useState(false);
-  const [instructionHeight, setInstructionHeight] = useState(80);
-  const [descriptionHeight, setDescriptionHeight] = useState(64);
   const [advancedOpen, setAdvancedOpen] = useState(focus === "model" || pickedModel !== undefined);
   const [modelKey, setModelKey] = useState("");
   const [thinkingLevel, setThinkingLevel] = useState("");
@@ -523,6 +521,8 @@ export default function BotSettingsScreen() {
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
+                paddingEnd: 16,
+                marginBottom: 8,
               }}
             >
               <SettingsSectionHeading>{t("Instructions")}</SettingsSectionHeading>
@@ -581,17 +581,12 @@ export default function BotSettingsScreen() {
                 </View>
               ) : null}
             </View>
-            <TextInput
-              accessibilityLabel={t("Instructions")}
-              multiline
+            <GrowingTextInput
+              label={t("Instructions")}
               maxLength={BOT_INSTRUCTIONS_MAX_LENGTH}
               value={instructions}
               onChangeText={setInstructions}
-              scrollEnabled={false}
-              onContentSizeChange={(event) =>
-                setInstructionHeight(Math.max(80, event.nativeEvent.contentSize.height))
-              }
-              style={[fieldStyle, styles.multilineField, { height: instructionHeight }]}
+              backgroundColor={native.fill}
             />
           </View>
         </View>
@@ -742,22 +737,13 @@ export default function BotSettingsScreen() {
               <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>
                 {t("How other bots see it")}
               </Text>
-              <TextInput
-                accessibilityLabel={t("Description")}
+              <GrowingTextInput
+                label={t("Description")}
                 value={description}
                 maxLength={BOT_DESCRIPTION_MAX_LENGTH}
                 onChangeText={setDescription}
                 placeholder={t("What this bot is for")}
-                placeholderTextColor={tokens.mutedForeground}
-                multiline
-                scrollEnabled={false}
-                onContentSizeChange={(event) =>
-                  setDescriptionHeight(Math.max(64, event.nativeEvent.contentSize.height))
-                }
-                style={[
-                  styles.multilineField,
-                  { color: tokens.foreground, height: descriptionHeight },
-                ]}
+                inset={0}
               />
             </SettingsGroup>
             <View style={{ paddingHorizontal: 16, borderRadius: 12, backgroundColor: native.fill }}>
@@ -953,12 +939,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     flexShrink: 1,
   },
-  field: {
-    marginTop: 8,
-    borderRadius: 11,
+  multilineField: {
+    minHeight: 98,
+    fontSize: 14,
+    lineHeight: 22,
     padding: 16,
+    textAlignVertical: "top",
   },
-  multilineField: { minHeight: 64, textAlignVertical: "top" },
   row: {
     minHeight: 44,
     flexDirection: "row",
@@ -983,6 +970,61 @@ function SettingsGroup({ label, children }: { label: string; children: ReactNode
       <View style={{ padding: 16, gap: 12, borderRadius: 12, backgroundColor: native.fill }}>
         {children}
       </View>
+    </View>
+  );
+}
+
+/** A noninteractive text copy gives loaded and edited content its full intrinsic height. */
+function GrowingTextInput({
+  label,
+  value,
+  onChangeText,
+  maxLength,
+  placeholder,
+  backgroundColor,
+  inset = 16,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  maxLength: number;
+  placeholder?: string;
+  backgroundColor?: ColorValue;
+  inset?: number;
+}) {
+  const tokens = useMobileTokens();
+  return (
+    <View style={{ borderRadius: 11, backgroundColor }}>
+      <Text
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={[styles.multilineField, { padding: inset, opacity: 0 }]}
+      >
+        {`${value || placeholder || ""}\u200b`}
+      </Text>
+      <TextInput
+        accessibilityLabel={label}
+        value={value}
+        onChangeText={onChangeText}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        placeholderTextColor={tokens.mutedForeground}
+        multiline
+        scrollEnabled={false}
+        style={[
+          styles.multilineField,
+          {
+            color: tokens.foreground,
+            padding: inset,
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
+          },
+        ]}
+      />
     </View>
   );
 }

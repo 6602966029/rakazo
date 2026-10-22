@@ -641,7 +641,7 @@ export function BotSettings({
         <CollapsibleContent>
           <div className="space-y-6 pt-6">
             <div ref={modelRef}>
-              <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+              <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground pe-1">
                 <Trans>Model</Trans>
                 {onOpenConnections ? (
                   <Button
