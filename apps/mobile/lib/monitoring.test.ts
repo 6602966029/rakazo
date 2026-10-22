@@ -80,4 +80,27 @@ describe("mobile monitoring", () => {
     monitor.reportMobileError(new Error("after foreground"), "voice.turn");
     expect(sdk.captureException).toHaveBeenCalledTimes(1);
   });
+
+  it("reopens a previous connection after a failed switch without replaying the other connection's errors", async () => {
+    const monitor = await import("./monitoring");
+    const fetchConfig = response({ dsn: "https://key@errors.example.com/8" });
+    await monitor.configureMobileMonitoring("https://first.example.com", {}, fetchConfig);
+    const previous = sdk.init.mock.calls[0]![0];
+    const offline = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    await monitor.configureMobileMonitoring("https://second.example.com", {}, offline);
+    monitor.reportMobileError(new Error("second connection"), "voice.turn");
+    await monitor.configureMobileMonitoring("https://first.example.com", {}, fetchConfig);
+    expect(sdk.init).toHaveBeenCalledTimes(2);
+    expect(previous.beforeSend({})).toBeNull();
+    expect(sdk.captureException).not.toHaveBeenCalled();
+    const error = new Error("first connection restored");
+    monitor.reportMobileError(error, "voice.turn");
+    expect(sdk.captureException).toHaveBeenCalledWith(error, {
+      tags: { operation: "voice.turn", surface: "mobile" },
+    });
+    await monitor.configureMobileMonitoring("https://first.example.com", {}, fetchConfig);
+    expect(sdk.init).toHaveBeenCalledTimes(2);
+  });
 });

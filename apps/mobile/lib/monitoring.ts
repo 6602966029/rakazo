@@ -11,6 +11,7 @@ const errors = createClientErrorReporter();
 let sdk: typeof NativeSentry | undefined;
 let generation = 0;
 let connectionKey: string | undefined;
+let configured = false;
 let closing: Promise<unknown> = Promise.resolve();
 let configuring: Promise<void> = Promise.resolve();
 
@@ -26,6 +27,7 @@ export function reportMobileError(
 export function resetMobileMonitoring(): void {
   generation += 1;
   connectionKey = undefined;
+  configured = false;
   errors.reset();
   sdk?.setUser(null);
   if (sdk) closing = sdk.close().catch(() => undefined);
@@ -39,7 +41,10 @@ export function configureMobileMonitoring(
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   const key = JSON.stringify([base, headers]);
-  if (key === connectionKey) return configuring;
+  if (key === connectionKey && configured) return configuring;
+  if (connectionKey !== undefined && key !== connectionKey) errors.reset();
+  connectionKey = key;
+  configured = false;
   const current = ++generation;
   sdk?.setUser(null);
   const next = configuring.then(async () => {
@@ -60,7 +65,7 @@ export function configureMobileMonitoring(
     }
     if (current !== generation) return;
     if (!config.dsn) {
-      connectionKey = key;
+      configured = true;
       errors.install(undefined);
       return;
     }
@@ -101,7 +106,7 @@ export function configureMobileMonitoring(
           current === generation ? sanitizeMonitoringEvent(event, userId) : null,
       });
       sdk = Sentry;
-      connectionKey = key;
+      configured = true;
       Sentry.setTag("surface", "mobile");
       Sentry.setUser(userId ? { id: userId, ip_address: null } : null);
       errors.install({
