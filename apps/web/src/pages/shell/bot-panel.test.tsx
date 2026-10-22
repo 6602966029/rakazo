@@ -70,7 +70,22 @@ vi.mock("@rakazo/ui-web", () => ({
     </button>
   ),
 }));
-vi.mock("./avatar-studio-popover", () => ({ AvatarStudioPopover: () => null }));
+vi.mock("./avatar-studio-popover", () => ({
+  AvatarStudioPopover: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+  }) => (
+    <button
+      type="button"
+      aria-label="Avatar color"
+      data-color={value}
+      onClick={() => onChange(value === "blue" ? "ink" : "blue")}
+    />
+  ),
+}));
 vi.mock("./bot-credentials", () => ({ BotCredentialsSection: () => null }));
 vi.mock("../ScratchpadSection", () => ({ ScratchpadSection: () => <h3>Open work</h3> }));
 vi.mock("../KnowledgeSection", () => ({
@@ -623,4 +638,33 @@ it("saves inline edits on blur and clears a label on Enter", async () => {
     expect(onSave.mock.lastCall?.[0]).toHaveProperty(key!, value);
   }
   expect(container.textContent).toContain("Add a label");
+});
+
+it.each(["color", "notifyOnFinish"])(
+  "restores the last accepted %s after an automatic save fails",
+  async (field) => {
+    await render();
+    const control = () =>
+      container.querySelector<HTMLButtonElement>(
+        field === "color" ? '[aria-label="Avatar color"]' : 'button[id$="-notify-finish"]',
+      )!;
+    const value = () => control().getAttribute(field === "color" ? "data-color" : "aria-checked");
+    await act(async () => control().click());
+    expect(value()).toBe(field === "color" ? "blue" : "false");
+    onSave.mockRejectedValueOnce(new Error("offline"));
+    await act(async () => control().click());
+    expect(value()).toBe(field === "color" ? "blue" : "false");
+    expect(container.textContent).toContain("offline");
+    expect(
+      [...container.querySelectorAll("button")].some((node) => node.textContent === "Save"),
+    ).toBe(false);
+  },
+);
+
+it("saves a color change back to the initial value after a successful automatic save", async () => {
+  await render();
+  const control = () => container.querySelector<HTMLButtonElement>('[aria-label="Avatar color"]')!;
+  await act(async () => control().click());
+  await act(async () => control().click());
+  expect(onSave.mock.lastCall?.[0]).toHaveProperty("color", "ink");
 });

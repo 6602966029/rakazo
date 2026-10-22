@@ -666,6 +666,99 @@ describe("bot settings device voice menu", () => {
     expect(container.textContent).not.toContain("Read replies aloud");
   });
 
+  it("queues notifications and ignores an older failure before saving the latest choice", async () => {
+    const first = deferredSave();
+    mocks.rpc.mockReturnValueOnce(first.promise);
+    await render();
+    const toggle = container.querySelector<HTMLButtonElement>(
+      '[aria-label="When it finishes or needs input"]',
+    )!;
+    await act(async () => toggle.click());
+    await act(async () => toggle.click());
+    await act(async () => toggle.click());
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    mocks.rpc.mockResolvedValueOnce(undefined);
+    await act(async () => first.reject(new Error("older failure")));
+    expect(mocks.rpc).toHaveBeenLastCalledWith("bots/update", {
+      botId: "bot-fixture",
+      notifyOnFinish: false,
+    });
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(container.textContent).not.toContain("older failure");
+    mocks.rpc.mockRejectedValueOnce(new Error("latest failure"));
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(container.textContent).toContain("latest failure");
+  });
+
+  it.each([
+    { field: "name", firstFails: false, latestFails: false },
+    { field: "name", firstFails: true, latestFails: false },
+    { field: "name", firstFails: false, latestFails: true },
+    { field: "name", firstFails: true, latestFails: true },
+    { field: "title", firstFails: false, latestFails: false },
+    { field: "title", firstFails: true, latestFails: false },
+    { field: "title", firstFails: false, latestFails: true },
+    { field: "title", firstFails: true, latestFails: true },
+  ])(
+    "serializes $field edits (first fails: $firstFails, latest fails: $latestFails)",
+    async ({ field, firstFails, latestFails }) => {
+      const first = deferredSave();
+      const last = deferredSave();
+      mocks.rpc.mockReturnValueOnce(first.promise).mockReturnValueOnce(last.promise);
+      await render();
+      const edit = async (value: string) => {
+        await act(async () =>
+          container
+            .querySelector<HTMLButtonElement>(
+              field === "name" ? '[aria-label="Edit name"]' : '[aria-label="Edit label"]',
+            )!
+            .click(),
+        );
+        const buttons = mocks.prompt.mock.calls.at(-1)![2];
+        await act(async () =>
+          buttons.find((button: { text: string }) => button.text === "Save").onPress(value),
+        );
+      };
+      await edit("First");
+      await edit("Latest");
+      expect(mocks.rpc.mock.calls).toEqual([
+        ["bots/update", { botId: "bot-fixture", [field]: "First" }],
+      ]);
+      expect(container.textContent).toContain("Latest");
+      await act(async () => {
+        if (firstFails) first.reject(new Error("older failure"));
+        else first.resolve();
+      });
+      expect(container.textContent).not.toContain("older failure");
+      expect(mocks.rpc).toHaveBeenLastCalledWith("bots/update", {
+        botId: "bot-fixture",
+        [field]: "Latest",
+      });
+      expect(container.textContent).toContain("Latest");
+      await act(async () => {
+        if (latestFails) last.reject(new Error("latest failure"));
+        else last.resolve();
+      });
+      const shown = container.querySelector(
+        field === "name" ? '[aria-label="Edit name"]' : '[aria-label="Edit label"]',
+      )!;
+      expect(shown.textContent).toBe(
+        latestFails
+          ? firstFails
+            ? field === "name"
+              ? "Fixture"
+              : "Add a label"
+            : "First"
+          : "Latest",
+      );
+      expect(
+        [...container.querySelectorAll("button")].some((node) => node.textContent === "Save"),
+      ).toBe(false);
+    },
+  );
+
   it("saves read aloud and computer mode after expanding Advanced", async () => {
     mocks.rpc.mockResolvedValue(undefined);
     await render();

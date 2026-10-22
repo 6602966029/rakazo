@@ -86,6 +86,7 @@ function MemoryDocumentList({
   const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(true);
   const [docs, setDocs] = useState<MemoryDocument[]>([]);
+  const [memoryVisible, setMemoryVisible] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [loadedRevision, setLoadedRevision] = useState<number | undefined>();
@@ -104,6 +105,7 @@ function MemoryDocumentList({
       .then((list) => {
         if (current !== generation.current) return;
         setDocs(list);
+        setMemoryVisible((visible) => visible || list.some((doc) => !isEmptyBotMemory(doc)));
         setLoading(false);
       })
       .catch(() => {
@@ -179,15 +181,26 @@ function MemoryDocumentList({
     }
   }
 
-  function downloadDocument(doc: MemoryDocument) {
-    downloadArtifactBytes(
-      doc.path.split("/").at(-1) ?? doc.path,
-      "text/markdown",
-      new TextEncoder().encode(doc.content),
-    );
+  async function downloadDocument(doc: MemoryDocument) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const latest = (await loadRef.current()).find((entry) => entry.id === doc.id);
+      if (!latest) throw new Error("Document unavailable");
+      downloadArtifactBytes(
+        latest.path.split("/").at(-1) ?? latest.path,
+        "text/markdown",
+        new TextEncoder().encode(latest.content),
+      );
+    } catch {
+      setError(t`Could not load`);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  if (compact && docs.every(isEmptyBotMemory) && !error) return null;
+  if (compact && !memoryVisible && !error) return null;
   return (
     <section className={compact ? "mt-6" : undefined}>
       {compact ? (

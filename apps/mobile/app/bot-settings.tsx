@@ -115,12 +115,41 @@ export default function BotSettingsScreen() {
     [botId, t],
   );
 
+  const notifySave = useMemo(
+    () =>
+      createQueuedSave<boolean>(true, {
+        save: async (notifyOnFinish) => {
+          await rpc("bots/update", { botId, notifyOnFinish });
+        },
+        onChange: setNotifyOnFinish,
+        onError: (err) => setError(errorText(err)),
+      }),
+    [botId],
+  );
+  const profileSaves = useMemo(() => {
+    const fieldQueue = (field: "name" | "title", onChange: (value: string) => void) =>
+      createQueuedSave<string>("", {
+        save: async (value) => {
+          await rpc("bots/update", { botId, [field]: value });
+        },
+        onChange,
+        onSaved: async (value) => {
+          setBot((prev) => (prev ? { ...prev, [field]: value } : prev));
+        },
+        onError: (err) => setError(errorText(err)),
+      });
+    return { name: fieldQueue("name", setName), title: fieldQueue("title", setTitle) };
+  }, [botId]);
+
   useEffect(() => {
     if (!botId) return;
     void rpc<BotSettingsRecord>("bots/get", { botId })
       .then((next) => {
         setBot(next);
         setName(next.name);
+        profileSaves.name.reset(next.name);
+        profileSaves.title.reset(next.title);
+        notifySave.reset(next.notifyOnFinish ?? true);
         setTitle(next.title);
         setDescription(next.description ?? "");
         setInstructions(next.instructions ?? "");
@@ -138,7 +167,7 @@ export default function BotSettingsScreen() {
         fleetSave.reset(next.fleetManagement);
       })
       .catch((err) => setError(errorText(err, t("Could not load bot"))));
-  }, [botId, fleetSave]);
+  }, [botId, fleetSave, notifySave, profileSaves]);
 
   useEffect(() => {
     void Promise.all([
@@ -316,12 +345,10 @@ export default function BotSettingsScreen() {
     setPending(true);
     setError(null);
     try {
-      const profile = { name: name.trim(), title: title.trim(), description: description.trim() };
+      const profile = { description: description.trim() };
       const selected = selectedModel;
       const input: {
         botId: string;
-        name?: string;
-        title?: string;
         description?: string;
         instructions?: string;
         expectedInstructions?: string;
@@ -331,8 +358,6 @@ export default function BotSettingsScreen() {
         thinkingLevel?: ThinkingLevel | null;
         autoSpeak?: boolean;
       } = { botId };
-      if (profile.name !== bot.name) input.name = profile.name;
-      if (profile.title !== bot.title) input.title = profile.title;
       if (profile.description !== (bot.description ?? "")) {
         input.description = profile.description;
       }
@@ -363,7 +388,7 @@ export default function BotSettingsScreen() {
         );
         setBot((prev) => (prev ? { ...prev, computerMode } : prev));
       }
-      // Use key presence so clearing title/description to "" still persists.
+      // Use key presence so clearing description to "" still persists.
       if (Object.keys(input).length > 1) {
         const updated = await rpc<BotSettingsRecord | undefined>("bots/update", input);
         // Saved edits and their history become the baseline, so a retry after a failed switch write
@@ -371,7 +396,12 @@ export default function BotSettingsScreen() {
         const { botId: _botId, expectedInstructions: _expected, ...saved } = input;
         setBot((prev) => (prev ? { ...prev, ...saved, ...updated } : prev));
       }
-      await fleetSave.flush();
+      await Promise.all([
+        fleetSave.flush(),
+        notifySave.flush(),
+        profileSaves.name.flush(),
+        profileSaves.title.flush(),
+      ]);
       router.back();
     } catch (err) {
       setError(errorText(err, t("Could not save bot")));
@@ -382,9 +412,7 @@ export default function BotSettingsScreen() {
 
   const dirty =
     bot &&
-    (name.trim() !== bot.name ||
-      title.trim() !== bot.title ||
-      description.trim() !== (bot.description ?? "") ||
+    (description.trim() !== (bot.description ?? "") ||
       instructions !== (bot.instructions ?? "") ||
       color !== bot.color ||
       computerMode !== bot.computerMode ||
@@ -486,14 +514,7 @@ export default function BotSettingsScreen() {
             maxLength={BOT_NAME_MAX_LENGTH}
             large
             onCommit={async (value) => {
-              if (!value || !botId) return;
-              try {
-                await rpc("bots/update", { botId, name: value });
-                setName(value);
-                setBot((prev) => (prev ? { ...prev, name: value } : prev));
-              } catch (err) {
-                setError(errorText(err));
-              }
+              if (value && botId) profileSaves.name.update(value);
             }}
           />
           <ProfileEditDialog
@@ -503,14 +524,7 @@ export default function BotSettingsScreen() {
             value={title}
             maxLength={BOT_TITLE_MAX_LENGTH}
             onCommit={async (value) => {
-              if (!botId) return;
-              try {
-                await rpc("bots/update", { botId, title: value });
-                setTitle(value);
-                setBot((prev) => (prev ? { ...prev, title: value } : prev));
-              } catch (err) {
-                setError(errorText(err));
-              }
+              if (botId) profileSaves.title.update(value);
             }}
           />
         </View>
@@ -599,13 +613,7 @@ export default function BotSettingsScreen() {
               <NativeSwitch
                 accessibilityLabel={t("When it finishes or needs input")}
                 value={notifyOnFinish}
-                onValueChange={(value) => {
-                  setNotifyOnFinish(value);
-                  void rpc("bots/update", { botId, notifyOnFinish: value }).catch((err) => {
-                    setNotifyOnFinish(!value);
-                    setError(errorText(err));
-                  });
-                }}
+                onValueChange={(value) => notifySave.update(value)}
               />
             </View>
           </SettingsGroup>

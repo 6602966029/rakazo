@@ -7,7 +7,11 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), get: vi.fn() }));
-const memoryApi = vi.hoisted(() => ({ list: vi.fn(async () => []), remove: vi.fn() }));
+const memoryApi = vi.hoisted(() => ({
+  list: vi.fn(async () => []),
+  remove: vi.fn(),
+  update: vi.fn(),
+}));
 vi.mock("../lib/rpc", () => ({
   rpc: { agentSkills: api, memory: memoryApi },
 }));
@@ -231,12 +235,15 @@ it("downloads only each row’s saved markdown with its own filename", async () 
     const download = container.querySelector<HTMLButtonElement>('[aria-label="Download"]')!;
     expect(download).not.toBeNull();
     expect(download.parentElement?.textContent).toContain("MEMORY.md");
+    memoryApi.list.mockResolvedValueOnce([
+      { ...doc, content: "Latest saved memory", revision: 2 },
+    ] as never);
     await act(async () => download.click());
-    expect(memoryApi.list).toHaveBeenCalledTimes(1);
+    expect(memoryApi.list).toHaveBeenCalledTimes(2);
     expect(downloadArtifactBytes).toHaveBeenLastCalledWith(
       "MEMORY.md",
       "text/markdown",
-      new TextEncoder().encode("Fixture memory"),
+      new TextEncoder().encode("Latest saved memory"),
     );
     const downloads = container.querySelectorAll<HTMLButtonElement>('[aria-label="Download"]');
     await act(async () => downloads[1]!.click());
@@ -259,7 +266,7 @@ it("hides empty bot memory and limits long lists to five documents", async () =>
   const host = document.createElement("div");
   const root = createRoot(host);
   try {
-    memoryApi.list.mockResolvedValueOnce([]);
+    memoryApi.list.mockReset().mockResolvedValueOnce([]);
     await act(async () =>
       root.render(
         <KnowledgeSection key="empty" botId="fixture" onSkillsChange={() => undefined} />,
@@ -309,3 +316,64 @@ it.each([" \n", "# Fixture\n\n"])("hides empty memory: %j", async (content) => {
     vi.unstubAllGlobals();
   }
 });
+
+it("keeps the last cleared memory document available to reopen in the session", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const doc = { id: "memory", path: "MEMORY.md", content: "Saved memory", revision: 1 };
+  memoryApi.list.mockReset().mockResolvedValueOnce([doc] as never);
+  memoryApi.update.mockResolvedValueOnce({ ...doc, content: "", revision: 2 });
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  const button = (text: string) =>
+    [...host.querySelectorAll("button")].find((node) => node.textContent === text)!;
+  try {
+    await act(async () =>
+      root.render(<KnowledgeSection botId="fixture" onSkillsChange={() => undefined} />),
+    );
+    await act(async () => button("MEMORY.md").click());
+    await act(async () => {
+      const field = host.querySelector("textarea")!;
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(field, "");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => button("Save").click());
+    expect(memoryApi.update).toHaveBeenCalledWith({
+      documentId: "memory",
+      content: "",
+      expectedRevision: 1,
+    });
+    expect(host.textContent).toContain("MEMORY.md");
+    await act(async () => button("MEMORY.md").click());
+    expect(host.querySelector("textarea")?.value).toBe("");
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  }
+});
+
+it.each(["missing", "failed"])(
+  "does not export cached memory when the current read is %s",
+  async (result) => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const doc = { id: "memory", path: "MEMORY.md", content: "Cached memory", revision: 1 };
+    memoryApi.list.mockReset().mockResolvedValueOnce([doc] as never);
+    vi.mocked(downloadArtifactBytes).mockClear();
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    try {
+      await act(async () =>
+        root.render(<KnowledgeSection botId="fixture" onSkillsChange={() => undefined} />),
+      );
+      if (result === "missing") memoryApi.list.mockResolvedValueOnce([]);
+      else memoryApi.list.mockRejectedValueOnce(new Error("offline"));
+      await act(async () =>
+        host.querySelector<HTMLButtonElement>('[aria-label="Download"]')!.click(),
+      );
+      expect(downloadArtifactBytes).not.toHaveBeenCalled();
+      expect(host.textContent).toContain("Could not load");
+    } finally {
+      await act(async () => root.unmount());
+      vi.unstubAllGlobals();
+    }
+  },
+);

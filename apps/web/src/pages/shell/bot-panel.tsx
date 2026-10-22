@@ -275,6 +275,11 @@ export function BotSettings({
   const savedDescriptionRef = useRef(bot.description ?? "");
   const [color, setColor] = useState(bot.color);
   const [notifyOnFinish, setNotifyOnFinish] = useState(bot.notifyOnFinish ?? true);
+  const acceptedAutomatic = useRef({
+    color: bot.color,
+    notifyOnFinish: bot.notifyOnFinish ?? true,
+  });
+  const automaticRevision = useRef({ color: 0, notifyOnFinish: 0 });
   const [computerMode, setComputerMode] = useState(bot.computerMode);
   const [memoryScope, setMemoryScope] = useState(bot.memoryScope);
   const [autoSpeak, setAutoSpeak] = useState(bot.autoSpeak);
@@ -332,16 +337,19 @@ export function BotSettings({
   const [error, setError] = useState<string | null>(null);
   const saveQueueRef = useRef(Promise.resolve());
   const executeSaveRef = useRef<
-    (patchOverrides?: {
-      name?: string;
-      title?: string;
-      description?: string;
-      color?: string;
-      notifyOnFinish?: boolean;
-      fleetManagement?: boolean;
-      disabledBuiltinTools?: string[];
-      baseDisabledBuiltinTools?: string[];
-    }) => Promise<void>
+    (
+      patchOverrides?: {
+        name?: string;
+        title?: string;
+        description?: string;
+        color?: string;
+        notifyOnFinish?: boolean;
+        fleetManagement?: boolean;
+        disabledBuiltinTools?: string[];
+        baseDisabledBuiltinTools?: string[];
+      },
+      revisions?: { color: number; notifyOnFinish: number },
+    ) => Promise<void>
   >(async () => undefined);
   useEffect(() => {
     void rpc.voice
@@ -400,16 +408,19 @@ export function BotSettings({
   ).filter((level) => level !== "off");
   const defaultThinkingLevel = effectiveCredential?.thinkingLevel ?? "medium";
 
-  async function executeSave(patchOverrides?: {
-    name?: string;
-    title?: string;
-    description?: string;
-    color?: string;
-    notifyOnFinish?: boolean;
-    fleetManagement?: boolean;
-    disabledBuiltinTools?: string[];
-    baseDisabledBuiltinTools?: string[];
-  }) {
+  async function executeSave(
+    patchOverrides?: {
+      name?: string;
+      title?: string;
+      description?: string;
+      color?: string;
+      notifyOnFinish?: boolean;
+      fleetManagement?: boolean;
+      disabledBuiltinTools?: string[];
+      baseDisabledBuiltinTools?: string[];
+    },
+    revisions?: { color: number; notifyOnFinish: number },
+  ) {
     try {
       setSaving(true);
       setError(null);
@@ -438,7 +449,7 @@ export function BotSettings({
         // Keep untouched profile fields off the wire.
         ...botProfilePatch(savedDescriptionRef.current, nextDescription),
         // Unchanged color stays off the wire so a legacy named value cannot fail a name save.
-        ...(nextColor !== bot.color ? { color: nextColor } : {}),
+        ...(nextColor !== acceptedAutomatic.current.color ? { color: nextColor } : {}),
         notifyOnFinish: nextNotify,
         computerMode,
         memoryScope,
@@ -489,6 +500,7 @@ export function BotSettings({
         persistedDisabledToolsRef.current = nextTools;
         break;
       }
+      acceptedAutomatic.current = { color: nextColor, notifyOnFinish: nextNotify };
       if (nextName) savedNameRef.current = nextName;
       savedTitleRef.current = nextTitle;
       savedDescriptionRef.current = nextDescription;
@@ -496,6 +508,16 @@ export function BotSettings({
         JSON.stringify([modelKey, thinkingLevel, computerMode, memoryScope, autoSpeak, voiceId]),
       );
     } catch (err) {
+      if (
+        patchOverrides?.color !== undefined &&
+        revisions?.color === automaticRevision.current.color
+      )
+        setColor(acceptedAutomatic.current.color);
+      if (
+        patchOverrides?.notifyOnFinish !== undefined &&
+        revisions?.notifyOnFinish === automaticRevision.current.notifyOnFinish
+      )
+        setNotifyOnFinish(acceptedAutomatic.current.notifyOnFinish);
       if (patchOverrides?.fleetManagement !== undefined)
         setFleetManagement(!patchOverrides.fleetManagement);
       setError(errorText(err, t`Could not save`));
@@ -533,6 +555,9 @@ export function BotSettings({
     // finish after a newer one and clobber fields. Always call through a ref so
     // queued work reads the latest field values, not a stale render closure.
     pendingSavesRef.current += 1;
+    if (patchOverrides?.color !== undefined) automaticRevision.current.color += 1;
+    if (patchOverrides?.notifyOnFinish !== undefined) automaticRevision.current.notifyOnFinish += 1;
+    const revisions = { ...automaticRevision.current };
     const queuedPatch =
       patchOverrides?.disabledBuiltinTools === undefined
         ? patchOverrides
@@ -542,7 +567,7 @@ export function BotSettings({
           };
     saveQueueRef.current = saveQueueRef.current
       .catch(() => undefined)
-      .then(() => executeSaveRef.current(queuedPatch));
+      .then(() => executeSaveRef.current(queuedPatch, revisions));
     return saveQueueRef.current;
   }
 
