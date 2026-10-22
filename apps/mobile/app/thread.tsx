@@ -1621,34 +1621,45 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     return () => clearTimeout(timer);
   }, [snap, showingSaved, botId, groupId]);
 
-  useEffect(() => {
-    if (!botId && !groupId) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const refreshDelay = () =>
-      threadRefreshDelayMs(snap?.run?.status, { liveSubscribed: liveSubscribed.current });
-    const tick = async () => {
-      let failure: unknown;
-      if (
-        AppState.currentState === "active" &&
-        navigation.isFocused() &&
-        !jumpScrollTarget.current &&
-        !expandedHistoryThread.current
-      ) {
-        await refresh().catch((error: unknown) => {
-          failure = error;
+  // The safety snapshot is a gap detector, not the live path: SSE already carries
+  // deltas. Stop the timer while the app is backgrounded; the stream effect resumes
+  // from its cursor when the app returns.
+  useFocusEffect(
+    useCallback(() => {
+      if (!foreground || (!botId && !groupId)) return;
+      let cancelled = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let ticking = false;
+      const refreshDelay = () =>
+        threadRefreshDelayMs(snap?.run?.status, {
+          liveSubscribed: liveSubscribed.current,
+          readOnly,
         });
+      function schedule() {
+        if (!cancelled) timer = setTimeout(() => void tick(), refreshDelay());
       }
-      if (!cancelled && isRetryableError(failure)) {
-        timer = setTimeout(() => void tick(), refreshDelay());
+      async function tick() {
+        if (cancelled || ticking) return;
+        ticking = true;
+        let failure: unknown;
+        try {
+          if (!jumpScrollTarget.current && !expandedHistoryThread.current) {
+            await refresh().catch((error: unknown) => {
+              failure = error;
+            });
+          }
+        } finally {
+          ticking = false;
+          if (isRetryableError(failure)) schedule();
+        }
       }
-    };
-    timer = setTimeout(() => void tick(), refreshDelay());
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) clearTimeout(timer);
-    };
-  }, [botId, groupId, navigation, snap?.run?.status]);
+      schedule();
+      return () => {
+        cancelled = true;
+        if (timer !== undefined) clearTimeout(timer);
+      };
+    }, [botId, foreground, groupId, readOnly, snap?.run?.status]),
+  );
 
   useEffect(() => {
     if (!botId && !groupId) return;
