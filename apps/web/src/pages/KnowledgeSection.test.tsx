@@ -87,7 +87,7 @@ it("disables skill rows while a completed save is refreshing the catalog", async
   }
 });
 
-it("labels the skills tab as shared and badges built-in and plugin skills", async () => {
+it("labels the skills group and badges built-in and plugin skills", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const catalog: AgentSkillCatalogEntry[] = [
     {
@@ -136,7 +136,7 @@ it("labels the skills tab as shared and badges built-in and plugin skills", asyn
         <KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} skillsOnly />,
       ),
     );
-    expect(container.textContent).toContain("Shared skills");
+    expect(container.textContent).toContain("Skills");
     expect(button("Interrogate").textContent).toContain("Built-in");
     expect(button("Triage mail").textContent).toContain("Plugin");
     expect(button("greeting").textContent).not.toContain("Built-in");
@@ -287,6 +287,25 @@ it("hides empty bot memory and limits long lists to five documents", async () =>
         .click(),
     );
     expect(host.textContent).toContain("notes/6.md");
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  }
+});
+
+it("hides memory when every document is empty", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  memoryApi.list.mockResolvedValueOnce([
+    { id: "empty", path: "MEMORY.md", content: " \n" },
+  ] as never);
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  try {
+    await act(async () =>
+      root.render(<KnowledgeSection botId="fixture" onSkillsChange={() => undefined} />),
+    );
+    expect(host.textContent).not.toContain("Memory");
+    expect(host.textContent).not.toContain("MEMORY.md");
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();

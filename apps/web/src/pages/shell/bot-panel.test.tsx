@@ -3,7 +3,6 @@
 import { i18n } from "@lingui/core";
 import { ORPCError } from "@orpc/client";
 import type { Bot } from "@rakazo/contracts";
-import { BOT_SETTINGS_SECTIONS } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import type { Root } from "react-dom/client";
@@ -247,7 +246,7 @@ it("shows the main sections and keeps only rare controls in Advanced", async () 
     readAloud: "Read replies aloud",
     fleetManagement: "Manage the bots it creates",
   };
-  const controls = [...advanced.querySelectorAll("div, span, label")].flatMap((node) =>
+  const controls = [...advanced.querySelectorAll("h3, span, label, div")].flatMap((node) =>
     Object.entries(labels)
       .filter(([, label]) =>
         [...node.childNodes].some(
@@ -256,7 +255,14 @@ it("shows the main sections and keeps only rare controls in Advanced", async () 
       )
       .map(([key]) => key),
   );
-  expect(controls).toEqual(BOT_SETTINGS_SECTIONS.advanced.filter((key) => key in labels));
+  expect([...new Set(controls)]).toEqual([
+    "model",
+    "computer",
+    "memoryScope",
+    "voice",
+    "readAloud",
+    "fleetManagement",
+  ]);
   await act(async () =>
     advanced.querySelector<HTMLButtonElement>("button[aria-expanded]")?.click(),
   );

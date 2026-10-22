@@ -89,7 +89,7 @@ export function MenuPicker({
   } as const;
   const content = (
     <>
-      <Text style={[styles.label, plain && { color: tokens.mutedForeground, fontSize: 14 }]}>
+      <Text style={[styles.label, plain && { color: tokens.foreground, fontSize: 14 }]}>
         {label}
       </Text>
       <Text

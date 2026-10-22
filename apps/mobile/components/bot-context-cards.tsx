@@ -5,8 +5,8 @@ import { rpc } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { native, useMobileTokens } from "../lib/native";
 import { errorText } from "../lib/user-error";
-import { NativeActionButton } from "./native-action-button";
-import { NativeSwitch } from "./native-switch";
+import { NativeSymbol } from "./native-symbol";
+import { ProfileEditDialog } from "./profile-edit-dialog";
 
 export function BotContextCards({ botId }: { botId: string }) {
   const { t } = useI18n();
@@ -26,7 +26,7 @@ export function BotContextCards({ botId }: { botId: string }) {
       .then(([items, documents]) => {
         if (current) {
           setWork(items);
-          setDocs(documents);
+          setDocs(documents.filter((doc) => doc.content.trim()));
         }
       })
       .catch((err) => {
@@ -42,12 +42,66 @@ export function BotContextCards({ botId }: { botId: string }) {
     <>
       {work.length ? (
         <View style={{ marginTop: 24 }}>
-          <Text accessibilityRole="header" style={heading}>
-            {t("Open work")}
-          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <Text accessibilityRole="header" style={heading}>
+              {t("Open work")}
+            </Text>
+            <ProfileEditDialog
+              value=""
+              label={t("Add open work")}
+              editLabel={t("Add open work")}
+              maxLength={200}
+              icon="plus"
+              onCommit={async (title) => {
+                if (!title || busy) return;
+                setBusy(true);
+                try {
+                  const item = await rpc<ScratchpadItem>("scratchpad/create", { botId, title });
+                  setWork((items) => [item, ...items]);
+                } catch (err) {
+                  setError(errorText(err));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+          </View>
           <View style={card}>
             {(allWork ? work : work.slice(0, 5)).map((item) => (
               <View key={item.id} style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                <Pressable
+                  accessibilityLabel={`${t("Complete")} ${item.title}`}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: false }}
+                  style={{
+                    width: 44,
+                    minHeight: 44,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  disabled={busy}
+                  onPress={() => {
+                    setBusy(true);
+                    void rpc("scratchpad/update", { itemId: item.id, status: "done" })
+                      .then(() => setWork((items) => items.filter((entry) => entry.id !== item.id)))
+                      .catch((err) => setError(errorText(err)))
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  <NativeSymbol
+                    ios="circle"
+                    android="ellipse-outline"
+                    size={22}
+                    color={tokens.mutedForeground}
+                  />
+                </Pressable>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: tokens.foreground, fontSize: 14 }}>{item.title}</Text>
                   {item.notes ? (
@@ -56,26 +110,16 @@ export function BotContextCards({ botId }: { botId: string }) {
                     </Text>
                   ) : null}
                 </View>
-                <NativeSwitch
-                  accessibilityLabel={`${t("Complete")} ${item.title}`}
-                  value={false}
-                  disabled={busy}
-                  onValueChange={() => {
-                    setBusy(true);
-                    void rpc("scratchpad/update", { itemId: item.id, status: "done" })
-                      .then(() => setWork((items) => items.filter((entry) => entry.id !== item.id)))
-                      .catch((err) => setError(errorText(err)))
-                      .finally(() => setBusy(false));
-                  }}
-                />
               </View>
             ))}
             {!allWork && work.length > 5 ? (
-              <NativeActionButton
-                label={t("Show more")}
-                prominence="plain"
+              <Pressable
+                accessibilityRole="button"
                 onPress={() => setAllWork(true)}
-              />
+                style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Text style={{ color: tokens.mutedForeground }}>{t("Show more")}</Text>
+              </Pressable>
             ) : null}
           </View>
         </View>
@@ -92,17 +136,33 @@ export function BotContextCards({ botId }: { botId: string }) {
                 accessibilityRole="button"
                 accessibilityLabel={doc.path}
                 onPress={() => Alert.alert(doc.path, doc.content)}
-                style={{ minHeight: 44, justifyContent: "center" }}
+                style={{
+                  minHeight: 44,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
               >
-                <Text style={{ color: tokens.foreground, fontSize: 14 }}>{doc.path}</Text>
+                <Text numberOfLines={1} style={{ color: tokens.foreground, fontSize: 14, flex: 1 }}>
+                  {doc.path}
+                </Text>
+                <NativeSymbol
+                  ios="chevron.right"
+                  android="chevron-forward"
+                  size={14}
+                  color={native.tertiaryLabel}
+                />
               </Pressable>
             ))}
             {!allDocs && docs.length > 5 ? (
-              <NativeActionButton
-                label={t("Show more")}
-                prominence="plain"
+              <Pressable
+                accessibilityRole="button"
                 onPress={() => setAllDocs(true)}
-              />
+                style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Text style={{ color: tokens.mutedForeground }}>{t("Show more")}</Text>
+              </Pressable>
             ) : null}
           </View>
         </View>

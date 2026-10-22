@@ -3,6 +3,7 @@ import { Alert, Modal, Platform, Pressable, Text, TextInput, View } from "react-
 import { useI18n } from "../lib/i18n";
 import { native, useMobileTokens } from "../lib/native";
 import { NativeActionButton } from "./native-action-button";
+import { NativeSymbol } from "./native-symbol";
 
 export function ProfileEditDialog({
   value,
@@ -11,6 +12,7 @@ export function ProfileEditDialog({
   placeholder,
   maxLength,
   large = false,
+  icon,
   onCommit,
 }: {
   value: string;
@@ -19,6 +21,7 @@ export function ProfileEditDialog({
   placeholder?: string;
   maxLength: number;
   large?: boolean;
+  icon?: "plus";
   onCommit: (value: string) => Promise<void>;
 }) {
   const { t } = useI18n();
@@ -35,7 +38,12 @@ export function ProfileEditDialog({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={editLabel}
-        style={{ minHeight: 44, justifyContent: "center", maxWidth: "100%" }}
+        style={{
+          minHeight: 44,
+          justifyContent: icon ? "center" : large ? "flex-end" : "flex-start",
+          maxWidth: "100%",
+          minWidth: icon ? 44 : undefined,
+        }}
         onPress={() => {
           if (Platform.OS === "ios")
             Alert.prompt(
@@ -54,16 +62,21 @@ export function ProfileEditDialog({
           }
         }}
       >
-        <Text
-          style={{
-            textAlign: "center",
-            fontSize: large ? 22 : 14,
-            fontWeight: large ? "600" : "400",
-            color: large ? tokens.foreground : tokens.mutedForeground,
-          }}
-        >
-          {value || placeholder}
-        </Text>
+        {icon ? (
+          <NativeSymbol ios="plus" android="add" size={18} color={tokens.mutedForeground} />
+        ) : (
+          <Text
+            style={{
+              textAlign: "center",
+              fontSize: large ? 22 : 14,
+              lineHeight: large ? 26 : 18,
+              fontWeight: large ? "600" : "400",
+              color: large ? tokens.foreground : tokens.mutedForeground,
+            }}
+          >
+            {value || placeholder}
+          </Text>
+        )}
       </Pressable>
       {Platform.OS !== "ios" && open ? (
         <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>

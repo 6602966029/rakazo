@@ -470,6 +470,10 @@ msgstr "Item toevoegen"
 msgid "Add MCP server"
 msgstr "MCP-server toevoegen"
 
+#: src/pages/ScratchpadSection.tsx
+msgid "Add open work"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
 msgstr "OpenAPI toevoegen"
@@ -952,6 +956,10 @@ msgstr "Belt je…"
 msgid "Calling…"
 msgstr "Belt…"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Can edit and organise bots it creates"
+msgstr ""
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "De server is niet bereikbaar."
@@ -1109,10 +1117,6 @@ msgstr "Kies een bot…"
 #: src/pages/Auth.tsx
 msgid "Choose a new password"
 msgstr "Kies een nieuw wachtwoord"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Choose a tool"
-msgstr ""
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
@@ -2159,13 +2163,13 @@ msgstr "Details"
 msgid "Direct MCP"
 msgstr "Directe MCP"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Disable a tool"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Disabled"
 msgstr "Uitgeschakeld"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Disabled tools"
-msgstr "Uitgeschakelde tools"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Discard recording"
@@ -2316,6 +2320,11 @@ msgstr "Dit e-mailadres mag niet worden geregistreerd"
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "E-mailverificatie vereist"
+
+#. placeholder {0}: humanizeTool(toolName)
+#: src/pages/shell/bot-panel.tsx
+msgid "Enable {0}"
+msgstr ""
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
@@ -2683,6 +2692,10 @@ msgstr "uren"
 #: src/pages/RoutineSchedule.tsx
 msgid "How often"
 msgstr "Hoe vaak"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "How other bots see it"
+msgstr ""
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "How to check"
@@ -3643,10 +3656,6 @@ msgstr "Organisch"
 msgid "Organization API key"
 msgstr "Organisatie-API-sleutel"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval."
-msgstr "Orden de zijbalk en bewerk bots. Wijzigingen aan groepen, instructies, modellen en routines vereisen je goedkeuring."
-
 #: src/pages/shell/chat-context.tsx
 msgid "Original message unavailable"
 msgstr "Oorspronkelijk bericht niet beschikbaar"
@@ -3722,6 +3731,10 @@ msgstr "Plak je API-sleutel en test daarna opnieuw."
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Gepauzeerd"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Permissions"
+msgstr ""
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
@@ -4478,10 +4491,6 @@ msgstr "Gedeelde chat met {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. Ze antwoor
 msgid "Shared documents"
 msgstr "Gedeelde documenten"
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Shared skills"
-msgstr "Gedeelde skills"
-
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
 msgstr "Alles tonen"
@@ -4572,6 +4581,10 @@ msgstr "Site"
 #: src/pages/shell/composer.tsx
 msgid "Skill {0}"
 msgstr "Skill {0}"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Skills"
+msgstr ""
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/shell/computer-release-actions.tsx
@@ -4988,6 +5001,7 @@ msgid "Tool sources"
 msgstr "Toolbronnen"
 
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "Tools"
 

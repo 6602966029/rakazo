@@ -34,9 +34,11 @@ export function KnowledgeSection({
     return (
       <section data-testid="bot-knowledge">
         <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-          <Trans>Shared skills</Trans>
+          <Trans>Skills</Trans>
         </h3>
-        <AgentSkills onSkillsChange={onSkillsChange} />
+        <div className="rounded-xl bg-muted/50 p-4">
+          <AgentSkills onSkillsChange={onSkillsChange} />
+        </div>
       </section>
     );
   return (
@@ -185,7 +187,7 @@ function MemoryDocumentList({
     );
   }
 
-  if (compact && !docs.length && !error) return null;
+  if (compact && !docs.some((doc) => doc.content.trim()) && !error) return null;
   return (
     <section className={compact ? "mt-6" : undefined}>
       {compact ? (

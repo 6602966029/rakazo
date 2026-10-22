@@ -470,6 +470,10 @@ msgstr "Add item"
 msgid "Add MCP server"
 msgstr "Add MCP server"
 
+#: src/pages/ScratchpadSection.tsx
+msgid "Add open work"
+msgstr "Add open work"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
 msgstr "Add OpenAPI"
@@ -952,6 +956,10 @@ msgstr "Calling you…"
 msgid "Calling…"
 msgstr "Calling…"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Can edit and organise bots it creates"
+msgstr "Can edit and organise bots it creates"
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "Can't reach the server."
@@ -1109,10 +1117,6 @@ msgstr "Choose a bot…"
 #: src/pages/Auth.tsx
 msgid "Choose a new password"
 msgstr "Choose a new password"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Choose a tool"
-msgstr "Choose a tool"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
@@ -2159,13 +2163,13 @@ msgstr "Details"
 msgid "Direct MCP"
 msgstr "Direct MCP"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Disable a tool"
+msgstr "Disable a tool"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Disabled"
 msgstr "Disabled"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Disabled tools"
-msgstr "Disabled tools"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Discard recording"
@@ -2316,6 +2320,11 @@ msgstr "Email is not allowed to register"
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "Email verification required"
+
+#. placeholder {0}: humanizeTool(toolName)
+#: src/pages/shell/bot-panel.tsx
+msgid "Enable {0}"
+msgstr "Enable {0}"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
@@ -2683,6 +2692,10 @@ msgstr "hours"
 #: src/pages/RoutineSchedule.tsx
 msgid "How often"
 msgstr "How often"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "How other bots see it"
+msgstr "How other bots see it"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "How to check"
@@ -3643,10 +3656,6 @@ msgstr "Organic"
 msgid "Organization API key"
 msgstr "Organization API key"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval."
-msgstr "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval."
-
 #: src/pages/shell/chat-context.tsx
 msgid "Original message unavailable"
 msgstr "Original message unavailable"
@@ -3722,6 +3731,10 @@ msgstr "Paste your API key, then test again."
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Paused"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Permissions"
+msgstr "Permissions"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
@@ -4478,10 +4491,6 @@ msgstr "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all re
 msgid "Shared documents"
 msgstr "Shared documents"
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Shared skills"
-msgstr "Shared skills"
-
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
 msgstr "Show all"
@@ -4572,6 +4581,10 @@ msgstr "Site"
 #: src/pages/shell/composer.tsx
 msgid "Skill {0}"
 msgstr "Skill {0}"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Skills"
+msgstr "Skills"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/shell/computer-release-actions.tsx
@@ -4988,6 +5001,7 @@ msgid "Tool sources"
 msgstr "Tool sources"
 
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "Tools"
 

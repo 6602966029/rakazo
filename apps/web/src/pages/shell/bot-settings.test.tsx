@@ -159,7 +159,7 @@ async function renderSettings(onSave: (patch: SavePatch) => Promise<void>, curre
 }
 
 describe("BotSettings help", () => {
-  it("keeps row explainers behind help without changing the management switch", async () => {
+  it("shows the management subtitle without changing the management switch", async () => {
     const onSave = vi.fn<(patch: SavePatch) => Promise<void>>(async () => undefined);
     await renderSettings(onSave, { ...bot, fleetManagement: false });
     const advanced = container.querySelector<HTMLButtonElement>(
@@ -177,25 +177,8 @@ describe("BotSettings help", () => {
     expect(speechRow?.firstElementChild?.textContent).toBe("Read replies aloud");
     expect(speechRow?.lastElementChild).toBe(speechToggle);
     expect(toggle?.getAttribute("aria-checked")).toBe("false");
-    for (const label of ["Manage the bots it creates"]) {
-      const help = container.querySelector(`[aria-label="About ${label}"]`);
-      const description = document.getElementById(help?.getAttribute("aria-describedby") ?? "");
-      expect(description?.textContent).toContain(
-        label === "Notifications"
-          ? "Get notified when this Bot finishes"
-          : "Instruction, model, routine and group edits",
-      );
-      expect(description?.classList.contains("sr-only")).toBe(true);
-      expect(description?.closest('[aria-hidden="true"], [hidden]')).toBeNull();
-    }
-    expect(document.querySelector('[data-slot="tooltip-content"]')).toBeNull();
-    const help = container.querySelector<HTMLButtonElement>(
-      '[aria-label="About Manage the bots it creates"]',
-    );
-    await act(async () => help?.click());
-    expect(document.querySelector('[data-slot="tooltip-content"]')?.textContent).toContain(
-      "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.",
-    );
+    expect(container.textContent).toContain("Can edit and organise bots it creates");
+    expect(container.querySelector('[aria-label="About Manage the bots it creates"]')).toBeNull();
     expect(toggle?.getAttribute("aria-checked")).toBe("false");
     expect(onSave).not.toHaveBeenCalled();
     await act(async () => toggle?.click());
@@ -225,7 +208,7 @@ describe("BotSettings disabled tools", () => {
     const onSave = vi.fn<(patch: SavePatch) => Promise<void>>(async () => undefined);
     await renderSettings(onSave);
 
-    const toggle = container.querySelector<HTMLButtonElement>('[id$="-disabled-remember"]');
+    const toggle = container.querySelector<HTMLButtonElement>('[aria-label="Enable Remember"]');
     if (!toggle) throw new Error("Missing tool toggle");
     await act(async () => {
       toggle.click();
@@ -338,7 +321,7 @@ describe("BotSettings disabled tools", () => {
     await submitToolName(input, "web_search");
 
     expect(container.textContent).toContain("Network failed");
-    expect(container.textContent).toContain("remember");
+    expect(container.textContent).toContain("Remember");
     expect(container.querySelector('[id$="-disabled-web_search"]')).toBeNull();
 
     fail = false;
@@ -442,6 +425,9 @@ describe("BotSettings disabled tools", () => {
     await renderSettings(vi.fn(async () => undefined));
     const picker = container.querySelector<HTMLSelectElement>('[id$="-disabled-tools"]')!;
     expect([...picker.options].map((option) => option.value)).toContain("web_search");
+    expect([...picker.options].find((option) => option.value === "web_search")?.textContent).toBe(
+      "Web search",
+    );
     expect([...picker.options].map((option) => option.value)).not.toContain("remember");
     await submitToolName(picker, "web_search");
     expect([...picker.options].map((option) => option.value)).not.toContain("web_search");

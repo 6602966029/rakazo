@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { ScratchpadItem } from "@rakazo/contracts";
 import { Button, Checkbox, Input } from "@rakazo/ui-web";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { rpc } from "../lib/rpc";
@@ -10,6 +10,7 @@ export function ScratchpadSection({ botId }: { botId: string }) {
   const { t } = useLingui();
   const [items, setItems] = useState<ScratchpadItem[]>([]);
   const [showAll, setShowAll] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export function ScratchpadSection({ botId }: { botId: string }) {
     try {
       const created = await rpc.scratchpad.create({ botId, title });
       setDraft("");
+      setAdding(false);
       setItems((current) => [created, ...current.filter((item) => item.id !== created.id)]);
       try {
         await refresh();
@@ -105,8 +107,17 @@ export function ScratchpadSection({ botId }: { botId: string }) {
 
   return (
     <div className="mt-6" data-testid="bot-scratchpad">
-      <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+      <h3 className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
         <Trans>Open work</Trans>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label={t`Add open work`}
+          title={t`Add open work`}
+          onClick={() => setAdding((value) => !value)}
+        >
+          <Plus className="size-4" />
+        </Button>
       </h3>
       <div className="rounded-xl bg-muted/50 p-4">
         {(showAll ? items : items.slice(0, 5)).map((item) => (
@@ -156,30 +167,33 @@ export function ScratchpadSection({ botId }: { botId: string }) {
             <Trans>Show more</Trans>
           </Button>
         ) : null}
-        <form
-          className={`flex items-center gap-2 ${items.length ? "mt-2" : ""}`}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void addItem();
-          }}
-        >
-          <Input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder={t`Add item`}
-            aria-label={t`New open-work item`}
-            maxLength={200}
-            className="min-w-0 flex-1"
-          />
-          <Button
-            variant="secondary"
-            className="rounded-full"
-            disabled={busy || !draft.trim()}
-            onClick={() => void addItem()}
+        {adding ? (
+          <form
+            className={`flex items-center gap-2 ${items.length ? "mt-2" : ""}`}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void addItem();
+            }}
           >
-            <Trans>Add</Trans>
-          </Button>
-        </form>
+            <Input
+              autoFocus
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder={t`Add item`}
+              aria-label={t`New open-work item`}
+              maxLength={200}
+              className="min-w-0 flex-1"
+            />
+            <Button
+              variant="secondary"
+              className="rounded-full"
+              disabled={busy || !draft.trim()}
+              onClick={() => void addItem()}
+            >
+              <Trans>Add</Trans>
+            </Button>
+          </form>
+        ) : null}
       </div>
       {error ? <div className="mt-2 text-[13px] text-destructive">{error}</div> : null}
     </div>

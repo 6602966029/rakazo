@@ -470,6 +470,10 @@ msgstr "添加项目"
 msgid "Add MCP server"
 msgstr "添加 MCP 服务器"
 
+#: src/pages/ScratchpadSection.tsx
+msgid "Add open work"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
 msgstr "添加 OpenAPI"
@@ -952,6 +956,10 @@ msgstr ""
 msgid "Calling…"
 msgstr ""
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Can edit and organise bots it creates"
+msgstr ""
+
 #: src/App.tsx
 msgid "Can't reach the server."
 msgstr "无法连接服务器。"
@@ -1109,10 +1117,6 @@ msgstr "选择 Bot…"
 #: src/pages/Auth.tsx
 msgid "Choose a new password"
 msgstr "设置新密码"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Choose a tool"
-msgstr ""
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
@@ -2159,13 +2163,13 @@ msgstr "详情"
 msgid "Direct MCP"
 msgstr ""
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Disable a tool"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Disabled"
 msgstr "已禁用"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Disabled tools"
-msgstr ""
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Discard recording"
@@ -2316,6 +2320,11 @@ msgstr "该邮箱不允许注册"
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "需要验证邮箱"
+
+#. placeholder {0}: humanizeTool(toolName)
+#: src/pages/shell/bot-panel.tsx
+msgid "Enable {0}"
+msgstr ""
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
@@ -2683,6 +2692,10 @@ msgstr "小时"
 #: src/pages/RoutineSchedule.tsx
 msgid "How often"
 msgstr "频率"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "How other bots see it"
+msgstr ""
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "How to check"
@@ -3643,10 +3656,6 @@ msgstr "自然"
 msgid "Organization API key"
 msgstr "组织 API 密钥"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval."
-msgstr "整理侧边栏并编辑机器人。更改群组、指令、模型和例行任务需要你的批准。"
-
 #: src/pages/shell/chat-context.tsx
 msgid "Original message unavailable"
 msgstr "原消息不可用"
@@ -3722,6 +3731,10 @@ msgstr "请粘贴你的 API 密钥，然后重新测试。"
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "已暂停"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Permissions"
+msgstr ""
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
@@ -4478,10 +4491,6 @@ msgstr ""
 msgid "Shared documents"
 msgstr "共享文档"
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Shared skills"
-msgstr "共享技能"
-
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
 msgstr ""
@@ -4572,6 +4581,10 @@ msgstr ""
 #: src/pages/shell/composer.tsx
 msgid "Skill {0}"
 msgstr "技能 {0}"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Skills"
+msgstr ""
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/shell/computer-release-actions.tsx
@@ -4988,6 +5001,7 @@ msgid "Tool sources"
 msgstr "工具源"
 
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr ""
 

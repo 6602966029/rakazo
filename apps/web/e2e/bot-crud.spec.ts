@@ -74,7 +74,7 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
     await input.fill(value);
     await input.press("Enter");
   }
-  const descriptionInput = page.locator("label:has-text('Description') textarea");
+  const descriptionInput = page.getByRole("textbox", { name: "Description", exact: true });
   const longTitle = `Market researcher ${"and source verifier ".repeat(9)}`;
   const normalizedLongTitle = longTitle.trim();
   expect(longTitle.length).toBeGreaterThan(160);
@@ -132,6 +132,7 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await page.locator("main").getByRole("button", { name: "Researcher", exact: true }).click();
   await expandAdvancedSection(advancedSection);
   await expect(openWork.getByText("First fixture task", { exact: true })).toBeVisible();
+  await openWork.getByRole("button", { name: "Add open work" }).click();
   await openWork.getByRole("textbox", { name: "New open-work item" }).fill("Second fixture task");
   await openWork.getByRole("button", { name: "Add", exact: true }).click();
   const workRows = openWork.locator(".group");
@@ -141,10 +142,10 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
     await workRows.first().getByRole("button", { name: "Remove" }).click();
   }
   await expect(openWork).toHaveCount(0);
-  const disabledTools = settings.getByLabel("Disabled tools");
+  const disabledTools = settings.getByLabel("Disable a tool");
   await expect(disabledTools).toBeVisible();
   await disabledTools.selectOption("web_search");
-  await expect(settings.getByRole("switch", { name: "web search" })).not.toBeChecked();
+  await expect(settings.getByRole("button", { name: "Enable Web search" })).toBeVisible();
   await captureScreenshot(page, testInfo, "27c-disabled-builtin-tools");
   await expect(teamComputer).toBeVisible();
   await expect(settings.getByRole("switch", { name: "Read replies aloud" })).toBeVisible();
@@ -223,9 +224,7 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await captureScreenshot(page, testInfo, "31-deleted-bot-fallback");
 });
 
-test("bot management switch persists and settings help is accessible", async ({
-  page,
-}, testInfo) => {
+test("bot management switch persists with its subtitle", async ({ page }, testInfo) => {
   await signup(
     page,
     `bot-management-${Date.now()}@rakazo.test`,
@@ -245,33 +244,13 @@ test("bot management switch persists and settings help is accessible", async ({
 
   const fleetSwitch = await openAdvanced();
   await expect(fleetSwitch).toBeChecked();
-  const help = page.getByRole("button", { name: "About Manage the bots it creates" });
-  const explanation =
-    "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.";
-  const descriptionId = await help.getAttribute("aria-describedby");
-  expect(descriptionId).toBeTruthy();
-  const description = page.locator(`[id="${descriptionId}"]`);
-  const tooltip = page.locator('[data-slot="tooltip-content"]');
-  await expect(help).toHaveAccessibleDescription(explanation);
-  await expect(description).toHaveText(explanation);
-  await expect(description).toHaveCSS("position", "absolute");
-  await expect(description).toHaveCSS("width", "1px");
-  await expect(description).toHaveCSS("height", "1px");
-  await expect(description).toHaveCSS("overflow", "hidden");
-  await expect(description).toHaveCSS("clip-path", "inset(50%)");
-  await help.scrollIntoViewIfNeeded();
-  await expect(tooltip).toHaveCount(0);
+  await expect(
+    page.getByText("Can edit and organise bots it creates", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "About Manage the bots it creates" })).toHaveCount(
+    0,
+  );
   await captureScreenshot(page, testInfo, "32-bot-settings-advanced");
-  await fleetSwitch.evaluate((element) => {
-    element.parentElement?.scrollIntoView({ block: "center" });
-  });
-  await help.click();
-  await expect(tooltip).toBeVisible();
-  await expect(tooltip).toHaveText(explanation);
-  await expect(help).toHaveAccessibleDescription(explanation);
-  await captureScreenshot(page, testInfo, "32-bot-settings-info-tooltip");
-  await page.keyboard.press("Escape");
-  await expect(tooltip).toHaveCount(0);
   await fleetSwitch.click();
   await expect(fleetSwitch).not.toBeChecked();
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();

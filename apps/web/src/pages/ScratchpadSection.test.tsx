@@ -51,6 +51,11 @@ it("renders open and parked work without status chrome and removes a wrapped ite
   const root = createRoot(container);
   try {
     await act(async () => root.render(<ScratchpadSection botId="bot-fixture" />));
+    expect(container.querySelector('[aria-label="New open-work item"]')).toBeNull();
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Add open work"]')!.click(),
+    );
+    expect(container.querySelector('[aria-label="New open-work item"]')).not.toBeNull();
     expect(container.textContent).toContain(title);
     expect(container.textContent).toContain("Compare both themes");
     expect(container.textContent).not.toContain("parked");

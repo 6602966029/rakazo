@@ -226,10 +226,10 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
 
   return (
     <section data-testid="bot-credentials" className="mt-4">
-      <div className="text-[14px] text-muted-foreground">
+      <div className="text-sm text-foreground">
         <Trans>Credentials</Trans>
       </div>
-      <p className="mt-2 text-[12px] text-muted-foreground/70">
+      <p className="mt-1 text-xs text-muted-foreground">
         <Trans>Values are encrypted and never shown again.</Trans>
       </p>
       {loadFailed ? (

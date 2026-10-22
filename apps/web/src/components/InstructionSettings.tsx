@@ -1,13 +1,16 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ORPCError } from "@orpc/client";
 import type { Bot } from "@rakazo/contracts";
 import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@rakazo/contracts";
 import { Button, Disclosure, Textarea } from "@rakazo/ui-web";
+import { Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web/components/ui/popover";
+import { History } from "lucide-react";
 import { useId, useState } from "react";
 import { rpc } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
 
 export function InstructionSettings({ bot }: { bot: Bot }) {
+  const { t } = useLingui();
   const id = useId();
   const [previousBot, setPreviousBot] = useState(bot);
   const [current, setCurrent] = useState(bot);
@@ -42,61 +45,71 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
   }
   return (
     <div className="space-y-3">
-      <label
-        htmlFor={`${id}-instructions`}
-        className="block text-xs font-medium text-muted-foreground"
-      >
-        <Trans>Instructions</Trans>
-        <Textarea
-          id={`${id}-instructions`}
-          className="mt-2 font-normal min-h-28 rounded-xl border-transparent bg-muted/50 p-4 shadow-none"
-          value={instructions}
-          maxLength={BOT_INSTRUCTIONS_MAX_LENGTH}
-          disabled={pending}
-          onChange={(event) => setInstructions(event.target.value)}
-          onBlur={() => {
-            if (!conflict && instructions !== current.instructions)
-              void save(() =>
-                rpc.bots.update({ botId: bot.id, instructions, expectedInstructions: baseline }),
-              );
-          }}
-        />
-      </label>
-      {current.instructionHistory?.length ? (
-        <Disclosure
-          summary={<Trans>Instruction history</Trans>}
-          summaryClassName="text-xs text-muted-foreground"
-        >
-          {current.instructionHistory.map((version) => (
-            <div key={version.id} className="mt-2 text-sm">
-              <Disclosure
-                summary={
-                  <>
-                    {new Date(version.createdAt).toLocaleString()} · {version.reason}
-                  </>
-                }
-              >
-                <pre className="whitespace-pre-wrap">{version.instructions}</pre>
-              </Disclosure>
-              <Button
-                variant="outline"
-                disabled={pending}
-                onClick={() =>
-                  void save(() =>
-                    rpc.bots.restoreInstructions({
-                      botId: bot.id,
-                      versionId: version.id,
-                      expectedInstructions: current.instructions,
-                    }),
-                  )
-                }
-              >
-                <Trans>Restore</Trans>
-              </Button>
-            </div>
-          ))}
-        </Disclosure>
-      ) : null}
+      <div className="flex items-center justify-between">
+        <label htmlFor={`${id}-instructions`} className="text-xs font-medium text-muted-foreground">
+          <Trans>Instructions</Trans>
+        </label>
+        {current.instructionHistory?.length ? (
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={t`Instruction history`}
+                  title={t`Instruction history`}
+                />
+              }
+            >
+              <History className="size-4 text-muted-foreground" />
+            </PopoverTrigger>
+            <PopoverContent align="end" className="max-h-96 overflow-y-auto">
+              {current.instructionHistory.map((version) => (
+                <div key={version.id} className="mt-2 text-sm">
+                  <Disclosure
+                    summary={
+                      <>
+                        {new Date(version.createdAt).toLocaleString()} · {version.reason}
+                      </>
+                    }
+                  >
+                    <pre className="whitespace-pre-wrap">{version.instructions}</pre>
+                  </Disclosure>
+                  <Button
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() =>
+                      void save(() =>
+                        rpc.bots.restoreInstructions({
+                          botId: bot.id,
+                          versionId: version.id,
+                          expectedInstructions: current.instructions,
+                        }),
+                      )
+                    }
+                  >
+                    <Trans>Restore</Trans>
+                  </Button>
+                </div>
+              ))}
+            </PopoverContent>
+          </Popover>
+        ) : null}
+      </div>
+      <Textarea
+        id={`${id}-instructions`}
+        className="font-normal min-h-20 resize-none field-sizing-content text-foreground rounded-xl border-transparent bg-muted/50 p-4 shadow-none"
+        value={instructions}
+        maxLength={BOT_INSTRUCTIONS_MAX_LENGTH}
+        disabled={pending}
+        onChange={(event) => setInstructions(event.target.value)}
+        onBlur={() => {
+          if (!conflict && instructions !== current.instructions)
+            void save(() =>
+              rpc.bots.update({ botId: bot.id, instructions, expectedInstructions: baseline }),
+            );
+        }}
+      />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {conflict ? (
         <Button

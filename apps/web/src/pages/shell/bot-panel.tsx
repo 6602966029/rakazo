@@ -39,10 +39,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@rakazo/ui-web/components/ui/collapsible";
-import { ChevronDown, Settings, X } from "lucide-react";
+import { ChevronDown, Download, Settings, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { Suspense, useEffect, useId, useRef, useState } from "react";
 import { ErrorBoundary, SectionLoadFailed } from "../../components/ErrorBoundary";
-import { InfoTooltip } from "../../components/InfoTooltip";
 import { InstructionSettings } from "../../components/InstructionSettings";
 import { botProfilePatch } from "../../lib/bot-profile-patch";
 import { thinkingLevelLabel } from "../../lib/model-catalog";
@@ -61,7 +61,7 @@ const KnowledgeSection = lazyComponent(() =>
   import("../KnowledgeSection").then((module) => module.KnowledgeSection),
 );
 
-const rowLabelClass = "text-[14px] text-muted-foreground";
+const rowLabelClass = "text-sm text-foreground";
 const fieldLabelClass = `mt-4 block ${rowLabelClass}`;
 
 function ComputerModePicker({
@@ -69,18 +69,22 @@ function ComputerModePicker({
   onChange,
   teamTestId,
   privateTestId,
+  showLabel = true,
 }: {
   value: ComputerMode;
   onChange: (value: ComputerMode) => void;
   teamTestId?: string;
   privateTestId?: string;
+  showLabel?: boolean;
 }) {
   return (
-    <div className="mt-4">
-      <div className="text-[14px] text-muted-foreground">
-        <Trans>Computer</Trans>
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2">
+    <div className={showLabel ? "mt-4" : undefined}>
+      {showLabel ? (
+        <div className="text-sm text-foreground">
+          <Trans>Computer</Trans>
+        </div>
+      ) : null}
+      <div className={`${showLabel ? "mt-2 " : ""}grid grid-cols-2 gap-2`}>
         {BOT_COMPUTER_MODES.map((mode) => (
           <Toggle
             key={mode}
@@ -374,9 +378,7 @@ export function BotSettings({
   const modelChoices = chatModelChoices(
     connectedOptions,
     selectedModelKey,
-    me?.defaultModel
-      ? `${t`Space default`} (${defaultEntry?.label ?? me.defaultModel})`
-      : t`Space default`,
+    t`Space default`,
     defaultEntry?.images,
   );
 
@@ -628,7 +630,7 @@ export function BotSettings({
         className="mt-6"
       >
         <h3 className="mb-0 text-xs font-medium text-muted-foreground">
-          <CollapsibleTrigger className="group flex w-full cursor-pointer min-h-11 items-center gap-2 rounded-md text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          <CollapsibleTrigger className="group flex w-full cursor-pointer min-h-11 items-center justify-between gap-2 rounded-xl bg-muted/50 px-4 py-3 text-sm font-normal text-foreground text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <Trans>Advanced</Trans>
             <ChevronDown
               aria-hidden="true"
@@ -637,12 +639,10 @@ export function BotSettings({
           </CollapsibleTrigger>
         </h3>
         <CollapsibleContent>
-          <div className="space-y-5 rounded-xl bg-muted/50 p-4 [&>*]:mt-0">
+          <div className="space-y-6 pt-6">
             <div ref={modelRef}>
-              <div className="flex items-center justify-between gap-2">
-                <label htmlFor={`${ids}-model`} className={rowLabelClass}>
-                  <Trans>Model</Trans>
-                </label>
+              <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+                <Trans>Model</Trans>
                 {onOpenConnections ? (
                   <Button
                     variant="ghost"
@@ -650,184 +650,227 @@ export function BotSettings({
                     aria-label={t`Model connections`}
                     onClick={onOpenConnections}
                   >
-                    <Settings className="size-4 text-muted-foreground" />
+                    <Settings className="size-4" />
                   </Button>
                 ) : null}
               </div>
-              <ChatModelPicker
-                id={`${ids}-model`}
-                choices={modelChoices}
-                value={selectedModelKey}
-                onChange={(key) => {
-                  setModelKey(key);
-                  setThinkingLevel("");
-                }}
-              />
-              {thinkingOptions.length ? (
-                <label htmlFor={`${ids}-thinking`} className={fieldLabelClass}>
-                  <Trans>Thinking</Trans>
-                  <NativeSelect
-                    id={`${ids}-thinking`}
-                    className="mt-2 w-full"
-                    value={thinkingLevel}
-                    onChange={(event) => setThinkingLevel(event.target.value)}
+              <div className="rounded-xl bg-muted/50 p-4 space-y-3">
+                <div className="flex min-h-11 items-center justify-between gap-3">
+                  <label htmlFor={`${ids}-model`} className={rowLabelClass}>
+                    <Trans>Model</Trans>
+                  </label>
+                  <div className="min-w-0 w-2/3 [&>div]:mt-0 [&>button]:mt-0">
+                    <ChatModelPicker
+                      id={`${ids}-model`}
+                      choices={modelChoices}
+                      value={selectedModelKey}
+                      onChange={(key) => {
+                        setModelKey(key);
+                        setThinkingLevel("");
+                      }}
+                    />
+                  </div>
+                </div>
+                {thinkingOptions.length ? (
+                  <label
+                    htmlFor={`${ids}-thinking`}
+                    className="flex min-h-11 items-center justify-between gap-3 text-sm text-foreground"
                   >
-                    <NativeSelectOption value="">
-                      {t`Default (${thinkingLevelLabel(defaultThinkingLevel)})`}
-                    </NativeSelectOption>
-                    {thinkingOptions.map((level) => (
-                      <NativeSelectOption key={level} value={level}>
-                        {thinkingLevelLabel(level)}
+                    <Trans>Thinking</Trans>
+                    <NativeSelect
+                      id={`${ids}-thinking`}
+                      className="max-w-2/3"
+                      value={thinkingLevel}
+                      onChange={(event) => setThinkingLevel(event.target.value)}
+                    >
+                      <NativeSelectOption value="">
+                        {t`Default (${thinkingLevelLabel(defaultThinkingLevel)})`}
+                      </NativeSelectOption>
+                      {thinkingOptions.map((level) => (
+                        <NativeSelectOption key={level} value={level}>
+                          {thinkingLevelLabel(level)}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  </label>
+                ) : null}
+              </div>
+            </div>
+            <SettingsGroup label={t`Computer`}>
+              <ComputerModePicker
+                showLabel={false}
+                value={computerMode}
+                onChange={setComputerMode}
+              />
+              {memoryProviderConfigured ? (
+                <div className="mt-4 text-sm text-foreground">
+                  <Trans>Memory scope</Trans>
+                  <div className="mt-2 flex gap-2">
+                    {(
+                      [
+                        { value: null, label: t`Inherit default` },
+                        { value: "isolated" as const, label: t`Isolated` },
+                        { value: "shared" as const, label: t`Shared` },
+                      ] satisfies Array<{ value: "isolated" | "shared" | null; label: string }>
+                    ).map((option) => (
+                      <Toggle
+                        key={option.label}
+                        variant="outline"
+                        size="sm"
+                        pressed={memoryScope === option.value}
+                        onPressedChange={(pressed) => {
+                          if (pressed) setMemoryScope(option.value);
+                        }}
+                        className="flex-1 aria-pressed:border-foreground/40 aria-pressed:text-foreground"
+                      >
+                        {option.label}
+                      </Toggle>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </SettingsGroup>
+            <SettingsGroup label={t`Voice`}>
+              <label
+                htmlFor={`${ids}-auto-speak`}
+                className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-foreground"
+              >
+                <span className={rowLabelClass}>
+                  <Trans>Read replies aloud</Trans>
+                </span>
+                <Switch
+                  id={`${ids}-auto-speak`}
+                  checked={autoSpeak}
+                  onCheckedChange={(checked) => setAutoSpeak(checked)}
+                />
+              </label>
+              {voices.length ? (
+                <label
+                  htmlFor={`${ids}-voice`}
+                  className="flex min-h-11 items-center justify-between gap-3 text-sm text-foreground"
+                >
+                  <Trans>Voice</Trans>
+                  <NativeSelect
+                    id={`${ids}-voice`}
+                    className="max-w-2/3"
+                    value={voiceId}
+                    onChange={(event) => setVoiceId(event.target.value)}
+                  >
+                    <NativeSelectOption value="">{t`Account default`}</NativeSelectOption>
+                    {voices.map((voice) => (
+                      <NativeSelectOption key={voice.id} value={voice.id}>
+                        {voice.label}
                       </NativeSelectOption>
                     ))}
                   </NativeSelect>
                 </label>
               ) : null}
-            </div>
-            <ComputerModePicker value={computerMode} onChange={setComputerMode} />
-            {memoryProviderConfigured ? (
-              <div className="mt-4 text-[14px] text-muted-foreground">
-                <Trans>Memory scope</Trans>
-                <div className="mt-2 flex gap-2">
-                  {(
-                    [
-                      { value: null, label: t`Inherit default` },
-                      { value: "isolated" as const, label: t`Isolated` },
-                      { value: "shared" as const, label: t`Shared` },
-                    ] satisfies Array<{ value: "isolated" | "shared" | null; label: string }>
-                  ).map((option) => (
-                    <Toggle
-                      key={option.label}
-                      variant="outline"
-                      size="sm"
-                      pressed={memoryScope === option.value}
-                      onPressedChange={(pressed) => {
-                        if (pressed) setMemoryScope(option.value);
-                      }}
-                      className="flex-1 aria-pressed:border-foreground/40 aria-pressed:text-foreground"
-                    >
-                      {option.label}
-                    </Toggle>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <label
-              htmlFor={`${ids}-auto-speak`}
-              className="mt-5 flex cursor-pointer items-center justify-between gap-3 text-[14px] text-muted-foreground"
-            >
-              <span className={rowLabelClass}>
-                <Trans>Read replies aloud</Trans>
-              </span>
-              <Switch
-                id={`${ids}-auto-speak`}
-                checked={autoSpeak}
-                onCheckedChange={(checked) => setAutoSpeak(checked)}
-              />
-            </label>
-            {voices.length ? (
-              <label htmlFor={`${ids}-voice`} className={fieldLabelClass}>
-                <Trans>Voice</Trans>
-                <NativeSelect
-                  id={`${ids}-voice`}
-                  className="mt-2 w-full"
-                  value={voiceId}
-                  onChange={(event) => setVoiceId(event.target.value)}
-                >
-                  <NativeSelectOption value="">{t`Account default`}</NativeSelectOption>
-                  {voices.map((voice) => (
-                    <NativeSelectOption key={voice.id} value={voice.id}>
-                      {voice.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </label>
-            ) : null}
-            <div className="mt-5 flex items-center justify-between gap-3 text-[14px] text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <label htmlFor={`${ids}-fleet-management`} className={rowLabelClass}>
-                  <Trans>Manage the bots it creates</Trans>
-                </label>
-                <InfoTooltip label={t`Manage the bots it creates`}>
-                  {t`Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.`}
-                </InfoTooltip>
-              </div>
-              <Switch
-                id={`${ids}-fleet-management`}
-                checked={fleetManagement}
-                disabled={saving}
-                onCheckedChange={(checked) => {
-                  setFleetManagement(checked);
-                  void enqueueSave({ fleetManagement: checked });
-                }}
-              />
-            </div>
-            <label htmlFor={`${ids}-description`} className={fieldLabelClass}>
-              <Trans>Description</Trans>
-              <Textarea
-                id={`${ids}-description`}
-                value={description}
-                maxLength={BOT_DESCRIPTION_MAX_LENGTH}
-                onChange={(e) => setDescription(e.target.value)}
-                onBlur={() => void enqueueSave()}
-                rows={3}
-                className="mt-2"
-              />
-            </label>
-            <section className="mt-5" data-testid="bot-settings-tools">
-              <div className="space-y-4 [&>*]:mt-0">
-                <label htmlFor={`${ids}-disabled-tools`} className={fieldLabelClass}>
-                  <Trans>Disabled tools</Trans>
-                  <NativeSelect
-                    id={`${ids}-disabled-tools`}
-                    value=""
-                    onChange={(event) => disableBuiltinTool(event.target.value)}
-                    className="mt-2 w-full"
-                  >
-                    <NativeSelectOption value="">{t`Choose a tool`}</NativeSelectOption>
-                    {BUILTIN_TOOL_NAMES.filter((name) => !disabledBuiltinTools.includes(name)).map(
-                      (name) => (
-                        <NativeSelectOption key={name} value={name}>
-                          {name.replaceAll("_", " ")}
-                        </NativeSelectOption>
-                      ),
-                    )}
-                  </NativeSelect>
-                </label>
-                {disabledBuiltinTools.map((toolName) => (
-                  <label
-                    key={toolName}
-                    htmlFor={`${ids}-disabled-${toolName}`}
-                    className="mt-2 flex items-center justify-between gap-3 text-[14px] text-muted-foreground"
-                  >
-                    <span>{toolName.replaceAll("_", " ")}</span>
-                    <Switch
-                      id={`${ids}-disabled-${toolName}`}
-                      checked={false}
-                      onCheckedChange={(checked) => {
-                        if (!checked) return;
-                        const next = disabledBuiltinTools.filter((entry) => entry !== toolName);
-                        setDisabledBuiltinTools(next);
-                        void enqueueSave({ disabledBuiltinTools: next });
-                      }}
-                    />
+            </SettingsGroup>
+            <SettingsGroup label={t`Permissions`}>
+              <div className="flex min-h-11 items-center justify-between gap-3 text-sm">
+                <div>
+                  <label htmlFor={`${ids}-fleet-management`} className={rowLabelClass}>
+                    <Trans>Manage the bots it creates</Trans>
                   </label>
-                ))}
-                <BotCredentialsSection botId={bot.id} />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    <Trans>Can edit and organise bots it creates</Trans>
+                  </p>
+                </div>
+                <Switch
+                  id={`${ids}-fleet-management`}
+                  checked={fleetManagement}
+                  disabled={saving}
+                  onCheckedChange={(checked) => {
+                    setFleetManagement(checked);
+                    void enqueueSave({ fleetManagement: checked });
+                  }}
+                />
               </div>
-            </section>
+            </SettingsGroup>
+            <SettingsGroup label={t`Description`}>
+              <label htmlFor={`${ids}-description`} className="block text-xs text-muted-foreground">
+                <Trans>How other bots see it</Trans>
+                <Textarea
+                  id={`${ids}-description`}
+                  aria-label={t`Description`}
+                  value={description}
+                  maxLength={BOT_DESCRIPTION_MAX_LENGTH}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onBlur={() => void enqueueSave()}
+                  placeholder={t`What this bot is for`}
+                  rows={2}
+                  className="mt-2 min-h-16 resize-none field-sizing-content border-0 bg-transparent p-0 text-foreground shadow-none"
+                />
+              </label>
+            </SettingsGroup>
+            <SettingsGroup label={t`Tools`}>
+              <section data-testid="bot-settings-tools">
+                <div className="space-y-4 [&>*]:mt-0">
+                  <div>
+                    <NativeSelect
+                      id={`${ids}-disabled-tools`}
+                      aria-label={t`Disable a tool`}
+                      value=""
+                      onChange={(event) => disableBuiltinTool(event.target.value)}
+                      className="w-full"
+                    >
+                      <NativeSelectOption value="">{t`Disable a tool`}</NativeSelectOption>
+                      {BUILTIN_TOOL_NAMES.filter(
+                        (name) => !disabledBuiltinTools.includes(name),
+                      ).map((name) => (
+                        <NativeSelectOption key={name} value={name}>
+                          {humanizeTool(name)}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                  {disabledBuiltinTools.map((toolName) => (
+                    <div
+                      key={toolName}
+                      className="flex min-h-11 items-center justify-between gap-3 text-sm"
+                    >
+                      <span>{humanizeTool(toolName)}</span>
+                      <Button
+                        id={`${ids}-disabled-${toolName}`}
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={t`Enable ${humanizeTool(toolName)}`}
+                        title={t`Enable ${humanizeTool(toolName)}`}
+                        onClick={() => {
+                          const next = disabledBuiltinTools.filter((entry) => entry !== toolName);
+                          setDisabledBuiltinTools(next);
+                          void enqueueSave({ disabledBuiltinTools: next });
+                        }}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <BotCredentialsSection botId={bot.id} />
+                </div>
+              </section>
+            </SettingsGroup>
             <ErrorBoundary fallback={<SectionLoadFailed />}>
               <Suspense fallback={null}>
                 <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} skillsOnly />
               </Suspense>
             </ErrorBoundary>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => void onExport()}>
+            <div className="overflow-hidden rounded-xl bg-muted/50 px-4">
+              <button
+                type="button"
+                className="flex min-h-12 w-full items-center justify-between text-sm"
+                onClick={() => void onExport()}
+              >
                 <Trans>Export</Trans>
-              </Button>
-              <Button variant="outline" size="sm" className="text-destructive" onClick={onClear}>
+                <Download className="size-4 text-muted-foreground" />
+              </button>
+              <button
+                type="button"
+                className="min-h-12 w-full border-t border-border text-start text-sm text-destructive"
+                onClick={onClear}
+              >
                 <Trans>Clear conversation</Trans>
-              </Button>
+              </button>
             </div>
           </div>
         </CollapsibleContent>
@@ -926,4 +969,17 @@ function InlineProfileField({
       {value || placeholder}
     </button>
   );
+}
+
+function SettingsGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section>
+      <h3 className="mb-2 text-xs font-medium text-muted-foreground">{label}</h3>
+      <div className="space-y-3 rounded-xl bg-muted/50 p-4 [&>*]:mt-0">{children}</div>
+    </section>
+  );
+}
+function humanizeTool(name: string) {
+  const words = name.replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
