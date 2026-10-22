@@ -146,7 +146,7 @@ export class S3ObjectStorage implements ObjectStorage {
         throw error;
       }
     } finally {
-      await source.return?.();
+      await source.return?.(undefined);
     }
   }
 
