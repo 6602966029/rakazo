@@ -46,6 +46,7 @@ import {
   retryDelayMs,
   displayName as safeDisplayName,
   selectedAskActionLabel,
+  shouldShowBotSenderName,
   threadWindowMessages,
   timeSeparatorIds,
   withLiveStreamingProgress,
@@ -201,6 +202,7 @@ import {
   quotableMessageSegments,
   truncateQuoteExcerpt,
 } from "../lib/message-presentation";
+import { openModelSettings } from "../lib/model-settings";
 import { useMobileTokens, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import { HEADER_TITLE_MAX_FONT_SCALE, iosAtLeast } from "../lib/native-controls";
 import {
@@ -584,17 +586,23 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const activeThreadId = useRef<string | undefined>(undefined);
   const [agentSkills, setAgentSkills] = useState<AgentSkillCatalogEntry[]>([]);
   const [uploadConfig, setUploadConfig] = useState<{ maxUploadSizeBytes?: number }>();
-  useEffect(() => {
-    let cancelled = false;
-    void rpc<{ maxUploadSizeBytes?: number }>("me")
-      .then((me) => {
-        if (!cancelled) setUploadConfig(me);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [needsModel, setNeedsModel] = useState<boolean>();
+  // Re-read on focus so returning from Models settings updates unsent missing-model messages.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void rpc<{ maxUploadSizeBytes?: number } & Partial<Pick<MobileMe, "needsModel">>>("me")
+        .then((me) => {
+          if (cancelled) return;
+          setUploadConfig(me);
+          setNeedsModel(me.needsModel);
+        })
+        .catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const [mentionBots, setMentionBots] = useState<MobileBot[]>([]);
   // The call outlives renders, so its switch check reads the newest bot list from here.
@@ -647,6 +655,16 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   >(() => new Map());
   const [expandedPeerMarkers, setExpandedPeerMarkers] = useState<ReadonlySet<string>>(
     () => new Set(),
+  );
+  const showBotSenderName = useMemo(
+    () =>
+      shouldShowBotSenderName({
+        isGroup: inGroup,
+        speakerBotIds: (snap?.messages ?? [])
+          .filter((message) => message.role === "bot")
+          .map((message) => message.botId),
+      }),
+    [inGroup, snap?.messages],
   );
   const peerTranscript = useMemo(
     () => foldPeerReplies(snap?.messages ?? [], { includePeerReceipts: true }),
@@ -1621,34 +1639,45 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     return () => clearTimeout(timer);
   }, [snap, showingSaved, botId, groupId]);
 
-  useEffect(() => {
-    if (!botId && !groupId) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const refreshDelay = () =>
-      threadRefreshDelayMs(snap?.run?.status, { liveSubscribed: liveSubscribed.current });
-    const tick = async () => {
-      let failure: unknown;
-      if (
-        AppState.currentState === "active" &&
-        navigation.isFocused() &&
-        !jumpScrollTarget.current &&
-        !expandedHistoryThread.current
-      ) {
-        await refresh().catch((error: unknown) => {
-          failure = error;
+  // The safety snapshot is a gap detector, not the live path: SSE already carries
+  // deltas. Stop the timer while the app is backgrounded; the stream effect resumes
+  // from its cursor when the app returns.
+  useFocusEffect(
+    useCallback(() => {
+      if (!foreground || (!botId && !groupId)) return;
+      let cancelled = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let ticking = false;
+      const refreshDelay = () =>
+        threadRefreshDelayMs(snap?.run?.status, {
+          liveSubscribed: liveSubscribed.current,
+          readOnly,
         });
+      function schedule() {
+        if (!cancelled) timer = setTimeout(() => void tick(), refreshDelay());
       }
-      if (!cancelled && isRetryableError(failure)) {
-        timer = setTimeout(() => void tick(), refreshDelay());
+      async function tick() {
+        if (cancelled || ticking) return;
+        ticking = true;
+        let failure: unknown;
+        try {
+          if (!jumpScrollTarget.current && !expandedHistoryThread.current) {
+            await refresh().catch((error: unknown) => {
+              failure = error;
+            });
+          }
+        } finally {
+          ticking = false;
+          if (isRetryableError(failure)) schedule();
+        }
       }
-    };
-    timer = setTimeout(() => void tick(), refreshDelay());
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) clearTimeout(timer);
-    };
-  }, [botId, groupId, navigation, snap?.run?.status]);
+      schedule();
+      return () => {
+        cancelled = true;
+        if (timer !== undefined) clearTimeout(timer);
+      };
+    }, [botId, foreground, groupId, readOnly, snap?.run?.status]),
+  );
 
   useEffect(() => {
     if (!botId && !groupId) return;
@@ -2042,7 +2071,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   useEffect(() => setRunErrorDetailsOpen(false), [failedRunId]);
   function openErrorConnection() {
     setRunErrorDetailsOpen(false);
-    router.push("/(settings)/models");
+    openModelSettings();
   }
   function openErrorModel() {
     setRunErrorDetailsOpen(false);
@@ -2287,6 +2316,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           bubbleBotId={botId ?? snap?.members?.[0]?.botId ?? ""}
           groupId={groupId}
           botName={displayName}
+          showBotSenderName={showBotSenderName}
           bots={mentionBots}
           members={snap?.members}
           readOnly={readOnly}
@@ -2317,6 +2347,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     },
     [
       messagesById,
+      showBotSenderName,
       snap?.members,
       snap?.activeRuns,
       snap?.run,
@@ -2438,6 +2469,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     <FailedSendBubble
       key={attempt.clientNonce}
       attempt={attempt}
+      needsModel={needsModel}
       onRetry={() => void deliver(attempt, true)}
       onDelete={() => feedback.discard(attempt)}
     />
@@ -3075,6 +3107,7 @@ type MessageRowProps = {
   bubbleBotId: string;
   groupId?: string;
   botName?: string;
+  showBotSenderName: boolean;
   bots: MobileBot[];
   members?: MobileSnapshot["members"];
   readOnly: boolean;
@@ -3113,6 +3146,7 @@ const MessageRow = memo(function MessageRow({
   bubbleBotId,
   groupId,
   botName,
+  showBotSenderName,
   bots,
   members,
   readOnly,
@@ -3390,6 +3424,7 @@ const MessageRow = memo(function MessageRow({
                 groupId={groupId}
                 message={message}
                 botName={botName}
+                showBotSenderName={showBotSenderName}
                 bots={bots}
                 members={members}
                 canAnswer={canAnswer}
@@ -3443,6 +3478,7 @@ const MessageRow = memo(function MessageRow({
 const MessageBubble = memo(function MessageBubble({
   botId,
   botName,
+  showBotSenderName,
   bots,
   groupId,
   message,
@@ -3461,6 +3497,7 @@ const MessageBubble = memo(function MessageBubble({
 }: {
   botId: string;
   botName?: string;
+  showBotSenderName: boolean;
   bots: MobileBot[];
   groupId?: string;
   message: MobileMessage;
@@ -3971,7 +4008,7 @@ const MessageBubble = memo(function MessageBubble({
           gap: 8,
         }}
       >
-        {speaker ? (
+        {showBotSenderName && speaker ? (
           <Text style={{ color: speakerColor ?? tokens.mutedForeground, ...typeScale.footnote }}>
             {speaker}
           </Text>
@@ -4129,8 +4166,8 @@ const MessageBubble = memo(function MessageBubble({
         <MessageTextCard
           key={`${message.id}-content-${index}`}
           message={{ ...message, blocks: segment.blocks }}
-          speaker={index === firstContent ? speaker : undefined}
-          speakerColor={index === firstContent ? speakerColor : undefined}
+          speaker={showBotSenderName && index === firstContent ? speaker : undefined}
+          speakerColor={showBotSenderName && index === firstContent ? speakerColor : undefined}
           actionProps={actionProps}
         />
       ))}
