@@ -32,6 +32,14 @@ Rakazo is in beta. Learn more at [rakazo.com](https://rakazo.com).
 
 https://github.com/user-attachments/assets/dccdeddb-2134-4a56-8eed-b2e591736b1c
 
+## Thanks
+
+- [PromptLayer](https://promptlayer.com/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+- [Inbox Zero](https://getinboxzero.com/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+- [CodeRabbit](https://www.coderabbit.ai/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+- [Greptile](https://www.greptile.com/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+- [Snyk](https://snyk.io/?utm_source=github&utm_medium=referral&utm_campaign=rakazo_readme)
+
 ## Stack
 
 - TypeScript
@@ -270,14 +278,6 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development workflow and test m
 - [OpenClaw](https://rakazo.com/openclaw-alternative/)
 - [Hermes Agent](https://rakazo.com/hermes-alternative/)
 - [All comparisons](https://rakazo.com/alternatives/)
-
-## Thanks
-
-- [PromptLayer](https://promptlayer.com)
-- [Inbox Zero](https://getinboxzero.com)
-- [CodeRabbit](https://www.coderabbit.ai) — AI code review
-- [Greptile](https://www.greptile.com) — AI code review
-- [Snyk](https://snyk.io) — penetration testing
 
 ## Contributing
 
