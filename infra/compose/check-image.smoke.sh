@@ -7,15 +7,27 @@ trap 'rm -rf "$scratch"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 mkdir -p "$scratch/bin"
-cat >"$scratch/bin/docker" <<'EOF'
+cat >"$scratch/bin/docker" <<'FAKE'
 #!/usr/bin/env bash
 case "$1" in
-  create) echo fake-container ;;
+  buildx)
+    # A multi-platform list when INDEX names one; otherwise a single-platform image.
+    [[ -n "${INDEX:-}" ]] || exit 1
+    cat "$INDEX"
+    ;;
+  create)
+    ref="${!#}"
+    # Like the containerd image store: one pull per reference, so a second platform of the same
+    # list fails with "cannot overwrite digest".
+    if grep -qxF "$ref" "$CREATED" 2>/dev/null; then echo "cannot overwrite digest" >&2; exit 1; fi
+    echo "$ref" >>"$CREATED"
+    echo fake-container
+    ;;
   export) [[ -z "${FAIL_EXPORT:-}" ]] && tar -c -C "$IMAGE_ROOT" app ;;  # no ./ prefix, like docker
-  rm) ;;
+  rm | rmi) ;;
   *) exit 1 ;;
 esac
-EOF
+FAKE
 chmod +x "$scratch/bin/docker"
 
 key_body="$(printf 'A%.0s' {1..64})"
@@ -28,11 +40,36 @@ image() {
   touch "$dir/app/node_modules/pkg/.env" "$dir/app/.env.example" "$dir/app/infra/compose/.env.images.example"
   echo "$dir"
 }
-check() { PATH="$scratch/bin:$PATH" IMAGE_ROOT="$1" bash "$root/check-image.sh" example/app:test 2>&1; }
+check() {
+  rm -f "$scratch/created"
+  PATH="$scratch/bin:$PATH" IMAGE_ROOT="$1" CREATED="$scratch/created" \
+    bash "$root/check-image.sh" "${2:-example/app:test}" "${3:-linux/amd64}" 2>&1
+}
 
 clean="$(image clean)"
 check "$clean" >/dev/null || fail "a clean image was rejected: $(check "$clean")"
 FAIL_EXPORT=1 check "$clean" >/dev/null && fail "a failed export passed the check"
+
+# Both platforms of one multi-platform list, each checked through its own manifest.
+cat >"$scratch/index.json" <<'JSON'
+{"manifests": [
+  {"digest": "sha256:amd", "platform": {"os": "linux", "architecture": "amd64"}},
+  {"digest": "sha256:arm", "platform": {"os": "linux", "architecture": "arm64", "variant": "v8"}},
+  {"digest": "sha256:att", "platform": {"os": "unknown", "architecture": "unknown"}}
+]}
+JSON
+export INDEX="$scratch/index.json"
+list="registry.example.test:5000/rakazo/app@sha256:list"
+: >"$scratch/all-created"
+for platform in linux/amd64 linux/arm64; do
+  output="$(check "$clean" "$list" "$platform")" || fail "$platform of a list: $output"
+  cat "$scratch/created" >>"$scratch/all-created"
+done
+[[ "$(cat "$scratch/all-created")" == $'registry.example.test:5000/rakazo/app@sha256:amd\nregistry.example.test:5000/rakazo/app@sha256:arm' ]] ||
+  fail "did not check each platform's own manifest: $(cat "$scratch/all-created")"
+output="$(check "$clean" "$list" linux/s390x)" && fail "a platform missing from the list passed"
+grep -q "has no linux/s390x image" <<<"$output" || fail "unexpected output: $output"
+unset INDEX
 
 for case in env git key-file key-body; do
   dir="$(image "$case")"

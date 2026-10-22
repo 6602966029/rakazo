@@ -10,13 +10,28 @@ image="${1:?Usage: check-image.sh IMAGE [PLATFORM]}"
 platform="${2:-linux/amd64}"
 work="$(mktemp -d)"
 container=""
+ref="${image}"
 cleanup() {
   [[ -z "${container}" ]] || docker rm --force "${container}" >/dev/null 2>&1 || true
+  [[ "${ref}" == "${image}" ]] || docker rmi "${ref}" >/dev/null 2>&1 || true
   rm -rf "${work}"
 }
 trap cleanup EXIT
 
-container="$(docker create --quiet --platform "${platform}" "${image}")"
+# Check the platform's own manifest rather than the multi-platform list: the Docker image store
+# refuses to pull one list a second time for another platform. A single-platform image is used as is.
+if raw="$(docker buildx imagetools inspect --raw "${image}" 2>/dev/null)" &&
+  [[ "$(jq -r '.manifests | type' <<<"${raw}")" == array ]]; then
+  digest="$(jq -r --arg os "${platform%%/*}" --arg arch "${platform#*/}" \
+    'first(.manifests[] | select(.platform.os == $os and .platform.architecture == $arch) | .digest) // empty' \
+    <<<"${raw}")"
+  [[ -n "${digest}" ]] || { echo "${image} has no ${platform} image." >&2; exit 1; }
+  repository="${image%@*}"
+  [[ "${repository##*/}" != *:* ]] || repository="${repository%:*}"
+  ref="${repository}@${digest}"
+fi
+
+container="$(docker create --quiet --platform "${platform}" "${ref}")"
 
 docker export "${container}" | tar -t | sed "s|^\./||" >"${work}/all"
 grep -Ev "(^|/)node_modules/" "${work}/all" >"${work}/files" || true
