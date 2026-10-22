@@ -10,6 +10,9 @@ const APP_IMAGE = "ghcr.example.test/rakazo/app:local";
 // Each rolled service gains a new container, which must pass its health check before the old
 // one stops; the rest of the stack is reconciled afterwards.
 const rolloutSteps = (revision: string) => [
+  // The image the running API uses, restored if the deploy fails.
+  `${COMPOSE} ps --quiet api`,
+  "docker inspect --format {{.Image}} api-old",
   `${COMPOSE} config --quiet`,
   `${COMPOSE} config`,
   `${COMPOSE} build --build-arg GIT_SHA=${revision}`,
@@ -92,7 +95,12 @@ echo "docker $* @ $(git rev-parse --short HEAD)" >> "$COMMAND_LOG"
 if [[ "$*" == *" build "* && "$(cat revision.txt)" == "\${FAIL_BUILD:-}" ]]; then exit 1; fi
 if [[ "$1" == info ]]; then echo /var/lib/docker; fi
 if [[ "$*" == *" config" ]]; then printf "services:\\n  api:\\n    image: ${APP_IMAGE}\\n"; fi
-if [[ "$1 $2" == "image inspect" ]]; then [[ -n "\${PREVIOUS_IMAGE-sha256:previous}" ]] || exit 1; echo "\${PREVIOUS_IMAGE-sha256:previous}"; fi
+if [[ "$1" == inspect && "$*" == *"{{.Image}}"* ]]; then
+  [[ -n "\${PREVIOUS_IMAGE-sha256:previous}" ]] || exit 1
+  echo "\${PREVIOUS_IMAGE-sha256:previous}"
+  exit 0
+fi
+if [[ "$*" == *" ps --quiet api" && -z "\${FRESH:-}" ]]; then echo api-old; fi
 if [[ "$1" == pull && -n "\${FAIL_PULL:-}" ]]; then exit 1; fi
 if [[ "$*" == *" images -q" ]]; then echo sha256:running; fi
 if [[ "$1" == tag && -n "\${FAIL_TAG:-}" ]]; then exit 1; fi
@@ -298,7 +306,7 @@ describe("production deploy script", () => {
     );
   });
 
-  it("rebuilds the previous revision when its image is gone", () => {
+  it("rebuilds the previous revision when the running image is unknown", () => {
     const deploy = fixture();
     const broken = commit(deploy.upstream, "broken");
     const result = deploy.run({ FAIL_BUILD: "broken", PREVIOUS_IMAGE: "" });
@@ -375,7 +383,7 @@ describe("production deploy script", () => {
       expect(commands).toContain(`docker tag sha256:previous ${APP_IMAGE}`);
     });
 
-    it("pulls the previous commit's image to roll back when the old image is gone", () => {
+    it("pulls the previous commit image to roll back when the running image is unknown", () => {
       const deploy = fixture();
       const next = commit(deploy.upstream, "unhealthy");
       const result = deploy.run({

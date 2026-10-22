@@ -174,17 +174,24 @@ if [[ "${previous_revision}" == "${target_revision}" && "${deployed_revision}" =
 fi
 
 app_image=""
+# The image the running API uses, which can differ from the configured tag if someone pulled a
+# newer one without recreating the containers.
 previous_app_image=""
+api_container="$(compose 1m ps --quiet api 2>/dev/null | head -n 1 || true)"
+if [[ -n "${api_container}" ]]; then
+  previous_app_image="$(sudo docker inspect --format '{{.Image}}' "${api_container}" 2>/dev/null || true)"
+fi
+
 rollback() {
   trap - ERR
   echo "Deployment failed; restoring the previous revision ${previous_revision}." >&2
   git reset --hard "${previous_revision}"
-  # The image the previous containers ran is still here, so restoring it is a retag. A deploy that
-  # failed before recording it pulls or builds the previous revision instead.
+  app_image="$(compose_app_image)"
+  # The image the previous containers ran is still here, so restoring it is a retag. Without a
+  # running API to read it from, pull or build the previous revision instead.
   if [[ -n "${previous_app_image}" ]]; then
     sudo docker tag "${previous_app_image}" "${app_image}"
   else
-    app_image="$(compose_app_image)"
     use_revision_image "${previous_revision}" "${ROLLBACK_TIMEOUT}"
   fi
   roll_out
@@ -231,7 +238,6 @@ fi
 compose 1m config --quiet
 app_image="$(compose_app_image)"
 [[ -n "${app_image}" ]] || { echo "Could not find the api image in ${COMPOSE_FILE}." >&2; false; }
-previous_app_image="$(sudo docker image inspect --format '{{.Id}}' "${app_image}" 2>/dev/null || true)"
 use_revision_image "${target_revision}" "${BUILD_TIMEOUT}"
 roll_out
 apply_caddyfile "${previous_revision}" "${target_revision}"

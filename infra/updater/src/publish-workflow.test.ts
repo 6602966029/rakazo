@@ -67,6 +67,9 @@ describe("server image publish workflow", () => {
     const checks = workflowText.match(/bash infra\/compose\/check-image\.sh/g) ?? [];
     // One check per build path, both before the publish job tags the digest.
     expect(checks).toHaveLength(2);
+    // GitHub's runners check each architecture on its own leg; Depot's one build checks both.
+    expect(workflowText).toContain('check-image.sh "$IMAGE" "$PLATFORM"');
+    expect(workflowText).toContain("for platform in linux/amd64 linux/arm64; do");
     expect(workflowText.indexOf("check-image.sh")).toBeLessThan(
       workflowText.indexOf("docker buildx imagetools create"),
     );

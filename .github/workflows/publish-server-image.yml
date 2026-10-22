@@ -238,7 +238,12 @@ jobs:
         if: matrix.name == 'app'
         env:
           IMAGE: ghcr.io/${{ github.repository }}/app@${{ steps.build.outputs.digest }}
-        run: bash infra/compose/check-image.sh "$IMAGE" linux/amd64
+        # Exporting a filesystem needs no emulation, so one runner checks both platforms.
+        run: |
+          set -euo pipefail
+          for platform in linux/amd64 linux/arm64; do
+            bash infra/compose/check-image.sh "$IMAGE" "$platform"
+          done
       - name: Record the image digest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
