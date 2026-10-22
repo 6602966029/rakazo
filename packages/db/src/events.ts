@@ -1484,6 +1484,13 @@ export async function finalizeRun(
 ): Promise<FinalizeRunResult | false> {
   const committed = await withTransactionRetry(() => finalizeRunOnce(prisma, input));
   if (!committed) return false;
+  getLogger().info("run.finished", {
+    "run.id": input.runId,
+    "run.outcome": input.outcome,
+    "space.id": input.spaceId,
+    "thread.id": input.threadId,
+    "bot.id": input.botId,
+  });
   void captureRunAnalytics(prisma, analytics, input.runId, `run.${input.outcome}`);
   await notifyRealtime(realtime, committed.threadId, committed.seq);
   return { continuationRunId: committed.continuationRunId };
