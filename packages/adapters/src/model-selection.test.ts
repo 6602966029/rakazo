@@ -398,6 +398,36 @@ describe("space catalog auth", () => {
     );
   }
 
+  it("retains hosted catalog access alongside a saved personal connection", async () => {
+    vi.stubEnv("PI_DEFAULT_PROVIDER", "openrouter");
+    vi.stubEnv("OPENROUTER_API_KEY", "fixture-deployment-key");
+    try {
+      const { prisma } = authPrisma({
+        credentials: [storedCredential("cred-oauth", "secret-oauth", "2026-01-01T00:00:00.000Z")],
+        preferences: [],
+        secrets: [{ id: "secret-oauth", ciphertext: "cipher-oauth" }],
+      });
+      Object.assign(prisma, {
+        space: {
+          findFirst: vi
+            .fn()
+            .mockResolvedValue({ organization: { modelCredits: { mode: "credits" } } }),
+        },
+      });
+      const auth = await modelCredentialAuthKindsForSpace(
+        prisma,
+        { load: vi.fn().mockResolvedValue(oauth) },
+        scope,
+        "openrouter",
+      );
+      expect(auth.managedProvider).toBe("openrouter");
+      expect(auth.byProvider.openrouter).toBe("api_key");
+      expect(auth.byProvider["openai-codex"]).toBe("oauth");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("uses the space preference instead of a newer account credential", async () => {
     const { prisma, preferenceFindMany } = authPrisma({
       credentials: [

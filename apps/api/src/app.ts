@@ -415,15 +415,6 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   const stripeBilling = stripeBillingConfigFromEnv(env);
   const billingProvider: BillingProvider | undefined =
     billingOverride ?? (stripeBilling ? new StripeBillingProvider(stripeBilling) : undefined);
-  const modelCreditsEnabled = billingProvider?.describe().capabilities.modelCredits === true;
-  await prisma.deploymentSettings.upsert({
-    where: { id: "default" },
-    create: {
-      id: "default",
-      modelCreditsEnabled,
-    },
-    update: { modelCreditsEnabled },
-  });
   const billing = billingProvider
     ? createBillingService({
         prisma,
@@ -432,6 +423,15 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
         managedModelsAvailable: resolveDeploymentModel().configured,
       })
     : undefined;
+  const modelCreditsEnabled = billing?.modelCreditsEnabled ?? false;
+  await prisma.deploymentSettings.upsert({
+    where: { id: "default" },
+    create: {
+      id: "default",
+      modelCreditsEnabled,
+    },
+    update: { modelCreditsEnabled },
+  });
   const installed = new InstalledConnectorProvider(
     prisma,
     secrets,
@@ -546,7 +546,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   // resolution alike, so a list call warms the run path in this process.
   const codexCatalog = new CodexCatalogCache();
   const executor = createRunExecutor({
-    billingEnabled: Boolean(billingProvider?.createCreditCheckout),
+    billingEnabled: modelCreditsEnabled,
     maxUploadSizeBytes: env.maxUploadSizeBytes,
     contextStrategy,
     prisma,

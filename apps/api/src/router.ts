@@ -1003,7 +1003,10 @@ export function createRouter(deps: RouterDeps) {
       kickModelCredentialRefresh(deps.prisma, deps.secrets, scope, secretId, provider));
   const catalogForSpace = async (actor: Actor) => {
     const auth = await modelCredentialAuthKindsForSpace(
-      deps.prisma, deps.secrets, actor, deps.billing ? deps.env.defaultProvider : undefined,
+      deps.prisma,
+      deps.secrets,
+      actor,
+      deps.billing?.modelCreditsEnabled ? deps.env.defaultProvider : undefined,
     );
     const available = listAvailablePiCatalog(auth.byProvider, auth.byModel);
     const [live, providerLive] = await Promise.all([
@@ -1030,8 +1033,11 @@ export function createRouter(deps: RouterDeps) {
         ? {
             ...entry,
             managed: true,
-            billing: auth.secretIdByModel[entry.provider]?.[entry.id] || auth.secretIdByProvider[entry.provider]
-              ? entry.billing : "Uses Rakazo credits",
+            billing:
+              auth.secretIdByModel[entry.provider]?.[entry.id] ||
+              auth.secretIdByProvider[entry.provider]
+                ? entry.billing
+                : "Uses Rakazo credits",
           }
         : entry,
     );
@@ -2043,7 +2049,9 @@ export function createRouter(deps: RouterDeps) {
             secretStore: deps.secrets,
             codexCatalog,
             refreshExpiredCredential,
-            hostedProvider: deps.billing ? deps.env.defaultProvider : undefined,
+            hostedProvider: deps.billing?.modelCreditsEnabled
+              ? deps.env.defaultProvider
+              : undefined,
             defaultModel: async () => {
               const me = await meDto(deps, context.actor);
               return { provider: me.defaultProvider, model: me.defaultModel };

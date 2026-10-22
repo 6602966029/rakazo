@@ -965,7 +965,6 @@ export const DE_MESSAGES: Record<string, string> = {
     "Modelle zum Selbstkostenpreis. Ungenutztes Guthaben wird übertragen.",
   "Upgrade now": "Jetzt upgraden",
   "Downgrade at renewal": "Bei Verlängerung downgraden",
-  Update: "Aktualisieren",
   "Continue with credits": "Mit Guthaben fortfahren",
   "Add credits": "Guthaben hinzufügen",
   "Manage billing": "Abrechnung verwalten",

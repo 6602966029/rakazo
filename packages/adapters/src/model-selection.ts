@@ -214,12 +214,7 @@ export async function modelCredentialAuthKindsForSpace(
     return kindBySecretId.get(secretId)!;
   };
 
-  const auth: SpaceCatalogAuth = {
-    byProvider: {},
-    byModel: {},
-    secretIdByProvider: {},
-    secretIdByModel: {},
-  };
+  const auth = empty;
   for (const selection of selections) {
     const kind = await readKind(selection.secretId);
     if (selection.modelSpecific) {

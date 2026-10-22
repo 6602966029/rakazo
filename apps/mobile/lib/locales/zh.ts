@@ -927,7 +927,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Models at cost. Unused credits roll over.": "按模型成本计费。未用额度可结转。",
   "Upgrade now": "立即升级",
   "Downgrade at renewal": "下次续费时降级",
-  Update: "更新",
   "Continue with credits": "使用额度继续",
   "Add credits": "充值",
   "Manage billing": "管理账单",

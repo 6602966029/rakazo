@@ -85,7 +85,7 @@ export async function prepareCreditLots(tx: Tx, organizationId: string, now = ne
 export async function syncLotBalance(tx: Tx, organizationId: string) {
   const account = await tx.modelCreditAccount.findUniqueOrThrow({ where: { organizationId } });
   const total = await tx.modelCreditLot.aggregate({
-    where: { organizationId },
+    where: { organizationId, availableMicros: { gt: 0n } },
     _sum: { availableMicros: true },
   });
   const difference = positive(account.balanceMicros) - (total._sum.availableMicros ?? 0n);

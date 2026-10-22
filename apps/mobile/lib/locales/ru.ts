@@ -961,7 +961,6 @@ export const RU_MESSAGES: Record<string, string> = {
     "Модели по себестоимости. Неиспользованные кредиты переносятся.",
   "Upgrade now": "Повысить тариф сейчас",
   "Downgrade at renewal": "Понизить тариф при продлении",
-  Update: "Обновить",
   "Continue with credits": "Продолжить с кредитами",
   "Add credits": "Пополнить кредиты",
   "Manage billing": "Управление оплатой",

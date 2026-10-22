@@ -287,6 +287,8 @@ export class StripeBillingProvider implements BillingProvider {
       }),
     );
     const creditLineSchema = z.object({
+      amount: z.number().int(),
+      discount_amounts: z.array(z.object({ amount: z.number().int().nonnegative() })).nullish(),
       period: z.object({ end: z.number().int().positive() }),
       parent: z
         .object({
@@ -389,11 +391,24 @@ export class StripeBillingProvider implements BillingProvider {
       const expiresAt = fromSeconds(
         Math.max(...periods.map((line) => line.period.end)),
       )!.toISOString();
-      purchases.push({
-        id: invoice.id,
-        amountCents: Math.min(invoice.amount_paid, paid),
-        expiresAt,
-      });
+      const creditAmountCents = Math.max(
+        0,
+        periods.reduce(
+          (sum, line) =>
+            sum +
+            line.amount -
+            (line.discount_amounts ?? []).reduce((discount, item) => discount + item.amount, 0),
+          0,
+        ),
+      );
+      // Credits cover the subscription lines, excluding tax and other items. Refunds
+      // reduce that paid portion proportionally because charges do not identify a line.
+      const amountCents = Number(
+        (BigInt(Math.min(creditAmountCents, invoice.amount_paid)) *
+          BigInt(Math.min(paid, invoice.amount_paid))) /
+          BigInt(invoice.amount_paid),
+      );
+      purchases.push({ id: invoice.id, amountCents, expiresAt });
     }
     return purchases;
   }

@@ -300,6 +300,16 @@ msgstr "{workingBotName} is aan het werk"
 msgid "@{0}"
 msgstr "@{0}"
 
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "${0} / month"
+msgstr ""
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "${0} in monthly model credits. No API key needed."
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr "Van alles een beetje"
@@ -444,6 +454,10 @@ msgstr "Back-upmodel toevoegen"
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
 msgstr "Gegeven toevoegen"
+
+#: src/components/ModelCredits.tsx
+msgid "Add credits"
+msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add Executor"
@@ -807,6 +821,10 @@ msgstr "Geautomatiseerde afzenders verschijnen zodra ze hier iets plaatsen."
 msgid "Available after the routine is saved"
 msgstr "Beschikbaar zodra de routine is opgeslagen"
 
+#: src/components/ModelCredits.tsx
+msgid "Available credits"
+msgstr ""
+
 #: src/pages/shell/bot-credentials.tsx
 msgid "Available to this bot's shell commands as {commandVariable}"
 msgstr "Beschikbaar voor de shellcommando's van deze bot als {commandVariable}"
@@ -906,6 +924,10 @@ msgstr "Model van de bot"
 #: src/pages/Artifacts.tsx
 msgid "Bots"
 msgstr "Bots"
+
+#: src/components/ModelCredits.tsx
+msgid "Bots and browser automation"
+msgstr ""
 
 #: src/pages/shell/transcript.tsx
 msgid "Bots are working"
@@ -1109,6 +1131,10 @@ msgstr "Kies een nieuw wachtwoord"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
 msgstr "Bestand kiezen"
+
+#: src/components/ModelCredits.tsx
+msgid "Choose how to use Rakazo"
+msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clear"
@@ -1424,10 +1450,18 @@ msgstr "Doorgaan"
 msgid "Continue in Background"
 msgstr "Doorgaan op de achtergrond"
 
+#: src/components/ModelCredits.tsx
+msgid "Continue to checkout"
+msgstr ""
+
 #. placeholder {0}: reset.sso.name
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "Doorgaan met {0}"
+
+#: src/components/ModelCredits.tsx
+msgid "Continue with credits"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Continue with email"
@@ -1704,7 +1738,9 @@ msgstr "Steminstellingen laden mislukt"
 msgid "Could not log out. Try again."
 msgstr "Uitloggen mislukt. Probeer het opnieuw."
 
+#: src/components/ModelCredits.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Onboarding.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"
 msgstr "Facturatie openen mislukt"
@@ -1871,6 +1907,10 @@ msgstr "Bijwerken mislukt"
 msgid "Could not update agent access"
 msgstr "Agenttoegang bijwerken mislukt"
 
+#: src/components/ModelCredits.tsx
+msgid "Could not update billing"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Could not update computer"
 msgstr "Computer bijwerken mislukt"
@@ -1975,6 +2015,10 @@ msgstr "Gegevens"
 #: src/pages/PluginsOverlay.tsx
 msgid "Credentials are encrypted and never sent to the model."
 msgstr "Gegevens worden versleuteld en nooit naar het model gestuurd."
+
+#: src/components/ModelCredits.tsx
+msgid "Credit amount"
+msgstr ""
 
 #: src/pages/RoutineSchedule.tsx
 msgid "Cron"
@@ -2238,6 +2282,10 @@ msgstr "Heb je geen account?"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
 msgstr "Klaar"
+
+#: src/components/ModelCredits.tsx
+msgid "Downgrade at renewal"
+msgstr ""
 
 #: src/pages/Artifacts.tsx
 msgid "Download"
@@ -2537,6 +2585,7 @@ msgstr "Onverwachte acties markeren"
 msgid "Forgot password?"
 msgstr "Wachtwoord vergeten?"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/model-settings/model-picker.tsx
 msgid "Free"
 msgstr "Gratis"
@@ -2956,6 +3005,7 @@ msgstr "Lokale computertoegang vereist de nieuwste desktopapp."
 msgid "Local Server Settings"
 msgstr "Instellingen lokale server"
 
+#: src/components/ModelCredits.tsx
 #: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
 msgid "Log out"
@@ -2984,6 +3034,7 @@ msgstr "Zorg dat er niets meer op deze computer draait."
 msgid "Manage"
 msgstr "Beheren"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Manage billing"
 msgstr "Facturatie beheren"
@@ -3205,6 +3256,10 @@ msgstr "Model bijgewerkt."
 msgid "Models"
 msgstr "Modellen"
 
+#: src/components/ModelCredits.tsx
+msgid "Models at provider cost"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Models for the server owner’s default space."
 msgstr "Modellen voor de standaardspace van de servereigenaar."
@@ -3225,6 +3280,14 @@ msgstr "maand"
 #: src/pages/RoutineSchedule.tsx
 msgid "Monthly"
 msgstr "Maandelijks"
+
+#: src/components/ModelCredits.tsx
+msgid "Monthly credits"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Monthly credits expire at renewal. Top-ups do not expire."
+msgstr ""
 
 #: src/pages/shell/message-hover-actions.tsx
 msgid "More"
@@ -3543,6 +3606,10 @@ msgstr "Op een schema"
 msgid "on the 1st at {0}"
 msgstr "op de 1e om {0}"
 
+#: src/components/ModelCredits.tsx
+msgid "One-time purchase. Credits do not expire."
+msgstr ""
+
 #: src/pages/Shell.tsx
 msgid "Only empty spaces can be deleted. Delete its bots and groups first."
 msgstr "Alleen lege spaces kunnen worden verwijderd. Verwijder eerst de bots en groepen."
@@ -3727,6 +3794,10 @@ msgstr "Plak je API-sleutel en test daarna opnieuw."
 msgid "Paused"
 msgstr "Gepauzeerd"
 
+#: src/components/ModelCredits.tsx
+msgid "Pay your model provider directly."
+msgstr ""
+
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
 msgstr "Telefoongesprek"
@@ -3834,6 +3905,10 @@ msgstr "In wachtrij"
 #: src/pages/shell/quote-selection-button.tsx
 msgid "Quote"
 msgstr "Citaat"
+
+#: src/components/ModelCredits.tsx
+msgid "Rakazo credits"
+msgstr ""
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "rakazo-shared and IDs starting with bot- are reserved for Rakazo."
@@ -3943,9 +4018,14 @@ msgstr "Omleidings-URI"
 
 #: src/App.tsx
 #: src/components/ErrorBoundary.tsx
+#: src/components/ModelCredits.tsx
 #: src/pages/RoutineRunHistory.tsx
 msgid "Refresh"
 msgstr "Vernieuwen"
+
+#: src/components/ModelCredits.tsx
+msgid "Refresh credits"
+msgstr ""
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Refresh view"
@@ -4325,6 +4405,10 @@ msgstr "Bezig met opslaan…"
 #: src/lib/call-session.ts
 msgid "Say yes or no, or answer in a sentence."
 msgstr "Zeg ja of nee, of antwoord in een zin."
+
+#: src/components/ModelCredits.tsx
+msgid "Scheduled routines"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Scopes (optional)"
@@ -4729,6 +4813,7 @@ msgstr "subagent"
 msgid "Submit"
 msgstr "Versturen"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Subscribe"
 msgstr "Abonneren"
@@ -4998,6 +5083,10 @@ msgstr "Toolbronnen"
 msgid "Tools"
 msgstr "Tools"
 
+#: src/components/ModelCredits.tsx
+msgid "Top up anytime"
+msgstr ""
+
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
 msgstr "Bezig met transcriberen…"
@@ -5094,6 +5183,7 @@ msgstr "Niet-ondersteund bestandstype: {0}"
 msgid "Up to date"
 msgstr "Actueel"
 
+#: src/components/ModelCredits.tsx
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Update"
 msgstr "Bijwerken"
@@ -5157,6 +5247,10 @@ msgstr "Teamcomputer bijwerken"
 msgid "Updating…"
 msgstr "Bezig met bijwerken…"
 
+#: src/components/ModelCredits.tsx
+msgid "Upgrade now"
+msgstr ""
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Upload"
 msgstr "Uploaden"
@@ -5202,6 +5296,10 @@ msgstr "Standaardrichtlijnen gebruiken"
 msgid "Use email code"
 msgstr "E-mailcode gebruiken"
 
+#: src/components/ModelCredits.tsx
+msgid "Use my API key"
+msgstr ""
+
 #: src/pages/Auth.tsx
 msgid "Use password"
 msgstr "Wachtwoord gebruiken"
@@ -5209,6 +5307,10 @@ msgstr "Wachtwoord gebruiken"
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
 msgstr "Gebruik Beveiligde invoer voor wachtwoorden."
+
+#: src/pages/Onboarding.tsx
+msgid "Use Rakazo credits"
+msgstr ""
 
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Use this model"
@@ -5234,6 +5336,10 @@ msgstr "Gebruikersnaam"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "Gebruikt de eigen {hostCredentialSource}-gegevens van deze server om toegang te krijgen tot {selectedProviderName}."
+
+#: src/components/ModelCredits.tsx
+msgid "Using your API key"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -5281,6 +5387,10 @@ msgstr "In de wachtrij…"
 #: src/pages/shell/message-cards.tsx
 msgid "Waiting…"
 msgstr "Wachten…"
+
+#: src/components/ModelCredits.tsx
+msgid "Web, desktop and mobile"
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Web, desktop and mobile apps"
@@ -5399,6 +5509,10 @@ msgstr "Jij hebt de controle"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Jouw Anthropic"
+
+#: src/components/ModelCredits.tsx
+msgid "Your API key"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

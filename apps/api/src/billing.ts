@@ -27,6 +27,7 @@ export const BILLING_RETURN_PATH = "/api/v1/billing/return";
 
 /** Product-side billing: access rules, checkout, and pull-based sync from the provider. */
 export interface BillingService {
+  readonly modelCreditsEnabled: boolean;
   status(actor: Actor): Promise<BillingStatus>;
   selectFunding(actor: Actor, funding: "byok" | "credits"): Promise<{ ok: true }>;
   purchaseCredits(
@@ -134,6 +135,7 @@ export function createBillingService(deps: {
   }
 
   return {
+    modelCreditsEnabled: modelCredits,
     async selectFunding(actor, funding) {
       const { organizationId } = await managedOrganization(actor);
       const account = await creditAccount(prisma, organizationId);

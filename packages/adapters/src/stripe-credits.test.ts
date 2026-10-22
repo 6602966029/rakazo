@@ -123,6 +123,7 @@ describe("Stripe prepaid model credits", () => {
             lines: {
               data: [
                 {
+                  amount: 1000,
                   period: { end: 2_000_000_000 },
                   metadata: { rakazo_credit_cents: "1000" },
                   parent: {
@@ -183,6 +184,7 @@ describe("Stripe prepaid model credits", () => {
             lines: {
               data: [
                 {
+                  amount: 1000,
                   period: { end: 2_000_000_000 },
                   metadata: { rakazo_credit_cents: "1000" },
                   parent: {
@@ -191,11 +193,13 @@ describe("Stripe prepaid model credits", () => {
                   },
                 },
                 {
+                  amount: 2000,
                   period: { end: 2_100_000_000 },
                   metadata: {},
                   parent: { type: "invoice_item_details" },
                 },
                 {
+                  amount: 3000,
                   period: { end: 2_200_000_000 },
                   metadata: {},
                   parent: {
@@ -304,6 +308,15 @@ describe("Stripe prepaid model credits", () => {
             lines: {
               data: [
                 {
+                  amount: -1001,
+                  period: { end: 2_000_000_000 },
+                  parent: {
+                    type: "subscription_item_details",
+                    subscription_item_details: { subscription: "sub_credit_fixture" },
+                  },
+                },
+                {
+                  amount: 2000,
                   period: { end: 2_000_000_000 },
                   metadata: { rakazo_credit_cents: "1000" },
                   parent: {
@@ -332,4 +345,73 @@ describe("Stripe prepaid model credits", () => {
       { id: "in_upgrade", amountCents: 999, expiresAt: "2033-05-18T03:33:20.000Z" },
     ]);
   });
+  it.each([
+    { label: "tax", paid: 1100, refund: 0, other: 0, expected: 1000 },
+    { label: "tax and a partial refund", paid: 1100, refund: 550, other: 0, expected: 500 },
+    { label: "another invoice item", paid: 3000, refund: 0, other: 2000, expected: 1000 },
+    { label: "a discount", paid: 800, refund: 0, other: 0, discount: 200, expected: 800 },
+  ])(
+    "credits only the model portion with $label",
+    async ({ paid, refund, other, expected, ...input }) => {
+      const { provider } = fixture({
+        "/v1/charges": {
+          data: [
+            {
+              id: "ch_credit",
+              payment_intent: "pi_credit",
+              currency: "usd",
+              paid: true,
+              captured: true,
+              disputed: false,
+              amount: paid,
+              amount_refunded: refund,
+            },
+          ],
+          has_more: false,
+        },
+        "/v1/invoices": {
+          data: [
+            {
+              id: "in_credit",
+              currency: "usd",
+              amount_paid: paid,
+              billing_reason: "subscription_cycle",
+              parent: {
+                subscription_details: {
+                  subscription: "sub_credit",
+                  metadata: { rakazo_credit_cents: "1000" },
+                },
+              },
+              lines: {
+                data: [
+                  {
+                    amount: 1000,
+                    discount_amounts: input.discount ? [{ amount: input.discount }] : null,
+                    period: { end: 2_000_000_000 },
+                    parent: {
+                      type: "subscription_item_details",
+                      subscription_item_details: { subscription: "sub_credit" },
+                    },
+                  },
+                  {
+                    amount: other,
+                    period: { end: 2_000_000_000 },
+                    parent: { type: "invoice_item_details" },
+                  },
+                ],
+              },
+            },
+          ],
+          has_more: false,
+        },
+        "/v1/invoice_payments": {
+          data: [{ id: "inpay_credit", payment: { payment_intent: "pi_credit" } }],
+          has_more: false,
+        },
+      });
+      expect(await provider.listCreditPurchases("cus_fixture")).toEqual([
+        { id: "in_credit", amountCents: expected, expiresAt: "2033-05-18T03:33:20.000Z" },
+      ]);
+    },
+  );
 });

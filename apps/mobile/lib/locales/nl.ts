@@ -921,7 +921,6 @@ export const NL_MESSAGES: Record<string, string> = {
     "Modellen tegen kostprijs. Ongebruikt tegoed blijft behouden.",
   "Upgrade now": "Nu upgraden",
   "Downgrade at renewal": "Downgraden bij verlenging",
-  Update: "Bijwerken",
   "Continue with credits": "Doorgaan met tegoed",
   "Add credits": "Tegoed toevoegen",
   "Manage billing": "Facturering beheren",
