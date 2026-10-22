@@ -51,6 +51,32 @@ describe("app orientation", () => {
     expect(appOrientationLock(FOLDED, true)).toBe(0);
   });
 
+  it.each([
+    { width: 393, height: 852 },
+    { width: 430, height: 932 },
+    { width: 375, height: 667 },
+    { width: 852, height: 393 },
+    { width: 932, height: 430 },
+    { width: 667, height: 375 },
+  ])("keeps a narrow phone window $width x $height portrait", (window) => {
+    expect(appOrientationLock(window, false)).toBe(1);
+    expect(appOrientationLock(window, true)).toBe(0);
+  });
+
+  it.each([
+    { width: 466, height: 678 },
+    { width: 678, height: 466 },
+    { width: 669, height: 951 },
+    { width: 951, height: 669 },
+    { width: 768, height: 1024 },
+    { width: 1024, height: 768 },
+    { width: 300, height: 500 },
+    { width: 500, height: 300 },
+  ])("leaves a wider window $width x $height free to rotate", (window) => {
+    expect(appOrientationLock(window, false)).toBe(0);
+    expect(appOrientationLock(window, true)).toBe(0);
+  });
+
   it("follows a fold or unfold", async () => {
     await syncOrientation();
     screen.window = UNFOLDED;
@@ -63,11 +89,11 @@ describe("app orientation", () => {
     "uses the %i dp screen despite system bars and split-screen",
     async (shortSide) => {
       Platform.OS = "android";
-      screen.size = { width: shortSide, height: 960 };
-      screen.window = { width: shortSide, height: 912 };
+      screen.size = { width: shortSide, height: 1040 };
+      screen.window = { width: shortSide, height: 992 };
       await syncOrientation();
-      screen.size = { width: 960, height: shortSide };
-      screen.window = { width: 960, height: shortSide - 48 };
+      screen.size = { width: 1040, height: shortSide };
+      screen.window = { width: 1040, height: shortSide - 48 };
       await syncOrientation();
       screen.window = { width: 400, height: shortSide - 48 };
       await syncOrientation();
@@ -118,14 +144,18 @@ describe("app orientation", () => {
   });
 
   it.each([
-    { width: 466, height: 678 },
-    { width: 669, height: 951 },
-    { width: 951, height: 669 },
-    { width: 402, height: 874 },
-  ])("uses the live iOS window $width x $height instead of the physical screen", async (window) => {
-    screen.size = FOLDED;
-    screen.window = window;
-    await syncOrientation();
-    expect(screen.locks.at(-1)).toBe(window.width < 600 ? 1 : 0);
-  });
+    { width: 466, height: 678, expected: 0 },
+    { width: 678, height: 466, expected: 0 },
+    { width: 669, height: 951, expected: 0 },
+    { width: 951, height: 669, expected: 0 },
+    { width: 402, height: 874, expected: 1 },
+  ])(
+    "uses the live iOS window $width x $height instead of the physical screen",
+    async ({ width, height, expected }) => {
+      screen.size = FOLDED;
+      screen.window = { width, height };
+      await syncOrientation();
+      expect(screen.locks.at(-1)).toBe(expected);
+    },
+  );
 });
