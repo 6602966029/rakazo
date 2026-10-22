@@ -313,6 +313,15 @@ describe("billing", () => {
     const client = billingDeps(false);
     await expect(client.billing.status()).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(client.billing.checkout()).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(client.billing.selectFunding({ funding: "credits" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(
+      client.billing.purchaseCredits({ amountCents: 1000, monthly: true }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(client.billing.setMonthlyCredits({ amountCents: 2000 })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
     await expect(client.me()).resolves.toMatchObject({ billingEnabled: false });
   });
 
