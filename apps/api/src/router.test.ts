@@ -276,15 +276,23 @@ describe("account preferences", () => {
 });
 
 describe("billing", () => {
-  function billingDeps(isDeploymentOwner: boolean, billing?: RouterDeps["billing"]) {
+  const upsertSignupSurvey = vi.fn().mockResolvedValue({});
+
+  function billingDeps(
+    isDeploymentOwner: boolean,
+    billing?: RouterDeps["billing"],
+    signupSurvey: { userId: string } | null = null,
+  ) {
     const prisma = {
       user: {
         findUniqueOrThrow: vi.fn().mockResolvedValue({
           email: "user@rakazo.test",
           name: "Test User",
           avatarStyle: "robot",
+          signupSurvey,
         }),
       },
+      signupSurvey: { upsert: upsertSignupSurvey },
       spaceModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
       deploymentSettings: { findUnique: vi.fn().mockResolvedValue(null) },
     } as unknown as PrismaClient;
@@ -333,6 +341,45 @@ describe("billing", () => {
     await expect(billingDeps(true, billing).me()).resolves.toMatchObject({
       billingEnabled: true,
     });
+  });
+
+  it("asks hosted users the signup survey until they answer or skip it", async () => {
+    const billing = { status: vi.fn() } as unknown as RouterDeps["billing"];
+    await expect(billingDeps(false).me()).resolves.toMatchObject({ needsSignupSurvey: false });
+    await expect(billingDeps(false, billing).me()).resolves.toMatchObject({
+      needsSignupSurvey: true,
+    });
+    await expect(billingDeps(false, billing, { userId: "user-1" }).me()).resolves.toMatchObject({
+      needsSignupSurvey: false,
+    });
+  });
+
+  it("keeps team size only for work use", async () => {
+    const client = billingDeps(false);
+    await client.onboarding.signupSurvey({
+      reason: "  Run my inbox  ",
+      use: "personal",
+      teamSize: "11-50",
+      source: "",
+    });
+    expect(upsertSignupSurvey).toHaveBeenLastCalledWith({
+      where: { userId: "user-1" },
+      create: {
+        userId: "user-1",
+        reason: "Run my inbox",
+        use: "personal",
+        teamSize: null,
+        source: null,
+      },
+      update: { reason: "Run my inbox", use: "personal", teamSize: null, source: null },
+    });
+
+    await client.onboarding.signupSurvey({ use: "work", teamSize: "11-50" });
+    expect(upsertSignupSurvey).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        update: { reason: null, use: "work", teamSize: "11-50", source: null },
+      }),
+    );
   });
 });
 

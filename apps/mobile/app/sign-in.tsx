@@ -15,13 +15,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeActionButton } from "../components/native-action-button";
-import type { PasswordResetCapabilities } from "../lib/api";
+import type { MobileMe, PasswordResetCapabilities } from "../lib/api";
 import {
   currentApiBase,
   displayApiHost,
   loadSessionToken,
   passwordResetCapabilities,
   requestPasswordReset,
+  rpc,
   sendSignInCode,
   signIn,
   signInWithCode,
@@ -181,7 +182,9 @@ export default function SignIn() {
       } else {
         await signIn(email.trim(), password);
       }
-      router.replace("/");
+      // A code can create the account from either form.
+      const me = mode === "up" || usingCode ? await rpc<MobileMe>("me").catch(() => null) : null;
+      router.replace(me?.needsSignupSurvey ? "/signup-survey" : "/");
     } catch (err) {
       setError(errorText(err, t("Could not continue")));
     } finally {

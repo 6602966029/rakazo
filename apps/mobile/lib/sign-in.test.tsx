@@ -343,6 +343,17 @@ it("opens the app after code sign-in without server setup", async () => {
   expect(router.replace).toHaveBeenCalledWith("/");
 });
 
+it("asks the signup survey before opening the app", async () => {
+  vi.mocked(passwordResetCapabilities).mockResolvedValue({ ...capabilities, emailCode: true });
+  vi.mocked(rpc).mockResolvedValue({ needsSignupSurvey: true });
+  await render();
+  await type(input("Email")!, "ada@example.test");
+  await press("Continue");
+  await type(input("Code")!, "123456");
+  expect(rpc).toHaveBeenCalledWith("me");
+  expect(router.replace).toHaveBeenCalledWith("/signup-survey");
+});
+
 function buttonNamed(label: string) {
   return [...host.querySelectorAll("button")].find((button) => button.textContent === label);
 }
