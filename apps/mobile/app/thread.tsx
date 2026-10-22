@@ -30,6 +30,7 @@ import {
   groupVoiceChats,
   isApprovalAskBlock,
   isPeerReceiptBlocks,
+  isRetryableError,
   isRunTerminalEvent,
   isRunWaitingOnUser,
   isRunWorking,
@@ -42,6 +43,7 @@ import {
   replyAttachment,
   resolveComposerSendPlan,
   resolvePersonaColorDef,
+  retryDelayMs,
   displayName as safeDisplayName,
   selectedAskActionLabel,
   threadWindowMessages,
@@ -334,7 +336,7 @@ export default function ThreadRoute() {
         .catch((error) => {
           if (!cancelled && !notified) Alert.alert(t("Could not continue"), errorText(error));
           notified = true;
-          if (!cancelled) timer = setTimeout(verify, 5_000);
+          if (!cancelled && isRetryableError(error)) timer = setTimeout(verify, 5_000);
         });
     verify();
     return () => {
@@ -1507,6 +1509,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       liveCursor.current = cursor;
       let retryMs = 250;
       while (!abort.signal.aborted && sessionGeneration === currentSessionGeneration()) {
+        let failure: unknown;
         try {
           liveSubscribed.current = true;
           await subscribeThread(
@@ -1560,18 +1563,24 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
             },
             abort.signal,
           );
-        } catch {
+        } catch (error) {
           // A full refresh reconciles visible state; the event cursor still resumes without gaps.
+          failure = error;
         } finally {
           if (liveSubscriptionGeneration.current === subscriptionGeneration) {
             liveSubscribed.current = false;
           }
         }
-        if (abort.signal.aborted) break;
+        // A 4xx other than 408/429 is the server's answer; reconnecting only polls it.
+        if (abort.signal.aborted || !isRetryableError(failure)) break;
         if (!jumpScrollTarget.current && !expandedHistoryThread.current) {
-          await refresh().catch(() => undefined);
+          const refreshFailure = await refresh().then(
+            () => undefined,
+            (error: unknown) => error,
+          );
+          if (!isRetryableError(refreshFailure)) break;
         }
-        await abortableDelay(retryMs, abort.signal);
+        await abortableDelay(retryDelayMs(failure, retryMs), abort.signal);
         retryMs = Math.min(retryMs * 2, 5_000);
       }
     })();
@@ -1613,15 +1622,18 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     const refreshDelay = () =>
       threadRefreshDelayMs(snap?.run?.status, { liveSubscribed: liveSubscribed.current });
     const tick = async () => {
+      let failure: unknown;
       if (
         AppState.currentState === "active" &&
         navigation.isFocused() &&
         !jumpScrollTarget.current &&
         !expandedHistoryThread.current
       ) {
-        await refresh().catch(() => undefined);
+        await refresh().catch((error: unknown) => {
+          failure = error;
+        });
       }
-      if (!cancelled) {
+      if (!cancelled && isRetryableError(failure)) {
         timer = setTimeout(() => void tick(), refreshDelay());
       }
     };
