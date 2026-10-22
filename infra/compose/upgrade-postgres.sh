@@ -20,6 +20,8 @@ OLD_IMAGE="${RAKAZO_POSTGRES_16_IMAGE:-postgres:16@sha256:e17e86066e5ef83e0952a9
 LEGACY_DIR=/var/lib/postgresql/16/docker
 STAGING_DIR=/var/lib/postgresql/18/upgrade
 RUNTIME_LOGIN=rakazo_app
+# Services this run stopped, kept in the volume so a retry after a failure still restarts them.
+STOPPED_FILE=/var/lib/postgresql/upgrade-stopped-services
 
 (($#)) || set -- infra/compose/docker-compose.prod.yml
 compose=(docker compose --env-file "${ENV_FILE}")
@@ -28,11 +30,16 @@ for file in "$@"; do compose+=(-f "${PROJECT_DIR}/${file}"); done
 # A shell in a throwaway container with the postgres service's own image, environment and volumes.
 in_volume() { "${compose[@]}" run --rm --no-deps -T --entrypoint sh postgres -c "$1"; }
 
-# Production deploys take the same lock, so neither can start while the other runs. Only an
-# existing lock file is used: one created here would belong to root and lock the deploy user out.
-if [[ -e "${PROJECT_DIR}/.deploy.lock" ]] && command -v flock >/dev/null; then
-  exec 9>>"${PROJECT_DIR}/.deploy.lock"
-  flock -n 9 || { echo "A deploy or another upgrade is running" >&2; exit 1; }
+# One upgrade per host at a time. Production deploys also take their own lock, so neither starts
+# while the other runs; only an existing deploy lock is used, as one created here would belong to
+# root and lock the deploy user out.
+if command -v flock >/dev/null; then
+  exec 8>>"${TMPDIR:-/tmp}/rakazo-postgres-upgrade.lock"
+  flock -n 8 || { echo "Another Postgres upgrade is running" >&2; exit 1; }
+  if [[ -e "${PROJECT_DIR}/.deploy.lock" ]]; then
+    exec 9>>"${PROJECT_DIR}/.deploy.lock"
+    flock -n 9 || { echo "A deploy is running" >&2; exit 1; }
+  fi
 fi
 
 # shellcheck disable=SC2016 # expanded inside the container
@@ -41,11 +48,26 @@ cat '"${LEGACY_DIR}"'/PG_VERSION 2>/dev/null || echo -
 echo "$POSTGRES_USER"
 echo "$POSTGRES_DB"
 du -sk '"${LEGACY_DIR}"' | cut -f1
-df -Pk /var/lib/postgresql | awk "NR == 2 { print \$4 }"')"
-{ read -r current; read -r legacy; read -r user; read -r db; read -r used_kb; read -r free_kb; } <<<"${state}"
-[[ -n "${free_kb:-}" ]] || { echo "Could not inspect the Postgres volumes" >&2; exit 1; }
+df -Pk /var/lib/postgresql | awk "NR == 2 { print \$4 }"
+if [ -e '"${STOPPED_FILE}"' ]; then echo "saved $(cat '"${STOPPED_FILE}"')"; else echo none; fi')"
+{
+  read -r current; read -r legacy; read -r user; read -r db; read -r used_kb; read -r free_kb
+  read -r saved
+} <<<"${state}"
+[[ -n "${saved:-}" ]] || { echo "Could not inspect the Postgres volumes" >&2; exit 1; }
+stopped="${saved#saved}"
+restart_stopped() {
+  # shellcheck disable=SC2086 # one service name per word
+  [[ -z "${stopped// /}" ]] || "${compose[@]}" start ${stopped}
+  in_volume "rm -f ${STOPPED_FILE}"
+}
 if [[ "${current}" != - ]]; then
   echo "Postgres ${current} data is already in place; nothing to upgrade."
+  # A previous run switched over but failed before restarting the services it stopped.
+  if [[ "${saved}" != none ]]; then
+    "${compose[@]}" up -d --wait postgres
+    restart_stopped
+  fi
   exit 0
 fi
 if [[ "${legacy}" == - ]]; then
@@ -75,8 +97,12 @@ trap finish EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 
-# The services to bring back afterwards; postgres itself is recreated on 18 below.
-running="$("${compose[@]}" ps --services --status running | grep -vx postgres || true)"
+# The services to bring back afterwards; postgres itself is recreated on 18 below. A retry keeps
+# the list from the first attempt, whose stop already left everything down.
+if [[ "${saved}" == none ]]; then
+  stopped="$("${compose[@]}" ps --services --status running | grep -vx postgres | tr '\n' ' ' || true)"
+  in_volume "echo '${stopped}' >${STOPPED_FILE}"
+fi
 echo "Stopping the stack."
 "${compose[@]}" stop
 
@@ -110,8 +136,10 @@ wait_ready "${new}"
 echo "Copying roles and databases to Postgres 18."
 # The dump recreates every role, but the new cluster already has its bootstrap superuser, the
 # same POSTGRES_USER; the ALTER ROLE after it still restores that role's password and attributes.
+# Drop that one statement by exact text, with the name quoted the way pg_dumpall quotes it.
+owner="$(docker exec "${old}" psql -X -At -U "${user}" -d postgres -c "SELECT quote_ident(current_user)")"
 docker exec "${old}" pg_dumpall -U "${user}" \
-  | sed "/^CREATE ROLE ${user};\$/d" \
+  | CREATE_OWNER="CREATE ROLE ${owner};" awk '$0 != ENVIRON["CREATE_OWNER"]' \
   | docker exec -i "${new}" psql -X -q -v ON_ERROR_STOP=1 -U "${user}" -d postgres >/dev/null
 
 # Everything the app depends on that a restore could lose: roles and their passwords (hashed
@@ -192,9 +220,6 @@ in_volume "mv -T ${STAGING_DIR} \"\$PGDATA\""
 "${compose[@]}" up -d --wait postgres
 version="$("${compose[@]}" exec -T postgres psql -X -At -U "${user}" -d "${db}" \
   -c "SELECT split_part(current_setting('server_version'), ' ', 1)")"
-if [[ -n "${running}" ]]; then
-  # shellcheck disable=SC2086 # one service name per word
-  "${compose[@]}" start ${running}
-fi
+restart_stopped
 echo "Upgraded to Postgres ${version}: ${tables} tables, roles, grants and row-level security match."
 echo "The Postgres 16 data is unchanged in volume ${legacy_volume}."

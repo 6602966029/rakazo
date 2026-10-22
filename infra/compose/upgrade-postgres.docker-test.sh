@@ -95,6 +95,8 @@ grep -q "Postgres 16 data is unchanged" <<<"${output}" || fail "unexpected failu
 mv "${scratch}/.env.bak" "${scratch}/.env"
 output="$(upgrade 2>&1)" || fail "upgrade failed: ${output}"
 grep -q "^Upgraded to Postgres 18" <<<"${output}" || fail "unexpected output: ${output}"
+"${new[@]}" exec -T postgres test ! -e /var/lib/postgresql/upgrade-stopped-services ||
+  fail "the list of stopped services was left behind"
 
 [[ "$(sql "${new[@]}" <<<"SHOW server_version_num")" -ge 180000 ]] || fail "not running Postgres 18"
 [[ "$(sql "${new[@]}" <<<"SELECT count(*) FROM threads")" == 500 ]] || fail "rows were lost"
