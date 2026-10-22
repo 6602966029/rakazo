@@ -33,6 +33,7 @@ import {
   expireComputerExecutionLeases,
   IsolationError,
   lockOwnedGroup,
+  retireWaitingQuestionInTransaction,
   touchGroupUpdatedAt,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -573,6 +574,7 @@ function messagesWithLiveEvents(
 
 function mapRun(run: {
   id: string;
+  userId: string;
   botId: string;
   threadId: string;
   taskId: string;
@@ -588,6 +590,7 @@ function mapRun(run: {
 }) {
   return {
     id: run.id,
+    userId: run.userId,
     botId: run.botId,
     threadId: run.threadId,
     taskId: run.taskId,
@@ -731,6 +734,14 @@ export async function sendThreadMessage(
             })
           )
             answered.push({ ...run, status: "queued" });
+          else
+            await retireWaitingQuestionInTransaction(tx, {
+              spaceId: actor.spaceId,
+              threadId: target.threadId,
+              botId: target.botId,
+              runId: run.id,
+              answer: input.text ?? "",
+            });
         }
         if (answered.length) {
           const primary = answered[0];
@@ -744,6 +755,7 @@ export async function sendThreadMessage(
             runId: primary.id,
             payload: {
               messageId: message.id,
+              seq: message.seq,
               role: "user",
               blocks,
               callId,
@@ -777,6 +789,7 @@ export async function sendThreadMessage(
             runId: active.id,
             payload: {
               messageId: message.id,
+              seq: message.seq,
               role: "user",
               blocks,
               callId,
@@ -824,6 +837,7 @@ export async function sendThreadMessage(
           runId: run.id,
           payload: {
             messageId: message.id,
+            seq: message.seq,
             role: "user",
             blocks,
             callId,
@@ -889,6 +903,14 @@ export async function sendThreadMessage(
             const queuedForBot = answeredByBotId.get(run.botId) ?? [];
             queuedForBot.push({ ...run, status: "queued" });
             answeredByBotId.set(run.botId, queuedForBot);
+          } else {
+            await retireWaitingQuestionInTransaction(tx, {
+              spaceId: actor.spaceId,
+              threadId: target.threadId,
+              botId: run.botId,
+              runId: run.id,
+              answer: input.text ?? "",
+            });
           }
           continue;
         }
@@ -968,6 +990,7 @@ export async function sendThreadMessage(
         runId: firstRun?.id ?? activeRuns[0]?.id,
         payload: {
           messageId: message.id,
+          seq: message.seq,
           role: "user",
           blocks,
           callId,

@@ -1,6 +1,31 @@
 export const ZH_MESSAGES: Record<string, string> = {
   "Edit name": "编辑姓名",
   "Could not update name": "无法更新姓名",
+  "Update required": "需要更新",
+  Update: "更新",
+  Provider: "提供商",
+  "No matching providers": "没有匹配的提供商",
+  "To:": "收件人：",
+  Next: "下一步",
+  "Ex: Project Falcon": "例如：猎鹰计划",
+  "Search bots": "搜索 Bot",
+  "About {label}": "关于{label}",
+  "Manage the bots it creates": "管理它创建的机器人",
+  "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
+    "整理侧边栏并编辑机器人。更改群组、指令、模型和例行任务需要你的批准。",
+
+  Resets: "重置时间",
+  Limit: "限额",
+  "Provider message": "提供商消息",
+  Status: "状态",
+  "Set your own key": "设置自己的密钥",
+  "Add your own key or pick another model.": "添加自己的密钥或选择其他模型。",
+  "Choose another model to keep chatting.": "选择其他模型以继续聊天。",
+  "Resets {date}.": "将于 {date} 重置。",
+
+  "Model provider": "模型提供商",
+  "Change model": "更换模型",
+  "Technical details": "技术详情",
   Member: "成员",
   Owner: "所有者",
   Chats: "聊天",
@@ -12,8 +37,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "{name} asked": "{name} 问",
   Close: "关闭",
   Link: "链接",
-  "Lets this bot organize, retune and schedule the bots it creates. You approve each change.":
-    "允许此机器人整理、调整和安排它创建的机器人。每项更改都由你批准。",
   "Too many attempts. Try again in a few minutes.": "尝试次数过多。请过几分钟再试。",
   "The server had a problem. Try again in a moment.": "服务器出现问题。请稍后重试。",
   "Password sign-in is turned off on this server": "此服务器已关闭密码登录",
@@ -108,6 +131,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   finished: "已完成",
   failed: "失败",
   cancelled: "已取消",
+  expired: "已过期",
 
   Saved: "已保存",
   " (unread)": "（未读）",
@@ -194,6 +218,10 @@ export const ZH_MESSAGES: Record<string, string> = {
   Checking: "检查中",
   "Checking…": "正在检查…",
   "Check your email": "请查看邮箱",
+  "Use password": "使用密码",
+  "Use email code": "使用邮箱验证码",
+  "Invalid code": "验证码无效",
+  "Request a new code": "请重新获取验证码",
   Clear: "清除",
   "Clear conversation": "清除对话",
   "Clear conversation?": "要清除对话吗？",
@@ -233,7 +261,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Connect MCP server {name}": "连接 MCP 服务器 {name}",
   "Connect Treg": "连接 Treg",
   Connected: "已连接",
-  "Connected · {label}": "已连接 · {label}",
   "Connected and using {label}.": "已连接并正在使用 {label}。",
   "Connected. Its tools are available from your next message.":
     "已连接。从你的下一条消息起即可使用它的工具。",
@@ -289,6 +316,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Could not play a sample": "无法播放示例",
   "Could not play that clip.": "无法播放该音频。",
   "Could not reach the server": "无法连接服务器",
+  "Request timed out": "请求超时",
   "Enter a password": "请输入密码",
   "Enter a valid email": "请输入有效的邮箱地址",
   "Something went wrong. Try again.": "出了点问题，请重试。",
@@ -319,7 +347,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Could not update reaction": "无法更新反应",
   "Couldn't update avatars": "无法更新头像",
   Create: "创建",
-  "Create group": "创建群组",
   "Create section": "创建分组",
   "Create space": "创建空间",
   Creating: "创建中",
@@ -424,7 +451,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Move to": "移动到",
   Name: "名称",
   "Name this bot": "为这个 Bot 命名",
-  "Name this group": "为这个群组命名",
   "Needs attention": "需要处理",
   "Needs input": "等待输入",
   "Needs takeover": "等待接管",
@@ -584,6 +610,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Try again.": "请重试。",
   "Treg token": "Treg 令牌",
   "Type your answer": "输入你的回答",
+  Pinned: "置顶",
   Unassigned: "未分组",
   Unpin: "取消置顶",
   unread: "未读",
@@ -629,7 +656,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   archived: "已归档",
   Attachment: "附件",
   "Bearer authentication": "Bearer 认证",
-  "Booting {label}": "正在启动 {label}",
   bot: "Bot",
   "{from} messaged {to}": "{from} 已向 {to} 发消息",
   "Bring your own key. ElevenLabs, OpenAI, Cartesia, and Fish Audio all plug into the same speak buttons.":
@@ -711,18 +737,13 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Could not save that preference": "无法保存该设置",
   Username: "用户名",
   // app/(settings)/models.tsx
-  "Add connected model": "添加已连接模型",
-  "Add connected models to use them as backups.": "添加已连接模型作为备用模型。",
+  "Add backup model": "添加备用模型",
+  "Move down": "下移",
+  "Move up": "上移",
+  "Tried in order if the active model fails.": "当前模型失败时按顺序尝试。",
   "Backup models": "备用模型",
-  "Backup models saved.": "备用模型已保存。",
-  "Connect a provider to add backups.": "连接提供商后即可添加备用模型。",
   "Could not load backup models": "无法加载备用模型。",
   "Could not save backup models": "无法保存备用模型。",
-  "Maximum of 10 backup models.": "最多可添加 10 个备用模型。",
-  "Move {model} down": "将 {model} 下移",
-  "Move {model} up": "将 {model} 上移",
-  "Remove {model}": "移除 {model}",
-  "Save backups": "保存备用模型",
   "Space changed. Reload Models to refresh backup models.":
     "空间已更改。重新加载“模型”以刷新备用模型。",
   "Space changed. Reload Models before saving backups.":
@@ -730,10 +751,10 @@ export const ZH_MESSAGES: Record<string, string> = {
   "A sign-in page opened — enter this code there:": "登录页面已打开——请在其中输入此代码：",
   "All providers": "所有提供商",
   Copied: "已复制",
+  "Copy code": "复制代码",
   "Could not disconnect this provider": "无法断开此提供商",
   "Default ({level})": "默认（{level}）",
   "Disconnected {provider}.": "已断开 {provider}。",
-  "Save limits": "保存限制",
   "Sign in again": "重新登录",
   "Thinking: {level}": "思考：{level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":
@@ -847,8 +868,42 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Remove photo": "移除照片",
   Shape: "形状",
   "Shape {number}": "形状 {number}",
-  "Fleet management": "集群管理",
   "Try again": "重试",
   "Your session expired": "会话已过期",
   "The server had a problem": "服务器出现问题",
+  "The bot couldn't reply because its provider's daily limit was reached.":
+    "机器人无法回复，因为已达到其提供商的每日限额。",
+  "The bot couldn't reply because its provider's weekly limit was reached.":
+    "机器人无法回复，因为已达到其提供商的每周限额。",
+  "The bot couldn't reply because its provider's monthly limit was reached.":
+    "机器人无法回复，因为已达到其提供商的每月限额。",
+  "The bot couldn't reply because its provider's usage limit was reached.":
+    "机器人无法回复，因为已达到其提供商的使用限额。",
+  "The provider received too many requests to answer this bot.":
+    "提供商收到的请求过多，无法为此机器人提供回复。",
+  "The provider refused the key this bot used for its reply.":
+    "提供商拒绝了此机器人用于回复的密钥。",
+  "The provider couldn't serve the model selected for this bot.":
+    "提供商无法提供为此机器人选择的模型。",
+  "The bot couldn't finish its reply. Technical details includes the reported error.":
+    "机器人未能完成回复。技术详情包含报告的错误。",
+  "This bot's reply stopped at its key's daily limit. Your own key has its own limits.":
+    "此机器人的回复因其密钥达到每日限额而停止。你自己的密钥有独立的限额。",
+  "This bot's reply stopped at its key's weekly limit. Your own key has its own limits.":
+    "此机器人的回复因其密钥达到每周限额而停止。你自己的密钥有独立的限额。",
+  "This bot's reply stopped at its key's monthly limit. Your own key has its own limits.":
+    "此机器人的回复因其密钥达到每月限额而停止。你自己的密钥有独立的限额。",
+  "This bot's reply stopped at its key's usage limit. Your own key has its own limits.":
+    "此机器人的回复因其密钥达到使用限额而停止。你自己的密钥有独立的限额。",
+  "Sign in with passkey": "使用通行密钥登录",
+  Passkeys: "通行密钥",
+  Passkey: "通行密钥",
+  "Add passkey": "添加通行密钥",
+  Rename: "重命名",
+  "Add a passkey for faster sign-in?": "添加通行密钥以便更快登录？",
+  "Couldn't start the computer": "无法启动电脑",
+  "Something went wrong while it was starting. Try again in a moment.":
+    "启动时出了点问题。请稍后重试。",
+  "Your voice provider is out of credit.": "你的语音提供方额度已用完。",
+  "Your voice provider key was rejected.": "你的语音提供方拒绝了该密钥。",
 };

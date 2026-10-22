@@ -733,46 +733,109 @@ describe("Pi runtime ordered model fallback", () => {
     expect(providerState.stream).toHaveBeenCalledTimes(2);
   });
 
-  it("switches after a Codex idle timeout before output", async () => {
-    vi.useFakeTimers();
-    try {
-      const codex = {
-        ...primary,
-        provider: "openai-codex",
-        api: "openai-codex-responses" as const,
-      };
-      providerState.models.set(`${codex.provider}/${codex.id}`, codex);
-      providerState.stream.mockImplementation(
-        (
-          target: Model<"openai-completions">,
-          _ctx: unknown,
-          options: {
-            signal: AbortSignal;
-            onResponse: (response: Response, model: Model<"openai-completions">) => void;
-          },
-        ) => {
-          if (target.provider !== codex.provider)
-            return stream(target, message(target, [{ type: "text", text: "recovered" }], "stop"));
-          const result = new AssistantMessageEventStream();
-          options.onResponse(new Response(null, { status: 200 }), target);
-          options.signal.addEventListener("abort", () => {
-            const failure = message(target, [], "aborted", "aborted");
-            result.push({ type: "error", reason: "aborted", error: failure });
-            result.end(failure);
-          });
-          return result;
-        },
-      );
-      const input = request([{ provider: backupA.provider, id: backupA.id, apiKey: "backup-key" }]);
-      input.model.provider = codex.provider;
-      const pending = run(input);
-      await vi.advanceTimersByTimeAsync(MODEL_STREAM_IDLE_TIMEOUT_MS + 1);
-      expect(await pending).toContainEqual({ type: "text", text: "recovered" });
-      expect(providerState.stream).toHaveBeenCalledTimes(2);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("completes on the backup when the primary reports a ChatGPT usage limit", async () => {
+    const chatGptUsageLimit =
+      "You have hit your ChatGPT usage limit (plus plan). Try again in ~158 min.";
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", chatGptUsageLimit))
+        : stream(target, message(target, [{ type: "text", text: "backup answer" }], "stop")),
+    );
+    const events = await run(
+      request([{ provider: backupA.provider, id: backupA.id, apiKey: "backup-key" }]),
+    );
+    expect(events.at(-1)).toEqual({ type: "done", text: "backup answer" });
+    expect(providerState.stream).toHaveBeenCalledTimes(2);
+    expect(providerState.delay).not.toHaveBeenCalled();
   });
+
+  it("retries a short usage window on the same model without a backup", async () => {
+    providerState.stream
+      .mockImplementationOnce(() =>
+        stream(
+          primary,
+          message(
+            primary,
+            [],
+            "error",
+            "429 You have hit your usage limit for requests per minute; retry after 1 second.",
+          ),
+        ),
+      )
+      .mockImplementation(() =>
+        stream(primary, message(primary, [{ type: "text", text: "Recovered." }], "stop")),
+      );
+    const events = await run(request());
+    expect(providerState.stream).toHaveBeenCalledTimes(2);
+    expect(providerState.stream.mock.calls.map(([target]) => target)).toEqual([
+      expect.objectContaining({ provider: primary.provider, id: primary.id }),
+      expect.objectContaining({ provider: primary.provider, id: primary.id }),
+    ]);
+    expect(providerState.delay).toHaveBeenCalled();
+    expect(events.at(-1)).toEqual({ type: "done", text: "Recovered." });
+  });
+
+  it.each([
+    "You have hit your ChatGPT usage limit (plus plan). Try again in ~158 min.",
+    '403 {"error":{"type":"permission_error","message":"You\'ve reached your 5-hour usage limit."}}',
+    "402 provider quota exhausted",
+  ])(
+    "does not retry the same model on an exhausted usage window without a backup: %s",
+    async (error) => {
+      providerState.stream.mockImplementation(() =>
+        stream(primary, message(primary, [], "error", error)),
+      );
+      await expect(run(request())).rejects.toThrow(error);
+      expect(providerState.stream).toHaveBeenCalledOnce();
+      expect(providerState.delay).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["openai-codex", "openrouter", "openai-compatible"])(
+    "switches after a %s stream goes silent before output",
+    async (provider) => {
+      vi.useFakeTimers();
+      try {
+        const targetModel = {
+          ...primary,
+          provider,
+          api: provider === "openai-codex" ? ("openai-codex-responses" as const) : primary.api,
+        };
+        providerState.models.set(`${targetModel.provider}/${targetModel.id}`, targetModel);
+        providerState.stream.mockImplementation(
+          (
+            target: Model<"openai-completions">,
+            _ctx: unknown,
+            options: {
+              signal: AbortSignal;
+              onResponse?: (response: Response, model: Model<"openai-completions">) => void;
+            },
+          ) => {
+            if (target.provider !== targetModel.provider)
+              return stream(target, message(target, [{ type: "text", text: "recovered" }], "stop"));
+            const result = new AssistantMessageEventStream();
+            options.onResponse?.(new Response(null, { status: 200 }), target);
+            options.signal.addEventListener("abort", () => {
+              const failure = message(target, [], "aborted", "aborted");
+              result.push({ type: "error", reason: "aborted", error: failure });
+              result.end(failure);
+            });
+            return result;
+          },
+        );
+        const input = request([
+          { provider: backupA.provider, id: backupA.id, apiKey: "backup-key" },
+        ]);
+        input.model.provider = targetModel.provider;
+        const pending = run(input);
+        await vi.advanceTimersByTimeAsync(MODEL_STREAM_IDLE_TIMEOUT_MS + 1);
+        expect(providerState.stream).toHaveBeenCalledTimes(2);
+        expect(await pending).toContainEqual({ type: "text", text: "recovered" });
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 
   it("records streamed content when the provider iterator throws after output", async () => {
     const failure = message(
@@ -1252,6 +1315,54 @@ describe("Pi runtime ordered model fallback", () => {
     );
   });
 
+  it("accepts a backup whose image limit fits once accumulated screenshots are pruned", async () => {
+    const input = request([
+      { provider: backupA.provider, id: backupA.id, apiKey: "backup-key", maxImagesPerPrompt: 2 },
+    ]);
+    input.tools = [
+      {
+        name: "computer_observe",
+        description: "Observe the computer",
+        inputSchema: { type: "object", properties: {} },
+      },
+    ];
+    let shots = 0;
+    input.executeTool = vi.fn(async () => {
+      shots += 1;
+      return {
+        kind: "agent_tool_result" as const,
+        content: [{ type: "image" as const, data: "iVBORw0KGgo=", mimeType: "image/png" as const }],
+        details: { frameId: `frame-${shots}` },
+      };
+    });
+    let primaryCalls = 0;
+    const backupImageCounts: number[] = [];
+    providerState.stream.mockImplementation(
+      (target: Model<"openai-completions">, context: { messages?: unknown[] }) => {
+        if (target.provider === primary.provider) {
+          primaryCalls += 1;
+          if (primaryCalls > 3)
+            return stream(target, message(target, [], "error", "429 rate_limit_error"));
+          const call = {
+            type: "toolCall" as const,
+            id: `observe-${primaryCalls}`,
+            name: "computer_observe",
+            arguments: {},
+          };
+          return stream(target, message(target, [call], "toolUse"));
+        }
+        backupImageCounts.push(countContextImages(context));
+        return stream(target, message(target, [{ type: "text", text: "backup answer" }], "stop"));
+      },
+    );
+
+    const events = await run(input);
+
+    expect(shots).toBe(3);
+    expect(events.at(-1)).toEqual({ type: "done", text: "backup answer" });
+    expect(backupImageCounts).toEqual([2]);
+  });
+
   it("prunes later screenshots with the active backup image limit", async () => {
     const input = request([
       {
@@ -1560,6 +1671,36 @@ describe("Pi runtime ordered model fallback", () => {
     ).toEqual([primary.provider, backupB.provider]);
   });
 
+  it("skips a backup whose image limit is below the user's own images", async () => {
+    const input = request([
+      {
+        provider: backupA.provider,
+        id: backupA.id,
+        apiKey: "one-image-key",
+        maxImagesPerPrompt: 1,
+      },
+      { provider: backupB.provider, id: backupB.id, apiKey: "image-backup-key" },
+    ]);
+    input.currentTurnImages = [
+      { name: "first.png", mimeType: "image/png", data: new Uint8Array([1]) },
+      { name: "second.png", mimeType: "image/png", data: new Uint8Array([2]) },
+    ];
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", "429 rate_limit_error"))
+        : stream(target, message(target, [{ type: "text", text: "both images seen" }], "stop")),
+    );
+
+    const events = await run(input);
+
+    expect(events.at(-1)).toEqual({ type: "done", text: "both images seen" });
+    expect(
+      providerState.stream.mock.calls.map(
+        ([target]) => (target as Model<"openai-completions">).provider,
+      ),
+    ).toEqual([primary.provider, backupB.provider]);
+  });
+
   it("uses a native vision backup with acceptsImages false after a 429", async () => {
     providerState.models.set(`${backupA.provider}/${backupA.id}`, {
       ...backupA,
@@ -1813,6 +1954,95 @@ describe("Pi runtime thinking blocks bound to a different conversation", () => {
       ),
     ).toBe(true);
     expect(providerState.delay).not.toHaveBeenCalled();
+  });
+
+  it("leaves thinking from before a backup switch out, and keeps the backup's own", async () => {
+    const input = request([{ provider: backupA.provider, id: backupA.id, apiKey: "backup-key" }]);
+    let backupCalls = 0;
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) => {
+      if (target.provider === primary.provider) {
+        return providerState.stream.mock.calls.length === 1
+          ? stream(
+              target,
+              message(
+                target,
+                [
+                  { type: "thinking", thinking: "Primary plan.", thinkingSignature: "primary" },
+                  {
+                    type: "toolCall",
+                    id: "call-1",
+                    name: "write_effect",
+                    arguments: { value: "a" },
+                  },
+                ],
+                "toolUse",
+              ),
+            )
+          : stream(target, message(target, [], "error", "429 rate_limit_error"));
+      }
+      backupCalls += 1;
+      return backupCalls === 1
+        ? stream(
+            target,
+            message(
+              target,
+              [
+                { type: "thinking", thinking: "Backup plan.", thinkingSignature: "backup" },
+                { type: "toolCall", id: "call-2", name: "write_effect", arguments: { value: "b" } },
+              ],
+              "toolUse",
+            ),
+          )
+        : stream(target, message(target, [{ type: "text", text: "Done." }], "stop"));
+    });
+
+    const events = await run(input);
+
+    expect(events.at(-1)).toEqual({ type: "done", text: "Done." });
+    const contexts = providerState.stream.mock.calls.map(([, context]) => context as Context);
+    expect(contexts).toHaveLength(4);
+    expect(thinkingParts(contexts[1]!)).toEqual([
+      expect.objectContaining({ thinkingSignature: "primary" }),
+    ]);
+    expect(thinkingParts(contexts[2]!)).toEqual([]);
+    expect(thinkingParts(contexts[3]!)).toEqual([
+      expect.objectContaining({ thinkingSignature: "backup" }),
+    ]);
+  });
+
+  it("uses a backup that fits only without the thinking written before the switch", async () => {
+    const thinking = "x".repeat(12_000);
+    const input = request([
+      { provider: backupA.provider, id: backupA.id, apiKey: "small-backup-key", maxTokens: 512 },
+    ]);
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) => {
+      if (target.provider !== primary.provider)
+        return stream(target, message(target, [{ type: "text", text: "backup answer" }], "stop"));
+      return providerState.stream.mock.calls.length === 1
+        ? stream(
+            target,
+            message(
+              target,
+              [
+                { type: "thinking", thinking, thinkingSignature: "primary" },
+                { type: "toolCall", id: "call-1", name: "write_effect", arguments: { value: "a" } },
+              ],
+              "toolUse",
+            ),
+          )
+        : stream(target, message(target, [], "error", "429 rate_limit_error"));
+    });
+
+    const events = await run(input);
+
+    expect(events.at(-1)).toEqual({ type: "done", text: "backup answer" });
+    const contexts = providerState.stream.mock.calls.map(([, context]) => context as Context);
+    expect(
+      providerState.stream.mock.calls.map(
+        ([target]) => (target as Model<"openai-completions">).provider,
+      ),
+    ).toEqual([primary.provider, primary.provider, backupA.provider]);
+    expect(thinkingParts(contexts[2]!)).toEqual([]);
   });
 
   it("surfaces the error when the retry without thinking blocks fails the same way", async () => {

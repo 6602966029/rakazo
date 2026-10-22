@@ -1,3 +1,5 @@
+import type { LocalServiceConnection } from "./local-service-endpoint.js";
+import { fetchLocalService } from "./local-service-endpoint.js";
 import { readBodyCapped } from "./web-ssrf.js";
 
 export const HONCHO_CLOUD_BASE_URL = "https://api.honcho.dev";
@@ -7,18 +9,21 @@ const HONCHO_TIMEOUT_MS = 15_000;
 const HONCHO_CHAT_TIMEOUT_MS = 60_000;
 const MAX_HONCHO_RESPONSE_BYTES = 1024 * 1024;
 
-/** Honcho conclusions are capped server-side; keep saves in line with other providers. */
-export const MAX_HONCHO_CONCLUSION_CHARS = 10_000;
+/**
+ * Honcho rejects conclusions over its 8192-token embedding limit. Every o200k token is at least
+ * one UTF-8 byte, so a byte cap stays under it even for CJK text, where a character cap would not.
+ */
+export const MAX_HONCHO_CONCLUSION_BYTES = 8192;
+
+/** Honcho rejects dialectic queries longer than this. */
+const MAX_HONCHO_CHAT_QUERY_CHARS = 10_000;
 
 export const HONCHO_REASONING_LEVELS = ["minimal", "low", "medium", "high", "max"] as const;
 export type HonchoReasoningLevel = (typeof HONCHO_REASONING_LEVELS)[number];
 
-export interface HonchoConnectionConfig {
-  baseUrl: string;
+export interface HonchoConnectionConfig extends LocalServiceConnection {
   apiKey: string;
   reasoningLevel: HonchoReasoningLevel;
-  /** Test seam. */
-  fetch?: typeof globalThis.fetch;
 }
 
 export type HonchoResponse<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -46,18 +51,23 @@ async function honchoRequest(
   options: { timeoutMs?: number; signal?: AbortSignal; readJson?: boolean } = {},
 ): Promise<HonchoResponse<unknown>> {
   const signal = requestSignal(options.timeoutMs ?? HONCHO_TIMEOUT_MS, options.signal);
+  const url = `${config.baseUrl.replace(/\/+$/, "")}${path}`;
+  const init: RequestInit = {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    redirect: "error",
+    signal,
+  };
   let response: Response;
   try {
-    response = await (config.fetch ?? fetch)(`${config.baseUrl}${path}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      redirect: "error",
-      signal,
-    });
+    response =
+      config.baseUrl === HONCHO_CLOUD_BASE_URL
+        ? await (config.fetch ?? fetch)(url, init)
+        : await fetchLocalService(config, url, init);
   } catch {
     return {
       ok: false,
@@ -153,7 +163,7 @@ export async function honchoPeerChat(
     config,
     `${workspacePath(workspaceId)}/peers/${encodeURIComponent(request.peerId)}/chat`,
     {
-      query: request.query,
+      query: truncateChars(request.query, MAX_HONCHO_CHAT_QUERY_CHARS),
       reasoning_level: config.reasoningLevel,
       stream: false,
       ...(request.target ? { target: request.target } : {}),
@@ -162,8 +172,17 @@ export async function honchoPeerChat(
   );
   if (!result.ok) return result;
   const content = (result.value as { content?: unknown } | null)?.content;
+  // `content` is nullable: the dialectic may have no answer.
+  if (content === null) return { ok: true, value: "" };
   if (typeof content !== "string") {
     return { ok: false, error: "Honcho returned an invalid chat response." };
   }
   return { ok: true, value: content.trim() };
+}
+
+/** Python counts code points; UTF-16 length is never smaller, so this stays under the limit. */
+function truncateChars(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value;
+  const end = /[\uD800-\uDBFF]/.test(value.charAt(maxChars - 1)) ? maxChars - 1 : maxChars;
+  return value.slice(0, end);
 }

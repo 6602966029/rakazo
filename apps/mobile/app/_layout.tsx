@@ -1,10 +1,12 @@
 import type { LinkFavicons } from "@rakazo/chat-ui/native";
 import {
+  CodeCopyButtonContext,
   LinkFaviconsContext,
   MarkdownLinkPromptProvider,
   MermaidDiagramContext,
   RemoteImagesContext,
 } from "@rakazo/chat-ui/native";
+import { analyticsScreen } from "@rakazo/core";
 import {
   DarkTheme,
   Stack,
@@ -22,18 +24,22 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-g
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppErrorBoundary } from "../components/app-error-boundary";
 import { AvatarStyleProvider } from "../components/avatar-style";
 import { CallCard } from "../components/CallCard";
+import { CodeCopyButton } from "../components/code-copy-button";
 import { ComputerUpdateProgress } from "../components/computer-update-progress";
 import { floatingHeaderOptions, glassHeaderOptions } from "../components/glass-title";
 import { MermaidDiagram } from "../components/mermaid-diagram";
 import { MessageMenuHost } from "../components/message-action-menu";
+import { MessageActionSheetHost } from "../components/message-action-sheet-host";
 import { NativeSymbol } from "../components/native-symbol";
 import { VoicePlayerBar } from "../components/voice-player-bar";
 import {
   currentApiBase,
   loadApiBase,
   loadSessionToken,
+  rpc,
   selectedSpaceId,
   subscribeApiBase,
   subscribeSessionRejected,
@@ -41,6 +47,7 @@ import {
 import { loadAppearancePreference, mobileTokens } from "../lib/appearance";
 import { replaceWithSignIn } from "../lib/auth-routing";
 import { loadAvatarStyle } from "../lib/avatar-style";
+import { installClientUpdates, watchForegroundUpdates } from "../lib/client-update";
 import { bootstrapI18n, useI18n } from "../lib/i18n";
 import { loadLinkFavicon } from "../lib/link-favicons";
 import {
@@ -66,11 +73,15 @@ import {
   setInboxHidden,
   useSplitView,
 } from "../lib/split-view";
+import { capTextScaling } from "../lib/text-scale";
 import { startUnsentSends } from "../lib/unsent-sends";
 import { InboxPane } from "./index";
 
+// Before anything renders: text grows with the iOS text size only up to a fixed maximum.
+capTextScaling();
 configureForegroundNotifications();
 registerSessionDiskCache(clearSavedChats);
+installClientUpdates();
 // Keep the splash up until the saved appearance applies, so the first frame isn't in the OS scheme.
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -197,7 +208,9 @@ function ChatContentProviders({
       <RemoteImagesContext.Provider value={loadRemoteImages}>
         <LinkFaviconsContext.Provider value={linkFavicons}>
           <MermaidDiagramContext.Provider value={MermaidDiagram}>
-            {children}
+            <CodeCopyButtonContext.Provider value={CodeCopyButton}>
+              {children}
+            </CodeCopyButtonContext.Provider>
           </MermaidDiagramContext.Provider>
         </LinkFaviconsContext.Provider>
       </RemoteImagesContext.Provider>
@@ -205,7 +218,7 @@ function ChatContentProviders({
   );
 }
 
-export default function Layout() {
+function LayoutContent() {
   useEffect(() => {
     // Screen changes include folding; window resizing must not lock a tablet in split-screen.
     const subscription = Dimensions.addEventListener("change", () => {
@@ -220,6 +233,24 @@ export default function Layout() {
   const chatAnimation = useSplitView().split ? "none" : undefined;
   const [ready, setReady] = useState(false);
   useNotificationResponses(ready);
+  const screen = analyticsScreen(usePathname());
+  useEffect(() => {
+    if (!ready || !screen || (Platform.OS !== "ios" && Platform.OS !== "android")) return;
+    let active = true;
+    void loadSessionToken()
+      .then((token) => {
+        if (active && token)
+          return rpc(
+            "analytics/screen",
+            { screen, surface: Platform.OS },
+            { skipSpaceAuthRecovery: true },
+          );
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [ready, screen]);
   const [appearanceReady, setAppearanceReady] = useState(false);
   const resolved = useResolvedAppearance();
   const loadRemoteImages = useSyncExternalStore(
@@ -258,6 +289,8 @@ export default function Layout() {
     if (!ready) return;
     return startUnsentSends();
   }, [ready]);
+
+  useEffect(() => watchForegroundUpdates(), []);
 
   useEffect(() => {
     void Promise.all([
@@ -379,6 +412,7 @@ export default function Layout() {
                         name="bot-settings"
                         options={glassHeaderOptions(t("Chat settings"))}
                       />
+                      <Stack.Screen name="bot-model" options={glassHeaderOptions(t("Model"))} />
                       <Stack.Screen
                         name="thread"
                         options={{ title: t("Thread"), animation: chatAnimation }}
@@ -399,6 +433,7 @@ export default function Layout() {
                 </View>
                 <ComputerUpdateProgress />
                 <MessageMenuHost />
+                <MessageActionSheetHost />
                 <CallCard />
               </ThemeProvider>
             </ChatContentProviders>
@@ -408,5 +443,13 @@ export default function Layout() {
         )}
       </KeyboardProvider>
     </GestureHandlerRootView>
+  );
+}
+
+export default function Layout() {
+  return (
+    <AppErrorBoundary>
+      <LayoutContent />
+    </AppErrorBoundary>
   );
 }
