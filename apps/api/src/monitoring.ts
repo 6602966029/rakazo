@@ -87,7 +87,7 @@ export function monitoringRoutes(
           new Uint8Array(await c.req.arrayBuffer()),
           c.req.header("content-encoding"),
           surface,
-          config.dsn,
+          config,
         );
       } catch {
         return c.body(null, 400);

@@ -42,7 +42,7 @@ describe("native error collector privacy boundary", () => {
       true,
     );
     const result = new TextDecoder().decode(
-      await sanitizeNativeEnvelope(gzipSync(bytes), "gzip", "mobile", DSN),
+      await sanitizeNativeEnvelope(gzipSync(bytes), "gzip", "mobile", { dsn: DSN }),
     );
     expect(result).not.toMatch(/private|secret|example\/a|attachment|contexts|crashed_url/);
     const event = JSON.parse(result.split("\n")[2]!);
@@ -76,17 +76,23 @@ describe("native error collector privacy boundary", () => {
       encoder.encode('{}\n{"type":"event","length":999}\n{}'),
       encoder.encode('{}\n{"type":"attachment"}\nprivate'),
     ])
-      await expect(sanitizeNativeEnvelope(data, undefined, "mobile", DSN)).rejects.toThrow();
+      await expect(
+        sanitizeNativeEnvelope(data, undefined, "mobile", { dsn: DSN }),
+      ).rejects.toThrow();
     await expect(
-      sanitizeNativeEnvelope(gzipSync("x".repeat(2 * 1024 * 1024)), "gzip", "mobile", DSN),
+      sanitizeNativeEnvelope(gzipSync("x".repeat(2 * 1024 * 1024)), "gzip", "mobile", { dsn: DSN }),
     ).rejects.toThrow();
   });
 
   it("forwards only to the configured collector and preserves retry headers", async () => {
     const fetchImpl = vi.fn(
-      async () => new Response(null, { status: 429, headers: { "retry-after": "60" } }),
+      async (_input: unknown, _init?: RequestInit) =>
+        new Response(null, { status: 429, headers: { "retry-after": "60" } }),
     );
-    const app = monitoringRoutes({ dsn: DSN }, fetchImpl as typeof fetch);
+    const app = monitoringRoutes(
+      { dsn: DSN, environment: "production" },
+      fetchImpl as typeof fetch,
+    );
     const response = await app.request("/api/monitoring/native/mobile/api/0/envelope/", {
       method: "POST",
       body: envelope({ message: "crash" }),
@@ -97,6 +103,8 @@ describe("native error collector privacy boundary", () => {
       "https://errors.example.com/api/8/envelope/?sentry_key=key",
       expect.objectContaining({ method: "POST" }),
     );
+    const forwarded = new TextDecoder().decode(fetchImpl.mock.calls[0]![1]?.body as Uint8Array);
+    expect(JSON.parse(forwarded.split("\n")[2]!).environment).toBe("production");
     const off = monitoringRoutes(undefined, fetchImpl as typeof fetch);
     expect(
       (await off.request("/api/monitoring/native/mobile/api/0/envelope/", { method: "POST" }))

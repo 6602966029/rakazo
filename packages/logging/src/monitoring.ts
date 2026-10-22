@@ -9,6 +9,10 @@ export const CORRELATION_TAG_KEYS = [
   "space.id",
   "thread.id",
   "bot.id",
+  "computer.id",
+  "routine.id",
+  "skill.id",
+  "connector.id",
 ] as const;
 
 export interface MonitoringConfig {

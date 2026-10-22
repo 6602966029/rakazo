@@ -123,7 +123,7 @@ export async function sanitizeNativeEnvelope(
   bytes: Uint8Array,
   encoding: string | undefined,
   surface: "mobile" | "desktop",
-  dsn: string,
+  target: { dsn: string; environment?: string | null },
 ): Promise<Uint8Array> {
   if (encoding && encoding !== "gzip" && encoding !== "identity")
     throw new Error("Unsupported envelope encoding");
@@ -139,7 +139,7 @@ export async function sanitizeNativeEnvelope(
     return value;
   };
   object(JSON.parse(line()));
-  const output = [JSON.stringify({ dsn })];
+  const output = [JSON.stringify({ dsn: target.dsn })];
   let events = 0;
   while (offset < data.length) {
     const header = object(JSON.parse(line()));
@@ -161,7 +161,9 @@ export async function sanitizeNativeEnvelope(
     }
     if (header.type !== "event") continue;
     if (++events > 20) throw new Error("Too many envelope events");
-    const event = JSON.stringify(sanitizeNativeEvent(JSON.parse(decoder.decode(payload)), surface));
+    const sanitized = sanitizeNativeEvent(JSON.parse(decoder.decode(payload)), surface);
+    if (target.environment) sanitized.environment = scrubMonitoringText(target.environment);
+    const event = JSON.stringify(sanitized);
     output.push(JSON.stringify({ type: "event", length: encoder.encode(event).length }), event);
   }
   if (!events) throw new Error("No error events");

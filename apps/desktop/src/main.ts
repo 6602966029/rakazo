@@ -66,6 +66,7 @@ import {
   warmWindowTtlMs,
 } from "./window-options.js";
 
+process.setSourceMapsEnabled(true);
 installDesktopEarlyErrorReporting();
 
 const PERFORMANCE_USER_DATA = process.env.RAKAZO_PERFORMANCE_USER_DATA;
