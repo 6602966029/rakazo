@@ -1276,16 +1276,26 @@ The guard does not protect arbitrary direct `ufw` commands or SSH daemon configu
 
 To deploy from CI, install `infra/compose/deploy-launcher.sh` as `/usr/local/sbin/rakazo-deploy-main`
 and give CI a key restricted to it in the deploy user's `authorized_keys`
-(`restrict,command="/usr/local/sbin/rakazo-deploy-main" ssh-ed25519 …`). It builds `origin/main`,
+(`restrict,command="/usr/local/sbin/rakazo-deploy-main" ssh-ed25519 …`). CI deploys a main commit
+only after its checks pass and `ci.yml` has published its images, so the host pulls
+`<RAKAZO_DEPLOY_IMAGE>:sha-<commit>` instead of building next to live traffic.
+`RAKAZO_DEPLOY_IMAGE` defaults to `ghcr.io/<owner>/<repo>/app` for the GitHub repository the
+checkout tracks, so a fork pulls what its own CI published. If the pull fails or takes longer than
+`RAKAZO_DEPLOY_PULL_TIMEOUT` (default `5m`), the deploy logs a warning and builds the checkout on
+the host instead; set `RAKAZO_DEPLOY_IMAGE=` (empty) to always build. This repository's images are public, so the
+host needs no registry login; for a private fork package, `docker login ghcr.io` as root with a
+token that can only read packages. The deploy
 starts each new API and web container beside the running one and stops the old one only once the
 new one is healthy, so a deploy does not take the site offline, then waits for
-`https://$RAKAZO_HOST/health` and rolls back on failure. Old and new API containers serve together
+`https://$RAKAZO_HOST/health` and rolls back on failure by restoring the image the previous
+containers ran. Old and new API containers serve together
 for a few seconds after migrations run, so a migration must keep working with the previous
-release: add first, and drop or rename only in a later deploy. Build and
-start are time-limited so a stuck build fails the deploy instead of holding its lock; a deploy that
+release: add first, and drop or rename only in a later deploy. Pull, build and
+start are time-limited so a stuck step fails the deploy instead of holding its lock; a deploy that
 finds the lock held exits non-zero. A deploy refuses to start with less than
-`RAKAZO_DEPLOY_MIN_FREE_GB` (default `5`) free, and after a healthy rollout it removes untagged
-images and trims the build cache to `RAKAZO_DEPLOY_BUILD_CACHE_GB` (8 GB by default), keeping the previous images tagged `rakazo-rollback`.
+`RAKAZO_DEPLOY_MIN_FREE_GB` (default `5`) free, and after a healthy rollout it keeps the current and
+previous app images (the previous ones tagged `rakazo-rollback`), removes untagged images, and
+trims the build cache that fallback builds leave to `RAKAZO_DEPLOY_BUILD_CACHE_GB` (8 GB by default).
 For a checkout outside `/srv/rakazo`, put `RAKAZO_DEPLOY_DIR=/absolute/path` (and any of these
 settings) in a root-owned `/etc/rakazo/deploy.env` readable by the deploy user. The launcher runs
 `infra/compose/deploy-main.sh` from `origin/main`, so deploy changes apply on the next deploy; only
@@ -1465,11 +1475,14 @@ your CI cannot publish into someone else's.
 | `local-<full-commit>` | nothing — built on the server by a fork update | never |
 | `vX.Y.Z`, `vX.Y` | release tags | conventionally no / on patch releases |
 | `latest` | stable `vX.Y.Z` tags only (not prereleases) | yes, to the newest stable release |
-| `sha-<full-commit>` | every push and manual run | source-addressed; used by the updater sidecar |
+| `sha-<full-commit>` | every main commit, release tag and manual run | source-addressed; used by the updater sidecar |
 | `edge` | pushes to main | yes, to the newest main build |
 
 Every publish, including `edge` from main merges, is multi-arch (`amd64` + `arm64`): each
-architecture builds natively on its own runner and one manifest is assembled per image. Until a
+architecture builds natively, on Depot when the `DEPOT_PROJECT_ID` repository variable names a
+project and on GitHub's runners otherwise, and one manifest is assembled per image. Before any tag
+points at a new app image, CI fails the publish if it holds a `.env` file, a `.git` directory or a
+private key (`infra/compose/check-image.sh`). Until a
 stable `vX.Y.Z` has been published, GHCR may only have `edge` and `sha-*` tags; do not pin
 `latest` unless that tag exists in the registry.
 
