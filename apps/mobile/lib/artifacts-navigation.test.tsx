@@ -112,7 +112,7 @@ it.each(["android", "ios"])("omits Artifacts from the %s fallback header", (plat
     toggleActivityMode: vi.fn(),
     tokens: {},
     Platform: { OS: platform },
-    openCreateChooser: vi.fn(),
+    createActions: [],
     appearance: "light",
     runCreateAction: vi.fn(),
   });

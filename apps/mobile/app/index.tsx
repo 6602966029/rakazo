@@ -94,7 +94,8 @@ import { confirmDeleteBot, confirmDeleteGroup } from "../lib/bot-lifecycle";
 import type { CollapsedSections } from "../lib/collapsed-sections";
 import { loadCollapsedSections, saveCollapsedSections } from "../lib/collapsed-sections";
 import { confirmDeleteSection } from "../lib/confirm-delete-section";
-import { presentCreateChooser } from "../lib/create-chooser";
+import type { CreateAction } from "../lib/create-chooser";
+import { createMenuActions, isCreateAction } from "../lib/create-chooser";
 import { allowFocusPrompt, scheduleFocusPrompt } from "../lib/focus-prompt";
 import { useForegroundPoll } from "../lib/foreground-poll";
 import { t, useI18n } from "../lib/i18n";
@@ -714,7 +715,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   }, [openChat, refreshBots, t]);
 
   const runCreateAction = useCallback(
-    (action: "bot" | "group" | "space") => {
+    (action: CreateAction) => {
       if (spaceActionRef.current.busy || spaceActionRef.current.recoveryId) return;
       if (action === "bot") void createQuickBot();
       else if (action === "group") router.push("/new-group");
@@ -723,9 +724,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     [createQuickBot, router],
   );
 
-  const openCreateChooser = useCallback(() => {
-    presentCreateChooser({ t, colorScheme: appearance, onSelect: runCreateAction });
-  }, [appearance, runCreateAction, t]);
+  const createActions = useMemo(() => createMenuActions(t, Platform.OS), [t]);
 
   useLayoutEffect(() => {
     if (!nativeHeader) return;
@@ -1273,36 +1272,24 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
             >
               <NativeSymbol ios="magnifyingglass" android="search" size={17} />
             </HeaderButton>
-            {Platform.OS === "android" ? (
-              // A plain button: the native Android menu trigger collapses to zero width when the
-              // installed app binary is older than the JS update, which hid the only way to create.
-              <HeaderButton accessibilityLabel={t("Create")} onPress={openCreateChooser}>
-                <NativeSymbol ios="plus" android="add" size={18} />
-              </HeaderButton>
-            ) : (
-              <MenuView
-                actions={[
-                  { id: "bot", title: t("New bot"), image: "person.crop.circle.badge.plus" },
-                  { id: "group", title: t("New group"), image: "person.2" },
-                  { id: "space", title: t("New space"), image: "square.grid.2x2" },
-                ]}
-                colorScheme={appearance}
-                onPressAction={({ nativeEvent }) => {
-                  const action = nativeEvent.event;
-                  if (action === "bot" || action === "group" || action === "space") {
-                    runCreateAction(action);
-                  }
-                }}
+            <MenuView
+              actions={createActions}
+              colorScheme={appearance}
+              onPressAction={({ nativeEvent }) => {
+                const action = nativeEvent.event;
+                if (isCreateAction(action)) {
+                  runCreateAction(action);
+                }
+              }}
+            >
+              <View
+                accessibilityLabel={t("Create")}
+                accessibilityRole="button"
+                style={styles.headerButton}
               >
-                <View
-                  accessibilityLabel={t("Create")}
-                  accessibilityRole="button"
-                  style={styles.headerButton}
-                >
-                  <NativeSymbol ios="plus" android="add" size={18} />
-                </View>
-              </MenuView>
-            )}
+                <NativeSymbol ios="plus" android="add" size={18} />
+              </View>
+            </MenuView>
           </View>
         </View>
       )}

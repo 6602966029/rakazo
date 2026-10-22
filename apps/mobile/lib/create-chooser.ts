@@ -1,23 +1,27 @@
-import { presentMessageActionSheet } from "./message-action-sheet";
+import type { MenuAction } from "@expo/ui/community/menu";
+import { materialIcons } from "./material-icons";
 
-export function presentCreateChooser({
-  t,
-  colorScheme,
-  onSelect,
-}: {
-  t: (text: string) => string;
-  colorScheme: "light" | "dark";
-  onSelect: (action: "bot" | "group" | "space") => void;
-}): void {
-  presentMessageActionSheet({
-    title: t("Create"),
-    actions: [
-      { text: t("New bot"), onPress: () => onSelect("bot") },
-      { text: t("New group"), onPress: () => onSelect("group") },
-      { text: t("New space"), onPress: () => onSelect("space") },
-    ],
-    cancel: t("Cancel"),
-    more: t("More"),
-    colorScheme,
-  });
+export type CreateAction = "bot" | "group" | "space";
+
+export const createMenuItems = [
+  {
+    id: "bot",
+    label: "New bot",
+    sfSymbol: "person.crop.circle.badge.plus",
+    materialIcon: "person_add",
+  },
+  { id: "group", label: "New group", sfSymbol: "person.2", materialIcon: "group" },
+  { id: "space", label: "New space", sfSymbol: "square.grid.2x2", materialIcon: "grid_view" },
+] as const;
+
+export function createMenuActions(t: (text: string) => string, platform: string): MenuAction[] {
+  return createMenuItems.map(({ id, label, sfSymbol, materialIcon }) => ({
+    id,
+    title: t(label),
+    image: platform === "ios" ? sfSymbol : materialIcons[materialIcon],
+  }));
+}
+
+export function isCreateAction(id: string): id is CreateAction {
+  return createMenuItems.some((item) => item.id === id);
 }
