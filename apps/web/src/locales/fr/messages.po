@@ -341,10 +341,6 @@ msgstr "À propos des groupes"
 msgid "About spaces"
 msgstr "À propos des espaces"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Access token"
-msgstr "Jeton d'accès"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "Jeton d'accès (optionnel)"
@@ -671,12 +667,7 @@ msgstr "Répondu : {answer}"
 msgid "Any model, with your own key"
 msgstr ""
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "API is back, but the update did not finish. Check the host logs."
-msgstr "L'API est de retour, mais la mise à jour n'est pas terminée. Vérifiez les journaux de l'hôte."
-
 #: src/components/AskCard.tsx
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/lib/localized-provider-hint.ts
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -765,10 +756,6 @@ msgstr "Demander avant les achats"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Ask before sending external email"
 msgstr "Demander avant d'envoyer un e-mail externe"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Ask the server owner to configure this provider."
-msgstr "Demandez au propriétaire du serveur de configurer ce fournisseur."
 
 #. placeholder {0}: preset.time
 #: src/pages/RoutineSchedule.tsx
@@ -994,7 +981,6 @@ msgstr "Ne peut pas lire les images"
 
 #: src/components/AskCard.tsx
 #: src/components/ComputerMaintenanceActions.tsx
-#: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
 #: src/components/PasskeySettings.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
@@ -1075,17 +1061,12 @@ msgstr ""
 msgid "Check every"
 msgstr "Vérifier toutes les"
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Check failed"
-msgstr "Échec de la vérification"
-
 #. placeholder {0}: state.detail ?? ""
 #: src/pages/RoutineEditor.tsx
 msgid "Check failed: {0}"
 msgstr "Échec de la vérification : {0}"
 
 #: src/components/DesktopUpdates.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Check for updates"
 msgstr "Rechercher des mises à jour"
 
@@ -1119,14 +1100,9 @@ msgstr "Vérification de la connexion…"
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/DesktopUpdates.tsx
-#: src/components/SoftwareUpdateSection.tsx
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "Vérification en cours…"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Checkout has local changes. Clean it before updating."
-msgstr "La copie de travail a des modifications locales. Nettoyez-la avant de mettre à jour."
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -1169,14 +1145,6 @@ msgstr ""
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "Effacement en cours…"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Client ID"
-msgstr "ID client"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Client secret"
-msgstr "Secret client"
 
 #: src/components/ErrorBoundary.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1424,7 +1392,6 @@ msgstr "Connecté à {0}."
 msgid "Connected. Its tools are available from your next message."
 msgstr "Connecté. Ses outils sont disponibles dès votre prochain message."
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
@@ -1699,7 +1666,6 @@ msgstr "Impossible de charger les bots. Rechargez pour réessayer."
 msgid "Could not load credentials."
 msgstr ""
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not load integrations"
 msgstr "Impossible de charger les intégrations"
@@ -1738,10 +1704,6 @@ msgstr "Impossible de charger cette conversation."
 msgid "Could not load this file."
 msgstr "Impossible de charger ce fichier."
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Could not load update status"
-msgstr "Impossible de charger l'état de la mise à jour"
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Could not load voice settings"
 msgstr "Impossible de charger les paramètres vocaux"
@@ -1756,10 +1718,6 @@ msgstr "Impossible de se déconnecter. Réessayez."
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"
 msgstr ""
-
-#: src/pages/LocalSettings.tsx
-msgid "Could not open local settings. Start the local server and create its owner account, then try again."
-msgstr "Impossible d'ouvrir les paramètres locaux. Démarrez le serveur local et créez le compte du propriétaire, puis réessayez."
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Could not play a test clip"
@@ -2203,10 +2161,6 @@ msgstr "Mise à jour du bureau"
 msgid "Details"
 msgstr "Détails"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Direct MCP"
-msgstr "MCP direct"
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Disable a tool"
 msgstr "Désactiver un outil"
@@ -2312,10 +2266,6 @@ msgstr "Télécharger {0}"
 #: src/components/ArtifactFileCard.tsx
 msgid "Download {name}"
 msgstr "Télécharger {name}"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Download Executor"
-msgstr "Télécharger l'exécuteur"
 
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
@@ -2634,10 +2584,6 @@ msgstr "ID de passerelle"
 msgid "General"
 msgstr "Général"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Get credentials"
-msgstr "Obtenir les identifiants"
-
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "Obtenir l’application mobile"
@@ -2835,10 +2781,6 @@ msgstr "Instructions mises à jour"
 msgid "Integration domain"
 msgstr "Domaine d'intégration"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Integration options"
-msgstr "Options d'intégration"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Integrations"
 msgstr "Intégrations"
@@ -3019,10 +2961,6 @@ msgstr "L'accès local permet aux bots d'exécuter des commandes sans demander. 
 msgid "Local computer access requires the latest desktop app."
 msgstr ""
 
-#: src/pages/LocalSettings.tsx
-msgid "Local Server Settings"
-msgstr "Paramètres du serveur local"
-
 #: src/components/ModelCredits.tsx
 #: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
@@ -3043,10 +2981,6 @@ msgstr ""
 #: src/pages/shell/bot-credentials.tsx
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr ""
-
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Make sure nothing is still running on this computer."
-msgstr "Assurez-vous qu'aucun processus ne tourne encore sur cet ordinateur."
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
@@ -3272,7 +3206,6 @@ msgstr "La consommation du modèle utilise vos clés de fournisseur."
 msgid "Model updated."
 msgstr "Modèle mis à jour."
 
-#: src/pages/LocalSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Models"
@@ -3281,10 +3214,6 @@ msgstr "Modèles"
 #: src/components/ModelCredits.tsx
 msgid "Models at provider cost"
 msgstr ""
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Models for the server owner’s default space."
-msgstr "Modèles pour l'espace par défaut du propriétaire du serveur."
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -3567,10 +3496,6 @@ msgstr "Pas maintenant"
 #: src/components/McpServerHealthLine.tsx
 msgid "Not working"
 msgstr "Ne fonctionne pas"
-
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Nothing is still running"
-msgstr "Rien ne tourne encore"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
@@ -3889,10 +3814,6 @@ msgstr "Privé"
 msgid "Private workspace with its own bots and groups."
 msgstr "Espace de travail privé avec ses propres bots et groupes."
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Project ID"
-msgstr "ID du projet"
-
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
 msgstr ""
@@ -4052,17 +3973,9 @@ msgstr "Actualisation en cours…"
 msgid "Registration is closed"
 msgstr "Les inscriptions sont fermées"
 
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Release computer"
-msgstr "Libérer l'ordinateur"
-
 #: src/pages/shell/computer-release-actions.tsx
 msgid "Release control"
 msgstr "Rendre le contrôle"
-
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Release interrupted computer?"
-msgstr "Libérer l'ordinateur interrompu ?"
 
 #: src/components/InstructionSettings.tsx
 msgid "Reload"
@@ -4523,12 +4436,6 @@ msgstr "Alerte Sentry"
 msgid "Serenity endpoint is required."
 msgstr "Le point de terminaison Serenity est obligatoire."
 
-#: src/components/integrations/IntegrationSetup.tsx
-#: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/LocalSettings.tsx
-msgid "Server integrations"
-msgstr "Intégrations du serveur"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Server name"
 msgstr "Nom du serveur"
@@ -4557,7 +4464,6 @@ msgstr "Paramètres : Général"
 msgid "Settings: Usage"
 msgstr "Paramètres : Utilisation"
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 msgid "Setup help"
 msgstr "Aide à la configuration"
@@ -4674,7 +4580,6 @@ msgstr "Compétence {0}"
 msgid "Skills"
 msgstr "Compétences"
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/shell/computer-release-actions.tsx
 msgid "Skip"
 msgstr "Passer"
@@ -4699,10 +4604,6 @@ msgstr "Slack non activé"
 #: src/components/composer/HoldToTalk.tsx
 msgid "Slide up to lock"
 msgstr "Glisser vers le haut pour verrouiller"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Software update"
-msgstr "Mise à jour logicielle"
 
 #: src/App.tsx
 #: src/lib/user-error.ts
@@ -4910,10 +4811,6 @@ msgstr "Tester la connexion"
 #: src/pages/McpServersOverlay.tsx
 msgid "Testing…"
 msgstr "Test en cours…"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "The API did not come back. Refresh this page."
-msgstr "L'API n'est pas revenue. Actualisez cette page."
 
 #: src/lib/model-connection-preflight.ts
 msgid "The connection timed out."
@@ -5156,10 +5053,6 @@ msgstr "Saisissez votre réponse"
 msgid "Unassigned"
 msgstr "Non assigné"
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Unavailable"
-msgstr "Indisponible"
-
 #: src/components/AskCard.tsx
 msgid "Undo"
 msgstr "Annuler"
@@ -5186,31 +5079,20 @@ msgid "Unsupported file type: {0}"
 msgstr "Type de fichier non pris en charge : {0}"
 
 #: src/components/DesktopUpdates.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Up to date"
 msgstr "À jour"
 
 #: src/components/ModelCredits.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Update"
 msgstr "Mettre à jour"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Update available"
-msgstr "Mise à jour disponible"
 
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Update computer"
 msgstr "Mettre à jour l'ordinateur"
 
 #: src/components/ComputerUpdateProgress.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Update failed"
 msgstr "Échec de la mise à jour"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Update finished with errors"
-msgstr "Mise à jour terminée avec des erreurs"
 
 #: src/lib/activity-list-filters.ts
 msgid "Update from {name}"
@@ -5227,10 +5109,6 @@ msgstr "Mettre à jour les instructions ?"
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Update progress"
 msgstr "Progression de la mise à jour"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Updated"
-msgstr "Mis à jour"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Updated {updated}"
@@ -5250,7 +5128,6 @@ msgid "Updating Team Computer"
 msgstr "Mise à jour de l'ordinateur d'équipe"
 
 #: src/components/ComputerMaintenanceActions.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Updating…"
 msgstr "Mise à jour en cours…"
 
@@ -5379,10 +5256,6 @@ msgstr "Voix"
 #: src/lib/model-connection-preflight.ts
 msgid "Wait a moment and test again."
 msgstr "Patientez un instant et testez à nouveau."
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Waiting for the API to come back…"
-msgstr "En attente du retour de l'API…"
 
 #: src/lib/roster-status.ts
 msgid "Waiting in line…"

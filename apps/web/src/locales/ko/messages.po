@@ -341,10 +341,6 @@ msgstr ""
 msgid "About spaces"
 msgstr ""
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Access token"
-msgstr ""
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "액세스 토큰(선택 사항)"
@@ -671,12 +667,7 @@ msgstr "응답: {answer}"
 msgid "Any model, with your own key"
 msgstr ""
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "API is back, but the update did not finish. Check the host logs."
-msgstr "API가 다시 작동하지만 업데이트가 완료되지 않았습니다. 호스트 로그를 확인하세요."
-
 #: src/components/AskCard.tsx
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/lib/localized-provider-hint.ts
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -765,10 +756,6 @@ msgstr "결제하기 전에 확인"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Ask before sending external email"
 msgstr "외부 이메일을 보내기 전에 확인"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Ask the server owner to configure this provider."
-msgstr ""
 
 #. placeholder {0}: preset.time
 #: src/pages/RoutineSchedule.tsx
@@ -994,7 +981,6 @@ msgstr "이미지를 읽을 수 없음"
 
 #: src/components/AskCard.tsx
 #: src/components/ComputerMaintenanceActions.tsx
-#: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
 #: src/components/PasskeySettings.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
@@ -1075,17 +1061,12 @@ msgstr ""
 msgid "Check every"
 msgstr "확인 주기"
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Check failed"
-msgstr "확인 실패"
-
 #. placeholder {0}: state.detail ?? ""
 #: src/pages/RoutineEditor.tsx
 msgid "Check failed: {0}"
 msgstr "확인 실패: {0}"
 
 #: src/components/DesktopUpdates.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Check for updates"
 msgstr "업데이트 확인"
 
@@ -1119,14 +1100,9 @@ msgstr "연결 확인 중…"
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/DesktopUpdates.tsx
-#: src/components/SoftwareUpdateSection.tsx
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "확인 중…"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Checkout has local changes. Clean it before updating."
-msgstr "체크아웃에 로컬 변경 사항이 있습니다. 업데이트하기 전에 정리하세요."
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -1169,14 +1145,6 @@ msgstr ""
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "비우는 중…"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Client ID"
-msgstr ""
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Client secret"
-msgstr ""
 
 #: src/components/ErrorBoundary.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1424,7 +1392,6 @@ msgstr "{0}에 연결했습니다."
 msgid "Connected. Its tools are available from your next message."
 msgstr "연결되었습니다. 다음 메시지부터 이 도구를 사용할 수 있습니다."
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
@@ -1699,7 +1666,6 @@ msgstr ""
 msgid "Could not load credentials."
 msgstr ""
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not load integrations"
 msgstr "연동 목록을 불러오지 못했습니다."
@@ -1738,10 +1704,6 @@ msgstr "이 채팅을 불러오지 못했습니다."
 msgid "Could not load this file."
 msgstr "파일을 불러오지 못했습니다."
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Could not load update status"
-msgstr "업데이트 상태를 불러올 수 없습니다"
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Could not load voice settings"
 msgstr "음성 설정을 불러오지 못했습니다."
@@ -1755,10 +1717,6 @@ msgstr "로그아웃하지 못했습니다. 다시 시도해 주세요."
 #: src/pages/Onboarding.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"
-msgstr ""
-
-#: src/pages/LocalSettings.tsx
-msgid "Could not open local settings. Start the local server and create its owner account, then try again."
 msgstr ""
 
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -2203,10 +2161,6 @@ msgstr ""
 msgid "Details"
 msgstr "세부 정보"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Direct MCP"
-msgstr ""
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Disable a tool"
 msgstr "도구 비활성화"
@@ -2312,10 +2266,6 @@ msgstr "{0} 다운로드"
 #: src/components/ArtifactFileCard.tsx
 msgid "Download {name}"
 msgstr "{name} 다운로드"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Download Executor"
-msgstr ""
 
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
@@ -2634,10 +2584,6 @@ msgstr "게이트웨이 ID"
 msgid "General"
 msgstr "일반"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Get credentials"
-msgstr ""
-
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "모바일 앱 다운로드"
@@ -2835,10 +2781,6 @@ msgstr "지침 업데이트됨"
 msgid "Integration domain"
 msgstr ""
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Integration options"
-msgstr ""
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Integrations"
 msgstr "앱·도구 연동"
@@ -3019,10 +2961,6 @@ msgstr "로컬 접근을 허용하면 Bot이 묻지 않고 명령을 실행할 �
 msgid "Local computer access requires the latest desktop app."
 msgstr ""
 
-#: src/pages/LocalSettings.tsx
-msgid "Local Server Settings"
-msgstr ""
-
 #: src/components/ModelCredits.tsx
 #: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
@@ -3043,10 +2981,6 @@ msgstr ""
 #: src/pages/shell/bot-credentials.tsx
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr ""
-
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Make sure nothing is still running on this computer."
-msgstr "이 컴퓨터에서 실행 중인 작업이 없는지 확인하세요."
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
@@ -3272,7 +3206,6 @@ msgstr "모델 사용 비용은 연결한 서비스의 API 키로 청구됩니�
 msgid "Model updated."
 msgstr "모델이 변경되었습니다."
 
-#: src/pages/LocalSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Models"
@@ -3280,10 +3213,6 @@ msgstr "AI 모델"
 
 #: src/components/ModelCredits.tsx
 msgid "Models at provider cost"
-msgstr ""
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Models for the server owner’s default space."
 msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
@@ -3567,10 +3496,6 @@ msgstr "나중에"
 #: src/components/McpServerHealthLine.tsx
 msgid "Not working"
 msgstr "작동하지 않음"
-
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Nothing is still running"
-msgstr "실행 중인 작업 없음"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
@@ -3889,10 +3814,6 @@ msgstr "Bot 전용"
 msgid "Private workspace with its own bots and groups."
 msgstr ""
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Project ID"
-msgstr ""
-
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
 msgstr ""
@@ -4052,17 +3973,9 @@ msgstr "새로고침 중…"
 msgid "Registration is closed"
 msgstr "가입이 마감되었습니다"
 
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Release computer"
-msgstr ""
-
 #: src/pages/shell/computer-release-actions.tsx
 msgid "Release control"
 msgstr "제어권 넘기기"
-
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Release interrupted computer?"
-msgstr ""
 
 #: src/components/InstructionSettings.tsx
 msgid "Reload"
@@ -4523,12 +4436,6 @@ msgstr "Sentry 알림"
 msgid "Serenity endpoint is required."
 msgstr ""
 
-#: src/components/integrations/IntegrationSetup.tsx
-#: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/LocalSettings.tsx
-msgid "Server integrations"
-msgstr ""
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Server name"
 msgstr "서버 이름"
@@ -4557,7 +4464,6 @@ msgstr "설정: 일반"
 msgid "Settings: Usage"
 msgstr "설정: 사용량"
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 msgid "Setup help"
 msgstr "설정 도움말"
@@ -4674,7 +4580,6 @@ msgstr "작업 기술 {0}"
 msgid "Skills"
 msgstr "스킬"
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/shell/computer-release-actions.tsx
 msgid "Skip"
 msgstr "건너뛰기"
@@ -4699,10 +4604,6 @@ msgstr ""
 #: src/components/composer/HoldToTalk.tsx
 msgid "Slide up to lock"
 msgstr ""
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Software update"
-msgstr "소프트웨어 업데이트"
 
 #: src/App.tsx
 #: src/lib/user-error.ts
@@ -4910,10 +4811,6 @@ msgstr "로그인 테스트"
 #: src/pages/McpServersOverlay.tsx
 msgid "Testing…"
 msgstr "테스트 중…"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "The API did not come back. Refresh this page."
-msgstr "API가 다시 작동하지 않습니다. 이 페이지를 새로 고침하세요."
 
 #: src/lib/model-connection-preflight.ts
 msgid "The connection timed out."
@@ -5156,10 +5053,6 @@ msgstr "답변을 입력하세요"
 msgid "Unassigned"
 msgstr "섹션 없음"
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Unavailable"
-msgstr "사용할 수 없음"
-
 #: src/components/AskCard.tsx
 msgid "Undo"
 msgstr "실행 취소"
@@ -5186,31 +5079,20 @@ msgid "Unsupported file type: {0}"
 msgstr "지원하지 않는 파일 형식: {0}"
 
 #: src/components/DesktopUpdates.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Up to date"
 msgstr "최신 상태"
 
 #: src/components/ModelCredits.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Update"
 msgstr "업데이트"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Update available"
-msgstr "업데이트 가능"
 
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Update computer"
 msgstr "컴퓨터 업데이트"
 
 #: src/components/ComputerUpdateProgress.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Update failed"
 msgstr "업데이트 실패"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Update finished with errors"
-msgstr "오류와 함께 업데이트가 완료되었습니다"
 
 #: src/lib/activity-list-filters.ts
 msgid "Update from {name}"
@@ -5227,10 +5109,6 @@ msgstr "지침을 업데이트할까요?"
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Update progress"
 msgstr ""
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Updated"
-msgstr "업데이트됨"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Updated {updated}"
@@ -5250,7 +5128,6 @@ msgid "Updating Team Computer"
 msgstr ""
 
 #: src/components/ComputerMaintenanceActions.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Updating…"
 msgstr "업데이트 중…"
 
@@ -5379,10 +5256,6 @@ msgstr "음성"
 #: src/lib/model-connection-preflight.ts
 msgid "Wait a moment and test again."
 msgstr "잠시 기다린 뒤 다시 테스트하세요."
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Waiting for the API to come back…"
-msgstr "API가 다시 작동하기를 기다리는 중…"
 
 #: src/lib/roster-status.ts
 msgid "Waiting in line…"
