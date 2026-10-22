@@ -745,35 +745,36 @@ export function BotSettings({
           </label>
         ))}
         {advancedOpened ? <BotCredentialsSection botId={bot.id} /> : null}
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => void onExport()}>
+            <Trans>Export</Trans>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            onClick={onClear}
+          >
+            <Trans>Clear conversation</Trans>
+          </Button>
+        </div>
       </Disclosure>
       {error ? <p className="mt-2 text-[13px] text-destructive">{error}</p> : null}
-      <div className="mt-5 flex flex-col items-start gap-3">
-        <Button
-          disabled={saving}
-          onClick={() => {
-            void enqueueSave({
-              name,
-              title,
-              description,
-              color,
-              notifyOnFinish,
-            });
-          }}
-        >
-          <Trans>Save</Trans>
-        </Button>
-        <Button variant="ghost" size="sm" className="-ms-2.5" onClick={() => void onExport()}>
-          <Trans>Export</Trans>
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="-ms-2.5 text-destructive hover:text-destructive"
-          onClick={onClear}
-        >
-          <Trans>Clear conversation</Trans>
-        </Button>
-      </div>
+      <Button
+        className="mt-5"
+        disabled={saving}
+        onClick={() => {
+          void enqueueSave({
+            name,
+            title,
+            description,
+            color,
+            notifyOnFinish,
+          });
+        }}
+      >
+        <Trans>Save</Trans>
+      </Button>
     </div>
   );
 }
