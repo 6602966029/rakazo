@@ -261,6 +261,7 @@ import {
   unchangedVisualStreakAfterPageBrowser,
 } from "./computer-tools.js";
 import { checkpointRunComputerWorkspace } from "./computer-workspace.js";
+import { connectApp } from "./connect-app.js";
 import { connectedContext, selectRunConnections } from "./connection-context.js";
 import { redactConnectorPayload, sanitizeConnectorError } from "./connector-safety.js";
 import { formatCurrentTimeInstruction } from "./current-time.js";
@@ -2737,7 +2738,10 @@ export interface ExecutorDeps {
   home: AgentHomeStore;
   artifacts?: ArtifactStore;
   connector?: ConnectorProvider;
-  connectors?: { managed(id: string): ManagedConnectorProvider | undefined };
+  connectors?: {
+    managed(id: string): ManagedConnectorProvider | undefined;
+    managedProviders?(): ManagedConnectorProvider[];
+  };
   secrets: string[];
   secretStore: SecretStore;
   deploymentModelKey?: string;
@@ -4514,10 +4518,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
           pendingProgress = "";
           lastProgressAt = Date.now();
         };
-        const publishMidTurnNarration = async () => {
+        const publishMidTurnNarration = async (beforeConnectCard = false) => {
           const extracted = extractNarrationText(messageSegments, currentTextSegment);
           const narration = clampUserProgressMessage(redactSecrets(extracted.text, runSecrets));
-          const canPublish = canPublishDurableNarration();
+          const canPublish =
+            canPublishDurableNarration() ||
+            (beforeConnectCard && runPromotesMidTurnNarration(run.trigger));
           if (
             narration &&
             !canPublish &&
@@ -4991,7 +4997,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // key) cannot collide with a later identical-args call in this attempt.
           // request_secret stays single-use: retries must reuse the same card.
           const occurrence =
-            name === "request_secret"
+            name === "request_secret" || name === "connect_app"
               ? 0
               : nextMutatingEffectOccurrence(replayEffectToolName, args);
           const effectKey =
@@ -6647,6 +6653,20 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 ? "The call is already closed and now carries your title. The user is reading, not listening: finish any remaining work as a normal chat reply with full formatting."
                 : "Call ended and your farewell was spoken. The user is now reading, not listening: finish any remaining work as a normal chat reply with full formatting.",
             });
+          }
+          if (name === "connect_app") {
+            await flushProgress();
+            await publishMidTurnNarration(true);
+            return finish(
+              await connectApp(
+                deps,
+                deps.connectors?.managedProviders?.() ?? [],
+                context,
+                run,
+                args.app,
+                applied?.effect.id ?? runScopedToolExecutionId(runId, executionId),
+              ),
+            );
           }
           if (name === "list_secrets") return listBotSecrets(deps.prisma, run);
           if (name === "forget_secret") {
@@ -9057,6 +9077,9 @@ function toolUsageLine(parts: {
     pageWorkClause(parts.pageBrowserAllowed, disabled),
     webLookupClause(disabled),
     ...secretGuidance(disabled),
+    builtinOffered(disabled, "connect_app")
+      ? "Use connect_app when an app needs connecting or the user asks to connect one, then wait for them."
+      : undefined,
     builtinOffered(disabled, "remember") ? "Use remember for durable facts." : undefined,
     scratchpadClause(disabled),
     builtinOffered(disabled, "request_takeover")
