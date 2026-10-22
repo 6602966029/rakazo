@@ -236,7 +236,7 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import { setInboxHidden, useSplitView } from "../lib/split-view";
-import { threadEdgeOptions } from "../lib/thread-edges";
+import { threadEdgeOptions, threadHeaderFloats } from "../lib/thread-edges";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
@@ -444,7 +444,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   // Beside the chat list on a wide window, the chat has only the width the list leaves.
   const { split, inboxHidden, contentWidth: windowWidth } = useSplitView();
   const nativeHeaderHeight = useHeaderHeight();
-  const headerHeight = iosAtLeast(26) ? nativeHeaderHeight : 0;
+  const headerHeight = threadHeaderFloats() ? nativeHeaderHeight : 0;
   const insets = useSafeAreaInsets();
   // An unfolded or tablet window keeps messages and the composer in a centred reading column.
   const columnInset = readableGutter(windowWidth, Math.max(insets.left, insets.right));
@@ -2508,7 +2508,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         behavior="padding"
         keyboardVerticalOffset={threadKeyboardOffset({
           os: Platform.OS,
-          floatingHeader: iosAtLeast(26),
+          floatingHeader: threadHeaderFloats(),
           nativeHeaderHeight,
           measuredOffset: keyboardLayout.offset,
         })}

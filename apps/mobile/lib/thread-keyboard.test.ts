@@ -17,11 +17,9 @@ describe("thread keyboard avoidance", () => {
     expect(avoidingView).toContain("measuredOffset: keyboardLayout.offset");
   });
 
-  // Before iOS 26 the opaque header pushes the chat down. A zero offset there lets the
-  // keyboard cover the composer.
-  it("offsets by the native header unless the header floats", () => {
+  it("uses the shared floating header decision", () => {
     expect(avoidingView).toContain("keyboardVerticalOffset={threadKeyboardOffset({");
-    expect(avoidingView).toContain("floatingHeader: iosAtLeast(26)");
+    expect(avoidingView).toContain("floatingHeader: threadHeaderFloats()");
     expect(avoidingView).toContain("nativeHeaderHeight,");
   });
 
