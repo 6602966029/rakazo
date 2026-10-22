@@ -10022,7 +10022,12 @@ async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMateria
     (provider === OPENAI_COMPATIBLE_PROVIDER_ID && Boolean(material.baseUrl)) ||
     (provider === "scripted" && deps.runtime?.describe().capabilities.scripted) ||
     (!credential && deployment.provider === provider && deployment.hostCredentials);
-  if (!material.apiKey?.trim() && !keyless) {
+  // Match Pi's OpenRouter fallback only when no explicit key overrides it.
+  const runtimeKey =
+    material.apiKey === undefined && (provider === "openrouter" || provider === "scripted")
+      ? process.env.OPENROUTER_API_KEY
+      : undefined;
+  if (!material.apiKey?.trim() && !runtimeKey?.trim() && !keyless) {
     throw new UnavailableModelForAuthError(MISSING_MODEL_MESSAGE);
   }
   const callObserver =
