@@ -354,6 +354,15 @@ describe("billing", () => {
     });
   });
 
+  it("records a blank survey as skipped", async () => {
+    await billingDeps(false).onboarding.signupSurvey({});
+    expect(upsertSignupSurvey).toHaveBeenLastCalledWith({
+      where: { userId: "user-1" },
+      create: { userId: "user-1", reason: null, use: null, teamSize: null, source: null },
+      update: { reason: null, use: null, teamSize: null, source: null },
+    });
+  });
+
   it("keeps team size only for work use", async () => {
     const client = billingDeps(false);
     await client.onboarding.signupSurvey({

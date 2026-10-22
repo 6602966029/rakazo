@@ -379,6 +379,19 @@ it("offers a quiet passkey sign-in only in sign-in mode on a supported server", 
   expect(buttonNamed("Sign in with passkey")).toBeUndefined();
 });
 
+it("asks the signup survey after an external sign-in creates the account", async () => {
+  vi.mocked(passwordResetCapabilities).mockResolvedValue({
+    ...capabilities,
+    passkeyRpId: "example.invalid",
+  });
+  vi.mocked(passkeysAvailable).mockResolvedValue(true);
+  vi.mocked(signInWithPasskey).mockResolvedValue(true);
+  vi.mocked(rpc).mockResolvedValue({ needsSignupSurvey: true });
+  await render();
+  await act(async () => buttonNamed("Sign in with passkey")!.click());
+  expect(router.replace).toHaveBeenCalledWith("/signup-survey");
+});
+
 it("hides passkey sign-in where the device or server cannot use it", async () => {
   await render();
   expect(buttonNamed("Sign in with passkey")).toBeUndefined();

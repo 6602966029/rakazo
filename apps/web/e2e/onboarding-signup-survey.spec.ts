@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, chooseOption, signup } from "./helpers";
 
-test("new hosted users can answer or skip the signup survey before their first chat", async ({
+test("new hosted users answer the signup survey before their first chat", async ({
   page,
 }, testInfo) => {
   // Local and CI servers do not bill, so stand in for the hosted service's flag.

@@ -957,4 +957,5 @@ export const ZH_MESSAGES: Record<string, string> = {
   "What are you hoping to use Rakazo for?": "你希望用 Rakazo 做什么？",
   "How big is your team?": "你的团队有多大？",
   "How did you hear about us?": "你是如何知道我们的？",
+  "Welcome to Rakazo": "欢迎使用 Rakazo",
 };

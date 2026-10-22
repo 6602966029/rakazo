@@ -182,9 +182,7 @@ export default function SignIn() {
       } else {
         await signIn(email.trim(), password);
       }
-      // A code can create the account from either form.
-      const me = mode === "up" || usingCode ? await rpc<MobileMe>("me").catch(() => null) : null;
-      router.replace(me?.needsSignupSurvey ? "/signup-survey" : "/");
+      await openApp();
     } catch (err) {
       setError(errorText(err, t("Could not continue")));
     } finally {
@@ -192,11 +190,17 @@ export default function SignIn() {
     }
   }
 
+  // Any sign-in can create the account (a code, SSO), so ask the server rather than the form.
+  async function openApp() {
+    const me = await rpc<MobileMe>("me").catch(() => null);
+    router.replace(me?.needsSignupSurvey ? "/signup-survey" : "/");
+  }
+
   async function externalSignIn(run: () => Promise<boolean>) {
     setPending(true);
     setError(null);
     try {
-      if (await run()) router.replace("/");
+      if (await run()) await openApp();
     } catch (err) {
       setError(errorText(err, t("Could not continue")));
     } finally {

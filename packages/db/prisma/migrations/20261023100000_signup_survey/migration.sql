@@ -10,3 +10,6 @@ CREATE TABLE "signup_surveys" (
 );
 
 ALTER TABLE "signup_surveys" ADD CONSTRAINT "signup_surveys_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Only accounts created from here on are asked; existing users count as skipped.
+INSERT INTO "signup_surveys" ("userId") SELECT "id" FROM "user";

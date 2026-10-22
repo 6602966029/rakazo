@@ -990,4 +990,5 @@ export const RU_MESSAGES: Record<string, string> = {
   "What are you hoping to use Rakazo for?": "Для чего вы хотите использовать Rakazo?",
   "How big is your team?": "Сколько человек в вашей команде?",
   "How did you hear about us?": "Как вы о нас узнали?",
+  "Welcome to Rakazo": "Добро пожаловать в Rakazo",
 };
