@@ -15,6 +15,7 @@ import {
   createConnectorStack,
   createJobReconciler,
   createMessagingContextLoader,
+  createModelCreditReconciler,
   createPostgresReconciliationLeadership,
   createProductAnalytics,
   createRoutineRetryNoticeReconciler,
@@ -24,6 +25,7 @@ import {
   createTicketChangeNotifier,
   createWebProvider,
   databaseCapacityBackoffMs,
+  deploymentModelUsageLookup,
   ExpoPushProvider,
   GraphileJobPublisher,
   GraphileJobWorkerHost,
@@ -299,6 +301,10 @@ async function main() {
     events,
     notifications,
     leadership: createPostgresReconciliationLeadership(pool),
+    reconcileModelCredits: createModelCreditReconciler({
+      prisma,
+      lookup: deploymentModelUsageLookup(),
+    }),
     reconcileCloudAgents: () => reconcileCloudAgents({ prisma, jobs, cloudAgent }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),
     reconcileRoutineRetryNotices: inMemoryJobs

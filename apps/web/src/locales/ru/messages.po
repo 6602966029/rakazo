@@ -300,6 +300,16 @@ msgstr "{workingBotName} работает"
 msgid "@{0}"
 msgstr "@{0}"
 
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "${0} / month"
+msgstr ""
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "${0} in monthly model credits. No API key needed."
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr ""
@@ -443,6 +453,10 @@ msgstr "Добавить резервную модель"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Add credits"
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
@@ -807,6 +821,10 @@ msgstr "Автоматические отправители появятся п�
 msgid "Available after the routine is saved"
 msgstr "Доступно после сохранения задачи"
 
+#: src/components/ModelCredits.tsx
+msgid "Available credits"
+msgstr ""
+
 #: src/pages/shell/bot-credentials.tsx
 msgid "Available to this bot's shell commands as {commandVariable}"
 msgstr "Доступна командам оболочки этого бота как {commandVariable}"
@@ -905,6 +923,10 @@ msgstr "Модель бота"
 
 #: src/pages/Artifacts.tsx
 msgid "Bots"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Bots and browser automation"
 msgstr ""
 
 #: src/pages/shell/transcript.tsx
@@ -1109,6 +1131,10 @@ msgstr "Выберите новый пароль"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
 msgstr "Выбрать файл"
+
+#: src/components/ModelCredits.tsx
+msgid "Choose how to use Rakazo"
+msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clear"
@@ -1424,10 +1450,18 @@ msgstr "Продолжить"
 msgid "Continue in Background"
 msgstr "Продолжить в фоне"
 
+#: src/components/ModelCredits.tsx
+msgid "Continue to checkout"
+msgstr ""
+
 #. placeholder {0}: reset.sso.name
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "Продолжить с {0}"
+
+#: src/components/ModelCredits.tsx
+msgid "Continue with credits"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Continue with email"
@@ -1704,7 +1738,9 @@ msgstr "Не удалось загрузить голосовые настрой
 msgid "Could not log out. Try again."
 msgstr "Не удалось выйти. Попробуйте ещё раз."
 
+#: src/components/ModelCredits.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Onboarding.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"
 msgstr ""
@@ -1871,6 +1907,10 @@ msgstr "Не удалось обновить"
 msgid "Could not update agent access"
 msgstr "Не удалось обновить доступ агента."
 
+#: src/components/ModelCredits.tsx
+msgid "Could not update billing"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Could not update computer"
 msgstr "Не удалось обновить компьютер"
@@ -1975,6 +2015,10 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 msgid "Credentials are encrypted and never sent to the model."
 msgstr "Учётные данные зашифрованы и никогда не передаются модели."
+
+#: src/components/ModelCredits.tsx
+msgid "Credit amount"
+msgstr ""
 
 #: src/pages/RoutineSchedule.tsx
 msgid "Cron"
@@ -2238,6 +2282,10 @@ msgstr "У вас нет учетной записи?"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
 msgstr "Готово"
+
+#: src/components/ModelCredits.tsx
+msgid "Downgrade at renewal"
+msgstr ""
 
 #: src/pages/Artifacts.tsx
 msgid "Download"
@@ -2537,6 +2585,7 @@ msgstr "Пометить неожиданные действия"
 msgid "Forgot password?"
 msgstr "Забыли пароль?"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/model-settings/model-picker.tsx
 msgid "Free"
 msgstr "Бесплатно"
@@ -2956,6 +3005,7 @@ msgstr ""
 msgid "Local Server Settings"
 msgstr "Настройки локального сервера"
 
+#: src/components/ModelCredits.tsx
 #: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
 msgid "Log out"
@@ -2984,6 +3034,7 @@ msgstr ""
 msgid "Manage"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Manage billing"
 msgstr ""
@@ -3205,6 +3256,10 @@ msgstr "Модель обновлена."
 msgid "Models"
 msgstr "Модели"
 
+#: src/components/ModelCredits.tsx
+msgid "Models at provider cost"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Models for the server owner’s default space."
 msgstr "Модели для пространства владельца сервера по умолчанию."
@@ -3225,6 +3280,14 @@ msgstr ""
 #: src/pages/RoutineSchedule.tsx
 msgid "Monthly"
 msgstr "Ежемесячно"
+
+#: src/components/ModelCredits.tsx
+msgid "Monthly credits"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Monthly credits expire at renewal. Top-ups do not expire."
+msgstr ""
 
 #: src/pages/shell/message-hover-actions.tsx
 msgid "More"
@@ -3543,6 +3606,10 @@ msgstr "По расписанию"
 msgid "on the 1st at {0}"
 msgstr "1-го числа в {0}"
 
+#: src/components/ModelCredits.tsx
+msgid "One-time purchase. Credits do not expire."
+msgstr ""
+
 #: src/pages/Shell.tsx
 msgid "Only empty spaces can be deleted. Delete its bots and groups first."
 msgstr "Удалить можно только пустые пространства. Сначала удалите их ботов и группы."
@@ -3727,6 +3794,10 @@ msgstr "Вставьте API-ключ и повторите тест."
 msgid "Paused"
 msgstr "Приостановлено"
 
+#: src/components/ModelCredits.tsx
+msgid "Pay your model provider directly."
+msgstr ""
+
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
 msgstr "Телефонный звонок"
@@ -3833,6 +3904,10 @@ msgstr "В очереди"
 
 #: src/pages/shell/quote-selection-button.tsx
 msgid "Quote"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Rakazo credits"
 msgstr ""
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
@@ -3943,9 +4018,14 @@ msgstr "URI перенаправления"
 
 #: src/App.tsx
 #: src/components/ErrorBoundary.tsx
+#: src/components/ModelCredits.tsx
 #: src/pages/RoutineRunHistory.tsx
 msgid "Refresh"
 msgstr "Обновить"
+
+#: src/components/ModelCredits.tsx
+msgid "Refresh credits"
+msgstr ""
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Refresh view"
@@ -4325,6 +4405,10 @@ msgstr "Сохранение…"
 #: src/lib/call-session.ts
 msgid "Say yes or no, or answer in a sentence."
 msgstr "Скажите «да» или «нет» или ответьте предложением."
+
+#: src/components/ModelCredits.tsx
+msgid "Scheduled routines"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Scopes (optional)"
@@ -4729,6 +4813,7 @@ msgstr "субагент"
 msgid "Submit"
 msgstr "Отправить"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Subscribe"
 msgstr ""
@@ -4998,6 +5083,10 @@ msgstr "Источники инструментов"
 msgid "Tools"
 msgstr "Инструменты"
 
+#: src/components/ModelCredits.tsx
+msgid "Top up anytime"
+msgstr ""
+
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
 msgstr "Распознаю…"
@@ -5094,6 +5183,7 @@ msgstr "Неподдерживаемый тип файла: {0}."
 msgid "Up to date"
 msgstr "Актуально"
 
+#: src/components/ModelCredits.tsx
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Update"
 msgstr "Обновить"
@@ -5157,6 +5247,10 @@ msgstr "Обновление компьютера команды"
 msgid "Updating…"
 msgstr "Обновление…"
 
+#: src/components/ModelCredits.tsx
+msgid "Upgrade now"
+msgstr ""
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Upload"
 msgstr "Загрузить"
@@ -5202,12 +5296,21 @@ msgstr "Использовать рекомендации по умолчани�
 msgid "Use email code"
 msgstr "Использовать код из письма"
 
+#: src/components/ModelCredits.tsx
+msgid "Use my API key"
+msgstr ""
+
 #: src/pages/Auth.tsx
 msgid "Use password"
 msgstr "Использовать пароль"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+#: src/pages/Onboarding.tsx
+msgid "Use Rakazo credits"
 msgstr ""
 
 #: src/pages/model-settings/connection-controls.tsx
@@ -5234,6 +5337,10 @@ msgstr ""
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "Использует собственные учётные данные {hostCredentialSource} этого сервера для доступа к {selectedProviderName}."
+
+#: src/components/ModelCredits.tsx
+msgid "Using your API key"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -5281,6 +5388,10 @@ msgstr "Ожидание в очереди…"
 #: src/pages/shell/message-cards.tsx
 msgid "Waiting…"
 msgstr "Ожидание…"
+
+#: src/components/ModelCredits.tsx
+msgid "Web, desktop and mobile"
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Web, desktop and mobile apps"
@@ -5399,6 +5510,10 @@ msgstr "Вы управляете"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Ваш Anthropic"
+
+#: src/components/ModelCredits.tsx
+msgid "Your API key"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

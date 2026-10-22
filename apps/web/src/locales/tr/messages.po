@@ -300,6 +300,16 @@ msgstr "{workingBotName} çalışıyor"
 msgid "@{0}"
 msgstr "@{0}"
 
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "${0} / month"
+msgstr ""
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "${0} in monthly model credits. No API key needed."
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr ""
@@ -443,6 +453,10 @@ msgstr "Yedek model ekle"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Add credits"
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
@@ -807,6 +821,10 @@ msgstr ""
 msgid "Available after the routine is saved"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
+msgid "Available credits"
+msgstr ""
+
 #: src/pages/shell/bot-credentials.tsx
 msgid "Available to this bot's shell commands as {commandVariable}"
 msgstr "Bu botun kabuk komutlarında {commandVariable} olarak kullanılabilir"
@@ -905,6 +923,10 @@ msgstr "Botun modeli"
 
 #: src/pages/Artifacts.tsx
 msgid "Bots"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Bots and browser automation"
 msgstr ""
 
 #: src/pages/shell/transcript.tsx
@@ -1109,6 +1131,10 @@ msgstr "Yeni bir parola seçin"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
 msgstr "Dosya seç"
+
+#: src/components/ModelCredits.tsx
+msgid "Choose how to use Rakazo"
+msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clear"
@@ -1424,10 +1450,18 @@ msgstr "Devam"
 msgid "Continue in Background"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
+msgid "Continue to checkout"
+msgstr ""
+
 #. placeholder {0}: reset.sso.name
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "{0} ile devam et"
+
+#: src/components/ModelCredits.tsx
+msgid "Continue with credits"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Continue with email"
@@ -1704,7 +1738,9 @@ msgstr "Ses ayarları yüklenemedi"
 msgid "Could not log out. Try again."
 msgstr "Çıkış yapılamadı. Tekrar deneyin."
 
+#: src/components/ModelCredits.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Onboarding.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"
 msgstr ""
@@ -1871,6 +1907,10 @@ msgstr "Güncellenemedi"
 msgid "Could not update agent access"
 msgstr "Agent erişimi güncellenemedi"
 
+#: src/components/ModelCredits.tsx
+msgid "Could not update billing"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Could not update computer"
 msgstr ""
@@ -1975,6 +2015,10 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 msgid "Credentials are encrypted and never sent to the model."
 msgstr "Kimlik bilgileri şifrelenir ve modele asla gönderilmez."
+
+#: src/components/ModelCredits.tsx
+msgid "Credit amount"
+msgstr ""
 
 #: src/pages/RoutineSchedule.tsx
 msgid "Cron"
@@ -2238,6 +2282,10 @@ msgstr "Hesabın yok mu?"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
 msgstr "Bitti"
+
+#: src/components/ModelCredits.tsx
+msgid "Downgrade at renewal"
+msgstr ""
 
 #: src/pages/Artifacts.tsx
 msgid "Download"
@@ -2537,6 +2585,7 @@ msgstr ""
 msgid "Forgot password?"
 msgstr "Parolanızı mı unuttunuz?"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/model-settings/model-picker.tsx
 msgid "Free"
 msgstr ""
@@ -2956,6 +3005,7 @@ msgstr ""
 msgid "Local Server Settings"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
 msgid "Log out"
@@ -2984,6 +3034,7 @@ msgstr "Bu bilgisayarda hâlâ çalışan bir şey olmadığından emin ol."
 msgid "Manage"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Manage billing"
 msgstr ""
@@ -3205,6 +3256,10 @@ msgstr "Model güncellendi."
 msgid "Models"
 msgstr "Modeller"
 
+#: src/components/ModelCredits.tsx
+msgid "Models at provider cost"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Models for the server owner’s default space."
 msgstr ""
@@ -3225,6 +3280,14 @@ msgstr ""
 #: src/pages/RoutineSchedule.tsx
 msgid "Monthly"
 msgstr "Aylık"
+
+#: src/components/ModelCredits.tsx
+msgid "Monthly credits"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Monthly credits expire at renewal. Top-ups do not expire."
+msgstr ""
 
 #: src/pages/shell/message-hover-actions.tsx
 msgid "More"
@@ -3543,6 +3606,10 @@ msgstr ""
 msgid "on the 1st at {0}"
 msgstr "her ayın 1'inde saat {0}"
 
+#: src/components/ModelCredits.tsx
+msgid "One-time purchase. Credits do not expire."
+msgstr ""
+
 #: src/pages/Shell.tsx
 msgid "Only empty spaces can be deleted. Delete its bots and groups first."
 msgstr ""
@@ -3727,6 +3794,10 @@ msgstr "API anahtarını yapıştır, sonra yeniden test et."
 msgid "Paused"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
+msgid "Pay your model provider directly."
+msgstr ""
+
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
 msgstr ""
@@ -3833,6 +3904,10 @@ msgstr "Kuyrukta"
 
 #: src/pages/shell/quote-selection-button.tsx
 msgid "Quote"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Rakazo credits"
 msgstr ""
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
@@ -3943,9 +4018,14 @@ msgstr "Yönlendirme URI'si"
 
 #: src/App.tsx
 #: src/components/ErrorBoundary.tsx
+#: src/components/ModelCredits.tsx
 #: src/pages/RoutineRunHistory.tsx
 msgid "Refresh"
 msgstr "Yenile"
+
+#: src/components/ModelCredits.tsx
+msgid "Refresh credits"
+msgstr ""
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Refresh view"
@@ -4325,6 +4405,10 @@ msgstr "Kaydediliyor…"
 #: src/lib/call-session.ts
 msgid "Say yes or no, or answer in a sentence."
 msgstr "Evet ya da hayır de veya bir cümleyle yanıtla."
+
+#: src/components/ModelCredits.tsx
+msgid "Scheduled routines"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Scopes (optional)"
@@ -4729,6 +4813,7 @@ msgstr "alt ajan"
 msgid "Submit"
 msgstr "Gönder"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Subscribe"
 msgstr ""
@@ -4998,6 +5083,10 @@ msgstr "Araç kaynakları"
 msgid "Tools"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
+msgid "Top up anytime"
+msgstr ""
+
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
 msgstr ""
@@ -5094,6 +5183,7 @@ msgstr "Desteklenmeyen dosya türü: {0}"
 msgid "Up to date"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Update"
 msgstr ""
@@ -5157,6 +5247,10 @@ msgstr ""
 msgid "Updating…"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
+msgid "Upgrade now"
+msgstr ""
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Upload"
 msgstr "Yükle"
@@ -5202,12 +5296,21 @@ msgstr ""
 msgid "Use email code"
 msgstr "E-posta kodu kullan"
 
+#: src/components/ModelCredits.tsx
+msgid "Use my API key"
+msgstr ""
+
 #: src/pages/Auth.tsx
 msgid "Use password"
 msgstr "Parola kullan"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+#: src/pages/Onboarding.tsx
+msgid "Use Rakazo credits"
 msgstr ""
 
 #: src/pages/model-settings/connection-controls.tsx
@@ -5234,6 +5337,10 @@ msgstr ""
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "{selectedProviderName} erişimi için bu sunucunun kendi {hostCredentialSource} kimlik bilgilerini kullanır."
+
+#: src/components/ModelCredits.tsx
+msgid "Using your API key"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -5281,6 +5388,10 @@ msgstr "Sırada bekleniyor…"
 #: src/pages/shell/message-cards.tsx
 msgid "Waiting…"
 msgstr "Bekleniyor…"
+
+#: src/components/ModelCredits.tsx
+msgid "Web, desktop and mobile"
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Web, desktop and mobile apps"
@@ -5399,6 +5510,10 @@ msgstr "Kontrol sende"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Anthropic sağlayıcınız"
+
+#: src/components/ModelCredits.tsx
+msgid "Your API key"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

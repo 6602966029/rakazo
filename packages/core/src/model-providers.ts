@@ -154,6 +154,7 @@ export type ConnectedModelChoice = {
 };
 
 type CatalogModelRef = {
+  managed?: boolean;
   provider: string;
   id: string;
   label: string;
@@ -325,13 +326,14 @@ export function connectedModelChoices(
         : raw && !resolvedInCatalog
           ? [freeFormChoice(credential, resolved || raw)]
           : catalogChoices(providerModels);
-    for (const choice of next) {
-      if (seen.has(choice.key)) continue;
-      seen.add(choice.key);
-      choices.push(choice);
-    }
+    choices.push(...next);
   }
-  return choices;
+  choices.push(...catalogChoices(catalog.filter((entry) => entry.managed && !entry.placeholder)));
+  return choices.filter((choice) => {
+    if (seen.has(choice.key)) return false;
+    seen.add(choice.key);
+    return true;
+  });
 }
 
 /** Match a model by name, id, or provider name; a blank query keeps every model. */

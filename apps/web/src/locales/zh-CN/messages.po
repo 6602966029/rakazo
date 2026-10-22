@@ -300,6 +300,16 @@ msgstr "{workingBotName} 正在工作"
 msgid "@{0}"
 msgstr "@{0}"
 
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "${0} / month"
+msgstr ""
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "${0} in monthly model credits. No API key needed."
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr "什么都做一点"
@@ -443,6 +453,10 @@ msgstr "添加备用模型"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Add credits"
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
@@ -807,6 +821,10 @@ msgstr ""
 msgid "Available after the routine is saved"
 msgstr "保存例行任务后可用"
 
+#: src/components/ModelCredits.tsx
+msgid "Available credits"
+msgstr ""
+
 #: src/pages/shell/bot-credentials.tsx
 msgid "Available to this bot's shell commands as {commandVariable}"
 msgstr "此机器人的 Shell 命令可通过 {commandVariable} 使用"
@@ -905,6 +923,10 @@ msgstr "Bot 的模型"
 
 #: src/pages/Artifacts.tsx
 msgid "Bots"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Bots and browser automation"
 msgstr ""
 
 #: src/pages/shell/transcript.tsx
@@ -1109,6 +1131,10 @@ msgstr "设置新密码"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
 msgstr "选择文件"
+
+#: src/components/ModelCredits.tsx
+msgid "Choose how to use Rakazo"
+msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clear"
@@ -1424,10 +1450,18 @@ msgstr "继续"
 msgid "Continue in Background"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
+msgid "Continue to checkout"
+msgstr ""
+
 #. placeholder {0}: reset.sso.name
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "通过 {0} 继续"
+
+#: src/components/ModelCredits.tsx
+msgid "Continue with credits"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Continue with email"
@@ -1704,7 +1738,9 @@ msgstr "无法加载语音设置"
 msgid "Could not log out. Try again."
 msgstr "无法退出登录。请重试。"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/Onboarding.tsx
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"
 msgstr ""
@@ -1871,6 +1907,10 @@ msgstr "无法更新"
 msgid "Could not update agent access"
 msgstr "无法更新 Agent 权限"
 
+#: src/components/ModelCredits.tsx
+msgid "Could not update billing"
+msgstr ""
+
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Could not update computer"
 msgstr "无法更新电脑"
@@ -1975,6 +2015,10 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 msgid "Credentials are encrypted and never sent to the model."
 msgstr "凭据已加密，不会发送给模型。"
+
+#: src/components/ModelCredits.tsx
+msgid "Credit amount"
+msgstr ""
 
 #: src/pages/RoutineSchedule.tsx
 msgid "Cron"
@@ -2238,6 +2282,10 @@ msgstr "还没有账户？"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Done"
 msgstr "完成"
+
+#: src/components/ModelCredits.tsx
+msgid "Downgrade at renewal"
+msgstr ""
 
 #: src/pages/Artifacts.tsx
 msgid "Download"
@@ -2537,6 +2585,7 @@ msgstr "标记异常操作"
 msgid "Forgot password?"
 msgstr "忘记密码？"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/model-settings/model-picker.tsx
 msgid "Free"
 msgstr "免费"
@@ -2956,6 +3005,7 @@ msgstr ""
 msgid "Local Server Settings"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
 msgid "Log out"
@@ -2984,6 +3034,7 @@ msgstr "请确认这台电脑上没有仍在运行的任务。"
 msgid "Manage"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Manage billing"
 msgstr ""
@@ -3205,6 +3256,10 @@ msgstr "模型已更新。"
 msgid "Models"
 msgstr "模型"
 
+#: src/components/ModelCredits.tsx
+msgid "Models at provider cost"
+msgstr ""
+
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Models for the server owner’s default space."
 msgstr ""
@@ -3225,6 +3280,14 @@ msgstr ""
 #: src/pages/RoutineSchedule.tsx
 msgid "Monthly"
 msgstr "每月"
+
+#: src/components/ModelCredits.tsx
+msgid "Monthly credits"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Monthly credits expire at renewal. Top-ups do not expire."
+msgstr ""
 
 #: src/pages/shell/message-hover-actions.tsx
 msgid "More"
@@ -3543,6 +3606,10 @@ msgstr "按计划"
 msgid "on the 1st at {0}"
 msgstr "每月 1 日 {0}"
 
+#: src/components/ModelCredits.tsx
+msgid "One-time purchase. Credits do not expire."
+msgstr ""
+
 #: src/pages/Shell.tsx
 msgid "Only empty spaces can be deleted. Delete its bots and groups first."
 msgstr ""
@@ -3727,6 +3794,10 @@ msgstr "请粘贴你的 API 密钥，然后重新测试。"
 msgid "Paused"
 msgstr "已暂停"
 
+#: src/components/ModelCredits.tsx
+msgid "Pay your model provider directly."
+msgstr ""
+
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
 msgstr ""
@@ -3833,6 +3904,10 @@ msgstr "排队中"
 
 #: src/pages/shell/quote-selection-button.tsx
 msgid "Quote"
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Rakazo credits"
 msgstr ""
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
@@ -3943,9 +4018,14 @@ msgstr "重定向 URI"
 
 #: src/App.tsx
 #: src/components/ErrorBoundary.tsx
+#: src/components/ModelCredits.tsx
 #: src/pages/RoutineRunHistory.tsx
 msgid "Refresh"
 msgstr "刷新"
+
+#: src/components/ModelCredits.tsx
+msgid "Refresh credits"
+msgstr ""
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Refresh view"
@@ -4325,6 +4405,10 @@ msgstr "正在保存…"
 #: src/lib/call-session.ts
 msgid "Say yes or no, or answer in a sentence."
 msgstr "回答是或否，或一句话说明。"
+
+#: src/components/ModelCredits.tsx
+msgid "Scheduled routines"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Scopes (optional)"
@@ -4729,6 +4813,7 @@ msgstr "子 Agent"
 msgid "Submit"
 msgstr "提交"
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Subscribe"
 msgstr ""
@@ -4998,6 +5083,10 @@ msgstr "工具源"
 msgid "Tools"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
+msgid "Top up anytime"
+msgstr ""
+
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
 msgstr ""
@@ -5094,6 +5183,7 @@ msgstr "不支持的文件类型：{0}"
 msgid "Up to date"
 msgstr "已是最新"
 
+#: src/components/ModelCredits.tsx
 #: src/components/SoftwareUpdateSection.tsx
 msgid "Update"
 msgstr "更新"
@@ -5157,6 +5247,10 @@ msgstr ""
 msgid "Updating…"
 msgstr "正在更新…"
 
+#: src/components/ModelCredits.tsx
+msgid "Upgrade now"
+msgstr ""
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Upload"
 msgstr "上传"
@@ -5202,12 +5296,21 @@ msgstr ""
 msgid "Use email code"
 msgstr "使用邮箱验证码"
 
+#: src/components/ModelCredits.tsx
+msgid "Use my API key"
+msgstr ""
+
 #: src/pages/Auth.tsx
 msgid "Use password"
 msgstr "使用密码"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
+msgstr ""
+
+#: src/components/ModelCredits.tsx
+#: src/pages/Onboarding.tsx
+msgid "Use Rakazo credits"
 msgstr ""
 
 #: src/pages/model-settings/connection-controls.tsx
@@ -5234,6 +5337,10 @@ msgstr ""
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Uses this server's own {hostCredentialSource} credentials to access {selectedProviderName}."
 msgstr "使用此服务器自己的 {hostCredentialSource} 凭据访问 {selectedProviderName}。"
+
+#: src/components/ModelCredits.tsx
+msgid "Using your API key"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -5281,6 +5388,10 @@ msgstr "排队等候…"
 #: src/pages/shell/message-cards.tsx
 msgid "Waiting…"
 msgstr "等待中…"
+
+#: src/components/ModelCredits.tsx
+msgid "Web, desktop and mobile"
+msgstr ""
 
 #: src/pages/Paywall.tsx
 msgid "Web, desktop and mobile apps"
@@ -5399,6 +5510,10 @@ msgstr "你已接管"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "你的 Anthropic"
+
+#: src/components/ModelCredits.tsx
+msgid "Your API key"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgid "Your email address"
