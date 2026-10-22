@@ -10,6 +10,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Edit label": "Label bearbeiten",
   "Edit name": "Namen bearbeiten",
   "Add a label": "Label hinzufügen",
+  "Pick a chat": "Wähle einen Chat",
   "Add an AI model to keep chatting": "Füge ein KI-Modell hinzu, um weiterzuchatten",
   "Not Now": "Jetzt nicht",
   "Add Model": "Modell hinzufügen",

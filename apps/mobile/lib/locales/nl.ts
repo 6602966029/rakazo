@@ -10,6 +10,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Edit label": "Label bewerken",
   "Edit name": "Naam bewerken",
   "Add a label": "Label toevoegen",
+  "Pick a chat": "Kies een chat",
   "Add an AI model to keep chatting": "Voeg een AI-model toe om verder te chatten",
   "Not Now": "Niet nu",
   "Add Model": "Model toevoegen",

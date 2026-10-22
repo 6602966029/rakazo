@@ -10,6 +10,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Edit label": "编辑标签",
   "Edit name": "编辑名称",
   "Add a label": "添加标签",
+  "Pick a chat": "选择聊天",
   "Add an AI model to keep chatting": "添加一个 AI 模型以继续聊天",
   "Not Now": "暂不",
   "Add Model": "添加模型",

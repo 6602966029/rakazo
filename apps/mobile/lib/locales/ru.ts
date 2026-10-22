@@ -10,6 +10,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Edit label": "Изменить метку",
   "Edit name": "Изменить имя",
   "Add a label": "Добавить метку",
+  "Pick a chat": "Выберите чат",
   "Add an AI model to keep chatting": "Добавьте ИИ-модель, чтобы продолжить общение",
   "Not Now": "Не сейчас",
   "Add Model": "Добавить модель",
