@@ -8,6 +8,19 @@ export const threadScrollEdgeEffects = {
   right: "hidden",
 } as const;
 
+export const THREAD_HEADER_FADE_SOLID = 16;
+export const THREAD_HEADER_FADE_GRADIENT = 32;
+
+export function threadHeaderClearance(headerHeight: number) {
+  const fadeHeight = headerHeight > 0 ? THREAD_HEADER_FADE_SOLID + THREAD_HEADER_FADE_GRADIENT : 0;
+  return {
+    opaqueHeight: headerHeight > 0 ? headerHeight + THREAD_HEADER_FADE_SOLID : 0,
+    padding: headerHeight + fadeHeight + 8,
+    anchor: headerHeight + fadeHeight + 24,
+    minHeight: headerHeight > 0 ? headerHeight + fadeHeight + 8 : 0,
+  };
+}
+
 export function threadHeaderFloats() {
   return Platform.OS === "ios";
 }

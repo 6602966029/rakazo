@@ -5,7 +5,13 @@ import { ScrollViewMarker } from "react-native-screens/experimental";
 import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadScrollSurface } from "../components/thread-scroll-surface";
-import { threadEdgeOptions, threadHeaderFloats, threadScrollEdgeEffects } from "./thread-edges";
+import {
+  THREAD_HEADER_FADE_GRADIENT,
+  threadEdgeOptions,
+  threadHeaderClearance,
+  threadHeaderFloats,
+  threadScrollEdgeEffects,
+} from "./thread-edges";
 
 vi.mock("react-native", () => ({ Platform: { OS: "ios", Version: 26 } }));
 vi.mock("react-native-screens/experimental", () => ({ ScrollViewMarker: () => null }));
@@ -62,12 +68,12 @@ describe("thread scroll edges", () => {
   it("uses the floating header height for message clearance and the fade", () => {
     const source = readFileSync(new URL("../app/thread.tsx", import.meta.url), "utf8");
     expect(source).toContain("const headerHeight = threadHeaderFloats() ? nativeHeaderHeight : 0;");
-    expect(source).toContain("paddingBottom: headerHeight + 8");
-    expect(source).toContain("paddingTop: headerHeight + 8");
+    expect(source).toContain("paddingBottom: headerClearance.padding");
+    expect(source).toContain("paddingTop: headerClearance.padding");
     expect(source).toContain("paddingTop: readOnly ? insets.bottom + 16 : 16");
-    expect(source).toContain("minHeight: headerHeight");
-    expect(source).toContain("jumpAnchor.current.align(headerHeight + 24)");
-    expect(source).toContain("styles.headerFade, { height: headerHeight }");
+    expect(source).toContain("minHeight: headerClearance.minHeight");
+    expect(source).toContain("jumpAnchor.current.align(headerClearance.anchor)");
+    expect(source).toContain("styles.headerFade, { height: headerClearance.opaqueHeight }");
     expect(source).toContain("<View style={styles.headerFadeEdge} />");
   });
 
@@ -98,5 +104,25 @@ describe("thread scroll edges", () => {
       `key={\`pinned:\${jumpScrollTarget.current ?? pinnedTarget?.messageId ?? threadKey}\`}`,
       `key={\`live:\${threadKey}\`}`,
     ]);
+  });
+});
+
+it.each([64, 96, 120])(
+  "keeps messages and jump targets beyond the fade at header height %s",
+  (height) => {
+    const clearance = threadHeaderClearance(height);
+    const fadeEnd = clearance.opaqueHeight + THREAD_HEADER_FADE_GRADIENT;
+    expect(clearance.padding).toBeGreaterThan(fadeEnd);
+    expect(clearance.anchor).toBeGreaterThan(fadeEnd);
+    expect(clearance.minHeight).toBeGreaterThan(fadeEnd);
+  },
+);
+
+it("preserves Android clearance without a floating header", () => {
+  expect(threadHeaderClearance(0)).toEqual({
+    opaqueHeight: 0,
+    padding: 8,
+    anchor: 24,
+    minHeight: 0,
   });
 });
