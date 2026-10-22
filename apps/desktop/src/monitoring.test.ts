@@ -167,4 +167,25 @@ describe("desktop monitoring", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     expect(failed).toHaveBeenCalledTimes(2);
   });
+  it("identifies the current user when a retry recovers after cookie changes", async () => {
+    vi.useFakeTimers();
+    const monitor = await import("./monitoring.js");
+    const fetchConfig = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockImplementation(
+        config({ dsn: "https://key@errors.example.com/8", userId: "b".repeat(64) }),
+      );
+    await monitor.configureDesktopMonitoring(fetchConfig, options);
+    await monitor.refreshDesktopMonitoringUser(
+      config({ dsn: "https://key@errors.example.com/8", userId: "b".repeat(64) }),
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+    const initialized = sdk.init.mock.calls[0]![0];
+    expect(
+      initialized.beforeSend({ platform: "node", tags: { "monitoring.connection": 1 } }, {}).user
+        .id,
+    ).toBe("b".repeat(64));
+    monitor.disableDesktopMonitoring();
+  });
 });

@@ -58,7 +58,7 @@ export function configureDesktopMonitoring(
   clearTimeout(retryTimer);
   retryTimer = undefined;
   const current = ++generation;
-  const identification = ++identifications;
+  identifications++;
   if (selected) errors.reset();
   selected = true;
   if (sdk) disableNativeCrashReporting();
@@ -82,6 +82,7 @@ export function configureDesktopMonitoring(
   };
   const attempt = async () => {
     if (current !== generation) return;
+    const identification = identifications;
     let config: MonitoringConfig;
     try {
       const response = await fetchConfig();
