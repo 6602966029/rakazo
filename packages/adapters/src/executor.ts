@@ -117,6 +117,7 @@ import {
 import type { McpServer, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
+  countUnreadInboxChats,
   createSpaceForMember,
   createThreadMessageInTransaction,
   effectiveMemoryScope,
@@ -125,8 +126,10 @@ import {
   InvalidSpaceNameError,
   isTooManyDatabaseConnections,
   loadRunHistoryMessages,
+  loadRunTurnCheckpoint,
   Prisma,
   parseComputerMode,
+  RUN_TURN_CHECKPOINT_KIND,
   RunHistoryWriteError,
   readHistory,
   recordUsage,
@@ -134,6 +137,7 @@ import {
   retireModelCredential,
   runAsSystem,
   SpaceLimitError,
+  saveRunTurnCheckpoint,
   searchHistory,
   settleReleasedTakeoverCards,
   validateInstructionProposal,
@@ -307,8 +311,13 @@ import { loadAgentMemoryContext } from "./memory-context.js";
 import type { MemoryProviderResolver } from "./memory-provider-factory.js";
 import { appendMemoryFact, selectMemoryTools } from "./memory-tools.js";
 import {
+  HostedModelCreditsRequiredError,
+  hostedModelCreditObserver,
+} from "./model-credit-observer.js";
+import {
   enabledOpenAiCompatibleModelIds,
   findConnectedModelCredential,
+  hasHostedModelCredits,
   pinnedModelCredentialError,
   routineRunModelPin,
   runModelChoice,
@@ -341,6 +350,7 @@ import {
   serializeModelSecret,
   withModelCredentialLock,
 } from "./pi-oauth.js";
+import { namedAgentTools } from "./pi-runtime.js";
 import type { PlotSpec } from "./plot-tool.js";
 import {
   assertPlotDataWithinLimits,
@@ -350,7 +360,6 @@ import {
   renderPlotSpecToSvg,
   searchChartCatalog,
 } from "./plot-tool.js";
-import { actorMayUsePrivateEndpoint } from "./private-endpoint.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
@@ -366,6 +375,7 @@ import {
   secretPausedToolResult,
   tryCompleteConnectionWithCode,
 } from "./run-secret.js";
+import { restoreTurnCheckpoint, unresolvedTurnCheckpointCalls } from "./turn-checkpoint.js";
 
 export { selectRunConnections } from "./connection-context.js";
 
@@ -2744,6 +2754,7 @@ export interface ExecutorDeps {
   };
   secrets: string[];
   secretStore: SecretStore;
+  billingEnabled?: boolean;
   deploymentModelKey?: string;
   /** The deployment default model can run; see resolveDeploymentModel. */
   deploymentModelConfigured?: boolean;
@@ -2765,7 +2776,7 @@ export interface ExecutorDeps {
   /** Page browser (DOM refs) on the bot computer. Defaults to the sandbox live browser when supported. */
   browser?: BrowserProvider;
   secretHttp?: RemoteTransportDependencies;
-  /** Allow RFC1918 / Docker-network MCP URLs when the deployment owner enabled the escape. */
+  /** Allow RFC1918 / Docker-network MCP URLs when the operator enabled the escape. */
   mcpAllowPrivateEndpoint?: boolean;
   /** Remote cloud coding agents. Null/omit means tools stay uninjected. */
   cloudAgent?: CloudAgentConnection | null;
@@ -3044,6 +3055,7 @@ export function buildApprovalContinuation(
 export function isTerminalModelSetupError(error: unknown): boolean {
   return (
     error instanceof UnavailableModelForAuthError ||
+    error instanceof HostedModelCreditsRequiredError ||
     isRetiredModelCredentialError(error) ||
     (error instanceof Error && error.message === CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE)
   );
@@ -3062,12 +3074,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
     registerSecrets?: (values: string[]) => void,
     requireStoredSecret = false,
   ): Promise<AgentRunRequest["model"]> => {
+    const hostedProvider = (await modelCreditBillingEnabled(deps))
+      ? resolveDeploymentModel().provider
+      : undefined;
     const validationError = await validateConnectedModelChoice(
       deps.prisma,
       deps.secretStore,
       scope,
       provider,
       modelId,
+      { hostedProvider },
     );
     if (validationError) throw new Error(validationError);
     const credential = await findConnectedModelCredential(
@@ -3077,7 +3093,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
       provider,
       modelId,
     );
-    if (!credential) throw new Error("Connect that model provider first");
+    if (
+      !credential &&
+      !((await modelCreditBillingEnabled(deps)) && provider === resolveDeploymentModel().provider)
+    )
+      throw new Error("Connect that model provider first");
     const resolved = await resolveModelKey(
       deps,
       scope.userId,
@@ -3092,6 +3112,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       provider,
       id: modelId,
       apiKey: resolved.oauth ? undefined : resolved.apiKey,
+      callObserver: resolved.callObserver,
       ...cloudflareRunFields(resolved),
       baseUrl: resolved.baseUrl,
       allowPrivateEndpoint: resolved.allowPrivateEndpoint,
@@ -3103,8 +3124,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
       acceptsImages: resolved.acceptsImages,
       maxImagesPerPrompt: resolved.maxImagesPerPrompt,
       thinkingLevel:
-        ((credential.defaultModel === modelId
-          ? credential.thinkingLevel
+        ((credential?.defaultModel === modelId
+          ? credential?.thinkingLevel
           : null) as AgentRunRequest["model"]["thinkingLevel"]) ??
         resolved.thinkingLevel ??
         null,
@@ -3156,6 +3177,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
         overrideCredential,
         defaultCredential,
         settings,
+        hostedProvider: (await modelCreditBillingEnabled(deps))
+          ? resolveDeploymentModel().provider
+          : undefined,
         deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
       });
       const { credential, thinkingLevel } = selected;
@@ -3179,6 +3203,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         provider,
         id,
         apiKey: resolved.oauth ? undefined : resolved.apiKey,
+        callObserver: resolved.callObserver,
         ...cloudflareRunFields(resolved),
         baseUrl: resolved.baseUrl,
         allowPrivateEndpoint: resolved.allowPrivateEndpoint,
@@ -3974,14 +3999,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
         }
         const runDeployment = deps.deploymentModelConfigured ? resolveDeploymentModel() : null;
         const runtimeFallback = runtimeFallbackModel(deps.runtime);
-        const pinError = run.modelPinned
-          ? pinnedModelCredentialError(modelChoice, overrideCredential)
-          : undefined;
+        const pinError =
+          run.modelPinned &&
+          !(
+            (await modelCreditBillingEnabled(deps)) &&
+            modelChoice.modelProvider === runDeployment?.provider
+          )
+            ? pinnedModelCredentialError(modelChoice, overrideCredential)
+            : undefined;
         const selected = selectConfiguredModel({
           override: modelChoice,
           overrideCredential,
           defaultCredential,
           settings,
+          hostedProvider: (await modelCreditBillingEnabled(deps))
+            ? resolveDeploymentModel().provider
+            : undefined,
           deployment: runDeployment,
         });
         const { credential, thinkingLevel } = selected;
@@ -4345,8 +4378,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }),
           );
         // Whether outside content has entered the run. A run someone else started begins tainted,
-        // and so does a later attempt, whose earlier tool results this worker did not see.
-        let runTainted = !ownerStartedRun;
+        // and so does a later attempt, including one with restored untrusted tool results.
+        let turnCheckpoint: string | undefined;
+        let checkpointLoadError: Error | undefined;
+        try {
+          turnCheckpoint = await loadRunTurnCheckpoint(deps.prisma, run);
+        } catch (error) {
+          checkpointLoadError =
+            error instanceof Error ? error : new Error("Unsupported turn checkpoint");
+        }
+        let runTainted =
+          !ownerStartedRun || Boolean(turnCheckpoint) || Boolean(checkpointLoadError);
         let earlierAttemptPromise: Promise<boolean> | undefined;
         const isRunTainted = async () => {
           if (runTainted) return true;
@@ -4489,6 +4531,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
         let unchangedVisualStreak: UnchangedVisualStreak = { count: 0 };
         let terminalCheckpointComplete = false;
         let approvalPausePending = false;
+        const pendingTurnCheckpoints = new Map<string, () => string>();
+        const persistTurnCheckpoint = async (executionId?: string) => {
+          const capture = executionId ? pendingTurnCheckpoints.get(executionId) : undefined;
+          if (capture) {
+            const saved = JSON.parse(capture());
+            saved.effectOccurrences = effectOccurrences;
+            await saveRunTurnCheckpoint(deps.prisma, run, workerId, fence, JSON.stringify(saved));
+          }
+        };
         let handedOff = false;
         let progressRedactor = createStreamingRedactor(runSecrets);
         const scripted = deps.runtime.describe().capabilities.scripted;
@@ -4588,10 +4639,26 @@ export function createRunExecutor(deps: ExecutorDeps) {
         };
 
         const mutatingEffectOccurrences = new Map<string, number>();
+        const effectOccurrences: Array<{
+          executionId: string;
+          fingerprint: string;
+          occurrence: number;
+        }> = [];
+        let restoredPendingEffect: (typeof effectOccurrences)[number] | undefined;
         const consumedEffectIds = new Set<string>();
-        const nextMutatingEffectOccurrence = (toolName: string, args: Record<string, unknown>) => {
+        const nextMutatingEffectOccurrence = (
+          toolName: string,
+          args: Record<string, unknown>,
+          executionId: string,
+        ) => {
           const fingerprint = toolEffectIdempotencyKey(runId, toolName, args);
+          const previous = restoredPendingEffect;
+          if (previous?.executionId === executionId) {
+            restoredPendingEffect = undefined;
+            if (previous.fingerprint === fingerprint) return previous.occurrence;
+          }
           const occurrence = mutatingEffectOccurrences.get(fingerprint) ?? 0;
+          effectOccurrences.push({ executionId, fingerprint, occurrence });
           mutatingEffectOccurrences.set(fingerprint, occurrence + 1);
           return occurrence;
         };
@@ -5005,7 +5072,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const occurrence =
             name === "request_secret" || name === "connect_app"
               ? 0
-              : nextMutatingEffectOccurrence(replayEffectToolName, args);
+              : nextMutatingEffectOccurrence(replayEffectToolName, args, executionId);
           const effectKey =
             usesApprovalKey && occurrence === 0
               ? approvalEffectKey(runId, replayEffectToolName, args)
@@ -5102,6 +5169,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                       runtime: deps.runtime,
                       checker: checker!,
                       apiKey: judgeKey.oauth ? undefined : judgeKey.apiKey,
+                      callObserver: judgeKey.callObserver,
                       accountId: judgeKey.accountId,
                       gatewayId: judgeKey.gatewayId,
                       baseUrl: judgeKey.baseUrl,
@@ -5314,6 +5382,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               return pauseForApproval();
             }
             await workspaceCheckpoint.flush();
+            await persistTurnCheckpoint(executionId);
             const paused = await deps.events.pauseRunForInput({
               spaceId: run.spaceId,
               threadId: run.threadId,
@@ -6393,11 +6462,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (parsed.endpoint) {
               try {
                 await assertSafeRemoteUrl(parsed.endpoint, deps.secretHttp?.resolveHostname, {
-                  allowPrivateEndpoint: await actorMayUsePrivateEndpoint(
-                    deps.prisma,
-                    run.userId,
-                    deps.mcpAllowPrivateEndpoint === true,
-                  ),
+                  allowPrivateEndpoint: deps.mcpAllowPrivateEndpoint === true,
                 });
               } catch (error) {
                 return finish({
@@ -6885,6 +6950,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               return pauseForSecret();
             }
             await workspaceCheckpoint.flush();
+            await persistTurnCheckpoint(executionId);
             const paused = await deps.events.pauseRunForInput({
               spaceId: run.spaceId,
               threadId: run.threadId,
@@ -7399,11 +7465,78 @@ export function createRunExecutor(deps: ExecutorDeps) {
               parsePlaybook(invokedSkill.playbook),
             )}\n\n${taskPrompt}`
           : taskPrompt;
-        const approvalContinuation = buildApprovalContinuation(
-          approvedEffects,
-          (request) => redactSecrets(JSON.stringify(request), runSecrets),
-          { exposedToolNames: new Set(tools.map((tool) => tool.name)) },
-        );
+        if (turnCheckpoint) {
+          try {
+            const saved = restoreTurnCheckpoint(turnCheckpoint, {
+              provider: runModelProvider,
+              id: runModelId,
+            });
+            const unresolved = new Set(unresolvedTurnCheckpointCalls(saved.messages));
+            const namedTools = namedAgentTools(tools);
+            const available = new Set(namedTools.map((tool) => tool.name));
+            if (
+              saved.messages.some(
+                (message) =>
+                  message.role === "assistant" &&
+                  message.content.some(
+                    (call) =>
+                      call.type === "toolCall" &&
+                      unresolved.has(call) &&
+                      (saved.executionMode === "sequential" ||
+                        call.id === saved.pendingToolCallId) &&
+                      !available.has(call.name),
+                  ),
+              )
+            ) {
+              turnCheckpoint = undefined;
+            } else if (saved.effectOccurrences) {
+              effectOccurrences.push(...saved.effectOccurrences);
+              const pendingExecutionId = JSON.stringify([
+                "pi-tool",
+                "main",
+                saved.pendingToolCallId,
+              ]);
+              // Provider IDs can repeat in later responses. Only the restored
+              // pending call may consume its saved assignment, exactly once.
+              restoredPendingEffect = saved.effectOccurrences.findLast(
+                (entry) => entry.executionId === pendingExecutionId,
+              );
+              for (const { fingerprint, occurrence } of saved.effectOccurrences) {
+                mutatingEffectOccurrences.set(
+                  fingerprint,
+                  Math.max(mutatingEffectOccurrences.get(fingerprint) ?? 0, occurrence + 1),
+                );
+              }
+            } else {
+              // Older snapshots have no executor assignments. Retained completed
+              // calls still reserve their occurrences before pending calls run.
+              for (const message of saved.messages) {
+                if (message.role !== "assistant") continue;
+                for (const call of message.content) {
+                  if (call.type !== "toolCall" || unresolved.has(call)) continue;
+                  const tool = namedTools.find((tool) => tool.name === call.name)?.tool;
+                  if (tool && tool.name !== "request_secret" && tool.name !== "connect_app")
+                    nextMutatingEffectOccurrence(
+                      tool.name,
+                      call.arguments,
+                      JSON.stringify(["pi-tool", "main", call.id]),
+                    );
+                }
+              }
+            }
+          } catch {
+            // Incompatible transcripts use the existing canonical approval replay.
+            // Decryption happens earlier and must still fail closed.
+            turnCheckpoint = undefined;
+          }
+        }
+        const approvalContinuation = turnCheckpoint
+          ? undefined
+          : buildApprovalContinuation(
+              approvedEffects,
+              (request) => redactSecrets(JSON.stringify(request), runSecrets),
+              { exposedToolNames: new Set(tools.map((tool) => tool.name)) },
+            );
         const replyContext = await loadReplyContext(deps.prisma, thread.id, run.sourceMessageId);
         let userTimeZone: string | null | undefined;
         try {
@@ -7542,6 +7675,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         );
 
         try {
+          if (checkpointLoadError) throw checkpointLoadError;
           const runtimeEvents = deps.runtime.run(
             {
               botId: bot.id,
@@ -7600,6 +7734,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 provider: runModelProvider,
                 id: runModelId,
                 apiKey: resolved.oauth ? undefined : resolved.apiKey,
+                callObserver: resolved.callObserver,
                 ...cloudflareRunFields(resolved),
                 baseUrl: resolved.baseUrl,
                 allowPrivateEndpoint: resolved.allowPrivateEndpoint,
@@ -7655,6 +7790,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 }
               },
               resumeFromCheckpoint: takeoverResume?.checkpoint,
+              turnCheckpoint,
+              onCheckpoint: async (capture, executionId) => {
+                pendingTurnCheckpoints.set(executionId, capture);
+              },
+              resumeToolResult: {
+                content: [{ type: "text", text: takeoverResume?.promptNote ?? taskPrompt }],
+              },
               script,
               allowSilentEmpty: allowSilentEmptyRun,
               emptyResponseText,
@@ -7665,8 +7807,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                     resolveConnectedModel(run, provider, modelId, (values) =>
                       runSecrets.push(...values),
                     ),
-              onToolCompleted: (completion) =>
-                appendToolCompletionAudit(
+              onToolCompleted: (completion) => {
+                if (restoredPendingEffect?.executionId === completion.executionId)
+                  restoredPendingEffect = undefined;
+                if (!completion.paused) pendingTurnCheckpoints.delete(completion.executionId);
+                return appendToolCompletionAudit(
                   deps,
                   {
                     spaceId: run.spaceId,
@@ -7676,7 +7821,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   },
                   completion,
                   runSecrets,
-                ),
+                );
+              },
               claimSteering: async (seenIds) => {
                 const steering = await deps.events.claimSteering({
                   threadId: thread.id,
@@ -7814,6 +7960,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 label: redactSecrets(action.label, runSecrets),
               }));
               await workspaceCheckpoint.flush();
+              await persistTurnCheckpoint(event.executionId);
               const paused = await deps.events.pauseRunForInput({
                 spaceId: run.spaceId,
                 threadId: run.threadId,
@@ -7888,6 +8035,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               if (!(await holdComputerExecutionLeaseForTakeover(deps.prisma, computerLease))) {
                 throw new Error("Computer lease expired before takeover");
               }
+              await persistTurnCheckpoint(event.executionId);
               const paused = await deps.events.pauseRunForTakeover({
                 spaceId: run.spaceId,
                 threadId: run.threadId,
@@ -8629,15 +8777,31 @@ async function notifyRun(
     return null;
   });
   if (!notice?.enabled) return;
+  // The icon shows what the inbox shows: unread chats across the user's Spaces. Without a
+  // count the push leaves the badge as it is.
+  const badge = await countUnreadInboxChats(deps.prisma, {
+    userId: run.userId,
+    spaceId: run.spaceId,
+  }).catch((error) => {
+    getLogger().error("unread chat count", error);
+    return undefined;
+  });
   await deps.notifications
-    .send(notice.groupId ? { ...message, groupId: notice.groupId } : message, {
-      operationId: "notify",
-      traceId: run.botId,
-      spaceId: run.spaceId,
-      userId: run.userId,
-      botId: run.botId,
-      signal: new AbortController().signal,
-    })
+    .send(
+      {
+        ...message,
+        ...(notice.groupId ? { groupId: notice.groupId } : {}),
+        ...(badge === undefined ? {} : { badge }),
+      },
+      {
+        operationId: "notify",
+        traceId: run.botId,
+        spaceId: run.spaceId,
+        userId: run.userId,
+        botId: run.botId,
+        signal: new AbortController().signal,
+      },
+    )
     .catch((error) => {
       if (options.retryOnFailure) throw error;
       getLogger().error("run notification", error);
@@ -9641,9 +9805,12 @@ export async function recordEffect(
   legacyIdempotencyKey?: string,
   consumedIds?: Set<string>,
 ) {
+  if (kind === RUN_TURN_CHECKPOINT_KIND) throw new Error("Unsupported tool effect kind");
   const existing = await deps.prisma.externalEffect.findUnique({
     where: { idempotencyKey },
   });
+  if (existing?.kind === RUN_TURN_CHECKPOINT_KIND || existing?.status === RUN_TURN_CHECKPOINT_KIND)
+    throw new Error("Unsupported tool effect kind");
   if (existing && (existing.runId !== run.id || existing.spaceId !== run.spaceId)) {
     throw new Error("Stored tool execution does not belong to this run.");
   }
@@ -9822,7 +9989,37 @@ function assertCompatibleModelEnabled(
   }
 }
 
-async function resolveModelKey(
+async function modelCreditBillingEnabled(deps: ExecutorDeps): Promise<boolean> {
+  if (deps.billingEnabled !== undefined) return deps.billingEnabled;
+  return (
+    (
+      await deps.prisma.deploymentSettings.findUnique({
+        where: { id: "default" },
+        select: { modelCreditsEnabled: true },
+      })
+    )?.modelCreditsEnabled === true
+  );
+}
+
+async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMaterial>) {
+  const [deps, userId, spaceId, , provider] = args;
+  const billingEnabled = await modelCreditBillingEnabled(deps);
+  const scope = { userId, spaceId };
+  if (
+    billingEnabled &&
+    !args[7]?.requireStoredSecret &&
+    (await hasHostedModelCredits(deps.prisma, scope, provider))
+  ) {
+    args[3] = null;
+  }
+  const credential = args[3];
+  const material = await resolveModelKeyMaterial(...args);
+  const callObserver =
+    !credential && billingEnabled ? await hostedModelCreditObserver(deps.prisma, scope) : undefined;
+  return { ...material, callObserver };
+}
+
+async function resolveModelKeyMaterial(
   deps: ExecutorDeps,
   userId: string,
   spaceId: string,
@@ -9865,6 +10062,8 @@ async function resolveModelKey(
         where: { id: credential.secretId, userId, spaceId: null },
       });
       if (!row) {
+        if (await modelCreditBillingEnabled(deps))
+          throw new Error("Connect that model provider again.");
         if (requireStoredSecret) throw new Error("Backup model credential is no longer available");
         if (credential.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
           throw new UnavailableModelForAuthError("Unknown model for that provider");
@@ -9927,15 +10126,8 @@ async function resolveModelKey(
       const oauth = resolved.secret.kind === "oauth" ? resolved.secret.credential : undefined;
       const baseUrl =
         resolved.secret.kind === "openai_compatible" ? resolved.secret.baseUrl : undefined;
-      // Connections saved before the owner gate may already point at private hosts,
-      // so decide for the credential's owner on every run, not only on save.
-      const allowPrivateEndpoint = baseUrl
-        ? await actorMayUsePrivateEndpoint(
-            deps.prisma,
-            userId,
-            deps.mcpAllowPrivateEndpoint === true,
-          )
-        : undefined;
+      // Recheck operator configuration for saved private connections on every run.
+      const allowPrivateEndpoint = baseUrl ? deps.mcpAllowPrivateEndpoint === true : undefined;
       if (baseUrl) {
         try {
           // The public gate stays with the request-time fetch guard.

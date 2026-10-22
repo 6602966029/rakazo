@@ -1034,7 +1034,7 @@ export type MobileMe = Pick<
   | "needsModel"
   | "avatarStyle"
   | "isDeploymentOwner"
->;
+> & { billingEnabled?: boolean };
 
 export type MobileModel = ModelCatalogEntry;
 

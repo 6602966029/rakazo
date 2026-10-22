@@ -2942,6 +2942,7 @@ description: Prepare standup notes
       },
     );
     const prisma = {
+      deploymentSettings: { findUnique: vi.fn(async () => null) },
       spaceModelPreference: { findFirst },
       userModelCredential: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) },
       secret: { findFirst: vi.fn(async () => null), findUnique: vi.fn(async () => null) },
@@ -3000,6 +3001,7 @@ description: Prepare standup notes
       },
     } as unknown as PrismaClient;
     const executor = createRunExecutor({
+      billingEnabled: false,
       prisma,
       secretStore: { load: vi.fn(() => plaintext), put: vi.fn() },
     } as unknown as Parameters<typeof createRunExecutor>[0]);
@@ -3127,7 +3129,7 @@ description: Prepare standup notes
     });
 
     it.each([
-      ["the deployment owner", "user-1", false],
+      ["a legacy owner under the instance flag", "user-1", true],
       ["any user under the instance flag", "owner-user", true],
     ] as const)("lets %s run a saved private endpoint", async (_who, owner, flag) => {
       await expect(

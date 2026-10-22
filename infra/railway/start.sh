@@ -15,6 +15,8 @@ pnpm --filter @rakazo/api db:deploy
 unset DATABASE_MIGRATION_URL
 pnpm --filter @rakazo/api exec node dist/cli/bootstrap-owner.js
 unset OWNER_PASSWORD
+# Personal template: registration is operator configuration, never an app-account permission.
+export SIGNUPS_ENABLED=false
 
 # All processes share one volume; a failed process restarts the whole service.
 trap 'kill $(jobs -pr) 2>/dev/null || true; wait || true' EXIT

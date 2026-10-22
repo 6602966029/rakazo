@@ -62,7 +62,7 @@ import {
   formatActivityRelativeTime,
 } from "../lib/activity";
 import { loadActivityMode, saveActivityMode } from "../lib/activity-mode";
-import { readableGutter } from "../lib/adaptive-layout";
+import { readableGutters } from "../lib/adaptive-layout";
 import type {
   ApiRequestContext,
   MobileBot,
@@ -82,6 +82,12 @@ import {
   selectSpace,
   signOut,
 } from "../lib/api";
+import {
+  appBadgeGeneration,
+  forgetAppBadge,
+  syncInboxAppBadge,
+  unreadChatCount,
+} from "../lib/app-badge";
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import {
   archivedChatCounts,
@@ -118,7 +124,7 @@ import {
   inboxRowActionList,
   unreadOverrideKey,
 } from "../lib/inbox-swipe";
-import { afterChatNotifyChange } from "../lib/live-notifications";
+import { afterChatNotifyChange, dismissThreadNotifications } from "../lib/live-notifications";
 import { native, useThemedStyles } from "../lib/native";
 import { iosAtLeast } from "../lib/native-controls";
 import { offerPasskeyOnce } from "../lib/passkey";
@@ -180,9 +186,32 @@ async function chatRpc(spaceId: string | undefined, proc: string, body: unknown)
 
 export default function HomeRoute() {
   const { split } = useSplitView();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createHomeStyles);
-  // A wide window shows the chat list beside the stack, so home itself stays empty.
-  return split ? <View style={styles.screen} /> : <HomeSession />;
+  const { t } = useI18n();
+  useLayoutEffect(() => {
+    // Home restores its native controls when the compact inbox mounts again.
+    if (split) navigation.setOptions({ headerShown: false });
+  }, [split, navigation]);
+  return split ? (
+    <View
+      style={[
+        styles.screen,
+        styles.centered,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}
+    >
+      <Text style={styles.emptyPane}>{t("Pick a chat")}</Text>
+    </View>
+  ) : (
+    <HomeSession />
+  );
 }
 
 /** The chat list beside the open chat on a wide window. */
@@ -321,7 +350,16 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     });
   }, []);
 
+  const [badgeLoad, setBadgeLoad] = useState<{ generation: number } | null>(null);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") forgetAppBadge();
+    });
+    return () => subscription.remove();
+  }, []);
+
   const loadBots = useCallback(async () => {
+    const badgeGeneration = appBadgeGeneration();
     if (spaceActionRef.current.busy || spaceActionRef.current.recoveryId) return;
     const requestId = ++inboxRequestId.current;
     const apiBase = currentApiBase();
@@ -348,12 +386,27 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         apiBase !== currentApiBase()
       )
         return;
+      if (nextMe.billingEnabled) {
+        void rpc<{ access: boolean; funding?: string | null }>("billing/status")
+          .then((billing) => {
+            if (
+              requestId === inboxRequestId.current &&
+              generation === currentSessionGeneration() &&
+              apiBase === currentApiBase() &&
+              billing.funding !== undefined &&
+              !billing.access
+            )
+              router.push("/billing");
+          })
+          .catch(() => undefined);
+      }
       setBots((current) => retainInboxValue(current, navigation.current.bots));
       setBotSections((current) => retainInboxValue(current, navigation.current.botSections));
       setGroups((current) => retainInboxValue(current, navigation.current.groups));
       setSpaces((current) => retainInboxValue(current, navigation.spaces));
       setMe((current) => retainInboxValue(current, nextMe));
       inboxLoaded.current = true;
+      setBadgeLoad({ generation: badgeGeneration });
       setLoadFailure(null);
       saveInbox(
         {
@@ -537,6 +590,11 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     const items: InboxItem[] = spaceInboxItems(sidebarSpaces, collapsed, me?.spaceId);
     return !SWIPE_ROWS && pinned.length > 0 ? [{ type: "pinned", chats: pinned }, ...items] : items;
   }, [inboxSpaces, collapsed, me?.spaceId, spaces, visible, visibleGroups, locale]);
+  const badgeCount = me ? unreadChatCount(inboxSpaces) : null;
+  useEffect(() => {
+    if (badgeCount === null || badgeLoad === null) return;
+    void syncInboxAppBadge(badgeCount, badgeLoad.generation);
+  }, [badgeCount, badgeLoad]);
   const initials = accountDisplay(me ?? {}, t("You")).initial ?? "?";
   const organizeSpace = organizeTarget
     ? organizeTarget.spaceId === me?.spaceId
@@ -554,9 +612,10 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   const windowWidth = useWindowDimensions().width;
   const { inboxWidth } = useSplitView();
   const compactRows = embedded && inboxWidth < TAGLESS_LIST_WIDTH;
-  const columnInset = embedded
-    ? 0
-    : readableGutter(windowWidth, Math.max(insets.left, insets.right));
+  const columnInsets = readableGutters(embedded ? inboxWidth : windowWidth, {
+    left: insets.left,
+    right: embedded ? 0 : insets.right,
+  });
   // Liquid Glass uses the native bar: glass bar items and a native menu.
   // The list beside a chat has no navigation bar of its own.
   const nativeHeader = iosAtLeast(26) && !embedded;
@@ -746,8 +805,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       unstable_headerLeftItems: () => [
         {
           type: "button" as const,
-          label: initials,
-          labelStyle: { fontSize: 15, fontWeight: "600" },
+          label: t("Account"),
+          icon: { type: "sfSymbol" as const, name: "person.crop.circle" },
           accessibilityLabel: t("Account"),
           onPress: () => router.push("/account"),
         },
@@ -755,6 +814,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       unstable_headerRightItems: () => [
         {
           type: "button" as const,
+          label: t("Activity"),
           accessibilityLabel: t("Activity"),
           icon: { type: "sfSymbol" as const, name: activityMode ? "bell.fill" : "bell" },
           selected: activityMode,
@@ -762,6 +822,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         },
         {
           type: "button" as const,
+          label: t("Search"),
           accessibilityLabel: t("Search"),
           identifier: "home-search-button",
           icon: { type: "sfSymbol" as const, name: "magnifyingglass" },
@@ -769,6 +830,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         },
         {
           type: "menu" as const,
+          label: t("Create"),
           accessibilityLabel: t("Create"),
           icon: { type: "sfSymbol" as const, name: "plus" },
           menu: {
@@ -927,6 +989,15 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         const spaceId = chat.spaceId ?? selectedSpaceId();
         const session = currentSessionGeneration();
         setUnreadOverrides((current) => new Map(current).set(key, action === "unread"));
+        if (action === "read") {
+          void dismissThreadNotifications(
+            kind === "group"
+              ? { groupId: chat.id }
+              : "threadId" in chat && chat.threadId
+                ? { threadId: chat.threadId }
+                : { botId: chat.id },
+          ).catch(() => undefined);
+        }
         await sendReadState(
           key,
           action === "unread",
@@ -1251,7 +1322,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
             styles.header,
             {
               paddingTop: Math.max(insets.top, 20) + 8,
-              paddingHorizontal: 16 + columnInset,
+              paddingLeft: 16 + columnInsets.left,
+              paddingRight: 16 + columnInsets.right,
             },
           ]}
         >
@@ -1329,7 +1401,10 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
             keyboardDismissMode="interactive"
             keyboardShouldPersistTaps="handled"
             indicatorStyle={appearance === "dark" ? "white" : "black"}
-            contentContainerStyle={[styles.list, { paddingHorizontal: columnInset }]}
+            contentContainerStyle={[
+              styles.list,
+              { paddingLeft: columnInsets.left, paddingRight: columnInsets.right },
+            ]}
             contentInsetAdjustmentBehavior="automatic"
             refreshControl={
               <RefreshControl
@@ -1989,6 +2064,11 @@ function createHomeStyles() {
     centered: {
       alignItems: "center",
       justifyContent: "center",
+    },
+    emptyPane: {
+      color: native.secondaryLabel,
+      ...typeScale.secondary,
+      textAlign: "center",
     },
     header: {
       flexDirection: "row",

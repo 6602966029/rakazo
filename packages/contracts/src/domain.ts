@@ -1321,6 +1321,8 @@ export const SpaceMemoryConfigSchema = z.object({
 export type SpaceMemoryConfig = z.infer<typeof SpaceMemoryConfigSchema>;
 
 export const ModelCatalogEntrySchema = z.object({
+  /** Available through the deployment without a personal credential. */
+  managed: z.boolean().optional(),
   provider: z.string(),
   providerName: z.string().optional(),
   id: z.string(),
@@ -1504,6 +1506,7 @@ export const MeSchema = z.object({
   email: z.string().email(),
   name: z.string(),
   spaceId: Id,
+  /** Deprecated: app accounts never have server administrator privileges. Always false. */
   isDeploymentOwner: z.boolean(),
   needsModel: z.boolean(),
   defaultProvider: z.string().nullable(),
@@ -1521,12 +1524,22 @@ export const MeSchema = z.object({
    * Absent from servers that predate it.
    */
   timezone: z.string().nullable().optional(),
-  /** True when this deployment bills and the user is not the deployment owner. */
+  /** True when this deployment bills model usage. */
   billingEnabled: z.boolean(),
 });
 export type Me = z.infer<typeof MeSchema>;
 
+export const MODEL_CREDIT_AMOUNTS = [1000, 2000, 5000, 10000, 20000, 50000] as const;
+export const DEFAULT_MONTHLY_CREDIT_AMOUNT = 2000;
+export const ModelCreditAmountSchema = z.union(
+  MODEL_CREDIT_AMOUNTS.map((amount) => z.literal(amount)),
+);
+
 export const BillingStatusSchema = z.object({
+  funding: z.enum(["byok", "credits"]).nullable().optional(),
+  balanceUsd: z.number().optional(),
+  monthlyAmountCents: z.number().int().positive().nullable().optional(),
+  creditPurchasesEnabled: z.boolean().optional(),
   access: z.boolean(),
   /** Only organization owners start checkout or open the billing portal. */
   canManage: z.boolean(),
