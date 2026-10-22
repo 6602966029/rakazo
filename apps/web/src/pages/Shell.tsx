@@ -3053,7 +3053,7 @@ function SpaceShell() {
         className={
           isMobileSidebar
             ? `absolute inset-y-0 start-0 z-40 flex w-[calc(100%-48px)] max-w-[316px] shrink-0 flex-col border-e border-sidebar-border bg-sidebar transition-transform duration-200 ease-out motion-reduce:transition-none ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"}`
-            : "z-40 h-full overflow-hidden border-sidebar-border"
+            : "h-full overflow-hidden border-sidebar-border"
         }
       >
         <SidebarHeader
