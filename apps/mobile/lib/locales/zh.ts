@@ -254,6 +254,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   Code: "验证码",
   Color: "颜色",
   "Color {number}": "颜色 {number}",
+  Complete: "完成",
   Completed: "已完成",
   Computer: "电脑",
   "Confirm password": "确认密码",

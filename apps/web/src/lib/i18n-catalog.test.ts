@@ -69,7 +69,7 @@ describe("lingui catalogs", () => {
       "Command variable",
       "Available to this bot's shell commands as {commandVariable}",
       "{commandVariable} is reserved and cannot be used as a command variable. Choose another name.",
-      "Values are encrypted and never shown again.",
+      "Encrypted and never shown again",
     ];
     for (const locale of [
       "en",

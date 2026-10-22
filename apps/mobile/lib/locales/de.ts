@@ -224,6 +224,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Cloud agent": "Cloud-Agent",
   Code: "Code",
   "Command variable": "Befehlsvariable",
+  Complete: "Abschließen",
   Completed: "Abgeschlossen",
   Copy: "Kopieren",
   "Could not archive bot": "Bot konnte nicht archiviert werden",
