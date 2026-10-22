@@ -512,29 +512,12 @@ Error reporting to Sentry or a Sentry-compatible collector such as GlitchTip is 
   to that DSN. Use a separate project from `SENTRY_DSN`.
 - `SENTRY_ENVIRONMENT` names the deployment. `SENTRY_RELEASE` defaults to the image's `GIT_SHA`.
 
-Web, Electron native processes, and mobile share correlation names and privacy filters. Native
-clients read the selected server's monitoring configuration and route reports through its API;
-no mobile or desktop DSN is baked into a binary. A server or session switch clears the old
-identity and pending reports. Reporting starts once the server configuration is available;
-failures before the native SDK can initialize cannot be guaranteed to arrive remotely.
-The API reconstructs an allowlist of event fields before forwarding native envelopes. It discards
-attachments, native contexts, console history, request contents and account identifiers, and scrubs
-exception messages and stack paths. JavaScript errors retain validated correlation and pseudonymous
-user IDs; cached native crashes remain anonymous. Electron reports native crash metadata without
-uploading raw minidumps. Mobile native crash
-handling requires a rebuilt development/release app; Expo Go cannot capture native crashes.
-Native SDK reports contain system crash diagnostics, with automatic breadcrumbs, screenshots,
-view hierarchies, logs and performance collection disabled.
+Desktop and mobile use the connected server's `SENTRY_BROWSER_DSN` configuration. Mobile native
+crash reporting requires a rebuilt app; Expo Go is unsupported. Electron reports native crash
+metadata without uploading memory dumps.
 
-Web builds include source maps for collector symbolication. Mobile Metro emits Sentry debug IDs;
-native symbol/source-map uploads are opt-in at build time with `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,
-`SENTRY_PROJECT` and optional `SENTRY_URL`. Without upload credentials the app still builds and
-reports, but native symbolication is limited. Native releases identify the client binary rather
-than the connected server release.
-
-`/internal/health` includes telemetry sink failure counts and recent degradation without error
-contents. This does not change public liveness/readiness: optional reporting failure must not
-make the core product unavailable. Worker heartbeat files include the same sink diagnostics.
+For symbolicated mobile crash reports, configure uploads when building the app with `SENTRY_AUTH_TOKEN`,
+`SENTRY_ORG`, `SENTRY_PROJECT`, and optional `SENTRY_URL`.
 
 Neither SDK sends cookies, headers, request bodies, user identity, console output, or log context.
 When `ANALYTICS_PSEUDONYM_SECRET` is set, reports carry a keyed hash of the signed-in user's id so
