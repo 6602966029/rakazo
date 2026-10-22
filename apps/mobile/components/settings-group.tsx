@@ -1,6 +1,6 @@
 import { typeScale } from "@rakazo/ui-tokens";
 import type { ReactNode } from "react";
-import { Children, Fragment, isValidElement } from "react";
+import { Children, Fragment, isValidElement, useState } from "react";
 import type { PressableProps } from "react-native";
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { mobileTokens } from "../lib/appearance";
@@ -166,6 +166,7 @@ export function SettingsSwitch({
 }) {
   const styles = useThemedStyles(createSettingsStyles);
   const stacked = useStackedSettings();
+  const [wordWidth, setWordWidth] = useState(0);
   const toggle = (
     <View style={styles.switch}>
       <NativeSwitch
@@ -178,8 +179,22 @@ export function SettingsSwitch({
     </View>
   );
   return (
-    <View style={[styles.row, stacked && styles.compactRow]}>
-      <View style={styles.titleColumn}>
+    <View style={[styles.row, styles.switchRow, stacked && styles.compactRow]}>
+      {/* Measure words independently of the visible column so wrapping cannot feed back
+          into the measurement. Yoga moves the switch below when a word cannot fit. */}
+      <Text
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        pointerEvents="none"
+        onTextLayout={({ nativeEvent: { lines } }) => {
+          setWordWidth(Math.ceil(Math.max(0, ...lines.map((line) => line.width))));
+        }}
+        style={[styles.title, styles.wordMeasure]}
+      >
+        {label.trim().split(/\s+/).join("\n")}
+      </Text>
+      <View style={[styles.titleColumn, { minWidth: wordWidth, maxWidth: "100%" }]}>
         <Text style={styles.title}>{label}</Text>
         {detail ? <Text style={styles.detail}>{detail}</Text> : null}
       </View>
@@ -227,7 +242,9 @@ function createSettingsStyles() {
     compactSeparator: { marginStart: 12 },
     compactRow: { paddingHorizontal: 12, gap: 8 },
     titleColumn: { flex: 1, flexShrink: 1, gap: 2 },
+    switchRow: { flexWrap: "wrap" },
     switch: { flexShrink: 0 },
+    wordMeasure: { position: "absolute", opacity: 0, width: 10000 },
     title: { color: native.label, fontSize: 17 },
     prominent: { fontSize: 20, fontWeight: "600" },
     detail: { color: native.secondaryLabel, ...typeScale.caption },

@@ -8,6 +8,10 @@ import { Platform } from "react-native";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let fontScale = 1;
+const textLayouts = new Map<
+  string,
+  (event: { nativeEvent: { lines: { width: number }[] } }) => void
+>();
 
 vi.mock("react-native", () => {
   function MockView(props: {
@@ -29,7 +33,13 @@ vi.mock("react-native", () => {
     );
   }
 
-  function MockText(props: { children?: ReactNode; accessibilityRole?: string; style?: unknown }) {
+  function MockText(props: {
+    children?: ReactNode;
+    accessibilityRole?: string;
+    style?: unknown;
+    onTextLayout?: (event: { nativeEvent: { lines: { width: number }[] } }) => void;
+  }) {
+    if (props.onTextLayout) textLayouts.set(String(props.children), props.onTextLayout);
     return createElement(
       "span",
       { role: props.accessibilityRole, "data-style": JSON.stringify(props.style ?? null) },
@@ -138,6 +148,7 @@ describe("settings group", () => {
 
   beforeEach(() => {
     fontScale = 1;
+    textLayouts.clear();
     Platform.OS = "ios";
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   });
@@ -310,19 +321,35 @@ describe("settings group", () => {
     expect(columnText(render(row))).toBe("LanguageEnglish");
   });
 
-  it("keeps the switch beside its wrapping label at large text sizes", () => {
-    const row = <SettingsSwitch label="Stream replies" value={false} onChange={() => undefined} />;
-    const beforeSwitch = (view: HTMLElement) =>
-      view.querySelector("input")?.parentElement?.previousElementSibling?.tagName;
+  it.each([1, 1.353, 3.1])(
+    "wraps the switch only when a whole word cannot fit at font scale %s",
+    (scale) => {
+      fontScale = scale;
+      const view = render(
+        <SettingsSwitch label="Stream replies" value={false} onChange={() => undefined} />,
+      );
+      const wrapper = view.querySelector("input")!.parentElement!;
+      const column = wrapper.previousElementSibling as HTMLElement;
+      const row = wrapper.parentElement!;
+      const style = (element: HTMLElement) =>
+        Object.assign({}, ...[JSON.parse(element.dataset.style ?? "null")].flat());
 
-    expect(beforeSwitch(render(row))).toBe("DIV");
-    act(() => root?.unmount());
-    container?.remove();
-
-    fontScale = 1.353;
-    const view = render(row);
-    expect(beforeSwitch(view)).toBe("DIV");
-    const wrapper = view.querySelector("input")?.parentElement;
-    expect(JSON.parse(wrapper?.getAttribute("data-style") ?? "null")).toEqual({ flexShrink: 0 });
-  });
+      expect(style(row)).toMatchObject({ flexDirection: "row", flexWrap: "wrap" });
+      expect(style(wrapper)).toEqual({ flexShrink: 0 });
+      // Use native word widths, including a wider word with fewer characters.
+      act(() => {
+        textLayouts.get("Stream\nreplies")!({
+          nativeEvent: { lines: [{ width: 151.2 }, { width: 140 }] },
+        });
+      });
+      expect(style(column)).toMatchObject({ minWidth: 152, maxWidth: "100%", flex: 1 });
+      // A later font-size measurement can shrink the minimum again; no sticky stack.
+      act(() => {
+        textLayouts.get("Stream\nreplies")!({
+          nativeEvent: { lines: [{ width: 60 }, { width: 55 }] },
+        });
+      });
+      expect(style(column).minWidth).toBe(60);
+    },
+  );
 });
