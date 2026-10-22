@@ -71,16 +71,16 @@ def syslog_time(timestamp, now=None):
     """Return an RFC3339 time; traditional timestamps are local time without a year."""
     if "T" in timestamp:
         return timestamp
-    now = now or datetime.datetime.now().astimezone()
+    now = now or datetime.datetime.now()
     try:
         moment = datetime.datetime.strptime(str(now.year) + " " + timestamp, "%Y %b %d %H:%M:%S")
     except ValueError:
         return timestamp
-    moment = moment.replace(tzinfo=now.tzinfo)
     if moment > now + datetime.timedelta(days=1):
         # A December record read in January.
         moment = moment.replace(year=now.year - 1)
-    return moment.isoformat()
+    # Resolve the local offset for the record's own date, which differs across a DST change.
+    return moment.astimezone().isoformat()
 
 
 def parse_auth_line(line, host, known_keys):

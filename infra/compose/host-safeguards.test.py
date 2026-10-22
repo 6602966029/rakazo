@@ -99,15 +99,18 @@ class AuditShipTests(unittest.TestCase):
         self.assertIsNone(self.auth("Started session", "systemd[1]"))
         traditional = audit_ship.parse_auth_line("Oct  2 22:43:54 web-1 su[1]: (to root) deploy on pts/0", "h", {})
         self.assertEqual(traditional["event"], "su")
-        utc = datetime.timezone.utc
-        self.assertEqual(
-            audit_ship.syslog_time("Oct  2 22:43:54", datetime.datetime(2026, 10, 3, tzinfo=utc)),
-            "2026-10-02T22:43:54+00:00",
-        )
-        self.assertEqual(
-            audit_ship.syslog_time("Dec 31 23:59:59", datetime.datetime(2027, 1, 1, tzinfo=utc)),
-            "2026-12-31T23:59:59+00:00",
-        )
+        # A POSIX zone string needs no tz database: UTC in winter, +01:00 in summer.
+        # Cleanups run after patch.dict restores TZ, so this resets the process zone.
+        self.addCleanup(time.tzset)
+        with patch.dict(os.environ, {"TZ": "GMT0BST,M3.5.0/1,M10.5.0"}):
+            time.tzset()
+            december = datetime.datetime(2026, 12, 15)
+            self.assertEqual(audit_ship.syslog_time("Jul  2 22:43:54", december), "2026-07-02T22:43:54+01:00")
+            self.assertEqual(audit_ship.syslog_time("Dec  2 22:43:54", december), "2026-12-02T22:43:54+00:00")
+            self.assertEqual(
+                audit_ship.syslog_time("Dec 31 23:59:59", datetime.datetime(2027, 1, 1)),
+                "2026-12-31T23:59:59+00:00",
+            )
         self.assertIsNone(audit_ship.parse_auth_line("not syslog", "h", {}))
 
     def test_audit_file_changes(self):
