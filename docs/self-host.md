@@ -512,6 +512,30 @@ Error reporting to Sentry or a Sentry-compatible collector such as GlitchTip is 
   to that DSN. Use a separate project from `SENTRY_DSN`.
 - `SENTRY_ENVIRONMENT` names the deployment. `SENTRY_RELEASE` defaults to the image's `GIT_SHA`.
 
+Web, Electron native processes, and mobile share correlation names and privacy filters. Native
+clients read the selected server's monitoring configuration and route reports through its API;
+no mobile or desktop DSN is baked into a binary. A server or session switch clears the old
+identity and pending reports. Reporting starts once the server configuration is available;
+failures before the native SDK can initialize cannot be guaranteed to arrive remotely.
+The API reconstructs an allowlist of event fields before forwarding native envelopes. It discards
+attachments, native contexts, console history, request contents and account identifiers, and scrubs
+exception messages and stack paths. JavaScript errors retain validated correlation and pseudonymous
+user IDs; cached native crashes remain anonymous. Electron reports native crash metadata without
+uploading raw minidumps. Mobile native crash
+handling requires a rebuilt development/release app; Expo Go cannot capture native crashes.
+Native SDK reports contain system crash diagnostics, with automatic breadcrumbs, screenshots,
+view hierarchies, logs and performance collection disabled.
+
+Web builds include source maps for collector symbolication. Mobile Metro emits Sentry debug IDs;
+native symbol/source-map uploads are opt-in at build time with `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,
+`SENTRY_PROJECT` and optional `SENTRY_URL`. Without upload credentials the app still builds and
+reports, but native symbolication is limited. Native releases identify the client binary rather
+than the connected server release.
+
+`/internal/health` includes telemetry sink failure counts and recent degradation without error
+contents. This does not change public liveness/readiness: optional reporting failure must not
+make the core product unavailable. Worker heartbeat files include the same sink diagnostics.
+
 Neither SDK sends cookies, headers, request bodies, user identity, console output, or log context.
 When `ANALYTICS_PSEUDONYM_SECRET` is set, reports carry a keyed hash of the signed-in user's id so
 the collector can count affected users; the raw id, email and IP address are never sent, and the
@@ -1177,9 +1201,17 @@ mount options. Set `RAKAZO_BACKUP_REQUIRE_VOLUME=1` and add a service drop-in co
 then refuses to fall back to root storage if the mount is missing or points at the root filesystem.
 
 Monitoring is opt-in. Install `host-alert.py` as `/usr/local/sbin/rakazo-host-alert` and
-`check-host.sh` as `/usr/local/sbin/rakazo-host-check`, then install the supplied host-check service
+`check-host.sh` as `/usr/local/sbin/rakazo-host-check`, and `check-services.py` as
+`/usr/local/sbin/rakazo-check-services` (all executable), then install the supplied host-check service
 and timer and enable `rakazo-host-check.timer`. Checks run every five minutes and report low disk
 space, failed backups, a verified backup older than 36 hours, or missing configured IPv4 SSH rules.
+Set `RAKAZO_MONITOR_COMPOSE_PROJECT` in `backup.env` to the deployed Compose project name
+(`rakazo-prod` for the production manifest) to also alert when the API or worker is missing,
+stopped, or unhealthy. Leave it unset when container monitoring is managed elsewhere.
+The worker's Docker probe checks a heartbeat and reconciliation freshness, so an alive but
+blocked worker becomes unhealthy too. Host alerts use the existing optional delivery channel;
+installing this code alone does not enable a host timer or create hosted collector alerts.
+
 The dedicated-volume check is enabled only by `RAKAZO_BACKUP_REQUIRE_VOLUME=1` in `backup.env`.
 Identical alerts are suppressed for a day; recovery sends a separate notification.
 

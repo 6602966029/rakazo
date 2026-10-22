@@ -440,6 +440,7 @@ export default defineConfig(({ mode }) => {
     ),
   });
   return {
+    build: { sourcemap: true },
     plugins: [
       react(),
       babel({ plugins: ["@lingui/babel-plugin-lingui-macro"] }),

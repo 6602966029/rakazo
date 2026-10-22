@@ -4,10 +4,12 @@ import type { ContractRouterClient } from "@orpc/contract";
 import type { AppContract, ProductEvent } from "@rakazo/contracts";
 import { LOCAL_SETTINGS_PAGE, LOCAL_SETTINGS_RPC } from "@rakazo/contracts";
 import { displayIdentityEvent, displayIdentityResult } from "@rakazo/core";
+import { clientCorrelationHeaders, responseCorrelation } from "@rakazo/logging/monitoring";
 import { authClient } from "./auth";
 import { desktopBridge } from "./desktop";
 import { i18n } from "./i18n";
 import { identityLabels } from "./identity-display";
+import { reportClientError } from "./monitoring";
 
 const SPACE_STORAGE_KEY = "rakazo:space-id";
 
@@ -73,12 +75,23 @@ const link = new RPCLink<RpcClientContext>({
     }
     const spaceId =
       options.context.spaceId === undefined ? selectedSpaceId() : options.context.spaceId;
-    const response = await fetch(request, {
-      headers: withSpaceHeaders(request.headers, spaceId),
-      credentials: "include",
-      // Keep cancellation attached directly to fetch rather than only a cloned Request.
-      signal: options.signal,
-    });
+    const correlation = clientCorrelationHeaders();
+    const headers = withSpaceHeaders(request.headers, spaceId);
+    for (const [key, value] of Object.entries(correlation)) headers.set(key, value);
+    let response: Response;
+    try {
+      response = await fetch(request, {
+        headers,
+        credentials: "include",
+        // Keep cancellation attached directly to fetch rather than only a cloned Request.
+        signal: options.signal,
+      });
+    } catch (error) {
+      if (!options.signal?.aborted)
+        reportClientError(error, "rpc.transport", responseCorrelation(new Headers(correlation)));
+      throw error;
+    }
+    // Server exceptions are reported by the API; do not report every HTTP failure twice.
     recheckSessionOnUnauthorized(response.status);
     return response;
   },

@@ -4,17 +4,8 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { DesktopReachability, DesktopSetup } from "@rakazo/contracts";
 import { LOCAL_SETTINGS_PAGE } from "@rakazo/contracts/local-settings";
-import {
-  app,
-  BrowserWindow,
-  dialog,
-  ipcMain,
-  Menu,
-  net,
-  type Session,
-  session,
-  shell,
-} from "electron";
+import type { Session } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell } from "electron";
 import type { AppDocumentState } from "./app-document-state.js";
 import { APP_DOCUMENT_STATE_SCRIPT } from "./app-document-state.js";
 import { createAppOpener } from "./app-opener.js";
@@ -36,6 +27,12 @@ import {
   stackDir,
   stackResourceDir,
 } from "./local-stack.js";
+import {
+  configureDesktopMonitoring,
+  installDesktopEarlyErrorReporting,
+  refreshDesktopMonitoringUser,
+  reportDesktopError,
+} from "./monitoring.js";
 import { oauthCallbackFrom } from "./oauth-callback.js";
 import {
   bundledRendererCandidates,
@@ -69,6 +66,8 @@ import {
   warmWindowTtlMs,
 } from "./window-options.js";
 
+installDesktopEarlyErrorReporting();
+
 const PERFORMANCE_USER_DATA = process.env.RAKAZO_PERFORMANCE_USER_DATA;
 /** Test hook: where the app-managed stack answers. Mode `new` still requires loopback. */
 const LOCAL_WEB_URL = process.env.RAKAZO_LOCAL_WEB_URL?.trim() || DEFAULT_LOCAL_WEB_URL;
@@ -86,6 +85,8 @@ let settingsTarget: { origin: string; token: string } | null = null;
 const bundledRendererInstallations = new Set<string>();
 let currentSetup: DesktopSetup | null = null;
 let currentTargetUrl: string | null = null;
+let monitoringSession: Session | undefined;
+let stopMonitoringSession: (() => void) | undefined;
 let setupError: string | null = null;
 let setupSaveInProgress = false;
 const appOpener = createAppOpener(openAppOnce);
@@ -268,6 +269,9 @@ function createWindow(url: string, partition: string | null) {
       ...(partition === null ? {} : { partition }),
     },
   });
+  win.on("unresponsive", () =>
+    reportDesktopError(new Error("Renderer unresponsive"), "desktop.unresponsive"),
+  );
   mainWindow = win;
   appWindowTargets.set(win, url);
   const targetOrigin = safeOrigin(url);
@@ -875,6 +879,23 @@ function openFailureDetail(error: unknown): string {
 async function openAppOnce(targetUrl: string, switching: boolean) {
   hostComputer?.activate(currentSetup?.mode === "new" && targetUrl === localStack.webUrl());
   const target = await resolveSessionForTarget(targetUrl);
+  stopMonitoringSession?.();
+  monitoringSession = target.value;
+  const fetchMonitoringConfig = () =>
+    target.value.fetch(new URL("/api/monitoring/config", targetUrl).href, {
+      signal: AbortSignal.timeout(8_000),
+    });
+  const refreshMonitoringUser = () => {
+    if (monitoringSession === target.value)
+      void refreshDesktopMonitoringUser(fetchMonitoringConfig);
+  };
+  target.value.cookies.on("changed", refreshMonitoringUser);
+  stopMonitoringSession = () =>
+    target.value.cookies.removeListener("changed", refreshMonitoringUser);
+  void configureDesktopMonitoring(fetchMonitoringConfig, {
+    version: app.getVersion(),
+    base: targetUrl,
+  });
   const previous = mainWindow;
   let win: BrowserWindow | null = null;
   try {
@@ -903,6 +924,7 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
     if (pendingPreviousWindow !== null) pendingPreviousWindow.hide();
     return true;
   } catch (error) {
+    reportDesktopError(error, "desktop.startup");
     pendingPreviousWindow = null;
     // Keep the previous app window so Cancel / close can restore it.
     if (previous !== null && !previous.isDestroyed()) mainWindow = previous;
