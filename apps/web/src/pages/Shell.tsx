@@ -2864,7 +2864,11 @@ function SpaceShell() {
     const bootInFlight = bootsInFlight.current.has(id) || targetComputer?.state === "booting";
     setComputerOpen(true);
     computerVisible.current = true;
-    if (bootInFlight && !takeControl) return true;
+    if (bootInFlight && !takeControl) {
+      // An external boot may have finished since this snapshot was cached.
+      if (!bootsInFlight.current.has(id)) await refreshComputerFor(id).catch(() => undefined);
+      return true;
+    }
     const needsTakeover = takeControl && !userHoldsComputerControl(targetComputer, id);
     const blocked = computerTakeoverBlocked(targetComputer, snapshot?.run?.status);
     try {
