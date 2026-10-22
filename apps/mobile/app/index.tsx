@@ -94,6 +94,7 @@ import { confirmDeleteBot, confirmDeleteGroup } from "../lib/bot-lifecycle";
 import type { CollapsedSections } from "../lib/collapsed-sections";
 import { loadCollapsedSections, saveCollapsedSections } from "../lib/collapsed-sections";
 import { confirmDeleteSection } from "../lib/confirm-delete-section";
+import { presentCreateChooser } from "../lib/create-chooser";
 import { allowFocusPrompt, scheduleFocusPrompt } from "../lib/focus-prompt";
 import { useForegroundPoll } from "../lib/foreground-poll";
 import { t, useI18n } from "../lib/i18n";
@@ -723,17 +724,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   );
 
   const openCreateChooser = useCallback(() => {
-    Alert.alert(
-      t("Create"),
-      undefined,
-      [
-        { text: t("New bot"), onPress: () => runCreateAction("bot") },
-        { text: t("New group"), onPress: () => runCreateAction("group") },
-        { text: t("New space"), onPress: () => runCreateAction("space") },
-      ],
-      { cancelable: true },
-    );
-  }, [runCreateAction, t]);
+    presentCreateChooser({ t, colorScheme: appearance, onSelect: runCreateAction });
+  }, [appearance, runCreateAction, t]);
 
   useLayoutEffect(() => {
     if (!nativeHeader) return;
