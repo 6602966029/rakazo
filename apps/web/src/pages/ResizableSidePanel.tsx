@@ -1,19 +1,18 @@
 import { t } from "@lingui/core/macro";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { useBotsSidebarWidth } from "./shell/sidebar-layout";
 
 const STORAGE_KEY = "rakazo:right-panel-width";
 const MIN_WIDTH = 320;
 const DEFAULT_WIDTH = 384;
 const ABSOLUTE_MAX = 1000;
-/** Desktop bots sidebar width (`md:w-[316px]` in Shell). */
-const BOTS_SIDEBAR_WIDTH = 316;
 const MIN_CHAT_WIDTH = 320;
 
-function maximumWidth(reservedLeadingPx: number) {
+function maximumWidth(reservedLeadingPx: number, viewportWidth = window.innerWidth) {
   return Math.max(
     MIN_WIDTH,
-    Math.min(ABSOLUTE_MAX, window.innerWidth - reservedLeadingPx - MIN_CHAT_WIDTH),
+    Math.min(ABSOLUTE_MAX, viewportWidth - reservedLeadingPx - MIN_CHAT_WIDTH),
   );
 }
 
@@ -30,17 +29,16 @@ function readPreferredWidth() {
 export function ResizableSidePanel({
   open,
   panel,
-  botsSidebarCollapsed = false,
   children,
 }: {
   open: boolean;
   panel: string;
-  botsSidebarCollapsed?: boolean;
   children: ReactNode;
 }) {
-  const reservedLeadingPx = botsSidebarCollapsed ? 0 : BOTS_SIDEBAR_WIDTH;
+  const reservedLeadingPx = useBotsSidebarWidth();
   const [preferredWidth, setPreferredWidth] = useState(readPreferredWidth);
-  const [maxWidth, setMaxWidth] = useState(() => maximumWidth(reservedLeadingPx));
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const maxWidth = maximumWidth(reservedLeadingPx, viewportWidth);
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{ x: number; width: number; direction: number } | null>(null);
   const width = Math.max(MIN_WIDTH, Math.min(maxWidth, preferredWidth));
@@ -55,12 +53,12 @@ export function ResizableSidePanel({
 
   useEffect(() => {
     function syncMax() {
-      setMaxWidth(maximumWidth(reservedLeadingPx));
+      setViewportWidth(window.innerWidth);
     }
     syncMax();
     window.addEventListener("resize", syncMax);
     return () => window.removeEventListener("resize", syncMax);
-  }, [reservedLeadingPx]);
+  }, []);
 
   function stopDrag(event: PointerEvent<HTMLHRElement>) {
     drag.current = null;
