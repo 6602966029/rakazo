@@ -6,10 +6,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 const COMPOSE = "docker compose --env-file .env -f infra/compose/docker-compose.prod.yml";
+const APP_IMAGE = "ghcr.example.test/rakazo/app:local";
 // Each rolled service gains a new container, which must pass its health check before the old
 // one stops; the rest of the stack is reconciled afterwards.
 const rolloutSteps = (revision: string) => [
   `${COMPOSE} config --quiet`,
+  `${COMPOSE} config`,
   `${COMPOSE} build --build-arg GIT_SHA=${revision}`,
   ...["api", "web"].flatMap((service) => [
     `${COMPOSE} ps --all --quiet ${service}`,
@@ -89,6 +91,9 @@ function fixture() {
 echo "docker $* @ $(git rev-parse --short HEAD)" >> "$COMMAND_LOG"
 if [[ "$*" == *" build "* && "$(cat revision.txt)" == "\${FAIL_BUILD:-}" ]]; then exit 1; fi
 if [[ "$1" == info ]]; then echo /var/lib/docker; fi
+if [[ "$*" == *" config" ]]; then printf "services:\\n  api:\\n    image: ${APP_IMAGE}\\n"; fi
+if [[ "$1 $2" == "image inspect" ]]; then [[ -n "\${PREVIOUS_IMAGE-sha256:previous}" ]] || exit 1; echo "\${PREVIOUS_IMAGE-sha256:previous}"; fi
+if [[ "$1" == pull && -n "\${FAIL_PULL:-}" ]]; then exit 1; fi
 if [[ "$*" == *" images -q" ]]; then echo sha256:running; fi
 if [[ "$1" == tag && -n "\${FAIL_TAG:-}" ]]; then exit 1; fi
 # One running container per rolled service; --scale adds a second until the old one is removed.
@@ -277,10 +282,26 @@ describe("production deploy script", () => {
     expect(deploy.commands().some((line) => line.includes(" build"))).toBe(false);
   });
 
-  it("rolls back to the previous revision when the build fails", () => {
+  it("rolls back to the image the previous containers ran when the build fails", () => {
     const deploy = fixture();
     const broken = commit(deploy.upstream, "broken");
     const result = deploy.run({ FAIL_BUILD: "broken" });
+    expect(result.status).toBe(1);
+    expect(deploy.head()).toBe(deploy.first);
+    const commands = deploy.commands().map((line) => line.split(" @ ")[0]);
+    expect(commands.filter((line) => line.startsWith(`${COMPOSE} build`))).toEqual([
+      `${COMPOSE} build --build-arg GIT_SHA=${broken}`,
+    ]);
+    expect(commands).toContain(`docker tag sha256:previous ${APP_IMAGE}`);
+    expect(deploy.commands().at(-1)).toMatch(
+      new RegExp(`up -d --remove-orphans @ ${deploy.first.slice(0, 7)}`),
+    );
+  });
+
+  it("rebuilds the previous revision when its image is gone", () => {
+    const deploy = fixture();
+    const broken = commit(deploy.upstream, "broken");
+    const result = deploy.run({ FAIL_BUILD: "broken", PREVIOUS_IMAGE: "" });
     expect(result.status).toBe(1);
     expect(deploy.head()).toBe(deploy.first);
     expect(
@@ -289,9 +310,105 @@ describe("production deploy script", () => {
       `${COMPOSE} build --build-arg GIT_SHA=${broken}`,
       `${COMPOSE} build --build-arg GIT_SHA=${deploy.first}`,
     ]);
-    expect(deploy.commands().at(-1)).toMatch(
-      new RegExp(`up -d --remove-orphans @ ${deploy.first.slice(0, 7)}`),
-    );
+  });
+
+  describe("with published images", () => {
+    const REGISTRY = "registry.example.test/rakazo/app";
+    const published = (revision: string) => `${REGISTRY}:sha-${revision}`;
+    const commandsOf = (deploy: ReturnType<typeof fixture>) =>
+      deploy.commands().map((line) => line.split(" @ ")[0]);
+
+    it("pulls the image published for the commit instead of building", () => {
+      const deploy = fixture();
+      const next = commit(deploy.upstream, "next");
+      const result = deploy.run({ RAKAZO_DEPLOY_IMAGE: REGISTRY });
+      expect(result.status).toBe(0);
+      expect(deploy.deployed()).toBe(next);
+      const commands = commandsOf(deploy);
+      expect(commands.some((line) => line.startsWith(`${COMPOSE} build`))).toBe(false);
+      const pull = commands.indexOf(`docker pull --quiet ${published(next)}`);
+      expect(pull).toBeGreaterThan(-1);
+      // Tagged as the image Compose runs, and the sha- tag dropped so they cannot pile up.
+      expect(commands.slice(pull + 1, pull + 3)).toEqual([
+        `docker tag ${published(next)} ${APP_IMAGE}`,
+        `docker rmi ${published(next)}`,
+      ]);
+      expect(commands.indexOf(`${COMPOSE} up -d --remove-orphans`)).toBeGreaterThan(pull);
+    });
+
+    it("uses the GHCR image of the GitHub repository the checkout tracks by default", () => {
+      const deploy = fixture();
+      const next = commit(deploy.upstream, "next");
+      const github = "https://github.com/Example/Rakazo.git";
+      git(deploy.checkout, "remote", "set-url", "origin", github);
+      // The deploy runs with HOME set to the fixture root, so fetches still reach the local upstream.
+      write(
+        path.join(path.dirname(deploy.checkout), ".gitconfig"),
+        `[url "${deploy.upstream}"]\n\tinsteadOf = ${github}\n`,
+      );
+      expect(deploy.run().status).toBe(0);
+      expect(commandsOf(deploy)).toContain(
+        `docker pull --quiet ghcr.io/example/rakazo/app:sha-${next}`,
+      );
+    });
+
+    it("builds on the host, loudly, when the image cannot be pulled", () => {
+      const deploy = fixture();
+      const next = commit(deploy.upstream, "next");
+      const result = deploy.run({ RAKAZO_DEPLOY_IMAGE: REGISTRY, FAIL_PULL: "1" });
+      expect(result.status).toBe(0);
+      expect(result.stderr).toContain(`::warning::Could not pull ${published(next)}`);
+      expect(deploy.deployed()).toBe(next);
+      const commands = commandsOf(deploy);
+      expect(commands).toContain(`${COMPOSE} build --build-arg GIT_SHA=${next}`);
+      expect(commands).not.toContain(`docker tag ${published(next)} ${APP_IMAGE}`);
+    });
+
+    it("rolls back by retagging the previous image without the registry", () => {
+      const deploy = fixture();
+      commit(deploy.upstream, "unhealthy");
+      const result = deploy.run({ RAKAZO_DEPLOY_IMAGE: REGISTRY, FAIL_HEALTH: "1" });
+      expect(result.status).toBe(1);
+      expect(deploy.head()).toBe(deploy.first);
+      const commands = commandsOf(deploy);
+      expect(commands.filter((line) => line.startsWith("docker pull"))).toHaveLength(1);
+      expect(commands).toContain(`docker tag sha256:previous ${APP_IMAGE}`);
+    });
+
+    it("pulls the previous commit's image to roll back when the old image is gone", () => {
+      const deploy = fixture();
+      const next = commit(deploy.upstream, "unhealthy");
+      const result = deploy.run({
+        RAKAZO_DEPLOY_IMAGE: REGISTRY,
+        FAIL_HEALTH: "1",
+        PREVIOUS_IMAGE: "",
+      });
+      expect(result.status).toBe(1);
+      const commands = commandsOf(deploy);
+      expect(commands.filter((line) => line.startsWith("docker pull"))).toEqual([
+        `docker pull --quiet ${published(next)}`,
+        `docker pull --quiet ${published(deploy.first)}`,
+      ]);
+      expect(commands.some((line) => line.startsWith(`${COMPOSE} build`))).toBe(false);
+    });
+
+    it("keeps only the current and previous app images", () => {
+      const deploy = fixture();
+      const next = commit(deploy.upstream, "next");
+      expect(deploy.run({ RAKAZO_DEPLOY_IMAGE: REGISTRY }).status).toBe(0);
+      const commands = commandsOf(deploy);
+      expect(commands).toContain(`docker rmi ${published(next)}`);
+      expect(
+        commands.slice(commands.findIndex((line) => line.endsWith(" up -d --remove-orphans")) + 1),
+      ).toEqual([
+        "curl https://app.example.test/health",
+        "docker image ls --format {{.Repository}}:{{.Tag}} rakazo-rollback",
+        "docker rmi rakazo-rollback:old",
+        "docker tag sha256:running rakazo-rollback:running",
+        "docker image prune --force",
+        "docker builder prune --force --keep-storage 8GB",
+      ]);
+    });
   });
 
   it("starts the first containers directly when none are running", () => {
