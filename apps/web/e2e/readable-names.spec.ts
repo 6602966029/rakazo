@@ -63,15 +63,15 @@ test("legacy opaque names never appear in navigation, account, chats or Activity
     await nameInput.press("Enter");
     await expect(accountCard.getByRole("alert")).toHaveText("Could not update name");
     await expect(nameInput).toHaveValue("💬");
-    await expect(page.getByTestId("user-menu-trigger")).toContainText(email);
+    await expect(page.getByTestId("user-menu-trigger")).toHaveAccessibleName(`Account menu for ${email}`);
     await nameInput.fill("  Alex Rivera  ");
     await nameInput.press("Enter");
     await expect(nameInput).toBeHidden();
     await expect(accountCard).toContainText("Alex Rivera");
-    await expect(page.getByTestId("user-menu-trigger")).toContainText("Alex Rivera");
+    await expect(page.getByTestId("user-menu-trigger")).toHaveAccessibleName("Account menu for Alex Rivera");
     await captureScreenshot(page, testInfo, "readable-names-account-saved");
     await page.reload();
-    await expect(page.getByTestId("user-menu-trigger")).toContainText("Alex Rivera");
+    await expect(page.getByTestId("user-menu-trigger")).toHaveAccessibleName("Account menu for Alex Rivera");
     await page.keyboard.press("Escape");
     await page.goto(`/app/g/${group.id}`);
     await expect(page.getByPlaceholder("Message Group")).toBeVisible();
