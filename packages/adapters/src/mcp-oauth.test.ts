@@ -836,7 +836,7 @@ describe("MCP OAuth", () => {
         deploymentSettings: deploymentOwner("user-1"),
         $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
       };
-      const broker = new McpOAuthBroker(prisma as never, { put } as never, TEST_NETWORK);
+      const broker = new McpOAuthBroker(prisma as never, { put } as never, TEST_NETWORK, true);
 
       const started = await broker.begin({
         serverId: "server-1",
@@ -2441,7 +2441,7 @@ describe("MCP OAuth", () => {
       mcpOAuthSession: oauthSessionStore(),
       $transaction: vi.fn().mockResolvedValue([]),
     };
-    const broker = new McpOAuthBroker(prisma as never, { put } as never, TEST_NETWORK);
+    const broker = new McpOAuthBroker(prisma as never, { put } as never, TEST_NETWORK, true);
 
     await expect(
       broker.begin({
@@ -2493,10 +2493,15 @@ describe("MCP setup with an existing access token", () => {
         load: vi.fn(() => JSON.stringify({ secret: "fake-executor-token" })),
         put: vi.fn(),
       };
-      const broker = new McpOAuthBroker(prisma as never, secrets as never, {
-        ...TEST_NETWORK,
-        fetch,
-      });
+      const broker = new McpOAuthBroker(
+        prisma as never,
+        secrets as never,
+        {
+          ...TEST_NETWORK,
+          fetch,
+        },
+        true,
+      );
       await expect(
         broker.begin({
           serverId: "server",

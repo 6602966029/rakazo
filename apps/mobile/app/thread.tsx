@@ -14,7 +14,7 @@ import {
   isAttachmentAudioMimeType,
   MESSAGE_REACTIONS,
 } from "@rakazo/contracts";
-import type { SlashActionId, ThreadItem } from "@rakazo/core";
+import type { ReadBoundary, SlashActionId, ThreadItem } from "@rakazo/core";
 import {
   abortableDelay,
   answerableAskMessageIds,
@@ -22,6 +22,7 @@ import {
   attachmentsForThread,
   buildComposerMentionOptions,
   cloudAgentHttpsUrl,
+  createChatQueues,
   dismissableAskMessageIds,
   expandPeerReplies,
   foldPeerReplies,
@@ -46,8 +47,12 @@ import {
   retryDelayMs,
   displayName as safeDisplayName,
   selectedAskActionLabel,
+  settleReadBoundary,
+  shouldShowBotSenderName,
   threadWindowMessages,
   timeSeparatorIds,
+  unreadDividerMessageId,
+  voiceChatHoldsMessage,
   withLiveStreamingProgress,
 } from "@rakazo/core";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
@@ -139,9 +144,10 @@ import { ThreadErrorNotice } from "../components/thread-error-notice";
 import { createThreadHeaderStyles } from "../components/thread-header-styles";
 import { ThreadScrollSurface } from "../components/thread-scroll-surface";
 import { TimeSeparator } from "../components/time-separator";
+import { UnreadDivider } from "../components/unread-divider";
 import { VoiceChatCard } from "../components/VoiceChatCard";
 import { WorkingIndicator } from "../components/WorkingIndicator";
-import { readableGutter } from "../lib/adaptive-layout";
+import { readableGutters } from "../lib/adaptive-layout";
 import type {
   MobileBot,
   MobileGroup,
@@ -201,6 +207,7 @@ import {
   quotableMessageSegments,
   truncateQuoteExcerpt,
 } from "../lib/message-presentation";
+import { openModelSettings } from "../lib/model-settings";
 import { useMobileTokens, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import { HEADER_TITLE_MAX_FONT_SCALE, iosAtLeast } from "../lib/native-controls";
 import {
@@ -234,10 +241,11 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import { setInboxHidden, useSplitView } from "../lib/split-view";
-import { threadEdgeOptions } from "../lib/thread-edges";
+import { threadEdgeOptions, threadHeaderFloats } from "../lib/thread-edges";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
+import { threadKeyboardOffset } from "../lib/thread-keyboard-offset";
 import { ThreadReadOnlyContext } from "../lib/thread-read-only";
 import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
 import { latestArrivalMessageId, ThreadScrollBehavior } from "../lib/thread-scroll";
@@ -436,16 +444,20 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const [botActionsOpen, setBotActionsOpen] = useState(false);
   const { t, locale } = useI18n();
   const navigation = useNavigation();
+  const focused = useIsFocused();
   const foreground = useAppForeground();
   const router = useRouter();
   // Beside the chat list on a wide window, the chat has only the width the list leaves.
   const { split, inboxHidden, contentWidth: windowWidth } = useSplitView();
   const nativeHeaderHeight = useHeaderHeight();
-  const headerHeight = iosAtLeast(26) ? nativeHeaderHeight : 0;
+  const headerHeight = threadHeaderFloats() ? nativeHeaderHeight : 0;
   const insets = useSafeAreaInsets();
   // An unfolded or tablet window keeps messages and the composer in a centred reading column.
-  const columnInset = readableGutter(windowWidth, Math.max(insets.left, insets.right));
-  const columnWidth = windowWidth - columnInset * 2;
+  const columnInsets = readableGutters(windowWidth, {
+    left: split && !inboxHidden ? 0 : insets.left,
+    right: insets.right,
+  });
+  const columnWidth = windowWidth - columnInsets.left - columnInsets.right;
   // Frame by frame, including a swipe that drags the keyboard down.
   const keyboardProgress = useSharedValue(KeyboardController.isVisible() ? 1 : 0);
   useKeyboardHandler(
@@ -529,9 +541,24 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const mentionBotsRefreshGeneration = useRef(0);
   const mentionBotsAppliedGeneration = useRef(0);
   const readVisibleTarget = useRef<string | null>(null);
+  // What the user had read up to when this chat opened; the "New" divider follows it all visit.
+  // Each open or return to a chat is a new visit.
+  const readVisit = useRef<{ target: string | undefined; visit: number; focused: boolean }>({
+    target: undefined,
+    visit: 0,
+    focused,
+  });
+  const [readBoundary, setReadBoundary] = useState<ReadBoundary | null>(null);
+  // A chat's markRead calls run one at a time so the request that opened it answers first.
+  const [readInOrder] = useState(createChatQueues);
   const autoSpoken = useRef<string | null>(null);
   const autoSpokenBotId = useRef<string | null>(null);
   const threadKey = groupId ?? botId;
+  if (readVisit.current.target !== threadKey || (focused && !readVisit.current.focused)) {
+    readVisit.current = { target: threadKey, visit: readVisit.current.visit + 1, focused };
+    readVisibleTarget.current = null;
+  }
+  readVisit.current.focused = focused;
   const [threadScrollState, setThreadScrollState] = useState<ThreadScrollState>(() =>
     scrollBehavior.current.state(),
   );
@@ -584,17 +611,23 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const activeThreadId = useRef<string | undefined>(undefined);
   const [agentSkills, setAgentSkills] = useState<AgentSkillCatalogEntry[]>([]);
   const [uploadConfig, setUploadConfig] = useState<{ maxUploadSizeBytes?: number }>();
-  useEffect(() => {
-    let cancelled = false;
-    void rpc<{ maxUploadSizeBytes?: number }>("me")
-      .then((me) => {
-        if (!cancelled) setUploadConfig(me);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [needsModel, setNeedsModel] = useState<boolean>();
+  // Re-read on focus so returning from Models settings updates unsent missing-model messages.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void rpc<{ maxUploadSizeBytes?: number } & Partial<Pick<MobileMe, "needsModel">>>("me")
+        .then((me) => {
+          if (cancelled) return;
+          setUploadConfig(me);
+          setNeedsModel(me.needsModel);
+        })
+        .catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const [mentionBots, setMentionBots] = useState<MobileBot[]>([]);
   // The call outlives renders, so its switch check reads the newest bot list from here.
@@ -647,6 +680,16 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   >(() => new Map());
   const [expandedPeerMarkers, setExpandedPeerMarkers] = useState<ReadonlySet<string>>(
     () => new Set(),
+  );
+  const showBotSenderName = useMemo(
+    () =>
+      shouldShowBotSenderName({
+        isGroup: inGroup,
+        speakerBotIds: (snap?.messages ?? [])
+          .filter((message) => message.role === "bot")
+          .map((message) => message.botId),
+      }),
+    [inGroup, snap?.messages],
   );
   const peerTranscript = useMemo(
     () => foldPeerReplies(snap?.messages ?? [], { includePeerReceipts: true }),
@@ -926,6 +969,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
               inGroup
                 ? {
                     type: "button" as const,
+                    label: t("Group settings"),
                     accessibilityLabel: t("Group settings"),
                     icon: { type: "sfSymbol" as const, name: "gearshape" },
                     onPress: () =>
@@ -936,6 +980,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
                   }
                 : {
                     type: "menu" as const,
+                    label: t("Bot actions"),
                     accessibilityLabel: t("Bot actions"),
                     icon: { type: "sfSymbol" as const, name: "ellipsis" },
                     disabled: !botId,
@@ -994,6 +1039,18 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       ...(split
         ? {
             headerBackVisible: false,
+            ...(iosAtLeast(26)
+              ? {
+                  unstable_headerLeftItems: () => [
+                    {
+                      type: "button" as const,
+                      label: inboxHidden ? t("Show chats") : t("Hide chats"),
+                      icon: { type: "sfSymbol" as const, name: "sidebar.left" },
+                      onPress: () => setInboxHidden(!inboxHidden),
+                    },
+                  ],
+                }
+              : {}),
             headerLeft: () => (
               <Pressable
                 accessibilityRole="button"
@@ -1011,7 +1068,11 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
             ),
           }
         : // Folding back takes the list away, so the chat gets its back button again.
-          { headerBackVisible: true, headerLeft: undefined }),
+          {
+            headerBackVisible: true,
+            headerLeft: undefined,
+            ...(iosAtLeast(26) ? { unstable_headerLeftItems: () => [] } : {}),
+          }),
       ...(readOnly
         ? trailingHeaderOptions(t("Restore"), () => void restoreConversation(), restoring)
         : {}),
@@ -1393,19 +1454,37 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     const target = groupId ?? botId;
     if (!target || readVisibleTarget.current === target) return;
     readVisibleTarget.current = target;
+    const visit = readVisit.current.visit;
     if (activeThreadId.current) {
       void dismissThreadNotifications({ threadId: activeThreadId.current }).catch(() => undefined);
     }
-    if (groupId) {
-      void rpc("threads/markRead", { groupId }).catch(() => {
+    // A read that waited in the queue skips once the user has left the chat.
+    void readInOrder(target, () =>
+      readVisit.current.visit === visit &&
+      AppState.currentState === "active" &&
+      navigation.isFocused()
+        ? rpc<{ unreadAfterSeq?: number | null }>(
+            "threads/markRead",
+            groupId ? { groupId } : { botId: botId! },
+          )
+        : Promise.resolve(null),
+    )
+      .then((answer) => {
+        if (!answer) {
+          if (readVisibleTarget.current === target) readVisibleTarget.current = null;
+          return;
+        }
+        setReadBoundary((current) =>
+          settleReadBoundary(current, readVisit.current.visit, {
+            visit,
+            seq: answer.unreadAfterSeq ?? null,
+          }),
+        );
+      })
+      .catch(() => {
         if (readVisibleTarget.current === target) readVisibleTarget.current = null;
       });
-      return;
-    }
-    void rpc("threads/markRead", { botId: botId! }).catch(() => {
-      if (readVisibleTarget.current === target) readVisibleTarget.current = null;
-    });
-  }, [botId, groupId, navigation, readOnly]);
+  }, [botId, groupId, navigation, readInOrder, readOnly]);
 
   useEffect(() => {
     if (!notificationThreadId || AppState.currentState !== "active" || !navigation.isFocused())
@@ -1621,34 +1700,45 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     return () => clearTimeout(timer);
   }, [snap, showingSaved, botId, groupId]);
 
-  useEffect(() => {
-    if (!botId && !groupId) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const refreshDelay = () =>
-      threadRefreshDelayMs(snap?.run?.status, { liveSubscribed: liveSubscribed.current });
-    const tick = async () => {
-      let failure: unknown;
-      if (
-        AppState.currentState === "active" &&
-        navigation.isFocused() &&
-        !jumpScrollTarget.current &&
-        !expandedHistoryThread.current
-      ) {
-        await refresh().catch((error: unknown) => {
-          failure = error;
+  // The safety snapshot is a gap detector, not the live path: SSE already carries
+  // deltas. Stop the timer while the app is backgrounded; the stream effect resumes
+  // from its cursor when the app returns.
+  useFocusEffect(
+    useCallback(() => {
+      if (!foreground || (!botId && !groupId)) return;
+      let cancelled = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let ticking = false;
+      const refreshDelay = () =>
+        threadRefreshDelayMs(snap?.run?.status, {
+          liveSubscribed: liveSubscribed.current,
+          readOnly,
         });
+      function schedule() {
+        if (!cancelled) timer = setTimeout(() => void tick(), refreshDelay());
       }
-      if (!cancelled && isRetryableError(failure)) {
-        timer = setTimeout(() => void tick(), refreshDelay());
+      async function tick() {
+        if (cancelled || ticking) return;
+        ticking = true;
+        let failure: unknown;
+        try {
+          if (!jumpScrollTarget.current && !expandedHistoryThread.current) {
+            await refresh().catch((error: unknown) => {
+              failure = error;
+            });
+          }
+        } finally {
+          ticking = false;
+          if (isRetryableError(failure)) schedule();
+        }
       }
-    };
-    timer = setTimeout(() => void tick(), refreshDelay());
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) clearTimeout(timer);
-    };
-  }, [botId, groupId, navigation, snap?.run?.status]);
+      schedule();
+      return () => {
+        cancelled = true;
+        if (timer !== undefined) clearTimeout(timer);
+      };
+    }, [botId, foreground, groupId, readOnly, snap?.run?.status]),
+  );
 
   useEffect(() => {
     if (!botId && !groupId) return;
@@ -2042,13 +2132,25 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   useEffect(() => setRunErrorDetailsOpen(false), [failedRunId]);
   function openErrorConnection() {
     setRunErrorDetailsOpen(false);
-    router.push("/(settings)/models");
+    openModelSettings();
   }
   function openErrorModel() {
     setRunErrorDetailsOpen(false);
-    router.push({ pathname: "/bot-settings", params: { botId: snap?.run?.botId ?? botId ?? "" } });
+    router.push({
+      pathname: "/bot-settings",
+      params: { botId: snap?.run?.botId ?? botId ?? "", focus: "model" },
+    });
   }
   const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
+  const unreadDividerId = useMemo(
+    () =>
+      unreadDividerMessageId(
+        visibleMessages,
+        readBoundary?.visit === readVisit.current.visit ? readBoundary.seq : null,
+        snap?.olderCursor ?? null,
+      ),
+    [visibleMessages, readBoundary, snap?.olderCursor, threadKey],
+  );
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -2287,6 +2389,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           bubbleBotId={botId ?? snap?.members?.[0]?.botId ?? ""}
           groupId={groupId}
           botName={displayName}
+          showBotSenderName={showBotSenderName}
           bots={mentionBots}
           members={snap?.members}
           readOnly={readOnly}
@@ -2295,6 +2398,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           canDismiss={dismissableAskIds.has(message.id)}
           highlighted={highlightedMessageId === message.id}
           separator={separatorIds.has(message.id)}
+          unreadDivider={message.id === unreadDividerId}
           replyAuthor={replyAuthor}
           replyFallbackText={parent ? previewMessageText(parent) : undefined}
           messageReactions={messageReactions}
@@ -2317,6 +2421,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     },
     [
       messagesById,
+      showBotSenderName,
       snap?.members,
       snap?.activeRuns,
       snap?.run,
@@ -2337,6 +2442,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       dismissableAskIds,
       highlightedMessageId,
       separatorIds,
+      unreadDividerId,
       columnWidth,
       t,
       locale,
@@ -2349,12 +2455,17 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           {item.messages[0] && separatorIds.has(item.messages[0].id) ? (
             <TimeSeparator createdAt={item.messages[0].createdAt} />
           ) : null}
+          {voiceChatHoldsMessage(item, unreadDividerId) ? (
+            <UnreadDivider
+              afterSeparator={Boolean(item.messages[0] && separatorIds.has(item.messages[0].id))}
+            />
+          ) : null}
           <VoiceChatCard group={item} />
         </View>
       ) : (
         renderMessageRow(item.message)
       ),
-    [renderMessageRow, separatorIds],
+    [renderMessageRow, separatorIds, unreadDividerId],
   );
   const listContentStyle = useMemo(
     () => ({
@@ -2438,6 +2549,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     <FailedSendBubble
       key={attempt.clientNonce}
       attempt={attempt}
+      needsModel={needsModel}
       onRetry={() => void deliver(attempt, true)}
       onDelete={() => feedback.discard(attempt)}
     />
@@ -2473,11 +2585,17 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         // Padding always settles to zero. "height" stays shrunk when the keyboard hides without
         // move frames, such as when a pushed screen closes with its own keyboard up.
         behavior="padding"
-        keyboardVerticalOffset={keyboardLayout.offset}
+        keyboardVerticalOffset={threadKeyboardOffset({
+          os: Platform.OS,
+          floatingHeader: threadHeaderFloats(),
+          nativeHeaderHeight,
+          measuredOffset: keyboardLayout.offset,
+        })}
         style={{
           flex: 1,
           backgroundColor: tokens.background,
-          paddingHorizontal: 20 + columnInset,
+          paddingLeft: 20 + columnInsets.left,
+          paddingRight: 20 + columnInsets.right,
         }}
       >
         {/* The floor keeps a tall suggestion list from sliding under the transparent header. */}
@@ -3075,6 +3193,7 @@ type MessageRowProps = {
   bubbleBotId: string;
   groupId?: string;
   botName?: string;
+  showBotSenderName: boolean;
   bots: MobileBot[];
   members?: MobileSnapshot["members"];
   readOnly: boolean;
@@ -3083,6 +3202,7 @@ type MessageRowProps = {
   canDismiss: boolean;
   highlighted: boolean;
   separator: boolean;
+  unreadDivider: boolean;
   replyAuthor: string;
   replyFallbackText?: string;
   messageReactions?: ReadonlyMap<MessageReaction, number>;
@@ -3113,6 +3233,7 @@ const MessageRow = memo(function MessageRow({
   bubbleBotId,
   groupId,
   botName,
+  showBotSenderName,
   bots,
   members,
   readOnly,
@@ -3121,6 +3242,7 @@ const MessageRow = memo(function MessageRow({
   canDismiss,
   highlighted,
   separator,
+  unreadDivider,
   replyAuthor,
   replyFallbackText,
   messageReactions,
@@ -3320,6 +3442,7 @@ const MessageRow = memo(function MessageRow({
       }}
     >
       {separator ? <TimeSeparator createdAt={message.createdAt} /> : null}
+      {unreadDivider ? <UnreadDivider afterSeparator={separator} /> : null}
       <View
         style={{
           width: "100%",
@@ -3390,6 +3513,7 @@ const MessageRow = memo(function MessageRow({
                 groupId={groupId}
                 message={message}
                 botName={botName}
+                showBotSenderName={showBotSenderName}
                 bots={bots}
                 members={members}
                 canAnswer={canAnswer}
@@ -3443,6 +3567,7 @@ const MessageRow = memo(function MessageRow({
 const MessageBubble = memo(function MessageBubble({
   botId,
   botName,
+  showBotSenderName,
   bots,
   groupId,
   message,
@@ -3461,6 +3586,7 @@ const MessageBubble = memo(function MessageBubble({
 }: {
   botId: string;
   botName?: string;
+  showBotSenderName: boolean;
   bots: MobileBot[];
   groupId?: string;
   message: MobileMessage;
@@ -3971,7 +4097,7 @@ const MessageBubble = memo(function MessageBubble({
           gap: 8,
         }}
       >
-        {speaker ? (
+        {showBotSenderName && speaker ? (
           <Text style={{ color: speakerColor ?? tokens.mutedForeground, ...typeScale.footnote }}>
             {speaker}
           </Text>
@@ -4129,8 +4255,8 @@ const MessageBubble = memo(function MessageBubble({
         <MessageTextCard
           key={`${message.id}-content-${index}`}
           message={{ ...message, blocks: segment.blocks }}
-          speaker={index === firstContent ? speaker : undefined}
-          speakerColor={index === firstContent ? speakerColor : undefined}
+          speaker={showBotSenderName && index === firstContent ? speaker : undefined}
+          speakerColor={showBotSenderName && index === firstContent ? speakerColor : undefined}
           actionProps={actionProps}
         />
       ))}

@@ -601,7 +601,7 @@ describe("MCP connector session cache", () => {
       {
         load: vi.fn().mockReturnValue(JSON.stringify({ headers: { "X-Api-Key": "local-key" } })),
       } as never,
-      { network: TEST_NETWORK, events: { append } },
+      { network: TEST_NETWORK, events: { append }, allowPrivateEndpoint: true },
     );
 
     await expect(
@@ -645,7 +645,7 @@ describe("MCP connector session cache", () => {
       {
         load: vi.fn().mockReturnValue(JSON.stringify({ headers: { "X-Api-Key": "local-key" } })),
       } as never,
-      { network: TEST_NETWORK, events: { append } },
+      { network: TEST_NETWORK, events: { append }, allowPrivateEndpoint: true },
     );
     const context = {
       spaceId: "w1",
@@ -838,10 +838,9 @@ describe("MCP connector session cache", () => {
       const error = vi.spyOn(getLogger(), "error");
       try {
         expect(await connector.discoverTools(context)).toEqual(unavailableOnly());
-        expect(error).toHaveBeenCalledWith(
-          "mcp discovery failed for server demo:",
-          expect.any(String),
-        );
+        expect(error).toHaveBeenCalledWith("mcp.discovery.failed", expect.any(Error), {
+          "connector.id": SERVER.id,
+        });
       } finally {
         vi.restoreAllMocks();
         await connector.close();
@@ -1188,7 +1187,9 @@ describe("MCP connector session cache", () => {
       botMcpServer: { findMany: vi.fn().mockResolvedValue([localAssignment]) },
       deploymentSettings: { findUnique: vi.fn(async () => ({ ownerUserId: "u1" })) },
     };
-    const connector = new McpConnector(prisma as never, {} as never);
+    const connector = new McpConnector(prisma as never, {} as never, {
+      allowPrivateEndpoint: true,
+    });
 
     const tools = await connector.discoverTools({
       spaceId: "w1",
@@ -1222,6 +1223,7 @@ describe("MCP connector session cache", () => {
             JSON.stringify({ secret: "local-token", headers: { "X-Api-Key": "local-key" } }),
           ),
       } as never,
+      { allowPrivateEndpoint: true },
     );
 
     await connector.discoverTools({
@@ -2396,7 +2398,7 @@ describe("MCP connector private endpoints", () => {
     },
   );
 
-  it("connects a private IP when the current user is the deployment owner", async () => {
+  it("connects a private IP under explicit operator configuration", async () => {
     const state = { failNext: false, initializations: 0 };
     vi.stubGlobal("fetch", mcpFetch(state, "http://10.0.0.8:3927/mcp"));
     const connector = new McpConnector(
@@ -2406,6 +2408,7 @@ describe("MCP connector private endpoints", () => {
       } as never,
       {} as never,
       {
+        allowPrivateEndpoint: true,
         network: {
           fetch: (input, init) => globalThis.fetch(input, init),
           resolveHostname: async () => [{ address: "10.0.0.8", family: 4 }],
@@ -2422,7 +2425,7 @@ describe("MCP connector private endpoints", () => {
     await connector.close();
   });
 
-  it("connects a private-resolving DNS name when the current user is the deployment owner", async () => {
+  it("connects a private-resolving DNS name under explicit operator configuration", async () => {
     const state = { failNext: false, initializations: 0 };
     vi.stubGlobal("fetch", mcpFetch(state, "https://mcp.lan.test/mcp"));
     const connector = new McpConnector(
@@ -2432,6 +2435,7 @@ describe("MCP connector private endpoints", () => {
       } as never,
       {} as never,
       {
+        allowPrivateEndpoint: true,
         network: {
           fetch: (input, init) => globalThis.fetch(input, init),
           resolveHostname: async () => [{ address: "10.0.0.8", family: 4 }],

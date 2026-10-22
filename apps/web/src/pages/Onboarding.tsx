@@ -1,5 +1,5 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
-import type { IntegrationSetupState, ThinkingLevel } from "@rakazo/contracts";
+import type { ThinkingLevel } from "@rakazo/contracts";
 import {
   CLOUDFLARE_AI_GATEWAY_PROVIDER_ID,
   cloudflareGatewayRouting,
@@ -28,6 +28,7 @@ import {
   ModelThinkingOptions,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -35,7 +36,6 @@ import {
 import { Check, Copy } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
 import {
   ModelPreflightFeedback,
   modelPreflightTestingLabel,
@@ -118,18 +118,12 @@ function providerLabel(entry: ModelCatalogEntry): string {
   return entry.provider === "openai-codex" ? "ChatGPT" : (entry.providerName ?? entry.provider);
 }
 
-function nextStepAfterModel(needsIntegrationSetup: boolean): "integrations" | "bot" {
-  return needsIntegrationSetup ? "integrations" : "bot";
-}
-
 export function OnboardingPage() {
   const { t } = useLingui();
   const navigate = useNavigate();
   const fieldId = useId();
-  const [step, setStep] = useState<"loading" | "model" | "integrations" | "bot">("loading");
-  const [integrationSetup, setIntegrationSetup] = useState<IntegrationSetupState | null>(null);
-  const needsIntegrationSetup = integrationSetup?.needsSetup ?? false;
-  const [integrationServers, setIntegrationServers] = useState<string[]>([]);
+  const [step, setStep] = useState<"loading" | "model" | "bot">("loading");
+  const [billingEnabled, setBillingEnabled] = useState(false);
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
   const [provider, setProvider] = useState("openrouter");
   const [modelId, setModelId] = useState("");
@@ -188,18 +182,14 @@ export function OnboardingPage() {
           // The connection itself succeeded; the effort stays adjustable in Models.
         }
       }
-      setStep(nextStepAfterModel(needsIntegrationSetup));
+      setStep("bot");
     },
   });
 
   useEffect(() => {
-    void Promise.all([
-      rpc.me(),
-      rpc.models.list().catch(() => []),
-      rpc.integrationSetup.get().catch(() => null),
-    ])
-      .then(([me, models, integrations]) => {
-        setIntegrationSetup(integrations);
+    void Promise.all([rpc.me(), rpc.models.list().catch(() => [])])
+      .then(([me, models]) => {
+        setBillingEnabled(me.billingEnabled);
         setCatalog(models);
         deploymentDefaultModelRef.current = me.defaultModel;
         const preferred =
@@ -212,7 +202,7 @@ export function OnboardingPage() {
           setProvider(preferred.provider);
           setModelId(preferred.provider === OPENAI_COMPATIBLE_PROVIDER_ID ? "" : preferred.id);
         }
-        setStep(me.needsModel ? "model" : integrations?.needsSetup ? "integrations" : "bot");
+        setStep(me.needsModel ? "model" : "bot");
       })
       .catch(() => setStep("bot"));
     return () => {
@@ -503,7 +493,7 @@ export function OnboardingPage() {
       if (level && !isOpenAiCompatible && modelId) {
         await rpc.models.setDefault({ provider, modelId, thinkingLevel: level });
       }
-      setStep(nextStepAfterModel(needsIntegrationSetup));
+      setStep("bot");
     } catch (err) {
       setError(errorText(err, t`Could not save model`));
     }
@@ -528,9 +518,6 @@ export function OnboardingPage() {
     setError(null);
     try {
       const bot = await ensureFirstBot();
-      for (const serverId of integrationServers) {
-        await rpc.mcp.assignments.approve({ botId: bot.id, serverId });
-      }
       // Onboarding continues conversationally in the thread: greeting first,
       // then the focus choice (immediate for the first bot).
       const started = await rpc.onboarding
@@ -581,11 +568,13 @@ export function OnboardingPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {providers.map((entry) => (
-                    <SelectItem key={entry.provider} value={entry.provider}>
-                      {providerLabel(entry)}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {providers.map((entry) => (
+                      <SelectItem key={entry.provider} value={entry.provider}>
+                        {providerLabel(entry)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
@@ -641,14 +630,16 @@ export function OnboardingPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {probeModels.map((id) => (
-                            <SelectItem key={id} value={id}>
-                              {id}
+                          <SelectGroup>
+                            {probeModels.map((id) => (
+                              <SelectItem key={id} value={id}>
+                                {id}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value={CUSTOM_MODEL_OPTION}>
+                              <Trans>Other model…</Trans>
                             </SelectItem>
-                          ))}
-                          <SelectItem value={CUSTOM_MODEL_OPTION}>
-                            <Trans>Other model…</Trans>
-                          </SelectItem>
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -736,11 +727,13 @@ export function OnboardingPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {modelsForProvider.map((entry) => (
-                        <SelectItem key={`${entry.provider}:${entry.id}`} value={entry.id}>
-                          {entry.label}
-                        </SelectItem>
-                      ))}
+                      <SelectGroup>
+                        {modelsForProvider.map((entry) => (
+                          <SelectItem key={`${entry.provider}:${entry.id}`} value={entry.id}>
+                            {entry.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                   {catalogThinkingLevels.length ? (
@@ -762,14 +755,16 @@ export function OnboardingPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={DEFAULT_THINKING_LEVEL_OPTION}>
-                            {t`Default (${thinkingLevelLabel("medium")})`}
-                          </SelectItem>
-                          {catalogThinkingLevels.map((level) => (
-                            <SelectItem key={level} value={level}>
-                              {thinkingLevelLabel(level)}
+                          <SelectGroup>
+                            <SelectItem value={DEFAULT_THINKING_LEVEL_OPTION}>
+                              {t`Default (${thinkingLevelLabel("medium")})`}
                             </SelectItem>
-                          ))}
+                            {catalogThinkingLevels.map((level) => (
+                              <SelectItem key={level} value={level}>
+                                {thinkingLevelLabel(level)}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1019,18 +1014,21 @@ export function OnboardingPage() {
               <Button disabled={!canSaveModel} onClick={() => void saveModel()}>
                 <Trans>Continue</Trans>
               </Button>
+              {billingEnabled ? (
+                <Button
+                  variant="ghost"
+                  onClick={() =>
+                    void rpc.billing
+                      .selectFunding({ funding: "credits" })
+                      .then(() => window.location.assign("/onboarding"))
+                      .catch(() => setError(t`Could not open billing`))
+                  }
+                >
+                  <Trans>Use Rakazo credits</Trans>
+                </Button>
+              ) : null}
             </div>
           </div>
-        ) : null}
-        {step === "integrations" ? (
-          <IntegrationSetup
-            serverSetup
-            initialState={integrationSetup}
-            onDone={() => setStep("bot")}
-            onServerConnected={(id) =>
-              setIntegrationServers((current) => [...new Set([...current, id])])
-            }
-          />
         ) : null}
         {step === "bot" ? (
           <div>
