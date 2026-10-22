@@ -1657,6 +1657,7 @@ msgid "Could not load integrations"
 msgstr "Integraties laden mislukt"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "Could not load MCP servers"
 msgstr "MCP-servers laden mislukt"
 
@@ -1962,8 +1963,8 @@ msgstr "Gegeven"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
-msgid "credential saved"
-msgstr "gegeven opgeslagen"
+msgid "Credential saved"
+msgstr "Gegeven opgeslagen"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Credentials"
@@ -2147,6 +2148,10 @@ msgstr "Details"
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Direct MCP"
 msgstr "Directe MCP"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Disabled"
+msgstr "Uitgeschakeld"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
@@ -3039,6 +3044,7 @@ msgid "MCP endpoint"
 msgstr "MCP-eindpunt"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "MCP servers"
 msgstr "MCP-servers"
 
@@ -3341,8 +3347,8 @@ msgid "No artifacts found."
 msgstr "Geen artefacten gevonden."
 
 #: src/pages/PluginsOverlay.tsx
-msgid "no auth"
-msgstr "geen auth"
+msgid "No auth"
+msgstr "Geen auth"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "No authentication"
@@ -3509,6 +3515,7 @@ msgid "OAuth client secret (optional)"
 msgstr "OAuth-clientgeheim (optioneel)"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth connected"
 msgstr "OAuth gekoppeld"
 
@@ -3517,6 +3524,7 @@ msgid "OAuth connection failed"
 msgstr "OAuth-verbinding mislukt"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth expired"
 msgstr "OAuth verlopen"
 
