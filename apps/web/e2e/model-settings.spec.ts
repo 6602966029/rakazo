@@ -35,8 +35,6 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   await page.getByPlaceholder("Search providers").fill("openrouter");
   await page.getByRole("button", { name: /^OpenRouter( |$)/ }).click();
   const backups = page.getByTestId("model-backups");
-  await expect(backups.getByRole("heading", { name: "Backup models" })).toBeVisible();
-  await expect(backups.getByLabel("Add connected model")).toBeVisible();
   await expect(page.getByLabel("API key")).toBeVisible();
   await captureScreenshot(page, testInfo, "model-settings-cleanup-1-not-connected");
 
@@ -45,7 +43,8 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   await page.getByRole("button", { name: "Connect API key", exact: true }).click();
   await expect(page.getByRole("button", { name: "Disconnect", exact: true })).toBeVisible();
   await expect(backups.getByRole("heading", { name: "Backup models" })).toBeVisible();
-  await expect(backups.getByLabel("Add connected model")).toBeVisible();
+  const addBackup = backups.getByRole("button", { name: "Add backup model" });
+  await expect(addBackup).toBeVisible();
   const model = page.getByRole("combobox", { name: "Model", exact: true });
   await expect(model).toBeVisible();
   await captureScreenshot(page, testInfo, "model-settings-cleanup-2-connected");
@@ -88,6 +87,20 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   await expect(search).toBeFocused();
   await page.getByPlaceholder("Search providers").click();
   await expect(popup).toBeHidden();
+
+  // Choosing a backup saves it at once; there is no separate save step.
+  await addBackup.click();
+  const backupMenu = page.getByRole("menu");
+  await expect(backupMenu).toBeVisible();
+  await captureScreenshot(page, testInfo, "model-settings-cleanup-4-backup-menu-open");
+  const backupItem = backupMenu.getByRole("menuitem").first();
+  const backupLabel = (await backupItem.innerText()).trim();
+  await backupItem.click();
+  await expect(backupMenu).toBeHidden();
+  await expect(backups.getByTestId("model-backup-1")).toContainText(backupLabel);
+  await expect.poll(async () => (await rpc<unknown[]>(page, "models/backups", {})).length).toBe(1);
+  await backups.scrollIntoViewIfNeeded();
+  await captureScreenshot(page, testInfo, "model-settings-cleanup-5-backup-added");
 });
 
 test("custom connections persist reasoning support and bot thinking", async ({

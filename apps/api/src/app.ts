@@ -14,7 +14,7 @@ import type {
   SandboxProvider,
   TransactionalEmailProvider,
 } from "@rakazo/adapter-kit";
-import { SandboxRateLimitError } from "@rakazo/adapter-kit";
+import { SandboxRateLimitError, VoiceAccountError } from "@rakazo/adapter-kit";
 import type {
   ComposioProvider,
   ConnectorRegistry,
@@ -147,7 +147,7 @@ import {
   settleWithTimeout,
   TEAM_CHAT_STARTUP_SHUTDOWN_MS,
 } from "./team-chat-startup.js";
-import { mountVoiceHttpRoutes } from "./voice.js";
+import { mountVoiceHttpRoutes, voiceAccountErrorStatus } from "./voice.js";
 import { mountWebhookHttpRoutes } from "./webhook.js";
 
 /**
@@ -231,6 +231,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     : createDb(env.databaseUrl, {
         poolMax: parsePositiveInteger(process.env.DB_POOL_MAX, 4),
         applicationName: "rakazo-api",
+        encryptContent: env.contentEncryption,
       });
   let { prisma } = created;
   // Built before anything listens, so a bad TRUSTED_PROXIES entry stops startup.
@@ -1220,6 +1221,17 @@ export function handleRpcError(error: unknown, path: readonly string[]): void {
   if (error instanceof IsolationError) {
     getLogger().warn(`rpc ${path.join("/")} not found`, { "error.stack": error.stack });
     throw new ORPCError("NOT_FOUND", { message: error.message, cause: error });
+  }
+  // The user's own voice account is out of credit or rejected the key: theirs to fix.
+  if (error instanceof VoiceAccountError) {
+    getLogger().warn(`rpc ${path.join("/")} voice provider account rejected the request`, {
+      reason: error.code,
+    });
+    throw new ORPCError(error.code, {
+      status: voiceAccountErrorStatus(error.code),
+      message: error.message,
+      cause: error,
+    });
   }
   logUnexpectedRpcError(error, path);
   if (error instanceof SandboxRateLimitError) {

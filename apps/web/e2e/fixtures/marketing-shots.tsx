@@ -472,11 +472,7 @@ function SubscriptionShot() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       const text = document.body.textContent ?? "";
-      if (
-        text.includes("Sign in with Claude Pro/Max") &&
-        text.includes("Backup models") &&
-        text.includes("Claude Sonnet 5.5")
-      ) {
+      if (text.includes("Sign in with Claude Pro/Max") && text.includes("Claude Sonnet 5.5")) {
         setReady(true);
         window.clearInterval(timer);
       }
