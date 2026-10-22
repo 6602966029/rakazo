@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const screen = vi.hoisted(() => ({
@@ -16,6 +17,7 @@ vi.mock("expo-screen-orientation", () => ({
 }));
 
 vi.mock("react-native", () => ({
+  Platform: { OS: "ios" },
   Dimensions: { get: (kind: string) => (kind === "screen" ? screen.size : screen.window) },
 }));
 
@@ -36,6 +38,7 @@ function deferredLock() {
 
 describe("app orientation", () => {
   beforeEach(() => {
+    Platform.OS = "ios";
     screen.window = FOLDED;
     screen.size = FOLDED;
     screen.locks = [];
@@ -59,6 +62,7 @@ describe("app orientation", () => {
   it.each([599, 600, 601])(
     "uses the %i dp screen despite system bars and split-screen",
     async (shortSide) => {
+      Platform.OS = "android";
       screen.size = { width: shortSide, height: 960 };
       screen.window = { width: shortSide, height: 912 };
       await syncOrientation();
@@ -111,5 +115,17 @@ describe("app orientation", () => {
     releaseSecond();
     await syncOrientation();
     expect(screen.locks.at(-1)).toBe(1);
+  });
+
+  it.each([
+    { width: 466, height: 678 },
+    { width: 669, height: 951 },
+    { width: 951, height: 669 },
+    { width: 402, height: 874 },
+  ])("uses the live iOS window $width x $height instead of the physical screen", async (window) => {
+    screen.size = FOLDED;
+    screen.window = window;
+    await syncOrientation();
+    expect(screen.locks.at(-1)).toBe(window.width < 600 ? 1 : 0);
   });
 });

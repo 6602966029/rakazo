@@ -104,7 +104,7 @@ it.each(["android", "ios"])("omits Artifacts from the %s fallback header", (plat
     MenuView: View,
     styles: {},
     insets: { top: 0 },
-    columnInset: 0,
+    columnInsets: { left: 0, right: 0 },
     t,
     router: { push: vi.fn() },
     initials: "A",

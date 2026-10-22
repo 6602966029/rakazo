@@ -147,7 +147,7 @@ import { TimeSeparator } from "../components/time-separator";
 import { UnreadDivider } from "../components/unread-divider";
 import { VoiceChatCard } from "../components/VoiceChatCard";
 import { WorkingIndicator } from "../components/WorkingIndicator";
-import { readableGutter } from "../lib/adaptive-layout";
+import { readableGutters } from "../lib/adaptive-layout";
 import type {
   MobileBot,
   MobileGroup,
@@ -453,8 +453,11 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const headerHeight = threadHeaderFloats() ? nativeHeaderHeight : 0;
   const insets = useSafeAreaInsets();
   // An unfolded or tablet window keeps messages and the composer in a centred reading column.
-  const columnInset = readableGutter(windowWidth, Math.max(insets.left, insets.right));
-  const columnWidth = windowWidth - columnInset * 2;
+  const columnInsets = readableGutters(windowWidth, {
+    left: split && !inboxHidden ? 0 : insets.left,
+    right: insets.right,
+  });
+  const columnWidth = windowWidth - columnInsets.left - columnInsets.right;
   // Frame by frame, including a swipe that drags the keyboard down.
   const keyboardProgress = useSharedValue(KeyboardController.isVisible() ? 1 : 0);
   useKeyboardHandler(
@@ -966,6 +969,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
               inGroup
                 ? {
                     type: "button" as const,
+                    label: t("Group settings"),
                     accessibilityLabel: t("Group settings"),
                     icon: { type: "sfSymbol" as const, name: "gearshape" },
                     onPress: () =>
@@ -976,6 +980,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
                   }
                 : {
                     type: "menu" as const,
+                    label: t("Bot actions"),
                     accessibilityLabel: t("Bot actions"),
                     icon: { type: "sfSymbol" as const, name: "ellipsis" },
                     disabled: !botId,
@@ -1034,6 +1039,18 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       ...(split
         ? {
             headerBackVisible: false,
+            ...(iosAtLeast(26)
+              ? {
+                  unstable_headerLeftItems: () => [
+                    {
+                      type: "button" as const,
+                      label: inboxHidden ? t("Show chats") : t("Hide chats"),
+                      icon: { type: "sfSymbol" as const, name: "sidebar.left" },
+                      onPress: () => setInboxHidden(!inboxHidden),
+                    },
+                  ],
+                }
+              : {}),
             headerLeft: () => (
               <Pressable
                 accessibilityRole="button"
@@ -1051,7 +1068,11 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
             ),
           }
         : // Folding back takes the list away, so the chat gets its back button again.
-          { headerBackVisible: true, headerLeft: undefined }),
+          {
+            headerBackVisible: true,
+            headerLeft: undefined,
+            ...(iosAtLeast(26) ? { unstable_headerLeftItems: () => [] } : {}),
+          }),
       ...(readOnly
         ? trailingHeaderOptions(t("Restore"), () => void restoreConversation(), restoring)
         : {}),
@@ -2570,7 +2591,8 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         style={{
           flex: 1,
           backgroundColor: tokens.background,
-          paddingHorizontal: 20 + columnInset,
+          paddingLeft: 20 + columnInsets.left,
+          paddingRight: 20 + columnInsets.right,
         }}
       >
         {/* The floor keeps a tall suggestion list from sliding under the transparent header. */}

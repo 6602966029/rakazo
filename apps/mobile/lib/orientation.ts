@@ -1,5 +1,5 @@
 import * as ScreenOrientation from "expo-screen-orientation";
-import { Dimensions } from "react-native";
+import { Dimensions, Platform } from "react-native";
 import { isCompactScreen } from "./adaptive-layout";
 
 let rotationHolds = 0;
@@ -25,7 +25,10 @@ export function appOrientationLock(
 export function syncOrientation(): Promise<unknown> {
   applied = applied.then(() =>
     ScreenOrientation.lockAsync(
-      appOrientationLock(Dimensions.get("screen"), rotationHolds > 0),
+      appOrientationLock(
+        Dimensions.get(Platform.OS === "ios" ? "window" : "screen"),
+        rotationHolds > 0,
+      ),
     ).catch(() => undefined),
   );
   return applied;

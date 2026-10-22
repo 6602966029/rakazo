@@ -62,7 +62,7 @@ import {
   formatActivityRelativeTime,
 } from "../lib/activity";
 import { loadActivityMode, saveActivityMode } from "../lib/activity-mode";
-import { readableGutter } from "../lib/adaptive-layout";
+import { readableGutters } from "../lib/adaptive-layout";
 import type {
   ApiRequestContext,
   MobileBot,
@@ -554,9 +554,10 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   const windowWidth = useWindowDimensions().width;
   const { inboxWidth } = useSplitView();
   const compactRows = embedded && inboxWidth < TAGLESS_LIST_WIDTH;
-  const columnInset = embedded
-    ? 0
-    : readableGutter(windowWidth, Math.max(insets.left, insets.right));
+  const columnInsets = readableGutters(embedded ? inboxWidth : windowWidth, {
+    left: insets.left,
+    right: embedded ? 0 : insets.right,
+  });
   // Liquid Glass uses the native bar: glass bar items and a native menu.
   // The list beside a chat has no navigation bar of its own.
   const nativeHeader = iosAtLeast(26) && !embedded;
@@ -746,8 +747,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       unstable_headerLeftItems: () => [
         {
           type: "button" as const,
-          label: initials,
-          labelStyle: { fontSize: 15, fontWeight: "600" },
+          label: t("Account"),
+          icon: { type: "sfSymbol" as const, name: "person.crop.circle" },
           accessibilityLabel: t("Account"),
           onPress: () => router.push("/account"),
         },
@@ -755,6 +756,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       unstable_headerRightItems: () => [
         {
           type: "button" as const,
+          label: t("Activity"),
           accessibilityLabel: t("Activity"),
           icon: { type: "sfSymbol" as const, name: activityMode ? "bell.fill" : "bell" },
           selected: activityMode,
@@ -762,6 +764,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         },
         {
           type: "button" as const,
+          label: t("Search"),
           accessibilityLabel: t("Search"),
           identifier: "home-search-button",
           icon: { type: "sfSymbol" as const, name: "magnifyingglass" },
@@ -769,6 +772,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         },
         {
           type: "menu" as const,
+          label: t("Create"),
           accessibilityLabel: t("Create"),
           icon: { type: "sfSymbol" as const, name: "plus" },
           menu: {
@@ -1251,7 +1255,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
             styles.header,
             {
               paddingTop: Math.max(insets.top, 20) + 8,
-              paddingHorizontal: 16 + columnInset,
+              paddingLeft: 16 + columnInsets.left,
+              paddingRight: 16 + columnInsets.right,
             },
           ]}
         >
@@ -1329,7 +1334,10 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
             keyboardDismissMode="interactive"
             keyboardShouldPersistTaps="handled"
             indicatorStyle={appearance === "dark" ? "white" : "black"}
-            contentContainerStyle={[styles.list, { paddingHorizontal: columnInset }]}
+            contentContainerStyle={[
+              styles.list,
+              { paddingLeft: columnInsets.left, paddingRight: columnInsets.right },
+            ]}
             contentInsetAdjustmentBehavior="automatic"
             refreshControl={
               <RefreshControl
