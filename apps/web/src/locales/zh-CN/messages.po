@@ -3298,6 +3298,10 @@ msgstr "需要接管"
 msgid "Needs you"
 msgstr ""
 
+#: src/pages/shell/chat-context.tsx
+msgid "New"
+msgstr "新消息"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "New bot"
 msgstr "新建 Bot"
@@ -3305,6 +3309,10 @@ msgstr "新建 Bot"
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "新建群组"
+
+#: src/pages/shell/chat-context.tsx
+msgid "New messages"
+msgstr "新消息"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "New open-work item"

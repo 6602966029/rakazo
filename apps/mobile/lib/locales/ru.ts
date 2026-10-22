@@ -449,6 +449,8 @@ export const RU_MESSAGES: Record<string, string> = {
     "Не удалось открыть. Повторите попытку из боковой панели.",
   "Jump to latest": "Перейти к последнему",
   "Jump to latest, new messages": "Перейти к последнему, новые сообщения",
+  New: "Новые",
+  "New messages": "Новые сообщения",
   "just now": "только что",
   "Keep memories": "Сохранить память",
   Language: "Язык",

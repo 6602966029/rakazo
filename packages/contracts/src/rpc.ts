@@ -488,7 +488,10 @@ export const appContract = {
           ),
       )
       .output(z.object({ ok: z.literal(true) })),
-    markRead: oc.input(threadTarget).output(z.object({ ok: z.literal(true) })),
+    /** `unreadAfterSeq`: the seq read up to before this call, null when nothing was unread. */
+    markRead: oc
+      .input(threadTarget)
+      .output(z.object({ ok: z.literal(true), unreadAfterSeq: z.number().int().nullable() })),
     markUnread: oc.input(threadTarget).output(z.object({ ok: z.literal(true) })),
   },
   computer: {

@@ -239,6 +239,8 @@ export const NL_MESSAGES: Record<string, string> = {
   Image: "Afbeelding",
   "Jump to latest": "Naar het nieuwste springen",
   "Jump to latest, new messages": "Naar het nieuwste springen, nieuwe berichten",
+  New: "Nieuw",
+  "New messages": "Nieuwe berichten",
   "Load earlier messages": "Eerdere berichten laden",
   "Markdown file": "Markdown-bestand",
   Message: "Bericht",

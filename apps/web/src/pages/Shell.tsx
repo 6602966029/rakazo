@@ -25,13 +25,14 @@ import {
   attachmentSizeLabel,
   normalizeCreateBotProfile,
 } from "@rakazo/contracts";
-import type { ComposerMention } from "@rakazo/core";
+import type { ComposerMention, ReadBoundary } from "@rakazo/core";
 import {
   accountDisplay,
   answerableAskMessageIds,
   anySignal,
   attachmentsForThread,
   buildComposerMentionOptions,
+  createChatQueues,
   dismissableAskMessageIds,
   foldPeerReplies,
   inferAttachmentMimeType,
@@ -43,6 +44,7 @@ import {
   resolveComposerSendPlan,
   runThreadSubscription,
   searchHitThreadTarget,
+  settleReadBoundary,
   speechFromBlocks,
   withLiveStreamingProgress,
 } from "@rakazo/core";
@@ -104,6 +106,7 @@ import { emptyActivityFilters } from "../lib/activity-list-filters";
 import { readActivityMode, writeActivityMode } from "../lib/activity-mode";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { authClient } from "../lib/auth";
+import { autoReadStillWanted } from "../lib/auto-read";
 import {
   discardPrimedBootstrap,
   primeSpaceBootstrap,
@@ -756,6 +759,17 @@ function SpaceShell() {
   } | null>(null);
   const manuallyUnread = useRef(new Set<string>());
   const readVisibleGroups = useRef(new Set<string>());
+  // What the user had read up to when the open chat was opened; the "New" divider
+  // follows it for the rest of the visit. Each open of a chat is a new visit.
+  const readVisit = useRef<{ chat: string | null; visit: number }>({ chat: null, visit: 0 });
+  const [readBoundary, setReadBoundary] = useState<ReadBoundary | null>(null);
+  // A chat's markRead calls run one at a time so the request that opened it answers first.
+  const [readInOrder] = useState(createChatQueues);
+  const captureReadBoundary = useCallback((visit: number, seq: number | null) => {
+    setReadBoundary((current) =>
+      settleReadBoundary(current, readVisit.current.visit, { visit, seq }),
+    );
+  }, []);
   const notifiedBrowserEvents = useRef(new Set<string>());
   const pendingBrowserNotifications = useRef(new Map<string, PendingBrowserNotification>());
   const computerVisible = useRef(false);
@@ -773,6 +787,10 @@ function SpaceShell() {
     setScreenLoadError(null);
   }, [computerBot?.id, screenUrl]);
   const activeGroup = groups.find((group) => group.id === groupId);
+  const openChat = groupId ? `group:${groupId}` : active ? `bot:${active.id}` : null;
+  if (readVisit.current.chat !== openChat) {
+    readVisit.current = { chat: openChat, visit: readVisit.current.visit + 1 };
+  }
   const activePendingAttachments = useMemo(
     () => attachmentsForThread(pendingAttachments, inGroup ? groupId : active?.id),
     [active?.id, groupId, inGroup, pendingAttachments],
@@ -830,13 +848,19 @@ function SpaceShell() {
       );
     });
   }, []);
+  // `stillWanted` lets an automatic read that waited in the queue skip once the user has left.
   const markBotRead = useCallback(
-    async (id: string) => {
-      await rpc.threads.markRead({ botId: id });
+    async (id: string, stillWanted: () => boolean = () => true) => {
+      const answer = await readInOrder(`bot:${id}`, () =>
+        stillWanted() ? rpc.threads.markRead({ botId: id }) : Promise.resolve(null),
+      );
+      if (!answer) return undefined;
+      const { unreadAfterSeq } = answer;
       manuallyUnread.current.delete(id);
       updateBotUnread(id, false);
+      return unreadAfterSeq;
     },
-    [updateBotUnread],
+    [readInOrder, updateBotUnread],
   );
   const markBotUnread = useCallback(
     async (id: string) => {
@@ -857,10 +881,15 @@ function SpaceShell() {
     (id: string) => {
       if (manuallyUnread.current.has(id)) return;
       if (document.visibilityState === "visible" && document.hasFocus()) {
-        void markBotRead(id).catch(() => undefined);
+        const visit = readVisit.current.visit;
+        void markBotRead(id, () => autoReadStillWanted(readVisit.current.visit, visit))
+          .then((seq) => {
+            if (seq !== undefined) captureReadBoundary(visit, seq);
+          })
+          .catch(() => undefined);
       }
     },
-    [markBotRead],
+    [markBotRead, captureReadBoundary],
   );
   const deliverBrowserNotification = useCallback((pending: PendingBrowserNotification): boolean => {
     const currentBot = botsRef.current.find((bot) => bot.id === pending.botId);
@@ -1465,9 +1494,18 @@ function SpaceShell() {
       )
         return;
       readVisibleGroups.current.add(groupId);
-      void rpc.threads
-        .markRead({ groupId })
-        .then(() => {
+      const visit = readVisit.current.visit;
+      void readInOrder(`group:${groupId}`, () =>
+        autoReadStillWanted(readVisit.current.visit, visit)
+          ? rpc.threads.markRead({ groupId })
+          : Promise.resolve(null),
+      )
+        .then((answer) => {
+          if (!answer) {
+            readVisibleGroups.current.delete(groupId);
+            return;
+          }
+          captureReadBoundary(visit, answer.unreadAfterSeq);
           setGroups((current) => {
             const group = current.find((candidate) => candidate.id === groupId);
             if (!group?.unread) return current;
@@ -3438,6 +3476,9 @@ function SpaceShell() {
             transcript={transcript}
             showToolActivity={showToolActivity}
             olderCursor={activeSnapshot?.olderCursor ?? null}
+            unreadAfterSeq={
+              readBoundary?.visit === readVisit.current.visit ? readBoundary.seq : null
+            }
             loadingOlder={loadingOlder}
             answerableAskIds={answerableAskIds}
             dismissableAskIds={dismissableAskIds}

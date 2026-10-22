@@ -244,6 +244,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Image: "Bild",
   "Jump to latest": "Zur neuesten Nachricht springen",
   "Jump to latest, new messages": "Zur neuesten Nachricht springen, neue Nachrichten",
+  New: "Neu",
+  "New messages": "Neue Nachrichten",
   "Load earlier messages": "Frühere Nachrichten laden",
   "Markdown file": "Markdown-Datei",
   Message: "Nachricht",

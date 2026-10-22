@@ -322,6 +322,7 @@ import {
   shouldForwardPeerThreadEvent,
 } from "./thread-message-pages.js";
 import {
+  markThreadRead,
   reactToThreadMessage,
   resolveThreadTarget,
   sendThreadMessage,
@@ -2871,8 +2872,8 @@ export function createRouter(deps: RouterDeps) {
       }),
       markRead: authed.threads.markRead.handler(async ({ context, input }) => {
         const target = await resolveThreadTarget(deps.prisma, context.actor, input);
-        await setThreadUnreadState(deps.prisma, context.actor, target, false);
-        return { ok: true as const };
+        const unreadAfterSeq = await markThreadRead(deps.prisma, context.actor, target);
+        return { ok: true as const, unreadAfterSeq };
       }),
       markUnread: authed.threads.markUnread.handler(async ({ context, input }) => {
         const target = await resolveThreadTarget(deps.prisma, context.actor, input);

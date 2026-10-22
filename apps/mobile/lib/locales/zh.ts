@@ -422,6 +422,8 @@ export const ZH_MESSAGES: Record<string, string> = {
   "It could not be opened. Try again from the sidebar.": "无法打开。请从侧边栏重试。",
   "Jump to latest": "跳到最新",
   "Jump to latest, new messages": "跳到最新，有新消息",
+  New: "新消息",
+  "New messages": "新消息",
   "just now": "刚刚",
   "Keep memories": "保留记忆",
   Language: "语言",

@@ -3298,6 +3298,10 @@ msgstr "Übernahme erforderlich"
 msgid "Needs you"
 msgstr ""
 
+#: src/pages/shell/chat-context.tsx
+msgid "New"
+msgstr "Neu"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "New bot"
 msgstr "Neuer Bot"
@@ -3305,6 +3309,10 @@ msgstr "Neuer Bot"
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "Neue Gruppe"
+
+#: src/pages/shell/chat-context.tsx
+msgid "New messages"
+msgstr "Neue Nachrichten"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "New open-work item"

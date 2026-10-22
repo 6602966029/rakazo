@@ -14,7 +14,7 @@ import {
   isAttachmentAudioMimeType,
   MESSAGE_REACTIONS,
 } from "@rakazo/contracts";
-import type { SlashActionId, ThreadItem } from "@rakazo/core";
+import type { ReadBoundary, SlashActionId, ThreadItem } from "@rakazo/core";
 import {
   abortableDelay,
   answerableAskMessageIds,
@@ -22,6 +22,7 @@ import {
   attachmentsForThread,
   buildComposerMentionOptions,
   cloudAgentHttpsUrl,
+  createChatQueues,
   dismissableAskMessageIds,
   expandPeerReplies,
   foldPeerReplies,
@@ -46,9 +47,12 @@ import {
   retryDelayMs,
   displayName as safeDisplayName,
   selectedAskActionLabel,
+  settleReadBoundary,
   shouldShowBotSenderName,
   threadWindowMessages,
   timeSeparatorIds,
+  unreadDividerMessageId,
+  voiceChatHoldsMessage,
   withLiveStreamingProgress,
 } from "@rakazo/core";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
@@ -140,6 +144,7 @@ import { ThreadErrorNotice } from "../components/thread-error-notice";
 import { createThreadHeaderStyles } from "../components/thread-header-styles";
 import { ThreadScrollSurface } from "../components/thread-scroll-surface";
 import { TimeSeparator } from "../components/time-separator";
+import { UnreadDivider } from "../components/unread-divider";
 import { VoiceChatCard } from "../components/VoiceChatCard";
 import { WorkingIndicator } from "../components/WorkingIndicator";
 import { readableGutter } from "../lib/adaptive-layout";
@@ -438,6 +443,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const [botActionsOpen, setBotActionsOpen] = useState(false);
   const { t, locale } = useI18n();
   const navigation = useNavigation();
+  const focused = useIsFocused();
   const foreground = useAppForeground();
   const router = useRouter();
   // Beside the chat list on a wide window, the chat has only the width the list leaves.
@@ -531,9 +537,24 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const mentionBotsRefreshGeneration = useRef(0);
   const mentionBotsAppliedGeneration = useRef(0);
   const readVisibleTarget = useRef<string | null>(null);
+  // What the user had read up to when this chat opened; the "New" divider follows it all visit.
+  // Each open or return to a chat is a new visit.
+  const readVisit = useRef<{ target: string | undefined; visit: number; focused: boolean }>({
+    target: undefined,
+    visit: 0,
+    focused,
+  });
+  const [readBoundary, setReadBoundary] = useState<ReadBoundary | null>(null);
+  // A chat's markRead calls run one at a time so the request that opened it answers first.
+  const [readInOrder] = useState(createChatQueues);
   const autoSpoken = useRef<string | null>(null);
   const autoSpokenBotId = useRef<string | null>(null);
   const threadKey = groupId ?? botId;
+  if (readVisit.current.target !== threadKey || (focused && !readVisit.current.focused)) {
+    readVisit.current = { target: threadKey, visit: readVisit.current.visit + 1, focused };
+    readVisibleTarget.current = null;
+  }
+  readVisit.current.focused = focused;
   const [threadScrollState, setThreadScrollState] = useState<ThreadScrollState>(() =>
     scrollBehavior.current.state(),
   );
@@ -1411,19 +1432,37 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     const target = groupId ?? botId;
     if (!target || readVisibleTarget.current === target) return;
     readVisibleTarget.current = target;
+    const visit = readVisit.current.visit;
     if (activeThreadId.current) {
       void dismissThreadNotifications({ threadId: activeThreadId.current }).catch(() => undefined);
     }
-    if (groupId) {
-      void rpc("threads/markRead", { groupId }).catch(() => {
+    // A read that waited in the queue skips once the user has left the chat.
+    void readInOrder(target, () =>
+      readVisit.current.visit === visit &&
+      AppState.currentState === "active" &&
+      navigation.isFocused()
+        ? rpc<{ unreadAfterSeq?: number | null }>(
+            "threads/markRead",
+            groupId ? { groupId } : { botId: botId! },
+          )
+        : Promise.resolve(null),
+    )
+      .then((answer) => {
+        if (!answer) {
+          if (readVisibleTarget.current === target) readVisibleTarget.current = null;
+          return;
+        }
+        setReadBoundary((current) =>
+          settleReadBoundary(current, readVisit.current.visit, {
+            visit,
+            seq: answer.unreadAfterSeq ?? null,
+          }),
+        );
+      })
+      .catch(() => {
         if (readVisibleTarget.current === target) readVisibleTarget.current = null;
       });
-      return;
-    }
-    void rpc("threads/markRead", { botId: botId! }).catch(() => {
-      if (readVisibleTarget.current === target) readVisibleTarget.current = null;
-    });
-  }, [botId, groupId, navigation, readOnly]);
+  }, [botId, groupId, navigation, readInOrder, readOnly]);
 
   useEffect(() => {
     if (!notificationThreadId || AppState.currentState !== "active" || !navigation.isFocused())
@@ -2078,6 +2117,15 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     router.push({ pathname: "/bot-settings", params: { botId: snap?.run?.botId ?? botId ?? "" } });
   }
   const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
+  const unreadDividerId = useMemo(
+    () =>
+      unreadDividerMessageId(
+        visibleMessages,
+        readBoundary?.visit === readVisit.current.visit ? readBoundary.seq : null,
+        snap?.olderCursor ?? null,
+      ),
+    [visibleMessages, readBoundary, snap?.olderCursor, threadKey],
+  );
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -2325,6 +2373,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           canDismiss={dismissableAskIds.has(message.id)}
           highlighted={highlightedMessageId === message.id}
           separator={separatorIds.has(message.id)}
+          unreadDivider={message.id === unreadDividerId}
           replyAuthor={replyAuthor}
           replyFallbackText={parent ? previewMessageText(parent) : undefined}
           messageReactions={messageReactions}
@@ -2368,6 +2417,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       dismissableAskIds,
       highlightedMessageId,
       separatorIds,
+      unreadDividerId,
       columnWidth,
       t,
       locale,
@@ -2380,12 +2430,17 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           {item.messages[0] && separatorIds.has(item.messages[0].id) ? (
             <TimeSeparator createdAt={item.messages[0].createdAt} />
           ) : null}
+          {voiceChatHoldsMessage(item, unreadDividerId) ? (
+            <UnreadDivider
+              afterSeparator={Boolean(item.messages[0] && separatorIds.has(item.messages[0].id))}
+            />
+          ) : null}
           <VoiceChatCard group={item} />
         </View>
       ) : (
         renderMessageRow(item.message)
       ),
-    [renderMessageRow, separatorIds],
+    [renderMessageRow, separatorIds, unreadDividerId],
   );
   const listContentStyle = useMemo(
     () => ({
@@ -3116,6 +3171,7 @@ type MessageRowProps = {
   canDismiss: boolean;
   highlighted: boolean;
   separator: boolean;
+  unreadDivider: boolean;
   replyAuthor: string;
   replyFallbackText?: string;
   messageReactions?: ReadonlyMap<MessageReaction, number>;
@@ -3155,6 +3211,7 @@ const MessageRow = memo(function MessageRow({
   canDismiss,
   highlighted,
   separator,
+  unreadDivider,
   replyAuthor,
   replyFallbackText,
   messageReactions,
@@ -3354,6 +3411,7 @@ const MessageRow = memo(function MessageRow({
       }}
     >
       {separator ? <TimeSeparator createdAt={message.createdAt} /> : null}
+      {unreadDivider ? <UnreadDivider afterSeparator={separator} /> : null}
       <View
         style={{
           width: "100%",
