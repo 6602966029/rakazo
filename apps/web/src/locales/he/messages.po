@@ -852,6 +852,10 @@ msgstr "Basic auth ({username})"
 msgid "Bearer token"
 msgstr "Bearer token"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Behavior"
+msgstr ""
+
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr "חיוב"
@@ -1105,6 +1109,10 @@ msgstr "בחירת בוט…"
 #: src/pages/Auth.tsx
 msgid "Choose a new password"
 msgstr "בחירת סיסמה חדשה"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Choose a tool"
+msgstr ""
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
@@ -2240,6 +2248,7 @@ msgid "Done"
 msgstr "הושלם"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/KnowledgeSection.tsx
 msgid "Download"
 msgstr "הורדה"
 
@@ -2251,10 +2260,6 @@ msgstr "הורדת {0}"
 #: src/components/ArtifactFileCard.tsx
 msgid "Download {name}"
 msgstr "הורדת {name}"
-
-#: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "הורדה כ-Markdown"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
@@ -3075,6 +3080,10 @@ msgstr ""
 msgid "Memory"
 msgstr "זיכרון"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Memory and skills"
+msgstr ""
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Memory scope"
 msgstr "היקף הזיכרון"
@@ -3377,10 +3386,6 @@ msgstr "אין בוטים תואמים"
 msgid "No chat apps linked yet."
 msgstr "עדיין לא קושרו אפליקציות צ׳אט."
 
-#: src/pages/shell/bot-credentials.tsx
-msgid "No credentials saved for this bot."
-msgstr "לא נשמרו פרטי גישה לבוט הזה."
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "עדיין אין צ׳אטים קבוצתיים."
@@ -3548,7 +3553,6 @@ msgid "Only empty spaces can be deleted. Delete its bots and groups first."
 msgstr "אפשר למחוק רק מרחבים ריקים. יש למחוק קודם את הבוטים והקבוצות שבו."
 
 #: src/components/markdown-link-prompt.tsx
-#: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Open"
@@ -3664,10 +3668,6 @@ msgstr "בעלים"
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
 msgstr "תקרית PagerDuty"
-
-#: src/pages/ScratchpadSection.tsx
-msgid "Park"
-msgstr "השהיה"
 
 #: src/components/PasskeySettings.tsx
 msgid "Passkey"
@@ -4187,11 +4187,6 @@ msgstr ""
 #: src/pages/McpOAuthCallback.tsx
 msgid "Return to Rakazo"
 msgstr "חזרה ל-Rakazo"
-
-#. placeholder {0}: doc.revision
-#: src/pages/KnowledgeSection.tsx
-msgid "rev {0}"
-msgstr "גרסה {0}"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Review provider settings and test again."
@@ -4995,6 +4990,7 @@ msgid "Tool sources"
 msgstr "מקורות כלים"
 
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "כלים"
 
@@ -5067,10 +5063,6 @@ msgstr "ביטול"
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
 msgstr "הסרת התקנה"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Unknown tool"
-msgstr "כלי לא ידוע"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Unlink"

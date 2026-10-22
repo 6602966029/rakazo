@@ -852,6 +852,10 @@ msgstr ""
 msgid "Bearer token"
 msgstr "Token Bearer"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Behavior"
+msgstr ""
+
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr ""
@@ -1105,6 +1109,10 @@ msgstr "Elige un bot…"
 #: src/pages/Auth.tsx
 msgid "Choose a new password"
 msgstr "Elige una contraseña nueva"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Choose a tool"
+msgstr ""
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
@@ -2240,6 +2248,7 @@ msgid "Done"
 msgstr "Listo"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/KnowledgeSection.tsx
 msgid "Download"
 msgstr ""
 
@@ -2251,10 +2260,6 @@ msgstr "Descargar {0}"
 #: src/components/ArtifactFileCard.tsx
 msgid "Download {name}"
 msgstr "Descargar {name}"
-
-#: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "Descargar como Markdown"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
@@ -3075,6 +3080,10 @@ msgstr ""
 msgid "Memory"
 msgstr "Memoria"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Memory and skills"
+msgstr ""
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Memory scope"
 msgstr "Alcance de memoria"
@@ -3377,10 +3386,6 @@ msgstr ""
 msgid "No chat apps linked yet."
 msgstr "Aún no hay apps de chat vinculadas."
 
-#: src/pages/shell/bot-credentials.tsx
-msgid "No credentials saved for this bot."
-msgstr ""
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "Aún no hay chats de grupo."
@@ -3548,7 +3553,6 @@ msgid "Only empty spaces can be deleted. Delete its bots and groups first."
 msgstr ""
 
 #: src/components/markdown-link-prompt.tsx
-#: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Open"
@@ -3664,10 +3668,6 @@ msgstr "Propietario"
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
 msgstr "Incidente de PagerDuty"
-
-#: src/pages/ScratchpadSection.tsx
-msgid "Park"
-msgstr "Aparcar"
 
 #: src/components/PasskeySettings.tsx
 msgid "Passkey"
@@ -4187,11 +4187,6 @@ msgstr "Volver a la llamada con {0}"
 #: src/pages/McpOAuthCallback.tsx
 msgid "Return to Rakazo"
 msgstr "Volver a Rakazo"
-
-#. placeholder {0}: doc.revision
-#: src/pages/KnowledgeSection.tsx
-msgid "rev {0}"
-msgstr "rev. {0}"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Review provider settings and test again."
@@ -4995,6 +4990,7 @@ msgid "Tool sources"
 msgstr "Fuentes de herramientas"
 
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr ""
 
@@ -5066,10 +5062,6 @@ msgstr "Deshacer"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
-msgstr ""
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Unknown tool"
 msgstr ""
 
 #: src/pages/MessagingSettingsOverlay.tsx

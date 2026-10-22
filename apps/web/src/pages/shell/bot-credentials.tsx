@@ -223,11 +223,11 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
     valueReady(authType);
 
   return (
-    <section data-testid="bot-credentials" className="mt-5 border-t border-border/20 pt-4">
-      <div className="text-[13.5px] font-medium text-foreground">
+    <section data-testid="bot-credentials" className="mt-4">
+      <div className="text-[14px] text-muted-foreground">
         <Trans>Credentials</Trans>
       </div>
-      <p className="mt-0.5 text-[12px] text-muted-foreground/70">
+      <p className="mt-2 text-[12px] text-muted-foreground/70">
         <Trans>Values are encrypted and never shown again.</Trans>
       </p>
       {loadFailed ? (
@@ -235,13 +235,8 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
           <Trans>Could not load credentials.</Trans>
         </p>
       ) : null}
-      {secrets && secrets.length === 0 ? (
-        <p data-testid="bot-credentials-empty" className="mt-3 text-[13px] text-muted-foreground">
-          <Trans>No credentials saved for this bot.</Trans>
-        </p>
-      ) : null}
       {secrets?.length ? (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-4 space-y-4">
           {secrets.map((secret) => {
             const secretName = secret.name;
             const updated = new Date(secret.updatedAt).toLocaleDateString();
@@ -252,11 +247,7 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
                 ? secret.auth
                 : null;
             return (
-              <li
-                key={secret.name}
-                data-testid="bot-credential-row"
-                className="rounded-lg border border-border/40 px-3 py-2.5"
-              >
+              <li key={secret.name} data-testid="bot-credential-row">
                 <div className="truncate text-[13.5px] font-medium text-foreground">
                   {secret.name}
                 </div>
@@ -512,7 +503,7 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
           type="button"
           size="sm"
           variant="outline"
-          className="mt-3"
+          className={secrets?.length ? "mt-3" : "mt-2"}
           data-testid="credential-add"
           onClick={() => {
             clearProtectedFields();

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { BOT_COLORS, BOT_SETTINGS_ADVANCED_ORDER } from "@rakazo/contracts";
+import { BOT_COLORS, BOT_SETTINGS_SECTIONS } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act, createElement, useEffect } from "react";
 import type { Root } from "react-dom/client";
@@ -106,11 +106,30 @@ vi.mock("react-native", () => {
   return {
     Alert: { alert: mocks.alert },
     Platform: { OS: "ios" },
+    useWindowDimensions: () => ({ fontScale: 1 }),
     StyleSheet: { create: (styles: unknown) => styles },
     ScrollView: view,
     View: view,
-    Text: ({ children, style }: { children?: ReactNode; style: unknown }) =>
-      createElement("span", { "data-style": JSON.stringify(style) }, children),
+    Text: ({
+      children,
+      style,
+      accessibilityRole,
+      allowFontScaling,
+    }: {
+      children?: ReactNode;
+      style: unknown;
+      accessibilityRole?: string;
+      allowFontScaling?: boolean;
+    }) =>
+      createElement(
+        "span",
+        {
+          "data-style": JSON.stringify(style),
+          role: accessibilityRole,
+          "data-font-scaling": allowFontScaling ?? true,
+        },
+        children,
+      ),
     TextInput: ({
       style,
       accessibilityLabel,
@@ -134,12 +153,16 @@ vi.mock("react-native", () => {
       accessibilityLabel,
       accessibilityHint,
       accessibilityRole,
+      accessibilityState,
+      style,
     }: {
       children?: ReactNode;
       onPress: () => void;
       accessibilityLabel?: string;
       accessibilityHint?: string;
       accessibilityRole?: string;
+      accessibilityState?: { expanded?: boolean };
+      style?: unknown;
     }) =>
       createElement(
         "button",
@@ -149,11 +172,14 @@ vi.mock("react-native", () => {
           "aria-label": accessibilityLabel,
           "data-hint": accessibilityHint,
           role: accessibilityRole,
+          "aria-expanded": accessibilityState?.expanded,
+          "data-style": JSON.stringify(style),
         },
         children,
       ),
   };
 });
+vi.mock("./appearance", () => ({ mobileTokens: () => ({}) }));
 vi.mock("./native", () => ({
   native: {
     tertiaryLabel: "muted",
@@ -226,7 +252,6 @@ vi.mock("../components/native-switch", () => ({
       onClick: () => onValueChange(!value),
     }),
 }));
-vi.mock("../components/row-accessories", () => ({ Chevron: () => null }));
 vi.mock("../components/native-symbol", () => ({
   NativeSymbol: ({ ios, android }: { ios: string; android: string }) =>
     createElement("i", { "data-ios": ios, "data-android": android }),
@@ -332,7 +357,33 @@ describe("bot settings device voice menu", () => {
     ]) {
       expect(container.textContent).not.toContain(label);
     }
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Advanced"]')!;
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(trigger.getAttribute("role")).toBe("button");
+    expect(JSON.parse(trigger.dataset.style!)).toMatchObject({ marginTop: 32, minHeight: 44 });
+    const headings = [...container.querySelectorAll<HTMLElement>('[role="header"]')];
+    expect(headings.map((heading) => heading.textContent)).toEqual(["Behavior", "Advanced"]);
+    for (const heading of headings) {
+      const style = JSON.parse(heading.dataset.style!);
+      const resolved = Object.assign({}, ...[style].flat(Infinity).filter(Boolean));
+      expect(resolved).toEqual({ color: "ink", fontSize: 17, fontWeight: "600", flexShrink: 1 });
+      expect(heading.dataset.fontScaling).toBe("true");
+    }
+    expect(JSON.parse(headings[0]!.parentElement!.dataset.style!)).toEqual({
+      marginTop: 32,
+      gap: 12,
+    });
+    expect(headings[1]!.parentElement).toBe(trigger);
+    expect(trigger.querySelector('[data-ios="chevron.right"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Instructions"]')).not.toBeNull();
+    expect(container.textContent).toContain("Model");
     await expand();
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(trigger.querySelector('[data-ios="chevron.down"]')).not.toBeNull();
+    expect(JSON.parse((trigger.nextElementSibling as HTMLElement).dataset.style!)).toEqual({
+      gap: 16,
+      paddingTop: 12,
+    });
     const labels = {
       instructions: "Instructions",
       computer: "Computer",
@@ -346,11 +397,15 @@ describe("bot settings device voice menu", () => {
         .filter(([, label]) => label === span.textContent)
         .map(([key]) => key),
     );
-    expect(actual).toEqual(BOT_SETTINGS_ADVANCED_ORDER.filter((key) => key in labels));
+    expect(actual).toEqual(
+      Object.values(BOT_SETTINGS_SECTIONS)
+        .flat()
+        .filter((key) => key in labels),
+    );
     expect(actual).toEqual([
       "instructions",
-      "computer",
       "model",
+      "computer",
       "readAloud",
       "voice",
       "fleetManagement",

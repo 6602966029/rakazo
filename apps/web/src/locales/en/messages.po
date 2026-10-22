@@ -852,6 +852,10 @@ msgstr "Basic auth ({username})"
 msgid "Bearer token"
 msgstr "Bearer token"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Behavior"
+msgstr "Behavior"
+
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr "Billing"
@@ -1105,6 +1109,10 @@ msgstr "Choose a bot…"
 #: src/pages/Auth.tsx
 msgid "Choose a new password"
 msgstr "Choose a new password"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Choose a tool"
+msgstr "Choose a tool"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
@@ -2240,6 +2248,7 @@ msgid "Done"
 msgstr "Done"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/KnowledgeSection.tsx
 msgid "Download"
 msgstr "Download"
 
@@ -2251,10 +2260,6 @@ msgstr "Download {0}"
 #: src/components/ArtifactFileCard.tsx
 msgid "Download {name}"
 msgstr "Download {name}"
-
-#: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "Download as markdown"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
@@ -3075,6 +3080,10 @@ msgstr "Members ({0})"
 msgid "Memory"
 msgstr "Memory"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Memory and skills"
+msgstr "Memory and skills"
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Memory scope"
 msgstr "Memory scope"
@@ -3377,10 +3386,6 @@ msgstr "No bots match"
 msgid "No chat apps linked yet."
 msgstr "No chat apps linked yet."
 
-#: src/pages/shell/bot-credentials.tsx
-msgid "No credentials saved for this bot."
-msgstr "No credentials saved for this bot."
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "No group chats yet."
@@ -3548,7 +3553,6 @@ msgid "Only empty spaces can be deleted. Delete its bots and groups first."
 msgstr "Only empty spaces can be deleted. Delete its bots and groups first."
 
 #: src/components/markdown-link-prompt.tsx
-#: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Open"
@@ -3664,10 +3668,6 @@ msgstr "Owner"
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
 msgstr "PagerDuty incident"
-
-#: src/pages/ScratchpadSection.tsx
-msgid "Park"
-msgstr "Park"
 
 #: src/components/PasskeySettings.tsx
 msgid "Passkey"
@@ -4187,11 +4187,6 @@ msgstr "Return to call with {0}"
 #: src/pages/McpOAuthCallback.tsx
 msgid "Return to Rakazo"
 msgstr "Return to Rakazo"
-
-#. placeholder {0}: doc.revision
-#: src/pages/KnowledgeSection.tsx
-msgid "rev {0}"
-msgstr "rev {0}"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Review provider settings and test again."
@@ -4995,6 +4990,7 @@ msgid "Tool sources"
 msgstr "Tool sources"
 
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "Tools"
 
@@ -5067,10 +5063,6 @@ msgstr "Undo"
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
 msgstr "Uninstall"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Unknown tool"
-msgstr "Unknown tool"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Unlink"

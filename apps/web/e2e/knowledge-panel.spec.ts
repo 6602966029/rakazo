@@ -70,7 +70,7 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   } finally {
     releaseSave();
   }
-  await expect(spaceDocs.getByText("rev 2")).toBeVisible();
+  await expect(spaceDocs.getByText("rev 2")).toHaveCount(0);
 
   // The save persisted: reopen the document and find the marker.
   await memoryRow.click();
@@ -97,11 +97,12 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   );
   await captureScreenshot(page, testInfo, "84-space-memory-conflict");
   const downloadPromise = page.waitForEvent("download");
-  await spaceDocs.getByRole("button", { name: "Download as markdown" }).click();
+  await spaceDocs.getByRole("button", { name: "Download", exact: true }).first().click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("space-memory.md");
+  expect(download.suggestedFilename()).toBe("MEMORY.md");
   const exported = await readFile((await download.path())!, "utf8");
-  expect(exported).toContain(latestMarker);
+  expect(exported).toBe(latestMarker);
+  expect(exported).not.toContain(retiredContent);
   expect(exported).not.toContain(marker);
   expect(exported).not.toContain("# Chief");
   // Exporting must not hide why Save stays disabled.
@@ -134,16 +135,18 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   await page.getByLabel("Close memory settings").click();
   await expect(page.getByLabel("Close memory settings")).toHaveCount(0);
 
-  // The bot's Knowledge section lives under Advanced in its settings panel.
+  // Bot memory is directly available in its settings panel.
   await page
     .locator("main")
     .getByRole("button", { name: /^Chief/ })
     .click();
   const settings = page.getByTestId("bot-settings");
   await expect(settings.getByRole("button", { name: "Save", exact: true })).toBeVisible();
-  await settings.getByText("Advanced", { exact: true }).click();
   const knowledge = settings.getByTestId("bot-knowledge");
   await expect(knowledge).toBeVisible();
+  await expect(
+    knowledge.getByRole("heading", { name: "Memory and skills", exact: true }),
+  ).toBeVisible();
   await expect(knowledge.getByRole("tablist", { name: "Knowledge" })).toBeVisible();
 
   // Bot creation seeds MEMORY.md (`# Chief`); edit it and assert the revision bumps.
@@ -158,7 +161,7 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   await botMemory.getByRole("button", { name: "Save", exact: true }).scrollIntoViewIfNeeded();
   await captureScreenshot(page, testInfo, "80-knowledge-bot-memory");
   await botMemory.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(botMemory.getByText("rev 2")).toBeVisible();
+  await expect(botMemory.getByText("rev 2")).toHaveCount(0);
   expect(
     await rpc<MemoryDocument[]>(page, "memory/list", {
       botId: activeBotId(page),

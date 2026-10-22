@@ -12,8 +12,10 @@ import {
   TabsTrigger,
   Textarea,
 } from "@rakazo/ui-web";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@rakazo/ui-web/components/ui/tooltip";
 import { Download } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { SettingsSectionHeading } from "../components/SettingsSectionHeading";
 import { downloadArtifactBytes } from "../lib/artifact-open";
 import { useSpaceRpc } from "../lib/space-rpc";
 
@@ -37,7 +39,10 @@ export function KnowledgeSection({
   const rpc = useSpaceRpc();
   const { t } = useLingui();
   return (
-    <section className="mt-6" data-testid="bot-knowledge">
+    <section className="mt-8" data-testid="bot-knowledge">
+      <SettingsSectionHeading>
+        <Trans>Memory and skills</Trans>
+      </SettingsSectionHeading>
       <Tabs defaultValue="memory">
         <TabsList aria-label={t`Knowledge`}>
           <TabsTrigger value="memory">
@@ -51,7 +56,6 @@ export function KnowledgeSection({
           <MemoryDocumentList
             key={botId}
             load={() => rpc.memory.list({ botId, scope: "bot" })}
-            exportFilename="memory.md"
             testId="bot-knowledge-memory"
           />
         </TabsContent>
@@ -71,13 +75,12 @@ export function SpaceMemorySection() {
       className="rounded-xl border border-border px-4 py-4"
       data-testid="space-memory-documents"
     >
-      <h3 className="text-[15px] font-medium text-foreground">
+      <SettingsSectionHeading className="mb-0">
         <Trans>Shared documents</Trans>
-      </h3>
+      </SettingsSectionHeading>
       <div className="mt-3">
         <MemoryDocumentList
           load={() => rpc.memory.list({ scope: "user" })}
-          exportFilename="space-memory.md"
           testId="space-memory-list"
         />
       </div>
@@ -87,11 +90,9 @@ export function SpaceMemorySection() {
 
 function MemoryDocumentList({
   load,
-  exportFilename,
   testId,
 }: {
   load: () => Promise<MemoryDocument[]>;
-  exportFilename: string;
   testId: string;
 }) {
   const rpc = useSpaceRpc();
@@ -191,23 +192,12 @@ function MemoryDocumentList({
     }
   }
 
-  async function exportMarkdown() {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      // Re-fetch through the section's own loader so the file is current,
-      // then sync the list so the export matches what is displayed.
-      const fresh = await loadRef.current();
-      generation.current += 1;
-      setDocs(fresh);
-      const markdown = fresh.map((doc) => `# ${doc.path}\n\n${doc.content}`).join("\n\n");
-      downloadArtifactBytes(exportFilename, "text/markdown", new TextEncoder().encode(markdown));
-    } catch {
-      setError(t`Could not load`);
-    } finally {
-      setBusy(false);
-    }
+  function downloadDocument(doc: MemoryDocument) {
+    downloadArtifactBytes(
+      doc.path.split("/").at(-1) ?? doc.path,
+      "text/markdown",
+      new TextEncoder().encode(doc.content),
+    );
   }
 
   return (
@@ -227,25 +217,35 @@ function MemoryDocumentList({
       <div>
         {docs.map((doc) => (
           <div key={doc.id} className="border-b border-border last:border-0">
-            <Button
-              variant="ghost"
-              type="button"
-              disabled={busy}
-              onClick={() => (openId === doc.id ? closeDoc() : openDoc(doc))}
-              className="-mx-2 h-auto w-[calc(100%+1rem)] justify-start whitespace-normal px-2 py-2.5 text-start"
-            >
-              <span className="flex w-full items-baseline justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                type="button"
+                disabled={busy}
+                onClick={() => (openId === doc.id ? closeDoc() : openDoc(doc))}
+                className="-ms-2 h-auto min-w-0 flex-1 justify-start whitespace-normal px-2 py-2.5 text-start"
+              >
                 <span
                   className="min-w-0 truncate text-[14px] font-normal text-foreground"
                   dir="auto"
                 >
                   {doc.path}
                 </span>
-                <span className="shrink-0 text-[13px] font-normal text-muted-foreground tabular-nums">
-                  <Trans>rev {doc.revision}</Trans>
-                </span>
-              </span>
-            </Button>
+              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={<Button variant="ghost" size="icon-sm" />}
+                  aria-label={t`Download`}
+                  disabled={busy}
+                  onClick={() => downloadDocument(doc)}
+                >
+                  <Download className="size-4" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <Trans>Download</Trans>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             {openId === doc.id ? (
               <div className="pb-2">
                 <Textarea
@@ -295,18 +295,6 @@ function MemoryDocumentList({
           </div>
         ))}
       </div>
-      {docs.length ? (
-        <Button
-          variant="outline"
-          type="button"
-          disabled={busy}
-          onClick={() => void exportMarkdown()}
-          className="mt-3 rounded-full"
-        >
-          <Download data-icon="inline-start" />
-          <Trans>Download as markdown</Trans>
-        </Button>
-      ) : null}
     </div>
   );
 }

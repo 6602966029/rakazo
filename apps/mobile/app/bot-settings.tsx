@@ -535,24 +535,9 @@ export default function BotSettingsScreen() {
             </ScrollView>
           </>
         ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("Advanced")}
-          accessibilityState={{ expanded: advancedOpen }}
-          onPress={() => setAdvancedOpen((open) => !open)}
-          style={{
-            marginTop: 20,
-            minHeight: 44,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{t("Advanced")}</Text>
-          <Chevron expanded={advancedOpen} />
-        </Pressable>
-        {advancedOpen ? (
-          <View style={{ gap: 16, paddingTop: 16 }}>
+        <View style={{ marginTop: 32, gap: 12 }}>
+          <SettingsSectionHeading>{t("Behavior")}</SettingsSectionHeading>
+          <View style={{ gap: 16 }}>
             <View>
               <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>
                 {t("Instructions")}
@@ -600,7 +585,6 @@ export default function BotSettingsScreen() {
                 />
               ) : null}
             </View>
-            <ComputerModePicker plain value={computerMode} onChange={setComputerMode} />
             <View style={{ gap: 16 }}>
               <MenuPicker
                 plain
@@ -633,6 +617,27 @@ export default function BotSettingsScreen() {
                 {modelMetaError}
               </Text>
             ) : null}
+          </View>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("Advanced")}
+          accessibilityState={{ expanded: advancedOpen }}
+          onPress={() => setAdvancedOpen((open) => !open)}
+          style={{
+            marginTop: 32,
+            minHeight: 44,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <SettingsSectionHeading>{t("Advanced")}</SettingsSectionHeading>
+          <Chevron expanded={advancedOpen} />
+        </Pressable>
+        {advancedOpen ? (
+          <View style={{ gap: 16, paddingTop: 12 }}>
+            <ComputerModePicker plain value={computerMode} onChange={setComputerMode} />
             <View style={styles.row}>
               <Text style={[styles.rowLabel, { color: tokens.mutedForeground }]}>
                 {t("Read replies aloud")}
@@ -697,6 +702,15 @@ export default function BotSettingsScreen() {
   );
 }
 
+function SettingsSectionHeading({ children }: { children: string }) {
+  const tokens = useMobileTokens();
+  return (
+    <Text accessibilityRole="header" style={[styles.sectionHeading, { color: tokens.foreground }]}>
+      {children}
+    </Text>
+  );
+}
+
 function thinkingLevelLabel(level: ThinkingLevel, t: (message: string) => string) {
   if (level === "xhigh") return t("Extra high");
   if (level === "low") return t("Low");
@@ -708,6 +722,11 @@ function thinkingLevelLabel(level: ThinkingLevel, t: (message: string) => string
 }
 
 const styles = StyleSheet.create({
+  sectionHeading: {
+    fontSize: 17,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
   field: {
     marginTop: 8,
     borderRadius: 11,

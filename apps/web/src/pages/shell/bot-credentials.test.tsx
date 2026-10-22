@@ -125,10 +125,14 @@ describe("BotCredentialsSection", () => {
     expect(container.querySelectorAll("input")).toHaveLength(0);
   });
 
-  it("shows an empty state", async () => {
+  it("keeps the explanation and add action when no credentials are saved", async () => {
     botSecrets.list.mockResolvedValue([]);
     await render();
-    expect(byTestId("bot-credentials-empty").textContent).toContain("No credentials saved");
+    expect(byTestId("credential-add").previousElementSibling?.textContent).toBe(
+      "Values are encrypted and never shown again.",
+    );
+    expect(container.querySelector('[data-testid="bot-credential-row"]')).toBeNull();
+    expect(byTestId("credential-add").classList.contains("mt-2")).toBe(true);
   });
 
   it("adds a header credential and clears the value, then refetches", async () => {

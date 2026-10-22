@@ -3,7 +3,7 @@
 import { i18n } from "@lingui/core";
 import { ORPCError } from "@orpc/client";
 import type { Bot } from "@rakazo/contracts";
-import { BOT_SETTINGS_ADVANCED_ORDER } from "@rakazo/contracts";
+import { BOT_SETTINGS_SECTIONS } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import type { Root } from "react-dom/client";
@@ -75,7 +75,7 @@ vi.mock("./avatar-studio-popover", () => ({ AvatarStudioPopover: () => null }));
 vi.mock("./bot-credentials", () => ({ BotCredentialsSection: () => null }));
 vi.mock("../ScratchpadSection", () => ({ ScratchpadSection: () => <h3>Open work</h3> }));
 vi.mock("../KnowledgeSection", () => ({
-  KnowledgeSection: () => <div>Memory / Shared skills</div>,
+  KnowledgeSection: () => <h3>Memory and skills</h3>,
 }));
 
 import { InstructionSettings } from "../../components/InstructionSettings";
@@ -128,12 +128,16 @@ const onSave = vi.fn(
   async (_patch: Parameters<ComponentProps<typeof BotSettings>["onSave"]>[0]) => undefined,
 );
 
-async function render(description = "Billing", overrides: Partial<Bot> = {}) {
+async function render(
+  description = "Billing",
+  overrides: Partial<Bot> = {},
+  memoryProviderConfigured = false,
+) {
   await act(async () => {
     root.render(
       <BotSettings
         bot={bot(description, overrides)}
-        memoryProviderConfigured={false}
+        memoryProviderConfigured={memoryProviderConfigured}
         onSkillsChange={() => undefined}
         onSave={onSave}
         onExport={async () => undefined}
@@ -196,56 +200,58 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it("keeps advanced controls inside the disclosure in the shared order", async () => {
+it("shows the main sections and keeps only rare controls in Advanced", async () => {
   vi.mocked(rpc.voice.voices).mockResolvedValueOnce([
     { id: "fixture-voice", label: "Fixture voice" },
   ]);
-  await render();
+  await render("Billing", {}, true);
+  expect([...container.querySelectorAll("h3")].map((heading) => heading.textContent)).toEqual([
+    "Notifications",
+    "Behavior",
+    "Open work",
+    "Memory and skills",
+    "Tools",
+    "Advanced",
+  ]);
   const advanced = container.querySelector<HTMLElement>('[data-testid="bot-settings-advanced"]')!;
   expect(advanced.querySelector("button[aria-expanded]")?.getAttribute("aria-expanded")).toBe(
     "false",
   );
-  await act(async () => {
-    advanced.querySelector<HTMLButtonElement>("button[aria-expanded]")?.click();
-  });
-  const labels = {
-    instructions: "Instructions",
-    computer: "Computer",
-    model: "Model",
-    readAloud: "Read replies aloud",
-    voice: "Voice",
-    fleetManagement: "Manage the bots it creates",
-    scratchpad: "Open work",
-    knowledge: "Memory / Shared skills",
-    disabledTools: "Disabled tools",
-  };
-  const controls = [...container.querySelectorAll("div, span, label, h3")].filter((node) =>
-    [...node.childNodes].some(
-      (child) =>
-        child.nodeType === Node.TEXT_NODE &&
-        Object.values(labels).some((label) => child.textContent === label),
-    ),
-  );
-  expect(controls).toHaveLength(Object.keys(labels).length);
-  expect(advanced.querySelector("h3")?.textContent).toBe("Open work");
-  for (const control of controls)
-    expect(control.closest('[data-testid="bot-settings-advanced"]')).toBe(advanced);
-  for (const control of controls.filter(
-    (node) => !["Open work", "Memory / Shared skills"].includes(node.textContent ?? ""),
-  )) {
-    expect(control.classList.contains("text-[14px]")).toBe(true);
-    expect(control.classList.contains("text-muted-foreground")).toBe(true);
-  }
   expect(
-    controls.map(
-      (node) =>
-        Object.entries(labels).find(([, label]) =>
-          [...node.childNodes].some(
-            (child) => child.nodeType === Node.TEXT_NODE && child.textContent === label,
-          ),
-        )![0],
-    ),
-  ).toEqual(BOT_SETTINGS_ADVANCED_ORDER.filter((key) => key in labels));
+    container.querySelector('[id$="-model"]')?.closest('[data-testid="bot-settings-advanced"]'),
+  ).toBeNull();
+  expect(
+    container.querySelector('[id$="-model"]')?.closest("section")?.getAttribute("data-testid"),
+  ).toBe("bot-settings-behavior");
+  expect(
+    container
+      .querySelector('[id$="-disabled-tools"]')
+      ?.closest("section")
+      ?.getAttribute("data-testid"),
+  ).toBe("bot-settings-tools");
+  const labels = {
+    computer: "Computer",
+    memoryScope: "Memory scope",
+    voice: "Voice",
+    readAloud: "Read replies aloud",
+    fleetManagement: "Manage the bots it creates",
+  };
+  const controls = [...advanced.querySelectorAll("div, span, label")].flatMap((node) =>
+    Object.entries(labels)
+      .filter(([, label]) =>
+        [...node.childNodes].some(
+          (child) => child.nodeType === Node.TEXT_NODE && child.textContent === label,
+        ),
+      )
+      .map(([key]) => key),
+  );
+  expect(controls).toEqual(BOT_SETTINGS_SECTIONS.advanced.filter((key) => key in labels));
+  await act(async () =>
+    advanced.querySelector<HTMLButtonElement>("button[aria-expanded]")?.click(),
+  );
+  expect(advanced.querySelector("button[aria-expanded]")?.getAttribute("aria-expanded")).toBe(
+    "true",
+  );
 });
 
 describe("BotSettings model choices", () => {

@@ -46,6 +46,7 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
         <Trans>Instructions</Trans>
         <Textarea
           id={`${id}-instructions`}
+          className="mt-2"
           value={instructions}
           maxLength={BOT_INSTRUCTIONS_MAX_LENGTH}
           disabled={pending}

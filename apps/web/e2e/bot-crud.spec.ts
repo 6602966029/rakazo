@@ -95,28 +95,91 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(studio).toBeVisible();
   await expect(studio.getByRole("button", { name: "Color #EAB308" })).toHaveClass(/ring-2/);
   await studio.getByRole("button", { name: "Done", exact: true }).click();
-  const modelSelect = settings.locator("label:has-text('Model') select");
+  const modelSelect = settings.getByRole("combobox", { name: "Model", exact: true });
   const teamComputer = settings.getByRole("button", { name: "Team" });
   const openWork = settings.getByTestId("bot-scratchpad");
   await expect(teamComputer).toBeHidden();
   await expect(settings.getByRole("switch", { name: "Read replies aloud" })).toBeHidden();
   await expect(settings.getByRole("switch", { name: "Manage the bots it creates" })).toBeHidden();
-  await expect(modelSelect).toBeHidden();
-  await expect(openWork).toBeHidden();
+  await expect(modelSelect).toBeVisible();
+  await expect(openWork).toBeVisible();
   await expect(settings.getByRole("button", { name: "Save", exact: true })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Recover computer" })).toHaveCount(0);
   await expect(settings.getByRole("button", { name: "Reset computer" })).toHaveCount(0);
   await expect(settings.getByRole("button", { name: "Update computer" })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "27a-settings-panel");
+  const actions = settings.getByRole("button", { name: "Export", exact: true }).locator("..");
+  await expect(actions).toHaveCSS("margin-top", "32px");
+  const advancedSection = settings.getByTestId("bot-settings-advanced");
+  expect(
+    (await actions.boundingBox())!.y -
+      ((await advancedSection.boundingBox())!.y + (await advancedSection.boundingBox())!.height),
+  ).toBeCloseTo(32, 0);
+  await expect(
+    settings.getByRole("heading", { name: "Memory and skills", exact: true }),
+  ).toBeVisible();
+  await captureScreenshot(page, testInfo, "bot-settings-sections-collapsed");
   await settings.getByText("Advanced", { exact: true }).click();
+  await expect(actions).toHaveCSS("margin-top", "32px");
+  await expect
+    .poll(async () => {
+      const actionBox = (await actions.boundingBox())!;
+      const advancedBox = (await advancedSection.boundingBox())!;
+      return Math.round(actionBox.y - advancedBox.y - advancedBox.height);
+    })
+    .toBe(32);
+  for (const testId of [
+    "bot-settings-behavior",
+    "bot-scratchpad",
+    "bot-knowledge",
+    "bot-settings-tools",
+    "bot-settings-advanced",
+  ]) {
+    await expect(settings.getByTestId(testId)).toHaveCSS("margin-top", "32px");
+  }
+  for (const label of ["Instructions", "Model", "Disabled tools"]) {
+    const control = settings.getByRole(label === "Instructions" ? "textbox" : "combobox", {
+      name: label,
+      exact: true,
+    });
+    await expect(label === "Instructions" ? control : control.locator("..")).toHaveCSS(
+      "margin-top",
+      "8px",
+    );
+  }
+  await captureScreenshot(page, testInfo, "bot-settings-sections-advanced");
+  for (const title of ["First fixture task", "Second fixture task"]) {
+    await openWork.getByRole("textbox", { name: "New open-work item" }).fill(title);
+    await openWork.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(openWork.getByText(title, { exact: true })).toBeVisible();
+  }
+  const workRows = openWork.locator(".group");
+  const rhythm = await openWork.evaluate((section) => {
+    const heading = section.querySelector("h3")!.getBoundingClientRect();
+    const rows = [...section.querySelectorAll(".group > div")].map((row) =>
+      row.getBoundingClientRect(),
+    );
+    return { first: rows[0]!.top - heading.bottom, between: rows[1]!.top - rows[0]!.bottom };
+  });
+  expect(rhythm.first).toBeCloseTo(12, 0);
+  expect(rhythm.between).toBeCloseTo(16, 0);
+  const restingBox = await workRows.first().boundingBox();
+  await workRows.first().hover();
+  await expect(workRows.first().getByRole("button", { name: "Remove" })).toHaveCSS("opacity", "1");
+  expect(await workRows.first().boundingBox()).toEqual(restingBox);
+  // A translucent list hover keeps the surface subtle in either theme.
+  expect(await workRows.first().evaluate((row) => getComputedStyle(row).backgroundColor)).toMatch(
+    /(?:0\.5|50%)/,
+  );
+  for (let index = 0; index < 2; index += 1) {
+    await workRows.first().hover();
+    await workRows.first().getByRole("button", { name: "Remove" }).click();
+  }
+  await expect(workRows).toHaveCount(0);
   const disabledTools = settings.getByLabel("Disabled tools");
   await expect(disabledTools).toBeVisible();
-  await disabledTools.fill("not_a_tool");
-  await disabledTools.press("Enter");
-  await expect(settings.getByText("Unknown tool")).toBeVisible();
-  await disabledTools.fill("web_search");
-  await disabledTools.press("Enter");
-  await expect(settings.getByRole("switch", { name: "web_search" })).toBeChecked();
+  await disabledTools.selectOption("web_search");
+  await expect(settings.getByRole("switch", { name: "web search" })).not.toBeChecked();
   await captureScreenshot(page, testInfo, "27c-disabled-builtin-tools");
   await expect(teamComputer).toBeVisible();
   await expect(settings.getByRole("switch", { name: "Read replies aloud" })).toBeVisible();

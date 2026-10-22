@@ -852,6 +852,10 @@ msgstr "Basisauthenticatie ({username})"
 msgid "Bearer token"
 msgstr "Bearer-token"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Behavior"
+msgstr ""
+
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr "Facturatie"
@@ -1105,6 +1109,10 @@ msgstr "Kies een bot…"
 #: src/pages/Auth.tsx
 msgid "Choose a new password"
 msgstr "Kies een nieuw wachtwoord"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Choose a tool"
+msgstr ""
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
@@ -2240,6 +2248,7 @@ msgid "Done"
 msgstr "Klaar"
 
 #: src/pages/Artifacts.tsx
+#: src/pages/KnowledgeSection.tsx
 msgid "Download"
 msgstr "Downloaden"
 
@@ -2251,10 +2260,6 @@ msgstr "{0} downloaden"
 #: src/components/ArtifactFileCard.tsx
 msgid "Download {name}"
 msgstr "{name} downloaden"
-
-#: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "Downloaden als markdown"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
@@ -3075,6 +3080,10 @@ msgstr "Leden ({0})"
 msgid "Memory"
 msgstr "Geheugen"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Memory and skills"
+msgstr ""
+
 #: src/pages/shell/bot-panel.tsx
 msgid "Memory scope"
 msgstr "Geheugenbereik"
@@ -3377,10 +3386,6 @@ msgstr "Geen bots gevonden"
 msgid "No chat apps linked yet."
 msgstr "Nog geen chattoepassingen gekoppeld."
 
-#: src/pages/shell/bot-credentials.tsx
-msgid "No credentials saved for this bot."
-msgstr "Er zijn geen gegevens opgeslagen voor deze bot."
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr "Nog geen groepschats."
@@ -3548,7 +3553,6 @@ msgid "Only empty spaces can be deleted. Delete its bots and groups first."
 msgstr "Alleen lege spaces kunnen worden verwijderd. Verwijder eerst de bots en groepen."
 
 #: src/components/markdown-link-prompt.tsx
-#: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Open"
@@ -3664,10 +3668,6 @@ msgstr "Eigenaar"
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
 msgstr "PagerDuty-incident"
-
-#: src/pages/ScratchpadSection.tsx
-msgid "Park"
-msgstr "Parkeren"
 
 #: src/components/PasskeySettings.tsx
 msgid "Passkey"
@@ -4187,11 +4187,6 @@ msgstr "Terug naar het gesprek met {0}"
 #: src/pages/McpOAuthCallback.tsx
 msgid "Return to Rakazo"
 msgstr "Terug naar Rakazo"
-
-#. placeholder {0}: doc.revision
-#: src/pages/KnowledgeSection.tsx
-msgid "rev {0}"
-msgstr "rev {0}"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Review provider settings and test again."
@@ -4995,6 +4990,7 @@ msgid "Tool sources"
 msgstr "Toolbronnen"
 
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "Tools"
 
@@ -5067,10 +5063,6 @@ msgstr "Ongedaan maken"
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
 msgstr "Verwijderen"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Unknown tool"
-msgstr "Onbekende tool"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Unlink"

@@ -69,7 +69,6 @@ for (const [failing, intact] of [
       .click();
 
     const settings = page.getByTestId("bot-settings");
-    await settings.getByText("Advanced", { exact: true }).click();
     await expect(settings.getByText("Could not load", { exact: true })).toBeVisible();
     await expect(settings.getByTestId(intact)).toBeVisible();
     await expect(settings.getByRole("button", { name: "Save", exact: true })).toBeVisible();

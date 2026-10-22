@@ -32,6 +32,7 @@ vi.mock("@rakazo/ui-web", () => {
   };
 });
 
+import { downloadArtifactBytes } from "../lib/artifact-open";
 import { KnowledgeSection } from "./KnowledgeSection";
 
 it("disables skill rows while a completed save is refreshing the catalog", async () => {
@@ -189,6 +190,59 @@ it("deletes a bot memory document after confirmation but never MEMORY.md", async
     expect(memoryApi.remove).toHaveBeenCalledWith({ documentId: "memory-project" });
     expect(container.textContent).not.toContain("projects/retired.md");
     expect(container.textContent).toContain("MEMORY.md");
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("downloads only each row’s saved markdown with its own filename", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const doc = {
+    id: "memory-fixture",
+    scope: "bot",
+    botId: "bot-fixture",
+    path: "MEMORY.md",
+    content: "Fixture memory",
+    revision: 1,
+    updatedAt: "",
+  };
+  memoryApi.list
+    .mockReset()
+    .mockResolvedValue([
+      doc,
+      { ...doc, id: "other-fixture", path: "projects/notes.md", content: "Other document" },
+    ] as never);
+  api.list.mockResolvedValue([]);
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(<KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} />),
+    );
+    expect(container.textContent).not.toContain("rev ");
+    expect(container.textContent).not.toContain("Download as markdown");
+    const download = container.querySelector<HTMLButtonElement>('[aria-label="Download"]')!;
+    expect(download).not.toBeNull();
+    expect(download.parentElement?.textContent).toContain("MEMORY.md");
+    await act(async () => download.click());
+    expect(memoryApi.list).toHaveBeenCalledTimes(1);
+    expect(downloadArtifactBytes).toHaveBeenLastCalledWith(
+      "MEMORY.md",
+      "text/markdown",
+      new TextEncoder().encode("Fixture memory"),
+    );
+    const downloads = container.querySelectorAll<HTMLButtonElement>('[aria-label="Download"]');
+    await act(async () => downloads[1]!.click());
+    expect(downloadArtifactBytes).toHaveBeenLastCalledWith(
+      "notes.md",
+      "text/markdown",
+      new TextEncoder().encode("Other document"),
+    );
+    expect(container.querySelector("h3")?.textContent).toBe("Memory and skills");
+    expect(container.querySelector("textarea")).toBeNull();
   } finally {
     await act(async () => root.unmount());
     container.remove();
