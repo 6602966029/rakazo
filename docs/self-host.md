@@ -440,6 +440,13 @@ HTTPS inference endpoints, never to compatible custom hosts. Recovery uses the e
 deployment credential; no Redis or external accounting service is required.
 
 
+The adapter pins Stripe API `2026-09-30.endive`. Configure webhook destinations for your own account,
+using snapshot payloads on the same API version. Subscribe to all `customer.subscription` events,
+`customer.deleted`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+`invoice.paid`, `invoice.payment_failed`, `charge.refunded`, `charge.dispute.created`, and
+`charge.dispute.closed`. Credit Checkout restricts payment methods to cards. New subscriptions
+explicitly retain classic billing mode so API upgrades do not change invoice/proration behavior.
+
 For local testing, forward Stripe test events to `/api/v1/billing/webhook`. Use the signing secret
 from `stripe listen` and test API credentials; keep them in an ignored environment file.
 
