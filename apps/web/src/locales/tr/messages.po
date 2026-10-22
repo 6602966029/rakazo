@@ -414,6 +414,10 @@ msgstr "Çalıştırılacak bir komut ekleyin"
 msgid "Add a file or folder to watch"
 msgstr "İzlenecek bir dosya veya klasör ekleyin"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Add a label"
+msgstr "Etiket ekle"
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
 msgstr ""
@@ -479,6 +483,10 @@ msgstr "Öğe ekle"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "MCP sunucusu ekle"
+
+#: src/pages/ScratchpadSection.tsx
+msgid "Add open work"
+msgstr "Açık iş ekle"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add OpenAPI"
@@ -969,6 +977,10 @@ msgstr ""
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
 msgstr ""
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Can edit and organise bots it creates"
+msgstr "Oluşturduğu botları düzenleyebilir ve organize edebilir"
 
 #: src/App.tsx
 msgid "Can't reach the server."
@@ -2195,13 +2207,13 @@ msgstr "Ayrıntılar"
 msgid "Direct MCP"
 msgstr ""
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Disable a tool"
+msgstr "Bir aracı devre dışı bırak"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Disabled"
 msgstr "Devre dışı"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Disabled tools"
-msgstr ""
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Discard recording"
@@ -2288,6 +2300,7 @@ msgid "Downgrade at renewal"
 msgstr ""
 
 #: src/pages/Artifacts.tsx
+#: src/pages/KnowledgeSection.tsx
 msgid "Download"
 msgstr ""
 
@@ -2299,10 +2312,6 @@ msgstr "{0} indir"
 #: src/components/ArtifactFileCard.tsx
 msgid "Download {name}"
 msgstr "{name} indir"
-
-#: src/pages/KnowledgeSection.tsx
-msgid "Download as markdown"
-msgstr "Markdown olarak indir"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Download Executor"
@@ -2324,10 +2333,6 @@ msgstr "Görüntüyü sürükleyip bırakın veya yapıştırın"
 msgid "Duplicate"
 msgstr "Çoğalt"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "e.g. Hivenet Agent, Presales, Timesheets bot"
-msgstr "örn. Hivenet Agent, Presales, puantaj botu"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Each name can be used once."
 msgstr "Her ad yalnızca bir kez kullanılabilir."
@@ -2339,6 +2344,14 @@ msgstr "Düzenle"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "Önce düzenle"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Edit label"
+msgstr "Etiketi düzenle"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Edit name"
+msgstr "Adı düzenle"
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2355,6 +2368,15 @@ msgstr "Bu e-posta adresinin kaydolmasına izin verilmiyor"
 #: src/lib/user-error.ts
 msgid "Email verification required"
 msgstr "E-posta doğrulaması gerekiyor"
+
+#. placeholder {0}: humanizeTool(toolName)
+#: src/pages/shell/bot-panel.tsx
+msgid "Enable {0}"
+msgstr "{0} etkinleştir"
+
+#: src/pages/shell/bot-credentials.tsx
+msgid "Encrypted and never shown again"
+msgstr "Şifrelenir ve bir daha gösterilmez"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
@@ -2616,10 +2638,6 @@ msgstr "Genel"
 msgid "Get credentials"
 msgstr ""
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Get notified when this Bot finishes or needs input"
-msgstr "Bu Bot bittiğinde veya girdi gerektiğinde bildirim al"
-
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "Mobil uygulamayı indir"
@@ -2727,6 +2745,10 @@ msgstr "saat"
 #: src/pages/RoutineSchedule.tsx
 msgid "How often"
 msgstr "Ne sıklıkla"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "How other bots see it"
+msgstr "Diğer botlar onu nasıl görüyor"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "How to check"
@@ -2874,10 +2896,6 @@ msgstr "Hafızayı koru"
 #: src/pages/RoutineEditor.tsx
 msgid "key"
 msgstr ""
-
-#: src/pages/KnowledgeSection.tsx
-msgid "Knowledge"
-msgstr "Bilgi"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Language"
@@ -3233,6 +3251,10 @@ msgstr "Model"
 msgid "Model \"{modelId}\" was not listed."
 msgstr "\"{modelId}\" modeli listelenmedi."
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Model connections"
+msgstr "Model bağlantıları"
+
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Model id"
@@ -3440,10 +3462,6 @@ msgstr ""
 msgid "No chat apps linked yet."
 msgstr ""
 
-#: src/pages/shell/bot-credentials.tsx
-msgid "No credentials saved for this bot."
-msgstr ""
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "No group chats yet."
 msgstr ""
@@ -3615,7 +3633,6 @@ msgid "Only empty spaces can be deleted. Delete its bots and groups first."
 msgstr ""
 
 #: src/components/markdown-link-prompt.tsx
-#: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/computer-panel.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Open"
@@ -3710,10 +3727,6 @@ msgstr ""
 msgid "Organization API key"
 msgstr "Kuruluş API anahtarı"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval."
-msgstr "Kenar çubuğunu düzenleyin ve botları düzenleyin. Grup, talimat, model ve rutin değişiklikleri onayınızı gerektirir."
-
 #: src/pages/shell/chat-context.tsx
 msgid "Original message unavailable"
 msgstr "Orijinal mesaj kullanılamıyor"
@@ -3731,10 +3744,6 @@ msgstr "Sahip"
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
 msgstr ""
-
-#: src/pages/ScratchpadSection.tsx
-msgid "Park"
-msgstr "Beklet"
 
 #: src/components/PasskeySettings.tsx
 msgid "Passkey"
@@ -3797,6 +3806,10 @@ msgstr ""
 #: src/components/ModelCredits.tsx
 msgid "Pay your model provider directly."
 msgstr ""
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Permissions"
+msgstr "İzinler"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
@@ -4268,11 +4281,6 @@ msgstr ""
 msgid "Return to Rakazo"
 msgstr "Rakazo'ya dön"
 
-#. placeholder {0}: doc.revision
-#: src/pages/KnowledgeSection.tsx
-msgid "rev {0}"
-msgstr "rev {0}"
-
 #: src/lib/model-connection-preflight.ts
 msgid "Review provider settings and test again."
 msgstr "Sağlayıcı ayarlarını gözden geçir ve yeniden test et."
@@ -4571,10 +4579,6 @@ msgstr ""
 msgid "Shared documents"
 msgstr "Paylaşılan belgeler"
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Shared skills"
-msgstr "Paylaşılan beceriler"
-
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
 msgstr ""
@@ -4591,7 +4595,9 @@ msgstr ""
 msgid "Show list"
 msgstr ""
 
+#: src/pages/KnowledgeSection.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/ScratchpadSection.tsx
 msgid "Show more"
 msgstr "Daha fazla göster"
 
@@ -4663,6 +4669,10 @@ msgstr ""
 #: src/pages/shell/composer.tsx
 msgid "Skill {0}"
 msgstr "Beceri: {0}"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Skills"
+msgstr "Beceriler"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/shell/computer-release-actions.tsx
@@ -5080,6 +5090,7 @@ msgid "Tool sources"
 msgstr "Araç kaynakları"
 
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr ""
 
@@ -5155,10 +5166,6 @@ msgstr "Geri al"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
-msgstr ""
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Unknown tool"
 msgstr ""
 
 #: src/pages/MessagingSettingsOverlay.tsx
@@ -5347,10 +5354,6 @@ msgstr ""
 msgid "Value"
 msgstr "Değer"
 
-#: src/pages/shell/bot-credentials.tsx
-msgid "Values are encrypted and never shown again."
-msgstr "Değerler şifrelenir ve bir daha gösterilmez."
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Verify and add"
 msgstr "Doğrula ve ekle"
@@ -5445,6 +5448,10 @@ msgstr "İzlenecek öğe"
 #: src/pages/RoutineEditor.tsx
 msgid "When a webhook fires"
 msgstr ""
+
+#: src/pages/shell/bot-panel.tsx
+msgid "When it finishes or needs input"
+msgstr "Tamamladığında veya yanıt gerektiğinde"
 
 #: src/pages/RoutineEditor.tsx
 msgid "When something changes"
