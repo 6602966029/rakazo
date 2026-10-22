@@ -71,6 +71,7 @@ import {
   ModelCatalogEntrySchema,
   ModelConnectInputSchema,
   ModelCredentialSchema,
+  ModelCreditAmountSchema,
   ModelOAuthBeginSchema,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   REPLY_QUOTE_MAX_LENGTH,
@@ -194,6 +195,15 @@ export const appContract = {
   me: oc.output(MeSchema),
   billing: {
     status: oc.output(BillingStatusSchema),
+    selectFunding: oc
+      .input(z.object({ funding: z.enum(["byok", "credits"]) }))
+      .output(z.object({ ok: z.literal(true) })),
+    purchaseCredits: oc
+      .input(z.object({ amountCents: ModelCreditAmountSchema, monthly: z.boolean() }))
+      .output(z.object({ url: z.string().url() })),
+    setMonthlyCredits: oc
+      .input(z.object({ amountCents: ModelCreditAmountSchema }))
+      .output(z.object({ ok: z.literal(true) })),
     checkout: oc.output(z.object({ url: z.string().url() })),
     portal: oc.output(z.object({ url: z.string().url() })),
   },

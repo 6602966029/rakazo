@@ -307,6 +307,10 @@ import { loadAgentMemoryContext } from "./memory-context.js";
 import type { MemoryProviderResolver } from "./memory-provider-factory.js";
 import { appendMemoryFact, selectMemoryTools } from "./memory-tools.js";
 import {
+  HostedModelCreditsRequiredError,
+  hostedModelCreditObserver,
+} from "./model-credit-observer.js";
+import {
   enabledOpenAiCompatibleModelIds,
   findConnectedModelCredential,
   pinnedModelCredentialError,
@@ -2744,6 +2748,7 @@ export interface ExecutorDeps {
   };
   secrets: string[];
   secretStore: SecretStore;
+  billingEnabled?: boolean;
   deploymentModelKey?: string;
   /** The deployment default model can run; see resolveDeploymentModel. */
   deploymentModelConfigured?: boolean;
@@ -3044,6 +3049,7 @@ export function buildApprovalContinuation(
 export function isTerminalModelSetupError(error: unknown): boolean {
   return (
     error instanceof UnavailableModelForAuthError ||
+    error instanceof HostedModelCreditsRequiredError ||
     isRetiredModelCredentialError(error) ||
     (error instanceof Error && error.message === CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE)
   );
@@ -3077,7 +3083,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
       provider,
       modelId,
     );
-    if (!credential) throw new Error("Connect that model provider first");
+    if (
+      !credential &&
+      !((await modelCreditBillingEnabled(deps)) && provider === resolveDeploymentModel().provider)
+    )
+      throw new Error("Connect that model provider first");
     const resolved = await resolveModelKey(
       deps,
       scope.userId,
@@ -3092,6 +3102,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       provider,
       id: modelId,
       apiKey: resolved.oauth ? undefined : resolved.apiKey,
+      callObserver: resolved.callObserver,
       ...cloudflareRunFields(resolved),
       baseUrl: resolved.baseUrl,
       allowPrivateEndpoint: resolved.allowPrivateEndpoint,
@@ -3103,8 +3114,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
       acceptsImages: resolved.acceptsImages,
       maxImagesPerPrompt: resolved.maxImagesPerPrompt,
       thinkingLevel:
-        ((credential.defaultModel === modelId
-          ? credential.thinkingLevel
+        ((credential?.defaultModel === modelId
+          ? credential?.thinkingLevel
           : null) as AgentRunRequest["model"]["thinkingLevel"]) ??
         resolved.thinkingLevel ??
         null,
@@ -3156,6 +3167,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
         overrideCredential,
         defaultCredential,
         settings,
+        hostedProvider: (await modelCreditBillingEnabled(deps))
+          ? resolveDeploymentModel().provider
+          : undefined,
         deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
       });
       const { credential, thinkingLevel } = selected;
@@ -3179,6 +3193,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         provider,
         id,
         apiKey: resolved.oauth ? undefined : resolved.apiKey,
+        callObserver: resolved.callObserver,
         ...cloudflareRunFields(resolved),
         baseUrl: resolved.baseUrl,
         allowPrivateEndpoint: resolved.allowPrivateEndpoint,
@@ -3974,14 +3989,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
         }
         const runDeployment = deps.deploymentModelConfigured ? resolveDeploymentModel() : null;
         const runtimeFallback = runtimeFallbackModel(deps.runtime);
-        const pinError = run.modelPinned
-          ? pinnedModelCredentialError(modelChoice, overrideCredential)
-          : undefined;
+        const pinError =
+          run.modelPinned &&
+          !(
+            (await modelCreditBillingEnabled(deps)) &&
+            modelChoice.modelProvider === runDeployment?.provider
+          )
+            ? pinnedModelCredentialError(modelChoice, overrideCredential)
+            : undefined;
         const selected = selectConfiguredModel({
           override: modelChoice,
           overrideCredential,
           defaultCredential,
           settings,
+          hostedProvider: (await modelCreditBillingEnabled(deps))
+            ? resolveDeploymentModel().provider
+            : undefined,
           deployment: runDeployment,
         });
         const { credential, thinkingLevel } = selected;
@@ -5096,6 +5119,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                       runtime: deps.runtime,
                       checker: checker!,
                       apiKey: judgeKey.oauth ? undefined : judgeKey.apiKey,
+                      callObserver: judgeKey.callObserver,
                       accountId: judgeKey.accountId,
                       gatewayId: judgeKey.gatewayId,
                       baseUrl: judgeKey.baseUrl,
@@ -7594,6 +7618,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 provider: runModelProvider,
                 id: runModelId,
                 apiKey: resolved.oauth ? undefined : resolved.apiKey,
+                callObserver: resolved.callObserver,
                 ...cloudflareRunFields(resolved),
                 baseUrl: resolved.baseUrl,
                 allowPrivateEndpoint: resolved.allowPrivateEndpoint,
@@ -9816,7 +9841,29 @@ function assertCompatibleModelEnabled(
   }
 }
 
-async function resolveModelKey(
+async function modelCreditBillingEnabled(deps: ExecutorDeps): Promise<boolean> {
+  if (deps.billingEnabled !== undefined) return deps.billingEnabled;
+  return (
+    (
+      await deps.prisma.deploymentSettings.findUnique({
+        where: { id: "default" },
+        select: { modelCreditsEnabled: true },
+      })
+    )?.modelCreditsEnabled === true
+  );
+}
+
+async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMaterial>) {
+  const [deps, userId, spaceId, credential] = args;
+  const material = await resolveModelKeyMaterial(...args);
+  const callObserver =
+    !credential && (await modelCreditBillingEnabled(deps))
+      ? await hostedModelCreditObserver(deps.prisma, { userId, spaceId })
+      : undefined;
+  return { ...material, callObserver };
+}
+
+async function resolveModelKeyMaterial(
   deps: ExecutorDeps,
   userId: string,
   spaceId: string,
@@ -9859,6 +9906,8 @@ async function resolveModelKey(
         where: { id: credential.secretId, userId, spaceId: null },
       });
       if (!row) {
+        if (await modelCreditBillingEnabled(deps))
+          throw new Error("Connect that model provider again.");
         if (requireStoredSecret) throw new Error("Backup model credential is no longer available");
         if (credential.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
           throw new UnavailableModelForAuthError("Unknown model for that provider");

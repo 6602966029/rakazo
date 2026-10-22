@@ -606,3 +606,16 @@ describe("groupModelChoices", () => {
     ]);
   });
 });
+
+it("offers managed models without a personal key and hides unconnected providers", () => {
+  const catalog = [
+    { provider: "hosted", id: "small", label: "Small", managed: true },
+    { provider: "hosted", id: "large", label: "Large", managed: true },
+    { provider: "other", id: "unconnected", label: "Unconnected" },
+  ];
+  expect(connectedModelChoices([], catalog).map((choice) => choice.key)).toEqual([
+    "hosted::small",
+    "hosted::large",
+  ]);
+  expect(connectedModelChoices([{ provider: "hosted", label: "Hosted" }], catalog)).toHaveLength(2);
+});

@@ -18,12 +18,14 @@ import type {
 import { Agent } from "undici";
 import type { ContextBudget } from "./context-selection.js";
 import { estimateModelContextTokens } from "./model-context.js";
+import { openRouterInferenceFetch } from "./openrouter-usage.js";
 import { requestedPiCacheWriteRetention, resolvePiCacheRetention } from "./pi-cache-retention.js";
 import { recordPiTelemetryContent, withPiTelemetrySpan } from "./pi-telemetry.js";
 import { fetchPairedWithDispatcher } from "./undici-fetch.js";
 
 /** Pi initializes absent usage to zero. Only raw numeric fields can prove reported zero. */
 export type ReportedUsageFields = Set<keyof AgentUsage>;
+const reportedRequestIds = new WeakMap<ReportedUsageFields, string>();
 const reportedCosts = new WeakMap<ReportedUsageFields, number>();
 const reportedValues = new WeakMap<ReportedUsageFields, Map<keyof AgentUsage, number>>();
 export function normalizePiUsage(
@@ -65,6 +67,7 @@ export function normalizePiUsage(
     (model.cost.cacheWrite === 0 || cacheWriteTokens !== null);
   const providerCost = reportedCosts.get(reported);
   return {
+    providerRequestId: reportedRequestIds.get(reported) ?? null,
     inputTokens,
     outputTokens,
     cacheReadTokens,
@@ -79,6 +82,7 @@ export function normalizePiUsage(
         : null),
     costSource:
       providerCost !== undefined ? "provider-reported" : costKnown ? "pi-catalog-estimate" : null,
+    pricingSnapshot: model.cost ? JSON.parse(JSON.stringify(model.cost)) : null,
     pricingVersion: providerCost !== undefined ? null : costKnown ? "pi-ai-1.3.0" : null,
     usageSource: reported.size ? "provider-reported-via-pi" : "pi-normalized",
   };
@@ -88,6 +92,7 @@ export function normalizePiUsage(
 export function usageReportingFetch(
   fetcher: typeof fetch,
   reported: ReportedUsageFields,
+  onRequestId?: (id: string) => void | Promise<void>,
 ): typeof fetch {
   return async (input, init) => {
     // The wrapper hides the default fetch identity from the SSRF guard. Pair
@@ -102,15 +107,43 @@ export function usageReportingFetch(
     let buffer = "";
     let dropping = false;
     const decoder = new TextDecoder();
-    const observe = (frame: string) => {
+    const observe = async (frame: string) => {
       const data = frame
         .split(/\r?\n/)
         .filter((line) => line.startsWith("data:"))
         .map((line) => line.slice(5).trimStart())
         .join("\n");
       if (!data || data === "[DONE]") return;
+      type RawUsage = Record<string, unknown> & {
+        prompt_tokens_details?: Record<string, unknown>;
+        input_tokens_details?: Record<string, unknown>;
+        completion_tokens_details?: Record<string, unknown>;
+        output_tokens_details?: Record<string, unknown>;
+        cache_creation?: Record<string, unknown>;
+      };
+      let event: {
+        id?: unknown;
+        usage?: RawUsage;
+        response?: { id?: unknown; usage?: RawUsage };
+        message?: { id?: unknown; usage?: RawUsage };
+      };
       try {
-        const event = JSON.parse(data);
+        event = JSON.parse(data);
+        if (!event || typeof event !== "object") return;
+      } catch {
+        return;
+      }
+      const id = event.response?.id ?? event.message?.id ?? event.id;
+      if (
+        !reportedRequestIds.has(reported) &&
+        typeof id === "string" &&
+        id.length > 0 &&
+        id.length <= 256
+      ) {
+        reportedRequestIds.set(reported, id);
+        await onRequestId?.(id);
+      }
+      try {
         const usage = event.usage ?? event.response?.usage ?? event.message?.usage;
         if (!usage || typeof usage !== "object") return;
         const mark = (value: unknown, key: keyof AgentUsage) => {
@@ -163,13 +196,12 @@ export function usageReportingFetch(
     };
     const body = response.body.pipeThrough(
       new TransformStream<Uint8Array, Uint8Array>({
-        transform(chunk, controller) {
-          controller.enqueue(chunk);
+        async transform(chunk, controller) {
           buffer = (buffer + decoder.decode(chunk, { stream: true })).replace(/\r\n/g, "\n");
           let boundary = buffer.indexOf("\n\n");
           while (boundary >= 0) {
             const frame = buffer.slice(0, boundary);
-            if (!dropping && frame.length <= 262144) observe(frame);
+            if (!dropping && frame.length <= 262144) await observe(frame);
             dropping = false;
             buffer = buffer.slice(boundary + 2);
             boundary = buffer.indexOf("\n\n");
@@ -178,6 +210,7 @@ export function usageReportingFetch(
             buffer = buffer.slice(-1);
             dropping = true;
           }
+          controller.enqueue(chunk);
         },
       }),
     );
@@ -218,7 +251,12 @@ export function observedPiStream(
   options: SimpleStreamOptions | undefined,
   push: (event: AgentRuntimeEvent) => void,
   observer?: ModelCallObserver,
-  attribution: { operationKind: UsageOperationKind; agentId?: string } = {
+  attribution: {
+    operationKind: UsageOperationKind;
+    agentId?: string;
+    userId?: string;
+    runId?: string;
+  } = {
     operationKind: "answer",
   },
   hooks?: {
@@ -240,7 +278,7 @@ export function observedPiStream(
       provider: model.provider,
       model: model.id,
       callId,
-      ...attribution,
+      agentId: attribution.agentId,
       operationKind,
     };
     try {
@@ -276,13 +314,26 @@ export function observedPiStream(
         const cacheRetention = resolvePiCacheRetention(model, options?.cacheRetention);
         const preparedContext = hooks?.prepareContext?.(context, model) ?? context;
         recordPiTelemetryContent(span, "pi.ai.prompt", preparedContext);
+        const inputTokensEstimate = observer
+          ? estimateModelContextTokens(preparedContext, hooks?.imageTokens)
+          : 0;
+        const cacheWriteRetention = requestedPiCacheWriteRetention(model, cacheRetention);
         reservation = observer
           ? await observer.beforeCall({
+              callId,
+              runId: attribution.runId,
+              operationKind: attribution.operationKind,
               provider: model.provider,
               modelId: model.id,
-              inputTokensEstimate: estimateModelContextTokens(preparedContext, hooks?.imageTokens),
+              inputTokensEstimate,
               maxOutputTokens: options?.maxTokens ?? model.maxTokens,
-              cacheWriteRetention: requestedPiCacheWriteRetention(model, cacheRetention),
+              maxCostUsd: maximumModelCallCost(
+                model.cost,
+                inputTokensEstimate,
+                options?.maxTokens ?? model.maxTokens,
+                cacheWriteRetention,
+              ),
+              cacheWriteRetention,
             })
           : undefined;
         options?.signal?.throwIfAborted();
@@ -304,7 +355,19 @@ export function observedPiStream(
             collectRawUsage
               ? {
                   ...streamOptions,
-                  fetch: usageReportingFetch(streamOptions?.fetch ?? globalThis.fetch, reported),
+                  fetch: usageReportingFetch(
+                    model.provider === "openrouter"
+                      ? openRouterInferenceFetch(
+                          streamOptions?.fetch ?? globalThis.fetch,
+                          attribution.userId,
+                        )
+                      : (streamOptions?.fetch ?? globalThis.fetch),
+                    reported,
+                    (id) =>
+                      reservation !== undefined
+                        ? observer?.onRequestId?.(reservation, id)
+                        : undefined,
+                  ),
                 }
               : streamOptions,
           );
@@ -348,18 +411,23 @@ export function observedPiStream(
             });
             if (event.type === "error") span?.setStatus({ status: "error" });
             recordPiTelemetryContent(span, "pi.ai.response", message.content);
-            await emitUsage(
-              normalized,
-              usageOperationKind(attribution.operationKind, preparedContext, message),
+            const operationKind = usageOperationKind(
+              attribution.operationKind,
+              preparedContext,
+              message,
             );
+            if (observer && reservation !== undefined) {
+              await observer.afterCall(reservation, {
+                ...normalized,
+                operationKind,
+              });
+              settled = true;
+            }
+            await emitUsage(normalized, operationKind);
             try {
               hooks?.onUsage?.(normalized);
             } catch {
               /* Cache telemetry cannot discard accounted spend. */
-            }
-            if (observer && reservation !== undefined) {
-              settled = true;
-              await observer.afterCall(reservation, normalized);
             }
           }
           if (event.type === "error") hooks?.onProviderError?.(event.error);
@@ -380,7 +448,12 @@ export function observedPiStream(
           // Keep the reservation alive until settlement finishes, before exposing termination.
           settled = true;
           try {
-            await observer.afterCall(reservation, normalized);
+            await observer.afterCall(
+              reservation,
+              started
+                ? (normalized ?? normalizePiUsage(undefined, model, reported))
+                : { ...normalizePiUsage(undefined, model), costUsd: 0, usageSource: "not-started" },
+            );
           } catch {
             /* Already failing. */
           }
@@ -412,4 +485,31 @@ export function observedPiStream(
     },
   );
   return stream;
+}
+
+/** Includes higher context tiers and long-lived cache writes before any request can spend. */
+export function maximumModelCallCost(
+  cost: Model<Api>["cost"],
+  inputTokens: number,
+  outputTokens: number,
+  cacheWriteRetention?: "1h",
+): number | undefined {
+  const tiers = [cost, ...(cost.tiers ?? [])];
+  if (
+    !tiers.every((tier) =>
+      [tier.input, tier.output, tier.cacheRead, tier.cacheWrite].every(
+        (rate) => Number.isFinite(rate) && rate >= 0,
+      ),
+    )
+  )
+    return undefined;
+  const inputRate = Math.max(
+    ...tiers.flatMap((tier) => [
+      tier.input,
+      tier.cacheRead,
+      tier.cacheWrite * (cacheWriteRetention === "1h" ? 2 : 1),
+    ]),
+  );
+  const outputRate = Math.max(...tiers.map((tier) => tier.output));
+  return (inputTokens * inputRate + outputTokens * outputRate) / 1_000_000;
 }

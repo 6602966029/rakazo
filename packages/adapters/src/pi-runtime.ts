@@ -384,8 +384,12 @@ export class PiAgentRuntime implements AgentRuntime {
                   ctx,
                   preparedOptions,
                   (event) => queue.push(event),
-                  this.modelCallObserver,
-                  { operationKind: request.usageOperationKind ?? "answer" },
+                  target.config.callObserver ?? this.modelCallObserver,
+                  {
+                    operationKind: request.usageOperationKind ?? "answer",
+                    userId: context?.userId,
+                    runId: request.runId,
+                  },
                   {
                     ...usageHooks,
                     prepareContext: (ctx, m) => contextPolicy.prepareContext(ctx, m),
@@ -1485,8 +1489,13 @@ async function executeSubagent(host: ToolHost, executionId: string, args: Record
             ctx,
             preparedOptions,
             (event) => host.queue.push(event),
-            host.modelCallObserver,
-            { operationKind: "subagent", agentId },
+            target.config.callObserver ?? host.modelCallObserver,
+            {
+              operationKind: "subagent",
+              agentId,
+              userId: host.context?.userId,
+              runId: host.request.runId,
+            },
             {
               prepareContext: contextPolicy.prepareContext,
               imageTokens: estimatePiImageTokens,

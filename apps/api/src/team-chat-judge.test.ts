@@ -43,12 +43,13 @@ describe("team chat engagement judge", () => {
   });
 
   it("persists cache-read and cache-write tokens from usage events", async () => {
-    const create = vi.fn(async () => ({ id: "usage-1" }));
+    const createMany = vi.fn(async () => ({ count: 1 }));
     const prisma = {
       user: { findUnique: vi.fn(async () => null) },
       deploymentSettings: { findUnique: vi.fn(async () => null) },
       spaceModelPreference: { findFirst: vi.fn(async () => null) },
-      usageRecord: { create },
+      $transaction: async (work: (tx: unknown) => Promise<unknown>) =>
+        work({ usageRecord: { createMany } }),
     };
     const runtime = {
       run: async function* () {
@@ -88,33 +89,75 @@ describe("team chat engagement judge", () => {
         messages: [],
       }),
     ).resolves.toEqual({ act: false });
-    expect(create).toHaveBeenCalledExactlyOnceWith({
-      data: {
-        spaceId: "space-1",
-        botId: "bot-1",
-        userId: "user-1",
-        parentRunId: undefined,
-        operationId: expect.stringMatching(/^team-chat-judge:[0-9a-f-]{36}$/),
-        operationKind: "setup",
-        provider: "google",
-        model: "gemini-3.8-flash",
-        inputTokens: 150,
-        outputTokens: 20,
-        cacheReadTokens: 40,
-        cacheWriteTokens: 10,
-        cacheWrite1hTokens: null,
-        reasoningTokens: null,
-        totalTokens: null,
-        costUsd: null,
-        costSource: null,
-        pricingVersion: null,
-        usageSource: null,
-        callId: null,
-        agentId: null,
-      },
+    expect(createMany).toHaveBeenCalledExactlyOnceWith({
+      skipDuplicates: true,
+      data: [
+        {
+          spaceId: "space-1",
+          botId: "bot-1",
+          userId: "user-1",
+          runId: undefined,
+          parentRunId: undefined,
+          providerRequestId: null,
+          pricingSnapshot: undefined,
+          operationId: expect.stringMatching(/^team-chat-judge:[0-9a-f-]{36}$/),
+          operationKind: "setup",
+          provider: "google",
+          model: "gemini-3.8-flash",
+          inputTokens: 150,
+          outputTokens: 20,
+          cacheReadTokens: 40,
+          cacheWriteTokens: 10,
+          cacheWrite1hTokens: null,
+          reasoningTokens: null,
+          totalTokens: null,
+          costUsd: null,
+          costSource: null,
+          pricingVersion: null,
+          usageSource: null,
+          callId: null,
+          agentId: null,
+        },
+      ],
     });
   });
 
+  it("blocks a hosted judge without credit access before running the model", async () => {
+    const run = vi.fn(async function* () {
+      yield { type: "done", text: '{"act":true}' };
+    });
+    const judge = new ModelTeamChatEngagementJudge({
+      prisma: {
+        deploymentSettings: { findUnique: async () => ({ modelCreditsEnabled: true }) },
+        spaceModelPreference: { findFirst: async () => null },
+        space: { findUnique: async () => ({ organizationId: "org" }) },
+        member: { findUnique: async () => ({ role: "owner" }) },
+        billingAccount: { findUnique: async () => null },
+        modelCreditAccount: { upsert: async () => ({ mode: "byok" }) },
+      } as never,
+      runtime: { run } as never,
+      secrets: {} as never,
+      deploymentProvider: "openrouter",
+      deploymentModel: "fixture",
+      deploymentModelKey: "fixture",
+    });
+    await expect(
+      judge.decide({
+        bot: {
+          id: "bot",
+          spaceId: "space",
+          userId: "user",
+          name: "Fixture",
+          modelProvider: null,
+          modelId: null,
+        },
+        channelId: "channel",
+        rules: "",
+        messages: [],
+      }),
+    ).resolves.toEqual({ act: false });
+    expect(run).not.toHaveBeenCalled();
+  });
   it.each(["saved", "lookup failure"])(
     "judges with optional owner timezone (%s)",
     async (state) => {

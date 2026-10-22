@@ -1002,7 +1002,9 @@ export function createRouter(deps: RouterDeps) {
     ((scope: { userId: string; spaceId: string }, secretId: string, provider: string) =>
       kickModelCredentialRefresh(deps.prisma, deps.secrets, scope, secretId, provider));
   const catalogForSpace = async (actor: Actor) => {
-    const auth = await modelCredentialAuthKindsForSpace(deps.prisma, deps.secrets, actor);
+    const auth = await modelCredentialAuthKindsForSpace(
+      deps.prisma, deps.secrets, actor, deps.billing ? deps.env.defaultProvider : undefined,
+    );
     const available = listAvailablePiCatalog(auth.byProvider, auth.byModel);
     const [live, providerLive] = await Promise.all([
       codexLiveCatalogsForSpace(deps.prisma, deps.secrets, actor, auth, codexCatalog, {
@@ -1023,7 +1025,16 @@ export function createRouter(deps: RouterDeps) {
     const selected = providerLive.size
       ? await savedCatalogSelections(deps.prisma, actor.userId)
       : new Set<string>();
-    return applyProviderLiveCatalog(codexMerged, auth, providerLive, selected);
+    return applyProviderLiveCatalog(codexMerged, auth, providerLive, selected).map((entry) =>
+      entry.provider === auth.managedProvider
+        ? {
+            ...entry,
+            managed: true,
+            billing: auth.secretIdByModel[entry.provider]?.[entry.id] || auth.secretIdByProvider[entry.provider]
+              ? entry.billing : "Uses Rakazo credits",
+          }
+        : entry,
+    );
   };
   const groupRepos = createGroupRepos(deps.prisma);
   const taughtSkills = createTaughtSkillsService({
@@ -1098,6 +1109,15 @@ export function createRouter(deps: RouterDeps) {
     health: os.health.handler(async () => ({ ok: true as const, version: "0.1.0" })),
     me: authed.me.handler(async ({ context }): Promise<Me> => meDto(deps, context.actor)),
     billing: {
+      selectFunding: authed.billing.selectFunding.handler(async ({ context, input }) =>
+        requireBilling(deps).selectFunding(context.actor, input.funding),
+      ),
+      purchaseCredits: authed.billing.purchaseCredits.handler(async ({ context, input }) =>
+        requireBilling(deps).purchaseCredits(context.actor, input),
+      ),
+      setMonthlyCredits: authed.billing.setMonthlyCredits.handler(async ({ context, input }) =>
+        requireBilling(deps).setMonthlyCredits(context.actor, input.amountCents),
+      ),
       status: authed.billing.status.handler(async ({ context }) =>
         requireBilling(deps).status(context.actor),
       ),
@@ -2023,6 +2043,7 @@ export function createRouter(deps: RouterDeps) {
             secretStore: deps.secrets,
             codexCatalog,
             refreshExpiredCredential,
+            hostedProvider: deps.billing ? deps.env.defaultProvider : undefined,
             defaultModel: async () => {
               const me = await meDto(deps, context.actor);
               return { provider: me.defaultProvider, model: me.defaultModel };
@@ -7075,7 +7096,11 @@ async function modelSetup(deps: RouterDeps, actor: Actor) {
     findDefaultModelCredential(deps.prisma, actor),
     deps.prisma.deploymentSettings.findUnique({ where: { id: "default" } }),
   ]);
-  const hasDeployment = Boolean(deps.env.deploymentModelConfigured);
+  const funding =
+    deps.billing && !actor.isDeploymentOwner ? await deps.billing.status(actor) : null;
+  const hasDeployment =
+    Boolean(deps.env.deploymentModelConfigured) &&
+    (!funding?.creditPurchasesEnabled || funding.funding === "credits");
   return {
     credential,
     settings,

@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import type { Api, Context, Model } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
-import type { AgentRuntimeEvent } from "@rakazo/adapter-kit";
+import type { AgentRuntimeEvent, AgentUsage } from "@rakazo/adapter-kit";
 import { Agent } from "undici";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -201,6 +201,41 @@ describe("Pi usage accounting", () => {
       await once(server, "close");
     }
   }, 30000);
+  it("persists a generation id before exposing the first SSE chunk", async () => {
+    let release = () => {};
+    let entered = () => {};
+    const waiting = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const durable = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const onRequestId = vi.fn(async () => {
+      entered();
+      await durable;
+    });
+    const fields = new Set<keyof AgentUsage>();
+    const wrapped = usageReportingFetch(
+      async () =>
+        new Response('data: {"id":"gen_fixture","choices":[]}\n\n', {
+          headers: { "content-type": "text/event-stream" },
+        }),
+      fields,
+      onRequestId,
+    );
+    const response = await wrapped("https://example.test");
+    let exposed = false;
+    const read = response.text().then((text) => {
+      exposed = true;
+      return text;
+    });
+    await waiting;
+    expect(exposed).toBe(false);
+    release();
+    await read;
+    expect(onRequestId).toHaveBeenCalledWith("gen_fixture");
+    expect(normalizePiUsage(undefined, model, fields).providerRequestId).toBe("gen_fixture");
+  });
   it("settles a thrown provider call before exposing the terminal event", async () => {
     let finishSettlement = () => {};
     const settlement = new Promise<void>((resolve) => {
@@ -228,7 +263,10 @@ describe("Pi usage accounting", () => {
     expect(terminalSeen).toBe(false);
     finishSettlement();
     expect((await next).value).toMatchObject({ type: "error" });
-    expect(afterCall).toHaveBeenCalledWith("reservation", null);
+    expect(afterCall).toHaveBeenCalledWith(
+      "reservation",
+      expect.objectContaining({ costUsd: null }),
+    );
   });
   it("does not derive an unsafe integer total from valid component counts", () => {
     expect(
@@ -352,6 +390,30 @@ describe("Pi usage accounting", () => {
     expect((await stream.result()).errorMessage).toBe("synthetic tool stop");
     for (const callback of [beforeCall, afterCall, prepareContext, recordUsage, fetcher, push])
       expect(callback).not.toHaveBeenCalled();
+  });
+  it("releases a credit reservation if cancellation arrives before the provider starts", async () => {
+    const controller = new AbortController();
+    const fetcher = vi.fn();
+    const afterCall = vi.fn();
+    const stream = await observedPiStream(
+      builtinModels(),
+      model,
+      { messages: [] },
+      { signal: controller.signal, fetch: fetcher },
+      vi.fn(),
+      {
+        beforeCall: () => {
+          controller.abort(new Error("canceled before request"));
+          return "reservation";
+        },
+        afterCall,
+      },
+    );
+    for await (const _event of stream) {
+    }
+    expect((await stream.result()).errorMessage).toBe("canceled before request");
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(afterCall).toHaveBeenCalledWith("reservation", expect.objectContaining({ costUsd: 0 }));
   });
   it("retains reported zero through the full generic runtime and its safe hostname network adapter", async () => {
     const server = createServer((_request, response) => {

@@ -145,6 +145,7 @@ model Organization {
   invitations Invitation[]
   spaces      Space[]
   billing     BillingAccount?
+  modelCredits ModelCreditAccount?
 
   @@unique([slug])
   @@map("organization")
@@ -154,6 +155,7 @@ model BillingAccount {
   organizationId      String       @id
   organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   customerId          String       @unique
+  creditAmountCents   Int?
   subscriptionId      String?
   subscriptionItemId  String?
   priceId             String?
@@ -247,7 +249,6 @@ model Space {
   agentHomes                  AgentHome[]
   browserProfiles             BrowserProfile[]
   artifacts                   Artifact[]
-  usageRecords                UsageRecord[]
   notificationPreferences     NotificationPreference[]
   computers                   Computer[]
   externalEffects             ExternalEffect[]
@@ -327,6 +328,7 @@ model Invitation {
 }
 
 model DeploymentSettings {
+  modelCreditsEnabled Boolean @default(false)
   id                              String   @id @default("default")
   ownerUserId                     String?
   signupsEnabled                  Boolean  @default(true)
@@ -719,7 +721,6 @@ model Run {
   updatedAt            DateTime         @updatedAt
   attempts             Attempt[]
   effects              ExternalEffect[]
-  usageRecords         UsageRecord[]
   steeringMessages     SteeringMessage[]
   externalMessage      ExternalMessage?
 
@@ -1139,7 +1140,6 @@ model Artifact {
 model UsageRecord {
   id               String   @id @default(cuid())
   spaceId          String
-  space            Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   /// Which bot spent this. Deliberately NOT a relation: a usage row is spend that really
   /// happened, and no lifecycle event on the bot may delete it or blank its attribution.
   /// `Cascade` erased the row; `SetNull` would erase the attribution instead, and because
@@ -1151,7 +1151,6 @@ model UsageRecord {
   botId            String?
   userId           String
   runId            String?
-  run              Run?     @relation(fields: [runId], references: [id], onDelete: SetNull)
   provider         String
   model            String
   /// Uncached input; cache buckets are additional, reasoning is a subset of output.
@@ -1163,8 +1162,12 @@ model UsageRecord {
   reasoningTokens   Int?
   totalTokens       Int?
   costUsd           Float?
+  providerRequestId String?
+  currency          String @default("usd")
+  auditRevision     Int @default(0)
   costSource        String?
   pricingVersion    String?
+  pricingSnapshot   Json?
   usageSource       String?
   callId            String? @unique
   operationId       String?
@@ -1557,4 +1560,84 @@ model TicketComment {
 
   @@index([ticketId, createdAt])
   @@map("ticket_comments")
+}
+
+
+model ModelCreditAccount {
+  organizationId String @id
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mode String?
+  balanceMicros BigInt @default(0)
+  pendingCreditCheckout Boolean @default(false)
+  entries ModelCreditEntry[]
+  lots ModelCreditLot[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("model_credit_accounts")
+}
+
+model ModelCreditEntry {
+  id String @id @default(cuid())
+  organizationId String
+  account ModelCreditAccount @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+  source String @unique
+  amountMicros BigInt
+  pending Boolean @default(false)
+  callId String? @unique
+  userId String?
+  spaceId String?
+  runId String?
+  provider String?
+  model String?
+  providerRequestId String?
+  usage Json?
+  reconciliationState String?
+  reconciliationAttempts Int @default(0)
+  nextReconcileAt DateTime?
+  auditRevision Int @default(0)
+  allocations Json?
+  fundedMicros BigInt?
+  createdAt DateTime @default(now())
+  @@index([reconciliationState, nextReconcileAt])
+  @@index([organizationId, createdAt])
+  @@map("model_credit_entries")
+}
+
+
+/// Immutable financial journal. Deliberately no lifecycle foreign keys.
+model BillingAuditEvent {
+  id String @id @default(cuid())
+  source String @unique
+  kind String
+  organizationId String?
+  callId String?
+  userId String?
+  spaceId String?
+  provider String?
+  model String?
+  providerRequestId String?
+  amountMicros BigInt @default(0)
+  currency String @default("usd")
+  details Json
+  createdAt DateTime @default(now())
+  @@index([organizationId, createdAt])
+  @@index([callId, createdAt])
+  @@map("billing_audit_events")
+}
+
+
+model ModelCreditLot {
+  id String @id
+  organizationId String
+  account ModelCreditAccount @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+  amountMicros BigInt
+  availableMicros BigInt
+  usedMicros BigInt @default(0)
+  expiredMicros BigInt @default(0)
+  expiresAt DateTime?
+  auditRevision Int @default(0)
+  createdAt DateTime @default(now())
+  @@index([organizationId, expiresAt])
+  @@index([expiresAt])
+  @@map("model_credit_lots")
 }

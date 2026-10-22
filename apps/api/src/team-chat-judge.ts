@@ -9,6 +9,7 @@ import type {
 import {
   actorMayUsePrivateEndpoint,
   formatCurrentTimeInstruction,
+  hostedModelCreditObserver,
   matchesFailedOAuthSecret,
   resolveModelAuth,
   serializeModelSecret,
@@ -243,7 +244,11 @@ export class ModelTeamChatEngagementJudge implements TeamChatEngagementJudge {
     if (!credential) {
       const apiKey =
         provider === this.deps.deploymentProvider ? this.deps.deploymentModelKey : undefined;
-      return { model: { provider, id: modelId, ...(apiKey ? { apiKey } : {}) } };
+      const callObserver =
+        apiKey && settings?.modelCreditsEnabled
+          ? await hostedModelCreditObserver(this.deps.prisma, scope)
+          : undefined;
+      return { model: { provider, id: modelId, ...(apiKey ? { apiKey } : {}), callObserver } };
     }
 
     const secret = await this.deps.prisma.secret.findFirst({

@@ -2935,6 +2935,7 @@ description: Prepare standup notes
       },
     );
     const prisma = {
+      deploymentSettings: { findUnique: vi.fn(async () => null) },
       spaceModelPreference: { findFirst },
       userModelCredential: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) },
       secret: { findFirst: vi.fn(async () => null), findUnique: vi.fn(async () => null) },
