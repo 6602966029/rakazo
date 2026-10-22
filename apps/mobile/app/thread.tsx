@@ -241,10 +241,11 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import { setInboxHidden, useSplitView } from "../lib/split-view";
-import { threadEdgeOptions } from "../lib/thread-edges";
+import { threadEdgeOptions, threadHeaderFloats } from "../lib/thread-edges";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
+import { threadKeyboardOffset } from "../lib/thread-keyboard-offset";
 import { ThreadReadOnlyContext } from "../lib/thread-read-only";
 import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
 import { latestArrivalMessageId, ThreadScrollBehavior } from "../lib/thread-scroll";
@@ -449,7 +450,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   // Beside the chat list on a wide window, the chat has only the width the list leaves.
   const { split, inboxHidden, contentWidth: windowWidth } = useSplitView();
   const nativeHeaderHeight = useHeaderHeight();
-  const headerHeight = iosAtLeast(26) ? nativeHeaderHeight : 0;
+  const headerHeight = threadHeaderFloats() ? nativeHeaderHeight : 0;
   const insets = useSafeAreaInsets();
   // An unfolded or tablet window keeps messages and the composer in a centred reading column.
   const columnInset = readableGutter(windowWidth, Math.max(insets.left, insets.right));
@@ -2560,7 +2561,12 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         // Padding always settles to zero. "height" stays shrunk when the keyboard hides without
         // move frames, such as when a pushed screen closes with its own keyboard up.
         behavior="padding"
-        keyboardVerticalOffset={keyboardLayout.offset}
+        keyboardVerticalOffset={threadKeyboardOffset({
+          os: Platform.OS,
+          floatingHeader: threadHeaderFloats(),
+          nativeHeaderHeight,
+          measuredOffset: keyboardLayout.offset,
+        })}
         style={{
           flex: 1,
           backgroundColor: tokens.background,
