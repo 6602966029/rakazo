@@ -588,6 +588,21 @@ screenshot computer tools stay available. Existing connections default to disabl
 managed endpoints, the deployment-wide fallback remains
 `RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS=gpt4o-vision,llava`.
 
+### Client updates
+
+Every web build is named by the UTC time it was built (`YYYYMMDDHHMMSS`). The web app sends its
+build on each `/rpc` request in `x-rakazo-client-build` (`web/20261022093015`; the mobile app sends
+`mobile/` and the time its JavaScript bundle was built), and the API answers with the web build in
+its own image in `x-rakazo-build`. An open tab that sees a newer build reloads at a safe moment:
+while hidden, on its next navigation, or after a few idle minutes with nothing typed.
+
+To retire old clients immediately, set `RAKAZO_MIN_CLIENT_BUILD` on the API, for example
+`web=20261022093015` or `web=20261022093015,mobile=20261001000000`, and restart it. Older clients
+get HTTP 426 `CLIENT_UPDATE_REQUIRED`: the web app reloads, and the mobile app offers its update.
+Read the current build from the `x-rakazo-build` header of any `/rpc` response. Requests that name
+no build, such as webhooks and API tools, are never refused. A malformed value stops the API from
+starting rather than being ignored.
+
 ### Client addresses
 
 Sessions, logs, and security events carry the caller's address. The API believes a forwarded
@@ -909,6 +924,59 @@ Native file reads and workspace exports are limited to 8 MiB per file. A larger 
   configured, or when a remote provider is selected without its API key).
 
 For provider configuration and health checks, see the [provider setup guide](./self-host-sandbox-providers.md).
+
+## Content encryption
+
+Rakazo encrypts chat messages, thread events, compacted history summaries, memory documents and
+their revisions, and uploaded or generated files before they reach PostgreSQL or `DATA_DIR`.
+Names, ids, timestamps and other metadata stay readable. Credentials are always encrypted,
+whatever this setting says. Details and the threat model are in
+[content encryption](./content-encryption.md).
+
+**The key.** Content is encrypted under keys derived from `ENCRYPTION_KEY` (and
+`ENCRYPTION_MASTER_KEYS`, if set). Without them, a backup of the database and `DATA_DIR` cannot
+be read, by you or by anyone else. `install-images.sh` says so once, when it generates the key:
+
+```text
+Back up ENCRYPTION_KEY from /path/to/rakazo/.env. Encrypted content cannot be recovered without it.
+```
+
+It never prints the key. Store a copy somewhere other than the server and its backups.
+
+**The switch.** `CONTENT_ENCRYPTION=on|off` in `.env`:
+
+| Install | Unset means |
+| --- | --- |
+| Compose files, published images, Railway | `on` |
+| Desktop app, **This computer** | `off` (the computer's disk encryption covers it) |
+| Source checkout with `NODE_ENV=development` or `RAKAZO_ALLOW_DEV_SECRETS=1` | `off` |
+
+With `off`, new content and files are stored readable, so you can query your own database
+directly and a lost key cannot lose them. Content encrypted earlier still reads with the key, so
+switching off never makes data unreadable. To convert it too, run `content-encryption decrypt`.
+Any other value stops the API and worker at startup.
+
+To switch on later, set `CONTENT_ENCRYPTION=on`, restart, then encrypt what was stored while
+it was off. From the published-images folder (other stacks use their own Compose file):
+
+```bash
+docker compose -f docker-compose.images.yml exec api pnpm --filter @rakazo/api content-encryption migrate
+docker compose -f docker-compose.images.yml exec api pnpm --filter @rakazo/api content-encryption status
+```
+
+Search works in both modes and while rows are mixed.
+
+**Reading your data.** `content-encryption export` writes decrypted threads, messages, memory
+documents and revisions as JSON lines. It reads the whole database by default; narrow it with
+`--space <id>`, `--thread <id>` or `--bot <id>`. It only reads.
+
+```bash
+docker compose -f docker-compose.images.yml exec -T api \
+  pnpm -s --filter @rakazo/api content-encryption export --bot <bot id> > rakazo-export.jsonl
+```
+
+The export is plaintext: store it like the database itself. Files are not included; use
+`content-encryption decrypt` to make them readable on disk.
 
 ## Backup
 
