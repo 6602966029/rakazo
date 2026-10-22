@@ -18,12 +18,12 @@ export const activeRunSelection = {
   select: { status: true },
 } as const;
 
-/** Running work wins over waits and queued work, regardless of creation order. */
+/** Waiting, running, then leased work wins over queued work, regardless of creation order. */
 export function primaryActiveRun<T extends { status: string }>(runs: readonly T[]): T | undefined {
   return (
+    runs.find((run) => run.status === "waiting_takeover" || run.status === "waiting_input") ??
     runs.find((run) => run.status === "running") ??
     runs.find((run) => run.status === "leased") ??
-    runs.find((run) => run.status === "waiting_takeover" || run.status === "waiting_input") ??
     runs[0]
   );
 }

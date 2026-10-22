@@ -33,9 +33,15 @@ describe("primaryActiveRun", () => {
     [["queued"], "queued"],
     [["queued", "waiting_input"], "waiting_input"],
     [["queued", "leased"], "leased"],
-    [["waiting_takeover", "running"], "running"],
+    [["queued", "leased", "running"], "running"],
+    [["running", "waiting_input"], "waiting_input"],
+    [["running", "waiting_takeover"], "waiting_takeover"],
+    [["leased", "waiting_input"], "waiting_input"],
+    [["leased", "waiting_takeover"], "waiting_takeover"],
     [[], undefined],
   ])("prioritizes %j as %s", (statuses, expected) => {
-    expect(primaryActiveRun(statuses.map((status) => ({ status })))?.status).toBe(expected);
+    const runs = statuses.map((status) => ({ status }));
+    expect(primaryActiveRun(runs)?.status).toBe(expected);
+    expect(primaryActiveRun([...runs].reverse())?.status).toBe(expected);
   });
 });

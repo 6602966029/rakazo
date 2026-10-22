@@ -541,7 +541,12 @@ function pickPrimaryActiveRun<T extends { status: string }>(runs: readonly T[]):
 function pickPrimaryPrivateActiveRun<T extends { status: string }>(
   runs: readonly T[],
 ): T | undefined {
-  return runs.find((run) => run.status === "waiting_takeover") ?? primaryActiveRun(runs);
+  return (
+    runs.find((run) => run.status === "waiting_takeover") ??
+    runs.find((run) => run.status === "running") ??
+    runs.find((run) => run.status === "leased") ??
+    runs[0]
+  );
 }
 
 /** Latest terminal by end time (completedAt, else createdAt), then createdAt, then id. */
