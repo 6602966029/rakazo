@@ -383,6 +383,7 @@ function SpaceShell() {
   }, setLogOutError);
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [modelFocusRequest, setModelFocusRequest] = useState(0);
   const [panel, setPanelState] = useState<Panel>(null);
   const [restoredPanelKey, setRestoredPanelKey] = useState<string | null>(null);
   const panelStorageKeyRef = useRef<string | null>(null);
@@ -397,6 +398,7 @@ function SpaceShell() {
     pendingPanelRestore.current = null;
     pendingExplicitPanel.current = panelStorageKeyRef.current === null;
     setRestoredPanelKey(panelStorageKeyRef.current);
+    setModelFocusRequest(0);
     setPanelState(next);
     const currentSearch = panelSearch.current;
     if (currentSearch.searchParams.has("routine")) {
@@ -3532,7 +3534,12 @@ function SpaceShell() {
             pendingAttachments={activePendingAttachments}
             attachmentNotice={attachmentNotice}
             sendError={sendError}
-            onOpenModels={() => openSettings("models")}
+            onOpenModels={() => {
+              if (active && !inGroup) {
+                setPanel("settings");
+                setModelFocusRequest(Date.now());
+              } else openSettings("models");
+            }}
             runError={displayedRunError}
             runErrorId={displayedRunErrorId}
             onRunErrorPresented={handleRunErrorPresented}
@@ -3589,9 +3596,7 @@ function SpaceShell() {
             panel !== "group-settings" ? (
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-[13.5px] text-muted-foreground">
-                  {panel === "settings" ? (
-                    <Trans>Settings</Trans>
-                  ) : active ? (
+                  {panel === "settings" ? null : active ? (
                     (computer?.state ?? active.status)
                   ) : (
                     <Trans>Group</Trans>
@@ -3618,7 +3623,11 @@ function SpaceShell() {
                       onClick={() => setPanel(panel === "settings" ? "computer" : "settings")}
                       className={panel === "settings" ? "text-foreground" : "text-muted-foreground"}
                     >
-                      <Settings size={16} strokeWidth={1.7} />
+                      {panel === "settings" ? (
+                        <Monitor size={16} strokeWidth={1.7} />
+                      ) : (
+                        <Settings size={16} strokeWidth={1.7} />
+                      )}
                     </Button>
                   ) : null}
                   <Button
@@ -3715,6 +3724,8 @@ function SpaceShell() {
               <BotSettings
                 key={active.id}
                 bot={active}
+                focusModel={modelFocusRequest}
+                onOpenConnections={() => openSettings("models")}
                 memoryProviderConfigured={memoryProviderConfig != null}
                 onSkillsChange={setAgentSkills}
                 onSave={async ({ computerMode, ...patch }) => {

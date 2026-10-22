@@ -7,6 +7,8 @@ import {
   encodeLoginSecret,
 } from "@rakazo/contracts";
 import { Button, Input, NativeSelect, NativeSelectOption } from "@rakazo/ui-web";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@rakazo/ui-web/components/ui/tooltip";
+import { RotateCcw, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { InfoTooltip } from "../../components/InfoTooltip";
 import { rpc } from "../../lib/rpc";
@@ -248,8 +250,57 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
                 : null;
             return (
               <li key={secret.name} data-testid="bot-credential-row">
-                <div className="truncate text-[13.5px] font-medium text-foreground">
-                  {secret.name}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 truncate text-[13.5px] font-medium text-foreground">
+                    {secret.name}
+                  </div>
+                  {replacing !== secret.name && confirmingRemove !== secret.name ? (
+                    <div className="-mt-0.5 flex shrink-0 gap-1">
+                      {readableAuth !== null ? (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={<Button variant="ghost" size="icon-xs" />}
+                            type="button"
+                            aria-label={t`Replace value`}
+                            className="text-muted-foreground"
+                            data-testid={`credential-replace-${secret.name}`}
+                            disabled={busy}
+                            onClick={() => {
+                              clearProtectedFields();
+                              setConfirmingRemove(null);
+                              setAdding(false);
+                              setReplacing(secret.name);
+                            }}
+                          >
+                            <RotateCcw className="size-4" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <Trans>Replace value</Trans>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : null}
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={<Button variant="ghost" size="icon-xs" />}
+                          type="button"
+                          aria-label={t`Remove`}
+                          className="text-muted-foreground"
+                          data-testid={`credential-remove-${secret.name}`}
+                          disabled={busy}
+                          onClick={() => {
+                            clearProtectedFields();
+                            setReplacing(null);
+                            setConfirmingRemove(secret.name);
+                          }}
+                        >
+                          <X className="size-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <Trans>Remove</Trans>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  ) : null}
                 </div>
                 {secret.origin ? (
                   <div className="break-all text-[12.5px] text-muted-foreground">
@@ -328,43 +379,7 @@ export function BotCredentialsSection({ botId }: { botId: string }) {
                       </Button>
                     </div>
                   </div>
-                ) : (
-                  <div className="mt-1.5 flex gap-1">
-                    {readableAuth !== null ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="-ms-2.5"
-                        data-testid={`credential-replace-${secret.name}`}
-                        disabled={busy}
-                        onClick={() => {
-                          clearProtectedFields();
-                          setConfirmingRemove(null);
-                          setAdding(false);
-                          setReplacing(secret.name);
-                        }}
-                      >
-                        <Trans>Replace value</Trans>
-                      </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      data-testid={`credential-remove-${secret.name}`}
-                      disabled={busy}
-                      onClick={() => {
-                        clearProtectedFields();
-                        setReplacing(null);
-                        setConfirmingRemove(secret.name);
-                      }}
-                    >
-                      <Trans>Remove</Trans>
-                    </Button>
-                  </div>
-                )}
+                ) : null}
               </li>
             );
           })}

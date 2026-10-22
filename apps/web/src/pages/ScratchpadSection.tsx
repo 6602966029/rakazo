@@ -4,12 +4,12 @@ import { Button, Checkbox, Input } from "@rakazo/ui-web";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { SettingsSectionHeading } from "../components/SettingsSectionHeading";
 import { rpc } from "../lib/rpc";
 
 export function ScratchpadSection({ botId }: { botId: string }) {
   const { t } = useLingui();
   const [items, setItems] = useState<ScratchpadItem[]>([]);
+  const [showAll, setShowAll] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,13 +101,15 @@ export function ScratchpadSection({ botId }: { botId: string }) {
     }
   }
 
+  if (!items.length && !error) return null;
+
   return (
-    <div className="mt-8" data-testid="bot-scratchpad">
-      <SettingsSectionHeading>
+    <div className="mt-6" data-testid="bot-scratchpad">
+      <h3 className="mb-2 text-xs font-medium text-muted-foreground">
         <Trans>Open work</Trans>
-      </SettingsSectionHeading>
-      <div className={items.length ? "-mt-2" : ""}>
-        {items.map((item) => (
+      </h3>
+      <div className="rounded-xl bg-muted/50 p-4">
+        {(showAll ? items : items.slice(0, 5)).map((item) => (
           <div
             key={item.id}
             className="group -mx-2.5 flex items-start gap-2 rounded-lg px-2.5 py-2 hover:bg-accent/50"
@@ -144,6 +146,16 @@ export function ScratchpadSection({ botId }: { botId: string }) {
             </Button>
           </div>
         ))}
+        {items.length > 5 && !showAll ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 w-full text-muted-foreground"
+            onClick={() => setShowAll(true)}
+          >
+            <Trans>Show more</Trans>
+          </Button>
+        ) : null}
         <form
           className={`flex items-center gap-2 ${items.length ? "mt-2" : ""}`}
           onSubmit={(event) => {

@@ -3,7 +3,9 @@ import {
   captureScreenshot,
   completeOnboarding,
   createBotFromPicker,
+  expandAdvancedSection,
   openNewBot,
+  rpc,
   signup,
 } from "./helpers";
 
@@ -63,15 +65,22 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await captureScreenshot(page, testInfo, "27-created-bot");
 
   await page.locator("main").getByRole("button", { name: "New Bot", exact: true }).click();
-  await expect(page.getByText("Settings", { exact: true })).toBeVisible();
-  const nameInput = page.locator("label:has-text('Name') input");
-  const titleInput = page.locator("label:has-text('Title') input");
+  await expect(page.getByRole("button", { name: "Edit name", exact: true })).toBeVisible();
+  async function editHeader(label: "Name" | "Title", value: string) {
+    await page
+      .getByRole("button", { name: label === "Name" ? "Edit name" : "Edit label", exact: true })
+      .click();
+    const input = page.getByRole("textbox", { name: label, exact: true });
+    await input.fill(value);
+    await input.press("Enter");
+  }
   const descriptionInput = page.locator("label:has-text('Description') textarea");
   const longTitle = `Market researcher ${"and source verifier ".repeat(9)}`;
   const normalizedLongTitle = longTitle.trim();
   expect(longTitle.length).toBeGreaterThan(160);
-  await nameInput.fill("Researcher");
-  await titleInput.fill(longTitle);
+  await editHeader("Name", "Researcher");
+  await editHeader("Title", longTitle);
+  await expandAdvancedSection(page.getByTestId("bot-settings-advanced"));
   await descriptionInput.fill("Finds reliable sources and turns them into concise briefs.");
   await page.getByTestId("avatar-studio-trigger").click();
   const studio = page.getByTestId("avatar-studio");
@@ -80,13 +89,17 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await studio.getByRole("button", { name: "Color #EAB308" }).click();
   await studio.getByRole("button", { name: "Done", exact: true }).click();
   await expect(studio).toBeHidden();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(botList.getByRole("button", { name: /^Researcher/ })).toBeVisible();
   await expect(page.getByPlaceholder("Message Researcher")).toBeVisible();
 
   await page.locator("main").getByRole("button", { name: "Researcher", exact: true }).click();
-  await expect(nameInput).toHaveValue("Researcher");
-  await expect(titleInput).toHaveValue(normalizedLongTitle);
+  await expect(page.getByRole("button", { name: "Edit name", exact: true })).toHaveText(
+    "Researcher",
+  );
+  await expect(page.getByRole("button", { name: "Edit label", exact: true })).toHaveText(
+    normalizedLongTitle,
+  );
+  await expandAdvancedSection(page.getByTestId("bot-settings-advanced"));
   await expect(descriptionInput).toHaveValue(
     "Finds reliable sources and turns them into concise briefs.",
   );
@@ -95,87 +108,39 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(studio).toBeVisible();
   await expect(studio.getByRole("button", { name: "Color #EAB308" })).toHaveClass(/ring-2/);
   await studio.getByRole("button", { name: "Done", exact: true }).click();
+  await settings.getByRole("button", { name: "Advanced", exact: true }).click();
   const modelSelect = settings.getByRole("combobox", { name: "Model", exact: true });
   const teamComputer = settings.getByRole("button", { name: "Team" });
   const openWork = settings.getByTestId("bot-scratchpad");
   await expect(teamComputer).toBeHidden();
   await expect(settings.getByRole("switch", { name: "Read replies aloud" })).toBeHidden();
   await expect(settings.getByRole("switch", { name: "Manage the bots it creates" })).toBeHidden();
-  await expect(modelSelect).toBeVisible();
-  await expect(openWork).toBeVisible();
-  await expect(settings.getByRole("button", { name: "Save", exact: true })).toBeVisible();
-  await expect(settings.getByRole("button", { name: "Recover computer" })).toHaveCount(0);
-  await expect(settings.getByRole("button", { name: "Reset computer" })).toHaveCount(0);
-  await expect(settings.getByRole("button", { name: "Update computer" })).toHaveCount(0);
-  await captureScreenshot(page, testInfo, "27a-settings-panel");
-  const actions = settings.getByRole("button", { name: "Export", exact: true }).locator("..");
-  await expect(actions).toHaveCSS("margin-top", "32px");
-  const advancedSection = settings.getByTestId("bot-settings-advanced");
-  expect(
-    (await actions.boundingBox())!.y -
-      ((await advancedSection.boundingBox())!.y + (await advancedSection.boundingBox())!.height),
-  ).toBeCloseTo(32, 0);
-  await expect(
-    settings.getByRole("heading", { name: "Memory and skills", exact: true }),
-  ).toBeVisible();
+  await expect(modelSelect).toHaveCount(0);
+  await expect(openWork).toHaveCount(0);
+  await expect(settings.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await expect(settings.getByRole("button", { name: "Export", exact: true })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "bot-settings-sections-collapsed");
-  await settings.getByText("Advanced", { exact: true }).click();
-  await expect(actions).toHaveCSS("margin-top", "32px");
-  await expect
-    .poll(async () => {
-      const actionBox = (await actions.boundingBox())!;
-      const advancedBox = (await advancedSection.boundingBox())!;
-      return Math.round(actionBox.y - advancedBox.y - advancedBox.height);
-    })
-    .toBe(32);
-  for (const testId of [
-    "bot-settings-behavior",
-    "bot-scratchpad",
-    "bot-knowledge",
-    "bot-settings-tools",
-    "bot-settings-advanced",
-  ]) {
-    await expect(settings.getByTestId(testId)).toHaveCSS("margin-top", "32px");
-  }
-  for (const label of ["Instructions", "Model", "Disabled tools"]) {
-    const control = settings.getByRole(label === "Instructions" ? "textbox" : "combobox", {
-      name: label,
-      exact: true,
-    });
-    await expect(label === "Instructions" ? control : control.locator("..")).toHaveCSS(
-      "margin-top",
-      "8px",
-    );
-  }
+  const advancedSection = settings.getByTestId("bot-settings-advanced");
+  await expandAdvancedSection(advancedSection);
+  await expect(settings.getByRole("button", { name: "Export", exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "bot-settings-sections-advanced");
-  for (const title of ["First fixture task", "Second fixture task"]) {
-    await openWork.getByRole("textbox", { name: "New open-work item" }).fill(title);
-    await openWork.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(openWork.getByText(title, { exact: true })).toBeVisible();
-  }
-  const workRows = openWork.locator(".group");
-  const rhythm = await openWork.evaluate((section) => {
-    const heading = section.querySelector("h3")!.getBoundingClientRect();
-    const rows = [...section.querySelectorAll(".group > div")].map((row) =>
-      row.getBoundingClientRect(),
-    );
-    return { first: rows[0]!.top - heading.bottom, between: rows[1]!.top - rows[0]!.bottom };
+  await rpc(page, "scratchpad/create", {
+    botId: deletedBotPath.split("/").at(-1),
+    title: "First fixture task",
   });
-  expect(rhythm.first).toBeCloseTo(12, 0);
-  expect(rhythm.between).toBeCloseTo(16, 0);
-  const restingBox = await workRows.first().boundingBox();
-  await workRows.first().hover();
-  await expect(workRows.first().getByRole("button", { name: "Remove" })).toHaveCSS("opacity", "1");
-  expect(await workRows.first().boundingBox()).toEqual(restingBox);
-  // A translucent list hover keeps the surface subtle in either theme.
-  expect(await workRows.first().evaluate((row) => getComputedStyle(row).backgroundColor)).toMatch(
-    /(?:0\.5|50%)/,
-  );
+  await page.getByRole("button", { name: "Close panel" }).click();
+  await page.locator("main").getByRole("button", { name: "Researcher", exact: true }).click();
+  await expandAdvancedSection(advancedSection);
+  await expect(openWork.getByText("First fixture task", { exact: true })).toBeVisible();
+  await openWork.getByRole("textbox", { name: "New open-work item" }).fill("Second fixture task");
+  await openWork.getByRole("button", { name: "Add", exact: true }).click();
+  const workRows = openWork.locator(".group");
+  await expect(workRows).toHaveCount(2);
   for (let index = 0; index < 2; index += 1) {
     await workRows.first().hover();
     await workRows.first().getByRole("button", { name: "Remove" }).click();
   }
-  await expect(workRows).toHaveCount(0);
+  await expect(openWork).toHaveCount(0);
   const disabledTools = settings.getByLabel("Disabled tools");
   await expect(disabledTools).toBeVisible();
   await disabledTools.selectOption("web_search");
@@ -184,7 +149,6 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(teamComputer).toBeVisible();
   await expect(settings.getByRole("switch", { name: "Read replies aloud" })).toBeVisible();
   await expect(settings.getByRole("switch", { name: "Manage the bots it creates" })).toBeVisible();
-  await expect(openWork).toBeVisible();
   await expect(modelSelect).toBeVisible();
   await expect(modelSelect).toContainText("Space default");
   await captureScreenshot(page, testInfo, "27a-bot-settings-model");
@@ -207,10 +171,11 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await captureScreenshot(page, testInfo, "27b-computer-panel");
   await page.getByRole("button", { name: "Show settings" }).click();
 
-  await nameInput.fill("Atlas");
-  await titleInput.fill("Research lead");
+  await editHeader("Name", "Atlas");
+  await editHeader("Title", "Research lead");
+  await expandAdvancedSection(page.getByTestId("bot-settings-advanced"));
   await descriptionInput.fill("Builds durable, source-backed research briefs.");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await descriptionInput.blur();
   await expect(botList.getByRole("button", { name: /^Atlas/ })).toBeVisible();
   await expect(page.getByPlaceholder("Message Atlas")).toBeVisible();
   await captureScreenshot(page, testInfo, "28-edited-bot-profile");
@@ -219,16 +184,18 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(botList.getByRole("button", { name: /^Atlas/ })).toBeVisible();
   await expect(page.getByPlaceholder("Message Atlas")).toBeVisible();
   await page.locator("main").getByRole("button", { name: "Atlas", exact: true }).click();
-  await expect(nameInput).toHaveValue("Atlas");
-  await expect(titleInput).toHaveValue("Research lead");
+  await expect(page.getByRole("button", { name: "Edit name", exact: true })).toHaveText("Atlas");
+  await expect(page.getByRole("button", { name: "Edit label", exact: true })).toHaveText(
+    "Research lead",
+  );
+  await expandAdvancedSection(page.getByTestId("bot-settings-advanced"));
   await expect(descriptionInput).toHaveValue("Builds durable, source-backed research briefs.");
   await captureScreenshot(page, testInfo, "29-reloaded-bot-profile");
 
   // Wrap in the narrow dialog without pushing Delete below the Playwright viewport.
   const longUnbrokenName = "A".repeat(48);
   expect(longUnbrokenName.length).toBe(48);
-  await nameInput.fill(longUnbrokenName);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await editHeader("Name", longUnbrokenName);
   const longNameBot = botList.getByRole("button", {
     name: new RegExp(`^${longUnbrokenName}`),
   });
@@ -272,7 +239,7 @@ test("bot management switch persists and settings help is accessible", async ({
   const openAdvanced = async () => {
     await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
     const settings = page.getByTestId("bot-settings");
-    await settings.getByText("Advanced", { exact: true }).click();
+    await expandAdvancedSection(settings.getByTestId("bot-settings-advanced"));
     return settings.getByRole("switch", { name: "Manage the bots it creates" });
   };
 
@@ -307,7 +274,6 @@ test("bot management switch persists and settings help is accessible", async ({
   await expect(tooltip).toHaveCount(0);
   await fleetSwitch.click();
   await expect(fleetSwitch).not.toBeChecked();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
 
   await page.reload();

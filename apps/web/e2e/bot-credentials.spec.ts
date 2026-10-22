@@ -24,6 +24,7 @@ test("bot and command credentials add, replace and remove without leaking values
   await page.locator("main").getByRole("button", { name: botName, exact: true }).click();
   const settings = page.getByTestId("bot-settings");
   await expect(settings).toBeVisible();
+  await settings.getByRole("button", { name: "Advanced", exact: true }).click();
   const credentials = settings.getByTestId("bot-credentials");
   await expect(credentials).toBeVisible();
   await expect(credentials.getByTestId("credential-add")).toBeVisible();

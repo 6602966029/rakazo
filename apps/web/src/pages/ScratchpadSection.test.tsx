@@ -16,19 +16,14 @@ vi.mock("@lingui/react/macro", () => ({
 import { rpc } from "../lib/rpc";
 import { ScratchpadSection } from "./ScratchpadSection";
 
-it("renders an empty section with a heading and add field without empty-state copy", async () => {
+it("hides the entire empty section", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   try {
     await act(async () => root.render(<ScratchpadSection botId="bot-fixture" />));
-    const section = container.querySelector('[data-testid="bot-scratchpad"]')!;
-    expect(section.textContent).not.toContain("None yet");
-    const heading = section.querySelector("h3");
-    expect(heading?.textContent).toBe("Open work");
-    expect(heading?.nextElementSibling?.querySelector("form")?.tagName).toBe("FORM");
-    expect(section.querySelector('input[placeholder="Add item"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="bot-scratchpad"]')).toBeNull();
   } finally {
     await act(async () => root.unmount());
     container.remove();
@@ -70,6 +65,38 @@ it("renders open and parked work without status chrome and removes a wrapped ite
   } finally {
     await act(async () => root.unmount());
     container.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("shows only the first five items until Show more", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.mocked(rpc.scratchpad.list).mockResolvedValueOnce(
+    Array.from({ length: 7 }, (_, i) => ({
+      id: `item-${i}`,
+      botId: "fixture",
+      title: `Task ${i}`,
+      notes: "",
+      status: "open",
+      createdAt: "",
+      updatedAt: "",
+    })),
+  );
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<ScratchpadSection botId="fixture" />));
+    expect(host.querySelectorAll('[role="checkbox"]')).toHaveLength(5);
+    expect(host.textContent).not.toContain("Task 6");
+    await act(async () =>
+      [...host.querySelectorAll("button")]
+        .find((node) => node.textContent === "Show more")!
+        .click(),
+    );
+    expect(host.querySelectorAll('[role="checkbox"]')).toHaveLength(7);
+    expect(host.textContent).toContain("Task 6");
+  } finally {
+    await act(async () => root.unmount());
     vi.unstubAllGlobals();
   }
 });

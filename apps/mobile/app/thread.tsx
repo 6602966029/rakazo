@@ -2115,7 +2115,10 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   }
   function openErrorModel() {
     setRunErrorDetailsOpen(false);
-    router.push({ pathname: "/bot-settings", params: { botId: snap?.run?.botId ?? botId ?? "" } });
+    router.push({
+      pathname: "/bot-settings",
+      params: { botId: snap?.run?.botId ?? botId ?? "", focus: "model" },
+    });
   }
   const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
   const unreadDividerId = useMemo(

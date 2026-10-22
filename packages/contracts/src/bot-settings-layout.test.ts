@@ -9,19 +9,26 @@ describe("bot settings layout", () => {
   });
   it("keeps voice with read aloud and bot management in Advanced", () => {
     expect(Object.keys(BOT_SETTINGS_SECTIONS)).toEqual([
-      "behavior",
+      "profile",
       "openWork",
       "memory",
-      "tools",
       "advanced",
     ]);
-    expect(BOT_SETTINGS_SECTIONS.behavior).toEqual(["instructions", "model", "thinking"]);
+    expect(BOT_SETTINGS_SECTIONS.profile).toEqual(["instructions"]);
     expect(BOT_SETTINGS_SECTIONS.advanced).toEqual([
+      "model",
+      "thinking",
       "computer",
       "memoryScope",
       "readAloud",
       "voice",
       "fleetManagement",
+      "disabledTools",
+      "credentials",
+      "description",
+      "skills",
+      "export",
+      "clear",
     ]);
     const controls = Object.values(BOT_SETTINGS_SECTIONS).flat();
     expect(new Set(controls).size).toBe(controls.length);

@@ -41,12 +41,15 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
     }
   }
   return (
-    <div className="mt-4 space-y-3">
-      <label htmlFor={`${id}-instructions`} className="block text-[14px] text-muted-foreground">
+    <div className="space-y-3">
+      <label
+        htmlFor={`${id}-instructions`}
+        className="block text-xs font-medium text-muted-foreground"
+      >
         <Trans>Instructions</Trans>
         <Textarea
           id={`${id}-instructions`}
-          className="mt-2"
+          className="mt-2 font-normal min-h-28 rounded-xl border-transparent bg-muted/50 p-4 shadow-none"
           value={instructions}
           maxLength={BOT_INSTRUCTIONS_MAX_LENGTH}
           disabled={pending}
@@ -60,7 +63,10 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
         />
       </label>
       {current.instructionHistory?.length ? (
-        <Disclosure summary={<Trans>Instruction history</Trans>} summaryClassName="text-sm">
+        <Disclosure
+          summary={<Trans>Instruction history</Trans>}
+          summaryClassName="text-xs text-muted-foreground"
+        >
           {current.instructionHistory.map((version) => (
             <div key={version.id} className="mt-2 text-sm">
               <Disclosure

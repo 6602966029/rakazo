@@ -1,5 +1,9 @@
 export const RU_MESSAGES: Record<string, string> = {
-  Behavior: "Поведение",
+  "Open work": "Открытые задачи",
+  "When it finishes or needs input": "Когда работа завершена или нужен ответ",
+  "Edit label": "Изменить метку",
+  "Edit name": "Изменить имя",
+  "Add a label": "Добавить метку",
   "Add an AI model to keep chatting": "Добавьте ИИ-модель, чтобы продолжить общение",
   "Not Now": "Не сейчас",
   "Add Model": "Добавить модель",

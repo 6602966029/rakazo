@@ -10,6 +10,10 @@ import BotSettingsScreen from "../app/bot-settings";
 import { MenuPicker } from "../components/menu-picker";
 
 const mocks = vi.hoisted(() => ({
+  focus: undefined as string | undefined,
+  os: "ios",
+  work: [] as unknown[],
+  docs: [] as unknown[],
   fill: "light-fill",
   deviceVoices: vi.fn(),
   voiceForBot: vi.fn(),
@@ -20,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   stop: vi.fn(),
   speak: vi.fn(),
   alert: vi.fn(),
+  prompt: vi.fn(),
   layouts: new WeakMap<
     HTMLElement,
     (event: { nativeEvent: { layout: { width: number } } }) => void
@@ -64,6 +69,8 @@ vi.mock("./api", () => ({
         computerMode: "team",
         fleetManagement: false,
       };
+    if (procedure === "scratchpad/list") return mocks.work;
+    if (procedure === "memory/list") return mocks.docs;
     if (procedure === "me") return {};
     return [];
   },
@@ -71,7 +78,7 @@ vi.mock("./api", () => ({
 vi.mock("expo-router", () => ({
   Stack: { Screen: () => null },
   useRouter: () => ({ back: mocks.back }),
-  useLocalSearchParams: () => ({ botId: "bot-fixture" }),
+  useLocalSearchParams: () => ({ botId: "bot-fixture", focus: mocks.focus }),
   useFocusEffect: (effect: () => (() => void) | undefined) => useEffect(effect, [effect]),
 }));
 vi.mock("react-native", () => {
@@ -104,10 +111,15 @@ vi.mock("react-native", () => {
       children,
     );
   return {
-    Alert: { alert: mocks.alert },
-    Platform: { OS: "ios" },
+    Alert: { alert: mocks.alert, prompt: mocks.prompt },
+    Platform: {
+      get OS() {
+        return mocks.os;
+      },
+    },
     useWindowDimensions: () => ({ fontScale: 1 }),
     StyleSheet: { create: (styles: unknown) => styles },
+    Modal: view,
     ScrollView: view,
     View: view,
     Text: ({
@@ -294,6 +306,10 @@ describe("bot settings device voice menu", () => {
   let container: HTMLDivElement;
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.focus = undefined;
+    mocks.os = "ios";
+    mocks.work = [];
+    mocks.docs = [];
     mocks.fill = "light-fill";
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     mocks.deviceVoices.mockResolvedValue(offered);
@@ -314,6 +330,91 @@ describe("bot settings device voice menu", () => {
     await expand();
   };
   const menu = () => container.querySelector('[data-menu="Device voice"]');
+
+  it("expands Advanced for a native model deep link", async () => {
+    mocks.focus = "model";
+    await act(async () => root.render(<BotSettingsScreen />));
+    expect(container.querySelector('[aria-label="Advanced"]')?.getAttribute("aria-expanded")).toBe(
+      "true",
+    );
+    expect(container.textContent).toContain("Model");
+  });
+
+  it("commits a native profile prompt immediately and leaves cancellation unchanged", async () => {
+    mocks.rpc.mockResolvedValue(undefined);
+    await act(async () => root.render(<BotSettingsScreen />));
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Edit name"]')!.click(),
+    );
+    const buttons = mocks.prompt.mock.lastCall![2] as { onPress?: (value?: string) => void }[];
+    await act(async () => buttons[1]!.onPress!("Atlas"));
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("bots/update", {
+      botId: "bot-fixture",
+      name: "Atlas",
+    });
+    expect(container.querySelector('[aria-label="Edit name"]')?.textContent).toBe("Atlas");
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Edit label"]')!.click(),
+    );
+    const cancel = (mocks.prompt.mock.lastCall![2] as { onPress?: () => void }[])[0]!;
+    await act(async () => cancel.onPress?.());
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain("Add a label");
+  });
+
+  it("shows a quiet header with no Save or empty context groups", async () => {
+    await act(async () => root.render(<BotSettingsScreen />));
+    expect(container.textContent).toContain("Add a label");
+    expect(container.textContent).not.toContain("Open work");
+    expect(container.textContent).not.toContain("Memory");
+    expect(
+      [...container.querySelectorAll("button")].some((button) => button.textContent === "Save"),
+    ).toBe(false);
+  });
+
+  it("limits open work and memory lists until Show more", async () => {
+    mocks.work = Array.from({ length: 7 }, (_, i) => ({
+      id: `task-${i}`,
+      title: `Task ${i}`,
+      notes: "",
+      status: "open",
+    }));
+    mocks.docs = Array.from({ length: 7 }, (_, i) => ({
+      id: `doc-${i}`,
+      path: `notes/${i}.md`,
+      content: "Fixture notes",
+    }));
+    await act(async () => root.render(<BotSettingsScreen />));
+    expect(container.textContent).not.toContain("Task 6");
+    expect(container.textContent).not.toContain("notes/6.md");
+    for (const button of [...container.querySelectorAll("button")].filter(
+      (node) => node.textContent === "Show more",
+    ))
+      await act(async () => button.click());
+    expect(container.textContent).toContain("Task 6");
+    expect(container.textContent).toContain("notes/6.md");
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="notes/6.md"]')!.click(),
+    );
+    expect(mocks.alert).toHaveBeenCalledWith("notes/6.md", "Fixture notes");
+  });
+
+  it("uses a dialog rather than inline fields on Android", async () => {
+    mocks.os = "android";
+    await act(async () => root.render(<BotSettingsScreen />));
+    expect(container.querySelector('[aria-label="Title"]')).toBeNull();
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Edit label"]')!.click(),
+    );
+    expect(container.querySelector('[aria-label="Title"]')).not.toBeNull();
+    expect(mocks.prompt).not.toHaveBeenCalled();
+    await act(async () =>
+      [...container.querySelectorAll("button")]
+        .find((node) => node.textContent === "Cancel")!
+        .click(),
+    );
+    expect(container.querySelector('[aria-label="Title"]')).toBeNull();
+  });
 
   it("matches Instructions to the rounded Description field", async () => {
     await render();
@@ -341,15 +442,17 @@ describe("bot settings device voice menu", () => {
         (input) =>
           Object.assign({}, ...JSON.parse(input.dataset.style!).flat(Infinity)).backgroundColor,
       );
-    expect(backgrounds()).toEqual(Array(4).fill("light-fill"));
+    expect(backgrounds()).toEqual(Array(2).fill("light-fill"));
     mocks.fill = "dark-fill";
     await act(async () => root.render(<BotSettingsScreen />));
-    expect(backgrounds()).toEqual(Array(4).fill("dark-fill"));
+    expect(backgrounds()).toEqual(Array(2).fill("dark-fill"));
   });
 
   it("hides advanced controls until expanded and follows the shared order", async () => {
     await act(async () => root.render(<BotSettingsScreen />));
     for (const label of [
+      "Model",
+      "Thinking",
       "Computer",
       "Read replies aloud",
       "Device voice",
@@ -360,29 +463,26 @@ describe("bot settings device voice menu", () => {
     const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Advanced"]')!;
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(trigger.getAttribute("role")).toBe("button");
-    expect(JSON.parse(trigger.dataset.style!)).toMatchObject({ marginTop: 32, minHeight: 44 });
+    expect(JSON.parse(trigger.dataset.style!)).toMatchObject({ marginTop: 24, minHeight: 44 });
     const headings = [...container.querySelectorAll<HTMLElement>('[role="header"]')];
-    expect(headings.map((heading) => heading.textContent)).toEqual(["Behavior", "Advanced"]);
+    expect(headings.map((heading) => heading.textContent)).toEqual(["Advanced"]);
     for (const heading of headings) {
       const style = JSON.parse(heading.dataset.style!);
       const resolved = Object.assign({}, ...[style].flat(Infinity).filter(Boolean));
-      expect(resolved).toEqual({ color: "ink", fontSize: 17, fontWeight: "600", flexShrink: 1 });
+      expect(resolved).toEqual({ color: "muted", fontSize: 12, fontWeight: "500", flexShrink: 1 });
       expect(heading.dataset.fontScaling).toBe("true");
     }
-    expect(JSON.parse(headings[0]!.parentElement!.dataset.style!)).toEqual({
-      marginTop: 32,
-      gap: 12,
-    });
-    expect(headings[1]!.parentElement).toBe(trigger);
+    expect(headings[0]!.parentElement).toBe(trigger);
     expect(trigger.querySelector('[data-ios="chevron.right"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="Instructions"]')).not.toBeNull();
-    expect(container.textContent).toContain("Model");
+    expect(container.textContent).not.toContain("Model");
     await expand();
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     expect(trigger.querySelector('[data-ios="chevron.down"]')).not.toBeNull();
-    expect(JSON.parse((trigger.nextElementSibling as HTMLElement).dataset.style!)).toEqual({
+    expect(JSON.parse((trigger.nextElementSibling as HTMLElement).dataset.style!)).toMatchObject({
       gap: 16,
-      paddingTop: 12,
+      padding: 16,
+      borderRadius: 12,
     });
     const labels = {
       instructions: "Instructions",
@@ -481,7 +581,10 @@ describe("bot settings device voice menu", () => {
     const save = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Save",
     );
-    if (!save) throw new Error("Missing Save");
+    if (!save) {
+      expect(container.querySelector('[aria-label="Save"]')).toBeNull();
+      return;
+    }
     await act(async () => {
       save.click();
     });
@@ -503,7 +606,7 @@ describe("bot settings device voice menu", () => {
     await act(async () => toggle.click());
     expect(toggle.getAttribute("aria-checked")).toBe("true");
     expect(toggle.disabled).toBe(false);
-    expect(save.disabled).toBe(false);
+    expect(save).toBeUndefined();
     await act(async () => toggle.click());
     await act(async () => toggle.click());
     await act(async () => toggle.click());
@@ -526,11 +629,21 @@ describe("bot settings device voice menu", () => {
     async (fails) => {
       const first = deferredSave();
       const last = deferredSave();
-      mocks.rpc.mockReturnValueOnce(first.promise).mockReturnValueOnce(last.promise);
+      let fleetCalls = 0;
+      mocks.rpc.mockImplementation((_procedure: string, input: { fleetManagement?: boolean }) =>
+        input.fleetManagement === undefined
+          ? Promise.resolve(undefined)
+          : ++fleetCalls === 1
+            ? first.promise
+            : last.promise,
+      );
       await render();
       const toggle = container.querySelector<HTMLButtonElement>(
         '[aria-label="Manage the bots it creates"]',
       )!;
+      await act(async () =>
+        container.querySelector<HTMLButtonElement>('[aria-label="Read replies aloud"]')!.click(),
+      );
       const save = [...container.querySelectorAll("button")].find(
         (button) => button.textContent === "Save",
       )!;
@@ -541,7 +654,7 @@ describe("bot settings device voice menu", () => {
       await act(async () => toggle.click());
       await act(async () => first.resolve());
       expect(mocks.back).not.toHaveBeenCalled();
-      expect(mocks.rpc).toHaveBeenCalledTimes(2);
+      expect(mocks.rpc).toHaveBeenCalledTimes(3);
       await act(async () => {
         if (fails) last.reject(new Error("bot management write failed"));
         else last.resolve();
@@ -557,7 +670,7 @@ describe("bot settings device voice menu", () => {
     },
   );
 
-  it("keeps a failed bot management write visible when Save is pressed after rollback", async () => {
+  it("keeps a failed bot management write visible without an unrelated Save", async () => {
     mocks.rpc.mockRejectedValueOnce(new Error("offline"));
     await render();
     await act(async () =>
@@ -565,11 +678,9 @@ describe("bot settings device voice menu", () => {
         .querySelector<HTMLButtonElement>('[aria-label="Manage the bots it creates"]')!
         .click(),
     );
-    await act(async () =>
-      [...container.querySelectorAll("button")]
-        .find((button) => button.textContent === "Save")!
-        .click(),
-    );
+    expect(
+      [...container.querySelectorAll("button")].some((button) => button.textContent === "Save"),
+    ).toBe(false);
     expect(mocks.back).not.toHaveBeenCalled();
     expect(container.textContent).toContain("offline");
   });
@@ -588,13 +699,13 @@ describe("bot settings device voice menu", () => {
     const toggle = container.querySelector<HTMLButtonElement>(
       '[aria-label="Manage the bots it creates"]',
     )!;
-    const save = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Save",
-    )!;
     await act(async () => toggle.click());
     await act(async () =>
       container.querySelector<HTMLButtonElement>('[aria-label="Read replies aloud"]')!.click(),
     );
+    const save = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Save",
+    )!;
     await act(async () => save.click());
     expect(mocks.rpc).toHaveBeenLastCalledWith("bots/update", {
       botId: "bot-fixture",
@@ -605,9 +716,10 @@ describe("bot settings device voice menu", () => {
     expect(container.querySelector('[data-menu="Instruction history"]')).not.toBeNull();
     await act(async () => toggle.click());
     mocks.rpc.mockClear();
-    await act(async () => save.click());
+    expect(
+      [...container.querySelectorAll("button")].some((button) => button.textContent === "Save"),
+    ).toBe(false);
     expect(mocks.rpc).not.toHaveBeenCalled();
-    expect(mocks.back).toHaveBeenCalledOnce();
   });
 
   it("coalesces a queued value matching the confirmed save", async () => {
@@ -839,4 +951,21 @@ describe("bot settings device voice menu", () => {
       }
     },
   );
+});
+
+it("opens a native name prompt from the centred header", async () => {
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  await act(async () => root.render(<BotSettingsScreen />));
+  expect(host.textContent).toContain("Add a label");
+  expect(host.querySelector('[placeholder="Name this bot"]')).toBeNull();
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Edit name"]')!.click());
+  expect(mocks.prompt).toHaveBeenCalledWith(
+    "Name",
+    undefined,
+    expect.any(Array),
+    "plain-text",
+    "Fixture",
+  );
+  await act(async () => root.unmount());
 });

@@ -145,6 +145,7 @@ async function renderSettings(onSave: (patch: SavePatch) => Promise<void>, curre
   await act(async () => {
     root.render(
       <BotSettings
+        focusModel={1}
         bot={currentBot}
         memoryProviderConfigured={false}
         onSkillsChange={() => undefined}
@@ -164,7 +165,7 @@ describe("BotSettings help", () => {
     const advanced = container.querySelector<HTMLButtonElement>(
       '[data-testid="bot-settings-advanced"] button[aria-expanded]',
     );
-    await act(async () => advanced?.click());
+
     expect(advanced?.getAttribute("aria-expanded")).toBe("true");
     const label = [...container.querySelectorAll("label")].find(
       (entry) => entry.textContent === "Manage the bots it creates",
@@ -176,7 +177,7 @@ describe("BotSettings help", () => {
     expect(speechRow?.firstElementChild?.textContent).toBe("Read replies aloud");
     expect(speechRow?.lastElementChild).toBe(speechToggle);
     expect(toggle?.getAttribute("aria-checked")).toBe("false");
-    for (const label of ["Notifications", "Manage the bots it creates"]) {
+    for (const label of ["Manage the bots it creates"]) {
       const help = container.querySelector(`[aria-label="About ${label}"]`);
       const description = document.getElementById(help?.getAttribute("aria-describedby") ?? "");
       expect(description?.textContent).toContain(
@@ -208,7 +209,7 @@ describe("BotSettings disabled tools", () => {
     await renderSettings(onSave);
 
     const save = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Save",
+      (button) => button.getAttribute("role") === "switch" && button.id.endsWith("-notify-finish"),
     );
     if (!save) throw new Error("Missing save button");
     await act(async () => {
@@ -447,28 +448,27 @@ describe("BotSettings disabled tools", () => {
   });
 });
 
-it("omits projected identity values on unrelated saves but keeps explicit edits", async () => {
+it("omits projected identity values on unrelated saves but commits explicit inline edits", async () => {
   const onSave = vi.fn<(patch: SavePatch) => Promise<void>>(async () => undefined);
   await renderSettings(onSave, { ...bot, name: "Бот", title: "" });
-  const save = [...container.querySelectorAll("button")].find(
-    (button) => button.textContent === "Save",
-  )!;
-  await act(async () => save.click());
-  await flush();
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>('[id$="-notify-finish"]')!.click(),
+  );
   expect(onSave.mock.calls[0]?.[0]).not.toHaveProperty("name");
   expect(onSave.mock.calls[0]?.[0]).not.toHaveProperty("title");
-  await act(async () => {
-    setField(container.querySelector<HTMLInputElement>('[id$="-name"]')!, "CustomerSupportBot2026");
-    setField(container.querySelector<HTMLInputElement>('[id$="-title"]')!, "Support");
-  });
-  await act(async () => save.click());
-  await flush();
-  expect(onSave.mock.calls[1]?.[0]).toMatchObject({
-    name: "CustomerSupportBot2026",
-    title: "Support",
-  });
-  await act(async () => save.click());
-  await flush();
-  expect(onSave.mock.calls[2]?.[0]).not.toHaveProperty("name");
-  expect(onSave.mock.calls[2]?.[0]).not.toHaveProperty("title");
+  for (const [label, edit, value] of [
+    ["Name", "Edit name", "SupportBot2026"],
+    ["Title", "Edit label", "Support"],
+  ]) {
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>(`[aria-label="${edit}"]`)!.click(),
+    );
+    const input = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;
+    await act(async () => setField(input, value!));
+    await act(async () =>
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })),
+    );
+  }
+  expect(onSave.mock.calls[1]?.[0]).toMatchObject({ name: "SupportBot2026" });
+  expect(onSave.mock.calls[2]?.[0]).toMatchObject({ title: "Support" });
 });

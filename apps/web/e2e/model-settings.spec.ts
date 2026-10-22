@@ -7,6 +7,7 @@ import {
   captureScreenshot,
   chooseOption,
   completeOnboarding,
+  expandAdvancedSection,
   openUserSettings,
   rpc,
   signup,
@@ -182,6 +183,7 @@ test("custom connections persist reasoning support and bot thinking", async ({
   await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
   const settings = page.getByTestId("bot-settings");
   await expect(settings).toBeVisible();
+  await expandAdvancedSection(settings.getByTestId("bot-settings-advanced"));
   // NativeSelect sits inside a wrapping <label>, so label text includes option
   // copy and getByLabel(..., { exact: true }) misses the control. Use the
   // combobox accessible name, matching other model E2E tests.
@@ -203,6 +205,7 @@ test("custom connections persist reasoning support and bot thinking", async ({
   await page.reload();
   await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
   await expect(settings).toBeVisible();
+  await expandAdvancedSection(settings.getByTestId("bot-settings-advanced"));
   await expect(thinking).toHaveValue("low");
 });
 
@@ -377,12 +380,14 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
+    const socket = process.env.E2E_COMPATIBLE_SOCKET;
+    if (socket) server.listen(socket, resolve);
+    else server.listen(0, "127.0.0.1", resolve);
   });
 
   try {
     const address = server.address() as AddressInfo;
-    const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+    const baseUrl = process.env.E2E_COMPATIBLE_FIXTURE_URL ?? `http://127.0.0.1:${address.port}/v1`;
     const stamp = Date.now();
     const userName = `Local model ${stamp}`;
     // The pi runtime asks for a model before onboarding finishes; this test connects
@@ -458,6 +463,7 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
     const settings = page.getByTestId("bot-settings");
     await expect(settings).toBeVisible();
+    await expandAdvancedSection(settings.getByTestId("bot-settings-advanced"));
     // The Model select sits inside its wrapping <label>, so the label text includes
     // option copy and getByLabel(..., { exact: true }) misses it. Use the role name.
     const botModel = settings.getByRole("combobox", { name: "Model", exact: true });
@@ -890,10 +896,8 @@ test("chat settings search a long model list", async ({ page }, testInfo) => {
   await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
   const settings = page.getByTestId("bot-settings");
   await expect(settings).toBeVisible();
-  const model = settings
-    .locator("label")
-    .filter({ hasText: /^Model/ })
-    .getByRole("button");
+  await expandAdvancedSection(settings.getByTestId("bot-settings-advanced"));
+  const model = settings.getByRole("button", { name: "Model", exact: true });
   await expect(model).toHaveText(/^Space default/);
   await model.click();
 

@@ -141,16 +141,8 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
     .getByRole("button", { name: /^Chief/ })
     .click();
   const settings = page.getByTestId("bot-settings");
-  await expect(settings.getByRole("button", { name: "Save", exact: true })).toBeVisible();
-  const knowledge = settings.getByTestId("bot-knowledge");
-  await expect(knowledge).toBeVisible();
-  await expect(
-    knowledge.getByRole("heading", { name: "Memory and skills", exact: true }),
-  ).toBeVisible();
-  await expect(knowledge.getByRole("tablist", { name: "Knowledge" })).toBeVisible();
-
-  // Bot creation seeds MEMORY.md (`# Chief`); edit it and assert the revision bumps.
-  const botMemory = knowledge.getByTestId("bot-knowledge-memory");
+  await expect(settings.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  const botMemory = settings.getByTestId("bot-knowledge-memory");
   const botMemoryRow = botMemory.getByRole("button", { name: /MEMORY\.md/ });
   await expect(botMemoryRow).toBeVisible();
   await botMemoryRow.click();
@@ -160,7 +152,11 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   await botDocEditor.fill(`# Chief\n\n${botMarker}\n`);
   await botMemory.getByRole("button", { name: "Save", exact: true }).scrollIntoViewIfNeeded();
   await captureScreenshot(page, testInfo, "80-knowledge-bot-memory");
+  const botMemorySaved = page.waitForResponse(
+    (response) => response.url().includes("/rpc/memory/update") && response.ok(),
+  );
   await botMemory.getByRole("button", { name: "Save", exact: true }).click();
+  await botMemorySaved;
   await expect(botMemory.getByText("rev 2")).toHaveCount(0);
   expect(
     await rpc<MemoryDocument[]>(page, "memory/list", {
@@ -172,7 +168,8 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   await expect(botDocEditor).toHaveValue(new RegExp(botMarker));
   await botMemory.getByRole("button", { name: "Cancel", exact: true }).click();
 
-  await knowledge.getByRole("tab", { name: "Shared skills", exact: true }).click();
+  await settings.getByRole("button", { name: "Advanced", exact: true }).click();
+  const knowledge = settings.getByTestId("bot-knowledge");
   const builtinSkill = knowledge.getByRole("button", { name: /Interrogate/ });
   await expect(builtinSkill).toBeVisible();
   await expect(builtinSkill.getByText("Built-in", { exact: true })).toBeVisible();

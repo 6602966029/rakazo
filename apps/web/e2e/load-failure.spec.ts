@@ -49,8 +49,8 @@ test("a failed page chunk shows Refresh instead of a blank app", async ({ page }
 });
 
 for (const [failing, intact] of [
-  ["ScratchpadSection", "bot-knowledge"],
-  ["KnowledgeSection", "bot-scratchpad"],
+  ["ScratchpadSection", "bot-profile-header"],
+  ["KnowledgeSection", "bot-profile-header"],
 ] as const) {
   test(`a failed ${failing} chunk keeps the rest of the bot settings panel`, async ({ page }) => {
     const stamp = Date.now();
@@ -71,7 +71,7 @@ for (const [failing, intact] of [
     const settings = page.getByTestId("bot-settings");
     await expect(settings.getByText("Could not load", { exact: true })).toBeVisible();
     await expect(settings.getByTestId(intact)).toBeVisible();
-    await expect(settings.getByRole("button", { name: "Save", exact: true })).toBeVisible();
+    await expect(settings.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
     await expect(composer).toHaveValue("Keep this draft");
   });
 }

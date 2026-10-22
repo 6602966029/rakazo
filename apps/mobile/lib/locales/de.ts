@@ -1,5 +1,9 @@
 export const DE_MESSAGES: Record<string, string> = {
-  Behavior: "Verhalten",
+  "Open work": "Offene Aufgaben",
+  "When it finishes or needs input": "Wenn der Bot fertig ist oder Eingaben benötigt",
+  "Edit label": "Label bearbeiten",
+  "Edit name": "Namen bearbeiten",
+  "Add a label": "Label hinzufügen",
   "Add an AI model to keep chatting": "Füge ein KI-Modell hinzu, um weiterzuchatten",
   "Not Now": "Jetzt nicht",
   "Add Model": "Modell hinzufügen",

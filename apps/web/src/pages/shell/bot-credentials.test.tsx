@@ -219,6 +219,13 @@ describe("BotCredentialsSection", () => {
   it("replaces a value on the same destination", async () => {
     botSecrets.put.mockResolvedValue(rows[2]);
     await render();
+    const replace = byTestId<HTMLButtonElement>("credential-replace-router");
+    expect(replace.getAttribute("aria-label")).toBe("Replace value");
+    expect(replace.textContent).toBe("");
+    expect(replace.querySelector("svg")).not.toBeNull();
+    const remove = byTestId<HTMLButtonElement>("credential-remove-router");
+    expect(remove.getAttribute("aria-label")).toBe("Remove");
+    expect(remove.textContent).toBe("");
     await click("credential-replace-router");
     await type("credential-replace-value", FAKE_VALUE);
     await click("credential-replace-save");

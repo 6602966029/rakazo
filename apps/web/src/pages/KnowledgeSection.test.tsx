@@ -62,7 +62,9 @@ it("disables skill rows while a completed save is refreshing the catalog", async
   };
   try {
     await act(async () =>
-      root.render(<KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} />),
+      root.render(
+        <KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} skillsOnly />,
+      ),
     );
     await act(async () => button("New skill").click());
     await act(async () => button("Save").click());
@@ -130,7 +132,9 @@ it("labels the skills tab as shared and badges built-in and plugin skills", asyn
   };
   try {
     await act(async () =>
-      root.render(<KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} />),
+      root.render(
+        <KnowledgeSection botId="bot-fixture" onSkillsChange={() => undefined} skillsOnly />,
+      ),
     );
     expect(container.textContent).toContain("Shared skills");
     expect(button("Interrogate").textContent).toContain("Built-in");
@@ -241,11 +245,50 @@ it("downloads only each row’s saved markdown with its own filename", async () 
       "text/markdown",
       new TextEncoder().encode("Other document"),
     );
-    expect(container.querySelector("h3")?.textContent).toBe("Memory and skills");
+    expect(container.querySelector("h3")?.textContent).toBe("Memory");
     expect(container.querySelector("textarea")).toBeNull();
   } finally {
     await act(async () => root.unmount());
     container.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("hides empty bot memory and limits long lists to five documents", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  try {
+    memoryApi.list.mockResolvedValueOnce([]);
+    await act(async () =>
+      root.render(
+        <KnowledgeSection key="empty" botId="fixture" onSkillsChange={() => undefined} />,
+      ),
+    );
+    expect(host.textContent).toBe("");
+    memoryApi.list.mockResolvedValueOnce(
+      Array.from({ length: 7 }, (_, i) => ({
+        id: `doc-${i}`,
+        path: `notes/${i}.md`,
+        content: "Fixture",
+        revision: 1,
+        scope: "bot",
+        botId: "fixture",
+        updatedAt: "",
+      })) as never,
+    );
+    await act(async () =>
+      root.render(<KnowledgeSection key="busy" botId="fixture" onSkillsChange={() => undefined} />),
+    );
+    expect(host.textContent).not.toContain("notes/6.md");
+    await act(async () =>
+      [...host.querySelectorAll("button")]
+        .find((node) => node.textContent === "Show more")!
+        .click(),
+    );
+    expect(host.textContent).toContain("notes/6.md");
+  } finally {
+    await act(async () => root.unmount());
     vi.unstubAllGlobals();
   }
 });

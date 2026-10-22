@@ -404,6 +404,10 @@ msgstr "Çalıştırılacak bir komut ekleyin"
 msgid "Add a file or folder to watch"
 msgstr "İzlenecek bir dosya veya klasör ekleyin"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Add a label"
+msgstr ""
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
 msgstr ""
@@ -851,10 +855,6 @@ msgstr ""
 #: src/pages/shell/bot-credentials.tsx
 msgid "Bearer token"
 msgstr "Bearer token"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Behavior"
-msgstr ""
 
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
@@ -2281,10 +2281,6 @@ msgstr "Görüntüyü sürükleyip bırakın veya yapıştırın"
 msgid "Duplicate"
 msgstr "Çoğalt"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "e.g. Hivenet Agent, Presales, Timesheets bot"
-msgstr "örn. Hivenet Agent, Presales, puantaj botu"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Each name can be used once."
 msgstr "Her ad yalnızca bir kez kullanılabilir."
@@ -2296,6 +2292,14 @@ msgstr "Düzenle"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "Önce düzenle"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Edit label"
+msgstr ""
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Edit name"
+msgstr ""
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2572,10 +2576,6 @@ msgstr "Genel"
 msgid "Get credentials"
 msgstr ""
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Get notified when this Bot finishes or needs input"
-msgstr "Bu Bot bittiğinde veya girdi gerektiğinde bildirim al"
-
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "Mobil uygulamayı indir"
@@ -2831,10 +2831,6 @@ msgstr "Hafızayı koru"
 msgid "key"
 msgstr ""
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Knowledge"
-msgstr "Bilgi"
-
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Language"
 msgstr "Dil"
@@ -3080,10 +3076,6 @@ msgstr ""
 msgid "Memory"
 msgstr "Hafıza"
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Memory and skills"
-msgstr ""
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Memory scope"
 msgstr "Hafıza kapsamı"
@@ -3190,6 +3182,10 @@ msgstr "Model"
 #: src/lib/model-connection-preflight.ts
 msgid "Model \"{modelId}\" was not listed."
 msgstr "\"{modelId}\" modeli listelenmedi."
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Model connections"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4502,7 +4498,9 @@ msgstr ""
 msgid "Show list"
 msgstr ""
 
+#: src/pages/KnowledgeSection.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/ScratchpadSection.tsx
 msgid "Show more"
 msgstr "Daha fazla göster"
 
@@ -4990,7 +4988,6 @@ msgid "Tool sources"
 msgstr "Araç kaynakları"
 
 #: src/pages/PluginsOverlay.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr ""
 
@@ -5325,6 +5322,10 @@ msgstr "İzlenecek öğe"
 
 #: src/pages/RoutineEditor.tsx
 msgid "When a webhook fires"
+msgstr ""
+
+#: src/pages/shell/bot-panel.tsx
+msgid "When it finishes or needs input"
 msgstr ""
 
 #: src/pages/RoutineEditor.tsx

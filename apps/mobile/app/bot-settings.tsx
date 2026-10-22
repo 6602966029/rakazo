@@ -6,7 +6,6 @@ import {
   BOT_INSTRUCTIONS_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
   BOT_TITLE_MAX_LENGTH,
-  normalizeCreateBotProfile,
 } from "@rakazo/contracts";
 import {
   credentialForModel,
@@ -20,6 +19,7 @@ import type { Voice } from "expo-speech";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { BotAvatar } from "../components/bot-avatar";
+import { BotContextCards } from "../components/bot-context-cards";
 import { ComputerModePicker } from "../components/computer-mode-picker";
 import { glassHeaderOptions } from "../components/glass-title";
 import { InfoButton } from "../components/info-button";
@@ -28,6 +28,7 @@ import { MenuPicker, MenuPickerMenu } from "../components/menu-picker";
 import { NativeActionButton } from "../components/native-action-button";
 import { NativeSwitch } from "../components/native-switch";
 import { NativeSymbol } from "../components/native-symbol";
+import { ProfileEditDialog } from "../components/profile-edit-dialog";
 import { Chevron } from "../components/row-accessories";
 import type { MobileBot, MobileMe, MobileModel, MobileModelCredential } from "../lib/api";
 import { rpc } from "../lib/api";
@@ -57,7 +58,13 @@ export default function BotSettingsScreen() {
   const fieldStyle = [styles.field, { color: tokens.foreground, backgroundColor: native.fill }];
   const { t } = useI18n();
   const router = useRouter();
-  const { botId, model: pickedModel } = useLocalSearchParams<{ botId: string; model?: string }>();
+  const {
+    botId,
+    model: pickedModel,
+    focus,
+  } = useLocalSearchParams<{ botId: string; model?: string; focus?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const modelY = useRef(0);
   const [bot, setBot] = useState<BotSettingsRecord | null>(null);
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
@@ -65,9 +72,10 @@ export default function BotSettingsScreen() {
   const [instructions, setInstructions] = useState("");
   const [color, setColor] = useState<string>(BOT_COLORS[0]);
   const [computerMode, setComputerMode] = useState<ComputerMode>("team");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(focus === "model" || pickedModel !== undefined);
   const [modelKey, setModelKey] = useState("");
   const [thinkingLevel, setThinkingLevel] = useState("");
+  const [notifyOnFinish, setNotifyOnFinish] = useState(true);
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [fleetManagement, setFleetManagement] = useState(false);
   const [credentials, setCredentials] = useState<MobileModelCredential[]>([]);
@@ -114,6 +122,7 @@ export default function BotSettingsScreen() {
         );
         setThinkingLevel(next.thinkingLevel ?? "");
         setAutoSpeak(next.autoSpeak);
+        setNotifyOnFinish(next.notifyOnFinish ?? true);
         setFleetManagement(next.fleetManagement);
         fleetSave.reset(next.fleetManagement);
       })
@@ -183,6 +192,10 @@ export default function BotSettingsScreen() {
     [t, thinkingOptions],
   );
 
+  useEffect(() => {
+    if (focus === "model") setAdvancedOpen(true);
+  }, [focus]);
+
   function selectModel(key: string) {
     if (key === selectedModelKey) return;
     setModelKey(key);
@@ -193,6 +206,7 @@ export default function BotSettingsScreen() {
   useEffect(() => {
     if (pickedModel === undefined) return;
     router.setParams({ model: undefined });
+    setAdvancedOpen(true);
     selectModel(pickedModel);
   }, [pickedModel]);
 
@@ -291,7 +305,7 @@ export default function BotSettingsScreen() {
     setPending(true);
     setError(null);
     try {
-      const profile = normalizeCreateBotProfile({ name, title, description });
+      const profile = { name: name.trim(), title: title.trim(), description: description.trim() };
       const selected = selectedModel;
       const input: {
         botId: string;
@@ -355,6 +369,19 @@ export default function BotSettingsScreen() {
     }
   }
 
+  const dirty =
+    bot &&
+    (name.trim() !== bot.name ||
+      title.trim() !== bot.title ||
+      description.trim() !== (bot.description ?? "") ||
+      instructions !== (bot.instructions ?? "") ||
+      color !== bot.color ||
+      computerMode !== bot.computerMode ||
+      autoSpeak !== bot.autoSpeak ||
+      (selectedModel?.provider ?? null) !== (bot.modelProvider ?? null) ||
+      (selectedModel?.modelId ?? null) !== (bot.modelId ?? null) ||
+      (thinkingLevel || null) !== (bot.thinkingLevel ?? null));
+
   const voiceValue = (
     <Text
       numberOfLines={1}
@@ -408,6 +435,7 @@ export default function BotSettingsScreen() {
     <>
       <Stack.Screen options={glassHeaderOptions(t("Chat settings"))} />
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1, backgroundColor: tokens.background }}
         contentContainerStyle={{ padding: 24 }}
         automaticallyAdjustKeyboardInsets
@@ -431,160 +459,144 @@ export default function BotSettingsScreen() {
             ) : null}
           </View>
         ) : null}
-        <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{t("Name")}</Text>
-        <TextInput
-          value={name}
-          maxLength={BOT_NAME_MAX_LENGTH}
-          onChangeText={setName}
-          placeholder={t("Name this bot")}
-          placeholderTextColor={tokens.mutedForeground}
-          style={fieldStyle}
-        />
-        <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
-          {t("Title")}
-        </Text>
-        <TextInput
-          value={title}
-          maxLength={BOT_TITLE_MAX_LENGTH}
-          onChangeText={setTitle}
-          placeholder={t("Describe what this bot does")}
-          placeholderTextColor={tokens.mutedForeground}
-          style={fieldStyle}
-        />
-        <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
-          {t("Description")}
-        </Text>
-        <TextInput
-          value={description}
-          maxLength={BOT_DESCRIPTION_MAX_LENGTH}
-          onChangeText={setDescription}
-          placeholder={t("What this bot is for")}
-          placeholderTextColor={tokens.mutedForeground}
-          multiline
-          style={[fieldStyle, styles.multilineField]}
-        />
-        <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
-          {t("Color")}
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 10, marginTop: 8 }}
-          accessibilityRole="radiogroup"
-        >
-          {BOT_COLORS.map((option, index) => (
-            <Pressable
-              key={option}
-              accessibilityRole="radio"
-              accessibilityLabel={t("Color {number}", { number: index + 1 })}
-              accessibilityState={{ checked: avatarColor(color) === option }}
-              onPress={() => setColor((current) => withAvatarColor(current, option))}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: option,
-                borderWidth: 3,
-                borderColor: avatarColor(color) === option ? tokens.foreground : "transparent",
-              }}
+        <View style={{ alignItems: "center", marginTop: -16, marginBottom: 16 }}>
+          <ProfileEditDialog
+            label={t("Name")}
+            editLabel={t("Edit name")}
+            value={name}
+            maxLength={BOT_NAME_MAX_LENGTH}
+            large
+            onCommit={async (value) => {
+              if (!value || !botId) return;
+              try {
+                await rpc("bots/update", { botId, name: value });
+                setName(value);
+                setBot((prev) => (prev ? { ...prev, name: value } : prev));
+              } catch (err) {
+                setError(errorText(err));
+              }
+            }}
+          />
+          <ProfileEditDialog
+            label={t("Title")}
+            editLabel={t("Edit label")}
+            placeholder={t("Add a label")}
+            value={title}
+            maxLength={BOT_TITLE_MAX_LENGTH}
+            onCommit={async (value) => {
+              if (!botId) return;
+              try {
+                await rpc("bots/update", { botId, title: value });
+                setTitle(value);
+                setBot((prev) => (prev ? { ...prev, title: value } : prev));
+              } catch (err) {
+                setError(errorText(err));
+              }
+            }}
+          />
+        </View>
+        <View style={{ marginTop: 16 }}>
+          <View>
+            <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>{t("Instructions")}</Text>
+            <TextInput
+              accessibilityLabel={t("Instructions")}
+              multiline
+              maxLength={BOT_INSTRUCTIONS_MAX_LENGTH}
+              value={instructions}
+              onChangeText={setInstructions}
+              style={[fieldStyle, styles.multilineField]}
             />
-          ))}
-        </ScrollView>
-        {bot && !isAvatarPhoto(color) ? (
-          <>
-            <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
-              {t("Shape")}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 10, marginTop: 8 }}
-              accessibilityRole="radiogroup"
-            >
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityLabel={t("Default")}
-                accessibilityState={{ checked: avatarShape(color) === null }}
-                onPress={() => setColor((current) => avatarColor(current))}
-                style={{
-                  padding: 4,
-                  borderRadius: 14,
-                  borderWidth: 2,
-                  borderColor: avatarShape(color) === null ? tokens.foreground : "transparent",
-                }}
-              >
-                <BotAvatar color={avatarColor(color)} identity={bot.id} size={36} />
-              </Pressable>
-              {Array.from({ length: BOT_AVATAR_SHAPE_COUNT }, (_, shape) => (
-                <Pressable
-                  key={shape}
-                  accessibilityRole="radio"
-                  accessibilityLabel={t("Shape {number}", { number: shape + 1 })}
-                  accessibilityState={{ checked: avatarShape(color) === shape }}
-                  onPress={() => setColor((current) => withAvatarShape(current, shape))}
-                  style={{
-                    padding: 4,
-                    borderRadius: 14,
-                    borderWidth: 2,
-                    borderColor: avatarShape(color) === shape ? tokens.foreground : "transparent",
-                  }}
-                >
-                  <BotAvatar color={withAvatarShape(color, shape)} identity={bot.id} size={36} />
-                </Pressable>
-              ))}
-            </ScrollView>
-          </>
-        ) : null}
-        <View style={{ marginTop: 32, gap: 12 }}>
-          <SettingsSectionHeading>{t("Behavior")}</SettingsSectionHeading>
-          <View style={{ gap: 16 }}>
-            <View>
-              <Text style={{ color: tokens.mutedForeground, fontSize: 14 }}>
-                {t("Instructions")}
-              </Text>
-              <TextInput
-                accessibilityLabel={t("Instructions")}
-                multiline
-                maxLength={BOT_INSTRUCTIONS_MAX_LENGTH}
-                value={instructions}
-                onChangeText={setInstructions}
-                style={[fieldStyle, styles.multilineField]}
-              />
-              {bot?.instructionHistory?.length && instructions === bot.instructions ? (
-                <MenuPicker
-                  plain
-                  label={t("Instruction history")}
-                  value=""
-                  choices={bot.instructionHistory.map((version) => ({
-                    key: version.id,
-                    label: `${new Date(version.createdAt).toLocaleString()} · ${version.reason}`,
-                  }))}
-                  onChange={(versionId) => {
-                    if (pending || instructions !== bot.instructions) return;
-                    const version = bot.instructionHistory?.find((item) => item.id === versionId);
-                    if (version)
-                      Alert.alert(t("Restore"), version.instructions, [
-                        { text: t("Cancel"), style: "cancel" },
-                        {
-                          text: t("Restore"),
-                          onPress: () => {
-                            void rpc<MobileBot>("bots/restoreInstructions", {
-                              botId: bot.id,
-                              versionId,
-                              expectedInstructions: bot.instructions,
+            {bot?.instructionHistory?.length && instructions === bot.instructions ? (
+              <MenuPicker
+                plain
+                label={t("Instruction history")}
+                value=""
+                choices={bot.instructionHistory.map((version) => ({
+                  key: version.id,
+                  label: `${new Date(version.createdAt).toLocaleString()} · ${version.reason}`,
+                }))}
+                onChange={(versionId) => {
+                  if (pending || instructions !== bot.instructions) return;
+                  const version = bot.instructionHistory?.find((item) => item.id === versionId);
+                  if (version)
+                    Alert.alert(t("Restore"), version.instructions, [
+                      { text: t("Cancel"), style: "cancel" },
+                      {
+                        text: t("Restore"),
+                        onPress: () => {
+                          void rpc<MobileBot>("bots/restoreInstructions", {
+                            botId: bot.id,
+                            versionId,
+                            expectedInstructions: bot.instructions,
+                          })
+                            .then((updated) => {
+                              setBot(updated);
+                              setInstructions(updated.instructions ?? "");
                             })
-                              .then((updated) => {
-                                setBot(updated);
-                                setInstructions(updated.instructions ?? "");
-                              })
-                              .catch((err) => setError(errorText(err)));
-                          },
+                            .catch((err) => setError(errorText(err)));
                         },
-                      ]);
-                  }}
-                />
-              ) : null}
-            </View>
+                      },
+                    ]);
+                }}
+              />
+            ) : null}
+          </View>
+        </View>
+        <View
+          style={{
+            marginTop: 24,
+            padding: 16,
+            borderRadius: 12,
+            backgroundColor: native.fill,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={{ color: tokens.foreground, fontSize: 14 }}>{t("Notifications")}</Text>
+            <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>
+              {t("When it finishes or needs input")}
+            </Text>
+          </View>
+          <NativeSwitch
+            accessibilityLabel={t("Notifications")}
+            value={notifyOnFinish}
+            onValueChange={(value) => {
+              setNotifyOnFinish(value);
+              void rpc("bots/update", { botId, notifyOnFinish: value }).catch((err) => {
+                setNotifyOnFinish(!value);
+                setError(errorText(err));
+              });
+            }}
+          />
+        </View>
+        {botId ? <BotContextCards key={botId} botId={botId} /> : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("Advanced")}
+          accessibilityState={{ expanded: advancedOpen }}
+          onPress={() => setAdvancedOpen((open) => !open)}
+          style={{
+            marginTop: 24,
+            minHeight: 44,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <SettingsSectionHeading>{t("Advanced")}</SettingsSectionHeading>
+          <Chevron expanded={advancedOpen} />
+        </Pressable>
+        {advancedOpen ? (
+          <View
+            style={{ gap: 16, padding: 16, borderRadius: 12, backgroundColor: native.fill }}
+            onLayout={(event) => {
+              modelY.current = event.nativeEvent.layout.y;
+              if (focus === "model" || pickedModel !== undefined)
+                scrollRef.current?.scrollTo({ y: modelY.current, animated: true });
+            }}
+          >
             <View style={{ gap: 16 }}>
               <MenuPicker
                 plain
@@ -617,26 +629,7 @@ export default function BotSettingsScreen() {
                 {modelMetaError}
               </Text>
             ) : null}
-          </View>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("Advanced")}
-          accessibilityState={{ expanded: advancedOpen }}
-          onPress={() => setAdvancedOpen((open) => !open)}
-          style={{
-            marginTop: 32,
-            minHeight: 44,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <SettingsSectionHeading>{t("Advanced")}</SettingsSectionHeading>
-          <Chevron expanded={advancedOpen} />
-        </Pressable>
-        {advancedOpen ? (
-          <View style={{ gap: 16, paddingTop: 12 }}>
+
             <ComputerModePicker plain value={computerMode} onChange={setComputerMode} />
             <View style={styles.row}>
               <Text style={[styles.rowLabel, { color: tokens.mutedForeground }]}>
@@ -688,15 +681,106 @@ export default function BotSettingsScreen() {
                 value={fleetManagement}
               />
             </View>
+            <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
+              {t("Description")}
+            </Text>
+            <TextInput
+              value={description}
+              maxLength={BOT_DESCRIPTION_MAX_LENGTH}
+              onChangeText={setDescription}
+              placeholder={t("What this bot is for")}
+              placeholderTextColor={tokens.mutedForeground}
+              multiline
+              style={[fieldStyle, styles.multilineField]}
+            />
+            <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
+              {t("Color")}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 10, marginTop: 8 }}
+              accessibilityRole="radiogroup"
+            >
+              {BOT_COLORS.map((option, index) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="radio"
+                  accessibilityLabel={t("Color {number}", { number: index + 1 })}
+                  accessibilityState={{ checked: avatarColor(color) === option }}
+                  onPress={() => setColor((current) => withAvatarColor(current, option))}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: option,
+                    borderWidth: 3,
+                    borderColor: avatarColor(color) === option ? tokens.foreground : "transparent",
+                  }}
+                />
+              ))}
+            </ScrollView>
+            {bot && !isAvatarPhoto(color) ? (
+              <>
+                <Text style={{ color: tokens.mutedForeground, marginTop: 16, fontSize: 14 }}>
+                  {t("Shape")}
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 10, marginTop: 8 }}
+                  accessibilityRole="radiogroup"
+                >
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityLabel={t("Default")}
+                    accessibilityState={{ checked: avatarShape(color) === null }}
+                    onPress={() => setColor((current) => avatarColor(current))}
+                    style={{
+                      padding: 4,
+                      borderRadius: 14,
+                      borderWidth: 2,
+                      borderColor: avatarShape(color) === null ? tokens.foreground : "transparent",
+                    }}
+                  >
+                    <BotAvatar color={avatarColor(color)} identity={bot.id} size={36} />
+                  </Pressable>
+                  {Array.from({ length: BOT_AVATAR_SHAPE_COUNT }, (_, shape) => (
+                    <Pressable
+                      key={shape}
+                      accessibilityRole="radio"
+                      accessibilityLabel={t("Shape {number}", { number: shape + 1 })}
+                      accessibilityState={{ checked: avatarShape(color) === shape }}
+                      onPress={() => setColor((current) => withAvatarShape(current, shape))}
+                      style={{
+                        padding: 4,
+                        borderRadius: 14,
+                        borderWidth: 2,
+                        borderColor:
+                          avatarShape(color) === shape ? tokens.foreground : "transparent",
+                      }}
+                    >
+                      <BotAvatar
+                        color={withAvatarShape(color, shape)}
+                        identity={bot.id}
+                        size={36}
+                      />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </>
+            ) : null}
           </View>
         ) : null}
         {error ? <Text style={{ color: tokens.destructive, marginTop: 16 }}>{error}</Text> : null}
-        <NativeActionButton
-          disabled={!name.trim() || pending || !bot}
-          label={pending ? t("Saving…") : t("Save")}
-          onPress={() => void save()}
-          style={{ marginTop: 24 }}
-        />
+        {dirty ? (
+          <NativeActionButton
+            disabled={!name.trim() || pending || !bot}
+            label={pending ? t("Saving…") : t("Save")}
+            onPress={() => void save()}
+            style={{ marginTop: 24 }}
+          />
+        ) : null}
       </ScrollView>
     </>
   );
@@ -705,7 +789,10 @@ export default function BotSettingsScreen() {
 function SettingsSectionHeading({ children }: { children: string }) {
   const tokens = useMobileTokens();
   return (
-    <Text accessibilityRole="header" style={[styles.sectionHeading, { color: tokens.foreground }]}>
+    <Text
+      accessibilityRole="header"
+      style={[styles.sectionHeading, { color: tokens.mutedForeground }]}
+    >
       {children}
     </Text>
   );
@@ -723,8 +810,8 @@ function thinkingLevelLabel(level: ThinkingLevel, t: (message: string) => string
 
 const styles = StyleSheet.create({
   sectionHeading: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "500",
     flexShrink: 1,
   },
   field: {

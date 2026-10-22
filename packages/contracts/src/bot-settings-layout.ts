@@ -1,10 +1,23 @@
 /** Shared section membership and order; surfaces omit unavailable capabilities. */
 export const BOT_SETTINGS_SECTIONS = {
-  behavior: ["instructions", "model", "thinking"],
+  profile: ["instructions"],
   openWork: ["scratchpad"],
   memory: ["knowledge"],
-  tools: ["disabledTools", "credentials"],
-  advanced: ["computer", "memoryScope", "readAloud", "voice", "fleetManagement"],
+  advanced: [
+    "model",
+    "thinking",
+    "computer",
+    "memoryScope",
+    "readAloud",
+    "voice",
+    "fleetManagement",
+    "disabledTools",
+    "credentials",
+    "description",
+    "skills",
+    "export",
+    "clear",
+  ],
 } as const;
 
 export const BOT_SETTINGS_ADVANCED_ORDER = BOT_SETTINGS_SECTIONS.advanced;

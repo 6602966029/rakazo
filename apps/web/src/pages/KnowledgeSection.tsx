@@ -2,16 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { ORPCError } from "@orpc/client";
 import type { AgentSkill, AgentSkillCatalogEntry, MemoryDocument } from "@rakazo/contracts";
 import { isDeletableMemoryDocument } from "@rakazo/contracts";
-import {
-  Badge,
-  Button,
-  Skeleton,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Textarea,
-} from "@rakazo/ui-web";
+import { Badge, Button, Skeleton, Textarea } from "@rakazo/ui-web";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@rakazo/ui-web/components/ui/tooltip";
 import { Download } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -32,38 +23,29 @@ function rowClass(open: boolean): string {
 export function KnowledgeSection({
   botId,
   onSkillsChange,
+  skillsOnly = false,
 }: {
   botId: string;
   onSkillsChange: (skills: AgentSkillCatalogEntry[]) => void;
+  skillsOnly?: boolean;
 }) {
   const rpc = useSpaceRpc();
-  const { t } = useLingui();
+  if (skillsOnly)
+    return (
+      <section data-testid="bot-knowledge">
+        <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+          <Trans>Shared skills</Trans>
+        </h3>
+        <AgentSkills onSkillsChange={onSkillsChange} />
+      </section>
+    );
   return (
-    <section className="mt-8" data-testid="bot-knowledge">
-      <SettingsSectionHeading>
-        <Trans>Memory and skills</Trans>
-      </SettingsSectionHeading>
-      <Tabs defaultValue="memory">
-        <TabsList aria-label={t`Knowledge`}>
-          <TabsTrigger value="memory">
-            <Trans>Memory</Trans>
-          </TabsTrigger>
-          <TabsTrigger value="skills">
-            <Trans>Shared skills</Trans>
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="memory">
-          <MemoryDocumentList
-            key={botId}
-            load={() => rpc.memory.list({ botId, scope: "bot" })}
-            testId="bot-knowledge-memory"
-          />
-        </TabsContent>
-        <TabsContent value="skills">
-          <AgentSkills onSkillsChange={onSkillsChange} />
-        </TabsContent>
-      </Tabs>
-    </section>
+    <MemoryDocumentList
+      key={botId}
+      load={() => rpc.memory.list({ botId, scope: "bot" })}
+      testId="bot-knowledge-memory"
+      compact
+    />
   );
 }
 
@@ -91,12 +73,15 @@ export function SpaceMemorySection() {
 function MemoryDocumentList({
   load,
   testId,
+  compact = false,
 }: {
   load: () => Promise<MemoryDocument[]>;
   testId: string;
+  compact?: boolean;
 }) {
   const rpc = useSpaceRpc();
   const { t } = useLingui();
+  const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(true);
   const [docs, setDocs] = useState<MemoryDocument[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -200,102 +185,120 @@ function MemoryDocumentList({
     );
   }
 
+  if (compact && !docs.length && !error) return null;
   return (
-    <div data-testid={testId}>
-      {error ? <div className="pb-2 text-[13px] text-destructive">{error}</div> : null}
-      {conflicted ? (
-        <div className="pb-2 text-[13px] text-destructive">
-          <Trans>Document changed. Reopen to edit the latest version.</Trans>
-        </div>
+    <section className={compact ? "mt-6" : undefined}>
+      {compact ? (
+        <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+          <Trans>Memory</Trans>
+        </h3>
       ) : null}
-      {loading ? <Skeleton className="h-10 w-full" /> : null}
-      {!loading && docs.length === 0 && !error ? (
-        <div className="py-1 text-[13px] text-muted-foreground">
-          <Trans>Nothing remembered yet</Trans>
-        </div>
-      ) : null}
-      <div>
-        {docs.map((doc) => (
-          <div key={doc.id} className="border-b border-border last:border-0">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                type="button"
-                disabled={busy}
-                onClick={() => (openId === doc.id ? closeDoc() : openDoc(doc))}
-                className="-ms-2 h-auto min-w-0 flex-1 justify-start whitespace-normal px-2 py-2.5 text-start"
-              >
-                <span
-                  className="min-w-0 truncate text-[14px] font-normal text-foreground"
-                  dir="auto"
-                >
-                  {doc.path}
-                </span>
-              </Button>
-              <Tooltip>
-                <TooltipTrigger
-                  render={<Button variant="ghost" size="icon-sm" />}
-                  aria-label={t`Download`}
+      <div data-testid={testId} className={compact ? "rounded-xl bg-muted/50 p-4" : undefined}>
+        {error ? <div className="pb-2 text-[13px] text-destructive">{error}</div> : null}
+        {conflicted ? (
+          <div className="pb-2 text-[13px] text-destructive">
+            <Trans>Document changed. Reopen to edit the latest version.</Trans>
+          </div>
+        ) : null}
+        {loading ? <Skeleton className="h-10 w-full" /> : null}
+        {!compact && !loading && docs.length === 0 && !error ? (
+          <div className="py-1 text-[13px] text-muted-foreground">
+            <Trans>Nothing remembered yet</Trans>
+          </div>
+        ) : null}
+        <div>
+          {(compact && !showAll ? docs.slice(0, 5) : docs).map((doc) => (
+            <div key={doc.id} className="border-b border-border last:border-0">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  type="button"
                   disabled={busy}
-                  onClick={() => downloadDocument(doc)}
+                  onClick={() => (openId === doc.id ? closeDoc() : openDoc(doc))}
+                  className="-ms-2 h-auto min-w-0 flex-1 justify-start whitespace-normal px-2 py-2.5 text-start"
                 >
-                  <Download className="size-4" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <Trans>Download</Trans>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            {openId === doc.id ? (
-              <div className="pb-2">
-                <Textarea
-                  aria-label={doc.path}
-                  disabled={busy}
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  rows={Math.min(16, Math.max(4, draft.split("\n").length + 1))}
-                  className={fieldClass}
-                  dir="auto"
-                />
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    type="button"
-                    disabled={busy || conflicted || draft === doc.content}
-                    onClick={() => void save(doc)}
-                    className="rounded-full"
+                  <span
+                    className="min-w-0 truncate text-[14px] font-normal text-foreground"
+                    dir="auto"
                   >
-                    <Trans>Save</Trans>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    type="button"
+                    {doc.path}
+                  </span>
+                </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<Button variant="ghost" size="icon-sm" />}
+                    aria-label={t`Download`}
                     disabled={busy}
-                    onClick={closeDoc}
-                    size="sm"
+                    onClick={() => downloadDocument(doc)}
                   >
-                    <Trans>Cancel</Trans>
-                  </Button>
-                  {isDeletableMemoryDocument(doc.path) ? (
+                    <Download className="size-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <Trans>Download</Trans>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              {openId === doc.id ? (
+                <div className="pb-2">
+                  <Textarea
+                    aria-label={doc.path}
+                    disabled={busy}
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    rows={Math.min(16, Math.max(4, draft.split("\n").length + 1))}
+                    className={fieldClass}
+                    dir="auto"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      disabled={busy || conflicted || draft === doc.content}
+                      onClick={() => void save(doc)}
+                      className="rounded-full"
+                    >
+                      <Trans>Save</Trans>
+                    </Button>
                     <Button
                       variant="ghost"
                       type="button"
                       disabled={busy}
-                      onClick={() => void remove(doc)}
+                      onClick={closeDoc}
                       size="sm"
-                      className="ml-auto text-destructive"
                     >
-                      {confirmingDelete ? <Trans>Confirm delete</Trans> : <Trans>Delete</Trans>}
+                      <Trans>Cancel</Trans>
                     </Button>
-                  ) : null}
+                    {isDeletableMemoryDocument(doc.path) ? (
+                      <Button
+                        variant="ghost"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void remove(doc)}
+                        size="sm"
+                        className="ml-auto text-destructive"
+                      >
+                        {confirmingDelete ? <Trans>Confirm delete</Trans> : <Trans>Delete</Trans>}
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </div>
-        ))}
+              ) : null}
+            </div>
+          ))}
+        </div>
+        {compact && docs.length > 5 && !showAll ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-muted-foreground"
+            onClick={() => setShowAll(true)}
+          >
+            <Trans>Show more</Trans>
+          </Button>
+        ) : null}
       </div>
-    </div>
+    </section>
   );
 }
 

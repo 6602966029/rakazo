@@ -39,12 +39,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@rakazo/ui-web/components/ui/collapsible";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, Settings, X } from "lucide-react";
 import { Suspense, useEffect, useId, useRef, useState } from "react";
 import { ErrorBoundary, SectionLoadFailed } from "../../components/ErrorBoundary";
 import { InfoTooltip } from "../../components/InfoTooltip";
 import { InstructionSettings } from "../../components/InstructionSettings";
-import { SettingsSectionHeading } from "../../components/SettingsSectionHeading";
 import { botProfilePatch } from "../../lib/bot-profile-patch";
 import { thinkingLevelLabel } from "../../lib/model-catalog";
 import { lazyComponent } from "../../lib/preload-recovery";
@@ -219,8 +218,12 @@ export function BotSettings({
   onSave,
   onExport,
   onClear,
+  focusModel = 0,
+  onOpenConnections,
 }: {
   bot: Bot;
+  focusModel?: number;
+  onOpenConnections?: () => void;
   onSkillsChange: (skills: AgentSkillCatalogEntry[]) => void;
   memoryProviderConfigured: boolean;
   onSave: (patch: {
@@ -245,6 +248,17 @@ export function BotSettings({
 }) {
   const { t } = useLingui();
   const ids = useId();
+  const [advancedOpen, setAdvancedOpen] = useState(Boolean(focusModel));
+  const modelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focusModel) setAdvancedOpen(true);
+  }, [focusModel]);
+  useEffect(() => {
+    if (focusModel && advancedOpen) {
+      modelRef.current?.scrollIntoView?.({ block: "nearest" });
+      modelRef.current?.querySelector<HTMLElement>('[id$="-model"]')?.focus();
+    }
+  }, [advancedOpen, focusModel]);
   const [name, setName] = useState(bot.name);
   const [title, setTitle] = useState(bot.title);
   const savedNameRef = useRef(bot.name);
@@ -288,6 +302,29 @@ export function BotSettings({
   const [me, setMe] = useState<Me | null>(null);
   const [modelMetaReady, setModelMetaReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedAdvanced, setSavedAdvanced] = useState(() =>
+    JSON.stringify([
+      bot.modelProvider && bot.modelId ? modelOptionKey(bot.modelProvider, bot.modelId) : "",
+      bot.thinkingLevel ?? "",
+      bot.computerMode,
+      bot.memoryScope,
+      bot.autoSpeak,
+      bot.voiceId ?? "",
+    ]),
+  );
+  const advancedSnapshot = JSON.stringify([
+    modelKey,
+    thinkingLevel,
+    computerMode,
+    memoryScope,
+    autoSpeak,
+    voiceId,
+  ]);
+  const dirty =
+    name.trim() !== savedNameRef.current.trim() ||
+    title.trim() !== savedTitleRef.current.trim() ||
+    advancedSnapshot !== savedAdvanced ||
+    description.trim() !== savedDescriptionRef.current;
   const [error, setError] = useState<string | null>(null);
   const saveQueueRef = useRef(Promise.resolve());
   const executeSaveRef = useRef<
@@ -453,6 +490,9 @@ export function BotSettings({
       if (nextName) savedNameRef.current = nextName;
       savedTitleRef.current = nextTitle;
       savedDescriptionRef.current = nextDescription;
+      setSavedAdvanced(
+        JSON.stringify([modelKey, thinkingLevel, computerMode, memoryScope, autoSpeak, voiceId]),
+      );
     } catch (err) {
       if (patchOverrides?.fleetManagement !== undefined)
         setFleetManagement(!patchOverrides.fleetManagement);
@@ -506,61 +546,60 @@ export function BotSettings({
 
   return (
     <div data-testid="bot-settings">
-      <div className="flex justify-center py-4">
-        <AvatarStudioPopover
-          value={color}
-          identity={bot.id}
-          status={bot.status}
-          size={76}
-          onChange={(newColor) => {
-            setColor(newColor);
-            void enqueueSave({ color: newColor });
+      <div
+        data-testid="bot-profile-header"
+        className="flex flex-col items-center pb-6 pt-2 text-center"
+      >
+        <div className="flex justify-center pb-4">
+          <AvatarStudioPopover
+            value={color}
+            identity={bot.id}
+            status={bot.status}
+            size={76}
+            onChange={(newColor) => {
+              setColor(newColor);
+              void enqueueSave({ color: newColor });
+            }}
+          />
+        </div>
+        <InlineProfileField
+          label={t`Name`}
+          editLabel={t`Edit name`}
+          value={name}
+          maxLength={BOT_NAME_MAX_LENGTH}
+          className="text-xl font-semibold"
+          onCommit={(value) => {
+            if (!value.trim()) return;
+            setName(value.trim());
+            void enqueueSave({ name: value });
+          }}
+        />
+        <InlineProfileField
+          label={t`Title`}
+          editLabel={t`Edit label`}
+          placeholder={t`Add a label`}
+          value={title}
+          maxLength={BOT_TITLE_MAX_LENGTH}
+          className="mt-1 text-sm text-muted-foreground"
+          onCommit={(value) => {
+            setTitle(value.trim());
+            void enqueueSave({ title: value });
           }}
         />
       </div>
-      <label htmlFor={`${ids}-name`} className={fieldLabelClass}>
-        <Trans>Name</Trans>
-        <Input
-          id={`${ids}-name`}
-          value={name}
-          maxLength={BOT_NAME_MAX_LENGTH}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => void enqueueSave()}
-          className="mt-1.5"
-        />
-      </label>
-      <label htmlFor={`${ids}-title`} className={fieldLabelClass}>
-        <Trans>Title</Trans>
-        <Input
-          id={`${ids}-title`}
-          value={title}
-          maxLength={BOT_TITLE_MAX_LENGTH}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => void enqueueSave()}
-          placeholder={t`e.g. Hivenet Agent, Presales, Timesheets bot`}
-          className="mt-1.5"
-        />
-      </label>
-      <label htmlFor={`${ids}-description`} className={fieldLabelClass}>
-        <Trans>Description</Trans>
-        <Textarea
-          id={`${ids}-description`}
-          value={description}
-          maxLength={BOT_DESCRIPTION_MAX_LENGTH}
-          onChange={(e) => setDescription(e.target.value)}
-          onBlur={() => void enqueueSave()}
-          rows={3}
-          className="mt-1.5"
-        />
-      </label>
-      <div className="mt-8 flex items-center justify-between">
-        <div className="flex items-center gap-1 pe-4">
-          <SettingsSectionHeading id={`${ids}-notify-finish-label`} className="mb-0">
+      <InstructionSettings key={bot.id} bot={bot} />
+      <div className="mt-6 flex items-center justify-between gap-3 rounded-xl bg-muted/50 p-4">
+        <div>
+          <label
+            htmlFor={`${ids}-notify-finish`}
+            id={`${ids}-notify-finish-label`}
+            className="text-sm"
+          >
             <Trans>Notifications</Trans>
-          </SettingsSectionHeading>
-          <InfoTooltip label={t`Notifications`}>
-            {t`Get notified when this Bot finishes or needs input`}
-          </InfoTooltip>
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            <Trans>When it finishes or needs input</Trans>
+          </p>
         </div>
         <Switch
           id={`${ids}-notify-finish`}
@@ -572,46 +611,6 @@ export function BotSettings({
           }}
         />
       </div>
-      <section className="mt-8" data-testid="bot-settings-behavior">
-        <SettingsSectionHeading>
-          <Trans>Behavior</Trans>
-        </SettingsSectionHeading>
-        <div className="space-y-4 [&>*]:mt-0">
-          <InstructionSettings key={bot.id} bot={bot} />
-          <label htmlFor={`${ids}-model`} className={fieldLabelClass}>
-            <Trans>Model</Trans>
-            <ChatModelPicker
-              id={`${ids}-model`}
-              choices={modelChoices}
-              value={selectedModelKey}
-              onChange={(key) => {
-                setModelKey(key);
-                setThinkingLevel("");
-              }}
-            />
-          </label>
-          {thinkingOptions.length ? (
-            <label htmlFor={`${ids}-thinking`} className={fieldLabelClass}>
-              <Trans>Thinking</Trans>
-              <NativeSelect
-                id={`${ids}-thinking`}
-                className="mt-2 w-full"
-                value={thinkingLevel}
-                onChange={(event) => setThinkingLevel(event.target.value)}
-              >
-                <NativeSelectOption value="">
-                  {t`Default (${thinkingLevelLabel(defaultThinkingLevel)})`}
-                </NativeSelectOption>
-                {thinkingOptions.map((level) => (
-                  <NativeSelectOption key={level} value={level}>
-                    {thinkingLevelLabel(level)}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </label>
-          ) : null}
-        </div>
-      </section>
       <ErrorBoundary fallback={<SectionLoadFailed />}>
         <Suspense fallback={null}>
           <ScratchpadSection botId={bot.id} />
@@ -622,63 +621,69 @@ export function BotSettings({
           <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
         </Suspense>
       </ErrorBoundary>
-      <section className="mt-8" data-testid="bot-settings-tools">
-        <SettingsSectionHeading>
-          <Trans>Tools</Trans>
-        </SettingsSectionHeading>
-        <div className="space-y-4 [&>*]:mt-0">
-          <label htmlFor={`${ids}-disabled-tools`} className={fieldLabelClass}>
-            <Trans>Disabled tools</Trans>
-            <NativeSelect
-              id={`${ids}-disabled-tools`}
-              value=""
-              onChange={(event) => disableBuiltinTool(event.target.value)}
-              className="mt-2 w-full"
-            >
-              <NativeSelectOption value="">{t`Choose a tool`}</NativeSelectOption>
-              {BUILTIN_TOOL_NAMES.filter((name) => !disabledBuiltinTools.includes(name)).map(
-                (name) => (
-                  <NativeSelectOption key={name} value={name}>
-                    {name.replaceAll("_", " ")}
-                  </NativeSelectOption>
-                ),
-              )}
-            </NativeSelect>
-          </label>
-          {disabledBuiltinTools.map((toolName) => (
-            <label
-              key={toolName}
-              htmlFor={`${ids}-disabled-${toolName}`}
-              className="mt-2 flex items-center justify-between gap-3 text-[14px] text-muted-foreground"
-            >
-              <span>{toolName.replaceAll("_", " ")}</span>
-              <Switch
-                id={`${ids}-disabled-${toolName}`}
-                checked={false}
-                onCheckedChange={(checked) => {
-                  if (!checked) return;
-                  const next = disabledBuiltinTools.filter((entry) => entry !== toolName);
-                  setDisabledBuiltinTools(next);
-                  void enqueueSave({ disabledBuiltinTools: next });
-                }}
-              />
-            </label>
-          ))}
-          <BotCredentialsSection botId={bot.id} />
-        </div>
-      </section>
-      <Collapsible data-testid="bot-settings-advanced" className="mt-8">
-        <SettingsSectionHeading className="mb-0">
-          <CollapsibleTrigger className="group flex w-full cursor-pointer items-center justify-between gap-3 rounded-md text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+      <Collapsible
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+        data-testid="bot-settings-advanced"
+        className="mt-6"
+      >
+        <h3 className="mb-0 text-xs font-medium text-muted-foreground">
+          <CollapsibleTrigger className="group flex w-full cursor-pointer min-h-11 items-center gap-2 rounded-md text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <Trans>Advanced</Trans>
             <ChevronDown
               aria-hidden="true"
-              className="size-4 text-muted-foreground transition-transform group-aria-expanded:rotate-180 motion-reduce:transition-none"
+              className="size-4 text-muted-foreground transition-transform -rotate-90 group-aria-expanded:rotate-0 motion-reduce:transition-none"
             />
           </CollapsibleTrigger>
-        </SettingsSectionHeading>
-        <CollapsibleContent hiddenUntilFound>
-          <div className="space-y-4 pt-3 [&>*]:mt-0">
+        </h3>
+        <CollapsibleContent>
+          <div className="space-y-5 rounded-xl bg-muted/50 p-4 [&>*]:mt-0">
+            <div ref={modelRef}>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor={`${ids}-model`} className={rowLabelClass}>
+                  <Trans>Model</Trans>
+                </label>
+                {onOpenConnections ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t`Model connections`}
+                    onClick={onOpenConnections}
+                  >
+                    <Settings className="size-4 text-muted-foreground" />
+                  </Button>
+                ) : null}
+              </div>
+              <ChatModelPicker
+                id={`${ids}-model`}
+                choices={modelChoices}
+                value={selectedModelKey}
+                onChange={(key) => {
+                  setModelKey(key);
+                  setThinkingLevel("");
+                }}
+              />
+              {thinkingOptions.length ? (
+                <label htmlFor={`${ids}-thinking`} className={fieldLabelClass}>
+                  <Trans>Thinking</Trans>
+                  <NativeSelect
+                    id={`${ids}-thinking`}
+                    className="mt-2 w-full"
+                    value={thinkingLevel}
+                    onChange={(event) => setThinkingLevel(event.target.value)}
+                  >
+                    <NativeSelectOption value="">
+                      {t`Default (${thinkingLevelLabel(defaultThinkingLevel)})`}
+                    </NativeSelectOption>
+                    {thinkingOptions.map((level) => (
+                      <NativeSelectOption key={level} value={level}>
+                        {thinkingLevelLabel(level)}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                </label>
+              ) : null}
+            </div>
             <ComputerModePicker value={computerMode} onChange={setComputerMode} />
             {memoryProviderConfigured ? (
               <div className="mt-4 text-[14px] text-muted-foreground">
@@ -757,39 +762,94 @@ export function BotSettings({
                 }}
               />
             </div>
+            <label htmlFor={`${ids}-description`} className={fieldLabelClass}>
+              <Trans>Description</Trans>
+              <Textarea
+                id={`${ids}-description`}
+                value={description}
+                maxLength={BOT_DESCRIPTION_MAX_LENGTH}
+                onChange={(e) => setDescription(e.target.value)}
+                onBlur={() => void enqueueSave()}
+                rows={3}
+                className="mt-2"
+              />
+            </label>
+            <section className="mt-5" data-testid="bot-settings-tools">
+              <div className="space-y-4 [&>*]:mt-0">
+                <label htmlFor={`${ids}-disabled-tools`} className={fieldLabelClass}>
+                  <Trans>Disabled tools</Trans>
+                  <NativeSelect
+                    id={`${ids}-disabled-tools`}
+                    value=""
+                    onChange={(event) => disableBuiltinTool(event.target.value)}
+                    className="mt-2 w-full"
+                  >
+                    <NativeSelectOption value="">{t`Choose a tool`}</NativeSelectOption>
+                    {BUILTIN_TOOL_NAMES.filter((name) => !disabledBuiltinTools.includes(name)).map(
+                      (name) => (
+                        <NativeSelectOption key={name} value={name}>
+                          {name.replaceAll("_", " ")}
+                        </NativeSelectOption>
+                      ),
+                    )}
+                  </NativeSelect>
+                </label>
+                {disabledBuiltinTools.map((toolName) => (
+                  <label
+                    key={toolName}
+                    htmlFor={`${ids}-disabled-${toolName}`}
+                    className="mt-2 flex items-center justify-between gap-3 text-[14px] text-muted-foreground"
+                  >
+                    <span>{toolName.replaceAll("_", " ")}</span>
+                    <Switch
+                      id={`${ids}-disabled-${toolName}`}
+                      checked={false}
+                      onCheckedChange={(checked) => {
+                        if (!checked) return;
+                        const next = disabledBuiltinTools.filter((entry) => entry !== toolName);
+                        setDisabledBuiltinTools(next);
+                        void enqueueSave({ disabledBuiltinTools: next });
+                      }}
+                    />
+                  </label>
+                ))}
+                <BotCredentialsSection botId={bot.id} />
+              </div>
+            </section>
+            <ErrorBoundary fallback={<SectionLoadFailed />}>
+              <Suspense fallback={null}>
+                <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} skillsOnly />
+              </Suspense>
+            </ErrorBoundary>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => void onExport()}>
+                <Trans>Export</Trans>
+              </Button>
+              <Button variant="outline" size="sm" className="text-destructive" onClick={onClear}>
+                <Trans>Clear conversation</Trans>
+              </Button>
+            </div>
           </div>
         </CollapsibleContent>
       </Collapsible>
-      <div className="mt-8 flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => void onExport()}>
-          <Trans>Export</Trans>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-destructive hover:text-destructive"
-          onClick={onClear}
-        >
-          <Trans>Clear conversation</Trans>
-        </Button>
-      </div>
-
       {error ? <p className="mt-2 text-[13px] text-destructive">{error}</p> : null}
-      <Button
-        className="mt-5"
-        disabled={saving}
-        onClick={() => {
-          void enqueueSave({
-            name,
-            title,
-            description,
-            color,
-            notifyOnFinish,
-          });
-        }}
-      >
-        <Trans>Save</Trans>
-      </Button>
+      {dirty ? (
+        <Button
+          className="sticky bottom-0 mt-5 w-full"
+          disabled={saving}
+          onClick={() => {
+            void enqueueSave({
+              name,
+              title,
+              description,
+              color,
+              notifyOnFinish,
+            });
+          }}
+        >
+          <Trans>Save</Trans>
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -805,4 +865,65 @@ function catalogEntry(
 ) {
   if (!provider) return undefined;
   return catalog.find((entry) => entry.provider === provider && entry.id === modelId);
+}
+
+function InlineProfileField({
+  label,
+  editLabel,
+  value,
+  placeholder,
+  maxLength,
+  className,
+  onCommit,
+}: {
+  label: string;
+  editLabel: string;
+  value: string;
+  placeholder?: string;
+  maxLength: number;
+  className: string;
+  onCommit: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const cancelled = useRef(false);
+  function commit() {
+    if (cancelled.current) return;
+    setEditing(false);
+    if (draft.trim() !== value.trim()) onCommit(draft);
+  }
+  return editing ? (
+    <Input
+      autoFocus
+      aria-label={label}
+      value={draft}
+      maxLength={maxLength}
+      className={`h-auto border-transparent bg-transparent p-0 text-center shadow-none ${className}`}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
+        }
+        if (event.key === "Escape") {
+          cancelled.current = true;
+          setEditing(false);
+        }
+      }}
+    />
+  ) : (
+    <button
+      type="button"
+      aria-label={editLabel}
+      className={`min-w-0 max-w-full cursor-text break-words rounded px-2 outline-none focus-visible:ring-2 focus-visible:ring-ring ${className}`}
+      onClick={() => {
+        cancelled.current = false;
+        setDraft(value);
+        setEditing(true);
+      }}
+    >
+      {value || placeholder}
+    </button>
+  );
 }

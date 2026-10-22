@@ -404,6 +404,10 @@ msgstr "添加要运行的命令"
 msgid "Add a file or folder to watch"
 msgstr "添加要监视的文件或文件夹"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Add a label"
+msgstr ""
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
 msgstr "请在设置中添加模型后再使用。"
@@ -851,10 +855,6 @@ msgstr ""
 #: src/pages/shell/bot-credentials.tsx
 msgid "Bearer token"
 msgstr "Bearer token"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Behavior"
-msgstr ""
 
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
@@ -2281,10 +2281,6 @@ msgstr "拖放或粘贴图片"
 msgid "Duplicate"
 msgstr "复制"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "e.g. Hivenet Agent, Presales, Timesheets bot"
-msgstr "例如 Hivenet Agent、Presales、工时表机器人"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Each name can be used once."
 msgstr "每个名称只能使用一次。"
@@ -2296,6 +2292,14 @@ msgstr "编辑"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "先编辑"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Edit label"
+msgstr ""
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Edit name"
+msgstr ""
 
 #: src/pages/BotContextMenu.tsx
 msgid "Edit Profile"
@@ -2572,10 +2576,6 @@ msgstr "通用"
 msgid "Get credentials"
 msgstr ""
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Get notified when this Bot finishes or needs input"
-msgstr "在此机器人完成或需要输入时收到通知"
-
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "获取移动应用"
@@ -2831,10 +2831,6 @@ msgstr "保留记忆"
 msgid "key"
 msgstr "密钥"
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Knowledge"
-msgstr "知识"
-
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Language"
 msgstr "语言"
@@ -3080,10 +3076,6 @@ msgstr ""
 msgid "Memory"
 msgstr "记忆"
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Memory and skills"
-msgstr ""
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Memory scope"
 msgstr "记忆范围"
@@ -3190,6 +3182,10 @@ msgstr "模型"
 #: src/lib/model-connection-preflight.ts
 msgid "Model \"{modelId}\" was not listed."
 msgstr "模型“{modelId}”未列出。"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "Model connections"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4502,7 +4498,9 @@ msgstr ""
 msgid "Show list"
 msgstr ""
 
+#: src/pages/KnowledgeSection.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/ScratchpadSection.tsx
 msgid "Show more"
 msgstr "显示更多"
 
@@ -4990,7 +4988,6 @@ msgid "Tool sources"
 msgstr "工具源"
 
 #: src/pages/PluginsOverlay.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr ""
 
@@ -5326,6 +5323,10 @@ msgstr "监视内容"
 #: src/pages/RoutineEditor.tsx
 msgid "When a webhook fires"
 msgstr "当 Webhook 触发时"
+
+#: src/pages/shell/bot-panel.tsx
+msgid "When it finishes or needs input"
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "When something changes"

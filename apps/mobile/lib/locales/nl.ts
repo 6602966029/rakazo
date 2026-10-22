@@ -1,5 +1,9 @@
 export const NL_MESSAGES: Record<string, string> = {
-  Behavior: "Gedrag",
+  "Open work": "Open taken",
+  "When it finishes or needs input": "Als de bot klaar is of invoer nodig heeft",
+  "Edit label": "Label bewerken",
+  "Edit name": "Naam bewerken",
+  "Add a label": "Label toevoegen",
   "Add an AI model to keep chatting": "Voeg een AI-model toe om verder te chatten",
   "Not Now": "Niet nu",
   "Add Model": "Model toevoegen",
