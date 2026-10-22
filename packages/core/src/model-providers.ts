@@ -149,6 +149,8 @@ export type ConnectedModelChoice = {
   label: string;
   providerLabel?: string;
   modelLabel?: string;
+  /** The catalog says whether the model reads images; unknown for free-form ids. */
+  images?: boolean;
 };
 
 type CatalogModelRef = {
@@ -157,6 +159,7 @@ type CatalogModelRef = {
   label: string;
   providerName?: string;
   placeholder?: boolean;
+  images?: boolean;
 };
 
 type CredentialModelRef = {
@@ -247,6 +250,7 @@ function catalogChoices(providerModels: readonly CatalogModelRef[]): ConnectedMo
       label: `${entry.providerName ?? entry.provider} · ${entry.label}`,
       providerLabel: entry.providerName ?? entry.provider,
       modelLabel: entry.label,
+      images: entry.images,
     };
   });
 }
@@ -314,7 +318,10 @@ export function connectedModelChoices(
     const enabled = (credential.enabledModelIds ?? []).map((id) => id.trim()).filter(Boolean);
     const next: ConnectedModelChoice[] =
       enabled.length > 0
-        ? enabled.map((id) => freeFormChoice(credential, id))
+        ? enabled.map((id) => ({
+            ...freeFormChoice(credential, id),
+            images: providerModels.find((entry) => entry.id === id)?.images,
+          }))
         : raw && !resolvedInCatalog
           ? [freeFormChoice(credential, resolved || raw)]
           : catalogChoices(providerModels);
@@ -350,6 +357,7 @@ export type ChatModelChoice = {
   modelLabel?: string;
   title?: string;
   detail?: string;
+  images?: boolean;
 };
 
 /** Filter on full labels before shortening rows; saved/default choices stay first. */
@@ -384,8 +392,12 @@ export function chatModelChoices(
   connected: readonly ConnectedModelChoice[],
   selectedKey: string,
   spaceDefaultLabel: string,
+  /** Whether the space's default model reads images, when the catalog knows. */
+  spaceDefaultImages?: boolean,
 ): ChatModelChoice[] {
-  const choices: ChatModelChoice[] = [{ key: "", label: spaceDefaultLabel }];
+  const choices: ChatModelChoice[] = [
+    { key: "", label: spaceDefaultLabel, images: spaceDefaultImages },
+  ];
   if (selectedKey && !connected.some((option) => option.key === selectedKey)) {
     const saved = parseModelOptionKey(selectedKey);
     choices.push({
