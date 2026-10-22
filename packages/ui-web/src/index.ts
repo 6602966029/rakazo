@@ -31,6 +31,7 @@ export * from "./components/ui/input-otp.js";
 export * from "./components/ui/kbd.js";
 export * from "./components/ui/label.js";
 export * from "./components/ui/native-select.js";
+export * from "./components/ui/option-select.js";
 export * from "./components/ui/popover.js";
 export * from "./components/ui/radio-group.js";
 export * from "./components/ui/scroll-area.js";

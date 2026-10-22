@@ -28,6 +28,7 @@ import {
   ModelThinkingOptions,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -583,11 +584,13 @@ export function OnboardingPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {providers.map((entry) => (
-                    <SelectItem key={entry.provider} value={entry.provider}>
-                      {providerLabel(entry)}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {providers.map((entry) => (
+                      <SelectItem key={entry.provider} value={entry.provider}>
+                        {providerLabel(entry)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
@@ -643,14 +646,16 @@ export function OnboardingPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {probeModels.map((id) => (
-                            <SelectItem key={id} value={id}>
-                              {id}
+                          <SelectGroup>
+                            {probeModels.map((id) => (
+                              <SelectItem key={id} value={id}>
+                                {id}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value={CUSTOM_MODEL_OPTION}>
+                              <Trans>Other model…</Trans>
                             </SelectItem>
-                          ))}
-                          <SelectItem value={CUSTOM_MODEL_OPTION}>
-                            <Trans>Other model…</Trans>
-                          </SelectItem>
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -738,11 +743,13 @@ export function OnboardingPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {modelsForProvider.map((entry) => (
-                        <SelectItem key={`${entry.provider}:${entry.id}`} value={entry.id}>
-                          {entry.label}
-                        </SelectItem>
-                      ))}
+                      <SelectGroup>
+                        {modelsForProvider.map((entry) => (
+                          <SelectItem key={`${entry.provider}:${entry.id}`} value={entry.id}>
+                            {entry.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                   {catalogThinkingLevels.length ? (
@@ -764,14 +771,16 @@ export function OnboardingPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={DEFAULT_THINKING_LEVEL_OPTION}>
-                            {t`Default (${thinkingLevelLabel("medium")})`}
-                          </SelectItem>
-                          {catalogThinkingLevels.map((level) => (
-                            <SelectItem key={level} value={level}>
-                              {thinkingLevelLabel(level)}
+                          <SelectGroup>
+                            <SelectItem value={DEFAULT_THINKING_LEVEL_OPTION}>
+                              {t`Default (${thinkingLevelLabel("medium")})`}
                             </SelectItem>
-                          ))}
+                            {catalogThinkingLevels.map((level) => (
+                              <SelectItem key={level} value={level}>
+                                {thinkingLevelLabel(level)}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
                     </div>

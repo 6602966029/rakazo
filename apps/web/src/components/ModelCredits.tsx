@@ -14,6 +14,7 @@ import {
   DialogTitle,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -50,17 +51,18 @@ export function CreditAmountSelect({
     >
       <SelectTrigger
         aria-label={monthly ? t`Monthly credits` : t`Credit amount`}
-        className="w-full"
-        size="xl"
+        className="h-12 w-full rounded-xl pr-3 pl-4 text-base"
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent alignItemWithTrigger={false} align="start" className="p-1">
-        {items.map((item) => (
-          <SelectItem key={item.value} value={item.value} className="py-2 text-base">
-            {item.label}
-          </SelectItem>
-        ))}
+      <SelectContent alignItemWithTrigger={false} align="start">
+        <SelectGroup>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value} className="py-2 text-base">
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
       </SelectContent>
     </Select>
   );
