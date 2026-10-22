@@ -365,8 +365,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Delete memories too": "同时删除记忆",
   "Delete space": "删除空间",
   "Delete {name}?": "要删除 {name} 吗？",
-  "Delete this group? Bots and their solo threads are kept.":
-    "要删除此群组吗？Bot 及其单独对话会保留。",
+  "Bots and their own chats stay.": "Bot 和它们自己的聊天会保留。",
   "Delete your account?": "要删除你的账户吗？",
   "Delete…": "删除…",
   Denied: "已拒绝",
@@ -875,6 +874,13 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Try again": "重试",
   "Your session expired": "会话已过期",
   "The server had a problem": "服务器出现问题",
+  "Could not load MCP servers": "无法加载 MCP 服务器",
+  "MCP servers": "MCP 服务器",
+  Disabled: "已禁用",
+  "OAuth connected": "OAuth 已连接",
+  "OAuth expired": "OAuth 已过期",
+  "Credential saved": "凭据已保存",
+  "No auth": "无需身份验证",
   "The bot couldn't reply because its provider's daily limit was reached.":
     "机器人无法回复，因为已达到其提供商的每日限额。",
   "The bot couldn't reply because its provider's weekly limit was reached.":

@@ -1658,6 +1658,7 @@ msgid "Could not load integrations"
 msgstr "इंटीग्रेशन लोड नहीं हो सके"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "Could not load MCP servers"
 msgstr "MCP सर्वर लोड नहीं हो सके"
 
@@ -1967,7 +1968,7 @@ msgstr "क्रेडेंशियल"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
-msgid "credential saved"
+msgid "Credential saved"
 msgstr "क्रेडेंशियल सहेजा गया"
 
 #: src/pages/shell/bot-credentials.tsx
@@ -2152,6 +2153,10 @@ msgstr "विवरण"
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Direct MCP"
 msgstr ""
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Disabled"
+msgstr "अक्षम"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
@@ -3045,6 +3050,7 @@ msgid "MCP endpoint"
 msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "MCP servers"
 msgstr "MCP सर्वर"
 
@@ -3348,7 +3354,7 @@ msgid "No artifacts found."
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
-msgid "no auth"
+msgid "No auth"
 msgstr "कोई प्रमाणीकरण नहीं"
 
 #: src/pages/PluginsOverlay.tsx
@@ -3454,10 +3460,6 @@ msgstr ""
 msgid "No trigger"
 msgstr ""
 
-#: src/pages/ScratchpadSection.tsx
-msgid "None yet"
-msgstr "अभी तक कोई नहीं"
-
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr ""
@@ -3516,6 +3518,7 @@ msgid "OAuth client secret (optional)"
 msgstr "OAuth क्लाइंट सीक्रेट (वैकल्पिक)"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth connected"
 msgstr "OAuth कनेक्टेड"
 
@@ -3524,6 +3527,7 @@ msgid "OAuth connection failed"
 msgstr "OAuth कनेक्शन विफल"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth expired"
 msgstr "OAuth की समय-सीमा समाप्त हो गई"
 

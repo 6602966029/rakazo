@@ -1658,6 +1658,7 @@ msgid "Could not load integrations"
 msgstr "Integrationen konnten nicht geladen werden"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "Could not load MCP servers"
 msgstr "MCP-Server konnten nicht geladen werden"
 
@@ -1967,7 +1968,7 @@ msgstr "Zugangsdaten"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
-msgid "credential saved"
+msgid "Credential saved"
 msgstr "Zugangsdaten gespeichert"
 
 #: src/pages/shell/bot-credentials.tsx
@@ -2152,6 +2153,10 @@ msgstr "Details"
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Direct MCP"
 msgstr ""
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Disabled"
+msgstr "Deaktiviert"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
@@ -3045,6 +3050,7 @@ msgid "MCP endpoint"
 msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "MCP servers"
 msgstr "MCP-Server"
 
@@ -3348,8 +3354,8 @@ msgid "No artifacts found."
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
-msgid "no auth"
-msgstr "keine Authentifizierung"
+msgid "No auth"
+msgstr "Keine Authentifizierung"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "No authentication"
@@ -3454,10 +3460,6 @@ msgstr ""
 msgid "No trigger"
 msgstr ""
 
-#: src/pages/ScratchpadSection.tsx
-msgid "None yet"
-msgstr "Noch keine"
-
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr ""
@@ -3516,6 +3518,7 @@ msgid "OAuth client secret (optional)"
 msgstr "OAuth-Client-Secret (optional)"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth connected"
 msgstr "OAuth verbunden"
 
@@ -3524,6 +3527,7 @@ msgid "OAuth connection failed"
 msgstr "OAuth-Verbindung fehlgeschlagen"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth expired"
 msgstr "OAuth abgelaufen"
 

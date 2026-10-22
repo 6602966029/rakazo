@@ -388,8 +388,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Delete space": "Удалить пространство",
   "Delete memories too": "Удалить также память",
   "Delete {name}?": "Удалить {name}?",
-  "Delete this group? Bots and their solo threads are kept.":
-    "Удалить эту группу? Боты и их отдельные диалоги сохранятся.",
+  "Bots and their own chats stay.": "Боты и их собственные чаты сохранятся.",
   "Delete your account?": "Удалить аккаунт?",
   "Delete…": "Удалить…",
   Denied: "Запрещено",
@@ -908,6 +907,13 @@ export const RU_MESSAGES: Record<string, string> = {
   "Try again": "Повторить",
   "Your session expired": "Сеанс истёк",
   "The server had a problem": "На сервере произошла ошибка",
+  "Could not load MCP servers": "Не удалось загрузить серверы MCP",
+  "MCP servers": "Серверы MCP",
+  Disabled: "Отключено",
+  "OAuth connected": "OAuth подключён",
+  "OAuth expired": "Срок действия OAuth истёк",
+  "Credential saved": "Учётные данные сохранены",
+  "No auth": "Без авторизации",
   "The bot couldn't reply because its provider's daily limit was reached.":
     "Бот не смог ответить, потому что достигнут дневной лимит его провайдера.",
   "The bot couldn't reply because its provider's weekly limit was reached.":

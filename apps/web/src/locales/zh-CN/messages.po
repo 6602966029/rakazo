@@ -1658,6 +1658,7 @@ msgid "Could not load integrations"
 msgstr "无法加载集成"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "Could not load MCP servers"
 msgstr "无法加载 MCP 服务器"
 
@@ -1967,7 +1968,7 @@ msgstr "凭据"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
-msgid "credential saved"
+msgid "Credential saved"
 msgstr "凭据已保存"
 
 #: src/pages/shell/bot-credentials.tsx
@@ -2152,6 +2153,10 @@ msgstr "详情"
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Direct MCP"
 msgstr ""
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Disabled"
+msgstr "已禁用"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
@@ -3045,6 +3050,7 @@ msgid "MCP endpoint"
 msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "MCP servers"
 msgstr "MCP 服务器"
 
@@ -3348,7 +3354,7 @@ msgid "No artifacts found."
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
-msgid "no auth"
+msgid "No auth"
 msgstr "无认证"
 
 #: src/pages/PluginsOverlay.tsx
@@ -3454,10 +3460,6 @@ msgstr ""
 msgid "No trigger"
 msgstr "无触发器"
 
-#: src/pages/ScratchpadSection.tsx
-msgid "None yet"
-msgstr "暂无"
-
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr ""
@@ -3516,6 +3518,7 @@ msgid "OAuth client secret (optional)"
 msgstr "OAuth 客户端密钥（可选）"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth connected"
 msgstr "OAuth 已连接"
 
@@ -3524,6 +3527,7 @@ msgid "OAuth connection failed"
 msgstr "OAuth 连接失败"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth expired"
 msgstr "OAuth 已过期"
 

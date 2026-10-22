@@ -1658,6 +1658,7 @@ msgid "Could not load integrations"
 msgstr "לא ניתן לטעון את האינטגרציות"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "Could not load MCP servers"
 msgstr "לא ניתן לטעון את שרתי ה-MCP"
 
@@ -1967,7 +1968,7 @@ msgstr "פרטי גישה"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
-msgid "credential saved"
+msgid "Credential saved"
 msgstr "פרטי הגישה נשמרו"
 
 #: src/pages/shell/bot-credentials.tsx
@@ -2152,6 +2153,10 @@ msgstr "פרטים"
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Direct MCP"
 msgstr "MCP ישיר"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Disabled"
+msgstr "מושבת"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
@@ -3045,6 +3050,7 @@ msgid "MCP endpoint"
 msgstr "נקודת קצה של MCP"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "MCP servers"
 msgstr "שרתי MCP"
 
@@ -3348,7 +3354,7 @@ msgid "No artifacts found."
 msgstr "לא נמצאו תוצרים."
 
 #: src/pages/PluginsOverlay.tsx
-msgid "no auth"
+msgid "No auth"
 msgstr "ללא אימות"
 
 #: src/pages/PluginsOverlay.tsx
@@ -3454,10 +3460,6 @@ msgstr "עדיין אין כרטיסים"
 msgid "No trigger"
 msgstr "ללא טריגר"
 
-#: src/pages/ScratchpadSection.tsx
-msgid "None yet"
-msgstr "עדיין אין"
-
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr "רגיל"
@@ -3516,6 +3518,7 @@ msgid "OAuth client secret (optional)"
 msgstr "סוד לקוח OAuth (אופציונלי)"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth connected"
 msgstr "OAuth מחובר"
 
@@ -3524,6 +3527,7 @@ msgid "OAuth connection failed"
 msgstr "חיבור OAuth נכשל"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth expired"
 msgstr "תוקף OAuth פג"
 

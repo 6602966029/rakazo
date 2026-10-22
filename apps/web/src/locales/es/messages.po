@@ -1658,6 +1658,7 @@ msgid "Could not load integrations"
 msgstr "No se pudieron cargar las integraciones"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "Could not load MCP servers"
 msgstr "No se pudieron cargar los servidores MCP"
 
@@ -1967,8 +1968,8 @@ msgstr "Credencial"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
-msgid "credential saved"
-msgstr "credencial guardada"
+msgid "Credential saved"
+msgstr "Credencial guardada"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Credentials"
@@ -2152,6 +2153,10 @@ msgstr "Detalles"
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "Direct MCP"
 msgstr ""
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Disabled"
+msgstr "Desactivado"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disabled tools"
@@ -3045,6 +3050,7 @@ msgid "MCP endpoint"
 msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "MCP servers"
 msgstr "Servidores MCP"
 
@@ -3348,8 +3354,8 @@ msgid "No artifacts found."
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
-msgid "no auth"
-msgstr "sin autenticación"
+msgid "No auth"
+msgstr "Sin autenticación"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "No authentication"
@@ -3454,10 +3460,6 @@ msgstr ""
 msgid "No trigger"
 msgstr "Sin disparador"
 
-#: src/pages/ScratchpadSection.tsx
-msgid "None yet"
-msgstr "Ninguno aún"
-
 #: src/lib/ticket-priority.ts
 msgid "Normal"
 msgstr ""
@@ -3516,6 +3518,7 @@ msgid "OAuth client secret (optional)"
 msgstr "Secreto de cliente OAuth (opcional)"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth connected"
 msgstr "OAuth conectado"
 
@@ -3524,6 +3527,7 @@ msgid "OAuth connection failed"
 msgstr "Falló la conexión OAuth"
 
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
 msgid "OAuth expired"
 msgstr "OAuth expirado"
 

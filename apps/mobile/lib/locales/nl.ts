@@ -342,8 +342,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Could not load group": "Groep laden mislukt",
   "Could not save group": "Groep opslaan mislukt",
   "Delete group": "Groep verwijderen",
-  "Delete this group? Bots and their solo threads are kept.":
-    "Deze groep verwijderen? Bots en hun eigen threads blijven behouden.",
+  "Bots and their own chats stay.": "Bots en hun eigen chats blijven behouden.",
   "Group name": "Groepsnaam",
   "Group not found": "Groep niet gevonden",
   Members: "Leden",
@@ -868,6 +867,13 @@ export const NL_MESSAGES: Record<string, string> = {
   "Try again": "Opnieuw proberen",
   "Your session expired": "Je sessie is verlopen",
   "The server had a problem": "Er is een probleem met de server",
+  "Could not load MCP servers": "MCP-servers laden mislukt",
+  "MCP servers": "MCP-servers",
+  Disabled: "Uitgeschakeld",
+  "OAuth connected": "OAuth verbonden",
+  "OAuth expired": "OAuth verlopen",
+  "Credential saved": "Inloggegevens opgeslagen",
+  "No auth": "Geen authenticatie",
   "The bot couldn't reply because its provider's daily limit was reached.":
     "De bot kon niet antwoorden omdat de daglimiet van zijn provider is bereikt.",
   "The bot couldn't reply because its provider's weekly limit was reached.":
