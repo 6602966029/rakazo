@@ -59,6 +59,26 @@ describe("lingui catalogs", () => {
     }
   });
 
+  it("translates bot settings section and notification labels in every locale", () => {
+    for (const locale of UI_LOCALES) {
+      const catalog = readFileSync(
+        fileURLToPath(new URL(`../locales/${locale}/messages.po`, import.meta.url)),
+        "utf8",
+      );
+      for (const message of [
+        "Advanced",
+        "Notifications",
+        "When it finishes or needs input",
+        "Model",
+      ]) {
+        const entry = catalog
+          .split("\n\n")
+          .find((block) => block.includes(`msgid ${JSON.stringify(message)}\n`));
+        expect(entry, `${locale}: ${message}`).toMatch(/msgstr ".+"/);
+      }
+    }
+  });
+
   beforeEach(() => {
     i18n.load("en", {});
     i18n.activate("en");

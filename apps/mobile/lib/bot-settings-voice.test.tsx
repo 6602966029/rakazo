@@ -365,6 +365,42 @@ describe("bot settings device voice menu", () => {
   };
   const menu = () => container.querySelector('[data-menu="Device voice"]');
 
+  it.each(["ios", "android"])(
+    "uses muted section disclosure and nonrepeating labels on %s",
+    async (os) => {
+      mocks.os = os;
+      await act(async () => root.render(<BotSettingsScreen />));
+      const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Advanced"]')!;
+      expect(trigger.getAttribute("role")).toBe("button");
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(JSON.parse(trigger.dataset.style!)).toMatchObject({ minHeight: 44 });
+      expect(JSON.parse(trigger.dataset.style!)).not.toHaveProperty("backgroundColor");
+      expect(JSON.parse(trigger.querySelector("span")!.dataset.style!)).toEqual([
+        { fontSize: 12, fontWeight: "500", flexShrink: 1 },
+        { color: "muted" },
+      ]);
+      const heading = [...container.querySelectorAll('[role="header"]')].find(
+        (node) => node.textContent === "Notifications",
+      )!;
+      expect(heading).toBeDefined();
+      expect(JSON.parse((heading.parentElement as HTMLElement).dataset.style!)).toMatchObject({
+        gap: 8,
+      });
+      expect(
+        container.querySelector('[role="switch"][aria-label="When it finishes or needs input"]'),
+      ).not.toBeNull();
+      await expand();
+      expect(trigger.getAttribute("aria-expanded")).toBe("true");
+      const model = container.querySelector('[data-menu="Model"]')!;
+      expect([...model.querySelectorAll("span")].some((node) => node.textContent === "Model")).toBe(
+        false,
+      );
+      expect(model.querySelector('[aria-label="Model"]')).not.toBeNull();
+      await expand();
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    },
+  );
+
   it("adds work from the native prompt and completes it with a leading checkbox", async () => {
     mocks.work = [{ id: "first", title: "First task", notes: "", status: "open" }];
     await render();
@@ -588,7 +624,10 @@ describe("bot settings device voice menu", () => {
     expect(trigger.getAttribute("role")).toBe("button");
     expect(JSON.parse(trigger.dataset.style!)).toMatchObject({ marginTop: 24, minHeight: 44 });
     const headings = [...container.querySelectorAll<HTMLElement>('[role="header"]')];
-    expect(headings.map((heading) => heading.textContent)).toEqual(["Instructions"]);
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      "Instructions",
+      "Notifications",
+    ]);
     expect(trigger.querySelector('[data-ios="chevron.right"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="Instructions"]')).not.toBeNull();
     expect(container.textContent).not.toContain("Model");
@@ -607,9 +646,13 @@ describe("bot settings device voice menu", () => {
       voice: "Device voice",
       fleetManagement: "Manage the bots it creates",
     };
-    const actual = [...container.querySelectorAll("span:not([role=header])")].flatMap((span) =>
+    const actual = [...container.querySelectorAll("span")].flatMap((span) =>
       Object.entries(labels)
-        .filter(([, label]) => label === span.textContent)
+        .filter(
+          ([key, label]) =>
+            label === span.textContent &&
+            (span.getAttribute("role") !== "header" || key === "model"),
+        )
         .map(([key]) => key),
     );
     expect(actual).toEqual(

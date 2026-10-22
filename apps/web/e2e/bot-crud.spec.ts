@@ -119,10 +119,36 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(openWork).toHaveCount(0);
   await expect(settings.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
   await expect(settings.getByRole("button", { name: "Export", exact: true })).toHaveCount(0);
+  const notificationsHeading = settings.getByRole("heading", {
+    name: "Notifications",
+    exact: true,
+  });
+  await expect(notificationsHeading).toBeVisible();
+  const instructionsHeading = settings.locator('label[for$="-instructions"]');
+  for (const property of ["font-size", "font-weight", "color"]) {
+    const expected = await instructionsHeading.evaluate(
+      (node, prop) => getComputedStyle(node).getPropertyValue(prop),
+      property,
+    );
+    await expect(notificationsHeading).toHaveCSS(property, expected);
+    await expect(settings.getByRole("button", { name: "Advanced", exact: true })).toHaveCSS(
+      property,
+      expected,
+    );
+  }
+  await expect(settings.getByRole("button", { name: "Advanced", exact: true })).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(
+    settings.getByRole("switch", { name: "When it finishes or needs input", exact: true }),
+  ).toBeVisible();
   await captureScreenshot(page, testInfo, "bot-settings-sections-collapsed");
   const advancedSection = settings.getByTestId("bot-settings-advanced");
   await expandAdvancedSection(advancedSection);
   await expect(settings.getByRole("button", { name: "Export", exact: true })).toBeVisible();
+  await expect(settings.locator('label[for$="-model"]')).toHaveClass("sr-only");
+  await expect(modelSelect).toBeVisible();
   await captureScreenshot(page, testInfo, "bot-settings-sections-advanced");
   await rpc(page, "scratchpad/create", {
     botId: deletedBotPath.split("/").at(-1),

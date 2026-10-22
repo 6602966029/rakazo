@@ -458,3 +458,32 @@ it("omits projected identity values on unrelated saves but commits explicit inli
   expect(onSave.mock.calls[1]?.[0]).toMatchObject({ name: "SupportBot2026" });
   expect(onSave.mock.calls[2]?.[0]).toMatchObject({ title: "Support" });
 });
+
+it("uses section headings without repeating notification or model row labels", async () => {
+  await renderSettings(vi.fn(async () => undefined));
+  const heading = [...container.querySelectorAll("h3")].find(
+    (node) => node.textContent === "Notifications",
+  );
+  expect(heading).toBeDefined();
+  expect(heading?.className).toContain("mb-2 text-xs font-medium text-muted-foreground");
+  const notification = container.querySelector('label[id$="-notify-finish-label"]');
+  expect(notification?.textContent?.trim()).toBe("When it finishes or needs input");
+  const model = container.querySelector('label[for$="-model"]');
+  expect(model?.className).toBe("sr-only");
+});
+
+it("renders Advanced as a muted unfilled disclosure with an expanded state", async () => {
+  await renderSettings(vi.fn(async () => undefined));
+  const trigger = container.querySelector<HTMLButtonElement>(
+    '[data-testid="bot-settings-advanced"] button[aria-expanded]',
+  )!;
+  expect(trigger.className).toContain("text-xs font-medium text-muted-foreground");
+  expect(trigger.className).not.toMatch(/bg-muted|rounded-xl|px-4|text-sm/);
+  expect(trigger.querySelector("svg")?.getAttribute("class")).toContain(
+    "group-aria-expanded:rotate-0",
+  );
+  await act(async () => trigger.click());
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  await act(async () => trigger.click());
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+});

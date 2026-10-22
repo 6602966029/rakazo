@@ -5451,7 +5451,7 @@ msgstr "Cuando se dispara un webhook"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "When it finishes or needs input"
-msgstr ""
+msgstr "Cuando termine o necesite una respuesta"
 
 #: src/pages/RoutineEditor.tsx
 msgid "When something changes"

@@ -590,34 +590,25 @@ export default function BotSettingsScreen() {
             />
           </View>
         </View>
-        <View
-          style={{
-            marginTop: 24,
-            padding: 16,
-            borderRadius: 12,
-            backgroundColor: native.fill,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ color: tokens.foreground, fontSize: 14 }}>{t("Notifications")}</Text>
-            <Text style={{ color: tokens.mutedForeground, fontSize: 12 }}>
-              {t("When it finishes or needs input")}
-            </Text>
-          </View>
-          <NativeSwitch
-            accessibilityLabel={t("Notifications")}
-            value={notifyOnFinish}
-            onValueChange={(value) => {
-              setNotifyOnFinish(value);
-              void rpc("bots/update", { botId, notifyOnFinish: value }).catch((err) => {
-                setNotifyOnFinish(!value);
-                setError(errorText(err));
-              });
-            }}
-          />
+        <View style={{ marginTop: 24 }}>
+          <SettingsGroup label={t("Notifications")}>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: tokens.foreground }]}>
+                {t("When it finishes or needs input")}
+              </Text>
+              <NativeSwitch
+                accessibilityLabel={t("When it finishes or needs input")}
+                value={notifyOnFinish}
+                onValueChange={(value) => {
+                  setNotifyOnFinish(value);
+                  void rpc("bots/update", { botId, notifyOnFinish: value }).catch((err) => {
+                    setNotifyOnFinish(!value);
+                    setError(errorText(err));
+                  });
+                }}
+              />
+            </View>
+          </SettingsGroup>
         </View>
         {botId ? <BotContextCards key={botId} botId={botId} /> : null}
         <Pressable
@@ -631,12 +622,11 @@ export default function BotSettingsScreen() {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            paddingHorizontal: 16,
-            borderRadius: 12,
-            backgroundColor: native.fill,
           }}
         >
-          <Text style={{ color: tokens.foreground, fontSize: 14 }}>{t("Advanced")}</Text>
+          <Text style={[styles.sectionHeading, { color: tokens.mutedForeground }]}>
+            {t("Advanced")}
+          </Text>
           <Chevron expanded={advancedOpen} />
         </Pressable>
         {advancedOpen ? (
@@ -653,6 +643,7 @@ export default function BotSettingsScreen() {
                 plain
                 choices={modelChoices}
                 label={t("Model")}
+                showLabel={false}
                 onChange={selectModel}
                 onPress={
                   modelChoices.length > MODEL_SEARCH_THRESHOLD

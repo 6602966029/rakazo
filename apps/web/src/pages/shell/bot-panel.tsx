@@ -590,29 +590,31 @@ export function BotSettings({
         />
       </div>
       <InstructionSettings key={bot.id} bot={bot} />
-      <div className="mt-6 flex items-center justify-between gap-3 rounded-xl bg-muted/50 p-4">
-        <div>
-          <label
-            htmlFor={`${ids}-notify-finish`}
-            id={`${ids}-notify-finish-label`}
-            className="text-sm"
-          >
-            <Trans>Notifications</Trans>
-          </label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            <Trans>When it finishes or needs input</Trans>
-          </p>
+      <section className="mt-6">
+        <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+          <Trans>Notifications</Trans>
+        </h3>
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 p-4">
+          <div>
+            <label
+              htmlFor={`${ids}-notify-finish`}
+              id={`${ids}-notify-finish-label`}
+              className="text-sm"
+            >
+              <Trans>When it finishes or needs input</Trans>
+            </label>
+          </div>
+          <Switch
+            id={`${ids}-notify-finish`}
+            checked={notifyOnFinish}
+            aria-labelledby={`${ids}-notify-finish-label`}
+            onCheckedChange={(checked) => {
+              setNotifyOnFinish(checked);
+              void enqueueSave({ notifyOnFinish: checked });
+            }}
+          />
         </div>
-        <Switch
-          id={`${ids}-notify-finish`}
-          checked={notifyOnFinish}
-          aria-labelledby={`${ids}-notify-finish-label`}
-          onCheckedChange={(checked) => {
-            setNotifyOnFinish(checked);
-            void enqueueSave({ notifyOnFinish: checked });
-          }}
-        />
-      </div>
+      </section>
       <ErrorBoundary fallback={<SectionLoadFailed />}>
         <Suspense fallback={null}>
           <ScratchpadSection botId={bot.id} />
@@ -630,7 +632,7 @@ export function BotSettings({
         className="mt-6"
       >
         <h3 className="mb-0 text-xs font-medium text-muted-foreground">
-          <CollapsibleTrigger className="group flex w-full cursor-pointer min-h-11 items-center justify-between gap-2 rounded-xl bg-muted/50 px-4 py-3 text-sm font-normal text-foreground text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          <CollapsibleTrigger className="group flex w-full cursor-pointer min-h-11 items-center justify-between gap-2 text-xs font-medium text-muted-foreground text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <Trans>Advanced</Trans>
             <ChevronDown
               aria-hidden="true"
@@ -656,10 +658,10 @@ export function BotSettings({
               </div>
               <div className="rounded-xl bg-muted/50 p-4 space-y-3">
                 <div className="flex min-h-11 items-center justify-between gap-3">
-                  <label htmlFor={`${ids}-model`} className={rowLabelClass}>
+                  <label htmlFor={`${ids}-model`} className="sr-only">
                     <Trans>Model</Trans>
                   </label>
-                  <div className="min-w-0 w-2/3 [&>div]:mt-0 [&>button]:mt-0">
+                  <div className="min-w-0 w-full [&>div]:mt-0 [&>button]:mt-0">
                     <ChatModelPicker
                       id={`${ids}-model`}
                       choices={modelChoices}

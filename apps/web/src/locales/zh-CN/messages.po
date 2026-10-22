@@ -5451,7 +5451,7 @@ msgstr "当 Webhook 触发时"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "When it finishes or needs input"
-msgstr ""
+msgstr "完成任务或需要输入时"
 
 #: src/pages/RoutineEditor.tsx
 msgid "When something changes"

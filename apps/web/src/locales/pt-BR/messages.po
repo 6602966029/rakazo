@@ -5451,7 +5451,7 @@ msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "When it finishes or needs input"
-msgstr ""
+msgstr "Quando terminar ou precisar de uma resposta"
 
 #: src/pages/RoutineEditor.tsx
 msgid "When something changes"
