@@ -92,7 +92,7 @@ test("delegated work stays working and stoppable with a newer queued run", async
     const sidebarShot = testInfo.outputPath("working-bot-sidebar.png");
     await row.screenshot({ path: sidebarShot, animations: "disabled", caret: "hide" });
     await testInfo.attach("working-bot-sidebar", { path: sidebarShot, contentType: "image/png" });
-    await expect(page.getByText("Inspecting the sample files", { exact: true })).toBeVisible();
+    await expect(page.getByText("Inspecting the sample files", { exact: true })).toHaveCount(0);
     const stop = page.getByRole("button", { name: "Stop", exact: true });
     await expect(stop).toBeVisible();
     await captureScreenshot(page, testInfo, "working-bot-stop");

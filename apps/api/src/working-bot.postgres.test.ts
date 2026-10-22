@@ -16,7 +16,7 @@ import { resolveThreadTarget, stopThreadRuns, threadSnapshot } from "./thread-ta
 const enabled = process.env.VERIFY_DATABASE === "1" && Boolean(process.env.DATABASE_URL);
 
 describe.skipIf(!enabled)("working bot visibility (PostgreSQL)", () => {
-  it("prioritizes running work everywhere, exposes delegated DM progress, and stops it", async () => {
+  it("prioritizes running work everywhere, keeps delegated DM progress silent, and stops it", async () => {
     const { prisma, pool } = createDb(process.env.DATABASE_URL!);
     const identity = await runAsSystem("test fixture", () =>
       provisionMessagingIdentity(
@@ -106,7 +106,7 @@ describe.skipIf(!enabled)("working bot visibility (PostgreSQL)", () => {
         expect(snapshot.activeRuns).toEqual(
           expect.arrayContaining([expect.objectContaining({ id: running.id })]),
         );
-        expect(snapshot.messages.flatMap((message) => message.blocks)).toContainEqual(
+        expect(snapshot.messages.flatMap((message) => message.blocks)).not.toContainEqual(
           expect.objectContaining({ kind: "progress", text: "Inspecting sample files" }),
         );
         // Peer work and failures remain silent in groups.

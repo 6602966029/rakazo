@@ -600,7 +600,7 @@ describe("threadSnapshot", () => {
   });
 
   it.each(["user", "bot_message"])(
-    "reloads tool-only live messages for an active %s run",
+    "reloads live messages only for an active user run (%s)",
     async (trigger) => {
       const run = {
         id: "run-1",
@@ -655,6 +655,13 @@ describe("threadSnapshot", () => {
       const snapshot = await threadSnapshot({ prisma }, target);
 
       expect(tx.$queryRaw).toHaveBeenCalledOnce();
+      if (trigger === "bot_message") {
+        expect(snapshot.run).toMatchObject({ id: run.id, status: "running" });
+        expect(snapshot.activeRuns).toEqual([expect.objectContaining({ id: run.id })]);
+        expect(snapshot.messages).toEqual([]);
+        expect(findManyEvents).not.toHaveBeenCalled();
+        return;
+      }
       expect(findManyEvents).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({

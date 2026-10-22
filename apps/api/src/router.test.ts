@@ -683,7 +683,7 @@ describe("thread stream authorization", () => {
     vi.useRealTimers();
   });
 
-  function threadStream(trigger = "bot_message") {
+  function threadStream() {
     vi.useFakeTimers();
     const queued: ProductEvent[] = [];
     let waiting: ((result: IteratorResult<ProductEvent>) => void) | undefined;
@@ -723,18 +723,8 @@ describe("thread stream authorization", () => {
           computer: null,
         }),
       },
-      chatGroup: {
-        findFirst: vi.fn().mockResolvedValue({
-          id: "group-1",
-          name: "Sample team",
-          thread: { id: "thread-1" },
-          members: ["bot-1", "bot-2"].map((id) => ({
-            bot: { id, name: "Helper", color: "blue", runs: [] },
-          })),
-        }),
-      },
       run: {
-        findUnique: vi.fn().mockResolvedValue({ trigger }),
+        findUnique: vi.fn().mockResolvedValue({ trigger: "bot_message" }),
       },
     } as unknown as PrismaClient;
     const deps = {
@@ -755,53 +745,6 @@ describe("thread stream authorization", () => {
     });
     return { client, emit, follow, stillAuthorized };
   }
-
-  it("forwards live delegated work in its own bot thread", async () => {
-    const { client, emit } = threadStream();
-    const stream = await client.threads.subscribe({ botId: "bot-1", cursor: -1 });
-    emit(1, "", {
-      type: "thread.progress",
-      runId: "run-delegated",
-      payload: { text: "Checking files" },
-    });
-    await expect(stream.next()).resolves.toMatchObject({
-      value: { type: "thread.progress", seq: 1 },
-    });
-    await stream.return?.();
-  });
-
-  it("keeps peer progress silent in group threads", async () => {
-    const { client, emit } = threadStream();
-    const stream = await client.threads.subscribe({ groupId: "group-1", cursor: -1 });
-    emit(1, "", {
-      type: "thread.progress",
-      runId: "run-delegated",
-      payload: { text: "Checking files" },
-    });
-    emit(2, "", {
-      runId: "run-delegated",
-      payload: { blocks: [{ kind: "text", text: "Sample reply" }] },
-    });
-    await expect(stream.next()).resolves.toMatchObject({
-      value: { type: "thread.message.created", seq: 2 },
-    });
-    await stream.return?.();
-  });
-
-  it("keeps background progress silent in the bot's own thread", async () => {
-    const { client, emit } = threadStream("tickets");
-    const stream = await client.threads.subscribe({ botId: "bot-1", cursor: -1 });
-    emit(1, "", {
-      type: "thread.progress",
-      runId: "run-ticket",
-      payload: { text: "Checking files" },
-    });
-    emit(2, "", { type: "run.completed", runId: "run-ticket", payload: {} });
-    await expect(stream.next()).resolves.toMatchObject({
-      value: { type: "run.completed", seq: 2 },
-    });
-    await stream.return?.();
-  });
 
   it("stops delivering a busy thread once the session is revoked", async () => {
     const { client, emit, follow, stillAuthorized } = threadStream();

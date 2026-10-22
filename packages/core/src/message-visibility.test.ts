@@ -36,22 +36,6 @@ const peerExchange = [
 ];
 
 describe("user-visible messages", () => {
-  it("keeps its own delegated progress inline only in the bot's DM", () => {
-    const messages = [
-      received,
-      message("live", "run-peer", [{ kind: "progress", text: "Checking sample files" }]),
-    ].map((row) => ({ ...row, botId: "helper" }));
-    expect(foldPeerReplies(messages, { includePeerReceipts: true }).messages).toEqual([
-      messages[0],
-    ]);
-    const own = foldPeerReplies(messages, { includePeerReceipts: true, ownBotId: "helper" });
-    expect(own.messages).toEqual(messages);
-    expect(own.folded.size).toBe(0);
-    expect(
-      foldPeerReplies(messages, { ownBotId: "helper", backgroundRunIds: ["run-peer"] }).messages,
-    ).toEqual([]);
-  });
-
   it("keeps ordinary group replies inline when a member sends a peer message", () => {
     const messages: ThreadMessage[] = [
       { ...message("first", "group-run", [{ kind: "text", text: "Checking" }]), botId: "first" },

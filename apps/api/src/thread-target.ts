@@ -348,16 +348,7 @@ export async function threadSnapshot(
         async (tx) => {
           await tx.$queryRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR SHARE`;
           const [messagePage, last, activeRuns, busyOrFailed] = await Promise.all([
-            loadMessagePage(
-              tx,
-              target.threadId,
-              undefined,
-              THREAD_MESSAGE_PAGE_SIZE,
-              undefined,
-              false,
-              false,
-              target.botId,
-            ),
+            loadMessagePage(tx, target.threadId, undefined, THREAD_MESSAGE_PAGE_SIZE),
             tx.event.findFirst({
               where: { threadId: target.threadId },
               orderBy: { seq: "desc" },
@@ -410,12 +401,13 @@ export async function threadSnapshot(
                 })
               : null;
           const currentRun = run?.status === "failed" && newestTerminal?.id !== run.id ? null : run;
+          const liveRuns = activeRuns.filter((run) => run.trigger !== "bot_message");
           const liveEvents =
-            activeRuns.length > 0
+            liveRuns.length > 0
               ? await tx.event.findMany({
                   where: {
                     threadId: target.threadId,
-                    runId: { in: activeRuns.map((run) => run.id) },
+                    runId: { in: liveRuns.map((run) => run.id) },
                     type: {
                       in: [
                         "thread.progress",

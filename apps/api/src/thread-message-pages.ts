@@ -27,7 +27,6 @@ export async function loadMessagePage(
   around?: { messageId?: string; seq?: number },
   includePeerRuns = false,
   includePeerReceipts = false,
-  ownBotId?: string,
 ): Promise<ThreadMessagePage> {
   if (around) {
     let targetSeq = around.seq;
@@ -57,9 +56,7 @@ export async function loadMessagePage(
       // Peer activity stays out of the normal transcript (including the
       // around target). Full peer history belongs in the bot-messages overlay
       // (includePeerRuns).
-      const messages = includePeerRuns
-        ? rows
-        : await withoutPeerRunMessages(prisma, rows, ownBotId);
+      const messages = includePeerRuns ? rows : await withoutPeerRunMessages(prisma, rows);
       return {
         threadId,
         messages: messages.map(toThreadMessage),
@@ -82,9 +79,7 @@ export async function loadMessagePage(
     });
     const hasOlder = rows.length > pageSize;
     const pageRows = rows.slice(0, pageSize).reverse();
-    const visibleRows = includePeerRuns
-      ? pageRows
-      : await withoutPeerRunMessages(prisma, pageRows, ownBotId);
+    const visibleRows = includePeerRuns ? pageRows : await withoutPeerRunMessages(prisma, pageRows);
     // Web hides receipts client-side, so its receipt-only pages keep scanning.
     // Mobile explicitly retains them and must receive each page for pagination.
     const hasSubstantive = visibleRows.some(
@@ -123,7 +118,7 @@ async function withoutPeerRunMessages<
     runId: string | null;
     blocks: Prisma.JsonValue;
   },
->(prisma: MessageDb, rows: T[], ownBotId?: string): Promise<T[]> {
+>(prisma: MessageDb, rows: T[]): Promise<T[]> {
   const runIds = [...new Set(rows.flatMap((row) => (row.runId ? [row.runId] : [])))];
   if (runIds.length === 0) return rows;
   const runs = await prisma.run.findMany({
@@ -131,15 +126,13 @@ async function withoutPeerRunMessages<
       id: { in: runIds },
       trigger: { in: ["bot_message", ...BACKGROUND_RUN_TRIGGERS] },
     },
-    select: { id: true, trigger: true, botId: true },
+    select: { id: true, trigger: true },
   });
   const backgroundRunIds = new Set(
     runs.filter((run) => isBackgroundRunTrigger(run.trigger)).map((r) => r.id),
   );
   const peerRunIds = new Set(
-    runs
-      .filter((run) => !backgroundRunIds.has(run.id) && (!ownBotId || run.botId !== ownBotId))
-      .map((run) => run.id),
+    runs.filter((run) => !backgroundRunIds.has(run.id)).map((run) => run.id),
   );
   return rows.filter((row) => {
     if (!row.runId) return true;

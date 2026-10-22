@@ -1759,10 +1759,7 @@ function SpaceShell() {
     if (target.groupId && activeGroupId.current !== target.groupId) return;
     if (target.botId && activeBotId.current !== target.botId) return;
     // A reply folded under its peer marker counts: the transcript expands the marker to show it.
-    const pageTranscript = foldPeerReplies(page.messages, {
-      includePeerReceipts: true,
-      ownBotId: target.botId,
-    });
+    const pageTranscript = foldPeerReplies(page.messages, { includePeerReceipts: true });
     const targetInPage =
       pageTranscript.markerOf.has(target.messageId) ||
       pageTranscript.messages.some((message) => message.id === target.messageId);
@@ -1888,12 +1885,8 @@ function SpaceShell() {
     rememberSeenRunErrorId(runId);
   }, []);
   const transcript = useMemo(
-    () =>
-      foldPeerReplies(activeSnapshot?.messages ?? [], {
-        includePeerReceipts: true,
-        ownBotId: activeSnapshot?.botId,
-      }),
-    [activeSnapshot?.messages, activeSnapshot?.botId],
+    () => foldPeerReplies(activeSnapshot?.messages ?? [], { includePeerReceipts: true }),
+    [activeSnapshot?.messages],
   );
   const transcriptRef = useRef(transcript);
   useLayoutEffect(() => {
