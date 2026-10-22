@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import type { Server } from "node:http";
+import type { Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -607,7 +607,14 @@ test("the native application menu can reopen setup without exposing setup IPC to
 });
 
 test("servers on the same host but different ports do not share login cookies", async () => {
-  const first = createServer((_request, response) => {
+  const monitoringDisabled = (requestUrl: string | undefined, response: ServerResponse) => {
+    if (requestUrl !== "/api/monitoring/config") return false;
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ dsn: null }));
+    return true;
+  };
+  const first = createServer((request, response) => {
+    if (monitoringDisabled(request.url, response)) return;
     response.writeHead(200, {
       "content-type": "text/html; charset=utf-8",
       "set-cookie": "rakazo_session=fake-one; Path=/; SameSite=Lax",
@@ -615,6 +622,7 @@ test("servers on the same host but different ports do not share login cookies", 
     response.end("<!doctype html><main>Cookie stored</main>");
   });
   const second = createServer((request, response) => {
+    if (monitoringDisabled(request.url, response)) return;
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(`<!doctype html><main>Cookies: ${request.headers.cookie ?? "none"}</main>`);
   });
@@ -644,6 +652,8 @@ test("servers on the same host but different ports do not share login cookies", 
     const secondWindow = await app.firstWindow();
     await expect(secondWindow.getByText("Cookies: none")).toBeVisible();
   } finally {
+    await app?.close();
+    app = undefined;
     await Promise.all([
       new Promise<void>((resolve, reject) =>
         first.close((error) => (error ? reject(error) : resolve())),
