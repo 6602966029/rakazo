@@ -81,7 +81,12 @@ describe("create menu", () => {
       /\.\.\.\(Platform\.OS === "android"\s*\? \{ style: \{ marginBottom: -CREATE_MENU_GAP \} \}\s*: \{\}\)/,
     );
     expect(createMenu).toMatch(
-      /style=\{\s*Platform\.OS === "android"\s*\? \[styles\.headerButton, \{ paddingBottom: CREATE_MENU_GAP \}\]\s*: styles\.headerButton\s*\}/,
+      /style=\{\s*Platform\.OS === "android"\s*\? \[styles\.headerButton, styles\.createMenuAnchor\]\s*: styles\.headerButton\s*\}/,
+    );
+    expect(source).toContain("const HEADER_BUTTON_HEIGHT = 40;");
+    expect(source).toMatch(/headerButton: \{[^}]*height: HEADER_BUTTON_HEIGHT,/);
+    expect(source).toMatch(
+      /createMenuAnchor: \{\s*height: HEADER_BUTTON_HEIGHT \+ CREATE_MENU_GAP,\s*paddingBottom: CREATE_MENU_GAP,\s*\}/,
     );
   });
 });

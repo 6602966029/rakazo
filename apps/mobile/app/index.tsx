@@ -142,6 +142,7 @@ import type { LoadFailureKind } from "../lib/user-error";
 import { errorText, loadFailureKind } from "../lib/user-error";
 
 const FALLBACK_COLOR = botColors[3];
+const HEADER_BUTTON_HEIGHT = 40;
 // Lower the Android menu anchor while the negative margin preserves the header layout.
 const CREATE_MENU_GAP = 6;
 // A list narrower than this, beside an open chat, keeps names whole by leaving out the title tag.
@@ -1290,7 +1291,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
                 accessibilityRole="button"
                 style={
                   Platform.OS === "android"
-                    ? [styles.headerButton, { paddingBottom: CREATE_MENU_GAP }]
+                    ? [styles.headerButton, styles.createMenuAnchor]
                     : styles.headerButton
                 }
               >
@@ -2001,11 +2002,15 @@ function createHomeStyles() {
     },
     headerButton: {
       width: 40,
-      height: 40,
+      height: HEADER_BUTTON_HEIGHT,
       borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
       overflow: "hidden",
+    },
+    createMenuAnchor: {
+      height: HEADER_BUTTON_HEIGHT + CREATE_MENU_GAP,
+      paddingBottom: CREATE_MENU_GAP,
     },
     headerButtonActive: {
       backgroundColor: native.fill,
