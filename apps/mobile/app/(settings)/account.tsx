@@ -420,40 +420,42 @@ export default function Account() {
         <SettingsGroup>
           {editingName ? (
             <View style={styles.nameEditor}>
-              <TextInput
-                accessibilityLabel={t("Name")}
-                autoComplete="name"
-                autoFocus
-                editable={!namePending}
-                maxLength={80}
-                onChangeText={(value) => {
-                  setNameDraft(value);
-                  setNameError(null);
-                }}
-                onSubmitEditing={() => void saveName()}
-                returnKeyType="done"
-                style={styles.dialogInput}
-                value={nameDraft}
-              />
+              <View style={styles.nameEditorRow}>
+                <TextInput
+                  accessibilityLabel={t("Name")}
+                  autoComplete="name"
+                  autoFocus
+                  editable={!namePending}
+                  maxLength={80}
+                  onChangeText={(value) => {
+                    setNameDraft(value);
+                    setNameError(null);
+                  }}
+                  onSubmitEditing={() => void saveName()}
+                  returnKeyType="done"
+                  style={[styles.dialogInput, styles.nameInput]}
+                  value={nameDraft}
+                />
+                <View style={[styles.dialogActions, styles.nameActions]}>
+                  <NativeActionButton
+                    label={t("Cancel")}
+                    prominence="secondary"
+                    disabled={namePending}
+                    onPress={() => setEditingName(false)}
+                  />
+                  <NativeActionButton
+                    label={t("Save")}
+                    fill={false}
+                    disabled={namePending || !nameDraft.trim()}
+                    onPress={() => void saveName()}
+                  />
+                </View>
+              </View>
               {nameError ? (
                 <Text accessibilityRole="alert" style={styles.dialogError}>
                   {nameError}
                 </Text>
               ) : null}
-              <View style={styles.dialogActions}>
-                <NativeActionButton
-                  label={t("Cancel")}
-                  prominence="secondary"
-                  disabled={namePending}
-                  onPress={() => setEditingName(false)}
-                />
-                <NativeActionButton
-                  label={t("Save")}
-                  fill={false}
-                  disabled={namePending || !nameDraft.trim()}
-                  onPress={() => void saveName()}
-                />
-              </View>
             </View>
           ) : (
             <SettingsRow
@@ -928,8 +930,23 @@ function createAccountStyles() {
       paddingHorizontal: 8,
     },
     nameEditor: {
-      padding: 16,
-      gap: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      gap: 8,
+    },
+    nameEditorRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: 8,
+    },
+    nameInput: {
+      flexGrow: 1,
+      flexBasis: 160,
+      height: 44,
+    },
+    nameActions: {
+      marginLeft: "auto",
     },
     section: {
       gap: 7,
