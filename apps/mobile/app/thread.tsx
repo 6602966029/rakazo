@@ -2380,6 +2380,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           canDismiss={dismissableAskIds.has(message.id)}
           highlighted={highlightedMessageId === message.id}
           separator={separatorIds.has(message.id)}
+          headerAdjacent={threadHeaderFloats() && message.id === visibleMessages[0]?.id}
           unreadDivider={message.id === unreadDividerId}
           replyAuthor={replyAuthor}
           replyFallbackText={parent ? previewMessageText(parent) : undefined}
@@ -2424,6 +2425,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       dismissableAskIds,
       highlightedMessageId,
       separatorIds,
+      visibleMessages[0]?.id,
       unreadDividerId,
       columnWidth,
       t,
@@ -2433,7 +2435,14 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<ThreadItem<MobileMessage>>) =>
       item.kind === "voiceChat" ? (
-        <View style={messageListStyles.row}>
+        <View
+          style={[
+            messageListStyles.row,
+            threadHeaderFloats() && item.messages[0]?.id === visibleMessages[0]?.id
+              ? { marginTop: 0 }
+              : undefined,
+          ]}
+        >
           {item.messages[0] && separatorIds.has(item.messages[0].id) ? (
             <TimeSeparator createdAt={item.messages[0].createdAt} />
           ) : null}
@@ -2447,7 +2456,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       ) : (
         renderMessageRow(item.message)
       ),
-    [renderMessageRow, separatorIds, unreadDividerId],
+    [renderMessageRow, separatorIds, unreadDividerId, visibleMessages[0]?.id],
   );
   const listContentStyle = useMemo(
     () => ({
@@ -3186,6 +3195,7 @@ type MessageRowProps = {
   canDismiss: boolean;
   highlighted: boolean;
   separator: boolean;
+  headerAdjacent: boolean;
   unreadDivider: boolean;
   replyAuthor: string;
   replyFallbackText?: string;
@@ -3226,6 +3236,7 @@ const MessageRow = memo(function MessageRow({
   canDismiss,
   highlighted,
   separator,
+  headerAdjacent,
   unreadDivider,
   replyAuthor,
   replyFallbackText,
@@ -3421,7 +3432,7 @@ const MessageRow = memo(function MessageRow({
       onLayout={onLayout}
       style={{
         backgroundColor: highlighted ? tokens.muted : undefined,
-        marginTop: 12,
+        marginTop: headerAdjacent ? 0 : 12,
         width: "100%",
       }}
     >

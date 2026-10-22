@@ -8,16 +8,20 @@ export const threadScrollEdgeEffects = {
   right: "hidden",
 } as const;
 
-export const THREAD_HEADER_FADE_SOLID = 16;
-export const THREAD_HEADER_FADE_GRADIENT = 32;
+// The pill bottoms sit 10pt above the native header bottom.
+export const THREAD_HEADER_PILL_BOTTOM_INSET = 10;
+export const THREAD_HEADER_FADE_SOLID = 14;
+export const THREAD_HEADER_FADE_GRADIENT = 12;
 
 export function threadHeaderClearance(headerHeight: number) {
-  const fadeHeight = headerHeight > 0 ? THREAD_HEADER_FADE_SOLID + THREAD_HEADER_FADE_GRADIENT : 0;
+  if (headerHeight <= 0) return { opaqueHeight: 0, padding: 8, anchor: 24, minHeight: 0 };
+  const pillBottom = headerHeight - THREAD_HEADER_PILL_BOTTOM_INSET;
+  const opaqueHeight = pillBottom + THREAD_HEADER_FADE_SOLID;
   return {
-    opaqueHeight: headerHeight > 0 ? headerHeight + THREAD_HEADER_FADE_SOLID : 0,
-    padding: headerHeight + fadeHeight + 8,
-    anchor: headerHeight + fadeHeight + 24,
-    minHeight: headerHeight > 0 ? headerHeight + fadeHeight + 8 : 0,
+    opaqueHeight,
+    padding: opaqueHeight,
+    anchor: opaqueHeight + THREAD_HEADER_FADE_GRADIENT + 8,
+    minHeight: opaqueHeight,
   };
 }
 

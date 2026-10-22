@@ -75,6 +75,10 @@ describe("thread scroll edges", () => {
     expect(source).toContain("jumpAnchor.current.align(headerClearance.anchor)");
     expect(source).toContain("styles.headerFade, { height: headerClearance.opaqueHeight }");
     expect(source).toContain("<View style={styles.headerFadeEdge} />");
+    expect(source).toContain(
+      "headerAdjacent={threadHeaderFloats() && message.id === visibleMessages[0]?.id}",
+    );
+    expect(source).toContain("marginTop: headerAdjacent ? 0 : 12");
   });
 
   it("remounts each marker with its live or pinned scroll view", () => {
@@ -107,14 +111,18 @@ describe("thread scroll edges", () => {
   });
 });
 
-it.each([64, 96, 120])(
-  "keeps messages and jump targets beyond the fade at header height %s",
+it.each([64, 96, 116, 120])(
+  "places the band and jump targets below the pills at header height %s",
   (height) => {
     const clearance = threadHeaderClearance(height);
-    const fadeEnd = clearance.opaqueHeight + THREAD_HEADER_FADE_GRADIENT;
-    expect(clearance.padding).toBeGreaterThan(fadeEnd);
-    expect(clearance.anchor).toBeGreaterThan(fadeEnd);
-    expect(clearance.minHeight).toBeGreaterThan(fadeEnd);
+    const pillBottom = height - 10;
+    expect(clearance.opaqueHeight - pillBottom).toBe(14);
+    expect(THREAD_HEADER_FADE_GRADIENT).toBe(12);
+    expect(clearance.padding).toBe(clearance.opaqueHeight);
+    expect(clearance.minHeight).toBeGreaterThanOrEqual(clearance.opaqueHeight);
+    expect(clearance.anchor).toBeGreaterThan(clearance.opaqueHeight + THREAD_HEADER_FADE_GRADIENT);
+    // The first date has a 12pt margin and about 4pt of font leading.
+    expect(clearance.padding + 16 - pillBottom).toBe(30);
   },
 );
 

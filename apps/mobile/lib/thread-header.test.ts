@@ -16,8 +16,8 @@ it("sizes the chat title like the header buttons beside it", () => {
   expect(titleCapsule).not.toHaveProperty("paddingVertical");
 });
 
-it("uses a borderless fallback title fill and a longer fade", () => {
+it("uses a borderless fallback title fill and a short fade", () => {
   const styles = createThreadHeaderStyles();
   expect(styles.titleCapsuleFill).not.toHaveProperty("borderWidth");
-  expect(styles.headerFadeEdge.height).toBe(32);
+  expect(styles.headerFadeEdge.height).toBe(12);
 });
