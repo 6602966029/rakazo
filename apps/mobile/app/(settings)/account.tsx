@@ -800,8 +800,10 @@ export default function Account() {
       {nameDialogOpen ? (
         <Modal transparent animationType="fade" onRequestClose={closeNameDialog}>
           <KeyboardAvoidingView style={styles.dialogOverlay}>
+            {/* Tapping outside dismisses; the Cancel button is the accessible way out. */}
             <Pressable
-              accessibilityLabel={t("Cancel")}
+              accessible={false}
+              importantForAccessibility="no"
               style={StyleSheet.absoluteFill}
               onPress={closeNameDialog}
             />
