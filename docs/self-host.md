@@ -512,12 +512,10 @@ Error reporting to Sentry or a Sentry-compatible collector such as GlitchTip is 
   to that DSN. Use a separate project from `SENTRY_DSN`.
 - `SENTRY_ENVIRONMENT` names the deployment. `SENTRY_RELEASE` defaults to the image's `GIT_SHA`.
 
-Desktop and mobile use the connected server's `SENTRY_BROWSER_DSN` configuration. Mobile native
-crash reporting requires a rebuilt app; Expo Go is unsupported. Electron reports native crash
-metadata without uploading memory dumps.
-
-For symbolicated mobile crash reports, configure uploads when building the app with `SENTRY_AUTH_TOKEN`,
-`SENTRY_ORG`, `SENTRY_PROJECT`, and optional `SENTRY_URL`.
+Desktop and mobile use the connected server's `SENTRY_BROWSER_DSN`. Electron sends crash metadata
+without memory dumps. Mobile native reporting requires a rebuilt app; Expo Go is unsupported.
+For readable mobile crash stacks, build with `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`,
+and optional `SENTRY_URL` to upload symbols.
 
 Neither SDK sends cookies, headers, request bodies, user identity, console output, or log context.
 When `ANALYTICS_PSEUDONYM_SECRET` is set, reports carry a keyed hash of the signed-in user's id so
@@ -1203,12 +1201,9 @@ Monitoring is opt-in. Install `host-alert.py` as `/usr/local/sbin/rakazo-host-al
 `/usr/local/sbin/rakazo-check-services` (all executable), then install the supplied host-check service
 and timer and enable `rakazo-host-check.timer`. Checks run every five minutes and report low disk
 space, failed backups, a verified backup older than 36 hours, or missing configured IPv4 SSH rules.
-Set `RAKAZO_MONITOR_COMPOSE_PROJECT` in `backup.env` to the deployed Compose project name
-(`rakazo-prod` for the production manifest) to also alert when the API or worker is missing,
-stopped, or unhealthy. Leave it unset when container monitoring is managed elsewhere.
-The worker's Docker probe checks a heartbeat and reconciliation freshness, so an alive but
-blocked worker becomes unhealthy too. Host alerts use the existing optional delivery channel;
-installing this code alone does not enable a host timer or create hosted collector alerts.
+To also check API and worker containers, set `RAKAZO_MONITOR_COMPOSE_PROJECT` in `backup.env` to
+the Compose project name (`rakazo-prod` for production). The worker probe checks heartbeat and
+reconciliation freshness. Leave the variable unset if container monitoring is managed elsewhere.
 
 The dedicated-volume check is enabled only by `RAKAZO_BACKUP_REQUIRE_VOLUME=1` in `backup.env`.
 Identical alerts are suppressed for a day; recovery sends a separate notification.

@@ -13,7 +13,6 @@ const sdk = vi.hoisted(() => ({
   linkedErrorsIntegration: vi.fn(),
   dedupeIntegration: vi.fn(),
   onUncaughtExceptionIntegration: vi.fn(),
-  sentryMinidumpIntegration: vi.fn(),
   makeElectronTransport: vi.fn(),
 }));
 vi.mock("@sentry/electron/main", () => sdk);

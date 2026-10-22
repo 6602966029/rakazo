@@ -81,6 +81,36 @@ describe("mobile monitoring", () => {
     expect(sdk.captureException).toHaveBeenCalledTimes(1);
   });
 
+  it("shares pending configuration and retries after it fails", async () => {
+    const monitor = await import("./monitoring");
+    let release!: (value: Response) => void;
+    const fetchConfig = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const first = monitor.configureMobileMonitoring("https://app.example.com", {}, fetchConfig);
+    await vi.waitFor(() => expect(fetchConfig).toHaveBeenCalledTimes(1));
+    expect(monitor.configureMobileMonitoring("https://app.example.com", {}, fetchConfig)).toBe(
+      first,
+    );
+    release(new Response(null, { status: 503 }));
+    await first;
+
+    const error = new Error("waiting for reporting");
+    monitor.reportMobileError(error, "voice.turn");
+    await monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(sdk.init).toHaveBeenCalledTimes(1);
+    expect(sdk.captureException).toHaveBeenCalledWith(error, {
+      tags: { operation: "voice.turn", surface: "mobile" },
+    });
+  });
+
   it("reopens a previous connection after a failed switch without replaying the other connection's errors", async () => {
     const monitor = await import("./monitoring");
     const fetchConfig = response({ dsn: "https://key@errors.example.com/8" });

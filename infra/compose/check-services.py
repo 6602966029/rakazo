@@ -25,7 +25,14 @@ def main(project):
     rows = []
     for line in result.stdout.splitlines():
         service, state, status = line.split("|", 2)
-        health = "unhealthy" if "unhealthy" in status else "starting" if "health: starting" in status else "healthy" if "(healthy)" in status else ""
+        if "unhealthy" in status:
+            health = "unhealthy"
+        elif "health: starting" in status:
+            health = "starting"
+        elif "(healthy)" in status:
+            health = "healthy"
+        else:
+            health = ""
         rows.append({"service": service, "state": state, "health": health})
     failures = service_failures(rows)
     for failure in failures:

@@ -13,7 +13,7 @@ let generation = 0;
 let connectionKey: string | undefined;
 let configured = false;
 let closing: Promise<unknown> = Promise.resolve();
-let configuring: Promise<void> = Promise.resolve();
+let configuring: Promise<void> | undefined;
 
 export function reportMobileError(
   error: unknown,
@@ -41,13 +41,13 @@ export function configureMobileMonitoring(
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   const key = JSON.stringify([base, headers]);
-  if (key === connectionKey && configured) return configuring;
+  if (key === connectionKey && (configured || configuring)) return configuring ?? Promise.resolve();
   if (connectionKey !== undefined && key !== connectionKey) errors.reset();
   connectionKey = key;
   configured = false;
   const current = ++generation;
   sdk?.setUser(null);
-  const next = configuring.then(async () => {
+  const next = (configuring ?? Promise.resolve()).then(async () => {
     if (current !== generation) return;
     await closing;
     if (sdk) await sdk.close();
@@ -119,8 +119,12 @@ export function configureMobileMonitoring(
       // Retain the bounded startup queue; foreground/reconnect retries configuration.
     }
   });
-  configuring = next.catch(() => undefined);
-  return configuring;
+  const pending = next.catch(() => undefined);
+  configuring = pending;
+  void pending.finally(() => {
+    if (configuring === pending) configuring = undefined;
+  });
+  return pending;
 }
 
 /** Install before Expo Router imports so early JS failures retain their original handler. */

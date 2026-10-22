@@ -146,11 +146,6 @@ export function configureDesktopMonitoring(
             const owner = event.tags?.["monitoring.connection"];
             if (owner !== generation) return null;
             hint.attachments = [];
-            // The API reconstructs a strict allowlist for native and JavaScript reports alike.
-            event.user =
-              event.tags?.["native.crash"] !== "true" && userId
-                ? { id: userId, ip_address: null }
-                : { ip_address: null };
             event.environment = environment;
             if (event.event_id) {
               if (owners.size >= 100) owners.delete(owners.keys().next().value!);

@@ -44,7 +44,21 @@ describe("native crash metadata", () => {
     await vi.waitFor(() => expect(mocks.writePrivateFile).toHaveBeenCalledTimes(2));
     expect(mocks.start).toHaveBeenCalledTimes(1);
     expect(capture).toHaveBeenCalledTimes(1);
+    expect(mocks.readdir).toHaveBeenCalledTimes(3);
   });
+
+  it.each([null, { ...checkpoint, enabled: false }])(
+    "skips dump scans for an inactive checkpoint: %j",
+    async (saved) => {
+      mocks.readPrivateFile.mockResolvedValue(JSON.stringify(saved));
+      const native = await import("./native-crashes.js");
+      const capture = vi.fn();
+      native.configureNativeCrashReporting(base, capture);
+      await vi.waitFor(() => expect(mocks.writePrivateFile).toHaveBeenCalledTimes(1));
+      expect(mocks.readdir).not.toHaveBeenCalled();
+      expect(capture).not.toHaveBeenCalled();
+    },
+  );
 
   it("drops in-flight metadata scans when the connection is disabled", async () => {
     let release!: (value: string) => void;

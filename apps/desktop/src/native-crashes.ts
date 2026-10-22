@@ -48,30 +48,21 @@ export function configureNativeCrashReporting(base: string, next: Capture): void
         checkedAt?: number;
         enabled?: boolean;
       } | null;
-      let latest = 0;
-      for (const directory of [
-        app.getPath("crashDumps"),
-        path.join(app.getPath("crashDumps"), "pending"),
-        path.join(app.getPath("crashDumps"), "completed"),
-      ]) {
-        for (const entry of await readdir(directory, { withFileTypes: true }).catch(() => [])) {
-          if (!entry.isFile() || !entry.name.endsWith(".dmp")) continue;
-          const metadata = await stat(path.join(directory, entry.name)).catch(() => undefined);
-          latest = Math.max(latest, metadata?.mtimeMs ?? 0);
-        }
-      }
       if (current !== epoch) return;
       if (
         saved?.enabled &&
         saved.connection === connection &&
-        typeof saved.checkedAt === "number" &&
-        latest > saved.checkedAt
-      )
-        next(
-          new Error("Desktop native process crashed during the previous session"),
-          "desktop.startup",
-          { "native.crash": "true" },
-        );
+        typeof saved.checkedAt === "number"
+      ) {
+        const latest = await latestCrashTime();
+        if (current !== epoch) return;
+        if (latest > saved.checkedAt)
+          next(
+            new Error("Desktop native process crashed during the previous session"),
+            "desktop.startup",
+            { "native.crash": "true" },
+          );
+      }
       await writePrivateFile(
         file,
         JSON.stringify({ connection, checkedAt: Date.now(), enabled: true }),
@@ -87,4 +78,20 @@ export function disableNativeCrashReporting(): void {
   writes = writes
     .then(() => writePrivateFile(file, JSON.stringify({ checkedAt: Date.now(), enabled: false })))
     .catch(() => undefined);
+}
+
+async function latestCrashTime(): Promise<number> {
+  let latest = 0;
+  for (const directory of [
+    app.getPath("crashDumps"),
+    path.join(app.getPath("crashDumps"), "pending"),
+    path.join(app.getPath("crashDumps"), "completed"),
+  ]) {
+    for (const entry of await readdir(directory, { withFileTypes: true }).catch(() => [])) {
+      if (!entry.isFile() || !entry.name.endsWith(".dmp")) continue;
+      const metadata = await stat(path.join(directory, entry.name)).catch(() => undefined);
+      latest = Math.max(latest, metadata?.mtimeMs ?? 0);
+    }
+  }
+  return latest;
 }

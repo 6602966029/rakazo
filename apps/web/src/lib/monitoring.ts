@@ -1,27 +1,25 @@
 import type { ClientOperation, MonitoringConfig } from "@rakazo/logging/monitoring";
 import {
   createClientErrorReporter,
+  isMonitoringUserId,
   sanitizeMonitoringEvent,
-  isMonitoringUserId as validUserId,
 } from "@rakazo/logging/monitoring";
 import type * as SentryReact from "@sentry/react";
 import type { ErrorInfo } from "react";
 import { importChunk } from "./preload-recovery";
 
-// Browser error reporting. The API says at runtime whether it is on, so one web build serves every
-// deployment; the SDK is only downloaded when it is.
+// Load the SDK only when the connected API enables reporting.
 
 const MAX_PENDING = 20;
 
 let sentry: typeof SentryReact | undefined;
-// Errors caught while startup is still in flight; sent once the SDK starts, dropped if it does not.
+// Queue caught React errors until monitoring starts.
 let pending: Array<[unknown, ErrorInfo]> | undefined = [];
 // The signed-in user's pseudonymous id, minted by the API; the raw account id never leaves.
 let userId: string | undefined;
 let identifications = 0;
 // Unknown until the session resolves; false means signed out.
 let signedInState: boolean | undefined;
-let monitoringOff = false;
 const errors = createClientErrorReporter();
 let explicitlyDisabled = false;
 let starting: Promise<boolean> | undefined;
@@ -56,7 +54,6 @@ export async function startMonitoring(fetchImpl: typeof fetch = fetch): Promise<
   if (starting) return starting;
   starting = (async () => {
     sentry = await loadSentry(fetchImpl);
-    monitoringOff = explicitlyDisabled;
     if (sentry || explicitlyDisabled) {
       const queued = pending ?? [];
       pending = undefined;
@@ -69,9 +66,8 @@ export async function startMonitoring(fetchImpl: typeof fetch = fetch): Promise<
             }
           : undefined,
       );
-    }
-    if (sentry || explicitlyDisabled) clearTimeout(retryTimer);
-    else if (typeof window !== "undefined" && retries < 3) {
+      clearTimeout(retryTimer);
+    } else if (typeof window !== "undefined" && retries < 3) {
       clearTimeout(retryTimer);
       retryTimer = setTimeout(() => {
         void startMonitoring(fetchImpl);
@@ -94,13 +90,13 @@ export async function identifyMonitoringUser(
   const current = ++identifications;
   signedInState = signedIn;
   userId = undefined;
-  if (!signedIn || monitoringOff) return;
+  if (!signedIn || explicitlyDisabled) return;
   try {
     const response = await fetchImpl("/api/monitoring/config");
     if (!response.ok) return;
     const { userId: id } = (await response.json()) as MonitoringConfig;
     // A sign-out or another account that arrived meanwhile wins.
-    if (current === identifications && validUserId(id)) userId = id;
+    if (current === identifications && isMonitoringUserId(id)) userId = id;
   } catch {
     // Reports go out without a user.
   }
@@ -119,11 +115,10 @@ async function loadSentry(fetchImpl: typeof fetch): Promise<typeof SentryReact |
   explicitlyDisabled = !config.dsn;
   if (!config.dsn) return undefined;
   // Errors queued during startup count the user too, unless a sign-out or a newer answer came first.
-  if (signedInState !== false && userId === undefined && validUserId(config.userId))
+  if (signedInState !== false && userId === undefined && isMonitoringUserId(config.userId))
     userId = config.userId;
   let Sentry: typeof SentryReact;
   try {
-    // A stale chunk after a deploy or a network failure must not surface as an unhandled rejection.
     Sentry = await importChunk(() => import("@sentry/react"));
     Sentry.init({
       dsn: config.dsn,
