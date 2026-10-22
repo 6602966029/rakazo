@@ -985,4 +985,9 @@ export const DE_MESSAGES: Record<string, string> = {
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Monatliches Guthaben verfällt bei Verlängerung. Einmalige Aufladungen verfallen nicht.",
   "Use Rakazo credits": "Rakazo-Guthaben verwenden",
+  "1 unread": "1 ungelesen",
+  "{count} unread": "{count} ungelesen",
+  "{count} need attention": "{count} brauchen Aufmerksamkeit",
+  "{label}, above": "{label}, oben",
+  "{label}, below": "{label}, unten",
 };

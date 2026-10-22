@@ -948,4 +948,9 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "每月额度在续费时到期。单次充值额度不会过期。",
   "Use Rakazo credits": "使用 Rakazo 额度",
+  "1 unread": "1 条未读",
+  "{count} unread": "{count} 条未读",
+  "{count} need attention": "{count} 个需要处理",
+  "{label}, above": "{label}，上方",
+  "{label}, below": "{label}，下方",
 };

@@ -941,4 +941,9 @@ export const NL_MESSAGES: Record<string, string> = {
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Maandelijks tegoed vervalt bij verlenging. Los gekocht tegoed verloopt niet.",
   "Use Rakazo credits": "Rakazo-tegoed gebruiken",
+  "1 unread": "1 ongelezen",
+  "{count} unread": "{count} ongelezen",
+  "{count} need attention": "{count} vragen aandacht",
+  "{label}, above": "{label}, boven",
+  "{label}, below": "{label}, onder",
 };

@@ -1,7 +1,7 @@
 import { MenuView } from "@expo/ui/community/menu";
 import type { RunActivityRow, SpaceBot, SpaceGroup } from "@rakazo/contracts";
 import { normalizeCreateBotProfile } from "@rakazo/contracts";
-import { accountDisplay, isRetryableError, isRunWorking } from "@rakazo/core";
+import { accountDisplay, isRetryableError, isRunWaitingOnUser, isRunWorking } from "@rakazo/core";
 import { botColors, fontWeight, typeScale } from "@rakazo/ui-tokens";
 import type { Href } from "expo-router";
 import {
@@ -54,6 +54,7 @@ import { GroupAvatar } from "../components/group-avatar";
 import { HomeErrorState } from "../components/home-error-state";
 import { InboxSwipeRow } from "../components/inbox-swipe-row";
 import { NativeSymbol } from "../components/native-symbol";
+import { useUnreadJumpPills } from "../components/unread-jump-overlay";
 import { WorkingIndicator } from "../components/WorkingIndicator";
 import {
   activityPreview,
@@ -100,6 +101,7 @@ import { confirmDeleteBot, confirmDeleteGroup } from "../lib/bot-lifecycle";
 import type { CollapsedSections } from "../lib/collapsed-sections";
 import { loadCollapsedSections, saveCollapsedSections } from "../lib/collapsed-sections";
 import { confirmDeleteSection } from "../lib/confirm-delete-section";
+import { useHeaderHeightIfAny } from "../lib/floating-header";
 import { allowFocusPrompt, scheduleFocusPrompt } from "../lib/focus-prompt";
 import { useForegroundPoll } from "../lib/foreground-poll";
 import { t, useI18n } from "../lib/i18n";
@@ -127,6 +129,7 @@ import {
 import { afterChatNotifyChange, dismissThreadNotifications } from "../lib/live-notifications";
 import { native, useThemedStyles } from "../lib/native";
 import { iosAtLeast } from "../lib/native-controls";
+import type { InboxSignal } from "../lib/offscreen-unreads";
 import { offerPasskeyOnce } from "../lib/passkey";
 import { ACTIVITY_POLL_INTERVAL_MS, INBOX_POLL_INTERVAL_MS } from "../lib/poll-cadence";
 import { previewSnippet } from "../lib/preview";
@@ -159,6 +162,36 @@ type PinnedChat =
   | { kind: "bot"; bot: MobileBot | SpaceBot }
   | { kind: "group"; group: MobileGroup | SpaceGroup };
 type InboxItem = InboxSpaceItem | { type: "pinned"; chats: PinnedChat[] };
+
+/** What a chat adds to the off-screen unread pills: unread, and a bot waiting on you. */
+function chatSignal(chat: PinnedChat): InboxSignal {
+  return chat.kind === "bot"
+    ? {
+        unread: chat.bot.unread ? 1 : 0,
+        attention: isRunWaitingOnUser(chat.bot.status) ? 1 : 0,
+      }
+    : { unread: chat.group.unread ? 1 : 0, attention: 0 };
+}
+
+function inboxItemKey(item: InboxItem): string {
+  if (item.type === "pinned") return "pinned";
+  if (item.type === "heading") return `heading-${item.key}`;
+  if (item.type === "bot") return item.bot.id;
+  return `group-${item.group.id}`;
+}
+
+function inboxSignal(item: InboxItem): InboxSignal {
+  if (item.type === "heading") return { unread: 0, attention: 0 };
+  if (item.type === "bot") return chatSignal({ kind: "bot", bot: item.bot });
+  if (item.type === "group") return chatSignal({ kind: "group", group: item.group });
+  return item.chats.map(chatSignal).reduce(
+    (total, signal) => ({
+      unread: total.unread + signal.unread,
+      attention: total.attention + signal.attention,
+    }),
+    { unread: 0, attention: 0 },
+  );
+}
 
 async function openMobileSpace(spaceId: string | undefined, open: () => void) {
   if (spaceId && !(await selectSpace(spaceId))) {
@@ -619,6 +652,18 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
   // Liquid Glass uses the native bar: glass bar items and a native menu.
   // The list beside a chat has no navigation bar of its own.
   const nativeHeader = iosAtLeast(26) && !embedded;
+  const headerHeight = useHeaderHeightIfAny();
+  const listRef = useRef<FlatList<InboxItem>>(null);
+  const jumpSignals = useMemo(() => listData.map(inboxSignal), [listData]);
+  const jumpKeys = useMemo(() => listData.map(inboxItemKey), [listData]);
+  const unreadJump = useUnreadJumpPills({
+    signals: jumpSignals,
+    keys: jumpKeys,
+    listRef,
+    // The Liquid Glass header floats over the list; the older header sits above it.
+    topInset: nativeHeader ? headerHeight : 0,
+    bottomInset: insets.bottom,
+  });
   const navigation = useNavigation();
   const router = useRouter();
   const pathname = usePathname();
@@ -1389,79 +1434,79 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
 
       <SelectedChatContext.Provider value={embedded ? selectedChatId : null}>
         <CompactRowsContext.Provider value={compactRows}>
-          <FlatList<InboxItem>
-            style={{ flex: 1 }}
-            data={showLoadFailure ? [] : listData}
-            keyExtractor={(item) => {
-              if (item.type === "pinned") return "pinned";
-              if (item.type === "heading") return `heading-${item.key}`;
-              if (item.type === "bot") return item.bot.id;
-              return `group-${item.group.id}`;
-            }}
-            keyboardDismissMode="interactive"
-            keyboardShouldPersistTaps="handled"
-            indicatorStyle={appearance === "dark" ? "white" : "black"}
-            contentContainerStyle={[
-              styles.list,
-              { paddingLeft: columnInsets.left, paddingRight: columnInsets.right },
-            ]}
-            contentInsetAdjustmentBehavior="automatic"
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => {
-                  void refreshBots();
-                  void loadActivity();
-                }}
-                tintColor={native.secondaryLabel}
-                colors={[tokens.mutedForeground]}
-                progressBackgroundColor={tokens.muted}
-              />
-            }
-            ListHeaderComponent={
-              <>
-                {inlineError ? <Text style={styles.error}>{inlineError}</Text> : null}
-                {spaceRecoveryId ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={spaceBusy}
-                    onPress={() => void chooseInboxSpace(spaceRecoveryId)}
-                    style={styles.recoveryAction}
-                  >
-                    <Text style={styles.spaceTitle}>{t("Try again.")}</Text>
-                  </Pressable>
-                ) : null}
-                {activityMode && (activity.active.length > 0 || activity.recent.length > 0) ? (
-                  <ActivitySection activity={activity} bots={bots} />
-                ) : null}
-              </>
-            }
-            ListEmptyComponent={
-              showLoadFailure && loadFailure ? (
-                <HomeErrorState
-                  kind={loadFailure.kind}
-                  message={loadFailure.message}
-                  loading={inboxLoading && !refreshing}
-                  onRetry={() => void refreshBots()}
-                  onSignIn={() => void signInAgain()}
+          <View style={styles.listArea}>
+            <FlatList<InboxItem>
+              ref={listRef}
+              {...unreadJump.listProps}
+              style={{ flex: 1 }}
+              data={showLoadFailure ? [] : listData}
+              keyExtractor={inboxItemKey}
+              keyboardDismissMode="interactive"
+              keyboardShouldPersistTaps="handled"
+              indicatorStyle={appearance === "dark" ? "white" : "black"}
+              contentContainerStyle={[
+                styles.list,
+                { paddingLeft: columnInsets.left, paddingRight: columnInsets.right },
+              ]}
+              contentInsetAdjustmentBehavior="automatic"
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => {
+                    void refreshBots();
+                    void loadActivity();
+                  }}
+                  tintColor={native.secondaryLabel}
+                  colors={[tokens.mutedForeground]}
+                  progressBackgroundColor={tokens.muted}
                 />
-              ) : (
-                <Text style={styles.empty}>{me ? t("Tap + to create a bot") : null}</Text>
-              )
-            }
-            ListFooterComponent={
-              <>
-                {!showLoadFailure && inboxNeedsCreateHint(listData) ? (
-                  <Text style={styles.empty}>{t("Tap + to create a bot")}</Text>
-                ) : null}
-                <ArchivedChatsRow
-                  count={archivedCount}
-                  onPress={() => router.push("/archived-bots")}
-                />
-              </>
-            }
-            renderItem={renderItem}
-          />
+              }
+              ListHeaderComponent={
+                <>
+                  {inlineError ? <Text style={styles.error}>{inlineError}</Text> : null}
+                  {spaceRecoveryId ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={spaceBusy}
+                      onPress={() => void chooseInboxSpace(spaceRecoveryId)}
+                      style={styles.recoveryAction}
+                    >
+                      <Text style={styles.spaceTitle}>{t("Try again.")}</Text>
+                    </Pressable>
+                  ) : null}
+                  {activityMode && (activity.active.length > 0 || activity.recent.length > 0) ? (
+                    <ActivitySection activity={activity} bots={bots} />
+                  ) : null}
+                </>
+              }
+              ListEmptyComponent={
+                showLoadFailure && loadFailure ? (
+                  <HomeErrorState
+                    kind={loadFailure.kind}
+                    message={loadFailure.message}
+                    loading={inboxLoading && !refreshing}
+                    onRetry={() => void refreshBots()}
+                    onSignIn={() => void signInAgain()}
+                  />
+                ) : (
+                  <Text style={styles.empty}>{me ? t("Tap + to create a bot") : null}</Text>
+                )
+              }
+              ListFooterComponent={
+                <>
+                  {!showLoadFailure && inboxNeedsCreateHint(listData) ? (
+                    <Text style={styles.empty}>{t("Tap + to create a bot")}</Text>
+                  ) : null}
+                  <ArchivedChatsRow
+                    count={archivedCount}
+                    onPress={() => router.push("/archived-bots")}
+                  />
+                </>
+              }
+              renderItem={renderItem}
+            />
+            {refreshing || showLoadFailure || inboxHasNoChats(listData) ? null : unreadJump.overlay}
+          </View>
         </CompactRowsContext.Provider>
       </SelectedChatContext.Provider>
       {organizeChat && organizeTarget ? (
@@ -2116,6 +2161,9 @@ function createHomeStyles() {
       color: native.secondaryLabel,
       paddingHorizontal: 20,
       paddingBottom: 8,
+    },
+    listArea: {
+      flex: 1,
     },
     list: {
       flexGrow: 1,

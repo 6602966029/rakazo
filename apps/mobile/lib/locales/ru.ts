@@ -981,4 +981,9 @@ export const RU_MESSAGES: Record<string, string> = {
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Ежемесячные кредиты истекают при продлении. Разовые пополнения не сгорают.",
   "Use Rakazo credits": "Использовать кредиты Rakazo",
+  "1 unread": "1 непрочитанный",
+  "{count} unread": "Непрочитанных: {count}",
+  "{count} need attention": "Требуют внимания: {count}",
+  "{label}, above": "{label}, выше",
+  "{label}, below": "{label}, ниже",
 };
