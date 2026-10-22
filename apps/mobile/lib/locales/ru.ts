@@ -1,6 +1,10 @@
 export const RU_MESSAGES: Record<string, string> = {
   "Edit name": "Изменить имя",
   "Could not update name": "Не удалось обновить имя",
+  "Add an AI model to keep chatting": "Добавьте ИИ-модель, чтобы продолжить общение",
+  "Not Now": "Не сейчас",
+  "Add Model": "Добавить модель",
+  "Not sent · No model": "Не отправлено · Нет модели",
   "Update required": "Требуется обновление",
   Update: "Обновить",
   Provider: "Провайдер",

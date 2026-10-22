@@ -1,6 +1,10 @@
 export const ZH_MESSAGES: Record<string, string> = {
   "Edit name": "编辑姓名",
   "Could not update name": "无法更新姓名",
+  "Add an AI model to keep chatting": "添加一个 AI 模型以继续聊天",
+  "Not Now": "暂不",
+  "Add Model": "添加模型",
+  "Not sent · No model": "未发送 · 没有模型",
   "Update required": "需要更新",
   Update: "更新",
   Provider: "提供商",
