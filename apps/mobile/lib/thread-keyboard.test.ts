@@ -14,7 +14,15 @@ describe("thread keyboard avoidance", () => {
     );
     expect(avoidingView).not.toContain("ref={keyboardLayout.container}");
     expect(avoidingView).not.toContain("onLayout={keyboardLayout.onLayout}");
-    expect(avoidingView).toContain("keyboardVerticalOffset={keyboardLayout.offset}");
+    expect(avoidingView).toContain("measuredOffset: keyboardLayout.offset");
+  });
+
+  // Before iOS 26 the opaque header pushes the chat down. A zero offset there lets the
+  // keyboard cover the composer.
+  it("offsets by the native header unless the header floats", () => {
+    expect(avoidingView).toContain("keyboardVerticalOffset={threadKeyboardOffset({");
+    expect(avoidingView).toContain("floatingHeader: iosAtLeast(26)");
+    expect(avoidingView).toContain("nativeHeaderHeight,");
   });
 
   // A keyboard opened on a pushed screen hides without move frames when that screen closes.
