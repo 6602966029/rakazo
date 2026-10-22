@@ -225,15 +225,7 @@ export async function providerLiveCatalogsForSpace(
     rows.map(async (row) => {
       const provider = slots.get(row.id);
       if (!provider) return;
-      const ids = await cache.read({
-        provider,
-        secretId: row.id,
-        version: createHash("sha256").update(row.ciphertext).digest("hex"),
-        apiKey: async () => {
-          const secret = parseModelSecret(await secrets.load(row.ciphertext, row.id));
-          return secret.kind === "api_key" ? secret.key : undefined;
-        },
-      });
+      const ids = await readSecretCatalog(cache, secrets, provider, row);
       if (ids) out.set(row.id, ids);
     }),
   );
@@ -241,6 +233,24 @@ export async function providerLiveCatalogsForSpace(
 }
 
 export const providerCatalogCache = new ProviderCatalogCache();
+
+/** Cache identity is the secret id plus a ciphertext hash; the key is decrypted only to probe. */
+function readSecretCatalog(
+  cache: ProviderCatalogCache,
+  secrets: Pick<SecretStore, "load">,
+  provider: string,
+  row: { id: string; ciphertext: string },
+): Promise<string[] | undefined> {
+  return cache.read({
+    provider,
+    secretId: row.id,
+    version: createHash("sha256").update(row.ciphertext).digest("hex"),
+    apiKey: async () => {
+      const secret = parseModelSecret(await secrets.load(row.ciphertext, row.id));
+      return secret.kind === "api_key" ? secret.key : undefined;
+    },
+  });
+}
 
 /** Validation reads the exact credential chosen for the user/model, through the listing cache. */
 export async function providerLiveListsModel(
@@ -264,15 +274,7 @@ export async function providerLiveListsModel(
     select: { id: true, ciphertext: true },
   });
   if (!row) return false;
-  const ids = await cache.read({
-    provider,
-    secretId,
-    version: createHash("sha256").update(row.ciphertext).digest("hex"),
-    apiKey: async () => {
-      const secret = parseModelSecret(await secrets.load(row.ciphertext, row.id));
-      return secret.kind === "api_key" ? secret.key : undefined;
-    },
-  });
+  const ids = await readSecretCatalog(cache, secrets, provider, row);
   if (!ids) return false;
   if (ids.includes(modelId)) return true;
   return (await savedCatalogSelections(prisma, userId)).has(`${provider}:${modelId}`);
