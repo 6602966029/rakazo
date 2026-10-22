@@ -165,7 +165,6 @@ import {
   ComputerCommandSchema,
   canonicalPiProviderId,
   foldComputerCommands,
-  IntegrationProviderIdSchema,
   isDeletableMemoryDocument,
   mcpOAuthEnvReferences,
   OPENAI_COMPATIBLE_PROVIDER_ID,
@@ -228,7 +227,6 @@ import {
   IsolationError,
   issueMessagingLinkCode,
   listBoards,
-  listSecurityEvents,
   listSpaceBackupModels,
   listTicketComments,
   lockOwnedGroup,
@@ -305,13 +303,7 @@ import { addScreenProxyCapability } from "./screen-proxy.js";
 import { querySpaceSearch } from "./search.js";
 import { connectionCreatedEvent, procedureSecurityEvent } from "./security-audit.js";
 import { withSerializableRetry } from "./serializable-retry.js";
-import type { UpdaterProxyConfig } from "./server-update.js";
-import {
-  applyServerUpdate,
-  checkServerUpdate,
-  readServerUpdateStatus,
-  UpdaterProxyError,
-} from "./server-update.js";
+
 import { assertTeachingSendAllowed, createTaughtSkillsService } from "./taught-skills.js";
 import {
   isBackgroundRun,
@@ -575,20 +567,19 @@ function connectionContext(
   };
 }
 
-/** Loopback / LAN / Docker-network endpoints: the deployment owner, or everyone under the flag. */
-function mayUsePrivateEndpoint(actor: Actor, deps: Pick<RouterDeps, "env">): boolean {
-  return actor.isDeploymentOwner || deps.env.mcpAllowPrivateEndpoint === true;
+/** Private server endpoints require explicit operator configuration. */
+function mayUsePrivateEndpoint(deps: Pick<RouterDeps, "env">): boolean {
+  return deps.env.mcpAllowPrivateEndpoint === true;
 }
 
 async function assertMcpRemoteEndpoint(
   endpoint: string | null | undefined,
-  actor: Actor,
   deps: Pick<RouterDeps, "remoteConnectors" | "env">,
 ): Promise<void> {
   if (!endpoint) return;
   try {
     await assertSafeRemoteUrl(endpoint, deps.remoteConnectors?.resolveHostname, {
-      allowPrivateEndpoint: mayUsePrivateEndpoint(actor, deps),
+      allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
     });
   } catch (error) {
     throw new ORPCError("BAD_REQUEST", {
@@ -718,11 +709,9 @@ export interface RouterDeps {
     screenProxySecret: string;
     sandboxProvider: string;
     gitSha?: string;
-    updaterUrl?: string;
-    updaterToken?: string;
-    imageTag?: string;
     integrationsCatalogUrl?: string;
     mcpAllowPrivateEndpoint?: boolean;
+    desktopStackToken?: string;
   };
 }
 
@@ -1380,69 +1369,29 @@ export function createRouter(deps: RouterDeps) {
         spaces: navigation.spaces,
       };
     }),
+    // Retain wire compatibility for older clients, but app accounts have no server authority.
     deployment: {
-      get: authed.deployment.get.handler(async ({ context }) => {
-        if (!context.actor.isDeploymentOwner) throw new ORPCError("FORBIDDEN");
-        return deploymentDto(deps.prisma, deps.env.sandboxProvider);
+      get: authed.deployment.get.handler(() => {
+        throw new ORPCError("FORBIDDEN");
       }),
-      update: authed.deployment.update.handler(async ({ context, input }) => {
-        if (!context.actor.isDeploymentOwner) throw new ORPCError("FORBIDDEN");
-        if (input.computerHost === "this-mac" && deps.env.sandboxProvider !== "docker") {
-          throw new ORPCError("BAD_REQUEST", {
-            message:
-              "This Mac mode is only available when SANDBOX_PROVIDER=docker on a personal local app.",
-          });
-        }
-        await deps.prisma.deploymentSettings.upsert({
-          where: { id: "default" },
-          create: {
-            id: "default",
-            ownerUserId: context.actor.userId,
-            signupsEnabled: input.signupsEnabled ?? true,
-            signupAllowlist: (input.signupAllowlist ?? []).join(","),
-            signupPolicyInitialized: true,
-            computerHost: input.computerHost ?? undefined,
-          },
-          update: {
-            ...(input.signupsEnabled === undefined ? {} : { signupsEnabled: input.signupsEnabled }),
-            ...(input.signupAllowlist ? { signupAllowlist: input.signupAllowlist.join(",") } : {}),
-            ...(input.signupsEnabled === undefined && input.signupAllowlist === undefined
-              ? {}
-              : { signupPolicyInitialized: true }),
-            ...(input.computerHost === undefined ? {} : { computerHost: input.computerHost }),
-          },
-        });
-        return deploymentDto(deps.prisma, deps.env.sandboxProvider);
+      update: authed.deployment.update.handler(() => {
+        throw new ORPCError("FORBIDDEN");
       }),
     },
     security: {
-      events: authed.security.events.handler(async ({ context, input }) => {
-        if (!context.actor.isDeploymentOwner) throw new ORPCError("FORBIDDEN");
-        return runAsSystem("the deployment security log for its owner", () =>
-          listSecurityEvents(deps.prisma, input),
-        );
+      events: authed.security.events.handler(() => {
+        throw new ORPCError("FORBIDDEN");
       }),
     },
     updater: {
-      status: authed.updater.status.handler(async ({ context }) => {
-        if (!context.actor.isDeploymentOwner) throw new ORPCError("FORBIDDEN");
-        return readServerUpdateStatus(updaterConfig(deps));
+      status: authed.updater.status.handler(() => {
+        throw new ORPCError("FORBIDDEN");
       }),
-      check: authed.updater.check.handler(async ({ context, input }) => {
-        if (!context.actor.isDeploymentOwner) throw new ORPCError("FORBIDDEN");
-        try {
-          return await checkServerUpdate(updaterConfig(deps), input);
-        } catch (error) {
-          mapUpdaterError(error);
-        }
+      check: authed.updater.check.handler(() => {
+        throw new ORPCError("FORBIDDEN");
       }),
-      apply: authed.updater.apply.handler(async ({ context, input }) => {
-        if (!context.actor.isDeploymentOwner) throw new ORPCError("FORBIDDEN");
-        try {
-          return await applyServerUpdate(updaterConfig(deps), input);
-        } catch (error) {
-          mapUpdaterError(error);
-        }
+      apply: authed.updater.apply.handler(() => {
+        throw new ORPCError("FORBIDDEN");
       }),
     },
     models: {
@@ -1577,7 +1526,7 @@ export function createRouter(deps: RouterDeps) {
           }
           plaintext = buildModelConnectPlaintext(input, previousPlaintext, {
             omitVisionModelIds,
-            allowPrivateEndpoint: mayUsePrivateEndpoint(context.actor, deps),
+            allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
           });
         } catch (error) {
           throw new ORPCError("BAD_REQUEST", {
@@ -1659,7 +1608,7 @@ export function createRouter(deps: RouterDeps) {
               { ...input, apiKey },
               undefined,
               context.signal,
-              { allowPrivate: mayUsePrivateEndpoint(context.actor, deps) },
+              { allowPrivate: mayUsePrivateEndpoint(deps) },
             );
             return { models };
           } catch (error) {
@@ -3094,36 +3043,10 @@ export function createRouter(deps: RouterDeps) {
           },
           orderBy: { createdAt: "desc" },
         });
-        return rows.map((row) => computerUpdateView(row, context.actor.isDeploymentOwner));
+        return rows.map((row) => computerUpdateView(row));
       }),
-      releaseInterrupted: authed.computer.releaseInterrupted.handler(async ({ context, input }) => {
-        if (!context.actor.isDeploymentOwner) throw new ORPCError("FORBIDDEN");
-        // This is an attended lock release, never a heartbeat-based takeover.
-        // The contract requires the operator's explicit workersStopped assertion.
-        await deps.prisma.$transaction(async (tx) => {
-          const update = await tx.computerUpdate.findFirst({
-            where: {
-              id: input.id,
-              status: "interrupted",
-              computer: {
-                spaceId: context.actor.spaceId,
-                bots: { some: { userId: context.actor.userId, archivedAt: null } },
-              },
-            },
-          });
-          if (!update) throw new ORPCError("CONFLICT");
-          const failed = await tx.computerUpdate.updateMany({
-            where: { id: update.id, status: "interrupted" },
-            data: { status: "failed" },
-          });
-          if (failed.count !== 1) throw new ORPCError("CONFLICT");
-          const released = await tx.computer.updateMany({
-            where: { id: update.computerId, maintenanceId: update.id },
-            data: { maintenanceId: null, state: "error" },
-          });
-          if (released.count !== 1) throw new ORPCError("CONFLICT");
-        });
-        return { ok: true as const };
+      releaseInterrupted: authed.computer.releaseInterrupted.handler(() => {
+        throw new ORPCError("FORBIDDEN");
       }),
       dismissUpdate: authed.computer.dismissUpdate.handler(async ({ context, input }) => {
         await deps.prisma.computerUpdate.updateMany({
@@ -4478,7 +4401,7 @@ export function createRouter(deps: RouterDeps) {
               credential,
               signal: context.signal,
               remote: deps.remoteConnectors,
-              allowPrivateEndpoint: mayUsePrivateEndpoint(context.actor, deps),
+              allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
             });
             config = verified.config;
           }
@@ -4489,7 +4412,7 @@ export function createRouter(deps: RouterDeps) {
               credential,
               signal: context.signal,
               remote: deps.remoteConnectors,
-              allowPrivateEndpoint: mayUsePrivateEndpoint(context.actor, deps),
+              allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
             });
             source = prepared.source;
             config = prepared.config;
@@ -4501,7 +4424,7 @@ export function createRouter(deps: RouterDeps) {
               credential,
               signal: context.signal,
               remote: deps.remoteConnectors,
-              allowPrivateEndpoint: mayUsePrivateEndpoint(context.actor, deps),
+              allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
             });
             source = prepared.source;
             config = prepared.config;
@@ -4623,18 +4546,10 @@ export function createRouter(deps: RouterDeps) {
           );
         }),
         create: authed.mcp.servers.create.handler(async ({ context, input }) => {
-          await assertMcpRemoteEndpoint(
-            "endpoint" in input ? input.endpoint : null,
-            context.actor,
-            deps,
-          );
+          await assertMcpRemoteEndpoint("endpoint" in input ? input.endpoint : null, deps);
           if (input.transport === "stdio") {
             assertMcpOAuthTemplates(input.env, input.files ?? {}, Boolean(input.oauthClient));
-            await assertMcpRemoteEndpoint(
-              input.oauthClient?.authorizationServer,
-              context.actor,
-              deps,
-            );
+            await assertMcpRemoteEndpoint(input.oauthClient?.authorizationServer, deps);
           }
           const secretPayload = buildMcpCredentialBlob(input);
           const stored = secretPayload
@@ -4738,14 +4653,10 @@ export function createRouter(deps: RouterDeps) {
             }
             const nextEndpoint = "endpoint" in config ? config.endpoint : null;
             if (existing.endpoint !== nextEndpoint) {
-              await assertMcpRemoteEndpoint(nextEndpoint, context.actor, deps);
+              await assertMcpRemoteEndpoint(nextEndpoint, deps);
             }
             if (config.transport === "stdio") {
-              await assertMcpRemoteEndpoint(
-                config.oauthClient?.authorizationServer,
-                context.actor,
-                deps,
-              );
+              await assertMcpRemoteEndpoint(config.oauthClient?.authorizationServer, deps);
             }
             const update = buildMcpUpdateMaterial(existingMaterial, config, {
               clearOAuth: existing.endpoint !== nextEndpoint,
@@ -4753,7 +4664,6 @@ export function createRouter(deps: RouterDeps) {
             if (update.action === "store" && config.transport === "stdio") {
               await assertMcpRemoteEndpoint(
                 update.material.oauthClient?.authorization_server,
-                context.actor,
                 deps,
               );
               assertMcpOAuthTemplates(
@@ -5202,39 +5112,14 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     integrationSetup: {
-      get: authed.integrationSetup.get.handler(async ({ context }) => {
-        const canConfigure = context.actor.isDeploymentOwner;
-        const providers = canConfigure
-          ? await Promise.all(
-              IntegrationProviderIdSchema.options.map(async (id) => ({
-                id,
-                configured: deps.integrationSettings
-                  ? await deps.integrationSettings.configured(id)
-                  : Boolean(deps.connectors.managed(id)),
-              })),
-            )
-          : [];
-        return {
-          canConfigure,
-          needsSetup: canConfigure && !providers.some((provider) => provider.configured),
-          webUrl: new URL("/integrations/setup", deps.env.webOrigin).toString(),
-          providers,
-        };
-      }),
-      save: authed.integrationSetup.save.handler(async ({ context, input }) => {
-        if (!context.actor.isDeploymentOwner) throw new ORPCError("FORBIDDEN");
-        if (!deps.integrationSettings) throw new ORPCError("NOT_IMPLEMENTED");
-        try {
-          await deps.integrationSettings.save(
-            input,
-            connectionContext(context.actor, "integrationSetup.save", context.signal),
-          );
-        } catch {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "Could not verify or save these credentials",
-          });
-        }
-        return { ok: true as const };
+      get: authed.integrationSetup.get.handler(() => ({
+        canConfigure: false,
+        needsSetup: false,
+        webUrl: new URL("/integrations/setup", deps.env.webOrigin).toString(),
+        providers: [],
+      })),
+      save: authed.integrationSetup.save.handler(() => {
+        throw new ORPCError("FORBIDDEN");
       }),
     },
     connections: {
@@ -6849,30 +6734,6 @@ export function createRouter(deps: RouterDeps) {
   });
 }
 
-function updaterConfig(deps: RouterDeps): UpdaterProxyConfig {
-  return {
-    url: deps.env.updaterUrl ?? null,
-    token: deps.env.updaterToken ?? null,
-    gitSha: deps.env.gitSha,
-    imageTag: deps.env.imageTag ?? null,
-  };
-}
-
-function mapUpdaterError(error: unknown): never {
-  if (error instanceof UpdaterProxyError) {
-    if (error.status === 401 || error.status === 403) {
-      throw new ORPCError("FORBIDDEN", { message: error.message });
-    }
-    if (error.status >= 500) {
-      throw new ORPCError("INTERNAL_SERVER_ERROR", { message: error.message });
-    }
-    throw new ORPCError("BAD_REQUEST", { message: error.message });
-  }
-  throw new ORPCError("INTERNAL_SERVER_ERROR", {
-    message: error instanceof Error ? error.message : "Update failed.",
-  });
-}
-
 // Lists every Space the member belongs to, with each one's bots and threads, so it
 // reads across Spaces. Every query below is limited to the member's Spaces.
 function spaceNavigationDto(
@@ -7069,7 +6930,7 @@ async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
     email: user.email,
     name: user.name,
     spaceId: actor.spaceId,
-    isDeploymentOwner: actor.isDeploymentOwner,
+    isDeploymentOwner: false,
     needsModel: setup.needsModel,
     defaultProvider: canonicalPiProviderId(
       setup.credential?.provider ??
@@ -7086,11 +6947,12 @@ async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
       deps.env.defaultProvider,
     ),
     computerHost: computerHostFor(setup.settings?.computerHost, deps.env.sandboxProvider),
-    canChooseHostComputer: actor.isDeploymentOwner && deps.env.sandboxProvider === "docker",
+    canChooseHostComputer:
+      Boolean(deps.env.desktopStackToken) && deps.env.sandboxProvider === "docker",
     sandboxProvider: deps.env.sandboxProvider,
     avatarStyle: user.avatarStyle === "robot" ? "robot" : "organic",
     timezone: user.timezone ?? null,
-    billingEnabled: Boolean(deps.billing) && !actor.isDeploymentOwner,
+    billingEnabled: Boolean(deps.billing),
   };
 }
 
@@ -7104,8 +6966,7 @@ async function modelSetup(deps: RouterDeps, actor: Actor) {
     findDefaultModelCredential(deps.prisma, actor),
     deps.prisma.deploymentSettings.findUnique({ where: { id: "default" } }),
   ]);
-  const funding =
-    deps.billing && !actor.isDeploymentOwner ? await deps.billing.status(actor) : null;
+  const funding = deps.billing ? await deps.billing.status(actor) : null;
   const hasDeployment =
     Boolean(deps.env.deploymentModelConfigured) &&
     (!funding?.creditPurchasesEnabled || funding.funding === "credits");
@@ -7396,25 +7257,6 @@ async function computerScreenContext(
   });
   if (!lease || lease.expiresAt.getTime() <= Date.now()) return context;
   return { ...context, screenLeaseId: screenLeaseIdForRun(lease, lease.runId) };
-}
-
-async function deploymentDto(prisma: PrismaClient, sandboxProvider: string) {
-  const settings = await prisma.deploymentSettings.findUnique({ where: { id: "default" } });
-  return {
-    ownerUserId: settings?.ownerUserId ?? null,
-    signupsEnabled: settings?.signupsEnabled ?? true,
-    signupAllowlist: settings?.signupAllowlist
-      ? settings.signupAllowlist.split(",").filter(Boolean)
-      : [],
-    hasDeploymentModelCredential: Boolean(settings?.deploymentModelCredentialCipher),
-    defaultProvider: settings?.defaultModelProvider
-      ? canonicalPiProviderId(settings.defaultModelProvider)
-      : null,
-    defaultModel: settings?.defaultModelId ?? null,
-    computerHost: computerHostFor(settings?.computerHost, sandboxProvider),
-    canChooseHostComputer: sandboxProvider === "docker",
-    sandboxProvider,
-  };
 }
 
 function computerHostFor(

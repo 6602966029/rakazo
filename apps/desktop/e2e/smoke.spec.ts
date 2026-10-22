@@ -46,7 +46,6 @@ test("launches with a narrow preload bridge and an isolated renderer", async () 
     expect(renderer.bridgeKeys).toEqual([
       "badge",
       "computer",
-      "localSettings",
       "oauth",
       "platform",
       "update",

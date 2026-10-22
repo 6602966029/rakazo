@@ -7,7 +7,6 @@ import type {
   SecretStore,
 } from "@rakazo/adapter-kit";
 import {
-  actorMayUsePrivateEndpoint,
   formatCurrentTimeInstruction,
   hasHostedModelCredits,
   hostedModelCreditObserver,
@@ -334,11 +333,7 @@ export class ModelTeamChatEngagementJudge implements TeamChatEngagementJudge {
           id: modelId,
           apiKey: parsed.apiKey,
           baseUrl: parsed.baseUrl,
-          allowPrivateEndpoint: await actorMayUsePrivateEndpoint(
-            this.deps.prisma,
-            bot.userId,
-            this.deps.allowPrivateEndpoint === true,
-          ),
+          allowPrivateEndpoint: this.deps.allowPrivateEndpoint === true,
           ...limit,
           ...context,
         },

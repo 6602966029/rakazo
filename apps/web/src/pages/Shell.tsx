@@ -3663,11 +3663,7 @@ function SpaceShell() {
                   holdComputerRecovery();
                 }}
                 onRecoveryDismissed={releaseComputerRecovery}
-                onOpenComputerSettings={
-                  bootstrapMe?.isDeploymentOwner === true
-                    ? () => openSettings("computer")
-                    : undefined
-                }
+                onOpenComputerSettings={() => openSettings("computer")}
                 onOpen={() => void openComputer()}
                 routines={activeRoutines}
                 runningRoutineId={
@@ -4048,7 +4044,6 @@ function SpaceShell() {
             onUsageOpen={refreshUsage}
             initialSection={settingsSection}
             avatarStyle={bootstrapMe?.avatarStyle ?? "organic"}
-            isDeploymentOwner={bootstrapMe?.isDeploymentOwner === true}
             billingEnabled={bootstrapMe?.billingEnabled === true}
             sandboxProvider={bootstrapMe?.sandboxProvider}
             onSandboxProviderChange={(sandboxProvider) =>

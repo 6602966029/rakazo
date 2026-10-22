@@ -26,7 +26,6 @@ import type { ComponentType } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalRulesSettings } from "../components/ApprovalRulesSettings";
 import { computersAreUnavailable } from "../components/ComputersUnavailableHint";
-import { hasServerUpdates, useServerUpdateStatus } from "../components/SoftwareUpdateSection";
 import { desktopBridge } from "../lib/desktop";
 import { rpcForSpace } from "../lib/rpc";
 import { SpaceRpcProvider } from "../lib/space-rpc";
@@ -81,7 +80,6 @@ export function SettingsOverlay({
   onAvatarStyleChange,
   timezone,
   onTimezoneChange,
-  isDeploymentOwner = false,
   billingEnabled = false,
   sandboxProvider,
   onSandboxProviderChange,
@@ -112,7 +110,6 @@ export function SettingsOverlay({
   onAvatarStyleChange: (style: AvatarStyle) => Promise<void>;
   timezone: string | null;
   onTimezoneChange: (timezone: string) => Promise<void>;
-  isDeploymentOwner?: boolean;
   billingEnabled?: boolean;
   sandboxProvider?: string | null;
   onSandboxProviderChange?: (sandboxProvider: string) => void;
@@ -133,10 +130,8 @@ export function SettingsOverlay({
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [keepComputerRecovery, setKeepComputerRecovery] = useState(false);
   const recoveryHoldTimer = useRef<number | undefined>(undefined);
-  const showComputer =
-    keepComputerRecovery || (isDeploymentOwner && computersAreUnavailable(sandboxProvider));
-  const serverUpdate = useServerUpdateStatus(isDeploymentOwner);
-  const showUpdates = Boolean(desktopBridge()?.update) || hasServerUpdates(serverUpdate);
+  const showComputer = keepComputerRecovery || computersAreUnavailable(sandboxProvider);
+  const showUpdates = Boolean(desktopBridge()?.update);
   const panelBusy = memoryBusy || voiceBusy;
   const spaceScoped = SPACE_SECTIONS.has(section);
   const spaceId = spaceScoped ? (space?.id ?? null) : null;
@@ -201,8 +196,8 @@ export function SettingsOverlay({
   }, [billingEnabled, section]);
 
   useEffect(() => {
-    if (!showUpdates && !serverUpdate.loading && section === "updates") setSection("general");
-  }, [showUpdates, serverUpdate.loading, section]);
+    if (!showUpdates && section === "updates") setSection("general");
+  }, [showUpdates, section]);
 
   useEffect(() => {
     if (section !== "computer") releaseComputerRecovery();
@@ -425,7 +420,6 @@ export function SettingsOverlay({
                     onOpenMessaging={
                       onOpenMessaging ? () => leaveSettings(onOpenMessaging) : undefined
                     }
-                    isDeploymentOwner={isDeploymentOwner}
                   />
                 ) : null}
                 {section === "confirmations" ? <ApprovalRulesSettings /> : null}
@@ -443,9 +437,7 @@ export function SettingsOverlay({
                   />
                 ) : null}
                 {section === "billing" && billingEnabled ? <BillingSettingsPanel /> : null}
-                {section === "updates" && showUpdates ? (
-                  <UpdatesSettingsPanel serverUpdate={serverUpdate} />
-                ) : null}
+                {section === "updates" && showUpdates ? <UpdatesSettingsPanel /> : null}
                 {section === "models" ? (
                   <ModelSettingsOverlay embedded onClose={requestClose} />
                 ) : null}

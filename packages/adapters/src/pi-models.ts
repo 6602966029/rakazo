@@ -220,7 +220,7 @@ function catalogBilling(
   const signInMeta = SUBSCRIPTION_SIGN_IN_PROVIDERS[providerId];
   if (signInMeta) return signInMeta.billing;
   if (providerId === LOCAL_PROVIDER_ID) {
-    return "Runs on infrastructure configured by the deployment owner. No model charges from Rakazo.";
+    return "Runs on infrastructure configured by the server operator. No model charges from Rakazo.";
   }
   if (providerId === OPENAI_COMPATIBLE_PROVIDER_ID) {
     return "Runs on a URL you control. Rakazo does not pay for model usage.";

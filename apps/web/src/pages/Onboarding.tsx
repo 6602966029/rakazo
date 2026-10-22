@@ -1,5 +1,5 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
-import type { IntegrationSetupState, ThinkingLevel } from "@rakazo/contracts";
+import type { ThinkingLevel } from "@rakazo/contracts";
 import {
   CLOUDFLARE_AI_GATEWAY_PROVIDER_ID,
   cloudflareGatewayRouting,
@@ -35,7 +35,6 @@ import {
 import { Check, Copy } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
 import {
   ModelPreflightFeedback,
   modelPreflightTestingLabel,
@@ -118,19 +117,12 @@ function providerLabel(entry: ModelCatalogEntry): string {
   return entry.provider === "openai-codex" ? "ChatGPT" : (entry.providerName ?? entry.provider);
 }
 
-function nextStepAfterModel(needsIntegrationSetup: boolean): "integrations" | "bot" {
-  return needsIntegrationSetup ? "integrations" : "bot";
-}
-
 export function OnboardingPage() {
   const { t } = useLingui();
   const navigate = useNavigate();
   const fieldId = useId();
-  const [step, setStep] = useState<"loading" | "model" | "integrations" | "bot">("loading");
+  const [step, setStep] = useState<"loading" | "model" | "bot">("loading");
   const [billingEnabled, setBillingEnabled] = useState(false);
-  const [integrationSetup, setIntegrationSetup] = useState<IntegrationSetupState | null>(null);
-  const needsIntegrationSetup = integrationSetup?.needsSetup ?? false;
-  const [integrationServers, setIntegrationServers] = useState<string[]>([]);
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
   const [provider, setProvider] = useState("openrouter");
   const [modelId, setModelId] = useState("");
@@ -189,19 +181,14 @@ export function OnboardingPage() {
           // The connection itself succeeded; the effort stays adjustable in Models.
         }
       }
-      setStep(nextStepAfterModel(needsIntegrationSetup));
+      setStep("bot");
     },
   });
 
   useEffect(() => {
-    void Promise.all([
-      rpc.me(),
-      rpc.models.list().catch(() => []),
-      rpc.integrationSetup.get().catch(() => null),
-    ])
-      .then(([me, models, integrations]) => {
+    void Promise.all([rpc.me(), rpc.models.list().catch(() => [])])
+      .then(([me, models]) => {
         setBillingEnabled(me.billingEnabled);
-        setIntegrationSetup(integrations);
         setCatalog(models);
         deploymentDefaultModelRef.current = me.defaultModel;
         const preferred =
@@ -214,7 +201,7 @@ export function OnboardingPage() {
           setProvider(preferred.provider);
           setModelId(preferred.provider === OPENAI_COMPATIBLE_PROVIDER_ID ? "" : preferred.id);
         }
-        setStep(me.needsModel ? "model" : integrations?.needsSetup ? "integrations" : "bot");
+        setStep(me.needsModel ? "model" : "bot");
       })
       .catch(() => setStep("bot"));
     return () => {
@@ -505,7 +492,7 @@ export function OnboardingPage() {
       if (level && !isOpenAiCompatible && modelId) {
         await rpc.models.setDefault({ provider, modelId, thinkingLevel: level });
       }
-      setStep(nextStepAfterModel(needsIntegrationSetup));
+      setStep("bot");
     } catch (err) {
       setError(errorText(err, t`Could not save model`));
     }
@@ -530,9 +517,6 @@ export function OnboardingPage() {
     setError(null);
     try {
       const bot = await ensureFirstBot();
-      for (const serverId of integrationServers) {
-        await rpc.mcp.assignments.approve({ botId: bot.id, serverId });
-      }
       // Onboarding continues conversationally in the thread: greeting first,
       // then the focus choice (immediate for the first bot).
       const started = await rpc.onboarding
@@ -1036,16 +1020,6 @@ export function OnboardingPage() {
               ) : null}
             </div>
           </div>
-        ) : null}
-        {step === "integrations" ? (
-          <IntegrationSetup
-            serverSetup
-            initialState={integrationSetup}
-            onDone={() => setStep("bot")}
-            onServerConnected={(id) =>
-              setIntegrationServers((current) => [...new Set([...current, id])])
-            }
-          />
         ) : null}
         {step === "bot" ? (
           <div>

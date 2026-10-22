@@ -216,19 +216,13 @@ async function typeInto(input: HTMLInputElement, value: string) {
   });
 }
 
-async function renderSettings(embedded = true, localOwner = false) {
+async function renderSettings(embedded = true) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   await act(async () => {
-    root.render(
-      <ModelSettingsOverlay
-        embedded={embedded}
-        localOwner={localOwner}
-        onClose={() => undefined}
-      />,
-    );
+    root.render(<ModelSettingsOverlay embedded={embedded} onClose={() => undefined} />);
   });
   await act(async () => {
     await Promise.resolve();
@@ -501,17 +495,6 @@ it("omits the redundant description and connection prompt", async () => {
       "Connect this provider to use it as your personal model.",
     );
     expect(keyField(view.container)).toBeInstanceOf(HTMLInputElement);
-  } finally {
-    await view.unmount();
-  }
-});
-
-it("keeps the server owner's description when relevant", async () => {
-  const view = await renderSettings(false, true);
-  try {
-    expect(view.container.querySelector('[data-testid="model-description"]')?.textContent).toBe(
-      "Models for the server owner’s default space.",
-    );
   } finally {
     await view.unmount();
   }

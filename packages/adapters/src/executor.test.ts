@@ -3122,7 +3122,7 @@ description: Prepare standup notes
     });
 
     it.each([
-      ["the deployment owner", "user-1", false],
+      ["a legacy owner under the instance flag", "user-1", true],
       ["any user under the instance flag", "owner-user", true],
     ] as const)("lets %s run a saved private endpoint", async (_who, owner, flag) => {
       await expect(

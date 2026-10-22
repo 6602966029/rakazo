@@ -31,7 +31,6 @@ import { runAsSystem } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { sanitizeConnectorError } from "./connector-safety.js";
 import { secureFetch, validateUrl, withEndpointOriginFallback } from "./mcp-transport.js";
-import { actorMayUsePrivateEndpoint } from "./private-endpoint.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { persistPreparedSecret } from "./secret-persistence.js";
 import { deleteSecretBestEffort } from "./secret-store-factory.js";
@@ -950,7 +949,7 @@ export class McpOAuthBroker {
       target,
       this.network,
       server.endpoint ? loaded.material : withoutRequestCredentials(loaded.material),
-      await actorMayUsePrivateEndpoint(this.prisma, input.userId, this.allowPrivateEndpoint),
+      this.allowPrivateEndpoint,
     );
     try {
       if (server.endpoint)
@@ -1109,7 +1108,7 @@ export class McpOAuthBroker {
       // Only for redacting errors: the exchange sends the client secret, but none of
       // the server's static headers.
       { oauth: { clientInformation: pending.provider.clientInformation() } },
-      await actorMayUsePrivateEndpoint(this.prisma, pending.userId, this.allowPrivateEndpoint),
+      this.allowPrivateEndpoint,
     );
     try {
       if (pending.stdio)
@@ -1228,12 +1227,7 @@ export class McpOAuthBroker {
     onPersisted?: ProviderOptions["onPersisted"],
   ): Promise<TokenGrant> {
     // Resolve the network before taking a connection for the lock.
-    const network = oauthFetch(
-      target,
-      this.network,
-      {},
-      await actorMayUsePrivateEndpoint(this.prisma, context.userId, this.allowPrivateEndpoint),
-    );
+    const network = oauthFetch(target, this.network, {}, this.allowPrivateEndpoint);
     let stored: { id: string; ciphertext: string } | undefined;
     try {
       const result = await persistPreparedSecret(
