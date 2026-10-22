@@ -2,10 +2,14 @@ import type { AdapterContext } from "@rakazo/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import { MAX_HONCHO_CONCLUSION_BYTES } from "./honcho-client.js";
 import {
+  createHonchoProvider,
   HonchoMemoryProvider,
+  honchoRequiresDeploymentOwner,
   honchoWorkspaceId,
   prepareHonchoConnection,
 } from "./honcho-memory-provider.js";
+import type { ResolveHostname } from "./network-address.js";
+import { MemoryProviderDeploymentOwnerRequiredError } from "./serenity-memory-provider.js";
 
 const context: AdapterContext = {
   operationId: "op-1",
@@ -22,9 +26,11 @@ type DialecticContent = string | null;
 function honchoFetch(
   chatAnswers?: Record<string, DialecticContent>,
   workspaces = ["rakazo-space-1"],
+  readOnlyPeers: string[] = [],
 ) {
   const facts = new Map<string, string[]>();
   const peers = new Set(["rakazo-shared", "bot-bot-1", "bot-bot-2"]);
+  const readable = new Set([...peers, ...readOnlyPeers]);
   return vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const path = new URL(String(url)).pathname;
     expect(new URL(String(url)).origin).toBe("https://api.honcho.dev");
@@ -40,12 +46,12 @@ function honchoFetch(
     if (peer) {
       // DialecticOptions.query: max_length=10000 code points, else 422.
       if ([...body.query].length > 10_000) return new Response("{}", { status: 422 });
-      expect(peers.has(peer)).toBe(true);
+      expect(readable.has(peer)).toBe(true);
       expect(body).toEqual({
         query: expect.any(String),
         reasoning_level: "low",
         stream: false,
-        ...(peer === "rakazo-shared" ? {} : { target: "rakazo-shared" }),
+        ...(peer === "rakazo-shared" || !peers.has(peer) ? {} : { target: "rakazo-shared" }),
       });
       if (chatAnswers) {
         if (!Object.hasOwn(chatAnswers, peer)) throw new Error(`Unexpected chat: ${path}`);
@@ -300,6 +306,79 @@ describe("HonchoMemoryProvider", () => {
   });
 });
 
+describe("existing Honcho user peer", () => {
+  const settings = { workspaceId: "existing-app", userPeerId: "user-alex" };
+
+  it.each(["shared", "isolated"] as const)(
+    "recalls what Honcho already knows about the user in %s scope",
+    async (scope) => {
+      const fetchMock = honchoFetch(
+        {
+          "rakazo-shared": "NO_RELEVANT_MEMORY",
+          "bot-bot-1": "NO_RELEVANT_MEMORY",
+          "user-alex": "Prefers short morning briefings.",
+        },
+        ["existing-app"],
+        ["user-alex"],
+      );
+      const recalled = await provider(fetchMock, settings).recall(
+        { query: "plan my morning", scope, botId: "bot-1", limit: 5 },
+        context,
+      );
+
+      expect(recalled).toEqual({
+        ok: true,
+        value: [
+          {
+            memory: "Prefers short morning briefings.",
+            score: 1,
+            provenance: "honcho",
+            entity: "user-alex",
+          },
+        ],
+      });
+      const userChat = calls(fetchMock).find((call) => call.path.endsWith("/user-alex/chat"));
+      expect(userChat?.path).toBe("/v3/workspaces/existing-app/peers/user-alex/chat");
+      expect(userChat?.body.target).toBeUndefined();
+      expect(userChat?.body.query).toContain("what you know about the user");
+    },
+  );
+
+  it("never creates or writes to the user peer", async () => {
+    const fetchMock = honchoFetch({ "user-alex": "A fact" }, ["existing-app"], ["user-alex"]);
+    const memory = provider(fetchMock, settings);
+    await memory.save(
+      { content: "Bot fact", scope: "shared", botId: "bot-1", source: { kind: "durable" } },
+      context,
+    );
+    await memory.recall({ query: "q", scope: "isolated", botId: "bot-1", limit: 5 }, context);
+
+    for (const call of calls(fetchMock)) {
+      if (call.path.endsWith("/peers")) expect(call.body.id).not.toBe("user-alex");
+      if (call.path.endsWith("/conclusions")) {
+        for (const conclusion of call.body.conclusions) {
+          expect(conclusion.observer_id).not.toBe("user-alex");
+          expect(conclusion.observed_id).not.toBe("user-alex");
+        }
+      }
+    }
+  });
+
+  it("keeps the Space's own memory when the user peer cannot be read", async () => {
+    const normal = honchoFetch({ "bot-bot-1": "A bot fact" }, ["existing-app"], ["user-alex"]);
+    const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).endsWith("/user-alex/chat")) return new Response("", { status: 404 });
+      return normal(url, init);
+    });
+    await expect(
+      provider(fetch, settings).recall(
+        { query: "q", scope: "isolated", botId: "bot-1", limit: 5 },
+        context,
+      ),
+    ).resolves.toMatchObject({ ok: true, value: [{ memory: "A bot fact", entity: "bot-bot-1" }] });
+  });
+});
+
 describe("shared recall deduplication", () => {
   it.each([1, 5])("keeps the first answer before applying limit %i", async (limit) => {
     const result = await provider(
@@ -378,6 +457,35 @@ describe("prepareHonchoConnection", () => {
       ).rejects.toThrow(`Honcho request failed: ${status}`);
       expect(fetch).toHaveBeenCalledOnce();
     }
+  });
+
+  it("saves an existing user peer with its workspace", async () => {
+    const fetch = connectionFetch("/v3/workspaces", { id: "existing-app" });
+    const prepared = await prepareHonchoConnection(
+      { workspaceId: "existing-app", userPeerId: " user-alex " },
+      { apiKey: "hch-test-key" },
+      { fetch },
+    );
+    expect(prepared.settings).toEqual({
+      workspaceId: "existing-app",
+      userPeerId: "user-alex",
+      reasoningLevel: "low",
+    });
+  });
+
+  it.each([
+    [{ userPeerId: "user-alex" }, /requires the workspace/],
+    [{ workspaceId: "existing-app", userPeerId: "bad peer" }, /userPeerId/],
+    [{ workspaceId: "existing-app", userPeerId: "rakazo-shared" }, /reserved/],
+    [{ workspaceId: "existing-app", userPeerId: "bot-bot_1" }, /reserved/],
+  ])("rejects an invalid user peer before probing", async (settings, error) => {
+    const fetch = vi.fn(() => {
+      throw new Error("Unexpected request");
+    });
+    await expect(
+      prepareHonchoConnection(settings, { apiKey: "hch-test-key" }, { fetch }),
+    ).rejects.toThrow(error);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it.each(["bad workspace", "../private", "a".repeat(513)])(
@@ -467,5 +575,145 @@ describe("Honcho scope and failures", () => {
       ok: true,
       value: [{ memory: "A fact" }],
     });
+  });
+});
+
+describe("Honcho local mode", () => {
+  const LOCAL_URL = "http://honcho-api.railway.internal:8000";
+  const privateResolver: ResolveHostname = async () => [{ address: "fd12:3456::7", family: 6 }];
+  const publicResolver: ResolveHostname = async () => [{ address: "203.0.113.10", family: 4 }];
+  const save = {
+    content: "Prefers short answers.",
+    scope: "isolated" as const,
+    botId: "bot-1",
+    source: { kind: "durable" as const },
+  };
+
+  function localFetch() {
+    return vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      expect(new URL(String(url)).origin).toBe(LOCAL_URL);
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer honcho-admin-token");
+      return Response.json({});
+    });
+  }
+
+  it("requires the deployment owner for every mode except Honcho Cloud", () => {
+    expect(honchoRequiresDeploymentOwner({})).toBe(false);
+    expect(honchoRequiresDeploymentOwner({ mode: "cloud" })).toBe(false);
+    for (const mode of ["local", " local ", "LOCAL", ""]) {
+      expect(honchoRequiresDeploymentOwner({ mode, baseUrl: LOCAL_URL })).toBe(true);
+    }
+  });
+
+  it.each([" local ", "LOCAL", " cloud "])(
+    "rejects the unnormalized mode %j instead of reinterpreting it",
+    async (mode) => {
+      const fetch = localFetch();
+      await expect(
+        prepareHonchoConnection(
+          { mode, baseUrl: "http://127.0.0.1:8000" },
+          { apiKey: "honcho-admin-token" },
+          { allowPrivateEndpoint: true, fetch },
+        ),
+      ).rejects.toThrow(/mode/);
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("probes a private service name and saves its endpoint", async () => {
+    const fetch = localFetch();
+    const resolveHostname = vi.fn(privateResolver);
+    const prepared = await prepareHonchoConnection(
+      { mode: "local", baseUrl: ` ${LOCAL_URL} ` },
+      { apiKey: "honcho-admin-token" },
+      { allowPrivateEndpoint: true, resolveHostname, fetch },
+    );
+    expect(prepared).toEqual({
+      settings: { mode: "local", baseUrl: LOCAL_URL, reasoningLevel: "low" },
+      credentials: { apiKey: "honcho-admin-token" },
+    });
+    expect(String(fetch.mock.calls[0]?.[0])).toBe(`${LOCAL_URL}/v3/workspaces/list?size=1`);
+    expect(resolveHostname).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["a public hostname", "https://honcho.example.com"],
+    ["a public address", "http://203.0.113.10:8000"],
+  ])("rejects %s before sending the key", async (_case, baseUrl) => {
+    const fetch = localFetch();
+    await expect(
+      prepareHonchoConnection(
+        { mode: "local", baseUrl },
+        { apiKey: "honcho-admin-token" },
+        { allowPrivateEndpoint: true, resolveHostname: publicResolver, fetch },
+      ),
+    ).rejects.toThrow(/private-network/);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([LOCAL_URL, "http://127.0.0.1:8000", "http://localhost:8000"])(
+    "refuses local endpoint %s for anyone but the deployment owner",
+    async (baseUrl) => {
+      const fetch = localFetch();
+      const resolveHostname = vi.fn(privateResolver);
+      for (const allowPrivateEndpoint of [false, undefined]) {
+        await expect(
+          prepareHonchoConnection(
+            { mode: "local", baseUrl, workspaceId: "team-notes" },
+            { apiKey: "honcho-admin-token" },
+            { allowPrivateEndpoint, resolveHostname, fetch },
+          ),
+        ).rejects.toBeInstanceOf(MemoryProviderDeploymentOwnerRequiredError);
+      }
+      expect(resolveHostname).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [{ mode: "remote", baseUrl: LOCAL_URL }, /mode/],
+    [{ mode: "local" }, /baseUrl/],
+    [{ mode: "local", baseUrl: `${LOCAL_URL}/?token=1` }, /base URL/],
+    [{ mode: "local", baseUrl: "https://api.honcho.dev" }, /Cloud URL/],
+    [{ mode: "local", baseUrl: "https://api.honcho.dev/v3/" }, /Cloud URL/],
+  ])("rejects invalid local settings %o", (settings, error) => {
+    expect(() => createHonchoProvider(settings, { apiKey: "honcho-admin-token" })).toThrow(error);
+  });
+
+  it("pins the checked address once and reuses it for every request", async () => {
+    const fetch = localFetch();
+    const resolveHostname = vi.fn(privateResolver);
+    const memory = new HonchoMemoryProvider(
+      {
+        baseUrl: LOCAL_URL,
+        apiKey: "honcho-admin-token",
+        reasoningLevel: "low",
+        fetch,
+        resolveHostname,
+      },
+      { mode: "local", baseUrl: LOCAL_URL },
+    );
+    await expect(memory.save(save, context)).resolves.toEqual({ ok: true, value: undefined });
+    await memory.save(save, context);
+    expect(fetch.mock.calls.length).toBeGreaterThan(1);
+    expect(resolveHostname).toHaveBeenCalledOnce();
+  });
+
+  it("returns an error instead of calling a host that now resolves publicly", async () => {
+    const fetch = localFetch();
+    const memory = new HonchoMemoryProvider(
+      {
+        baseUrl: LOCAL_URL,
+        apiKey: "honcho-admin-token",
+        reasoningLevel: "low",
+        fetch,
+        resolveHostname: publicResolver,
+      },
+      { mode: "local", baseUrl: LOCAL_URL },
+    );
+    await expect(
+      memory.recall({ query: "tone", scope: "isolated", botId: "bot-1", limit: 1 }, context),
+    ).resolves.toEqual({ ok: false, error: expect.stringMatching(/private-network/) });
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

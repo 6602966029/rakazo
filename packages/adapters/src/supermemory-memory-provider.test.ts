@@ -305,6 +305,20 @@ describe("Supermemory local base URL", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("rejects the Supermemory Cloud URL as a local endpoint", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      prepareSupermemoryConnection(
+        { mode: "local", baseUrl: "https://api.supermemory.ai" },
+        credentials,
+        { allowPrivateEndpoint: true, resolveHostname: privateResolver },
+      ),
+    ).rejects.toThrow(/Cloud URL/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("rejects cloud metadata and link-local targets", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

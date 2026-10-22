@@ -198,10 +198,10 @@ export function createBillingService(deps: {
 
     async syncSeats(organizationId) {
       const account = await billingAccountForOrganization(prisma, organizationId);
-      if (!account?.subscriptionItemId) return;
+      if (!account) return;
       const seats = await organizationSeatCount(prisma, organizationId);
       if (account.seats === seats) return;
-      await provider.updateSeats(account.subscriptionItemId, seats);
+      await provider.updateSeats(account.customerId, seats);
       await sync(account.customerId);
     },
 

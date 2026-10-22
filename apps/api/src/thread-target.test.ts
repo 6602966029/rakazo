@@ -1581,7 +1581,7 @@ describe("sendThreadMessage", () => {
     });
   });
 
-  it("answers only the latest question when several private runs wait", async () => {
+  it("resumes the latest question and retires the older question when several private runs wait", async () => {
     const waitingAsk = {
       id: "ask-1",
       blocks: [{ kind: "ask", text: "Which city should I use?", status: "pending" }],
@@ -1620,8 +1620,11 @@ describe("sendThreadMessage", () => {
         ]),
         findFirst: vi.fn().mockResolvedValue({ botId: "bot-1", userId: "user-1" }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        findUnique: vi.fn().mockResolvedValue({ status: "queued" }),
+        findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ({
+          status: where.id === "run-waiting-2" ? "cancelled" : "queued",
+        })),
       },
+      attempt: { updateMany: vi.fn() },
       steeringMessage: { create: vi.fn() },
       event: { create: vi.fn().mockResolvedValue({ seq: 2, threadId: "thread-1" }) },
       task: { create: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
@@ -1659,7 +1662,15 @@ describe("sendThreadMessage", () => {
       seq: 1,
       runIds: ["run-waiting-1"],
     });
-    expect(tx.run.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.run.updateMany).toHaveBeenCalledTimes(2);
+    expect(tx.run.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "run-waiting-2", status: "waiting_input" }),
+      data: expect.objectContaining({ status: "cancelled" }),
+    });
+    expect(tx.message.update).toHaveBeenCalledWith({
+      where: { id: "ask-older" },
+      data: { blocks: [expect.objectContaining({ status: "answered", answer: "Paris" })] },
+    });
     expect(tx.event.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         type: "thread.message.created",
@@ -1750,7 +1761,7 @@ describe("sendThreadMessage", () => {
     );
   });
 
-  it("answers only the latest question when several group runs wait", async () => {
+  it("resumes the latest question and retires the older question when several group runs wait", async () => {
     const waitingAsk = {
       id: "ask-1",
       blocks: [{ kind: "ask", text: "Which city should I use?", status: "pending" }],
@@ -1789,9 +1800,12 @@ describe("sendThreadMessage", () => {
         ]),
         findFirst: vi.fn().mockResolvedValue({ botId: "bot-a", userId: "user-1" }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        findUnique: vi.fn().mockResolvedValue({ status: "queued" }),
+        findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ({
+          status: where.id === "run-waiting-2" ? "cancelled" : "queued",
+        })),
         create: vi.fn(),
       },
+      attempt: { updateMany: vi.fn() },
       steeringMessage: { create: vi.fn() },
       event: { create: vi.fn().mockResolvedValue({ seq: 2, threadId: "thread-1" }) },
       task: { create: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
@@ -1841,7 +1855,15 @@ describe("sendThreadMessage", () => {
       seq: 1,
       runIds: ["run-waiting-1"],
     });
-    expect(tx.run.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.run.updateMany).toHaveBeenCalledTimes(2);
+    expect(tx.run.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "run-waiting-2", status: "waiting_input" }),
+      data: expect.objectContaining({ status: "cancelled" }),
+    });
+    expect(tx.message.update).toHaveBeenCalledWith({
+      where: { id: "ask-older" },
+      data: { blocks: [expect.objectContaining({ status: "answered", answer: "Paris" })] },
+    });
     expect(tx.task.create).not.toHaveBeenCalled();
     expect(tx.run.create).not.toHaveBeenCalled();
     expect(tx.event.create).toHaveBeenCalledWith({
@@ -1857,7 +1879,7 @@ describe("sendThreadMessage", () => {
   });
 
   it.each(["bot", "group"] as const)(
-    "%s sends start new work beside a pending approval or older question",
+    "%s sends preserve approvals and retire older questions before starting new work",
     async (kind) => {
       for (const approval of [false, true]) {
         const ask = {
@@ -1889,7 +1911,10 @@ describe("sendThreadMessage", () => {
             update: vi.fn(),
           },
           run: {
-            findUnique: vi.fn().mockResolvedValue({ status: "queued" }),
+            findFirst: vi.fn().mockResolvedValue({ taskId: "task-old" }),
+            findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ({
+              status: where.id === "run-waiting" ? "cancelled" : "queued",
+            })),
             findMany: vi
               .fn()
               .mockResolvedValueOnce([
@@ -1902,8 +1927,9 @@ describe("sendThreadMessage", () => {
               botId: "bot-a",
               status: "queued",
             }),
-            updateMany: vi.fn(),
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
           },
+          attempt: { updateMany: vi.fn() },
           task: { create: vi.fn().mockResolvedValue({ id: "task-new" }), updateMany: vi.fn() },
           steeringMessage: { create: vi.fn() },
           event: { create: vi.fn().mockResolvedValue({ seq: 4 }) },
@@ -1946,7 +1972,20 @@ describe("sendThreadMessage", () => {
             { text: "Keep working", mentions: ["bot-a"], clientNonce: "nonce-new" },
           ),
         ).resolves.toMatchObject({ runId: "run-new", runIds: ["run-new"] });
-        expect(tx.run.updateMany).not.toHaveBeenCalled();
+        if (approval) {
+          expect(tx.run.updateMany).not.toHaveBeenCalled();
+        } else {
+          expect(tx.run.updateMany).toHaveBeenCalledWith({
+            where: expect.objectContaining({ id: "run-waiting" }),
+            data: expect.objectContaining({ status: "cancelled" }),
+          });
+          expect(tx.message.update).toHaveBeenCalledWith({
+            where: { id: "ask-old" },
+            data: {
+              blocks: [expect.objectContaining({ status: "answered", answer: "Keep working" })],
+            },
+          });
+        }
         expect(tx.steeringMessage.create).not.toHaveBeenCalled();
         expect(tx.message.update).toHaveBeenCalledWith({
           where: { id: "msg-new" },
@@ -2511,6 +2550,7 @@ describe("sendThreadMessage", () => {
         update: vi.fn(),
       },
       run: {
+        findFirst: vi.fn().mockResolvedValue({ taskId: "task-waiting" }),
         findMany: vi
           .fn()
           .mockResolvedValueOnce([
@@ -2600,6 +2640,7 @@ describe("sendThreadMessage", () => {
         update: vi.fn(),
       },
       run: {
+        findFirst: vi.fn().mockResolvedValue({ taskId: "task-waiting" }),
         findMany: vi
           .fn()
           .mockResolvedValueOnce([

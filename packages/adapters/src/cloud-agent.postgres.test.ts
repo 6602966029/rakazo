@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { AdapterContext, BackgroundJob, JobPublisher } from "@rakazo/adapter-kit";
-import { clearThread, createDb, type PrismaClient } from "@rakazo/db";
+import type { PrismaClient } from "@rakazo/db";
+import { asSystem, clearThread, createDb, runAsSystem, runAsTenant } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { CursorCloudAgentEmulator } from "./cloud-agent-emulator.js";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
@@ -40,42 +41,47 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
   async function setup() {
     const id = randomUUID();
     users.push(id);
-    await prisma.user.create({
-      data: { id, name: "Cloud test", email: `${id}@example.test`, emailVerified: true },
-    });
-    await prisma.organization.create({
-      data: { id, name: "Cloud test", slug: id, createdAt: new Date() },
-    });
-    await prisma.space.create({
-      data: { id, organizationId: id, name: "Cloud test", isDefault: true },
-    });
-    await prisma.member.create({
-      data: { id, organizationId: id, userId: id, role: "owner", createdAt: new Date() },
-    });
-    const bot = await prisma.bot.create({
-      data: { spaceId: id, userId: id, name: "Cloud test", color: "test-color" },
-    });
-    const thread = await prisma.thread.create({ data: { spaceId: id, userId: id, botId: bot.id } });
-    const task = await prisma.task.create({
-      data: {
-        spaceId: id,
-        userId: id,
-        botId: bot.id,
-        threadId: thread.id,
-        prompt: "Test",
-        status: "completed",
-      },
-    });
-    const run = await prisma.run.create({
-      data: {
-        spaceId: id,
-        userId: id,
-        botId: bot.id,
-        threadId: thread.id,
-        taskId: task.id,
-        status: "completed",
-        trigger: "user",
-      },
+    const { bot, thread, run } = await runAsSystem("test fixture", async () => {
+      await prisma.user.create({
+        data: { id, name: "Cloud test", email: `${id}@example.test`, emailVerified: true },
+      });
+      await prisma.organization.create({
+        data: { id, name: "Cloud test", slug: id, createdAt: new Date() },
+      });
+      await prisma.space.create({
+        data: { id, organizationId: id, name: "Cloud test", isDefault: true },
+      });
+      await prisma.member.create({
+        data: { id, organizationId: id, userId: id, role: "owner", createdAt: new Date() },
+      });
+      const bot = await prisma.bot.create({
+        data: { spaceId: id, userId: id, name: "Cloud test", color: "test-color" },
+      });
+      const thread = await prisma.thread.create({
+        data: { spaceId: id, userId: id, botId: bot.id },
+      });
+      const task = await prisma.task.create({
+        data: {
+          spaceId: id,
+          userId: id,
+          botId: bot.id,
+          threadId: thread.id,
+          prompt: "Test",
+          status: "completed",
+        },
+      });
+      const run = await prisma.run.create({
+        data: {
+          spaceId: id,
+          userId: id,
+          botId: bot.id,
+          threadId: thread.id,
+          taskId: task.id,
+          status: "completed",
+          trigger: "user",
+        },
+      });
+      return { bot, thread, run };
     });
     const wire = new CursorCloudAgentEmulator();
     const connection: CloudAgentConnection = {
@@ -108,7 +114,9 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       args: Record<string, unknown>,
       overrides: Partial<typeof context> = {},
     ) =>
-      executeCloudAgentTool(deps, { ...context, ...overrides }, run, `cloud_agent_${name}`, args);
+      runAsSystem("agent run tool call", () =>
+        executeCloudAgentTool(deps, { ...context, ...overrides }, run, `cloud_agent_${name}`, args),
+      );
     const launch = async () => {
       const result = await tool("launch", {
         prompt: "Add README",
@@ -120,14 +128,28 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     };
     const state = (agentId: string) =>
       prisma.cloudAgent.findUniqueOrThrow({ where: { id: agentId } });
-    const poll = (agentId: string) => pollCloudAgent(deps, { agentId });
-    const clear = () => clearThread(prisma, { spaceId: id, botId: bot.id, threadId: thread.id });
+    const poll = (agentId: string) =>
+      runAsSystem("cloud agent poll job", () => pollCloudAgent(deps, { agentId }));
+    // Clearing a chat is an API request by its owner.
+    const clear = () =>
+      runAsTenant({ spaceId: id, userId: id }, () =>
+        clearThread(prisma, { spaceId: id, botId: bot.id, threadId: thread.id }),
+      );
     const wakes = () =>
-      prisma.run.findMany({ where: { threadId: thread.id, trigger: "cloud_agent" } });
+      asSystem(prisma).run.findMany({ where: { threadId: thread.id, trigger: "cloud_agent" } });
     const finish = async (agentId: string) => {
       wire.complete((await state(agentId)).remoteId!);
       await poll(agentId);
     };
+    // Age an ambiguous follow-up past the window in which a late acceptance could appear.
+    const settle = (agentId: string) =>
+      prisma.cloudAgent.update({
+        where: { id: agentId },
+        data: { followupDispatchedAt: new Date(Date.now() - 10 * 60_000) },
+      });
+    const runs = async (agentId: string) => [
+      ...wire.agents.get((await state(agentId)).remoteId!)!.runs.values(),
+    ];
     return {
       id,
       bot,
@@ -145,6 +167,8 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       clear,
       wakes,
       finish,
+      settle,
+      runs,
     };
   }
 
@@ -194,7 +218,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect((await h.state(id)).nextPollAt).not.toBeNull();
     h.enqueue.mockResolvedValue(undefined);
     h.enqueue.mockClear();
-    await reconcileCloudAgents(h.deps);
+    await runAsSystem("job reconciler", () => reconcileCloudAgents(h.deps));
     expect(h.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({ name: "cloud_agent.poll", payload: { agentId: id } }),
     );
@@ -205,7 +229,9 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(wake?.status).toBe("queued");
     h.enqueue.mockResolvedValue(undefined);
     h.enqueue.mockClear();
-    await createJobReconciler({ prisma, jobs: h.deps.jobs }).reconcileOnce();
+    await runAsSystem("job reconciler", () =>
+      createJobReconciler({ prisma, jobs: h.deps.jobs }).reconcileOnce(),
+    );
     expect(h.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({ name: "run.continue", payload: { runId: wake!.id } }),
     );
@@ -231,7 +257,11 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     await after.clear();
     await after.poll(afterId);
     expect(await after.state(afterId)).toMatchObject({ status: "cancelled", nextPollAt: null });
-    expect(await prisma.message.count({ where: { threadId: after.thread.id } })).toBe(0);
+    expect(
+      await runAsSystem("test fixture", () =>
+        prisma.message.count({ where: { threadId: after.thread.id } }),
+      ),
+    ).toBe(0);
     expect(await after.wakes()).toHaveLength(0);
     expect(await after.tool("status", { id: afterId })).toMatchObject({
       id: afterId,
@@ -243,7 +273,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     const h = await setup();
     const id = await h.launch();
     await h.poll(id);
-    await prisma.bot.delete({ where: { id: h.bot.id } });
+    await asSystem(prisma).bot.delete({ where: { id: h.bot.id } });
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({ status: "cancelled", nextPollAt: null });
   });
@@ -335,19 +365,74 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     await h.tool("reply", { id, prompt: "Add tests" });
     h.wire.loseNextReplyResponse = true;
     await h.poll(id);
-    expect((await h.state(id)).followupDispatching).toBe(true);
+    expect((await h.state(id)).followupDispatchedAt).not.toBeNull();
     h.wire.staleLatestRunId = oldRun;
     await h.poll(id);
-    expect((await h.state(id)).status).toBe("running");
+    expect(await h.state(id)).toMatchObject({ status: "running", followup: null });
+    expect((await h.state(id)).latestRunId).not.toBe(oldRun);
     expect(await h.wakes()).toHaveLength(1);
-    h.wire.staleLatestRunId = undefined;
-    await h.poll(id);
-    expect((await h.state(id)).followup).toBeNull();
     expect(
       h.wire.requests.filter(
         (request) => request.method === "POST" && request.path.endsWith("/runs"),
       ),
     ).toHaveLength(1);
+  });
+
+  it("resends a follow-up whose pre-send read failed, since nothing was sent", async () => {
+    const h = await setup();
+    const id = await h.launch();
+    await h.poll(id);
+    await h.finish(id);
+    await h.tool("reply", { id, prompt: "Add tests" });
+    h.wire.failNextRequest = 503;
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ status: "running", followupDispatchedAt: null });
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ status: "running", followup: null });
+    expect(await h.runs(id)).toHaveLength(2);
+    await h.finish(id);
+    expect((await h.state(id)).status).toBe("finished");
+  });
+
+  it.each([
+    ["never accepted", false],
+    ["accepted after the client gave up", true],
+  ])("sends an ambiguous follow-up exactly once when it was %s", async (_label, late) => {
+    const h = await setup();
+    const id = await h.launch();
+    await h.poll(id);
+    await h.finish(id);
+    await h.tool("reply", { id, prompt: "Add tests" });
+    const remoteId = (await h.state(id)).remoteId!;
+    let failed = false;
+    h.connection.provider = new CursorCloudAgentProvider({
+      apiKey: "fake-key",
+      fetch: async (input, init) => {
+        if (failed || init?.method !== "POST") return h.wire.fetch(input, init);
+        failed = true;
+        return new Response(null, { status: 503 });
+      },
+    });
+    await h.poll(id);
+    await h.poll(id);
+    expect((await h.state(id)).followupDispatchedAt).not.toBeNull();
+    expect(await h.runs(id)).toHaveLength(1);
+    if (late) {
+      await h.wire.fetch(`https://api.cursor.com/v1/agents/${remoteId}/runs`, {
+        method: "POST",
+        headers: { authorization: "Bearer fake-key" },
+        body: JSON.stringify({ prompt: { text: "Add tests" } }),
+      });
+    } else {
+      await h.settle(id);
+      await h.poll(id);
+      expect((await h.state(id)).followupDispatchedAt).toBeNull();
+    }
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ status: "running", followup: null });
+    expect(await h.runs(id)).toHaveLength(2);
+    await h.finish(id);
+    expect((await h.state(id)).status).toBe("finished");
   });
 
   it("does not report cancellation success while transport fails or the provider is still running", async () => {
@@ -367,30 +452,44 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.state(id)).toMatchObject({ status: "cancelled", cancelRequested: false });
   });
 
-  it("keeps cancellation pending while an ambiguous follow-up still reports the old run", async () => {
+  it.each([
+    ["accepted", true],
+    ["never accepted", false],
+  ])("cancels an ambiguous follow-up that was %s", async (_label, accepted) => {
     const h = await setup();
     const id = await h.launch();
     await h.poll(id);
     await h.finish(id);
     const oldRun = (await h.state(id)).latestRunId!;
     await h.tool("reply", { id, prompt: "Tests" });
-    h.wire.loseNextReplyResponse = true;
+    if (accepted) h.wire.loseNextReplyResponse = true;
+    else
+      h.connection.provider = new CursorCloudAgentProvider({
+        apiKey: "fake-key",
+        fetch: async (input, init) =>
+          init?.method === "POST" ? new Response(null, { status: 503 }) : h.wire.fetch(input, init),
+      });
     await h.poll(id);
+    expect((await h.state(id)).followupDispatchedAt).not.toBeNull();
     await h.tool("cancel", { id });
     h.wire.staleLatestRunId = oldRun;
     await h.poll(id);
-    expect(await h.state(id)).toMatchObject({
-      status: "running",
-      cancelRequested: true,
-      followupDispatching: true,
-    });
-    h.wire.staleLatestRunId = undefined;
-    await h.poll(id);
+    if (!accepted) {
+      // A late acceptance could still appear, so cancellation waits for the run list to settle.
+      expect(await h.state(id)).toMatchObject({ status: "running", cancelRequested: true });
+      await h.settle(id);
+      await h.poll(id);
+    }
     expect(await h.state(id)).toMatchObject({
       status: "cancelled",
       cancelRequested: false,
       followup: null,
+      followupDispatchedAt: null,
+      nextPollAt: null,
     });
+    expect((await h.runs(id)).map((run) => run.status)).toEqual(
+      accepted ? ["FINISHED", "CANCELLED"] : ["FINISHED"],
+    );
   });
 
   it("cancels a queued follow-up without dispatching it", async () => {
@@ -527,7 +626,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.state(id)).toMatchObject({
       status: "expired",
       followup: null,
-      followupDispatching: false,
+      followupDispatchedAt: null,
       nextPollAt: null,
     });
     expect(await h.wakes()).toHaveLength(2);
@@ -541,7 +640,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     await h.tool("reply", { id, prompt: "Add tests" });
     h.wire.apiKey = "revoked-key";
     await h.poll(id);
-    expect(await h.state(id)).toMatchObject({ status: "running", followupDispatching: false });
+    expect(await h.state(id)).toMatchObject({ status: "running", followupDispatchedAt: null });
     h.wire.apiKey = "fake-key";
     const replies = () =>
       h.wire.requests.filter(
@@ -561,7 +660,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       },
     });
     await h.poll(id);
-    expect(await h.state(id)).toMatchObject({ followupDispatching: false });
+    expect(await h.state(id)).toMatchObject({ followupDispatchedAt: null });
     expect((await h.state(id)).nextPollAt!.getTime()).toBeGreaterThan(Date.now() + 29_000);
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({ followup: null, status: "running" });

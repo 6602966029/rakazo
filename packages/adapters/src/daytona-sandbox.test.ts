@@ -110,7 +110,7 @@ describe("DaytonaSandboxProvider", () => {
     const events = [];
     for await (const event of provider.execute(
       computer,
-      { argv: ["echo", "hello"], unsetEnv: ["FAILED"] },
+      { argv: ["echo", "hello"], env: { FAKE_TOKEN: "fake-secret" }, unsetEnv: ["FAILED"] },
       context,
     )) {
       events.push(event);
@@ -119,10 +119,11 @@ describe("DaytonaSandboxProvider", () => {
       { type: "stdout", data: "hello\n" },
       { type: "exit", code: 0 },
     ]);
+    // Secrets go in the env field, never in command text.
     expect(fixture.executeCommand).toHaveBeenCalledWith(
       "'env' '-u' 'FAILED' '--' 'echo' 'hello'",
       "/home/daytona/rakazo-home",
-      undefined,
+      { FAKE_TOKEN: "fake-secret" },
       300,
     );
 
@@ -449,6 +450,119 @@ describe("DaytonaSandboxProvider", () => {
     });
   });
 
+  describe("stopping from each Daytona state", () => {
+    const computer = {
+      id: "existing",
+      botId: "bot-a",
+      kind: "daytona" as const,
+      providerRef: "existing",
+      fresh: false,
+    };
+
+    type Case = {
+      state: SandboxState;
+      later?: SandboxState[];
+      stops: boolean;
+    };
+    const cases: Case[] = [
+      { state: "started", stops: true },
+      { state: "paused", stops: true },
+      { state: "stopped", stops: false },
+      { state: "archived", stops: false },
+      { state: "archiving", stops: false },
+      { state: "error", stops: false },
+      { state: "build_failed", stops: false },
+      { state: "destroying", stops: false },
+      { state: "destroyed", stops: false },
+      { state: "stopping", later: ["stopping", "stopped"], stops: false },
+      { state: "starting", later: ["started"], stops: true },
+      { state: "unknown", later: ["started"], stops: true },
+    ];
+
+    it.each(cases)("$state", async ({ state, later, stops }) => {
+      vi.useFakeTimers();
+      const fixture = daytonaFixture({ id: "existing", state, later });
+      const provider = new DaytonaSandboxProvider({ apiKey: "test-key" }, fixture.client);
+
+      await expect(drive(provider.stop(computer, context))).resolves.toBeUndefined();
+      expect(fixture.stop).toHaveBeenCalledTimes(stops ? 1 : 0);
+      if (stops) expect(fixture.remote.state).toBe("stopped");
+    });
+
+    type ErrorCase = {
+      name: string;
+      state?: SandboxState;
+      later?: SandboxState[];
+      arrange: (fixture: DaytonaFixture) => void;
+      expected?: Error;
+    };
+    const rateLimited = new DaytonaRateLimitError("Too many requests", 429);
+    const errorCases: ErrorCase[] = [
+      {
+        name: "409 while another state change is in progress waits for it",
+        later: ["stopped"],
+        arrange: (fixture) =>
+          fixture.stop.mockImplementationOnce(async () => {
+            fixture.remote.state = "stopping";
+            throw new DaytonaConflictError("Sandbox state change in progress", 409);
+          }),
+      },
+      {
+        name: "410 from stop is already gone",
+        arrange: (fixture) =>
+          fixture.stop.mockRejectedValueOnce(new DaytonaGoneError("Sandbox is gone", 410)),
+      },
+      {
+        name: "404 from stop after the sandbox was deleted is already gone",
+        arrange: (fixture) =>
+          fixture.stop.mockImplementationOnce(async () => {
+            fixture.remote.missing = true;
+            throw new DaytonaNotFoundError("Sandbox not found", 404);
+          }),
+      },
+      {
+        name: "400 because the sandbox stopped after lookup is already stopped",
+        arrange: (fixture) => {
+          fixture.remote.state = "stopped";
+          fixture.get.mockImplementationOnce(async () => {
+            fixture.sandbox.state = "started";
+            return fixture.sandbox;
+          });
+        },
+      },
+      {
+        name: "a stop that ends in an error has nothing left to stop",
+        arrange: (fixture) =>
+          fixture.stop.mockImplementationOnce(async () => {
+            fixture.remote.state = "error";
+            throw new DaytonaError("Sandbox failed to stop with status: error");
+          }),
+      },
+      {
+        name: "429 is surfaced",
+        arrange: (fixture) => fixture.stop.mockRejectedValueOnce(rateLimited),
+        expected: rateLimited,
+      },
+      {
+        name: "a stop that never settles times out instead of hanging",
+        state: "stopping",
+        arrange: () => undefined,
+        expected: new DaytonaTimeoutError("Daytona sandbox existing is still stopping"),
+      },
+    ];
+
+    it.each(errorCases)("$name", async ({ state, later, arrange, expected }) => {
+      vi.useFakeTimers();
+      const fixture = daytonaFixture({ id: "existing", state: state ?? "started", later });
+      arrange(fixture);
+      const provider = new DaytonaSandboxProvider({ apiKey: "test-key" }, fixture.client);
+      const stopping = drive(provider.stop(computer, context));
+
+      if (expected) await expect(stopping).rejects.toThrow(expected.message);
+      else await expect(stopping).resolves.toBeUndefined();
+    });
+  });
+
   it("deletes the sandbox a timed-out create left behind", async () => {
     const fixture = daytonaFixture();
     const timeout = new DaytonaTimeoutError(
@@ -639,6 +753,9 @@ describe("DaytonaSandboxProvider", () => {
       researcher,
     );
     expect(writerView.url).toContain("6100-preview");
+    expect(
+      fixture.executeCommand.mock.calls.some(([command]) => command.includes("0.0.0.0:6100 8>&-")),
+    ).toBe(true);
     expect(researcherView.url).not.toBe(writerView.url);
     expect(researcherView.url).toContain("6100-preview");
     expect(new URL(researcherView.url!).searchParams.get("path")).toMatch(
@@ -811,7 +928,15 @@ function daytonaFixture(
     }
     settle("started");
   });
-  const stop = vi.fn(async (_timeout?: number, _force?: boolean) => settle("stopped"));
+  const stop = vi.fn(async (_timeout?: number, _force?: boolean) => {
+    if (remote.missing) throw notFound();
+    if (!["started", "paused"].includes(remote.state)) {
+      throw ["stopped", "archived", "error", "build_failed"].includes(remote.state)
+        ? new DaytonaValidationError(`Sandbox is ${remote.state}`, 400)
+        : new DaytonaConflictError("Sandbox state change in progress", 409);
+    }
+    settle("stopped");
+  });
   const deleteSandbox = vi.fn(async (_timeout?: number, _wait?: boolean) => {
     if (remote.missing) throw notFound();
     remote.missing = true;

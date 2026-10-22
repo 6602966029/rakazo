@@ -83,6 +83,10 @@ export class CursorCloudAgentEmulator {
     if (!match || !agent) return error(404, "agent_not_found");
     if (method === "GET" && !url.pathname.includes("/runs"))
       return Response.json(this.agentJson(agent));
+    if (method === "GET" && !match[2]) {
+      const items = [...agent.runs.values()].reverse().map((run) => this.runJson(agent, run));
+      return Response.json({ items: items.slice(0, Number(url.searchParams.get("limit") ?? 20)) });
+    }
     if (method === "POST" && !match[2]) {
       if (agent.archived) return error(409, "agent_archived");
       if (this.activeRun(agent)) return error(409, "agent_busy");

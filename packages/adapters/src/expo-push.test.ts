@@ -406,7 +406,7 @@ describe("expo push", () => {
     await savePushToken(dataDir, "user-1", token, "session-1");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const push = new ExpoPushProvider(dataDir, async () => null);
+    const push = new ExpoPushProvider(dataDir, { sessionExpiresAt: async () => null });
 
     await expect(
       push.deliver(
@@ -420,9 +420,10 @@ describe("expo push", () => {
 
     await endSessionPushToken(dataDir, "user-1", "session-1", "session-2");
     await expect(loadPushToken(dataDir, "user-1")).resolves.toBe(token);
-    const replaced = new ExpoPushProvider(dataDir, async (sessionId) =>
-      sessionId === "session-2" ? new Date(Date.now() + 60_000) : null,
-    );
+    const replaced = new ExpoPushProvider(dataDir, {
+      sessionExpiresAt: async (sessionId) =>
+        sessionId === "session-2" ? new Date(Date.now() + 60_000) : null,
+    });
     await expect(replaced.hasPushRecipient("user-1")).resolves.toBe(true);
   });
 
@@ -432,7 +433,9 @@ describe("expo push", () => {
     await savePushToken(dataDir, "user-1", "ExponentPushToken[test]", "session-1");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const push = new ExpoPushProvider(dataDir, async () => new Date(Date.now() - 1_000));
+    const push = new ExpoPushProvider(dataDir, {
+      sessionExpiresAt: async () => new Date(Date.now() - 1_000),
+    });
 
     await expect(
       push.deliver(
@@ -456,10 +459,12 @@ describe("expo push", () => {
     let waiting = false;
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const push = new ExpoPushProvider(dataDir, async () => {
-      waiting = true;
-      await gate;
-      return new Date(Date.now() + 60_000);
+    const push = new ExpoPushProvider(dataDir, {
+      sessionExpiresAt: async () => {
+        waiting = true;
+        await gate;
+        return new Date(Date.now() + 60_000);
+      },
     });
 
     const delivering = push.deliver(
@@ -557,7 +562,9 @@ flock(fd, 8);
         Promise.resolve(jsonResponse({ data: { status: "ok", id: "ticket" } })),
       );
     vi.stubGlobal("fetch", fetchMock);
-    const push = new ExpoPushProvider(dataDir, async () => new Date(Date.now() + 60_000));
+    const push = new ExpoPushProvider(dataDir, {
+      sessionExpiresAt: async () => new Date(Date.now() + 60_000),
+    });
 
     await expect(
       push.deliver(
@@ -592,8 +599,10 @@ flock(fd, 8);
     await savePushToken(dataDir, "user-1", "ExponentPushToken[test]", "session-1");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const push = new ExpoPushProvider(dataDir, async () => {
-      throw new Error("database unavailable");
+    const push = new ExpoPushProvider(dataDir, {
+      sessionExpiresAt: async () => {
+        throw new Error("database unavailable");
+      },
     });
 
     await expect(
@@ -732,7 +741,7 @@ flock(fd, 8);
     dirs.push(dataDir);
     await savePushToken(dataDir, "user-1", "ExponentPushToken[test]");
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-    const push = new ExpoPushProvider(dataDir, undefined, undefined, [0, 0]);
+    const push = new ExpoPushProvider(dataDir, { retryDelaysMs: [0, 0] });
     await expect(
       push.send(
         { kind: "completion", title: "done", body: "ok", botId: "b", threadId: "t" },
@@ -790,13 +799,36 @@ flock(fd, 8);
 /**
  * Stateful stand-in for Expo's push API: each send consumes the next scripted
  * outcome, a ticket or a whole-request failure, and receipts come from a map.
+ * With `requiredAccessToken` the project enforces enhanced push security and
+ * rejects any request without that bearer token.
  */
 type ExpoOutcome = ExpoPushTicket | { httpStatus: number; errors?: string } | "network";
 
-function fakeExpo(outcomes: ExpoOutcome[], receipts: Record<string, ExpoPushTicket> = {}) {
+function fakeExpo(
+  outcomes: ExpoOutcome[],
+  receipts: Record<string, ExpoPushTicket> = {},
+  requiredAccessToken?: string,
+) {
   const sent: Array<{ to: string; title: string; body: string }> = [];
   const receiptRequests: string[][] = [];
+  const authorizations: Array<string | null> = [];
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    const authorization = new Headers(init?.headers).get("authorization");
+    authorizations.push(authorization);
+    if (requiredAccessToken && authorization !== `Bearer ${requiredAccessToken}`) {
+      return jsonResponse(
+        {
+          errors: [
+            {
+              code: "UNAUTHORIZED",
+              message: "The bearer token is invalid; it may have been revoked.",
+              isTransient: false,
+            },
+          ],
+        },
+        401,
+      );
+    }
     const payload = JSON.parse(String(init?.body));
     if (url.endsWith("/push/getReceipts")) {
       receiptRequests.push(payload.ids);
@@ -825,7 +857,7 @@ function fakeExpo(outcomes: ExpoOutcome[], receipts: Record<string, ExpoPushTick
     return jsonResponse({ data: [outcome] });
   });
   vi.stubGlobal("fetch", fetchMock);
-  return { sent, receiptRequests, fetchMock };
+  return { sent, receiptRequests, authorizations, fetchMock };
 }
 
 function recordingJobs() {
@@ -932,7 +964,7 @@ describe("expo push delivery outcomes", () => {
     dirs.push(dataDir);
     await savePushToken(dataDir, "user-1", "ExponentPushToken[test]");
     const expo = fakeExpo(outcomes);
-    const push = new ExpoPushProvider(dataDir, undefined, undefined, [0, 0]);
+    const push = new ExpoPushProvider(dataDir, { retryDelaysMs: [0, 0] });
 
     const delivery = push.deliver(pushMessage, notifyContext);
     if (typeof result === "string") await expect(delivery).resolves.toBe(result);
@@ -958,7 +990,7 @@ describe("expo push delivery outcomes", () => {
       .mockResolvedValueOnce(new Response(dropped))
       .mockResolvedValueOnce(jsonResponse({ data: { status: "ok", id: "ticket" } }));
     vi.stubGlobal("fetch", fetchMock);
-    const push = new ExpoPushProvider(dataDir, undefined, undefined, [0]);
+    const push = new ExpoPushProvider(dataDir, { retryDelaysMs: [0] });
 
     await expect(push.deliver(pushMessage, notifyContext)).resolves.toBe("delivered");
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -981,7 +1013,7 @@ describe("expo push delivery outcomes", () => {
     await savePushToken(dataDir, "user-1", "ExponentPushToken[test]");
     const expo = fakeExpo([{ httpStatus: 429 }]);
     const controller = new AbortController();
-    const push = new ExpoPushProvider(dataDir, undefined, undefined, [60_000]);
+    const push = new ExpoPushProvider(dataDir, { retryDelaysMs: [60_000] });
 
     const delivery = push.deliver(pushMessage, { ...notifyContext, signal: controller.signal });
     await vi.waitFor(() => expect(expo.sent).toHaveLength(1));
@@ -999,7 +1031,7 @@ describe("expo push receipts", () => {
     await savePushToken(dataDir, "user-1", "ExponentPushToken[test]");
     fakeExpo([{ status: "ok", id: "ticket-1" }]);
     const { jobs, enqueued } = recordingJobs();
-    const push = new ExpoPushProvider(dataDir, undefined, jobs);
+    const push = new ExpoPushProvider(dataDir, { jobs });
     const before = Date.now();
     await expect(push.deliver(pushMessage, notifyContext)).resolves.toBe("delivered");
     const [job] = enqueued;
@@ -1061,5 +1093,57 @@ describe("expo push receipts", () => {
 
     await expect(push.checkReceipt(receipt)).rejects.toThrow("unavailable");
     await expect(loadPushToken(dataDir, "user-1")).resolves.toBe("ExponentPushToken[test]");
+  });
+});
+
+describe("expo push access token", () => {
+  async function registeredDevice() {
+    const dataDir = await mkdtemp(path.join(tmpdir(), "rakazo-push-"));
+    dirs.push(dataDir);
+    await savePushToken(dataDir, "user-1", "ExponentPushToken[test]");
+    return dataDir;
+  }
+
+  it("sends the access token as a bearer token on sends and receipts", async () => {
+    const dataDir = await registeredDevice();
+    const expo = fakeExpo([], { "ticket-1": { status: "ok" } }, "expo-access-token");
+    const { jobs, enqueued } = recordingJobs();
+    const push = new ExpoPushProvider(dataDir, { jobs, accessToken: " expo-access-token\n" });
+
+    await expect(push.deliver(pushMessage, notifyContext)).resolves.toBe("delivered");
+    const [job] = enqueued;
+    if (job?.name !== "push.receipt") throw new Error("receipt check was not scheduled");
+    await expect(push.checkReceipt(job.payload)).resolves.toBeUndefined();
+
+    expect(expo.authorizations).toEqual(["Bearer expo-access-token", "Bearer expo-access-token"]);
+  });
+
+  it("sends no authorization header without an access token", async () => {
+    const dataDir = await registeredDevice();
+    const expo = fakeExpo([]);
+    const push = new ExpoPushProvider(dataDir, { accessToken: "  " });
+
+    await expect(push.deliver(pushMessage, notifyContext)).resolves.toBe("delivered");
+
+    expect(expo.authorizations).toEqual([null]);
+  });
+
+  it.each<{ name: string; accessToken?: string; error: RegExp }>([
+    { name: "a missing token", error: /requires an access token.*EXPO_ACCESS_TOKEN/ },
+    { name: "a rejected token", accessToken: "revoked-token", error: /rejected EXPO_ACCESS_TOKEN/ },
+  ])("explains a 401 from $name without retrying or echoing it", async ({ accessToken, error }) => {
+    const dataDir = await registeredDevice();
+    const expo = fakeExpo([], {}, "expo-access-token");
+    const push = new ExpoPushProvider(dataDir, { accessToken, retryDelaysMs: [0, 0] });
+
+    const delivery = push.deliver(pushMessage, notifyContext);
+    await expect(delivery).rejects.toThrow(error);
+    await expect(delivery).rejects.not.toThrow(/revoked-token/);
+    expect(expo.fetchMock).toHaveBeenCalledOnce();
+    await expect(loadPushToken(dataDir, "user-1")).resolves.toBe("ExponentPushToken[test]");
+
+    await expect(
+      push.checkReceipt({ userId: "user-1", ticketId: "ticket-1", tokenDigest: "digest" }),
+    ).rejects.toThrow(error);
   });
 });

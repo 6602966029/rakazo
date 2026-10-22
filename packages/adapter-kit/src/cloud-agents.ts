@@ -10,18 +10,21 @@ export class CloudAgentRequestRejected extends Error {
 }
 
 /**
- * The provider refused the credential or rate limited the request. Neither says
- * anything about the agent itself, so callers retry instead of failing it.
+ * The provider refused the credential, rate limited the request, or failed before
+ * a mutation was sent. None says anything about the agent itself and nothing was
+ * accepted, so callers retry instead of failing it.
  */
 export class CloudAgentRetryLater extends Error {
   constructor(
-    readonly reason: "credential" | "rate_limited",
+    readonly reason: "credential" | "rate_limited" | "unavailable",
     readonly retryAfterMs?: number,
   ) {
     super(
       reason === "credential"
         ? "Cloud agent credential was rejected."
-        : "Cloud agent requests are rate limited.",
+        : reason === "rate_limited"
+          ? "Cloud agent requests are rate limited."
+          : "Cloud agent provider is unavailable.",
     );
     this.name = "CloudAgentRetryLater";
   }

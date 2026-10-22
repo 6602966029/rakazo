@@ -231,6 +231,8 @@ export interface ManagedConnectorProvider
     Omit<ConnectionAuthProvider, "describe"> {
   catalog(context: AdapterContext, query?: string): Promise<ConnectorCatalogItem[]>;
   listConnectedExternalIds(context: AdapterContext): Promise<string[]>;
+  /** Connection refs the provider reports as dead until the user reconnects them. */
+  listReconnectRefs?(context: AdapterContext): Promise<string[]>;
   connectionReady(context: AdapterContext, externalId: string): Promise<boolean>;
   warmDirectory?(): Promise<void>;
 }
@@ -327,6 +329,30 @@ export interface AgentHomeStore {
   ): Promise<Array<{ path: string; kind: "file" | "dir"; size: number }>>;
 }
 
+/** Identifies the data key being wrapped; implementations bind it into the wrap. */
+export interface KeyWrapContext {
+  spaceId: string;
+  version: number;
+}
+
+export interface WrappedDataKey {
+  masterKeyId: string;
+  wrappedKey: string;
+}
+
+/**
+ * Wraps per-space data keys under master keys it never reveals. The local
+ * implementation reads master keys from the environment; a KMS or secret
+ * manager adapter implements the same contract.
+ */
+export interface KeyProvider {
+  describe(): AdapterDescriptor<{ rotate: boolean }>;
+  /** Master key that new wraps use. Older ids stay valid for unwrap. */
+  activeKeyId(): string;
+  wrap(dataKey: Uint8Array, context: KeyWrapContext): Promise<WrappedDataKey>;
+  unwrap(wrapped: WrappedDataKey, context: KeyWrapContext): Promise<Uint8Array>;
+}
+
 export interface ArtifactStore {
   describe(): AdapterDescriptor<{ stream: boolean }>;
   put(artifact: ArtifactPut, context: AdapterContext): Promise<{ id: string; hash: string }>;
@@ -382,7 +408,8 @@ export interface BillingProvider {
   createPortal(input: { customerId: string; returnUrl: string }): Promise<{ url: string }>;
   /** Current subscription for the customer, preferring one that grants access. */
   getCustomerSubscription(customerId: string): Promise<BillingSubscriptionSnapshot | null>;
-  updateSeats(subscriptionItemId: string, seats: number): Promise<void>;
+  /** Sets seats on the customer's subscription; a no-op when none can still take updates. */
+  updateSeats(customerId: string, seats: number): Promise<void>;
   cancelCustomerSubscriptions(customerId: string): Promise<void>;
   /** Verifies the signature. `null` means the request is not authentic. */
   parseWebhook(rawBody: string, headers: Headers): { customerId: string } | "ignored" | null;
