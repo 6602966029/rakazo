@@ -86,7 +86,7 @@ it.each([
   capture.field.mock.lastCall![0].keyboardActions.onDone(draft);
   expect(onSave).not.toHaveBeenCalled();
 });
-it("uses Save and Cancel text buttons", () => {
+it("uses Save and Cancel text buttons", async () => {
   const onSave = vi.fn();
   const onClose = vi.fn();
   renderToStaticMarkup(
@@ -99,7 +99,23 @@ it("uses Save and Cancel text buttons", () => {
       onClose={onClose}
     />,
   );
-  expect(capture.buttons.mock.calls.map(([props]) => props.children)).toEqual(["Save", "Cancel"]);
+  // Compose buttons only draw Compose children, so a bare string label renders nothing.
+  const { Text } = await import("@expo/ui/jetpack-compose");
+  const labels = capture.buttons.mock.calls.map(([props]) => props.children);
+  expect(labels.map((label) => label.type)).toEqual([Text, Text]);
+  expect(labels.map((label) => label.props.children)).toEqual(["Save", "Cancel"]);
+  // Buttons and the focused field follow the app's own foreground, not a generated palette.
+  const colors = capture.buttons.mock.calls.map(([props]) => props.colors?.contentColor);
+  expect(colors).toEqual(["#FFFFFF", "#FFFFFF"]);
+  expect(capture.field.mock.lastCall![0].colors).toMatchObject({
+    focusedIndicatorColor: "#FFFFFF",
+    focusedLabelColor: "#FFFFFF",
+    cursorColor: "#FFFFFF",
+  });
+  expect(capture.field.mock.lastCall![0].textSelectionColors).toEqual({
+    handleColor: "#FFFFFF",
+    backgroundColor: "#FFFFFF33",
+  });
   capture.field.mock.lastCall![0].value.value = "Latest draft";
   capture.buttons.mock.calls[0]![0].onClick();
   capture.buttons.mock.calls[1]![0].onClick();

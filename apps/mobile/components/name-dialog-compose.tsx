@@ -24,6 +24,11 @@ export default function ComposeNameDialog({
   const tokens = tokensForAppearance(scheme);
   const value = useNativeState(draft);
   const selection = useNativeState({ start: 0, end: draft.length });
+  // Follow the app's monochrome accent instead of a palette generated from it.
+  const buttonColors = {
+    contentColor: tokens.foreground,
+    disabledContentColor: tokens.mutedForeground,
+  };
   return (
     <Host
       useViewportSizeMeasurement
@@ -48,6 +53,23 @@ export default function ComposeNameDialog({
             enabled={!saving}
             isError={!!error}
             onValueChange={onChange}
+            textSelectionColors={{
+              handleColor: tokens.foreground,
+              backgroundColor: `${tokens.foreground}33`,
+            }}
+            colors={{
+              focusedTextColor: tokens.foreground,
+              unfocusedTextColor: tokens.foreground,
+              cursorColor: tokens.foreground,
+              focusedIndicatorColor: tokens.foreground,
+              unfocusedIndicatorColor: tokens.mutedForeground,
+              focusedLabelColor: tokens.foreground,
+              unfocusedLabelColor: tokens.mutedForeground,
+              errorIndicatorColor: tokens.destructive,
+              errorLabelColor: tokens.destructive,
+              errorSupportingTextColor: tokens.destructive,
+              errorCursorColor: tokens.destructive,
+            }}
             keyboardOptions={{ capitalization: "words", imeAction: "done" }}
             keyboardActions={{
               onDone: (text) => {
@@ -66,13 +88,17 @@ export default function ComposeNameDialog({
           </OutlinedTextField>
         </AlertDialog.Text>
         <AlertDialog.ConfirmButton>
-          <TextButton enabled={!saving && !!draft.trim()} onClick={() => onSave(value.value)}>
-            {t("Save")}
+          <TextButton
+            colors={buttonColors}
+            enabled={!saving && !!draft.trim()}
+            onClick={() => onSave(value.value)}
+          >
+            <Text>{t("Save")}</Text>
           </TextButton>
         </AlertDialog.ConfirmButton>
         <AlertDialog.DismissButton>
-          <TextButton enabled={!saving} onClick={onClose}>
-            {t("Cancel")}
+          <TextButton colors={buttonColors} enabled={!saving} onClick={onClose}>
+            <Text>{t("Cancel")}</Text>
           </TextButton>
         </AlertDialog.DismissButton>
       </AlertDialog>
