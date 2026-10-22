@@ -136,7 +136,17 @@ import {
   getComposerEnterToSend,
   subscribeComposerEnterToSend,
 } from "../lib/composer-enter-to-send-pref";
-import { bootComputerOnce, embeddableScreenUrl, loadComputerScreen } from "../lib/computer-screen";
+import {
+  bootComputerOnce,
+  embeddableScreenUrl,
+  isProxiedScreenUrl,
+  loadComputerScreen,
+  probeScreen,
+  SCREEN_FRAME_LOAD_TIMEOUT_MS,
+  screenFrameError,
+  screenFrameMessage,
+  screenFrameStarted,
+} from "../lib/computer-screen";
 import { connectedAppMarks } from "../lib/connected-apps";
 import { desktopBridge } from "../lib/desktop";
 import { scheduleFocusPrompt } from "../lib/focus-prompt";
@@ -645,6 +655,44 @@ function SpaceShell() {
   const [computerErrorFromScreen, setComputerErrorFromScreen] = useState(false);
   const computerErrorFromScreenRef = useRef(false);
   computerErrorFromScreenRef.current = computerErrorFromScreen;
+  // The framed screen cannot be inspected from here. The proxy says when it refuses the page,
+  // and the page reports its own state; nothing past "loading" by the timeout means it stalled.
+  const [screenFrame, setScreenFrame] = useState<HTMLIFrameElement | null>(null);
+  const [screenLoadError, setScreenLoadError] = useState<string | null>(null);
+  const screenFrameReported = useRef(false);
+  useEffect(() => {
+    // Only a mounted frame resets the error: its own failure unmounts it, and Retry remounts it.
+    if (!screenFrame) return;
+    setScreenLoadError(null);
+    screenFrameReported.current = false;
+    const url = embeddableScreenUrl(screenUrl);
+    if (!isProxiedScreenUrl(url)) return;
+    let cancelled = false;
+    const fallback = t`Could not connect to the computer screen`;
+    void probeScreen(url, fallback).then((error) => {
+      if (!cancelled && error && !screenFrameReported.current) setScreenLoadError(error);
+    });
+    const timer = setTimeout(() => {
+      if (!cancelled && !screenFrameReported.current) setScreenLoadError(fallback);
+    }, SCREEN_FRAME_LOAD_TIMEOUT_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [screenFrame, screenUrl]);
+  useEffect(() => {
+    if (!screenFrame) return;
+    const fallback = t`Could not connect to the computer screen`;
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== screenFrame.contentWindow) return;
+      const message = screenFrameMessage(event.data);
+      if (!message) return;
+      if (screenFrameStarted(message)) screenFrameReported.current = true;
+      setScreenLoadError(screenFrameError(message, fallback));
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [screenFrame]);
   useEffect(() => {
     if (!computerOpen) {
       setComputerViewport(null);
@@ -726,6 +774,9 @@ function SpaceShell() {
     (computerBotId ? bots.find((bot) => bot.id === computerBotId) : undefined) ?? active;
   computerOpenRef.current = computerOpen;
   computerBotIdRef.current = computerBotId ?? active?.id;
+  useEffect(() => {
+    setScreenLoadError(null);
+  }, [computerBot?.id, screenUrl]);
   const activeGroup = groups.find((group) => group.id === groupId);
   const activePendingAttachments = useMemo(
     () => attachmentsForThread(pendingAttachments, inGroup ? groupId : active?.id),
@@ -2834,9 +2885,11 @@ function SpaceShell() {
   const computerFailure =
     computerError && !hideScreenLoadError
       ? computerError
-      : !booting && computer?.state === "error"
-        ? t`Computer failed to boot`
-        : null;
+      : screenLoadError
+        ? screenLoadError
+        : !booting && computer?.state === "error"
+          ? t`Computer failed to boot`
+          : null;
   const computerScreenError = computerFailure ? (
     <div role="alert" className="flex flex-col items-center gap-3 px-6 text-center text-sm">
       <p className="text-destructive">{computerFailure}</p>
@@ -2845,6 +2898,7 @@ function SpaceShell() {
         size="sm"
         onClick={() => {
           if (!computerBot) return;
+          setScreenLoadError(null);
           if (computer?.state === "running") {
             // An explicit retry clears any error; background screen reads clear only their own.
             setComputerError(null);
@@ -3574,6 +3628,7 @@ function SpaceShell() {
                 computer={computer}
                 computerOpen={computerOpen}
                 embeddedScreenUrl={embeddedScreenUrl}
+                screenFrameRef={setScreenFrame}
                 computerScreenError={computerScreenError}
                 computerBooting={computerBooting}
                 booting={booting}
@@ -4041,6 +4096,7 @@ function SpaceShell() {
           runStatus={snapshot?.run?.status}
           sendError={sendError}
           embeddedScreenUrl={embeddedScreenUrl}
+          screenFrameRef={setScreenFrame}
           computerScreenError={computerScreenError}
           computerBooting={computerBooting}
           onStopTeaching={stopTeaching}
