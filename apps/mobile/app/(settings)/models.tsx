@@ -475,7 +475,7 @@ export default function Models() {
   const subscriptionSignIn = selected?.signIn !== undefined;
   // Effort levels for the staged catalog model — "off" stays out, matching the
   // model settings and per-bot Thinking pickers.
-  const catalogThinkingLevels =
+  const catalogThinkingLevels: ThinkingLevel[] =
     !isOpenAiCompatible && selected
       ? (selected.thinkingLevels ?? []).filter((level) => level !== "off")
       : [];
@@ -1040,6 +1040,7 @@ export default function Models() {
                 onPress={() => {
                   presentMessageActionSheet({
                     title: t("Reasoning effort"),
+                    selected: [null, ...THINKING_LEVEL_OPTIONS].indexOf(thinkingLevel),
                     cancel: t("Cancel"),
                     more: t("More"),
                     colorScheme,
@@ -1237,6 +1238,7 @@ export default function Models() {
               onPress={() => {
                 presentMessageActionSheet({
                   title: t("Thinking"),
+                  selected: [null, ...catalogThinkingLevels].indexOf(thinkingLevel),
                   cancel: t("Cancel"),
                   more: t("More"),
                   colorScheme,
