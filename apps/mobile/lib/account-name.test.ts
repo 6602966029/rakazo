@@ -46,7 +46,11 @@ it("closes the editor after saving while refresh is pending and ignores refresh 
   await Promise.resolve();
   expect(editor.setNameError).toHaveBeenCalledExactlyOnceWith(null);
   expect(editor.setEditingName).toHaveBeenCalledTimes(1);
-  expect(editor.setMe).not.toHaveBeenCalled();
+  // The saved name shows right away; the failed refresh leaves it in place.
+  expect(editor.setMe).toHaveBeenCalledOnce();
+  const update = editor.setMe.mock.calls[0]![0] as (me: { name: string } | null) => unknown;
+  expect(update({ name: "Old" })).toEqual({ name: "Sam Rivera" });
+  expect(update(null)).toBeNull();
 });
 
 it("updates the account data when refresh succeeds", async () => {

@@ -108,6 +108,7 @@ export default function Account() {
     setNameError(null);
     try {
       await updateAccountName(name);
+      setMe((current) => (current ? { ...current, name } : current));
       setEditingName(false);
       void rpc<MobileMe>("me")
         .then(setMe)
