@@ -123,7 +123,7 @@ export function SettingsOverlay({
   onClose: () => void;
   onVoiceStatusMaybeChanged?: () => void | Promise<void>;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const panelRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const [navOverflow, setNavOverflow] = useState({ previous: false, next: false });
@@ -256,7 +256,7 @@ export function SettingsOverlay({
       nav.removeEventListener("scroll", measure);
       observer?.disconnect();
     };
-  }, [section, showComputer, billingEnabled, showUpdates]);
+  }, [section, showComputer, billingEnabled, showUpdates, i18n.locale]);
 
   function scrollSections(direction: number) {
     const nav = navRef.current;
@@ -315,18 +315,17 @@ export function SettingsOverlay({
       >
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 md:contents">
-            {navOverflow.previous || navOverflow.next ? (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="shrink-0 md:hidden"
-                aria-label={t`Previous settings sections`}
-                disabled={!navOverflow.previous || panelBusy}
-                onClick={() => scrollSections(-1)}
-              >
-                <ChevronLeft className="rtl:rotate-180" />
-              </Button>
-            ) : null}
+            {/* Reserve arrow space so showing controls does not change the overflow measurement. */}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={`shrink-0 md:hidden ${navOverflow.previous || navOverflow.next ? "" : "invisible"}`}
+              aria-label={t`Previous settings sections`}
+              disabled={!navOverflow.previous || panelBusy}
+              onClick={() => scrollSections(-1)}
+            >
+              <ChevronLeft className="rtl:rotate-180" />
+            </Button>
             <nav
               ref={navRef}
               data-testid="settings-nav"
@@ -356,18 +355,16 @@ export function SettingsOverlay({
                 );
               })}
             </nav>
-            {navOverflow.previous || navOverflow.next ? (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="shrink-0 md:hidden"
-                aria-label={t`Next settings sections`}
-                disabled={!navOverflow.next || panelBusy}
-                onClick={() => scrollSections(1)}
-              >
-                <ChevronRight className="rtl:rotate-180" />
-              </Button>
-            ) : null}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={`shrink-0 md:hidden ${navOverflow.previous || navOverflow.next ? "" : "invisible"}`}
+              aria-label={t`Next settings sections`}
+              disabled={!navOverflow.next || panelBusy}
+              onClick={() => scrollSections(1)}
+            >
+              <ChevronRight className="rtl:rotate-180" />
+            </Button>
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
