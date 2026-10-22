@@ -3697,6 +3697,26 @@ export function createRunExecutor(deps: ExecutorDeps) {
         | { computer: ComputerRef; context: AdapterContext; keepWarm: boolean }
         | undefined;
       let runAbortController: AbortController | null = null;
+      // Runtime cleanup can queue terminal events after the consumer has exited.
+      // Track only helpers whose running state this attempt actually persisted.
+      const runningHelpers = new Map<
+        string,
+        Omit<Extract<MessageBlock, { kind: "subagent" }>, "kind">
+      >();
+      const settleRunningHelpers = async () => {
+        for (const [agentId, block] of runningHelpers) {
+          await deps.events.append({
+            spaceId: run.spaceId,
+            threadId: run.threadId,
+            botId: run.botId,
+            runId,
+            type: "thread.subagent",
+            payload: { ...block, status: "failed", result: "stopped" },
+          });
+          runningHelpers.delete(agentId);
+        }
+      };
+
       let detachShutdown: (() => void) | undefined;
       const heartbeat = setInterval(() => {
         if (runCompleted) return;
@@ -5378,6 +5398,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
             await workspaceCheckpoint.flush();
             await persistTurnCheckpoint(executionId);
+            await settleRunningHelpers();
             const paused = await deps.events.pauseRunForInput({
               spaceId: run.spaceId,
               threadId: run.threadId,
@@ -6946,6 +6967,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
             await workspaceCheckpoint.flush();
             await persistTurnCheckpoint(executionId);
+            await settleRunningHelpers();
             const paused = await deps.events.pauseRunForInput({
               spaceId: run.spaceId,
               threadId: run.threadId,
@@ -7956,6 +7978,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               }));
               await workspaceCheckpoint.flush();
               await persistTurnCheckpoint(event.executionId);
+              await settleRunningHelpers();
               const paused = await deps.events.pauseRunForInput({
                 spaceId: run.spaceId,
                 threadId: run.threadId,
@@ -8031,6 +8054,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 throw new Error("Computer lease expired before takeover");
               }
               await persistTurnCheckpoint(event.executionId);
+              await settleRunningHelpers();
               const paused = await deps.events.pauseRunForTakeover({
                 spaceId: run.spaceId,
                 threadId: run.threadId,
@@ -8087,6 +8111,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   humanizeToolName(event.name),
                   toolCallStreak.count,
                 );
+                await settleRunningHelpers();
                 const stopped = await deps.events.finalizeRun({
                   spaceId: run.spaceId,
                   threadId: thread.id,
@@ -8185,6 +8210,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   result: safeResult,
                 },
               });
+              if (event.status === "running") {
+                runningHelpers.set(event.agentId, {
+                  agentId: event.agentId,
+                  name: event.name,
+                  task: safeTask,
+                  status: event.status,
+                  progress: safeProgress,
+                });
+              } else {
+                runningHelpers.delete(event.agentId);
+              }
               if (event.status === "completed" || event.status === "failed") {
                 publishedTerminalSubagent ||= !subagentMarksUnread(
                   run.trigger,
@@ -8344,6 +8380,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             run.trigger === "bot_message"
               ? botMessageOutcomeFromMidTurn(text, midTurnUserTexts)
               : null;
+          await settleRunningHelpers();
           const completed = await deps.events.finalizeRun({
             spaceId: run.spaceId,
             threadId: thread.id,
@@ -8438,6 +8475,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             error instanceof Error ? error.message : String(error),
             runSecrets,
           );
+          await settleRunningHelpers();
           const failed = await deps.events.finalizeRun({
             spaceId: run.spaceId,
             threadId: thread.id,
@@ -8569,6 +8607,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             data: { status: "interrupted", finishedAt: new Date() },
           })
           .catch(() => undefined);
+        await settleRunningHelpers();
       }
     },
   };

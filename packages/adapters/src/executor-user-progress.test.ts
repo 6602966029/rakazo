@@ -37,6 +37,8 @@ async function runTurn(
     splitText?: boolean;
     priorProgressText?: string;
     runtimeEvents?: AgentRuntimeEvent[];
+    runtimeFailure?: boolean;
+    runtimeCancel?: boolean;
   } = {},
 ) {
   vi.mocked(loadBotMessageContext).mockResolvedValue({
@@ -62,7 +64,12 @@ async function runTurn(
   };
   const runtimeRun = vi.fn(async function* (_request: AgentRunRequest) {
     if (options.runtimeEvents) {
-      yield* options.runtimeEvents;
+      for (const event of options.runtimeEvents) {
+        yield event;
+        if (options.runtimeCancel) run.status = "cancelled";
+      }
+      if (options.runtimeCancel) yield { type: "done" as const };
+      if (options.runtimeFailure) throw new Error("fixture runtime failure");
       return;
     }
     const narrations = Array.isArray(narration) ? narration : [narration];
@@ -179,6 +186,7 @@ async function runTurn(
     continuationRunId: null,
   }));
   const append = vi.fn(async (_event: { type: string; payload?: unknown }) => undefined);
+  const pauseRunForInput = vi.fn(async () => ({ continuationRunId: null }));
   const executor = createRunExecutor({
     deploymentModelKey: "fixture-model-key",
     prisma,
@@ -196,15 +204,16 @@ async function runTurn(
     home: { commit: vi.fn(async () => "fixture-revision") },
     memory: { read: async () => ({ documents: [] }) },
     memoryProviders: { resolve: async () => null },
-    events: { append, finalizeRun },
+    events: { append, finalizeRun, pauseRunForInput },
     jobs: { enqueue: vi.fn(async () => undefined) },
     secrets,
   } as unknown as Parameters<typeof createRunExecutor>[0]);
 
   await executor.continueRun(run.id, "worker-1");
   expect(runtimeRun).toHaveBeenCalled();
-  expect(finalizeRun).not.toHaveBeenCalledWith(expect.objectContaining({ outcome: "failed" }));
-  return { finalizeRun, append };
+  if (!options.runtimeFailure)
+    expect(finalizeRun).not.toHaveBeenCalledWith(expect.objectContaining({ outcome: "failed" }));
+  return { finalizeRun, append, pauseRunForInput };
 }
 
 describe.each(["routine", "reaction", "bot_message", "messaging"])(
@@ -551,4 +560,54 @@ describe("a stray NO_RESPONSE on runs that must reply", () => {
     });
     expect(savedText(finalizeRun)).toBe("NO_RESPONSE");
   });
+});
+
+describe("helper settlement", () => {
+  const helper: AgentRuntimeEvent = {
+    type: "subagent",
+    agentId: "helper",
+    name: "Helper",
+    task: "Check",
+    status: "running",
+  };
+  it.each(["pause", "finish", "failure", "cancel"])(
+    "persists stopped helpers on %s",
+    async (exit) => {
+      let now = Date.now();
+      const clock = vi.spyOn(Date, "now").mockImplementation(() => (now += 2_000));
+      const result = await runTurn("", false, "", [], "fyi", {
+        runtimeEvents: [
+          helper,
+          ...(exit === "pause" ? [{ type: "ask" as const, text: "Continue?" }] : []),
+        ],
+        runtimeFailure: exit === "failure",
+        runtimeCancel: exit === "cancel",
+      }).finally(() => clock.mockRestore());
+      const { append, pauseRunForInput, finalizeRun } = result;
+      const index = append.mock.calls.findIndex(
+        ([event]) =>
+          event.type === "thread.subagent" &&
+          (event.payload as { status: string }).status === "failed",
+      );
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(append.mock.calls[index]?.[0].payload).toMatchObject({
+        agentId: "helper",
+        name: "Helper",
+        task: "Check",
+        status: "failed",
+        result: "stopped",
+      });
+      if (exit === "pause") {
+        expect(pauseRunForInput).toHaveBeenCalledOnce();
+        expect(append.mock.invocationCallOrder[index]).toBeLessThan(
+          pauseRunForInput.mock.invocationCallOrder[0]!,
+        );
+      } else if (exit !== "cancel") {
+        expect(finalizeRun).toHaveBeenCalledOnce();
+        expect(append.mock.invocationCallOrder[index]).toBeLessThan(
+          finalizeRun.mock.invocationCallOrder[0]!,
+        );
+      }
+    },
+  );
 });
