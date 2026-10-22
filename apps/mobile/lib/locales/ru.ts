@@ -1,4 +1,7 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Allow webhook messages to other bots": "Разрешить сообщения другим ботам через вебхук",
+  "This bot's webhook can message other bots without asking. Other actions keep their approval rules.":
+    "Вебхук этого бота может отправлять сообщения другим ботам без подтверждения. Для остальных действий сохраняются прежние правила подтверждения.",
   Export: "Экспорт",
   "Edit avatar": "Изменить аватар",
   "Add open work": "Добавить задачу",

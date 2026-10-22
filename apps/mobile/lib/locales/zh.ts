@@ -1,4 +1,7 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Allow webhook messages to other bots": "允许 Webhook 向其他机器人发送消息",
+  "This bot's webhook can message other bots without asking. Other actions keep their approval rules.":
+    "此机器人的 Webhook 可以直接向其他机器人发送消息，无需确认。其他操作仍遵循原有的审批规则。",
   Export: "导出",
   "Edit avatar": "编辑头像",
   "Add open work": "添加待办事项",

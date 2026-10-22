@@ -599,7 +599,7 @@ msgstr "允许购买操作，无需询问"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Allow webhook messages to other bots"
-msgstr ""
+msgstr "允许 Webhook 向其他机器人发送消息"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Allow writing"
@@ -4855,7 +4855,7 @@ msgstr "此 Bot 运行在这台电脑上，而不是 Linux 桌面。Shell 和文
 
 #: src/pages/shell/bot-panel.tsx
 msgid "This bot's webhook can message other bots without asking. Other actions keep their approval rules."
-msgstr ""
+msgstr "此机器人的 Webhook 可以直接向其他机器人发送消息，无需确认。其他操作仍遵循原有的审批规则。"
 
 #: src/components/call/IncomingCall.tsx
 msgid "This call is no longer ringing."

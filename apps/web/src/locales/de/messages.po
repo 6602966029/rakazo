@@ -599,7 +599,7 @@ msgstr "Kaufaktionen ohne Nachfrage erlauben"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Allow webhook messages to other bots"
-msgstr ""
+msgstr "Webhook-Nachrichten an andere Bots erlauben"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Allow writing"
@@ -4855,7 +4855,7 @@ msgstr "Dieser Bot wird auf diesem Computer und nicht auf einem Linux-Desktop au
 
 #: src/pages/shell/bot-panel.tsx
 msgid "This bot's webhook can message other bots without asking. Other actions keep their approval rules."
-msgstr ""
+msgstr "Der Webhook dieses Bots darf anderen Bots ohne Rückfrage Nachrichten senden. Für andere Aktionen gelten weiterhin die bisherigen Genehmigungsregeln."
 
 #: src/components/call/IncomingCall.tsx
 msgid "This call is no longer ringing."

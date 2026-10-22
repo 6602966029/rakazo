@@ -599,7 +599,7 @@ msgstr "Разрешить действия по покупке без запр�
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Allow webhook messages to other bots"
-msgstr ""
+msgstr "Разрешить сообщения другим ботам через вебхук"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Allow writing"
@@ -4855,7 +4855,7 @@ msgstr "Этот бот работает на этом компьютере, а 
 
 #: src/pages/shell/bot-panel.tsx
 msgid "This bot's webhook can message other bots without asking. Other actions keep their approval rules."
-msgstr ""
+msgstr "Вебхук этого бота может отправлять сообщения другим ботам без подтверждения. Для остальных действий сохраняются прежние правила подтверждения."
 
 #: src/components/call/IncomingCall.tsx
 msgid "This call is no longer ringing."
