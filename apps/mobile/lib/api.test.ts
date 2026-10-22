@@ -3551,3 +3551,45 @@ it("keeps the thread id on live messages so inline cards can act on them", () =>
   );
   expect(view?.messages[0]?.threadId).toBe("chat");
 });
+
+describe("stale helper projection", () => {
+  it.each([
+    "run.waiting_input",
+    "computer.takeover.requested",
+    "run.completed",
+    "run.failed",
+    "run.cancelled",
+  ])("settles helpers on %s without reviving them on resume", (type) => {
+    const base = {
+      id: "fixture",
+      threadId: "thread-1",
+      runId: "run-1",
+      seq: 1,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const helper = { agentId: "helper", name: "Helper", task: "Check", status: "running" };
+    let next = applyMobileThreadEvent(snapshot(), {
+      ...base,
+      type: "thread.subagent",
+      payload: helper,
+    });
+    next = applyMobileThreadEvent(next, { ...base, seq: 2, type, payload: {} });
+    expect(next?.messages.find((m) => m.id === "subagent:helper")?.blocks[0]).toMatchObject({
+      status: "failed",
+      result: "stopped",
+    });
+    next = applyMobileThreadEvent(next, { ...base, seq: 3, type: "run.started", payload: {} });
+    next = applyMobileThreadEvent(next, {
+      ...base,
+      seq: 4,
+      type: "thread.subagent",
+      payload: { ...helper, agentId: "resumed" },
+    });
+    expect(next?.messages.find((m) => m.id === "subagent:helper")?.blocks[0]).toMatchObject({
+      status: "failed",
+    });
+    expect(next?.messages.find((m) => m.id === "subagent:resumed")?.blocks[0]).toMatchObject({
+      status: "running",
+    });
+  });
+});

@@ -3697,6 +3697,38 @@ export function createRunExecutor(deps: ExecutorDeps) {
         | { computer: ComputerRef; context: AdapterContext; keepWarm: boolean }
         | undefined;
       let runAbortController: AbortController | null = null;
+      // Runtime cleanup can queue terminal events after the consumer has exited.
+      // Track only helpers whose running state this attempt actually persisted.
+      const runningHelpers = new Map<
+        string,
+        Omit<Extract<MessageBlock, { kind: "subagent" }>, "kind">
+      >();
+      const settleRunningHelpers = async () => {
+        for (const [agentId, block] of runningHelpers) {
+          try {
+            const stopped = {
+              ...block,
+              kind: "subagent",
+              status: "failed",
+              result: "stopped",
+            } as const;
+            await publishMessage(
+              deps,
+              run,
+              "bot",
+              [stopped],
+              subagentMarksUnread(run.trigger, "failed"),
+              undefined,
+              stopped,
+            );
+            runningHelpers.delete(agentId);
+          } catch (error) {
+            // Cleanup must not mask the run outcome or prevent other helpers settling.
+            getLogger().error("settle running helper", error);
+          }
+        }
+      };
+
       let detachShutdown: (() => void) | undefined;
       const heartbeat = setInterval(() => {
         if (runCompleted) return;
@@ -5378,6 +5410,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
             await workspaceCheckpoint.flush();
             await persistTurnCheckpoint(executionId);
+            await settleRunningHelpers();
             const paused = await deps.events.pauseRunForInput({
               spaceId: run.spaceId,
               threadId: run.threadId,
@@ -6946,6 +6979,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
             await workspaceCheckpoint.flush();
             await persistTurnCheckpoint(executionId);
+            await settleRunningHelpers();
             const paused = await deps.events.pauseRunForInput({
               spaceId: run.spaceId,
               threadId: run.threadId,
@@ -7956,6 +7990,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               }));
               await workspaceCheckpoint.flush();
               await persistTurnCheckpoint(event.executionId);
+              await settleRunningHelpers();
               const paused = await deps.events.pauseRunForInput({
                 spaceId: run.spaceId,
                 threadId: run.threadId,
@@ -8031,6 +8066,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 throw new Error("Computer lease expired before takeover");
               }
               await persistTurnCheckpoint(event.executionId);
+              await settleRunningHelpers();
               const paused = await deps.events.pauseRunForTakeover({
                 spaceId: run.spaceId,
                 threadId: run.threadId,
@@ -8087,6 +8123,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   humanizeToolName(event.name),
                   toolCallStreak.count,
                 );
+                await settleRunningHelpers();
                 const stopped = await deps.events.finalizeRun({
                   spaceId: run.spaceId,
                   threadId: thread.id,
@@ -8185,6 +8222,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   result: safeResult,
                 },
               });
+              if (event.status === "running") {
+                runningHelpers.set(event.agentId, {
+                  agentId: event.agentId,
+                  name: event.name,
+                  task: safeTask,
+                  status: event.status,
+                  progress: safeProgress,
+                });
+              } else {
+                runningHelpers.delete(event.agentId);
+              }
               if (event.status === "completed" || event.status === "failed") {
                 publishedTerminalSubagent ||= !subagentMarksUnread(
                   run.trigger,
@@ -8344,6 +8392,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             run.trigger === "bot_message"
               ? botMessageOutcomeFromMidTurn(text, midTurnUserTexts)
               : null;
+          await settleRunningHelpers();
           const completed = await deps.events.finalizeRun({
             spaceId: run.spaceId,
             threadId: thread.id,
@@ -8438,6 +8487,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             error instanceof Error ? error.message : String(error),
             runSecrets,
           );
+          await settleRunningHelpers();
           const failed = await deps.events.finalizeRun({
             spaceId: run.spaceId,
             threadId: thread.id,
@@ -8569,6 +8619,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             data: { status: "interrupted", finishedAt: new Date() },
           })
           .catch(() => undefined);
+        await settleRunningHelpers();
       }
     },
   };
@@ -9709,14 +9760,42 @@ async function publishMessage(
   blocks: MessageBlock[],
   markUnread: boolean | undefined = run.trigger === "bot_message" ? false : undefined,
   clientNonce?: string,
+  stoppedHelper?: Extract<MessageBlock, { kind: "subagent" }> & {
+    status: "failed";
+    result: "stopped";
+  },
 ) {
   if (isBackgroundRunTrigger(run.trigger)) {
     blocks = blocks.filter((block) => block.kind === "ask" || block.kind === "computer");
-    if (blocks.length === 0) return null;
+    if (blocks.length === 0 && !stoppedHelper) return null;
   }
-  const committed = await deps.prisma.$transaction((tx) =>
-    persistMessageInTransaction(tx, run, role, blocks, markUnread, clientNonce),
-  );
+  const committed = await deps.prisma.$transaction(async (tx) => {
+    // Only synthetic terminal helper writes may bypass the cancellation guard.
+    // Commit their event and durable message together so cleanup retries are safe.
+    let helperEvent: { seq: number } | undefined;
+    if (stoppedHelper) {
+      const { kind: _kind, ...payload } = stoppedHelper;
+      helperEvent = await appendEventInTransaction(tx, {
+        spaceId: run.spaceId,
+        threadId: run.threadId,
+        botId: run.botId,
+        runId: run.id,
+        type: "thread.subagent",
+        payload,
+        allowCancelledRun: true,
+      });
+    }
+    if (blocks.length === 0 && helperEvent) return { message: null, eventSeq: helperEvent.seq };
+    return persistMessageInTransaction(
+      tx,
+      run,
+      role,
+      blocks,
+      markUnread,
+      clientNonce,
+      Boolean(stoppedHelper),
+    );
+  });
   await deps.events.notify(run.threadId, committed.eventSeq).catch((error) => {
     getLogger().error("thread message realtime notification", error);
   });
@@ -9730,6 +9809,7 @@ async function persistMessageInTransaction(
   blocks: MessageBlock[],
   markUnread?: boolean,
   clientNonce?: string,
+  allowCancelledRun = false,
 ) {
   const message = await createThreadMessageInTransaction(tx, {
     threadId: run.threadId,
@@ -9739,6 +9819,7 @@ async function persistMessageInTransaction(
     runId: run.id,
     markUnread,
     clientNonce,
+    allowCancelledRun,
   });
   const event = await appendEventInTransaction(tx, {
     spaceId: run.spaceId,
@@ -9746,6 +9827,7 @@ async function persistMessageInTransaction(
     botId: run.botId,
     type: "thread.message.created",
     runId: run.id,
+    allowCancelledRun,
     payload: {
       messageId: message.id,
       role,

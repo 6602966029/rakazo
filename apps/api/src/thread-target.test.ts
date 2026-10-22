@@ -658,7 +658,14 @@ describe("threadSnapshot", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           type: {
-            in: ["thread.progress", "thread.subagent", "agent.tool.called", "agent.tool.completed"],
+            in: [
+              "thread.progress",
+              "thread.subagent",
+              "run.waiting_input",
+              "computer.takeover.requested",
+              "agent.tool.called",
+              "agent.tool.completed",
+            ],
           },
         }),
       }),
@@ -4042,5 +4049,73 @@ describe("stopThreadRuns", () => {
     expect(transaction.event.deleteMany).not.toHaveBeenCalled();
     expect(transaction.thread.update).not.toHaveBeenCalled();
     expect(notify).not.toHaveBeenCalled();
+  });
+});
+
+describe("helper snapshot settlement", () => {
+  it.each(["bot", "group"])("settles stale helpers on reload in a %s thread", async (kind) => {
+    const runs = [
+      { id: "paused", status: "waiting_input" },
+      { id: "working", status: "running" },
+    ].map((run) => ({
+      ...run,
+      botId: "bot-1",
+      threadId: "thread-1",
+      taskId: "task",
+      trigger: "user",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      startedAt: null,
+      completedAt: null,
+    }));
+    const liveEvents = runs.map((run, seq) => ({
+      id: `event-${seq}`,
+      threadId: "thread-1",
+      runId: run.id,
+      seq,
+      type: "thread.subagent",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      payload: { agentId: run.id, name: "Helper", task: "Check", status: "running" },
+    }));
+    const previous = liveEvents[1]!;
+    const history = [
+      liveEvents[0]!,
+      { ...previous, payload: { ...previous.payload, agentId: "before-resume" } },
+      { ...previous, seq: 2, type: "run.waiting_input", payload: {} },
+      { ...previous, seq: 3 },
+    ];
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      message: { findMany: vi.fn().mockResolvedValue([]) },
+      event: {
+        findFirst: vi.fn().mockResolvedValue({ seq: 2 }),
+        findMany: vi.fn(async (input: { where: { type: { in: string[] } } }) =>
+          history.filter((event) => input.where.type.in.includes(event.type)),
+        ),
+      },
+      run: { findFirst: botRunFindFirst(runs), findMany: groupRunFindMany({ active: runs }) },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (work: (client: typeof tx) => unknown) => work(tx)),
+    } as unknown as PrismaClient;
+    const result = await threadSnapshot({ prisma }, {
+      kind,
+      botId: "bot-1",
+      threadId: "thread-1",
+      bot: { computer: null },
+      members: [],
+    } as ThreadTarget);
+    expect(result.messages.find((m) => m.id === "subagent:paused")?.blocks[0]).toMatchObject({
+      status: "failed",
+      result: "stopped",
+    });
+    expect(result.messages.find((m) => m.id === "subagent:before-resume")?.blocks[0]).toMatchObject(
+      {
+        status: "failed",
+        result: "stopped",
+      },
+    );
+    expect(result.messages.find((m) => m.id === "subagent:working")?.blocks[0]).toMatchObject({
+      status: "running",
+    });
   });
 });
