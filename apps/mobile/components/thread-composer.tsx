@@ -9,7 +9,7 @@ import {
   truncateSlashDescription,
 } from "@rakazo/core";
 import type { Ref } from "react";
-import { useImperativeHandle, useMemo, useState } from "react";
+import { useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { ViewStyle } from "react-native";
 import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useI18n } from "../lib/i18n";
@@ -70,6 +70,7 @@ export function ThreadComposer({
   const { fontScale } = useWindowDimensions();
   const colorScheme = useResolvedAppearance();
   const { t } = useI18n();
+  const inputRef = useRef<TextInput>(null);
   const [draft, setDraft] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
@@ -421,7 +422,9 @@ export function ThreadComposer({
                 </Pressable>
               </View>
             ))}
-            <View
+            <Pressable
+              accessible={false}
+              onPress={() => inputRef.current?.focus()}
               style={{
                 flexGrow: 1,
                 flexShrink: 1,
@@ -452,6 +455,7 @@ export function ThreadComposer({
                 </Text>
               ) : null}
               <TextInput
+                ref={inputRef}
                 onFocus={onFocus}
                 value={draft}
                 onChangeText={updateDraft}
@@ -481,7 +485,7 @@ export function ThreadComposer({
                   writingDirection: "auto",
                 }}
               />
-            </View>
+            </Pressable>
           </View>
           {!canSend && botId && !onCall ? (
             <Pressable

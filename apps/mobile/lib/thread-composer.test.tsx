@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ReactNode, Ref } from "react";
 import { act, createElement, createRef } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
@@ -35,12 +35,14 @@ vi.mock("react-native", () => {
       children,
       onPress,
       accessibilityLabel,
+      accessible,
       disabled,
       style,
     }: {
       children?: ReactNode;
       onPress: () => void;
-      accessibilityLabel: string;
+      accessibilityLabel?: string;
+      accessible?: boolean;
       disabled?: boolean;
       style?: object;
     }) =>
@@ -50,18 +52,21 @@ vi.mock("react-native", () => {
           type: "button",
           onClick: onPress,
           "aria-label": accessibilityLabel,
+          "data-accessible": accessible,
           disabled,
           "data-style": JSON.stringify(style),
         },
         children,
       ),
     TextInput: ({
+      ref,
       value,
       onChangeText,
       onKeyPress,
       style,
       scrollEnabled,
     }: {
+      ref?: Ref<HTMLInputElement>;
       value: string;
       onChangeText: typeof input.change;
       onKeyPress: typeof input.key;
@@ -71,6 +76,7 @@ vi.mock("react-native", () => {
       input.change = onChangeText;
       input.key = onKeyPress;
       return createElement("input", {
+        ref,
         value,
         readOnly: true,
         "data-style": JSON.stringify(style),
@@ -238,6 +244,15 @@ describe("thread composer isolation", () => {
     expect(container.querySelector('[data-testid="slash-picker"]')).toBeNull();
     press("Call");
     expect(props.startVoiceCall).toHaveBeenCalledOnce();
+  });
+
+  it("focuses the input when its padding wrapper is pressed without adding an accessibility stop", () => {
+    const field = container.querySelector("input")!;
+    const wrapper = field.parentElement!;
+    expect(wrapper.dataset.accessible).toBe("false");
+    expect(document.activeElement).not.toBe(field);
+    act(() => wrapper.click());
+    expect(document.activeElement).toBe(field);
   });
 
   it.each([1, 2, 3.2])(
