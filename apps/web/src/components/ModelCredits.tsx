@@ -1,6 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { BillingStatus } from "@rakazo/contracts";
-import { MODEL_CREDIT_AMOUNTS, ModelCreditAmountSchema } from "@rakazo/contracts";
+import {
+  DEFAULT_MONTHLY_CREDIT_AMOUNT,
+  MODEL_CREDIT_AMOUNTS,
+  ModelCreditAmountSchema,
+} from "@rakazo/contracts";
 import {
   Button,
   Card,
@@ -73,7 +77,7 @@ export function CreditChoice({ status }: { status: BillingStatus }) {
     t`Scheduled routines`,
     t`Web, desktop and mobile`,
   ];
-  const [amount, setAmount] = useState<CreditAmount>(1000);
+  const [amount, setAmount] = useState<CreditAmount>(DEFAULT_MONTHLY_CREDIT_AMOUNT);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
   const { logOut, signingOut } = useSignOut(
@@ -207,7 +211,7 @@ export function ModelCreditsSettings({
 }) {
   const { t, i18n } = useLingui();
   const [amount, setAmount] = useState<CreditAmount>(
-    ModelCreditAmountSchema.catch(1000).parse(status.monthlyAmountCents),
+    ModelCreditAmountSchema.catch(DEFAULT_MONTHLY_CREDIT_AMOUNT).parse(status.monthlyAmountCents),
   );
   const [topupAmount, setTopupAmount] = useState<CreditAmount>(1000);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
