@@ -106,6 +106,7 @@ test("choose free API keys or monthly credits, then add a one-time top-up", asyn
   await expect(page.getByRole("button", { name: "Use my API key", exact: true })).toBeVisible();
   await expect(page.getByText("Hosted computer included.", { exact: true })).toHaveCount(0);
   const planSelect = page.getByRole("combobox", { name: "Monthly credits" });
+  await expect(planSelect).toHaveCSS("height", "48px");
   await planSelect.click();
   const options = page.locator('[data-slot="select-content"]');
   await expect
@@ -146,6 +147,7 @@ test("choose free API keys or monthly credits, then add a one-time top-up", asyn
   await captureScreenshot(page, testInfo, "billing-credit-balance");
   await settings.getByRole("button", { name: "Add credits", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Add credits" });
+  await expect(dialog.getByRole("combobox", { name: "Credit amount" })).toHaveCSS("height", "48px");
   await dialog.getByRole("combobox", { name: "Credit amount" }).click();
   await page.getByRole("option", { name: "$50", exact: true }).click();
   await captureScreenshot(page, testInfo, "billing-add-credits");
