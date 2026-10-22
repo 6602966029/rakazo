@@ -156,8 +156,8 @@ async function runTurn(
     spaceBackupModel: { findMany: vi.fn(async () => []) },
     deploymentSettings: {
       findUnique: vi.fn(async () => ({
-        defaultModelProvider: "scripted",
-        defaultModelId: "scripted",
+        defaultModelProvider: "openrouter",
+        defaultModelId: "fixture-model",
       })),
     },
     taughtSkill: { findMany: vi.fn(async () => []) },
@@ -180,6 +180,7 @@ async function runTurn(
   }));
   const append = vi.fn(async (_event: { type: string; payload?: unknown }) => undefined);
   const executor = createRunExecutor({
+    deploymentModelKey: "fixture-model-key",
     prisma,
     runtime: {
       describe: () => ({ capabilities: { scripted: false } }),

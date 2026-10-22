@@ -338,6 +338,7 @@ import { assertAllowedOpenAiCompatibleUrl } from "./openai-compatible-url.js";
 import type { CodexLiveCatalog } from "./pi-codex-catalog.js";
 import { codexLiveListsModel } from "./pi-codex-catalog.js";
 import { toOAuthCredential } from "./pi-credentials.js";
+import { LOCAL_PROVIDER_ID } from "./pi-local-provider.js";
 import type { StoredModelSecret } from "./pi-oauth.js";
 import {
   isRetiredModelCredentialError,
@@ -10008,6 +10009,22 @@ async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMateria
   }
   const credential = args[3];
   const material = await resolveModelKeyMaterial(...args);
+  const deployment = resolveDeploymentModel();
+  // Local and compatible endpoints can intentionally be keyless. Host auth is
+  // allowed only for the deployment provider that explicitly opted into it.
+  const keyless =
+    provider === LOCAL_PROVIDER_ID ||
+    (provider === OPENAI_COMPATIBLE_PROVIDER_ID && Boolean(material.baseUrl)) ||
+    (provider === "scripted" && deps.runtime?.describe().capabilities.scripted) ||
+    (!credential && deployment.provider === provider && deployment.hostCredentials);
+  // Match Pi's OpenRouter fallback only when no explicit key overrides it.
+  const runtimeKey =
+    material.apiKey === undefined && (provider === "openrouter" || provider === "scripted")
+      ? process.env.OPENROUTER_API_KEY
+      : undefined;
+  if (!material.apiKey?.trim() && !runtimeKey?.trim() && !keyless) {
+    throw new UnavailableModelForAuthError(MISSING_MODEL_MESSAGE);
+  }
   const callObserver =
     !credential && billingEnabled ? await hostedModelCreditObserver(deps.prisma, scope) : undefined;
   return { ...material, callObserver };
