@@ -3,6 +3,7 @@ import {
   createClientErrorReporter,
   isMonitoringUserId,
   nativeMonitoringDsn,
+  sanitizeMonitoringEvent,
 } from "@rakazo/logging/monitoring";
 import type * as ElectronSentry from "@sentry/electron/main";
 import { configureNativeCrashReporting, disableNativeCrashReporting } from "./native-crashes.js";
@@ -40,7 +41,7 @@ export function configureDesktopMonitoring(
   options: { version: string; base: string },
 ): Promise<void> {
   const current = ++generation;
-  identifications++;
+  const identification = ++identifications;
   if (selected) errors.reset();
   selected = true;
   if (sdk) disableNativeCrashReporting();
@@ -119,7 +120,12 @@ export function configureDesktopMonitoring(
               if (owners.size >= 100) owners.delete(owners.keys().next().value!);
               owners.set(event.event_id, activeTransport);
             }
-            return event;
+            const sanitized = sanitizeMonitoringEvent(
+              event,
+              event.tags?.["native.crash"] === "true" ? undefined : userId,
+            );
+            delete sanitized.contexts;
+            return sanitized;
           },
         });
         sdk = Sentry;
@@ -131,7 +137,10 @@ export function configureDesktopMonitoring(
       activeTransport = Sentry.makeElectronTransport({ ...transportOptions!, url: endpoint });
       activeDsn = config.dsn;
       environment = config.environment ?? undefined;
-      userId = isMonitoringUserId(config.userId) ? config.userId : undefined;
+      userId =
+        identification === identifications && isMonitoringUserId(config.userId)
+          ? config.userId
+          : undefined;
       configureNativeCrashReporting(options.base, (error, operation, tags) => {
         if (current === generation) reportDesktopError(error, operation, tags);
       });

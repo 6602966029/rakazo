@@ -52,11 +52,18 @@ describe("desktop monitoring", () => {
     );
     expect(event.user).toEqual({ ip_address: null });
     expect(hint.attachments).toEqual([]);
+    initialized.beforeSend(
+      { event_id: "old-event", platform: "node", tags: { "monitoring.connection": 1 } },
+      {},
+    );
+    const delegate = sdk.init.mock.results[0]!.value;
     await monitor.configureDesktopMonitoring(
       config({ dsn: "https://other@collector.example.com/9" }),
       { ...options, base: "https://other.example.com" },
     );
     expect(sdk.init).toHaveBeenCalledTimes(1);
+    await delegate.send([{ event_id: "old-event" }, []]);
+    expect(transport.send).not.toHaveBeenCalled();
     expect(sdk.makeElectronTransport).toHaveBeenLastCalledWith(
       expect.objectContaining({
         url: "https://other.example.com/api/monitoring/native/desktop/api/0/envelope/?sentry_key=other",
@@ -94,5 +101,30 @@ describe("desktop monitoring", () => {
       initialized.beforeSend({ platform: "node", tags: { "monitoring.connection": 1 } }, {}).user
         .id,
     ).toBe("b".repeat(64));
+  });
+  it("does not restore an initial identity after cookies changed during startup", async () => {
+    const monitor = await import("./monitoring.js");
+    let release!: (response: Response) => void;
+    const initial = monitor.configureDesktopMonitoring(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+      options,
+    );
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    await monitor.refreshDesktopMonitoringUser(
+      config({ dsn: "https://key@errors.example.com/8", userId: null }),
+    );
+    release(
+      new Response(
+        JSON.stringify({ dsn: "https://key@errors.example.com/8", userId: "a".repeat(64) }),
+      ),
+    );
+    await initial;
+    const initialized = sdk.init.mock.calls[0]![0];
+    expect(
+      initialized.beforeSend({ platform: "node", tags: { "monitoring.connection": 1 } }, {}).user,
+    ).toEqual({ ip_address: null });
   });
 });
