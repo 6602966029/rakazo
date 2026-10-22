@@ -405,8 +405,13 @@ export const MessageView = memo(function MessageView({
             const botId = "botId" in artifactTarget ? artifactTarget.botId : message.botId;
             if (!botId) return null;
             return (
-              <div key={i} className="flex justify-start py-1">
-                <AppConnectCard botId={botId} block={block} />
+              <div key={i} className="flex justify-start">
+                <AppConnectCard
+                  botId={botId}
+                  threadId={message.threadId}
+                  messageId={message.id}
+                  block={block}
+                />
               </div>
             );
           }

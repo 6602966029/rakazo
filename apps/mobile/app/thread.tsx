@@ -3083,6 +3083,11 @@ function isWideAskBlock(blocks: MobileMessage["blocks"]) {
   return blocks.some(isSecretAskBlock);
 }
 
+// Connect cards fill the bubble width instead of shrinking to their button.
+function hasAppConnectBlock(blocks: MobileMessage["blocks"]) {
+  return blocks.some((block) => block.kind === "app_connect");
+}
+
 const MessageRow = memo(function MessageRow({
   message,
   actions,
@@ -3321,7 +3326,9 @@ const MessageRow = memo(function MessageRow({
             width:
               isCenteredAgentEvent(message.blocks) || isWideAskBlock(message.blocks)
                 ? "100%"
-                : undefined,
+                : hasAppConnectBlock(message.blocks) && !activityBotId
+                  ? "90%"
+                  : undefined,
             maxWidth:
               isCenteredAgentEvent(message.blocks) || isWideAskBlock(message.blocks)
                 ? "100%"
@@ -3345,7 +3352,7 @@ const MessageRow = memo(function MessageRow({
           )}
           <MessageContextMenu
             actions={menu}
-            fullWidth={isWideAskBlock(message.blocks)}
+            fullWidth={isWideAskBlock(message.blocks) || hasAppConnectBlock(message.blocks)}
             maxWidth={
               isWideAskBlock(message.blocks)
                 ? columnWidth - 40 - (activityBotId ? (inGroup ? 28 : 36) : 0)
@@ -3504,6 +3511,8 @@ const MessageBubble = memo(function MessageBubble({
           <AppConnectCard
             key={`${block.provider}-${index}`}
             botId={cardBotId}
+            threadId={message.threadId}
+            messageId={message.id}
             block={block}
             accessibilityActions={actionProps.accessibilityActions}
             onAccessibilityAction={actionProps.onAccessibilityAction}
@@ -3785,6 +3794,8 @@ const MessageBubble = memo(function MessageBubble({
           <AppConnectCard
             key={`${block.provider}-${index}`}
             botId={cardBotId}
+            threadId={message.threadId}
+            messageId={message.id}
             block={block}
             accessibilityActions={actionProps.accessibilityActions}
             onAccessibilityAction={actionProps.onAccessibilityAction}
@@ -3893,6 +3904,8 @@ const MessageBubble = memo(function MessageBubble({
           <AppConnectCard
             key={`${block.provider}-${index}`}
             botId={cardBotId}
+            threadId={message.threadId}
+            messageId={message.id}
             block={block}
             accessibilityActions={actionProps.accessibilityActions}
             onAccessibilityAction={actionProps.onAccessibilityAction}
@@ -4060,6 +4073,8 @@ const MessageBubble = memo(function MessageBubble({
           <AppConnectCard
             key={`${block.provider}-${index}`}
             botId={cardBotId}
+            threadId={message.threadId}
+            messageId={message.id}
             block={block}
             accessibilityActions={actionProps.accessibilityActions}
             onAccessibilityAction={actionProps.onAccessibilityAction}
@@ -4126,6 +4141,8 @@ const MessageBubble = memo(function MessageBubble({
         <AppConnectCard
           key={`${block.provider}-${index}`}
           botId={cardBotId}
+          threadId={message.threadId}
+          messageId={message.id}
           block={block}
           accessibilityActions={actionProps.accessibilityActions}
           onAccessibilityAction={actionProps.onAccessibilityAction}

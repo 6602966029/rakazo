@@ -386,7 +386,6 @@ msgid "Activity"
 msgstr "활동"
 
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 msgid "Add"
@@ -439,12 +438,8 @@ msgid "Add another"
 msgstr ""
 
 #: src/pages/ModelBackupsSettings.tsx
-msgid "Add connected model"
-msgstr "연결된 모델 추가"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Add connected models to use them as backups."
-msgstr "백업으로 사용할 연결된 모델을 추가하세요."
+msgid "Add backup model"
+msgstr "백업 모델 추가"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
@@ -838,14 +833,6 @@ msgstr "로그인으로 돌아가기"
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Backup models"
 msgstr "백업 모델"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Backup models order"
-msgstr "백업 모델 순서"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Backup models saved."
-msgstr "백업 모델을 저장했습니다."
 
 #: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
@@ -2943,7 +2930,6 @@ msgstr "음성 서비스를 불러오는 중…"
 #: src/pages/Artifacts.tsx
 #: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineRunHistory.tsx
@@ -3045,10 +3031,6 @@ msgstr ""
 #: src/pages/Onboarding.tsx
 msgid "Maximum images per request"
 msgstr "요청당 최대 이미지 수"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Maximum of 10 backup models."
-msgstr "백업 모델은 최대 10개까지 추가할 수 있습니다."
 
 #: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
@@ -3977,7 +3959,6 @@ msgstr "새로고침"
 
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4271,10 +4252,6 @@ msgstr ""
 msgid "Save"
 msgstr "저장"
 
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Save backups"
-msgstr "백업 모델 저장"
-
 #: src/pages/shell/bot-credentials.tsx
 msgid "Save credential"
 msgstr ""
@@ -4317,7 +4294,6 @@ msgstr ""
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/ModelBackupsSettings.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4388,10 +4364,6 @@ msgstr "검색 중…"
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "대화할 Bot을 선택하세요"
-
-#: src/pages/ModelBackupsSettings.tsx
-msgid "Select a connected model"
-msgstr "연결된 모델 선택"
 
 #: src/pages/shell/composer.tsx
 msgid "Send"
@@ -5031,6 +5003,10 @@ msgstr ""
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr ""
+
+#: src/pages/ModelBackupsSettings.tsx
+msgid "Tried in order if the active model fails."
+msgstr "활성 모델이 실패하면 순서대로 시도합니다."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
