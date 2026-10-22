@@ -5308,6 +5308,7 @@ msgstr "Wachtwoord gebruiken"
 msgid "Use Protected input for passwords."
 msgstr "Gebruik Beveiligde invoer voor wachtwoorden."
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Onboarding.tsx
 msgid "Use Rakazo credits"
 msgstr ""

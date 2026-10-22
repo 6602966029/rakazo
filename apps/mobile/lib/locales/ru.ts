@@ -957,8 +957,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Available credits": "Доступные кредиты",
   Refresh: "Обновить",
   "Monthly credits": "Ежемесячные кредиты",
-  "Models at cost. Unused credits roll over.":
-    "Модели по себестоимости. Неиспользованные кредиты переносятся.",
   "Upgrade now": "Повысить тариф сейчас",
   "Downgrade at renewal": "Понизить тариф при продлении",
   "Continue with credits": "Продолжить с кредитами",
@@ -969,4 +967,5 @@ export const RU_MESSAGES: Record<string, string> = {
   "Use my API key": "Использовать свой API-ключ",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Ежемесячные кредиты истекают при продлении. Разовые пополнения не сгорают.",
+  "Use Rakazo credits": "Использовать кредиты Rakazo",
 };

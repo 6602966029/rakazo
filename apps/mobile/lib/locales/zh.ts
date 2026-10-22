@@ -924,7 +924,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Available credits": "可用额度",
   Refresh: "刷新",
   "Monthly credits": "每月额度",
-  "Models at cost. Unused credits roll over.": "按模型成本计费。未用额度可结转。",
   "Upgrade now": "立即升级",
   "Downgrade at renewal": "下次续费时降级",
   "Continue with credits": "使用额度继续",
@@ -935,4 +934,5 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Use my API key": "使用我的 API 密钥",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "每月额度在续费时到期。单次充值额度不会过期。",
+  "Use Rakazo credits": "使用 Rakazo 额度",
 };

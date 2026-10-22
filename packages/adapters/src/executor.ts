@@ -313,6 +313,7 @@ import {
 import {
   enabledOpenAiCompatibleModelIds,
   findConnectedModelCredential,
+  hasHostedModelCredits,
   pinnedModelCredentialError,
   routineRunModelPin,
   runModelChoice,
@@ -3068,12 +3069,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
     registerSecrets?: (values: string[]) => void,
     requireStoredSecret = false,
   ): Promise<AgentRunRequest["model"]> => {
+    const hostedProvider = (await modelCreditBillingEnabled(deps))
+      ? resolveDeploymentModel().provider
+      : undefined;
     const validationError = await validateConnectedModelChoice(
       deps.prisma,
       deps.secretStore,
       scope,
       provider,
       modelId,
+      { hostedProvider },
     );
     if (validationError) throw new Error(validationError);
     const credential = await findConnectedModelCredential(
@@ -9854,12 +9859,20 @@ async function modelCreditBillingEnabled(deps: ExecutorDeps): Promise<boolean> {
 }
 
 async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMaterial>) {
-  const [deps, userId, spaceId, credential] = args;
+  const [deps, userId, spaceId, , provider] = args;
+  const billingEnabled = await modelCreditBillingEnabled(deps);
+  const scope = { userId, spaceId };
+  if (
+    billingEnabled &&
+    !args[7]?.requireStoredSecret &&
+    (await hasHostedModelCredits(deps.prisma, scope, provider))
+  ) {
+    args[3] = null;
+  }
+  const credential = args[3];
   const material = await resolveModelKeyMaterial(...args);
   const callObserver =
-    !credential && (await modelCreditBillingEnabled(deps))
-      ? await hostedModelCreditObserver(deps.prisma, { userId, spaceId })
-      : undefined;
+    !credential && billingEnabled ? await hostedModelCreditObserver(deps.prisma, scope) : undefined;
   return { ...material, callObserver };
 }
 

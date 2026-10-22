@@ -917,8 +917,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Available credits": "Beschikbaar tegoed",
   Refresh: "Vernieuwen",
   "Monthly credits": "Maandelijks tegoed",
-  "Models at cost. Unused credits roll over.":
-    "Modellen tegen kostprijs. Ongebruikt tegoed blijft behouden.",
   "Upgrade now": "Nu upgraden",
   "Downgrade at renewal": "Downgraden bij verlenging",
   "Continue with credits": "Doorgaan met tegoed",
@@ -929,4 +927,5 @@ export const NL_MESSAGES: Record<string, string> = {
   "Use my API key": "Mijn API-sleutel gebruiken",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Maandelijks tegoed vervalt bij verlenging. Los gekocht tegoed verloopt niet.",
+  "Use Rakazo credits": "Rakazo-tegoed gebruiken",
 };

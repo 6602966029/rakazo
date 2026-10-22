@@ -133,6 +133,57 @@ dbTests("durable model credit audit", () => {
     expect(lookup.lookupUsage).toHaveBeenCalledTimes(1);
     expect((await creditAccount(prisma, f.organizationId)).balanceMicros).toBe(9_750_000n);
   });
+  it("applies a saved receipt over an existing unknown usage row before completing", async () => {
+    const f = await fixture();
+    await recordUsage(prisma, { ...f.event, costUsd: null, costSource: null }, f);
+    await recordModelCreditReceipt(prisma, f.callId, f.usage);
+    await createModelCreditReconciler({ prisma, now: () => new Date(Date.now() + 10 * 60_000) })();
+    expect((await creditAccount(prisma, f.organizationId)).balanceMicros).toBe(9_750_000n);
+    expect(await prisma.usageRecord.findUnique({ where: { callId: f.callId } })).toMatchObject({
+      costUsd: 0.25,
+      costSource: "provider-reported",
+    });
+    expect(await prisma.modelCreditEntry.findUnique({ where: { callId: f.callId } })).toMatchObject(
+      { pending: false, reconciliationState: "complete" },
+    );
+  });
+  it.each([false, true])(
+    "returns a definitively rejected hold even across a receipt crash (crash=%s)",
+    async (crash) => {
+      const f = await fixture();
+      await recordUsage(prisma, { ...f.event, costUsd: null, costSource: null }, f);
+      const rejected = {
+        ...f.usage,
+        providerRequestId: null,
+        costUsd: 0,
+        costSource: "provider-rejection",
+        usageSource: "provider-rejected",
+      };
+      if (crash)
+        await prisma.modelCreditEntry.update({
+          where: { callId: f.callId },
+          data: { usage: JSON.parse(JSON.stringify(rejected)) },
+        });
+      else {
+        await recordModelCreditReceipt(prisma, f.callId, rejected);
+        expect((await creditAccount(prisma, f.organizationId)).balanceMicros).toBe(10_000_000n);
+      }
+      const reconcile = createModelCreditReconciler({
+        prisma,
+        now: () => new Date(Date.now() + 10 * 60_000),
+      });
+      await reconcile();
+      await reconcile();
+      expect((await creditAccount(prisma, f.organizationId)).balanceMicros).toBe(10_000_000n);
+      expect(await prisma.usageRecord.findUnique({ where: { callId: f.callId } })).toMatchObject({
+        costUsd: 0,
+        usageSource: "provider-rejected",
+      });
+      expect(
+        await prisma.modelCreditEntry.findUnique({ where: { callId: f.callId } }),
+      ).toMatchObject({ pending: false, reconciliationState: "complete" });
+    },
+  );
   it("keeps both the estimate and authoritative correction in the journal", async () => {
     const f = await fixture();
     await recordModelCreditReceipt(prisma, f.callId, {

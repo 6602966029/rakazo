@@ -401,8 +401,9 @@ The hosted computer is included in both paths.
 
 Configure the managed default model through the existing model connection settings. The default
 OpenRouter model is Luna 6; customers can choose another available model, with its usage deducted
-at model cost. Personal model connections are billed directly by their provider and never debit
-Rakazo credits. Hosted calls reserve an upper cost estimate atomically before starting, then settle
+at model cost. In credit mode, the configured hosted provider uses Rakazo's key even when a personal
+key for that provider is saved. Switching back to BYOK restores that connection. Personal connections
+to other providers continue to use their own keys and never debit Rakazo credits. Hosted calls reserve an upper cost estimate atomically before starting, then settle
 to reported or catalog-priced usage. Unknown usage retains its reservation for reconciliation.
 
 `STRIPE_PRICE_ID` is optional and only needed to display the legacy seat price. Existing live seat

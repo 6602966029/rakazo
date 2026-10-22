@@ -5308,6 +5308,7 @@ msgstr "שימוש בסיסמה"
 msgid "Use Protected input for passwords."
 msgstr "לסיסמאות יש להשתמש בקלט מוגן."
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Onboarding.tsx
 msgid "Use Rakazo credits"
 msgstr ""

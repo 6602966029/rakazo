@@ -2994,6 +2994,7 @@ description: Prepare standup notes
       },
     } as unknown as PrismaClient;
     const executor = createRunExecutor({
+      billingEnabled: false,
       prisma,
       secretStore: { load: vi.fn(() => plaintext), put: vi.fn() },
     } as unknown as Parameters<typeof createRunExecutor>[0]);

@@ -327,6 +327,20 @@ export function ModelCreditsSettings({
           ) : null}
         </div>
       ) : null}
+      {status.canManage && status.funding === "byok" && (status.balanceUsd ?? 0) > 0 ? (
+        <Button
+          variant="ghost"
+          disabled={pending || !status.creditPurchasesEnabled}
+          onClick={() =>
+            void action(async () => {
+              await rpc.billing.selectFunding({ funding: "credits" });
+              window.location.reload();
+            })
+          }
+        >
+          <Trans>Use Rakazo credits</Trans>
+        </Button>
+      ) : null}
       {status.canManage && status.funding !== "byok" && (!recurring || status.cancelAtPeriodEnd) ? (
         <Button
           variant="ghost"

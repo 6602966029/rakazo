@@ -154,6 +154,20 @@ export default function BillingScreen() {
               />
             ) : null}
           </SettingsGroup>
+          {status.funding === "byok" && (status.balanceUsd ?? 0) > 0 ? (
+            <SettingsGroup>
+              <SettingsRow
+                title={t("Use Rakazo credits")}
+                disabled={pending || !status.creditPurchasesEnabled}
+                onPress={() =>
+                  void action(async () => {
+                    await rpc("billing/selectFunding", { funding: "credits" });
+                    router.replace("/models");
+                  })
+                }
+              />
+            </SettingsGroup>
+          ) : null}
           {!recurring || status.cancelAtPeriodEnd ? (
             <SettingsGroup
               label={t("Your API key")}

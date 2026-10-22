@@ -127,6 +127,22 @@ dbTests("model credit billing service", () => {
     await service.sync(customer);
     await expect(service.status(actor)).resolves.toMatchObject({ funding: "byok", balanceUsd: 90 });
   });
+  it("reactivates existing credits without another checkout or removing a personal connection", async () => {
+    const connection = await prisma.userModelCredential.create({
+      data: { userId, provider: "openai", label: "Personal fixture", secretId: "fixture-secret" },
+    });
+    const before = await service.status(actor);
+    const checkouts = provider.creditCheckouts.size;
+    await service.selectFunding(actor, "credits");
+    await expect(service.status(actor)).resolves.toMatchObject({
+      funding: "credits",
+      balanceUsd: before.balanceUsd,
+    });
+    expect(provider.creditCheckouts.size).toBe(checkouts);
+    expect(await prisma.userModelCredential.findUnique({ where: { id: connection.id } })).toEqual(
+      connection,
+    );
+  });
   it("refuses purchasing and changing plans without organization ownership", async () => {
     const other = { ...actor, userId: `non-member-${stamp}` };
     await expect(

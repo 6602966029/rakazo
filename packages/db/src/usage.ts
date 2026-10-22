@@ -1,6 +1,6 @@
 import type { AgentRuntimeEvent, UsageOperationKind } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "./generated/prisma/client.js";
-import { settleModelCreditsTx } from "./model-credits.js";
+import { hasFinalModelCost, settleModelCreditsTx } from "./model-credits.js";
 
 type UsageEvent = Extract<AgentRuntimeEvent, { type: "usage" }>;
 export interface UsageAttribution {
@@ -73,7 +73,7 @@ export async function recordUsage(
       });
     }
     await settleModelCreditsTx(tx, entry.id, usage.costUsd, reconcile);
-    const complete = usage.costUsd !== null && usage.costSource === "provider-reported";
+    const complete = hasFinalModelCost(usage);
     await tx.modelCreditEntry.update({
       where: { id: entry.id },
       data: {

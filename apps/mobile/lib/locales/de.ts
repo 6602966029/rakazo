@@ -961,8 +961,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Available credits": "Verfügbares Guthaben",
   Refresh: "Aktualisieren",
   "Monthly credits": "Monatliches Guthaben",
-  "Models at cost. Unused credits roll over.":
-    "Modelle zum Selbstkostenpreis. Ungenutztes Guthaben wird übertragen.",
   "Upgrade now": "Jetzt upgraden",
   "Downgrade at renewal": "Bei Verlängerung downgraden",
   "Continue with credits": "Mit Guthaben fortfahren",
@@ -973,4 +971,5 @@ export const DE_MESSAGES: Record<string, string> = {
   "Use my API key": "Meinen API-Schlüssel verwenden",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Monatliches Guthaben verfällt bei Verlängerung. Einmalige Aufladungen verfallen nicht.",
+  "Use Rakazo credits": "Rakazo-Guthaben verwenden",
 };

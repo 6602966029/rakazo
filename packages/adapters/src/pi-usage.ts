@@ -26,6 +26,7 @@ import { fetchPairedWithDispatcher } from "./undici-fetch.js";
 /** Pi initializes absent usage to zero. Only raw numeric fields can prove reported zero. */
 export type ReportedUsageFields = Set<keyof AgentUsage>;
 const reportedRequestIds = new WeakMap<ReportedUsageFields, string>();
+const rejectedRequests = new WeakSet<ReportedUsageFields>();
 const reportedCosts = new WeakMap<ReportedUsageFields, number>();
 const reportedValues = new WeakMap<ReportedUsageFields, Map<keyof AgentUsage, number>>();
 export function normalizePiUsage(
@@ -65,6 +66,7 @@ export function normalizePiUsage(
     outputTokens !== null &&
     (model.cost.cacheRead === 0 || cacheReadTokens !== null) &&
     (model.cost.cacheWrite === 0 || cacheWriteTokens !== null);
+  const rejected = rejectedRequests.has(reported);
   const providerCost = reportedCosts.get(reported);
   return {
     providerRequestId: reportedRequestIds.get(reported) ?? null,
@@ -76,15 +78,24 @@ export function normalizePiUsage(
     reasoningTokens: token(usage?.reasoning, "reasoningTokens"),
     totalTokens,
     costUsd:
-      providerCost ??
+      (rejected ? 0 : providerCost) ??
       (costKnown && typeof usage?.cost?.total === "number" && Number.isFinite(usage.cost.total)
         ? usage.cost.total
         : null),
-    costSource:
-      providerCost !== undefined ? "provider-reported" : costKnown ? "pi-catalog-estimate" : null,
+    costSource: rejected
+      ? "provider-rejection"
+      : providerCost !== undefined
+        ? "provider-reported"
+        : costKnown
+          ? "pi-catalog-estimate"
+          : null,
     pricingSnapshot: model.cost ? JSON.parse(JSON.stringify(model.cost)) : null,
     pricingVersion: providerCost !== undefined ? null : costKnown ? "pi-ai-1.3.0" : null,
-    usageSource: reported.size ? "provider-reported-via-pi" : "pi-normalized",
+    usageSource: rejected
+      ? "provider-rejected"
+      : reported.size
+        ? "provider-reported-via-pi"
+        : "pi-normalized",
   };
 }
 
@@ -101,7 +112,15 @@ export function usageReportingFetch(
       init && "dispatcher" in init && init.dispatcher instanceof Agent
         ? fetchPairedWithDispatcher(fetcher)
         : fetcher;
+    rejectedRequests.delete(reported);
     const response = await transport(input, init);
+    // These HTTP responses reject the request before generation. Timeouts,
+    // transport failures, and server errors remain uncertain and retain their holds.
+    if (
+      !response.headers.get("content-type")?.includes("text/event-stream") &&
+      [400, 401, 402, 403, 404, 405, 406, 413, 415, 422, 429].includes(response.status)
+    )
+      rejectedRequests.add(reported);
     if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream"))
       return response;
     let buffer = "";
@@ -439,7 +458,7 @@ export function observedPiStream(
         let terminalError = error;
         if (started && normalized === null) {
           try {
-            await emitUsage(normalizePiUsage(undefined, model));
+            await emitUsage(normalizePiUsage(undefined, model, reported));
           } catch (accountingError) {
             terminalError = accountingError;
           }

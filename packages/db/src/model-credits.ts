@@ -196,6 +196,20 @@ export function settleModelCredits(
   return prisma.$transaction((tx) => settleModelCreditsTx(tx, reservationId, costUsd, false, now));
 }
 
+/** A provider cost or a proven pre-generation stop can finalize accounting. */
+export function hasFinalModelCost(
+  usage: Pick<AgentUsage, "costUsd" | "costSource" | "usageSource">,
+): boolean {
+  return (
+    usage.costUsd != null &&
+    Number.isFinite(usage.costUsd) &&
+    usage.costUsd >= 0 &&
+    (usage.costSource === "provider-reported" ||
+      (usage.costUsd === 0 &&
+        ["not-started", "provider-rejected"].includes(usage.usageSource ?? "")))
+  );
+}
+
 /** Persist a receipt before attempting the canonical usage + settlement transaction. */
 export async function recordModelCreditReceipt(
   prisma: PrismaClient,
@@ -210,12 +224,15 @@ export async function recordModelCreditReceipt(
       ...(usage.providerRequestId ? { providerRequestId: usage.providerRequestId } : {}),
     },
   });
-  if (usage.usageSource === "not-started")
+  if (
+    usage.costUsd === 0 &&
+    (usage.usageSource === "not-started" || usage.usageSource === "provider-rejected")
+  )
     await prisma.$transaction(async (tx) => {
       await settleModelCreditsTx(tx, id, 0);
       await tx.modelCreditEntry.updateMany({
-        where: { id },
-        data: { reconciliationState: "complete", nextReconcileAt: null },
+        where: { id, reconciliationState: "pending" },
+        data: { nextReconcileAt: new Date() },
       });
     });
 }

@@ -1,6 +1,6 @@
 import type { AgentUsage, ModelUsageLookup } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
-import { expireModelCredits, recordUsage, runAsSystem } from "@rakazo/db";
+import { expireModelCredits, hasFinalModelCost, recordUsage, runAsSystem } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 
 /** Bounded, leased recovery. Missing evidence is flagged rather than converted into free usage. */
@@ -61,7 +61,7 @@ export function createModelCreditReconciler(deps: {
             if (
               usage &&
               usage.costUsd != null &&
-              (call.pending || reconciled || usage.costSource === "provider-reported")
+              (call.pending || reconciled || hasFinalModelCost(usage))
             ) {
               await recordUsage(
                 prisma,
@@ -79,9 +79,9 @@ export function createModelCreditReconciler(deps: {
                   operationId: call.runId ?? call.callId,
                   operationKind: usage.operationKind ?? "answer",
                 },
-                reconciled || (!call.pending && usage.costSource === "provider-reported"),
+                true,
               );
-              complete = usage.costSource === "provider-reported";
+              complete = hasFinalModelCost(usage);
             }
           } catch (error) {
             getLogger().warn("Model credit reconciliation could not verify a call", {

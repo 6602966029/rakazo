@@ -155,7 +155,8 @@ export async function modelCredentialAuthKindsForSpace(
     ),
   ];
   for (const entry of slots) {
-    if (!connectedProviders.has(entry.provider)) continue;
+    if (!connectedProviders.has(entry.provider) || (hosted && entry.provider === hostedProvider))
+      continue;
     const choice = chooseModelCredential({
       provider: entry.provider,
       modelId: entry.id,
@@ -415,6 +416,7 @@ async function loadModelSecret(
 }
 
 export type ConnectedModelResolution = {
+  hostedProvider?: string;
   codexCatalog?: CodexLiveCatalog;
   /** Preview a connection save using the same runtime selection. */
   replacement?: { credentialId: string; secret: StoredModelSecret; defaultModel?: string | null };
@@ -507,19 +509,14 @@ export async function validateBotModelChange(
   const { provider, model } = input;
   const changing = provider !== input.current?.provider || model !== input.current?.model;
   if (changing && provider && model) {
-    const credential = await findConnectedModelCredential(
-      deps.prisma,
-      deps.secretStore,
-      scope,
-      provider,
-      model,
-    );
+    const hosted =
+      deps.hostedProvider === provider &&
+      (await hasHostedModelCredits(deps.prisma, scope, provider));
+    const credential = hosted
+      ? null
+      : await findConnectedModelCredential(deps.prisma, deps.secretStore, scope, provider, model);
     if (!credential) {
-      if (
-        deps.hostedProvider === provider &&
-        isCatalogModelChoice(provider, model) &&
-        (await hasHostedModelCredits(deps.prisma, scope, provider))
-      ) {
+      if (hosted && isCatalogModelChoice(provider, model)) {
         const allowed = listPiCatalog().find(
           (entry) => entry.provider === provider && entry.id === model,
         )?.thinkingLevels;
@@ -684,6 +681,12 @@ export async function validateConnectedModelChoice(
   modelId: string,
   resolution: ConnectedModelResolution = {},
 ) {
+  if (
+    resolution.hostedProvider === provider &&
+    (await hasHostedModelCredits(prisma, actor, provider))
+  ) {
+    return isCatalogModelChoice(provider, modelId) ? undefined : "Unknown model for that provider";
+  }
   const credential = await findConnectedModelCredential(
     prisma,
     secretStore,

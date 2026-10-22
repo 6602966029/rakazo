@@ -175,4 +175,27 @@ test("choose free API keys or monthly credits, then add a one-time top-up", asyn
   });
   await page.getByRole("button", { name: "Use my API key", exact: true }).click();
   await expect(page.getByText("Chief").first()).toBeVisible();
+  status = billingStatus({
+    access: true,
+    creditPurchasesEnabled: true,
+    funding: "byok",
+    balanceUsd: 12,
+    monthlyAmountCents: null,
+  });
+  await page.reload();
+  const existingCredits = await openUserSettings(page, "billing");
+  await page.route("**/rpc/billing/selectFunding", async (route) => {
+    expect(route.request().postDataJSON().json).toEqual({ funding: "credits" });
+    status = { ...status, funding: "credits" };
+    await route.fulfill({ json: { json: { ok: true } } });
+  });
+  await captureScreenshot(page, testInfo, "billing-use-existing-credits");
+  await existingCredits.getByRole("button", { name: "Use Rakazo credits", exact: true }).click();
+  await expect(page.getByText("Chief").first()).toBeVisible();
+  const reactivated = await openUserSettings(page, "billing");
+  await expect(reactivated.getByText("$12.00", { exact: true })).toBeVisible();
+  await expect(
+    reactivated.getByRole("button", { name: "Use Rakazo credits", exact: true }),
+  ).toHaveCount(0);
+  expect(purchase).toEqual({ amountCents: 5000, monthly: false });
 });
