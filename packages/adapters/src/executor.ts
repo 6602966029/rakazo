@@ -360,7 +360,6 @@ import {
   renderPlotSpecToSvg,
   searchChartCatalog,
 } from "./plot-tool.js";
-import { actorMayUsePrivateEndpoint } from "./private-endpoint.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
@@ -2777,7 +2776,7 @@ export interface ExecutorDeps {
   /** Page browser (DOM refs) on the bot computer. Defaults to the sandbox live browser when supported. */
   browser?: BrowserProvider;
   secretHttp?: RemoteTransportDependencies;
-  /** Allow RFC1918 / Docker-network MCP URLs when the deployment owner enabled the escape. */
+  /** Allow RFC1918 / Docker-network MCP URLs when the operator enabled the escape. */
   mcpAllowPrivateEndpoint?: boolean;
   /** Remote cloud coding agents. Null/omit means tools stay uninjected. */
   cloudAgent?: CloudAgentConnection | null;
@@ -6457,11 +6456,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (parsed.endpoint) {
               try {
                 await assertSafeRemoteUrl(parsed.endpoint, deps.secretHttp?.resolveHostname, {
-                  allowPrivateEndpoint: await actorMayUsePrivateEndpoint(
-                    deps.prisma,
-                    run.userId,
-                    deps.mcpAllowPrivateEndpoint === true,
-                  ),
+                  allowPrivateEndpoint: deps.mcpAllowPrivateEndpoint === true,
                 });
               } catch (error) {
                 return finish({
@@ -10125,15 +10120,8 @@ async function resolveModelKeyMaterial(
       const oauth = resolved.secret.kind === "oauth" ? resolved.secret.credential : undefined;
       const baseUrl =
         resolved.secret.kind === "openai_compatible" ? resolved.secret.baseUrl : undefined;
-      // Connections saved before the owner gate may already point at private hosts,
-      // so decide for the credential's owner on every run, not only on save.
-      const allowPrivateEndpoint = baseUrl
-        ? await actorMayUsePrivateEndpoint(
-            deps.prisma,
-            userId,
-            deps.mcpAllowPrivateEndpoint === true,
-          )
-        : undefined;
+      // Recheck operator configuration for saved private connections on every run.
+      const allowPrivateEndpoint = baseUrl ? deps.mcpAllowPrivateEndpoint === true : undefined;
       if (baseUrl) {
         try {
           // The public gate stays with the request-time fetch guard.

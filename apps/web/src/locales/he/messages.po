@@ -341,10 +341,6 @@ msgstr "על קבוצות"
 msgid "About spaces"
 msgstr "על מרחבים"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Access token"
-msgstr "טוקן גישה"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "טוקן גישה (אופציונלי)"
@@ -671,12 +667,7 @@ msgstr "נענה: {answer}"
 msgid "Any model, with your own key"
 msgstr "כל מודל, עם מפתח משלך"
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "API is back, but the update did not finish. Check the host logs."
-msgstr "ה-API חזר לפעול, אבל העדכון לא הושלם. יש לבדוק את הלוגים של השרת."
-
 #: src/components/AskCard.tsx
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/lib/localized-provider-hint.ts
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -765,10 +756,6 @@ msgstr "לשאול לפני רכישות"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Ask before sending external email"
 msgstr "לשאול לפני שליחת אימייל חיצוני"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Ask the server owner to configure this provider."
-msgstr "יש לבקש מבעלי השרת להגדיר את הספק הזה."
 
 #. placeholder {0}: preset.time
 #: src/pages/RoutineSchedule.tsx
@@ -994,7 +981,6 @@ msgstr "לא ניתן לקרוא תמונות"
 
 #: src/components/AskCard.tsx
 #: src/components/ComputerMaintenanceActions.tsx
-#: src/components/ComputerUpdateProgress.tsx
 #: src/components/markdown-link-prompt.tsx
 #: src/components/PasskeySettings.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
@@ -1075,17 +1061,12 @@ msgstr "בדיקה חוזרת"
 msgid "Check every"
 msgstr ""
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Check failed"
-msgstr "הבדיקה נכשלה"
-
 #. placeholder {0}: state.detail ?? ""
 #: src/pages/RoutineEditor.tsx
 msgid "Check failed: {0}"
 msgstr ""
 
 #: src/components/DesktopUpdates.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Check for updates"
 msgstr "בדיקת עדכונים"
 
@@ -1119,14 +1100,9 @@ msgstr "בודק חיבור…"
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/DesktopUpdates.tsx
-#: src/components/SoftwareUpdateSection.tsx
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "בודק…"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Checkout has local changes. Clean it before updating."
-msgstr "יש שינויים מקומיים בעותק. יש לנקות אותו לפני העדכון."
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -1169,14 +1145,6 @@ msgstr "ניקוי המסנן {label}"
 #: src/pages/shell/dialogs.tsx
 msgid "Clearing…"
 msgstr "מנקה…"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Client ID"
-msgstr "Client ID"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Client secret"
-msgstr "Client secret"
 
 #: src/components/ErrorBoundary.tsx
 #: src/pages/KnowledgeSection.tsx
@@ -1424,7 +1392,6 @@ msgstr "{0} מחובר."
 msgid "Connected. Its tools are available from your next message."
 msgstr "מחובר. הכלים שלו יהיו זמינים החל מההודעה הבאה."
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
@@ -1699,7 +1666,6 @@ msgstr "לא ניתן לטעון את הבוטים. יש לטעון מחדש כ�
 msgid "Could not load credentials."
 msgstr "לא ניתן לטעון את פרטי הגישה."
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not load integrations"
 msgstr "לא ניתן לטעון את האינטגרציות"
@@ -1738,10 +1704,6 @@ msgstr "לא ניתן לטעון את הצ׳אט הזה."
 msgid "Could not load this file."
 msgstr "לא ניתן לטעון את הקובץ הזה."
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Could not load update status"
-msgstr "לא ניתן לטעון את סטטוס העדכון"
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Could not load voice settings"
 msgstr "לא ניתן לטעון את הגדרות הקול"
@@ -1756,10 +1718,6 @@ msgstr "לא ניתן להתנתק. יש לנסות שוב."
 #: src/pages/Paywall.tsx
 msgid "Could not open billing"
 msgstr "לא ניתן לפתוח את החיוב"
-
-#: src/pages/LocalSettings.tsx
-msgid "Could not open local settings. Start the local server and create its owner account, then try again."
-msgstr "לא ניתן לפתוח את ההגדרות המקומיות. יש להפעיל את השרת המקומי וליצור את חשבון הבעלים שלו, ואז לנסות שוב."
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Could not play a test clip"
@@ -2203,10 +2161,6 @@ msgstr "עדכון לאפליקציית הדסקטופ"
 msgid "Details"
 msgstr "פרטים"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Direct MCP"
-msgstr "MCP ישיר"
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Disable a tool"
 msgstr "השבתת כלי"
@@ -2312,10 +2266,6 @@ msgstr "הורדת {0}"
 #: src/components/ArtifactFileCard.tsx
 msgid "Download {name}"
 msgstr "הורדת {name}"
-
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Download Executor"
-msgstr "הורדת Executor"
 
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
@@ -2634,10 +2584,6 @@ msgstr "Gateway ID"
 msgid "General"
 msgstr "כללי"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Get credentials"
-msgstr "קבלת פרטי גישה"
-
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "הורדת האפליקציה לנייד"
@@ -2835,10 +2781,6 @@ msgstr "ההנחיות עודכנו"
 msgid "Integration domain"
 msgstr "דומיין האינטגרציה"
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Integration options"
-msgstr "אפשרויות אינטגרציה"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "Integrations"
 msgstr "אינטגרציות"
@@ -3019,10 +2961,6 @@ msgstr "גישה מקומית מאפשרת לבוטים להריץ פקודות 
 msgid "Local computer access requires the latest desktop app."
 msgstr ""
 
-#: src/pages/LocalSettings.tsx
-msgid "Local Server Settings"
-msgstr "הגדרות השרת המקומי"
-
 #: src/components/ModelCredits.tsx
 #: src/components/SidebarFooter.tsx
 #: src/pages/Paywall.tsx
@@ -3043,10 +2981,6 @@ msgstr "נמוך"
 #: src/pages/shell/bot-credentials.tsx
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr "אותיות לטיניות קטנות, ספרות, מקפים וקווים תחתונים, ובהתחלה אות."
-
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Make sure nothing is still running on this computer."
-msgstr "יש לוודא ששום דבר לא פועל עדיין במחשב הזה."
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
@@ -3272,7 +3206,6 @@ msgstr "העלות של המודלים מחויבת דרך מפתחות הספק
 msgid "Model updated."
 msgstr "המודל עודכן."
 
-#: src/pages/LocalSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Models"
@@ -3281,10 +3214,6 @@ msgstr "מודלים"
 #: src/components/ModelCredits.tsx
 msgid "Models at provider cost"
 msgstr ""
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Models for the server owner’s default space."
-msgstr "מודלים למרחב ברירת המחדל של בעלי השרת."
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -3567,10 +3496,6 @@ msgstr "לא עכשיו"
 #: src/components/McpServerHealthLine.tsx
 msgid "Not working"
 msgstr "לא עובד"
-
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Nothing is still running"
-msgstr "שום דבר לא פועל"
 
 #: src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
@@ -3889,10 +3814,6 @@ msgstr "פרטי"
 msgid "Private workspace with its own bots and groups."
 msgstr "סביבת עבודה פרטית עם בוטים וקבוצות משלה."
 
-#: src/components/integrations/IntegrationSetup.tsx
-msgid "Project ID"
-msgstr "מזהה פרויקט"
-
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Protected input"
 msgstr "קלט מוגן"
@@ -4052,17 +3973,9 @@ msgstr "מרענן…"
 msgid "Registration is closed"
 msgstr "ההרשמה סגורה"
 
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Release computer"
-msgstr "שחרור המחשב"
-
 #: src/pages/shell/computer-release-actions.tsx
 msgid "Release control"
 msgstr "שחרור השליטה"
-
-#: src/components/ComputerUpdateProgress.tsx
-msgid "Release interrupted computer?"
-msgstr "לשחרר את המחשב שהפעולה בו נקטעה?"
 
 #: src/components/InstructionSettings.tsx
 msgid "Reload"
@@ -4523,12 +4436,6 @@ msgstr "התראת Sentry"
 msgid "Serenity endpoint is required."
 msgstr "נדרשת נקודת קצה של Serenity."
 
-#: src/components/integrations/IntegrationSetup.tsx
-#: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/LocalSettings.tsx
-msgid "Server integrations"
-msgstr "אינטגרציות שרת"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Server name"
 msgstr "שם השרת"
@@ -4557,7 +4464,6 @@ msgstr "הגדרות: כללי"
 msgid "Settings: Usage"
 msgstr "הגדרות: שימוש"
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 msgid "Setup help"
 msgstr "עזרה בהגדרה"
@@ -4674,7 +4580,6 @@ msgstr "מיומנות {0}"
 msgid "Skills"
 msgstr "מיומנויות"
 
-#: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/shell/computer-release-actions.tsx
 msgid "Skip"
 msgstr "דילוג"
@@ -4699,10 +4604,6 @@ msgstr "Slack לא מופעל"
 #: src/components/composer/HoldToTalk.tsx
 msgid "Slide up to lock"
 msgstr ""
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Software update"
-msgstr "עדכון תוכנה"
 
 #: src/App.tsx
 #: src/lib/user-error.ts
@@ -4910,10 +4811,6 @@ msgstr "בדיקת התחברות"
 #: src/pages/McpServersOverlay.tsx
 msgid "Testing…"
 msgstr "בודק…"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "The API did not come back. Refresh this page."
-msgstr "ה-API לא חזר לפעול. יש לרענן את הדף."
 
 #: src/lib/model-connection-preflight.ts
 msgid "The connection timed out."
@@ -5156,10 +5053,6 @@ msgstr "יש להקליד תשובה"
 msgid "Unassigned"
 msgstr "ללא שיוך"
 
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Unavailable"
-msgstr "לא זמין"
-
 #: src/components/AskCard.tsx
 msgid "Undo"
 msgstr "ביטול"
@@ -5186,31 +5079,20 @@ msgid "Unsupported file type: {0}"
 msgstr "סוג קובץ לא נתמך: {0}"
 
 #: src/components/DesktopUpdates.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Up to date"
 msgstr "מעודכן"
 
 #: src/components/ModelCredits.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Update"
 msgstr "עדכון"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Update available"
-msgstr "יש עדכון זמין"
 
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Update computer"
 msgstr "עדכון המחשב"
 
 #: src/components/ComputerUpdateProgress.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Update failed"
 msgstr "העדכון נכשל"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Update finished with errors"
-msgstr "העדכון הסתיים עם שגיאות"
 
 #: src/lib/activity-list-filters.ts
 msgid "Update from {name}"
@@ -5227,10 +5109,6 @@ msgstr "לעדכן את ההוראות?"
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Update progress"
 msgstr "התקדמות העדכון"
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Updated"
-msgstr "עודכן"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Updated {updated}"
@@ -5250,7 +5128,6 @@ msgid "Updating Team Computer"
 msgstr "מעדכן את מחשב הצוות"
 
 #: src/components/ComputerMaintenanceActions.tsx
-#: src/components/SoftwareUpdateSection.tsx
 msgid "Updating…"
 msgstr "מעדכן…"
 
@@ -5379,10 +5256,6 @@ msgstr "קול"
 #: src/lib/model-connection-preflight.ts
 msgid "Wait a moment and test again."
 msgstr "יש להמתין רגע ולבדוק שוב."
-
-#: src/components/SoftwareUpdateSection.tsx
-msgid "Waiting for the API to come back…"
-msgstr "ממתין שה-API יחזור לפעול…"
 
 #: src/lib/roster-status.ts
 msgid "Waiting in line…"

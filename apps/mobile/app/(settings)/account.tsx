@@ -639,14 +639,6 @@ export default function Account() {
               title={title}
             />
           ))}
-          {me?.isDeploymentOwner ? (
-            <SettingsRow
-              accessibilityRole="button"
-              chevron="right"
-              onPress={() => router.push("/integration-setup")}
-              title={t("Server integrations")}
-            />
-          ) : null}
         </SettingsGroup>
 
         <SettingsGroup>

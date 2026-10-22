@@ -325,13 +325,13 @@ describe("billing", () => {
     await expect(client.me()).resolves.toMatchObject({ billingEnabled: false });
   });
 
-  it("enables billing on me for everyone but the deployment owner", async () => {
+  it("enables billing on me for admins too", async () => {
     const billing = { status: vi.fn() } as unknown as RouterDeps["billing"];
     await expect(billingDeps(false, billing).me()).resolves.toMatchObject({
       billingEnabled: true,
     });
     await expect(billingDeps(true, billing).me()).resolves.toMatchObject({
-      billingEnabled: false,
+      billingEnabled: true,
     });
   });
 });
@@ -1084,6 +1084,7 @@ describe("MCP pre-registered OAuth client", () => {
         webOrigin: "http://127.0.0.1:5173",
         screenProxySecret: "fake-test-secret",
         sandboxProvider: "fake",
+        mcpAllowPrivateEndpoint: isDeploymentOwner,
       },
       dataDir: "/tmp/rakazo-router-test",
     } as unknown as RouterDeps;
@@ -1463,7 +1464,7 @@ describe("MCP pre-registered OAuth client", () => {
       });
     });
 
-    it("lets the deployment owner point at a private authorization server", async () => {
+    it("allows a private authorization server only with operator configuration", async () => {
       const { client } = harness();
 
       await expect(
@@ -1480,7 +1481,7 @@ describe("MCP pre-registered OAuth client", () => {
 describe("MCP loopback endpoints", () => {
   const LOOPBACK = "http://localhost:3100/api/auth/get-session";
 
-  function mcpDeps() {
+  function mcpDeps(mcpAllowPrivateEndpoint = false) {
     const create = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
       ...data,
       id: "server-1",
@@ -1512,6 +1513,7 @@ describe("MCP loopback endpoints", () => {
         webOrigin: "http://127.0.0.1:5173",
         screenProxySecret: "fake-test-secret",
         sandboxProvider: "fake",
+        mcpAllowPrivateEndpoint,
       },
       dataDir: "/tmp/rakazo-router-test",
     } as unknown as RouterDeps;
@@ -1553,8 +1555,8 @@ describe("MCP loopback endpoints", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("lets the deployment owner save a loopback endpoint", async () => {
-    const { create, handler } = mcpDeps();
+  it("allows a loopback endpoint under explicit operator configuration", async () => {
+    const { create, handler } = mcpDeps(true);
     const { response } = await handler.handle(rpc("mcp/servers/create", createInput), {
       prefix: "/rpc",
       context: { actor: actor(true) },
@@ -2009,7 +2011,7 @@ describe("private API connectors", () => {
   };
 
   it.each([
-    ["the deployment owner", true, false],
+    ["a legacy owner under the instance flag", true, true],
     ["every user under the instance flag", false, true],
   ])("lets %s install a loopback API connector", async (_label, owner, flag) => {
     const { create, handler } = privateDeps(flag);
@@ -2573,8 +2575,6 @@ describe("updater owner gate", () => {
         screenProxySecret: "fake-test-secret",
         sandboxProvider: "fake",
         gitSha: "deadbeef",
-        updaterUrl: undefined,
-        updaterToken: undefined,
       },
       dataDir: "/tmp/rakazo-router-test",
     } as unknown as RouterDeps;
@@ -2602,7 +2602,7 @@ describe("updater owner gate", () => {
     expect(response.status).toBe(403);
   });
 
-  it("lets the deployment owner read status without applying git", async () => {
+  it("denies a legacy owner server update status", async () => {
     const { handler } = updaterDeps();
     const actor = {
       spaceId: "workspace-1",
@@ -2620,11 +2620,7 @@ describe("updater owner gate", () => {
       { prefix: "/rpc", context: { actor } },
     );
 
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.json.supported).toBe(false);
-    expect(["source", "compose"]).toContain(body.json.installKind);
-    expect(Array.isArray(body.json.manualCommands)).toBe(true);
+    expect(response.status).toBe(403);
   });
 
   it("refuses apply when the sidecar is not configured", async () => {
@@ -2645,11 +2641,7 @@ describe("updater owner gate", () => {
       { prefix: "/rpc", context: { actor } },
     );
 
-    expect(response.status).toBeGreaterThanOrEqual(400);
-    const body = await response.json();
-    const message = JSON.stringify(body);
-    expect(message).toMatch(/sidecar/i);
-    expect(message).not.toMatch(/git (fetch|merge|pull)/i);
+    expect(response.status).toBe(403);
   });
 });
 
@@ -3060,10 +3052,10 @@ describe("computer terminal and file transfer", () => {
 describe("integration setup authorization", () => {
   it.each([
     { owner: false, configured: false, needsSetup: false },
-    { owner: true, configured: false, needsSetup: true },
+    { owner: true, configured: false, needsSetup: false },
     { owner: true, configured: true, needsSetup: false },
   ])(
-    "offers server setup only to an owner without configured providers: %j",
+    "never offers server setup to an app account: %j",
     async ({ owner, configured, needsSetup }) => {
       const lookup = vi.fn(async () => configured);
       const deps = {
@@ -3091,11 +3083,9 @@ describe("integration setup authorization", () => {
         },
       );
       const result = (await response.json()).json;
-      expect(result).toMatchObject({ canConfigure: owner, needsSetup });
-      if (!owner) {
-        expect(result.providers).toEqual([]);
-        expect(lookup).not.toHaveBeenCalled();
-      }
+      expect(result).toMatchObject({ canConfigure: false, needsSetup });
+      expect(result.providers).toEqual([]);
+      expect(lookup).not.toHaveBeenCalled();
     },
   );
 
@@ -3130,81 +3120,42 @@ describe("integration setup authorization", () => {
   });
 });
 
-describe("interrupted computer reservation release", () => {
-  function fixture() {
-    const order: string[] = [];
-    const computerUpdate = {
-      findFirst: vi.fn(async () => ({ id: "update-1", computerId: "computer-1" })),
-      updateMany: vi.fn(async () => {
-        order.push("operation");
-        return { count: 1 };
-      }),
-    };
-    const computer = {
-      updateMany: vi.fn(async () => {
-        order.push("computer");
-        return { count: 1 };
-      }),
-    };
-    const prisma = { computer, computerUpdate, $transaction: vi.fn(async (fn) => fn(prisma)) };
-    const handler = new RPCHandler(
-      createRouter({ prisma, env: { sandboxProvider: "fake" } } as unknown as RouterDeps),
-    );
-    const call = async (owner: boolean, workersStopped?: boolean) =>
-      handler.handle(
-        new Request("http://127.0.0.1/rpc/computer/releaseInterrupted", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ json: { id: "update-1", workersStopped } }),
-        }),
+describe("server operation authorization", () => {
+  it.each([false, true])(
+    "rejects server administration even with legacy owner flag %s",
+    async (isDeploymentOwner) => {
+      const prisma = { deploymentSettings: { update: vi.fn() }, $transaction: vi.fn() };
+      const client = createRouterClient(
+        createRouter({
+          prisma,
+          env: { webOrigin: "https://example.test" },
+        } as unknown as RouterDeps),
         {
-          prefix: "/rpc",
           context: {
             actor: {
-              spaceId: "space-1",
-              userId: "user-1",
-              email: "user@rakazo.test",
-              isDeploymentOwner: owner,
+              userId: "user",
+              spaceId: "space",
+              email: "user@example.test",
+              isDeploymentOwner,
             },
-          },
+          } as never,
         },
       );
-    return { prisma, computer, computerUpdate, order, call };
-  }
-  it.each([
-    { owner: false, stopped: true, status: 403 },
-    { owner: true, stopped: false, status: 400 },
-    { owner: true, stopped: undefined, status: 400 },
-  ])(
-    "requires owner authorization and an explicit stopped-workers assertion: %j",
-    async ({ owner, stopped, status }) => {
-      const { call, prisma } = fixture();
-      const { response } = await call(owner, stopped);
-      expect(response.status).toBe(status);
+      for (const call of [
+        () => client.deployment.get(),
+        () => client.deployment.update({ signupsEnabled: true }),
+        () => client.security.events({}),
+        () => client.updater.status(),
+        () => client.updater.check({}),
+        () => client.updater.apply({}),
+        () => client.computer.releaseInterrupted({ id: "update-1", workersStopped: true }),
+        () => client.integrationSetup.save({ provider: "composio", apiKey: "fake-key" }),
+      ])
+        await expect(call()).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(prisma.deploymentSettings.update).not.toHaveBeenCalled();
       expect(prisma.$transaction).not.toHaveBeenCalled();
     },
   );
-  it("atomically releases only an interrupted reservation in the owner's workspace", async () => {
-    const { call, computer, computerUpdate, order } = fixture();
-    const { response } = await call(true, true);
-    expect(response.status).toBe(200);
-    expect(computerUpdate.findFirst).toHaveBeenCalledWith({
-      where: {
-        id: "update-1",
-        status: "interrupted",
-        computer: { spaceId: "space-1", bots: { some: { userId: "user-1", archivedAt: null } } },
-      },
-    });
-    expect(computerUpdate.updateMany).toHaveBeenCalledWith({
-      where: { id: "update-1", status: "interrupted" },
-      data: { status: "failed" },
-    });
-    expect(computer.updateMany).toHaveBeenCalledWith({
-      where: { id: "computer-1", maintenanceId: "update-1" },
-      data: { maintenanceId: null, state: "error" },
-    });
-    expect(order).toEqual(["operation", "computer"]);
-  });
 });
 
 describe("OpenAI-compatible model probes", () => {
@@ -3270,7 +3221,10 @@ describe("OpenAI-compatible model probes", () => {
         secret: { findMany: findSecret },
       },
       secrets: { load },
-      env: { sandboxProvider: "fake", mcpAllowPrivateEndpoint: options.mcpAllowPrivateEndpoint },
+      env: {
+        sandboxProvider: "fake",
+        mcpAllowPrivateEndpoint: options.mcpAllowPrivateEndpoint ?? true,
+      },
     } as unknown as RouterDeps;
     const client = createRouterClient(createRouter(deps), {
       context: { actor: options.actor ?? actor } as never,
@@ -3414,7 +3368,10 @@ describe("OpenAI-compatible model probes", () => {
   );
 
   it("refuses a private endpoint probe from a user who is not the deployment owner", async () => {
-    const { client, fetch } = fixture({ actor: { ...actor, isDeploymentOwner: false } });
+    const { client, fetch } = fixture({
+      actor: { ...actor, isDeploymentOwner: true },
+      mcpAllowPrivateEndpoint: false,
+    });
     await expect(
       client.models.probeOpenAiCompatible({ baseUrl, apiKey: "fake-typed-key" }),
     ).rejects.toThrow(adapters.PRIVATE_MODEL_ENDPOINT_MESSAGE);
@@ -3544,7 +3501,7 @@ describe("model credential persistence", () => {
   });
 
   it.each([
-    { isDeploymentOwner: true, mcpAllowPrivateEndpoint: false },
+    { isDeploymentOwner: true, mcpAllowPrivateEndpoint: true },
     { isDeploymentOwner: false, mcpAllowPrivateEndpoint: true },
   ])("lets a private model endpoint through for %j", async (who) => {
     const { deps, handler } = persistDeps();
@@ -5765,6 +5722,7 @@ describe("openai-compatible enabled models", () => {
           screenProxySecret: "fake-test-secret",
           sandboxProvider: "fake",
           agentRuntime: "pi",
+          mcpAllowPrivateEndpoint: true,
         },
       } as unknown as RouterDeps),
     );

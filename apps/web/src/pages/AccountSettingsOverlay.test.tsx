@@ -98,7 +98,6 @@ vi.mock("../components/ComputersUnavailableHint", () => ({
   ComputersUnavailableHint: () => null,
 }));
 vi.mock("../components/DesktopUpdates", () => ({ DesktopUpdateSection: () => null }));
-vi.mock("../components/SoftwareUpdateSection", () => ({ SoftwareUpdateSection: () => null }));
 vi.mock("../lib/auth", () => ({ authClient: { changePassword: vi.fn() } }));
 vi.mock("../lib/i18n", () => ({
   getActiveUiLocale: () => "en",
@@ -283,7 +282,7 @@ it.each([
   }
 });
 
-it("renders the server integrations entry as a plain link", async () => {
+it("does not expose server integration configuration", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
@@ -296,16 +295,12 @@ it("renders the server integrations entry as a plain link", async () => {
             name="Jamie"
             avatarStyle="robot"
             onAvatarStyleChange={async () => undefined}
-            isDeploymentOwner
           />
         </MemoryRouter>,
       );
     });
 
-    const link = container.querySelector('a[href="/integrations/setup"]');
-    if (!link) throw new Error("Missing server integrations link");
-    expect(link.hasAttribute("type")).toBe(false);
-    expect(link.hasAttribute("role")).toBe(false);
+    expect(container.querySelector('a[href="/integrations/setup"]')).toBeNull();
   } finally {
     await act(async () => root.unmount());
     container.remove();
