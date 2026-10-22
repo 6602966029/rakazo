@@ -23,7 +23,7 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   await signup(page, `model-cleanup-${stamp}@rakazo.test`, "password12", "Model Preview");
   await completeOnboarding(page);
 
-  // Keep the account and persistence real; the scripted test runtime accepts fake keys.
+  // Keep account persistence real; the harness supplies offline provider verification.
   // Hide the deployment default so the first frame exercises the empty-provider state.
   let providerConnected = false;
   await page.route("**/rpc/me", async (route) => {
@@ -38,6 +38,15 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   const backups = page.getByTestId("model-backups");
   await expect(page.getByLabel("API key")).toBeVisible();
   await captureScreenshot(page, testInfo, "model-settings-cleanup-1-not-connected");
+
+  await page.getByLabel("API key").fill("rejected-fixture-key");
+  await page.getByRole("button", { name: "Connect API key", exact: true }).click();
+  await expect(
+    page.getByText("API key was rejected by the provider.", { exact: true }),
+  ).toBeVisible();
+  const rejected = await rpc<Array<{ provider: string }>>(page, "models/credentials", {});
+  expect(rejected.some((credential) => credential.provider === "openrouter")).toBe(false);
+  await captureScreenshot(page, testInfo, "model-settings-cleanup-1a-rejected-key");
 
   await page.getByLabel("API key").fill("fake-cleanup-api-key");
   providerConnected = true;
@@ -885,7 +894,7 @@ test("chat settings search a long model list", async ({ page }, testInfo) => {
   );
   expect(openRouter.length).toBeGreaterThan(10);
   const target = openRouter.find((entry) => entry.id.startsWith("anthropic/")) ?? openRouter[0]!;
-  // A fake key lists the whole OpenRouter catalogue without calling OpenRouter.
+  // The harness verifies this fake key offline before the catalog becomes available.
   await rpc(page, "models/connect", {
     provider: "openrouter",
     apiKey: "fake-openrouter-key",

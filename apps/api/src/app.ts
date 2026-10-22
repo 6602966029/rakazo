@@ -205,6 +205,7 @@ type CreateAppOverrides = Partial<AppEnv> & {
   notifications?: NotificationProvider;
   billing?: BillingProvider;
   remoteConnectors?: RemoteConnectorDependencies;
+  modelConnectionFetch?: typeof fetch;
   logger?: Logger;
   runtime?: AgentRuntime;
   contextStrategy?: AgentContextStrategy;
@@ -223,6 +224,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     notifications: notificationsOverride,
     billing: billingOverride,
     remoteConnectors,
+    modelConnectionFetch,
     logger: loggerOverride,
     runtime: runtimeOverride,
     contextStrategy,
@@ -637,6 +639,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     composio: stack.composio,
     connectors: stack.connector,
     remoteConnectors,
+    modelConnectionFetch,
     artifacts,
     dataDir: env.dataDir,
     billing,

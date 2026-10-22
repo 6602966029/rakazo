@@ -139,6 +139,7 @@ import {
   validateConnectedModelChoice,
   validateModelAuthAvailability,
   validateRoutineWatch,
+  verifyCatalogProviderApiKey,
   verifyMcpInstall,
 } from "@rakazo/adapters";
 import type { Auth } from "@rakazo/auth";
@@ -662,6 +663,8 @@ export interface RouterDeps {
   /** Live Codex catalog seam; defaults to the shared per-process cache. */
   codexCatalog?: CodexLiveCatalog;
   providerCatalog?: ProviderCatalogCache;
+  /** HTTP transport for model connection checks and catalog probes. */
+  modelConnectionFetch?: typeof fetch;
   /** Site icons for links; defaults to the per-process cache that fetches them. */
   favicons?: FaviconResolver;
   /**
@@ -1528,6 +1531,13 @@ export function createRouter(deps: RouterDeps) {
             omitVisionModelIds,
             allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
           });
+          if (input.apiKey?.trim()) {
+            await verifyCatalogProviderApiKey(
+              { provider: input.provider, apiKey: input.apiKey },
+              deps.modelConnectionFetch,
+              context.signal,
+            );
+          }
         } catch (error) {
           throw new ORPCError("BAD_REQUEST", {
             message: error instanceof Error ? error.message : "Invalid model connection",
@@ -1622,7 +1632,7 @@ export function createRouter(deps: RouterDeps) {
         try {
           const models = await probeCatalogProviderModels(
             { provider: input.provider, apiKey: input.apiKey },
-            undefined,
+            deps.modelConnectionFetch,
             context.signal,
           );
           return { models };

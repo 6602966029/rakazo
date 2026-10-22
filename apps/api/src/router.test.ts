@@ -3638,6 +3638,76 @@ describe("model credential persistence", () => {
     );
   });
 
+  it.each([401, 403, 503])(
+    "rejects an unverified OpenRouter replacement (%i) without changing the saved connection",
+    async (status) => {
+      const { upsert, deps, handler } = persistDeps();
+      const saved = {
+        id: "credential-fixture",
+        userId: actor.userId,
+        provider: "openrouter",
+        secretId: "secret-fixture",
+      };
+      vi.mocked(deps.prisma.userModelCredential.findFirst).mockResolvedValue(saved as never);
+      Object.assign(deps.prisma, {
+        secret: { findFirst: vi.fn().mockResolvedValue({ ciphertext: "fixture-ciphertext" }) },
+      });
+      Object.assign(deps.secrets, { load: vi.fn().mockResolvedValue("fixture-previous-key") });
+      const fetchImpl = vi.fn<typeof fetch>(
+        async () => new Response("private upstream details", { status }),
+      );
+      vi.stubGlobal("fetch", fetchImpl);
+      try {
+        const response = await call(handler, "models/connect", {
+          provider: "openrouter",
+          apiKey: "fixture-replacement-key",
+        });
+        expect(response.status).toBe(400);
+        await expect(response.json()).resolves.toMatchObject({
+          json: {
+            code: "BAD_REQUEST",
+            message:
+              status === 503
+                ? "Could not verify the API key. Try again."
+                : "API key was rejected by the provider.",
+          },
+        });
+        expect(fetchImpl).toHaveBeenCalledOnce();
+        expect(deps.secrets.put).not.toHaveBeenCalled();
+        expect(deps.prisma.$transaction).not.toHaveBeenCalled();
+        expect(upsert).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
+
+  it("saves an OpenRouter key only after its authentication check succeeds", async () => {
+    const { deps, handler } = persistDeps();
+    const fetchImpl = vi.fn<typeof fetch>(async () => Response.json({ data: {} }));
+    vi.stubGlobal("fetch", fetchImpl);
+    try {
+      const response = await call(handler, "models/connect", {
+        provider: "openrouter",
+        apiKey: "fixture-key",
+      });
+      expect(response.status).toBe(200);
+      expect(fetchImpl).toHaveBeenCalledWith(
+        "https://openrouter.ai/api/v1/key",
+        expect.objectContaining({ headers: { Authorization: "Bearer fixture-key" } }),
+      );
+      expect(deps.secrets.put).toHaveBeenCalledWith(
+        "fixture-key",
+        expect.objectContaining({ userId: actor.userId }),
+      );
+      expect(fetchImpl.mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(deps.secrets.put).mock.invocationCallOrder[0]!,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("rejects an API key for ChatGPT-subscription Codex before persisting", async () => {
     const { upsert, deps, handler } = persistDeps();
 
