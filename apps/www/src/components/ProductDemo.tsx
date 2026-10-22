@@ -1,4 +1,3 @@
-import { Button } from "@rakazo/ui-web";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1081,19 +1080,14 @@ export function ProductDemo({ locale = "en" }: { locale?: Locale }) {
                   <ComputerDesktop screen={active.screen} desk={desk} text={text} />
                 </button>
                 <div className="product-demo__screen-meta">
-                  <span>
-                    {hasControl
-                      ? text("You have control")
-                      : text("{name}’s screen", { name: active.name })}
-                  </span>
-                  <Button
+                  {hasControl ? <span>{text("You have control")}</span> : null}
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
+                    className="product-demo__text-btn"
                     onClick={() => (hasControl ? releaseControl() : takeControl())}
                   >
                     {hasControl ? text("Release") : text("Take control")}
-                  </Button>
+                  </button>
                 </div>
                 <div className="product-demo__panel-label">{text("Routines")}</div>
                 {active.routines.length === 0 ? (
@@ -1383,9 +1377,13 @@ export function ProductDemo({ locale = "en" }: { locale?: Locale }) {
                   </span>
                 </div>
                 <div className="product-demo__takeover-actions">
-                  <Button type="button" variant="outline" size="sm" onClick={releaseControl}>
+                  <button
+                    type="button"
+                    className="product-demo__outline-btn"
+                    onClick={releaseControl}
+                  >
                     {text("Release")}
-                  </Button>
+                  </button>
                   <button
                     type="button"
                     className="product-demo__takeover-close"
