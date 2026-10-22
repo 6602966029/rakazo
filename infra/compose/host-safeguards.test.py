@@ -3,6 +3,7 @@
 
 import concurrent.futures
 import contextlib
+import datetime
 import fcntl
 import http.server
 import importlib.util
@@ -38,10 +39,14 @@ class FakeSink(http.server.BaseHTTPRequestHandler):
     requests = []
 
     def do_POST(self):
-        body = self.rfile.read(int(self.headers["Content-Length"]))
-        FakeSink.requests.append((self.headers["Authorization"], json.loads(body)))
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        FakeSink.requests.append((self.headers["Authorization"], json.loads(body or "null")))
         self.send_response(FakeSink.status)
+        # Redirect back to this sink; a followed redirect would show up as a second request.
+        self.send_header("Location", "/elsewhere")
         self.end_headers()
+
+    do_GET = do_POST
 
     def log_message(self, *args):
         pass
@@ -92,7 +97,18 @@ class AuditShipTests(unittest.TestCase):
         self.assertEqual((identity["event"], identity["program"]), ("identity.change", "useradd"))
         self.assertEqual(self.auth("(to root) deploy on pts/0", "su[5]")["event"], "su")
         self.assertIsNone(self.auth("Started session", "systemd[1]"))
-        self.assertIsNone(audit_ship.parse_auth_line("Oct 22 22:43:54 web-1 sshd[1]: legacy format", "h", {}))
+        traditional = audit_ship.parse_auth_line("Oct  2 22:43:54 web-1 su[1]: (to root) deploy on pts/0", "h", {})
+        self.assertEqual(traditional["event"], "su")
+        utc = datetime.timezone.utc
+        self.assertEqual(
+            audit_ship.syslog_time("Oct  2 22:43:54", datetime.datetime(2026, 10, 3, tzinfo=utc)),
+            "2026-10-02T22:43:54+00:00",
+        )
+        self.assertEqual(
+            audit_ship.syslog_time("Dec 31 23:59:59", datetime.datetime(2027, 1, 1, tzinfo=utc)),
+            "2026-12-31T23:59:59+00:00",
+        )
+        self.assertIsNone(audit_ship.parse_auth_line("not syslog", "h", {}))
 
     def test_audit_file_changes(self):
         lines = [
@@ -140,10 +156,17 @@ class AuditShipTests(unittest.TestCase):
             log.write_bytes(b"cut\n")  # truncated in place: same inode, smaller size
             data, position, _ = audit_ship.read_new(log, position, True)
             self.assertEqual(data, b"cut\n")
-            log.rename(log.with_suffix(".1"))
+            with log.open("ab") as output:
+                output.write(b"unread\n")
+            log.rename(str(log) + ".1")
             log.write_bytes(b"rotated\n")
-            data, position, _ = audit_ship.read_new(log, {**position, "offset": 2}, True)
-            self.assertEqual((data, position["offset"]), (b"rotated\n", 8))
+            # Lines written before rotation are drained from the renamed file first.
+            data, position, more = audit_ship.read_new(log, position, True)
+            self.assertEqual((data, more), (b"unread\n", True))
+            data, position, more = audit_ship.read_new(log, position, True)
+            self.assertEqual((data, position["offset"], more), (b"rotated\n", 8, False))
+            data, _, _ = audit_ship.read_new(log, {"inode": -1, "offset": 0}, True)
+            self.assertEqual(data, b"rotated\n")
             with patch.object(audit_ship, "MAX_READ", 6):
                 log.write_bytes(b"ab\ncd\nef\n")
                 data, position, more = audit_ship.read_new(log, None, False)
@@ -151,6 +174,11 @@ class AuditShipTests(unittest.TestCase):
                 log.write_bytes(b"abcdefgh\n")
                 data, position, more = audit_ship.read_new(log, None, False)
                 self.assertEqual((data, more), (b"abcdef", True))
+            with patch.object(audit_ship, "MAX_READ", 60):
+                # A size-limited read stops before the last event so its PATH records stay with it.
+                log.write_bytes(b"type=A msg=audit(1.0:7): x\ntype=B msg=audit(1.0:8): y\ntype=C msg=audit(1.0:8): z\n")
+                data, position, more = audit_ship.read_new(log, None, False, audit_ship.audit_group_start)
+                self.assertEqual((data, more), (b"type=A msg=audit(1.0:7): x\n", True))
 
     def test_ship_batches_and_retries_against_fake_sink(self):
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), FakeSink)
@@ -168,8 +196,8 @@ class AuditShipTests(unittest.TestCase):
             audit_log = root / "audit.log"
             audit_log.write_text('type=SYSCALL msg=audit(1.0:1): uid=0 key="persistence"\n')
             sources = [
-                ("auth", auth_log, lambda lines: audit_ship.parse_auth_lines(lines, "h", {}), False),
-                ("audit", audit_log, lambda lines: audit_ship.parse_audit_lines(lines, "h"), True),
+                ("auth", auth_log, lambda lines: audit_ship.parse_auth_lines(lines, "h", {}), False, None),
+                ("audit", audit_log, lambda lines: audit_ship.parse_audit_lines(lines, "h"), True, audit_ship.audit_group_start),
             ]
             state_path = root / "state.json"
             send = audit_ship.sender("http://127.0.0.1:%d/ingest" % server.server_port, token)
@@ -192,6 +220,24 @@ class AuditShipTests(unittest.TestCase):
             FakeSink.requests = []
             audit_ship.ship_once(sources, state_path, saved, send)
             self.assertEqual([body[0]["watch"] for _, body in FakeSink.requests], ["persistence"])
+
+    def test_redirects_are_not_followed(self):
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), FakeSink)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        FakeSink.requests = []
+        with tempfile.TemporaryDirectory() as directory:
+            token = Path(directory) / "token"
+            token.write_text("write-only-token")
+            send = audit_ship.sender("http://127.0.0.1:%d/ingest" % server.server_port, token)
+            FakeSink.status = 302
+            try:
+                with self.assertRaises(urllib.error.HTTPError):
+                    send([{"event": "su"}])
+            finally:
+                FakeSink.status = 200
+            self.assertEqual(len(FakeSink.requests), 1)
 
     def test_sink_must_use_https_off_loopback(self):
         audit_ship.check_sink_url("https://ingest.example.com/v1/events")

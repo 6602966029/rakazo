@@ -42,12 +42,14 @@ BATCH_SIZE = 500
 IDLE_SECONDS = 10
 MAX_BACKOFF = 300
 
-SYSLOG = re.compile(r"^(\S+T\S+) (\S+) ([^\s\[:]+)(?:\[\d+\])?: (.*)$")
+# RFC3339 (rsyslog's high-precision default) or the traditional "Oct 22 22:43:54" format.
+SYSLOG = re.compile(r"^(\S+T\S+|[A-Z][a-z]{2} [ \d]\d \d\d:\d\d:\d\d) (\S+) ([^\s\[:]+)(?:\[\d+\])?: (.*)$")
 ACCEPTED = re.compile(r"^Accepted (\S+) for (\S+) from (\S+) port \d+(?: [^\s:]+)?(?:: (\S+) (\S+))?")
 FAILED = re.compile(r"^Failed \S+ for (?:invalid user )?(\S*) from (\S+) port")
 INVALID = re.compile(r"^Invalid user (\S*) from (\S+)")
 SUDO = re.compile(r"^\s*(\S+) : .*?USER=(\S+) ; COMMAND=(.*)$")
 AUDIT_HEADER = re.compile(r"\bmsg=audit\((\d+(?:\.\d+)?):(\d+)\)")
+AUDIT_SERIAL = re.compile(rb"\bmsg=audit\([\d.]+:(\d+)\)")
 AUDIT_FIELD = re.compile(r'\b(type|key|exe|comm|auid|uid|name|nametype)=("[^"]*"|\S+)')
 
 
@@ -65,12 +67,28 @@ def _event(kind, source, host, message, **fields):
     return {"event": kind, "source": source, "host": host, "message": message[:1000], **fields}
 
 
+def syslog_time(timestamp, now=None):
+    """Return an RFC3339 time; traditional timestamps are local time without a year."""
+    if "T" in timestamp:
+        return timestamp
+    now = now or datetime.datetime.now().astimezone()
+    try:
+        moment = datetime.datetime.strptime(str(now.year) + " " + timestamp, "%Y %b %d %H:%M:%S")
+    except ValueError:
+        return timestamp
+    moment = moment.replace(tzinfo=now.tzinfo)
+    if moment > now + datetime.timedelta(days=1):
+        # A December record read in January.
+        moment = moment.replace(year=now.year - 1)
+    return moment.isoformat()
+
+
 def parse_auth_line(line, host, known_keys):
     match = SYSLOG.match(line)
     if not match:
         return None
     timestamp, _, program, message = match.groups()
-    fields = {"_time": timestamp}
+    fields = {"_time": syslog_time(timestamp)}
     if program in ("sshd", "sshd-session"):
         if accepted := ACCEPTED.match(message):
             method, user, ip, key_type, fingerprint = accepted.groups()
@@ -140,10 +158,40 @@ def parse_audit_lines(lines, host):
     return events
 
 
-def read_new(path, saved, start_at_end):
+def audit_group_start(data):
+    """Return where the last audit event's records begin, so a cut read keeps them together."""
+    lines = data.splitlines(keepends=True)
+    serial = AUDIT_SERIAL.search(lines[-1])
+    start = len(data)
+    for line in reversed(lines):
+        match = AUDIT_SERIAL.search(line)
+        if not serial or not match or match.group(1) != serial.group(1):
+            break
+        start -= len(line)
+    return start
+
+
+def _open_unread(path, saved):
+    """Open the log, or its rotated predecessor while that still has lines past the saved offset."""
+    handle = open(path, "rb")
+    if saved is None or os.fstat(handle.fileno()).st_ino == saved["inode"]:
+        return handle
+    try:
+        rotated = open(str(path) + ".1", "rb")
+    except FileNotFoundError:
+        return handle
+    info = os.fstat(rotated.fileno())
+    if info.st_ino == saved["inode"] and info.st_size > saved["offset"]:
+        handle.close()
+        return rotated
+    rotated.close()
+    return handle
+
+
+def read_new(path, saved, start_at_end, group_start=None):
     """Return complete new lines, the position after them, and whether more data is waiting."""
     try:
-        handle = open(path, "rb")
+        handle = _open_unread(path, saved)
     except FileNotFoundError:
         return b"", saved, False
     with handle:
@@ -151,18 +199,22 @@ def read_new(path, saved, start_at_end):
         if saved is None:
             offset = info.st_size if start_at_end else 0
         elif saved["inode"] != info.st_ino or info.st_size < saved["offset"]:
-            # Rotated or truncated: the current file starts over.
+            # Rotated and drained, or truncated: the current file starts over.
             offset = 0
         else:
             offset = saved["offset"]
         handle.seek(offset)
         data = handle.read(MAX_READ)
+        rotated = handle.name != str(path)
     full = len(data) == MAX_READ
     end = data.rfind(b"\n") + 1
-    # A partial last line waits for its newline, unless one line fills the whole read.
-    if end or not full:
+    # A partial last line waits for its newline, unless one line fills the whole read or the file
+    # was rotated away and will not grow.
+    if not ((full and not end) or (rotated and not full)):
         data = data[:end]
-    return data, {"inode": info.st_ino, "offset": offset + len(data)}, full
+    if full and group_start and data:
+        data = data[: group_start(data) or len(data)]
+    return data, {"inode": info.st_ino, "offset": offset + len(data)}, full or rotated
 
 
 def load_state(path):
@@ -196,8 +248,15 @@ def check_sink_url(url):
     raise ValueError("RAKAZO_AUDIT_SINK_URL must use https")
 
 
+class _RejectRedirects(urllib.request.HTTPRedirectHandler):
+    # Following a redirect would forward the bearer token and drop the POST body.
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
 def sender(url, token_file, timeout=20):
     check_sink_url(url)
+    opener = urllib.request.build_opener(_RejectRedirects)
 
     def send(events):
         # Read the token per request so it can be rotated without a restart.
@@ -208,7 +267,7 @@ def sender(url, token_file, timeout=20):
             {"Content-Type": "application/json", "Authorization": "Bearer " + token},
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with opener.open(request, timeout=timeout) as response:
             if not 200 <= response.status < 300:
                 raise RuntimeError("Audit sink returned HTTP " + str(response.status))
 
@@ -218,8 +277,8 @@ def sender(url, token_file, timeout=20):
 def ship_once(sources, state_path, state, send):
     """Ship one pass over every source. Returns whether a source has more data waiting."""
     pending = False
-    for name, path, parse, start_at_end in sources:
-        data, position, more = read_new(path, state.get(name), start_at_end)
+    for name, path, parse, start_at_end, group_start in sources:
+        data, position, more = read_new(path, state.get(name), start_at_end, group_start)
         events = parse(data.decode("utf-8", "replace").splitlines())
         for start in range(0, len(events), BATCH_SIZE):
             send(events[start : start + BATCH_SIZE])
@@ -242,8 +301,8 @@ def main():
         return 1
     send = sender(url, token_file)
     sources = [
-        ("auth", AUTH_LOG, lambda lines: parse_auth_lines(lines, host, known_keys), False),
-        ("audit", AUDIT_LOG, lambda lines: parse_audit_lines(lines, host), True),
+        ("auth", AUTH_LOG, lambda lines: parse_auth_lines(lines, host, known_keys), False, None),
+        ("audit", AUDIT_LOG, lambda lines: parse_audit_lines(lines, host), True, audit_group_start),
     ]
     state = load_state(state_path)
     backoff = 0
