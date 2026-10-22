@@ -790,7 +790,8 @@ server and use an admin JWT from its `scripts/generate_jwt.py --admin` as the ke
 gets its own workspace. A workspace-scoped JWT works when you enter that workspace. Honcho needs
 its own PostgreSQL with pgvector, an LLM provider, and an embedding provider; set
 `EMBEDDING_VECTOR_DIMENSIONS` before its first start. Rakazo stores only explicitly saved facts
-in Honcho; conversation summaries stay in Rakazo.
+in Honcho; conversation summaries stay in Rakazo. Bots can forget a saved fact on Honcho v3.2 or
+later.
 
 Remote MCP servers and installed API / GraphQL connectors default to public HTTPS. The deployment
 owner can attach one on localhost, the same LAN, or a Docker network. Set

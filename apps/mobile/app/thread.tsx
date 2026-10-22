@@ -202,6 +202,7 @@ import {
   quotableMessageSegments,
   truncateQuoteExcerpt,
 } from "../lib/message-presentation";
+import { openModelSettings } from "../lib/model-settings";
 import { useMobileTokens, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import { HEADER_TITLE_MAX_FONT_SCALE, iosAtLeast } from "../lib/native-controls";
 import {
@@ -585,17 +586,23 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const activeThreadId = useRef<string | undefined>(undefined);
   const [agentSkills, setAgentSkills] = useState<AgentSkillCatalogEntry[]>([]);
   const [uploadConfig, setUploadConfig] = useState<{ maxUploadSizeBytes?: number }>();
-  useEffect(() => {
-    let cancelled = false;
-    void rpc<{ maxUploadSizeBytes?: number }>("me")
-      .then((me) => {
-        if (!cancelled) setUploadConfig(me);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [needsModel, setNeedsModel] = useState<boolean>();
+  // Re-read on focus so returning from Models settings updates unsent missing-model messages.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void rpc<{ maxUploadSizeBytes?: number } & Partial<Pick<MobileMe, "needsModel">>>("me")
+        .then((me) => {
+          if (cancelled) return;
+          setUploadConfig(me);
+          setNeedsModel(me.needsModel);
+        })
+        .catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const [mentionBots, setMentionBots] = useState<MobileBot[]>([]);
   // The call outlives renders, so its switch check reads the newest bot list from here.
@@ -2064,7 +2071,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   useEffect(() => setRunErrorDetailsOpen(false), [failedRunId]);
   function openErrorConnection() {
     setRunErrorDetailsOpen(false);
-    router.push("/(settings)/models");
+    openModelSettings();
   }
   function openErrorModel() {
     setRunErrorDetailsOpen(false);
@@ -2462,6 +2469,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     <FailedSendBubble
       key={attempt.clientNonce}
       attempt={attempt}
+      needsModel={needsModel}
       onRetry={() => void deliver(attempt, true)}
       onDelete={() => feedback.discard(attempt)}
     />
