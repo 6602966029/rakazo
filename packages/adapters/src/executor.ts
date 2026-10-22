@@ -4950,16 +4950,36 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const declaredReadOnly = viaConnector
             ? (resolvedTool ?? connectorTools.get(name))?.readOnly
             : undefined;
+          let webhookMessaging: Parameters<typeof unattendedTriggerToolRequiresApproval>[4];
+          if (run.trigger === "webhook" && name === "message_bot" && !viaConnector) {
+            const live = await deps.prisma.bot.findUnique({
+              where: { id: bot.id },
+              select: { webhookAllowBotMessages: true },
+            });
+            // Continuations can batch different external sources under the webhook trigger.
+            // Check every delivery, including ones claimed earlier in a resumed attempt.
+            const deliveries = live?.webhookAllowBotMessages
+              ? await deps.prisma.steeringMessage.findMany({
+                  where: { runId },
+                  select: { originTrigger: true, message: { select: { clientNonce: true } } },
+                })
+              : [];
+            webhookMessaging = {
+              allowBotMessages: live?.webhookAllowBotMessages === true,
+              botId: bot.id,
+              sourceClientNonce: sourceMessage?.clientNonce,
+              deliveries: deliveries.map((delivery) => ({
+                trigger: delivery.originTrigger,
+                clientNonce: delivery.message.clientNonce,
+              })),
+            };
+          }
           const requiresUnattendedApproval = unattendedTriggerToolRequiresApproval(
             run.trigger,
             name,
             viaConnector,
             declaredReadOnly,
-            {
-              allowBotMessages: bot.webhookAllowBotMessages,
-              botId: bot.id,
-              sourceClientNonce: sourceMessage?.clientNonce,
-            },
+            webhookMessaging,
           );
           const connectorKind = connectorKindFromToolName(
             name,

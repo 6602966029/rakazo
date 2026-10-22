@@ -151,6 +151,7 @@ describe("unattendedTriggerToolRequiresApproval", () => {
       allowBotMessages: true,
       botId: "bot-1",
       sourceClientNonce: "webhook:bot-1:delivery",
+      deliveries: [],
     };
     expect(unattendedTriggerToolRequiresApproval("webhook", "message_bot", false)).toBe(true);
     expect(
@@ -174,6 +175,26 @@ describe("unattendedTriggerToolRequiresApproval", () => {
       unattendedTriggerToolRequiresApproval("webhook", "message_bot", false, undefined, {
         ...webhook,
         allowBotMessages: false,
+      }),
+    ).toBe(true);
+    for (const clientNonce of [null, "github:bot-1:delivery", "messaging:bot-1:delivery"]) {
+      expect(
+        unattendedTriggerToolRequiresApproval("webhook", "message_bot", false, undefined, {
+          ...webhook,
+          deliveries: [{ trigger: "webhook", clientNonce }],
+        }),
+      ).toBe(true);
+    }
+    expect(
+      unattendedTriggerToolRequiresApproval("webhook", "message_bot", false, undefined, {
+        ...webhook,
+        deliveries: [{ trigger: "webhook", clientNonce: "webhook:bot-1:earlier" }],
+      }),
+    ).toBe(false);
+    expect(
+      unattendedTriggerToolRequiresApproval("webhook", "message_bot", false, undefined, {
+        ...webhook,
+        deliveries: [{ trigger: "messaging", clientNonce: "webhook:bot-1:earlier" }],
       }),
     ).toBe(true);
     for (const name of [

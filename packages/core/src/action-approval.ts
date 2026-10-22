@@ -163,14 +163,20 @@ export function unattendedTriggerToolRequiresApproval(
     allowBotMessages: boolean;
     botId: string;
     sourceClientNonce?: string | null;
+    deliveries: ReadonlyArray<{ trigger: string | null; clientNonce: string | null }>;
   },
 ): boolean {
   if (trigger !== "webhook") return false;
+  const webhookPrefix = `webhook:${webhook?.botId}:`;
   if (
     !viaConnector &&
     toolName === "message_bot" &&
     webhook?.allowBotMessages &&
-    webhook.sourceClientNonce?.startsWith(`webhook:${webhook.botId}:`)
+    webhook.sourceClientNonce?.startsWith(webhookPrefix) &&
+    webhook.deliveries.every(
+      (delivery) =>
+        delivery.trigger === "webhook" && delivery.clientNonce?.startsWith(webhookPrefix),
+    )
   )
     return false;
   return viaConnector

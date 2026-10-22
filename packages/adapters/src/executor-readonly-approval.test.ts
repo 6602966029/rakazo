@@ -82,6 +82,8 @@ function fixture({
   existingSharedMemory,
   advanceRevisionAfterRead = false,
   fleetManagement = false,
+  webhookAllowBotMessages = false,
+  sourceClientNonce,
   fleetBots = [] as { id: string; name: string }[],
   secondResource = false,
   routines = [] as { name: string; prompt: string }[],
@@ -92,6 +94,8 @@ function fixture({
   secondResource?: boolean;
   /** The switch as the run starts; `liveBot` is what a later read sees. */
   fleetManagement?: boolean;
+  webhookAllowBotMessages?: boolean;
+  sourceClientNonce?: string;
   /** Other active bots of the same user, found by id or exact name. */
   fleetBots?: { id: string; name: string }[];
   selfUpdateInstructions?: boolean;
@@ -159,7 +163,7 @@ function fixture({
     userId: "user-1",
     status: "queued",
     trigger,
-    sourceMessageId: sourceRole ? "source-1" : null,
+    sourceMessageId: sourceRole || sourceClientNonce ? "source-1" : null,
     leaseFence: 0,
   };
   const externalEffect = {
@@ -208,7 +212,11 @@ function fixture({
     pendingInstructionsRunId,
     selfUpdateInstructions,
   };
-  const liveBot = { fleetManagement };
+  const liveBot = { fleetManagement, webhookAllowBotMessages };
+  const webhookDeliveries: Array<{
+    originTrigger: string | null;
+    message: { clientNonce: string | null };
+  }> = [];
   let outsideSteering = false;
   let offeredTools: string[] = [];
   const prisma = {
@@ -233,6 +241,7 @@ function fixture({
         description: bot.description,
         disabledBuiltinTools,
         fleetManagement,
+        webhookAllowBotMessages,
         computerId: "computer-1",
         computer: { id: "computer-1", scope: "dedicated" },
       })),
@@ -269,7 +278,13 @@ function fixture({
     message: {
       findFirst: vi.fn(async () => null),
       findUnique: vi.fn(async () =>
-        sourceRole ? { role: sourceRole, blocks: [{ kind: "text", text: prompt }] } : null,
+        sourceRole || sourceClientNonce
+          ? {
+              role: sourceRole ?? "user",
+              clientNonce: sourceClientNonce,
+              blocks: [{ kind: "text", text: prompt }],
+            }
+          : null,
       ),
       findMany: vi.fn(async () => []),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
@@ -305,6 +320,7 @@ function fixture({
     routine: { findMany: vi.fn(async () => routines) },
     actionAutoReviewPreference: { findUnique: vi.fn(async () => ({ enabled: autoReview })) },
     steeringMessage: {
+      findMany: vi.fn(async () => webhookDeliveries),
       findFirst: vi.fn(async (_query: unknown) => (outsideSteering ? { id: "steer-1" } : null)),
     },
     externalEffect,
@@ -321,9 +337,12 @@ function fixture({
   const execute = vi.fn(async function* (call: ConnectorCall) {
     yield { type: "result" as const, data: { item: call.args.id } };
   });
-  let calls: { name?: string; args: Record<string, unknown>; executionId: string }[] = [
-    { args: { id: "item-1" }, executionId: "call-1" },
-  ];
+  let calls: {
+    name?: string;
+    args: Record<string, unknown>;
+    executionId: string;
+    after?: () => void;
+  }[] = [{ args: { id: "item-1" }, executionId: "call-1" }];
   const web = new FakeWebProvider();
   const fetchedUrls: string[] = [];
   const fakeFetch = web.fetch.bind(web);
@@ -342,6 +361,7 @@ function fixture({
             call.executionId,
           );
       results.push(result);
+      call.after?.();
       return result;
     };
     if (parallelCalls) {
@@ -434,6 +454,7 @@ function fixture({
     fleetBots,
     instructionState,
     liveBot,
+    webhookDeliveries,
     claimedOutsideSteering(value: boolean) {
       outsideSteering = value;
     },
@@ -531,6 +552,57 @@ it("enqueues pending work when an approval pauses its current run", async () => 
   await f.run();
   expect(f.enqueue).toHaveBeenCalledWith(
     expect.objectContaining({ payload: { runId: "pending-run" } }),
+  );
+});
+
+describe("webhook bot messaging permission", () => {
+  const options = {
+    name: "message_bot",
+    builtin: true,
+    trigger: "webhook",
+    webhookAllowBotMessages: true,
+    sourceClientNonce: "webhook:bot-1:latest",
+    rules: [
+      { effect: "always_allow", matchKind: "tool", matchValue: "message_bot" },
+    ] as ActionApprovalRule[],
+  };
+
+  it("requires approval once the owner revokes permission between calls in the same run", async () => {
+    const f = fixture(options);
+    f.webhookDeliveries.push({
+      originTrigger: "webhook",
+      message: { clientNonce: "webhook:bot-1:earlier" },
+    });
+    f.setCalls([
+      {
+        args: { message: "First" },
+        executionId: "call-1",
+        after: () => {
+          f.liveBot.webhookAllowBotMessages = false;
+        },
+      },
+      { args: { message: "Second" }, executionId: "call-2" },
+    ]);
+    await f.run();
+    expect(f.results).toHaveLength(2);
+    expect(isApprovalPausedResult(f.results[0])).toBe(false);
+    expect(isApprovalPausedResult(f.results[1])).toBe(true);
+    expect(f.pauseRunForInput).toHaveBeenCalledOnce();
+  });
+
+  it.each([null, "github:bot-1:earlier", "messaging:bot-1:earlier"])(
+    "keeps mixed queued deliveries gated when an earlier origin is %s",
+    async (clientNonce) => {
+      const f = fixture(options);
+      f.webhookDeliveries.push({ originTrigger: "webhook", message: { clientNonce } });
+      f.webhookDeliveries.push({
+        originTrigger: "webhook",
+        message: { clientNonce: options.sourceClientNonce },
+      });
+      await f.run();
+      expect(isApprovalPausedResult(f.results[0])).toBe(true);
+      expect(f.pauseRunForInput).toHaveBeenCalledOnce();
+    },
   );
 });
 
