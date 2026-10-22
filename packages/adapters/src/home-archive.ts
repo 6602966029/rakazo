@@ -86,13 +86,13 @@ async function* packDirectory(
   counts: { bytes: number; entries: number },
   limits: HomeArchiveLimits,
 ): AsyncGenerator<Buffer> {
-  const entries = await readdir(directory).catch(() => []);
+  const entries = await readdir(directory).catch(skipVanished([] as string[]));
   for (const name of entries.sort()) {
     const relative = prefix ? `${prefix}/${name}` : name;
     if (!isArchivePath(relative)) continue;
-    const resolved = await realpath(path.join(directory, name)).catch(() => undefined);
+    const resolved = await realpath(path.join(directory, name)).catch(skipVanished(undefined));
     if (!resolved || !isContained(root, resolved) || resolved === root) continue;
-    const info = await lstat(resolved).catch(() => undefined);
+    const info = await lstat(resolved).catch(skipVanished(undefined));
     if (info?.isDirectory()) {
       if (visited.has(resolved)) continue;
       countEntry(counts, 0, limits);
@@ -124,12 +124,24 @@ async function* packDirectory(
   }
 }
 
+/**
+ * Entries removed, or replaced by a link or socket, between listing and opening are left out,
+ * as are dangling links. Any other error (permissions, out of file handles, I/O) fails the save
+ * rather than storing a home with files silently missing.
+ */
+function skipVanished<T>(fallback: T) {
+  return (error: NodeJS.ErrnoException): T => {
+    if (["ENOENT", "ENOTDIR", "ELOOP", "ENXIO"].includes(error.code ?? "")) return fallback;
+    throw error;
+  };
+}
+
 /** Opens a regular file and checks the opened object, not the name, is inside the home. */
 async function openContained(root: string, file: string): Promise<FileHandle | undefined> {
   const handle = await open(
     file,
     constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
-  ).catch(() => undefined);
+  ).catch(skipVanished(undefined));
   if (!handle) return undefined;
   try {
     if (!(await handle.stat()).isFile() || !isContained(root, await fileHandlePath(handle.fd))) {

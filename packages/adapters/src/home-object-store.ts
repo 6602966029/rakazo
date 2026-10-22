@@ -1,6 +1,6 @@
 import type { Hash } from "node:crypto";
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readdir } from "node:fs/promises";
+import { mkdir, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import type {
   AdapterContext,
@@ -130,7 +130,8 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
 
   /**
    * Saves the cached copy, which a Docker computer has been changing in place. Refused when
-   * the cache is older than the stored revision, so a stale copy never replaces a newer one.
+   * the cache is missing or older than the stored revision, so a stale or empty copy never
+   * replaces a newer one, even if another host saves while this one packs.
    */
   override async revise(botId: string): Promise<string> {
     return this.withBotWrite(botId, async () => {
@@ -138,13 +139,14 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
         this.records.load(botId),
         this.localRevision(botId),
       ]);
-      if (stored?.revision && local !== stored.revision)
+      const base = stored?.revision ?? null;
+      if (base && (local !== base || !(await this.hasCache(botId))))
         throw new Error("The cached home is older than its stored revision");
-      return (await this.upload(botId)).revision;
+      return (await this.upload(botId, { base })).revision;
     });
   }
 
-  /** Called by `commit` and `revise` with the bot's write lock held. */
+  /** Called by `commit` with the bot's write lock held; the staged copy is authoritative. */
   protected override async writeRevision(botId: string): Promise<string> {
     return (await this.upload(botId)).revision;
   }
@@ -157,7 +159,10 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
   async hydrate(botId: string): Promise<void> {
     await this.withBotWrite(botId, async () => {
       const stored = await this.records.load(botId);
-      if (!stored?.revision || (await this.localRevision(botId)) === stored.revision) return;
+      if (!stored?.revision) return;
+      // A removed cache directory leaves its marker behind; only a present copy counts.
+      if ((await this.localRevision(botId)) === stored.revision && (await this.hasCache(botId)))
+        return;
       const revision = stored.revision;
       await this.replaceHome(botId, (staging) =>
         unpackHome(this.download(stored, revision), staging, this.limits),
@@ -166,9 +171,27 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
     });
   }
 
-  private async upload(botId: string): Promise<{ revision: string; digest: string }> {
+  private async hasCache(botId: string) {
+    await this.recoverInterruptedCommit(botId);
+    return stat(this.pathFor(botId)).then(
+      (info) => info.isDirectory(),
+      () => false,
+    );
+  }
+
+  /**
+   * Packs, seals and uploads the cached copy, then moves the home to it. `base` is the stored
+   * revision the copy was checked against (default: whatever is stored now); the move fails if
+   * the home has moved past it. With `verify`, the object is downloaded and checked before the
+   * home points at it.
+   */
+  private async upload(
+    botId: string,
+    options: { base?: string | null; verify?: boolean } = {},
+  ): Promise<{ revision: string }> {
     const stored = await this.records.create(botId);
     if (!stored) throw new Error("Agent home has no computer");
+    const base = options.base === undefined ? stored.revision : options.base;
     const revision = newRevision();
     const key = objectKey(stored.storageId, revision);
     const digest = createHash("sha256");
@@ -182,16 +205,20 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
         tap(packHome(home, this.limits), digest),
       ),
     );
-    if (!(await this.records.advance(botId, stored.storageId, stored.revision, revision))) {
+    try {
+      if (options.verify) await this.verify(stored, revision, digest.digest("hex"));
+      if (!(await this.records.advance(botId, stored.storageId, base, revision)))
+        throw new Error("Agent home was saved elsewhere at the same time");
+    } catch (error) {
       await this.storage.delete([key]).catch(() => undefined);
-      throw new Error("Agent home was saved elsewhere at the same time");
+      throw error;
     }
     await super.writeRevision(botId, revision);
-    if (stored.revision)
+    if (base)
       await this.storage
-        .delete([objectKey(stored.storageId, stored.revision)])
+        .delete([objectKey(stored.storageId, base)])
         .catch((error) => getLogger().error("previous home revision removal failed", error));
-    return { revision, digest: digest.digest("hex") };
+    return { revision };
   }
 
   /** Decrypted archive bytes of one revision; any tampering fails authentication. */
@@ -256,9 +283,10 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
   }
 
   /**
-   * Uploads a home that exists only on local disk, then downloads it again and checks it
-   * decrypts to the same archive. Homes already in object storage are left alone, so it can be
-   * rerun after an interruption. Local files are never deleted.
+   * Uploads a home that exists only on local disk, downloads it again and checks it decrypts to
+   * the same archive, and only then records it as stored. Homes already stored were verified
+   * this way (or saved by a running computer), so a rerun after an interruption skips them.
+   * Local files are never deleted.
    */
   async migrateLocal(
     botId: string,
@@ -268,18 +296,15 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
       if ((await this.records.load(botId))?.revision) return "stored";
       if (dryRun) return "would-upload";
       if (!(await this.records.create(botId))) return "no-computer";
-      await this.verify(botId, await this.upload(botId));
+      await this.upload(botId, { base: null, verify: true });
       return "uploaded";
     });
   }
 
-  private async verify(botId: string, uploaded: { revision: string; digest: string }) {
-    const stored = await this.records.load(botId);
-    if (stored?.revision !== uploaded.revision)
-      throw new Error("Agent home changed before it could be verified");
+  private async verify(stored: StoredHome, revision: string, expected: string) {
     const digest = createHash("sha256");
-    await checkHomeArchive(tap(this.download(stored, uploaded.revision), digest), this.limits);
-    if (digest.digest("hex") !== uploaded.digest)
+    await checkHomeArchive(tap(this.download(stored, revision), digest), this.limits);
+    if (digest.digest("hex") !== expected)
       throw new Error("Stored home does not match what was uploaded");
   }
 }

@@ -182,6 +182,45 @@ describe("ObjectAgentHomeStore", () => {
     expect(await store.readFile("bot-1", "a.txt", context)).toBe("second");
   });
 
+  it("downloads again when the cache directory is gone but its marker remains", async () => {
+    const { root, store, storage, rows } = await setup();
+    await store.commit("bot-1", await staged({ "a.txt": "stored" }), context);
+    await rm(path.join(root, "homes"), { recursive: true });
+    expect(await store.readFile("bot-1", "a.txt", context)).toBe("stored");
+
+    // A save of a missing cache must not replace the stored home with an empty one.
+    await rm(path.join(root, "homes"), { recursive: true });
+    await expect(store.revise("bot-1")).rejects.toThrow(/older than its stored revision/);
+    expect([...storage.objects.keys()]).toEqual([
+      `homes/${rows[0]!.homeStorageId}/${rows[0]!.homeStorageRevision}`,
+    ]);
+  });
+
+  it("does not let a save that started before a newer one replace it", async () => {
+    const { root, storage, records, otherHost } = await setup();
+    let interleave: (() => Promise<unknown>) | undefined;
+    const racing = new ObjectAgentHomeStore(root, storage, {
+      ...records,
+      load: (homeKey) => records.load(homeKey),
+      advance: (...args) => records.advance(...args),
+      revisions: (ids) => records.revisions(ids),
+      create: async (homeKey) => {
+        await interleave?.();
+        return records.create(homeKey);
+      },
+    });
+    await racing.commit("bot-1", await staged({ "a.txt": "first" }), context);
+    const other = await otherHost();
+    interleave = async () => {
+      interleave = undefined;
+      await other.commit("bot-1", await staged({ "a.txt": "newer" }), context);
+    };
+
+    await expect(racing.revise("bot-1")).rejects.toThrow(/saved elsewhere/);
+    expect(await (await otherHost()).readFile("bot-1", "a.txt", context)).toBe("newer");
+    expect(storage.objects.size).toBe(1);
+  });
+
   it("keeps only the current revision once a newer one is saved", async () => {
     const { store, storage, rows } = await setup();
     await store.commit("bot-1", await staged({ "a.txt": "first" }), context);
@@ -295,6 +334,28 @@ describe("ObjectAgentHomeStore", () => {
     expect(storage.objects.size).toBe(2);
     expect(await readFile(path.join(root, "homes/bot-1/a.txt"), "utf8")).toBe("local one");
     expect(await exported(await otherHost(), "bot-2")).toEqual({ "b.txt": "local two" });
+  });
+
+  it("records a migrated home only after its upload verifies", async () => {
+    const { root, storage, records, rows } = await setup();
+    await new LocalAgentHomeStore(root).commit("bot-1", await staged({ "a.txt": "x" }), context);
+    const corrupting = Object.assign(Object.create(storage) as MemoryObjectStorage, {
+      async *get(key: string) {
+        const bytes = Buffer.from(storage.objects.get(key)!.bytes);
+        bytes[bytes.length - 20]! ^= 1;
+        yield bytes;
+      },
+    });
+
+    await expect(
+      new ObjectAgentHomeStore(root, corrupting, records).migrateLocal("bot-1"),
+    ).rejects.toThrow(ContentDecryptionError);
+    expect(rows[0]!.homeStorageRevision).toBeNull();
+    expect(storage.objects.size).toBe(0);
+
+    const store = new ObjectAgentHomeStore(root, storage, records);
+    expect(await store.migrateLocal("bot-1")).toBe("uploaded");
+    expect(await store.migrateLocal("bot-1")).toBe("stored");
   });
 
   it("keeps using a home's local copy until it is first saved", async () => {

@@ -95,51 +95,58 @@ export class S3ObjectStorage implements ObjectStorage {
     const Bucket = this.config.bucket;
     const Key = this.key(key);
     const source = parts(body, PART_BYTES)[Symbol.asyncIterator]();
-    const first = await source.next();
-    const second = first.done ? first : await source.next();
-    if (second.done) {
-      const bytes = first.done ? Buffer.alloc(0) : first.value;
-      await this.client.send(
-        new PutObjectCommand({ Bucket, Key, Body: bytes, ContentLength: bytes.length }),
-      );
-      return;
-    }
-    const { UploadId } = await this.client.send(new CreateMultipartUploadCommand({ Bucket, Key }));
-    if (!UploadId) throw new Error("Object storage did not start a multipart upload");
-    const uploaded: Array<{ ETag: string; PartNumber: number }> = [];
-    const upload = async (bytes: Buffer) => {
-      const PartNumber = uploaded.length + 1;
-      const { ETag } = await this.client.send(
-        new UploadPartCommand({
-          Bucket,
-          Key,
-          UploadId,
-          PartNumber,
-          Body: bytes,
-          ContentLength: bytes.length,
-        }),
-      );
-      if (!ETag) throw new Error("Object storage did not acknowledge an upload part");
-      uploaded.push({ ETag, PartNumber });
-    };
+    // Closing the source stops packing and releases any file it holds open, on every path.
     try {
-      await upload((first as IteratorYieldResult<Buffer>).value);
-      await upload(second.value);
-      for (let next = await source.next(); !next.done; next = await source.next())
-        await upload(next.value);
-      await this.client.send(
-        new CompleteMultipartUploadCommand({
-          Bucket,
-          Key,
-          UploadId,
-          MultipartUpload: { Parts: uploaded },
-        }),
+      const first = await source.next();
+      const second = first.done ? first : await source.next();
+      if (second.done) {
+        const bytes = first.done ? Buffer.alloc(0) : first.value;
+        await this.client.send(
+          new PutObjectCommand({ Bucket, Key, Body: bytes, ContentLength: bytes.length }),
+        );
+        return;
+      }
+      const { UploadId } = await this.client.send(
+        new CreateMultipartUploadCommand({ Bucket, Key }),
       );
-    } catch (error) {
-      await this.client
-        .send(new AbortMultipartUploadCommand({ Bucket, Key, UploadId }))
-        .catch(() => undefined);
-      throw error;
+      if (!UploadId) throw new Error("Object storage did not start a multipart upload");
+      const uploaded: Array<{ ETag: string; PartNumber: number }> = [];
+      const upload = async (bytes: Buffer) => {
+        const PartNumber = uploaded.length + 1;
+        const { ETag } = await this.client.send(
+          new UploadPartCommand({
+            Bucket,
+            Key,
+            UploadId,
+            PartNumber,
+            Body: bytes,
+            ContentLength: bytes.length,
+          }),
+        );
+        if (!ETag) throw new Error("Object storage did not acknowledge an upload part");
+        uploaded.push({ ETag, PartNumber });
+      };
+      try {
+        await upload((first as IteratorYieldResult<Buffer>).value);
+        await upload(second.value);
+        for (let next = await source.next(); !next.done; next = await source.next())
+          await upload(next.value);
+        await this.client.send(
+          new CompleteMultipartUploadCommand({
+            Bucket,
+            Key,
+            UploadId,
+            MultipartUpload: { Parts: uploaded },
+          }),
+        );
+      } catch (error) {
+        await this.client
+          .send(new AbortMultipartUploadCommand({ Bucket, Key, UploadId }))
+          .catch(() => undefined);
+        throw error;
+      }
+    } finally {
+      await source.return?.();
     }
   }
 

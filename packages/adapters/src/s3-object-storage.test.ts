@@ -187,6 +187,34 @@ describe("S3ObjectStorage", () => {
   });
 });
 
+describe("S3ObjectStorage failures", () => {
+  it("closes the source when the upload cannot start", async () => {
+    let closed = false;
+    const missingBucket = new S3ObjectStorage({
+      bucket: "missing-bucket",
+      endpoint,
+      region: "us-east-1",
+      accessKeyId: "fake-access-key",
+      secretAccessKey: "fake-secret-key",
+      prefix: "",
+      pathStyle: true,
+    });
+    await expect(
+      missingBucket.put(
+        "big",
+        (async function* () {
+          try {
+            for (;;) yield Buffer.alloc(8 * 1024 * 1024);
+          } finally {
+            closed = true;
+          }
+        })(),
+      ),
+    ).rejects.toThrow();
+    expect(closed).toBe(true);
+  });
+});
+
 describe("MemoryObjectStorage", () => {
   objectStorageConformance(async () => new MemoryObjectStorage());
 });

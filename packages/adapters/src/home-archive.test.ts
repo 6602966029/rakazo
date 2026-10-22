@@ -104,6 +104,16 @@ describe("home archive", () => {
     expect(bytes.includes(Buffer.from("host secret"))).toBe(false);
   });
 
+  it.skipIf(process.getuid?.() === 0)(
+    "fails instead of leaving out a file it cannot read",
+    async () => {
+      const source = await tempDir();
+      await writeFile(path.join(source, "unreadable"), "x");
+      await chmod(path.join(source, "unreadable"), 0o000);
+      await expect(collect(packHome(source))).rejects.toThrow(/EACCES/);
+    },
+  );
+
   it("refuses to pack a home over the size or entry limit", async () => {
     const source = await tempDir();
     await writeFile(path.join(source, "a"), "12345");
