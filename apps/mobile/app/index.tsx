@@ -142,6 +142,8 @@ import type { LoadFailureKind } from "../lib/user-error";
 import { errorText, loadFailureKind } from "../lib/user-error";
 
 const FALLBACK_COLOR = botColors[3];
+// Lower the Android menu anchor while the negative margin preserves the header layout.
+const CREATE_MENU_GAP = 6;
 // A list narrower than this, beside an open chat, keeps names whole by leaving out the title tag.
 const TAGLESS_LIST_WIDTH = 360;
 const CompactRowsContext = createContext(false);
@@ -724,7 +726,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     [createQuickBot, router],
   );
 
-  const createActions = useMemo(() => createMenuActions(t, Platform.OS), [t]);
+  const createActions = createMenuActions(t, Platform.OS);
 
   useLayoutEffect(() => {
     if (!nativeHeader) return;
@@ -1274,6 +1276,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
             </HeaderButton>
             <MenuView
               actions={createActions}
+              {...(Platform.OS === "android" ? { style: { marginBottom: -CREATE_MENU_GAP } } : {})}
               colorScheme={appearance}
               onPressAction={({ nativeEvent }) => {
                 const action = nativeEvent.event;
@@ -1285,7 +1288,11 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
               <View
                 accessibilityLabel={t("Create")}
                 accessibilityRole="button"
-                style={styles.headerButton}
+                style={
+                  Platform.OS === "android"
+                    ? [styles.headerButton, { paddingBottom: CREATE_MENU_GAP }]
+                    : styles.headerButton
+                }
               >
                 <NativeSymbol ios="plus" android="add" size={18} />
               </View>

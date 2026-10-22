@@ -59,9 +59,29 @@ describe("create menu", () => {
     expect(createMenu).toContain('accessibilityLabel={t("Create")}');
     expect(createMenu).toContain('accessibilityRole="button"');
     expect(createMenu).toContain('<NativeSymbol ios="plus" android="add" size={18} />');
-    expect(createMenu).not.toContain('Platform.OS === "android"');
     expect(source).not.toContain("openCreateChooser");
     expect(source).not.toContain("presentCreateChooser");
     expect(source).not.toMatch(/Alert\.alert\(\s*t\("Create"\)/);
+  });
+
+  it("recomputes Create labels during render", () => {
+    const source = readFileSync(new URL("../app/index.tsx", import.meta.url), "utf8");
+    expect(source).not.toMatch(/useMemo\([\s\S]*?=>\s*createMenuActions\(/);
+    expect(source).toContain("const createActions = createMenuActions(t, Platform.OS);");
+  });
+
+  it("adds an Android-only menu gap without changing the iOS trigger or header layout", () => {
+    const source = readFileSync(new URL("../app/index.tsx", import.meta.url), "utf8");
+    const createMenu = source.slice(
+      source.indexOf("<MenuView\n", source.indexOf("<View style={styles.headerActions}>")),
+      source.indexOf("<SelectedChatContext.Provider"),
+    );
+    expect(source).toContain("const CREATE_MENU_GAP = 6;");
+    expect(createMenu).toMatch(
+      /\.\.\.\(Platform\.OS === "android"\s*\? \{ style: \{ marginBottom: -CREATE_MENU_GAP \} \}\s*: \{\}\)/,
+    );
+    expect(createMenu).toMatch(
+      /style=\{\s*Platform\.OS === "android"\s*\? \[styles\.headerButton, \{ paddingBottom: CREATE_MENU_GAP \}\]\s*: styles\.headerButton\s*\}/,
+    );
   });
 });
