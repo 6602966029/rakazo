@@ -84,7 +84,9 @@ export function RunErrorSheet({
         }}
       >
         {/* Keep the close target inside the scroll bounds without moving the headline. */}
+        {/* Android's native sheet wraps this in its own scroll view, so nested scrolling must be on. */}
         <ScrollView
+          nestedScrollEnabled
           style={{ flexGrow: 0, maxHeight: height * 0.9 - 28, marginTop: -11 }}
           contentContainerStyle={{
             paddingHorizontal: 20,
