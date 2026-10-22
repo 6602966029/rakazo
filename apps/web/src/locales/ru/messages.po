@@ -2374,6 +2374,10 @@ msgstr "Требуется подтверждение электронной п�
 msgid "Enable {0}"
 msgstr ""
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Encrypted and never shown again"
+msgstr "Зашифровано и больше не показывается"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr ""
@@ -5349,10 +5353,6 @@ msgstr ""
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
 msgstr "Значение"
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Values are encrypted and never shown again."
-msgstr "Значения зашифрованы и больше не отображаются."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Verify and add"

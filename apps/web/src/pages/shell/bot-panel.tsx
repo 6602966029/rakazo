@@ -846,10 +846,10 @@ export function BotSettings({
                       </Button>
                     </div>
                   ))}
-                  <BotCredentialsSection botId={bot.id} />
                 </div>
               </section>
             </SettingsGroup>
+            <BotCredentialsSection botId={bot.id} />
             <ErrorBoundary fallback={<SectionLoadFailed />}>
               <Suspense fallback={null}>
                 <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} skillsOnly />

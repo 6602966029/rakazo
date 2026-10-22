@@ -2374,6 +2374,10 @@ msgstr "נדרש אימות אימייל"
 msgid "Enable {0}"
 msgstr ""
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Encrypted and never shown again"
+msgstr "מוצפן ולא יוצג שוב"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr "מסתיים ב-{day}"
@@ -5349,10 +5353,6 @@ msgstr ""
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
 msgstr "ערך"
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Values are encrypted and never shown again."
-msgstr "הערכים מוצפנים ולא יוצגו שוב."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Verify and add"

@@ -2374,6 +2374,10 @@ msgstr "需要验证邮箱"
 msgid "Enable {0}"
 msgstr ""
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Encrypted and never shown again"
+msgstr "已加密，且不再显示"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr ""
@@ -5349,10 +5353,6 @@ msgstr ""
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
 msgstr "值"
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Values are encrypted and never shown again."
-msgstr "值会加密保存，之后不再显示。"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Verify and add"

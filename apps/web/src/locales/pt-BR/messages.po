@@ -2374,6 +2374,10 @@ msgstr "É necessário verificar o e-mail"
 msgid "Enable {0}"
 msgstr ""
 
+#: src/pages/shell/bot-credentials.tsx
+msgid "Encrypted and never shown again"
+msgstr "Criptografado e nunca mais exibido"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr ""
@@ -5349,10 +5353,6 @@ msgstr ""
 #: src/pages/shell/bot-credentials.tsx
 msgid "Value"
 msgstr "Valor"
-
-#: src/pages/shell/bot-credentials.tsx
-msgid "Values are encrypted and never shown again."
-msgstr "Os valores são criptografados e não são exibidos novamente."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Verify and add"

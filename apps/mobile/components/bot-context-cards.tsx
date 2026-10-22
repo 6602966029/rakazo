@@ -37,7 +37,7 @@ export function BotContextCards({ botId }: { botId: string }) {
       current = false;
     };
   }, [botId]);
-  const heading = { color: tokens.mutedForeground, fontSize: 12 };
+  const heading = { color: tokens.mutedForeground, fontSize: 12, fontWeight: "500" as const };
   const card = { backgroundColor: native.fill, borderRadius: 12, padding: 16, gap: 12 };
   return (
     <>
@@ -77,14 +77,18 @@ export function BotContextCards({ botId }: { botId: string }) {
           </View>
           <View style={card}>
             {(allWork ? work : work.slice(0, 5)).map((item) => (
-              <View key={item.id} style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+              <View
+                key={item.id}
+                style={{ minHeight: 44, flexDirection: "row", gap: 12, alignItems: "center" }}
+              >
                 <Pressable
                   accessibilityLabel={`${t("Complete")} ${item.title}`}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: false }}
+                  hitSlop={11}
                   style={{
-                    width: 44,
-                    minHeight: 44,
+                    width: 22,
+                    minHeight: 22,
                     alignItems: "center",
                     justifyContent: "center",
                   }}

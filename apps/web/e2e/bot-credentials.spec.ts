@@ -29,13 +29,21 @@ test("bot and command credentials add, replace and remove without leaking values
   await expect(credentials).toBeVisible();
   await expect(credentials.getByTestId("credential-add")).toBeVisible();
 
-  const explainer = credentials.getByText("Values are encrypted and never shown again.", {
-    exact: true,
-  });
-  await expect(explainer).toBeVisible();
-  const explainerBox = (await explainer.boundingBox())!;
-  const addBox = (await credentials.getByTestId("credential-add").boundingBox())!;
-  expect(addBox.y - explainerBox.y - explainerBox.height).toBe(8);
+  const add = credentials.getByRole("button", { name: "Add credential", exact: true });
+  await expect(add).toHaveText("");
+  await expect(
+    credentials.getByRole("heading", { name: "Credentials", exact: true }),
+  ).toBeVisible();
+  await expect(
+    settings.getByTestId("bot-settings-tools").getByTestId("bot-credentials"),
+  ).toHaveCount(0);
+  const card = credentials.getByTestId("bot-credentials-card");
+  await expect(card.getByText("Encrypted and never shown again", { exact: true })).toBeVisible();
+  await expect(card.getByTestId("credential-add-form")).toHaveCount(0);
+  await add.hover();
+  await expect(
+    page.locator('[data-slot="tooltip-content"]').filter({ hasText: "Add credential" }),
+  ).toBeVisible();
 
   // Add: a password field holds the value, which is cleared once the save starts.
   await credentials.getByTestId("credential-add").click();
@@ -53,7 +61,7 @@ test("bot and command credentials add, replace and remove without leaking values
   await expect(row).toHaveCount(1);
   await expect(row).toHaveCSS("border-top-width", "0px");
   await expect(row).toHaveCSS("padding-left", "0px");
-  expect((await row.boundingBox())!.x).toBe((await credentials.boundingBox())!.x);
+  expect((await row.boundingBox())!.x).toBe((await card.boundingBox())!.x + 16);
   await expect(row).toContainText(CREDENTIAL_NAME);
   await expect(row).toContainText("https://api.example.test");
   await expect(row).toContainText("Bearer token");

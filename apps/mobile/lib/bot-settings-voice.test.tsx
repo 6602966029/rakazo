@@ -195,6 +195,7 @@ vi.mock("react-native", () => {
       accessibilityRole,
       accessibilityState,
       style,
+      hitSlop,
     }: {
       children?: ReactNode;
       onPress: () => void;
@@ -203,6 +204,7 @@ vi.mock("react-native", () => {
       accessibilityRole?: string;
       accessibilityState?: { expanded?: boolean };
       style?: unknown;
+      hitSlop?: number;
     }) =>
       createElement(
         "button",
@@ -214,6 +216,7 @@ vi.mock("react-native", () => {
           role: accessibilityRole,
           "aria-expanded": accessibilityState?.expanded,
           "data-style": JSON.stringify(style),
+          "data-hit-slop": hitSlop,
         },
         children,
       ),
@@ -388,7 +391,8 @@ describe("bot settings device voice menu", () => {
       '[aria-label="Complete New task"]',
     )!;
     expect(complete.getAttribute("role")).toBe("checkbox");
-    expect(JSON.parse(complete.dataset.style!)).toMatchObject({ minHeight: 44, width: 44 });
+    expect(JSON.parse(complete.dataset.style!)).toMatchObject({ minHeight: 22, width: 22 });
+    expect(complete.dataset.hitSlop).toBe("11");
     mocks.rpc.mockResolvedValueOnce({});
     await act(async () => complete.click());
     expect(mocks.rpc).toHaveBeenCalledWith("scratchpad/update", { itemId: "new", status: "done" });
