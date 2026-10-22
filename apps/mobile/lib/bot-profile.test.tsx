@@ -1,8 +1,5 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { Routine } from "@rakazo/contracts";
 import type { ReactNode } from "react";
 import { act, createElement, useEffect } from "react";
@@ -318,27 +315,78 @@ describe("bot profile notifications", () => {
     },
   );
 
-  it("saves at once and ignores taps until the save is done", async () => {
+  it("saves at once and keeps the switch enabled while saving", async () => {
     let save!: () => void;
     profileRpc(async () => [], {
+      bot: async () => ({ ...fixtureBot, notifyOnFinish: false }),
       update: () => new Promise<void>((resolve) => (save = resolve)),
     });
     await render(createElement(BotProfile));
 
     await act(async () => notificationsSwitch()!.click());
-    expect(notificationsSwitch()!.checked).toBe(false);
-    expect(notificationsSwitch()!.disabled).toBe(true);
+    expect(notificationsSwitch()!.checked).toBe(true);
+    expect(notificationsSwitch()!.disabled).toBe(false);
     expect(rpc).toHaveBeenCalledWith("bots/update", {
       botId: "bot-fixture",
-      notifyOnFinish: false,
+      notifyOnFinish: true,
     });
     expect(afterChatNotifyChange).not.toHaveBeenCalled();
 
     await act(async () => save());
-    expect(notificationsSwitch()!.checked).toBe(false);
+    expect(notificationsSwitch()!.checked).toBe(true);
     expect(notificationsSwitch()!.disabled).toBe(false);
     expect(rpc.mock.calls.filter(([procedure]) => procedure === "bots/update")).toHaveLength(1);
     expect(alert).not.toHaveBeenCalled();
+  });
+
+  it("keeps rapid on/off/on taps responsive and skips the redundant queued save", async () => {
+    let save!: () => void;
+    profileRpc(async () => [], {
+      bot: async () => ({ ...fixtureBot, notifyOnFinish: false }),
+      update: () => new Promise<void>((resolve) => (save = resolve)),
+    });
+    await render(createElement(BotProfile));
+    for (const checked of [true, false, true]) {
+      await act(async () => notificationsSwitch()!.click());
+      expect(notificationsSwitch()!.checked).toBe(checked);
+      expect(notificationsSwitch()!.disabled).toBe(false);
+    }
+    expect(rpc.mock.calls.filter(([procedure]) => procedure === "bots/update")).toEqual([
+      ["bots/update", { botId: "bot-fixture", notifyOnFinish: true }],
+    ]);
+    await act(async () => save());
+    expect(notificationsSwitch()!.checked).toBe(true);
+    expect(rpc.mock.calls.filter(([procedure]) => procedure === "bots/update")).toHaveLength(1);
+    expect(afterChatNotifyChange).toHaveBeenCalledExactlyOnceWith(
+      "https://api.example",
+      "token",
+      "space-a",
+      { threadId: "thread-fixture", notify: true },
+    );
+  });
+
+  it("serializes taps and reverts a failed queued save to the last confirmed value", async () => {
+    const requests: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
+    profileRpc(async () => [], {
+      bot: async () => ({ ...fixtureBot, notifyOnFinish: false }),
+      update: () => new Promise<void>((resolve, reject) => requests.push({ resolve, reject })),
+    });
+    await render(createElement(BotProfile));
+    await act(async () => notificationsSwitch()!.click());
+    await act(async () => notificationsSwitch()!.click());
+    expect(notificationsSwitch()!.checked).toBe(false);
+    expect(requests).toHaveLength(1);
+    await act(async () => requests[0]!.resolve());
+    expect(requests).toHaveLength(2);
+    expect(rpc.mock.calls.filter(([procedure]) => procedure === "bots/update")).toEqual([
+      ["bots/update", { botId: "bot-fixture", notifyOnFinish: true }],
+      ["bots/update", { botId: "bot-fixture", notifyOnFinish: false }],
+    ]);
+    await act(async () => requests[1]!.reject(new Error("offline")));
+    expect(notificationsSwitch()!.checked).toBe(true);
+    expect(notificationsSwitch()!.disabled).toBe(false);
+    expect(alert).toHaveBeenCalledWith("Could not update notifications", "offline");
+    expect(afterChatNotifyChange).toHaveBeenCalledTimes(1);
   });
 
   it.each(["before", "during"])(
@@ -391,7 +439,7 @@ describe("bot profile notifications", () => {
     await act(async () => reads[1]!({ ...fixtureBot, title: "Reloaded" }));
     expect(container.textContent).toContain("Reloaded");
     expect(notificationsSwitch()!.checked).toBe(false);
-    expect(notificationsSwitch()!.disabled).toBe(true);
+    expect(notificationsSwitch()!.disabled).toBe(false);
 
     await act(async () => save());
     expect(notificationsSwitch()!.checked).toBe(false);
@@ -474,30 +522,5 @@ describe("artifacts opened for one bot", () => {
     await render(createElement(ArtifactsScreen));
     expect(listSpaceArtifacts).toHaveBeenCalledTimes(1);
     expect(listSpaceArtifacts).toHaveBeenCalledWith({ botId: "bot-fixture", limit: 30 });
-  });
-});
-
-describe("profile entry point", () => {
-  it("adds one Profile action to the existing chat menu", () => {
-    const thread = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), "../app/thread.tsx"),
-      "utf8",
-    );
-    const actions = thread.slice(thread.indexOf("const botActions = ["));
-    const list = actions.slice(0, actions.indexOf("\n  ];"));
-    const labels = [...list.matchAll(/text: t\("([^"]+)"\)/g)].map((match) => match[1]);
-    expect(labels).toEqual([
-      "Profile",
-      "Chat settings",
-      "Clear conversation",
-      "Cancel",
-      "Clear",
-      "Archive",
-      "Delete…",
-    ]);
-    expect(thread.match(/pathname: "\/bot-profile"/g)).toHaveLength(1);
-    expect(list).toMatch(
-      /pathname: "\/bot-profile",\s+params: \{ botId: botId \?\? "", name: displayName \?\? t\("Bot"\) \}/,
-    );
   });
 });

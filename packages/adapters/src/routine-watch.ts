@@ -18,6 +18,7 @@ import {
   createThreadMessageInTransaction,
   parseComputerMode,
 } from "@rakazo/db";
+import { getLogger } from "@rakazo/logging";
 import { scheduleComputerSleep } from "./computer-idle.js";
 import { ComputerBusyError, provisionComputer } from "./computer-lifecycle.js";
 import { resolveBotWorkspaceCwd, teamBotWorkspaceDirectory } from "./computer-support.js";
@@ -368,12 +369,15 @@ async function readComputer(
     }
   }
   const ctx = context(routine);
+  const computerId = bot.computer.id;
   let computer: Awaited<ReturnType<typeof provisionComputer>>;
   try {
-    computer = await provisionComputer(deps, bot.computer.id, {
-      ...ctx,
-      signal: AbortSignal.timeout(PROVISION_TIMEOUT_MS),
-    });
+    computer = await getLogger().withContext({ reason: "watch", watchKind: watch.kind }, () =>
+      provisionComputer(deps, computerId, {
+        ...ctx,
+        signal: AbortSignal.timeout(PROVISION_TIMEOUT_MS),
+      }),
+    );
   } catch (error) {
     if (
       error instanceof ComputerBusyError ||
@@ -563,6 +567,18 @@ export type RoutineWatchTick =
   | { run: false }
   | { run: true; state: RoutineWatchState; nextRunAt: Date; note: string };
 
+/** Starts the note a change trigger appends to a routine's prompt; what follows is not the owner's. */
+const ROUTINE_WATCH_NOTE_START = "\n\nThis run was started because something you watch changed (";
+
+/**
+ * The owner's part of a routine run's task prompt, as saved when it fired: the routine's
+ * instructions without the change note, whose detail comes from what the watch read.
+ */
+export function routineTaskInstructions(taskPrompt: string): string {
+  const note = taskPrompt.indexOf(ROUTINE_WATCH_NOTE_START);
+  return note === -1 ? taskPrompt : taskPrompt.slice(0, note);
+}
+
 /**
  * One scheduled check of a watching routine. Returns whether the routine
  * should run now; every other outcome is fully handled here: the next check is
@@ -626,7 +642,7 @@ export async function tickRoutineWatch(
       run: true,
       state: outcome.state,
       nextRunAt,
-      note: `\n\nThis run was started because something you watch changed (${describeRoutineWatch(watch)}).\nWhat changed since the last check:\n${outcome.state.detail ?? "(no detail)"}`,
+      note: `${ROUTINE_WATCH_NOTE_START}${describeRoutineWatch(watch)}).\nWhat changed since the last check:\n${outcome.state.detail ?? "(no detail)"}`,
     };
   }
   const claimed = await deps.prisma.routine.updateMany({

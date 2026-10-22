@@ -23,6 +23,7 @@ import {
   type ElectronAutoUpdater,
   LAUNCH_CHECK_DELAY_MS,
 } from "./auto-update.js";
+import { createBadgeHandler } from "./badge.js";
 import { openBrowserAuth } from "./browser-auth.js";
 import { DOCKER_INSTALL_LINKS, isDesktopSetupLink, runDocker } from "./docker-cli.js";
 import { prepareHostComputer } from "./host-computer.js";
@@ -38,9 +39,8 @@ import {
 import { oauthCallbackFrom } from "./oauth-callback.js";
 import {
   bundledRendererCandidates,
-  contentType,
+  bundledRendererHeaders,
   forwardedRendererRequestInit,
-  immutableRendererAsset,
   isRendererAssetMiss,
 } from "./renderer-assets.js";
 import { installSessionPermissions } from "./session-permissions.js";
@@ -53,6 +53,7 @@ import {
   normalizeServerUrl,
   parseSetupInput,
   probeFailureMessage,
+  RAKAZO_CLOUD_URL,
   readProbeJson,
   resolveStartupTarget,
   safeExternalUrl,
@@ -515,14 +516,7 @@ async function installBundledRenderer(
         if (isRendererAssetMiss(error)) continue;
         throw error;
       }
-      const headers = new Headers({
-        "cache-control": immutableRendererAsset(file)
-          ? "public, max-age=31536000, immutable"
-          : "no-cache",
-        "content-type": contentType(file),
-        "x-content-type-options": "nosniff",
-      });
-      return new Response(body, { headers });
+      return new Response(body, { headers: bundledRendererHeaders(file, request.url) });
     }
     return forward();
   });
@@ -537,7 +531,7 @@ function oauthPopupWindowOptions(partition: string | null) {
     frame: true,
     titleBarStyle: "default" as const,
     autoHideMenuBar: true,
-    backgroundColor: "#0B0C0E",
+    backgroundColor: "#141414",
     webPreferences: oauthPopupSessionPreferences(partition),
   };
 }
@@ -710,6 +704,20 @@ function installApplicationMenu() {
       }
     },
   };
+  const viewMenu: Electron.MenuItemConstructorOptions = {
+    label: "View",
+    submenu: [
+      { role: "resetZoom" },
+      { role: "zoomIn" },
+      // zoomIn's default accelerator is Cmd/Ctrl+Plus, which needs Shift on US layouts.
+      { role: "zoomIn", accelerator: "CommandOrControl+=", visible: false },
+      { role: "zoomOut" },
+      // macOS adds its own Enter Full Screen item to a menu named View.
+      ...(process.platform === "darwin"
+        ? []
+        : ([{ type: "separator" }, { role: "togglefullscreen" }] as const)),
+    ],
+  };
   const template: Electron.MenuItemConstructorOptions[] =
     process.platform === "darwin"
       ? [
@@ -732,7 +740,18 @@ function installApplicationMenu() {
             ],
           },
           { role: "editMenu" },
-          { role: "windowMenu" },
+          viewMenu,
+          {
+            label: "Window",
+            role: "window",
+            submenu: [
+              { role: "minimize" },
+              { role: "zoom" },
+              { role: "close" },
+              { type: "separator" },
+              { role: "front" },
+            ],
+          },
         ]
       : [
           {
@@ -748,6 +767,7 @@ function installApplicationMenu() {
             ],
           },
           { role: "editMenu" },
+          viewMenu,
           { role: "windowMenu" },
         ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -1182,6 +1202,10 @@ app.whenReady().then(async () => {
       installApplicationMenu();
     }
   });
+  ipcMain.handle(
+    "desktop.badge.set",
+    createBadgeHandler(permissionTarget, (count) => app.setBadgeCount(count)),
+  );
   ipcMain.handle("desktop.platform", () => process.platform);
   ipcMain.handle("desktop.window.close", (event) => {
     windowFrom(event)?.close();
@@ -1229,6 +1253,7 @@ app.whenReady().then(async () => {
     if (!fromSetupWindow(event)) return null;
     return {
       defaultLocalUrl: localStack.webUrl(),
+      cloudUrl: RAKAZO_CLOUD_URL,
       saved: currentSetup,
       error: setupError ?? undefined,
     };

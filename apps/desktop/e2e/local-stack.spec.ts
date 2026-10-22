@@ -171,7 +171,7 @@ test("This computer installs and starts the stack, then opens the app", async ()
   app = await launch("ok");
   const setup = await app.firstWindow();
 
-  await expect(setup.getByRole("radio", { name: /This computer/ })).toBeChecked();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
   // The panel is empty until a start begins, so check the attribute rather than the box.
   await expect(setup.locator("#panel-new")).toHaveJSProperty("hidden", false);
   await expect(setup.locator("#stack")).toBeHidden();
@@ -225,6 +225,7 @@ test("This computer installs and starts the stack, then opens the app", async ()
 test("without Docker the app explains how to get it and offers to check again", async () => {
   app = await launch("missing");
   const setup = await app.firstWindow();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
 
   await setup.getByRole("button", { name: "Continue" }).click();
   await expect(setup.locator("#stack-phase")).toHaveText(
@@ -249,6 +250,7 @@ test("without Docker the app explains how to get it and offers to check again", 
 test("switching to Existing instance while the stack starts keeps that choice", async () => {
   app = await launch("ok");
   const setup = await app.firstWindow();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
 
   await setup.getByRole("button", { name: "Continue" }).click();
   await expect(setup.locator("#stack-phase")).toHaveText("Downloading Rakazo…");
@@ -278,6 +280,7 @@ test("switching to Existing instance while the stack starts keeps that choice", 
 test("a stopped Docker daemon is reported and Check again asks Docker once more", async () => {
   app = await launch("daemon-down");
   const setup = await app.firstWindow();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
 
   await setup.getByRole("button", { name: "Continue" }).click();
   await expect(setup.locator("#stack-phase")).toHaveText(
@@ -295,6 +298,7 @@ test("a stopped Docker daemon is reported and Check again asks Docker once more"
 test("unpublished images show the docker output and a Retry button", async () => {
   app = await launch("pull-fails");
   const setup = await app.firstWindow();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
 
   await setup.getByRole("button", { name: "Continue" }).click();
   await expect(setup.locator("#stack-phase")).toHaveText(
@@ -404,7 +408,7 @@ test("a saved local target is the exact origin authenticated before reuse", asyn
   }
 });
 
-test("an existing stack .env is never rewritten", async () => {
+test("an existing stack .env keeps its lines and gains only added secrets", async () => {
   const stackDir = path.join(userData, "stack");
   await mkdir(stackDir, { recursive: true });
   const sentinel = "POSTGRES_PASSWORD=keep-me\nSENTINEL=1\n";
@@ -412,17 +416,21 @@ test("an existing stack .env is never rewritten", async () => {
 
   app = await launch("ok");
   const setup = await app.firstWindow();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
   const appWindowPromise = app.waitForEvent("window");
   await setup.getByRole("button", { name: "Continue" }).click();
   const appWindow = await appWindowPromise;
   await expect(appWindow.getByText(APP_MARKER)).toBeVisible();
 
-  await expect(readFile(path.join(stackDir, ".env"), "utf8")).resolves.toBe(sentinel);
+  const env = await readFile(path.join(stackDir, ".env"), "utf8");
+  expect(env.startsWith(sentinel)).toBe(true);
+  expect(env.slice(sentinel.length)).toMatch(/^POSTGRES_APP_PASSWORD=[0-9a-f]{32}\n$/);
 });
 
 test("exhausted address pools explain recovery", async () => {
   app = await launch("pool-exhausted");
   const setup = await app.firstWindow();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
   await setup.getByRole("button", { name: "Continue" }).click();
   await expect(setup.locator("#stack-phase")).toHaveText(
     "Docker has no free network address pools. Remove unused Docker networks or expand Docker’s address pools, then retry.",
@@ -436,6 +444,7 @@ test("exhausted address pools explain recovery", async () => {
 test("a port conflict opens and saves the replacement managed origin", async () => {
   app = await launch("port-conflict");
   const setup = await app.firstWindow();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
   const appWindowPromise = app.waitForEvent("window");
   await setup.getByRole("button", { name: "Continue" }).click();
   const urlFile = path.join(userData, "stack", ".desktop-web-url");
@@ -467,6 +476,7 @@ test("a port conflict opens and saves the replacement managed origin", async () 
 test("repeated port conflicts stop with a retry action", async () => {
   app = await launch("ports-exhausted");
   const setup = await app.firstWindow();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
   await setup.getByRole("button", { name: "Continue" }).click();
   await expect(setup.locator("#stack-phase")).toHaveText(
     "Could not bind a local port after retrying. Retry to choose another port.",
@@ -481,6 +491,7 @@ test("repeated port conflicts stop with a retry action", async () => {
 test("the native settings menu opens an isolated logged-out settings capability", async () => {
   app = await launch("ok");
   const setup = await app.firstWindow();
+  await setup.getByRole("radio", { name: /This computer/ }).check();
   const nextWindow = app.waitForEvent("window");
   await setup.getByRole("button", { name: "Continue", exact: true }).click();
   const main = await nextWindow;
