@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const transport = vi.hoisted(() => ({
   send: vi.fn(async () => ({ statusCode: 200 })),
@@ -21,6 +21,7 @@ vi.mock("./native-crashes.js", () => ({
   configureNativeCrashReporting: vi.fn(),
   disableNativeCrashReporting: vi.fn(),
 }));
+afterEach(() => vi.useRealTimers());
 const options = { version: "1.0.0", base: "https://app.example.com" };
 const config = (body: unknown) => async () => new Response(JSON.stringify(body));
 
@@ -126,5 +127,44 @@ describe("desktop monitoring", () => {
     expect(
       initialized.beforeSend({ platform: "node", tags: { "monitoring.connection": 1 } }, {}).user,
     ).toEqual({ ip_address: null });
+  });
+  it("retries transient launch configuration failures without losing queued reports", async () => {
+    vi.useFakeTimers();
+    const monitor = await import("./monitoring.js");
+    const fetchConfig = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockImplementation(config({ dsn: "https://key@errors.example.com/8" }));
+    const error = new Error("queued startup failure");
+    monitor.reportDesktopError(error, "desktop.startup");
+    await monitor.configureDesktopMonitoring(fetchConfig, options);
+    expect(sdk.init).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetchConfig).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(sdk.captureException).toHaveBeenCalledWith(error, expect.any(Object));
+    expect(fetchConfig).toHaveBeenCalledTimes(3);
+    monitor.disableDesktopMonitoring();
+  });
+
+  it("cancels retries and pending reports when a connection is replaced or disabled", async () => {
+    vi.useFakeTimers();
+    const monitor = await import("./monitoring.js");
+    const failed = vi.fn(async () => new Response(null, { status: 503 }));
+    await monitor.configureDesktopMonitoring(failed, options);
+    monitor.reportDesktopError(new Error("old connection"), "desktop.startup");
+    await monitor.configureDesktopMonitoring(config({ dsn: null }), {
+      ...options,
+      base: "https://other.example.com",
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(failed).toHaveBeenCalledTimes(1);
+    expect(sdk.init).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    await monitor.configureDesktopMonitoring(failed, options);
+    monitor.disableDesktopMonitoring();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(failed).toHaveBeenCalledTimes(2);
   });
 });

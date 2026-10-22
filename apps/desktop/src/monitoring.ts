@@ -19,6 +19,7 @@ let environment: string | undefined;
 let activeTransport: ReturnType<typeof ElectronSentry.makeElectronTransport> | undefined;
 let transportOptions: Parameters<typeof ElectronSentry.makeElectronTransport>[0] | undefined;
 let configuring: Promise<void> = Promise.resolve();
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
 const owners = new Map<string, ReturnType<typeof ElectronSentry.makeElectronTransport>>();
 
 export function reportDesktopError(
@@ -35,28 +36,62 @@ export function installDesktopEarlyErrorReporting(): void {
   });
 }
 
+export function disableDesktopMonitoring(): void {
+  generation++;
+  identifications++;
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
+  activeTransport = undefined;
+  activeDsn = undefined;
+  userId = undefined;
+  owners.clear();
+  sdk?.setUser(null);
+  errors.install(undefined);
+  if (sdk) disableNativeCrashReporting();
+}
+
 /** SDK observers initialize once; only the connection's transport and attribution change. */
 export function configureDesktopMonitoring(
   fetchConfig: () => Promise<Response>,
   options: { version: string; base: string },
 ): Promise<void> {
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
   const current = ++generation;
   const identification = ++identifications;
   if (selected) errors.reset();
   selected = true;
   if (sdk) disableNativeCrashReporting();
   activeTransport = undefined;
+  activeDsn = undefined;
   owners.clear();
   userId = undefined;
   sdk?.setUser(null);
-  const next = configuring.then(async () => {
+  let retryAttempt = 0;
+  const retry = () => {
+    if (current !== generation) return;
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(
+      () => {
+        retryTimer = undefined;
+        configuring = configuring.then(attempt).catch(() => undefined);
+      },
+      Math.min(1_000 * 2 ** Math.min(retryAttempt++, 5), 30_000),
+    );
+    retryTimer.unref?.();
+  };
+  const attempt = async () => {
     if (current !== generation) return;
     let config: MonitoringConfig;
     try {
       const response = await fetchConfig();
-      if (!response.ok) return;
+      if (!response.ok) {
+        retry();
+        return;
+      }
       config = (await response.json()) as MonitoringConfig;
     } catch {
+      retry();
       return;
     }
     if (current !== generation) return;
@@ -155,8 +190,8 @@ export function configureDesktopMonitoring(
     } catch {
       /* Keep the bounded queue until the connection can be configured again. */
     }
-  });
-  configuring = next.catch(() => undefined);
+  };
+  configuring = configuring.then(attempt).catch(() => undefined);
   return configuring;
 }
 

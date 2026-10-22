@@ -29,6 +29,7 @@ import {
 } from "./local-stack.js";
 import {
   configureDesktopMonitoring,
+  disableDesktopMonitoring,
   installDesktopEarlyErrorReporting,
   refreshDesktopMonitoringUser,
   reportDesktopError,
@@ -87,6 +88,7 @@ const bundledRendererInstallations = new Set<string>();
 let currentSetup: DesktopSetup | null = null;
 let currentTargetUrl: string | null = null;
 let monitoringSession: Session | undefined;
+let monitoringTargetUrl: string | undefined;
 let stopMonitoringSession: (() => void) | undefined;
 let setupError: string | null = null;
 let setupSaveInProgress = false;
@@ -877,26 +879,38 @@ function openFailureDetail(error: unknown): string {
   return probeFailureMessage(error);
 }
 
-async function openAppOnce(targetUrl: string, switching: boolean) {
-  hostComputer?.activate(currentSetup?.mode === "new" && targetUrl === localStack.webUrl());
-  const target = await resolveSessionForTarget(targetUrl);
+function activateDesktopMonitoring(url: string | undefined, targetSession?: Session) {
+  if (monitoringTargetUrl === url && monitoringSession === targetSession) return;
   stopMonitoringSession?.();
-  monitoringSession = target.value;
+  stopMonitoringSession = undefined;
+  monitoringTargetUrl = url;
+  monitoringSession = targetSession;
+  if (!url || !targetSession) {
+    disableDesktopMonitoring();
+    return;
+  }
   const fetchMonitoringConfig = () =>
-    target.value.fetch(new URL("/api/monitoring/config", targetUrl).href, {
+    targetSession.fetch(new URL("/api/monitoring/config", url).href, {
       signal: AbortSignal.timeout(8_000),
     });
   const refreshMonitoringUser = () => {
-    if (monitoringSession === target.value)
+    if (monitoringSession === targetSession && monitoringTargetUrl === url)
       void refreshDesktopMonitoringUser(fetchMonitoringConfig);
   };
-  target.value.cookies.on("changed", refreshMonitoringUser);
+  targetSession.cookies.on("changed", refreshMonitoringUser);
   stopMonitoringSession = () =>
-    target.value.cookies.removeListener("changed", refreshMonitoringUser);
+    targetSession.cookies.removeListener("changed", refreshMonitoringUser);
   void configureDesktopMonitoring(fetchMonitoringConfig, {
     version: app.getVersion(),
-    base: targetUrl,
+    base: url,
   });
+}
+
+async function openAppOnce(targetUrl: string, switching: boolean) {
+  hostComputer?.activate(currentSetup?.mode === "new" && targetUrl === localStack.webUrl());
+  const target = await resolveSessionForTarget(targetUrl);
+  // A failed switch must leave telemetry with the window that remains selected.
+  if (mainWindow === null) activateDesktopMonitoring(targetUrl, target.value);
   const previous = mainWindow;
   let win: BrowserWindow | null = null;
   try {
@@ -918,6 +932,7 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
       throw new Error("The server page did not become ready.");
     }
     currentTargetUrl = targetUrl;
+    activateDesktopMonitoring(targetUrl, target.value);
     setupError = null;
     // Keep the previous window until the caller commits (after setup.json is written).
     pendingPreviousWindow =
@@ -972,6 +987,7 @@ function abandonPendingAppSwitch(
     mainWindow = previous;
     currentSetup = previousSetup;
     currentTargetUrl = previousUrl;
+    activateDesktopMonitoring(previousUrl ?? undefined, previous.webContents.session);
     syncHostComputerAccess();
     // If setup was already closed (e.g. during a slow write), make the restored
     // session visible — otherwise macOS can be left with no shown window.
@@ -1032,6 +1048,10 @@ async function recoverFromCrashedSave(
     mainWindow = null;
     currentSetup = previousSetup;
     currentTargetUrl = previousUrl;
+    if (previousUrl) {
+      const restored = await resolveSessionForTarget(previousUrl);
+      activateDesktopMonitoring(previousUrl, restored.value);
+    } else activateDesktopMonitoring(undefined);
   }
   const message =
     previousSetup !== null
