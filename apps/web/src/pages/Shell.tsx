@@ -1509,11 +1509,11 @@ function SpaceShell() {
   );
   const sidebarGroups = useMemo(
     () =>
-      sidebarGroupsForSpaces(sidebarSpaces, query, {
+      sidebarGroupsForSpaces(sidebarSpaces, miniSidebar ? "" : query, {
         pinned: t`Pinned`,
         unassigned: t`Unassigned`,
       }),
-    [sidebarSpaces, query, t],
+    [sidebarSpaces, query, miniSidebar, t],
   );
   // The Dock badge ignores the roster search box: a filter must not hide unread chats.
   const unreadChatCount = useMemo(
@@ -3219,7 +3219,10 @@ function SpaceShell() {
             setMenuOpen(open);
             if (!open) setLogOutError(null);
           }}
-          onIntegrations={() => setPluginsOpen(true)}
+          onIntegrations={() => {
+            setMenuOpen(false);
+            setPluginsOpen(true);
+          }}
           onBoard={
             bootstrapMe?.ticketBoardEnabled
               ? () => {

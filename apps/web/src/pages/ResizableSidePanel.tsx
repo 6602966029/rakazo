@@ -39,6 +39,7 @@ export function ResizableSidePanel({
   const [preferredWidth, setPreferredWidth] = useState(readPreferredWidth);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const maxWidth = maximumWidth(reservedLeadingPx, viewportWidth);
+  const overlay = viewportWidth - reservedLeadingPx < MIN_CHAT_WIDTH + MIN_WIDTH;
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{ x: number; width: number; direction: number } | null>(null);
   const width = Math.max(MIN_WIDTH, Math.min(maxWidth, preferredWidth));
@@ -75,8 +76,9 @@ export function ResizableSidePanel({
     <aside
       data-testid="side-panel"
       data-panel={panel}
+      data-overlay={overlay || undefined}
       style={{ "--panel-width": `${width}px` } as CSSProperties}
-      className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-background md:relative ${dragging ? "" : "transition-[width] duration-150 ease-out"} ${open ? "w-full max-w-[384px] border-s border-sidebar-border md:w-(--panel-width) md:max-w-none" : "pointer-events-none w-0"}`}
+      className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-background ${overlay ? "md:absolute" : "md:relative"} ${dragging ? "" : "transition-[width] duration-150 ease-out"} ${open ? "w-full max-w-[384px] border-s border-sidebar-border md:w-(--panel-width) md:max-w-none" : "pointer-events-none w-0"}`}
     >
       {open ? (
         <hr
@@ -86,7 +88,7 @@ export function ResizableSidePanel({
           aria-valuemin={MIN_WIDTH}
           aria-valuemax={maxWidth}
           aria-valuenow={Math.round(width)}
-          className="absolute inset-y-0 start-0 z-30 m-0 hidden h-full w-2 touch-none cursor-col-resize border-0 bg-transparent hover:bg-border focus-visible:bg-border focus-visible:outline-none md:block"
+          className={`absolute inset-y-0 start-0 z-30 m-0 hidden h-full w-2 touch-none cursor-col-resize border-0 bg-transparent hover:bg-border focus-visible:bg-border focus-visible:outline-none ${overlay ? "" : "md:block"}`}
           onPointerDown={(event) => {
             if (event.button !== 0) return;
             event.preventDefault();

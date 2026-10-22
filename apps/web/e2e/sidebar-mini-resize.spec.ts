@@ -34,15 +34,28 @@ test("sidebar rail keeps chats interactive and remembers a dragged width", async
   await expect(handle).toHaveAttribute("aria-valuenow", String(preferredWidth));
   await captureScreenshot(page, testInfo, "sidebar-resized-expanded");
 
+  await sidebar.getByRole("textbox", { name: "Search", exact: true }).fill("no roster matches");
+  await expect(row).toHaveCount(0);
   await page.getByTestId("minimize-bots-sidebar").click();
   await expect(sidebar).toHaveCSS("width", "80px");
   await expect(row).toHaveAccessibleName("Research");
   await expect(row).toHaveAccessibleDescription(/unread/);
+  await page.getByTestId("restore-bots-sidebar").click();
+  await expect(sidebar.getByRole("textbox", { name: "Search", exact: true })).toHaveValue(
+    "no roster matches",
+  );
+  await sidebar.getByRole("textbox", { name: "Search", exact: true }).fill("");
+  await page.getByTestId("minimize-bots-sidebar").click();
+  await expect(sidebar).toHaveCSS("width", "80px");
   await row.click();
   await expect(page).toHaveURL(new RegExp(`/app/${bot.id}$`));
   await expect(row).toHaveAttribute("aria-current", "page");
   await expect(sidebar.locator("[data-roster-preview]")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "sidebar-mini-avatar-rail");
+  await page.getByTestId("user-menu-trigger").click();
+  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await expect(page.getByTestId("account-menu-header")).toBeHidden();
+  await page.getByRole("button", { name: "Close integrations", exact: true }).click();
   await page.reload();
   await expect(sidebar).toHaveCSS("width", "80px");
   await page.getByTestId("restore-bots-sidebar").click();
@@ -90,4 +103,29 @@ test("sidebar resize follows RTL and reduced motion", async ({ page }) => {
   await expect(sidebar).toHaveCSS("width", "240px");
   const box = (await sidebar.boundingBox())!;
   expect(Math.round(box.x + box.width)).toBe(1300);
+});
+
+test("narrow desktop keeps the chat width when both panels are open", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 800, height: 900 });
+  await signup(page, `sidebar-panels-${Date.now()}@rakazo.test`, "password12", "Sidebar Sample");
+  await completeOnboarding(page);
+  const sidebar = page.getByTestId("bots-sidebar");
+  const handle = page.getByRole("separator", { name: "Resize bots sidebar" });
+  await handle.focus();
+  await handle.press("End");
+  await expect(sidebar).toHaveCSS("width", "480px");
+  await page.getByRole("button", { name: "Agent computer", exact: true }).click();
+  const panel = page.getByTestId("side-panel");
+  await expect(panel).toHaveCSS("position", "absolute");
+  const chat = page.locator('[data-space-switch="main"]');
+  await expect(chat).toHaveCSS("width", "320px");
+  await expect(panel).toHaveCSS("width", "320px");
+  await captureScreenshot(page, testInfo, "sidebar-narrow-panel-overlay");
+  await handle.focus();
+  await handle.press("Home");
+  await expect(sidebar).toHaveCSS("width", "80px");
+  await expect(panel).toHaveCSS("position", "relative");
+  await expect.poll(async () => (await chat.boundingBox())!.width).toBeGreaterThanOrEqual(320);
 });
