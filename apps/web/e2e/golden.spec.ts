@@ -210,6 +210,13 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await expect(detail.getByLabel("Account label").nth(1)).toHaveValue("Work");
   await captureScreenshot(page, testInfo, "11a2-multi-account-plugins");
 
+  await page
+    .getByTestId("connection-tools")
+    .getByText(/tools?$/)
+    .click();
+  await expect(detail.getByText("Send email", { exact: true })).toBeVisible();
+  await captureScreenshot(page, testInfo, "11a3-plugin-tools");
+
   await page.getByRole("button", { name: "Close integrations" }).click();
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   await expect(page.getByPlaceholder("Search apps")).toBeVisible();
@@ -353,6 +360,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
     await page.getByRole("button", { name: "Agent computer", exact: true }).click();
   }
   await gear.click();
+  await page.getByTestId("bot-settings").getByText("Advanced", { exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export" }).click();
   const download = await downloadPromise;

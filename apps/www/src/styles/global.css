@@ -1485,7 +1485,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   overflow-y: auto;
   padding: 20px 24px;
 }
