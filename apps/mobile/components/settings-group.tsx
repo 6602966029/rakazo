@@ -210,7 +210,9 @@ function createSettingsStyles() {
       backgroundColor: native.groupedCell,
     },
     separator: {
-      height: StyleSheet.hairlineWidth,
+      // iOS draws sheets scaled down slightly, which makes a one-pixel line fall between
+      // pixels and vanish at some offsets. Two pixels always leave at least one visible.
+      height: StyleSheet.hairlineWidth * 2,
       marginStart: 16,
       backgroundColor: native.separator,
     },
