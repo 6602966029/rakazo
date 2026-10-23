@@ -1086,6 +1086,7 @@ function pinnedRoutineRunPrisma(modelId: string) {
     computer: { id: "computer-1", scope: "private" },
   };
   return {
+    spaceMember: { findUnique: vi.fn(async () => ({ id: "member-1" })) },
     run: {
       findUnique: vi.fn(async () => run),
       findUniqueOrThrow: vi.fn(async () => ({ status: "leased", startedAt: null })),
@@ -2418,6 +2419,7 @@ description: Prepare standup notes
   it("consumes a persisted takeover checkpoint when claiming the run", async () => {
     const updateMany = vi.fn(async () => ({ count: 0 }));
     const prisma = {
+      spaceMember: { findUnique: vi.fn(async () => ({ id: "member-1" })) },
       run: {
         findUnique: vi.fn(async () => ({
           id: "run-1",
@@ -2471,6 +2473,7 @@ description: Prepare standup notes
       return { count: matchesClaim(args.where, row) ? 1 : 0 };
     });
     const prisma = {
+      spaceMember: { findUnique: vi.fn(async () => ({ id: "member-1" })) },
       run: {
         findUnique: vi.fn(async () => ({
           id: "run-1",
@@ -2511,6 +2514,7 @@ description: Prepare standup notes
     );
     const enqueue = vi.fn(async () => undefined);
     const prisma = {
+      spaceMember: { findUnique: vi.fn(async () => ({ id: "member-1" })) },
       run: {
         findUnique: vi.fn(async () => ({
           id: "run-1",
@@ -2570,6 +2574,7 @@ description: Prepare standup notes
     );
     const enqueue = vi.fn(async () => undefined);
     const prisma = {
+      spaceMember: { findUnique: vi.fn(async () => ({ id: "member-1" })) },
       run: {
         findUnique: vi.fn(async () => ({
           id: "run-1",
@@ -2627,6 +2632,7 @@ description: Prepare standup notes
     );
     const enqueue = vi.fn(async () => undefined);
     const prisma = {
+      spaceMember: { findUnique: vi.fn(async () => ({ id: "member-1" })) },
       run: {
         findUnique: vi.fn(async () => ({
           id: "run-1",
@@ -2707,6 +2713,7 @@ description: Prepare standup notes
             },
       );
       const prisma = {
+        spaceMember: { findUnique: vi.fn(async () => ({ id: "member-1" })) },
         run: {
           findUnique: vi.fn(async () => run),
           findUniqueOrThrow: vi.fn(async () => ({ status: "leased", startedAt: null })),
@@ -2825,6 +2832,7 @@ description: Prepare standup notes
       leaseFence: 0,
     };
     const prisma = {
+      spaceMember: { findUnique: vi.fn(async () => ({ id: "member-1" })) },
       run: {
         findUnique: vi.fn(async () => run),
         findUniqueOrThrow: vi.fn(async () => ({ status: "leased", startedAt: null })),

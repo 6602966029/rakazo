@@ -225,6 +225,7 @@ type HarnessMessage = {
   seq: number;
   role: string;
   blocks: MessageBlock[];
+  authorUserId?: string;
 };
 
 function compactionHarness(
@@ -239,6 +240,7 @@ function compactionHarness(
     historyCompactionGeneration?: number;
     wasCleared?: boolean;
     threadCreatorLeft?: boolean;
+    spaceMembers?: number;
     resolveModel?: (scope: {
       userId: string;
       spaceId: string;
@@ -305,6 +307,12 @@ function compactionHarness(
     },
     spaceMember: {
       findUnique: vi.fn(async () => (options.threadCreatorLeft ? null : { userId: "user-1" })),
+      count: vi.fn(async () => options.spaceMembers ?? 1),
+    },
+    user: {
+      findMany: vi.fn(async (args: { where: { id: { in: string[] } } }) =>
+        args.where.id.in.map((id) => ({ id, name: id === "user-1" ? "Ava" : "Ben" })),
+      ),
     },
     bot: {
       findUnique: vi.fn(async () => ({ userId: "owner-1" })),
@@ -572,6 +580,28 @@ describe("compactHistory", () => {
     const [request] = harness.runtime.run.mock.calls[0]!;
     expect(request.prompt).toContain("[file: plan.pdf (application/pdf, 123 bytes)]");
     expect(request.prompt).toContain("[image: diagram.png]");
+  });
+
+  it("names who wrote each line in a shared space", async () => {
+    const messages: HarnessMessage[] = Array.from({ length: 50 }, (_, i) => ({
+      seq: i,
+      role: i % 2 === 0 ? "user" : "bot",
+      blocks: [{ kind: "text", text: `message ${i}` }],
+      ...(i % 2 === 0 ? { authorUserId: i % 4 === 0 ? "user-1" : "user-2" } : {}),
+    }));
+    const shared = compactionHarness({ deploymentModelKey: "key", messages, spaceMembers: 2 });
+    await compactHistory(shared.deps, "thread-1");
+    const [sharedRequest] = shared.runtime.run.mock.calls[0]!;
+    expect(sharedRequest.prompt).toContain("user: [from Ava] message 0");
+    expect(sharedRequest.prompt).toContain("user: [from Ben] message 2");
+    expect(sharedRequest.prompt).toContain("bot: message 1");
+
+    const personal = compactionHarness({ deploymentModelKey: "key", messages });
+    await compactHistory(personal.deps, "thread-1");
+    const [personalRequest] = personal.runtime.run.mock.calls[0]!;
+    expect(personalRequest.prompt).toContain("user: message 0");
+    expect(personalRequest.prompt).not.toContain("[from ");
+    expect(personal.prisma.user.findMany).not.toHaveBeenCalled();
   });
 
   it("compacts locally without a semantic memory provider", async () => {

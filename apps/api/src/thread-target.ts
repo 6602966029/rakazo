@@ -75,6 +75,14 @@ function steersUserMessage(run: { status: string; trigger?: string | null }) {
   return STEERABLE_RUN_STATUSES.has(run.status) && isConversationalRun(run.trigger);
 }
 
+/** A run acts with its sender's accounts, so only that person's messages may steer it. */
+function steersMessageFrom(
+  run: { status: string; trigger?: string | null; userId: string },
+  actor: Actor,
+) {
+  return steersUserMessage(run) && run.userId === actor.userId;
+}
+
 type MentionTargetInput = string | { kind: "bot" | "group" | "routine" | "connector"; id: string };
 
 function splitMentionTargets(mentions: MentionTargetInput[] | undefined) {
@@ -735,10 +743,13 @@ export async function sendThreadMessage(
             botId: target.botId,
             status: { in: [...ACTIVE_RUN_STATUSES] },
           },
-          select: { id: true, taskId: true, status: true, trigger: true },
+          select: { id: true, taskId: true, status: true, trigger: true, userId: true },
         });
         const answered: typeof activeRuns = [];
-        for (const run of activeRuns.filter((run) => run.status === "waiting_input")) {
+        // Someone else's question stays on its card; this message starts the sender's own run.
+        for (const run of activeRuns.filter(
+          (run) => run.status === "waiting_input" && run.userId === actor.userId,
+        )) {
           if (
             await answerWaitingRunWithTextInTransaction(tx, {
               spaceId: actor.spaceId,
@@ -787,14 +798,17 @@ export async function sendThreadMessage(
         const holdingRuns = activeRuns.filter((run) =>
           QUEUE_HOLDING_RUN_STATUSES.some((status) => status === run.status),
         );
-        const active = holdingRuns.find(steersUserMessage) ?? holdingRuns[0];
+        const active =
+          holdingRuns.find((run) => steersMessageFrom(run, actor)) ??
+          holdingRuns.find(steersUserMessage) ??
+          holdingRuns[0];
         if (active) {
           await tx.steeringMessage.create({
             data: {
               messageId: message.id,
               botId: target.botId,
               userId: actor.userId,
-              runId: steersUserMessage(active) ? active.id : null,
+              runId: steersMessageFrom(active, actor) ? active.id : null,
             },
           });
           await tx.message.update({ where: { id: message.id }, data: { runId: active.id } });
@@ -905,12 +919,14 @@ export async function sendThreadMessage(
           botId: { in: targetBotIds },
           status: { in: [...ACTIVE_RUN_STATUSES] },
         },
-        select: { id: true, taskId: true, botId: true, status: true, trigger: true },
+        select: { id: true, taskId: true, botId: true, status: true, trigger: true, userId: true },
       });
       const activeByBotId = new Map<string, (typeof activeRuns)[number]>();
       const answeredByBotId = new Map<string, Array<(typeof activeRuns)[number]>>();
       for (const run of activeRuns) {
         if (run.status === "waiting_input") {
+          // Someone else's question stays on its card; this message starts the sender's own run.
+          if (run.userId !== actor.userId) continue;
           const answered = await answerWaitingRunWithTextInTransaction(tx, {
             spaceId: actor.spaceId,
             threadId: target.threadId,
@@ -936,11 +952,18 @@ export async function sendThreadMessage(
         }
         if (!STEERABLE_RUN_STATUSES.has(run.status)) continue;
         const current = activeByBotId.get(run.botId);
-        if (!current || (!steersUserMessage(current) && steersUserMessage(run))) {
-          activeByBotId.set(run.botId, run);
-        }
+        const rank = (candidate: typeof run) =>
+          steersMessageFrom(candidate, actor) ? 2 : steersUserMessage(candidate) ? 1 : 0;
+        if (!current || rank(run) > rank(current)) activeByBotId.set(run.botId, run);
       }
-      const runs: Array<{ id: string; taskId: string; botId: string; status: string }> = [];
+      const runs: Array<{
+        id: string;
+        taskId: string;
+        botId: string;
+        status: string;
+        userId: string;
+        trigger?: string | null;
+      }> = [];
       for (const botId of targetBotIds) {
         const answered = answeredByBotId.get(botId);
         if (answered) {
@@ -954,7 +977,7 @@ export async function sendThreadMessage(
               messageId: message.id,
               botId,
               userId: actor.userId,
-              runId: steersUserMessage(active) ? active.id : null,
+              runId: steersMessageFrom(active, actor) ? active.id : null,
             },
           });
           runs.push(active);
@@ -1041,7 +1064,7 @@ export async function sendThreadMessage(
   });
   if (releaseTakeover) {
     for (const run of committed.runs) {
-      if (steersUserMessage(run)) await releaseTakeover(run.id);
+      if (steersMessageFrom(run, actor)) await releaseTakeover(run.id);
     }
   }
   await enqueueRunsNeedingContinue(deps.jobs, committed.runs);
@@ -1187,7 +1210,7 @@ async function startReactionTurn(
 ): Promise<Array<{ id: string; taskId: string; status: string }>> {
   const activeRuns = await tx.run.findMany({
     where: { threadId, botId, status: { in: [...ACTIVE_RUN_STATUSES] } },
-    select: { id: true, taskId: true, status: true },
+    select: { id: true, taskId: true, status: true, userId: true },
   });
   const holdingRuns = activeRuns.filter((run) =>
     QUEUE_HOLDING_RUN_STATUSES.some((status) => status === run.status),
@@ -1203,7 +1226,8 @@ async function startReactionTurn(
       input.reaction === "👍" &&
       !others.length &&
       active.status === "waiting_takeover" &&
-      active.id === parent.runId
+      active.id === parent.runId &&
+      active.userId === actor.userId
     ) {
       await tx.steeringMessage.create({
         data: { messageId: message.id, botId, userId: actor.userId, runId: active.id },

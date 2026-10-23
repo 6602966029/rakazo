@@ -194,7 +194,7 @@ const groupTargetInclude = {
   },
 } as const;
 
-type RunTeardownTarget = {
+export type RunTeardownTarget = {
   id: string;
   homeKey: string;
   kind: string;
@@ -205,7 +205,7 @@ type RunTeardownTarget = {
 };
 
 /** `expiresAfter` keeps leases newer than that instant. Resume passes the cleanup epoch. */
-async function snapshotRunTeardownTargets(
+export async function snapshotRunTeardownTargets(
   tx: Prisma.TransactionClient,
   runIds: string[],
   expiresAfter?: Date,

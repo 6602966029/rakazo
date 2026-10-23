@@ -79,6 +79,7 @@ async function runInSpace(space: Space) {
   const prisma = {
     user: { findUnique: vi.fn(async () => null), findMany: users },
     spaceMember: {
+      findUnique: vi.fn(async () => ({ id: "member-1" })),
       findMany: vi.fn(async () => [
         { userId: "user-a", member: { user: { name: "Ana" } } },
         { userId: "user-b", member: { user: { name: "Bea" } } },

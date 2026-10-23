@@ -250,28 +250,27 @@ export function createRepos(
             });
         if (!target) throw new IsolationError();
 
-        const aggregate = await tx.botSection.aggregate({
-          where: { spaceId: actor.spaceId },
-          _max: { position: true },
-        });
-        await tx.botSection.createMany({
-          data: {
-            spaceId: actor.spaceId,
-            userId: actor.userId,
-            name,
-            position: (aggregate._max.position ?? -1) + 1,
-          },
-          skipDuplicates: true,
-        });
-        const section = await tx.botSection.findUniqueOrThrow({
-          where: {
-            spaceId_userId_name: {
+        // Sections belong to the space: a name another member already used is the same section.
+        await lockSpaceForContentCreation(tx, actor);
+        const section =
+          (await tx.botSection.findFirst({
+            where: { spaceId: actor.spaceId, name },
+            orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+          })) ??
+          (await tx.botSection.create({
+            data: {
               spaceId: actor.spaceId,
               userId: actor.userId,
               name,
+              position:
+                ((
+                  await tx.botSection.aggregate({
+                    where: { spaceId: actor.spaceId },
+                    _max: { position: true },
+                  })
+                )._max.position ?? -1) + 1,
             },
-          },
-        });
+          }));
         if (input.botId) {
           await tx.bot.update({ where: { id: target.id }, data: { sectionId: section.id } });
         } else {
@@ -291,38 +290,34 @@ export function createRepos(
     },
 
     async updateBotSection(actor: Actor, input: { sectionId: string; name: string }) {
-      const existing = await prisma.botSection.findFirst({
-        where: {
-          id: input.sectionId,
-          spaceId: actor.spaceId,
-        },
-      });
-      if (!existing) throw new IsolationError();
-      if (existing.name === input.name) {
-        return {
-          id: existing.id,
-          name: existing.name,
-          position: existing.position,
-          createdAt: existing.createdAt.toISOString(),
-          updatedAt: existing.updatedAt.toISOString(),
-        } satisfies BotSection;
-      }
-      try {
-        const section = await prisma.botSection.update({
+      const section = await prisma.$transaction(async (tx) => {
+        const existing = await tx.botSection.findFirst({
+          where: {
+            id: input.sectionId,
+            spaceId: actor.spaceId,
+          },
+        });
+        if (!existing) throw new IsolationError();
+        if (existing.name === input.name) return existing;
+        // Serializes with section creation so two members cannot both end up with one name.
+        await lockSpaceForContentCreation(tx, actor);
+        const taken = await tx.botSection.findFirst({
+          where: { spaceId: actor.spaceId, name: input.name, id: { not: existing.id } },
+          select: { id: true },
+        });
+        if (taken) throw new BotSectionNameConflictError();
+        return tx.botSection.update({
           where: { id: existing.id },
           data: { name: input.name },
         });
-        return {
-          id: section.id,
-          name: section.name,
-          position: section.position,
-          createdAt: section.createdAt.toISOString(),
-          updatedAt: section.updatedAt.toISOString(),
-        } satisfies BotSection;
-      } catch (error) {
-        if (isUniqueViolation(error)) throw new BotSectionNameConflictError();
-        throw error;
-      }
+      });
+      return {
+        id: section.id,
+        name: section.name,
+        position: section.position,
+        createdAt: section.createdAt.toISOString(),
+        updatedAt: section.updatedAt.toISOString(),
+      } satisfies BotSection;
     },
 
     /** Delete one of the space's sections; its bots and groups stay, unsectioned (FK SetNull). */

@@ -118,6 +118,7 @@ import {
 import type { McpServer, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
+  cancelRunsInTransaction,
   countUnreadInboxChats,
   createSpaceForMember,
   createThreadMessageInTransaction,
@@ -365,7 +366,11 @@ import {
 } from "./plot-tool.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
-import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
+import {
+  loadReplyContext,
+  messageToAgentHistoryText,
+  sharedSpaceAuthorName,
+} from "./reply-context.js";
 import { routineTaskInstructions, tickRoutineWatch } from "./routine-watch.js";
 import { lazyRunComputer } from "./run-computer.js";
 import {
@@ -3583,6 +3588,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         ...(run.userId ? { "user.id": run.userId } : {}),
       });
       if (isTerminal(run.status as RunStatus)) return;
+      if (await cancelRunOfFormerMember(deps, run)) return;
       let { resumeCheckpoint, heldForTakeover, resumeHeldLease, takeoverResume } =
         takeoverContinuePlan(run);
 
@@ -3925,13 +3931,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           role: string;
           authorUserId?: string | null;
           blocks: unknown;
-        }) => {
-          if (!sharedSpace || message.role !== "user" || !message.authorUserId) return undefined;
-          // Group-chat lines already carry their sender.
-          const blocks = Array.isArray(message.blocks) ? (message.blocks as MessageBlock[]) : [];
-          if (blocks.some((block) => block.kind === "channel_message")) return undefined;
-          return authors.get(message.authorUserId)?.name;
-        };
+        }) => sharedSpaceAuthorName(sharedSpace, authors, message);
         const threadContext = threadContextForRun(
           run.trigger,
           {
@@ -8888,6 +8888,40 @@ async function notifyRun(
       if (options.retryOnFailure) throw error;
       getLogger().error("run notification", error);
     });
+}
+
+/**
+ * A run acts with its sender's accounts, so it must not start or resume once they have left
+ * the Space. Leaving cancels their runs; this closes the gap for anything that slipped past.
+ */
+async function cancelRunOfFormerMember(
+  deps: ExecutorDeps,
+  run: { id: string; spaceId: string; userId: string; threadId: string; botId: string },
+): Promise<boolean> {
+  const member = await deps.prisma.spaceMember.findUnique({
+    where: { spaceId_userId: { spaceId: run.spaceId, userId: run.userId } },
+    select: { id: true },
+  });
+  if (member) return false;
+  const seq = await deps.prisma.$transaction(async (tx) => {
+    const current = await tx.run.findUnique({
+      where: { id: run.id },
+      select: { id: true, taskId: true, status: true },
+    });
+    if (!current || isTerminal(current.status as RunStatus)) return null;
+    await cancelRunsInTransaction(tx, [current], new Date());
+    const event = await appendEventInTransaction(tx, {
+      spaceId: run.spaceId,
+      threadId: run.threadId,
+      botId: run.botId,
+      runId: run.id,
+      type: "run.cancelled",
+      payload: {},
+    });
+    return event.seq;
+  });
+  if (seq !== null) await deps.events.notify(run.threadId, seq).catch(() => undefined);
+  return true;
 }
 
 async function renewRunLease(

@@ -194,6 +194,8 @@ import type {
   Board as BoardRow,
   McpServer as McpServerRow,
   PrismaClient,
+  RunTeardownTarget,
+  SpaceDeparture,
   ThreadEvents,
 } from "@rakazo/db";
 import {
@@ -775,6 +777,64 @@ function mapSpaceMemberError(error: unknown): never {
 }
 
 /** Seat counts follow membership; a provider hiccup must not undo the change. */
+/**
+ * After a transaction cancelled runs: drop their jobs and stop their screen work, then expire
+ * their leases. Only after teardown: while they were live, no other run could claim the screens.
+ */
+async function stopCancelledRunWork(
+  deps: RouterDeps,
+  groupRepos: ReturnType<typeof createGroupRepos>,
+  actor: { spaceId: string; userId: string },
+  stopped: { cancelledRunIds: string[]; computers: RunTeardownTarget[] },
+): Promise<void> {
+  await Promise.all(
+    stopped.cancelledRunIds.map((runId) =>
+      deps.jobs.cancel(runJobKey(runId)).catch(() => undefined),
+    ),
+  );
+  await Promise.all(
+    stopped.computers.map(async (computer) => {
+      if (!computer.providerRef) return;
+      const adapterContext = {
+        operationId: "stop",
+        traceId: "stop",
+        spaceId: actor.spaceId,
+        userId: actor.userId,
+        botId: computer.botId,
+        runId: computer.runId,
+        screenLeaseId: screenLeaseIdForRun(
+          { runId: computer.runId, fence: computer.fence },
+          computer.runId,
+        ),
+        cancelRunWork: true,
+        signal: new AbortController().signal,
+      };
+      const ref = toComputerRef(computer);
+      await cancelComputerRunWork(deps.sandbox, ref, computer.id, computer.runId, adapterContext);
+      await deps.sandbox.releaseScreen?.(ref, adapterContext).catch(() => undefined);
+    }),
+  );
+  await groupRepos.releaseArchivedRunLeases(stopped.cancelledRunIds);
+}
+
+/** Remove and leave share this: stop the departed person's runs and tell clients. */
+async function afterSpaceDeparture(
+  deps: RouterDeps,
+  groupRepos: ReturnType<typeof createGroupRepos>,
+  actor: { spaceId: string; userId: string },
+  departure: SpaceDeparture,
+): Promise<void> {
+  await Promise.all(
+    departure.events.map(({ threadId, seq }) =>
+      deps.events.notify(threadId, seq).catch((error) => {
+        getLogger().error("space departure realtime notification", error);
+      }),
+    ),
+  );
+  await stopCancelledRunWork(deps, groupRepos, actor, departure);
+  syncSeatsLater(deps, departure.organizationId);
+}
+
 function syncSeatsLater(deps: RouterDeps, organizationId: string): void {
   void deps.billing?.syncSeats(organizationId).catch((error) => {
     getLogger().error("billing seat sync failed", error);
@@ -1394,7 +1454,7 @@ export function createRouter(deps: RouterDeps) {
         ),
         remove: authed.spaces.members.remove.handler(({ context, input }) =>
           asMemberOf(deps.prisma, context.actor, input.spaceId, async () => {
-            const { organizationId } = await removeSpaceMember(deps.prisma, {
+            const departure = await removeSpaceMember(deps.prisma, {
               spaceId: input.spaceId,
               userId: context.actor.userId,
               memberUserId: input.userId,
@@ -1405,13 +1465,18 @@ export function createRouter(deps: RouterDeps) {
               spaceId: input.spaceId,
               metadata: { memberUserId: input.userId },
             });
-            syncSeatsLater(deps, organizationId);
+            await afterSpaceDeparture(
+              deps,
+              groupRepos,
+              { spaceId: input.spaceId, userId: context.actor.userId },
+              departure,
+            );
             return { ok: true as const };
           }),
         ),
         leave: authed.spaces.members.leave.handler(({ context, input }) =>
           asMemberOf(deps.prisma, context.actor, input.spaceId, async () => {
-            const { organizationId } = await leaveSpace(deps.prisma, {
+            const departure = await leaveSpace(deps.prisma, {
               spaceId: input.spaceId,
               userId: context.actor.userId,
             }).catch(mapSpaceMemberError);
@@ -1420,7 +1485,12 @@ export function createRouter(deps: RouterDeps) {
               userId: context.actor.userId,
               spaceId: input.spaceId,
             });
-            syncSeatsLater(deps, organizationId);
+            await afterSpaceDeparture(
+              deps,
+              groupRepos,
+              { spaceId: input.spaceId, userId: context.actor.userId },
+              departure,
+            );
             const activeSpaceId =
               input.spaceId === context.actor.spaceId
                 ? await fallbackSpaceForMember(deps.prisma, context.actor.userId)
@@ -2454,42 +2524,7 @@ export function createRouter(deps: RouterDeps) {
       }),
       archive: authed.groups.archive.handler(async ({ context, input }) => {
         const archived = await groupRepos.archiveGroup(context.actor, input.groupId);
-        await Promise.all(
-          archived.cancelledRunIds.map((runId) =>
-            deps.jobs.cancel(runJobKey(runId)).catch(() => undefined),
-          ),
-        );
-        await Promise.all(
-          archived.computers.map(async (computer) => {
-            if (!computer.providerRef) return;
-            const adapterContext = {
-              operationId: "stop",
-              traceId: "stop",
-              spaceId: context.actor.spaceId,
-              userId: context.actor.userId,
-              botId: computer.botId,
-              runId: computer.runId,
-              screenLeaseId: screenLeaseIdForRun(
-                { runId: computer.runId, fence: computer.fence },
-                computer.runId,
-              ),
-              cancelRunWork: true,
-              signal: new AbortController().signal,
-            };
-            const ref = toComputerRef(computer);
-            await cancelComputerRunWork(
-              deps.sandbox,
-              ref,
-              computer.id,
-              computer.runId,
-              adapterContext,
-            );
-            await deps.sandbox.releaseScreen?.(ref, adapterContext).catch(() => undefined);
-          }),
-        );
-        // Expire the leases only after teardown: while they were live, no other run could claim
-        // these screens.
-        await groupRepos.releaseArchivedRunLeases(archived.cancelledRunIds);
+        await stopCancelledRunWork(deps, groupRepos, context.actor, archived);
         return { ok: true as const };
       }),
       restore: authed.groups.restore.handler(async ({ context, input }) => {
@@ -2522,7 +2557,9 @@ export function createRouter(deps: RouterDeps) {
         repos.listBotSections(context.actor),
       ),
       create: authed.botSections.create.handler(async ({ context, input }) =>
-        repos.createBotSection(context.actor, input),
+        repos.createBotSection(context.actor, input).catch((error: unknown) => {
+          throw mapSpaceLifecycleError(error);
+        }),
       ),
       update: authed.botSections.update.handler(async ({ context, input }) => {
         try {
@@ -2777,7 +2814,7 @@ export function createRouter(deps: RouterDeps) {
               botId,
               status: { in: [...QUEUE_HOLDING_RUN_STATUSES] },
             },
-            select: { id: true },
+            select: { id: true, userId: true },
           });
           let run: { id: string } | null = null;
           if (!active) {
@@ -2811,7 +2848,8 @@ export function createRouter(deps: RouterDeps) {
                 messageId: message.id,
                 botId,
                 userId: context.actor.userId,
-                runId: active.id,
+                // Another person's message waits for a run that acts with their accounts.
+                runId: active.userId === context.actor.userId ? active.id : null,
               },
             });
             await tx.message.update({ where: { id: message.id }, data: { runId: active.id } });

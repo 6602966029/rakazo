@@ -1,9 +1,14 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { isOwnerRole } from "./billing.js";
+import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
+import { appendEventInTransaction } from "./events.js";
+import type { RunTeardownTarget } from "./groups.js";
+import { snapshotRunTeardownTargets } from "./groups.js";
 import { runAsSystem } from "./row-security.js";
 import { lockSpaceDeletion, SpaceNotFoundError } from "./spaces.js";
+import { activeRunStatuses } from "./thread-listing.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 export const SPACE_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -47,6 +52,18 @@ export class SpaceOwnerCannotLeaveError extends Error {
 }
 
 type SpaceRef = { spaceId: string; userId: string };
+
+/**
+ * What a departure stopped. The caller cancels the runs' jobs, tears down their
+ * screens, then expires their leases, as after archiving a group.
+ */
+export type SpaceDeparture = {
+  organizationId: string;
+  cancelledRunIds: string[];
+  computers: RunTeardownTarget[];
+  /** Newest run.cancelled seq per thread, for realtime fanout. */
+  events: Array<{ threadId: string; seq: number }>;
+};
 
 export async function requireSpaceOwner(
   db: Pick<PrismaClient, "spaceMember">,
@@ -247,7 +264,7 @@ export async function acceptSpaceInvite(
 export async function removeSpaceMember(
   prisma: PrismaClient,
   input: SpaceRef & { memberUserId: string },
-): Promise<{ organizationId: string }> {
+): Promise<SpaceDeparture> {
   await requireSpaceOwner(prisma, input);
   const target = await prisma.spaceMember.findUnique({
     where: { spaceId_userId: { spaceId: input.spaceId, userId: input.memberUserId } },
@@ -261,10 +278,7 @@ export async function removeSpaceMember(
 }
 
 /** Members only; an owner deletes the space instead. */
-export async function leaveSpace(
-  prisma: PrismaClient,
-  input: SpaceRef,
-): Promise<{ organizationId: string }> {
+export async function leaveSpace(prisma: PrismaClient, input: SpaceRef): Promise<SpaceDeparture> {
   const membership = await prisma.spaceMember.findUnique({
     where: { spaceId_userId: { spaceId: input.spaceId, userId: input.userId } },
     select: { role: true },
@@ -308,11 +322,9 @@ export async function prepareAccountDeletion(
  * running with the credentials of someone who left. What was theirs alone
  * (credentials, connections, MCP servers, approval rules, preferences) is
  * deleted. Their organization membership goes too once no Space there is left.
+ * Their unfinished runs there are cancelled: those run with their accounts.
  */
-async function departSpace(
-  prisma: PrismaClient,
-  input: SpaceRef,
-): Promise<{ organizationId: string }> {
+async function departSpace(prisma: PrismaClient, input: SpaceRef): Promise<SpaceDeparture> {
   const { spaceId, userId } = input;
   // Bots, routines and credentials are tenant rows; this moves them between people.
   return runAsSystem("move a departing member's Space content to its owner", () =>
@@ -332,6 +344,34 @@ async function departSpace(
           });
           const ownerId = owners.find((member) => isOwnerRole(member.role))?.userId;
           if (!ownerId) throw new CannotRemoveSpaceOwnerError();
+
+          const runs = await tx.run.findMany({
+            where: { spaceId, userId, status: { in: activeRunStatuses } },
+            select: { id: true, taskId: true, threadId: true, botId: true },
+          });
+          const cancelledRunIds = runs.map((run) => run.id);
+          // Snapshot before cancelling: an expired lease still names the run's screen.
+          const { targets } = await snapshotRunTeardownTargets(tx, cancelledRunIds);
+          await cancelRunsInTransaction(tx, runs, new Date());
+          const latestSeq = new Map<string, number>();
+          if (runs.length) {
+            await tx.event.deleteMany({
+              where: { type: "thread.progress", runId: { in: cancelledRunIds } },
+            });
+            for (const run of runs) {
+              const event = await appendEventInTransaction(tx, {
+                spaceId,
+                threadId: run.threadId,
+                botId: run.botId,
+                runId: run.id,
+                type: "run.cancelled",
+                payload: {},
+              });
+              latestSeq.set(run.threadId, event.seq);
+            }
+          }
+          // Queued follow-ups would otherwise start a run as them.
+          await tx.steeringMessage.deleteMany({ where: { userId, bot: { spaceId } } });
 
           await moveSections(tx, { spaceId, fromUserId: userId, toUserId: ownerId });
           const reassign = { where: { spaceId, userId }, data: { userId: ownerId } };
@@ -367,7 +407,12 @@ async function departSpace(
               spaceMemberships: { none: {} },
             },
           });
-          return { organizationId: departing.organizationId };
+          return {
+            organizationId: departing.organizationId,
+            cancelledRunIds,
+            computers: targets,
+            events: [...latestSeq].map(([threadId, seq]) => ({ threadId, seq })),
+          };
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       ),

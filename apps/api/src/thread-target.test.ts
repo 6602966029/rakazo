@@ -249,7 +249,12 @@ describe("reaction turns", () => {
         ),
         findUnique: vi.fn().mockResolvedValue({ status: "queued" }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        create: vi.fn().mockResolvedValue({ id: "run-new", taskId: "task-new", status: "queued" }),
+        create: vi.fn().mockResolvedValue({
+          id: "run-new",
+          taskId: "task-new",
+          status: "queued",
+          userId: "user-1",
+        }),
       },
       task: {
         create: vi.fn().mockResolvedValue({ id: "task-new" }),
@@ -294,7 +299,9 @@ describe("reaction turns", () => {
   it("treats a thumbs up on a pending takeover as done and hands control back", async () => {
     const { tx, enqueue, react, releaseTakeover } = fixture({
       parent: { role: "bot", botId: "bot-1", runId: "run-takeover" },
-      activeRuns: [{ id: "run-takeover", taskId: "task-1", status: "waiting_takeover" }],
+      activeRuns: [
+        { id: "run-takeover", taskId: "task-1", status: "waiting_takeover", userId: "user-1" },
+      ],
     });
     await expect(react()).resolves.toEqual({ eventSeq: 3, runIds: ["run-takeover"] });
     expect(tx.steeringMessage.create).toHaveBeenCalledWith({
@@ -309,7 +316,9 @@ describe("reaction turns", () => {
     const { tx, enqueue, react } = fixture({
       withoutRelease: true,
       parent: { role: "bot", botId: "bot-1", runId: "run-takeover" },
-      activeRuns: [{ id: "run-takeover", taskId: "task-1", status: "waiting_takeover" }],
+      activeRuns: [
+        { id: "run-takeover", taskId: "task-1", status: "waiting_takeover", userId: "user-1" },
+      ],
     });
     await react();
     expect(tx.steeringMessage.create).not.toHaveBeenCalled();
@@ -320,7 +329,7 @@ describe("reaction turns", () => {
     const { tx, react, releaseTakeover } = fixture({});
     tx.message.findUnique.mockResolvedValueOnce({ id: "reaction-1" });
     tx.steeringMessage.findFirst.mockResolvedValueOnce({
-      run: { id: "run-takeover", taskId: "task-1", status: "waiting_takeover" },
+      run: { id: "run-takeover", taskId: "task-1", status: "waiting_takeover", userId: "user-1" },
     });
     await expect(react()).resolves.toEqual({ eventSeq: null, runIds: ["run-takeover"] });
     expect(releaseTakeover).toHaveBeenCalledWith("run-takeover");
@@ -331,7 +340,9 @@ describe("reaction turns", () => {
     const { tx, enqueue, react, releaseTakeover } = fixture({
       reaction,
       parent: { role: "bot", botId: "bot-1", runId: "run-takeover" },
-      activeRuns: [{ id: "run-takeover", taskId: "task-1", status: "waiting_takeover" }],
+      activeRuns: [
+        { id: "run-takeover", taskId: "task-1", status: "waiting_takeover", userId: "user-1" },
+      ],
     });
     await react();
     expect(tx.steeringMessage.create).not.toHaveBeenCalled();
@@ -422,7 +433,9 @@ describe("reaction turns", () => {
   ])("leaves protected asks on their cards", async (askBlock) => {
     const { tx, enqueue, react } = fixture({
       parent: { role: "bot", botId: "bot-1", runId: "run-waiting" },
-      activeRuns: [{ id: "run-waiting", taskId: "task-1", status: "waiting_input" }],
+      activeRuns: [
+        { id: "run-waiting", taskId: "task-1", status: "waiting_input", userId: "user-1" },
+      ],
       askBlocks: [askBlock],
     });
     await react();
@@ -451,7 +464,9 @@ describe("reaction turns", () => {
     const { tx, react } = fixture({
       reaction,
       parent: { role: "bot", botId: "bot-1", runId: "run-waiting" },
-      activeRuns: [{ id: "run-waiting", taskId: "task-1", status: "waiting_input" }],
+      activeRuns: [
+        { id: "run-waiting", taskId: "task-1", status: "waiting_input", userId: "user-1" },
+      ],
       askBlocks: [
         {
           kind: "ask",
@@ -476,7 +491,9 @@ describe("reaction turns", () => {
     const { tx, enqueue, react } = fixture({
       reaction: "👎",
       parent: { role: "bot", botId: "bot-1", runId: "run-waiting" },
-      activeRuns: [{ id: "run-waiting", taskId: "task-1", status: "waiting_input" }],
+      activeRuns: [
+        { id: "run-waiting", taskId: "task-1", status: "waiting_input", userId: "user-1" },
+      ],
     });
     await react();
     expect(tx.task.updateMany).toHaveBeenCalledWith({
@@ -493,7 +510,9 @@ describe("reaction turns", () => {
       const { tx, react, enqueue } = fixture({
         reaction,
         parent: { role: "bot", botId: "bot-1", runId: "run-waiting" },
-        activeRuns: [{ id: "run-waiting", taskId: "task-1", status: "waiting_input" }],
+        activeRuns: [
+          { id: "run-waiting", taskId: "task-1", status: "waiting_input", userId: "user-1" },
+        ],
         newer: [
           { role: "user", blocks: [{ kind: "text", text: "❤️" }], replyToMessageId: "parent" },
         ],
@@ -522,7 +541,9 @@ describe("reaction turns", () => {
       reaction: "👍",
       recentReaction: true,
       parent: { role: "bot", botId: "bot-1", runId: "run-waiting" },
-      activeRuns: [{ id: "run-waiting", taskId: "task-1", status: "waiting_input" }],
+      activeRuns: [
+        { id: "run-waiting", taskId: "task-1", status: "waiting_input", userId: "user-1" },
+      ],
     });
     await react();
     expect(tx.task.updateMany).toHaveBeenCalledWith({
@@ -540,15 +561,26 @@ describe("reaction turns", () => {
       {
         reaction: "❤️" as const,
         parent: { role: "bot", botId: "bot-1", runId: "run-waiting" },
-        activeRuns: [{ id: "run-waiting", taskId: "task-1", status: "waiting_input" }],
+        activeRuns: [
+          { id: "run-waiting", taskId: "task-1", status: "waiting_input", userId: "user-1" },
+        ],
       },
     ],
     ["an older message", { newer: [{ role: "bot", blocks: [], replyToMessageId: null }] }],
     ["the user's own message", { parent: { role: "user", botId: null, runId: null } }],
-    ["a busy bot", { activeRuns: [{ id: "run-busy", taskId: "task-busy", status: "running" }] }],
+    [
+      "a busy bot",
+      {
+        activeRuns: [{ id: "run-busy", taskId: "task-busy", status: "running", userId: "user-1" }],
+      },
+    ],
     [
       "another run's ask",
-      { activeRuns: [{ id: "run-waiting", taskId: "task-1", status: "waiting_input" }] },
+      {
+        activeRuns: [
+          { id: "run-waiting", taskId: "task-1", status: "waiting_input", userId: "user-1" },
+        ],
+      },
     ],
     ["a thread that cannot start a run", { mayStartTurn: false }],
   ])("handles reaction admission for %s", async (_case, options) => {
@@ -1534,11 +1566,15 @@ describe("sendThreadMessage", () => {
         update: vi.fn(),
       },
       run: {
-        findMany: vi
-          .fn()
-          .mockResolvedValue([
-            { id: "run-waiting", taskId: "task-1", status: "waiting_input", trigger: "user" },
-          ]),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "run-waiting",
+            taskId: "task-1",
+            status: "waiting_input",
+            userId: "user-1",
+            trigger: "user",
+          },
+        ]),
         findFirst: vi.fn().mockResolvedValue({ botId: "bot-1", userId: "user-1" }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findUnique: vi.fn().mockResolvedValue({ status: "queued" }),
@@ -1637,8 +1673,8 @@ describe("sendThreadMessage", () => {
       },
       run: {
         findMany: vi.fn().mockResolvedValue([
-          { id: "run-waiting-1", taskId: "task-1", status: "waiting_input" },
-          { id: "run-waiting-2", taskId: "task-2", status: "waiting_input" },
+          { id: "run-waiting-1", taskId: "task-1", status: "waiting_input", userId: "user-1" },
+          { id: "run-waiting-2", taskId: "task-2", status: "waiting_input", userId: "user-1" },
         ]),
         findFirst: vi.fn().mockResolvedValue({ botId: "bot-1", userId: "user-1" }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -1731,8 +1767,8 @@ describe("sendThreadMessage", () => {
       },
       run: {
         findMany: vi.fn().mockResolvedValue([
-          { id: "run-waiting-1", taskId: "task-1", status: "queued" },
-          { id: "run-waiting-2", taskId: "task-2", status: "queued" },
+          { id: "run-waiting-1", taskId: "task-1", status: "queued", userId: "user-1" },
+          { id: "run-waiting-2", taskId: "task-2", status: "queued", userId: "user-1" },
         ]),
         findUnique: vi.fn().mockResolvedValue({
           id: "run-waiting-1",
@@ -1819,8 +1855,20 @@ describe("sendThreadMessage", () => {
       },
       run: {
         findMany: vi.fn().mockResolvedValue([
-          { id: "run-waiting-1", taskId: "task-1", botId: "bot-a", status: "waiting_input" },
-          { id: "run-waiting-2", taskId: "task-2", botId: "bot-a", status: "waiting_input" },
+          {
+            id: "run-waiting-1",
+            taskId: "task-1",
+            botId: "bot-a",
+            status: "waiting_input",
+            userId: "user-1",
+          },
+          {
+            id: "run-waiting-2",
+            taskId: "task-2",
+            botId: "bot-a",
+            status: "waiting_input",
+            userId: "user-1",
+          },
         ]),
         findFirst: vi.fn().mockResolvedValue({ botId: "bot-a", userId: "user-1" }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -1944,7 +1992,13 @@ describe("sendThreadMessage", () => {
             findMany: vi
               .fn()
               .mockResolvedValueOnce([
-                { id: "run-waiting", taskId: "task-old", botId: "bot-a", status: "waiting_input" },
+                {
+                  id: "run-waiting",
+                  taskId: "task-old",
+                  botId: "bot-a",
+                  status: "waiting_input",
+                  userId: "user-1",
+                },
               ])
               .mockResolvedValue([]),
             create: vi.fn().mockResolvedValue({
@@ -2104,6 +2158,170 @@ describe("sendThreadMessage", () => {
     expect(enqueue).not.toHaveBeenCalled();
   });
 
+  describe("in a shared space", () => {
+    function busyThread(activeRuns: unknown[]) {
+      let messageSeq = 0;
+      let eventSeq = 0;
+      const tx = {
+        user: { findMany: vi.fn().mockResolvedValue([]) },
+        $queryRaw: vi.fn().mockResolvedValue([{ id: "group-1" }]),
+        thread: {
+          update: vi.fn(async ({ data }: { data: { nextMessageSeq?: unknown } }) =>
+            data.nextMessageSeq ? { nextMessageSeq: ++messageSeq } : { nextEventSeq: ++eventSeq },
+          ),
+        },
+        message: {
+          create: vi.fn().mockResolvedValue({
+            id: "msg-1",
+            threadId: "thread-1",
+            seq: 1,
+            role: "user",
+            blocks: [{ kind: "text", text: "Paris" }],
+            botId: null,
+            replyToMessageId: null,
+            runId: null,
+            createdAt: new Date(),
+          }),
+          findMany: vi.fn(),
+          findFirst: vi.fn(),
+          update: vi.fn(),
+        },
+        run: {
+          findMany: vi.fn().mockResolvedValueOnce(activeRuns).mockResolvedValue([]),
+          findFirst: vi.fn(),
+          updateMany: vi.fn(),
+          findUnique: vi.fn().mockResolvedValue({ status: "queued", startedAt: null }),
+          create: vi.fn().mockResolvedValue({
+            id: "run-partner",
+            taskId: "task-partner",
+            botId: "bot-a",
+            status: "queued",
+            userId: "user-2",
+          }),
+        },
+        task: {
+          create: vi.fn().mockResolvedValue({ id: "task-partner" }),
+          updateMany: vi.fn(),
+        },
+        steeringMessage: { create: vi.fn() },
+        event: {
+          create: vi.fn().mockResolvedValue({ id: "event-1", seq: 1, createdAt: new Date() }),
+        },
+        chatGroup: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: "group-1",
+            members: [
+              { bot: { id: "bot-a", name: "Alpha", color: null } },
+              { bot: { id: "bot-b", name: "Beta", color: null } },
+            ],
+          }),
+          update: vi.fn().mockResolvedValue({ id: "group-1" }),
+        },
+      };
+      const prisma = {
+        message: { findUnique: vi.fn().mockResolvedValue(null) },
+        $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+      } as unknown as PrismaClient;
+      return { tx, prisma };
+    }
+    const botTarget = {
+      kind: "bot",
+      botId: "bot-a",
+      threadId: "thread-1",
+      bot: { computer: null },
+    } as ThreadTarget;
+    const groupTarget = {
+      kind: "group",
+      groupId: "group-1",
+      groupName: "Group",
+      threadId: "thread-1",
+      members: [],
+      memberBotIds: ["bot-a", "bot-b"],
+    } satisfies ThreadTarget;
+    const ownerRun = {
+      id: "run-owner",
+      taskId: "task-owner",
+      botId: "bot-a",
+      status: "waiting_takeover",
+      trigger: "user",
+      userId: "user-1",
+    };
+
+    it.each([
+      ["bot", botTarget],
+      ["group", groupTarget],
+    ] as const)(
+      "steers a %s run only with messages from the person it acts for",
+      async (_kind, target) => {
+        for (const [sender, steers] of [
+          ["user-1", true],
+          ["user-2", false],
+        ] as const) {
+          const { tx, prisma } = busyThread([ownerRun]);
+          const releaseTakeover = vi.fn().mockResolvedValue(undefined);
+
+          await expect(
+            sendThreadMessage(
+              {
+                prisma,
+                events: { notify: vi.fn().mockResolvedValue(undefined) } as never,
+                jobs: { enqueue: vi.fn().mockResolvedValue(undefined) } as never,
+              },
+              { spaceId: "workspace-1", userId: sender } as Actor,
+              target,
+              { text: "skip that", clientNonce: `nonce-${sender}` },
+              releaseTakeover,
+            ),
+          ).resolves.toMatchObject({ runId: "run-owner" });
+          // Another person's message waits for a continuation that acts as them.
+          expect(tx.steeringMessage.create).toHaveBeenCalledWith({
+            data: {
+              messageId: "msg-1",
+              botId: "bot-a",
+              userId: sender,
+              runId: steers ? "run-owner" : null,
+            },
+          });
+          expect(tx.run.create).not.toHaveBeenCalled();
+          if (steers) expect(releaseTakeover).toHaveBeenCalledWith("run-owner");
+          else expect(releaseTakeover).not.toHaveBeenCalled();
+        }
+      },
+    );
+
+    it.each([
+      ["bot", botTarget],
+      ["group", groupTarget],
+    ] as const)(
+      "starts the sender's own %s run instead of answering another person's question",
+      async (_kind, target) => {
+        const { tx, prisma } = busyThread([{ ...ownerRun, status: "waiting_input" }]);
+
+        await expect(
+          sendThreadMessage(
+            {
+              prisma,
+              events: { notify: vi.fn().mockResolvedValue(undefined) } as never,
+              jobs: { enqueue: vi.fn().mockResolvedValue(undefined) } as never,
+            },
+            { spaceId: "workspace-1", userId: "user-2" } as Actor,
+            target,
+            { text: "Paris", clientNonce: "nonce-partner" },
+          ),
+        ).resolves.toMatchObject({ runId: "run-partner" });
+        expect(tx.run.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ userId: "user-2", sourceMessageId: "msg-1" }),
+        });
+        // The question stays pending on its card for the person who asked.
+        expect(tx.run.updateMany).not.toHaveBeenCalledWith(
+          expect.objectContaining({ where: expect.objectContaining({ id: "run-owner" }) }),
+        );
+        expect(tx.task.updateMany).not.toHaveBeenCalled();
+        expect(tx.steeringMessage.create).not.toHaveBeenCalled();
+      },
+    );
+  });
+
   it("steers a waiting-takeover run instead of refusing the message", async () => {
     const tx = {
       user: { findMany: vi.fn().mockResolvedValue([]) },
@@ -2130,7 +2348,9 @@ describe("sendThreadMessage", () => {
       run: {
         findMany: vi
           .fn()
-          .mockResolvedValue([{ id: "run-waiting", taskId: "task-1", status: "waiting_takeover" }]),
+          .mockResolvedValue([
+            { id: "run-waiting", taskId: "task-1", status: "waiting_takeover", userId: "user-1" },
+          ]),
         findUnique: vi.fn().mockResolvedValue({
           status: "waiting_takeover",
           startedAt: new Date(),
@@ -2214,13 +2434,22 @@ describe("sendThreadMessage", () => {
           findMany: vi
             .fn()
             .mockResolvedValueOnce([
-              { id: "run-routine", taskId: "task-routine", status: "running", trigger },
+              {
+                id: "run-routine",
+                taskId: "task-routine",
+                status: "running",
+                userId: "user-1",
+                trigger,
+              },
             ])
             .mockResolvedValue([]),
           findUnique: vi.fn().mockResolvedValue({ status: "queued", startedAt: null }),
-          create: vi
-            .fn()
-            .mockResolvedValue({ id: "run-user", taskId: "task-user", status: "queued" }),
+          create: vi.fn().mockResolvedValue({
+            id: "run-user",
+            taskId: "task-user",
+            status: "queued",
+            userId: "user-1",
+          }),
         },
         task: { create: vi.fn().mockResolvedValue({ id: "task-user" }) },
         steeringMessage: { create: vi.fn() },
@@ -2309,9 +2538,13 @@ describe("sendThreadMessage", () => {
           ])
           .mockResolvedValue([]),
         findUnique: vi.fn().mockResolvedValue({ status: "queued", startedAt: null }),
-        create: vi
-          .fn()
-          .mockResolvedValue({ id: "run-a", taskId: "task-a", botId: "bot-a", status: "queued" }),
+        create: vi.fn().mockResolvedValue({
+          id: "run-a",
+          taskId: "task-a",
+          botId: "bot-a",
+          status: "queued",
+          userId: "user-1",
+        }),
       },
       task: { create: vi.fn().mockResolvedValue({ id: "task-a" }) },
       event: {
@@ -2396,6 +2629,7 @@ describe("sendThreadMessage", () => {
             id: "run-routine",
             taskId: "task-routine",
             status: "waiting_input",
+            userId: "user-1",
             trigger: "routine",
           },
         ]),
@@ -2490,6 +2724,7 @@ describe("sendThreadMessage", () => {
             taskId: "task-webhook",
             botId: "bot-a",
             status: "waiting_input",
+            userId: "user-1",
             trigger: "webhook",
           },
         ]),
@@ -2594,9 +2829,16 @@ describe("sendThreadMessage", () => {
               id: "run-routine",
               taskId: "task-routine",
               status: "waiting_input",
+              userId: "user-1",
               trigger: "routine",
             },
-            { id: "run-user", taskId: "task-user", status: "running", trigger: "user" },
+            {
+              id: "run-user",
+              taskId: "task-user",
+              status: "running",
+              userId: "user-1",
+              trigger: "user",
+            },
           ])
           .mockResolvedValue([]),
         findUnique: vi.fn().mockResolvedValue({ status: "running", startedAt: new Date() }),
@@ -2686,6 +2928,7 @@ describe("sendThreadMessage", () => {
               taskId: "task-webhook",
               botId: "bot-a",
               status: "waiting_input",
+              userId: "user-1",
               trigger: "webhook",
             },
             {
@@ -2693,6 +2936,7 @@ describe("sendThreadMessage", () => {
               taskId: "task-user",
               botId: "bot-a",
               status: "running",
+              userId: "user-1",
               trigger: "user",
             },
           ])

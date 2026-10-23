@@ -18,6 +18,8 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
   let system: PrismaClient;
   let handler: RPCHandler<Record<string, unknown>>;
   const syncSeats = vi.fn(async (_organizationId: string) => undefined);
+  const cancelJob = vi.fn(async (_key: string) => undefined);
+  const notify = vi.fn(async (_threadId: string, _seq: number) => undefined);
   const users: string[] = [];
   const organizations: string[] = [];
 
@@ -107,6 +109,8 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
     const deps = {
       prisma,
       billing: { syncSeats },
+      jobs: { cancel: cancelJob },
+      events: { notify },
       env: {
         agentRuntime: "scripted",
         defaultProvider: "fake",
@@ -409,6 +413,66 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
     await expect(
       system.securityEvent.count({ where: { spaceId: home, type: "space.member.removed" } }),
     ).resolves.toBe(1);
+  });
+
+  it("cancels a removed member's unfinished runs so nothing keeps running as them", async () => {
+    const owner = await person("owner");
+    const invitee = await person("invitee");
+    const home = await sharedSpace(owner, "Home");
+    await call(invitee.actor, "spaces/invites/accept", { token: await invite(owner, home) });
+
+    const bot = await system.bot.create({
+      data: { spaceId: home, userId: owner.id, name: "Helper", color: "test" },
+    });
+    const thread = await system.thread.create({
+      data: { spaceId: home, botId: bot.id, userId: owner.id },
+    });
+    async function runAs(userId: string, status: string) {
+      const task = await system.task.create({
+        data: { spaceId: home, botId: bot.id, threadId: thread.id, userId, prompt: "Hi", status },
+      });
+      return system.run.create({
+        data: {
+          spaceId: home,
+          botId: bot.id,
+          threadId: thread.id,
+          taskId: task.id,
+          userId,
+          status,
+          trigger: "user",
+          ...(status === "running"
+            ? { leaseOwner: "worker-1", leaseExpiresAt: new Date(Date.now() + 60_000) }
+            : {}),
+        },
+      });
+    }
+    const queued = await runAs(invitee.id, "queued");
+    const running = await runAs(invitee.id, "running");
+    const ownersRun = await runAs(owner.id, "queued");
+
+    const removed = await call(inSpace(owner.actor, home), "spaces/members/remove", {
+      spaceId: home,
+      userId: invitee.id,
+    });
+    expect(removed).toEqual({ status: 200, json: { ok: true } });
+
+    for (const run of [queued, running]) {
+      await expect(system.run.findUniqueOrThrow({ where: { id: run.id } })).resolves.toMatchObject({
+        status: "cancelled",
+        leaseOwner: null,
+      });
+      await expect(
+        system.task.findUniqueOrThrow({ where: { id: run.taskId } }),
+      ).resolves.toMatchObject({ status: "cancelled" });
+      expect(cancelJob).toHaveBeenCalledWith(expect.stringContaining(run.id));
+    }
+    await expect(
+      system.run.findUniqueOrThrow({ where: { id: ownersRun.id } }),
+    ).resolves.toMatchObject({ status: "queued" });
+    await expect(
+      system.event.count({ where: { threadId: thread.id, type: "run.cancelled" } }),
+    ).resolves.toBe(2);
+    expect(notify).toHaveBeenCalledWith(thread.id, expect.any(Number));
   });
 
   it("lists shared spaces across organizations and creates new spaces in the member's own", async () => {

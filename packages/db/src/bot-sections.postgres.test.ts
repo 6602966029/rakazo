@@ -5,7 +5,7 @@ import { createGroupRepos } from "./groups.js";
 import { provisionMessagingIdentity } from "./messaging.js";
 import { createRepos } from "./repos.js";
 import { asSystem, runAsSystem, runAsTenant } from "./row-security.js";
-import { IsolationError } from "./scope.js";
+import { BotSectionNameConflictError, IsolationError } from "./scope.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 const describePostgres =
@@ -120,6 +120,37 @@ describePostgres("deleteBotSection (PostgreSQL)", () => {
       createRepos(prisma).deleteBotSection(actorFor(owner), { sectionId: neighborSection.id }),
     );
     expect(await system.botSection.findUnique({ where: { id: neighborSection.id } })).toBeNull();
+  });
+
+  it("files into another member's same-named section instead of making a second one", async () => {
+    const repos = createRepos(prisma);
+    const system = asSystem(prisma);
+    const actor = actorFor(owner);
+    const theirs = await system.botSection.create({
+      data: { spaceId: owner.spaceId, userId: neighborId, name: "Work" },
+    });
+
+    const { bot, section } = await runAsTenant(owner, async () => {
+      const bot = await repos.createBot(actor, botInput("Filed"));
+      const section = await repos.createBotSection(actor, { botId: bot.id, name: "Work" });
+      return { bot, section };
+    });
+
+    expect(section.id).toBe(theirs.id);
+    expect(await system.botSection.count({ where: { spaceId: owner.spaceId, name: "Work" } })).toBe(
+      1,
+    );
+    expect((await system.bot.findUniqueOrThrow({ where: { id: bot.id } })).sectionId).toBe(
+      theirs.id,
+    );
+
+    const mine = await runAsTenant(owner, async () => {
+      const other = await repos.createBot(actor, botInput("Other"));
+      return repos.createBotSection(actor, { botId: other.id, name: "Home" });
+    });
+    await expect(
+      runAsTenant(owner, () => repos.updateBotSection(actor, { sectionId: mine.id, name: "Work" })),
+    ).rejects.toBeInstanceOf(BotSectionNameConflictError);
   });
 
   it("treats another space's section as not found", async () => {
