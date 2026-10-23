@@ -83,11 +83,18 @@ vi.mock("react-native-safe-area-context", () => ({
 vi.mock("../components/native-action-button", () => ({
   NativeActionButton: ({
     label,
+    accessibilityLabel,
     prominence = "primary",
     onPress,
     disabled,
   }: NativeActionButtonProps) => (
-    <button type="button" data-prominence={prominence} disabled={disabled} onClick={onPress}>
+    <button
+      type="button"
+      aria-label={accessibilityLabel}
+      data-prominence={prominence}
+      disabled={disabled}
+      onClick={onPress}
+    >
       {label}
     </button>
   ),
@@ -372,3 +379,38 @@ it("hides passkey sign-in where the device or server cannot use it", async () =>
   await render();
   expect(buttonNamed("Sign in with passkey")).toBeUndefined();
 });
+
+it.each(["in", "up"])(
+  "reveals and hides the password in %s mode without changing it",
+  async (mode) => {
+    route.mode = mode;
+    await render();
+    const password = input("Password")!;
+    await type(password, "example-password");
+    expect(password.type).toBe("password");
+    expect(password.autocomplete).toBe(mode === "in" ? "current-password" : "new-password");
+
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('button[aria-label="Show password"]')!.click(),
+    );
+    expect(password.type).toBe("text");
+    expect(password.value).toBe("example-password");
+
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('button[aria-label="Hide password"]')!.click(),
+    );
+    expect(password.type).toBe("password");
+    expect(password.value).toBe("example-password");
+
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('button[aria-label="Show password"]')!.click(),
+    );
+    // The last matching action switches modes rather than submitting the form.
+    await act(async () =>
+      [...host.querySelectorAll("button")]
+        .findLast((button) => button.textContent === (mode === "in" ? "Sign up" : "Sign in"))!
+        .click(),
+    );
+    expect(input("Password")!.type).toBe("password");
+  },
+);

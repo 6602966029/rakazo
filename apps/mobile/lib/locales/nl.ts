@@ -1,4 +1,6 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "Show password": "Wachtwoord tonen",
+  "Hide password": "Wachtwoord verbergen",
   Export: "Exporteren",
   "Edit avatar": "Avatar bewerken",
   "Add open work": "Open taak toevoegen",

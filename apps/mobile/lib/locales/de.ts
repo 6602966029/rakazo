@@ -1,4 +1,6 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Show password": "Passwort anzeigen",
+  "Hide password": "Passwort verbergen",
   Export: "Exportieren",
   "Edit avatar": "Avatar bearbeiten",
   "Add open work": "Offene Aufgabe hinzufügen",
