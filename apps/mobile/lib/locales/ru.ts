@@ -831,6 +831,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "No matching artifacts": "Нет подходящих артефактов",
   "Long press to delete": "Нажмите и удерживайте, чтобы удалить",
   "Could not load artifacts.": "Не удалось загрузить артефакты.",
+  "Could not load this chat.": "Не удалось загрузить этот чат.",
   "Could not load this artifact.": "Не удалось загрузить этот артефакт.",
   "Could not delete this artifact": "Не удалось удалить этот артефакт",
   "Could not share this artifact": "Не удалось поделиться этим артефактом",

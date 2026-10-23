@@ -289,6 +289,7 @@ export const NL_MESSAGES: Record<string, string> = {
   Artifacts: "Artefacten",
   "Could not delete this artifact": "Dit artefact verwijderen mislukt",
   "Could not load artifacts.": "Artefacten laden mislukt.",
+  "Could not load this chat.": "Deze chat kon niet worden geladen.",
   "Could not load this artifact.": "Dit artefact laden mislukt.",
   "Could not share this artifact": "Dit artefact delen mislukt",
   "Long press to delete": "Lang indrukken om te verwijderen",

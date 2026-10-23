@@ -801,6 +801,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "No matching artifacts": "没有匹配的制品",
   "Long press to delete": "长按以删除",
   "Could not load artifacts.": "无法加载制品。",
+  "Could not load this chat.": "无法加载此聊天。",
   "Could not load this artifact.": "无法加载此制品。",
   "Could not delete this artifact": "无法删除此制品",
   "Could not share this artifact": "无法分享此制品",

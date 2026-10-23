@@ -36,6 +36,7 @@ import {
   isRunWaitingOnUser,
   isRunWorking,
   isSecretAskBlock,
+  jumpTargetId,
   leaveThreadWindow,
   openThreadWindow,
   plainTextFromMarkdown,
@@ -215,6 +216,7 @@ import {
   threadSpaceRequest,
   threadSpaceSwitchResult,
 } from "../lib/notification-open";
+import { peerChipPress } from "../lib/peer-chip";
 import type { PickedAttachment } from "../lib/pick-attachments";
 import { pickDocuments, pickFromLibrary, takePhoto } from "../lib/pick-attachments";
 import { threadRefreshDelayMs } from "../lib/refresh";
@@ -1303,19 +1305,24 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       return;
     if (target.groupId && activeGroupId.current !== target.groupId) return;
     if (target.botId && activeBotId.current !== target.botId) return;
-    const targetInPage = page.messages.some((message) => message.id === target.messageId);
+    // A relay's dropped marker (e.g. a search hit) lands on its "Messaged X" receipt.
+    const messageId = jumpTargetId(
+      foldPeerReplies(page.messages, { includePeerReceipts: true }),
+      target.messageId,
+    );
+    const targetInPage = page.messages.some((message) => message.id === messageId);
     const opened = targetInPage ? openThreadWindow(snap, page) : null;
     expandedHistoryThread.current = targetInPage ? page.threadId : null;
     pinnedAroundRef.current = opened
       ? {
           ...threadTarget,
-          messageId: target.messageId,
+          messageId,
           threadId: page.threadId,
           newerCursor: opened.newerCursor,
         }
       : null;
-    jumpAnchor.current.begin(targetInPage ? target.messageId : null);
-    jumpScrollTarget.current = targetInPage ? target.messageId : null;
+    jumpAnchor.current.begin(targetInPage ? messageId : null);
+    jumpScrollTarget.current = targetInPage ? messageId : null;
     newerLoadFailed.current = false;
     joinPinnedAfterLayout.current = null;
     pinnedScrollMetrics.current = { offset: 0, viewport: 0, content: 0 };
@@ -1325,7 +1332,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     const next = opened?.snapshot ?? snap;
     // A reply folded under its peer marker is only drawn once the marker is expanded.
     const markerId = targetInPage
-      ? foldPeerReplies(next.messages, { includePeerReceipts: true }).markerOf.get(target.messageId)
+      ? foldPeerReplies(next.messages, { includePeerReceipts: true }).markerOf.get(messageId)
       : undefined;
     if (markerId) {
       setExpandedPeerMarkers((expanded) =>
@@ -2309,6 +2316,13 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         return next;
       });
     },
+    openPeerChat: (peer) => {
+      if (!botId) return;
+      router.push({
+        pathname: "/peer-chat",
+        params: { botId, botName: displayName, ...peer },
+      });
+    },
     togglePeerReplies: (markerId) => {
       setExpandedPeerMarkers((expanded) => {
         const next = new Set(expanded);
@@ -2349,6 +2363,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       jump: (id) => rowActionsRef.current.jump(id),
       dismissChoice: (id, question) => rowActionsRef.current.dismissChoice(id, question),
       togglePeerReplies: (id) => rowActionsRef.current.togglePeerReplies(id),
+      openPeerChat: (peer) => rowActionsRef.current.openPeerChat(peer),
       layout: (id, y, index) => rowActionsRef.current.layout(id, y, index),
     }),
     [],
@@ -3183,6 +3198,7 @@ type MessageRowActions = {
   jump: (messageId: string) => void;
   dismissChoice: (messageId: string, question: string) => void;
   togglePeerReplies: (markerId: string) => void;
+  openPeerChat: (peer: { peerBotId: string; peerBotName: string }) => void;
   layout: (messageId: string, y: number, index: number) => void;
 };
 
@@ -3526,6 +3542,7 @@ const MessageRow = memo(function MessageRow({
                 onPreviewImage={actions.previewImage}
                 peerReplies={peerReplies}
                 onTogglePeerReplies={actions.togglePeerReplies}
+                onOpenPeerChat={actions.openPeerChat}
                 actionProps={actionProps}
               />
             </ThreadReadOnlyContext.Provider>
@@ -3582,6 +3599,7 @@ const MessageBubble = memo(function MessageBubble({
   onPreviewImage,
   peerReplies,
   onTogglePeerReplies,
+  onOpenPeerChat,
   actionProps,
 }: {
   botId: string;
@@ -3606,6 +3624,7 @@ const MessageBubble = memo(function MessageBubble({
   onPreviewImage: (target: ImageArtifactPreviewTarget) => void;
   peerReplies?: "collapsed" | "expanded";
   onTogglePeerReplies: (markerId: string) => void;
+  onOpenPeerChat: (peer: { peerBotId: string; peerBotName: string }) => void;
   actionProps: MessageActionProps;
 }) {
   const colorScheme = useResolvedAppearance();
@@ -3706,15 +3725,27 @@ const MessageBubble = memo(function MessageBubble({
       bots.find((bot) => bot.id === peerBotId)?.color ??
       members?.find((member) => member.botId === peerBotId)?.color ??
       tokens.mutedForeground;
-    // Full view-only peer chat is web-first; on mobile a received chip expands the peer run's
-    // folded replies, which the thread draws as ordinary rows right after it.
+    // A received chip with folded replies expands them in place; otherwise, in a bot's own chat,
+    // the chip opens the view-only bot-to-bot exchange, as on web.
     const replies = sent ? undefined : peerReplies;
+    const press = peerChipPress({
+      sent,
+      replies,
+      threadBotId: groupId ? undefined : botId,
+      peerBotId,
+    });
     return (
       <Pressable
         {...actionProps}
         accessible
-        onPress={replies ? () => onTogglePeerReplies(message.id) : undefined}
-        accessibilityRole={replies ? "button" : undefined}
+        onPress={
+          press === "toggle"
+            ? () => onTogglePeerReplies(message.id)
+            : press === "open"
+              ? () => onOpenPeerChat({ peerBotId, peerBotName: peer ?? t("Bot") })
+              : undefined
+        }
+        accessibilityRole={press ? "button" : undefined}
         accessibilityState={replies ? { expanded: replies === "expanded" } : undefined}
         accessibilityLabel={
           replies === "expanded"
@@ -3739,7 +3770,7 @@ const MessageBubble = memo(function MessageBubble({
         >
           {label}
         </Text>
-        {replies ? (
+        {press ? (
           <NativeSymbol
             ios={replies === "expanded" ? "chevron.down" : "chevron.right"}
             android={replies === "expanded" ? "chevron-down" : "chevron-forward"}

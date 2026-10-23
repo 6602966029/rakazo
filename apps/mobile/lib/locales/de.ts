@@ -295,6 +295,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Artifacts: "Artefakte",
   "Could not delete this artifact": "Dieses Artefakt konnte nicht gelöscht werden",
   "Could not load artifacts.": "Artefakte konnten nicht geladen werden.",
+  "Could not load this chat.": "Dieser Chat konnte nicht geladen werden.",
   "Could not load this artifact.": "Dieses Artefakt konnte nicht geladen werden.",
   "Could not share this artifact": "Dieses Artefakt konnte nicht geteilt werden",
   "Long press to delete": "Zum Löschen gedrückt halten",

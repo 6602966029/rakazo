@@ -40,6 +40,7 @@ import {
   isRetryableError,
   isRunTerminalEvent,
   isRunWorking,
+  jumpTargetId,
   reorderBotTo,
   resolveComposerSendPlan,
   runThreadSubscription,
@@ -1846,14 +1847,16 @@ function SpaceShell() {
     if (target.botId && activeBotId.current !== target.botId) return;
     // A reply folded under its peer marker counts: the transcript expands the marker to show it.
     const pageTranscript = foldPeerReplies(page.messages, { includePeerReceipts: true });
+    // A relay's dropped marker (e.g. a search hit) lands on its "Messaged X" receipt.
+    const messageId = jumpTargetId(pageTranscript, target.messageId);
     const targetInPage =
-      pageTranscript.markerOf.has(target.messageId) ||
-      pageTranscript.messages.some((message) => message.id === target.messageId);
+      pageTranscript.markerOf.has(messageId) ||
+      pageTranscript.messages.some((message) => message.id === messageId);
     expandedHistoryThread.current = targetInPage ? page.threadId : null;
     pinnedAroundRef.current = targetInPage
       ? {
           ...threadTarget,
-          messageId: target.messageId,
+          messageId,
           threadId: page.threadId,
           messages: page.messages,
           olderCursor: page.olderCursor,
@@ -1885,7 +1888,7 @@ function SpaceShell() {
     if (targetInPage) {
       // The transcript owns the scroll: it retries until the pinned row is
       // mounted and unfollows the tail, so live commits cannot cancel it.
-      setScrollRequest({ messageId: target.messageId, nonce: jumpId });
+      setScrollRequest({ messageId, nonce: jumpId });
     } else {
       window.requestAnimationFrame(() => {
         if (epoch !== historyEpoch.current || jumpId !== jumpGeneration.current) return;
@@ -2154,7 +2157,8 @@ function SpaceShell() {
 
   const openBot = useCallback((id: string) => navigate(`/app/${id}`), [navigate]);
   const loadOlder = useCallback(() => loadOlderMessagesRef.current(), []);
-  const jumpToReplyMessage = useCallback((messageId: string) => {
+  const jumpToReplyMessage = useCallback((replyId: string) => {
+    const messageId = jumpTargetId(transcriptRef.current, replyId);
     const inTranscript =
       transcriptRef.current.markerOf.has(messageId) ||
       document.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`);
