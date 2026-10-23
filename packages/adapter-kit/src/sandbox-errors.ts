@@ -17,3 +17,12 @@ export class SandboxUnresponsiveError extends Error {
     this.name = "SandboxUnresponsiveError";
   }
 }
+
+/** The provider accepted the start but did not bring the computer up in time; a retry may work. */
+export class SandboxUnavailableError extends Error {
+  readonly code = "SANDBOX_UNAVAILABLE";
+  constructor(options?: { cause?: unknown }) {
+    super("The computer did not start. Try again.", options);
+    this.name = "SandboxUnavailableError";
+  }
+}

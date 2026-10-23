@@ -2099,6 +2099,11 @@ describe("connections.begin", () => {
 
     expect(matched).toBe(true);
     expect(response.status).toBe(200);
+    // Complete and revoke hold the same lock across provider calls; begin must outwait them.
+    expect(vi.mocked(prisma.$transaction).mock.calls.map((call) => call[1])).toEqual([
+      { timeout: 60_000 },
+      { timeout: 60_000 },
+    ]);
     expect(create).not.toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith({
       where: { id: "conn-old" },

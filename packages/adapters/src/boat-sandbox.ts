@@ -25,7 +25,11 @@ import type {
   ScreenSession,
   TerminalRequest,
 } from "@rakazo/adapter-kit";
-import { SandboxRateLimitError, SandboxUnresponsiveError } from "@rakazo/adapter-kit";
+import {
+  SandboxRateLimitError,
+  SandboxUnavailableError,
+  SandboxUnresponsiveError,
+} from "@rakazo/adapter-kit";
 import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
 import { BoatApiError, boatResponseError, callerSignal, wrapBoatCall } from "./boat-errors.js";
@@ -250,7 +254,9 @@ export class BoatSandboxProvider implements SandboxProvider {
         context.signal,
       );
       if (runtime.exitCode !== 0 || runtime.timedOut)
-        throw new Error("could not prepare computer desktop tools");
+        throw new Error("could not prepare computer desktop tools", {
+          cause: new Error(commandFailure(runtime)),
+        });
       if (this.preparations.get(id) !== preparation) {
         throw new Error("Boat workspace preparation was invalidated during teardown");
       }
@@ -515,7 +521,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       }
       if (Date.now() >= deadline) {
         if (sandbox.state === "error") throw boatSandboxGone(id);
-        throw new Error(`Boat ${id} did not become ready`);
+        throw new SandboxUnavailableError({ cause: new Error(`Boat ${id} did not become ready`) });
       }
       await delay(1_000, undefined, { signal });
     }
@@ -927,6 +933,13 @@ export class BoatSandboxProvider implements SandboxProvider {
     this.prepared.delete(id);
     this.preparations.delete(id);
   }
+}
+
+/** Why a setup command failed, without its full output: a timeout, or the exit code and last line. */
+function commandFailure(result: BoatCommandResult): string {
+  if (result.timedOut) return "timed out";
+  const last = (result.stderr || result.stdout).trim().split("\n").at(-1)?.slice(0, 300);
+  return last ? `exit ${result.exitCode}: ${last}` : `exit ${result.exitCode}`;
 }
 
 /** Boat deletes a stopped sandbox's data after 14 days but keeps the record; it cannot resume. */
