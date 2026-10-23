@@ -56,7 +56,7 @@ import { automated, withAutomatedLabels } from "./automated-messages.js";
 import { connectionIdArgument, credentialArgument } from "./bot-secrets.js";
 import { DELEGATION_TOOL_NAMES } from "./builtin-tools.js";
 import { withCloudflareAuth } from "./cloudflare-ai-gateway.js";
-import { pruneForRebuild } from "./context-pruning.js";
+import { ModelImageLimitError, pruneForRebuild } from "./context-pruning.js";
 import { shortenToolResultText } from "./context-selection.js";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
 import { groqRequestContextWindow } from "./groq-request-budget.js";
@@ -2682,10 +2682,16 @@ function fallbackIncompatibility(
 ): string | undefined {
   // The backup's own context policy prunes on its first call; judge what it would send. Too
   // many user images for its limit throws, and the caller skips the backup.
-  context = {
-    ...context,
-    messages: pruneForRebuild(context.messages, candidate.config.maxImagesPerPrompt),
-  };
+  try {
+    context = {
+      ...context,
+      messages: pruneForRebuild(context.messages, candidate.config.maxImagesPerPrompt),
+    };
+  } catch (error) {
+    if (error instanceof ModelImageLimitError)
+      return "The request exceeds the backup model's image limit.";
+    throw error;
+  }
   const inputTokens = estimateModelContextTokens(context, estimatePiImageTokens);
   const outputTokens = resolveCompletionMaxTokens(
     candidate.model.maxTokens,
@@ -3046,6 +3052,8 @@ function fallbackAwareModelStream(
             return;
           }
           if (event.type === "done") {
+            // A recovered call must not replace a later failure with its old error.
+            state.primaryFailure = undefined;
             state.backupOutcomes.delete(targetKey);
             for (const pending of buffered) output.push(pending);
             buffered = [];
