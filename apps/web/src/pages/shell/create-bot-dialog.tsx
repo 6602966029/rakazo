@@ -80,7 +80,7 @@ export function CreateBotDialog({
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
-        className="sm:max-w-md"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md"
         data-testid="create-bot-dialog"
       >
         <form
