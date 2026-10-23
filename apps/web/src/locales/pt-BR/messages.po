@@ -5374,6 +5374,7 @@ msgstr "Você"
 msgid "You can close this tab if it does not redirect automatically."
 msgstr "Você pode fechar esta guia se ela não for redirecionada automaticamente."
 
+#: src/pages/IntegrationCallback.tsx
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this window."
 msgstr "Você pode fechar esta janela."
