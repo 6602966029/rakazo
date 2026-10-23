@@ -1048,6 +1048,10 @@ msgstr "Applications de discussion"
 msgid "Chat Settings"
 msgstr "Paramètres de discussion"
 
+#: src/components/ModelCredits.tsx
+msgid "ChatGPT, Claude, or any model provider."
+msgstr ""
+
 #: src/lib/identity-display.ts
 msgid "Chats"
 msgstr "Discussions"
@@ -1365,6 +1369,10 @@ msgstr "Connecter l'exécuteur"
 #: src/pages/shell/message-cards.tsx
 msgid "Connect MCP server “{name}”"
 msgstr "Connecter le serveur MCP « {name} »"
+
+#: src/components/ModelCredits.tsx
+msgid "Connect my own"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Connect OAuth"
@@ -3728,10 +3736,6 @@ msgstr "Collez votre clé API, puis testez à nouveau."
 msgid "Paused"
 msgstr "En pause"
 
-#: src/components/ModelCredits.tsx
-msgid "Pay your model provider directly."
-msgstr ""
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
 msgstr "Autorisations"
@@ -5181,7 +5185,7 @@ msgid "Use email code"
 msgstr "Utiliser un code par e-mail"
 
 #: src/components/ModelCredits.tsx
-msgid "Use my API key"
+msgid "Use my subscription or API key"
 msgstr ""
 
 #: src/pages/Auth.tsx
@@ -5391,10 +5395,6 @@ msgstr "Vous avez le contrôle"
 msgid "Your Anthropic"
 msgstr "Votre Anthropic"
 
-#: src/components/ModelCredits.tsx
-msgid "Your API key"
-msgstr ""
-
 #: src/pages/Auth.tsx
 msgid "Your email address"
 msgstr "Votre adresse e-mail"
@@ -5417,6 +5417,10 @@ msgstr "Votre OpenAI"
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
 msgstr "Votre OpenRouter"
+
+#: src/components/ModelCredits.tsx
+msgid "Your subscription or API key"
+msgstr ""
 
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."
