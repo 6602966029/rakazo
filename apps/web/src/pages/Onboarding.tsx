@@ -137,13 +137,6 @@ async function ensureFirstBot(): Promise<{ id: string }> {
   return firstBotEnsure;
 }
 
-const LINKABLE_STEPS = ["survey", "model"] as const;
-type LinkableStep = (typeof LINKABLE_STEPS)[number];
-
-function linkableStep(value: string | undefined): LinkableStep | undefined {
-  return LINKABLE_STEPS.find((step) => step === value);
-}
-
 function providerLabel(entry: ModelCatalogEntry): string {
   return entry.provider === "openai-codex" ? "ChatGPT" : (entry.providerName ?? entry.provider);
 }
@@ -152,14 +145,15 @@ export function OnboardingPage() {
   const { t } = useLingui();
   const navigate = useNavigate();
   const fieldId = useId();
-  // /onboarding/survey and /onboarding/model open that step directly, so each screen has a URL.
+  // The URL holds the survey and model steps, so /onboarding/survey and /onboarding/model open directly.
   const { step: routeStep } = useParams();
-  const linkedStep = linkableStep(routeStep);
-  const [step, setStep] = useState<"loading" | LinkableStep | "bot">(linkedStep ?? "loading");
+  const linkedStep = routeStep === "survey" || routeStep === "model" ? routeStep : undefined;
+  const [creatingBot, setCreatingBot] = useState(false);
+  const [surveyDone, setSurveyDone] = useState(false);
+  const step = creatingBot ? "bot" : surveyDone ? "loading" : (linkedStep ?? "loading");
   const [billingEnabled, setBillingEnabled] = useState(false);
-  // Unknown until me loads; a survey finished before then waits on "loading" for it.
-  const afterSurveyRef = useRef<"model" | "bot" | null>(null);
-  const surveyDoneRef = useRef(false);
+  // The step after the survey; null until me loads.
+  const [afterSurvey, setAfterSurvey] = useState<"model" | "bot" | null>(null);
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
   const [provider, setProvider] = useState("");
   const [providerAuth, setProviderAuth] = useState<ProviderAuth | undefined>();
@@ -207,7 +201,7 @@ export function OnboardingPage() {
     onClearError: () => setError(null),
     onError: setError,
     onFinished: async () => {
-      setStep("bot");
+      goTo("bot");
     },
   });
 
@@ -219,18 +213,12 @@ export function OnboardingPage() {
         // No provider is preselected; the deployment default only seeds the model once one is chosen.
         deploymentDefaultModelRef.current = me.defaultModel;
         const next = me.needsModel ? "model" : "bot";
-        afterSurveyRef.current = next;
-        setStep((current) =>
-          current === "loading"
-            ? me.needsSignupSurvey && !surveyDoneRef.current
-              ? "survey"
-              : next
-            : current,
-        );
+        setAfterSurvey(next);
+        if (!linkedStep) goTo(me.needsSignupSurvey ? "survey" : next);
       })
       .catch(() => {
-        afterSurveyRef.current = "bot";
-        setStep((current) => (current === "loading" ? "bot" : current));
+        setAfterSurvey("bot");
+        if (!linkedStep) goTo("bot");
       });
     return () => {
       modelProbe.invalidate();
@@ -238,14 +226,15 @@ export function OnboardingPage() {
   }, []);
 
   useEffect(() => {
-    if (linkedStep) setStep(linkedStep);
-  }, [linkedStep]);
+    if (!surveyDone || !afterSurvey) return;
+    setSurveyDone(false);
+    goTo(afterSurvey);
+  }, [surveyDone, afterSurvey]);
 
-  useEffect(() => {
-    if (step === "loading") return;
-    const path = step === "bot" ? "/onboarding" : `/onboarding/${step}`;
-    if (window.location.pathname !== path) navigate(path, { replace: true });
-  }, [step]);
+  function goTo(next: "survey" | "model" | "bot") {
+    if (next === "bot") setCreatingBot(true);
+    navigate(next === "bot" ? "/onboarding" : `/onboarding/${next}`, { replace: true });
+  }
 
   const providers = useMemo(() => {
     const seen = new Map<string, ModelCatalogEntry>();
@@ -546,7 +535,7 @@ export function OnboardingPage() {
           label: selected?.providerName ?? provider,
         });
       }
-      setStep("bot");
+      goTo("bot");
     } catch (err) {
       setError(errorText(err, t`Could not save model`));
     }
@@ -596,14 +585,7 @@ export function OnboardingPage() {
             <Spinner aria-label={t`Loading…`} />
           </p>
         ) : null}
-        {step === "survey" ? (
-          <SignupSurvey
-            onDone={() => {
-              surveyDoneRef.current = true;
-              setStep(afterSurveyRef.current ?? "loading");
-            }}
-          />
-        ) : null}
+        {step === "survey" ? <SignupSurvey onDone={() => setSurveyDone(true)} /> : null}
         {step === "model" ? (
           <div>
             <h1 className="text-[32px] font-medium text-foreground">

@@ -65,7 +65,7 @@ export function SettingsOverlay({
   name,
   usage,
   onUsageOpen,
-  initialSection = "general",
+  section: requestedSection,
   onSectionChange,
   timezone,
   onTimezoneChange,
@@ -94,8 +94,8 @@ export function SettingsOverlay({
     totalTokens?: number | null;
   } | null;
   onUsageOpen: () => void;
-  initialSection?: SettingsSection;
-  onSectionChange?: (section: SettingsSection) => void;
+  section: SettingsSection;
+  onSectionChange: (section: SettingsSection) => void;
   timezone: string | null;
   onTimezoneChange: (timezone: string) => Promise<void>;
   billingEnabled?: boolean;
@@ -113,7 +113,6 @@ export function SettingsOverlay({
   const navRef = useRef<HTMLElement>(null);
   const [navOverflow, setNavOverflow] = useState({ previous: false, next: false });
   const usageRef = useRef<HTMLDivElement>(null);
-  const [requestedSection, setSection] = useState<SettingsSection>(initialSection);
   const [memoryBusy, setMemoryBusy] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [keepComputerRecovery, setKeepComputerRecovery] = useState(false);
@@ -177,10 +176,6 @@ export function SettingsOverlay({
       setKeepComputerRecovery(false);
     }, 4000);
   }, []);
-
-  useEffect(() => {
-    setSection(initialSection);
-  }, [initialSection]);
 
   useEffect(() => {
     if (section !== "computer") releaseComputerRecovery();
@@ -320,10 +315,7 @@ export function SettingsOverlay({
                     data-testid={`settings-nav-${item.id}`}
                     aria-current={active ? "page" : undefined}
                     disabled={panelBusy}
-                    onClick={() => {
-                      setSection(item.id);
-                      onSectionChange?.(item.id);
-                    }}
+                    onClick={() => onSectionChange(item.id)}
                     className={`flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-[13.5px] transition-colors disabled:pointer-events-none disabled:opacity-50 ${
                       active
                         ? "bg-muted text-foreground"

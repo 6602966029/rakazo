@@ -4094,7 +4094,7 @@ function SpaceShell() {
             email={session.data?.user.email}
             usage={usage}
             onUsageOpen={refreshUsage}
-            initialSection={overlay.section}
+            section={overlay.section}
             onSectionChange={(section) => setOverlay({ ...overlay, section })}
             billingEnabled={bootstrapMe?.billingEnabled === true}
             sandboxProvider={bootstrapMe?.sandboxProvider}
