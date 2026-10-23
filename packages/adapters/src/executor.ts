@@ -4981,10 +4981,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
             const pending = await deps.prisma.agentConnection.findFirst({
               where: { targetBotId: bot.id, status: "pending" },
               orderBy: { updatedAt: "desc" },
-              select: { id: true },
+              select: { id: true, requestVersion: true },
             });
             if (!pending) return { error: "no pending connection request" };
-            args = { accept: Boolean(args.accept), connection_id: pending.id };
+            args = {
+              accept: Boolean(args.accept),
+              connection_id: pending.id,
+              connection_version: pending.requestVersion,
+            };
           }
           if (
             name === "propose_instructions_update" ||
@@ -7345,7 +7349,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
               deps,
               { ...run, sourceMessageId: run.sourceMessageId },
               { id: bot.id, name: bot.name },
-              { accept: Boolean(args.accept), connectionId: String(args.connection_id ?? "") },
+              {
+                accept: Boolean(args.accept),
+                connectionId: String(args.connection_id ?? ""),
+                connectionVersion: Number(args.connection_version ?? 0),
+              },
             );
             if (!result.ok) return finish({ error: result.error });
             return finish(result);

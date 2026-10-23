@@ -139,7 +139,7 @@ async function requestConnection(
         }
         await tx.agentConnection.update({
           where: { id: existing.id },
-          data: { status: "pending" },
+          data: { status: "pending", requestVersion: { increment: 1 } },
         });
       } else {
         try {
@@ -208,13 +208,14 @@ async function respondToConnection(
   deps: AgentConnectionDeps,
   _run: ConnectionRun,
   sender: { id: string; name: string },
-  input: { accept: boolean; connectionId?: string },
+  input: { accept: boolean; connectionId: string; connectionVersion: number },
 ): Promise<Result> {
   const pending = await deps.prisma.agentConnection.findFirst({
     where: {
       targetBotId: sender.id,
       status: "pending",
-      ...(input.connectionId !== undefined ? { id: input.connectionId } : {}),
+      id: input.connectionId,
+      requestVersion: input.connectionVersion,
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -227,7 +228,7 @@ async function respondToConnection(
     )
       return 0;
     const result = await tx.agentConnection.updateMany({
-      where: { id: pending.id, status: "pending" },
+      where: { id: pending.id, status: "pending", requestVersion: input.connectionVersion },
       data: { status },
     });
     return result.count;

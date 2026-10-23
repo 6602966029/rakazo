@@ -274,7 +274,7 @@ describe("connectAgent", () => {
     expect(reinvite).toEqual(expect.objectContaining({ ok: true, status: "pending" }));
     expect(declined.prisma.agentConnection.update).toHaveBeenCalledWith({
       where: { id: "ac-1" },
-      data: { status: "pending" },
+      data: { status: "pending", requestVersion: { increment: 1 } },
     });
     expect(declined.outboundRows).toEqual([
       expect.objectContaining({ kind: "dm", identityId: "mi-2" }),
@@ -312,18 +312,26 @@ describe("respondAgentConnection", () => {
         status: "pending",
       },
     });
-    const result = await respondAgentConnection(deps, run, sender, { accept: true });
+    const result = await respondAgentConnection(deps, run, sender, {
+      accept: true,
+      connectionId: "ac-1",
+      connectionVersion: 1,
+    });
 
     expect(result).toEqual(expect.objectContaining({ ok: true, status: "approved" }));
     expect(deps.prisma.agentConnection.updateMany).toHaveBeenCalledWith({
-      where: { id: "ac-1", status: "pending" },
+      where: { id: "ac-1", status: "pending", requestVersion: 1 },
       data: { status: "approved" },
     });
   });
 
   it("fails when nothing is pending", async () => {
     const deps = createDeps();
-    const result = await respondAgentConnection(deps, run, sender, { accept: false });
+    const result = await respondAgentConnection(deps, run, sender, {
+      accept: false,
+      connectionId: "ac-1",
+      connectionVersion: 1,
+    });
     expect(result).toEqual(expect.objectContaining({ ok: false }));
   });
 });
@@ -445,7 +453,11 @@ describe("agent connection status races", () => {
         return { count: 1 };
       },
     );
-    const result = await respondAgentConnection(deps, run, sender, { accept: true });
+    const result = await respondAgentConnection(deps, run, sender, {
+      accept: true,
+      connectionId: "ac-1",
+      connectionVersion: 1,
+    });
 
     expect(result).toEqual(expect.objectContaining({ ok: false }));
     expect(state.status).toBe("revoked");
@@ -590,7 +602,13 @@ describe("cross-space communication permission", () => {
         status: "pending",
       },
     });
-    expect(await respondAgentConnection(deps, run, sender, { accept: true })).toMatchObject({
+    expect(
+      await respondAgentConnection(deps, run, sender, {
+        accept: true,
+        connectionId: "ac-1",
+        connectionVersion: 1,
+      }),
+    ).toMatchObject({
       ok: false,
     });
     expect(deps.prisma.agentConnection.updateMany).not.toHaveBeenCalled();
@@ -604,12 +622,52 @@ it("keeps a confirmed connection response bound to its original request", async 
     await respondAgentConnection(deps, run, sender, {
       accept: true,
       connectionId: "original-request",
+      connectionVersion: 1,
     }),
   ).toMatchObject({ ok: false });
   expect(deps.prisma.agentConnection.findFirst).toHaveBeenCalledWith(
     expect.objectContaining({
-      where: { targetBotId: sender.id, status: "pending", id: "original-request" },
+      where: {
+        targetBotId: sender.id,
+        status: "pending",
+        id: "original-request",
+        requestVersion: 1,
+      },
     }),
   );
   expect(deps.prisma.agentConnection.updateMany).not.toHaveBeenCalled();
+});
+
+it("rejects an approval when the same connection is reopened during the approval write", async () => {
+  const deps = createDeps({
+    pendingConnection: {
+      id: "ac-1",
+      requesterBotId: "bot-2",
+      targetBotId: "bot-1",
+      status: "pending",
+      requestVersion: 1,
+    },
+  });
+  // The pending read saw the original request; revoke + reconnect replaces it before the write.
+  const replacement = { status: "pending", requestVersion: 2 };
+  deps.prisma.agentConnection.updateMany = vi.fn(
+    async ({ where }: { where: { requestVersion: number; status: string } }) => ({
+      count:
+        where.requestVersion === replacement.requestVersion && where.status === replacement.status
+          ? 1
+          : 0,
+    }),
+  ) as never;
+  expect(
+    await respondAgentConnection(deps, run, sender, {
+      accept: true,
+      connectionId: "ac-1",
+      connectionVersion: 1,
+    }),
+  ).toMatchObject({ ok: false });
+  expect(deps.prisma.agentConnection.updateMany).toHaveBeenCalledWith({
+    where: { id: "ac-1", status: "pending", requestVersion: 1 },
+    data: { status: "approved" },
+  });
+  expect(replacement.status).toBe("pending");
 });
