@@ -1491,13 +1491,13 @@ export async function appendEvent(
     void captureRunAnalytics(prisma, analytics, input.runId, input.type);
   }
   const productEvent = mapProductEvent(event);
-  await notifyRealtime(realtime, event.threadId, event.seq);
-  if (input.runId && event.firstResponse) {
-    getLogger().info("run.first_response", {
-      "run.id": input.runId,
-      ...(await readRunTimingFields(prisma, input.runId)),
-    });
-  }
+  await notifyCommittedEvent(
+    prisma,
+    realtime,
+    event.threadId,
+    event.seq,
+    event.firstResponse ? input.runId : undefined,
+  );
   return productEvent;
 }
 
