@@ -46,6 +46,8 @@ import {
   PipedreamConnector,
   PostgresRealtimeFanout,
   pipedreamConfigFromEnv,
+  RunJobPublisher,
+  RunWorkerHost,
   reconcileCloudAgents,
   reconcileComputerUpdates,
   resolveDeploymentModel,
@@ -55,6 +57,7 @@ import {
   SpaceMemoryProviderResolver,
   sandboxProviderOptionsFromEnv,
   shutdownPiTelemetry,
+  withRunWorker,
   withSecretPersistence,
 } from "@rakazo/adapters";
 import { resolveEncryptionKey, resolveSupervisorToken, uploadSizeFromEnv } from "@rakazo/core";
@@ -195,7 +198,8 @@ async function main() {
   const home = createAgentHomeStore(dataDir, prisma);
   const artifacts = new LocalArtifactStore(dataDir, contentEncryptionOf(prisma)?.ring);
   const inMemoryJobs = process.env.WAKEUP_DRIVER === "memory" ? new InMemoryJobQueue() : undefined;
-  const jobs: JobPublisher = inMemoryJobs ?? new GraphileJobPublisher(pool, prisma);
+  const jobs: JobPublisher =
+    inMemoryJobs ?? new RunJobPublisher(prisma, realtime, new GraphileJobPublisher(pool, prisma));
   const ticketChanges = createTicketChangeNotifier({
     boardEvents,
     jobs,
@@ -258,9 +262,12 @@ async function main() {
 
   const jobHost: JobWorkerHost =
     inMemoryJobs ??
-    createReservedGraphileJobWorkerHost(pool, {
-      concurrency: parsePositiveInteger(process.env.GRAPHILE_WORKER_CONCURRENCY, 4),
-    });
+    withRunWorker(
+      new RunWorkerHost(prisma, realtime),
+      createReservedGraphileJobWorkerHost(pool, {
+        concurrency: parsePositiveInteger(process.env.GRAPHILE_WORKER_CONCURRENCY, 4),
+      }),
+    );
 
   const jobHandlers = createBackgroundJobHandlers({
     executor,

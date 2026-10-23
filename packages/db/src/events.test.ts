@@ -3926,7 +3926,10 @@ describe("appendEvent", () => {
     };
     const tx = {
       thread: { update: vi.fn().mockResolvedValue({ nextEventSeq: 4 }) },
-      run: { findUnique: vi.fn().mockResolvedValue({ status: "running" }) },
+      run: {
+        findUnique: vi.fn().mockResolvedValue({ status: "running" }),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       event: { create: vi.fn().mockResolvedValue(created) },
     };
     const prisma = {
