@@ -199,6 +199,11 @@ msgstr "{provider} could not find the requested model."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} denied access to this model."
+msgstr "{provider} denied access to this model."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is overloaded right now. Try again in a moment."
 msgstr "{provider} is overloaded right now. Try again in a moment."
 
@@ -4912,6 +4917,11 @@ msgstr "The connection timed out."
 msgid "The model provider returned an error."
 msgstr "The model provider returned an error."
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "The model returned an unusable response. Try again."
+msgstr "The model returned an unusable response. Try again."
+
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "The provider is rate-limiting requests."
@@ -4981,6 +4991,11 @@ msgstr "This file is not valid UTF-8 text."
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "this Mac"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model's context window is too small. Choose another model."
+msgstr "This model's context window is too small. Choose another model."
 
 #: src/pages/Artifacts.tsx
 msgid "This month"

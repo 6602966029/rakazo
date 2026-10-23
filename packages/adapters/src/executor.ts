@@ -34,6 +34,7 @@ import {
   historyCompactJob,
   MEMORY_REVISION_CONFLICT_ERROR,
   ModelAccountError,
+  ModelOutputError,
   routineJobKey,
   routineRetryJob,
   routineWakeupJob,
@@ -8587,9 +8588,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
             error: message,
           });
           if (!failed) return;
-          if (error instanceof TransientModelError || error instanceof ModelAccountError) {
-            // Provider outages that outlasted retries, and keys or limits the user fixes, are
-            // not server faults; the run error already tells the user what to do.
+          if (
+            error instanceof TransientModelError ||
+            error instanceof ModelAccountError ||
+            error instanceof ModelOutputError
+          ) {
+            // Provider outages that outlasted retries, provider accounts, plans and model
+            // choices the user fixes, and unusable model output are not server faults; the
+            // run error already tells the user what to do.
             getLogger().warn("run.failed", {
               "run.outcome": "failed",
               "run.failure": error.name,
