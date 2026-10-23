@@ -1,14 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown, LinkifiedText } from "@rakazo/chat-ui/web";
 import type { MessageReaction, ThreadMessage } from "@rakazo/contracts";
-import {
-  botBubblePalette,
-  isPeerReceiptBlocks,
-  isToolActivityBlock,
-  otherAuthor,
-} from "@rakazo/core";
+import { isPeerReceiptBlocks, isToolActivityBlock, otherAuthor } from "@rakazo/core";
 import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@rakazo/ui-web";
-import type { CSSProperties } from "react";
 import { memo, useMemo } from "react";
 import { ArtifactFileCard } from "../../components/ArtifactFileCard";
 import { AskCard } from "../../components/AskCard";
@@ -120,24 +114,6 @@ export const MessageView = memo(function MessageView({
     () => resolvePersonaColorDef(message.botId ?? "bot", speakerBot?.color),
     [message.botId, speakerBot?.color],
   );
-  // Bot replies sit on their bot's full color; the theme inside the bubble follows it.
-  const botBubbleStyle = useMemo(() => {
-    const palette = botBubblePalette(speakerColorDef.light);
-    return {
-      backgroundColor: palette.background,
-      color: palette.foreground,
-      "--foreground": palette.foreground,
-      "--muted-foreground": palette.mutedForeground,
-      "--faint-foreground": palette.faintForeground,
-      "--link": palette.link,
-      "--muted": palette.muted,
-      "--accent": palette.muted,
-      "--secondary": palette.muted,
-      "--card": palette.muted,
-      "--border": palette.border,
-      "--input": palette.border,
-    } as CSSProperties;
-  }, [speakerColorDef.light]);
   const messageContext = (
     <>
       {speakerName ? (
@@ -208,7 +184,6 @@ export const MessageView = memo(function MessageView({
             <div
               data-testid="message-bot-bubble"
               className="max-w-full space-y-2.5 rounded-[20px] bg-muted px-[18px] py-3 text-[15.5px] leading-[1.5] text-foreground/90"
-              style={botBubbleStyle}
               dir="auto"
             >
               {visibleNarrationBlocks.map((block, i) => {
@@ -350,7 +325,6 @@ export const MessageView = memo(function MessageView({
                 <div
                   data-testid="message-bot-bubble"
                   className="max-w-full rounded-[20px] bg-muted px-[18px] py-3 text-[15.5px] leading-[1.5] text-foreground/90"
-                  style={botBubbleStyle}
                   dir="auto"
                 >
                   <ChatMarkdown streaming>{block.text}</ChatMarkdown>
@@ -536,7 +510,6 @@ export const MessageView = memo(function MessageView({
                 <div
                   data-testid="message-bot-bubble"
                   className="max-w-full rounded-[20px] bg-muted px-[18px] py-3 text-[15.5px] leading-[1.5] text-foreground/90"
-                  style={botBubbleStyle}
                   dir="auto"
                 >
                   <div data-quote-message-id={quoteMessageId}>

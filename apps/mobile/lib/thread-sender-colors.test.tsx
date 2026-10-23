@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { botBubblePalette, resolvePersonaColorDef, shouldShowBotSenderName } from "@rakazo/core";
+import { resolvePersonaColorDef, shouldShowBotSenderName } from "@rakazo/core";
 import { botColors, darkTokens, fontWeight, typeScale } from "@rakazo/ui-tokens";
 import React, { useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -24,7 +24,6 @@ const scope = {
   mobileTokens: () => darkTokens,
   useI18n: () => ({ t: (text: string) => text }),
   resolvePersonaColorDef,
-  botBubblePalette,
   messagePresentationSegments,
   blockText: () => "Hello",
   MessageCaption: () => <span>Hello</span>,

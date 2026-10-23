@@ -20,7 +20,6 @@ import {
   answerableAskMessageIds,
   appendNewerThreadPage,
   attachmentsForThread,
-  botBubblePalette,
   buildComposerMentionOptions,
   cloudAgentHttpsUrl,
   createChatQueues,
@@ -58,7 +57,6 @@ import {
   voiceChatHoldsMessage,
   withLiveStreamingProgress,
 } from "@rakazo/core";
-import type { ColorTokens } from "@rakazo/ui-tokens";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import * as Clipboard from "expo-clipboard";
 import {
@@ -3171,24 +3169,6 @@ function speakerColorFor(
   return resolvePersonaColorDef(botId, raw).light;
 }
 
-/** Theme tokens inside a bot's bubble: its full color, with text that contrasts with it. */
-function botBubbleTokens(tokens: ColorTokens, color: string): ColorTokens {
-  const palette = botBubblePalette(color);
-  return {
-    ...tokens,
-    muted: palette.background,
-    foreground: palette.foreground,
-    mutedForeground: palette.mutedForeground,
-    faintForeground: palette.faintForeground,
-    link: palette.link,
-    secondary: palette.muted,
-    accent: palette.muted,
-    card: palette.muted,
-    border: palette.border,
-    input: palette.border,
-  };
-}
-
 type MessageActionProps = Pick<
   TextProps,
   "onLongPress" | "accessibilityActions" | "onAccessibilityAction"
@@ -4150,13 +4130,12 @@ const MessageBubble = memo(function MessageBubble({
       message.role === "bot" ? (memberName(members, message.botId) ?? botName) : authorName;
     const speakerColor =
       message.role === "bot" ? speakerColorFor(bots, members, message.botId) : undefined;
-    const bubble = speakerColor && !outgoing ? botBubbleTokens(tokens, speakerColor) : tokens;
     return (
       <View
         style={{
           maxWidth: "100%",
           borderRadius: 20,
-          backgroundColor: outgoing ? tokens.chatUser : bubble.muted,
+          backgroundColor: outgoing ? tokens.chatUser : tokens.muted,
           paddingHorizontal: 14,
           paddingVertical: 12,
           gap: 8,
@@ -4165,7 +4144,7 @@ const MessageBubble = memo(function MessageBubble({
         {(showBotSenderName || authorName) && speaker ? (
           <Text
             style={{
-              color: speakerColor ? bubble.foreground : tokens.mutedForeground,
+              color: speakerColor ?? tokens.mutedForeground,
               ...typeScale.footnote,
             }}
           >
@@ -4177,7 +4156,7 @@ const MessageBubble = memo(function MessageBubble({
             role={message.role}
             received={!outgoing}
             text={caption}
-            tokens={bubble}
+            tokens={tokens}
             colorScheme={colorScheme}
             streaming={message.id.startsWith("progress:")}
           />
@@ -4191,7 +4170,7 @@ const MessageBubble = memo(function MessageBubble({
                 artifactId={attachment.artifactId}
                 name={attachment.name ?? t("Image")}
                 mimeType={attachment.mimeType ?? "image/png"}
-                labelColor={outgoing ? tokens.chatUserForeground : bubble.foreground}
+                labelColor={outgoing ? tokens.chatUserForeground : tokens.foreground}
                 pressableProps={actionProps}
                 onOpen={() =>
                   onPreviewImage({
@@ -4220,7 +4199,7 @@ const MessageBubble = memo(function MessageBubble({
               >
                 <Text
                   style={{
-                    color: outgoing ? tokens.chatUserForeground : bubble.foreground,
+                    color: outgoing ? tokens.chatUserForeground : tokens.foreground,
                     fontSize: 15,
                   }}
                 >
@@ -4263,7 +4242,7 @@ const MessageBubble = memo(function MessageBubble({
             >
               <Text
                 style={{
-                  color: outgoing ? tokens.chatUserForeground : bubble.foreground,
+                  color: outgoing ? tokens.chatUserForeground : tokens.foreground,
                   fontSize: 15,
                 }}
               >
@@ -4272,7 +4251,7 @@ const MessageBubble = memo(function MessageBubble({
               {formatFileSize(attachment.size) ? (
                 <Text
                   style={{
-                    color: outgoing ? tokens.chatUserForeground : bubble.mutedForeground,
+                    color: outgoing ? tokens.chatUserForeground : tokens.mutedForeground,
                     marginTop: 4,
                     fontSize: 13,
                   }}
@@ -4327,7 +4306,6 @@ const MessageBubble = memo(function MessageBubble({
           key={`${message.id}-content-${index}`}
           message={{ ...message, blocks: segment.blocks }}
           outgoing={outgoing}
-          tint={speakerColor}
           speaker={showSpeaker && index === firstContent ? speaker : undefined}
           speakerColor={showSpeaker && index === firstContent ? speakerColor : undefined}
           actionProps={actionProps}
@@ -4372,22 +4350,18 @@ const MessageBubble = memo(function MessageBubble({
 function MessageTextCard({
   message,
   outgoing,
-  tint,
   speaker,
   speakerColor,
   actionProps,
 }: {
   message: MobileMessage;
   outgoing: boolean;
-  /** The bot's color, which fills its bubble. */
-  tint?: string;
   speaker?: string;
   speakerColor?: string;
   actionProps: MessageActionProps;
 }) {
   const colorScheme = useResolvedAppearance();
-  const baseTokens = mobileTokens();
-  const tokens = tint && !outgoing ? botBubbleTokens(baseTokens, tint) : baseTokens;
+  const tokens = mobileTokens();
   const contentText = blockText(message);
   if (!contentText) return null;
   return (
@@ -4406,7 +4380,7 @@ function MessageTextCard({
       {speaker ? (
         <Text
           style={{
-            color: tint ? tokens.foreground : (speakerColor ?? tokens.mutedForeground),
+            color: speakerColor ?? tokens.mutedForeground,
             ...typeScale.footnote,
             marginBottom: 4,
           }}
