@@ -187,6 +187,27 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Require Expo automation token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [[ -z "$EXPO_TOKEN" ]]; then
+            echo "Add an EXPO_TOKEN repository secret with access to the inbox-zero/rakazo Expo project." >&2
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Set up Expo
+        uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9
+        with:
+          eas-version: latest
+          packager: pnpm
+          token: ${{ secrets.EXPO_TOKEN }}
+
       - name: Check whether the change is safe for OTA
         id: ota
         shell: bash
@@ -194,30 +215,49 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          base="$BEFORE_SHA"
+          # Compare against the commit installed builds already run, not just this push, so a
+          # change from a cancelled or skipped run is still published (or still blocks).
+          runtime="$(jq -r .expo.version apps/mobile/app.json)"
+          published="$(
+            cd apps/mobile &&
+              eas update:list --branch production --json --non-interactive --limit 50 2>/dev/null |
+              jq -r --arg runtime "$runtime" \
+                '[.currentPage[] | select(.runtimeVersion == $runtime and (.isRollBackToEmbedded | not))][0].message // ""' |
+              grep -oE '[0-9a-f]{40}' | head -n 1
+          )" || published=""
+          if [[ -n "$published" ]] && git merge-base --is-ancestor "$published" "$GITHUB_SHA" 2>/dev/null; then
+            base="$published"
+          else
+            base="$BEFORE_SHA"
+          fi
           if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}"; then
             {
               echo "### Mobile OTA skipped"
               echo
-              echo "Could not resolve \`github.event.before\` for the full push range, so this job will not publish a partial-range update."
+              echo "Found neither the last published update for runtime \`$runtime\` nor \`github.event.before\`, so this job will not publish a partial-range update."
             } >> "$GITHUB_STEP_SUMMARY"
             echo "publish=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          # Only the mobile app's own lockfile entries can change what the native build needs.
+          mobile_lock() {
+            git show "$1:pnpm-lock.yaml" | awk '/^  apps\/mobile:$/ { on = 1; print; next } on && /^  [^ ]/ { exit } on { print }'
+          }
+
           mapfile -t files < <(
             git diff --name-only "$base" "$GITHUB_SHA" -- \
-              .github/workflows/ci.yml \
               apps/mobile \
-              package.json \
               packages/chat-ui \
               packages/contracts \
-              packages/core \
-              pnpm-lock.yaml
+              packages/core
           )
+          if [[ "$(mobile_lock "$base")" != "$(mobile_lock "$GITHUB_SHA")" ]]; then
+            files+=("pnpm-lock.yaml (apps/mobile)")
+          fi
 
           publish=false
-          blocked=false
+          blocked=()
           for file in "${files[@]}"; do
             case "$file" in
               *.test.ts|*.test.tsx|*.d.ts)
@@ -247,56 +287,36 @@ jobs:
             if [[ "$eligible" == true ]]; then
               publish=true
             else
-              blocked=true
+              blocked+=("$file")
             fi
           done
 
-          if [[ "$blocked" == true ]]; then
+          if (( ${#blocked[@]} > 0 )); then
             publish=false
             {
               echo "### Mobile OTA skipped"
               echo
-              echo "This revision changes native-sensitive mobile configuration, dependencies, modules, assets, or workflow files. Create new iOS and Android builds instead of publishing it to an older native runtime."
+              echo "Since \`${base:0:9}\`, the last update installed builds run, these native-sensitive files changed:"
+              echo
+              printf -- '- `%s`\n' "${blocked[@]}"
+              echo
+              echo "Ship new iOS and Android builds, or publish by hand once the JavaScript is confirmed safe on the current builds."
             } >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$publish" == true ]]; then
             {
               echo "### Mobile OTA eligible"
               echo
-              echo "The revision only changes JavaScript, TypeScript, or bundled CSS used by the mobile client."
+              echo "Since \`${base:0:9}\`, only JavaScript, TypeScript, or bundled CSS used by the mobile client changed."
             } >> "$GITHUB_STEP_SUMMARY"
           else
             {
               echo "### No mobile OTA needed"
               echo
-              echo "This revision does not change the shipped mobile bundle."
+              echo "Nothing in the shipped mobile bundle changed since \`${base:0:9}\`."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
 
-      - name: Require Expo automation token
-        if: steps.ota.outputs.publish == 'true'
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [[ -z "$EXPO_TOKEN" ]]; then
-            echo "Add an EXPO_TOKEN repository secret with access to the inbox-zero/rakazo Expo project." >&2
-            exit 1
-          fi
-
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-        if: steps.ota.outputs.publish == 'true'
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        if: steps.ota.outputs.publish == 'true'
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Set up Expo
-        if: steps.ota.outputs.publish == 'true'
-        uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9
-        with:
-          eas-version: latest
-          packager: pnpm
-          token: ${{ secrets.EXPO_TOKEN }}
       - name: Install dependencies
         if: steps.ota.outputs.publish == 'true'
         run: pnpm install --frozen-lockfile
