@@ -17,7 +17,7 @@ import {
   Input,
   parseBotAvatar,
 } from "@rakazo/ui-web";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { errorText } from "../../lib/user-error";
 import { BotLookPicker } from "./avatar-studio-popover";
 
@@ -44,6 +44,7 @@ export function CreateBotDialog({
   onCreate: (input: CreateBotDialogInput) => Promise<void>;
 }) {
   const { t } = useLingui();
+  const nameRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [look, setLook] = useState(() => ({
     value: pick(BOT_AVATAR_COLORS),
@@ -80,6 +81,7 @@ export function CreateBotDialog({
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
+        initialFocus={nameRef}
         className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md"
         data-testid="create-bot-dialog"
       >
@@ -99,7 +101,7 @@ export function CreateBotDialog({
             <BotAvatar color={look.value} identity={look.identity} size={96} />
           </div>
           <Input
-            autoFocus
+            ref={nameRef}
             aria-label={t`Name`}
             placeholder={t`Name your Bot`}
             value={name}
