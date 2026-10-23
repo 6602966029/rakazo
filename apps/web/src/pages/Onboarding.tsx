@@ -50,6 +50,7 @@ import {
 import { ModelHeadersEditor } from "../components/ModelHeadersEditor";
 import { SignupSurvey } from "../components/SignupSurvey";
 import { useCopyText } from "../lib/copy-text";
+import { providerDisplayName } from "../lib/localized-provider-hint";
 import type { ModelCatalogEntry } from "../lib/model-auth";
 import type { ModelPreflightFailure } from "../lib/model-connection-preflight";
 import {
@@ -134,10 +135,6 @@ async function ensureFirstBot(): Promise<{ id: string }> {
     firstBotEnsure = null;
   });
   return firstBotEnsure;
-}
-
-function providerLabel(entry: ModelCatalogEntry): string {
-  return entry.provider === "openai-codex" ? "ChatGPT" : (entry.providerName ?? entry.provider);
 }
 
 export function OnboardingPage() {
@@ -249,11 +246,11 @@ export function OnboardingPage() {
   // Subscriptions and the common API providers first; every other provider follows.
   const providerOptions = useMemo(() => {
     const byId = new Map(providers.map((entry) => [entry.provider, entry]));
+    // Beside the subscriptions, the key-based options say API.
     const optionLabel = (id: string, auth?: ProviderAuth) => {
-      if (id === "openai-codex") return t`ChatGPT subscription`;
-      if (id === "anthropic") return auth === "sign-in" ? t`Claude subscription` : t`Anthropic API`;
+      if (id === "anthropic" && auth === "key") return t`Anthropic API`;
       if (id === "openai") return t`OpenAI API`;
-      return providerLabel(byId.get(id)!);
+      return providerDisplayName(id, byId.get(id)?.providerName ?? id, auth);
     };
     const main = MAIN_PROVIDER_OPTIONS.filter((option) => byId.has(option.provider)).map(
       (option) => ({
@@ -266,7 +263,7 @@ export function OnboardingPage() {
         (entry) => !MAIN_PROVIDER_OPTIONS.some((option) => option.provider === entry.provider),
       )
       .flatMap((entry) => {
-        const item = { value: entry.provider, label: providerLabel(entry) };
+        const item = { value: entry.provider, label: entry.providerName ?? entry.provider };
         return entry.provider === OPENAI_COMPATIBLE_PROVIDER_ID
           ? [item, { value: "ollama-preset", label: t`Ollama Cloud` }]
           : [item];
