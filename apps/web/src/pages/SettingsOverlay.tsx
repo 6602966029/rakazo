@@ -113,13 +113,20 @@ export function SettingsOverlay({
   const navRef = useRef<HTMLElement>(null);
   const [navOverflow, setNavOverflow] = useState({ previous: false, next: false });
   const usageRef = useRef<HTMLDivElement>(null);
-  const [section, setSection] = useState<SettingsSection>(initialSection);
+  const [requestedSection, setSection] = useState<SettingsSection>(initialSection);
   const [memoryBusy, setMemoryBusy] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [keepComputerRecovery, setKeepComputerRecovery] = useState(false);
   const recoveryHoldTimer = useRef<number | undefined>(undefined);
   const showComputer = keepComputerRecovery || computersAreUnavailable(sandboxProvider);
   const showUpdates = Boolean(desktopBridge()?.update);
+  // A section that isn't available yet (billing before its flag loads) shows General until it is.
+  const section =
+    (requestedSection === "computer" && !showComputer) ||
+    (requestedSection === "billing" && !billingEnabled) ||
+    (requestedSection === "updates" && !showUpdates)
+      ? "general"
+      : requestedSection;
   const panelBusy = memoryBusy || voiceBusy;
   const spaceScoped = SPACE_SECTIONS.has(section);
   const spaceId = spaceScoped ? (space?.id ?? null) : null;
@@ -174,18 +181,6 @@ export function SettingsOverlay({
   useEffect(() => {
     setSection(initialSection);
   }, [initialSection]);
-
-  useEffect(() => {
-    if (!showComputer && section === "computer") setSection("general");
-  }, [showComputer, section]);
-
-  useEffect(() => {
-    if (!billingEnabled && section === "billing") setSection("general");
-  }, [billingEnabled, section]);
-
-  useEffect(() => {
-    if (!showUpdates && section === "updates") setSection("general");
-  }, [showUpdates, section]);
 
   useEffect(() => {
     if (section !== "computer") releaseComputerRecovery();

@@ -157,7 +157,9 @@ export function OnboardingPage() {
   const linkedStep = linkableStep(routeStep);
   const [step, setStep] = useState<"loading" | LinkableStep | "bot">(linkedStep ?? "loading");
   const [billingEnabled, setBillingEnabled] = useState(false);
-  const afterSurveyRef = useRef<"model" | "bot">("bot");
+  // Unknown until me loads; a survey finished before then waits on "loading" for it.
+  const afterSurveyRef = useRef<"model" | "bot" | null>(null);
+  const surveyDoneRef = useRef(false);
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
   const [provider, setProvider] = useState("");
   const [providerAuth, setProviderAuth] = useState<ProviderAuth | undefined>();
@@ -219,10 +221,17 @@ export function OnboardingPage() {
         const next = me.needsModel ? "model" : "bot";
         afterSurveyRef.current = next;
         setStep((current) =>
-          current === "loading" ? (me.needsSignupSurvey ? "survey" : next) : current,
+          current === "loading"
+            ? me.needsSignupSurvey && !surveyDoneRef.current
+              ? "survey"
+              : next
+            : current,
         );
       })
-      .catch(() => setStep((current) => (current === "loading" ? "bot" : current)));
+      .catch(() => {
+        afterSurveyRef.current = "bot";
+        setStep((current) => (current === "loading" ? "bot" : current));
+      });
     return () => {
       modelProbe.invalidate();
     };
@@ -587,7 +596,14 @@ export function OnboardingPage() {
             <Spinner aria-label={t`Loading…`} />
           </p>
         ) : null}
-        {step === "survey" ? <SignupSurvey onDone={() => setStep(afterSurveyRef.current)} /> : null}
+        {step === "survey" ? (
+          <SignupSurvey
+            onDone={() => {
+              surveyDoneRef.current = true;
+              setStep(afterSurveyRef.current ?? "loading");
+            }}
+          />
+        ) : null}
         {step === "model" ? (
           <div>
             <h1 className="text-[32px] font-medium text-foreground">

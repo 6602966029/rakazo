@@ -167,6 +167,22 @@ it("reports a section picked in the nav so the shell can keep it in the URL", as
   }
 });
 
+it("opens a linked billing section once billing turns out to be on", async () => {
+  const { container, rerender, cleanup } = await render({
+    initialSection: "billing",
+    billingEnabled: false,
+  });
+  const shown = () =>
+    container.querySelector("[data-settings-section]")?.getAttribute("data-settings-section");
+  try {
+    expect(shown()).toBe("general");
+    await rerender({ initialSection: "billing", billingEnabled: true });
+    expect(shown()).toBe("billing");
+  } finally {
+    await cleanup();
+  }
+});
+
 it("shows the space name without a switcher when there is only one space", async () => {
   const { container, cleanup } = await render({
     space: acme,
