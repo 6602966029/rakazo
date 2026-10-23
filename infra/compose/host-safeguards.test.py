@@ -230,7 +230,16 @@ class AuditShipTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             audit_ship.heartbeat_seconds("10")
         event = audit_ship.heartbeat_event("h", 0)
-        self.assertEqual(event, {"_time": "1970-01-01T00:00:00Z", "host": "h", "source": "shipper", "event": "shipper.heartbeat"})
+        self.assertEqual(
+            event,
+            {
+                "_time": "1970-01-01T00:00:00Z",
+                "host": "h",
+                "source": "shipper",
+                "event": "shipper.heartbeat",
+                "message": "Audit shipper heartbeat",
+            },
+        )
 
     def test_redirects_are_not_followed(self):
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), FakeSink)

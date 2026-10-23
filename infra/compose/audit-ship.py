@@ -302,7 +302,7 @@ def heartbeat_seconds(value):
 
 def heartbeat_event(host, now):
     stamp = datetime.datetime.fromtimestamp(now, datetime.timezone.utc).isoformat().replace("+00:00", "Z")
-    return {"_time": stamp, "host": host, "source": "shipper", "event": "shipper.heartbeat"}
+    return _event("shipper.heartbeat", "shipper", host, "Audit shipper heartbeat", _time=stamp)
 
 
 def main():
@@ -326,11 +326,13 @@ def main():
     last_heartbeat = None
     while True:
         try:
-            now = time.time()
-            if last_heartbeat is None or now - last_heartbeat >= interval:
-                send([heartbeat_event(host, now)])
-                last_heartbeat = now
             pending = ship_once(sources, state_path, state, send)
+            # Only a pass that shipped cleanly proves the trail is flowing, so a shipper that keeps
+            # failing goes quiet and trips the alert. Monotonic time ignores clock adjustments.
+            now = time.monotonic()
+            if last_heartbeat is None or now - last_heartbeat >= interval:
+                send([heartbeat_event(host, time.time())])
+                last_heartbeat = now
         except Exception as error:
             # Never log exception text, which can echo the sink URL or response.
             backoff = min(MAX_BACKOFF, backoff * 2 or 5)
