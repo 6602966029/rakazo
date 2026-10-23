@@ -1525,7 +1525,7 @@ export async function markThreadUnreadFrom(
   });
   if (!message) throw new ORPCError("NOT_FOUND");
   const result = await prisma.thread.updateMany({
-    where: { id: target.threadId, spaceId: actor.spaceId, userId: actor.userId },
+    where: { id: target.threadId, spaceId: actor.spaceId },
     data: { unread: true, lastReadSeq: message.seq - 1 },
   });
   if (result.count > 1) throw new IsolationError();
