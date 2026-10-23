@@ -3,6 +3,7 @@ import type { Alert } from "react-native";
 type Dependencies<T> = {
   currentName: string;
   pending: { current: boolean };
+  saveVersion: { current: number };
   Platform: { OS: string };
   Alert: Pick<typeof Alert, "prompt">;
   t: (message: string) => string;
@@ -51,11 +52,14 @@ export function createAccountNameEditor<T>(deps: Dependencies<T>) {
     let failure: string | undefined;
     try {
       await deps.updateAccountName(name);
+      const version = ++deps.saveVersion.current;
       deps.onSaved(name);
       deps.setNameDialogOpen(false);
       void deps
         .refresh()
-        .then(deps.onRefreshed)
+        .then((account) => {
+          if (version === deps.saveVersion.current) deps.onRefreshed(account);
+        })
         .catch(() => undefined);
     } catch (error) {
       failure = deps.errorText(error, t("Could not update name"));

@@ -103,9 +103,11 @@ export default function Account() {
   const currentName = account.label === me?.email ? "" : displayName(me?.name, "");
 
   const nameSaving = useRef(false);
+  const nameSaveVersion = useRef(0);
   const { saveName, editName, closeNameDialog } = createAccountNameEditor({
     currentName,
     pending: nameSaving,
+    saveVersion: nameSaveVersion,
     Platform,
     Alert,
     t,

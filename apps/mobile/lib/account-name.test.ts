@@ -5,6 +5,7 @@ function nameEditor(os: "ios" | "android" = "android", currentName = "Old Name")
   const dependencies = {
     currentName,
     pending: { current: false },
+    saveVersion: { current: 0 },
     Platform: { OS: os },
     Alert: { alert: vi.fn(), prompt: vi.fn() },
     setNameDraft: vi.fn(),
@@ -48,6 +49,25 @@ it("updates the account data when refresh succeeds", async () => {
   await editor.saveName("Sam Rivera");
   expect(editor.onRefreshed).toHaveBeenCalledWith(me);
   expect(editor.setNameDialogOpen).toHaveBeenCalledWith(false);
+});
+
+it("ignores a refresh from an earlier save across editor renders", async () => {
+  const editor = nameEditor();
+  let finishFirstRefresh!: (account: unknown) => void;
+  editor.refresh.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishFirstRefresh = resolve;
+    }),
+  );
+  await editor.saveName("First Name");
+  const nextEditor = createAccountNameEditor({ ...editor, currentName: "First Name" });
+  const latestAccount = { name: "Latest Name" };
+  editor.refresh.mockResolvedValueOnce(latestAccount);
+  await nextEditor.saveName("Latest Name");
+  finishFirstRefresh({ name: "First Name" });
+  await Promise.resolve();
+  expect(editor.onSaved.mock.calls).toEqual([["First Name"], ["Latest Name"]]);
+  expect(editor.onRefreshed).toHaveBeenCalledExactlyOnceWith(latestAccount);
 });
 
 it("closes without saving when the name is unchanged or blank", async () => {
