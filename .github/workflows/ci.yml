@@ -187,27 +187,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Require Expo automation token
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [[ -z "$EXPO_TOKEN" ]]; then
-            echo "Add an EXPO_TOKEN repository secret with access to the inbox-zero/rakazo Expo project." >&2
-            exit 1
-          fi
-
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Set up Expo
-        uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9
-        with:
-          eas-version: latest
-          packager: pnpm
-          token: ${{ secrets.EXPO_TOKEN }}
-
       - name: Check whether the change is safe for OTA
         id: ota
         shell: bash
@@ -219,12 +198,17 @@ jobs:
           # Compare against the commit installed builds already run, not just this push, so a
           # change from a cancelled or skipped run is still published (or still blocks).
           runtime="$(jq -r .expo.version apps/mobile/app.json)"
+          project="$(jq -r .expo.extra.eas.projectId apps/mobile/app.json)"
           published="$(
-            cd apps/mobile &&
-              eas update:list --branch production --json --non-interactive --limit 50 2>/dev/null |
+            curl -fsS https://api.expo.dev/graphql \
+              -H "authorization: Bearer $EXPO_TOKEN" \
+              -H "content-type: application/json" \
+              --data "$(jq -n --arg id "$project" '{
+                query: "query($id: String!) { app { byId(appId: $id) { updateBranchByName(name: \"production\") { updates(offset: 0, limit: 50) { gitCommitHash runtimeVersion isRollBackToEmbedded } } } } }",
+                variables: { id: $id }
+              }')" |
               jq -r --arg runtime "$runtime" \
-                '[.currentPage[] | select(.runtimeVersion == $runtime and (.isRollBackToEmbedded | not))][0].message // ""' |
-              grep -oE '[0-9a-f]{40}' | head -n 1
+                '[.data.app.byId.updateBranchByName.updates[]? | select(.runtimeVersion == $runtime and (.isRollBackToEmbedded | not) and .gitCommitHash != null)][0].gitCommitHash // ""'
           )" || published=""
           if [[ -n "$published" ]] && git merge-base --is-ancestor "$published" "$GITHUB_SHA" 2>/dev/null; then
             base="$published"
@@ -242,9 +226,9 @@ jobs:
             exit 0
           fi
 
-          # Only the mobile app's own lockfile entries can change what the native build needs.
-          mobile_lock() {
-            git show "$1:pnpm-lock.yaml" | awk '/^  apps\/mobile:$/ { on = 1; print; next } on && /^  [^ ]/ { exit } on { print }'
+          # Every package the mobile app resolves, transitive ones included, from the lockfile.
+          mobile_dependencies() {
+            git show "$1:pnpm-lock.yaml" | node .github/scripts/mobile-dependency-tree.mjs
           }
 
           mapfile -t files < <(
@@ -254,15 +238,16 @@ jobs:
               packages/contracts \
               packages/core
           )
-          if [[ "$(mobile_lock "$base")" != "$(mobile_lock "$GITHUB_SHA")" ]]; then
-            files+=("pnpm-lock.yaml (apps/mobile)")
+          if [[ "$(mobile_dependencies "$base")" != "$(mobile_dependencies "$GITHUB_SHA")" ]]; then
+            files+=("pnpm-lock.yaml (mobile dependency tree)")
           fi
 
           publish=false
           blocked=()
           for file in "${files[@]}"; do
+            # Tests, types, docs and device test flows never ship in the app.
             case "$file" in
-              *.test.ts|*.test.tsx|*.d.ts)
+              *.test.ts|*.test.tsx|*.test.js|*.d.ts|*.md|apps/mobile/.maestro/*|apps/mobile/e2e/*)
                 continue
                 ;;
             esac
@@ -319,6 +304,30 @@ jobs:
           fi
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
 
+      - name: Require Expo automation token
+        if: steps.ota.outputs.publish == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [[ -z "$EXPO_TOKEN" ]]; then
+            echo "Add an EXPO_TOKEN repository secret with access to the inbox-zero/rakazo Expo project." >&2
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        if: steps.ota.outputs.publish == 'true'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        if: steps.ota.outputs.publish == 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Set up Expo
+        if: steps.ota.outputs.publish == 'true'
+        uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9
+        with:
+          eas-version: latest
+          packager: pnpm
+          token: ${{ secrets.EXPO_TOKEN }}
       - name: Install dependencies
         if: steps.ota.outputs.publish == 'true'
         run: pnpm install --frozen-lockfile
