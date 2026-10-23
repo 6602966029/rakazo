@@ -81,6 +81,10 @@ export const NL_MESSAGES: Record<string, string> = {
     "{provider} kon het gevraagde model niet vinden.",
   "{provider} took too long to respond. Try again.":
     "{provider} deed er te lang over om te antwoorden. Probeer het opnieuw.",
+  "{provider} is overloaded right now. Try again in a moment.":
+    "{provider} is op dit moment overbelast. Probeer het zo nog eens.",
+  "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.":
+    "Dit gesprek is te lang voor het model. Opnieuw proberen helpt niet. Begin een nieuwe chat of maak je bericht korter.",
   "{provider} key hit its limit.": "De sleutel van {provider} heeft de limiet bereikt.",
   "{provider} key hit its daily limit.": "De sleutel van {provider} heeft de daglimiet bereikt.",
   "{provider} key hit its weekly limit.": "De sleutel van {provider} heeft de weeklimiet bereikt.",
@@ -966,4 +970,11 @@ export const NL_MESSAGES: Record<string, string> = {
   "Could not create invite link": "Kan uitnodigingslink niet maken",
   "Could not remove member": "Kan lid niet verwijderen",
   "Could not leave space": "Kan space niet verlaten",
+  Work: "Werk",
+  Both: "Allebei",
+  "How will you use Rakazo?": "Hoe ga je Rakazo gebruiken?",
+  "What do you most want Rakazo to help with?": "Waarmee wil je vooral hulp van Rakazo?",
+  "How big is your team?": "Hoe groot is je team?",
+  "How did you hear about us?": "Hoe heb je over ons gehoord?",
+  "Welcome to Rakazo": "Welkom bij Rakazo",
 };

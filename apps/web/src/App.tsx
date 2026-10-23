@@ -32,6 +32,7 @@ import {
 } from "./lib/session-gate";
 import { signInNext } from "./lib/sign-in-next";
 import { completeSsoCallback, SSO_CALLBACK_PATH } from "./lib/sso-flow";
+import { IntegrationCallbackPage } from "./pages/IntegrationCallback";
 import { IntegrationSetupPage } from "./pages/IntegrationSetup";
 import { McpOAuthCallbackPage } from "./pages/McpOAuthCallback";
 import { ShellPage } from "./pages/Shell";
@@ -76,7 +77,13 @@ export function App() {
     <RemoteImagesContext.Provider value={loadRemoteImages}>
       <LinkFaviconsContext.Provider value={linkFavicons}>
         <ErrorBoundary fallback={<AppFailed />}>
-          {window.location.pathname === SSO_CALLBACK_PATH ? <SsoCallbackPage /> : <SessionApp />}
+          {window.location.pathname === SSO_CALLBACK_PATH ? (
+            <SsoCallbackPage />
+          ) : window.location.pathname === "/integrations/callback" ? (
+            <IntegrationCallbackPage />
+          ) : (
+            <SessionApp />
+          )}
         </ErrorBoundary>
       </LinkFaviconsContext.Provider>
     </RemoteImagesContext.Provider>
