@@ -20,7 +20,9 @@ import {
   listRowInsets,
   listSectionMargins,
   listStyle,
+  tint,
 } from "@expo/ui/swift-ui/modifiers";
+import { PlatformColor } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MobileBot, MobileGroup } from "../lib/api";
 import { useFloatingHeaderInset } from "../lib/floating-header";
@@ -47,12 +49,18 @@ export function ArchivedBotList({
   const headerInset = useFloatingHeaderInset();
   const scheme = useResolvedAppearance();
   const tokens = useMobileTokens();
-  function actions(bot: MobileBot) {
+  // A swipe button is filled with its tint and keeps a white label. The host's tint is the
+  // ink colour, white in dark mode, and it overrides even a destructive role's red, so each
+  // swipe button needs its own fill to stay readable.
+  const swipeTint = [tint(PlatformColor("systemBlue"))];
+  const swipeDeleteTint = [tint(PlatformColor("systemRed"))];
+  function actions(bot: MobileBot, swipe = false) {
     return (
       <>
         <Button
           label={t("Restore")}
           systemImage="arrow.uturn.backward"
+          modifiers={swipe ? swipeTint : undefined}
           onPress={() => onRestore(bot)}
         />
         {/* biome-ignore lint/a11y/useValidAriaRole: SwiftUI Button role, not an ARIA role. */}
@@ -60,16 +68,18 @@ export function ArchivedBotList({
           label={t("Delete")}
           systemImage="trash"
           role="destructive"
+          modifiers={swipe ? swipeDeleteTint : undefined}
           onPress={() => onDelete(bot)}
         />
       </>
     );
   }
-  function groupActions(group: MobileGroup) {
+  function groupActions(group: MobileGroup, swipe = false) {
     return (
       <Button
         label={t("Restore")}
         systemImage="arrow.uturn.backward"
+        modifiers={swipe ? swipeTint : undefined}
         onPress={() => onRestoreGroup(group)}
       />
     );
@@ -123,7 +133,9 @@ export function ArchivedBotList({
                   </ContextMenu.Trigger>
                   <ContextMenu.Items>{actions(bot)}</ContextMenu.Items>
                 </ContextMenu>
-                <SwipeActions.Actions allowsFullSwipe={false}>{actions(bot)}</SwipeActions.Actions>
+                <SwipeActions.Actions allowsFullSwipe={false}>
+                  {actions(bot, true)}
+                </SwipeActions.Actions>
               </SwipeActions>
             ))}
             {groups.map((group) => (
@@ -148,7 +160,7 @@ export function ArchivedBotList({
                   <ContextMenu.Items>{groupActions(group)}</ContextMenu.Items>
                 </ContextMenu>
                 <SwipeActions.Actions allowsFullSwipe={false}>
-                  {groupActions(group)}
+                  {groupActions(group, true)}
                 </SwipeActions.Actions>
               </SwipeActions>
             ))}
