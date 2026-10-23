@@ -298,6 +298,15 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
     const movedSection = await system.botSection.create({
       data: { spaceId: home, userId: invitee.id, name: "Trips" },
     });
+    const computer = await system.computer.create({
+      data: {
+        spaceId: home,
+        userId: invitee.id,
+        scopeKey: `team:${home}:${invitee.id}`,
+        homeKey: `team-${invitee.id}`,
+        kind: "docker",
+      },
+    });
     const bot = await system.bot.create({
       data: {
         spaceId: home,
@@ -305,6 +314,7 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
         name: "Planner",
         color: "test",
         sectionId: mergedSection.id,
+        computerId: computer.id,
       },
     });
     const group = await system.chatGroup.create({
@@ -396,6 +406,10 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
     ).resolves.toMatchObject({ userId: owner.id, position: 1 });
 
     const leftover = { spaceId: home, userId: invitee.id };
+    // The computer goes with the bot, so it no longer counts toward the member's limit.
+    await expect(
+      system.computer.findUniqueOrThrow({ where: { id: computer.id } }),
+    ).resolves.toMatchObject({ userId: owner.id, homeKey: computer.homeKey });
     await expect(system.connection.count({ where: leftover })).resolves.toBe(0);
     await expect(system.secret.count({ where: leftover })).resolves.toBe(0);
     await expect(system.botSecret.count({ where: leftover })).resolves.toBe(0);

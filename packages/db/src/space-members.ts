@@ -391,6 +391,8 @@ async function departSpace(prisma: PrismaClient, input: SpaceRef): Promise<Space
           const reassign = { where: { spaceId, userId }, data: { userId: ownerId } };
           await tx.bot.updateMany(reassign);
           await tx.chatGroup.updateMany(reassign);
+          // Their computers go with the bots, so the computer limit counts them for the owner.
+          await tx.computer.updateMany(reassign);
           // Paused: the owner's accounts must not start running someone else's prompt unasked.
           await tx.routine.updateMany({
             where: { spaceId, userId },
