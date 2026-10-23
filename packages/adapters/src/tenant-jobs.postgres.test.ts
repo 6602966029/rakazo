@@ -149,7 +149,7 @@ describePostgres("tenant-scoped background jobs (PostgreSQL)", () => {
   it("runs tenant jobs through the Graphile queue", async () => {
     const { handlers, seen, continueRun } = careless(app.prisma);
     const publisher = new GraphileJobPublisher(app.pool, app.prisma);
-    const host = createReservedGraphileJobWorkerHost(app.pool, app.prisma, {
+    const host = createReservedGraphileJobWorkerHost(app.pool, {
       concurrency: 2,
       pollInterval: 25,
     });

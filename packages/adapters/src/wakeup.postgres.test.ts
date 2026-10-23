@@ -64,7 +64,7 @@ describePostgres("Graphile background jobs (PostgreSQL contract)", () => {
     } as unknown as Pick<PrismaClient, "run">;
     const publisher = new GraphileJobPublisher(testPool(), prisma);
     const legacy = new GraphileJobPublisher(testPool());
-    const host = createReservedGraphileJobWorkerHost(testPool(), prisma, {
+    const host = createReservedGraphileJobWorkerHost(testPool(), {
       concurrency: 1,
       pollInterval: 25,
     });
@@ -166,6 +166,73 @@ describePostgres("Graphile background jobs (PostgreSQL contract)", () => {
       }
     },
   );
+
+  it("keeps a failed legacy chat delivery keyed when reconciliation promotes it", async () => {
+    const prisma = {
+      run: { findUnique: async () => ({ trigger: "user" }) },
+    } as unknown as Pick<PrismaClient, "run">;
+    const legacy = new GraphileJobPublisher(testPool());
+    const publisher = new GraphileJobPublisher(testPool(), prisma);
+    const host = createReservedGraphileJobWorkerHost(testPool(), {
+      concurrency: 1,
+      pollInterval: 25,
+    });
+    const key = "contract:reserved:failed-legacy";
+    const runId = "failed-legacy-chat";
+    const execute = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("fixture failure before the run lease"))
+      .mockResolvedValue(undefined);
+    try {
+      await legacy.enqueue({
+        name: "run.continue",
+        payload: { runId },
+        replaceKey: key,
+        maxAttempts: 3,
+      });
+      await host.start(handlers({ "run.continue": execute }));
+      await waitFor(async () => {
+        const { rows } = await testPool().query(
+          "select attempts, locked_at, last_error from graphile_worker._private_jobs where key = $1",
+          [key],
+        );
+        expect(rows[0]).toMatchObject({
+          attempts: 1,
+          locked_at: null,
+          last_error: expect.any(String),
+        });
+      });
+      await testPool().query(
+        "update graphile_worker._private_jobs set run_at = now() + interval '1 hour' where key = $1",
+        [key],
+      );
+      const before = await keyedRow(key);
+      await publisher.enqueue({
+        name: "run.continue",
+        payload: { runId },
+        replaceKey: key,
+        keepExisting: true,
+      });
+      expect(await keyedRow(key)).toEqual(before);
+      const { rows } = await testPool().query(
+        "select key, task_identifier from graphile_worker.jobs where key = $1",
+        [key],
+      );
+      expect(rows).toEqual([{ key, task_identifier: "run.interactive" }]);
+      expect(execute).toHaveBeenCalledTimes(1);
+      await testPool().query(
+        "update graphile_worker._private_jobs set run_at = now() where key = $1",
+        [key],
+      );
+      await waitFor(() => expect(execute).toHaveBeenCalledTimes(2));
+      await waitFor(async () => expect(await keyedRow(key)).toBeNull());
+    } finally {
+      await host.stop();
+      await publisher.cancel(key);
+      await publisher.close();
+      await legacy.close();
+    }
+  });
 
   it("waits for an active handler during graceful shutdown", async () => {
     const publisher = new GraphileJobPublisher(testPool());
@@ -359,6 +426,7 @@ describePostgres("Graphile background jobs (PostgreSQL contract)", () => {
     const publisher = new GraphileJobPublisher(testPool());
     const key = `contract:keep-locked:${Date.now()}`;
     const deadWorker = `contract-dead-worker-${Date.now()}`;
+    const lockedAt = new Date("2025-01-01T00:00:00.000Z");
     try {
       await publisher.enqueue({
         name: "run.continue",
@@ -367,15 +435,15 @@ describePostgres("Graphile background jobs (PostgreSQL contract)", () => {
       });
       await testPool().query(
         `update graphile_worker._private_jobs
-         set attempts = 1, locked_at = now(), locked_by = $2 where key = $1`,
-        [key, deadWorker],
+         set attempts = 1, locked_at = $3, locked_by = $2 where key = $1`,
+        [key, deadWorker, lockedAt],
       );
       await publisher.enqueue({
         name: "run.continue",
         payload: { runId: "reclaimed" },
         replaceKey: key,
         keepExisting: true,
-        replaceLockedBefore: new Date(),
+        replaceLockedBefore: new Date(lockedAt.getTime() + 1),
       });
       const reclaimed = await keyedRow(key);
       expect(reclaimed?.attempts).toBe(0);

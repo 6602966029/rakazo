@@ -305,58 +305,33 @@ export class GraphileJobWorkerHost implements JobWorkerHost {
 /** Long agent turns cannot occupy the capacity reserved for other workloads. */
 export function createReservedGraphileJobWorkerHost(
   pool: Pool,
-  prisma: RunLookup,
   options: { concurrency?: number; pollInterval?: number; noHandleSignals?: boolean } = {},
 ): JobWorkerHost {
-  let publisher: GraphileJobPublisher | undefined;
-  const hosts = (["interactive", "background", "maintenance"] as const).map((workload) => ({
-    workload,
-    host: new GraphileJobWorkerHost(pool, {
-      ...options,
-      concurrency: workload === "interactive" ? options.concurrency : 1,
-      workload,
-    }),
-  }));
+  const hosts = (["interactive", "background", "maintenance"] as const).map(
+    (workload) =>
+      new GraphileJobWorkerHost(pool, {
+        ...options,
+        concurrency: workload === "interactive" ? options.concurrency : 1,
+        workload,
+      }),
+  );
   const stop = async () => {
-    const results = await Promise.allSettled(hosts.map(({ host }) => host.stop()));
+    const results = await Promise.allSettled(hosts.map((host) => host.stop()));
     const failed = results.find((result) => result.status === "rejected");
     if (failed?.status === "rejected") throw failed.reason;
   };
   return {
     async start(handlers) {
-      publisher ??= new GraphileJobPublisher(pool, prisma);
-      const routingPublisher = publisher;
-      const backgroundHandlers: BackgroundJobHandlers = {
-        ...handlers,
-        "run.continue": async ({ runId }) => {
-          if (await isInteractiveRun(prisma, runId)) {
-            // An older publisher (or unsafe_dedupe on a legacy keyed job) may
-            // leave chat in the old queue. Forward without the locked job's key;
-            // completing this handler removes that old job. Run leases fence
-            // duplicate deliveries if the process stops between those steps.
-            await routingPublisher.enqueue({ name: "run.continue", payload: { runId } });
-            return;
-          }
-          await handlers["run.continue"]({ runId });
-        },
-      };
       try {
-        for (const { workload, host } of hosts)
-          await host.start(workload === "background" ? backgroundHandlers : handlers);
+        // Legacy jobs that are already locked finish with their original queue
+        // identity and retry accounting. Reconciliation promotes unlocked chat.
+        for (const host of hosts) await host.start(handlers);
       } catch (error) {
         await stop();
         throw error;
       }
     },
-    async stop() {
-      try {
-        await stop();
-      } finally {
-        const previousPublisher = publisher;
-        publisher = undefined;
-        await previousPublisher?.close();
-      }
-    },
+    stop,
   };
 }
 

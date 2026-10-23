@@ -305,8 +305,7 @@ describe("reserved Graphile workloads", () => {
   it("reserves disjoint task lists and stops every runner", async () => {
     const runners = [mockRunner(), mockRunner(), mockRunner()];
     for (const { runner } of runners) run.mockResolvedValueOnce(runner);
-    const prisma = { run: { findUnique: vi.fn() } } as unknown as Pick<PrismaClient, "run">;
-    const host = createReservedGraphileJobWorkerHost({} as Pool, prisma, { concurrency: 4 });
+    const host = createReservedGraphileJobWorkerHost({} as Pool, { concurrency: 4 });
     await host.start(handlers());
     const configurations = run.mock.calls.map(([options]) => options);
     expect(configurations.map(({ concurrency }) => concurrency)).toEqual([4, 1, 1]);
@@ -322,20 +321,14 @@ describe("reserved Graphile workloads", () => {
   it("stops runners already started if another workload cannot start", async () => {
     const first = mockRunner();
     run.mockResolvedValueOnce(first.runner).mockRejectedValueOnce(tooMany);
-    const host = createReservedGraphileJobWorkerHost({} as Pool, {} as PrismaClient);
+    const host = createReservedGraphileJobWorkerHost({} as Pool);
     await expect(host.start(handlers())).rejects.toBe(tooMany);
     expect(first.runner.stop).toHaveBeenCalled();
   });
 
-  it("forwards legacy chat jobs after stopping and restarting", async () => {
+  it("dispatches legacy chat jobs after stopping and restarting", async () => {
     for (let i = 0; i < 6; i++) run.mockResolvedValueOnce(mockRunner().runner);
-    const addJob = vi.fn(async () => undefined);
-    const release = vi.fn(async () => undefined);
-    vi.mocked(makeWorkerUtils).mockResolvedValue({ addJob, release } as never);
-    const prisma = {
-      run: { findUnique: vi.fn(async () => ({ trigger: "user" })) },
-    } as unknown as Pick<PrismaClient, "run">;
-    const host = createReservedGraphileJobWorkerHost({} as Pool, prisma);
+    const host = createReservedGraphileJobWorkerHost({} as Pool);
     const target = handlers();
     try {
       for (let cycle = 0; cycle < 2; cycle++) {
@@ -344,14 +337,8 @@ describe("reserved Graphile workloads", () => {
         await background["run.continue"](wrapJobPayload({ runId: "legacy-chat" }));
         await host.stop();
       }
-      expect(addJob).toHaveBeenCalledTimes(2);
-      expect(addJob).toHaveBeenLastCalledWith(
-        "run.interactive",
-        expect.anything(),
-        expect.anything(),
-      );
-      expect(target["run.continue"]).not.toHaveBeenCalled();
-      expect(release).toHaveBeenCalledTimes(2);
+      expect(target["run.continue"]).toHaveBeenCalledTimes(2);
+      expect(target["run.continue"]).toHaveBeenLastCalledWith({ runId: "legacy-chat" });
     } finally {
       await host.stop();
     }

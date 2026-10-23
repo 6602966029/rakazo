@@ -258,7 +258,7 @@ async function main() {
 
   const jobHost: JobWorkerHost =
     inMemoryJobs ??
-    createReservedGraphileJobWorkerHost(pool, prisma, {
+    createReservedGraphileJobWorkerHost(pool, {
       concurrency: parsePositiveInteger(process.env.GRAPHILE_WORKER_CONCURRENCY, 4),
     });
 
