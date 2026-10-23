@@ -6,7 +6,8 @@ import {
   expandPeerReplies,
   groupVoiceChats,
   isPeerReceiptBlocks,
-  isToolActivityBlock,
+  liveActivityLine,
+  liveMessageComposing,
   projectMessageReactions,
   timeSeparatorIds,
   unreadDividerMessageId,
@@ -15,7 +16,7 @@ import {
 import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { cn, Spinner } from "@rakazo/ui-web";
 import { ArrowDown } from "lucide-react";
-import type { RefObject } from "react";
+import type { CSSProperties, RefObject } from "react";
 import {
   Fragment,
   memo,
@@ -50,6 +51,7 @@ export const Transcript = memo(function Transcript({
   dismissableAskIds,
   running,
   workingBots,
+  userBubble,
   onCallBack,
   onLoadOlder,
   onOpenBot,
@@ -84,6 +86,8 @@ export const Transcript = memo(function Transcript({
   dismissableAskIds: Set<string>;
   running: boolean;
   workingBots: GroupAvatarMember[];
+  /** Your bubbles take the bot's color in its own chat. */
+  userBubble?: { background: string; foreground: string };
   /** Calls the bot back from a missed call in the transcript. */
   onCallBack?: () => void;
   onLoadOlder: () => void | Promise<void>;
@@ -152,11 +156,7 @@ export const Transcript = memo(function Transcript({
   );
   const separatorIds = timeSeparatorIds(shownMessages);
   const unreadDividerId = unreadDividerMessageId(shownMessages, unreadAfterSeq, olderCursor);
-  const workingBotName = workingBots.length === 1 ? workingBots[0]?.name : undefined;
-  const workingLabel =
-    workingBotName != null && workingBotName !== ""
-      ? t`${workingBotName} is working`
-      : t`Bots are working`;
+  const workingLabel = liveActivityLine(messages) ?? t`Working…`;
   const [quoteDraft, setQuoteDraft] = useState<{
     message: ThreadMessage;
     text: string;
@@ -397,6 +397,14 @@ export const Transcript = memo(function Transcript({
           }
         }}
         className="rk-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-5 md:px-7 md:py-6"
+        style={
+          userBubble
+            ? ({
+                "--chat-user": userBubble.background,
+                "--chat-user-foreground": userBubble.foreground,
+              } as CSSProperties)
+            : undefined
+        }
       >
         {olderCursor != null ? (
           <button
@@ -544,12 +552,7 @@ export const Transcript = memo(function Transcript({
         })}
         {running &&
         !messages.some(
-          (message) =>
-            message.id.startsWith("progress:") &&
-            message.blocks.some(
-              (block) =>
-                block.kind === "progress" && !isToolActivityBlock(block) && Boolean(block.text),
-            ),
+          (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
         ) ? (
           <ActiveBotGlyph bots={workingBots} label={workingLabel} />
         ) : null}
