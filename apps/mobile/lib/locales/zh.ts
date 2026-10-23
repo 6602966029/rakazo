@@ -1,4 +1,6 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Show password": "显示密码",
+  "Hide password": "隐藏密码",
   Export: "导出",
   "Edit avatar": "编辑头像",
   "Add open work": "添加待办事项",

@@ -1,4 +1,6 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Show password": "Показать пароль",
+  "Hide password": "Скрыть пароль",
   Export: "Экспорт",
   "Edit avatar": "Изменить аватар",
   "Add open work": "Добавить задачу",
