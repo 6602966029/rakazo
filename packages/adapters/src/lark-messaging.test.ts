@@ -75,7 +75,7 @@ function webhook(body: unknown, headers: Record<string, string> = {}) {
   });
 }
 
-function encryptedWebhook(payload: unknown, validSignature = true) {
+function encryptedWebhook(payload: unknown, validSignature = true, pretty = false) {
   const iv = Buffer.alloc(16, 1);
   const key = createHash("sha256").update(encryptKey).digest();
   const cipher = createCipheriv("aes-256-cbc", key, iv);
@@ -84,16 +84,21 @@ function encryptedWebhook(payload: unknown, validSignature = true) {
     cipher.update(JSON.stringify(payload)),
     cipher.final(),
   ]).toString("base64");
-  const body = { encrypt };
+  const body = pretty ? JSON.stringify({ encrypt }, null, 2) : JSON.stringify({ encrypt });
   const timestamp = "1700000000";
   const nonce = "test-nonce";
   const signature = createHash("sha256")
-    .update(timestamp + nonce + encryptKey + JSON.stringify(body))
+    .update(timestamp + nonce + encryptKey + body)
     .digest("hex");
-  return webhook(body, {
-    "x-lark-request-timestamp": timestamp,
-    "x-lark-request-nonce": nonce,
-    "x-lark-signature": validSignature ? signature : "invalid",
+  return new Request("https://rakazo.test/api/v1/messaging/webhook/lark", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-lark-request-timestamp": timestamp,
+      "x-lark-request-nonce": nonce,
+      "x-lark-signature": validSignature ? signature : "invalid",
+    },
+    body,
   });
 }
 
@@ -176,6 +181,36 @@ describe("Lark messaging conformance", () => {
         expect.objectContaining({
           data: expect.objectContaining({ receive_id: "oc-test" }),
         }),
+      );
+    },
+  );
+
+  it.each([true, false])(
+    "verifies encrypted signatures against the raw body (raw signature: %s)",
+    async (rawSignature) => {
+      const { surface, events } = createSurface(true);
+      const request = encryptedWebhook(message(), true, true);
+      const body = await request.clone().text();
+      expect(body).not.toBe(JSON.stringify(JSON.parse(body)));
+      if (!rawSignature) {
+        request.headers.set(
+          "x-lark-signature",
+          createHash("sha256")
+            .update(
+              request.headers.get("x-lark-request-timestamp")! +
+                request.headers.get("x-lark-request-nonce")! +
+                encryptKey +
+                JSON.stringify(JSON.parse(body)),
+            )
+            .digest("hex"),
+        );
+      }
+      const response = await surface.handleWebhook("lark", request);
+      expect(response?.status).toBe(rawSignature ? 200 : 403);
+      expect(events).toEqual(
+        rawSignature
+          ? [expect.objectContaining({ type: "message", provider: "lark", content: "hello" })]
+          : [],
       );
     },
   );

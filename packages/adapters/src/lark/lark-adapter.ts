@@ -90,9 +90,7 @@ export class LarkAdapter extends LarkAdapterBase implements Adapter {
       const nonce = request.headers.get("x-lark-request-nonce");
       const signature = request.headers.get("x-lark-signature");
       const expected = createHash("sha256")
-        .update(
-          (timestamp ?? "") + (nonce ?? "") + this.config.encryptKey + JSON.stringify(payload),
-        )
+        .update((timestamp ?? "") + (nonce ?? "") + this.config.encryptKey + body)
         .digest("hex");
       if (!timestamp || !nonce || !equal(signature ?? "", expected)) return forbidden();
     }
