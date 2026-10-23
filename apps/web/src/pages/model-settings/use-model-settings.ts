@@ -137,7 +137,13 @@ export function useModelSettings(onClose: () => void) {
           (nextMe.defaultProvider === OPENAI_COMPATIBLE_PROVIDER_ID ? nextMe.defaultModel : "") ??
           "")
         : (nextCatalog.find((entry) => entry.provider === nextProvider && entry.id === modelId)
-            ?.id ?? pickCatalogModelId(nextCatalog, nextProvider, nextCredential?.modelId));
+            ?.id ??
+          pickCatalogModelId(
+            nextCatalog,
+            nextProvider,
+            nextCredential?.modelId ??
+              (nextProvider === nextMe.defaultProvider ? nextMe.defaultModel : null),
+          ));
     setCatalog(nextCatalog);
     setCredentials(nextCredentials);
     setMe(nextMe);
@@ -380,7 +386,12 @@ export function useModelSettings(onClose: () => void) {
     const nextModelId =
       nextProvider === OPENAI_COMPATIBLE_PROVIDER_ID
         ? (nextCredential?.modelId ?? "")
-        : pickCatalogModelId(catalog, nextProvider, nextCredential?.modelId);
+        : pickCatalogModelId(
+            catalog,
+            nextProvider,
+            nextCredential?.modelId ??
+              (nextProvider === me?.defaultProvider ? me.defaultModel : null),
+          );
     setProvider(nextProvider);
     setReasoning(nextCredential?.reasoning ?? false);
     const nextEntry = catalog.find(
