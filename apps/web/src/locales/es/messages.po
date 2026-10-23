@@ -3260,6 +3260,10 @@ msgstr ""
 msgid "More computer actions"
 msgstr "Más acciones de computadora"
 
+#: src/pages/Onboarding.tsx
+msgid "More providers"
+msgstr ""
+
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Move {full} down"
 msgstr "Mover {full} hacia abajo"

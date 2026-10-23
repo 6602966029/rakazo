@@ -37,8 +37,7 @@ test("onboarding requires a model and uses compact model selects without mislead
   await page.getByLabel("API key", { exact: true }).fill("");
   await captureScreenshot(page, testInfo, "onboarding-model-required");
 
-  const provider = page.getByRole("combobox", { name: "Provider" });
-  await expect(provider).toContainText("OpenRouter");
+  await expect(page.getByRole("radio", { name: "OpenRouter", exact: true })).toBeChecked();
   const thinking = page.getByRole("combobox", { name: "Thinking", exact: true });
   await thinking.click();
   const thinkingMenu = page.getByRole("listbox");
@@ -67,11 +66,10 @@ test("onboarding requires a model and uses compact model selects without mislead
   await page.keyboard.press("Escape");
   await expect(thinkingMenu).toBeHidden();
   await page.getByLabel("API key").fill("openrouter-only-key");
-  await provider.click();
-  await expect(page.getByRole("option", { name: "ChatGPT" })).toBeVisible();
-  await expect(page.getByRole("option", { name: "Vercel AI Gateway" })).toBeVisible();
-  await page.getByRole("option", { name: "Anthropic" }).click();
-  await expect(provider).toContainText("Anthropic");
+  await expect(page.getByRole("radio", { name: "ChatGPT", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Vercel AI Gateway" })).toHaveCount(0);
+  await page.getByRole("radio", { name: "Anthropic", exact: true }).click();
+  await expect(page.getByRole("radio", { name: "Anthropic", exact: true })).toBeChecked();
   await expect(page.getByLabel(/API key/)).toHaveValue("");
 
   const models = page.getByRole("combobox", { name: "Model", exact: true });
@@ -94,7 +92,8 @@ test("onboarding requires a model and uses compact model selects without mislead
       body: JSON.stringify({ json: { models: ["probed-model"] } }),
     });
   });
-  await provider.click();
+  await page.getByRole("button", { name: "More providers", exact: true }).click();
+  await page.getByRole("combobox", { name: "More providers" }).click();
   await page.getByRole("option", { name: "OpenAI-compatible" }).click();
   await page.getByLabel("OpenAI-compatible server URL").fill("http://127.0.0.1:8090/v1");
   const manualModel = page.getByLabel("Model id");

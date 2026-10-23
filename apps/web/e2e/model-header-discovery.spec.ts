@@ -38,7 +38,8 @@ for (const surface of ["settings", "onboarding"] as const) {
         await page.getByRole("button", { name: /OpenAI-compatible/ }).click();
       } else {
         await expect(page.getByRole("heading", { name: "Connect a model" })).toBeVisible();
-        await page.getByRole("combobox", { name: "Provider", exact: true }).click();
+        await page.getByRole("button", { name: "More providers", exact: true }).click();
+        await page.getByRole("combobox", { name: "More providers" }).click();
         await page.getByRole("option", { name: "OpenAI-compatible", exact: true }).click();
       }
       await page.getByLabel("OpenAI-compatible server URL").fill("http://127.0.0.1:8090/v1");

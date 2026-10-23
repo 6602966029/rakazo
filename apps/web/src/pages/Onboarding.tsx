@@ -21,13 +21,17 @@ import {
   clampCatalogThinkingLevel,
   createModelProbe,
   initialModelProbeState,
+  isFeaturedModelProvider,
   pickCatalogModelId,
+  popularModelProvidersFirst,
 } from "@rakazo/core";
 import {
   Button,
   Disclosure,
   Input,
   ModelThinkingOptions,
+  RadioGroup,
+  RadioGroupItem,
   Select,
   SelectContent,
   SelectGroup,
@@ -45,6 +49,7 @@ import {
 } from "../components/ModelConnectionPreflightNotice";
 import { ModelHeadersEditor } from "../components/ModelHeadersEditor";
 import { useCopyText } from "../lib/copy-text";
+import { localizedProviderHint } from "../lib/localized-provider-hint";
 import type { ModelCatalogEntry } from "../lib/model-auth";
 import { thinkingLevelLabel } from "../lib/model-catalog";
 import type { ModelPreflightFailure } from "../lib/model-connection-preflight";
@@ -220,8 +225,18 @@ export function OnboardingPage() {
     for (const entry of catalog) {
       if (!seen.has(entry.provider)) seen.set(entry.provider, entry);
     }
-    return [...seen.values()];
+    return popularModelProvidersFirst([...seen.values()], (entry) => entry.provider);
   }, [catalog]);
+  const featuredProviders = useMemo(
+    () => providers.filter((entry) => isFeaturedModelProvider(entry.provider)),
+    [providers],
+  );
+  const moreProviders = useMemo(
+    () => providers.filter((entry) => !isFeaturedModelProvider(entry.provider)),
+    [providers],
+  );
+  const [showMoreProviders, setShowMoreProviders] = useState(false);
+  const providerIsFeatured = isFeaturedModelProvider(provider);
 
   const modelsForProvider = useMemo(
     () => catalog.filter((entry) => entry.provider === provider),
@@ -256,9 +271,9 @@ export function OnboardingPage() {
   );
   const otherModelLabel = t`Other model…`;
   // Base UI Select.Value only resolves labels when Root gets `items`.
-  const providerItems = useMemo(
-    () => providers.map((entry) => ({ value: entry.provider, label: providerLabel(entry) })),
-    [providers],
+  const moreProviderItems = useMemo(
+    () => moreProviders.map((entry) => ({ value: entry.provider, label: providerLabel(entry) })),
+    [moreProviders],
   );
   const modelItems = useMemo(
     () => modelsForProvider.map((entry) => ({ value: entry.id, label: entry.label })),
@@ -562,31 +577,68 @@ export function OnboardingPage() {
             <h1 className="text-[32px] font-medium text-foreground">
               <Trans>Connect a model</Trans>
             </h1>
-            <div className="mt-8 block text-sm font-medium text-foreground">
-              <span>
+            <div className="mt-8 text-sm text-foreground">
+              <span id={`${fieldId}-provider`} className="font-medium">
                 <Trans>Provider</Trans>
               </span>
-              <Select
-                value={provider}
+              <RadioGroup
+                aria-labelledby={`${fieldId}-provider`}
+                value={providerIsFeatured ? provider : ""}
                 onValueChange={(value) => {
-                  if (typeof value !== "string" || !value) return;
-                  selectProvider(value);
+                  if (typeof value === "string" && value) selectProvider(value);
                 }}
-                items={providerItems}
+                className="mt-2 gap-0 overflow-hidden rounded-xl border border-border"
               >
-                <SelectTrigger aria-label={t`Provider`} className="mt-2 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {providers.map((entry) => (
-                      <SelectItem key={entry.provider} value={entry.provider}>
-                        {providerLabel(entry)}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+                {featuredProviders.map((entry) => (
+                  // biome-ignore lint/a11y/noLabelWithoutControl: the wrapped RadioGroupItem is the control.
+                  <label
+                    key={entry.provider}
+                    className="flex cursor-pointer items-center gap-3 border-b border-border px-3.5 py-3 last:border-0 hover:bg-accent/50"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px]">{providerLabel(entry)}</span>
+                      <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
+                        {localizedProviderHint(entry)}
+                      </span>
+                    </span>
+                    <RadioGroupItem value={entry.provider} aria-label={providerLabel(entry)} />
+                  </label>
+                ))}
+              </RadioGroup>
+              {moreProviders.length ? (
+                showMoreProviders || !providerIsFeatured ? (
+                  <Select
+                    value={providerIsFeatured ? null : provider}
+                    onValueChange={(value) => {
+                      if (typeof value !== "string" || !value) return;
+                      selectProvider(value);
+                    }}
+                    items={moreProviderItems}
+                  >
+                    <SelectTrigger aria-label={t`More providers`} className="mt-3 w-full">
+                      <SelectValue placeholder={t`More providers`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {moreProviders.map((entry) => (
+                          <SelectItem key={entry.provider} value={entry.provider}>
+                            {providerLabel(entry)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Button
+                    variant="link"
+                    size="xs"
+                    className="mt-2 px-0 text-muted-foreground"
+                    onClick={() => setShowMoreProviders(true)}
+                  >
+                    <Trans>More providers</Trans>
+                  </Button>
+                )
+              ) : null}
             </div>
             <div className="mt-6 block text-sm text-foreground">
               {isOpenAiCompatible ? (
