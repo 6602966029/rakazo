@@ -12,8 +12,27 @@ import {
 
 function makePrisma(rows: Array<Record<string, unknown>> = []) {
   const store = [...rows];
-  return {
+  const prisma = {
+    // The space lock and its membership check, for creates and renames.
+    $queryRaw: vi.fn(async () => []),
+    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(prisma)),
+    spaceMember: {
+      findUnique: vi.fn(async () => ({ organizationId: "org-1", space: { deletingAt: null } })),
+    },
     agentSkill: {
+      findFirst: vi.fn(
+        async ({
+          where,
+        }: {
+          where: { spaceId: string; name: { equals: string }; NOT?: { id: string } };
+        }) =>
+          store.find(
+            (row) =>
+              row.spaceId === where.spaceId &&
+              String(row.name).toLowerCase() === where.name.equals.toLowerCase() &&
+              row.id !== where.NOT?.id,
+          ) ?? null,
+      ),
       findMany: vi.fn(async ({ where }: { where?: Record<string, string> } = {}) =>
         store
           .filter((row) => {
@@ -84,6 +103,7 @@ function makePrisma(rows: Array<Record<string, unknown>> = []) {
     },
     _store: store,
   };
+  return prisma;
 }
 
 const owner = { spaceId: "ws-1", userId: "user-1" };
@@ -93,6 +113,18 @@ describe("skill tools", () => {
 
   beforeEach(() => {
     prisma = makePrisma();
+  });
+
+  it("rechecks the name under the space lock so two members can't both create it", async () => {
+    // Another member's create lands between the first check and the write.
+    prisma.agentSkill.findFirst.mockResolvedValueOnce({ id: "theirs" } as never);
+    const created = await skillCreateFromTool(prisma as never, owner, {
+      name: "Groceries",
+      description: "Weekly list",
+    });
+    expect(created).toEqual({ error: 'A skill named "Groceries" already exists.' });
+    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(prisma.agentSkill.create).not.toHaveBeenCalled();
   });
 
   it("creates, reads, updates, and deletes user skills", async () => {

@@ -49,9 +49,18 @@ function setup(rows: ReturnType<typeof savedSkill>[] = []) {
       return { count: 1 };
     }),
   };
+  const prisma = {
+    agentSkill,
+    // The space lock and its membership check, for creates and renames.
+    $queryRaw: vi.fn(async () => []),
+    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(prisma)),
+    spaceMember: {
+      findUnique: vi.fn(async () => ({ organizationId: "org-1", space: { deletingAt: null } })),
+    },
+  };
   return {
     agentSkill,
-    service: createAgentSkillsService({ agentSkill } as unknown as PrismaClient),
+    service: createAgentSkillsService(prisma as unknown as PrismaClient),
   };
 }
 
