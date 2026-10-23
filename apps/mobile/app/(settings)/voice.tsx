@@ -92,7 +92,12 @@ export default function VoiceSettings() {
       rpc<VoiceCredential[]>("voice/credentials"),
       rpc<VoiceStatus>("voice/status"),
     ]);
-    const selected = nextProvider || nextStatus.provider || nextCatalog[0]?.id || "";
+    const selected =
+      [nextProvider, nextStatus.provider].find((id) =>
+        nextCatalog.some((entry) => entry.id === id),
+      ) ??
+      nextCatalog[0]?.id ??
+      "";
     setCatalog(nextCatalog);
     setCredentials(nextCredentials);
     setStatus(nextStatus);

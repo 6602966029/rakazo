@@ -151,6 +151,17 @@ it("selects only This device and hides all provider controls until it is turned 
   expect(container.textContent).toContain("fish-audio voice");
 });
 
+it("falls back to an available provider when the saved provider is hidden", async () => {
+  state.load.mockResolvedValue(false);
+  activeProvider = "openai-compatible";
+  await render();
+  selected("Fish Audio");
+  expect(container.querySelector('input[aria-label="Server URL"]')).toBeNull();
+  expect(state.rpc).not.toHaveBeenCalledWith("voice/voices", {
+    provider: "openai-compatible",
+  });
+});
+
 it("disables provider rows until the saved device preference has loaded", async () => {
   let finish!: (value: boolean) => void;
   state.load.mockReturnValue(

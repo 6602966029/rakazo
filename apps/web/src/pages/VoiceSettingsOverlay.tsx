@@ -77,7 +77,12 @@ export function VoiceSettingsOverlay({
       rpc.voice.credentials(),
       rpc.voice.status(),
     ]);
-    const selected = nextProvider || provider || nextStatus.provider || nextCatalog[0]?.id || "";
+    const selected =
+      [nextProvider, provider, nextStatus.provider].find((id) =>
+        nextCatalog.some((entry) => entry.id === id),
+      ) ??
+      nextCatalog[0]?.id ??
+      "";
     setCatalog(nextCatalog);
     setCredentials(nextCredentials);
     setStatus(nextStatus);
