@@ -345,6 +345,7 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
         name: "Groceries",
         prompt: "List groceries",
         crons: ["0 9 * * 1"],
+        watchState: { fingerprint: "invitee-account" },
       },
     });
     const secret = await system.secret.create({
@@ -414,7 +415,12 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
     ).resolves.toMatchObject({ userId: owner.id, sectionId: movedSection.id });
     await expect(
       system.routine.findUniqueOrThrow({ where: { id: routine.id } }),
-    ).resolves.toMatchObject({ userId: owner.id, active: false, nextRunAt: null });
+    ).resolves.toMatchObject({
+      userId: owner.id,
+      active: false,
+      nextRunAt: null,
+      watchState: null,
+    });
     await expect(
       system.botSection.findUnique({ where: { id: mergedSection.id } }),
     ).resolves.toBeNull();

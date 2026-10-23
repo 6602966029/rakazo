@@ -410,7 +410,8 @@ async function departSpace(prisma: PrismaClient, input: SpaceRef): Promise<Space
           // Paused: the owner's accounts must not start running someone else's prompt unasked.
           await tx.routine.updateMany({
             where: { spaceId, userId },
-            data: { userId: ownerId, active: false, nextRunAt: null },
+            // A watch restarts from the owner's accounts, not the departed person's results.
+            data: { userId: ownerId, active: false, nextRunAt: null, watchState: Prisma.DbNull },
           });
 
           const own = { spaceId, userId };
