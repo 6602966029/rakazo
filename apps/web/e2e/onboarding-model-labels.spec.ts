@@ -30,6 +30,13 @@ test("onboarding requires a model and uses compact model selects without mislead
   await expect(page.getByRole("button", { name: "Skip for now" })).toBeHidden();
   const continueButton = page.getByRole("button", { name: "Continue", exact: true });
   await expect(continueButton).toBeDisabled();
+  // No provider is preselected, and nothing else shows until one is chosen.
+  const provider = page.getByRole("combobox", { name: "Provider" });
+  await expect(provider).toContainText("Choose a provider");
+  await expect(page.getByLabel("API key", { exact: true })).toHaveCount(0);
+  await captureScreenshot(page, testInfo, "onboarding-choose-provider");
+  await provider.click();
+  await page.getByRole("option", { name: "OpenRouter", exact: true }).click();
   await page.getByLabel("API key", { exact: true }).fill("   ");
   await expect(continueButton).toBeDisabled();
   await page.getByLabel("API key", { exact: true }).fill("fake-test-key");
@@ -37,7 +44,6 @@ test("onboarding requires a model and uses compact model selects without mislead
   await page.getByLabel("API key", { exact: true }).fill("");
   await captureScreenshot(page, testInfo, "onboarding-model-required");
 
-  const provider = page.getByRole("combobox", { name: "Provider" });
   await expect(provider).toContainText("OpenRouter");
   // Onboarding stays simple: thinking effort is a Models setting, not a setup step.
   await expect(page.getByRole("combobox", { name: "Thinking", exact: true })).toHaveCount(0);

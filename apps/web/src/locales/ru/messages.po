@@ -1128,6 +1128,10 @@ msgstr "Выбрать бота…"
 msgid "Choose a new password"
 msgstr "Выберите новый пароль"
 
+#: src/pages/Onboarding.tsx
+msgid "Choose a provider"
+msgstr ""
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
 msgstr "Выбрать файл"

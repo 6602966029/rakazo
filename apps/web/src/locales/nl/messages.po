@@ -1128,6 +1128,10 @@ msgstr "Kies een bot…"
 msgid "Choose a new password"
 msgstr "Kies een nieuw wachtwoord"
 
+#: src/pages/Onboarding.tsx
+msgid "Choose a provider"
+msgstr ""
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
 msgstr "Bestand kiezen"
