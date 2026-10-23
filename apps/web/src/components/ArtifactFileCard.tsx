@@ -221,7 +221,7 @@ function FilePreview({
       ) : null}
       <div className="relative min-h-0 flex-1 overflow-y-auto">
         {state.status === "loading" ? (
-          <div className="p-8 text-muted-foreground">
+          <div className="absolute inset-0 grid place-items-center text-muted-foreground">
             <Spinner aria-label={t`Loading preview…`} />
           </div>
         ) : state.status === "error" ? (
