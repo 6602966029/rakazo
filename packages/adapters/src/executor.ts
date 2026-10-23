@@ -4325,7 +4325,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // Cross-owner agent connections only exist for chat-linked bots.
           ...(hasMessagingIdentity &&
           bot.crossSpaceCommunication === true &&
-          !isBackgroundRunTrigger(run.trigger)
+          !isBackgroundRunTrigger(run.trigger) &&
+          run.trigger !== "created"
             ? agentConnectionTools.filter((tool) => !disabledBuiltinTools.has(tool.name))
             : []),
         ];
@@ -4473,10 +4474,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if ((await earlierAttemptPromise) || (await receivedOutsideMessage())) runTainted = true;
           return runTainted;
         };
-        // The intro turn confirms how a bot read its own role before anyone hands it
-        // real work — it must not be able to act on that reading (shell, computer,
-        // scheduling, spawning another bot, ...) before the user has assigned any task.
-        const tools = run.trigger === "created" ? [] : [...builtins, ...exposedConnectorTools];
+        // The creation intro only asks what the bot is for (see selectBuiltinToolsForRun),
+        // so it gets no connector tools either.
+        const tools =
+          run.trigger === "created" ? builtins : [...builtins, ...exposedConnectorTools];
         const taskCatalogInstruction = tools.some((tool) => tool.name === "task_catalog")
           ? TASK_CATALOG_GUIDANCE
           : undefined;
@@ -9033,6 +9034,14 @@ function fleetPrepareDeps(
   };
 }
 
+/**
+ * The creation intro asks what the bot is for and records the answer on its own profile.
+ * It must not act (shell, computer, scheduling, spawning another bot, ...) before the user
+ * has said what it is for. Answering its question resumes it as the user's turn, with
+ * every tool (see commitAnswerRunInput).
+ */
+const CREATED_RUN_TOOL_NAMES = new Set(["ask_user", "update_bot"]);
+
 export function selectBuiltinToolsForRun(options: {
   ticketBoardEnabled?: boolean;
   phoneCallsEnabled?: boolean;
@@ -9079,6 +9088,7 @@ export function selectBuiltinToolsForRun(options: {
   ).filter(
     (tool) =>
       !disabled.has(tool.name) &&
+      (options.trigger !== "created" || CREATED_RUN_TOOL_NAMES.has(tool.name)) &&
       (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
         (Boolean(options.fleetManagement) && fleetToolsAllowed)) &&
       (options.mediaImagesEnabled || tool.name !== "generate_image") &&
