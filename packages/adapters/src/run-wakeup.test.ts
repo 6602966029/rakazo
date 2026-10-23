@@ -172,6 +172,81 @@ describe("durable direct run wakeups", () => {
     },
   );
 
+  it.each(["routine", "reaction"])(
+    "discovers new %s work while an interactive sweep is still advancing",
+    async (trigger) => {
+      vi.useFakeTimers();
+      const f = fixture();
+      let interactivePage = 0;
+      let backgroundReady = false;
+      let release!: () => void;
+      const blocked = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      f.findMany.mockImplementation(async ({ where }) => {
+        if (where.trigger.in) {
+          if (!backgroundReady) return [];
+          backgroundReady = false;
+          // Chat pagination has not reached its final, empty page yet.
+          expect(interactivePage).toBe(3);
+          return [
+            {
+              id: trigger,
+              botId: trigger,
+              createdAt: new Date(0),
+              bot: { computerId: "computer" },
+            },
+          ];
+        }
+        const page = interactivePage++;
+        if (page === 1) await blocked;
+        if (page >= 3) return [];
+        return [
+          {
+            id: `chat-${page}`,
+            botId: `chat-${page}`,
+            createdAt: new Date(page * 1_000),
+            bot: { computerId: "computer" },
+          },
+        ];
+      });
+      const host = new RunWorkerHost(f.prisma, f.realtime, { batchSize: 1 });
+      const entered: string[] = [];
+      try {
+        await host.start({
+          "run.continue": async ({ runId }) => {
+            entered.push(runId);
+          },
+        } as BackgroundJobHandlers);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(interactivePage).toBe(2);
+        backgroundReady = true;
+        await f.publisher.enqueue(runContinueJob(trigger));
+        release();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(entered).toEqual(["chat-0", "chat-1", "chat-2", trigger]);
+        const thirdChatQuery = f.findMany.mock.calls.filter(
+          ([query]) => !query.where.trigger.in,
+        )[2]![0];
+        expect(thirdChatQuery).toMatchObject({
+          where: {
+            AND: [
+              {
+                OR: [
+                  { createdAt: { gt: new Date(1_000) } },
+                  { createdAt: new Date(1_000), id: { gt: "chat-1" } },
+                ],
+              },
+            ],
+          },
+        });
+      } finally {
+        release();
+        await host.stop();
+      }
+    },
+  );
+
   it("reports aged interactive queues and recovery without blocking dispatch", async () => {
     vi.useFakeTimers();
     const f = fixture();

@@ -59,7 +59,7 @@ export class RunWorkerHost implements JobWorkerHost {
   private timer: ReturnType<typeof setInterval> | undefined;
   private scanning: Promise<void> | undefined;
   private scanAgain = false;
-  private interactiveWakeRequested = false;
+  private wakeRequested = false;
   private readonly cursors: Record<
     "interactive" | "background",
     { createdAt: Date; id: string } | undefined
@@ -85,7 +85,7 @@ export class RunWorkerHost implements JobWorkerHost {
     this.laneDone.background = false;
     this.nextQueueCheckAt = 0;
     this.queueDelayed = false;
-    this.interactiveWakeRequested = false;
+    this.wakeRequested = false;
     this.handlers = handlers;
     this.executions.start();
     try {
@@ -112,7 +112,7 @@ export class RunWorkerHost implements JobWorkerHost {
     if (this.stopping) return;
     this.checkQueueAge();
     this.scanAgain = true;
-    this.interactiveWakeRequested = true;
+    this.wakeRequested = true;
     if (this.scanning) return;
     this.scanning = runAsSystem("run recovery scan", async () => {
       try {
@@ -169,12 +169,12 @@ export class RunWorkerHost implements JobWorkerHost {
   }
 
   private async scan(): Promise<void> {
-    // A message can arrive after the interactive query's snapshot, including
-    // while background pages are draining. Reopen that lane on the next pass
-    // without losing the background cursor or rescanning it from the start.
-    if (this.interactiveWakeRequested) {
+    // New work can arrive after either lane's query snapshot. External wakes
+    // reopen completed lanes without restarting either lane's active pagination.
+    if (this.wakeRequested) {
       this.laneDone.interactive = false;
-      this.interactiveWakeRequested = false;
+      this.laneDone.background = false;
+      this.wakeRequested = false;
     }
     if (!this.laneDone.interactive) await this.scanLane("interactive");
     if (!this.stopping && !this.laneDone.background) await this.scanLane("background");

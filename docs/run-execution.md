@@ -80,8 +80,8 @@ scanning instead of waiting in a dispatch slot. Memory admission independently
 checks available physical memory and unused JavaScript heap space against the
 same small attachment startup buffer. External buffers are not counted against
 the JavaScript heap limit, and live-run counts do not set a concurrency limit.
-New interactive notifications reopen chat discovery during a background sweep
-without restarting its pagination. Active model streams have no new duration limit.
+Notifications and periodic recovery reopen completed lanes without restarting
+active pagination. Active model streams have no new duration limit.
 
 `run.admission_wait` and `run.admission_resumed` identify a capacity episode and
 its duration without logging every retry. Independently, `run.queue_delayed`
