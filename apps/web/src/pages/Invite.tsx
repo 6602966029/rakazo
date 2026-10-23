@@ -9,6 +9,10 @@ import { rpc, selectSpace } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
 import { AuthFrame, submitClass } from "./Auth";
 
+// An invite names its own space, so a remembered one that is no longer available must not
+// send the request through space recovery and away from the invite.
+const NO_SPACE = { context: { spaceId: null } };
+
 type InviteState =
   | { kind: "loading" }
   | { kind: "ready"; preview: SpaceInvitePreview }
@@ -32,7 +36,7 @@ export function InvitePage() {
     let active = true;
     setState({ kind: "loading" });
     rpc.spaces.invites
-      .preview({ token })
+      .preview({ token }, NO_SPACE)
       .then((preview) => {
         if (!active) return;
         if (preview.alreadyMember) {
@@ -63,7 +67,7 @@ export function InvitePage() {
     setJoining(true);
     setJoinError(null);
     try {
-      const { spaceId } = await rpc.spaces.invites.accept({ token });
+      const { spaceId } = await rpc.spaces.invites.accept({ token }, NO_SPACE);
       openSpace(spaceId);
     } catch (err) {
       if (isInvalidInvite(err)) setState({ kind: "invalid" });

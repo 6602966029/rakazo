@@ -84,13 +84,14 @@ it("joins the space and opens it", async () => {
   });
   accept.mockResolvedValue({ spaceId: "space-shared" });
   await render();
-  expect(preview).toHaveBeenCalledWith({ token: "token-1" });
+  // Without the remembered space, so recovery from a stale one cannot lose the invite.
+  expect(preview).toHaveBeenCalledWith({ token: "token-1" }, { context: { spaceId: null } });
   expect(host.querySelector("h1")?.textContent).toBe("Join Home");
   expect(host.textContent).toContain("Ada invited you");
   expect(accept).not.toHaveBeenCalled();
 
   await submit();
-  expect(accept).toHaveBeenCalledWith({ token: "token-1" });
+  expect(accept).toHaveBeenCalledWith({ token: "token-1" }, { context: { spaceId: null } });
   expect(selectSpace).toHaveBeenCalledWith("space-shared");
   expect(host.textContent).toBe("App");
 });

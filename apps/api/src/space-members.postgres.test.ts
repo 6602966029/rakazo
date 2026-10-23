@@ -4,6 +4,7 @@ import type { Actor } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import {
   asSystem,
+  computerHomeKey,
   createDb,
   ensureComputerRecord,
   installSecurityEventStore,
@@ -309,7 +310,7 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
         spaceId: home,
         userId: invitee.id,
         scopeKey: `team:${home}:${invitee.id}`,
-        homeKey: `team-${invitee.id}`,
+        homeKey: computerHomeKey({ mode: "team", spaceId: home, userId: invitee.id }),
         kind: "docker",
       },
     });
@@ -443,6 +444,8 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
     });
     expect(returning.id).not.toBe(computer.id);
     expect(returning.userId).toBe(invitee.id);
+    // The handed-over computer keeps its home, so theirs is a new one.
+    expect(returning.homeKey).not.toBe(computer.homeKey);
     await expect(system.connection.count({ where: leftover })).resolves.toBe(0);
     await expect(system.secret.count({ where: leftover })).resolves.toBe(0);
     await expect(system.botSecret.count({ where: leftover })).resolves.toBe(0);
