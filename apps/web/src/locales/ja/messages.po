@@ -199,6 +199,11 @@ msgstr "{provider}で指定されたモデルが見つかりませんでした�
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} denied access to this model."
+msgstr "{provider} がこのモデルへのアクセスを拒否しました。"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is overloaded right now. Try again in a moment."
 msgstr "{provider}は現在混み合っています。しばらくしてからもう一度お試しください。"
 
@@ -299,8 +304,23 @@ msgstr "{stepCount, plural, one {作業中… · #個のツール} other {作業
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{summary} Backup models failed or were unavailable for this request."
+msgstr "{summary} このリクエストではバックアップモデルが失敗したか、利用できませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "{summary} No backup model was usable for this request."
+msgstr "{summary} このリクエストで使えるバックアップモデルがありませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{summary} Resets {date}."
 msgstr "{summary}{date}にリセットされます。"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "{summary} Your backup models also failed."
+msgstr "{summary} バックアップモデルも失敗しました。"
 
 #: src/pages/ActivityList.tsx
 msgid "{title}, {label}"
@@ -1019,13 +1039,10 @@ msgstr "画像を読み取れません"
 #: src/pages/Onboarding.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Cancel"
 msgstr "キャンセル"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Cancel new bot"
-msgstr "新しいボットをキャンセル"
 
 #: src/pages/GroupPanel.tsx
 msgid "Cancel new group"
@@ -1595,7 +1612,7 @@ msgstr "コンピューターの画面に接続できませんでした"
 msgid "Could not continue"
 msgstr "続行できませんでした"
 
-#: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "Could not create bot"
 msgstr "ボットを作成できませんでした"
 
@@ -1966,7 +1983,7 @@ msgid "Couldn't update your timezone"
 msgstr "タイムゾーンを更新できませんでした"
 
 #: src/pages/Board.tsx
-#: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 #: src/pages/shell/sidebar-header.tsx
 msgid "Create"
@@ -1987,6 +2004,7 @@ msgstr "グループを作成"
 
 #: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "Create new Bot"
 msgstr "新しいボットを作成"
 
@@ -2016,7 +2034,6 @@ msgid "Created"
 msgstr "作成済み"
 
 #: src/pages/GroupPanel.tsx
-#: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Creating…"
 msgstr "作成中…"
@@ -2188,10 +2205,6 @@ msgstr "拒否"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "デプロイのデフォルト"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Describe what this bot does"
-msgstr "このボットの役割を説明"
 
 #: src/pages/Board.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3349,13 +3362,10 @@ msgstr "ミュート中"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Name"
 msgstr "名前"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Name this bot"
-msgstr "ボットに名前を付ける"
 
 #: src/pages/GroupPanel.tsx
 msgid "Name this group"
@@ -3364,6 +3374,10 @@ msgstr "グループに名前を付ける"
 #: src/pages/RoutineEditor.tsx
 msgid "Name this routine"
 msgstr "ルーティンに名前を付ける"
+
+#: src/pages/shell/create-bot-dialog.tsx
+msgid "Name your Bot"
+msgstr "ボットに名前を付ける"
 
 #: src/lib/roster-status.ts
 msgid "Needs an answer"
@@ -3385,10 +3399,6 @@ msgstr "対応が必要"
 #: src/pages/shell/chat-context.tsx
 msgid "New"
 msgstr "新規"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "New bot"
-msgstr "新しいボット"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
@@ -3898,11 +3908,11 @@ msgstr "保護された入力"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Provider"
 msgstr "プロバイダー"
 
 #: src/pages/model-settings/provider-list.tsx
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Providers"
 msgstr "プロバイダー"
 
@@ -4551,6 +4561,11 @@ msgstr "設定ヘルプ"
 msgid "Shape"
 msgstr "形"
 
+#. placeholder {0}: index + 1
+#: src/pages/shell/avatar-studio-popover.tsx
+msgid "Shape {0}"
+msgstr "形 {0}"
+
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Shared"
@@ -4713,10 +4728,6 @@ msgstr "スペース"
 #: src/pages/shell/message-view.tsx
 msgid "Speak"
 msgstr "読み上げ"
-
-#: src/pages/VoiceSettingsOverlay.tsx
-msgid "Speak + transcribe"
-msgstr "読み上げ + 文字起こし"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Speak only"
@@ -4901,6 +4912,11 @@ msgstr "接続がタイムアウトしました。"
 msgid "The model provider returned an error."
 msgstr "モデルプロバイダーがエラーを返しました。"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "The model returned an unusable response. Try again."
+msgstr "モデルから使用できない応答が返されました。もう一度お試しください。"
+
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "プロバイダーがリクエストを制限しています。"
@@ -4970,6 +4986,11 @@ msgstr "このファイルは有効なUTF-8テキストではありません。"
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "このMac"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model's context window is too small. Choose another model."
+msgstr "このモデルのコンテキストウィンドウが小さすぎます。別のモデルを選んでください。"
 
 #: src/pages/Artifacts.tsx
 msgid "This month"
