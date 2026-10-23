@@ -844,6 +844,36 @@ msgstr "Terug"
 msgid "Back to sign in"
 msgstr "Terug naar aanmelden"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Backup {model} also failed."
+msgstr "Back-upmodel {model} is ook mislukt."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: cannot read images."
+msgstr "Back-upmodel {model} is overgeslagen: kan geen afbeeldingen lezen."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: context too large."
+msgstr "Back-upmodel {model} is overgeslagen: context te groot."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: no connection."
+msgstr "Back-upmodel {model} is overgeslagen: geen verbinding."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: thinking unavailable."
+msgstr "Back-upmodel {model} is overgeslagen: redeneren niet beschikbaar."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: unknown model."
+msgstr "Back-upmodel {model} is overgeslagen: onbekend model."
+
 #: src/pages/ModelBackupsSettings.tsx
 msgid "Backup models"
 msgstr "Back-upmodellen"
@@ -5454,27 +5484,3 @@ msgstr "Je spraakaanbieder heeft geen tegoed meer."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Je spraakaanbieder heeft de sleutel geweigerd."
-
-#: src/lib/run-error.ts
-msgid "Backup {model} also failed."
-msgstr "Back-upmodel {model} is ook mislukt."
-
-#: src/lib/run-error.ts
-msgid "Backup {model} was skipped: no connection."
-msgstr "Back-upmodel {model} is overgeslagen: geen verbinding."
-
-#: src/lib/run-error.ts
-msgid "Backup {model} was skipped: context too large."
-msgstr "Back-upmodel {model} is overgeslagen: context te groot."
-
-#: src/lib/run-error.ts
-msgid "Backup {model} was skipped: cannot read images."
-msgstr "Back-upmodel {model} is overgeslagen: kan geen afbeeldingen lezen."
-
-#: src/lib/run-error.ts
-msgid "Backup {model} was skipped: unknown model."
-msgstr "Back-upmodel {model} is overgeslagen: onbekend model."
-
-#: src/lib/run-error.ts
-msgid "Backup {model} was skipped: thinking unavailable."
-msgstr "Back-upmodel {model} is overgeslagen: redeneren niet beschikbaar."

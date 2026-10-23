@@ -44,6 +44,8 @@ vi.mock("@earendil-works/pi-ai/providers/all", () => ({
   builtinModels: (options?: { credentials?: unknown }) => {
     if (options?.credentials) providerState.credentialStores.push(options.credentials);
     return {
+      getProvider: (provider: string) =>
+        provider === "openrouter" ? { id: provider, name: "OpenRouter" } : undefined,
       getModel: (provider: string, id: string) => providerState.models.get(`${provider}/${id}`),
       streamSimple: (...args: unknown[]) => providerState.stream(...args),
     };
@@ -689,6 +691,47 @@ describe("Pi runtime ordered model fallback", () => {
       reason: "provider_unavailable",
     });
   });
+
+  it("preserves backup outcomes when the backup hits its output limit without text", async () => {
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", googleQuota))
+        : stream(target, message(target, [], "length")),
+    );
+    const error = await run(
+      request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-key" }]),
+    ).catch((error: Error) => error);
+    expect(error).toBeInstanceOf(Error);
+    const normalized = normalizeRunError((error as Error).message);
+    expect(normalized.details).toContain(
+      "The model hit its output limit before writing a response.",
+    );
+    expect(normalized.summary).toContain("Backup provider-b / backup-a also failed.");
+    expect(normalized.backupModels).toMatchObject([{ reason: "failed" }]);
+  });
+
+  it.each(["failed", "connection"])(
+    "uses the provider display name for a %s backup",
+    async (reason) => {
+      const backup = model("openrouter", "example:free", 8_192);
+      backup.name = "Example";
+      providerState.models.set(`${backup.provider}/${backup.id}`, { ...backup });
+      const input = request([{ provider: backup.provider, id: backup.id, apiKey: "fake-key" }]);
+      if (reason === "connection")
+        input.resolveFallbackModel = async () => {
+          throw new Error("No connection");
+        };
+      providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+        stream(target, message(target, [], "error", googleQuota)),
+      );
+      const error = await run(input).catch((error: Error) => error);
+      expect(normalizeRunError((error as Error).message).summary).toContain(
+        reason === "failed"
+          ? "Backup OpenRouter / Example also failed."
+          : "Backup OpenRouter / example:free was skipped: no connection.",
+      );
+    },
+  );
 
   it.each(["connection", "unknown_model", "context", "images", "thinking"])(
     "reports a skipped backup: %s",

@@ -2782,7 +2782,7 @@ function fallbackAwareModelStream(
         state.backupModels.push({
           provider: choice.provider,
           model: choice.id,
-          name: `${choice.provider} / ${choice.id}`,
+          name: `${catalogModels().getProvider?.(choice.provider)?.name ?? choice.provider} / ${choice.id}`,
           reason,
         });
         getLogger().warn("model.backup.skipped", {
@@ -2983,7 +2983,7 @@ function fallbackAwareModelStream(
                 state.backupModels.push({
                   provider: next.config.provider,
                   model: next.config.id,
-                  name: `${next.config.provider} / ${next.model.name}`,
+                  name: `${catalogModels().getProvider?.(next.config.provider)?.name ?? next.config.provider} / ${next.model.name}`,
                   reason: "failed",
                 });
                 getLogger().info("model.backup.switched", {
@@ -3038,8 +3038,17 @@ function fallbackAwareModelStream(
           if (event.type === "done") {
             for (const pending of buffered) output.push(pending);
             buffered = [];
-            output.push(event);
-            output.end(event.message);
+            const failure = providerFailureText(event.message);
+            if (failure && state.backupModels?.length) {
+              finishWithError({
+                type: "error",
+                reason: "error",
+                error: { ...event.message, stopReason: "error", errorMessage: failure },
+              });
+            } else {
+              output.push(event);
+              output.end(event.message);
+            }
             return;
           }
           lastPartial = {
