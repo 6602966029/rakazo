@@ -90,8 +90,8 @@ import {
   messagingChannelPrivacyBlock,
   messagingDmSurfaceNote,
   newSiteOutcome,
-  nextCronDateAcross,
   nextFence,
+  nextRoutineRunDateAcross,
   outboundSiteGate,
   planActionGate,
   promptInvokesSkill,
@@ -146,6 +146,7 @@ import {
   searchHistory,
   settleReleasedTakeoverCards,
   validateInstructionProposal,
+  withTransactionRetry,
   writeBotInstructions,
 } from "@rakazo/db";
 import { enrichLogContext, getLogger } from "@rakazo/logging";
@@ -3307,9 +3308,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
         ? watchTick.nextRunAt
         : isOneShotRoutineCrons(routine.crons)
           ? null
-          : nextCronDateAcross(
+          : nextRoutineRunDateAcross(
               routine.crons,
-              new Date(Math.max(Date.now(), scheduledAt.getTime())),
+              scheduledAt,
+              new Date(Date.now()),
               routine.timezone,
             );
       const previousLastRunAt = routine.lastRunAt;
@@ -7753,6 +7755,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
             )
             .map((candidate) => JSON.stringify([candidate.provider, candidate.modelId])),
         );
+        // Provider kind and model id only: custom endpoints are identified by kind, never host.
+        const activeModel = { "model.provider": runModelProvider, "model.id": runModelId };
 
         try {
           if (checkpointLoadError) throw checkpointLoadError;
@@ -7869,6 +7873,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 if (updated.count !== 1) {
                   throw new Error("Run lease was lost before the backup model could be used");
                 }
+                activeModel["model.provider"] = provider;
+                activeModel["model.id"] = modelId;
               },
               resumeFromCheckpoint: takeoverResume?.checkpoint,
               turnCheckpoint,
@@ -8573,6 +8579,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               "run.outcome": "failed",
               "run.failure": error.name,
               reason: message,
+              ...activeModel,
             });
           } else {
             getLogger().error(
@@ -8580,6 +8587,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               sanitizedError(error, (text) => redactSecrets(text, runSecrets)),
               {
                 "run.outcome": "failed",
+                ...activeModel,
               },
             );
           }
@@ -9879,33 +9887,37 @@ async function publishMessage(
     blocks = blocks.filter((block) => block.kind === "ask" || block.kind === "computer");
     if (blocks.length === 0 && !stoppedHelper) return null;
   }
-  const committed = await deps.prisma.$transaction(async (tx) => {
-    // Only synthetic terminal helper writes may bypass the cancellation guard.
-    // Commit their event and durable message together so cleanup retries are safe.
-    let helperEvent: { seq: number } | undefined;
-    if (stoppedHelper) {
-      const { kind: _kind, ...payload } = stoppedHelper;
-      helperEvent = await appendEventInTransaction(tx, {
-        spaceId: run.spaceId,
-        threadId: run.threadId,
-        botId: run.botId,
-        runId: run.id,
-        type: "thread.subagent",
-        payload,
-        allowCancelledRun: true,
-      });
-    }
-    if (blocks.length === 0 && helperEvent) return { message: null, eventSeq: helperEvent.seq };
-    return persistMessageInTransaction(
-      tx,
-      run,
-      role,
-      blocks,
-      markUnread,
-      clientNonce,
-      Boolean(stoppedHelper),
-    );
-  });
+  // Concurrent runs in one thread contend for its sequence counters; Postgres aborts a
+  // deadlock victim, which commits nothing, so retry instead of failing the run.
+  const committed = await withTransactionRetry(() =>
+    deps.prisma.$transaction(async (tx) => {
+      // Only synthetic terminal helper writes may bypass the cancellation guard.
+      // Commit their event and durable message together so cleanup retries are safe.
+      let helperEvent: { seq: number } | undefined;
+      if (stoppedHelper) {
+        const { kind: _kind, ...payload } = stoppedHelper;
+        helperEvent = await appendEventInTransaction(tx, {
+          spaceId: run.spaceId,
+          threadId: run.threadId,
+          botId: run.botId,
+          runId: run.id,
+          type: "thread.subagent",
+          payload,
+          allowCancelledRun: true,
+        });
+      }
+      if (blocks.length === 0 && helperEvent) return { message: null, eventSeq: helperEvent.seq };
+      return persistMessageInTransaction(
+        tx,
+        run,
+        role,
+        blocks,
+        markUnread,
+        clientNonce,
+        Boolean(stoppedHelper),
+      );
+    }),
+  );
   await deps.events.notify(run.threadId, committed.eventSeq).catch((error) => {
     getLogger().error("thread message realtime notification", error);
   });

@@ -295,10 +295,6 @@ msgstr "{title}, {label}"
 msgid "{toolCount, plural, one {# tool} other {# tools}}"
 msgstr "{toolCount, plural, one {# tool} other {# tools}}"
 
-#: src/pages/shell/transcript.tsx
-msgid "{workingBotName} is working"
-msgstr "{workingBotName} is working"
-
 #. placeholder {0}: mention.name
 #: src/pages/shell/composer.tsx
 msgid "@{0}"
@@ -679,6 +675,10 @@ msgstr "Answered: {0}"
 msgid "Answered: {answer}"
 msgstr "Answered: {answer}"
 
+#: src/pages/Onboarding.tsx
+msgid "Anthropic API"
+msgstr "Anthropic API"
+
 #: src/pages/Paywall.tsx
 msgid "Any model, with your own key"
 msgstr "Any model, with your own key"
@@ -686,6 +686,7 @@ msgstr "Any model, with your own key"
 #: src/components/AskCard.tsx
 #: src/lib/localized-provider-hint.ts
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
+#: src/pages/model-settings/compatible-key-field.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -936,10 +937,6 @@ msgstr "Bots"
 msgid "Bots and browser automation"
 msgstr "Bots and browser automation"
 
-#: src/pages/shell/transcript.tsx
-msgid "Bots are working"
-msgstr "Bots are working"
-
 #: src/pages/Paywall.tsx
 msgid "Bots with their own computer and browser"
 msgstr "Bots with their own computer and browser"
@@ -1061,6 +1058,14 @@ msgstr "Chat apps"
 msgid "Chat Settings"
 msgstr "Chat Settings"
 
+#: src/pages/Onboarding.tsx
+msgid "ChatGPT subscription"
+msgstr "ChatGPT subscription"
+
+#: src/components/ModelCredits.tsx
+msgid "ChatGPT, Claude, or any model provider."
+msgstr "ChatGPT, Claude, or any model provider."
+
 #: src/lib/identity-display.ts
 msgid "Chats"
 msgstr "Chats"
@@ -1129,6 +1134,10 @@ msgstr "Choose a bot…"
 msgid "Choose a new password"
 msgstr "Choose a new password"
 
+#: src/pages/Onboarding.tsx
+msgid "Choose a provider"
+msgstr "Choose a provider"
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose file"
 msgstr "Choose file"
@@ -1136,6 +1145,10 @@ msgstr "Choose file"
 #: src/components/ModelCredits.tsx
 msgid "Choose how to use Rakazo"
 msgstr "Choose how to use Rakazo"
+
+#: src/pages/Onboarding.tsx
+msgid "Claude subscription"
+msgstr "Claude subscription"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Clear"
@@ -1378,6 +1391,10 @@ msgstr "Connect Executor"
 #: src/pages/shell/message-cards.tsx
 msgid "Connect MCP server “{name}”"
 msgstr "Connect MCP server “{name}”"
+
+#: src/components/ModelCredits.tsx
+msgid "Connect my own"
+msgstr "Connect my own"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Connect OAuth"
@@ -2072,9 +2089,7 @@ msgstr "Decline"
 msgid "Default"
 msgstr "Default"
 
-#. placeholder {0}: thinkingLevelLabel("medium")
 #. placeholder {0}: thinkingLevelLabel(defaultThinkingLevel)
-#: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
@@ -3619,6 +3634,16 @@ msgstr "OAuth connection failed"
 msgid "OAuth expired"
 msgstr "OAuth expired"
 
+#: src/pages/model-settings/connection-controls.tsx
+#: src/pages/Onboarding.tsx
+msgid "Ollama API key"
+msgstr "Ollama API key"
+
+#: src/pages/model-settings/provider-list.tsx
+#: src/pages/Onboarding.tsx
+msgid "Ollama Cloud"
+msgstr "Ollama Cloud"
+
 #: src/pages/RoutineEditor.tsx
 msgid "On a schedule"
 msgstr "On a schedule"
@@ -3691,6 +3716,10 @@ msgstr "Open Rakazo"
 #: src/pages/ScratchpadSection.tsx
 msgid "Open work"
 msgstr "Open work"
+
+#: src/pages/Onboarding.tsx
+msgid "OpenAI API"
+msgstr "OpenAI API"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -3807,10 +3836,6 @@ msgstr "Paste your API key, then test again."
 #: src/pages/RoutineEditor.tsx
 msgid "Paused"
 msgstr "Paused"
-
-#: src/components/ModelCredits.tsx
-msgid "Pay your model provider directly."
-msgstr "Pay your model provider directly."
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
@@ -4921,7 +4946,6 @@ msgstr "These saved settings can't be read. Remove it and add it again."
 
 #: src/components/call/CallCard.tsx
 #: src/pages/model-settings/catalog-model-fields.tsx
-#: src/pages/Onboarding.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Thinking"
@@ -5271,8 +5295,8 @@ msgid "Use email code"
 msgstr "Use email code"
 
 #: src/components/ModelCredits.tsx
-msgid "Use my API key"
-msgstr "Use my API key"
+msgid "Use my subscription or API key"
+msgstr "Use my subscription or API key"
 
 #: src/pages/Auth.tsx
 msgid "Use password"
@@ -5438,6 +5462,7 @@ msgstr "Won't do"
 
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
+#: src/pages/shell/transcript.tsx
 msgid "Working…"
 msgstr "Working…"
 
@@ -5481,10 +5506,6 @@ msgstr "You have control"
 msgid "Your Anthropic"
 msgstr "Your Anthropic"
 
-#: src/components/ModelCredits.tsx
-msgid "Your API key"
-msgstr "Your API key"
-
 #: src/pages/Auth.tsx
 msgid "Your email address"
 msgstr "Your email address"
@@ -5511,6 +5532,10 @@ msgstr "Your OpenRouter"
 #: src/components/SharedSpaceRules.tsx
 msgid "Your other spaces stay private."
 msgstr "Your other spaces stay private."
+
+#: src/components/ModelCredits.tsx
+msgid "Your subscription or API key"
+msgstr "Your subscription or API key"
 
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."

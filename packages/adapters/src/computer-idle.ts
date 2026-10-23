@@ -423,7 +423,7 @@ export async function sleepComputerIfIdle(
     });
     throw error;
   }
-  await deps.prisma.computer.update({
+  const suspended = await deps.prisma.computer.updateMany({
     where: suspensionClaim,
     data: {
       state: "suspended",
@@ -435,6 +435,12 @@ export async function sleepComputerIfIdle(
       controlRunId: null,
     },
   });
+  if (suspended.count !== 1) {
+    // A Reset, a stale-claim recovery, or a deletion took the computer while it stopped. The
+    // new owner restarts it from the saved revision; there is nothing left for this job to do.
+    getLogger().warn("computer.suspend_superseded", { "computer.id": computerId });
+    return;
+  }
   getLogger().info("computer.suspended", {
     "computer.id": computerId,
     provider: computer.kind,

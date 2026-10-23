@@ -6,9 +6,13 @@ import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Models from "../app/(settings)/models";
+import { modelPickerRequest, selectPickerModel } from "./model-picker-selection";
 
 const savedEndpoint = "https://models.example.test/v1";
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+const { push, saved } = vi.hoisted(() => ({
+  push: vi.fn(),
+  saved: { baseUrl: "https://models.example.test/v1", hasKey: false },
+}));
 
 vi.mock("./api", () => ({
   captureApiRequestContext: async () => ({}),
@@ -29,7 +33,8 @@ vi.mock("./api", () => ({
           id: "credential-fixture",
           provider: "openai-compatible",
           modelId: "model-fixture",
-          baseUrl: "https://models.example.test/v1",
+          baseUrl: saved.baseUrl,
+          hasKey: saved.hasKey,
           headerNames: ["x-session"],
           label: "Fixture",
         },
@@ -185,3 +190,90 @@ describe("mobile saved model headers", () => {
     },
   );
 });
+
+it("selects the Ollama preset through the compatible form with a visible key field", async () => {
+  const providerButton = [...container.querySelectorAll("button")].find((button) =>
+    button.textContent?.startsWith("Provider"),
+  );
+  expect(providerButton).toBeDefined();
+  await act(async () => providerButton!.click());
+  const route = push.mock.calls.at(-1)?.[0] as { params: { requestId: string } };
+  const request = modelPickerRequest(route.params.requestId)!;
+  const preset = request.choices.find((choice) => choice.label === "Ollama Cloud")!;
+  expect(preset).toBeDefined();
+  expect(preset.providerLabel).toBe("All providers");
+  expect(request.choices.filter((choice) => choice.label === "Ollama Cloud")).toHaveLength(1);
+  await act(async () => {
+    selectPickerModel(route.params.requestId, preset.key);
+  });
+  expect(field("OpenAI-compatible server URL")?.value).toBe("https://ollama.com/v1");
+  expect(field("API key")?.placeholder).toBe("Ollama API key");
+  expect(field("API key")?.type).toBe("password");
+  expect(
+    [...container.querySelectorAll("button")].filter((button) =>
+      ["Setup help", "API key"].includes(button.textContent ?? ""),
+    ),
+  ).toHaveLength(0);
+});
+
+it("shows a saved Ollama connection only once in the connected section", async () => {
+  saved.baseUrl = "https://ollama.com/";
+  await act(async () => {
+    root.unmount();
+  });
+  root = createRoot(container);
+  await act(async () => {
+    root.render(createElement(Models));
+  });
+  const button = [...container.querySelectorAll("button")].find((entry) =>
+    entry.textContent?.startsWith("Provider"),
+  )!;
+  await act(async () => button.click());
+  const route = push.mock.calls.at(-1)?.[0] as { params: { requestId: string } };
+  const choices = modelPickerRequest(route.params.requestId)!.choices.filter(
+    (choice) => choice.label === "Ollama Cloud",
+  );
+  expect(choices).toHaveLength(1);
+  expect(choices[0]?.providerLabel).toBe("Connected");
+  saved.baseUrl = savedEndpoint;
+});
+
+it("keeps setup help and API key collapsible for generic compatible servers", async () => {
+  const row = (name: string) =>
+    [...container.querySelectorAll("button")].find((button) => button.textContent === name)!;
+  expect(field("API key")).toBeNull();
+  expect(container.textContent).not.toContain("Rakazo adds /v1");
+  await act(async () => row("Setup help").click());
+  expect(container.textContent).toContain("Rakazo adds /v1");
+  await act(async () => row("Setup help").click());
+  expect(container.textContent).not.toContain("Rakazo adds /v1");
+  await act(async () => row("API key").click());
+  expect(field("API key")).not.toBeNull();
+  await act(async () => row("API key").click());
+  expect(field("API key")).toBeNull();
+});
+
+it.each(["https://ollama.com", "https://ollama.com/v1/"])(
+  "keeps Save enabled with a saved Ollama key at %s",
+  async (baseUrl) => {
+    saved.baseUrl = "https://ollama.com/v1";
+    saved.hasKey = true;
+    try {
+      await act(async () => root.unmount());
+      root = createRoot(container);
+      await act(async () => root.render(createElement(Models)));
+      await change("OpenAI-compatible server URL", baseUrl);
+      const save = [...container.querySelectorAll("button")].find(
+        (button) => button.textContent === "Save",
+      );
+      expect(save).toBeDefined();
+      expect(save!.disabled).toBe(false);
+      await change("OpenAI-compatible server URL", "https://other.test/v1");
+      await change("OpenAI-compatible server URL", "https://ollama.com/v1/");
+      expect(save!.disabled).toBe(false);
+    } finally {
+      saved.baseUrl = savedEndpoint;
+      saved.hasKey = false;
+    }
+  },
+);
