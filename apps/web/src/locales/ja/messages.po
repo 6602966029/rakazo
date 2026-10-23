@@ -199,6 +199,11 @@ msgstr "{provider}で指定されたモデルが見つかりませんでした�
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} denied access to this model."
+msgstr "{provider}がこのモデルへのアクセスを拒否しました。"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is overloaded right now. Try again in a moment."
 msgstr "{provider}は現在混み合っています。しばらくしてからもう一度お試しください。"
 
@@ -3913,11 +3918,11 @@ msgstr "保護された入力"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Provider"
 msgstr "プロバイダー"
 
 #: src/pages/model-settings/provider-list.tsx
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Providers"
 msgstr "プロバイダー"
 
@@ -4730,10 +4735,6 @@ msgid "Speak"
 msgstr "読み上げ"
 
 #: src/pages/VoiceSettingsOverlay.tsx
-msgid "Speak + transcribe"
-msgstr "読み上げ + 文字起こし"
-
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Speak only"
 msgstr "読み上げのみ"
 
@@ -4916,6 +4917,11 @@ msgstr "接続がタイムアウトしました。"
 msgid "The model provider returned an error."
 msgstr "モデルプロバイダーがエラーを返しました。"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "The model returned an unusable response. Try again."
+msgstr "モデルから使用できない応答が返されました。もう一度お試しください。"
+
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "プロバイダーがリクエストを制限しています。"
@@ -4985,6 +4991,11 @@ msgstr "このファイルは有効なUTF-8テキストではありません。"
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "このMac"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model's context window is too small. Choose another model."
+msgstr "このモデルのコンテキストウィンドウが小さすぎます。別のモデルを選択してください。"
 
 #: src/pages/Artifacts.tsx
 msgid "This month"
