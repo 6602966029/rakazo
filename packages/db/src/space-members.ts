@@ -86,6 +86,7 @@ export async function listSpaceMembers(
   prisma: PrismaClient,
   input: SpaceRef,
 ): Promise<{
+  spaceName: string;
   members: Array<{
     userId: string;
     name: string;
@@ -100,6 +101,7 @@ export async function listSpaceMembers(
     select: {
       userId: true,
       role: true,
+      space: { select: { name: true } },
       member: { select: { user: { select: { name: true, email: true, image: true } } } },
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -115,7 +117,7 @@ export async function listSpaceMembers(
       role: isOwnerRole(row.role) ? ("owner" as const) : ("member" as const),
     }))
     .sort((a, b) => Number(b.role === "owner") - Number(a.role === "owner"));
-  return { members, canManage: isOwnerRole(self.role) };
+  return { spaceName: self.space.name, members, canManage: isOwnerRole(self.role) };
 }
 
 /** A new single-use link. Only its SHA-256 is stored; the token is returned once. */

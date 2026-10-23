@@ -359,6 +359,7 @@ export const SpaceMemberSchema = z.object({
 export type SpaceMember = z.infer<typeof SpaceMemberSchema>;
 
 export const SpaceMembersSchema = z.object({
+  spaceName: z.string(),
   members: z.array(SpaceMemberSchema),
   /** True when the current member owns the space and may invite or remove people. */
   canManage: z.boolean(),

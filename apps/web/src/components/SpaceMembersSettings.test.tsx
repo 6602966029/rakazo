@@ -97,7 +97,7 @@ async function renderWith(members: SpaceMembers, onLeft = vi.fn()) {
 }
 
 it("lets the owner invite and remove members but not leave", async () => {
-  await renderWith({ members: [owner, member], canManage: true });
+  await renderWith({ spaceName: "Home", members: [owner, member], canManage: true });
   expect(rpc.spaces.members.list).toHaveBeenCalledWith({ spaceId: space.id });
   const rows = [...host.querySelectorAll('ul[aria-label="Members"] > li')];
   expect(rows.map((row) => row.textContent)).toEqual([
@@ -109,7 +109,11 @@ it("lets the owner invite and remove members but not leave", async () => {
 });
 
 it("a member cannot invite or remove, and leaves after confirming", async () => {
-  const onLeft = await renderWith({ members: [owner, member], canManage: false });
+  const onLeft = await renderWith({
+    spaceName: "Home",
+    members: [owner, member],
+    canManage: false,
+  });
   expect(buttonNamed("Invite")).toBeUndefined();
   expect(buttonNamed("Remove")).toBeUndefined();
 
@@ -125,7 +129,7 @@ it("a member cannot invite or remove, and leaves after confirming", async () => 
 it("copies a new invite link and keeps it on screen", async () => {
   const writeText = vi.fn(async () => undefined);
   Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-  await renderWith({ members: [owner], canManage: true });
+  await renderWith({ spaceName: "Home", members: [owner], canManage: true });
   rpc.spaces.invites.create.mockResolvedValue({
     url: "https://rakazo.example/invite/token-1",
     expiresAt: new Date().toISOString(),
@@ -141,7 +145,7 @@ it("copies a new invite link and keeps it on screen", async () => {
 });
 
 it("removes a member only after confirming", async () => {
-  await renderWith({ members: [owner, member], canManage: true });
+  await renderWith({ spaceName: "Home", members: [owner, member], canManage: true });
   rpc.spaces.members.remove.mockResolvedValue({ ok: true });
 
   await act(async () => buttonNamed("Remove")?.click());

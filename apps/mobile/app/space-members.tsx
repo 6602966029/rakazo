@@ -77,7 +77,7 @@ export default function SpaceMembersScreen() {
   }
 
   function confirmLeave() {
-    Alert.alert(t("Leave {name}?", { name: name ?? "" }), undefined, [
+    Alert.alert(t("Leave {name}?", { name: name ?? members?.spaceName ?? "" }), undefined, [
       { text: t("Cancel"), style: "cancel" },
       { text: t("Leave"), style: "destructive", onPress: () => void leave() },
     ]);

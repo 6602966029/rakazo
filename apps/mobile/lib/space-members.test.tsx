@@ -20,7 +20,8 @@ const { rpc, selectSpace, selectedSpaceId, alert, share, router, header } = vi.h
 vi.mock("./api", () => ({ rpc, selectSpace, selectedSpaceId }));
 vi.mock("expo-router", () => ({
   useRouter: () => router,
-  useLocalSearchParams: () => ({ spaceId: "space-shared", name: "Home" }),
+  // Opened from Settings: no name in the link, so the sheet takes it from the list.
+  useLocalSearchParams: () => ({ spaceId: "space-shared" }),
   Stack: {
     Screen: ({ options }: { options: { invite?: () => void } }) => {
       header.invite = options.invite;
@@ -141,7 +142,8 @@ function pressAlertButton(text: string) {
 
 async function render(canManage: boolean) {
   rpc.mockImplementation(async (procedure: string) => {
-    if (procedure === "spaces/members/list") return { members: [owner, member], canManage };
+    if (procedure === "spaces/members/list")
+      return { spaceName: "Home", members: [owner, member], canManage };
     if (procedure === "spaces/invites/create")
       return { url: "https://rakazo.example/invite/token-1", expiresAt: "2026-10-29T00:00:00Z" };
     if (procedure === "spaces/members/leave") return { ok: true, activeSpaceId: "space-own" };
