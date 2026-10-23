@@ -117,6 +117,7 @@ export const BotSchema = z.object({
   thinkingLevel: ThinkingLevelSchema.nullable(),
   teamChatAmbientEnabled: z.boolean(),
   teamChatRules: z.string(),
+  crossSpaceCommunication: z.boolean().optional(),
   fleetManagement: z.boolean().default(false),
   disabledBuiltinTools: z.array(z.string()).default([]),
   webhookConfigured: z.boolean(),
@@ -410,6 +411,7 @@ export const UpdateBotInput = z
     thinkingLevel: ThinkingLevelSchema.nullable().optional(),
     teamChatAmbientEnabled: z.boolean().optional(),
     teamChatRules: z.string().max(TEAM_CHAT_RULES_MAX_LENGTH).optional(),
+    crossSpaceCommunication: z.boolean().optional(),
     fleetManagement: z.boolean().optional(),
     disabledBuiltinTools: DisabledBuiltinToolsSchema.optional(),
   })

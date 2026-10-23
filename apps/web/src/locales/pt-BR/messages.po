@@ -589,6 +589,10 @@ msgstr "Permitir conector {0} sem perguntar"
 msgid "Allow {0} without asking"
 msgstr "Permitir {0} sem perguntar"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Allow cross-space bot communication"
+msgstr ""
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Allow email actions without asking"
 msgstr "Permitir ações de e-mail sem perguntar"

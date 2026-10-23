@@ -505,6 +505,7 @@ model Bot {
   webhookSecretId   String?
   teamChatAmbientEnabled Boolean @default(false)
   teamChatRules          String  @default("")
+  crossSpaceCommunication Boolean @default(false)
   fleetManagement        Boolean @default(true)
   routines          Routine[]
   scratchpadItems   ScratchpadItem[]
@@ -1409,6 +1410,7 @@ model MessagingOutbound {
 }
 
 model AgentConnection {
+  requestVersion Int      @default(1)
   id             String   @id @default(cuid())
   requesterBotId String
   targetBotId    String

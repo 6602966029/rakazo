@@ -589,6 +589,10 @@ msgstr "{0} कनेक्टर को बिना पूछे अनुम�
 msgid "Allow {0} without asking"
 msgstr "{0} को बिना पूछे अनुमति दें"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Allow cross-space bot communication"
+msgstr ""
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Allow email actions without asking"
 msgstr "ईमेल कार्रवाइयों को बिना पूछे अनुमति दें"

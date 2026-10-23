@@ -589,6 +589,10 @@ msgstr "Разрешить подключение {0} без запроса"
 msgid "Allow {0} without asking"
 msgstr "Разрешить {0} без запроса"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Allow cross-space bot communication"
+msgstr "Разрешить общение ботов из разных пространств"
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Allow email actions without asking"
 msgstr "Разрешить действия по электронной почте без запроса"

@@ -589,6 +589,10 @@ msgstr "{0} bağlayıcısına sormadan izin ver"
 msgid "Allow {0} without asking"
 msgstr "{0} için sormadan izin ver"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Allow cross-space bot communication"
+msgstr ""
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Allow email actions without asking"
 msgstr "E-posta işlemlerine sormadan izin ver"

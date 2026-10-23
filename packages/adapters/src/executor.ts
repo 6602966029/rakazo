@@ -154,6 +154,7 @@ import { parse as parseShellCommand } from "shell-quote";
 import {
   connectAgent,
   messageConnectedAgent,
+  prepareAgentConnectionResponse,
   respondAgentConnection,
 } from "./agent-connections.js";
 import {
@@ -4311,7 +4312,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
             followUpFromUser: sourceMessage?.role === "user",
           }),
           // Cross-owner agent connections only exist for chat-linked bots.
-          ...(hasMessagingIdentity && !isBackgroundRunTrigger(run.trigger)
+          ...(hasMessagingIdentity &&
+          bot.crossSpaceCommunication === true &&
+          !isBackgroundRunTrigger(run.trigger)
             ? agentConnectionTools.filter((tool) => !disabledBuiltinTools.has(tool.name))
             : []),
         ];
@@ -5003,7 +5006,28 @@ export function createRunExecutor(deps: ExecutorDeps) {
             args = prepared.canonical;
             fleetSummary = prepared.summary;
           }
-          if (name === "propose_instructions_update" || isFleetApprovalTool(name))
+          if (name === "respond_agent_connection") {
+            if (nextApprovedTool !== name) {
+              const request = await prepareAgentConnectionResponse(
+                deps.prisma,
+                bot.id,
+                Boolean(args.accept),
+              );
+              if (!request) return { error: "no pending connection request" };
+              args = request;
+            } else if (
+              typeof args.requester_name !== "string" ||
+              typeof args.requester_address !== "string" ||
+              typeof args.requester_provider !== "string"
+            ) {
+              return { error: "connection request is no longer pending" };
+            }
+          }
+          if (
+            name === "propose_instructions_update" ||
+            name === "respond_agent_connection" ||
+            isFleetApprovalTool(name)
+          )
             effectRequest = args;
           const viaConnector = !BUILTIN_AGENT_TOOL_NAMES.has(name);
           // Declared effect of the operation this call dispatches (installed API method and
@@ -7368,7 +7392,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
               deps,
               { ...run, sourceMessageId: run.sourceMessageId },
               { id: bot.id, name: bot.name },
-              { accept: Boolean(args.accept) },
+              {
+                accept: Boolean(args.accept),
+                connectionId: String(args.connection_id ?? ""),
+                connectionVersion: Number(args.connection_version ?? 0),
+              },
             );
             if (!result.ok) return finish({ error: result.error });
             return finish(result);
