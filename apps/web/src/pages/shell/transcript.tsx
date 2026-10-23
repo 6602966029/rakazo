@@ -6,8 +6,8 @@ import {
   expandPeerReplies,
   groupVoiceChats,
   isPeerReceiptBlocks,
-  isToolActivityBlock,
   liveActivityLine,
+  liveMessageComposing,
   projectMessageReactions,
   timeSeparatorIds,
   unreadDividerMessageId,
@@ -552,12 +552,7 @@ export const Transcript = memo(function Transcript({
         })}
         {running &&
         !messages.some(
-          (message) =>
-            message.id.startsWith("progress:") &&
-            message.blocks.some(
-              (block) =>
-                block.kind === "progress" && !isToolActivityBlock(block) && Boolean(block.text),
-            ),
+          (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
         ) ? (
           <ActiveBotGlyph bots={workingBots} label={workingLabel} />
         ) : null}

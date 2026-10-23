@@ -767,7 +767,10 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const notificationThreadId = snap?.threadId ?? requestedThreadId ?? currentBot?.threadId;
   activeThreadId.current = notificationThreadId;
   const currentBotStatus = snap ? snap.run?.status : currentBot?.status;
-  const hasLiveProgress = visibleMessages.some((message) => message.id.startsWith("progress:"));
+  // Only reply text being written replaces the footer; earlier sentences above a tool call don't.
+  const hasLiveProgress = visibleMessages.some(
+    (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
+  );
   const activityLine = liveActivityLine(snap?.messages ?? []);
   const userBubble = useMemo(
     () =>

@@ -1,6 +1,5 @@
 import { BotAvatar, Button, GroupAvatar, type GroupAvatarMember } from "@rakazo/ui-web";
 import { ChevronDown } from "lucide-react";
-import { Shimmer } from "./primitives";
 
 /**
  * Lightweight peer event shown without exposing the exchanged message body. `replies` adds a
@@ -66,8 +65,8 @@ export function ActiveBotGlyph({ bots, label }: { bots: GroupAvatarMember[]; lab
   return (
     <div role="status" className="flex min-h-10 min-w-0 items-center gap-2.5 px-1">
       <GroupAvatar members={bots} size={28} />
-      <span dir="auto" className="min-w-0 truncate text-[15px]">
-        <Shimmer>{label}</Shimmer>
+      <span dir="auto" className="min-w-0 truncate text-[15px] text-muted-foreground text-shimmer">
+        {label}
       </span>
     </div>
   );
