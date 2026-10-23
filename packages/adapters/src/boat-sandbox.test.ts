@@ -311,6 +311,17 @@ describe("BoatSandboxProvider", () => {
         outcome,
       ],
     ),
+    // One that never answers again is force-stopped to its last good snapshot and resumed.
+    ...(["stuck", "recover_unsupported", "reset_failed"] as const).map(
+      (recovery): [string, (api: FakeBoatApi, id: string) => void, Outcome] => [
+        `error state with a snapshot, recover answers ${recovery}`,
+        (api, id) => {
+          api.saveSnapshot(id);
+          api.fail(id, recovery);
+        },
+        "started",
+      ],
+    ),
     ["snapshot data expired", (api, id) => api.expire(id), "replaced"],
     ["deleted", (api, id) => api.delete(id), "replaced"],
   ];
@@ -476,6 +487,119 @@ describe("BoatSandboxProvider", () => {
     expect((error as Error).message).toContain("HTTP 409");
     expect(isSandboxGoneError(error)).toBe(false);
   });
+
+  describe.each(["recover_unsupported", "reset_failed"] as const)(
+    "a sandbox Boat cannot power-cycle (%s)",
+    (recovery) => {
+      /** Runs `effect` on each read once the adapter first saw the sandbox in `error`. */
+      function onRead(effect: (api: FakeBoatApi, id: string, elapsedMs: number) => void) {
+        let since: number | undefined;
+        const get = FakeBoatApi.prototype.get;
+        vi.spyOn(FakeBoatApi.prototype, "get").mockImplementation(async function (
+          this: FakeBoatApi,
+          request,
+        ) {
+          if (since === undefined && this.state(request.sandboxId) === "error") since = Date.now();
+          if (since !== undefined) effect(this, request.sandboxId, Date.now() - since);
+          return get.call(this, request);
+        });
+      }
+
+      it("waits for it to answer again and never stops it", async () => {
+        const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
+        // It answers again two minutes later, as Boat says most do.
+        onRead((fake, id, elapsedMs) => {
+          if (elapsedMs >= 2 * 60_000 && fake.state(id) === "error") fake.setState(id, "running");
+        });
+        const { api, provider, computer } = await boat();
+        api.saveSnapshot(computer.id);
+        api.fail(computer.id, recovery);
+
+        const ref = await reconnect(provider, computer);
+
+        expect(ref).toMatchObject({ providerRef: computer.providerRef, fresh: false });
+        expect(stop).not.toHaveBeenCalled();
+      });
+
+      it("force-stops it to its last good snapshot and resumes that when it never answers", async () => {
+        const sink = createTestSink();
+        installLogger(createLogger({ service: "test", sinks: [sink] }));
+        try {
+          const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
+          const resume = vi.spyOn(FakeBoatApi.prototype, "resume");
+          const { api, provider, computer } = await boat();
+          api.saveSnapshot(computer.id);
+          api.fail(computer.id, recovery);
+          const failedAt = Date.now();
+
+          const ref = await reconnect(provider, computer);
+
+          expect(Date.now() - failedAt).toBeGreaterThanOrEqual(5 * 60_000);
+          expect(stop).toHaveBeenCalledExactlyOnceWith(
+            { sandboxId: computer.id, stopRequest: { force: true } },
+            { signal: context.signal },
+          );
+          expect(resume).toHaveBeenCalledOnce();
+          expect(ref).toMatchObject({
+            providerRef: computer.providerRef,
+            fresh: false,
+            started: true,
+          });
+          expect(api.state(computer.id)).toBe("ready");
+          const steps = sink.events.filter((event) => event.message === "sandbox.recover");
+          expect(steps).toEqual([
+            expect.objectContaining({
+              level: "warn",
+              provider: "boat",
+              step: "wait",
+              reason: recovery,
+            }),
+            expect.objectContaining({ level: "warn", provider: "boat", step: "force_stop" }),
+            expect.objectContaining({ level: "warn", provider: "boat", step: "resumed" }),
+          ]);
+          expect(JSON.stringify(steps)).not.toContain(computer.id);
+        } finally {
+          installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+        }
+      });
+
+      it("reports it gone without stopping it when Boat has no snapshot of it", async () => {
+        const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
+        const { api, provider, computer } = await boat();
+        api.fail(computer.id, recovery);
+
+        const error = await provider
+          .prepare(computer, context)
+          .catch((failure: unknown) => failure);
+        expect(isSandboxGoneError(error)).toBe(true);
+
+        const ref = await reconnect(provider, computer);
+        expect(ref.fresh).toBe(true);
+        expect(ref.providerRef).not.toBe(computer.providerRef);
+        expect(stop).not.toHaveBeenCalled();
+      });
+
+      it("stops waiting without stopping it when the caller gives up", async () => {
+        const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
+        const caller = new AbortController();
+        const cancelled = new Error("run cancelled");
+        onRead((_fake, _id, elapsedMs) => {
+          if (elapsedMs >= 60_000) caller.abort(cancelled);
+        });
+        const { api, provider, computer } = await boat();
+        api.saveSnapshot(computer.id);
+        api.fail(computer.id, recovery);
+
+        const error = await provider
+          .prepare(computer, { ...context, signal: caller.signal })
+          .catch((failure: unknown) => failure);
+
+        expect(error).toBe(cancelled);
+        expect(stop).not.toHaveBeenCalled();
+        expect(api.state(computer.id)).toBe("error");
+      });
+    },
+  );
 
   it("reports a sandbox that never becomes runnable as unavailable, not gone", async () => {
     const get = FakeBoatApi.prototype.get;

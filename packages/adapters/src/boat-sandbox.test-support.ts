@@ -245,10 +245,16 @@ export class FakeBoatApi implements BoatSandboxSdk {
     }
   }
 
-  async stop({ sandboxId }: StopOperationRequest): Promise<SandboxActionResponse> {
+  /** Boat saved the sandbox's disk, as it does by itself while the sandbox runs. */
+  saveSnapshot(id: string): void {
+    this.require(id).sandbox.snapshotAvailable = true;
+  }
+
+  /** A stop saves the disk first; a forced one keeps only the last good snapshot. */
+  async stop({ sandboxId, stopRequest }: StopOperationRequest): Promise<SandboxActionResponse> {
     const box = this.require(sandboxId);
     box.sandbox.state = "archived";
-    box.sandbox.snapshotAvailable = true;
+    if (!stopRequest?.force) box.sandbox.snapshotAvailable = true;
     return this.action(box);
   }
 
