@@ -52,7 +52,7 @@ describe("prepareImage", () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it.each(["image/jpeg", "image/png", "image/webp"])("retains %s encoding", async (type) => {
+  it.each(["image/jpeg", "image/png"])("retains %s encoding", async (type) => {
     const result = await prepareImage(photo(type));
     expect(result.type).toBe(type);
     expect(toBlob).toHaveBeenCalledWith(expect.any(Function), type, 0.7);
@@ -84,8 +84,18 @@ describe("prepareImage", () => {
     expect([canvas.width, canvas.height]).toEqual([1200, 800]);
   });
 
-  it.each(["image/gif", "image/svg+xml", "application/pdf"])("leaves %s alone", async (type) => {
-    const file = photo(type);
+  it.each(["image/gif", "image/webp", "image/svg+xml", "application/pdf"])(
+    "leaves %s alone",
+    async (type) => {
+      const file = photo(type);
+      expect(await prepareImage(file)).toBe(file);
+      expect(bitmap).not.toHaveBeenCalled();
+    },
+  );
+
+  it("preserves byte-heavy WebP without decoding away animation", async () => {
+    const file = photo("image/webp", 5 * 1024 * 1024);
+    expect(canPrepareImage(file)).toBe(false);
     expect(await prepareImage(file)).toBe(file);
     expect(bitmap).not.toHaveBeenCalled();
   });

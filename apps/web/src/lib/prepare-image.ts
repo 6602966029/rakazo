@@ -6,7 +6,9 @@ const IMAGE_RECOMPRESS_BYTES = 5 * 1024 * 1024;
 
 export function canPrepareImage(file: File): boolean {
   const mimeType = inferAttachmentMimeType(file.name, file.type);
-  return mimeType === "image/jpeg" || mimeType === "image/png" || mimeType === "image/webp";
+  // Canvas encodes a single frame. Preserve formats that can contain animations,
+  // matching the mobile picker rather than flattening animated WebP uploads.
+  return mimeType === "image/jpeg" || mimeType === "image/png";
 }
 
 /** Best effort: unsupported browsers and unreadable images retain the original upload. */
