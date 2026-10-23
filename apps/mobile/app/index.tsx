@@ -1788,8 +1788,6 @@ function HeaderButton({
 function ArchivedChatsRow({ count, onPress }: { count: number; onPress: () => void }) {
   const styles = useThemedStyles(createHomeStyles);
   const { t } = useI18n();
-  const compact = useContext(CompactRowsContext);
-  const row = compact ? COMPACT_INBOX_ROW : INBOX_ROW;
   if (count < 1) return null;
   return (
     <Pressable
@@ -1797,9 +1795,9 @@ function ArchivedChatsRow({ count, onPress }: { count: number; onPress: () => vo
       accessibilityLabel={`${t("Archived")}, ${count}`}
       onPress={onPress}
       style={({ pressed }) => [
+        // Laid out like a section header, so it lines up with them whatever sits above it.
         styles.sectionToggle,
         styles.archivedRow,
-        { paddingInlineStart: row.padding + INBOX_ROW.avatarSize + row.gap },
         pressed && styles.rowPressed,
       ]}
     >

@@ -89,17 +89,22 @@ describe("archived chats row", () => {
       accessibilityLabel: string;
       onPress: () => void;
       style: (state: { pressed: boolean }) => object[];
-    }) => (
-      <button
-        type="button"
-        data-role={accessibilityRole}
-        aria-label={accessibilityLabel}
-        onClick={onPress}
-        style={Object.assign({}, ...style({ pressed: false }))}
-      >
-        {children}
-      </button>
-    ),
+    }) => {
+      const merged = Object.assign({}, ...style({ pressed: false }));
+      return (
+        <button
+          type="button"
+          data-role={accessibilityRole}
+          aria-label={accessibilityLabel}
+          // React Native's paddingHorizontal has no DOM equivalent, so expose it directly.
+          data-padding-horizontal={merged.paddingHorizontal}
+          onClick={onPress}
+          style={merged}
+        >
+          {children}
+        </button>
+      );
+    },
     ({ children, style }: { children: ReactNode; style: object }) => (
       <span style={style}>{children}</span>
     ),
@@ -141,13 +146,17 @@ describe("archived chats row", () => {
   });
 
   it.each([false, true])(
-    "aligns with inbox names and fills a 44pt tap target (compact: %s)",
+    "lines up with the section headers and fills a 44pt tap target (compact: %s)",
     (value) => {
       compact = value;
       const { container, root } = render(3);
       const button = container.querySelector("button")!;
-      const row = value ? { ...styles.row, ...styles.compactRow } : styles.row;
-      expect(button.style.paddingInlineStart).toBe(`${row.paddingHorizontal + 62 + row.gap}px`);
+      // The same inset as a section header, not the chat-name column past the avatar.
+      expect(button.style.paddingInlineStart).toBe("");
+      expect(button.getAttribute("data-padding-horizontal")).toBe(
+        String(styles.sectionToggle.paddingHorizontal),
+      );
+      expect(button.style.paddingTop).toBe(`${styles.sectionToggle.paddingTop}px`);
       expect(button.style.minHeight).toBe("44px");
       expect(button.style.width).toBe("100%");
       const label = button.querySelector("span")!;
