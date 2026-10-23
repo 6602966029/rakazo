@@ -41,6 +41,8 @@ MAX_READ = 4 * 1024 * 1024
 BATCH_SIZE = 500
 IDLE_SECONDS = 10
 MAX_BACKOFF = 300
+# A quiet host still proves the shipper is alive, so "no events" alerts don't depend on activity.
+DEFAULT_HEARTBEAT_SECONDS = 3 * 60 * 60
 
 # RFC3339 (rsyslog's high-precision default) or the traditional "Oct 22 22:43:54" format.
 SYSLOG = re.compile(r"^(\S+T\S+|[A-Z][a-z]{2} [ \d]\d \d\d:\d\d:\d\d) (\S+) ([^\s\[:]+)(?:\[\d+\])?: (.*)$")
@@ -289,6 +291,20 @@ def ship_once(sources, state_path, state, send):
     return pending
 
 
+def heartbeat_seconds(value):
+    if not value:
+        return DEFAULT_HEARTBEAT_SECONDS
+    seconds = int(value)
+    if seconds < 60:
+        raise ValueError("RAKAZO_AUDIT_HEARTBEAT_SECONDS must be at least 60")
+    return seconds
+
+
+def heartbeat_event(host, now):
+    stamp = datetime.datetime.fromtimestamp(now, datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    return {"_time": stamp, "host": host, "source": "shipper", "event": "shipper.heartbeat"}
+
+
 def main():
     url = os.environ.get("RAKAZO_AUDIT_SINK_URL", "")
     token_file = os.environ.get("RAKAZO_AUDIT_TOKEN_FILE", "/etc/rakazo/audit-ship.token")
@@ -304,10 +320,16 @@ def main():
         ("auth", AUTH_LOG, lambda lines: parse_auth_lines(lines, host, known_keys), False, None),
         ("audit", AUDIT_LOG, lambda lines: parse_audit_lines(lines, host), True, audit_group_start),
     ]
+    interval = heartbeat_seconds(os.environ.get("RAKAZO_AUDIT_HEARTBEAT_SECONDS", ""))
     state = load_state(state_path)
     backoff = 0
+    last_heartbeat = None
     while True:
         try:
+            now = time.time()
+            if last_heartbeat is None or now - last_heartbeat >= interval:
+                send([heartbeat_event(host, now)])
+                last_heartbeat = now
             pending = ship_once(sources, state_path, state, send)
         except Exception as error:
             # Never log exception text, which can echo the sink URL or response.
