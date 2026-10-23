@@ -43,6 +43,7 @@ export function VoiceSettingsOverlay({
   const baseUrlId = useId();
   const ttsModelId = useId();
   const sttModelId = useId();
+  const providerSelectId = useId();
   const [catalog, setCatalog] = useState<VoiceCatalogEntry[]>([]);
   const [credentials, setCredentials] = useState<VoiceCredential[]>([]);
   const [status, setStatus] = useState<VoiceStatus | null>(null);
@@ -55,6 +56,7 @@ export function VoiceSettingsOverlay({
   const [ttsModel, setTtsModel] = useState("");
   const [sttModel, setSttModel] = useState("");
   const speechModelSave = useRef<string | null>(null);
+  const voicesRequest = useRef(0);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<"connect" | "disconnect" | "voice" | "test" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +71,31 @@ export function VoiceSettingsOverlay({
   function markPending(next: "connect" | "disconnect" | "voice" | "test" | null) {
     setPending(next);
     onBusyChange?.(next !== null);
+  }
+
+  /** Fill the form from the provider's saved credential; voices load without blocking the form. */
+  function showProvider(nextProvider: string, nextCredentials: VoiceCredential[]) {
+    const request = ++voicesRequest.current;
+    setProvider(nextProvider);
+    const cred = nextCredentials.find((entry) => entry.provider === nextProvider);
+    const activeVoice = cred?.voiceId ?? "";
+    setVoiceId(activeVoice);
+    setSpeechModel(cred?.speechModel ?? "");
+    setBaseUrl(cred?.endpoint ?? "");
+    setTtsModel(cred?.ttsModel ?? "");
+    setSttModel(cred?.sttModel ?? "");
+    setVoices([]);
+    if (!cred) return Promise.resolve();
+    return rpc.voice.voices({ provider: nextProvider }).then(
+      (listed) => {
+        if (request !== voicesRequest.current) return;
+        setVoices(listed);
+        if (!activeVoice && listed[0]) setVoiceId(listed[0].id);
+      },
+      (err: unknown) => {
+        if (request === voicesRequest.current) throw err;
+      },
+    );
   }
 
   async function refresh(nextProvider?: string) {
@@ -86,21 +113,16 @@ export function VoiceSettingsOverlay({
     setCatalog(nextCatalog);
     setCredentials(nextCredentials);
     setStatus(nextStatus);
-    setProvider(selected);
-    const cred = nextCredentials.find((entry) => entry.provider === selected);
-    const activeVoice = cred?.voiceId ?? "";
-    setVoiceId(activeVoice);
-    setSpeechModel(cred?.speechModel ?? "");
-    setBaseUrl(cred?.endpoint ?? "");
-    setTtsModel(cred?.ttsModel ?? "");
-    setSttModel(cred?.sttModel ?? "");
-    if (cred) {
-      const listed = await rpc.voice.voices({ provider: selected });
-      setVoices(listed);
-      if (!activeVoice && listed[0]) setVoiceId(listed[0].id);
-    } else {
-      setVoices([]);
-    }
+    await showProvider(selected, nextCredentials);
+  }
+
+  function chooseProvider(nextProvider: string) {
+    setApiKey("");
+    setError(null);
+    setNotice(null);
+    void showProvider(nextProvider, credentials).catch((err: unknown) =>
+      setError(errorText(err, t`Could not load voice settings`)),
+    );
   }
 
   useEffect(() => {
@@ -241,11 +263,40 @@ export function VoiceSettingsOverlay({
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-6 py-6 sm:px-8 md:flex-row">
-        <div className="flex min-h-0 shrink-0 flex-col md:w-[280px]">
-          <div className="mb-3 text-[13.5px] text-muted-foreground">
-            <Trans>Providers</Trans>
-          </div>
+      <div className="rk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
+        <div className="max-w-xl">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">
+              <Spinner aria-label={t`Loading voice providers…`} />
+            </p>
+          ) : null}
+          {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
+          {notice ? <p className="mb-4 text-sm text-success">{notice}</p> : null}
+          {catalog.length ? (
+            <Field>
+              <FieldLabel htmlFor={providerSelectId}>
+                <Trans>Provider</Trans>
+              </FieldLabel>
+              <NativeSelect
+                id={providerSelectId}
+                className="w-full"
+                value={provider}
+                disabled={busy}
+                onChange={(event) => chooseProvider(event.target.value)}
+              >
+                {catalog.map((entry) => {
+                  const connected = credentials.some((cred) => cred.provider === entry.id);
+                  return (
+                    <NativeSelectOption key={entry.id} value={entry.id}>
+                      {entry.name}
+                      {entry.transcribe ? "" : ` · ${t`Speak only`}`}
+                      {connected ? ` · ${t`Connected`}` : ""}
+                    </NativeSelectOption>
+                  );
+                })}
+              </NativeSelect>
+            </Field>
+          ) : null}
           {hiddenSelfHosted ? (
             <Button
               variant="ghost"
@@ -255,59 +306,6 @@ export function VoiceSettingsOverlay({
               <Trans>Disconnect Self-hosted</Trans>
             </Button>
           ) : null}
-          <div className="rk-scroll overflow-y-auto rounded-xl border border-border">
-            {catalog.map((entry) => {
-              const connected = credentials.some((cred) => cred.provider === entry.id);
-              return (
-                <button
-                  key={entry.id}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    setProvider(entry.id);
-                    setApiKey("");
-                    setError(null);
-                    setNotice(null);
-                    markPending("voice");
-                    void refresh(entry.id)
-                      .catch((err: unknown) =>
-                        setError(errorText(err, t`Could not load voice settings`)),
-                      )
-                      .finally(() => markPending(null));
-                  }}
-                  className={`flex w-full items-center gap-3 border-b border-border px-3.5 py-3 text-start transition-colors last:border-0 disabled:pointer-events-none disabled:opacity-50 ${
-                    entry.id === provider ? "bg-accent" : "hover:bg-accent"
-                  }`}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] text-foreground">{entry.name}</span>
-                    <span className="mt-0.5 block text-[12px] text-muted-foreground/80">
-                      {entry.transcribe ? (
-                        <Trans>Speak + transcribe</Trans>
-                      ) : (
-                        <Trans>Speak only</Trans>
-                      )}
-                    </span>
-                  </span>
-                  {connected ? (
-                    <span className="text-[12px] text-success">
-                      <Trans>Connected</Trans>
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="rk-scroll min-h-0 min-w-0 flex-1 overflow-y-auto">
-          {loading ? (
-            <p className="text-sm text-muted-foreground">
-              <Spinner aria-label={t`Loading voice providers…`} />
-            </p>
-          ) : null}
-          {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
-          {notice ? <p className="mb-4 text-sm text-success">{notice}</p> : null}
           {selected ? (
             <>
               {selfHosted ? (

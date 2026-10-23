@@ -199,6 +199,11 @@ msgstr "{provider} kon het gevraagde model niet vinden."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} denied access to this model."
+msgstr "{provider} heeft toegang tot dit model geweigerd."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is overloaded right now. Try again in a moment."
 msgstr "{provider} is op dit moment overbelast. Probeer het zo nog eens."
 
@@ -299,8 +304,23 @@ msgstr "{stepCount, plural, one {Bezig… · # tool} other {Bezig… · # tools}
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{summary} Backup models failed or were unavailable for this request."
+msgstr "{summary} Reservemodellen zijn mislukt of waren niet beschikbaar voor dit verzoek."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "{summary} No backup model was usable for this request."
+msgstr "{summary} Er was geen reservemodel bruikbaar voor dit verzoek."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{summary} Resets {date}."
 msgstr "{summary} Wordt gereset op {date}."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "{summary} Your backup models also failed."
+msgstr "{summary} Je reservemodellen zijn ook mislukt."
 
 #: src/pages/ActivityList.tsx
 msgid "{title}, {label}"
@@ -3902,11 +3922,11 @@ msgstr "Beveiligde invoer"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Provider"
 msgstr "Aanbieder"
 
 #: src/pages/model-settings/provider-list.tsx
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Providers"
 msgstr "Aanbieders"
 
@@ -4719,10 +4739,6 @@ msgid "Speak"
 msgstr "Spreken"
 
 #: src/pages/VoiceSettingsOverlay.tsx
-msgid "Speak + transcribe"
-msgstr "Spreken en transcriberen"
-
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Speak only"
 msgstr "Alleen spreken"
 
@@ -4905,6 +4921,11 @@ msgstr "De verbinding is verlopen."
 msgid "The model provider returned an error."
 msgstr "De modelaanbieder heeft een fout teruggegeven."
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "The model returned an unusable response. Try again."
+msgstr "Het model gaf een onbruikbaar antwoord. Probeer het opnieuw."
+
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "De aanbieder beperkt het aantal verzoeken."
@@ -4974,6 +4995,11 @@ msgstr "Dit bestand is geen geldige UTF-8-tekst."
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "deze Mac"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model's context window is too small. Choose another model."
+msgstr "Het contextvenster van dit model is te klein. Kies een ander model."
 
 #: src/pages/Artifacts.tsx
 msgid "This month"

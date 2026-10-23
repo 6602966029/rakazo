@@ -1788,6 +1788,30 @@ describe("createRunExecutor", () => {
     expect(names(false)).toContain("remember");
   });
 
+  it("gives a creation intro only its question and its own profile, and normal turns everything", () => {
+    const names = (trigger: string, disabledBuiltinTools: string[] = []) =>
+      selectBuiltinToolsForRun({
+        graphicalToolsAllowed: true,
+        pageBrowserAllowed: true,
+        groupId: null,
+        trigger,
+        semanticMemoryEnabled: true,
+        cloudAgentEnabled: true,
+        messagingChannelRun: false,
+        fleetManagement: true,
+        disabledBuiltinTools,
+      })
+        .map((tool) => tool.name)
+        .sort();
+    expect(names("created")).toEqual(["ask_user", "update_bot"]);
+    expect(names("created", ["ask_user"])).toEqual(["update_bot"]);
+    expect(names("created", ["ask_user", "update_bot"])).toEqual([]);
+    // Answering the intro resumes it as the user's turn (see commitAnswerRunInput).
+    expect(names("user")).toEqual(
+      expect.arrayContaining(["ask_user", "update_bot", "shell", "schedule_create", "spawn_bot"]),
+    );
+  });
+
   it("keeps a creation intro from answering a user message that arrived during it", () => {
     expect(
       threadContextForRun(

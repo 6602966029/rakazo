@@ -1,4 +1,11 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "{summary} Your backup models also failed.":
+    "{summary} Auch deine Ersatzmodelle sind fehlgeschlagen.",
+  "{summary} No backup model was usable for this request.":
+    "{summary} Für diese Anfrage war kein Ersatzmodell nutzbar.",
+  "{summary} Backup models failed or were unavailable for this request.":
+    "{summary} Ersatzmodelle sind fehlgeschlagen oder waren für diese Anfrage nicht verfügbar.",
+
   "Ollama Cloud": "Ollama Cloud",
   "Ollama API key": "Ollama API-Schlüssel",
   "Show password": "Passwort anzeigen",
@@ -84,6 +91,12 @@ export const DE_MESSAGES: Record<string, string> = {
     "{provider} hat den API-Schlüssel abgelehnt. Prüfe deine Verbindungseinstellungen.",
   "{provider} could not find the requested model.":
     "{provider} konnte das angeforderte Modell nicht finden.",
+  "{provider} denied access to this model.":
+    "{provider} hat den Zugriff auf dieses Modell verweigert.",
+  "The model returned an unusable response. Try again.":
+    "Das Modell hat eine unbrauchbare Antwort geliefert. Versuche es erneut.",
+  "This model's context window is too small. Choose another model.":
+    "Das Kontextfenster dieses Modells ist zu klein. Wähle ein anderes Modell.",
   "{provider} took too long to respond. Try again.":
     "{provider} hat zu lange zum Antworten gebraucht. Versuche es erneut.",
   "{provider} is overloaded right now. Try again in a moment.":
@@ -600,6 +613,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Could not save that voice": "Stimme konnte nicht gespeichert werden",
   "Disconnect {name}?": "{name} trennen?",
   Disconnect: "Trennen",
+  "Disconnect Self-hosted": "Selbst gehostete Verbindung trennen",
   "This removes the connection from every space.": "Die Verbindung wird in jedem Space entfernt.",
   "Disconnecting…": "Verbindung wird getrennt…",
   "Hear a sample": "Beispiel anhören",
