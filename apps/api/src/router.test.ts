@@ -2099,6 +2099,10 @@ describe("connections.begin", () => {
 
     expect(matched).toBe(true);
     expect(response.status).toBe(200);
+    expect(begin).toHaveBeenCalledWith(
+      { provider: "gmail", redirectUrl: "http://127.0.0.1:5173/integrations/callback" },
+      expect.anything(),
+    );
     // Complete and revoke hold the same lock across provider calls; begin must outwait them.
     expect(vi.mocked(prisma.$transaction).mock.calls.map((call) => call[1])).toEqual([
       { timeout: 60_000 },

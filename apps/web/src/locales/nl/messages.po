@@ -5399,6 +5399,7 @@ msgstr "Jij"
 msgid "You can close this tab if it does not redirect automatically."
 msgstr "Je kunt dit tabblad sluiten als het niet automatisch doorstuurt."
 
+#: src/pages/IntegrationCallback.tsx
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this window."
 msgstr "Je kunt dit venster sluiten."

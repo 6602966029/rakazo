@@ -5399,6 +5399,7 @@ msgstr "אני"
 msgid "You can close this tab if it does not redirect automatically."
 msgstr "אפשר לסגור את הכרטיסייה אם אין הפניה אוטומטית."
 
+#: src/pages/IntegrationCallback.tsx
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this window."
 msgstr "אפשר לסגור את החלון."
