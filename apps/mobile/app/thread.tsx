@@ -39,6 +39,7 @@ import {
   isSecretAskBlock,
   jumpTargetId,
   leaveThreadWindow,
+  liveMessageComposing,
   openThreadWindow,
   plainTextFromMarkdown,
   projectMessageReactions,
@@ -115,6 +116,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppConnectCard } from "../components/AppConnectCard";
 import { AskActions } from "../components/AskActions";
+import { ActivityMark } from "../components/activity-mark";
 import { AudioAttachment } from "../components/audio-attachment";
 import { BotAvatar } from "../components/bot-avatar";
 import { ChoiceCard } from "../components/ChoiceCard";
@@ -148,7 +150,6 @@ import { ThreadScrollSurface } from "../components/thread-scroll-surface";
 import { TimeSeparator } from "../components/time-separator";
 import { UnreadDivider } from "../components/unread-divider";
 import { VoiceChatCard } from "../components/VoiceChatCard";
-import { WorkingIndicator } from "../components/WorkingIndicator";
 import { readableGutters } from "../lib/adaptive-layout";
 import type {
   MobileBot,
@@ -589,6 +590,8 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       ? { botId }
       : undefined;
   const [snap, setSnap] = useState<MobileSnapshot | null>(null);
+  /** Bots writing reply text right now, comma-separated. */
+  const [composingBots, setComposingBots] = useState("");
   const snapRef = useRef<MobileSnapshot | null>(null);
   // The copy saved on this device stays on screen until a live snapshot replaces it.
   const [showingSaved, setShowingSaved] = useState(false);
@@ -606,6 +609,16 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     snapRef.current = next;
     const visible = withLiveStreamingProgress(next, streamResponsesRef.current);
     setSnap((previous) => reconcileVisibleThreadSnapshot(previous, visible));
+    // Read before streamed text is hidden, so a writing bot shows it even with streaming off.
+    setComposingBots(
+      (next?.messages ?? [])
+        .filter(
+          (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
+        )
+        .map((message) => message.botId ?? next?.botId ?? "")
+        .sort()
+        .join(","),
+    );
   }
 
   useEffect(() => {
@@ -953,6 +966,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
                 identity={currentBot.id}
                 size={28}
                 status={currentBotStatus}
+                composing={composingBots.split(",").includes(currentBot.id)}
                 muted={currentBot.notifyOnFinish === false}
               />
             ) : null}
@@ -1088,6 +1102,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     botId,
     currentBot,
     currentBotStatus,
+    composingBots,
     displayName,
     groupId,
     inGroup,
@@ -2526,21 +2541,19 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       <View
         accessibilityLabel={t("{name} is working", { name: currentBot.name })}
         accessibilityRole="text"
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          minHeight: 40,
-          marginTop: 12,
-        }}
+        style={{ minHeight: 40, marginTop: 12, justifyContent: "center" }}
       >
-        <BotAvatar
-          color={currentBot.color}
-          identity={currentBot.id}
-          size={28}
-          status={currentBotStatus}
+        <ActivityMark
+          bots={[
+            {
+              id: currentBot.id,
+              color: currentBot.color,
+              status: currentBotStatus,
+              composing: composingBots.split(",").includes(currentBot.id),
+            },
+          ]}
+          atBottom={!threadScrollState.detached}
         />
-        <WorkingIndicator />
       </View>
     ) : inGroup && workingGroupBots.length > 0 ? (
       <View
@@ -2550,27 +2563,17 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
             : t("{count} agents working", { count: workingGroupBots.length })
         }
         accessibilityRole="text"
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          minHeight: 40,
-          marginTop: 12,
-        }}
+        style={{ minHeight: 40, marginTop: 12, justifyContent: "center" }}
       >
-        <View style={{ flexDirection: "row", paddingRight: 8 }}>
-          {workingGroupBots.map((bot, index) => (
-            <View
-              key={bot.botId}
-              style={{
-                marginLeft: index === 0 ? 0 : -8,
-                zIndex: workingGroupBots.length - index,
-              }}
-            >
-              <BotAvatar color={bot.color} identity={bot.botId} size={28} status={bot.status} />
-            </View>
-          ))}
-        </View>
-        <WorkingIndicator />
+        <ActivityMark
+          bots={workingGroupBots.map((bot) => ({
+            id: bot.botId,
+            color: bot.color,
+            status: bot.status,
+            composing: composingBots.split(",").includes(bot.botId),
+          }))}
+          atBottom={!threadScrollState.detached}
+        />
       </View>
     ) : null;
 
@@ -3526,6 +3529,9 @@ const MessageRow = memo(function MessageRow({
               identity={activityBotId}
               size={inGroup ? 20 : 28}
               status={activityStatus}
+              motion="running"
+              composing={liveMessageComposing(message.blocks)}
+              pokeable
             />
           </View>
         ) : null}
