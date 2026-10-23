@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { BackgroundJob } from "@rakazo/adapter-kit";
 import { ONCE_ROUTINE_CRON } from "@rakazo/core";
 import type { Prisma, PrismaClient } from "@rakazo/db";
 import {
@@ -274,4 +275,61 @@ describePostgres("routine timer coalescing (PostgreSQL)", () => {
       0,
     );
   });
+  it.each(["leased", "completed"])(
+    "preserves an already %s run when its publication rejects",
+    async (status) => {
+      const { routine } = await fixture();
+      const dueAt = new Date(Date.now() - 1_000);
+      await system.routine.update({ where: { id: routine.id }, data: { nextRunAt: dueAt } });
+      const published: string[] = [];
+      const executor = createRunExecutor({
+        prisma: system,
+        jobs: {
+          enqueue: async (job: BackgroundJob) => {
+            published.push(job.name);
+            if (job.name !== "run.continue") return;
+            // Emulate the independent dispatcher winning before notification fails.
+            const dispatched = await system.run.update({
+              where: { id: job.payload.runId },
+              data: {
+                status,
+                leaseFence: 1,
+                ...(status === "leased"
+                  ? { leaseOwner: "fixture-worker" }
+                  : { completedAt: new Date() }),
+              },
+            });
+            if (status === "completed") {
+              await system.task.update({
+                where: { id: dispatched.taskId },
+                data: { status: "completed" },
+              });
+            }
+            throw new Error("notification failed after dispatch");
+          },
+          cancel: async () => undefined,
+          close: async () => undefined,
+        },
+        events: {
+          append: (input: Parameters<typeof appendEvent>[1]) => appendEvent(system, input),
+          notify: async () => undefined,
+        },
+      } as unknown as Parameters<typeof createRunExecutor>[0]);
+      await executor.wakeRoutine(routine.id, dueAt.toISOString());
+      const surviving = await system.run.findFirstOrThrow({ where: { routineId: routine.id } });
+      expect(surviving.status).toBe(status);
+      expect(await system.task.findUnique({ where: { id: surviving.taskId } })).toMatchObject({
+        status: status === "completed" ? "completed" : "queued",
+      });
+      expect(
+        (
+          await system.routine.findUniqueOrThrow({ where: { id: routine.id } })
+        ).nextRunAt!.getTime(),
+      ).toBeGreaterThan(dueAt.getTime());
+      expect(published).toEqual(["run.continue", "routine.wakeup"]);
+      // Retrying the original occurrence is now a safe no-op, not a nonce conflict.
+      await executor.wakeRoutine(routine.id, dueAt.toISOString());
+      expect(await system.run.count({ where: { routineId: routine.id } })).toBe(1);
+    },
+  );
 });

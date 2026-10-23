@@ -23,7 +23,7 @@ describe("routine scheduling", () => {
   });
 });
 
-function pendingTimerFixture() {
+function pendingTimerFixture(reuse = true) {
   const scheduledAt = new Date(Date.now() - 1_000);
   const routine = {
     id: "routine-1",
@@ -51,12 +51,15 @@ function pendingTimerFixture() {
       findUnique: vi.fn(async () => ({ modelProvider: null, modelId: null, thinkingLevel: null })),
     },
     run: {
-      findMany: vi.fn(async () => [pending]),
+      findMany: vi.fn(async () => (reuse ? [pending] : [])),
       updateMany: vi.fn(async () => ({ count: 1 })),
-      create: vi.fn(),
-      deleteMany: vi.fn(),
+      create: vi.fn(async () => ({ id: "new-1", taskId: "task-1" })),
+      deleteMany: vi.fn(async () => ({ count: 1 })),
     },
-    task: { create: vi.fn(), deleteMany: vi.fn() },
+    task: {
+      create: vi.fn(async () => ({ id: "task-1" })),
+      deleteMany: vi.fn(async () => ({ count: 1 })),
+    },
   };
   const prisma = {
     routine: { findUnique: vi.fn(async () => routine) },
@@ -90,18 +93,47 @@ describe("recurring routine catch-up", () => {
     expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ name: "routine.wakeup" }));
     expect(append).not.toHaveBeenCalled();
   });
-  it("never deletes existing pending work when publishing its wakeup fails", async () => {
+  it("keeps the advanced schedule when publishing a reused run's wakeup fails", async () => {
     const { executor, tx, enqueue, scheduledAt } = pendingTimerFixture();
+    enqueue.mockRejectedValueOnce(new Error("publisher unavailable"));
+    await executor.wakeRoutine("routine-1", scheduledAt.toISOString());
+    expect(tx.run.deleteMany).not.toHaveBeenCalled();
+    expect(tx.task.deleteMany).not.toHaveBeenCalled();
+    expect(tx.routine.updateMany).toHaveBeenCalledTimes(1);
+    expect(enqueue).toHaveBeenLastCalledWith(expect.objectContaining({ name: "routine.wakeup" }));
+  });
+  it.each(["claimed", "completed"])(
+    "preserves a %s run and schedules the next tick after publication fails",
+    async (_state) => {
+      const { executor, tx, enqueue, append, scheduledAt } = pendingTimerFixture(false);
+      // The durable dispatcher already moved the row beyond the rollback predicate.
+      tx.run.deleteMany.mockResolvedValue({ count: 0 });
+      enqueue.mockRejectedValueOnce(new Error("publisher unavailable"));
+      await executor.wakeRoutine("routine-1", scheduledAt.toISOString());
+      expect(tx.run.deleteMany).toHaveBeenCalledWith({
+        where: { id: "new-1", status: "queued", leaseFence: 0 },
+      });
+      expect(tx.task.deleteMany).not.toHaveBeenCalled();
+      expect(tx.routine.updateMany).toHaveBeenCalledTimes(1);
+      expect(append).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "routine.fired", runId: "new-1" }),
+      );
+      expect(enqueue).toHaveBeenLastCalledWith(expect.objectContaining({ name: "routine.wakeup" }));
+    },
+  );
+  it("rolls back only an unclaimed new run after publication fails", async () => {
+    const { executor, tx, enqueue, scheduledAt } = pendingTimerFixture(false);
     enqueue.mockRejectedValueOnce(new Error("publisher unavailable"));
     await expect(executor.wakeRoutine("routine-1", scheduledAt.toISOString())).rejects.toThrow(
       "publisher unavailable",
     );
-    expect(tx.run.deleteMany).not.toHaveBeenCalled();
-    expect(tx.task.deleteMany).not.toHaveBeenCalled();
+    expect(tx.task.deleteMany).toHaveBeenCalledWith({
+      where: { id: "task-1", status: "queued", runs: { none: {} } },
+    });
+    expect(tx.routine.updateMany).toHaveBeenCalledTimes(2);
     expect(tx.routine.updateMany).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ nextRunAt: scheduledAt, active: true }),
-      }),
+      expect.objectContaining({ data: expect.objectContaining({ nextRunAt: scheduledAt }) }),
     );
+    expect(enqueue).toHaveBeenCalledTimes(1);
   });
 });

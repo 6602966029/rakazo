@@ -70,6 +70,8 @@ A bounded pass cancels redundant marked timer rows with no attempts, effects,
 output, steering, checkpoint, or live computer ownership, preserving historical
 rows and terminal events. The `routine.coalesced` log records reuse without
 another `routine.fired` event.
+If publication fails after dispatch has claimed a timer, its run and advanced
+schedule remain intact; only newly created, never-claimed work is rolled back.
 
 Interactive work is scanned before scheduled/reaction work in each bounded pass.
 When memory admission declines a run, dispatch leaves it durable and continues

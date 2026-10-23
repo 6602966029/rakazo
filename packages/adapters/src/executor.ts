@@ -3393,34 +3393,43 @@ export function createRunExecutor(deps: ExecutorDeps) {
           ...(claimed.coalesced ? { keepExisting: true } : {}),
         });
       } catch (error) {
-        // Restore the claim so wakeup retry / routine reconciliation can fire again.
-        await deps.prisma.$transaction(async (tx) => {
-          if (!claimed.coalesced) {
-            await tx.run.deleteMany({
-              where: { id: claimed.id, status: "queued" },
+        // Direct dispatch can claim or finish this durable row before publication
+        // fails. Roll back only work that has never been claimed; otherwise keep
+        // the advanced occurrence and let the recovery scanner own its delivery.
+        const rolledBack =
+          !claimed.coalesced &&
+          (await deps.prisma.$transaction(async (tx) => {
+            const deleted = await tx.run.deleteMany({
+              where: { id: claimed.id, status: "queued", leaseFence: 0 },
             });
+            if (deleted.count !== 1) return false;
             await tx.task.deleteMany({
-              where: { id: claimed.taskId, status: "queued" },
+              where: { id: claimed.taskId, status: "queued", runs: { none: {} } },
             });
-          }
-          await tx.routine.updateMany({
-            where: {
-              id: routine.id,
-              nextRunAt,
-              ...(nextRunAt ? {} : { active: false }),
-            },
-            data: {
-              nextRunAt: scheduledAt,
-              active: true,
-              lastRunAt: previousLastRunAt,
-              // Put the old fingerprint back too, or the retry would see no change.
-              ...(watchTick?.run
-                ? { watchState: (routine.watchState as Prisma.InputJsonValue) ?? Prisma.DbNull }
-                : {}),
-            },
-          });
+            await tx.routine.updateMany({
+              where: {
+                id: routine.id,
+                nextRunAt,
+                ...(nextRunAt ? {} : { active: false }),
+              },
+              data: {
+                nextRunAt: scheduledAt,
+                active: true,
+                lastRunAt: previousLastRunAt,
+                // Put the old fingerprint back too, or the retry would see no change.
+                ...(watchTick?.run
+                  ? { watchState: (routine.watchState as Prisma.InputJsonValue) ?? Prisma.DbNull }
+                  : {}),
+              },
+            });
+            return true;
+          }));
+        if (rolledBack) throw error;
+        getLogger().warn("routine.run_wakeup_failed", {
+          "routine.id": routine.id,
+          "run.id": claimed.id,
+          error: sanitizedError(error),
         });
-        throw error;
       }
       if (claimed.coalesced) {
         getLogger().info("routine.coalesced", {

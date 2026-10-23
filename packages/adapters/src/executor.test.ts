@@ -2490,8 +2490,12 @@ description: Prepare standup notes
     await expect(executor.wakeRoutine("routine-1", scheduledAt.toISOString())).rejects.toThrow(
       "enqueue failed",
     );
-    expect(deleteRunMany).toHaveBeenCalledWith({ where: { id: "run-1", status: "queued" } });
-    expect(deleteTaskMany).toHaveBeenCalledWith({ where: { id: "task-1", status: "queued" } });
+    expect(deleteRunMany).toHaveBeenCalledWith({
+      where: { id: "run-1", status: "queued", leaseFence: 0 },
+    });
+    expect(deleteTaskMany).toHaveBeenCalledWith({
+      where: { id: "task-1", status: "queued", runs: { none: {} } },
+    });
     expect(restoreUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: "routine-1", active: false, nextRunAt: null }),
