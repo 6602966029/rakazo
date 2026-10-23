@@ -5259,7 +5259,10 @@ export function createRouter(deps: RouterDeps) {
         );
         try {
           const auth = await connector.begin(
-            { provider: input.provider, redirectUrl: `${deps.env.webOrigin}/app` },
+            {
+              provider: input.provider,
+              redirectUrl: `${deps.env.webOrigin}/integrations/callback`,
+            },
             connectionContext(context.actor, "connections.begin", context.signal),
           );
           // Re-take the provider lock and only advance still-pending rows so a
