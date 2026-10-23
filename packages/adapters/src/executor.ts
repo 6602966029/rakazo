@@ -7717,6 +7717,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
             )
             .map((candidate) => JSON.stringify([candidate.provider, candidate.modelId])),
         );
+        // Provider kind and model id only: custom endpoints are identified by kind, never host.
+        const activeModel = { "model.provider": runModelProvider, "model.id": runModelId };
 
         try {
           if (checkpointLoadError) throw checkpointLoadError;
@@ -7833,6 +7835,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 if (updated.count !== 1) {
                   throw new Error("Run lease was lost before the backup model could be used");
                 }
+                activeModel["model.provider"] = provider;
+                activeModel["model.id"] = modelId;
               },
               resumeFromCheckpoint: takeoverResume?.checkpoint,
               turnCheckpoint,
@@ -8524,6 +8528,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               "run.outcome": "failed",
               "run.failure": error.name,
               reason: message,
+              ...activeModel,
             });
           } else {
             getLogger().error(
@@ -8531,6 +8536,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               sanitizedError(error, (text) => redactSecrets(text, runSecrets)),
               {
                 "run.outcome": "failed",
+                ...activeModel,
               },
             );
           }
