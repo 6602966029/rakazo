@@ -2234,6 +2234,10 @@ msgstr "डिस्कनेक्ट करें"
 msgid "Disconnect {disconnectName}?"
 msgstr ""
 
+#: src/pages/VoiceSettingsOverlay.tsx
+msgid "Disconnect Self-hosted"
+msgstr ""
+
 #. placeholder {0}: selected.providerName ?? selected.provider
 #: src/pages/model-settings/use-model-settings.ts
 msgid "Disconnected {0}."
