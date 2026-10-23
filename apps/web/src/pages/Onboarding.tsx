@@ -5,10 +5,12 @@ import {
   cloudflareGatewayRouting,
   DEFAULT_MODEL_CONTEXT_WINDOW,
   DEFAULT_MODEL_MAX_TOKENS,
+  isOllamaCloudBaseUrl,
   MAX_MODEL_CONTEXT_WINDOW,
   MAX_MODEL_MAX_TOKENS,
   ModelHeaderRowsSchema,
   modelHeadersInput,
+  OLLAMA_CLOUD_BASE_URL,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   openAiCompatibleConnectReady,
   openAiCompatibleProbeSuccessMessage,
@@ -26,7 +28,6 @@ import {
 } from "@rakazo/core";
 import {
   Button,
-  Disclosure,
   Input,
   ModelThinkingOptions,
   Select,
@@ -59,6 +60,7 @@ import {
 import { rpc } from "../lib/rpc";
 import { useModelOAuthSignIn } from "../lib/use-model-oauth-signin";
 import { errorText } from "../lib/user-error";
+import { CompatibleKeyField } from "./model-settings/compatible-key-field";
 
 const CUSTOM_MODEL_OPTION = "__rakazo_custom_model__";
 /** A provider whose catalog entry offers both sign-in and a key appears once per way to connect. */
@@ -231,6 +233,7 @@ export function OnboardingPage() {
   const acceptsKey = selected?.auth !== "oauth" && providerAuth !== "sign-in";
   const signInLabel = selected?.oauthLabel ?? t`Sign in`;
   const openAiCompatibleReady = openAiCompatibleConnectReady({
+    apiKey,
     baseUrl,
     modelId:
       headerRows !== null && !ModelHeaderRowsSchema.safeParse(headerRows).success ? "" : modelId,
@@ -262,7 +265,12 @@ export function OnboardingPage() {
       .filter(
         (entry) => !MAIN_PROVIDER_OPTIONS.some((option) => option.provider === entry.provider),
       )
-      .map((entry) => ({ value: entry.provider, label: providerLabel(entry) }));
+      .flatMap((entry) => {
+        const item = { value: entry.provider, label: providerLabel(entry) };
+        return entry.provider === OPENAI_COMPATIBLE_PROVIDER_ID
+          ? [item, { value: "ollama-preset", label: t`Ollama Cloud` }]
+          : [item];
+      });
     return { main, rest };
   }, [providers, t]);
   // Base UI Select.Value only resolves labels when Root gets `items`.
@@ -306,8 +314,13 @@ export function OnboardingPage() {
     invalidatePreflight();
   }
 
-  function selectProvider(option: string) {
-    if (option === providerOptionValue(provider, providerAuth)) return;
+  function selectProvider(option: string, presetBaseUrl?: string) {
+    if (
+      option === providerOptionValue(provider, providerAuth) &&
+      !presetBaseUrl &&
+      !isOllamaCloudBaseUrl(baseUrl)
+    )
+      return;
     const [nextProvider = option, auth] = option.split(":") as [string, ProviderAuth?];
     cancelOAuthAttempt();
     setProvider(nextProvider);
@@ -321,7 +334,7 @@ export function OnboardingPage() {
         ? ""
         : pickCatalogModelId(catalog, nextProvider, deploymentDefaultModelRef.current),
     );
-    setBaseUrl("");
+    setBaseUrl(presetBaseUrl ?? "");
     setReasoning(false);
     setThinkingLevel(null);
     setManualModelId(false);
@@ -558,10 +571,18 @@ export function OnboardingPage() {
                 <Trans>Provider</Trans>
               </span>
               <Select
-                value={provider ? providerOptionValue(provider, providerAuth) : null}
+                value={
+                  isOpenAiCompatible && isOllamaCloudBaseUrl(baseUrl)
+                    ? "ollama-preset"
+                    : provider
+                      ? providerOptionValue(provider, providerAuth)
+                      : null
+                }
                 onValueChange={(value) => {
                   if (typeof value !== "string" || !value) return;
-                  selectProvider(value);
+                  if (value === "ollama-preset")
+                    selectProvider(OPENAI_COMPATIBLE_PROVIDER_ID, OLLAMA_CLOUD_BASE_URL);
+                  else selectProvider(value);
                 }}
                 items={providerItems}
               >
@@ -951,20 +972,23 @@ export function OnboardingPage() {
                 ) : null}
                 {acceptsKey ? (
                   isOpenAiCompatible ? (
-                    <Disclosure
-                      className="mt-4 text-sm text-muted-foreground"
-                      summary={<Trans>API key</Trans>}
+                    <CompatibleKeyField
+                      className="mt-4 block text-sm text-muted-foreground"
+                      baseUrl={baseUrl}
                     >
                       <Input
                         aria-label={t`API key`}
                         value={apiKey}
                         onChange={(e) => updateApiKey(e.target.value)}
-                        placeholder={t`Optional`}
+                        required={isOllamaCloudBaseUrl(baseUrl)}
+                        placeholder={
+                          isOllamaCloudBaseUrl(baseUrl) ? t`Ollama API key` : t`Optional`
+                        }
                         type="password"
                         autoComplete="new-password"
                         className="mt-2"
                       />
-                    </Disclosure>
+                    </CompatibleKeyField>
                   ) : (
                     <label
                       htmlFor={`${fieldId}-api-key`}

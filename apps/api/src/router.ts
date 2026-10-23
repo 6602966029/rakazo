@@ -142,6 +142,7 @@ import {
   validateRoutineWatch,
   verifyCatalogProviderApiKey,
   verifyMcpInstall,
+  verifyOpenAiCompatibleApiKey,
 } from "@rakazo/adapters";
 import type { Auth } from "@rakazo/auth";
 import type {
@@ -168,6 +169,7 @@ import {
   canonicalPiProviderId,
   foldComputerCommands,
   isDeletableMemoryDocument,
+  isOllamaCloudBaseUrl,
   mcpOAuthEnvReferences,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   parseTicketRef,
@@ -1534,6 +1536,12 @@ export function createRouter(deps: RouterDeps) {
             omitVisionModelIds,
             allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
           });
+          if (input.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
+            const saved = parseModelSecret(plaintext);
+            if (saved.kind === "openai_compatible") {
+              await verifyOpenAiCompatibleApiKey(saved, deps.modelConnectionFetch, context.signal);
+            }
+          }
           if (input.apiKey?.trim()) {
             await verifyCatalogProviderApiKey(
               { provider: input.provider, apiKey: input.apiKey },
@@ -1629,7 +1637,7 @@ export function createRouter(deps: RouterDeps) {
           try {
             const models = await probeOpenAiCompatibleModels(
               { ...input, apiKey, headers },
-              undefined,
+              isOllamaCloudBaseUrl(input.baseUrl) ? deps.modelConnectionFetch : undefined,
               context.signal,
               { allowPrivate: mayUsePrivateEndpoint(deps) },
             );

@@ -3223,6 +3223,9 @@ describe("OpenAI-compatible model probes", () => {
         secret: { findMany: findSecret },
       },
       secrets: { load },
+      modelConnectionFetch: vi.fn(() => {
+        throw new Error("Unexpected injected transport");
+      }),
       env: {
         sandboxProvider: "fake",
         mcpAllowPrivateEndpoint: options.mcpAllowPrivateEndpoint ?? true,
@@ -3235,6 +3238,17 @@ describe("OpenAI-compatible model probes", () => {
   }
 
   afterEach(() => vi.restoreAllMocks());
+
+  it("does not inject the connection transport into non-Ollama probes", async () => {
+    const { client } = fixture();
+    await client.models.probeOpenAiCompatible({ baseUrl });
+    expect(adapters.probeOpenAiCompatibleModels).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      undefined,
+      expect.anything(),
+    );
+  });
 
   it.each([undefined, "", "   "])("uses the saved key for a blank key %j", async (apiKey) => {
     const { client, fetch, findSecret, load } = fixture();
@@ -3694,6 +3708,25 @@ describe("model credential persistence", () => {
       }),
     );
   });
+
+  it.each([401, 403, 503])(
+    "rejects an unverified compatible Ollama connection (%i) before saving",
+    async (status) => {
+      const { deps, handler } = persistDeps();
+      const transport = vi.fn<typeof fetch>(async () => new Response(null, { status }));
+      Object.assign(deps, { modelConnectionFetch: transport });
+      const response = await call(handler, "models/connect", {
+        provider: "openai-compatible",
+        baseUrl: "https://ollama.com/v1",
+        apiKey: "fake-fixture-key",
+        modelId: "fixture-model",
+      });
+      expect(response.status).toBe(400);
+      expect(String(transport.mock.calls[0]?.[0])).toBe("https://ollama.com/api/balance");
+      expect(deps.secrets.put).not.toHaveBeenCalled();
+      expect(deps.prisma.$transaction).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(
     ["openrouter", "google", "deepseek"].flatMap((provider) =>

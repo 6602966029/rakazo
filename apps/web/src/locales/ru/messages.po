@@ -674,6 +674,7 @@ msgstr ""
 #: src/components/AskCard.tsx
 #: src/lib/localized-provider-hint.ts
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
+#: src/pages/model-settings/compatible-key-field.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3557,6 +3558,16 @@ msgstr "Соединение OAuth не удалось"
 #: src/pages/PluginsOverlay.tsx
 msgid "OAuth expired"
 msgstr "Срок действия OAuth истек"
+
+#: src/pages/model-settings/connection-controls.tsx
+#: src/pages/Onboarding.tsx
+msgid "Ollama API key"
+msgstr ""
+
+#: src/pages/model-settings/provider-list.tsx
+#: src/pages/Onboarding.tsx
+msgid "Ollama Cloud"
+msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "On a schedule"
