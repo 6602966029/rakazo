@@ -968,3 +968,40 @@ test("chat settings search a long model list", async ({ page }, testInfo) => {
     modelId: target.id,
   });
 });
+
+test("Ollama Cloud preset saves an OpenAI-compatible connection", async ({ page }, testInfo) => {
+  await signup(page, `ollama-preset-${Date.now()}@rakazo.test`, "password12", "Model Preview");
+  await completeOnboarding(page);
+  await openUserSettings(page, "models");
+  await page.getByPlaceholder("Search providers").fill("OpenAI-compatible");
+  await page.getByRole("button", { name: "Ollama Cloud", exact: true }).click();
+  await expect(page.getByLabel("OpenAI-compatible server URL", { exact: true })).toHaveValue(
+    "https://ollama.com/v1",
+  );
+  await page.getByPlaceholder("Ollama API key").fill("rejected-fixture-key");
+  await page.getByRole("button", { name: "Find models", exact: true }).click();
+  await expect(
+    page.getByText("API key was rejected by the provider.", { exact: true }),
+  ).toBeVisible();
+  await page.getByPlaceholder("Ollama API key").fill("fake-fixture-key");
+  await page.getByRole("button", { name: "Find models", exact: true }).click();
+  await expect(page.getByRole("checkbox", { name: "fixture-model", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect
+    .poll(async () => {
+      const credentials = await rpc<
+        Array<{ provider: string; baseUrl?: string; modelId?: string }>
+      >(page, "models/credentials", {});
+      return credentials;
+    })
+    .toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: "openai-compatible",
+          baseUrl: "https://ollama.com/v1",
+          modelId: "fixture-model",
+        }),
+      ]),
+    );
+  await captureScreenshot(page, testInfo, "ollama-preset");
+});

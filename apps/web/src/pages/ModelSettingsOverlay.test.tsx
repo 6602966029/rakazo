@@ -183,7 +183,7 @@ function account(provider: string, modelId: string) {
     computerHost: null,
     canChooseHostComputer: false,
     sandboxProvider: "docker",
-    avatarStyle: "robot" as const,
+    avatarStyle: "organic" as const,
     billingEnabled: false,
     ticketBoardEnabled: false,
     phoneCallsEnabled: false,
@@ -902,3 +902,151 @@ it("disables Save for invalid custom header names", async () => {
     await view.unmount();
   }
 });
+
+it("opens the Ollama preset with a required key and saves a compatible connection", async () => {
+  HTMLElement.prototype.scrollTo = vi.fn();
+  models.list.mockResolvedValue([compatibleEntry]);
+  models.credentials.mockResolvedValue([]);
+  models.probeOpenAiCompatible.mockResolvedValue({ models: ["fixture-model"] });
+  const view = await renderSettings(false);
+  try {
+    await act(async () => buttons(view.container, "Ollama Cloud")[0]!.click());
+    expect((view.container.querySelector("#model-base-url") as HTMLInputElement).value).toBe(
+      "https://ollama.com/v1",
+    );
+    expect(buttons(view.container, "Ollama Cloud")[0]?.getAttribute("aria-current")).toBe("true");
+    expect(buttons(view.container, "OpenAI-compatible")[0]?.hasAttribute("aria-current")).toBe(
+      false,
+    );
+    expect(
+      [...view.container.querySelectorAll("button")].filter(
+        (row) => row.textContent === "Setup help",
+      ),
+    ).toHaveLength(0);
+    expect(
+      [...view.container.querySelectorAll("button")].filter((row) => row.textContent === "API key"),
+    ).toHaveLength(0);
+    const key = view.container.querySelector(
+      'input[placeholder="Ollama API key"]',
+    ) as HTMLInputElement;
+    expect(key.required).toBe(true);
+    await typeInto(key, "fake-fixture-key");
+    await act(async () => buttons(view.container, "Find models")[0]!.click());
+    expect(models.probeOpenAiCompatible).toHaveBeenCalledWith(
+      expect.objectContaining({ baseUrl: "https://ollama.com/v1", apiKey: "fake-fixture-key" }),
+    );
+    await act(async () => buttons(view.container, "Save")[0]!.click());
+    expect(models.connect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "openai-compatible",
+        baseUrl: "https://ollama.com/v1",
+        apiKey: "fake-fixture-key",
+        modelId: "fixture-model",
+      }),
+    );
+  } finally {
+    await view.unmount();
+  }
+});
+
+it("shows a saved Ollama connection only once", async () => {
+  models.list.mockResolvedValue([compatibleEntry]);
+  models.credentials.mockResolvedValue([
+    {
+      id: "fixture",
+      provider: "openai-compatible",
+      modelId: "fixture-model",
+      baseUrl: "https://ollama.com/",
+      hasKey: true,
+    },
+  ]);
+  const view = await renderSettings(false);
+  try {
+    expect(buttons(view.container, "Ollama Cloud")).toHaveLength(1);
+  } finally {
+    await view.unmount();
+  }
+});
+
+it("keeps the Ollama preset in All providers beside a saved local connection", async () => {
+  models.list.mockResolvedValue([compatibleEntry]);
+  models.credentials.mockResolvedValue([
+    {
+      id: "fixture",
+      provider: "openai-compatible",
+      modelId: "fixture-model",
+      baseUrl: "http://127.0.0.1:8000/v1",
+      hasKey: false,
+    },
+  ]);
+  const view = await renderSettings(false);
+  try {
+    const preset = buttons(view.container, "Ollama Cloud");
+    expect(preset).toHaveLength(1);
+    const heading = [...view.container.querySelectorAll("p")].find(
+      (element) => element.textContent === "All providers",
+    );
+    expect(heading).toBeDefined();
+    expect(
+      heading!.compareDocumentPosition(preset[0]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await act(async () => preset[0]!.click());
+    expect(preset[0]?.getAttribute("aria-current")).toBe("true");
+    expect(buttons(view.container, "OpenAI-compatible")[0]?.hasAttribute("aria-current")).toBe(
+      false,
+    );
+  } finally {
+    await view.unmount();
+  }
+});
+
+it("keeps setup help and API key collapsible for generic compatible servers", async () => {
+  models.list.mockResolvedValue([compatibleEntry]);
+  models.credentials.mockResolvedValue([]);
+  const view = await renderSettings(false);
+  try {
+    await act(async () => buttons(view.container, "OpenAI-compatible")[0]!.click());
+    for (const name of ["Setup help", "API key"]) {
+      const row = buttons(view.container, name)[0]!;
+      expect(row.getAttribute("aria-expanded")).toBe("false");
+      expect(row.querySelector("svg")).not.toBeNull();
+      await act(async () => row.click());
+      expect(row.getAttribute("aria-expanded")).toBe("true");
+    }
+  } finally {
+    await view.unmount();
+  }
+});
+
+it.each(["https://ollama.com", "https://ollama.com/v1/"])(
+  "keeps Save enabled with a saved Ollama key at %s",
+  async (baseUrl) => {
+    models.list.mockResolvedValue([compatibleEntry]);
+    models.credentials.mockResolvedValue([
+      {
+        id: "fixture",
+        provider: "openai-compatible",
+        modelId: "fixture-model",
+        baseUrl: "https://ollama.com/v1",
+        hasKey: true,
+      },
+    ]);
+    const view = await renderSettings(false);
+    try {
+      await act(async () => buttons(view.container, "Ollama Cloud")[0]!.click());
+      await typeInto(view.container.querySelector("#model-base-url") as HTMLInputElement, baseUrl);
+      expect(buttons(view.container, "Save")[0]?.disabled).toBe(false);
+      await typeInto(
+        view.container.querySelector("#model-base-url") as HTMLInputElement,
+        "https://other.test/v1",
+      );
+      await typeInto(
+        view.container.querySelector("#model-base-url") as HTMLInputElement,
+        "https://ollama.com/v1/",
+      );
+      expect(buttons(view.container, "Save")[0]?.disabled).toBe(false);
+    } finally {
+      await view.unmount();
+    }
+  },
+);
