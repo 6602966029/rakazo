@@ -331,17 +331,23 @@ export function createReservedGraphileJobWorkerHost(
         workload,
       }),
   );
+  let stopping = false;
   const stop = async () => {
+    stopping = true;
     const results = await Promise.allSettled(hosts.map((host) => host.stop()));
     const failed = results.find((result) => result.status === "rejected");
     if (failed?.status === "rejected") throw failed.reason;
   };
   return {
     async start(handlers) {
+      stopping = false;
       try {
         // Legacy jobs that are already locked finish with their original queue
         // identity and retry accounting. Reconciliation promotes unlocked chat.
-        for (const host of hosts) await host.start(handlers);
+        for (const host of hosts) {
+          if (stopping) break;
+          await host.start(handlers);
+        }
       } catch (error) {
         await stop();
         throw error;
