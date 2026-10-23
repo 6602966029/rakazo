@@ -476,6 +476,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Loading…": "Загрузка…",
   "Mark as Read": "Отметить как прочитанное",
   "Mark as Unread": "Отметить как непрочитанное",
+  "Mark as unread": "Отметить как непрочитанное",
   "Long press to pin or move to a section":
     "Нажмите и удерживайте, чтобы закрепить или переместить в раздел",
   "Long press to pin, move, or silence notifications":

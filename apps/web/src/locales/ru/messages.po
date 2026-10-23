@@ -3015,6 +3015,10 @@ msgstr "Требуется ручная настройка"
 msgid "Mark as Read"
 msgstr "Отметить как прочитанное"
 
+#: src/pages/shell/message-hover-actions.tsx
+msgid "Mark as unread"
+msgstr "Отметить как непрочитанное"
+
 #: src/pages/BotContextMenu.tsx
 msgid "Mark as Unread"
 msgstr "Отметить как непрочитанное"

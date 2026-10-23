@@ -179,6 +179,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Expand {name}": "{name} ausklappen",
   "Mark as Read": "Als gelesen markieren",
   "Mark as Unread": "Als ungelesen markieren",
+  "Mark as unread": "Als ungelesen markieren",
   "Long press to pin or move to a section":
     "Lange drücken, um anzuheften oder in einen Abschnitt zu verschieben",
   "Long press to pin, move, or silence notifications":

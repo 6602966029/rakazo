@@ -3015,6 +3015,10 @@ msgstr ""
 msgid "Mark as Read"
 msgstr "Okundu olarak işaretle"
 
+#: src/pages/shell/message-hover-actions.tsx
+msgid "Mark as unread"
+msgstr "Okunmadı olarak işaretle"
+
 #: src/pages/BotContextMenu.tsx
 msgid "Mark as Unread"
 msgstr "Okunmadı olarak işaretle"

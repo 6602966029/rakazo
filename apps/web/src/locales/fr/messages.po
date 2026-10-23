@@ -3015,6 +3015,10 @@ msgstr "Configuration manuelle requise"
 msgid "Mark as Read"
 msgstr "Marquer comme lu"
 
+#: src/pages/shell/message-hover-actions.tsx
+msgid "Mark as unread"
+msgstr "Marquer comme non lu"
+
 #: src/pages/BotContextMenu.tsx
 msgid "Mark as Unread"
 msgstr "Marquer comme non lu"
