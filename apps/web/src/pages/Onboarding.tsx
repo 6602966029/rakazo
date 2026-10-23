@@ -54,7 +54,6 @@ import type { ModelCatalogEntry } from "../lib/model-auth";
 import type { ModelPreflightFailure } from "../lib/model-connection-preflight";
 import {
   classifyModelConnectionFailure,
-  loadStoredModelAuth,
   modelPreflightSuccessMessage,
   runModelConnectionPreflight,
   unavailableSelectedModel,
@@ -175,7 +174,7 @@ export function OnboardingPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [preflightTesting, setPreflightTesting] = useState(false);
   const [preflightTarget, setPreflightTarget] = useState<
-    "api-key" | "sign-in" | "compatible" | null
+    "api-key" | "compatible" | null
   >(null);
   const [preflightSuccess, setPreflightSuccess] = useState<string | null>(null);
   const [preflightFailure, setPreflightFailure] = useState<ModelPreflightFailure | null>(null);
@@ -421,35 +420,6 @@ export function OnboardingPage() {
     setPreflightTesting(false);
     if (result.ok) {
       setPreflightSuccess(modelPreflightSuccessMessage(result.discoveredModels.length));
-      return;
-    }
-    setPreflightFailure(result.failure);
-  }
-
-  async function testOAuthConnection() {
-    if (!selected) return;
-    const revision = preflightRevisionRef.current;
-    setPreflightTarget("sign-in");
-    setPreflightTesting(true);
-    setPreflightSuccess(null);
-    setPreflightFailure(null);
-    setError(null);
-    setNotice(null);
-    const stored = await loadStoredModelAuth(
-      selected.provider,
-      () => rpc.models.credentials(),
-      selected.id,
-    );
-    if (!preflightStillCurrent(revision)) return;
-    const result = await runModelConnectionPreflight({
-      authKind: "oauth",
-      provider: selected.provider,
-      ...stored,
-    });
-    if (!preflightStillCurrent(revision)) return;
-    setPreflightTesting(false);
-    if (result.ok) {
-      setPreflightSuccess(t`A subscription credential is stored securely.`);
       return;
     }
     setPreflightFailure(result.failure);
@@ -923,24 +893,6 @@ export function OnboardingPage() {
                         {oauthPending ? <Trans>Starting…</Trans> : signInLabel}
                       </Button>
                     )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="mt-3"
-                      disabled={oauthPending || preflightTesting}
-                      onClick={() => void testOAuthConnection()}
-                    >
-                      {modelPreflightTestingLabel(
-                        preflightTesting && preflightTarget === "sign-in",
-                        "sign-in",
-                      )}
-                    </Button>
-                    {preflightTarget === "sign-in" ? (
-                      <ModelPreflightFeedback
-                        success={preflightSuccess}
-                        failure={preflightFailure}
-                      />
-                    ) : null}
                   </div>
                 ) : null}
                 {isCloudflare && acceptsKey ? (

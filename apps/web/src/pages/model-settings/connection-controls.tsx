@@ -85,9 +85,9 @@ export function ConnectionControls({
   return !isOpenAiCompatible ? (
     <>
       {subscriptionSignIn ? (
-        <div className="mt-5 first:mt-0">
+        <div className="mt-5 flex flex-wrap items-center gap-2 first:mt-0">
           {oauth ? (
-            <div className="rounded-xl border border-border px-4 py-3">
+            <div className="w-full rounded-xl border border-border px-4 py-3">
               {oauth.mode === "auth-url" ? (
                 <>
                   <p className="text-[13px] leading-[1.5] text-muted-foreground">
@@ -236,8 +236,7 @@ export function ConnectionControls({
             type="button"
             variant="outline"
             size="sm"
-            className="mt-3"
-            disabled={busy || preflightTesting}
+            disabled={busy || preflightTesting || credential?.authKind !== "oauth"}
             onClick={() => void testOAuthConnection()}
           >
             {modelPreflightTestingLabel(
@@ -246,7 +245,9 @@ export function ConnectionControls({
             )}
           </Button>
           {preflightTarget === "sign-in" ? (
-            <ModelPreflightFeedback success={preflightSuccess} failure={preflightFailure} />
+            <div className="w-full">
+              <ModelPreflightFeedback success={preflightSuccess} failure={preflightFailure} />
+            </div>
           ) : null}
         </div>
       ) : null}
