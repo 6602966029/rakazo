@@ -199,6 +199,11 @@ msgstr "{provider} não encontrou o modelo solicitado."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} denied access to this model."
+msgstr "{provider} negou o acesso a este modelo."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is overloaded right now. Try again in a moment."
 msgstr "{provider} está sobrecarregado no momento. Tente novamente em instantes."
 
@@ -299,8 +304,23 @@ msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{summary} Backup models failed or were unavailable for this request."
+msgstr "{summary} Os modelos de backup falharam ou estavam indisponíveis para esta solicitação."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "{summary} No backup model was usable for this request."
+msgstr "{summary} Nenhum modelo de backup pôde ser usado para esta solicitação."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{summary} Resets {date}."
 msgstr "{summary} Será redefinido em {date}."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "{summary} Your backup models also failed."
+msgstr "{summary} Seus modelos de backup também falharam."
 
 #: src/pages/ActivityList.tsx
 msgid "{title}, {label}"
@@ -3888,11 +3908,11 @@ msgstr ""
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Provider"
 msgstr "Provedor"
 
 #: src/pages/model-settings/provider-list.tsx
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Providers"
 msgstr "Provedores"
 
@@ -4710,10 +4730,6 @@ msgid "Speak"
 msgstr "Falar"
 
 #: src/pages/VoiceSettingsOverlay.tsx
-msgid "Speak + transcribe"
-msgstr "Falar + transcrever"
-
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Speak only"
 msgstr "Falar apenas"
 
@@ -4896,6 +4912,11 @@ msgstr "O tempo da conexão se esgotou."
 msgid "The model provider returned an error."
 msgstr "O provedor de modelos retornou um erro."
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "The model returned an unusable response. Try again."
+msgstr "O modelo retornou uma resposta inutilizável. Tente novamente."
+
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "O provedor está limitando a frequência das solicitações."
@@ -4965,6 +4986,11 @@ msgstr ""
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "esse Mac"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model's context window is too small. Choose another model."
+msgstr "A janela de contexto deste modelo é pequena demais. Escolha outro modelo."
 
 #: src/pages/Artifacts.tsx
 msgid "This month"
