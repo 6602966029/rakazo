@@ -3,6 +3,7 @@ import { isOwnerRole } from "./billing.js";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
+import { computerScopeKey } from "./computers.js";
 import { appendEventInTransaction, createPendingSteeringRun } from "./events.js";
 import type { RunTeardownTarget } from "./groups.js";
 import { snapshotRunTeardownTargets } from "./groups.js";
@@ -392,15 +393,18 @@ async function departSpace(prisma: PrismaClient, input: SpaceRef): Promise<Space
           await tx.bot.updateMany(reassign);
           await tx.chatGroup.updateMany(reassign);
           // Their computers go with the bots, so the computer limit counts them for the owner.
-          // A fresh lookup key keeps the person's next computer, should they rejoin, their own;
-          // the home key, and with it the files, stays.
-          for (const computer of await tx.computer.findMany({
-            where: { spaceId, userId },
+          await tx.computer.updateMany(reassign);
+          // A team computer is found by its person; retire that key so someone who rejoins
+          // gets a computer of their own. The home key, and with it the files, stays.
+          // Dedicated computers are found by their bot, so their key stays as it is.
+          const teamComputer = await tx.computer.findUnique({
+            where: { scopeKey: computerScopeKey({ mode: "team", spaceId, userId }) },
             select: { id: true },
-          })) {
+          });
+          if (teamComputer) {
             await tx.computer.update({
-              where: { id: computer.id },
-              data: { userId: ownerId, scopeKey: `transferred:${computer.id}` },
+              where: { id: teamComputer.id },
+              data: { scopeKey: `transferred:${teamComputer.id}` },
             });
           }
           // Paused: the owner's accounts must not start running someone else's prompt unasked.

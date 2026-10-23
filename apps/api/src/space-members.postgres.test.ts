@@ -313,6 +313,16 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
         kind: "docker",
       },
     });
+    const dedicated = await system.computer.create({
+      data: {
+        spaceId: home,
+        userId: invitee.id,
+        scope: "dedicated",
+        scopeKey: `bot:dedicated-${invitee.id}`,
+        homeKey: `dedicated-${invitee.id}`,
+        kind: "docker",
+      },
+    });
     const bot = await system.bot.create({
       data: {
         spaceId: home,
@@ -420,6 +430,10 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
       homeKey: computer.homeKey,
       scopeKey: `transferred:${computer.id}`,
     });
+    // A dedicated computer is found by its bot, so only its owner changes.
+    await expect(
+      system.computer.findUniqueOrThrow({ where: { id: dedicated.id } }),
+    ).resolves.toMatchObject({ userId: owner.id, scopeKey: dedicated.scopeKey });
     // Coming back later gives the person a computer of their own, counted for them.
     const returning = await ensureComputerRecord(system, {
       mode: "team",
