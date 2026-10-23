@@ -60,10 +60,11 @@ export function installServiceWorker(
   scope.addEventListener("activate", (event) => {
     event.waitUntil(
       scope.caches.keys().then((names) => {
-        // Keep the newest previous shell for tabs still running its bundle.
-        const previous = names.filter(
-          (name) => name.startsWith(CACHE_PREFIX) && name !== cacheName,
-        );
+        // Keep the newest previous shell for tabs still running its bundle. Names end in the build
+        // id, so they sort oldest first.
+        const previous = names
+          .filter((name) => name.startsWith(CACHE_PREFIX) && name !== cacheName)
+          .sort();
         return Promise.all(previous.slice(0, -1).map((name) => scope.caches.delete(name)));
       }),
     );
