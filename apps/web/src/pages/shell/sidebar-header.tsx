@@ -19,6 +19,7 @@ export function SidebarHeader({
   setPanel,
   navigate,
   setNewSpaceOpen,
+  setCreateBotOpen,
   setPickerInfoTopic,
 }: {
   mini?: boolean;
@@ -30,6 +31,7 @@ export function SidebarHeader({
   setPanel: (panel: Panel) => void;
   navigate: (path: string) => void;
   setNewSpaceOpen: (open: boolean) => void;
+  setCreateBotOpen: (open: boolean) => void;
   setPickerInfoTopic: (topic: "group" | "space") => void;
 }) {
   const { t } = useLingui();
@@ -101,7 +103,7 @@ export function SidebarHeader({
                 onCreateBot={() => {
                   setCreateMenuOpen(false);
                   setMobileSidebarOpen(false);
-                  setPanel("create");
+                  setCreateBotOpen(true);
                 }}
                 onOpenBot={(id) => {
                   setCreateMenuOpen(false);
