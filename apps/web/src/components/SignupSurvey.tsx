@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { SignupSurvey as SignupSurveyAnswers } from "@rakazo/contracts";
-import { SIGNUP_SURVEY_TEAM_SIZES } from "@rakazo/contracts";
+import { SIGNUP_SURVEY_TEAM_SIZES, signupSurveyAsksTeamSize } from "@rakazo/contracts";
 import {
   Button,
   Input,
@@ -41,7 +41,7 @@ export function SignupSurvey({ onDone }: { onDone: () => void }) {
       .signupSurvey({
         reason: reason.trim() || undefined,
         use: use ?? undefined,
-        teamSize: use === "work" ? (teamSize ?? undefined) : undefined,
+        teamSize: signupSurveyAsksTeamSize(use ?? undefined) ? (teamSize ?? undefined) : undefined,
         source: source.trim() || undefined,
       })
       .catch(() => undefined);
@@ -58,27 +58,15 @@ export function SignupSurvey({ onDone }: { onDone: () => void }) {
       <h1 className="text-[32px] font-medium text-foreground">
         <Trans>Welcome to Rakazo</Trans>
       </h1>
-      <label
-        htmlFor={`${fieldId}-reason`}
-        className="mt-8 block text-sm font-medium text-foreground"
-      >
-        <Trans>What are you hoping to use Rakazo for?</Trans>
-      </label>
-      <Textarea
-        id={`${fieldId}-reason`}
-        value={reason}
-        onChange={(event) => setReason(event.target.value)}
-        maxLength={2000}
-        rows={3}
-        className="mt-2"
-        autoFocus
-      />
+      <p id={`${fieldId}-use`} className="mt-8 text-sm font-medium text-foreground">
+        <Trans>How will you use Rakazo?</Trans>
+      </p>
       <ToggleGroup
-        aria-label={t`Personal or work`}
+        aria-labelledby={`${fieldId}-use`}
         value={use ? [use] : []}
         onValueChange={([next]) => setUse((next as Use | undefined) ?? null)}
         spacing={1}
-        className="mt-6 grid w-full grid-cols-2 rounded-lg bg-muted p-1"
+        className="mt-2 grid w-full grid-cols-3 rounded-lg bg-muted p-1"
       >
         <ToggleGroupItem
           value="personal"
@@ -89,8 +77,11 @@ export function SignupSurvey({ onDone }: { onDone: () => void }) {
         <ToggleGroupItem value="work" className="aria-pressed:bg-background aria-pressed:shadow-sm">
           <Trans>Work</Trans>
         </ToggleGroupItem>
+        <ToggleGroupItem value="both" className="aria-pressed:bg-background aria-pressed:shadow-sm">
+          <Trans>Both</Trans>
+        </ToggleGroupItem>
       </ToggleGroup>
-      {use === "work" ? (
+      {signupSurveyAsksTeamSize(use ?? undefined) ? (
         <div className="mt-6 text-sm font-medium text-foreground">
           <span>
             <Trans>How big is your team?</Trans>
@@ -127,6 +118,21 @@ export function SignupSurvey({ onDone }: { onDone: () => void }) {
         value={source}
         onChange={(event) => setSource(event.target.value)}
         maxLength={500}
+        className="mt-2"
+      />
+      <label
+        htmlFor={`${fieldId}-reason`}
+        className="mt-6 block text-sm font-medium text-foreground"
+      >
+        <Trans>What do you most want Rakazo to help with?</Trans>
+      </label>
+      <Textarea
+        id={`${fieldId}-reason`}
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        maxLength={2000}
+        rows={3}
+        placeholder={t`Optional`}
         className="mt-2"
       />
       <Button type="submit" className="mt-8">

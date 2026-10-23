@@ -1,5 +1,5 @@
 import type { SignupSurvey } from "@rakazo/contracts";
-import { SIGNUP_SURVEY_TEAM_SIZES } from "@rakazo/contracts";
+import { SIGNUP_SURVEY_TEAM_SIZES, signupSurveyAsksTeamSize } from "@rakazo/contracts";
 
 export type SignupSurveyTeamSize = (typeof SIGNUP_SURVEY_TEAM_SIZES)[number];
 
@@ -9,7 +9,7 @@ export const SIGNUP_SURVEY_TEAM_SIZE_CHOICES = SIGNUP_SURVEY_TEAM_SIZES.map((key
   label: key === "201+" ? "200+" : key.replace("-", "–"),
 }));
 
-/** Trimmed answers with blanks left out; team size only counts for work use. */
+/** Trimmed answers with blanks left out; team size only counts when it was asked. */
 export function signupSurveyAnswers(form: {
   reason: string;
   use?: SignupSurvey["use"];
@@ -21,7 +21,7 @@ export function signupSurveyAnswers(form: {
   return {
     ...(reason ? { reason } : {}),
     ...(form.use ? { use: form.use } : {}),
-    ...(form.use === "work" && form.teamSize ? { teamSize: form.teamSize } : {}),
+    ...(signupSurveyAsksTeamSize(form.use) && form.teamSize ? { teamSize: form.teamSize } : {}),
     ...(source ? { source } : {}),
   };
 }

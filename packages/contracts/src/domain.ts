@@ -1535,18 +1535,22 @@ export const ModelCreditAmountSchema = z.union(
   MODEL_CREDIT_AMOUNTS.map((amount) => z.literal(amount)),
 );
 
-export const SIGNUP_SURVEY_USES = ["personal", "work"] as const;
+export const SIGNUP_SURVEY_USES = ["personal", "work", "both"] as const;
 export const SIGNUP_SURVEY_TEAM_SIZES = ["1", "2-10", "11-50", "51-200", "201+"] as const;
 
 /** Every answer is optional; an empty survey records that the user skipped it. */
 export const SignupSurveySchema = z.object({
   reason: z.string().trim().max(2000).optional(),
   use: z.enum(SIGNUP_SURVEY_USES).optional(),
-  /** Only kept when use is "work". */
+  /** Only kept when the survey asks it; see signupSurveyAsksTeamSize. */
   teamSize: z.enum(SIGNUP_SURVEY_TEAM_SIZES).optional(),
   source: z.string().trim().max(500).optional(),
 });
 export type SignupSurvey = z.infer<typeof SignupSurveySchema>;
+
+export function signupSurveyAsksTeamSize(use: SignupSurvey["use"]): boolean {
+  return use === "work" || use === "both";
+}
 
 export const BillingStatusSchema = z.object({
   funding: z.enum(["byok", "credits"]).nullable().optional(),

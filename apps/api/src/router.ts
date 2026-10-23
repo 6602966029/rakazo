@@ -169,6 +169,7 @@ import {
   mcpOAuthEnvReferences,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   parseTicketRef,
+  signupSurveyAsksTeamSize,
   storedPiProviderIds,
   usableModelId,
 } from "@rakazo/contracts";
@@ -5086,7 +5087,7 @@ export function createRouter(deps: RouterDeps) {
         const answers = {
           reason: input.reason || null,
           use: input.use ?? null,
-          teamSize: input.use === "work" ? (input.teamSize ?? null) : null,
+          teamSize: signupSurveyAsksTeamSize(input.use) ? (input.teamSize ?? null) : null,
           source: input.source || null,
         };
         await deps.prisma.signupSurvey.upsert({

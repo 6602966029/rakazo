@@ -22,15 +22,17 @@ test("new hosted users answer the signup survey before their first chat", async 
   await expect(page.getByRole("combobox", { name: "How big is your team?" })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "01-signup-survey");
 
-  await page.getByLabel("What are you hoping to use Rakazo for?").fill("  Keep my inbox at zero ");
-  await page.getByRole("button", { name: "Work", exact: true }).click();
+  await page.getByRole("button", { name: "Both", exact: true }).click();
   await chooseOption(page.getByRole("combobox", { name: "How big is your team?" }), "11–50");
   await page.getByLabel("How did you hear about us?").fill("A friend");
-  await captureScreenshot(page, testInfo, "02-signup-survey-work");
+  await page
+    .getByLabel("What do you most want Rakazo to help with?")
+    .fill("  Keep my inbox at zero ");
+  await captureScreenshot(page, testInfo, "02-signup-survey-filled");
 
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForURL(/\/app\//, { timeout: 20_000 });
   expect(submitted).toEqual([
-    { reason: "Keep my inbox at zero", use: "work", teamSize: "11-50", source: "A friend" },
+    { reason: "Keep my inbox at zero", use: "both", teamSize: "11-50", source: "A friend" },
   ]);
 });

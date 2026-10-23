@@ -22,6 +22,13 @@ describe("signup survey answers", () => {
     });
   });
 
+  it("keeps team size for both", () => {
+    expect(signupSurveyAnswers({ reason: "", use: "both", teamSize: "2-10", source: "" })).toEqual({
+      use: "both",
+      teamSize: "2-10",
+    });
+  });
+
   it("drops a team size picked before switching to personal", () => {
     expect(
       signupSurveyAnswers({ reason: "", use: "personal", teamSize: "2-10", source: "" }),

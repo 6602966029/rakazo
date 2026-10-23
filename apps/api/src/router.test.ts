@@ -363,7 +363,7 @@ describe("billing", () => {
     });
   });
 
-  it("keeps team size only for work use", async () => {
+  it("keeps team size only for work or both", async () => {
     const client = billingDeps(false);
     await client.onboarding.signupSurvey({
       reason: "  Run my inbox  ",
@@ -387,6 +387,13 @@ describe("billing", () => {
     expect(upsertSignupSurvey).toHaveBeenLastCalledWith(
       expect.objectContaining({
         update: { reason: null, use: "work", teamSize: "11-50", source: null },
+      }),
+    );
+
+    await client.onboarding.signupSurvey({ use: "both", teamSize: "2-10" });
+    expect(upsertSignupSurvey).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        update: { reason: null, use: "both", teamSize: "2-10", source: null },
       }),
     );
   });

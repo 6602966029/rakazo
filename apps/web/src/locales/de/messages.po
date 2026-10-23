@@ -916,6 +916,10 @@ msgstr ""
 msgid "Bot's model"
 msgstr "Modell des Bots"
 
+#: src/components/SignupSurvey.tsx
+msgid "Both"
+msgstr ""
+
 #: src/pages/Artifacts.tsx
 msgid "Bots"
 msgstr ""
@@ -2709,6 +2713,10 @@ msgstr "So sehen andere Bots ihn"
 msgid "How to check"
 msgstr "So wird geprüft"
 
+#: src/components/SignupSurvey.tsx
+msgid "How will you use Rakazo?"
+msgstr ""
+
 #: src/pages/shell/computer-release-actions.tsx
 msgid "I’m done"
 msgstr "Ich bin fertig"
@@ -3635,6 +3643,7 @@ msgstr "Chat wird geöffnet…"
 msgid "Opening your Space…"
 msgstr "Dein Arbeitsbereich wird geöffnet…"
 
+#: src/components/SignupSurvey.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3747,10 +3756,6 @@ msgstr "Berechtigungen"
 
 #: src/components/SignupSurvey.tsx
 msgid "Personal"
-msgstr ""
-
-#: src/components/SignupSurvey.tsx
-msgid "Personal or work"
 msgstr ""
 
 #: src/components/call/VoiceChatCard.tsx
@@ -5316,7 +5321,7 @@ msgid "What about its memories?"
 msgstr "Was soll mit seinen Erinnerungen geschehen?"
 
 #: src/components/SignupSurvey.tsx
-msgid "What are you hoping to use Rakazo for?"
+msgid "What do you most want Rakazo to help with?"
 msgstr ""
 
 #: src/pages/shell/message-cards.tsx

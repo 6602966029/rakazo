@@ -916,6 +916,10 @@ msgstr ""
 msgid "Bot's model"
 msgstr "बॉट का मॉडल"
 
+#: src/components/SignupSurvey.tsx
+msgid "Both"
+msgstr ""
+
 #: src/pages/Artifacts.tsx
 msgid "Bots"
 msgstr ""
@@ -2709,6 +2713,10 @@ msgstr "दूसरे बॉट इसे कैसे देखते है�
 msgid "How to check"
 msgstr "जांच कैसे करें"
 
+#: src/components/SignupSurvey.tsx
+msgid "How will you use Rakazo?"
+msgstr ""
+
 #: src/pages/shell/computer-release-actions.tsx
 msgid "I’m done"
 msgstr "मेरा काम हो गया"
@@ -3635,6 +3643,7 @@ msgstr "चैट खुल रही है…"
 msgid "Opening your Space…"
 msgstr "आपका वर्कस्पेस खुल रहा है…"
 
+#: src/components/SignupSurvey.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3747,10 +3756,6 @@ msgstr "अनुमतियाँ"
 
 #: src/components/SignupSurvey.tsx
 msgid "Personal"
-msgstr ""
-
-#: src/components/SignupSurvey.tsx
-msgid "Personal or work"
 msgstr ""
 
 #: src/components/call/VoiceChatCard.tsx
@@ -5316,7 +5321,7 @@ msgid "What about its memories?"
 msgstr "इसकी मेमोरी का क्या करें?"
 
 #: src/components/SignupSurvey.tsx
-msgid "What are you hoping to use Rakazo for?"
+msgid "What do you most want Rakazo to help with?"
 msgstr ""
 
 #: src/pages/shell/message-cards.tsx

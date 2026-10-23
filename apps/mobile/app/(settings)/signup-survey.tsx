@@ -1,4 +1,5 @@
 import type { SignupSurvey as SignupSurveyAnswers } from "@rakazo/contracts";
+import { signupSurveyAsksTeamSize } from "@rakazo/contracts";
 
 import { useRef, useState } from "react";
 import {
@@ -13,7 +14,12 @@ import { MenuPickerMenu } from "../../components/menu-picker";
 import { NativeActionButton } from "../../components/native-action-button";
 import { NativeSegmentedControl } from "../../components/native-segmented-control";
 import { NativeSymbol } from "../../components/native-symbol";
-import { SettingsGroup, SettingsRow, useStackedSettings } from "../../components/settings-group";
+import {
+  SettingsGroup,
+  SettingsLabel,
+  SettingsRow,
+  useStackedSettings,
+} from "../../components/settings-group";
 import { rpc } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
 import { native, useThemedStyles } from "../../lib/native";
@@ -36,6 +42,7 @@ export default function SignupSurvey() {
   const uses = [
     { value: "personal" as const, label: t("Personal") },
     { value: "work" as const, label: t("Work") },
+    { value: "both" as const, label: t("Both") },
   ];
   const teamSizeLabel = t("How big is your team?");
 
@@ -60,24 +67,16 @@ export default function SignupSurvey() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
-        <SettingsGroup label={t("What are you hoping to use Rakazo for?")}>
-          <TextInput
-            accessibilityLabel={t("What are you hoping to use Rakazo for?")}
-            maxLength={2000}
-            multiline
-            onChangeText={setReason}
-            style={[styles.input, styles.multiline]}
-            textAlignVertical="top"
-            value={reason}
+        <View style={styles.question}>
+          <SettingsLabel>{t("How will you use Rakazo?")}</SettingsLabel>
+          <NativeSegmentedControl
+            accessibilityLabel={t("How will you use Rakazo?")}
+            onChange={setUse}
+            options={uses}
+            value={use ?? ("" as Use)}
           />
-        </SettingsGroup>
-        <NativeSegmentedControl
-          accessibilityLabel={uses.map((option) => option.label).join(" / ")}
-          onChange={setUse}
-          options={uses}
-          value={use ?? ("" as Use)}
-        />
-        {use === "work" ? (
+        </View>
+        {signupSurveyAsksTeamSize(use) ? (
           <SettingsGroup>
             <MenuPickerMenu
               choices={SIGNUP_SURVEY_TEAM_SIZE_CHOICES}
@@ -116,10 +115,21 @@ export default function SignupSurvey() {
             accessibilityLabel={t("How did you hear about us?")}
             maxLength={500}
             onChangeText={setSource}
-            onSubmitEditing={() => void finish()}
-            returnKeyType="done"
             style={styles.input}
             value={source}
+          />
+        </SettingsGroup>
+        <SettingsGroup label={t("What do you most want Rakazo to help with?")}>
+          <TextInput
+            accessibilityLabel={t("What do you most want Rakazo to help with?")}
+            maxLength={2000}
+            multiline
+            onChangeText={setReason}
+            placeholder={t("Optional")}
+            placeholderTextColor={native.tertiaryLabel}
+            style={[styles.input, styles.multiline]}
+            textAlignVertical="top"
+            value={reason}
           />
         </SettingsGroup>
         <NativeActionButton label={t("Continue")} onPress={finish} />
@@ -133,6 +143,7 @@ function createStyles() {
     screen: { flex: 1, backgroundColor: native.groupedPage },
     content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 28 },
     compactContent: { paddingHorizontal: 8 },
+    question: { gap: 7 },
     input: {
       minHeight: 48,
       paddingHorizontal: 16,
