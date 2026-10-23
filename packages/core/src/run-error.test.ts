@@ -315,8 +315,10 @@ it.each([
   const backupModels = [
     { provider: "openrouter", model: "example:free", name: "OpenRouter / Example", reason },
   ];
-  const details = JSON.stringify({ message: "429 quota exhausted", backupModels });
+  const message = "402: Insufficient credit balance";
+  const primary = normalizeRunError(message);
+  const details = JSON.stringify({ message, backupModels });
   const result = normalizeRunError(details);
-  expect(result.summary).toBe(`Your model provider reached its spending limit. ${copy}`);
-  expect(result).toMatchObject({ details, recovery: "connection", backupModels });
+  expect(result.summary).toBe(`${primary.summary} ${copy}`);
+  expect(result).toMatchObject({ details, recovery: primary.recovery, backupModels });
 });
