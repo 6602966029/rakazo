@@ -75,6 +75,16 @@ export const JA_MESSAGES: Record<string, string> = {
   "{provider} is rate limiting requests. Try again shortly.":
     "{provider}がリクエストを制限しています。しばらくしてからもう一度お試しください。",
   "{summary} Resets {date}.": "{summary} {date}にリセットされます。",
+  "{summary} Backup models failed or were unavailable for this request.":
+    "{summary} このリクエストでは、バックアップモデルも失敗したか利用できませんでした。",
+  "{summary} No backup model was usable for this request.":
+    "{summary} このリクエストで使えるバックアップモデルはありませんでした。",
+  "{summary} Your backup models also failed.": "{summary} バックアップモデルも失敗しました。",
+  "{provider} denied access to this model.": "{provider}がこのモデルへのアクセスを拒否しました。",
+  "The model returned an unusable response. Try again.":
+    "モデルから使用できない応答が返されました。もう一度お試しください。",
+  "This model's context window is too small. Choose another model.":
+    "このモデルのコンテキストウィンドウが小さすぎます。別のモデルを選択してください。",
   "{provider} rejected the API key. Check your connection settings.":
     "{provider}がAPIキーを拒否しました。接続設定を確認してください。",
   "{provider} could not find the requested model.":
