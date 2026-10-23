@@ -12,14 +12,8 @@ import {
 } from "react-native";
 import { MenuPickerMenu } from "../../components/menu-picker";
 import { NativeActionButton } from "../../components/native-action-button";
-import { NativeSegmentedControl } from "../../components/native-segmented-control";
 import { NativeSymbol } from "../../components/native-symbol";
-import {
-  SettingsGroup,
-  SettingsLabel,
-  SettingsRow,
-  useStackedSettings,
-} from "../../components/settings-group";
+import { SettingsGroup, SettingsRow, useStackedSettings } from "../../components/settings-group";
 import { rpc } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
 import { native, useThemedStyles } from "../../lib/native";
@@ -39,12 +33,11 @@ export default function SignupSurvey() {
   const [teamSize, setTeamSize] = useState<SignupSurveyTeamSize>();
   const [source, setSource] = useState("");
   const finished = useRef(false);
-  const uses = [
-    { value: "personal" as const, label: t("Personal") },
-    { value: "work" as const, label: t("Work") },
-    { value: "both" as const, label: t("Both") },
+  const uses: { key: Use; label: string }[] = [
+    { key: "personal", label: t("Personal") },
+    { key: "work", label: t("Work") },
+    { key: "both", label: t("Both") },
   ];
-  const teamSizeLabel = t("How big is your team?");
 
   function finish() {
     if (finished.current) return;
@@ -67,49 +60,22 @@ export default function SignupSurvey() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.question}>
-          <SettingsLabel>{t("How will you use Rakazo?")}</SettingsLabel>
-          <NativeSegmentedControl
-            accessibilityLabel={t("How will you use Rakazo?")}
+        <SettingsGroup>
+          <ChoiceRow
+            choices={uses}
+            label={t("How will you use Rakazo?")}
             onChange={setUse}
-            options={uses}
-            value={use ?? ("" as Use)}
+            value={use}
           />
-        </View>
-        {signupSurveyAsksTeamSize(use) ? (
-          <SettingsGroup>
-            <MenuPickerMenu
+          {signupSurveyAsksTeamSize(use) ? (
+            <ChoiceRow
               choices={SIGNUP_SURVEY_TEAM_SIZE_CHOICES}
-              label={teamSizeLabel}
-              onChange={(key) =>
-                setTeamSize(
-                  SIGNUP_SURVEY_TEAM_SIZE_CHOICES.find((choice) => choice.key === key)?.key,
-                )
-              }
-              value={teamSize ?? ""}
-            >
-              <View>
-                <SettingsRow
-                  accessibilityLabel={teamSizeLabel}
-                  accessibilityRole="button"
-                  accessible
-                  title={teamSizeLabel}
-                  trailing={
-                    <NativeSymbol
-                      android="chevron-expand"
-                      color={native.tertiaryLabel}
-                      ios="chevron.up.chevron.down"
-                      size={13}
-                    />
-                  }
-                  value={
-                    SIGNUP_SURVEY_TEAM_SIZE_CHOICES.find((choice) => choice.key === teamSize)?.label
-                  }
-                />
-              </View>
-            </MenuPickerMenu>
-          </SettingsGroup>
-        ) : null}
+              label={t("How big is your team?")}
+              onChange={setTeamSize}
+              value={teamSize}
+            />
+          ) : null}
+        </SettingsGroup>
         <SettingsGroup label={t("How did you hear about us?")}>
           <TextInput
             accessibilityLabel={t("How did you hear about us?")}
@@ -138,12 +104,54 @@ export default function SignupSurvey() {
   );
 }
 
+/** A native menu row that stays blank until the user picks, so nothing is chosen for them. */
+function ChoiceRow<T extends string>({
+  label,
+  choices,
+  value,
+  onChange,
+}: {
+  label: string;
+  choices: readonly { key: T; label: string }[];
+  value: T | undefined;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <MenuPickerMenu
+      choices={choices}
+      label={label}
+      onChange={(key) => {
+        const match = choices.find((choice) => choice.key === key);
+        if (match) onChange(match.key);
+      }}
+      value={value ?? ""}
+    >
+      <View>
+        <SettingsRow
+          accessibilityLabel={label}
+          accessibilityRole="button"
+          accessible
+          title={label}
+          trailing={
+            <NativeSymbol
+              android="chevron-expand"
+              color={native.tertiaryLabel}
+              ios="chevron.up.chevron.down"
+              size={13}
+            />
+          }
+          value={choices.find((choice) => choice.key === value)?.label}
+        />
+      </View>
+    </MenuPickerMenu>
+  );
+}
+
 function createStyles() {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: native.groupedPage },
     content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 28 },
     compactContent: { paddingHorizontal: 8 },
-    question: { gap: 7 },
     input: {
       minHeight: 48,
       paddingHorizontal: 16,
