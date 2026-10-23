@@ -983,7 +983,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Add credits": "Guthaben hinzufügen",
   "Manage billing": "Abrechnung verwalten",
   "Your subscription or API key": "Dein Abo oder API-Schlüssel",
-  "Free. ChatGPT, Claude, or any model provider.": "Kostenlos. ChatGPT, Claude oder ein beliebiger Modellanbieter.",
+  "Free. ChatGPT, Claude, or any model provider.":
+    "Kostenlos. ChatGPT, Claude oder ein beliebiger Modellanbieter.",
   "Use my subscription or API key": "Mein Abo oder meinen API-Schlüssel verwenden",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Monatliches Guthaben verfällt bei Verlängerung. Einmalige Aufladungen verfallen nicht.",

@@ -939,7 +939,8 @@ export const NL_MESSAGES: Record<string, string> = {
   "Add credits": "Tegoed toevoegen",
   "Manage billing": "Facturering beheren",
   "Your subscription or API key": "Je abonnement of API-sleutel",
-  "Free. ChatGPT, Claude, or any model provider.": "Gratis. ChatGPT, Claude of elke modelaanbieder.",
+  "Free. ChatGPT, Claude, or any model provider.":
+    "Gratis. ChatGPT, Claude of elke modelaanbieder.",
   "Use my subscription or API key": "Mijn abonnement of API-sleutel gebruiken",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Maandelijks tegoed vervalt bij verlenging. Los gekocht tegoed verloopt niet.",
