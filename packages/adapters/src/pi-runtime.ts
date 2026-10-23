@@ -35,6 +35,7 @@ import {
   isRetryableProviderUnavailable,
   isTransientModelError,
   ModelAccountError,
+  ModelOutputError,
   TransientModelError,
 } from "@rakazo/adapter-kit";
 import {
@@ -47,6 +48,7 @@ import type { ModelBackupOutcome } from "@rakazo/core";
 import {
   abortableDelay,
   MISSING_TOOL_FINAL_RESPONSE_ERROR,
+  MODEL_OUTPUT_LIMIT_ERROR,
   modelFallbackFailure,
   normalizeRunError,
 } from "@rakazo/core";
@@ -895,7 +897,7 @@ export class PiAgentRuntime implements AgentRuntime {
             // Scheduled/FYI runs may finish after tools with no user-visible text.
             streamed = "";
           } else {
-            throw new Error(MISSING_TOOL_FINAL_RESPONSE_ERROR);
+            throw new ModelOutputError(MISSING_TOOL_FINAL_RESPONSE_ERROR);
           }
         } else if (!streamed.trim() && !host.pausePending) {
           streamed = "";
@@ -905,7 +907,7 @@ export class PiAgentRuntime implements AgentRuntime {
             queue.push({ type: "text", text: fallback });
             streamed = fallback;
           } else if (toolWorkPendingFinal && !request.allowSilentEmpty) {
-            throw new Error(MISSING_TOOL_FINAL_RESPONSE_ERROR);
+            throw new ModelOutputError(MISSING_TOOL_FINAL_RESPONSE_ERROR);
           } else if (toolCalls === 0 && !request.allowSilentEmpty) {
             streamed = request.emptyResponseText?.trim() || "No response. Try again.";
             queue.push({ type: "text", text: streamed });
@@ -920,7 +922,9 @@ export class PiAgentRuntime implements AgentRuntime {
             ? new TransientModelError(message)
             : error instanceof ModelAccountError
               ? new ModelAccountError(message)
-              : new Error(message),
+              : error instanceof ModelOutputError
+                ? new ModelOutputError(message)
+                : new Error(message),
         );
       } finally {
         queue.close();
@@ -2396,7 +2400,7 @@ export function providerFailureText(message: unknown): string | undefined {
     return "The model failed before writing a response.";
   }
   if (stopReason === "length" && !text) {
-    return errorMessage || "The model hit its output limit before writing a response.";
+    return errorMessage || MODEL_OUTPUT_LIMIT_ERROR;
   }
   if (errorMessage && !text) return errorMessage;
   return undefined;
@@ -2457,12 +2461,17 @@ function looksLikeOpenCodeSessionError(message: string): boolean {
 }
 
 /**
- * One classification for retries, reporting and the run error view: a failure that view
- * explains with a connection or model fix is the user's account state, not a server fault.
+ * One classification for retries, reporting and the run error view. A failure the view
+ * attributes to the user's provider account, key, plan or model choice, or to the model's own
+ * unusable output, is not a server fault. Anything it cannot place stays a plain error.
  */
 function modelFailure(error: string, message: string): Error {
-  if (isTransientModelError(error)) return new TransientModelError(message);
-  if (normalizeRunError(message).recovery) return new ModelAccountError(message);
+  // OpenCode drops chat sessions on its side; the next send opens a new one.
+  if (isTransientModelError(error) || message === OPENCODE_SESSION_ERROR)
+    return new TransientModelError(message);
+  const { kind } = normalizeRunError(message);
+  if (kind === "output") return new ModelOutputError(message);
+  if (kind) return new ModelAccountError(message);
   return new Error(message);
 }
 

@@ -1,9 +1,14 @@
 export const JA_MESSAGES: Record<string, string> = {
+  "The model returned an unusable response. Try again.":
+    "モデルから使用できない応答が返されました。もう一度お試しください。",
+  "{provider} denied access to this model.": "{provider}がこのモデルへのアクセスを拒否しました。",
   "{summary} Your backup models also failed.": "{summary} バックアップモデルも失敗しました。",
   "{summary} No backup model was usable for this request.":
     "{summary} このリクエストに使用できるバックアップモデルはありませんでした。",
   "{summary} Backup models failed or were unavailable for this request.":
     "{summary} バックアップモデルが失敗したか、このリクエストでは利用できませんでした。",
+  "This model's context window is too small. Choose another model.":
+    "このモデルのコンテキストウィンドウは小さすぎます。別のモデルを選択してください。",
   "Ollama Cloud": "Ollama Cloud",
   "Ollama API key": "OllamaのAPIキー",
   "Show password": "パスワードを表示",
@@ -88,8 +93,6 @@ export const JA_MESSAGES: Record<string, string> = {
     "{provider}の応答に時間がかかりすぎました。もう一度お試しください。",
   "{provider} is overloaded right now. Try again in a moment.":
     "{provider}は現在混み合っています。しばらくしてからもう一度お試しください。",
-  "This model cannot fit the required instructions and tools. Choose a model with a larger context window.":
-    "このモデルには必要な指示とツールを収められません。コンテキストウィンドウがより大きいモデルを選択してください。",
   "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.":
     "この会話はモデルにとって長すぎます。再試行しても解決しません。新しいチャットを開始するか、メッセージを短くしてください。",
   "{provider} key hit its limit.": "{provider}のキーが上限に達しました。",

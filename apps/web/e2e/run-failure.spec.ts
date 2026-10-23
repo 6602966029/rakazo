@@ -165,7 +165,7 @@ test("a model too small for required instructions offers a model change", async 
 
   const error = page.getByTestId("composer-error");
   await expect(error).toContainText(
-    "This model cannot fit the required instructions and tools. Choose a model with a larger context window.",
+    "This model's context window is too small. Choose another model.",
     { timeout: 30_000 },
   );
   await expect(error).not.toContainText("Start a new chat");

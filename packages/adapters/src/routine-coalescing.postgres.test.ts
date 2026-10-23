@@ -9,7 +9,7 @@ import {
   provisionMessagingIdentity,
   runAsSystem,
 } from "@rakazo/db";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createRunExecutor } from "./executor.js";
 import { findPendingRoutineTick, routineTimerNonce } from "./routine-coalescing.js";
 
@@ -332,4 +332,54 @@ describePostgres("routine timer coalescing (PostgreSQL)", () => {
       expect(await system.run.count({ where: { routineId: routine.id } })).toBe(1);
     },
   );
+  it("preserves work reused by a later tick before the original publication rejects", async () => {
+    const { routine } = await fixture();
+    const dueAt = new Date(Date.now() - 1_000);
+    await system.routine.update({ where: { id: routine.id }, data: { nextRunAt: dueAt } });
+    const clock = vi.spyOn(Date, "now");
+    let laterTickFired = false;
+    let advancedSchedule: Date | null = null;
+    let reusedId: string | null = null;
+    let executor: ReturnType<typeof createRunExecutor>;
+    executor = createRunExecutor({
+      prisma: system,
+      jobs: {
+        enqueue: async (job: BackgroundJob) => {
+          if (job.name !== "run.continue" || laterTickFired) return;
+          reusedId = job.payload.runId;
+          laterTickFired = true;
+          const afterFirstTick = await system.routine.findUniqueOrThrow({
+            where: { id: routine.id },
+          });
+          // The first publication stalls until the next natural occurrence is due.
+          clock.mockReturnValue(afterFirstTick.nextRunAt!.getTime() + 1_000);
+          await executor.wakeRoutine(routine.id, afterFirstTick.nextRunAt!.toISOString());
+          advancedSchedule = (await system.routine.findUniqueOrThrow({ where: { id: routine.id } }))
+            .nextRunAt;
+          throw new Error("first publication failed after catch-up reuse");
+        },
+        cancel: async () => undefined,
+        close: async () => undefined,
+      },
+      events: {
+        append: (input: Parameters<typeof appendEvent>[1]) => appendEvent(system, input),
+        notify: async () => undefined,
+      },
+    } as unknown as Parameters<typeof createRunExecutor>[0]);
+    try {
+      await executor.wakeRoutine(routine.id, dueAt.toISOString());
+      expect(laterTickFired).toBe(true);
+      const surviving = await system.run.findUniqueOrThrow({ where: { id: reusedId! } });
+      expect(surviving).toMatchObject({ status: "queued", leaseFence: 0 });
+      expect(await system.task.findUnique({ where: { id: surviving.taskId } })).toMatchObject({
+        status: "queued",
+      });
+      expect(
+        (await system.routine.findUniqueOrThrow({ where: { id: routine.id } })).nextRunAt,
+      ).toEqual(advancedSchedule);
+      expect(await system.run.count({ where: { routineId: routine.id } })).toBe(1);
+    } finally {
+      clock.mockRestore();
+    }
+  });
 });

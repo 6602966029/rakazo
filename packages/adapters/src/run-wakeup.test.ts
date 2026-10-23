@@ -33,12 +33,10 @@ function fixture() {
         .map(([id]) => ({ id, botId: id, bot: { computerId: "computer" } })),
   );
   const leases = vi.fn(async () => [] as { computerId: string; botId: string; runId: string }[]);
-  const aggregate = vi.fn(async () => ({
-    _count: { _all: 0 },
-    _min: { createdAt: null as Date | null },
-  }));
+  const queueHealth = vi.fn(async () => [{ delayedRuns: 0, oldestDueAt: null as Date | null }]);
   const prisma = {
-    run: { updateMany, findMany, aggregate },
+    run: { updateMany, findMany },
+    $queryRaw: queueHealth,
     computerExecutionLease: { findMany: leases },
   } as unknown as PrismaClient;
   const realtime = new InMemoryRealtimeFanout();
@@ -59,7 +57,7 @@ function fixture() {
     findMany,
     updateMany,
     leases,
-    aggregate,
+    queueHealth,
   };
 }
 
@@ -179,17 +177,16 @@ describe("durable direct run wakeups", () => {
     const f = fixture();
     const sink = createTestSink();
     installLogger(createLogger({ service: "test", sinks: [sink] }));
-    f.aggregate.mockResolvedValue({
-      _count: { _all: 2 },
-      _min: { createdAt: new Date(Date.now() - 60_000) },
-    });
+    f.queueHealth.mockResolvedValue([
+      { delayedRuns: 2, oldestDueAt: new Date(Date.now() - 60_000) },
+    ]);
     try {
       await f.host.start({} as BackgroundJobHandlers);
       await vi.advanceTimersByTimeAsync(1);
       expect(sink.events.filter((event) => event.message === "run.queue_delayed")).toHaveLength(1);
       await vi.advanceTimersByTimeAsync(29_000);
-      expect(f.aggregate).toHaveBeenCalledTimes(1);
-      f.aggregate.mockResolvedValue({ _count: { _all: 0 }, _min: { createdAt: null } });
+      expect(f.queueHealth).toHaveBeenCalledTimes(1);
+      f.queueHealth.mockResolvedValue([{ delayedRuns: 0, oldestDueAt: null }]);
       await vi.advanceTimersByTimeAsync(1_000);
       expect(sink.events.filter((event) => event.message === "run.queue_recovered")).toHaveLength(
         1,

@@ -8,6 +8,7 @@ import {
   abortableDelay,
   BOT_MESSAGE_WAKE_CUE,
   inferHandoffTargetName,
+  MODEL_CONTEXT_TOO_SMALL_ERROR,
   modelFallbackFailure,
   STEERING_CONTINUATION_PROMPT,
 } from "@rakazo/core";
@@ -660,8 +661,7 @@ function shouldFail(prompt: string): boolean {
 
 /** The error a failing run throws; "overloaded" sends the body Anthropic returns with a 529. */
 function scriptedFailure(prompt: string): string {
-  if (/\bfixed context\b/i.test(prompt))
-    return "Required instructions and tools exceed the model context budget";
+  if (/\bfixed context\b/i.test(prompt)) return MODEL_CONTEXT_TOO_SMALL_ERROR;
   if (/\bexhausted backups\b/i.test(prompt)) {
     return modelFallbackFailure('429: {"message":"Too many requests"}', [
       {

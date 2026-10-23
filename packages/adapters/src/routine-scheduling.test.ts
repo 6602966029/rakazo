@@ -102,38 +102,16 @@ describe("recurring routine catch-up", () => {
     expect(tx.routine.updateMany).toHaveBeenCalledTimes(1);
     expect(enqueue).toHaveBeenLastCalledWith(expect.objectContaining({ name: "routine.wakeup" }));
   });
-  it.each(["claimed", "completed"])(
-    "preserves a %s run and schedules the next tick after publication fails",
-    async (_state) => {
-      const { executor, tx, enqueue, append, scheduledAt } = pendingTimerFixture(false);
-      // The durable dispatcher already moved the row beyond the rollback predicate.
-      tx.run.deleteMany.mockResolvedValue({ count: 0 });
-      enqueue.mockRejectedValueOnce(new Error("publisher unavailable"));
-      await executor.wakeRoutine("routine-1", scheduledAt.toISOString());
-      expect(tx.run.deleteMany).toHaveBeenCalledWith({
-        where: { id: "new-1", status: "queued", leaseFence: 0 },
-      });
-      expect(tx.task.deleteMany).not.toHaveBeenCalled();
-      expect(tx.routine.updateMany).toHaveBeenCalledTimes(1);
-      expect(append).toHaveBeenCalledWith(
-        expect.objectContaining({ type: "routine.fired", runId: "new-1" }),
-      );
-      expect(enqueue).toHaveBeenLastCalledWith(expect.objectContaining({ name: "routine.wakeup" }));
-    },
-  );
-  it("rolls back only an unclaimed new run after publication fails", async () => {
-    const { executor, tx, enqueue, scheduledAt } = pendingTimerFixture(false);
+  it("preserves unclaimed durable work and advances scheduling when publication fails", async () => {
+    const { executor, tx, enqueue, append, scheduledAt } = pendingTimerFixture(false);
     enqueue.mockRejectedValueOnce(new Error("publisher unavailable"));
-    await expect(executor.wakeRoutine("routine-1", scheduledAt.toISOString())).rejects.toThrow(
-      "publisher unavailable",
+    await executor.wakeRoutine("routine-1", scheduledAt.toISOString());
+    expect(tx.run.deleteMany).not.toHaveBeenCalled();
+    expect(tx.task.deleteMany).not.toHaveBeenCalled();
+    expect(tx.routine.updateMany).toHaveBeenCalledTimes(1);
+    expect(append).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "routine.fired", runId: "new-1" }),
     );
-    expect(tx.task.deleteMany).toHaveBeenCalledWith({
-      where: { id: "task-1", status: "queued", runs: { none: {} } },
-    });
-    expect(tx.routine.updateMany).toHaveBeenCalledTimes(2);
-    expect(tx.routine.updateMany).toHaveBeenLastCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ nextRunAt: scheduledAt }) }),
-    );
-    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(enqueue).toHaveBeenLastCalledWith(expect.objectContaining({ name: "routine.wakeup" }));
   });
 });

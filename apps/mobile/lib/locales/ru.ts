@@ -86,12 +86,15 @@ export const RU_MESSAGES: Record<string, string> = {
   "{provider} rejected the API key. Check your connection settings.":
     "{provider} отклонил API-ключ. Проверьте настройки подключения.",
   "{provider} could not find the requested model.": "{provider} не смог найти запрошенную модель.",
+  "{provider} denied access to this model.": "{provider} отказал в доступе к этой модели.",
+  "The model returned an unusable response. Try again.":
+    "Модель вернула непригодный ответ. Попробуйте ещё раз.",
+  "This model's context window is too small. Choose another model.":
+    "Контекстное окно этой модели слишком мало. Выберите другую модель.",
   "{provider} took too long to respond. Try again.":
     "{provider} не ответил вовремя. Повторите попытку.",
   "{provider} is overloaded right now. Try again in a moment.":
     "{provider} сейчас перегружен. Повторите попытку чуть позже.",
-  "This model cannot fit the required instructions and tools. Choose a model with a larger context window.":
-    "В этой модели не помещаются необходимые инструкции и инструменты. Выберите модель с большим контекстным окном.",
   "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.":
     "Этот разговор слишком длинный для модели. Повторная попытка не поможет. Начните новый чат или сократите сообщение.",
   "{provider} key hit its limit.": "{provider}: достигнут лимит ключа.",

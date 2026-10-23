@@ -373,6 +373,27 @@ describe("thread cards", () => {
     return question?.parentElement;
   }
 
+  it.each([false, true])(
+    "keeps text passive when surface gestures are enabled: %s",
+    (doubleTapSurface) => {
+      act(() =>
+        root.render(
+          <MessageBubble
+            botId="bot-1"
+            bots={[]}
+            message={{ id: "text-1", role: "bot", blocks: [{ kind: "text", text: "Hello" }] }}
+            canAnswer={false}
+            onAnswer={async () => undefined}
+            actionProps={{}}
+            doubleTapSurface={doubleTapSurface}
+          />,
+        ),
+      );
+      expect(container.textContent).toBe("Hello");
+      expect(container.querySelectorAll("button").length).toBe(doubleTapSurface ? 0 : 1);
+    },
+  );
+
   // The iOS message menu hosts each bubble without a definite width, so a percentage width
   // resolves against the card's own cap instead of the message column and overflows the screen.
   it.each([

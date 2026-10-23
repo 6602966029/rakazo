@@ -87,12 +87,15 @@ export const NL_MESSAGES: Record<string, string> = {
     "{provider} heeft de API-sleutel geweigerd. Controleer je verbindingsinstellingen.",
   "{provider} could not find the requested model.":
     "{provider} kon het gevraagde model niet vinden.",
+  "{provider} denied access to this model.": "{provider} heeft toegang tot dit model geweigerd.",
+  "The model returned an unusable response. Try again.":
+    "Het model gaf een onbruikbaar antwoord. Probeer het opnieuw.",
+  "This model's context window is too small. Choose another model.":
+    "Het contextvenster van dit model is te klein. Kies een ander model.",
   "{provider} took too long to respond. Try again.":
     "{provider} deed er te lang over om te antwoorden. Probeer het opnieuw.",
   "{provider} is overloaded right now. Try again in a moment.":
     "{provider} is op dit moment overbelast. Probeer het zo nog eens.",
-  "This model cannot fit the required instructions and tools. Choose a model with a larger context window.":
-    "Dit model heeft niet genoeg ruimte voor de vereiste instructies en tools. Kies een model met een groter contextvenster.",
   "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.":
     "Dit gesprek is te lang voor het model. Opnieuw proberen helpt niet. Begin een nieuwe chat of maak je bericht korter.",
   "{provider} key hit its limit.": "De sleutel van {provider} heeft de limiet bereikt.",

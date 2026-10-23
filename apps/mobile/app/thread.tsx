@@ -117,6 +117,7 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withTiming,
+  ZoomIn,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppConnectCard } from "../components/AppConnectCard";
@@ -194,6 +195,7 @@ import { setCallProviderTranscribe, startCall, useCallSession } from "../lib/cal
 import { chatSettingsRoute } from "../lib/chat-settings-route";
 import { loadDeviceVoiceEnabled } from "../lib/device-voice";
 import { available as dictationAvailable } from "../lib/dictation";
+import { canDoubleTapReact } from "../lib/double-tap";
 import { cancelFocusPrompt, focusPromptThreadActive } from "../lib/focus-prompt";
 import { helperHeaderOffset, helperOpenTarget } from "../lib/helper-header-offset";
 import { t, useI18n } from "../lib/i18n";
@@ -213,6 +215,7 @@ import {
   applyLocalChoiceDismissals,
   hasVisibleMessagePresentation,
   isCenteredAgentEvent,
+  messageHasInlineControls,
   messagePresentationSegments,
   quotableMessageSegments,
   truncateQuoteExcerpt,
@@ -2376,10 +2379,10 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   }
 
   async function reactToMessage(message: MobileMessage, reaction: MessageReaction) {
-    if (readOnly) return;
+    if (readOnly) return false;
     const targetBotId = botId;
     const targetGroupId = groupId;
-    if (!targetBotId && !targetGroupId) return;
+    if (!targetBotId && !targetGroupId) return false;
     try {
       const result = await rpc<{ ok: true; runIds?: string[] }>("threads/react", {
         ...(targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! }),
@@ -2391,9 +2394,11 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         // The reaction is saved; a failed refresh is caught up by live events.
         await refresh().catch(() => {});
       }
+      return true;
     } catch (err) {
-      if (!isCurrentTarget(targetBotId, targetGroupId)) return;
+      if (!isCurrentTarget(targetBotId, targetGroupId)) return false;
       Alert.alert(t("Could not update reaction"), errorText(err, t("Try again.")));
+      return false;
     }
   }
 
@@ -2457,7 +2462,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     quote: setQuoteTarget,
     select: setSelectableText,
     speak,
-    react: (message, reaction) => void reactToMessage(message, reaction),
+    react: (message, reaction) => reactToMessage(message, reaction),
     markUnread: markUnreadFrom,
     answer: answerMessage,
     openBot,
@@ -2591,6 +2596,11 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           unreadDivider={message.id === unreadDividerId}
           replyAuthor={replyAuthor}
           replyFallbackText={parent ? previewMessageText(parent) : undefined}
+          waitingForUser={[...(snap?.activeRuns ?? []), ...(snap?.run ? [snap.run] : [])].some(
+            (run) =>
+              run.id === message.runId &&
+              (run.status === "waiting_input" || run.status === "waiting_takeover"),
+          )}
           messageReactions={messageReactions}
           peerReplies={
             peerTranscript.folded.has(message.id)
@@ -3404,7 +3414,7 @@ type MessageRowActions = {
   quote: (message: MobileMessage) => void;
   select: (text: string) => void;
   speak: (message: MobileMessage) => void;
-  react: (message: MobileMessage, reaction: MessageReaction) => void;
+  react: (message: MobileMessage, reaction: MessageReaction) => Promise<boolean>;
   markUnread: (message: MobileMessage) => void;
   answer: (
     message: MobileMessage,
@@ -3443,6 +3453,7 @@ type MessageRowProps = {
   unreadDivider: boolean;
   replyAuthor: string;
   replyFallbackText?: string;
+  waitingForUser: boolean;
   messageReactions?: ReadonlyMap<MessageReaction, number>;
   /** Set on a received marker whose peer run has folded replies. */
   peerReplies?: "collapsed" | "expanded";
@@ -3486,6 +3497,7 @@ const MessageRow = memo(function MessageRow({
   replyAuthor,
   replyFallbackText,
   messageReactions,
+  waitingForUser,
   peerReplies,
   activityBotId,
   activityColor,
@@ -3515,10 +3527,20 @@ const MessageRow = memo(function MessageRow({
         : undefined,
     [actions, message.id, enableJump, index],
   );
-  const { actionProps, menu, onMenuAction } = useMemo<{
+  const [optimisticLike, setOptimisticLike] = useState(false);
+  const likeInFlight = useRef(false);
+  const reducedMotion = useReducedMotion();
+  const hasLike = messageReactions?.has("👍") ?? false;
+  useEffect(() => {
+    if (hasLike) setOptimisticLike(false);
+  }, [hasLike]);
+  const displayedReactions = new Map(messageReactions);
+  if (optimisticLike && !hasLike) displayedReactions.set("👍", 1);
+  const { actionProps, menu, onMenuAction, likeMessage } = useMemo<{
     actionProps: MessageActionProps;
     menu: ReturnType<typeof buildMessageContextMenu>;
     onMenuAction: (id: string) => void;
+    likeMessage?: () => void;
   }>(() => {
     const messageText = selectableMobileMessageText(message);
     const includeQuote =
@@ -3666,6 +3688,20 @@ const MessageRow = memo(function MessageRow({
       });
     return {
       menu,
+      likeMessage: canDoubleTapReact(includeReact, message.blocks, waitingForUser)
+        ? () => {
+            if (hasLike || optimisticLike || likeInFlight.current) return;
+            likeInFlight.current = true;
+            setOptimisticLike(true);
+            void react("👍")
+              .then((success) => {
+                if (!success) setOptimisticLike(false);
+              })
+              .finally(() => {
+                likeInFlight.current = false;
+              });
+          }
+        : undefined,
       onMenuAction: (id) => {
         const reaction = messageMenuReaction(id);
         if (reaction && (MESSAGE_REACTIONS as readonly string[]).includes(reaction)) {
@@ -3690,7 +3726,18 @@ const MessageRow = memo(function MessageRow({
         },
       },
     };
-  }, [message, actions, readOnly, onCall, colorScheme, t, locale]);
+  }, [
+    message,
+    actions,
+    readOnly,
+    onCall,
+    colorScheme,
+    t,
+    locale,
+    waitingForUser,
+    hasLike,
+    optimisticLike,
+  ]);
   return (
     <View
       key={message.id}
@@ -3769,6 +3816,7 @@ const MessageRow = memo(function MessageRow({
             colorScheme={colorScheme}
             onAction={onMenuAction}
             onLongPress={actionProps.onLongPress}
+            onDoubleTap={messageHasInlineControls(message.blocks) ? undefined : likeMessage}
           >
             <ThreadReadOnlyContext.Provider value={readOnly}>
               <MessageBubble
@@ -3791,12 +3839,13 @@ const MessageRow = memo(function MessageRow({
                 onTogglePeerReplies={actions.togglePeerReplies}
                 onOpenPeerChat={actions.openPeerChat}
                 actionProps={actionProps}
+                doubleTapSurface={Boolean(likeMessage)}
                 onHelperToggle={actions.helperToggle}
                 userBubble={userBubble}
               />
             </ThreadReadOnlyContext.Provider>
           </MessageContextMenu>
-          {messageReactions ? (
+          {displayedReactions.size > 0 ? (
             <View
               style={{
                 flexDirection: "row",
@@ -3806,8 +3855,13 @@ const MessageRow = memo(function MessageRow({
                 justifyContent: message.role === "user" ? "flex-end" : "flex-start",
               }}
             >
-              {[...messageReactions].map(([emoji, count]) => (
-                <Text
+              {[...displayedReactions].map(([emoji, count]) => (
+                <Animated.Text
+                  entering={
+                    emoji === "👍" && optimisticLike && !reducedMotion
+                      ? ZoomIn.duration(150).withInitialValues({ transform: [{ scale: 0.9 }] })
+                      : undefined
+                  }
                   key={emoji}
                   style={{
                     color: tokens.foreground,
@@ -3820,7 +3874,7 @@ const MessageRow = memo(function MessageRow({
                 >
                   {emoji}
                   {count > 1 ? ` ${count}` : ""}
-                </Text>
+                </Animated.Text>
               ))}
             </View>
           ) : null}
@@ -3904,6 +3958,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
   onTogglePeerReplies,
   onOpenPeerChat,
   actionProps,
+  doubleTapSurface = false,
   userBubble,
 }: {
   onHelperToggle?: MessageRowActions["helperToggle"];
@@ -3931,6 +3986,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
   onTogglePeerReplies: (markerId: string) => void;
   onOpenPeerChat: (peer: { peerBotId: string; peerBotName: string }) => void;
   actionProps: MessageActionProps;
+  doubleTapSurface?: boolean;
   userBubble?: UserBubble;
 }) {
   const colorScheme = useResolvedAppearance();
@@ -4432,6 +4488,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
           speaker={showBotSenderName && index === firstContent ? speaker : undefined}
           speakerColor={showBotSenderName && index === firstContent ? speakerColor : undefined}
           actionProps={actionProps}
+          doubleTapSurface={doubleTapSurface}
           userBubble={userBubble}
         />
       ))}
@@ -4722,21 +4779,27 @@ function MessageTextCard({
   speaker,
   speakerColor,
   actionProps,
+  doubleTapSurface = false,
   userBubble,
 }: {
   message: MobileMessage;
   speaker?: string;
   speakerColor?: string;
   actionProps: MessageActionProps;
+  doubleTapSurface?: boolean;
   userBubble?: UserBubble;
 }) {
   const colorScheme = useResolvedAppearance();
   const tokens = withUserBubble(mobileTokens(), userBubble);
   const contentText = blockText(message);
   if (!contentText) return null;
+  // The menu wrapper owns surface gestures; links and code controls remain responders.
+  const Surface = doubleTapSurface ? View : Pressable;
   return (
-    <Pressable
+    <Surface
       {...actionProps}
+      accessible
+      onLongPress={doubleTapSurface ? undefined : actionProps.onLongPress}
       style={{
         flexShrink: 1,
         minWidth: 0,
@@ -4765,7 +4828,7 @@ function MessageTextCard({
         colorScheme={colorScheme}
         streaming={message.id.startsWith("progress:")}
       />
-    </Pressable>
+    </Surface>
   );
 }
 

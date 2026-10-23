@@ -274,12 +274,12 @@ describe("real Pi against an offline model HTTP endpoint", () => {
     {
       name: "required instructions",
       overrides: { instructions: "Required instructions ".repeat(2000), tools: [] },
-      error: "Required instructions and tools exceed the model context budget",
+      error: "This model's context window is too small. Choose another model.",
     },
     {
       name: "required tools",
       overrides: { tools: [{ ...writeTool, description: "Required tool schema ".repeat(2000) }] },
-      error: "Required instructions and tools exceed the model context budget",
+      error: "This model's context window is too small. Choose another model.",
     },
   ])(
     "rejects oversized $name before invoking the model or reserving spend",

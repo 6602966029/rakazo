@@ -34,6 +34,7 @@ import {
   historyCompactJob,
   MEMORY_REVISION_CONFLICT_ERROR,
   ModelAccountError,
+  ModelOutputError,
   routineJobKey,
   routineRetryJob,
   routineWakeupJob,
@@ -117,7 +118,7 @@ import {
   stableJsonValue,
   toolEffectIdempotencyKey,
 } from "@rakazo/core/node/approval-effect-key";
-import type { McpServer, PrismaClient, ThreadEvents } from "@rakazo/db";
+import type { McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
   countUnreadInboxChats,
@@ -130,7 +131,6 @@ import {
   isTooManyDatabaseConnections,
   loadRunHistoryMessages,
   loadRunTurnCheckpoint,
-  Prisma,
   parseComputerMode,
   RUN_TURN_CHECKPOINT_KIND,
   RunHistoryWriteError,
@@ -3311,7 +3311,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
               new Date(Date.now()),
               routine.timezone,
             );
-      const previousLastRunAt = routine.lastRunAt;
       const skillRecords = await listAgentSkillRecords(deps.prisma, {
         spaceId: routine.spaceId,
         userId: routine.userId,
@@ -3393,38 +3392,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           ...(claimed.coalesced ? { keepExisting: true } : {}),
         });
       } catch (error) {
-        // Direct dispatch can claim or finish this durable row before publication
-        // fails. Roll back only work that has never been claimed; otherwise keep
-        // the advanced occurrence and let the recovery scanner own its delivery.
-        const rolledBack =
-          !claimed.coalesced &&
-          (await deps.prisma.$transaction(async (tx) => {
-            const deleted = await tx.run.deleteMany({
-              where: { id: claimed.id, status: "queued", leaseFence: 0 },
-            });
-            if (deleted.count !== 1) return false;
-            await tx.task.deleteMany({
-              where: { id: claimed.taskId, status: "queued", runs: { none: {} } },
-            });
-            await tx.routine.updateMany({
-              where: {
-                id: routine.id,
-                nextRunAt,
-                ...(nextRunAt ? {} : { active: false }),
-              },
-              data: {
-                nextRunAt: scheduledAt,
-                active: true,
-                lastRunAt: previousLastRunAt,
-                // Put the old fingerprint back too, or the retry would see no change.
-                ...(watchTick?.run
-                  ? { watchState: (routine.watchState as Prisma.InputJsonValue) ?? Prisma.DbNull }
-                  : {}),
-              },
-            });
-            return true;
-          }));
-        if (rolledBack) throw error;
+        // The committed run and advanced schedule are the durable source of
+        // truth. Another tick or dispatcher may already own them; recovery scans
+        // repair missed notifications without rolling back committed work.
         getLogger().warn("routine.run_wakeup_failed", {
           "routine.id": routine.id,
           "run.id": claimed.id,
@@ -4367,7 +4337,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // Cross-owner agent connections only exist for chat-linked bots.
           ...(hasMessagingIdentity &&
           bot.crossSpaceCommunication === true &&
-          !isBackgroundRunTrigger(run.trigger)
+          !isBackgroundRunTrigger(run.trigger) &&
+          run.trigger !== "created"
             ? agentConnectionTools.filter((tool) => !disabledBuiltinTools.has(tool.name))
             : []),
         ];
@@ -4515,10 +4486,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if ((await earlierAttemptPromise) || (await receivedOutsideMessage())) runTainted = true;
           return runTainted;
         };
-        // The intro turn confirms how a bot read its own role before anyone hands it
-        // real work — it must not be able to act on that reading (shell, computer,
-        // scheduling, spawning another bot, ...) before the user has assigned any task.
-        const tools = run.trigger === "created" ? [] : [...builtins, ...exposedConnectorTools];
+        // The creation intro only asks what the bot is for (see selectBuiltinToolsForRun),
+        // so it gets no connector tools either.
+        const tools =
+          run.trigger === "created" ? builtins : [...builtins, ...exposedConnectorTools];
         const taskCatalogInstruction = tools.some((tool) => tool.name === "task_catalog")
           ? TASK_CATALOG_GUIDANCE
           : undefined;
@@ -8628,9 +8599,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
             error: message,
           });
           if (!failed) return;
-          if (error instanceof TransientModelError || error instanceof ModelAccountError) {
-            // Provider outages that outlasted retries, and keys or limits the user fixes, are
-            // not server faults; the run error already tells the user what to do.
+          if (
+            error instanceof TransientModelError ||
+            error instanceof ModelAccountError ||
+            error instanceof ModelOutputError
+          ) {
+            // Provider outages that outlasted retries, provider accounts, plans and model
+            // choices the user fixes, and unusable model output are not server faults; the
+            // run error already tells the user what to do.
             getLogger().warn("run.failed", {
               "run.outcome": "failed",
               "run.failure": error.name,
@@ -9075,6 +9051,14 @@ function fleetPrepareDeps(
   };
 }
 
+/**
+ * The creation intro asks what the bot is for and records the answer on its own profile.
+ * It must not act (shell, computer, scheduling, spawning another bot, ...) before the user
+ * has said what it is for. Answering its question resumes it as the user's turn, with
+ * every tool (see commitAnswerRunInput).
+ */
+const CREATED_RUN_TOOL_NAMES = new Set(["ask_user", "update_bot"]);
+
 export function selectBuiltinToolsForRun(options: {
   ticketBoardEnabled?: boolean;
   phoneCallsEnabled?: boolean;
@@ -9121,6 +9105,7 @@ export function selectBuiltinToolsForRun(options: {
   ).filter(
     (tool) =>
       !disabled.has(tool.name) &&
+      (options.trigger !== "created" || CREATED_RUN_TOOL_NAMES.has(tool.name)) &&
       (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
         (Boolean(options.fleetManagement) && fleetToolsAllowed)) &&
       (options.mediaImagesEnabled || tool.name !== "generate_image") &&

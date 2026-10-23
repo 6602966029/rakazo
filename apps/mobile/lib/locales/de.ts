@@ -91,12 +91,16 @@ export const DE_MESSAGES: Record<string, string> = {
     "{provider} hat den API-Schlüssel abgelehnt. Prüfe deine Verbindungseinstellungen.",
   "{provider} could not find the requested model.":
     "{provider} konnte das angeforderte Modell nicht finden.",
+  "{provider} denied access to this model.":
+    "{provider} hat den Zugriff auf dieses Modell verweigert.",
+  "The model returned an unusable response. Try again.":
+    "Das Modell hat eine unbrauchbare Antwort geliefert. Versuche es erneut.",
+  "This model's context window is too small. Choose another model.":
+    "Das Kontextfenster dieses Modells ist zu klein. Wähle ein anderes Modell.",
   "{provider} took too long to respond. Try again.":
     "{provider} hat zu lange zum Antworten gebraucht. Versuche es erneut.",
   "{provider} is overloaded right now. Try again in a moment.":
     "{provider} ist gerade überlastet. Versuche es gleich noch einmal.",
-  "This model cannot fit the required instructions and tools. Choose a model with a larger context window.":
-    "Dieses Modell bietet nicht genug Platz für die erforderlichen Anweisungen und Tools. Wähle ein Modell mit einem größeren Kontextfenster.",
   "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.":
     "Diese Unterhaltung ist zu lang für das Modell. Ein erneuter Versuch hilft nicht. Starte einen neuen Chat oder kürze deine Nachricht.",
   "{provider} key hit its limit.": "{provider}: Schlüssellimit erreicht.",

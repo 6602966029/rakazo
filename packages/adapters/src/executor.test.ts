@@ -1788,6 +1788,30 @@ describe("createRunExecutor", () => {
     expect(names(false)).toContain("remember");
   });
 
+  it("gives a creation intro only its question and its own profile, and normal turns everything", () => {
+    const names = (trigger: string, disabledBuiltinTools: string[] = []) =>
+      selectBuiltinToolsForRun({
+        graphicalToolsAllowed: true,
+        pageBrowserAllowed: true,
+        groupId: null,
+        trigger,
+        semanticMemoryEnabled: true,
+        cloudAgentEnabled: true,
+        messagingChannelRun: false,
+        fleetManagement: true,
+        disabledBuiltinTools,
+      })
+        .map((tool) => tool.name)
+        .sort();
+    expect(names("created")).toEqual(["ask_user", "update_bot"]);
+    expect(names("created", ["ask_user"])).toEqual(["update_bot"]);
+    expect(names("created", ["ask_user", "update_bot"])).toEqual([]);
+    // Answering the intro resumes it as the user's turn (see commitAnswerRunInput).
+    expect(names("user")).toEqual(
+      expect.arrayContaining(["ask_user", "update_bot", "shell", "schedule_create", "spawn_bot"]),
+    );
+  });
+
   it("keeps a creation intro from answering a user message that arrived during it", () => {
     expect(
       threadContextForRun(
@@ -2423,7 +2447,7 @@ description: Prepare standup notes
     expect(cancel).toHaveBeenCalledWith("routine:routine-1");
   });
 
-  it("restores the routine claim when run.continue enqueue fails", async () => {
+  it("preserves the committed one-shot when run.continue enqueue fails", async () => {
     const scheduledAt = new Date(Date.now() - 1_000);
     const previousLastRunAt = new Date(Date.now() - 60_000);
     const enqueue = vi.fn(async () => {
@@ -2487,25 +2511,11 @@ description: Prepare standup notes
       events: { append: vi.fn(async () => undefined) },
     } as unknown as Parameters<typeof createRunExecutor>[0]);
 
-    await expect(executor.wakeRoutine("routine-1", scheduledAt.toISOString())).rejects.toThrow(
-      "enqueue failed",
-    );
-    expect(deleteRunMany).toHaveBeenCalledWith({
-      where: { id: "run-1", status: "queued", leaseFence: 0 },
-    });
-    expect(deleteTaskMany).toHaveBeenCalledWith({
-      where: { id: "task-1", status: "queued", runs: { none: {} } },
-    });
-    expect(restoreUpdateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: "routine-1", active: false, nextRunAt: null }),
-        data: expect.objectContaining({
-          nextRunAt: scheduledAt,
-          active: true,
-          lastRunAt: previousLastRunAt,
-        }),
-      }),
-    );
+    await executor.wakeRoutine("routine-1", scheduledAt.toISOString());
+    expect(deleteRunMany).not.toHaveBeenCalled();
+    expect(deleteTaskMany).not.toHaveBeenCalled();
+    expect(restoreUpdateMany).not.toHaveBeenCalled();
+    expect(claimUpdateMany).toHaveBeenCalledTimes(1);
   });
 
   it("consumes a persisted takeover checkpoint when claiming the run", async () => {

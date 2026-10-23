@@ -199,6 +199,11 @@ msgstr "{provider} kon het gevraagde model niet vinden."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} denied access to this model."
+msgstr "{provider} heeft toegang tot dit model geweigerd."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is overloaded right now. Try again in a moment."
 msgstr "{provider} is op dit moment overbelast. Probeer het zo nog eens."
 
@@ -3913,11 +3918,11 @@ msgstr "Beveiligde invoer"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Provider"
 msgstr "Aanbieder"
 
 #: src/pages/model-settings/provider-list.tsx
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Providers"
 msgstr "Aanbieders"
 
@@ -4730,10 +4735,6 @@ msgid "Speak"
 msgstr "Spreken"
 
 #: src/pages/VoiceSettingsOverlay.tsx
-msgid "Speak + transcribe"
-msgstr "Spreken en transcriberen"
-
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Speak only"
 msgstr "Alleen spreken"
 
@@ -4916,6 +4917,11 @@ msgstr "De verbinding is verlopen."
 msgid "The model provider returned an error."
 msgstr "De modelaanbieder heeft een fout teruggegeven."
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "The model returned an unusable response. Try again."
+msgstr "Het model gaf een onbruikbaar antwoord. Probeer het opnieuw."
+
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "De aanbieder beperkt het aantal verzoeken."
@@ -4988,8 +4994,8 @@ msgstr "deze Mac"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
-msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
-msgstr "Dit model heeft niet genoeg ruimte voor de vereiste instructies en tools. Kies een model met een groter contextvenster."
+msgid "This model's context window is too small. Choose another model."
+msgstr "Het contextvenster van dit model is te klein. Kies een ander model."
 
 #: src/pages/Artifacts.tsx
 msgid "This month"

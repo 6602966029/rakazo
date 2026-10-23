@@ -136,22 +136,23 @@ export class RunWorkerHost implements JobWorkerHost {
     if (this.queueCheck || now < this.nextQueueCheckAt) return;
     this.nextQueueCheckAt = now + INTERACTIVE_QUEUE_WARNING_MS;
     this.queueCheck = runAsSystem("interactive queue health", async () => {
-      const delayed = await this.prisma.run.aggregate({
-        where: {
-          status: "queued",
-          trigger: { notIn: ["routine", "reaction"] },
-          createdAt: { lte: new Date(now - INTERACTIVE_QUEUE_WARNING_MS) },
-          OR: [{ wakeAt: null }, { wakeAt: { lte: new Date(now) } }],
-        },
-        _count: { _all: true },
-        _min: { createdAt: true },
-      });
+      const cutoff = new Date(now - INTERACTIVE_QUEUE_WARNING_MS);
+      const [delayed] = await this.prisma.$queryRaw<
+        { delayedRuns: number; oldestDueAt: Date | null }[]
+      >`
+        SELECT COUNT(*)::int AS "delayedRuns",
+               MIN(GREATEST("createdAt", COALESCE("wakeAt", "createdAt"))) AS "oldestDueAt"
+        FROM runs
+        WHERE status = 'queued' AND trigger NOT IN ('routine', 'reaction')
+          AND "createdAt" <= ${cutoff}
+          AND ("wakeAt" IS NULL OR "wakeAt" <= ${cutoff})
+      `;
       if (this.stopping) return;
-      if (delayed._count._all && delayed._min.createdAt) {
+      if (delayed?.delayedRuns && delayed.oldestDueAt) {
         this.queueDelayed = true;
         getLogger().warn("run.queue_delayed", {
-          "queue.delayed_runs": delayed._count._all,
-          "queue.oldest_wait_ms": Math.max(0, now - delayed._min.createdAt.getTime()),
+          "queue.delayed_runs": delayed.delayedRuns,
+          "queue.oldest_wait_ms": Math.max(0, now - delayed.oldestDueAt.getTime()),
           "queue.warning_after_ms": INTERACTIVE_QUEUE_WARNING_MS,
         });
       } else if (this.queueDelayed) {

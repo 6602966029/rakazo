@@ -1,3 +1,4 @@
+import { MODEL_CONTEXT_TOO_SMALL_ERROR } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import {
   ContextBudgetError,
@@ -16,36 +17,30 @@ const budget = {
 };
 const user = (content: string) => ({ role: "user", content, timestamp: 1 });
 describe("bounded context selection", () => {
+  it("tells a model too small for the instructions and tools apart from a long conversation", () => {
+    const tools = [{ name: "search", description: "Search ".repeat(400), parameters: {} }];
+    expect(() =>
+      selectContext([user("hi")], { budget: { ...budget, tools }, strategy: "current" }),
+    ).toThrow(MODEL_CONTEXT_TOO_SMALL_ERROR);
+    expect(() =>
+      selectContext([user("long ".repeat(1000))], { budget, strategy: "current" }),
+    ).toThrow("Required context exceeds the model context budget");
+  });
   it("accounts for instructions, tools, images and output reserve", () => {
     expect(estimateContextTokens([{ type: "image", data: "base64" }], 1000)).toBeGreaterThan(1000);
     const selected = selectContext([user("current")], { budget, strategy: "retrieval" });
     expect(selected.estimatedInputTokens).toBeLessThan(budget.contextWindow - budget.outputReserve);
     expect(selected.estimatedInputTokens).toBeGreaterThan(estimateContextTokens(user("current")));
   });
-  it.each(["systemPrompt", "tools"] as const)(
-    "identifies oversized fixed %s without blaming the current request",
-    (field) => {
-      const messages = [user("A short request")];
-      const oversized =
-        field === "tools" ? [{ name: "tool", description: "x".repeat(3000) }] : "x".repeat(3000);
-      expect(() =>
-        selectContext(messages, {
-          budget: { ...budget, [field]: oversized },
-          strategy: "retrieval",
-        }),
-      ).toThrow(
-        expect.objectContaining({
-          reason: "fixed",
-          message: "Required instructions and tools exceed the model context budget",
-        }),
-      );
-      expect(messages).toEqual([user("A short request")]);
-    },
-  );
-  it("keeps oversized live requests distinct from fixed instructions and tools", () => {
-    expect(() =>
-      selectContext([user("x".repeat(3000))], { budget, strategy: "retrieval" }),
-    ).toThrow(expect.objectContaining({ reason: "protected" }));
+  it("counts mandatory system-message context before trying to shorten conversation history", () => {
+    const messages = [{ role: "system", content: "x".repeat(3000) }, user("A short request")];
+    expect(() => selectContext(messages, { budget, strategy: "retrieval" })).toThrow(
+      MODEL_CONTEXT_TOO_SMALL_ERROR,
+    );
+    expect(messages).toEqual([
+      { role: "system", content: "x".repeat(3000) },
+      user("A short request"),
+    ]);
   });
   it("does not budget unknown images as zero or count local-only Pi metadata", () => {
     const image = {

@@ -82,11 +82,13 @@ export const ZH_MESSAGES: Record<string, string> = {
   "{provider} rejected the API key. Check your connection settings.":
     "{provider}拒绝了 API 密钥。请检查连接设置。",
   "{provider} could not find the requested model.": "{provider}找不到请求的模型。",
+  "{provider} denied access to this model.": "{provider}拒绝了对此模型的访问。",
+  "The model returned an unusable response. Try again.": "模型返回了无法使用的回复。请重试。",
+  "This model's context window is too small. Choose another model.":
+    "此模型的上下文窗口太小。请选择其他模型。",
   "{provider} took too long to respond. Try again.": "{provider}响应超时。请重试。",
   "{provider} is overloaded right now. Try again in a moment.":
     "{provider}当前负载过高。请稍后再试。",
-  "This model cannot fit the required instructions and tools. Choose a model with a larger context window.":
-    "此模型无法容纳所需的指令和工具。请选择上下文窗口更大的模型。",
   "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.":
     "此对话对模型来说太长了。重试无济于事。请开始新的聊天或缩短你的消息。",
   "{provider} key hit its limit.": "{provider}的密钥已达到限额。",

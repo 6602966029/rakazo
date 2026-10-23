@@ -120,7 +120,7 @@ describe("run error recovery", () => {
   });
   it.each([
     '404: {"message":"Model unavailable"}',
-    "Required instructions and tools exceed the model context budget",
+    "This model's context window is too small. Choose another model.",
   ])("offers model recovery without suggesting a key failure for %s", (details) => {
     const node = mount(
       createElement(RunErrorSheet, {

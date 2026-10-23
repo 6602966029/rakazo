@@ -70,8 +70,9 @@ A bounded pass cancels redundant marked timer rows with no attempts, effects,
 output, steering, checkpoint, or live computer ownership, preserving historical
 rows and terminal events. The `routine.coalesced` log records reuse without
 another `routine.fired` event.
-If publication fails after dispatch has claimed a timer, its run and advanced
-schedule remain intact; only newly created, never-claimed work is rolled back.
+Committed timer runs and their advanced schedules remain intact when publication
+fails. Recovery repairs delivery for every driver; a notification failure never
+rolls back work that another tick or dispatcher can already own.
 
 Interactive work is scanned before scheduled/reaction work in each bounded pass.
 When memory admission declines a run, dispatch leaves it durable and continues
@@ -84,8 +85,9 @@ without restarting its pagination. Active model streams have no new duration lim
 
 `run.admission_wait` and `run.admission_resumed` identify a capacity episode and
 its duration without logging every retry. Independently, `run.queue_delayed`
-warns every thirty seconds when due interactive runs have been queued for at
-least thirty seconds. It includes `queue.delayed_runs` and
+warns every thirty seconds when interactive runs have been due and queued for
+at least thirty seconds, measured from the later of creation and wake time.
+Normal retry backoff does not count toward this wait. It includes `queue.delayed_runs` and
 `queue.oldest_wait_ms`; `run.queue_recovered` marks recovery. Future retries and
 scheduled work do not trigger this warning. These checks do not block dispatch.
 
