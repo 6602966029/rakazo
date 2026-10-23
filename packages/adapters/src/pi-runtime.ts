@@ -456,7 +456,10 @@ export class PiAgentRuntime implements AgentRuntime {
             activeStreamTarget = target;
             contextPolicy = contextPolicyFor(target);
             host.activeModel = target;
-            const nextThinkingLevel = thinkingLevelFor(target.model, target.config.thinkingLevel);
+            const nextThinkingLevel = thinkingLevelFor(
+              target.model,
+              target.config.thinkingLevel ?? request.model.thinkingLevel,
+            );
             agent.state.model = target.model;
             agent.state.thinkingLevel = nextThinkingLevel;
             host.models = target.models;
@@ -2874,10 +2877,8 @@ function fallbackAwareModelStream(
           ? thinkingLevelFor(
               target.model,
               target.config.thinkingLevel ??
-                (target.config.provider === state.request.model.provider &&
-                target.config.id === state.request.model.id
-                  ? (options?.reasoning ?? state.request.model.thinkingLevel)
-                  : undefined),
+                options?.reasoning ??
+                state.request.model.thinkingLevel,
             )
           : "off";
         const reasoning = thinkingLevel === "off" ? undefined : thinkingLevel;

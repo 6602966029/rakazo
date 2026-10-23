@@ -631,19 +631,32 @@ describe("Pi runtime ordered model fallback", () => {
       backupA.provider,
     ]);
   });
-  it("uses the reasoning backup's own default instead of inheriting primary thinking", async () => {
-    providerState.models.set(`${primary.provider}/${primary.id}`, { ...primary, reasoning: true });
-    providerState.models.set(`${backupA.provider}/${backupA.id}`, { ...backupA, reasoning: true });
-    const input = request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-key" }]);
-    input.model.thinkingLevel = "low";
-    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
-      target.provider === primary.provider
-        ? stream(target, message(target, [], "error", googleQuota))
-        : stream(target, message(target, [{ type: "text", text: "Done" }], "stop")),
-    );
-    await run(input);
-    expect(providerState.stream.mock.calls.at(-1)?.[2]?.reasoning).toBe("medium");
-  });
+  it.each([
+    { preferred: "low", expected: "low" },
+    { preferred: "max", expected: "high" },
+  ] as const)(
+    "inherits primary thinking $preferred clamped to $expected for the reasoning backup",
+    async ({ preferred, expected }) => {
+      providerState.models.set(`${primary.provider}/${primary.id}`, {
+        ...primary,
+        reasoning: true,
+      });
+      providerState.models.set(`${backupA.provider}/${backupA.id}`, {
+        ...backupA,
+        reasoning: true,
+      });
+      const input = request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-key" }]);
+      input.model.thinkingLevel = preferred;
+      providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+        target.provider === primary.provider
+          ? stream(target, message(target, [], "error", googleQuota))
+          : stream(target, message(target, [{ type: "text", text: "Done" }], "stop")),
+      );
+      await run(input);
+      expect(providerState.stream.mock.calls.at(-1)?.[2]?.reasoning).toBe(expected);
+      expect(providerState.agent?.state.thinkingLevel).toBe(expected);
+    },
+  );
   it("categorizes an unknown model rejected by the connection resolver", async () => {
     const input = request([{ provider: backupA.provider, id: backupA.id }]);
     input.resolveFallbackModel = async () => {
