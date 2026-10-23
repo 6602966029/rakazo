@@ -41,6 +41,7 @@ function render(message: ThreadMessage, meId = "user-b") {
         message={message}
         meId={meId}
         onAnswer={vi.fn()}
+        onMarkUnread={vi.fn()}
         onOpenBot={vi.fn()}
         onOpenPeerMessages={vi.fn()}
         onTogglePeerReplies={vi.fn()}
