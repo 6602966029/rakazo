@@ -1061,6 +1061,7 @@ it.each([undefined, "api_key", "oauth"])(
         providerName: "ChatGPT",
         id: "fixture-model",
         label: "Fixture model",
+        billing: "Subscription",
         auth: "oauth",
         signIn: "device-code",
         oauthLabel: "Sign in with ChatGPT Plus/Pro",
