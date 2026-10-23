@@ -2,7 +2,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { RPCHandler } from "@orpc/server/fetch";
 import type { Actor } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
-import { asSystem, createDb, installSecurityEventStore, prepareAccountDeletion } from "@rakazo/db";
+import {
+  asSystem,
+  createDb,
+  ensureComputerRecord,
+  installSecurityEventStore,
+  prepareAccountDeletion,
+} from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";
@@ -409,7 +415,20 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
     // The computer goes with the bot, so it no longer counts toward the member's limit.
     await expect(
       system.computer.findUniqueOrThrow({ where: { id: computer.id } }),
-    ).resolves.toMatchObject({ userId: owner.id, homeKey: computer.homeKey });
+    ).resolves.toMatchObject({
+      userId: owner.id,
+      homeKey: computer.homeKey,
+      scopeKey: `transferred:${computer.id}`,
+    });
+    // Coming back later gives the person a computer of their own, counted for them.
+    const returning = await ensureComputerRecord(system, {
+      mode: "team",
+      spaceId: home,
+      userId: invitee.id,
+      kind: "docker",
+    });
+    expect(returning.id).not.toBe(computer.id);
+    expect(returning.userId).toBe(invitee.id);
     await expect(system.connection.count({ where: leftover })).resolves.toBe(0);
     await expect(system.secret.count({ where: leftover })).resolves.toBe(0);
     await expect(system.botSecret.count({ where: leftover })).resolves.toBe(0);

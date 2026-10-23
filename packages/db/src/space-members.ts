@@ -392,7 +392,17 @@ async function departSpace(prisma: PrismaClient, input: SpaceRef): Promise<Space
           await tx.bot.updateMany(reassign);
           await tx.chatGroup.updateMany(reassign);
           // Their computers go with the bots, so the computer limit counts them for the owner.
-          await tx.computer.updateMany(reassign);
+          // A fresh lookup key keeps the person's next computer, should they rejoin, their own;
+          // the home key, and with it the files, stays.
+          for (const computer of await tx.computer.findMany({
+            where: { spaceId, userId },
+            select: { id: true },
+          })) {
+            await tx.computer.update({
+              where: { id: computer.id },
+              data: { userId: ownerId, scopeKey: `transferred:${computer.id}` },
+            });
+          }
           // Paused: the owner's accounts must not start running someone else's prompt unasked.
           await tx.routine.updateMany({
             where: { spaceId, userId },
