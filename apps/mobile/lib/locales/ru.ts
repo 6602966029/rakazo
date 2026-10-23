@@ -992,4 +992,12 @@ export const RU_MESSAGES: Record<string, string> = {
   "{count} need attention": "Требуют внимания: {count}",
   "{label}, above": "{label}, выше",
   "{label}, below": "{label}, ниже",
+  Work: "Работа",
+  Both: "И то, и другое",
+  "How will you use Rakazo?": "Как вы будете использовать Rakazo?",
+  "What do you most want Rakazo to help with?":
+    "С чем Rakazo должен помогать вам в первую очередь?",
+  "How big is your team?": "Сколько человек в вашей команде?",
+  "How did you hear about us?": "Как вы о нас узнали?",
+  "Welcome to Rakazo": "Добро пожаловать в Rakazo",
 };

@@ -996,4 +996,11 @@ export const DE_MESSAGES: Record<string, string> = {
   "{count} need attention": "{count} brauchen Aufmerksamkeit",
   "{label}, above": "{label}, oben",
   "{label}, below": "{label}, unten",
+  Work: "Arbeit",
+  Both: "Beides",
+  "How will you use Rakazo?": "Wie wirst du Rakazo nutzen?",
+  "What do you most want Rakazo to help with?": "Wobei soll dir Rakazo am meisten helfen?",
+  "How big is your team?": "Wie groß ist dein Team?",
+  "How did you hear about us?": "Wie hast du von uns erfahren?",
+  "Welcome to Rakazo": "Willkommen bei Rakazo",
 };

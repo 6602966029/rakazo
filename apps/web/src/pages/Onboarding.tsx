@@ -48,6 +48,7 @@ import {
   modelPreflightTestingLabel,
 } from "../components/ModelConnectionPreflightNotice";
 import { ModelHeadersEditor } from "../components/ModelHeadersEditor";
+import { SignupSurvey } from "../components/SignupSurvey";
 import { useCopyText } from "../lib/copy-text";
 import type { ModelCatalogEntry } from "../lib/model-auth";
 import type { ModelPreflightFailure } from "../lib/model-connection-preflight";
@@ -144,8 +145,9 @@ export function OnboardingPage() {
   const { t } = useLingui();
   const navigate = useNavigate();
   const fieldId = useId();
-  const [step, setStep] = useState<"loading" | "model" | "bot">("loading");
+  const [step, setStep] = useState<"loading" | "survey" | "model" | "bot">("loading");
   const [billingEnabled, setBillingEnabled] = useState(false);
+  const afterSurveyRef = useRef<"model" | "bot">("bot");
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
   const [provider, setProvider] = useState("");
   const [providerAuth, setProviderAuth] = useState<ProviderAuth | undefined>();
@@ -204,7 +206,9 @@ export function OnboardingPage() {
         setCatalog(models);
         // No provider is preselected; the deployment default only seeds the model once one is chosen.
         deploymentDefaultModelRef.current = me.defaultModel;
-        setStep(me.needsModel ? "model" : "bot");
+        const next = me.needsModel ? "model" : "bot";
+        afterSurveyRef.current = next;
+        setStep(me.needsSignupSurvey ? "survey" : next);
       })
       .catch(() => setStep("bot"));
     return () => {
@@ -561,6 +565,7 @@ export function OnboardingPage() {
             <Spinner aria-label={t`Loading…`} />
           </p>
         ) : null}
+        {step === "survey" ? <SignupSurvey onDone={() => setStep(afterSurveyRef.current)} /> : null}
         {step === "model" ? (
           <div>
             <h1 className="text-[32px] font-medium text-foreground">

@@ -952,4 +952,11 @@ export const NL_MESSAGES: Record<string, string> = {
   "{count} need attention": "{count} vragen aandacht",
   "{label}, above": "{label}, boven",
   "{label}, below": "{label}, onder",
+  Work: "Werk",
+  Both: "Allebei",
+  "How will you use Rakazo?": "Hoe ga je Rakazo gebruiken?",
+  "What do you most want Rakazo to help with?": "Waarmee wil je vooral hulp van Rakazo?",
+  "How big is your team?": "Hoe groot is je team?",
+  "How did you hear about us?": "Hoe heb je over ons gehoord?",
+  "Welcome to Rakazo": "Welkom bij Rakazo",
 };
