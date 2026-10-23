@@ -19,6 +19,7 @@ test("colored user bubbles keep white text in both themes", async ({ page }, tes
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await expect(bubble).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(bubble).toHaveCSS("background-color", "rgb(151, 76, 222)");
     await captureScreenshot(page, testInfo, `chat-bubble-white-text-${theme}`);
   }
 });
