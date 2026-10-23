@@ -56,6 +56,7 @@ export const Transcript = memo(function Transcript({
   onOpenBot,
   onAnswer,
   onReply,
+  onMarkUnread,
   onQuote,
   onReact,
   onJumpToMessage,
@@ -96,6 +97,7 @@ export const Transcript = memo(function Transcript({
     dismiss?: boolean,
   ) => Promise<void>;
   onReply: (message: ThreadMessage) => void;
+  onMarkUnread: (message: ThreadMessage) => void;
   onQuote: (message: ThreadMessage, quote: string) => void;
   onReact: (message: ThreadMessage, reaction: MessageReaction) => Promise<void>;
   onJumpToMessage: (messageId: string) => void;
@@ -513,6 +515,7 @@ export const Transcript = memo(function Transcript({
                       onOpenComputer={onOpenComputer}
                       showToolActivity={showToolActivity}
                       onReply={onReply}
+                      onMarkUnread={onMarkUnread}
                       onReact={onReact}
                     />
                   </div>

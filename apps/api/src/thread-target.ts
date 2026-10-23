@@ -1509,6 +1509,28 @@ function dividerSeq(thread: { unread: boolean; lastReadSeq: number }, latestSeq:
   return thread.unread && thread.lastReadSeq < latestSeq ? thread.lastReadSeq : null;
 }
 
+/**
+ * Marks the thread unread from one of its messages: the read cursor moves to just before it,
+ * so the next open puts the New divider above that message.
+ */
+export async function markThreadUnreadFrom(
+  prisma: PrismaClient,
+  actor: Actor,
+  target: ThreadTarget,
+  messageId: string,
+) {
+  const message = await prisma.message.findFirst({
+    where: { id: messageId, threadId: target.threadId },
+    select: { seq: true },
+  });
+  if (!message) throw new ORPCError("NOT_FOUND");
+  const result = await prisma.thread.updateMany({
+    where: { id: target.threadId, spaceId: actor.spaceId, userId: actor.userId },
+    data: { unread: true, lastReadSeq: message.seq - 1 },
+  });
+  if (result.count > 1) throw new IsolationError();
+}
+
 export async function setThreadUnreadState(
   prisma: PrismaClient,
   actor: Actor,

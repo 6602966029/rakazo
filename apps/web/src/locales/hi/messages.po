@@ -3084,6 +3084,10 @@ msgstr ""
 msgid "Mark as Read"
 msgstr "पढ़ा हुआ चिह्नित करें"
 
+#: src/pages/shell/message-hover-actions.tsx
+msgid "Mark as unread"
+msgstr "अपठित चिह्नित करें"
+
 #: src/pages/BotContextMenu.tsx
 msgid "Mark as Unread"
 msgstr "अपठित चिह्नित करें"

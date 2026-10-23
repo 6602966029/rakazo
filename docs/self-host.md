@@ -1335,14 +1335,15 @@ endpoint that accepts a JSON array of events with a bearer token, for example Ax
 RAKAZO_AUDIT_SINK_URL=https://ingest.example.com/v1/events
 # Optional: name the SSH keys you expect (fingerprints from `ssh-keygen -lf key.pub`).
 RAKAZO_AUDIT_KNOWN_KEYS=SHA256:replace-with-fingerprint=laptop SHA256:replace-with-fingerprint=ci
-# Optional: RAKAZO_AUDIT_TOKEN_FILE (default /etc/rakazo/audit-ship.token) and RAKAZO_AUDIT_HOST
-# (default: the hostname).
+# Optional: RAKAZO_AUDIT_TOKEN_FILE (default /etc/rakazo/audit-ship.token), RAKAZO_AUDIT_HOST
+# (default: the hostname), and RAKAZO_AUDIT_HEARTBEAT_SECONDS (default 10800, three hours).
 ```
 
 Use a token that can only write to that one destination, so a compromised host cannot read or delete
 what it already sent. The shipper follows `/var/log/auth.log` and the audit log and sends `ssh.login`
 (with `key_name`, `unknown` for keys not listed), `ssh.failed`, `sudo.command`, `su`,
-`identity.change`, and `file.change` (with the rule's `watch` key and the changed `paths`). Every
+`identity.change`, and `file.change` (with the rule's `watch` key and the changed `paths`), plus a
+`shipper.heartbeat` on start and every `RAKAZO_AUDIT_HEARTBEAT_SECONDS`. Every
 event carries `event`, `host`, `source`, `message`, and `_time`. Offsets advance only after the sink
 accepts a batch, and failures retry with backoff, so events arrive at least once. On first start it
 ships the current auth log and starts the audit log at its end. With monitoring installed, the host
@@ -1356,7 +1357,7 @@ filters in any log store:
 | Login with an unnamed key | `where event == "ssh.login" and key_name == "unknown"` |
 | Watched file changed | `where event == "file.change"` outside your own deploys and maintenance |
 | Root use outside the deploy account | `where (event == "sudo.command" and user != "deploy") or event == "su" or event == "identity.change"` |
-| Shipping stopped | no events from a `host` for longer than it normally stays quiet |
+| Shipping stopped | no `shipper.heartbeat` from a `host` for more than two heartbeat intervals |
 
 ### Docker computers on the production stack
 

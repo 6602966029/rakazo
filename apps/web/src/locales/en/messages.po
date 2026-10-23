@@ -3084,6 +3084,10 @@ msgstr "Manual setup required"
 msgid "Mark as Read"
 msgstr "Mark as Read"
 
+#: src/pages/shell/message-hover-actions.tsx
+msgid "Mark as unread"
+msgstr "Mark as unread"
+
 #: src/pages/BotContextMenu.tsx
 msgid "Mark as Unread"
 msgstr "Mark as Unread"

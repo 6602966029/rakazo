@@ -3084,6 +3084,10 @@ msgstr "Handmatige installatie vereist"
 msgid "Mark as Read"
 msgstr "Markeren als gelezen"
 
+#: src/pages/shell/message-hover-actions.tsx
+msgid "Mark as unread"
+msgstr "Markeren als ongelezen"
+
 #: src/pages/BotContextMenu.tsx
 msgid "Mark as Unread"
 msgstr "Markeren als ongelezen"

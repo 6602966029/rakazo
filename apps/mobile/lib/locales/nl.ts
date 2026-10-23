@@ -174,6 +174,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Expand {name}": "{name} uitklappen",
   "Mark as Read": "Markeren als gelezen",
   "Mark as Unread": "Markeren als ongelezen",
+  "Mark as unread": "Markeren als ongelezen",
   "Long press to pin or move to a section":
     "Lang indrukken om vast te zetten of naar een sectie te verplaatsen",
   "Long press to pin, move, or silence notifications":

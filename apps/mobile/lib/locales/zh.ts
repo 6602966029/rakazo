@@ -449,6 +449,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Loading…": "正在加载…",
   "Mark as Read": "标为已读",
   "Mark as Unread": "标为未读",
+  "Mark as unread": "标为未读",
   "Long press to pin or move to a section": "长按可置顶或移动到分组",
   "Long press to pin, move, or silence notifications": "长按可置顶、移动或静音通知",
   "Show less": "收起",
