@@ -1,5 +1,7 @@
 export const RU_MESSAGES: Record<string, string> = {
   "Allow cross-space bot communication": "Разрешить общение ботов из разных пространств",
+  "Show password": "Показать пароль",
+  "Hide password": "Скрыть пароль",
   Export: "Экспорт",
   "Edit avatar": "Изменить аватар",
   "Add open work": "Добавить задачу",
@@ -188,7 +190,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "{name} is working": "{name} работает",
   "{name}’s computer": "Компьютер {name}",
   "{runs} runs · {tokens} tokens": "Запусков: {runs} · токенов: {tokens}",
-  "{style} avatars": "Аватары: {style}",
   "@{name}": "@{name}",
   "API key": "API-ключ",
   "Account ID": "ID аккаунта",
@@ -241,8 +242,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Authorization timed out. Please try again.":
     "Время авторизации истекло. Пожалуйста, попробуйте еще раз.",
   "Authorize {name}": "Авторизовать {name}",
-  Avatars: "Аватары",
-  "Avatar style": "Стиль аватара",
   "Bearer token": "Bearer-токен",
   "Back to sign in": "Вернуться ко входу",
   Back: "Назад",
@@ -390,7 +389,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Could not update computer": "Не удалось обновить компьютер",
   "Could not update notifications": "Не удалось обновить уведомления.",
   "Could not update reaction": "Не удалось обновить реакцию",
-  "Couldn't update avatars": "Не удалось обновить аватары",
   Create: "Создать",
   "Create section": "Создать раздел",
   "Create space": "Создать пространство",
@@ -536,7 +534,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "OpenAI-compatible server URL": "URL-адрес сервера, совместимого с OpenAI",
   Optional: "Необязательно",
   "Or connect an API key": "Или подключите API-ключ",
-  Organic: "Органичный",
   "Other model…": "Другая модель…",
   Password: "Пароль",
   "Password recovery is not configured for this server":
@@ -587,7 +584,6 @@ export const RU_MESSAGES: Record<string, string> = {
     "Восстановить последнее сохранённое рабочее пространство. Несохранённые данные на компьютере будут потеряны.",
   "Resume notifications": "Возобновить уведомления",
   "Return to inbox": "Вернуться во входящие",
-  Robot: "Робот",
   Routine: "Задача",
   "Routine link is incomplete": "Ссылка на задачу неполная",
   Routines: "Задачи",
