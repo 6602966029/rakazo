@@ -17,6 +17,8 @@ export interface SentryConfig {
 }
 
 const FLUSH_TIMEOUT_MS = 2_000;
+// Model fields let issues be filtered by the provider and model that failed.
+const TAG_KEYS = [...CORRELATION_TAG_KEYS, "model.provider", "model.id"] as const;
 
 export function sentryConfigFromEnv(source: NodeJS.ProcessEnv = process.env): {
   config?: SentryConfig;
@@ -114,7 +116,7 @@ export function createSentrySink(
       const message = redactSensitiveText(event.message);
       Sentry.withScope((scope) => {
         scope.setTag("service", service);
-        for (const key of CORRELATION_TAG_KEYS) {
+        for (const key of TAG_KEYS) {
           const value = event[key];
           if (typeof value === "string" && value.length > 0 && value.length <= 200)
             scope.setTag(key, redactSensitiveText(value));

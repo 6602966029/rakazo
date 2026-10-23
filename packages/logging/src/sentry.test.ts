@@ -89,6 +89,8 @@ describe("sentry sink", () => {
     logger.error("job crashed", error, {
       "job.id": "j1",
       "run.id": "r1",
+      "model.provider": "openai-compatible",
+      "model.id": "local-model",
       apiKey: "sk-secret",
       content: "private message",
       "user.id": "u1",
@@ -101,7 +103,13 @@ describe("sentry sink", () => {
       environment: "prod-acme",
       release: "abc",
       level: "error",
-      tags: { service: "rakazo-worker", "job.id": "j1", "run.id": "r1" },
+      tags: {
+        service: "rakazo-worker",
+        "job.id": "j1",
+        "run.id": "r1",
+        "model.provider": "openai-compatible",
+        "model.id": "local-model",
+      },
       extra: { "log.message": "job crashed" },
     });
     expect(event.extra).toEqual({ "log.message": "job crashed" });
