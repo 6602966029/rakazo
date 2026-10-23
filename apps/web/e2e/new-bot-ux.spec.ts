@@ -18,6 +18,13 @@ test("create opens form, then empty chat; picker lists bots; sidebar collapses",
   await expect(picker.getByText("Chief", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "plus-picker-bots");
 
+  await picker.getByPlaceholder("Search").focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(picker.locator('[data-slot="command-item"][data-selected="true"]')).toContainText(
+    "Chief",
+  );
+  await captureScreenshot(page, testInfo, "plus-picker-highlight");
+
   await picker.getByTestId("create-new-bot").click();
   const form = page.getByTestId("create-bot-form");
   await expect(page.getByTestId("side-panel")).toHaveAttribute("data-panel", "create");
