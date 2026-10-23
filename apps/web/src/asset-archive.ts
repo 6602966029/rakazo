@@ -8,6 +8,11 @@ export const ASSET_ARCHIVE_DIR = "asset-archive";
 export const ASSET_ARCHIVE_MAX_AGE_MS = 7 * 24 * 60 * 60_000;
 /** Builds kept at most, the current one included, however recent. */
 export const ASSET_ARCHIVE_MAX_BUILDS = 20;
+/**
+ * Every start touches the files it serves; a file touched this recently is never pruned, so a
+ * prune racing another container's start cannot delete what that container just listed.
+ */
+export const ASSET_ARCHIVE_GRACE_MS = 60 * 60_000;
 
 export type ArchivedBuild = { id: string; files: readonly string[]; startedAt: number };
 
@@ -52,6 +57,15 @@ function readBuild(file: string): ArchivedBuild | null {
   }
 }
 
+function recentlyTouched(file: string, now: number): boolean {
+  try {
+    return now - fs.statSync(file).mtimeMs <= ASSET_ARCHIVE_GRACE_MS;
+  } catch {
+    // Already gone.
+    return true;
+  }
+}
+
 function writeAtomically(target: string, write: (temporary: string) => void) {
   const temporary = path.join(path.dirname(target), `.tmp-${randomUUID()}`);
   try {
@@ -85,15 +99,19 @@ export function archiveAssets(options: {
     .readdirSync(assetsDir, { withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name);
-  // List the build before copying, so a concurrent prune never removes files it is adding.
   writeAtomically(path.join(buildsDir, `${buildId}.json`), (temporary) =>
     fs.writeFileSync(temporary, JSON.stringify({ files, startedAt: now })),
   );
+  const touched = new Date(now);
   for (const file of files) {
     const target = path.join(archivedAssets, file);
     // Hashed names: an archived file with the same name has the same content.
-    if (fs.existsSync(target)) continue;
-    writeAtomically(target, (temporary) => fs.copyFileSync(path.join(assetsDir, file), temporary));
+    if (!fs.existsSync(target)) {
+      writeAtomically(target, (temporary) =>
+        fs.copyFileSync(path.join(assetsDir, file), temporary),
+      );
+    }
+    fs.utimesSync(target, touched, touched);
   }
 
   const builds = fs
@@ -107,7 +125,11 @@ export function archiveAssets(options: {
           startedAt: 0,
         },
     );
-  const archived = fs.readdirSync(archivedAssets).filter((name) => !name.startsWith(".tmp-"));
+  const archived = fs
+    .readdirSync(archivedAssets)
+    .filter(
+      (name) => !name.startsWith(".tmp-") && !recentlyTouched(path.join(archivedAssets, name), now),
+    );
   const prune = planAssetPrune(builds, archived, buildId, now);
   for (const id of prune.builds) fs.rmSync(path.join(buildsDir, `${id}.json`), { force: true });
   for (const file of prune.files) fs.rmSync(path.join(archivedAssets, file), { force: true });

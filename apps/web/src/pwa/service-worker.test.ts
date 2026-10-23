@@ -141,6 +141,16 @@ describe("service worker", () => {
     expect([...sw.stores.keys()]).toEqual(["rakazo-shell-20261022100000", "someone-else", CACHE]);
   });
 
+  it("prefers a build-named previous shell over a legacy hash-named one", async () => {
+    network = async () => new Response("ok");
+    const sw = setup();
+    await sw.scope.caches.open("rakazo-shell-abcdef0123456789");
+    await sw.scope.caches.open("rakazo-shell-20261022100000");
+    await sw.scope.caches.open(CACHE);
+    await sw.dispatch("activate", {});
+    expect([...sw.stores.keys()]).toEqual(["rakazo-shell-20261022100000", CACHE]);
+  });
+
   it("serves an old-version asset from the previous cache after activation while offline", async () => {
     network = vi.fn(async () => {
       throw new TypeError("offline");

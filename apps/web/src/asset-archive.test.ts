@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ArchivedBuild } from "./asset-archive";
 import {
+  ASSET_ARCHIVE_GRACE_MS,
   ASSET_ARCHIVE_MAX_AGE_MS,
   ASSET_ARCHIVE_MAX_BUILDS,
   archiveAssets,
@@ -90,5 +91,20 @@ describe("asset archive", () => {
       "20261002000000.json",
       "20261003000000.json",
     ]);
+  });
+
+  it("leaves files another container just touched while its build list may not be visible yet", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "asset-archive-"));
+    roots.push(root);
+    fs.mkdirSync(path.join(root, "archive", "assets"), { recursive: true });
+    const racing = path.join(root, "archive", "assets", "racing.js");
+    fs.writeFileSync(racing, "r");
+    const touched = new Date(NOW - ASSET_ARCHIVE_GRACE_MS + 60_000);
+    fs.utimesSync(racing, touched, touched);
+
+    const archived = deploy(root, "20261003000000", { "new.js": "n" }, NOW);
+    expect(fs.readdirSync(archived!).sort()).toEqual(["new.js", "racing.js"]);
+    deploy(root, "20261003000000", { "new.js": "n" }, NOW + 2 * ASSET_ARCHIVE_GRACE_MS);
+    expect(fs.readdirSync(archived!)).toEqual(["new.js"]);
   });
 });
