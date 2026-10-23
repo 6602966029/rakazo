@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import type { AvatarStyle, SpaceMemoryConfig } from "@rakazo/contracts";
+import type { SpaceMemoryConfig } from "@rakazo/contracts";
 import {
   Button,
   Dialog,
@@ -80,8 +80,6 @@ export function SettingsOverlay({
   usage,
   onUsageOpen,
   initialSection = "general",
-  avatarStyle,
-  onAvatarStyleChange,
   timezone,
   onTimezoneChange,
   billingEnabled = false,
@@ -111,8 +109,6 @@ export function SettingsOverlay({
   } | null;
   onUsageOpen: () => void;
   initialSection?: SettingsSection;
-  avatarStyle: AvatarStyle;
-  onAvatarStyleChange: (style: AvatarStyle) => Promise<void>;
   timezone: string | null;
   onTimezoneChange: (timezone: string) => Promise<void>;
   billingEnabled?: boolean;
@@ -419,8 +415,6 @@ export function SettingsOverlay({
                   <GeneralSettingsPanels
                     email={email}
                     name={name}
-                    avatarStyle={avatarStyle}
-                    onAvatarStyleChange={onAvatarStyleChange}
                     timezone={timezone}
                     onTimezoneChange={onTimezoneChange}
                     messagingEnabled={messagingEnabled}

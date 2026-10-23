@@ -129,6 +129,7 @@ import {
   settleCallRequest,
   stableStringify,
   storeBotSecret,
+  storedOpenAiCompatibleProbeHeaders,
   storedOpenAiCompatibleProbeKey,
   takeoverLeaseMs,
   toComputerRef,
@@ -1241,10 +1242,8 @@ export function createRouter(deps: RouterDeps) {
       update: authed.preferences.update.handler(async ({ context, input }): Promise<Me> => {
         await deps.prisma.user.update({
           where: { id: context.actor.userId },
-          data: {
-            ...(input.avatarStyle === undefined ? {} : { avatarStyle: input.avatarStyle }),
-            ...(input.timezone === undefined ? {} : { timezone: input.timezone }),
-          },
+          // An avatar style from an older app is accepted and ignored: there is only one.
+          data: input.timezone === undefined ? {} : { timezone: input.timezone },
         });
         return meDto(deps, context.actor);
       }),
@@ -1782,7 +1781,8 @@ export function createRouter(deps: RouterDeps) {
       probeOpenAiCompatible: authed.models.probeOpenAiCompatible.handler(
         async ({ context, input }) => {
           let apiKey = input.apiKey;
-          if (!apiKey?.trim()) {
+          let headers = input.headers;
+          if (!apiKey?.trim() || headers === undefined) {
             try {
               const preferred = await findModelCredential(
                 deps.prisma,
@@ -1793,9 +1793,14 @@ export function createRouter(deps: RouterDeps) {
                 where: { userId: context.actor.userId, provider: OPENAI_COMPATIBLE_PROVIDER_ID },
                 orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
               });
-              const candidates = preferred
-                ? [preferred, ...credentials.filter((credential) => credential.id !== preferred.id)]
-                : credentials;
+              const candidates = input.credentialId
+                ? credentials.filter((credential) => credential.id === input.credentialId)
+                : preferred
+                  ? [
+                      preferred,
+                      ...credentials.filter((credential) => credential.id !== preferred.id),
+                    ]
+                  : credentials;
               const secrets = await deps.prisma.secret.findMany({
                 where: {
                   id: { in: candidates.map((credential) => credential.secretId) },
@@ -1809,11 +1814,15 @@ export function createRouter(deps: RouterDeps) {
                 const ciphertext = ciphertexts.get(credential.secretId);
                 if (!ciphertext) continue;
                 try {
-                  apiKey = storedOpenAiCompatibleProbeKey(
-                    input.baseUrl,
-                    await deps.secrets.load(ciphertext, credential.secretId),
-                  );
-                  if (apiKey) break;
+                  const plaintext = await deps.secrets.load(ciphertext, credential.secretId);
+                  const savedKey = storedOpenAiCompatibleProbeKey(input.baseUrl, plaintext);
+                  const savedHeaders = storedOpenAiCompatibleProbeHeaders(input.baseUrl, plaintext);
+                  if (!savedKey && savedHeaders === undefined) continue;
+                  // A saved key and its routing headers are one credential. Explicit
+                  // replacements may override either field, but never borrow from another row.
+                  if (!apiKey?.trim()) apiKey = savedKey;
+                  headers ??= savedHeaders;
+                  break;
                 } catch {
                   // An unreadable secret must not prevent trying the remaining credentials.
                 }
@@ -1824,7 +1833,7 @@ export function createRouter(deps: RouterDeps) {
           }
           try {
             const models = await probeOpenAiCompatibleModels(
-              { ...input, apiKey },
+              { ...input, apiKey, headers },
               undefined,
               context.signal,
               { allowPrivate: mayUsePrivateEndpoint(deps) },
@@ -7144,7 +7153,7 @@ async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
     canChooseHostComputer:
       Boolean(deps.env.desktopHostChoiceEnabled) && deps.env.sandboxProvider === "docker",
     sandboxProvider: deps.env.sandboxProvider,
-    avatarStyle: user.avatarStyle === "robot" ? "robot" : "organic",
+    avatarStyle: "organic",
     timezone: user.timezone ?? null,
     billingEnabled: Boolean(deps.billing),
   };

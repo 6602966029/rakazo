@@ -483,6 +483,10 @@ msgstr "Adicionar GraphQL"
 msgid "Add GraphQL endpoint"
 msgstr "Adicionar endpoint GraphQL"
 
+#: src/components/ModelHeadersEditor.tsx
+msgid "Add header"
+msgstr "Adicionar cabeçalho"
+
 #: src/pages/ScratchpadSection.tsx
 msgid "Add item"
 msgstr "Adicionar item"
@@ -839,10 +843,6 @@ msgstr "Disponível para os comandos de shell deste bot como {commandVariable}"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Avatar Studio"
 msgstr "Estúdio de avatar"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Avatars"
-msgstr ""
 
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
@@ -1934,10 +1934,6 @@ msgstr ""
 msgid "Couldn't load messaging settings"
 msgstr ""
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Couldn't update avatars"
-msgstr ""
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Couldn't update messaging settings"
 msgstr ""
@@ -2671,15 +2667,21 @@ msgstr ""
 msgid "Header \"{header}\""
 msgstr ""
 
+#: src/components/ModelHeadersEditor.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
 msgid "Header name"
-msgstr "Nome do Cabeçalho"
+msgstr "Nome do cabeçalho"
 
+#: src/components/ModelHeadersEditor.tsx
 #: src/pages/McpServersOverlay.tsx
 msgid "Header value"
 msgstr "Valor do cabeçalho"
+
+#: src/components/ModelHeadersEditor.tsx
+msgid "Headers"
+msgstr "Cabeçalhos"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Hear a sample"
@@ -3005,10 +3007,8 @@ msgstr "Carregando regras…"
 msgid "Loading voice providers…"
 msgstr "Carregando provedores de voz..."
 
-#: src/App.tsx
 #: src/components/SpaceMembersSettings.tsx
 #: src/pages/Artifacts.tsx
-#: src/pages/Auth.tsx
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/Invite.tsx
 #: src/pages/Onboarding.tsx
@@ -3727,10 +3727,6 @@ msgstr "Ou conecte uma chave de API"
 msgid "Or paste an API key"
 msgstr "Ou cole uma chave de API"
 
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Organic"
-msgstr ""
-
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
 msgid "Organization API key"
 msgstr "Chave da API da organização"
@@ -4104,6 +4100,10 @@ msgstr "Remover gatilho de alteração"
 msgid "Remove Git event"
 msgstr ""
 
+#: src/components/ModelHeadersEditor.tsx
+msgid "Remove header"
+msgstr "Remover cabeçalho"
+
 #. placeholder {0}: mention.name
 #: src/pages/shell/composer.tsx
 msgid "Remove mention {0}"
@@ -4290,10 +4290,6 @@ msgstr "Revise as configurações do provedor e teste novamente."
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Revoke"
-msgstr ""
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Robot"
 msgstr ""
 
 #: src/pages/ExternalConversationSettings.tsx

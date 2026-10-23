@@ -213,6 +213,10 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     }
   }
 
+  if (!sent && !reset && !capabilityError) {
+    return <div className="h-full bg-background" />;
+  }
+
   return (
     <AuthFrame onSubmit={submit} title={title}>
       {sent ? (
@@ -236,10 +240,6 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                 <Trans>Retry</Trans>
               </Button>
             </div>
-          ) : !reset ? (
-            <p role="status">
-              <Trans>Loading…</Trans>
-            </p>
           ) : null}
           {reset?.sso && !reset.passwordAuth && mode !== "forgot" ? (
             <Button

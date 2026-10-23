@@ -5,7 +5,7 @@ import type {
   JobPublisher,
   SandboxProvider,
 } from "@rakazo/adapter-kit";
-import { computerSleepJob } from "@rakazo/adapter-kit";
+import { computerSleepJob, SandboxUnresponsiveError } from "@rakazo/adapter-kit";
 import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -371,6 +371,16 @@ export async function sleepComputerIfIdle(
       data: { state: "running" },
     });
     scheduleComputerSleep(deps.jobs, computerId);
+    // A sandbox too busy or stuck to answer cannot be checkpointed now; the next idle check
+    // tries again instead of reporting the same timeout every window.
+    if (error instanceof SandboxUnresponsiveError) {
+      getLogger().warn("computer.sleep_deferred", {
+        "computer.id": computerId,
+        provider: computer.kind,
+        reason: "unresponsive",
+      });
+      return;
+    }
     throw error;
   }
 

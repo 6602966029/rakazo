@@ -33,6 +33,7 @@ import {
   DEFAULT_CONTEXT_STRATEGY,
   historyCompactJob,
   MEMORY_REVISION_CONFLICT_ERROR,
+  ModelAccountError,
   routineJobKey,
   routineRetryJob,
   routineWakeupJob,
@@ -526,8 +527,15 @@ const TURN_ATTACHMENT_UNAVAILABLE =
 const STEERING_ATTACHMENT_UNAVAILABLE = TURN_ATTACHMENT_UNAVAILABLE;
 const BUILTIN_AGENT_TOOL_NAMES = new Set(builtinAgentTools.map((tool) => tool.name));
 
-/** Avoid an expensive remote workspace export when a turn never touched the computer. */
-export function createRunWorkspaceCheckpoint(checkpoint: () => Promise<unknown>) {
+/**
+ * Avoid an expensive remote workspace export when a turn never touched the computer. A failed
+ * export does not fail the run: its work is done, the computer keeps the files, and the idle
+ * sleep checkpoints them again before stopping it. Only cancelling the run stops it.
+ */
+export function createRunWorkspaceCheckpoint(
+  checkpoint: () => Promise<unknown>,
+  signal?: AbortSignal,
+) {
   let dirty = false;
   return {
     markDirty() {
@@ -544,7 +552,9 @@ export function createRunWorkspaceCheckpoint(checkpoint: () => Promise<unknown>)
         return true;
       } catch (error) {
         dirty = true;
-        throw error;
+        if (signal?.aborted) throw error;
+        getLogger().warn("computer.checkpoint_deferred", { error });
+        return false;
       }
     },
   };
@@ -3126,6 +3136,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       callObserver: resolved.callObserver,
       ...cloudflareRunFields(resolved),
       baseUrl: resolved.baseUrl,
+      headers: resolved.headers,
       allowPrivateEndpoint: resolved.allowPrivateEndpoint,
       cacheCapabilities: resolved.cacheCapabilities,
       contextWindow: resolved.contextWindow,
@@ -3217,6 +3228,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         callObserver: resolved.callObserver,
         ...cloudflareRunFields(resolved),
         baseUrl: resolved.baseUrl,
+        headers: resolved.headers,
         allowPrivateEndpoint: resolved.allowPrivateEndpoint,
         cacheCapabilities: resolved.cacheCapabilities,
         contextWindow: resolved.contextWindow,
@@ -4166,7 +4178,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const workspaceCheckpoint = createRunWorkspaceCheckpoint(async () => {
           if (!runComputer.ready) return;
           await checkpointRunComputerWorkspace(deps, storedComputer, runComputer.ready, context);
-        });
+        }, context.signal);
         const pendingTurnFiles: MessageBlock[][] = [turnBlocks ?? []];
         let copyingTurnFiles = Promise.resolve();
         // Serialize copies before each tool, including attachments received while a boot is in flight.
@@ -5226,6 +5238,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                       accountId: judgeKey.accountId,
                       gatewayId: judgeKey.gatewayId,
                       baseUrl: judgeKey.baseUrl,
+                      headers: judgeKey.headers,
                       allowPrivateEndpoint: judgeKey.allowPrivateEndpoint,
                       cacheCapabilities: judgeKey.cacheCapabilities,
                       contextWindow: judgeKey.contextWindow,
@@ -7804,6 +7817,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 callObserver: resolved.callObserver,
                 ...cloudflareRunFields(resolved),
                 baseUrl: resolved.baseUrl,
+                headers: resolved.headers,
                 allowPrivateEndpoint: resolved.allowPrivateEndpoint,
                 cacheCapabilities: resolved.cacheCapabilities,
                 contextWindow: resolved.contextWindow,
@@ -8552,13 +8566,23 @@ export function createRunExecutor(deps: ExecutorDeps) {
             error: message,
           });
           if (!failed) return;
-          getLogger().error(
-            "run.failed",
-            sanitizedError(error, (text) => redactSecrets(text, runSecrets)),
-            {
+          if (error instanceof TransientModelError || error instanceof ModelAccountError) {
+            // Provider outages that outlasted retries, and keys or limits the user fixes, are
+            // not server faults; the run error already tells the user what to do.
+            getLogger().warn("run.failed", {
               "run.outcome": "failed",
-            },
-          );
+              "run.failure": error.name,
+              reason: message,
+            });
+          } else {
+            getLogger().error(
+              "run.failed",
+              sanitizedError(error, (text) => redactSecrets(text, runSecrets)),
+              {
+                "run.outcome": "failed",
+              },
+            );
+          }
           if (failed.continuationRunId) {
             await deps.jobs
               .enqueue(runContinueJob(failed.continuationRunId))
@@ -10218,6 +10242,7 @@ async function resolveModelKeyMaterial(
   accountId?: string;
   gatewayId?: string;
   baseUrl?: string;
+  headers?: Record<string, string>;
   allowPrivateEndpoint?: boolean;
   cacheCapabilities?: AgentRunRequest["model"]["cacheCapabilities"];
   contextWindow?: number;
@@ -10335,6 +10360,7 @@ async function resolveModelKeyMaterial(
         accountId,
         gatewayId,
         baseUrl,
+        headers: resolved.secret.kind === "openai_compatible" ? resolved.secret.headers : undefined,
         allowPrivateEndpoint,
         cacheCapabilities:
           resolved.secret.kind !== "oauth" ? resolved.secret.cacheCapabilities : undefined,

@@ -25,7 +25,7 @@ import type {
   ScreenSession,
   TerminalRequest,
 } from "@rakazo/adapter-kit";
-import { SandboxRateLimitError } from "@rakazo/adapter-kit";
+import { SandboxRateLimitError, SandboxUnresponsiveError } from "@rakazo/adapter-kit";
 import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
 import { BoatApiError, boatResponseError, callerSignal, wrapBoatCall } from "./boat-errors.js";
@@ -403,7 +403,13 @@ export class BoatSandboxProvider implements SandboxProvider {
       const files = await Promise.all(
         batch.map(async (entry) => ({
           path: entry.path,
-          content: await this.readFile(computer, entry.path, context),
+          content: await this.readRemoteFile(
+            id,
+            workspacePath(BOAT_WORKSPACE, entry.path),
+            context.signal,
+            undefined,
+            entry.size,
+          ),
           executable: entry.executable,
         })),
       );
@@ -713,8 +719,9 @@ export class BoatSandboxProvider implements SandboxProvider {
     filePath: string,
     signal?: AbortSignal,
     maxBytes?: number,
+    listedSize?: number,
   ): Promise<Uint8Array> {
-    const response = await this.fileResponse(id, filePath, signal, maxBytes);
+    const response = await this.fileResponse(id, filePath, signal, maxBytes, listedSize);
     const reader = response.body?.getReader();
     const chunks: Uint8Array[] = [];
     let size = 0;
@@ -749,23 +756,32 @@ export class BoatSandboxProvider implements SandboxProvider {
 
   /**
    * The JSON/base64 file endpoint rejects files over 5 MiB and the artifact route files over
-   * 50 MiB; a larger file streams from a short-lived URL the sandbox serves itself.
+   * 50 MiB, and Boat's proxy cuts the artifact route off after about 75 seconds. A file listed
+   * over 5 MiB, a larger one, or one the artifact route could not send in time streams from a
+   * short-lived URL the sandbox serves itself.
    */
   private async fileResponse(
     id: string,
     filePath: string,
     signal: AbortSignal | undefined,
     maxBytes: number | undefined,
+    listedSize = 0,
   ) {
-    try {
-      const { raw } = await this.whenRunnable(id, signal, () =>
-        this.client.artifactRaw({ sandboxId: id, path: filePath }, signal ? { signal } : undefined),
-      );
-      return raw;
-    } catch (error) {
-      if (!isArtifactTooLarge(error)) throw error;
-      if (maxBytes !== undefined && maxBytes < BOAT_ARTIFACT_MAX_BYTES) {
-        throw new Error(`computer file exceeds ${maxBytes} bytes`);
+    if (listedSize <= BOAT_INLINE_FILE_MAX_BYTES) {
+      try {
+        const { raw } = await this.whenRunnable(id, signal, () =>
+          this.client.artifactRaw(
+            { sandboxId: id, path: filePath },
+            signal ? { signal } : undefined,
+          ),
+        );
+        return raw;
+      } catch (error) {
+        if (isArtifactTooLarge(error)) {
+          if (maxBytes !== undefined && maxBytes < BOAT_ARTIFACT_MAX_BYTES) {
+            throw new Error(`computer file exceeds ${maxBytes} bytes`);
+          }
+        } else if (!(error instanceof SandboxUnresponsiveError)) throw error;
       }
     }
     signal?.throwIfAborted();

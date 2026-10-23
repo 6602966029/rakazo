@@ -143,23 +143,20 @@ describe("account preferences", () => {
     expect(fetch).toHaveBeenCalled();
   });
 
-  it("persists and returns the selected avatar style", async () => {
+  it("accepts an avatar style from an older app without storing it", async () => {
     const { update, actor, handler } = preferencesDeps("organic");
 
     const { response } = await handler.handle(
       new Request("http://127.0.0.1/rpc/preferences/update", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ json: { avatarStyle: "organic" } }),
+        body: JSON.stringify({ json: { avatarStyle: "robot" } }),
       }),
       { prefix: "/rpc", context: { actor } },
     );
 
     expect(response.status).toBe(200);
-    expect(update).toHaveBeenCalledWith({
-      where: { id: "user-1" },
-      data: { avatarStyle: "organic" },
-    });
+    expect(update).toHaveBeenCalledWith({ where: { id: "user-1" }, data: {} });
     await expect(response.json()).resolves.toEqual({
       json: expect.objectContaining({ avatarStyle: "organic" }),
     });
@@ -254,7 +251,7 @@ describe("account preferences", () => {
   });
 
   it.each(["robot", "organic", "custom-cdn"])(
-    "returns the stored style or organic fallback for %s",
+    "always reports the organic style, whatever is stored (%s)",
     async (style) => {
       const { actor, handler } = preferencesDeps(style);
 
@@ -269,7 +266,7 @@ describe("account preferences", () => {
 
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
-        json: expect.objectContaining({ avatarStyle: style === "robot" ? "robot" : "organic" }),
+        json: expect.objectContaining({ avatarStyle: "organic" }),
       });
     },
   );
@@ -3252,9 +3249,9 @@ describe("OpenAI-compatible model probes", () => {
     expect(JSON.stringify(response)).not.toContain("fake-saved-key");
   });
 
-  it("uses a typed key without looking up the stored credential", async () => {
+  it("uses explicit key and headers without looking up the stored credential", async () => {
     const { client, fetch, findCredential, findCredentials, findSecret, load } = fixture();
-    await client.models.probeOpenAiCompatible({ baseUrl, apiKey: " fake-typed-key " });
+    await client.models.probeOpenAiCompatible({ baseUrl, apiKey: " fake-typed-key ", headers: {} });
     expect(fetch).toHaveBeenCalledWith(
       expect.any(URL),
       expect.objectContaining({
@@ -3265,6 +3262,61 @@ describe("OpenAI-compatible model probes", () => {
     expect(findCredentials).not.toHaveBeenCalled();
     expect(findSecret).not.toHaveBeenCalled();
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it("reuses saved headers for the same endpoint without exposing them", async () => {
+    const { client, fetch, load } = fixture();
+    load.mockResolvedValue(
+      JSON.stringify({
+        kind: "openai_compatible",
+        baseUrl,
+        apiKey: "fake-saved-key",
+        headers: { "x-session": "fake-session-secret" },
+      }),
+    );
+    const response = await client.models.probeOpenAiCompatible({ baseUrl });
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get("x-session")).toBe(
+      "fake-session-secret",
+    );
+    expect(JSON.stringify(response)).not.toContain("fake-session-secret");
+  });
+
+  it("never uses another user's credential id for probe secrets", async () => {
+    const { client, fetch, credentials, load } = fixture();
+    credentials.push({
+      id: "other-credential",
+      userId: "other-user",
+      provider: "openai-compatible",
+      secretId: "other-secret",
+    });
+    await client.models.probeOpenAiCompatible({ baseUrl, credentialId: "other-credential" });
+    const headers = new Headers(fetch.mock.calls[0]?.[1]?.headers);
+    expect(headers.has("authorization")).toBe(false);
+    expect(headers.has("x-session")).toBe(false);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it("takes both saved fields from the selected credential, never another credential", async () => {
+    const { client, fetch, credentials, load } = fixture();
+    credentials.push({
+      id: "cred-2",
+      userId: actor.userId,
+      provider: "openai-compatible",
+      secretId: "secret-2",
+    });
+    load.mockImplementation(async (_, secretId) =>
+      JSON.stringify({
+        kind: "openai_compatible",
+        baseUrl,
+        apiKey: secretId === "secret-2" ? "selected-key" : "other-key",
+        headers: secretId === "secret-2" ? {} : { "x-session": "other-session" },
+      }),
+    );
+    await client.models.probeOpenAiCompatible({ baseUrl, credentialId: "cred-2" });
+    const headers = new Headers(fetch.mock.calls[0]?.[1]?.headers);
+    expect(headers.get("authorization")).toBe("Bearer selected-key");
+    expect(headers.has("x-session")).toBe(false);
+    expect(load.mock.calls.map((call) => call[1])).toEqual(["secret-2"]);
   });
 
   it.each(["different endpoint", "unreadable", "matching endpoint"])(

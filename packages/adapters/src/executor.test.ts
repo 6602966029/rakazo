@@ -1,3 +1,4 @@
+import { normalizeContext } from "@earendil-works/pi-ai";
 import type { MessageBlock } from "@rakazo/contracts";
 import { CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE, FLEET_TOOL_NAMES } from "@rakazo/contracts";
 import { ONCE_ROUTINE_CRON } from "@rakazo/core";
@@ -30,6 +31,7 @@ import {
 import { UnavailableModelForAuthError, validateConnectedModelChoice } from "./model-selection.js";
 import { PRIVATE_MODEL_ENDPOINT_MESSAGE } from "./openai-compatible-url.js";
 import { RetiredModelCredentialError, serializeModelSecret } from "./pi-oauth.js";
+import { modelsForRequest } from "./pi-runtime.js";
 import { parseUpdateBotPatch } from "./update-bot-patch.js";
 
 describe("bot tool permissions", () => {
@@ -317,7 +319,7 @@ describe("run workspace checkpoint", () => {
     await expect(checkpoint.flush()).resolves.toBe(true);
   });
 
-  it("keeps a failed checkpoint dirty for retry", async () => {
+  it("defers a failed checkpoint without failing the run and keeps it dirty for retry", async () => {
     const persist = vi
       .fn<() => Promise<void>>()
       .mockRejectedValueOnce(new Error("checkpoint failed"))
@@ -325,9 +327,21 @@ describe("run workspace checkpoint", () => {
     const checkpoint = createRunWorkspaceCheckpoint(persist);
     checkpoint.markDirty();
 
-    await expect(checkpoint.flush()).rejects.toThrow("checkpoint failed");
+    await expect(checkpoint.flush()).resolves.toBe(false);
     await expect(checkpoint.flush()).resolves.toBe(true);
     expect(persist).toHaveBeenCalledTimes(2);
+  });
+
+  it("still stops a cancelled run whose checkpoint fails", async () => {
+    const controller = new AbortController();
+    const aborted = new DOMException("Aborted", "AbortError");
+    const checkpoint = createRunWorkspaceCheckpoint(async () => {
+      controller.abort(aborted);
+      throw aborted;
+    }, controller.signal);
+    checkpoint.markDirty();
+
+    await expect(checkpoint.flush()).rejects.toBe(aborted);
   });
 });
 
@@ -3201,6 +3215,48 @@ description: Prepare standup notes
         executorFor(owner, flag).resolveConnectedModel(scope, COMPATIBLE_PROVIDER, "space-model"),
       ).resolves.toMatchObject({ baseUrl: COMPATIBLE_BASE_URL, allowPrivateEndpoint: true });
     });
+  });
+
+  it("sends saved compatible headers from executor resolution to the model request", async () => {
+    const plaintext = serializeModelSecret({
+      kind: "openai_compatible",
+      baseUrl: COMPATIBLE_BASE_URL,
+      apiKey: "fake-api-key",
+      headers: { "x-session": "fake-session-secret" },
+    });
+    const executor = compatibleExecutor(
+      compatiblePrismaParts({ "ws-1": "space-model" }, plaintext),
+      plaintext,
+    );
+    const model = await executor.resolveConnectedModel(
+      { userId: "user-1", spaceId: "ws-1" },
+      COMPATIBLE_PROVIDER,
+      "space-model",
+    );
+    const models = modelsForRequest(
+      { model } as Parameters<typeof modelsForRequest>[0],
+      COMPATIBLE_PROVIDER,
+    );
+    const provider = models.getProvider(COMPATIBLE_PROVIDER)!;
+    const runtimeModel = models.getModel(COMPATIBLE_PROVIDER, model.id)!;
+    let received: string | null = null;
+    expect(model).toHaveProperty("headers", { "x-session": "fake-session-secret" });
+    const result = await provider
+      .streamSimple(runtimeModel, normalizeContext({ messages: [] }), {
+        apiKey: model.apiKey ?? "local",
+        fetch: async (_input, init) => {
+          received = new Headers(init?.headers).get("x-session");
+          return new Response(
+            'data: {"id":"fake","choices":[{"index":0,"delta":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+            {
+              headers: { "content-type": "text/event-stream" },
+            },
+          );
+        },
+      })
+      .result();
+    expect(result.stopReason, JSON.stringify(result)).not.toBe("error");
+    expect(received).toBe("fake-session-secret");
   });
 
   it("resolves a helper model enabled only in the connection's list", async () => {

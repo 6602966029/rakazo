@@ -1,6 +1,5 @@
 import type { Actor, Bot, BotSection, MessageBlock, SpaceBot } from "@rakazo/contracts";
 import {
-  BOT_COLORS,
   canonicalPiProviderId,
   InstructionVersionSchema,
   initialBotMemory,
@@ -13,6 +12,7 @@ import {
   ringingCall,
   userVisibleMessages,
 } from "@rakazo/core";
+import { chooseBotAvatar } from "./bot-avatar-choice.js";
 import type { PrismaClient } from "./client.js";
 import type { ComputerMode } from "./computers.js";
 import { ensureComputerRecord, parseComputerMode } from "./computers.js";
@@ -505,13 +505,6 @@ export function createRepos(
         };
       },
     ): Promise<Bot> {
-      let color = input.color;
-      if (color === undefined) {
-        const count = await prisma.bot.count({
-          where: { spaceId: actor.spaceId },
-        });
-        color = BOT_COLORS[count % BOT_COLORS.length] ?? BOT_COLORS[0];
-      }
       let modelProvider = input.modelProvider ?? null;
       let modelId = input.modelId ?? null;
       let thinkingLevel = input.thinkingLevel ?? null;
@@ -547,6 +540,14 @@ export function createRepos(
             where: { spaceId: actor.spaceId },
             _max: { position: true },
           });
+          // Read under the creation lock so two bots made at once still differ.
+          const avatar = chooseBotAvatar(
+            await tx.bot.findMany({
+              where: { spaceId: actor.spaceId, archivedAt: null },
+              select: { id: true, color: true },
+            }),
+            input.color,
+          );
           const teamComputer = await ensureComputerRecord(tx, {
             mode: "team",
             spaceId: actor.spaceId,
@@ -555,6 +556,7 @@ export function createRepos(
           });
           const created = await tx.bot.create({
             data: {
+              id: avatar.id,
               spaceId: actor.spaceId,
               userId: actor.userId,
               name: displayName(input.name, ""),
@@ -563,7 +565,7 @@ export function createRepos(
               instructions: input.instructions,
               notifyOnFinish: input.notifyOnFinish,
               fleetManagement: input.fleetManagement,
-              color,
+              color: avatar.color,
               position: (positions._max.position ?? -1) + 1,
               parentBotId: input.parentBotId ?? null,
               computerId: teamComputer.id,
