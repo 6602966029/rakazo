@@ -56,7 +56,7 @@ export function VoiceSettingsOverlay({
   const [ttsModel, setTtsModel] = useState("");
   const [sttModel, setSttModel] = useState("");
   const speechModelSave = useRef<string | null>(null);
-  const shownProvider = useRef("");
+  const voicesRequest = useRef(0);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<"connect" | "disconnect" | "voice" | "test" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export function VoiceSettingsOverlay({
 
   /** Fill the form from the provider's saved credential; voices load without blocking the form. */
   function showProvider(nextProvider: string, nextCredentials: VoiceCredential[]) {
-    shownProvider.current = nextProvider;
+    const request = ++voicesRequest.current;
     setProvider(nextProvider);
     const cred = nextCredentials.find((entry) => entry.provider === nextProvider);
     const activeVoice = cred?.voiceId ?? "";
@@ -86,11 +86,16 @@ export function VoiceSettingsOverlay({
     setSttModel(cred?.sttModel ?? "");
     setVoices([]);
     if (!cred) return Promise.resolve();
-    return rpc.voice.voices({ provider: nextProvider }).then((listed) => {
-      if (shownProvider.current !== nextProvider) return;
-      setVoices(listed);
-      if (!activeVoice && listed[0]) setVoiceId(listed[0].id);
-    });
+    return rpc.voice.voices({ provider: nextProvider }).then(
+      (listed) => {
+        if (request !== voicesRequest.current) return;
+        setVoices(listed);
+        if (!activeVoice && listed[0]) setVoiceId(listed[0].id);
+      },
+      (err: unknown) => {
+        if (request === voicesRequest.current) throw err;
+      },
+    );
   }
 
   async function refresh(nextProvider?: string) {
