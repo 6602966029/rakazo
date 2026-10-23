@@ -56,7 +56,7 @@ model User {
   @@map("user")
 }
 
-/// Optional answers from the hosted signup survey. A row with no answers means skipped.
+/// A row with no answers means the user skipped the survey.
 model SignupSurvey {
   userId    String   @id
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

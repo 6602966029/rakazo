@@ -7029,7 +7029,7 @@ async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
     avatarStyle: "organic",
     timezone: user.timezone ?? null,
     billingEnabled: Boolean(deps.billing),
-    // Only the hosted service asks; self-hosted installs never see the survey.
+    // Only billing deployments ask; self-hosted installs never see the survey.
     needsSignupSurvey: Boolean(deps.billing) && !user.signupSurvey,
   };
 }

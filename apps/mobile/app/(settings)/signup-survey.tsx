@@ -29,7 +29,7 @@ import { SIGNUP_SURVEY_TEAM_SIZE_CHOICES, signupSurveyAnswers } from "../../lib/
 
 type Use = NonNullable<SignupSurveyAnswers["use"]>;
 
-/** Optional questions shown once after a hosted sign-up. */
+/** Optional questions shown once after signing up on a billing deployment. */
 export default function SignupSurvey() {
   const { t } = useI18n();
   const styles = useThemedStyles(createStyles);
