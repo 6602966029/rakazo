@@ -77,7 +77,7 @@ for (const [failing, intact] of [
 }
 
 for (const overlay of ["settings", "integrations"] as const) {
-  test(`preload recovery reopens ${overlay} once after an automatic reload`, async ({
+  test(`preload recovery reopens ${overlay} after an automatic reload`, async ({
     page,
   }, testInfo) => {
     await signup(
@@ -116,11 +116,10 @@ for (const overlay of ["settings", "integrations"] as const) {
       .click();
     await reloaded;
     await expect(opened).toBeVisible();
-    await expect(page).toHaveURL(originalUrl);
+    await expect(page).toHaveURL(
+      (url) => url.pathname === new URL(originalUrl).pathname && url.searchParams.has(overlay),
+    );
     await captureScreenshot(page, testInfo, `preload-recovered-${overlay}`);
-    await page.reload();
-    await expect(page.locator('[data-rakazo-app-state="ready"]')).toBeVisible();
-    await expect(opened).toHaveCount(0);
   });
 }
 
@@ -153,7 +152,12 @@ test("preload recovery keeps Settings bound to another space", async ({ page }, 
   const settings = page.getByTestId("user-settings");
   await expect(settings).toHaveAttribute("data-settings-section", "models");
   await expect(settings.getByTestId("settings-space")).toHaveText("Personal");
-  await expect(page).toHaveURL(originalUrl);
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === new URL(originalUrl).pathname &&
+      url.searchParams.get("settings") === "models" &&
+      url.searchParams.has("space"),
+  );
   expect(await page.evaluate(() => localStorage.getItem("rakazo:space-id"))).toBe(selected);
   await captureScreenshot(page, testInfo, "preload-recovered-space-settings");
 });

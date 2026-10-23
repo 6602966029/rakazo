@@ -153,6 +153,20 @@ it("names the space a space-scoped section acts on and switches it in place", as
   }
 });
 
+it("reports a section picked in the nav so the shell can keep it in the URL", async () => {
+  const onSectionChange = vi.fn();
+  const { container, cleanup } = await render({ onSectionChange });
+  try {
+    const usage = container.querySelector<HTMLButtonElement>('[data-testid="settings-nav-usage"]');
+    if (!usage) throw new Error("Missing Usage nav item");
+    await act(async () => usage.click());
+    expect(onSectionChange).toHaveBeenCalledWith("usage");
+    expect(usage.getAttribute("aria-current")).toBe("page");
+  } finally {
+    await cleanup();
+  }
+});
+
 it("shows the space name without a switcher when there is only one space", async () => {
   const { container, cleanup } = await render({
     space: acme,

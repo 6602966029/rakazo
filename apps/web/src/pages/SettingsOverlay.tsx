@@ -39,18 +39,8 @@ import {
 import { BillingSettingsPanel } from "./BillingSettingsPanel";
 import { MemorySettingsOverlay } from "./MemorySettingsOverlay";
 import { ModelSettingsOverlay } from "./ModelSettingsOverlay";
+import type { SettingsSection } from "./shell-overlay";
 import { VoiceSettingsOverlay } from "./VoiceSettingsOverlay";
-
-export type SettingsSection =
-  | "general"
-  | "models"
-  | "memory"
-  | "voice"
-  | "confirmations"
-  | "usage"
-  | "computer"
-  | "billing"
-  | "updates";
 
 /** Sections whose settings belong to a space; only these show the space picker. */
 const SPACE_SECTIONS: ReadonlySet<SettingsSection> = new Set([
@@ -76,6 +66,7 @@ export function SettingsOverlay({
   usage,
   onUsageOpen,
   initialSection = "general",
+  onSectionChange,
   timezone,
   onTimezoneChange,
   billingEnabled = false,
@@ -104,6 +95,7 @@ export function SettingsOverlay({
   } | null;
   onUsageOpen: () => void;
   initialSection?: SettingsSection;
+  onSectionChange?: (section: SettingsSection) => void;
   timezone: string | null;
   onTimezoneChange: (timezone: string) => Promise<void>;
   billingEnabled?: boolean;
@@ -333,7 +325,10 @@ export function SettingsOverlay({
                     data-testid={`settings-nav-${item.id}`}
                     aria-current={active ? "page" : undefined}
                     disabled={panelBusy}
-                    onClick={() => setSection(item.id)}
+                    onClick={() => {
+                      setSection(item.id);
+                      onSectionChange?.(item.id);
+                    }}
                     className={`flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-[13.5px] transition-colors disabled:pointer-events-none disabled:opacity-50 ${
                       active
                         ? "bg-muted text-foreground"

@@ -42,7 +42,7 @@ import {
 } from "@rakazo/ui-web";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ModelPreflightFeedback,
   modelPreflightTestingLabel,
@@ -137,6 +137,13 @@ async function ensureFirstBot(): Promise<{ id: string }> {
   return firstBotEnsure;
 }
 
+const LINKABLE_STEPS = ["survey", "model"] as const;
+type LinkableStep = (typeof LINKABLE_STEPS)[number];
+
+function linkableStep(value: string | undefined): LinkableStep | undefined {
+  return LINKABLE_STEPS.find((step) => step === value);
+}
+
 function providerLabel(entry: ModelCatalogEntry): string {
   return entry.provider === "openai-codex" ? "ChatGPT" : (entry.providerName ?? entry.provider);
 }
@@ -145,7 +152,10 @@ export function OnboardingPage() {
   const { t } = useLingui();
   const navigate = useNavigate();
   const fieldId = useId();
-  const [step, setStep] = useState<"loading" | "survey" | "model" | "bot">("loading");
+  // /onboarding/survey and /onboarding/model open that step directly, so each screen has a URL.
+  const { step: routeStep } = useParams();
+  const linkedStep = linkableStep(routeStep);
+  const [step, setStep] = useState<"loading" | LinkableStep | "bot">(linkedStep ?? "loading");
   const [billingEnabled, setBillingEnabled] = useState(false);
   const afterSurveyRef = useRef<"model" | "bot">("bot");
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
@@ -208,13 +218,25 @@ export function OnboardingPage() {
         deploymentDefaultModelRef.current = me.defaultModel;
         const next = me.needsModel ? "model" : "bot";
         afterSurveyRef.current = next;
-        setStep(me.needsSignupSurvey ? "survey" : next);
+        setStep((current) =>
+          current === "loading" ? (me.needsSignupSurvey ? "survey" : next) : current,
+        );
       })
-      .catch(() => setStep("bot"));
+      .catch(() => setStep((current) => (current === "loading" ? "bot" : current)));
     return () => {
       modelProbe.invalidate();
     };
   }, []);
+
+  useEffect(() => {
+    if (linkedStep) setStep(linkedStep);
+  }, [linkedStep]);
+
+  useEffect(() => {
+    if (step === "loading") return;
+    const path = step === "bot" ? "/onboarding" : `/onboarding/${step}`;
+    if (window.location.pathname !== path) navigate(path, { replace: true });
+  }, [step]);
 
   const providers = useMemo(() => {
     const seen = new Map<string, ModelCatalogEntry>();
