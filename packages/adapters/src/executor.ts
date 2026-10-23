@@ -3583,7 +3583,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       }
     },
 
-    async continueRun(runId: string, workerId: string) {
+    async continueRun(runId: string, workerId: string, onRunStarted?: () => void) {
       const run = await deps.prisma.run.findUnique({ where: { id: runId } });
       if (!run) return;
       // Logs and security events raised by this run's tools name its account and space.
@@ -3770,7 +3770,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
       };
 
       const runSecrets = [...deps.secrets];
+      let dispatchHandedOff = false;
       try {
+        // Durable run ownership and its heartbeat now carry recovery. Model,
+        // integration and computer setup must not occupy a queue dispatch slot.
+        onRunStarted?.();
+        dispatchHandedOff = Boolean(onRunStarted);
         const sourceBlocks =
           run.trigger === "messaging" && run.sourceMessageId
             ? ((
@@ -8615,7 +8620,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               finishedAt: new Date(),
             },
           });
-          if (retryForever) {
+          if (retryForever || dispatchHandedOff) {
             await deps.jobs.enqueue({
               ...runContinueJob(runId),
               availableAt: new Date(Date.now() + computerRetryDelay(fence)),
