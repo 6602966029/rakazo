@@ -822,3 +822,35 @@ describe("sanitizeUtf16ForJson", () => {
     });
   });
 });
+
+describe("stale helper projection", () => {
+  it.each([
+    "run.waiting_input",
+    "computer.takeover.requested",
+    "run.completed",
+    "run.failed",
+    "run.cancelled",
+  ])("settles helpers on %s without reviving them on resume", (type) => {
+    const base = {
+      id: "fixture",
+      threadId: "thread-1",
+      runId: "run-1",
+      seq: 1,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const helper = { agentId: "helper", name: "Helper", task: "Check", status: "running" };
+    const next = projectMessages([
+      { ...base, type: "thread.subagent", payload: helper },
+      { ...base, seq: 2, type, payload: {} },
+      { ...base, seq: 3, type: "run.started", payload: {} },
+      { ...base, seq: 4, type: "thread.subagent", payload: { ...helper, agentId: "resumed" } },
+    ]);
+    expect(next.find((m) => m.id === "subagent:helper")?.blocks[0]).toMatchObject({
+      status: "failed",
+      result: "stopped",
+    });
+    expect(next.find((m) => m.id === "subagent:resumed")?.blocks[0]).toMatchObject({
+      status: "running",
+    });
+  });
+});

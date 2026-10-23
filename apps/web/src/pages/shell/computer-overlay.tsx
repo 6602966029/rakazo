@@ -32,6 +32,7 @@ type ComputerOverlayProps = {
   runStatus?: Run["status"];
   sendError: string | null;
   embeddedScreenUrl: string | null;
+  screenFrameRef: (frame: HTMLIFrameElement | null) => void;
   computerScreenError: ReactNode;
   computerBooting: ReactNode;
   onStopTeaching: () => void | Promise<void>;
@@ -56,6 +57,7 @@ export function ComputerOverlay({
   runStatus,
   sendError,
   embeddedScreenUrl,
+  screenFrameRef,
   computerScreenError,
   computerBooting,
   onStopTeaching,
@@ -70,7 +72,7 @@ export function ComputerOverlay({
     <div className="fixed inset-0 z-30 bg-background">
       <div
         data-testid="computer-viewport"
-        className="fixed inset-x-0 top-0 flex flex-col bg-background"
+        className="fixed inset-x-0 top-0 flex flex-col bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
         style={{
           height: computerViewport ? `${computerViewport.height}px` : "100dvh",
           top: computerViewport ? `${computerViewport.offsetTop}px` : undefined,
@@ -78,7 +80,7 @@ export function ComputerOverlay({
       >
         <div
           data-testid="computer-chrome"
-          className="flex items-center justify-between gap-4 border-b border-sidebar-border px-[18px] py-3.5"
+          className="app-no-drag flex items-center justify-between gap-4 border-b border-sidebar-border px-[18px] py-3.5"
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <BotAvatar color={bot.color} identity={bot.id} size={28} status={bot.status} />
@@ -183,6 +185,7 @@ export function ComputerOverlay({
             <>
               <iframe
                 title={t`Bot screen`}
+                ref={screenFrameRef}
                 src={embeddedScreenUrl}
                 sandbox={screenIframeSandbox(embeddedScreenUrl)}
                 className="h-full w-full border-0 bg-black"

@@ -46,8 +46,7 @@ Auto Review uses that LLM checker by default. To use TypeSafe Jev instead, set
 The example defaults to `edge` (main builds). Every publish is multi-arch (`amd64` + `arm64`), so
 arm64 hosts need no special tag. Do not assume `latest` is present until a stable release exists.
 
-Open [http://127.0.0.1:5173](http://127.0.0.1:5173). The first registered user becomes the
-deployment owner. Put TLS in front of `:5173` for a public host and set the three public origins to
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Signup never grants server-administration permissions. Put TLS in front of `:5173` for a public host and set the three public origins to
 that HTTPS URL.
 
 Images Compose binds web to loopback (`127.0.0.1:5173`). Terminate TLS on the host and proxy
@@ -159,7 +158,7 @@ so the mode does not apply there.
 2. Set `OPENROUTER_API_KEY` (and `COMPOSIO_API_KEY` if you want Plugins).
 3. Build the computer image: `pnpm sandbox:build` (Compose also builds it via the `computer` service).
 4. `docker compose --env-file .env -f infra/compose/docker-compose.yml up --build`
-5. Open the web origin (`http://127.0.0.1:5173` by default). The first registered user becomes the deployment owner.
+5. Open the web origin (`http://127.0.0.1:5173` by default). Signup never grants server-administration permissions.
 
 On Windows, if an older clone with `core.autocrlf=true` leaves the computer pane hung on boot (`bash\r` in sandbox logs): from a clean worktree, set `git config core.autocrlf false`, run `git add --renormalize . && git checkout -- .`, then rebuild with `pnpm sandbox:build`.
 
@@ -230,10 +229,7 @@ WEB_ORIGIN=https://app.example.com
 API_URL=https://app.example.com
 ```
 
-Cookies and CORS follow those origins. `SIGNUPS_ENABLED` seeds whether registration is open
-when the API starts for the first time and is not reapplied on restart. A non-empty
-`SIGNUP_ALLOWLIST` is applied on every API start, replacing the allowlist stored for the deployment.
-Leave it empty to keep that stored list.
+Cookies and CORS follow those origins. `SIGNUPS_ENABLED` and `SIGNUP_ALLOWLIST` come from the operator's environment on every start. An empty allowlist clears any old stored list; signup order never grants privileges.
 
 With a nonempty signup allowlist and SMTP configured, users—including existing accounts—must
 verify their email to sign in. Without an allowlist, verification never blocks: a password signup
@@ -245,11 +241,26 @@ rules as password signup. Signing in with a code to an existing unverified accou
 account's password, SSO links and sessions, since nothing proved they belonged to the mailbox
 owner. This is what stops someone who registered another person's address from keeping access.
 
-On a fresh instance with no SMTP, the first allowlisted account can register without verification.
-That signup does not prove mailbox ownership, so create the account before exposing the service.
-Further accounts still need SMTP.
+Allowlisted signup requires mailbox verification and email delivery, including the first account.
+Without email delivery, use the server-side account bootstrap described below; public signup never marks an address verified or assigns server permissions.
 
-For a public deployment, configure SMTP and an allowlist before the API's first start.
+Server configuration belongs in the operator's environment. App accounts cannot change signup policy,
+server integration credentials, or deployment updates, and cannot read deployment security logs.
+`SIGNUPS_ENABLED` and `SIGNUP_ALLOWLIST` are authoritative on every start; an empty allowlist clears any old stored policy.
+There is no app-admin role, first-user privilege, or `ADMINS` list. Workspace owners manage only their own workspace.
+
+For an installation without email, first set `SIGNUPS_ENABLED=false` in `.env` and start the stack.
+Create the intended account privately (the password stays in the shell environment):
+
+```bash
+read -r -p "Account email: " OWNER_EMAIL
+read -r -s -p "Account password (at least 16 characters): " OWNER_PASSWORD
+export OWNER_EMAIL OWNER_PASSWORD
+docker compose --env-file .env -f docker-compose.images.yml exec -e OWNER_EMAIL -e OWNER_PASSWORD api node dist/cli/bootstrap-owner.js
+unset OWNER_EMAIL OWNER_PASSWORD
+```
+
+For a source checkout, use `-f infra/compose/docker-compose.yml` instead. This creates an ordinary verified account and a personal workspace, with no server privileges. For an existing unverified account, its password must match before it can be verified; an existing verified account is left unchanged.
 Keep an installation without email on a trusted local network.
 
 ### Optional OpenID Connect SSO
@@ -311,8 +322,7 @@ emailed deletion codes remain available. Submit deletion codes through the accou
 or the CSRF-protected `POST /api/auth/delete-user` endpoint; the GET deletion callback is disabled.
 
 SSO signup follows closed registration and the deployment allowlist before creating an account.
-Allowlisted provider emails must be verified; the password signup's first-account exemption
-never upgrades an OIDC email. `OIDC_ALLOW_SIGNUP_BYPASS=true` explicitly admits IdP identities
+Allowlisted provider emails must be verified; signup never bypasses mailbox proof. `OIDC_ALLOW_SIGNUP_BYPASS=true` explicitly admits IdP identities
 without applying the allowlist or its email-verification admission requirement. Enable it only
 when the IdP controls who may join this deployment. It does **not** reopen closed registration,
 and does not change email verification claims or linking rules. Existing admitted accounts can
@@ -393,9 +403,62 @@ is unreachable or takes longer than three seconds, the password is accepted and 
 
 ### Billing
 
-Billing stays off, with no paywall, unless `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and
-`STRIPE_PRICE_ID` are all set (see `.env.example`). Setting only some of them stops the API at
-startup.
+Billing stays off unless `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are both set (see
+`.env.example`). Enabling billing offers free use with a personal model connection or monthly
+model credits in USD: $10, $20, $50, $100, $200, or $500. One-time top-ups use the same amounts.
+Monthly credits expire at the end of their service period; one-time top-ups do not expire.
+The hosted computer is included in both paths.
+
+Configure the managed default model through the existing model connection settings. The default
+OpenRouter model is Luna 6; customers can choose another available model, with its usage deducted
+at model cost. In credit mode, the configured hosted provider uses Rakazo's key even when a personal
+key for that provider is saved. Switching back to BYOK restores that connection. Personal connections
+to other providers continue to use their own keys and never debit Rakazo credits. Hosted calls reserve an upper cost estimate atomically before starting, then settle
+to reported or catalog-priced usage. Unknown usage retains its reservation for reconciliation.
+
+`STRIPE_PRICE_ID` is optional and only needed to display the legacy seat price. Existing live seat
+subscriptions retain their access and billing portal. Upgrades charge the prorated difference
+immediately and add the amount collected to the credit balance; a failed payment leaves the plan
+unchanged. Downgrades lower the next renewal without charging now or removing credits.
+Credit purchases require settled payments; webhook
+replays do not add credits twice, and refunds reduce the remaining account balance.
+
+Monthly funds are spent before top-ups. Each grant has an audited allocation lot, so reservations
+retain their funding source across renewal: unused monthly holds expire when released, while
+purchased top-ups remain available. Prorated upgrades share the original period end. Expiration
+creates a financial journal delta and runs before balance reads, reservations, settlements, and
+background recovery. Unclassified legacy balances are preserved as non-expiring funds.
+
+Postgres owns accounting. `billing_audit_events` is an append-only journal enforced by database
+triggers; credit entries, usage rows, and balances are projections. Each managed call shares one
+`callId` across reservation, durable provider receipt, usage, and settlement. Provider generation
+IDs, token buckets, cost provenance, and pricing snapshots are retained. Usage and settlement
+commit together, and journal/usage history survives clearing messages or deleting a bot or
+organization. Corrections append evidence rather than rewriting earlier journal events. Existing
+rows receive explicit baseline events when the migration runs; earlier history cannot be recovered.
+
+The API/worker reconciler recovers saved receipts and, when supported by the configured provider,
+fetches authoritative generation costs for interrupted calls and estimates. Retries use leases and
+idempotent settlement. Unverifiable calls retain their holds and become `needs_review` after six
+attempts. An hourly, paginated audit rebuilds drifted balance caches from the journal and records
+repairs. Investigate `Model credit hold requires review` logs using the shared call ID; do not turn
+missing provider evidence into a zero-cost settlement.
+
+OpenRouter inference requests include the normal Rakazo user ID in `user`, `HTTP-Referer`
+(`https://rakazo.com`), and `X-OpenRouter-Title` (`Rakazo`). These values are sent only to OpenRouter's
+HTTPS inference endpoints, never to compatible custom hosts. Recovery uses the existing configured
+deployment credential; no Redis or external accounting service is required.
+
+
+The adapter pins Stripe API `2026-09-30.endive`. Configure webhook destinations for your own account,
+using snapshot payloads on the same API version. Subscribe to all `customer.subscription` events,
+`customer.deleted`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+`invoice.paid`, `invoice.payment_failed`, `charge.refunded`, `charge.dispute.created`, and
+`charge.dispute.closed`. Credit Checkout restricts payment methods to cards. New subscriptions
+explicitly retain classic billing mode so API upgrades do not change invoice/proration behavior.
+
+For local testing, forward Stripe test events to `/api/v1/billing/webhook`. Use the signing secret
+from `stripe listen` and test API credentials; keep them in an ignored environment file.
 
 ### Pi tracing
 
@@ -512,6 +575,11 @@ Error reporting to Sentry or a Sentry-compatible collector such as GlitchTip is 
   to that DSN. Use a separate project from `SENTRY_DSN`.
 - `SENTRY_ENVIRONMENT` names the deployment. `SENTRY_RELEASE` defaults to the image's `GIT_SHA`.
 
+Desktop and mobile use the connected server's `SENTRY_BROWSER_DSN`. Electron sends crash metadata
+without memory dumps. Mobile native reporting requires a rebuilt app; Expo Go is unsupported.
+For readable mobile crash stacks, build with `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`,
+and optional `SENTRY_URL` to upload symbols.
+
 Neither SDK sends cookies, headers, request bodies, user identity, console output, or log context.
 When `ANALYTICS_PSEUDONYM_SECRET` is set, reports carry a keyed hash of the signed-in user's id so
 the collector can count affected users; the raw id, email and IP address are never sent, and the
@@ -542,6 +610,8 @@ DAYTONA_API_KEY=          # when SANDBOX_PROVIDER=daytona
 CREATEOS_SANDBOX_API_KEY= # when SANDBOX_PROVIDER=createos
 BOAT_API_KEY=             # when SANDBOX_PROVIDER=boat
 ```
+
+`RAKAZO_LIVE_MODEL_CATALOG=off` disables provider and Codex live catalog probing; the default is on.
 
 To use an operator-controlled OpenAI-compatible server such as Ollama, LM Studio, llama.cpp, or
 MLX, list its model IDs and an endpoint that both the API and worker processes can reach:
@@ -580,8 +650,7 @@ need `RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC`; every DNS answer must be private, and 
 link-local destinations remain blocked. This applies to discovery and model requests.
 HTTPS still validates the hostname's certificate. Like private IP endpoints, trusted hostnames
 also permit HTTP with API keys; use HTTPS unless the network is trusted. Only allow hosts you
-control: like other private endpoints, allowlisted hosts are limited to the deployment owner
-unless `MCP_ALLOW_PRIVATE_ENDPOINT=true`.
+control. Private endpoints require `MCP_ALLOW_PRIVATE_ENDPOINT=true` for the deployment; no app account bypasses that policy.
 If that endpoint's model
 accepts images, enable **Supports images** under **Advanced** when connecting so attachments and
 screenshot computer tools stay available. Existing connections default to disabled. For centrally
@@ -662,8 +731,7 @@ Each event has the user, space, client address, user agent, time, and a few iden
 never include message content, secrets, or tokens. Rows older than `SECURITY_EVENT_RETENTION_DAYS`
 (default 90) are deleted, and Postgres rejects updates to the rows that remain.
 
-The deployment owner can read recent events through the `security.events` RPC, filtered by `type`,
-`ip`, or `userId`, and paged with `cursor`. You can also query Postgres:
+Operators read recent events through server-side database/log tooling. For example, query Postgres:
 
 ```bash
 docker compose --env-file .env -f infra/compose/docker-compose.prod.yml exec postgres \
@@ -778,7 +846,7 @@ the default work as described for Parallel.
 ### Self-hosted memory
 
 Supermemory and Honcho can run on your own network. In **Settings → Memory**, choose **Local**
-and enter the instance's base URL. Only the deployment owner can save a local endpoint. It must
+and enter the instance's base URL. The operator must set `MCP_ALLOW_PRIVATE_ENDPOINT=true`; workspace owners can then save a local endpoint. It must
 be loopback or resolve to private addresses (a Compose service name, an RFC1918 or unique-local
 address, or a `.internal` name such as Railway's private network); Rakazo pins the resolved
 address for every request. Space members use the saved connection without seeing its key.
@@ -788,7 +856,8 @@ server and use an admin JWT from its `scripts/generate_jwt.py --admin` as the ke
 gets its own workspace. A workspace-scoped JWT works when you enter that workspace. Honcho needs
 its own PostgreSQL with pgvector, an LLM provider, and an embedding provider; set
 `EMBEDDING_VECTOR_DIMENSIONS` before its first start. Rakazo stores only explicitly saved facts
-in Honcho; conversation summaries stay in Rakazo.
+in Honcho; conversation summaries stay in Rakazo. Bots can forget a saved fact on Honcho v3.2 or
+later.
 
 Remote MCP servers and installed API / GraphQL connectors default to public HTTPS. The deployment
 owner can attach one on localhost, the same LAN, or a Docker network. Set
@@ -882,7 +951,7 @@ commands, add `-f docker-compose.override.yml` after the base file.
 
 ## Choosing a computer provider
 
-The Electron desktop app is a client of the same API. Docker remains the default. For an app-managed local instance, the deployment owner can choose **Use this Mac** (macOS) or **Use this computer** (Windows/Linux). After native confirmation, an authenticated bridge sends commands from the Docker backend to Electron, where they run under your OS account. **Computer Access…** in the app menu changes the choice; **Revoke Local Computer Access** immediately disconnects active operations and revokes the saved permission. Local execution requires the desktop app to remain running. Connecting to an existing remote instance does not grant it access to your computer. Browser and mobile clients use the deployment’s configured computer; they do not expose their own host. `SANDBOX_PROVIDER=desktop` is a separate, development-only configuration for backends running directly on the intended host.
+The Electron desktop app is a client of the same API. Docker remains the default. For an app-managed local instance, the local operator can choose **Use this Mac** (macOS) or **Use this computer** (Windows/Linux). After native confirmation, an authenticated bridge sends commands from the Docker backend to Electron, where they run under your OS account. **Computer Access…** in the app menu changes the choice; **Revoke Local Computer Access** immediately disconnects active operations and revokes the saved permission. Local execution requires the desktop app to remain running. Connecting to an existing remote instance does not grant it access to your computer. Browser and mobile clients use the deployment’s configured computer; they do not expose their own host. `SANDBOX_PROVIDER=desktop` is a separate, development-only configuration for backends running directly on the intended host.
 
 Native file reads and workspace exports are limited to 8 MiB per file. A larger workspace file fails the checkpoint and preserves the previous saved workspace; local files remain on the computer. Writes are bounded by the 12 MiB encoded request limit.
 
@@ -1192,9 +1261,14 @@ mount options. Set `RAKAZO_BACKUP_REQUIRE_VOLUME=1` and add a service drop-in co
 then refuses to fall back to root storage if the mount is missing or points at the root filesystem.
 
 Monitoring is opt-in. Install `host-alert.py` as `/usr/local/sbin/rakazo-host-alert` and
-`check-host.sh` as `/usr/local/sbin/rakazo-host-check`, then install the supplied host-check service
+`check-host.sh` as `/usr/local/sbin/rakazo-host-check`, and `check-services.py` as
+`/usr/local/sbin/rakazo-check-services` (all executable), then install the supplied host-check service
 and timer and enable `rakazo-host-check.timer`. Checks run every five minutes and report low disk
 space, failed backups, a verified backup older than 36 hours, or missing configured IPv4 SSH rules.
+To also check API and worker containers, set `RAKAZO_MONITOR_COMPOSE_PROJECT` in `backup.env` to
+the Compose project name (`rakazo-prod` for production). The worker probe checks heartbeat and
+reconciliation freshness. Leave the variable unset if container monitoring is managed elsewhere.
+
 The dedicated-volume check is enabled only by `RAKAZO_BACKUP_REQUIRE_VOLUME=1` in `backup.env`.
 Identical alerts are suppressed for a day; recovery sends a separate notification.
 
@@ -1217,21 +1291,72 @@ The guard does not protect arbitrary direct `ufw` commands or SSH daemon configu
 
 To deploy from CI, install `infra/compose/deploy-launcher.sh` as `/usr/local/sbin/rakazo-deploy-main`
 and give CI a key restricted to it in the deploy user's `authorized_keys`
-(`restrict,command="/usr/local/sbin/rakazo-deploy-main" ssh-ed25519 …`). It builds `origin/main`,
+(`restrict,command="/usr/local/sbin/rakazo-deploy-main" ssh-ed25519 …`). CI deploys a main commit
+only after its checks pass and `ci.yml` has published its images, so the host pulls
+`<RAKAZO_DEPLOY_IMAGE>:sha-<commit>` instead of building next to live traffic.
+`RAKAZO_DEPLOY_IMAGE` defaults to `ghcr.io/<owner>/<repo>/app` for the GitHub repository the
+checkout tracks, so a fork pulls what its own CI published. If the pull fails or takes longer than
+`RAKAZO_DEPLOY_PULL_TIMEOUT` (default `5m`), the deploy logs a warning and builds the checkout on
+the host instead; set `RAKAZO_DEPLOY_IMAGE=` (empty) to always build. This repository's images are public, so the
+host needs no registry login; for a private fork package, `docker login ghcr.io` as root with a
+token that can only read packages. The deploy
 starts each new API and web container beside the running one and stops the old one only once the
 new one is healthy, so a deploy does not take the site offline, then waits for
-`https://$RAKAZO_HOST/health` and rolls back on failure. Old and new API containers serve together
+`https://$RAKAZO_HOST/health` and rolls back on failure by restoring the image the previous
+containers ran. Old and new API containers serve together
 for a few seconds after migrations run, so a migration must keep working with the previous
-release: add first, and drop or rename only in a later deploy. Build and
-start are time-limited so a stuck build fails the deploy instead of holding its lock; a deploy that
+release: add first, and drop or rename only in a later deploy. Pull, build and
+start are time-limited so a stuck step fails the deploy instead of holding its lock; a deploy that
 finds the lock held exits non-zero. A deploy refuses to start with less than
-`RAKAZO_DEPLOY_MIN_FREE_GB` (default `5`) free, and after a healthy rollout it removes untagged
-images and trims the build cache to `RAKAZO_DEPLOY_BUILD_CACHE_GB` (8 GB by default), keeping the previous images tagged `rakazo-rollback`.
+`RAKAZO_DEPLOY_MIN_FREE_GB` (default `5`) free, and after a healthy rollout it keeps the current and
+previous app images (the previous ones tagged `rakazo-rollback`), removes untagged images, and
+trims the build cache that fallback builds leave to `RAKAZO_DEPLOY_BUILD_CACHE_GB` (8 GB by default).
 For a checkout outside `/srv/rakazo`, put `RAKAZO_DEPLOY_DIR=/absolute/path` (and any of these
 settings) in a root-owned `/etc/rakazo/deploy.env` readable by the deploy user. The launcher runs
 `infra/compose/deploy-main.sh` from `origin/main`, so deploy changes apply on the next deploy; only
 a change to the launcher itself needs
 `sudo install -m 0755 infra/compose/deploy-launcher.sh /usr/local/sbin/rakazo-deploy-main`.
+
+#### Host audit trail
+
+`harden-host.sh` installs audit rules for writes to SSH keys, sudoers, accounts, `/etc/rakazo`, the
+deployment's `.env`, `/usr/local/sbin`, systemd units, cron, and the Docker daemon config. A rule
+whose directory does not exist yet, such as the `.env` before the first clone, is skipped with a
+notice; rerun the script once it exists. Anyone with root can wipe local logs, so the record only
+helps once it has left the host.
+
+To ship it, create a root-only `/etc/rakazo/audit-ship.env` and put the sink's token in
+`/etc/rakazo/audit-ship.token`, then rerun `harden-host.sh`. Only then does it install `audit-ship.py`
+as `/usr/local/sbin/rakazo-audit-ship` and enable `rakazo-audit-ship.service`. The sink is any HTTPS
+endpoint that accepts a JSON array of events with a bearer token, for example Axiom's
+`https://api.axiom.co/v1/datasets/<dataset>/ingest`.
+
+```env
+RAKAZO_AUDIT_SINK_URL=https://ingest.example.com/v1/events
+# Optional: name the SSH keys you expect (fingerprints from `ssh-keygen -lf key.pub`).
+RAKAZO_AUDIT_KNOWN_KEYS=SHA256:replace-with-fingerprint=laptop SHA256:replace-with-fingerprint=ci
+# Optional: RAKAZO_AUDIT_TOKEN_FILE (default /etc/rakazo/audit-ship.token) and RAKAZO_AUDIT_HOST
+# (default: the hostname).
+```
+
+Use a token that can only write to that one destination, so a compromised host cannot read or delete
+what it already sent. The shipper follows `/var/log/auth.log` and the audit log and sends `ssh.login`
+(with `key_name`, `unknown` for keys not listed), `ssh.failed`, `sudo.command`, `su`,
+`identity.change`, and `file.change` (with the rule's `watch` key and the changed `paths`). Every
+event carries `event`, `host`, `source`, `message`, and `_time`. Offsets advance only after the sink
+accepts a batch, and failures retry with backoff, so events arrive at least once. On first start it
+ships the current auth log and starts the audit log at its end. With monitoring installed, the host
+check alerts when a sink is configured but the shipper is not running.
+
+Alert in the destination, not on the host. Starting points, written as Axiom APL here but plain
+filters in any log store:
+
+| Alert | Query |
+| --- | --- |
+| Login with an unnamed key | `where event == "ssh.login" and key_name == "unknown"` |
+| Watched file changed | `where event == "file.change"` outside your own deploys and maintenance |
+| Root use outside the deploy account | `where (event == "sudo.command" and user != "deploy") or event == "su" or event == "identity.change"` |
+| Shipping stopped | no events from a `host` for longer than it normally stays quiet |
 
 ### Docker computers on the production stack
 
@@ -1406,11 +1531,14 @@ your CI cannot publish into someone else's.
 | `local-<full-commit>` | nothing — built on the server by a fork update | never |
 | `vX.Y.Z`, `vX.Y` | release tags | conventionally no / on patch releases |
 | `latest` | stable `vX.Y.Z` tags only (not prereleases) | yes, to the newest stable release |
-| `sha-<full-commit>` | every push and manual run | source-addressed; used by the updater sidecar |
+| `sha-<full-commit>` | every main commit, release tag and manual run | source-addressed; used by the updater sidecar |
 | `edge` | pushes to main | yes, to the newest main build |
 
 Every publish, including `edge` from main merges, is multi-arch (`amd64` + `arm64`): each
-architecture builds natively on its own runner and one manifest is assembled per image. Until a
+architecture builds natively, on Depot when the `DEPOT_PROJECT_ID` repository variable names a
+project and on GitHub's runners otherwise, and one manifest is assembled per image. Before any tag
+points at a new app image, CI fails the publish if it holds a `.env` file, a `.git` directory or a
+private key (`infra/compose/check-image.sh`). Until a
 stable `vX.Y.Z` has been published, GHCR may only have `edge` and `sha-*` tags; do not pin
 `latest` unless that tag exists in the registry.
 
@@ -1451,7 +1579,7 @@ docker compose --env-file .env -f infra/compose/docker-compose.prod.yml \
 
 It exposes `/health`, `/state`, `/plan`, `/apply`, and `/rollback` at `http://updater:7092` with
 `RAKAZO_UPDATER_TOKEN`. Operator CLI upgrades above do not need it; the sidecar is for automated
-apply/rollback over that private HTTP API.
+apply/rollback over that private HTTP API. Only deployment tooling calls it; app accounts have no update endpoint, and the application API does not receive the updater token.
 
 The API cannot update itself — its image has no `.git`, and nothing inside the container would
 restart it — so the work happens in a separate `updater` container that outlives the recreate:
@@ -1563,8 +1691,7 @@ shared filesystem; an object-storage adapter is not available yet.
 
 Use the same HTTPS origin for the web app, `/api`, and `/rpc`. Preserve the authenticated screen
 proxy routes. Choose a [computer provider](#choosing-a-computer-provider) appropriate to the
-service's trust boundary. `SIGNUPS_ENABLED` applies on the API's first start. A non-empty
-`SIGNUP_ALLOWLIST` applies on every API start.
+service's trust boundary. `SIGNUPS_ENABLED` and `SIGNUP_ALLOWLIST` apply from the environment on every API start.
 The optional marketing site in `apps/www` can be hosted separately.
 
 ## Image and video generation

@@ -12,7 +12,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   Disclosure,
@@ -33,12 +32,10 @@ import { useModelSettings } from "./model-settings/use-model-settings";
 export function ModelSettingsOverlay({
   onClose,
   embedded = false,
-  localOwner = false,
 }: {
   onClose: () => void;
   /** Render panel body only for the shared Settings shell. */
   embedded?: boolean;
-  localOwner?: boolean;
 }) {
   const { t } = useLingui();
   const model = useModelSettings(onClose);
@@ -75,10 +72,6 @@ export function ModelSettingsOverlay({
       </Trans>
     </p>
   );
-  const description = localOwner ? (
-    <Trans>Models for the server owner’s default space.</Trans>
-  ) : null;
-
   const body = (
     <>
       {!embedded ? (
@@ -87,11 +80,6 @@ export function ModelSettingsOverlay({
             <DialogTitle className="text-2xl font-medium text-foreground">
               <Trans>Models</Trans>
             </DialogTitle>
-            {description ? (
-              <DialogDescription className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
-                {description}
-              </DialogDescription>
-            ) : null}
           </div>
           <DialogClose
             render={<Button variant="ghost" size="icon-sm" aria-label={t`Close model settings`} />}
@@ -99,10 +87,6 @@ export function ModelSettingsOverlay({
             <X />
           </DialogClose>
         </DialogHeader>
-      ) : description ? (
-        <p className="px-6 pt-1 text-[13px] leading-[1.5] text-muted-foreground sm:px-8">
-          {description}
-        </p>
       ) : null}
 
       {me?.needsModel ? null : (

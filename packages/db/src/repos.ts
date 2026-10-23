@@ -1,5 +1,10 @@
 import type { Actor, Bot, BotSection, MessageBlock, SpaceBot } from "@rakazo/contracts";
-import { BOT_COLORS, canonicalPiProviderId, InstructionVersionSchema } from "@rakazo/contracts";
+import {
+  BOT_COLORS,
+  canonicalPiProviderId,
+  InstructionVersionSchema,
+  initialBotMemory,
+} from "@rakazo/contracts";
 import {
   BACKGROUND_RUN_TRIGGERS,
   displayName,
@@ -164,7 +169,7 @@ export function createRepos(
 
   async function listSpaceBotsForSpaces(actor: Actor, spaceIds: string[]): Promise<SpaceBot[]> {
     if (spaceIds.length === 0) return [];
-    const bots = await prisma.bot.findMany({
+    const rows = await prisma.bot.findMany({
       where: {
         spaceId: { in: spaceIds },
         userId: actor.userId,
@@ -183,12 +188,8 @@ export function createRepos(
         parentBotId: true,
         thread: {
           select: {
+            id: true,
             unread: true,
-            messages: {
-              orderBy: { seq: "desc" },
-              take: 1,
-              select: { blocks: true, createdAt: true },
-            },
             runs: latestBotRunSelection,
           },
         },
@@ -196,6 +197,7 @@ export function createRepos(
       },
       orderBy: [{ pinned: "desc" }, { position: "asc" }, { createdAt: "asc" }],
     });
+    const bots = await withNewestThreadMessages(prisma, rows, 1);
     return bots.map((bot) => {
       if (!bot.thread) throw new IsolationError("Bot is missing its thread");
       const activeRun = primaryActiveRun(bot.runs);
@@ -597,6 +599,7 @@ export function createRepos(
             await createThreadMessageInTransaction(tx, {
               threadId: thread.id,
               ...input.initialMessage,
+              markUnread: false,
             });
           }
           if (input.computerMode === "dedicated") {
@@ -623,7 +626,7 @@ export function createRepos(
               botId: created.id,
               scope: "bot",
               path: "MEMORY.md",
-              content: `# ${input.name}\n\n`,
+              content: initialBotMemory(input.name),
             },
           });
           return tx.bot.findFirstOrThrow({

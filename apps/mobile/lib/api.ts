@@ -11,6 +11,7 @@ import type {
   ModelCatalogEntry,
   ModelCredential,
   ReplyPreview,
+  RunStatus,
   Space,
   SpaceNavigation,
 } from "@rakazo/contracts";
@@ -29,6 +30,8 @@ import {
   displayIdentityEvent,
   displayIdentityResult,
   ensureAiDataConsent,
+  isActive,
+  isBackgroundRunTrigger,
   isRunTerminalEvent,
   isServerUnreachable,
   isUnreachableStatus,
@@ -41,11 +44,14 @@ import {
   reduceLiveMessageBlocks,
   replyMetadata,
   runFailureError,
+  settleRunSubagents,
   signupRequiresEmailVerification,
+  stopsRunHelpers,
   takeLiveMessage,
   updateCloudAgentMessages,
   upsertMessageById,
 } from "@rakazo/core";
+import { clientCorrelationHeaders, responseCorrelation } from "@rakazo/logging/monitoring";
 import * as SecureStore from "expo-secure-store";
 import { promptAiConsent } from "./ai-consent";
 import { getCachedAvatarStyle, saveAvatarStyle } from "./avatar-style";
@@ -54,6 +60,7 @@ import { defaultApiBase, normalizeApiBase } from "./endpoint";
 import { t } from "./i18n";
 import { identityLabels } from "./identity-display";
 import { resumeLiveNotifications } from "./live-notifications";
+import { reportMobileError } from "./monitoring";
 import {
   clearSessionToken,
   currentSessionGeneration,
@@ -826,6 +833,7 @@ export async function rpc<T>(
     )
       throw new Error(t("Something went wrong. Try again."));
     let res: Response;
+    const correlation = clientCorrelationHeaders();
     try {
       res = await fetch(`${consentContext?.apiBase ?? currentApiBase()}/rpc/${proc}`, {
         method: "POST",
@@ -833,6 +841,7 @@ export async function rpc<T>(
           "content-type": "application/json",
           origin: "rakazo://",
           ...requestHeaders,
+          ...correlation,
         },
         body: JSON.stringify({ json: body }),
         signal: controller.signal,
@@ -841,6 +850,8 @@ export async function rpc<T>(
       // The native fetch reports an aborted request with an implementation detail
       // ("FetchRequestCanceledException") and an unreachable server with a native stack
       // location; say what happened instead.
+      if (!controller.signal.aborted)
+        reportMobileError(error, "rpc.transport", responseCorrelation(new Headers(correlation)));
       throw requestError(error, controller.signal);
     }
     if (
@@ -1023,7 +1034,7 @@ export type MobileMe = Pick<
   | "needsModel"
   | "avatarStyle"
   | "isDeploymentOwner"
->;
+> & { billingEnabled?: boolean };
 
 export type MobileModel = ModelCatalogEntry;
 
@@ -1294,6 +1305,10 @@ export function applyMobileThreadEvent(
   event: ThreadEvent,
 ): MobileSnapshot | null {
   if (!prev || event.type === "heartbeat") return prev;
+  if (stopsRunHelpers(event)) {
+    const messages = settleRunSubagents(prev.messages, event.runId);
+    if (messages !== prev.messages) prev = { ...prev, messages };
+  }
   if (event.type === "thread.cleared") {
     return {
       ...prev,
@@ -1302,6 +1317,41 @@ export function applyMobileThreadEvent(
       olderCursor: null,
       run: null,
       activeRuns: [],
+    };
+  }
+  if (event.type === "run.started") {
+    const cursor = event.seq ?? prev.cursor;
+    // Match web: background ticket work stays out of the transcript.
+    if (isBackgroundRunTrigger(event.payload?.trigger as string | undefined)) {
+      return cursor === prev.cursor ? prev : { ...prev, cursor };
+    }
+    const members = prev.members?.map((member) =>
+      member.botId === event.botId ? { ...member, status: "running" } : member,
+    );
+    if (!event.runId) return { ...prev, cursor, members };
+    const previousRun =
+      prev.activeRuns?.find((candidate) => candidate.id === event.runId) ??
+      (prev.run?.id === event.runId ? prev.run : undefined);
+    const run = {
+      ...previousRun,
+      id: event.runId,
+      ...(event.botId ? { botId: event.botId } : {}),
+      status: "running",
+      error: null,
+    };
+    const activeRuns = [
+      ...(prev.activeRuns ?? (prev.run ? [prev.run] : [])).filter(
+        (candidate) => candidate.id !== run.id && isActive(candidate.status as RunStatus),
+      ),
+      run,
+    ];
+    return {
+      ...prev,
+      cursor,
+      members,
+      // Keep a group failure visible while another member starts work.
+      run: prev.groupId && prev.run?.status === "failed" && prev.run.id !== run.id ? prev.run : run,
+      activeRuns,
     };
   }
   if (event.type === "run.waiting_input" || event.type === "computer.takeover.requested") {

@@ -27,6 +27,7 @@ import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   answerWaitingRunWithTextInTransaction,
   appendEventInTransaction,
+  clearRunTurnCheckpoints,
   createGroupRepos,
   createRepos,
   createThreadMessageInTransaction,
@@ -245,6 +246,10 @@ export async function cancelSupersededQueuedRuns(
     where: { id: { in: superseded.map((run) => run.id) } },
     data: { status: "cancelled", completedAt: now },
   });
+  await clearRunTurnCheckpoints(
+    tx,
+    superseded.map((run) => run.id),
+  );
   await tx.task.updateMany({
     where: { id: { in: superseded.map((run) => run.taskId) } },
     data: { status: "cancelled" },
@@ -412,6 +417,8 @@ export async function threadSnapshot(
                       in: [
                         "thread.progress",
                         "thread.subagent",
+                        "run.waiting_input",
+                        "computer.takeover.requested",
                         "agent.tool.called",
                         "agent.tool.completed",
                       ],
@@ -429,7 +436,7 @@ export async function threadSnapshot(
       botId: target.botId,
       threadId: target.threadId,
       cursor: core.last?.seq ?? -1,
-      messages: messagesWithLiveEvents(core.messagePage.messages, core.liveEvents),
+      messages: messagesWithLiveEvents(core.messagePage.messages, core.liveEvents, core.activeRuns),
       olderCursor: core.messagePage.olderCursor,
       run: core.run ? mapRun(core.run) : null,
       activeRuns: core.activeRuns.map(mapRun),
@@ -482,6 +489,8 @@ export async function threadSnapshot(
                   in: [
                     "thread.progress",
                     "thread.subagent",
+                    "run.waiting_input",
+                    "computer.takeover.requested",
                     "agent.tool.called",
                     "agent.tool.completed",
                   ],
@@ -507,7 +516,7 @@ export async function threadSnapshot(
     members: target.members,
     threadId: target.threadId,
     cursor: core.last?.seq ?? -1,
-    messages: messagesWithLiveEvents(core.messagePage.messages, core.liveEvents),
+    messages: messagesWithLiveEvents(core.messagePage.messages, core.liveEvents, core.activeRuns),
     olderCursor: core.messagePage.olderCursor,
     // Match the live reducer: a failed latest terminal stays in run even while siblings are
     // still active or start late. A newer completed/cancelled terminal clears it.
@@ -560,8 +569,9 @@ function pickLatestTerminalRun<T extends { id: string; createdAt: Date; complete
 function messagesWithLiveEvents(
   persisted: ThreadSnapshot["messages"],
   liveEvents: Parameters<typeof projectMessages>[0],
+  runs: NonNullable<Parameters<typeof projectMessages>[1]>,
 ) {
-  const live = projectMessages(liveEvents).filter((message) => {
+  const live = projectMessages(liveEvents, runs).filter((message) => {
     if (message.blocks.some((block) => block.kind === "progress" || block.kind === "steps")) {
       return true;
     }
@@ -1272,6 +1282,7 @@ export async function stopThreadRuns(
       select: { id: true, botId: true },
     });
     const ids = cancelled.map((run) => run.id);
+    await clearRunTurnCheckpoints(tx, ids);
     await tx.steeringMessage.deleteMany({
       where: {
         botId: { in: target.kind === "bot" ? [target.botId] : target.memberBotIds },
@@ -1409,6 +1420,58 @@ export async function stopThreadRuns(
       executionLeaseExpiresAt: null,
     },
   });
+}
+
+/**
+ * Marks the thread read up to its latest message. Returns the seq the user had read up
+ * to before, or null when the chat wasn't unread or nothing new arrived; the first
+ * answer of a visit places the "New" divider. A message landing mid-update makes the
+ * conditional write miss, so it retries rather than marking that message read; a chat
+ * that stays that busy is read under the thread's row lock instead.
+ */
+export async function markThreadRead(
+  prisma: PrismaClient,
+  actor: Actor,
+  target: ThreadTarget,
+): Promise<number | null> {
+  const where = { id: target.threadId, spaceId: actor.spaceId, userId: actor.userId };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const thread = await prisma.thread.findFirst({
+      where,
+      select: { unread: true, lastReadSeq: true, nextMessageSeq: true },
+    });
+    if (!thread) return null;
+    const latestSeq = thread.nextMessageSeq - 1;
+    if (!thread.unread && thread.lastReadSeq >= latestSeq) return null;
+    const result = await prisma.thread.updateMany({
+      where: { ...where, lastReadSeq: thread.lastReadSeq, nextMessageSeq: thread.nextMessageSeq },
+      data: { unread: false, lastReadSeq: latestSeq },
+    });
+    if (result.count > 1) throw new IsolationError();
+    if (result.count === 1) return dividerSeq(thread, latestSeq);
+  }
+  // New messages take the same row lock, so none can land between this read and write.
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR UPDATE`;
+    const thread = await tx.thread.findFirst({
+      where,
+      select: { unread: true, lastReadSeq: true, nextMessageSeq: true },
+    });
+    if (!thread) return null;
+    const latestSeq = thread.nextMessageSeq - 1;
+    if (!thread.unread && thread.lastReadSeq >= latestSeq) return null;
+    const result = await tx.thread.updateMany({
+      where,
+      data: { unread: false, lastReadSeq: latestSeq },
+    });
+    if (result.count > 1) throw new IsolationError();
+    return dividerSeq(thread, latestSeq);
+  });
+}
+
+/** A chat only gets a divider when its unread dot was on, so replies seen live never do. */
+function dividerSeq(thread: { unread: boolean; lastReadSeq: number }, latestSeq: number) {
+  return thread.unread && thread.lastReadSeq < latestSeq ? thread.lastReadSeq : null;
 }
 
 export async function setThreadUnreadState(
