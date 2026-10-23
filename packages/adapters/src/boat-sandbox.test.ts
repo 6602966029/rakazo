@@ -1255,6 +1255,44 @@ describe("Boat computer snapshot", () => {
     expect(api.creates).toHaveLength(1);
   });
 
+  it("waits for a save already in progress instead of building again", async () => {
+    const api = new FakeBoatApi();
+    api.namedSnapshots.set(BOAT_COMPUTER_SNAPSHOT, {
+      name: BOAT_COMPUTER_SNAPSHOT,
+      status: "saving",
+      sourceSandboxId: "bx_other",
+      createdAt: new Date(0),
+    });
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
+
+    await expect(provider.buildComputerSnapshot()).resolves.toEqual({
+      name: BOAT_COMPUTER_SNAPSHOT,
+      built: false,
+    });
+    expect(api.creates).toEqual([]);
+  });
+
+  it("keeps using the snapshot after a boot is cancelled during its lookup", async () => {
+    const api = new FakeBoatApi();
+    const lookup = vi.spyOn(api, "getNamedSnapshot");
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
+    const cancelled = new AbortController();
+    lookup.mockImplementationOnce(async () => {
+      cancelled.abort(new Error("boot cancelled"));
+      throw cancelled.signal.reason;
+    });
+
+    await expect(
+      provider.provision(
+        { botId: "bot-a", homePath: "/unused" },
+        { ...context, signal: cancelled.signal },
+      ),
+    ).rejects.toThrow("boot cancelled");
+    await provision(provider);
+
+    expect(api.creates).toEqual([expect.objectContaining({ from: BOAT_COMPUTER_SNAPSHOT })]);
+  });
+
   it("does not save a snapshot whose desktop check fails", async () => {
     const api = new FakeBoatApi();
     api.namedSnapshots.clear();

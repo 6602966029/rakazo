@@ -65,10 +65,10 @@ const BOAT_TRANSFER_TIMEOUT_MS = 5 * 60_000;
 const BOAT_SNAPSHOT_BUILD_TIMEOUT_MS = 30 * 60_000;
 /** Boat archives an abandoned build sandbox soon after a crashed build. */
 const BOAT_SNAPSHOT_BUILD_TTL_SECONDS = 30 * 60;
-/** How long a process waits before looking again after a failed build or a lookup error. */
+/** How long a process waits before building again after a failed build. */
 const BOAT_SNAPSHOT_RETRY_MS = 15 * 60_000;
-/** How long a process waits for another process's save in progress. */
-const BOAT_SNAPSHOT_SAVING_RETRY_MS = 60_000;
+/** How long a process waits to look again after a failed lookup or while another saves it. */
+const BOAT_SNAPSHOT_LOOKUP_RETRY_MS = 60_000;
 
 /** The Boat API surface the adapter uses. Failures are the SDK's raw `ResponseError`s. */
 export type BoatSandboxSdk = Pick<
@@ -266,7 +266,10 @@ export class BoatSandboxProvider implements SandboxProvider {
     signal: AbortSignal = AbortSignal.timeout(BOAT_SNAPSHOT_BUILD_TIMEOUT_MS),
   ): Promise<{ name: string; built: boolean }> {
     const name = BOAT_COMPUTER_SNAPSHOT;
-    if ((await this.namedSnapshot(name, signal))?.status === "ready") return { name, built: false };
+    // A save already in progress, from another process or an earlier run, may finish it.
+    if ((await this.settledSnapshot(name, signal))?.status === "ready") {
+      return { name, built: false };
+    }
     const { sandbox } = await this.client.create(
       { createSandboxRequest: { ttlSeconds: BOAT_SNAPSHOT_BUILD_TTL_SECONDS, noEnv: true } },
       { signal },
@@ -285,18 +288,27 @@ export class BoatSandboxProvider implements SandboxProvider {
         { namedSnapshotSaveRequest: { sandboxId: sandbox.id, name } },
         { signal },
       );
-      while (true) {
-        const snapshot = await this.namedSnapshot(name, signal);
-        if (snapshot?.status === "ready") return { name, built: true };
-        if (snapshot?.status === "failed" || !snapshot) {
-          throw new Error(`Boat could not save snapshot ${name}`, {
-            cause: snapshot?.error ? new Error(snapshot.error) : undefined,
-          });
-        }
-        await delay(2_000, undefined, { signal });
+      const snapshot = await this.settledSnapshot(name, signal);
+      if (snapshot?.status !== "ready") {
+        throw new Error(`Boat could not save snapshot ${name}`, {
+          cause: snapshot?.error ? new Error(snapshot.error) : undefined,
+        });
       }
+      return { name, built: true };
     } finally {
       await this.client.deleteSandbox(sandbox.id).catch(() => undefined);
+    }
+  }
+
+  /** The named snapshot once any save in progress has finished, or undefined when absent. */
+  private async settledSnapshot(
+    name: string,
+    signal: AbortSignal,
+  ): Promise<NamedSnapshot | undefined> {
+    while (true) {
+      const snapshot = await this.namedSnapshot(name, signal);
+      if (snapshot?.status !== "saving") return snapshot;
+      await delay(2_000, undefined, { signal });
     }
   }
 
@@ -310,8 +322,10 @@ export class BoatSandboxProvider implements SandboxProvider {
     let snapshot: NamedSnapshot | undefined;
     try {
       snapshot = await this.namedSnapshot(BOAT_COMPUTER_SNAPSHOT, signal);
-    } catch {
-      this.baseSnapshotRetryAt = Date.now() + BOAT_SNAPSHOT_RETRY_MS;
+    } catch (error) {
+      // A cancelled boot says nothing about the snapshot.
+      if (signal.aborted) throw error;
+      this.baseSnapshotRetryAt = Date.now() + BOAT_SNAPSHOT_LOOKUP_RETRY_MS;
       return undefined;
     }
     if (snapshot?.status === "ready") {
@@ -320,7 +334,7 @@ export class BoatSandboxProvider implements SandboxProvider {
     }
     if (snapshot?.status === "saving") {
       // Another process is saving it.
-      this.baseSnapshotRetryAt = Date.now() + BOAT_SNAPSHOT_SAVING_RETRY_MS;
+      this.baseSnapshotRetryAt = Date.now() + BOAT_SNAPSHOT_LOOKUP_RETRY_MS;
       return undefined;
     }
     this.computerSnapshotMissing();
