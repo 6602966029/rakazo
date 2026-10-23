@@ -51,11 +51,11 @@ export function BotLookPicker({
   return (
     <div className="space-y-4">
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <div className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-            <Trans>Shape</Trans>
-          </div>
-          {organicIdentities ? null : (
+        {organicIdentities ? null : (
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+              <Trans>Shape</Trans>
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -74,8 +74,8 @@ export function BotLookPicker({
             >
               <Trans>Default</Trans>
             </Button>
-          )}
-        </div>
+          </div>
+        )}
         <div
           className={`grid place-items-center gap-2 ${organicIdentities ? "grid-cols-4 sm:grid-cols-8 sm:gap-1" : "grid-cols-4"}`}
         >
@@ -102,9 +102,11 @@ export function BotLookPicker({
       </div>
 
       <div className="border-t border-border pt-2">
-        <div className="mb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-          <Trans>Color</Trans>
-        </div>
+        {organicIdentities ? null : (
+          <div className="mb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+            <Trans>Color</Trans>
+          </div>
+        )}
         <div className="grid grid-cols-6 place-items-center gap-2">
           {BOT_AVATAR_COLORS.map((color) => {
             const selected = currentColor.toLowerCase() === color.toLowerCase() && !parsed.isImage;
