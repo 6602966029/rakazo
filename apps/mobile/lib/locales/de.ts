@@ -1,4 +1,6 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Allow cross-space bot communication":
+    "Kommunikation zwischen Bots in verschiedenen Spaces erlauben",
   Export: "Exportieren",
   "Edit avatar": "Avatar bearbeiten",
   "Add open work": "Offene Aufgabe hinzufügen",

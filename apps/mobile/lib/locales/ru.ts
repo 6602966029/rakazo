@@ -1,4 +1,5 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Allow cross-space bot communication": "Разрешить общение ботов из разных пространств",
   Export: "Экспорт",
   "Edit avatar": "Изменить аватар",
   "Add open work": "Добавить задачу",

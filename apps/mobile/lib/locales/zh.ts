@@ -1,4 +1,5 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Allow cross-space bot communication": "允许跨空间机器人通信",
   Export: "导出",
   "Edit avatar": "编辑头像",
   "Add open work": "添加待办事项",
