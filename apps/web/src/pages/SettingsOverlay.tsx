@@ -41,19 +41,8 @@ import {
 import { BillingSettingsPanel } from "./BillingSettingsPanel";
 import { MemorySettingsOverlay } from "./MemorySettingsOverlay";
 import { ModelSettingsOverlay } from "./ModelSettingsOverlay";
+import type { SettingsSection } from "./shell-overlay";
 import { VoiceSettingsOverlay } from "./VoiceSettingsOverlay";
-
-export type SettingsSection =
-  | "general"
-  | "models"
-  | "memory"
-  | "voice"
-  | "confirmations"
-  | "members"
-  | "usage"
-  | "computer"
-  | "billing"
-  | "updates";
 
 /** Sections whose settings belong to a space; only these show the space picker. */
 const SPACE_SECTIONS: ReadonlySet<SettingsSection> = new Set([
@@ -79,7 +68,8 @@ export function SettingsOverlay({
   name,
   usage,
   onUsageOpen,
-  initialSection = "general",
+  section: requestedSection,
+  onSectionChange,
   timezone,
   onTimezoneChange,
   billingEnabled = false,
@@ -108,7 +98,8 @@ export function SettingsOverlay({
     totalTokens?: number | null;
   } | null;
   onUsageOpen: () => void;
-  initialSection?: SettingsSection;
+  section: SettingsSection;
+  onSectionChange: (section: SettingsSection) => void;
   timezone: string | null;
   onTimezoneChange: (timezone: string) => Promise<void>;
   billingEnabled?: boolean;
@@ -129,13 +120,19 @@ export function SettingsOverlay({
   const [nav, setNav] = useState<HTMLElement | null>(null);
   const [navOverflow, setNavOverflow] = useState({ previous: false, next: false });
   const usageRef = useRef<HTMLDivElement>(null);
-  const [section, setSection] = useState<SettingsSection>(initialSection);
   const [memoryBusy, setMemoryBusy] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [keepComputerRecovery, setKeepComputerRecovery] = useState(false);
   const recoveryHoldTimer = useRef<number | undefined>(undefined);
   const showComputer = keepComputerRecovery || computersAreUnavailable(sandboxProvider);
   const showUpdates = Boolean(desktopBridge()?.update);
+  // A section that isn't available yet (billing before its flag loads) shows General until it is.
+  const section =
+    (requestedSection === "computer" && !showComputer) ||
+    (requestedSection === "billing" && !billingEnabled) ||
+    (requestedSection === "updates" && !showUpdates)
+      ? "general"
+      : requestedSection;
   const panelBusy = memoryBusy || voiceBusy;
   const spaceScoped = SPACE_SECTIONS.has(section);
   const spaceId = spaceScoped ? (space?.id ?? null) : null;
@@ -186,22 +183,6 @@ export function SettingsOverlay({
       setKeepComputerRecovery(false);
     }, 4000);
   }, []);
-
-  useEffect(() => {
-    setSection(initialSection);
-  }, [initialSection]);
-
-  useEffect(() => {
-    if (!showComputer && section === "computer") setSection("general");
-  }, [showComputer, section]);
-
-  useEffect(() => {
-    if (!billingEnabled && section === "billing") setSection("general");
-  }, [billingEnabled, section]);
-
-  useEffect(() => {
-    if (!showUpdates && section === "updates") setSection("general");
-  }, [showUpdates, section]);
 
   useEffect(() => {
     if (section !== "computer") releaseComputerRecovery();
@@ -280,9 +261,11 @@ export function SettingsOverlay({
     await onVoiceStatusMaybeChanged?.();
   }
 
+  // Leaving is immediate, so the URL updates in the same tick; voice readiness refreshes behind it.
   function leaveSettings(next: () => void) {
     if (panelBusy) return;
-    void refreshVoiceStatus().finally(next);
+    void refreshVoiceStatus();
+    next();
   }
 
   function requestClose() {
@@ -340,7 +323,7 @@ export function SettingsOverlay({
                     data-testid={`settings-nav-${item.id}`}
                     aria-current={active ? "page" : undefined}
                     disabled={panelBusy}
-                    onClick={() => setSection(item.id)}
+                    onClick={() => onSectionChange(item.id)}
                     className={`flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-[13.5px] transition-colors disabled:pointer-events-none disabled:opacity-50 ${
                       active
                         ? "bg-muted text-foreground"
