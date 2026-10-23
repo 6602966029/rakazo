@@ -414,3 +414,34 @@ it.each(["in", "up"])(
     expect(input("Password")!.type).toBe("password");
   },
 );
+
+it("hides a revealed password after switching authentication methods", async () => {
+  vi.mocked(passwordResetCapabilities).mockResolvedValue({ ...capabilities, emailCode: true });
+  await render();
+  await press("Use password");
+  await type(input("Password")!, "example-password");
+  await act(async () =>
+    host.querySelector<HTMLButtonElement>('button[aria-label="Show password"]')!.click(),
+  );
+  expect(input("Password")!.type).toBe("text");
+
+  await press("Use email code");
+  expect(input("Password")).toBeNull();
+  await press("Use password");
+  expect(input("Password")!.type).toBe("password");
+  expect(input("Password")!.value).toBe("example-password");
+});
+
+it("hides a revealed password after switching servers", async () => {
+  await render();
+  await type(input("Password")!, "example-password");
+  await act(async () =>
+    host.querySelector<HTMLButtonElement>('button[aria-label="Show password"]')!.click(),
+  );
+  expect(input("Password")!.type).toBe("text");
+
+  server.base = "https://other.invalid";
+  await act(async () => server.refocus());
+  expect(input("Password")!.type).toBe("password");
+  expect(input("Password")!.value).toBe("example-password");
+});
