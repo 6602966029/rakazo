@@ -246,7 +246,7 @@ import {
   subscribeSessionGeneration,
 } from "../lib/session";
 import { setInboxHidden, useSplitView } from "../lib/split-view";
-import { threadEdgeOptions, threadHeaderFloats } from "../lib/thread-edges";
+import { threadEdgeOptions, threadHeaderClearance, threadHeaderFloats } from "../lib/thread-edges";
 import type { SendAttempt } from "../lib/thread-feedback";
 import { subscribeDelivered, useThreadFeedback } from "../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../lib/thread-jump";
@@ -456,6 +456,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const { split, inboxHidden, contentWidth: windowWidth } = useSplitView();
   const nativeHeaderHeight = useHeaderHeight();
   const headerHeight = threadHeaderFloats() ? nativeHeaderHeight : 0;
+  const headerClearance = threadHeaderClearance(headerHeight);
   const insets = useSafeAreaInsets();
   // An unfolded or tablet window keeps messages and the composer in a centred reading column.
   const columnInsets = readableGutters(windowWidth, {
@@ -2266,7 +2267,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     if (jumpAnchor.current.holds() && !targetDrawn) {
       jumpAnchor.current.release();
       jumpScrollTarget.current = null;
-    } else if (jumpAnchor.current.blocksPaging(targetDrawn, headerHeight + 24)) {
+    } else if (jumpAnchor.current.blocksPaging(targetDrawn, headerClearance.anchor)) {
       return;
     }
     const { offset, viewport, content } = pinnedScrollMetrics.current;
@@ -2379,14 +2380,19 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       });
     },
     layout: (messageId, y, index) => {
-      const offset = jumpAnchor.current.onMessageLayout(messageId, y, index, headerHeight + 24);
+      const offset = jumpAnchor.current.onMessageLayout(
+        messageId,
+        y,
+        index,
+        headerClearance.anchor,
+      );
       if (offset == null) return;
       scrollPinnedTo(offset);
       setHighlightedMessageId(messageId);
       if (highlightTimer.current) clearTimeout(highlightTimer.current);
       highlightTimer.current = setTimeout(() => setHighlightedMessageId(null), 1200);
       requestAnimationFrame(() => {
-        const again = jumpAnchor.current.align(headerHeight + 24);
+        const again = jumpAnchor.current.align(headerClearance.anchor);
         if (again != null) scrollPinnedTo(again);
       });
     },
@@ -2462,6 +2468,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           canDismiss={dismissableAskIds.has(message.id)}
           highlighted={highlightedMessageId === message.id}
           separator={separatorIds.has(message.id)}
+          headerAdjacent={threadHeaderFloats() && message.id === visibleMessages[0]?.id}
           unreadDivider={message.id === unreadDividerId}
           replyAuthor={replyAuthor}
           replyFallbackText={parent ? previewMessageText(parent) : undefined}
@@ -2506,6 +2513,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       dismissableAskIds,
       highlightedMessageId,
       separatorIds,
+      visibleMessages[0]?.id,
       unreadDividerId,
       columnWidth,
       t,
@@ -2515,7 +2523,14 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<ThreadItem<MobileMessage>>) =>
       item.kind === "voiceChat" ? (
-        <View style={messageListStyles.row}>
+        <View
+          style={[
+            messageListStyles.row,
+            threadHeaderFloats() && item.messages[0]?.id === visibleMessages[0]?.id
+              ? { marginTop: 0 }
+              : undefined,
+          ]}
+        >
           {item.messages[0] && separatorIds.has(item.messages[0].id) ? (
             <TimeSeparator createdAt={item.messages[0].createdAt} />
           ) : null}
@@ -2529,14 +2544,14 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       ) : (
         renderMessageRow(item.message)
       ),
-    [renderMessageRow, separatorIds, unreadDividerId],
+    [renderMessageRow, separatorIds, unreadDividerId, visibleMessages[0]?.id],
   );
   const listContentStyle = useMemo(
     () => ({
-      paddingBottom: headerHeight + 8,
+      paddingBottom: headerClearance.padding,
       paddingTop: readOnly ? insets.bottom + 16 : 16,
     }),
-    [headerHeight, readOnly, insets.bottom],
+    [headerClearance.padding, readOnly, insets.bottom],
   );
 
   const workingFooter =
@@ -2651,7 +2666,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         }}
       >
         {/* The floor keeps a tall suggestion list from sliding under the transparent header. */}
-        <View style={{ flex: 1, minHeight: headerHeight, position: "relative" }}>
+        <View style={{ flex: 1, minHeight: headerClearance.minHeight, position: "relative" }}>
           {showPinnedPage ? (
             <ThreadScrollSurface
               key={`pinned:${jumpScrollTarget.current ?? pinnedTarget?.messageId ?? threadKey}`}
@@ -2663,7 +2678,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
                 // A pinned page always shows the floating jump button (44pt, 12pt from the
                 // bottom), so its last message must be able to scroll clear of it.
                 contentContainerStyle={{
-                  paddingTop: headerHeight + 8,
+                  paddingTop: headerClearance.padding,
                   paddingBottom: 12 + 44 + 16,
                 }}
                 keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
@@ -2675,7 +2690,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
                 }}
                 onContentSizeChange={(_, height) => {
                   pinnedScrollMetrics.current.content = height;
-                  const jumpOffset = jumpAnchor.current.align(headerHeight + 24);
+                  const jumpOffset = jumpAnchor.current.align(headerClearance.anchor);
                   if (jumpOffset != null) scrollPinnedTo(jumpOffset);
                   const armedAt = joinPinnedAfterLayout.current;
                   if (armedAt != null && height !== armedAt) {
@@ -3060,7 +3075,10 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           />
         ) : null}
         {headerHeight > 0 ? (
-          <View pointerEvents="none" style={[styles.headerFade, { height: headerHeight }]}>
+          <View
+            pointerEvents="none"
+            style={[styles.headerFade, { height: headerClearance.opaqueHeight }]}
+          >
             <View style={styles.headerFadeEdge} />
           </View>
         ) : null}
@@ -3256,6 +3274,7 @@ type MessageRowProps = {
   canDismiss: boolean;
   highlighted: boolean;
   separator: boolean;
+  headerAdjacent: boolean;
   unreadDivider: boolean;
   replyAuthor: string;
   replyFallbackText?: string;
@@ -3296,6 +3315,7 @@ const MessageRow = memo(function MessageRow({
   canDismiss,
   highlighted,
   separator,
+  headerAdjacent,
   unreadDivider,
   replyAuthor,
   replyFallbackText,
@@ -3510,7 +3530,7 @@ const MessageRow = memo(function MessageRow({
       onLayout={onLayout}
       style={{
         backgroundColor: highlighted ? tokens.muted : undefined,
-        marginTop: 12,
+        marginTop: headerAdjacent ? 0 : 12,
         width: "100%",
       }}
     >
