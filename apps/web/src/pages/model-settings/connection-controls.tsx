@@ -311,13 +311,13 @@ export function ConnectionControls({
               />
             </label>
           ) : null}
-          {acceptsKey && selected?.catalogProbe ? (
-            <>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {acceptsKey && selected?.catalogProbe ? (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="mt-3 rounded-full"
+                className="rounded-full"
                 disabled={busy || preflightTesting || apiKey.trim().length < 8}
                 onClick={() => void testApiKeyConnection()}
               >
@@ -326,27 +326,27 @@ export function ConnectionControls({
                   "api-key",
                 )}
               </Button>
-              {preflightTarget === "api-key" ? (
-                <ModelPreflightFeedback success={preflightSuccess} failure={preflightFailure} />
-              ) : null}
-            </>
+            ) : null}
+            <Button
+              type="button"
+              variant="secondary"
+              className="rounded-full"
+              size="sm"
+              disabled={busy || !cloudflareRoutingReady || apiKey.trim().length < 8}
+              onClick={() => void connectKey()}
+            >
+              {pending === "connect" ? (
+                <Trans>Saving…</Trans>
+              ) : credential ? (
+                <Trans>Replace API key</Trans>
+              ) : (
+                <Trans>Connect API key</Trans>
+              )}
+            </Button>
+          </div>
+          {preflightTarget === "api-key" ? (
+            <ModelPreflightFeedback success={preflightSuccess} failure={preflightFailure} />
           ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            className="mt-3 rounded-full"
-            size="sm"
-            disabled={busy || !cloudflareRoutingReady || apiKey.trim().length < 8}
-            onClick={() => void connectKey()}
-          >
-            {pending === "connect" ? (
-              <Trans>Saving…</Trans>
-            ) : credential ? (
-              <Trans>Replace API key</Trans>
-            ) : (
-              <Trans>Connect API key</Trans>
-            )}
-          </Button>
         </div>
       ) : null}
 

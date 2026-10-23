@@ -121,6 +121,7 @@ test("settings preflight distinguishes a stored API key from sign-in", async ({
   await page.getByPlaceholder("Search providers").fill("Anthropic");
   await settings.getByRole("button").filter({ hasText: "Anthropic" }).first().click();
   await expect(settings.getByRole("button", { name: "Test connection" })).toBeDisabled();
+  await captureScreenshot(page, testInfo, "settings-subscription-unconnected");
   await expect(settings.getByRole("button", { name: "Test API key" })).toHaveCount(0);
   await settings.getByLabel(/API key/).fill("sk-anthropic-test");
   await settings.getByRole("button", { name: "Connect API key" }).click();
