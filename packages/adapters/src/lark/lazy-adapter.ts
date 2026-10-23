@@ -62,7 +62,7 @@ export class LazyLarkAdapter extends LarkAdapterBase implements Adapter {
   private load() {
     this.loaded ??= (async () => {
       const { createLarkAdapter } = await import("./lark-adapter.js");
-      this.implementation = createLarkAdapter(this.config);
+      this.implementation = await createLarkAdapter(this.config);
       return this.implementation;
     })();
     return this.loaded;

@@ -296,6 +296,54 @@ describe("Lark messaging conformance", () => {
     ]);
   });
 
+  it.each<[string, unknown, string]>([
+    [
+      "direct with title first",
+      { title: "Title", content: [[{ tag: "text", text: "Hello" }]] },
+      "# Title\nHello",
+    ],
+    ["direct without title", { content: [[{ tag: "text", text: "Hello" }]] }, "Hello"],
+    [
+      "direct with empty title",
+      { title: "", content: [[{ tag: "text", text: "Hello" }]] },
+      "Hello",
+    ],
+    ...["zh_cn", "en_us", "ja_jp"].flatMap<[string, unknown, string]>((locale) => {
+      const post = { [locale]: { title: "Title", content: [[{ tag: "text", text: "Hello" }]] } };
+      return [
+        [locale, post, "# Title\nHello"],
+        [`post.${locale}`, { post }, "# Title\nHello"],
+      ];
+    }),
+    [
+      "unsupported tags",
+      {
+        en_us: {
+          title: "",
+          content: [
+            [
+              { tag: "text", text: "Hello" },
+              { tag: "img", image_key: "test-image", text: "ignored" },
+              { tag: "unknown", text: "ignored" },
+              { tag: "at", user_name: "Test bot" },
+            ],
+          ],
+        },
+      },
+      "Hello@Test bot",
+    ],
+  ])("parses rich-text posts: %s", async (_name, content, expected) => {
+    const { surface, adapter } = createSurface();
+    await surface.handleWebhook(
+      "lark",
+      webhook({ type: "url_verification", token, challenge: "test" }),
+    );
+    const payload = message();
+    payload.event.message.message_type = "post";
+    payload.event.message.content = JSON.stringify(content);
+    expect(adapter.parseMessage(payload.event).text).toBe(expected);
+  });
+
   it("uses the selected API origin and keeps typing passive", async () => {
     const adapter = new LazyLarkAdapter({
       appId: "test-app",

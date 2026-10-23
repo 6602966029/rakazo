@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { AESCipher, Client, LoggerLevel } from "@larksuiteoapi/node-sdk";
+import type * as LarkSdk from "@larksuiteoapi/node-sdk";
 import type { Adapter, AdapterPostableMessage, ChatInstance, WebhookOptions } from "chat";
 import { Message, parseMarkdown } from "chat";
 import type { LarkAdapterConfig } from "./lazy-adapter.js";
@@ -32,20 +32,23 @@ interface LarkMessageEvent {
 /** Webhook-only direct messaging; the SDK owns HTTP, domains and tenant tokens. */
 export class LarkAdapter extends LarkAdapterBase implements Adapter {
   readonly name = "lark";
-  private readonly client: Client;
+  private readonly client: LarkSdk.Client;
   private chat: ChatInstance | undefined;
   private botId = "";
   private botName = "lark";
   private readonly directChats = new Set<string>();
   private readonly users = new Map<string, string>();
 
-  constructor(readonly config: LarkAdapterConfig) {
+  constructor(
+    readonly config: LarkAdapterConfig,
+    private readonly sdk: typeof LarkSdk,
+  ) {
     super();
-    this.client = new Client({
+    this.client = new sdk.Client({
       appId: config.appId,
       appSecret: config.appSecret,
       domain: config.domain,
-      loggerLevel: LoggerLevel.error,
+      loggerLevel: sdk.LoggerLevel.error,
       ...(config.httpInstance ? { httpInstance: config.httpInstance } : {}),
     });
   }
@@ -96,7 +99,9 @@ export class LarkAdapter extends LarkAdapterBase implements Adapter {
     if (payload.encrypt) {
       if (!this.config.encryptKey) return forbidden();
       try {
-        payload = JSON.parse(new AESCipher(this.config.encryptKey).decrypt(payload.encrypt));
+        payload = JSON.parse(
+          new this.sdk.AESCipher(this.config.encryptKey).decrypt(payload.encrypt),
+        );
       } catch {
         return forbidden();
       }
@@ -258,7 +263,9 @@ function inboundText(content: string, type: string): string {
     const parsed = JSON.parse(content);
     if (typeof parsed.text === "string") return parsed.text;
     const posts = parsed.post ?? parsed;
-    const post = posts.zh_cn ?? posts.en_us ?? Object.values(posts)[0];
+    const post = Array.isArray(posts.content)
+      ? posts
+      : (posts.zh_cn ?? posts.en_us ?? Object.values(posts)[0]);
     if (!post || typeof post !== "object") return "";
     const rich = post as {
       title?: string;
@@ -273,7 +280,9 @@ function inboundText(content: string, type: string): string {
               ? `[${item.text ?? ""}](${item.href ?? ""})`
               : item.tag === "at"
                 ? `@${item.user_name ?? "unknown"}`
-                : (item.text ?? ""),
+                : item.tag === "text"
+                  ? (item.text ?? "")
+                  : "",
           )
           .join(""),
       ),
@@ -284,6 +293,7 @@ function inboundText(content: string, type: string): string {
     return content;
   }
 }
-export function createLarkAdapter(config: LarkAdapterConfig) {
-  return new LarkAdapter(config);
+export async function createLarkAdapter(config: LarkAdapterConfig) {
+  const sdk = await import("@larksuiteoapi/node-sdk");
+  return new LarkAdapter(config, sdk);
 }

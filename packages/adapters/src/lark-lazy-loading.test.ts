@@ -59,7 +59,7 @@ describe("Lark lazy loading", () => {
     expect(implementationLoaded).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps SDK and implementation value imports inside the Lark boundary", () => {
+  it("forbids static SDK value imports and keeps implementation imports inside the Lark boundary", () => {
     const root = new URL("../../../", import.meta.url);
     for (const dir of ["packages", "apps"]) {
       const base = new URL(`${dir}/`, root);
@@ -69,17 +69,20 @@ describe("Lark lazy loading", () => {
           file.includes("node_modules") ||
           file.includes("/dist/") ||
           file.includes("/generated/") ||
-          file.includes(".test.") ||
-          file.includes("/src/lark/")
+          file.includes(".test.")
         )
           continue;
         const source = readFileSync(join(base.pathname, file), "utf8");
         expect(
-          source.match(
-            /import\s+(?!type\b)[^;]*?from\s*["'][^"']*(?:@larksuiteoapi\/node-sdk|lark-adapter\.js)["']/g,
-          ),
+          source.match(/import\s+(?!type\b)(?:[^;]*?from\s*)?["']@larksuiteoapi\/node-sdk["']/g),
           `${dir}/${file}`,
         ).toBeNull();
+        if (!file.includes("/src/lark/")) {
+          expect(
+            source.match(/import\s+(?!type\b)[^;]*?from\s*["'][^"']*lark-adapter\.js["']/g),
+            `${dir}/${file}`,
+          ).toBeNull();
+        }
       }
     }
   });
