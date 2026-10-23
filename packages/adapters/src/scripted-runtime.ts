@@ -659,6 +659,8 @@ function shouldFail(prompt: string): boolean {
 
 /** The error a failing run throws; "overloaded" sends the body Anthropic returns with a 529. */
 function scriptedFailure(prompt: string): string {
+  if (/\bfixed context\b/i.test(prompt))
+    return "Required instructions and tools exceed the model context budget";
   return /\boverloaded\b/i.test(prompt)
     ? '529: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}'
     : "Scripted run failure";

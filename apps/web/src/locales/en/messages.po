@@ -5535,3 +5535,8 @@ msgstr "Your voice provider is out of credit."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Your voice provider key was rejected."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
+msgstr "This model cannot fit the required instructions and tools. Choose a model with a larger context window."

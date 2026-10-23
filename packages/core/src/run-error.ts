@@ -145,6 +145,12 @@ export function normalizeRunError(
         });
       }
     }
+  } else if (message === "Required instructions and tools exceed the model context budget") {
+    recovery = "model";
+    kind = "model";
+    summary = translate(
+      "This model cannot fit the required instructions and tools. Choose a model with a larger context window.",
+    );
   } else if (
     status === 413 ||
     /context[_ -](?:length|window)|maximum context|exceeds the model context|prompt is too long|too many tokens|request too large/i.test(

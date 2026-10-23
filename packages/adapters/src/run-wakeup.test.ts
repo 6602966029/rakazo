@@ -2,14 +2,16 @@ import type { BackgroundJobHandlers, JobPublisher } from "@rakazo/adapter-kit";
 import { runContinueJob } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { currentDbContext } from "@rakazo/db";
+import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { InMemoryRealtimeFanout } from "./realtime.js";
+import { RunExecutionHost } from "./run-execution.js";
 import { RunJobPublisher, RunWorkerHost, withRunWorker } from "./run-wakeup.js";
 
 afterEach(() => vi.useRealTimers());
 
 function fixture() {
-  const rows = new Map<string, { status: string; wakeAt: Date | null }>();
+  const rows = new Map<string, { status: string; wakeAt: Date | null; trigger?: string }>();
   const updateMany = vi.fn(async ({ where, data }) => {
     const row = rows.get(where.id);
     if (!row || !where.status.in.includes(row.status) || (where.wakeAt === null && row.wakeAt))
@@ -17,16 +19,26 @@ function fixture() {
     Object.assign(row, data);
     return { count: 1 };
   });
-  const findMany = vi.fn(async () =>
-    [...rows]
-      .filter(
-        ([, row]) => row.status === "queued" && (!row.wakeAt || row.wakeAt.getTime() <= Date.now()),
-      )
-      .map(([id]) => ({ id, botId: id, bot: { computerId: "computer" } })),
+  const findMany = vi.fn(
+    async (args: { where: { trigger: { in?: string[]; notIn?: string[] } } }) =>
+      [...rows]
+        .filter(
+          ([, row]) =>
+            row.status === "queued" &&
+            (!row.wakeAt || row.wakeAt.getTime() <= Date.now()) &&
+            (args.where.trigger.in
+              ? args.where.trigger.in.includes(row.trigger ?? "user")
+              : !args.where.trigger.notIn!.includes(row.trigger ?? "user")),
+        )
+        .map(([id]) => ({ id, botId: id, bot: { computerId: "computer" } })),
   );
   const leases = vi.fn(async () => [] as { computerId: string; botId: string; runId: string }[]);
+  const aggregate = vi.fn(async () => ({
+    _count: { _all: 0 },
+    _min: { createdAt: null as Date | null },
+  }));
   const prisma = {
-    run: { updateMany, findMany },
+    run: { updateMany, findMany, aggregate },
     computerExecutionLease: { findMany: leases },
   } as unknown as PrismaClient;
   const realtime = new InMemoryRealtimeFanout();
@@ -37,10 +49,98 @@ function fixture() {
   } as unknown as JobPublisher;
   const publisher = new RunJobPublisher(prisma, realtime, background);
   const host = new RunWorkerHost(prisma, realtime, { intervalMs: 100 });
-  return { rows, prisma, realtime, background, publisher, host, findMany, updateMany, leases };
+  return {
+    rows,
+    prisma,
+    realtime,
+    background,
+    publisher,
+    host,
+    findMany,
+    updateMany,
+    leases,
+    aggregate,
+  };
 }
 
 describe("durable direct run wakeups", () => {
+  it("keeps scanning under capacity pressure and considers new chats before timer backlog", async () => {
+    const f = fixture();
+    f.rows.set("timer", { status: "queued", wakeAt: null, trigger: "routine" });
+    const admission = vi.spyOn(RunExecutionHost.prototype, "execute").mockResolvedValue(false);
+    const entered: string[] = [];
+    try {
+      await f.host.start({
+        "run.continue": async ({ runId }) => {
+          entered.push(runId);
+          f.rows.get(runId)!.status = "completed";
+        },
+      } as BackgroundJobHandlers);
+      await vi.waitFor(() => expect(admission.mock.calls.length).toBeGreaterThan(1));
+      expect(entered).toEqual([]);
+      expect(f.rows.get("timer")!.status).toBe("queued");
+      f.rows.set("chat", { status: "queued", wakeAt: null });
+      admission.mockRestore();
+      await f.publisher.enqueue(runContinueJob("chat"));
+      await vi.waitFor(() => expect(entered).toEqual(["chat", "timer"]));
+    } finally {
+      admission.mockRestore();
+      await f.host.stop();
+    }
+  });
+
+  it("does not rescan an exhausted lane while another lane finishes its sweep", async () => {
+    vi.useFakeTimers();
+    const f = fixture();
+    const counts = { interactive: 0, background: 0 };
+    f.findMany.mockImplementation(async ({ where }) => {
+      const lane = where.trigger.in ? "background" : "interactive";
+      const page = counts[lane]++;
+      if (page >= (lane === "interactive" ? 1 : 2)) return [];
+      return Array.from({ length: 100 }, (_, index) => ({
+        id: `${lane}-${page}-${index}`,
+        createdAt: new Date(page * 100 + index),
+        botId: `${lane}-${index}`,
+        bot: { computerId: "computer" },
+      }));
+    });
+    const admission = vi.spyOn(RunExecutionHost.prototype, "execute").mockResolvedValue(false);
+    try {
+      await f.host.start({} as BackgroundJobHandlers);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(counts).toEqual({ interactive: 2, background: 3 });
+    } finally {
+      admission.mockRestore();
+      await f.host.stop();
+    }
+  });
+
+  it("reports aged interactive queues and recovery without blocking dispatch", async () => {
+    vi.useFakeTimers();
+    const f = fixture();
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "test", sinks: [sink] }));
+    f.aggregate.mockResolvedValue({
+      _count: { _all: 2 },
+      _min: { createdAt: new Date(Date.now() - 60_000) },
+    });
+    try {
+      await f.host.start({} as BackgroundJobHandlers);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sink.events.filter((event) => event.message === "run.queue_delayed")).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(29_000);
+      expect(f.aggregate).toHaveBeenCalledTimes(1);
+      f.aggregate.mockResolvedValue({ _count: { _all: 0 }, _min: { createdAt: null } });
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(sink.events.filter((event) => event.message === "run.queue_recovered")).toHaveLength(
+        1,
+      );
+    } finally {
+      await f.host.stop();
+      installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+    }
+  });
+
   it("leaves busy runs untouched, dispatches unrelated chats, and recovers when the lease releases", async () => {
     const f = fixture();
     f.rows.set("busy", { status: "queued", wakeAt: null });

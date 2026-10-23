@@ -154,3 +154,20 @@ test("an overloaded provider is named instead of a generic error", async ({ page
   await expect(error).not.toContainText("The model provider returned an error.");
   await captureScreenshot(page, testInfo, "overloaded-run-error");
 });
+
+test("a model too small for required instructions offers a model change", async ({
+  page,
+}, testInfo) => {
+  await signup(page, `context-run-${Date.now()}@rakazo.test`, "password12", "Context Run");
+  await completeOnboarding(page);
+  await page.getByPlaceholder(/^Message /).fill("fail this run with fixed context");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  const error = page.getByTestId("composer-error");
+  await expect(error).toContainText(
+    "This model cannot fit the required instructions and tools. Choose a model with a larger context window.",
+    { timeout: 30_000 },
+  );
+  await expect(error).not.toContainText("Start a new chat");
+  await captureScreenshot(page, testInfo, "required-context-model-recovery");
+});

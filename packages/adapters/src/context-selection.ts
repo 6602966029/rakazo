@@ -35,8 +35,13 @@ export class ContextBudgetError extends Error {
   constructor(
     public readonly estimatedTokens: number,
     public readonly availableTokens: number,
+    public readonly reason: "fixed" | "protected" = "protected",
   ) {
-    super("Required context exceeds the model context budget");
+    super(
+      reason === "fixed"
+        ? "Required instructions and tools exceed the model context budget"
+        : "Required context exceeds the model context budget",
+    );
     this.name = "ContextBudgetError";
   }
 }
@@ -462,6 +467,20 @@ export function selectContext<T extends ContextMessage>(
   const fixed = fixedTokens(options.budget);
   const available = Math.floor(options.budget.contextWindow - options.budget.outputReserve - fixed);
   const groups = messageGroups(messages, options.budget.imageTokens);
+  // Pi may carry instructions and tool schemas in system messages rather than
+  // top-level fields. Neither form becomes smaller by starting a new chat.
+  const requiredFixed =
+    fixed +
+    groups
+      .filter((group) => messages[group.indexes[0]!]!.role === "system")
+      .reduce((total, group) => total + group.tokens, 0);
+  if (requiredFixed > options.budget.contextWindow - options.budget.outputReserve) {
+    throw new ContextBudgetError(
+      requiredFixed,
+      options.budget.contextWindow - options.budget.outputReserve,
+      "fixed",
+    );
+  }
   // A result followed by any assistant message has been read, with or without a later tool call.
   const latestAssistant = messages.findLastIndex((message) => message.role === "assistant");
   const protectedIndexes = new Set(options.protectedIndexes ?? []);

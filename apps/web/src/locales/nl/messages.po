@@ -5535,3 +5535,8 @@ msgstr "Je spraakaanbieder heeft geen tegoed meer."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Je spraakaanbieder heeft de sleutel geweigerd."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
+msgstr "Dit model heeft niet genoeg ruimte voor de vereiste instructies en tools. Kies een model met een groter contextvenster."

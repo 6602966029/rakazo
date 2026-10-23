@@ -134,6 +134,17 @@ describe("normalizeRunError", () => {
     );
   });
 
+  it("offers model recovery when fixed instructions and tools cannot fit even in a new chat", () => {
+    const details = "Required instructions and tools exceed the model context budget";
+    expect(normalizeRunError(details)).toEqual({
+      details,
+      summary:
+        "This model cannot fit the required instructions and tools. Choose a model with a larger context window.",
+      kind: "model",
+      recovery: "model",
+    });
+  });
+
   it("ignores malformed reset dates", () => {
     expect(
       normalizeRunError('403: {"message":"Key limit exceeded; resets not-a-date"}').summary,

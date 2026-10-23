@@ -1,4 +1,3 @@
-import { getHeapStatistics } from "node:v8";
 import type { BackgroundJobHandlers } from "@rakazo/adapter-kit";
 import {
   HISTORY_COMPACT_MAX_ATTEMPTS,
@@ -14,19 +13,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const run = vi.hoisted(() => vi.fn());
 
-vi.mock("node:v8", () => ({
-  getHeapStatistics: vi.fn(() => ({
-    used_heap_size: 0,
-    external_memory: 0,
-    heap_size_limit: 1024 ** 3,
-  })),
-}));
-
 vi.mock("graphile-worker", () => ({
   run: (...args: unknown[]) => run(...args),
   makeWorkerUtils: vi.fn(),
 }));
 
+import { RunExecutionHost } from "./run-execution.js";
 import {
   createReservedGraphileJobWorkerHost,
   createRoutineRetryNoticeReconciler,
@@ -383,11 +375,6 @@ describe("GraphileJobWorkerHost runner lifecycle", () => {
     run.mockReset();
     vi.mocked(process.availableMemory).mockRestore();
     vi.useRealTimers();
-    vi.mocked(getHeapStatistics).mockReturnValue({
-      used_heap_size: 0,
-      external_memory: 0,
-      heap_size_limit: 1024 ** 3,
-    } as ReturnType<typeof getHeapStatistics>);
   });
 
   it("releases dispatch slots after durable handoff and drains executions at shutdown", async () => {
@@ -439,23 +426,155 @@ describe("GraphileJobWorkerHost runner lifecycle", () => {
       const dispatch = run.mock.calls[0]![0].taskList["run.continue"];
       await dispatch({ runId: "0" });
       await dispatch({ runId: "1" });
-      vi.mocked(getHeapStatistics).mockReturnValue({
-        used_heap_size: 0,
-        external_memory: 0.8 * 1024 ** 3,
-        heap_size_limit: 1024 ** 3,
-      } as ReturnType<typeof getHeapStatistics>);
+      vi.mocked(process.availableMemory).mockReturnValue(40 * 1024 ** 2);
       const third = dispatch({ runId: "2" });
       expect(entered).toEqual(["0", "1"]);
-      vi.mocked(getHeapStatistics).mockReturnValue({
-        used_heap_size: 0.2 * 1024 ** 3,
-        external_memory: 0,
-        heap_size_limit: 1024 ** 3,
-      } as ReturnType<typeof getHeapStatistics>);
+      vi.mocked(process.availableMemory).mockReturnValue(64 * 1024 ** 2);
       releases[0]!.resolve();
       await third;
       expect(entered).toEqual(["0", "1", "2"]);
     } finally {
       for (const release of releases) release.resolve();
+      await host.stop();
+    }
+  });
+
+  it("admits many waiting runs while actual memory still has room for startup", async () => {
+    const host = new RunExecutionHost();
+    const release = deferred();
+    let entered = 0;
+    const execute = async ({ onRunStarted }: { onRunStarted: () => void }) => {
+      entered++;
+      onRunStarted();
+      await release.promise;
+    };
+    vi.mocked(process.availableMemory).mockReturnValue(64 * 1024 ** 2);
+    try {
+      for (let index = 0; index < 100; index++) {
+        expect(await host.execute(execute, { waitForCapacity: false })).toBe(true);
+      }
+      expect(entered).toBe(100);
+    } finally {
+      release.resolve();
+      await host.stop();
+    }
+  });
+
+  it("logs physical memory pressure once and measures recovery without logging every poll", async () => {
+    vi.useFakeTimers();
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "test", sinks: [sink] }));
+    const host = new RunExecutionHost();
+    const release = deferred();
+    let entered = 0;
+    const execute = async ({ onRunStarted }: { onRunStarted: () => void }) => {
+      entered++;
+      onRunStarted();
+      await release.promise;
+    };
+    try {
+      await host.execute(execute);
+      vi.mocked(process.availableMemory).mockReturnValue(40 * 1024 ** 2);
+      const second = host.execute(execute);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(entered).toBe(1);
+      expect(sink.events).toEqual([
+        expect.objectContaining({
+          message: "run.admission_wait",
+          "admission.reason": "physical",
+          "worker.active_runs": 1,
+          "memory.available_bytes": 40 * 1024 ** 2,
+          "memory.reserve_bytes": 40 * 1024 ** 2,
+        }),
+      ]);
+      vi.mocked(process.availableMemory).mockReturnValue(64 * 1024 ** 2);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await second;
+      expect(entered).toBe(2);
+      expect(sink.events).toHaveLength(2);
+      expect(sink.events[1]).toMatchObject({
+        message: "run.admission_resumed",
+        "admission.reason": "physical",
+        "run.admission_wait_ms": 3_000,
+        "memory.available_bytes": 64 * 1024 ** 2,
+      });
+    } finally {
+      release.resolve();
+      await host.stop();
+      installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+    }
+  });
+
+  it("declines nonwaiting candidates without pinning dispatch or repeating pressure logs", async () => {
+    vi.useFakeTimers();
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "test", sinks: [sink] }));
+    const host = new RunExecutionHost();
+    const release = deferred();
+    const resident = async ({ onRunStarted }: { onRunStarted: () => void }) => {
+      onRunStarted();
+      await release.promise;
+    };
+    const candidate = vi.fn(resident);
+    try {
+      expect(await host.execute(resident)).toBe(true);
+      vi.mocked(process.availableMemory).mockReturnValue(1);
+      for (let index = 0; index < 8; index++) {
+        expect(await host.execute(candidate, { waitForCapacity: false })).toBe(false);
+      }
+      expect(candidate).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+      expect(sink.events).toHaveLength(1);
+      expect(sink.events[0]).toMatchObject({
+        message: "run.admission_wait",
+        "admission.reason": "physical",
+      });
+      await vi.advanceTimersByTimeAsync(5_000);
+      vi.mocked(process.availableMemory).mockReturnValue(8 * 1024 ** 3);
+      expect(await host.execute(candidate, { waitForCapacity: false })).toBe(true);
+      expect(candidate).toHaveBeenCalledOnce();
+      expect(sink.events).toHaveLength(2);
+      expect(sink.events[1]).toMatchObject({
+        message: "run.admission_resumed",
+        "run.admission_wait_ms": 5_000,
+      });
+      vi.mocked(process.availableMemory).mockReturnValue(1);
+      expect(await host.execute(candidate, { waitForCapacity: false })).toBe(false);
+      expect(sink.events).toHaveLength(3);
+      expect(sink.events[2]).toMatchObject({ message: "run.admission_wait" });
+    } finally {
+      release.resolve();
+      await host.stop();
+      installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+    }
+  });
+
+  it("rejects physical-memory admission waiters and drains resident runs at shutdown", async () => {
+    const host = new RunExecutionHost();
+    const release = deferred();
+    let entered = 0;
+    const execute = async ({ onRunStarted }: { onRunStarted: () => void }) => {
+      entered++;
+      onRunStarted();
+      await release.promise;
+    };
+    try {
+      await host.execute(execute);
+      vi.mocked(process.availableMemory).mockReturnValue(1);
+      const second = host.execute(execute);
+      const rejected = expect(second).rejects.toThrow("Worker is stopping");
+      let stopped = false;
+      const stopping = host.stop().then(() => {
+        stopped = true;
+      });
+      await rejected;
+      expect(entered).toBe(1);
+      expect(stopped).toBe(false);
+      release.resolve();
+      await stopping;
+      expect(stopped).toBe(true);
+    } finally {
+      release.resolve();
       await host.stop();
     }
   });
@@ -494,18 +613,10 @@ describe("GraphileJobWorkerHost runner lifecycle", () => {
       await host.start(target);
       const dispatch = run.mock.calls[0]![0].taskList["run.continue"];
       await dispatch({ runId: "first" });
-      vi.mocked(getHeapStatistics).mockReturnValue({
-        used_heap_size: 0,
-        external_memory: 0.8 * 1024 ** 3,
-        heap_size_limit: 1024 ** 3,
-      } as ReturnType<typeof getHeapStatistics>);
+      vi.mocked(process.availableMemory).mockReturnValue(40 * 1024 ** 2);
       const second = dispatch({ runId: "second" });
       expect(entered).toBe(1);
-      vi.mocked(getHeapStatistics).mockReturnValue({
-        used_heap_size: 0.2 * 1024 ** 3,
-        external_memory: 0,
-        heap_size_limit: 1024 ** 3,
-      } as ReturnType<typeof getHeapStatistics>);
+      vi.mocked(process.availableMemory).mockReturnValue(64 * 1024 ** 2);
       await vi.advanceTimersByTimeAsync(1_000);
       await second;
       expect(entered).toBe(2);

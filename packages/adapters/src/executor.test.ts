@@ -1882,6 +1882,7 @@ describe("createRunExecutor", () => {
       },
       $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
         callback({
+          $queryRaw: vi.fn(async () => []),
           routine: {
             updateMany,
             findUnique: vi.fn(async () => ({
@@ -1891,7 +1892,7 @@ describe("createRunExecutor", () => {
             })),
           },
           task: { create: taskCreate },
-          run: { create: runCreate },
+          run: { create: runCreate, findMany: vi.fn(async () => []) },
         }),
       ),
     } as unknown as PrismaClient;
@@ -1951,6 +1952,7 @@ describe("createRunExecutor", () => {
       },
       $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
         callback({
+          $queryRaw: vi.fn(async () => []),
           routine: {
             updateMany,
             findUnique: vi.fn(async () => ({
@@ -1960,7 +1962,7 @@ describe("createRunExecutor", () => {
             })),
           },
           task: { create: taskCreate },
-          run: { create: runCreate },
+          run: { create: runCreate, findMany: vi.fn(async () => []) },
         }),
       ),
     } as unknown as PrismaClient;
@@ -2035,7 +2037,7 @@ describe("createRunExecutor", () => {
               findUnique: vi.fn(async () => claimedModel),
             },
             task: { create: taskCreate },
-            run: { create: runCreate },
+            run: { create: runCreate, findMany: vi.fn(async () => []) },
           }),
         ),
       } as unknown as PrismaClient;
@@ -2176,6 +2178,7 @@ describe("createRunExecutor", () => {
       agentSkill: { findMany: vi.fn(async () => []) },
       $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
         callback({
+          $queryRaw: vi.fn(async () => []),
           routine: {
             updateMany: vi.fn(async () => ({ count: 1 })),
             findUnique: vi.fn(async () => ({
@@ -2185,7 +2188,7 @@ describe("createRunExecutor", () => {
             })),
           },
           task: { create: taskCreate },
-          run: { create: runCreate },
+          run: { create: runCreate, findMany: vi.fn(async () => []) },
         }),
       ),
     } as unknown as PrismaClient;
@@ -2248,6 +2251,7 @@ describe("createRunExecutor", () => {
       agentSkill: { findMany: vi.fn(async () => []) },
       $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
         callback({
+          $queryRaw: vi.fn(async () => []),
           routine: {
             updateMany: vi.fn(async () => ({ count: 1 })),
             findUnique: vi.fn(async () => ({
@@ -2257,7 +2261,7 @@ describe("createRunExecutor", () => {
             })),
           },
           task: { create: taskCreate },
-          run: { create: runCreate },
+          run: { create: runCreate, findMany: vi.fn(async () => []) },
         }),
       ),
     } as unknown as PrismaClient;
@@ -2337,6 +2341,7 @@ description: Prepare standup notes
       },
       $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
         callback({
+          $queryRaw: vi.fn(async () => []),
           routine: {
             updateMany: vi.fn(async () => ({ count: 1 })),
             findUnique: vi.fn(async () => ({

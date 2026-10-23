@@ -5535,3 +5535,8 @@ msgstr "Tu proveedor de voz se quedó sin crédito."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Tu proveedor de voz rechazó la clave."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
+msgstr "Las instrucciones y herramientas necesarias no caben en este modelo. Elige un modelo con una ventana de contexto más grande."

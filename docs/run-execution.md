@@ -58,3 +58,41 @@ already committed operation.
 These are server-side availability measurements. They do not measure network
 delivery or rendering on a user's device. Client delivery/render timing would need
 a separate acknowledgement.
+
+Recurring timer routines keep one pristine pending catch-up run for the same
+routine, prompt, thread, and model selection. A later tick reuses that pending
+work and advances the next scheduled tick, preserving any computer retry delay.
+Already started runs, manual tests, explicit retries, one-shot schedules, and
+change/event-triggered runs remain separate. Timer provenance is durable on new
+runs; older pending work is reused only when its scheduled firing event exists.
+A bounded pass also cancels redundant legacy timer rows with no attempts,
+effects, output, steering, checkpoint, or live computer ownership, preserving
+historical rows and terminal events. Old pre-attempt start timestamps or lease
+fences alone do not protect a redundant tick. The `routine.coalesced` log records
+reuse without another `routine.fired` event.
+
+Interactive work is scanned before scheduled/reaction work in each bounded pass.
+When memory admission declines a run, dispatch leaves it durable and continues
+scanning instead of waiting in a dispatch slot. Memory admission checks actual
+available memory with a small attachment startup buffer; live-run counts do not
+set a concurrency limit. Active model streams have no new duration limit.
+
+`run.admission_wait` and `run.admission_resumed` identify a capacity episode and
+its duration without logging every retry. Independently, `run.queue_delayed`
+warns every thirty seconds when due interactive runs have been queued for at
+least thirty seconds. It includes `queue.delayed_runs` and
+`queue.oldest_wait_ms`; `run.queue_recovered` marks recovery. Future retries and
+scheduled work do not trigger this warning. These checks do not block dispatch.
+
+For optional Axiom monitoring, alert when the following query returns any events
+in the last two minutes (use the deployment's configured dataset):
+
+```apl
+['YOUR_DATASET']
+| where message == "run.queue_delayed"
+| summarize warnings = count()
+| where warnings > 0
+```
+
+The application emits the signal; notification routing belongs in the deployment's
+monitor configuration. No hosted monitoring service is required for dispatch.

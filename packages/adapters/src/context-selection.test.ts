@@ -22,6 +22,31 @@ describe("bounded context selection", () => {
     expect(selected.estimatedInputTokens).toBeLessThan(budget.contextWindow - budget.outputReserve);
     expect(selected.estimatedInputTokens).toBeGreaterThan(estimateContextTokens(user("current")));
   });
+  it.each(["systemPrompt", "tools"] as const)(
+    "identifies oversized fixed %s without blaming the current request",
+    (field) => {
+      const messages = [user("A short request")];
+      const oversized =
+        field === "tools" ? [{ name: "tool", description: "x".repeat(3000) }] : "x".repeat(3000);
+      expect(() =>
+        selectContext(messages, {
+          budget: { ...budget, [field]: oversized },
+          strategy: "retrieval",
+        }),
+      ).toThrow(
+        expect.objectContaining({
+          reason: "fixed",
+          message: "Required instructions and tools exceed the model context budget",
+        }),
+      );
+      expect(messages).toEqual([user("A short request")]);
+    },
+  );
+  it("keeps oversized live requests distinct from fixed instructions and tools", () => {
+    expect(() =>
+      selectContext([user("x".repeat(3000))], { budget, strategy: "retrieval" }),
+    ).toThrow(expect.objectContaining({ reason: "protected" }));
+  });
   it("does not budget unknown images as zero or count local-only Pi metadata", () => {
     const image = {
       role: "user",

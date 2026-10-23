@@ -1,6 +1,6 @@
 import type { BackgroundJob, JobPublisher } from "@rakazo/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
-import { deferFutureRoutine } from "./executor.js";
+import { createRunExecutor, deferFutureRoutine } from "./executor.js";
 
 describe("routine scheduling", () => {
   it("never fires a future occurrence early", async () => {
@@ -20,5 +20,89 @@ describe("routine scheduling", () => {
       availableAt: scheduledAt,
       replaceKey: "routine:routine-1",
     });
+  });
+});
+
+function pendingTimerFixture() {
+  const scheduledAt = new Date(Date.now() - 1_000);
+  const routine = {
+    id: "routine-1",
+    spaceId: "space-1",
+    botId: "bot-1",
+    userId: "user-1",
+    prompt: "check current work",
+    crons: ["* * * * *"],
+    timezone: "UTC",
+    active: true,
+    nextRunAt: scheduledAt,
+    watch: null,
+  };
+  const pending = {
+    id: "pending-1",
+    taskId: "task-1",
+    clientNonce: "routine-timer:routine-1:earlier",
+    updatedAt: scheduledAt,
+  };
+  const tx = {
+    $queryRaw: vi.fn(async () => []),
+    computerExecutionLease: { findMany: vi.fn(async () => []) },
+    computer: { findMany: vi.fn(async () => []) },
+    routine: {
+      updateMany: vi.fn(async () => ({ count: 1 })),
+      findUnique: vi.fn(async () => ({ modelProvider: null, modelId: null, thinkingLevel: null })),
+    },
+    run: {
+      findMany: vi.fn(async () => [pending]),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+      create: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    task: { create: vi.fn(), deleteMany: vi.fn() },
+  };
+  const prisma = {
+    routine: { findUnique: vi.fn(async () => routine) },
+    bot: { findUnique: vi.fn(async () => ({ id: "bot-1", thread: { id: "thread-1" } })) },
+    agentSkill: { findMany: vi.fn(async () => []) },
+    $transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) => callback(tx)),
+  };
+  const enqueue = vi.fn(async (_job: BackgroundJob) => undefined);
+  const append = vi.fn();
+  const executor = createRunExecutor({
+    prisma,
+    jobs: { enqueue, cancel: vi.fn(), close: vi.fn() },
+    events: { append },
+  } as unknown as Parameters<typeof createRunExecutor>[0]);
+  return { executor, tx, enqueue, append, scheduledAt };
+}
+
+describe("recurring routine catch-up", () => {
+  it("keeps one pending run and advances the next tick without a duplicate firing event", async () => {
+    const { executor, tx, enqueue, append, scheduledAt } = pendingTimerFixture();
+    await executor.wakeRoutine("routine-1", scheduledAt.toISOString());
+    expect(tx.run.create).not.toHaveBeenCalled();
+    expect(tx.task.create).not.toHaveBeenCalled();
+    expect(enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "run.continue",
+        payload: { runId: "pending-1" },
+        keepExisting: true,
+      }),
+    );
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ name: "routine.wakeup" }));
+    expect(append).not.toHaveBeenCalled();
+  });
+  it("never deletes existing pending work when publishing its wakeup fails", async () => {
+    const { executor, tx, enqueue, scheduledAt } = pendingTimerFixture();
+    enqueue.mockRejectedValueOnce(new Error("publisher unavailable"));
+    await expect(executor.wakeRoutine("routine-1", scheduledAt.toISOString())).rejects.toThrow(
+      "publisher unavailable",
+    );
+    expect(tx.run.deleteMany).not.toHaveBeenCalled();
+    expect(tx.task.deleteMany).not.toHaveBeenCalled();
+    expect(tx.routine.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ nextRunAt: scheduledAt, active: true }),
+      }),
+    );
   });
 });

@@ -54,6 +54,13 @@ export const translateRunError: RunErrorTranslator = (message, values) => {
         message: "{provider} is overloaded right now. Try again in a moment.",
         values,
       });
+    case "This model cannot fit the required instructions and tools. Choose a model with a larger context window.":
+      return i18n._({
+        id: "This model cannot fit the required instructions and tools. Choose a model with a larger context window.",
+        message:
+          "This model cannot fit the required instructions and tools. Choose a model with a larger context window.",
+        values,
+      });
     case "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.":
       return i18n._({
         id: "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.",

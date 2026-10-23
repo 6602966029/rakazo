@@ -139,6 +139,7 @@ describe("mobile i18n", () => {
       "{provider} could not find the requested model.",
       "{provider} took too long to respond. Try again.",
       "{provider} is overloaded right now. Try again in a moment.",
+      "This model cannot fit the required instructions and tools. Choose a model with a larger context window.",
       "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.",
 
       EMPTY_PLUGIN_CATALOG_MESSAGE,
