@@ -270,4 +270,85 @@ describePostgres("routine timer coalescing (PostgreSQL)", () => {
       ).toBe(0);
     },
   );
+  it.each(["different prompt", "different model", "existing attempt"])(
+    "finds eligible legacy ticks behind over a page with %s",
+    async (reason) => {
+      const { routine, config, create } = await fixture();
+      const rows = Array.from({ length: 120 }, () => ({ id: randomUUID(), taskId: randomUUID() }));
+      await system.task.createMany({
+        data: rows.map(({ taskId }) => ({
+          ...identity,
+          id: taskId,
+          status: "queued",
+          prompt: reason === "different prompt" ? "prior instructions" : config.prompt,
+        })),
+      });
+      await system.run.createMany({
+        data: rows.map(({ id, taskId }) => ({
+          ...identity,
+          id,
+          taskId,
+          routineId: routine.id,
+          trigger: "routine",
+          status: "queued",
+          ...(reason === "different model"
+            ? { modelPinned: true, modelProvider: "prior-provider", modelId: "prior-model" }
+            : {}),
+          createdAt: new Date("2026-01-01T00:00:00Z"),
+        })),
+      });
+      if (reason === "existing attempt") {
+        await system.attempt.createMany({
+          data: rows.map(({ id }) => ({ runId: id, fence: 1, status: "failed" })),
+        });
+      }
+      // All ineligible rows have genuine encrypted legacy firing events; the
+      // selector must apply execution/config checks before paginating them.
+      await system.event.createMany({
+        data: rows.map(({ id }, index) => ({
+          spaceId: identity.spaceId,
+          threadId: identity.threadId,
+          botId: identity.botId,
+          type: "routine.fired",
+          seq: 2000 + index,
+          runId: id,
+          payload: { routineId: routine.id, scheduledFor: "2026-01-01T00:00:00Z" },
+        })),
+      });
+      const pending = await system.$transaction((tx) => create(tx, null));
+      const duplicate = await system.$transaction((tx) => create(tx, null));
+      for (const [index, run] of [pending, duplicate].entries()) {
+        await system.event.create({
+          data: {
+            spaceId: identity.spaceId,
+            threadId: identity.threadId,
+            botId: identity.botId,
+            type: "routine.fired",
+            seq: 2200 + index,
+            runId: run.id,
+            payload: { routineId: routine.id, scheduledFor: "2026-01-01T00:00:00Z" },
+          },
+        });
+      }
+      for (let tick = 0; tick < 3; tick++) {
+        expect(await system.$transaction((tx) => findPendingRoutineTick(tx, config))).toMatchObject(
+          { id: pending.id },
+        );
+      }
+      expect(await system.run.findUnique({ where: { id: duplicate.id } })).toMatchObject({
+        status: "cancelled",
+      });
+      expect(
+        await system.run.count({
+          where: { id: { in: rows.map(({ id }) => id) }, status: "queued" },
+        }),
+      ).toBe(120);
+      expect(await system.run.count({ where: { routineId: routine.id } })).toBe(122);
+      // Each parameter case shares a thread fixture; clear its direct fixture
+      // events so the next case can reuse deterministic sequence values.
+      await system.event.deleteMany({
+        where: { runId: { in: [...rows.map(({ id }) => id), pending.id, duplicate.id] } },
+      });
+    },
+  );
 });

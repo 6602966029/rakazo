@@ -115,6 +115,65 @@ describe("durable direct run wakeups", () => {
     }
   });
 
+  it.each(["interactive", "background"])(
+    "reopens chat discovery after a notification during the %s query without restarting timers",
+    async (notifiedLane) => {
+      vi.useFakeTimers();
+      const f = fixture();
+      const scans: string[] = [];
+      let chatReady = false;
+      let release!: () => void;
+      const blocked = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let backgroundPage = 0;
+      let notified = false;
+      f.findMany.mockImplementation(async ({ where }) => {
+        const lane = where.trigger.in ? "background" : "interactive";
+        scans.push(lane);
+        const readyAtSnapshot = chatReady;
+        if (lane === notifiedLane && !notified) {
+          notified = true;
+          await blocked;
+        }
+        if (lane === "background") {
+          if (backgroundPage++ > 0) return [];
+          return [{ id: "timer", botId: "timer", bot: { computerId: "computer" } }];
+        }
+        return readyAtSnapshot
+          ? [{ id: "chat", botId: "chat", bot: { computerId: "computer" } }]
+          : [];
+      });
+      const host = new RunWorkerHost(f.prisma, f.realtime, { batchSize: 1 });
+      const entered: string[] = [];
+      try {
+        await host.start({
+          "run.continue": async ({ runId }) => {
+            entered.push(runId);
+            if (runId === "chat") chatReady = false;
+          },
+        } as BackgroundJobHandlers);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(notified).toBe(true);
+        chatReady = true;
+        await f.publisher.enqueue(runContinueJob("chat"));
+        release();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(entered).toEqual(["timer", "chat"]);
+        expect(scans.slice(0, 4)).toEqual([
+          "interactive",
+          "background",
+          "interactive",
+          "background",
+        ]);
+        expect(backgroundPage).toBe(2);
+      } finally {
+        release();
+        await host.stop();
+      }
+    },
+  );
+
   it("reports aged interactive queues and recovery without blocking dispatch", async () => {
     vi.useFakeTimers();
     const f = fixture();

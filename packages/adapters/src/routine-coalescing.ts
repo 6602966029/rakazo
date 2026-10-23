@@ -56,8 +56,9 @@ export async function findPendingRoutineTick(
     take: 100,
   } satisfies Omit<Prisma.RunFindManyArgs, "where">;
   // Known timer provenance must not sit behind arbitrary manual runs in the
-  // same bounded page. Legacy event references are selected before pagination
-  // too; Event.runId intentionally has no Prisma relation on Run.
+  // same bounded page. The legacy query mirrors pristine eligibility before its
+  // limit, so attempted or older-config rows cannot hide matching pending work.
+  // Event.runId intentionally has no Prisma relation on Run.
   const [knownTimers, legacyReferences] = await Promise.all([
     tx.run.findMany({
       ...selection,
@@ -67,12 +68,35 @@ export async function findPendingRoutineTick(
       },
     }),
     tx.$queryRaw<{ runId: string }[]>`
-      SELECT DISTINCT e."runId"
-      FROM events e JOIN runs r ON r.id = e."runId"
+      SELECT r.id AS "runId"
+      FROM runs r JOIN tasks t ON t.id = r."taskId"
       WHERE r."routineId" = ${config.routineId}
-        AND r.status = 'queued' AND r."clientNonce" IS NULL
-        AND e.type = 'routine.fired'
-      ORDER BY e."runId" LIMIT 100
+        AND r."spaceId" = ${config.spaceId}
+        AND r."botId" = ${config.botId}
+        AND r."userId" = ${config.userId}
+        AND r."threadId" = ${config.threadId}
+        AND r.trigger = 'routine' AND r.status = 'queued'
+        AND r."clientNonce" IS NULL AND r."retryOfRunId" IS NULL
+        AND r."sourceMessageId" IS NULL AND r."leaseOwner" IS NULL
+        AND r."leaseExpiresAt" IS NULL AND r."completedAt" IS NULL
+        AND r."firstResponseAt" IS NULL AND r.checkpoint IS NULL AND r.error IS NULL
+        AND r."modelProvider" IS NOT DISTINCT FROM ${config.modelProvider ?? null}
+        AND r."modelId" IS NOT DISTINCT FROM ${config.modelId ?? null}
+        AND r."thinkingLevel" IS NOT DISTINCT FROM ${config.thinkingLevel ?? null}
+        AND r."modelPinned" = ${config.modelPinned ?? false}
+        AND t.status = 'queued' AND t.prompt = ${config.prompt}
+        AND NOT EXISTS (SELECT 1 FROM attempts a WHERE a."runId" = r.id)
+        AND NOT EXISTS (SELECT 1 FROM external_effects x WHERE x."runId" = r.id)
+        AND NOT EXISTS (SELECT 1 FROM steering_messages s WHERE s."runId" = r.id)
+        AND NOT EXISTS (
+          SELECT 1 FROM computer_execution_leases l
+          WHERE l."runId" = r.id AND l."expiresAt" > CURRENT_TIMESTAMP
+        )
+        AND NOT EXISTS (SELECT 1 FROM computers c WHERE c."controlRunId" = r.id)
+        AND EXISTS (
+          SELECT 1 FROM events e WHERE e."runId" = r.id AND e.type = 'routine.fired'
+        )
+      ORDER BY r."createdAt", r.id LIMIT 100
     `,
   ]);
   const legacyCandidates = legacyReferences.length
