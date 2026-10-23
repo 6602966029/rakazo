@@ -1040,13 +1040,10 @@ msgstr "画像を読み取れません"
 #: src/pages/Onboarding.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Cancel"
 msgstr "キャンセル"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Cancel new bot"
-msgstr "新しいボットをキャンセル"
 
 #: src/pages/GroupPanel.tsx
 msgid "Cancel new group"
@@ -1616,7 +1613,7 @@ msgstr "コンピューターの画面に接続できませんでした"
 msgid "Could not continue"
 msgstr "続行できませんでした"
 
-#: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "Could not create bot"
 msgstr "ボットを作成できませんでした"
 
@@ -1991,7 +1988,7 @@ msgid "Couldn't update your timezone"
 msgstr "タイムゾーンを更新できませんでした"
 
 #: src/pages/Board.tsx
-#: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 #: src/pages/shell/sidebar-header.tsx
 msgid "Create"
@@ -2012,6 +2009,7 @@ msgstr "グループを作成"
 
 #: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "Create new Bot"
 msgstr "新しいボットを作成"
 
@@ -2041,7 +2039,6 @@ msgid "Created"
 msgstr "作成済み"
 
 #: src/pages/GroupPanel.tsx
-#: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Creating…"
 msgstr "作成中…"
@@ -2213,10 +2210,6 @@ msgstr "拒否"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "デプロイのデフォルト"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Describe what this bot does"
-msgstr "このボットの役割を説明"
 
 #: src/pages/Board.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3380,13 +3373,10 @@ msgstr "ミュート中"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Name"
 msgstr "名前"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Name this bot"
-msgstr "ボットに名前を付ける"
 
 #: src/pages/GroupPanel.tsx
 msgid "Name this group"
@@ -3395,6 +3385,10 @@ msgstr "グループに名前を付ける"
 #: src/pages/RoutineEditor.tsx
 msgid "Name this routine"
 msgstr "ルーティンに名前を付ける"
+
+#: src/pages/shell/create-bot-dialog.tsx
+msgid "Name your Bot"
+msgstr "ボットに名前を付ける"
 
 #: src/lib/roster-status.ts
 msgid "Needs an answer"
@@ -3416,10 +3410,6 @@ msgstr "対応が必要"
 #: src/pages/shell/chat-context.tsx
 msgid "New"
 msgstr "新規"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "New bot"
-msgstr "新しいボット"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
@@ -4582,6 +4572,11 @@ msgstr "設定ヘルプ"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Shape"
 msgstr "形"
+
+#. placeholder {0}: index + 1
+#: src/pages/shell/avatar-studio-popover.tsx
+msgid "Shape {0}"
+msgstr "形 {0}"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx

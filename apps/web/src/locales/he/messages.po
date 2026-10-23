@@ -1040,13 +1040,10 @@ msgstr "לא ניתן לקרוא תמונות"
 #: src/pages/Onboarding.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Cancel"
 msgstr "ביטול"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Cancel new bot"
-msgstr "ביטול בוט חדש"
 
 #: src/pages/GroupPanel.tsx
 msgid "Cancel new group"
@@ -1616,7 +1613,7 @@ msgstr "לא ניתן להתחבר למסך המחשב"
 msgid "Could not continue"
 msgstr "לא ניתן להמשיך"
 
-#: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "Could not create bot"
 msgstr "לא ניתן ליצור את הבוט"
 
@@ -1991,7 +1988,7 @@ msgid "Couldn't update your timezone"
 msgstr ""
 
 #: src/pages/Board.tsx
-#: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 #: src/pages/shell/sidebar-header.tsx
 msgid "Create"
@@ -2012,6 +2009,7 @@ msgstr "יצירת קבוצה"
 
 #: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "Create new Bot"
 msgstr "יצירת בוט חדש"
 
@@ -2041,7 +2039,6 @@ msgid "Created"
 msgstr "נוצר"
 
 #: src/pages/GroupPanel.tsx
-#: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Creating…"
 msgstr "יוצר…"
@@ -2213,10 +2210,6 @@ msgstr "דחייה"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "ברירת המחדל של ההתקנה"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Describe what this bot does"
-msgstr "תיאור של מה שהבוט עושה"
 
 #: src/pages/Board.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3380,13 +3373,10 @@ msgstr ""
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Name"
 msgstr "שם"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Name this bot"
-msgstr "שם לבוט"
 
 #: src/pages/GroupPanel.tsx
 msgid "Name this group"
@@ -3395,6 +3385,10 @@ msgstr "שם לקבוצה"
 #: src/pages/RoutineEditor.tsx
 msgid "Name this routine"
 msgstr "שם לרוטינה"
+
+#: src/pages/shell/create-bot-dialog.tsx
+msgid "Name your Bot"
+msgstr ""
 
 #: src/lib/roster-status.ts
 msgid "Needs an answer"
@@ -3416,10 +3410,6 @@ msgstr "נדרשת פעולה"
 #: src/pages/shell/chat-context.tsx
 msgid "New"
 msgstr ""
-
-#: src/pages/shell/bot-panel.tsx
-msgid "New bot"
-msgstr "בוט חדש"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
@@ -4582,6 +4572,11 @@ msgstr "עזרה בהגדרה"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Shape"
 msgstr "צורה"
+
+#. placeholder {0}: index + 1
+#: src/pages/shell/avatar-studio-popover.tsx
+msgid "Shape {0}"
+msgstr ""
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx

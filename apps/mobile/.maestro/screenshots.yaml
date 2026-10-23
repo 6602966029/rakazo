@@ -78,10 +78,6 @@ tags:
 - tapOn:
     id: "search-sheet-close"
 
-- openLink: "rakazo:///new"
-- assertVisible: "Name this bot"
-- takeScreenshot: "07-new-bot"
-
 - openLink: "rakazo:///new-group"
 - assertVisible: "Search bots"
 - takeScreenshot: "08-new-group"
@@ -262,10 +258,6 @@ tags:
     element: "Notification settings"
     direction: DOWN
 - takeScreenshot: "22b-account-notifications-dark"
-
-- openLink: "rakazo:///new"
-- assertVisible: "Name this bot"
-- takeScreenshot: "23-new-bot-dark"
 
 - openLink: "rakazo:///new-group"
 - assertVisible: "Search bots"
