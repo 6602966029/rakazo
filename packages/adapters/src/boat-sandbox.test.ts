@@ -271,8 +271,9 @@ describe("BoatSandboxProvider", () => {
   });
 
   // Every Boat state, error and recover answer either leaves a usable sandbox or reports it gone
-  // so the caller replaces it from its checkpoint. Nothing may keep failing on the same ref.
-  type Outcome = "kept" | "started" | "replaced";
+  // so the caller replaces it from its checkpoint. Nothing may keep failing on the same ref: one
+  // that only Boat's snapshot can bring back is unavailable until a reconnect rolls it back.
+  type Outcome = "kept" | "started" | "rolled back" | "replaced";
   const stateOutcomes: Record<SandboxStateEnum, Outcome> = {
     init: "kept",
     provisioning: "kept",
@@ -319,7 +320,7 @@ describe("BoatSandboxProvider", () => {
           api.saveSnapshot(id);
           api.fail(id, recovery);
         },
-        "started",
+        "rolled back",
       ],
     ),
     ["snapshot data expired", (api, id) => api.expire(id), "replaced"],
@@ -337,6 +338,7 @@ describe("BoatSandboxProvider", () => {
         (error: unknown) => error,
       );
       if (outcome === "replaced") expect(isSandboxGoneError(result)).toBe(true);
+      else if (outcome === "rolled back") expect(result).toBeInstanceOf(SandboxUnavailableError);
       else expect(result).toBe("ready");
     },
   );
@@ -351,7 +353,8 @@ describe("BoatSandboxProvider", () => {
       await provider.prepare(ref, context);
       expect(ref.providerRef === computer.providerRef).toBe(outcome !== "replaced");
       expect(ref.fresh).toBe(outcome === "replaced");
-      if (outcome !== "replaced") expect(ref.started).toBe(outcome === "started");
+      if (outcome !== "replaced") expect(ref.started).toBe(outcome !== "kept");
+      expect(ref.restoredFrom !== undefined).toBe(outcome === "rolled back");
       expect(["ready", "idle", "running"]).toContain(api.state(ref.providerRef));
     },
   );
@@ -528,7 +531,12 @@ describe("BoatSandboxProvider", () => {
           const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
           const resume = vi.spyOn(FakeBoatApi.prototype, "resume");
           const { api, provider, computer } = await boat();
+          const file = (path: string) => ({ path, content: Uint8Array.of(1) });
+          await provider.writeFile(computer, file("saved.txt"), context);
+          const snapshotAt = new Date();
           api.saveSnapshot(computer.id);
+          vi.setSystemTime(Date.now() + 60_000);
+          await provider.writeFile(computer, file("unsaved.txt"), context);
           api.fail(computer.id, recovery);
           const failedAt = Date.now();
 
@@ -544,8 +552,12 @@ describe("BoatSandboxProvider", () => {
             providerRef: computer.providerRef,
             fresh: false,
             started: true,
+            restoredFrom: snapshotAt,
           });
           expect(api.state(computer.id)).toBe("ready");
+          // Boat's snapshot is all that is left; the caller restores a newer checkpoint.
+          expect(await provider.readFile(ref, "saved.txt", context)).toEqual(Uint8Array.of(1));
+          await expect(provider.readFile(ref, "unsaved.txt", context)).rejects.toThrow();
           const steps = sink.events.filter((event) => event.message === "sandbox.recover");
           expect(steps).toEqual([
             expect.objectContaining({
@@ -591,10 +603,35 @@ describe("BoatSandboxProvider", () => {
         api.fail(computer.id, recovery);
 
         const error = await provider
-          .prepare(computer, { ...context, signal: caller.signal })
+          .provision(
+            {
+              botId: computer.botId,
+              homePath: "/unused",
+              providerRef: computer.providerRef,
+              providerKind: "boat",
+            },
+            { ...context, signal: caller.signal },
+          )
           .catch((failure: unknown) => failure);
 
         expect(error).toBe(cancelled);
+        expect(stop).not.toHaveBeenCalled();
+        expect(api.state(computer.id)).toBe("error");
+      });
+
+      it("leaves the rollback to the next reconnect when work in progress finds it down", async () => {
+        const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
+        const { api, provider, computer } = await boat();
+        await provider.prepare(computer, context);
+        api.saveSnapshot(computer.id);
+        api.fail(computer.id, recovery);
+
+        const error = await provider
+          .readFile(computer, "notes.txt", context)
+          .catch((failure: unknown) => failure);
+
+        expect(error).toBeInstanceOf(SandboxUnavailableError);
+        expect(isSandboxGoneError(error)).toBe(false);
         expect(stop).not.toHaveBeenCalled();
         expect(api.state(computer.id)).toBe("error");
       });

@@ -352,7 +352,7 @@ export async function provisionComputer(
       !existing.providerRef ||
       existing.providerRef !== ref.providerRef ||
       existing.kind !== ref.kind;
-    if (replacement) {
+    if (replacement || checkpointNewerThan(existing, ref.restoredFrom)) {
       await onProgress?.("restoring");
       await restoreComputerWorkspace(deps.home, deps.sandbox, existing.homeKey, ref, context);
     }
@@ -959,6 +959,7 @@ export async function replaceComputer(
     if (oldRef && (mode === "update" || (existing.state === "running" && mode === "recover"))) {
       try {
         await onProgress?.("saving");
+        const checkpointedAt = new Date();
         const revision = await checkpointComputerWorkspace(
           deps.home,
           deps.sandbox,
@@ -968,7 +969,7 @@ export async function replaceComputer(
         );
         const recorded = await deps.prisma.computer.updateMany({
           where: { id: computerId, state: "suspending", updatedAt: claimStamp },
-          data: { homeRevision: revision, updatedAt: claimStamp },
+          data: { homeRevision: revision, homeRevisionAt: checkpointedAt, updatedAt: claimStamp },
         });
         if (recorded.count !== 1) throw new ComputerBusyError();
       } catch (error) {
@@ -1023,4 +1024,16 @@ export async function replaceComputer(
       .catch(() => undefined);
     throw error;
   }
+}
+
+/**
+ * Whether the saved workspace may hold work the provider's snapshot does not, after the provider
+ * rolled the computer back to that snapshot. A save from an older release has no time; restore it.
+ */
+function checkpointNewerThan(
+  computer: { homeRevision: string; homeRevisionAt?: Date | null },
+  restoredFrom: Date | undefined,
+): boolean {
+  if (!restoredFrom || computer.homeRevision === "empty") return false;
+  return !computer.homeRevisionAt || computer.homeRevisionAt > restoredFrom;
 }

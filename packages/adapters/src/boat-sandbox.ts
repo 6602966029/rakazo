@@ -225,8 +225,8 @@ export class BoatSandboxProvider implements SandboxProvider {
   ): Promise<ComputerRef> {
     if (request.providerRef && request.providerKind === "boat") {
       try {
-        const started = await this.ensureRunnable(request.providerRef, context.signal);
-        return { ...this.ref(request.providerRef, request.botId, false), started };
+        const state = await this.ensureRunnable(request.providerRef, context.signal, true);
+        return { ...this.ref(request.providerRef, request.botId, false), ...state };
       } catch (error) {
         if (!isSandboxGoneError(error)) throw error;
         this.forget(request.providerRef);
@@ -668,17 +668,23 @@ export class BoatSandboxProvider implements SandboxProvider {
   /**
    * Waits until the sandbox can run commands, resuming or recovering it on the way. Throws a
    * gone error when Boat cannot bring it back, so the caller replaces it from its checkpoint.
-   * Returns whether this call started it.
+   * Returns whether this call started it, and the snapshot time when it rolled the disk back.
    *
    * A sandbox in `error` follows Boat's documented order: recover it and wait for it to answer;
    * if it still does not, force-stop it to its last good snapshot and resume that. Only one with
-   * no snapshot is gone, since a forced stop would keep nothing of it.
+   * no snapshot is gone, since a forced stop would keep nothing of it. The rollback happens only
+   * when `reconnecting`, so the caller can restore a newer checkpoint before anything runs on it;
+   * elsewhere the sandbox is reported unavailable and the next reconnect rolls it back.
    */
-  private async ensureRunnable(id: string, signal?: AbortSignal): Promise<boolean> {
+  private async ensureRunnable(
+    id: string,
+    signal?: AbortSignal,
+    reconnecting = false,
+  ): Promise<{ started: boolean; restoredFrom?: Date }> {
     let deadline = Date.now() + BOAT_READY_TIMEOUT_MS;
     let started = false;
     let recovering = false;
-    let forced = false;
+    let restoredFrom: Date | undefined;
     let pause = 1_000;
     while (true) {
       if (signal?.aborted) {
@@ -686,8 +692,8 @@ export class BoatSandboxProvider implements SandboxProvider {
       }
       const { sandbox } = await this.client.get({ sandboxId: id }, { signal });
       if (RUNNABLE_STATES.has(sandbox.state)) {
-        if (recovering) logRecovery(forced ? "resumed" : "answered");
-        return started;
+        if (recovering) logRecovery(restoredFrom ? "resumed" : "answered");
+        return { started, ...(restoredFrom ? { restoredFrom } : {}) };
       }
       // `cancelled` is terminal, and a stopped sandbox whose data Boat deleted cannot resume.
       if (sandbox.state === "cancelled" || sandbox.dataExpiredAt) throw boatSandboxGone(id);
@@ -704,14 +710,19 @@ export class BoatSandboxProvider implements SandboxProvider {
             cause: new Error(`Boat ${id} did not become ready`),
           });
         }
-        if (forced || !(sandbox.snapshotAvailable || sandbox.snapshotCompletedAt)) {
-          logRecovery("gone", forced ? "resume_failed" : "no_snapshot");
+        const snapshotAt = sandbox.snapshotCompletedAt ?? undefined;
+        if (restoredFrom || !snapshotAt) {
+          logRecovery("gone", restoredFrom ? "resume_failed" : "no_snapshot");
           throw boatSandboxGone(id);
+        }
+        if (!reconnecting) {
+          logRecovery("deferred");
+          throw new SandboxUnavailableError({ cause: new Error(`Boat ${id} is not answering`) });
         }
         // Read just now and still not answering, so the stop cannot cut off live work.
         logRecovery("force_stop");
         await this.client.stop({ sandboxId: id, stopRequest: { force: true } }, { signal });
-        forced = true;
+        restoredFrom = snapshotAt;
         started = false;
         deadline = Date.now() + BOAT_READY_TIMEOUT_MS;
       }
@@ -1141,7 +1152,7 @@ function commandFailure(result: BoatCommandResult): string {
 
 /** Each step of bringing back a sandbox that stopped answering; none is a failure by itself. */
 function logRecovery(
-  step: "wait" | "answered" | "force_stop" | "resumed" | "gone",
+  step: "wait" | "answered" | "deferred" | "force_stop" | "resumed" | "gone",
   reason?: string,
 ): void {
   getLogger().warn("sandbox.recover", { provider: "boat", step, ...(reason ? { reason } : {}) });

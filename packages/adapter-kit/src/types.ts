@@ -87,6 +87,11 @@ export interface ComputerRef {
   fresh?: boolean;
   /** True when this call started a stopped computer. Providers that cannot tell leave it unset. */
   started?: boolean;
+  /**
+   * Set when the provider could only bring the computer back from its own snapshot taken at
+   * this time; anything written after it is gone, so a newer workspace checkpoint wins.
+   */
+  restoredFrom?: Date;
 }
 
 export type WorkspaceDirectoryRequest =
