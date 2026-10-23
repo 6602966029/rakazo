@@ -1,14 +1,17 @@
 export const JA_MESSAGES: Record<string, string> = {
   "The model returned an unusable response. Try again.":
-    "モデルから利用できない応答が返されました。もう一度お試しください。",
+    "モデルが利用できない応答を返しました。もう一度お試しください。",
   "This model's context window is too small. Choose another model.":
-    "このモデルのコンテキストウィンドウは小さすぎます。別のモデルを選んでください。",
+    "このモデルのコンテキストウィンドウは小さすぎます。別のモデルを選択してください。",
   "{provider} denied access to this model.": "{provider}がこのモデルへのアクセスを拒否しました。",
   "{summary} Backup models failed or were unavailable for this request.":
-    "{summary} 予備のモデルも失敗したか、このリクエストでは利用できませんでした。",
+    "{summary} 予備のモデルでエラーが発生したか、このリクエストでは利用できませんでした。",
   "{summary} No backup model was usable for this request.":
     "{summary} このリクエストで利用できる予備のモデルはありませんでした。",
-  "{summary} Your backup models also failed.": "{summary} 予備のモデルも失敗しました。",
+  "{summary} Your backup models also failed.": "{summary} 予備のモデルでもエラーが発生しました。",
+
+  "Use 80 characters or fewer": "80文字以内で入力してください",
+  "Could not update name": "名前を更新できませんでした",
   "Ollama Cloud": "Ollama Cloud",
   "Ollama API key": "OllamaのAPIキー",
   "Show password": "パスワードを表示",
