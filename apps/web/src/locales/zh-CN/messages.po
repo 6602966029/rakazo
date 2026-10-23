@@ -1310,6 +1310,10 @@ msgstr ""
 msgid "Complete"
 msgstr "完成"
 
+#: src/components/SubagentCard.tsx
+msgid "Completed"
+msgstr "已完成"
+
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/message-view.tsx
@@ -2521,6 +2525,7 @@ msgstr ""
 msgid "failed"
 msgstr "失败"
 
+#: src/components/SubagentCard.tsx
 #: src/pages/ActivityList.tsx
 msgid "Failed"
 msgstr "失败"
@@ -4384,6 +4389,7 @@ msgid "running"
 msgstr "运行中"
 
 #: src/components/McpServerHealthLine.tsx
+#: src/components/SubagentCard.tsx
 #: src/pages/ActivityList.tsx
 msgid "Running"
 msgstr "运行中"
@@ -4854,7 +4860,6 @@ msgid "Stream replies"
 msgstr "流式回复"
 
 #: src/lib/identity-display.ts
-#: src/pages/shell/message-view.tsx
 msgid "subagent"
 msgstr "子 Agent"
 

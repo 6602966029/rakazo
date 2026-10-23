@@ -1310,6 +1310,10 @@ msgstr "Compact"
 msgid "Complete"
 msgstr "Voltooid"
 
+#: src/components/SubagentCard.tsx
+msgid "Completed"
+msgstr "Voltooid"
+
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/message-view.tsx
@@ -2521,6 +2525,7 @@ msgstr "Extra hoog"
 msgid "failed"
 msgstr "mislukt"
 
+#: src/components/SubagentCard.tsx
 #: src/pages/ActivityList.tsx
 msgid "Failed"
 msgstr "Mislukt"
@@ -4384,6 +4389,7 @@ msgid "running"
 msgstr "draait"
 
 #: src/components/McpServerHealthLine.tsx
+#: src/components/SubagentCard.tsx
 #: src/pages/ActivityList.tsx
 msgid "Running"
 msgstr "Draait"
@@ -4854,7 +4860,6 @@ msgid "Stream replies"
 msgstr "Antwoorden streamen"
 
 #: src/lib/identity-display.ts
-#: src/pages/shell/message-view.tsx
 msgid "subagent"
 msgstr "subagent"
 

@@ -1310,6 +1310,10 @@ msgstr ""
 msgid "Complete"
 msgstr "Завершить"
 
+#: src/components/SubagentCard.tsx
+msgid "Completed"
+msgstr "Завершено"
+
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/message-view.tsx
@@ -2521,6 +2525,7 @@ msgstr ""
 msgid "failed"
 msgstr "неуспешный"
 
+#: src/components/SubagentCard.tsx
 #: src/pages/ActivityList.tsx
 msgid "Failed"
 msgstr "Ошибка"
@@ -4384,6 +4389,7 @@ msgid "running"
 msgstr "выполняется"
 
 #: src/components/McpServerHealthLine.tsx
+#: src/components/SubagentCard.tsx
 #: src/pages/ActivityList.tsx
 msgid "Running"
 msgstr "Выполняется"
@@ -4854,7 +4860,6 @@ msgid "Stream replies"
 msgstr "Потоковые ответы"
 
 #: src/lib/identity-display.ts
-#: src/pages/shell/message-view.tsx
 msgid "subagent"
 msgstr "субагент"
 

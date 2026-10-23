@@ -65,6 +65,7 @@ function fakeFleet(input: {
   sections?: string[];
   effects?: Array<{ request: unknown; result: unknown }>;
   routines?: Array<Record<string, unknown>>;
+  timezone?: string;
 }) {
   const bots = (input.bots ?? []).map((bot) => ({
     spaceId: "space-1",
@@ -100,6 +101,7 @@ function fakeFleet(input: {
       ),
       update: vi.fn(),
     },
+    user: { findUnique: vi.fn(async () => ({ timezone: input.timezone ?? null })) },
     $transaction: vi.fn(),
     externalEffect: { findMany: vi.fn(async () => input.effects ?? []) },
     routine: {
@@ -592,6 +594,23 @@ describe("prepareFleetRequest create_child_routine", () => {
           expect.stringMatching(/^Repeats .+, next at .+ Europe\/Bucharest$/),
           "Prompt: Check in",
         ],
+      },
+    });
+  });
+
+  it("schedules in the user's timezone when the bot names none", async () => {
+    const { deps } = fakeFleet({ ...fleet, timezone: "Europe/Paris" });
+    const prepared = await prepareFleetRequest(deps, run, "create_child_routine", {
+      bot_name: "Writer",
+      name: "Morning brief",
+      prompt: "Summarize the news",
+      cron: "0 9 * * *",
+    });
+    expect(prepared).toMatchObject({
+      ok: true,
+      canonical: { timezone: "Europe/Paris", schedule: { cron: "0 9 * * *" } },
+      summary: {
+        lines: ["Repeats 0 9 * * *, next at 19 Oct 2026, 09:00 Europe/Paris", expect.any(String)],
       },
     });
   });
