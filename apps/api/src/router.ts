@@ -129,6 +129,7 @@ import {
   settleCallRequest,
   stableStringify,
   storeBotSecret,
+  storedOpenAiCompatibleProbeHeaders,
   storedOpenAiCompatibleProbeKey,
   takeoverLeaseMs,
   toComputerRef,
@@ -139,6 +140,7 @@ import {
   validateConnectedModelChoice,
   validateModelAuthAvailability,
   validateRoutineWatch,
+  verifyCatalogProviderApiKey,
   verifyMcpInstall,
 } from "@rakazo/adapters";
 import type { Auth } from "@rakazo/auth";
@@ -316,6 +318,7 @@ import {
 } from "./thread-message-pages.js";
 import {
   markThreadRead,
+  markThreadUnreadFrom,
   reactToThreadMessage,
   resolveThreadTarget,
   sendThreadMessage,
@@ -663,6 +666,8 @@ export interface RouterDeps {
   /** Live Codex catalog seam; defaults to the shared per-process cache. */
   codexCatalog?: CodexLiveCatalog;
   providerCatalog?: ProviderCatalogCache;
+  /** HTTP transport for model connection checks and catalog probes. */
+  modelConnectionFetch?: typeof fetch;
   /** Site icons for links; defaults to the per-process cache that fetches them. */
   favicons?: FaviconResolver;
   /**
@@ -1529,6 +1534,13 @@ export function createRouter(deps: RouterDeps) {
             omitVisionModelIds,
             allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
           });
+          if (input.apiKey?.trim()) {
+            await verifyCatalogProviderApiKey(
+              { provider: input.provider, apiKey: input.apiKey },
+              deps.modelConnectionFetch,
+              context.signal,
+            );
+          }
         } catch (error) {
           throw new ORPCError("BAD_REQUEST", {
             message: error instanceof Error ? error.message : "Invalid model connection",
@@ -1564,7 +1576,8 @@ export function createRouter(deps: RouterDeps) {
       probeOpenAiCompatible: authed.models.probeOpenAiCompatible.handler(
         async ({ context, input }) => {
           let apiKey = input.apiKey;
-          if (!apiKey?.trim()) {
+          let headers = input.headers;
+          if (!apiKey?.trim() || headers === undefined) {
             try {
               const preferred = await findModelCredential(
                 deps.prisma,
@@ -1575,9 +1588,14 @@ export function createRouter(deps: RouterDeps) {
                 where: { userId: context.actor.userId, provider: OPENAI_COMPATIBLE_PROVIDER_ID },
                 orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
               });
-              const candidates = preferred
-                ? [preferred, ...credentials.filter((credential) => credential.id !== preferred.id)]
-                : credentials;
+              const candidates = input.credentialId
+                ? credentials.filter((credential) => credential.id === input.credentialId)
+                : preferred
+                  ? [
+                      preferred,
+                      ...credentials.filter((credential) => credential.id !== preferred.id),
+                    ]
+                  : credentials;
               const secrets = await deps.prisma.secret.findMany({
                 where: {
                   id: { in: candidates.map((credential) => credential.secretId) },
@@ -1591,11 +1609,15 @@ export function createRouter(deps: RouterDeps) {
                 const ciphertext = ciphertexts.get(credential.secretId);
                 if (!ciphertext) continue;
                 try {
-                  apiKey = storedOpenAiCompatibleProbeKey(
-                    input.baseUrl,
-                    await deps.secrets.load(ciphertext, credential.secretId),
-                  );
-                  if (apiKey) break;
+                  const plaintext = await deps.secrets.load(ciphertext, credential.secretId);
+                  const savedKey = storedOpenAiCompatibleProbeKey(input.baseUrl, plaintext);
+                  const savedHeaders = storedOpenAiCompatibleProbeHeaders(input.baseUrl, plaintext);
+                  if (!savedKey && savedHeaders === undefined) continue;
+                  // A saved key and its routing headers are one credential. Explicit
+                  // replacements may override either field, but never borrow from another row.
+                  if (!apiKey?.trim()) apiKey = savedKey;
+                  headers ??= savedHeaders;
+                  break;
                 } catch {
                   // An unreadable secret must not prevent trying the remaining credentials.
                 }
@@ -1606,7 +1628,7 @@ export function createRouter(deps: RouterDeps) {
           }
           try {
             const models = await probeOpenAiCompatibleModels(
-              { ...input, apiKey },
+              { ...input, apiKey, headers },
               undefined,
               context.signal,
               { allowPrivate: mayUsePrivateEndpoint(deps) },
@@ -1623,7 +1645,7 @@ export function createRouter(deps: RouterDeps) {
         try {
           const models = await probeCatalogProviderModels(
             { provider: input.provider, apiKey: input.apiKey },
-            undefined,
+            deps.modelConnectionFetch,
             context.signal,
           );
           return { models };
@@ -2856,7 +2878,11 @@ export function createRouter(deps: RouterDeps) {
       }),
       markUnread: authed.threads.markUnread.handler(async ({ context, input }) => {
         const target = await resolveThreadTarget(deps.prisma, context.actor, input);
-        await setThreadUnreadState(deps.prisma, context.actor, target, true);
+        if (input.messageId) {
+          await markThreadUnreadFrom(deps.prisma, context.actor, target, input.messageId);
+        } else {
+          await setThreadUnreadState(deps.prisma, context.actor, target, true);
+        }
         return { ok: true as const };
       }),
     },

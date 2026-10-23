@@ -832,7 +832,7 @@ export class PiAgentRuntime implements AgentRuntime {
         const providerFailure =
           !budgetExceeded && terminalMessage ? providerFailureText(terminalMessage) : undefined;
         const error = agent.state.errorMessage || providerFailure;
-        if (error && !budgetExceeded) {
+        if (error && !budgetExceeded && (!host.pausePending || signal.aborted)) {
           const message = sanitizeProviderError(activeStreamTarget.model.provider, error);
           throw isTransientModelError(error)
             ? new TransientModelError(message)
@@ -1035,6 +1035,7 @@ export function modelsForRequest(
     return registerOpenAiCompatibleRuntime(models, {
       modelId: request.model.id,
       baseUrl: request.model.baseUrl,
+      headers: request.model.headers,
       allowPrivate: request.model.allowPrivateEndpoint,
       reasoning: request.model.reasoning,
       acceptsImages: request.model.acceptsImages,
@@ -1554,6 +1555,9 @@ function toAgentTool(tool: ConnectorTool, host: ToolHost, exposedName: string): 
             failure = error;
             throw error;
           } finally {
+            // Pi only terminates a parallel batch when every result terminates.
+            // A single paused call must stop the turn before another model request.
+            if (host.pausePending) host.abortTurn?.();
             const details = (
               result as AgentToolResult<{ error?: unknown; isError?: unknown }> | undefined
             )?.details;

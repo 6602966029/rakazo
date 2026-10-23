@@ -23,7 +23,7 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   await signup(page, `model-cleanup-${stamp}@rakazo.test`, "password12", "Model Preview");
   await completeOnboarding(page);
 
-  // Keep the account and persistence real; the scripted test runtime accepts fake keys.
+  // Keep account persistence real; the harness supplies offline provider verification.
   // Hide the deployment default so the first frame exercises the empty-provider state.
   let providerConnected = false;
   await page.route("**/rpc/me", async (route) => {
@@ -38,6 +38,15 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   const backups = page.getByTestId("model-backups");
   await expect(page.getByLabel("API key")).toBeVisible();
   await captureScreenshot(page, testInfo, "model-settings-cleanup-1-not-connected");
+
+  await page.getByLabel("API key").fill("rejected-fixture-key");
+  await page.getByRole("button", { name: "Connect API key", exact: true }).click();
+  await expect(
+    page.getByText("API key was rejected by the provider.", { exact: true }),
+  ).toBeVisible();
+  const rejected = await rpc<Array<{ provider: string }>>(page, "models/credentials", {});
+  expect(rejected.some((credential) => credential.provider === "openrouter")).toBe(false);
+  await captureScreenshot(page, testInfo, "model-settings-cleanup-1a-rejected-key");
 
   await page.getByLabel("API key").fill("fake-cleanup-api-key");
   providerConnected = true;
@@ -325,6 +334,7 @@ async function fulfillWithoutModelStep(route: Route) {
 
 test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page }, testInfo) => {
   const completionBodies: Array<Record<string, unknown>> = [];
+  const completionHeaders: Array<string | string[] | undefined> = [];
   const server = createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/v1/models") {
       response.writeHead(200, { "content-type": "application/json" });
@@ -336,6 +346,7 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     if (request.method === "POST" && request.url === "/v1/chat/completions") {
       try {
         completionBodies.push(await readJsonBody(request));
+        completionHeaders.push(request.headers["x-session"]);
       } catch (error) {
         response.writeHead(400, { "content-type": "text/plain" });
         response.end(String(error));
@@ -432,6 +443,10 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     await expect(page.getByRole("checkbox", { name: LOCAL_MODEL_ID })).toBeChecked();
     await page.getByRole("checkbox", { name: SECOND_MODEL_ID }).check();
     await page.getByText("Advanced", { exact: true }).click();
+    await page.getByRole("button", { name: "Add header", exact: true }).click();
+    await page.getByRole("textbox", { name: "Header name", exact: true }).fill("x-session");
+    await page.getByLabel("Header value", { exact: true }).fill("fake-session-secret");
+    await captureScreenshot(page, testInfo, "openai-compatible-header-edit");
     await page.getByRole("checkbox", { name: "Supports thinking" }).check();
     // Room for the bot's required context, so a pi run reaches the fake endpoint.
     await page.getByLabel("Context limit").fill("200000");
@@ -444,6 +459,18 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     await expect(page.getByRole("checkbox", { name: SECOND_MODEL_ID })).toBeChecked();
     await captureScreenshot(page, testInfo, "openai-compatible-connected");
     await captureScreenshot(page, testInfo, "openai-compatible-multi-model");
+    await page.getByRole("button", { name: "Close model settings" }).click();
+    await openUserSettings(page, "models");
+    await page.getByPlaceholder("Search providers").fill("openai-compatible");
+    await page.getByRole("button", { name: /OpenAI-compatible/ }).click();
+    await page.getByText("Advanced", { exact: true }).click();
+    await expect(page.getByRole("group").getByText("Headers", { exact: true })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Header name", exact: true })).toHaveValue(
+      "x-session",
+    );
+    await expect(page.getByLabel("Header value", { exact: true })).toHaveValue("");
+    await page.getByRole("group", { name: "Headers", exact: true }).scrollIntoViewIfNeeded();
+    await captureScreenshot(page, testInfo, "openai-compatible-header-saved");
     const savedCredentials = await rpc<Array<{ modelId?: string; enabledModelIds?: string[] }>>(
       page,
       "models/credentials",
@@ -499,6 +526,7 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
       });
       await captureScreenshot(page, testInfo, "openai-compatible-response");
       expect(completionBodies.length).toBeGreaterThan(0);
+      expect(completionHeaders.at(-1)).toBe("fake-session-secret");
       expect(completionBodies.at(-1)).toMatchObject({
         model: SECOND_MODEL_ID,
         reasoning_effort: "high",
@@ -885,7 +913,7 @@ test("chat settings search a long model list", async ({ page }, testInfo) => {
   );
   expect(openRouter.length).toBeGreaterThan(10);
   const target = openRouter.find((entry) => entry.id.startsWith("anthropic/")) ?? openRouter[0]!;
-  // A fake key lists the whole OpenRouter catalogue without calling OpenRouter.
+  // The harness verifies this fake key offline before the catalog becomes available.
   await rpc(page, "models/connect", {
     provider: "openrouter",
     apiKey: "fake-openrouter-key",

@@ -5,6 +5,7 @@ import path from "node:path";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import type { createApp } from "../../../../apps/api/src/app.ts";
+import { createModelConnectionFixtureFetch } from "../model-connection-fixture.js";
 import { runProcess } from "./process.js";
 
 loadRootEnv();
@@ -175,6 +176,7 @@ async function main() {
       {
         ComposioConnector,
         FakeComposioClient,
+        listPiCatalog,
         DestinationEmulator,
         EmailEmulator,
         PipedreamConnector,
@@ -202,6 +204,7 @@ async function main() {
     const email = new EmailEmulator();
     const handles = await createApp({
       databaseUrl,
+      modelConnectionFetch: createModelConnectionFixtureFetch(listPiCatalog()),
       prisma: undefined,
       composio: new ComposioConnector({ client: new FakeComposioClient() }),
       connectors: [new DestinationEmulator()],

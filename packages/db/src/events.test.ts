@@ -2847,6 +2847,9 @@ describe("sendUserMessage", () => {
     };
     const prisma = {
       message: { findUnique: vi.fn().mockResolvedValue(null) },
+      run: {
+        findFirst: vi.fn().mockResolvedValue({ id: "run-1", taskId: "task-1" }),
+      },
       $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => {
         const result = await callback(tx);
         committed = true;
@@ -2902,7 +2905,6 @@ describe("sendUserMessage", () => {
       id: "message-1",
       seq: 4,
       createdAt,
-      sourceRuns: [{ id: "run-1", taskId: "task-1" }],
     } as never);
     await sendUserMessage(
       prisma,

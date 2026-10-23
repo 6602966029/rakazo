@@ -3338,9 +3338,9 @@ describe("OpenAI-compatible model probes", () => {
     expect(JSON.stringify(response)).not.toContain("fake-saved-key");
   });
 
-  it("uses a typed key without looking up the stored credential", async () => {
+  it("uses explicit key and headers without looking up the stored credential", async () => {
     const { client, fetch, findCredential, findCredentials, findSecret, load } = fixture();
-    await client.models.probeOpenAiCompatible({ baseUrl, apiKey: " fake-typed-key " });
+    await client.models.probeOpenAiCompatible({ baseUrl, apiKey: " fake-typed-key ", headers: {} });
     expect(fetch).toHaveBeenCalledWith(
       expect.any(URL),
       expect.objectContaining({
@@ -3351,6 +3351,61 @@ describe("OpenAI-compatible model probes", () => {
     expect(findCredentials).not.toHaveBeenCalled();
     expect(findSecret).not.toHaveBeenCalled();
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it("reuses saved headers for the same endpoint without exposing them", async () => {
+    const { client, fetch, load } = fixture();
+    load.mockResolvedValue(
+      JSON.stringify({
+        kind: "openai_compatible",
+        baseUrl,
+        apiKey: "fake-saved-key",
+        headers: { "x-session": "fake-session-secret" },
+      }),
+    );
+    const response = await client.models.probeOpenAiCompatible({ baseUrl });
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get("x-session")).toBe(
+      "fake-session-secret",
+    );
+    expect(JSON.stringify(response)).not.toContain("fake-session-secret");
+  });
+
+  it("never uses another user's credential id for probe secrets", async () => {
+    const { client, fetch, credentials, load } = fixture();
+    credentials.push({
+      id: "other-credential",
+      userId: "other-user",
+      provider: "openai-compatible",
+      secretId: "other-secret",
+    });
+    await client.models.probeOpenAiCompatible({ baseUrl, credentialId: "other-credential" });
+    const headers = new Headers(fetch.mock.calls[0]?.[1]?.headers);
+    expect(headers.has("authorization")).toBe(false);
+    expect(headers.has("x-session")).toBe(false);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it("takes both saved fields from the selected credential, never another credential", async () => {
+    const { client, fetch, credentials, load } = fixture();
+    credentials.push({
+      id: "cred-2",
+      userId: actor.userId,
+      provider: "openai-compatible",
+      secretId: "secret-2",
+    });
+    load.mockImplementation(async (_, secretId) =>
+      JSON.stringify({
+        kind: "openai_compatible",
+        baseUrl,
+        apiKey: secretId === "secret-2" ? "selected-key" : "other-key",
+        headers: secretId === "secret-2" ? {} : { "x-session": "other-session" },
+      }),
+    );
+    await client.models.probeOpenAiCompatible({ baseUrl, credentialId: "cred-2" });
+    const headers = new Headers(fetch.mock.calls[0]?.[1]?.headers);
+    expect(headers.get("authorization")).toBe("Bearer selected-key");
+    expect(headers.has("x-session")).toBe(false);
+    expect(load.mock.calls.map((call) => call[1])).toEqual(["secret-2"]);
   });
 
   it.each(["different endpoint", "unreadable", "matching endpoint"])(
@@ -3722,6 +3777,76 @@ describe("model credential persistence", () => {
         update: expect.objectContaining({ modelId: null }),
       }),
     );
+  });
+
+  it.each([401, 403, 503])(
+    "rejects an unverified OpenRouter replacement (%i) without changing the saved connection",
+    async (status) => {
+      const { upsert, deps, handler } = persistDeps();
+      const saved = {
+        id: "credential-fixture",
+        userId: actor.userId,
+        provider: "openrouter",
+        secretId: "secret-fixture",
+      };
+      vi.mocked(deps.prisma.userModelCredential.findFirst).mockResolvedValue(saved as never);
+      Object.assign(deps.prisma, {
+        secret: { findFirst: vi.fn().mockResolvedValue({ ciphertext: "fixture-ciphertext" }) },
+      });
+      Object.assign(deps.secrets, { load: vi.fn().mockResolvedValue("fixture-previous-key") });
+      const fetchImpl = vi.fn<typeof fetch>(
+        async () => new Response("private upstream details", { status }),
+      );
+      vi.stubGlobal("fetch", fetchImpl);
+      try {
+        const response = await call(handler, "models/connect", {
+          provider: "openrouter",
+          apiKey: "fixture-replacement-key",
+        });
+        expect(response.status).toBe(400);
+        await expect(response.json()).resolves.toMatchObject({
+          json: {
+            code: "BAD_REQUEST",
+            message:
+              status === 503
+                ? "Could not verify the API key. Try again."
+                : "API key was rejected by the provider.",
+          },
+        });
+        expect(fetchImpl).toHaveBeenCalledOnce();
+        expect(deps.secrets.put).not.toHaveBeenCalled();
+        expect(deps.prisma.$transaction).not.toHaveBeenCalled();
+        expect(upsert).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
+
+  it("saves an OpenRouter key only after its authentication check succeeds", async () => {
+    const { deps, handler } = persistDeps();
+    const fetchImpl = vi.fn<typeof fetch>(async () => Response.json({ data: {} }));
+    vi.stubGlobal("fetch", fetchImpl);
+    try {
+      const response = await call(handler, "models/connect", {
+        provider: "openrouter",
+        apiKey: "fixture-key",
+      });
+      expect(response.status).toBe(200);
+      expect(fetchImpl).toHaveBeenCalledWith(
+        "https://openrouter.ai/api/v1/key",
+        expect.objectContaining({ headers: { Authorization: "Bearer fixture-key" } }),
+      );
+      expect(deps.secrets.put).toHaveBeenCalledWith(
+        "fixture-key",
+        expect.objectContaining({ userId: actor.userId }),
+      );
+      expect(fetchImpl.mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(deps.secrets.put).mock.invocationCallOrder[0]!,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("rejects an API key for ChatGPT-subscription Codex before persisting", async () => {
