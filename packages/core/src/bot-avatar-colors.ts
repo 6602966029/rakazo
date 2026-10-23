@@ -1,3 +1,5 @@
+import { parseBotAvatarValue } from "@rakazo/contracts";
+
 export interface BotColorDef {
   id: string;
   name: string;
@@ -147,6 +149,21 @@ export function resolvePersonaColorDef(
   const seed = (shippedHash(identity) ^ Math.imul(1, 2654435769)) >>> 0;
   const index = Math.floor(shippedRandom((seed ^ 2654435769) >>> 0)() * BOT_COLOR_LIST.length);
   return BOT_COLOR_LIST[index % BOT_COLOR_LIST.length] ?? BOT_COLOR_LIST[0]!;
+}
+
+/**
+ * Your messages in a bot's chat wear that bot's color. A photo or the white bot has no
+ * color that reads as a bubble, so those chats keep the neutral one.
+ */
+export function chatUserBubbleColors(
+  avatarValue: string,
+  identity: string,
+): { background: string; foreground: string } | undefined {
+  const parsed = parseBotAvatarValue(avatarValue);
+  if (parsed.kind === "image") return undefined;
+  const def = resolvePersonaColorDef(identity, parsed.kind === "other" ? undefined : parsed.color);
+  if (def.id === "white") return undefined;
+  return { background: def.hex, foreground: def.eyeColor };
 }
 
 function expandHex(hex: string): string {
