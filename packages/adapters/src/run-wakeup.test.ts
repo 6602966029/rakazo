@@ -22,9 +22,13 @@ function fixture() {
       .filter(
         ([, row]) => row.status === "queued" && (!row.wakeAt || row.wakeAt.getTime() <= Date.now()),
       )
-      .map(([id]) => ({ id })),
+      .map(([id]) => ({ id, botId: id, bot: { computerId: "computer" } })),
   );
-  const prisma = { run: { updateMany, findMany } } as unknown as PrismaClient;
+  const leases = vi.fn(async () => [] as { computerId: string; botId: string; runId: string }[]);
+  const prisma = {
+    run: { updateMany, findMany },
+    computerExecutionLease: { findMany: leases },
+  } as unknown as PrismaClient;
   const realtime = new InMemoryRealtimeFanout();
   const background = {
     enqueue: vi.fn(),
@@ -33,10 +37,52 @@ function fixture() {
   } as unknown as JobPublisher;
   const publisher = new RunJobPublisher(prisma, realtime, background);
   const host = new RunWorkerHost(prisma, realtime, { intervalMs: 100 });
-  return { rows, prisma, realtime, background, publisher, host, findMany, updateMany };
+  return { rows, prisma, realtime, background, publisher, host, findMany, updateMany, leases };
 }
 
 describe("durable direct run wakeups", () => {
+  it("leaves busy runs untouched, dispatches unrelated chats, and recovers when the lease releases", async () => {
+    const f = fixture();
+    f.rows.set("busy", { status: "queued", wakeAt: null });
+    f.rows.set("free", { status: "queued", wakeAt: null });
+    f.leases.mockResolvedValue([{ computerId: "computer", botId: "busy", runId: "holder" }]);
+    const handler = vi.fn(async ({ runId }) => {
+      f.rows.get(runId)!.status = "completed";
+    });
+    try {
+      await f.host.start({ "run.continue": handler } as unknown as BackgroundJobHandlers);
+      await vi.waitFor(() => expect(f.rows.get("free")!.status).toBe("completed"));
+      await vi.waitFor(() => expect(f.leases.mock.calls.length).toBeGreaterThan(2));
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(f.rows.get("busy")).toEqual({ status: "queued", wakeAt: null });
+      expect(f.updateMany).not.toHaveBeenCalled();
+      f.leases.mockResolvedValue([]);
+      await vi.waitFor(() => expect(f.rows.get("busy")!.status).toBe("completed"));
+      expect(handler).toHaveBeenCalledTimes(2);
+    } finally {
+      await f.host.stop();
+    }
+  });
+
+  it("allows a run's own held lease and ignores leases on its previous computer", async () => {
+    const f = fixture();
+    f.rows.set("resume", { status: "queued", wakeAt: null });
+    f.rows.set("reassigned", { status: "queued", wakeAt: null });
+    f.leases.mockResolvedValue([
+      { computerId: "computer", botId: "resume", runId: "resume" },
+      { computerId: "old-computer", botId: "reassigned", runId: "holder" },
+    ]);
+    const handler = vi.fn(async ({ runId }) => {
+      f.rows.get(runId)!.status = "completed";
+    });
+    try {
+      await f.host.start({ "run.continue": handler } as unknown as BackgroundJobHandlers);
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(2));
+    } finally {
+      await f.host.stop();
+    }
+  });
+
   it("starts chat without invoking Graphile, deduplicates wakeups, and drains long executions", async () => {
     const f = fixture();
     f.rows.set("chat", { status: "queued", wakeAt: null });

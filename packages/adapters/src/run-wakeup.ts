@@ -141,8 +141,26 @@ export class RunWorkerHost implements JobWorkerHost {
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: batchSize,
-      select: { id: true, createdAt: true },
+      select: { id: true, createdAt: true, botId: true, bot: { select: { computerId: true } } },
     });
+    // Leave resource waits queued. Reclaiming them on every scan changes their
+    // age, hides stuck-work reminders, and produces false execution starts.
+    // The executor still acquires the lease atomically to handle races here.
+    const leases = rows.length
+      ? await this.prisma.computerExecutionLease.findMany({
+          where: { botId: { in: rows.map((row) => row.botId) }, expiresAt: { gt: now } },
+          select: { computerId: true, botId: true, runId: true },
+        })
+      : [];
+    const runnable = rows.filter(
+      (row) =>
+        !leases.some(
+          (lease) =>
+            lease.botId === row.botId &&
+            lease.computerId === row.bot.computerId &&
+            lease.runId !== row.id,
+        ),
+    );
     const dispatch = async (id: string) => {
       if (this.stopping) return;
       this.inFlight.add(id);
@@ -174,9 +192,9 @@ export class RunWorkerHost implements JobWorkerHost {
     // hold unrelated chats, while setup cannot flood the database pool.
     let next = 0;
     await Promise.all(
-      Array.from({ length: Math.min(4, rows.length) }, async () => {
-        while (next < rows.length && !this.stopping) {
-          const row = rows[next++];
+      Array.from({ length: Math.min(4, runnable.length) }, async () => {
+        while (next < runnable.length && !this.stopping) {
+          const row = runnable[next++];
           if (row) await dispatch(row.id);
         }
       }),

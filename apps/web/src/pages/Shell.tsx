@@ -202,7 +202,6 @@ import { CreateGroupForm, GroupSettings, memberName } from "./GroupPanel";
 import { HostComputerPrompt } from "./HostComputerPrompt";
 import { ResizableSidePanel } from "./ResizableSidePanel";
 import { RoutineEditor } from "./RoutineEditor";
-import type { SettingsSection } from "./SettingsOverlay";
 import { SpaceSearchResults } from "./SpaceSearch";
 import { ArchivedChats } from "./shell/archived-chats";
 import { BotSettings, CreateBotForm } from "./shell/bot-panel";
@@ -231,6 +230,13 @@ import { commitSpaceRename, countUnreadChats, sidebarGroupsForSpaces } from "./s
 import { Transcript } from "./shell/transcript";
 import { useRoutineEditor } from "./shell/use-routine-editor";
 import { useSidebarExpansion } from "./shell/use-sidebar-expansion";
+import type { SettingsSection, ShellOverlay } from "./shell-overlay";
+import {
+  readShellOverlay,
+  searchString,
+  shellOverlaySearch,
+  withShellOverlay,
+} from "./shell-overlay";
 
 const READ_ALOUD_TOAST = "read-aloud-error";
 
@@ -318,6 +324,15 @@ function SpaceShell() {
   // effect below, which should only restart when the active bot changes).
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
+  /** Picking the thread for a bare or stale route keeps an overlay the URL asked for. */
+  const redirectKeepingOverlay = useCallback(
+    (pathname: string) =>
+      navigate(
+        { pathname, search: shellOverlaySearch(searchParamsRef.current) },
+        { replace: true },
+      ),
+    [navigate],
+  );
   const session = authClient.useSession();
   const userId = session.data?.user.id;
   const [groups, setGroups] = useState<Group[]>([]);
@@ -478,17 +493,11 @@ function SpaceShell() {
   function updateSnapshot(update: (prev: ThreadSnapshot | null) => ThreadSnapshot | null) {
     commitSnapshot(update(snapshotRef.current));
   }
-  const [pluginsOpen, setPluginsOpen] = usePreloadRecoveryState("integrations", false);
-  const [mcpOpen, setMcpOpen] = usePreloadRecoveryState("mcp", false);
-  const [settingsOpen, setSettingsOpen] = usePreloadRecoveryState("settings", false);
-  const [settingsSection, setSettingsSection] = usePreloadRecoveryState<SettingsSection>(
-    "settingsSection",
-    "general",
-  );
-  const [messagingSettingsOpen, setMessagingSettingsOpen] = usePreloadRecoveryState(
-    "messaging",
-    false,
-  );
+  const overlay = readShellOverlay(searchParams);
+  // Overlays replace the URL rather than adding history, so opening and closing never race a navigation.
+  function setOverlay(next: ShellOverlay) {
+    navigate({ search: searchString(withShellOverlay(searchParams, next)) }, { replace: true });
+  }
   const [messagingSurfaceEnabled, setMessagingSurfaceEnabled] = useState(false);
   const [messagingProviders, setMessagingProviders] = useState<string[]>([]);
   const [memoryProviderConfig, setMemoryProviderConfig] = useState<
@@ -601,18 +610,13 @@ function SpaceShell() {
   }, [bootstrapMe?.phoneCallsEnabled]);
   const currentSpaceId = selectedSpaceId() ?? bootstrapMe?.spaceId ?? null;
   // null: settings follow the space the app is showing.
-  const [settingsSpaceId, setSettingsSpaceId] = usePreloadRecoveryState<string | null>(
-    "settingsSpaceId",
-    null,
-  );
+  const settingsSpaceId = overlay?.kind === "settings" ? overlay.spaceId : null;
   const settingsSpace =
     spaces.find((space) => space.id === (settingsSpaceId ?? currentSpaceId)) ?? null;
   // Never fall back to another space's settings when the edited space goes away.
   const settingsSpaceGone = initialBotsLoaded && settingsSpaceId !== null && !settingsSpace;
   useEffect(() => {
-    if (!settingsSpaceGone) return;
-    setSettingsOpen(false);
-    setSettingsSpaceId(null);
+    if (settingsSpaceGone) setOverlay(null);
   }, [settingsSpaceGone]);
   const [keepComputerRecovery, setKeepComputerRecovery] = useState(false);
   const recoveryHoldTimer = useRef<number | undefined>(undefined);
@@ -1022,13 +1026,13 @@ function SpaceShell() {
         const currentGroupId = routeGroupId.current;
         if (currentGroupId) {
           if (!groupList.some((group) => group.id === currentGroupId)) {
-            navigate(firstThreadRoute(list, groupList), { replace: true });
+            redirectKeepingOverlay(firstThreadRoute(list, groupList));
           }
           return;
         }
         const currentBotId = routeBotId.current;
         if (!currentBotId || !list.some((bot) => bot.id === currentBotId)) {
-          navigate(firstThreadRoute(list, groupList), { replace: true });
+          redirectKeepingOverlay(firstThreadRoute(list, groupList));
         }
       } finally {
         botsRefreshInFlight.current -= 1;
@@ -1269,13 +1273,13 @@ function SpaceShell() {
         }
         if (groupId) {
           if (!groupList.some((group) => group.id === groupId)) {
-            navigate(firstThreadRoute(bootstrap.bots, groupList), { replace: true });
+            redirectKeepingOverlay(firstThreadRoute(bootstrap.bots, groupList));
           }
           return;
         }
         const selectedBotId = bootstrap.thread?.botId ?? bootstrap.bots[0]?.id;
         if (selectedBotId && selectedBotId !== botId) {
-          navigate(`/app/${selectedBotId}`, { replace: true });
+          redirectKeepingOverlay(`/app/${selectedBotId}`);
         }
       })
       .catch(() => {
@@ -2574,17 +2578,14 @@ function SpaceShell() {
     writeBotsSidebarCollapsed(userId, collapsed);
   }
 
-  function openSettings(section: SettingsSection = "general") {
-    setSettingsSpaceId(null);
-    setSettingsSection(section);
-    setSettingsOpen(true);
+  function openSettings(section: SettingsSection = "general", spaceId: string | null = null) {
+    setOverlay({ kind: "settings", section, spaceId });
   }
 
   // Space-scoped sections bind their own rpc client to this space, so another
   // space's settings open in place without switching the app or reloading.
   function openSpaceSettings(spaceId: string) {
-    openSettings("models");
-    setSettingsSpaceId(spaceId);
+    openSettings("models", spaceId);
   }
 
   async function createBot(input: {
@@ -3354,7 +3355,7 @@ function SpaceShell() {
           }}
           onIntegrations={() => {
             setMenuOpen(false);
-            setPluginsOpen(true);
+            setOverlay({ kind: "integrations" });
           }}
           onBoard={
             bootstrapMe?.ticketBoardEnabled
@@ -4054,45 +4055,40 @@ function SpaceShell() {
 
         {deleteRoutineDialogProps ? <DeleteItemDialog {...deleteRoutineDialogProps} /> : null}
 
-        {pluginsOpen ? (
+        {overlay?.kind === "integrations" ? (
           <PluginsOverlay
             onConnectedAppsChange={setFooterLogos}
             activeBotId={activeBotId.current}
-            onClose={() => setPluginsOpen(false)}
-            onOpenMcp={() => {
-              setPluginsOpen(false);
-              setMcpOpen(true);
-            }}
+            onClose={() => setOverlay(null)}
+            onOpenMcp={() => setOverlay({ kind: "mcp" })}
           />
         ) : null}
-        {mcpOpen ? <McpServersOverlay onClose={() => setMcpOpen(false)} /> : null}
-        {messagingSettingsOpen ? (
-          <MessagingSettingsOverlay onClose={() => setMessagingSettingsOpen(false)} />
+        {overlay?.kind === "mcp" ? <McpServersOverlay onClose={() => setOverlay(null)} /> : null}
+        {overlay?.kind === "messaging" ? (
+          <MessagingSettingsOverlay onClose={() => setOverlay(null)} />
         ) : null}
       </Suspense>
 
       <Suspense fallback={null}>
-        {settingsOpen && (settingsSpaceId === null || settingsSpace) ? (
+        {overlay?.kind === "settings" && (settingsSpaceId === null || settingsSpace) ? (
           <SettingsOverlay
             space={settingsSpace}
             spaces={spaces}
             currentSpaceId={currentSpaceId}
-            onSpaceChange={setSettingsSpaceId}
+            onSpaceChange={(spaceId) => setOverlay({ ...overlay, spaceId })}
             name={userName}
             email={session.data?.user.email}
             usage={usage}
             onUsageOpen={refreshUsage}
-            initialSection={settingsSection}
+            section={overlay.section}
+            onSectionChange={(section) => setOverlay({ ...overlay, section })}
             billingEnabled={bootstrapMe?.billingEnabled === true}
             sandboxProvider={bootstrapMe?.sandboxProvider}
             onSandboxProviderChange={(sandboxProvider) =>
               setBootstrapMe((prev) => (prev ? { ...prev, sandboxProvider } : prev))
             }
             messagingEnabled={messagingSurfaceEnabled}
-            onOpenMessaging={() => {
-              setSettingsOpen(false);
-              setMessagingSettingsOpen(true);
-            }}
+            onOpenMessaging={() => setOverlay({ kind: "messaging" })}
             timezone={bootstrapMe?.timezone ?? null}
             onTimezoneChange={async (timezone) => {
               const nextMe = await rpc.preferences.update({ timezone });
@@ -4113,10 +4109,7 @@ function SpaceShell() {
                 setVoiceStatus(null);
               }
             }}
-            onClose={() => {
-              setSettingsOpen(false);
-              setSettingsSection("general");
-            }}
+            onClose={() => setOverlay(null)}
           />
         ) : null}
         {peerConversation && active ? (

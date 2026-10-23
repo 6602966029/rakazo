@@ -3649,12 +3649,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           leaseOwner: workerId,
           leaseFence: fence,
         },
-        data: { status: "running", startedAt: current.startedAt ?? new Date() },
+        data: { status: "running" },
       });
       if (started.count !== 1) return;
-      getLogger().info("run.execution_started", {
-        ...(await readRunTimingFields(deps.prisma, runId)),
-      });
       const leaseTarget = await deps.prisma.bot.findUniqueOrThrow({
         where: { id: run.botId },
         select: {
@@ -3703,14 +3700,28 @@ export function createRunExecutor(deps: ExecutorDeps) {
         await requeueComputerRun(deps, runId, workerId, fence, resumeCheckpoint, heldForTakeover);
         return;
       }
-      const attempt = await deps.prisma.attempt
-        .create({
-          data: { runId, fence, status: "running" },
-        })
-        .catch(async (error) => {
-          await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
-          throw error;
+      let attempt: { id: string };
+      try {
+        // Acquiring the computer can requeue a busy run. Count that wait as queue
+        // time, and only stamp execution once this attempt can use its computer.
+        const executionStarted = await deps.prisma.run.updateMany({
+          where: { id: runId, status: "running", leaseOwner: workerId, leaseFence: fence },
+          data: { startedAt: current.startedAt ?? new Date() },
         });
+        if (executionStarted.count !== 1) {
+          await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
+          return;
+        }
+        getLogger().info("run.execution_started", {
+          ...(await readRunTimingFields(deps.prisma, runId)),
+        });
+        attempt = await deps.prisma.attempt.create({
+          data: { runId, fence, status: "running" },
+        });
+      } catch (error) {
+        await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
+        throw error;
+      }
 
       let leaseValid = true;
       let runCompleted = false;
