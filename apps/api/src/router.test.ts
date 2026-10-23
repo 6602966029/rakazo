@@ -282,6 +282,7 @@ describe("billing", () => {
     isDeploymentOwner: boolean,
     billing?: RouterDeps["billing"],
     signupSurvey: { userId: string } | null = null,
+    analytics?: RouterDeps["analytics"],
   ) {
     const prisma = {
       user: {
@@ -299,6 +300,7 @@ describe("billing", () => {
     const deps = {
       prisma,
       billing,
+      analytics,
       env: {
         defaultProvider: "fake",
         defaultModel: "fake-model",
@@ -352,6 +354,23 @@ describe("billing", () => {
     await expect(billingDeps(false, billing, { userId: "user-1" }).me()).resolves.toMatchObject({
       needsSignupSurvey: false,
     });
+  });
+
+  it("sends only the fixed survey choices to analytics", async () => {
+    const capture = vi.fn();
+    const client = billingDeps(false, undefined, null, { capture, flush: async () => undefined });
+    await client.onboarding.signupSurvey({
+      use: "work",
+      teamSize: "2-10",
+      reason: "Private plans",
+      source: "A friend",
+    });
+    await client.onboarding.signupSurvey({});
+    expect(capture.mock.calls.map(([userId, event]) => [userId, event])).toEqual([
+      ["user-1", { name: "signup_survey_answered", skipped: false, use: "work", teamSize: "2-10" }],
+      ["user-1", { name: "signup_survey_answered", skipped: true }],
+    ]);
+    expect(capture.mock.calls[0]?.[2]).toMatchObject({ id: "user-1" });
   });
 
   it("records a blank survey as skipped", async () => {

@@ -5095,6 +5095,17 @@ export function createRouter(deps: RouterDeps) {
           create: { userId: context.actor.userId, ...answers },
           update: answers,
         });
+        deps.analytics?.capture(
+          context.actor.userId,
+          {
+            name: "signup_survey_answered",
+            skipped: Object.values(answers).every((answer) => answer === null),
+            ...(answers.use ? { use: answers.use } : {}),
+            ...(answers.teamSize ? { teamSize: answers.teamSize } : {}),
+          },
+          // One event per account, even if the survey is submitted again.
+          { id: context.actor.userId, at: new Date() },
+        );
         return { ok: true as const };
       }),
       start: authed.onboarding.start.handler(async ({ context, input }) => {
