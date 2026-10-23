@@ -158,6 +158,7 @@ import {
 } from "../lib/pending-attachments";
 import { markAfterPaint, markOnce } from "../lib/performance";
 import { usePreloadRecoveryState } from "../lib/preload-recovery";
+import { canPrepareImage, prepareImage } from "../lib/prepare-image";
 import { getResponseStreamingEnabled, subscribeResponseStreaming } from "../lib/response-streaming";
 import type { Panel, RightPanelState } from "../lib/right-panel-state";
 import {
@@ -2253,7 +2254,8 @@ function SpaceShell() {
           skipped.push(t`${file.name} (max ${ATTACHMENT_MAX_COUNT} attachments)`);
           continue;
         }
-        if (file.size > attachmentMaxBytes(bootstrapMe)) {
+        // Raster photos get a chance to shrink before server-side size validation.
+        if (file.size > attachmentMaxBytes(bootstrapMe) && !canPrepareImage(file)) {
           skipped.push(
             t`${file.name} (over ${attachmentSizeLabel(attachmentMaxBytes(bootstrapMe))})`,
           );
@@ -2358,7 +2360,8 @@ function SpaceShell() {
           if (!mimeType) {
             throw new Error(t`Unsupported file type: ${pending.file.name}`);
           }
-          const contentBase64 = await readFileAsBase64(pending.file);
+          const file = await prepareImage(pending.file);
+          const contentBase64 = await readFileAsBase64(file);
           const artifact = await rpc.artifacts.create(
             groupTarget
               ? { groupId: groupTarget, name: pending.file.name, mimeType, contentBase64 }
