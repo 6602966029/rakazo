@@ -29,6 +29,7 @@ type SkillOwner = {
 
 type AgentSkillRow = {
   id: string;
+  userId: string;
   name: string;
   description: string;
   content: string;
@@ -40,10 +41,13 @@ function asSource(value: string): SkillSource {
   return "user";
 }
 
-function toRecord(row: AgentSkillRow): SkillRecord & { id: string } {
+type SpaceSkillRecord = SkillRecord & { id: string; userId?: string };
+
+function toRecord(row: AgentSkillRow): SpaceSkillRecord {
   const source = asSource(row.source);
   return {
     id: row.id,
+    userId: row.userId,
     name: row.name,
     description: row.description,
     content: row.content,
@@ -86,7 +90,7 @@ function rejectInvalidSkillFields(name: string, description: string): string | u
 export async function listAgentSkillRecords(
   prisma: PrismaClient,
   space: Pick<SkillOwner, "spaceId">,
-): Promise<Array<SkillRecord & { id: string }>> {
+): Promise<SpaceSkillRecord[]> {
   const rows = await prisma.agentSkill.findMany({
     where: { spaceId: space.spaceId },
     orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -94,11 +98,22 @@ export async function listAgentSkillRecords(
   return mergeBuiltinSkills(builtinRecords(), rows.map(toRecord));
 }
 
+/**
+ * The skills a run nobody is watching may expand: builtins and the ones `userId` last wrote.
+ * Its instructions then always come from the person whose accounts it uses.
+ */
+export function skillsRunnableBy<T extends { userId?: string }>(
+  skills: readonly T[],
+  userId: string,
+): T[] {
+  return skills.filter((skill) => skill.userId === undefined || skill.userId === userId);
+}
+
 async function findOwnedSkill(
   prisma: PrismaClient,
   owner: Pick<SkillOwner, "spaceId">,
   input: { skillId?: string; name?: string },
-): Promise<(SkillRecord & { id: string }) | null> {
+): Promise<SpaceSkillRecord | null> {
   const skills = await listAgentSkillRecords(prisma, owner);
   if (input.skillId) {
     return skills.find((skill) => skill.id === input.skillId) ?? null;
@@ -249,7 +264,9 @@ export async function skillUpdateFromTool(
         spaceId: owner.spaceId,
         source: "user",
       },
+      // The editor owns what it now says, so routines run it only on the editor's accounts.
       data: {
+        userId: owner.userId,
         name: nextName,
         description: nextDescription,
         content: nextContent,

@@ -833,6 +833,14 @@ async function afterSpaceDeparture(
     ),
   );
   await stopCancelledRunWork(deps, groupRepos, actor, departure);
+  // The job reconciler retries a failed enqueue: the runs are already queued.
+  await Promise.all(
+    departure.continuationRunIds.map((runId) =>
+      deps.jobs.enqueue(runContinueJob(runId)).catch((error) => {
+        getLogger().error("steering continuation enqueue", error);
+      }),
+    ),
+  );
   syncSeatsLater(deps, departure.organizationId);
 }
 

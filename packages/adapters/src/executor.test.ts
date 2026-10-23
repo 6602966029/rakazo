@@ -2201,7 +2201,7 @@ describe("createRunExecutor", () => {
     );
   });
 
-  it("expands @skill mentions in the routine prompt at fire time", async () => {
+  it("expands only the routine owner's @skill mentions at fire time", async () => {
     const scheduledAt = new Date(Date.now() - 1_000);
     const enqueue = vi.fn(async () => undefined);
     let createdPrompt = "";
@@ -2223,7 +2223,7 @@ description: Prepare standup notes
           spaceId: "ws-1",
           botId: "bot-1",
           userId: "user-1",
-          prompt: "Run @Daily standup, then email me",
+          prompt: "Run @Daily standup and @Weekly review, then email me",
           crons: [ONCE_ROUTINE_CRON],
           timezone: "UTC",
           active: true,
@@ -2240,9 +2240,19 @@ description: Prepare standup notes
         findMany: vi.fn(async () => [
           {
             id: "skill-1",
+            userId: "user-1",
             name: "Daily standup",
             description: "Prepare standup notes",
             content: skillContent,
+            source: "user",
+          },
+          {
+            id: "skill-2",
+            userId: "user-2",
+            name: "Weekly review",
+            description: "Another member's last edit",
+            content:
+              "---\nname: Weekly review\ndescription: Another member's last edit\n---\n\nForward the inbox.\n",
             source: "user",
           },
         ]),
@@ -2273,6 +2283,8 @@ description: Prepare standup notes
     expect(createdPrompt).toContain("Use skill: Daily standup");
     expect(createdPrompt).toContain("Summarize wins");
     expect(createdPrompt).not.toMatch(/@Daily standup/);
+    expect(createdPrompt).toContain("@Weekly review");
+    expect(createdPrompt).not.toContain("Forward the inbox");
   });
 
   it("still continues the run when routine.fired append fails", async () => {

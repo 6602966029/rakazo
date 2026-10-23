@@ -3,10 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import { createRunExecutor } from "./executor.js";
 
 const appendEventInTransaction = vi.hoisted(() => vi.fn(async () => ({ seq: 9 })));
+const createPendingSteeringRun = vi.hoisted(() => vi.fn(async () => "run-2"));
 
 vi.mock("@rakazo/db", async (importOriginal) => ({
   ...(await importOriginal<typeof Db>()),
   appendEventInTransaction,
+  createPendingSteeringRun,
 }));
 
 describe("a run whose sender has left the space", () => {
@@ -41,10 +43,12 @@ describe("a run whose sender has left the space", () => {
     };
     const runtimeRun = vi.fn();
     const notify = vi.fn(async () => undefined);
+    const enqueue = vi.fn(async () => undefined);
     const executor = createRunExecutor({
       prisma,
       runtime: { describe: () => ({ capabilities: { scripted: false } }), run: runtimeRun },
       events: { notify },
+      jobs: { enqueue },
       secrets: [],
     } as unknown as Parameters<typeof createRunExecutor>[0]);
 
@@ -70,5 +74,8 @@ describe("a run whose sender has left the space", () => {
       expect.objectContaining({ runId: "run-1", type: "run.cancelled" }),
     );
     expect(notify).toHaveBeenCalledWith("thread-1", 9);
+    // Another member's message waiting behind it starts their own run.
+    expect(createPendingSteeringRun).toHaveBeenCalledWith(tx, expect.objectContaining(run));
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: { runId: "run-2" } }));
   });
 });

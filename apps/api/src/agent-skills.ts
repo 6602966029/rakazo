@@ -252,7 +252,9 @@ export function createAgentSkillsService(prisma: PrismaClient) {
             spaceId: actor.spaceId,
             source: "user",
           },
+          // The editor owns what it now says, so routines run it only on the editor's accounts.
           data: {
+            userId: actor.userId,
             name: resolved.name,
             description: resolved.description,
             content: resolved.content,

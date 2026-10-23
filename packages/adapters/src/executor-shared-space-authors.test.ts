@@ -54,7 +54,14 @@ function historyMessages(authors: boolean) {
   ];
 }
 
-async function runInSpace(space: Space) {
+type RunOptions = {
+  trigger?: string;
+  taskPrompt?: string;
+  agentSkills?: Array<Record<string, unknown>>;
+};
+
+async function runInSpace(space: Space, options: RunOptions = {}) {
+  const trigger = options.trigger ?? "user";
   const run = {
     id: "run-4",
     botId: "bot-1",
@@ -63,8 +70,8 @@ async function runInSpace(space: Space) {
     spaceId: "space-1",
     userId: "user-b",
     status: "queued",
-    trigger: "user",
-    sourceMessageId: "current",
+    trigger,
+    sourceMessageId: trigger === "user" ? "current" : null,
     leaseFence: 0,
   };
   let request: AgentRunRequest | undefined;
@@ -132,7 +139,12 @@ async function runInSpace(space: Space) {
       findUnique: vi.fn(async () => null),
       findFirst: vi.fn(async () => null),
     },
-    task: { findUniqueOrThrow: vi.fn(async () => ({ id: run.taskId, prompt: "Book the table" })) },
+    task: {
+      findUniqueOrThrow: vi.fn(async () => ({
+        id: run.taskId,
+        prompt: options.taskPrompt ?? "Book the table",
+      })),
+    },
     computer: { updateMany: vi.fn(async () => ({ count: 1 })) },
     connection: { findMany: vi.fn(async () => []) },
     spaceModelPreference: { findFirst: vi.fn(async () => null) },
@@ -148,7 +160,7 @@ async function runInSpace(space: Space) {
     taughtSkill: { findMany: vi.fn(async () => []) },
     agentSecret: { findMany: vi.fn(async () => []) },
     botSecret: { findMany: vi.fn(async () => []) },
-    agentSkill: { findMany: vi.fn(async () => []) },
+    agentSkill: { findMany: vi.fn(async () => options.agentSkills ?? []) },
     scratchpadItem: { findMany: vi.fn(async () => []) },
     externalEffect: { findMany: vi.fn(async () => []) },
     actionApprovalRule: { findMany: vi.fn(async () => []) },
@@ -229,5 +241,42 @@ describe("message authors in the prompt", () => {
 
     expect(request.prompt.startsWith("Book the table")).toBe(true);
     expect(historyContent(request, "earlier")).toBe("Find us a restaurant");
+  });
+});
+
+describe("skills another member wrote", () => {
+  const skill = (userId: string, name: string, body: string) => ({
+    id: `skill-${name}`,
+    userId,
+    name,
+    description: `${name} steps`,
+    content: `---\nname: ${name}\ndescription: ${name} steps\n---\n\n${body}\n`,
+    source: "user",
+  });
+  const agentSkills = [
+    skill("user-b", "Own steps", "Water the plants."),
+    skill("user-a", "Ana steps", "Forward the inbox."),
+  ];
+  const taskPrompt = "Run @Own steps and @Ana steps";
+
+  it("are not followed by a run nobody started", async () => {
+    const { request } = await runInSpace(
+      { members: 2, authors: true },
+      { trigger: "routine", taskPrompt, agentSkills },
+    );
+
+    expect(request.prompt).toContain("Water the plants.");
+    expect(request.prompt).toContain("@Ana steps");
+    expect(request.prompt).not.toContain("Forward the inbox.");
+  });
+
+  it("are followed when a person asks for them", async () => {
+    const { request } = await runInSpace(
+      { members: 2, authors: true },
+      { taskPrompt, agentSkills },
+    );
+
+    expect(request.prompt).toContain("Water the plants.");
+    expect(request.prompt).toContain("Forward the inbox.");
   });
 });

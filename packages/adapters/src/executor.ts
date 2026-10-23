@@ -120,6 +120,7 @@ import {
   appendEventInTransaction,
   cancelRunsInTransaction,
   countUnreadInboxChats,
+  createPendingSteeringRun,
   createSpaceForMember,
   createThreadMessageInTransaction,
   effectiveMemoryScope,
@@ -423,6 +424,7 @@ import {
   skillCreateFromTool,
   skillDeleteFromTool,
   skillReadFromTool,
+  skillsRunnableBy,
   skillUpdateFromTool,
 } from "./skill-tools.js";
 import type { TakeoverResumeCheckpoint } from "./takeover-resume.js";
@@ -3299,9 +3301,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
               routine.timezone,
             );
       const previousLastRunAt = routine.lastRunAt;
-      const skillRecords = await listAgentSkillRecords(deps.prisma, {
-        spaceId: routine.spaceId,
-      });
+      // The run uses the owner's accounts, so it follows only the owner's own skills.
+      const skillRecords = skillsRunnableBy(
+        await listAgentSkillRecords(deps.prisma, { spaceId: routine.spaceId }),
+        routine.userId,
+      );
       const routinePrompt =
         expandSkillReferencesInPrompt(routine.prompt, skillRecords) +
         (watchTick?.run ? watchTick.note : "");
@@ -7499,11 +7503,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
           turnBlocks,
           currentTurnImages,
         );
+        // Only a person's own message may pull in a skill someone else wrote; any other run
+        // follows only skills written by the person whose accounts it uses.
+        const runnableAgentSkills = ownerStartedRun
+          ? agentSkills
+          : skillsRunnableBy(agentSkills, run.userId);
+        const runnableSavedSkills = ownerStartedRun
+          ? savedSkills
+          : skillsRunnableBy(savedSkills, run.userId);
         const taskPrompt = expandSkillReferencesInPrompt(
           [task.prompt, attachedFilesPrompt, missingImagesInstruction].filter(Boolean).join("\n\n"),
-          agentSkills,
+          runnableAgentSkills,
         );
-        const invokedSkill = savedSkills.find((skill) =>
+        const invokedSkill = runnableSavedSkills.find((skill) =>
           promptInvokesSkill(taskPrompt, skill.name || skill.goal),
         );
         const turnSource = messages.find((message) => message.id === run.sourceMessageId);
@@ -8903,7 +8915,7 @@ async function cancelRunOfFormerMember(
     select: { id: true },
   });
   if (member) return false;
-  const seq = await deps.prisma.$transaction(async (tx) => {
+  const cancelled = await deps.prisma.$transaction(async (tx) => {
     const current = await tx.run.findUnique({
       where: { id: run.id },
       select: { id: true, taskId: true, status: true },
@@ -8918,9 +8930,13 @@ async function cancelRunOfFormerMember(
       type: "run.cancelled",
       payload: {},
     });
-    return event.seq;
+    // Remaining members' messages waited behind this run; give them their own.
+    const continuationId = await createPendingSteeringRun(tx, run);
+    return { seq: event.seq, continuationId };
   });
-  if (seq !== null) await deps.events.notify(run.threadId, seq).catch(() => undefined);
+  if (!cancelled) return true;
+  await deps.events.notify(run.threadId, cancelled.seq).catch(() => undefined);
+  if (cancelled.continuationId) await deps.jobs.enqueue(runContinueJob(cancelled.continuationId));
   return true;
 }
 

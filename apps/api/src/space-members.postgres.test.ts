@@ -19,6 +19,7 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
   let handler: RPCHandler<Record<string, unknown>>;
   const syncSeats = vi.fn(async (_organizationId: string) => undefined);
   const cancelJob = vi.fn(async (_key: string) => undefined);
+  const enqueueJob = vi.fn(async (_job: { name: string; payload: unknown }) => undefined);
   const notify = vi.fn(async (_threadId: string, _seq: number) => undefined);
   const users: string[] = [];
   const organizations: string[] = [];
@@ -109,7 +110,7 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
     const deps = {
       prisma,
       billing: { syncSeats },
-      jobs: { cancel: cancelJob },
+      jobs: { cancel: cancelJob, enqueue: enqueueJob },
       events: { notify },
       env: {
         agentRuntime: "scripted",
@@ -473,6 +474,88 @@ describePostgres("shared spaces: invites and membership (PostgreSQL)", () => {
       system.event.count({ where: { threadId: thread.id, type: "run.cancelled" } }),
     ).resolves.toBe(2);
     expect(notify).toHaveBeenCalledWith(thread.id, expect.any(Number));
+  });
+
+  it("answers another member's waiting message once the busy member is removed", async () => {
+    const owner = await person("owner");
+    const busy = await person("busy");
+    const waiting = await person("waiting");
+    const home = await sharedSpace(owner, "Home");
+    await call(busy.actor, "spaces/invites/accept", { token: await invite(owner, home) });
+    await call(waiting.actor, "spaces/invites/accept", { token: await invite(owner, home) });
+
+    const bot = await system.bot.create({
+      data: { spaceId: home, userId: owner.id, name: "Helper", color: "test" },
+    });
+    const thread = await system.thread.create({
+      data: { spaceId: home, botId: bot.id, userId: owner.id },
+    });
+    const task = await system.task.create({
+      data: {
+        spaceId: home,
+        botId: bot.id,
+        threadId: thread.id,
+        userId: busy.id,
+        prompt: "Hi",
+        status: "running",
+      },
+    });
+    const running = await system.run.create({
+      data: {
+        spaceId: home,
+        botId: bot.id,
+        threadId: thread.id,
+        taskId: task.id,
+        userId: busy.id,
+        status: "running",
+        trigger: "user",
+        leaseOwner: "worker-1",
+        leaseExpiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    async function pendingMessage(userId: string, seq: number) {
+      const message = await system.message.create({
+        data: {
+          threadId: thread.id,
+          seq,
+          role: "user",
+          authorUserId: userId,
+          blocks: [{ kind: "text", text: "Also this" }],
+        },
+      });
+      await system.steeringMessage.create({
+        data: { messageId: message.id, botId: bot.id, userId },
+      });
+      return message;
+    }
+    await pendingMessage(busy.id, 1);
+    const waitingMessage = await pendingMessage(waiting.id, 2);
+
+    const removed = await call(inSpace(owner.actor, home), "spaces/members/remove", {
+      spaceId: home,
+      userId: busy.id,
+    });
+    expect(removed).toEqual({ status: 200, json: { ok: true } });
+
+    await expect(
+      system.run.findUniqueOrThrow({ where: { id: running.id } }),
+    ).resolves.toMatchObject({ status: "cancelled" });
+    const continuation = await system.run.findFirstOrThrow({
+      where: { threadId: thread.id, status: "queued" },
+    });
+    expect(continuation).toMatchObject({
+      userId: waiting.id,
+      sourceMessageId: waitingMessage.id,
+    });
+    await expect(
+      system.steeringMessage.findMany({
+        where: { message: { threadId: thread.id } },
+        select: { userId: true, runId: true },
+      }),
+    ).resolves.toEqual([{ userId: waiting.id, runId: continuation.id }]);
+    expect(enqueueJob).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "run.continue", payload: { runId: continuation.id } }),
+    );
   });
 
   it("lists shared spaces across organizations and creates new spaces in the member's own", async () => {

@@ -115,6 +115,13 @@ describe("built-in skill precedence in the API", () => {
       name: "Weekly report",
     });
   });
+
+  it("makes the member who edits a skill its owner", async () => {
+    const rows = [{ ...savedSkill("Weekly report"), userId: "other-user" }];
+    const { service } = setup(rows);
+    await service.update(actor, { skillId: "saved-1", body: "New steps" });
+    expect(rows[0]).toMatchObject({ userId: actor.userId });
+  });
 });
 
 describe("imported skill content in the API", () => {

@@ -3,7 +3,7 @@ import { isOwnerRole } from "./billing.js";
 import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
-import { appendEventInTransaction } from "./events.js";
+import { appendEventInTransaction, createPendingSteeringRun } from "./events.js";
 import type { RunTeardownTarget } from "./groups.js";
 import { snapshotRunTeardownTargets } from "./groups.js";
 import { runAsSystem } from "./row-security.js";
@@ -60,6 +60,8 @@ type SpaceRef = { spaceId: string; userId: string };
 export type SpaceDeparture = {
   organizationId: string;
   cancelledRunIds: string[];
+  /** Runs queued for other members' follow-ups that waited behind a cancelled run. */
+  continuationRunIds: string[];
   computers: RunTeardownTarget[];
   /** Newest run.cancelled seq per thread, for realtime fanout. */
   events: Array<{ threadId: string; seq: number }>;
@@ -372,6 +374,16 @@ async function departSpace(prisma: PrismaClient, input: SpaceRef): Promise<Space
           }
           // Queued follow-ups would otherwise start a run as them.
           await tx.steeringMessage.deleteMany({ where: { userId, bot: { spaceId } } });
+          // Others' follow-ups that waited behind a cancelled run start now, as they would
+          // once it finished.
+          const continuationRunIds: string[] = [];
+          const waiting = new Map(
+            runs.map(({ threadId, botId }) => [`${threadId}:${botId}`, { threadId, botId }]),
+          );
+          for (const thread of waiting.values()) {
+            const id = await createPendingSteeringRun(tx, { spaceId, ...thread });
+            if (id) continuationRunIds.push(id);
+          }
 
           await moveSections(tx, { spaceId, fromUserId: userId, toUserId: ownerId });
           const reassign = { where: { spaceId, userId }, data: { userId: ownerId } };
@@ -410,6 +422,7 @@ async function departSpace(prisma: PrismaClient, input: SpaceRef): Promise<Space
           return {
             organizationId: departing.organizationId,
             cancelledRunIds,
+            continuationRunIds,
             computers: targets,
             events: [...latestSeq].map(([threadId, seq]) => ({ threadId, seq })),
           };

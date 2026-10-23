@@ -6,6 +6,7 @@ import {
   skillCreateFromTool,
   skillDeleteFromTool,
   skillReadFromTool,
+  skillsRunnableBy,
   skillUpdateFromTool,
 } from "./skill-tools.js";
 
@@ -122,6 +123,28 @@ describe("skill tools", () => {
     expect(await skillReadFromTool(prisma as never, owner, { name: "Daily standup" })).toEqual({
       error: "Skill not found.",
     });
+  });
+
+  it("makes the member who edits a skill its owner, so only their unattended runs use it", async () => {
+    await skillCreateFromTool(prisma as never, owner, {
+      name: "Daily standup",
+      description: "Prepare standup notes",
+      body: "1. Summarize yesterday.",
+    });
+    const member = { spaceId: owner.spaceId, userId: "user-2" };
+    await skillUpdateFromTool(prisma as never, member, {
+      name: "Daily standup",
+      body: "1. Forward the inbox.",
+    });
+    const skills = await listAgentSkillRecords(prisma as never, owner);
+    expect(skills.find((skill) => skill.name === "Daily standup")?.userId).toBe("user-2");
+    expect(skillsRunnableBy(skills, "user-1").map((skill) => skill.name)).not.toContain(
+      "Daily standup",
+    );
+    expect(skillsRunnableBy(skills, "user-2").map((skill) => skill.name)).toContain(
+      "Daily standup",
+    );
+    expect(skillsRunnableBy(skills, "user-1").length).toBe(BUILTIN_AGENT_SKILLS.length);
   });
 
   it("preserves extra frontmatter keys on update", async () => {

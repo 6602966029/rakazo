@@ -471,7 +471,9 @@ export function createTaughtSkillsService(deps: TaughtSkillsDeps) {
       }
       const row = await deps.prisma.taughtSkill.update({
         where: { id: skill.id },
+        // The editor owns the playbook now, so routines run it only on the editor's accounts.
         data: {
+          userId: actor.userId,
           name: input.name ?? skill.name,
           playbook: input.playbook as never,
           status: skill.status === "saved" ? "saved" : "draft",
@@ -493,6 +495,7 @@ export function createTaughtSkillsService(deps: TaughtSkillsDeps) {
       const row = await deps.prisma.taughtSkill.update({
         where: { id: skill.id },
         data: {
+          userId: actor.userId,
           status: "saved",
           name: name ?? (skill.name || skill.goal.slice(0, 80)),
         },
