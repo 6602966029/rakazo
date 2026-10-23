@@ -56,7 +56,7 @@ import { shortenToolResultText } from "./context-selection.js";
 import { DEFAULT_OPENROUTER_MODEL_ID } from "./deployment-model.js";
 import { groqRequestContextWindow } from "./groq-request-budget.js";
 import { estimateModelContextTokens } from "./model-context.js";
-import { UnavailableModelForAuthError } from "./model-selection.js";
+import { UNKNOWN_MODEL_FOR_PROVIDER, UnavailableModelForAuthError } from "./model-selection.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "./model-vision.js";
 import {
   normalizeOpenAiToolParameters,
@@ -2835,7 +2835,12 @@ function fallbackAwareModelStream(
         return candidate;
       } catch (error) {
         // Do not log resolver errors: credentials and connection details can be sensitive.
-        skip(error instanceof UnavailableModelForAuthError ? "unknown_model" : "connection");
+        skip(
+          error instanceof UnavailableModelForAuthError &&
+            error.message === UNKNOWN_MODEL_FOR_PROVIDER
+            ? "unknown_model"
+            : "connection",
+        );
       }
     }
     return undefined;

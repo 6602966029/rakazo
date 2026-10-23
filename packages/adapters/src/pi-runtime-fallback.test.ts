@@ -672,6 +672,19 @@ describe("Pi runtime ordered model fallback", () => {
       backupModels: [{ reason: "unknown_model" }],
     });
   });
+  it("categorizes a blocked endpoint from the connection resolver as a connection skip", async () => {
+    const input = request([{ provider: backupA.provider, id: backupA.id }]);
+    input.resolveFallbackModel = async () => {
+      throw new UnavailableModelForAuthError("Private model endpoints are not allowed");
+    };
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [], "error", googleQuota)),
+    );
+    const error = await run(input).catch((error: Error) => error);
+    expect(normalizeRunError((error as Error).message)).toMatchObject({
+      backupModels: [{ reason: "connection" }],
+    });
+  });
   it("reports when a backup was tried and also failed", async () => {
     const log = vi.spyOn(getLogger(), "info");
     providerState.stream.mockImplementation((target: Model<"openai-completions">) =>

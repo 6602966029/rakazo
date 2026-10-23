@@ -326,6 +326,7 @@ import {
   routineRunModelPin,
   runModelChoice,
   selectConfiguredModel,
+  UNKNOWN_MODEL_FOR_PROVIDER,
   UnavailableModelForAuthError,
   validateConnectedModelChoice,
   validateModelAuthAvailability,
@@ -3101,7 +3102,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       modelId,
       { hostedProvider },
     );
-    if (validationError === "Unknown model for that provider") {
+    if (validationError === UNKNOWN_MODEL_FOR_PROVIDER) {
       throw new UnavailableModelForAuthError(validationError);
     }
     if (validationError) throw new Error(validationError);
