@@ -436,6 +436,7 @@ export const RU_MESSAGES: Record<string, string> = {
   Done: "Готово",
   "Disconnect {name}?": "Отключить {name}?",
   Disconnect: "Отключить",
+  "Disconnect Self-hosted": "Отключить собственный сервер",
   "This removes the connection from every space.":
     "Подключение будет удалено во всех пространствах.",
   "Disconnecting…": "Отключение…",

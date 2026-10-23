@@ -2259,6 +2259,10 @@ msgstr "切断"
 msgid "Disconnect {disconnectName}?"
 msgstr "{disconnectName}を切断しますか？"
 
+#: src/pages/VoiceSettingsOverlay.tsx
+msgid "Disconnect Self-hosted"
+msgstr ""
+
 #. placeholder {0}: selected.providerName ?? selected.provider
 #: src/pages/model-settings/use-model-settings.ts
 msgid "Disconnected {0}."

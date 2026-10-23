@@ -6770,7 +6770,9 @@ export function createRouter(deps: RouterDeps) {
       })),
     },
     voice: {
-      catalog: authed.voice.catalog.handler(async () => listVoiceCatalog()),
+      catalog: authed.voice.catalog.handler(async () =>
+        listVoiceCatalog({ allowPrivateEndpoint: deps.env?.mcpAllowPrivateEndpoint }),
+      ),
       status: authed.voice.status.handler(async ({ context }) => {
         const cred = await findDefaultVoiceCredential(deps.prisma, context.actor);
         return toVoiceStatus(cred);

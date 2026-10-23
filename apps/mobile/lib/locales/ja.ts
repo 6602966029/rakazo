@@ -583,6 +583,7 @@ export const JA_MESSAGES: Record<string, string> = {
   "Could not save that voice": "ボイスを保存できませんでした",
   "Disconnect {name}?": "{name}を切断しますか？",
   Disconnect: "切断",
+  "Disconnect Self-hosted": "セルフホスト接続を切断",
   "This removes the connection from every space.": "すべてのスペースからこの接続が削除されます。",
   "Disconnecting…": "切断中…",
   "Hear a sample": "サンプルを聴く",

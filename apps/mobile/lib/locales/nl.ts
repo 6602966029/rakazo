@@ -593,6 +593,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Could not save that voice": "Die stem opslaan mislukt",
   "Disconnect {name}?": "{name} loskoppelen?",
   Disconnect: "Loskoppelen",
+  "Disconnect Self-hosted": "Zelfgehoste verbinding loskoppelen",
   "This removes the connection from every space.":
     "Hiermee wordt de verbinding uit elke space verwijderd.",
   "Disconnecting…": "Bezig met loskoppelen…",

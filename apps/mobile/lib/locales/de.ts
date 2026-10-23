@@ -615,6 +615,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Could not save that voice": "Stimme konnte nicht gespeichert werden",
   "Disconnect {name}?": "{name} trennen?",
   Disconnect: "Trennen",
+  "Disconnect Self-hosted": "Selbst gehostete Verbindung trennen",
   "This removes the connection from every space.": "Die Verbindung wird in jedem Space entfernt.",
   "Disconnecting…": "Verbindung wird getrennt…",
   "Hear a sample": "Beispiel anhören",

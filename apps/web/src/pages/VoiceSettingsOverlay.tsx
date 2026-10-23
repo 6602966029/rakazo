@@ -104,7 +104,12 @@ export function VoiceSettingsOverlay({
       rpc.voice.credentials(),
       rpc.voice.status(),
     ]);
-    const selected = nextProvider || provider || nextStatus.provider || nextCatalog[0]?.id || "";
+    const selected =
+      [nextProvider, provider, nextStatus.provider].find((id) =>
+        nextCatalog.some((entry) => entry.id === id),
+      ) ??
+      nextCatalog[0]?.id ??
+      "";
     setCatalog(nextCatalog);
     setCredentials(nextCredentials);
     setStatus(nextStatus);
@@ -128,6 +133,9 @@ export function VoiceSettingsOverlay({
 
   const selected = catalog.find((entry) => entry.id === provider) ?? catalog[0];
   const credential = credentials.find((entry) => entry.provider === provider);
+  const hiddenSelfHosted =
+    !catalog.some((entry) => entry.id === OPENAI_COMPATIBLE_PROVIDER_ID) &&
+    credentials.some((entry) => entry.provider === OPENAI_COMPATIBLE_PROVIDER_ID);
   const voiceOptions = useMemo(
     () => (voices.length ? voices : voiceId ? [{ id: voiceId, label: voiceId }] : []),
     [voices, voiceId],
@@ -166,15 +174,15 @@ export function VoiceSettingsOverlay({
     }
   }
 
-  async function disconnectProvider() {
-    if (!credential) return;
+  async function disconnectProvider(providerId = credential?.provider) {
+    if (!providerId) return;
     setError(null);
     setNotice(null);
     markPending("disconnect");
     try {
-      await rpc.voice.disconnect({ provider: credential.provider });
+      await rpc.voice.disconnect({ provider: providerId });
       setApiKey("");
-      await refresh(credential.provider);
+      await refresh(providerId);
     } catch (err) {
       setError(errorText(err, t`Could not disconnect this voice provider`));
     } finally {
@@ -288,6 +296,15 @@ export function VoiceSettingsOverlay({
                 })}
               </NativeSelect>
             </Field>
+          ) : null}
+          {hiddenSelfHosted ? (
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void disconnectProvider(OPENAI_COMPATIBLE_PROVIDER_ID)}
+            >
+              <Trans>Disconnect Self-hosted</Trans>
+            </Button>
           ) : null}
           {selected ? (
             <>

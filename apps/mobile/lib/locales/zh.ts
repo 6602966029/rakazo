@@ -410,6 +410,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   Done: "完成",
   "Disconnect {name}?": "断开 {name}？",
   Disconnect: "断开",
+  "Disconnect Self-hosted": "断开自托管连接",
   "This removes the connection from every space.": "这将从每个 Space 移除该连接。",
   "Disconnecting…": "正在断开…",
   Email: "邮箱",
