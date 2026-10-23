@@ -199,6 +199,11 @@ msgstr "{provider} לא מצא את המודל המבוקש."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} denied access to this model."
+msgstr "{provider} דחה את הגישה למודל הזה."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is overloaded right now. Try again in a moment."
 msgstr "{provider} עמוס כרגע. אפשר לנסות שוב בעוד רגע."
 
@@ -3920,11 +3925,11 @@ msgstr "קלט מוגן"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Provider"
 msgstr "ספק"
 
 #: src/pages/model-settings/provider-list.tsx
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Providers"
 msgstr "ספקים"
 
@@ -4738,10 +4743,6 @@ msgid "Speak"
 msgstr "הקראה"
 
 #: src/pages/VoiceSettingsOverlay.tsx
-msgid "Speak + transcribe"
-msgstr "הקראה + תמלול"
-
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Speak only"
 msgstr "הקראה בלבד"
 
@@ -4924,6 +4925,11 @@ msgstr "תם הזמן הקצוב לחיבור."
 msgid "The model provider returned an error."
 msgstr "ספק המודל החזיר שגיאה."
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "The model returned an unusable response. Try again."
+msgstr "המודל החזיר תשובה שאי אפשר להשתמש בה. אפשר לנסות שוב."
+
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "הספק מגביל את קצב הבקשות."
@@ -4993,6 +4999,11 @@ msgstr "הקובץ אינו טקסט UTF-8 תקין."
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "ה-Mac הזה"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model's context window is too small. Choose another model."
+msgstr "חלון ההקשר של המודל הזה קטן מדי. יש לבחור מודל אחר."
 
 #: src/pages/Artifacts.tsx
 msgid "This month"

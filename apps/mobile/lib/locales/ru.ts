@@ -88,6 +88,11 @@ export const RU_MESSAGES: Record<string, string> = {
   "{provider} rejected the API key. Check your connection settings.":
     "{provider} отклонил API-ключ. Проверьте настройки подключения.",
   "{provider} could not find the requested model.": "{provider} не смог найти запрошенную модель.",
+  "{provider} denied access to this model.": "{provider} отказал в доступе к этой модели.",
+  "The model returned an unusable response. Try again.":
+    "Модель вернула непригодный ответ. Попробуйте ещё раз.",
+  "This model's context window is too small. Choose another model.":
+    "Контекстное окно этой модели слишком мало. Выберите другую модель.",
   "{provider} took too long to respond. Try again.":
     "{provider} не ответил вовремя. Повторите попытку.",
   "{provider} is overloaded right now. Try again in a moment.":

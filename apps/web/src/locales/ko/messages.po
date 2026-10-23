@@ -199,6 +199,11 @@ msgstr "{provider}에서 요청한 모델을 찾을 수 없습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} denied access to this model."
+msgstr "{provider}에서 이 모델에 대한 액세스를 거부했습니다."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is overloaded right now. Try again in a moment."
 msgstr "{provider}에 현재 과부하가 걸려 있습니다. 잠시 후 다시 시도하세요."
 
@@ -3920,11 +3925,11 @@ msgstr ""
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
+#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Provider"
 msgstr "서비스"
 
 #: src/pages/model-settings/provider-list.tsx
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Providers"
 msgstr "서비스"
 
@@ -4738,10 +4743,6 @@ msgid "Speak"
 msgstr "읽기"
 
 #: src/pages/VoiceSettingsOverlay.tsx
-msgid "Speak + transcribe"
-msgstr "음성 출력·받아쓰기"
-
-#: src/pages/VoiceSettingsOverlay.tsx
 msgid "Speak only"
 msgstr "음성 출력만"
 
@@ -4924,6 +4925,11 @@ msgstr "연결 시간이 초과되었습니다."
 msgid "The model provider returned an error."
 msgstr "모델 제공업체에서 오류를 반환했습니다."
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "The model returned an unusable response. Try again."
+msgstr "모델이 사용할 수 없는 응답을 반환했습니다. 다시 시도하세요."
+
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "서비스가 요청 속도를 제한하고 있습니다."
@@ -4993,6 +4999,11 @@ msgstr ""
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "이 Mac"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model's context window is too small. Choose another model."
+msgstr "이 모델의 컨텍스트 창이 너무 작습니다. 다른 모델을 선택하세요."
 
 #: src/pages/Artifacts.tsx
 msgid "This month"
