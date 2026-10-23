@@ -5454,3 +5454,27 @@ msgstr "Dein Stimmanbieter hat kein Guthaben mehr."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Der Schlüssel deines Stimmanbieters wurde abgelehnt."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} also failed."
+msgstr "Auch das Ersatzmodell {model} ist fehlgeschlagen."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: no connection."
+msgstr "Ersatzmodell {model} wurde übersprungen: keine Verbindung."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: context too large."
+msgstr "Ersatzmodell {model} wurde übersprungen: Kontext zu groß."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: cannot read images."
+msgstr "Ersatzmodell {model} wurde übersprungen: kann keine Bilder lesen."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: unknown model."
+msgstr "Ersatzmodell {model} wurde übersprungen: unbekanntes Modell."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: thinking unavailable."
+msgstr "Ersatzmodell {model} wurde übersprungen: Denken nicht verfügbar."

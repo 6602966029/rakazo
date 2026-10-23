@@ -5454,3 +5454,27 @@ msgstr "你的语音提供方额度已用完。"
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "你的语音提供方拒绝了该密钥。"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} also failed."
+msgstr "备用模型 {model} 也失败了。"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: no connection."
+msgstr "已跳过备用模型 {model}：未连接。"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: context too large."
+msgstr "已跳过备用模型 {model}：上下文过大。"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: cannot read images."
+msgstr "已跳过备用模型 {model}：无法读取图片。"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: unknown model."
+msgstr "已跳过备用模型 {model}：未知模型。"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: thinking unavailable."
+msgstr "已跳过备用模型 {model}：不支持思考。"

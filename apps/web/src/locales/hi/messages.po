@@ -5454,3 +5454,27 @@ msgstr "आपके आवाज़ प्रोवाइडर का क्�
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "आपके आवाज़ प्रोवाइडर ने कुंजी अस्वीकार कर दी।"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} also failed."
+msgstr "बैकअप मॉडल {model} भी विफल रहा।"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: no connection."
+msgstr "बैकअप मॉडल {model} छोड़ दिया गया: कोई कनेक्शन नहीं।"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: context too large."
+msgstr "बैकअप मॉडल {model} छोड़ दिया गया: संदर्भ बहुत बड़ा है।"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: cannot read images."
+msgstr "बैकअप मॉडल {model} छोड़ दिया गया: तस्वीरें नहीं पढ़ सकता।"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: unknown model."
+msgstr "बैकअप मॉडल {model} छोड़ दिया गया: अज्ञात मॉडल।"
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: thinking unavailable."
+msgstr "बैकअप मॉडल {model} छोड़ दिया गया: तर्क उपलब्ध नहीं है।"

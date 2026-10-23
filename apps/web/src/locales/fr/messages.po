@@ -5454,3 +5454,27 @@ msgstr "Votre fournisseur vocal n'a plus de crédit."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Votre fournisseur vocal a refusé la clé."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} also failed."
+msgstr "Le modèle de secours {model} a aussi échoué."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: no connection."
+msgstr "Modèle de secours {model} ignoré : aucune connexion."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: context too large."
+msgstr "Modèle de secours {model} ignoré : contexte trop volumineux."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: cannot read images."
+msgstr "Modèle de secours {model} ignoré : ne peut pas lire les images."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: unknown model."
+msgstr "Modèle de secours {model} ignoré : modèle inconnu."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: thinking unavailable."
+msgstr "Modèle de secours {model} ignoré : raisonnement indisponible."

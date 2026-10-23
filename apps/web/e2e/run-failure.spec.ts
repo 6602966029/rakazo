@@ -1,6 +1,13 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, openNewSpace, signup } from "./helpers";
+import type { ThreadSnapshot } from "@rakazo/contracts";
+import {
+  activeBotId,
+  captureScreenshot,
+  completeOnboarding,
+  openNewSpace,
+  signup,
+} from "./helpers";
 
 function isPresented(error: Locator) {
   return error.evaluate((element) => {
@@ -137,4 +144,47 @@ test("a covered run error is not remembered until it is presented", async ({ pag
   await page.reload();
   await expect(page.getByTestId("shell-root")).toHaveAttribute("data-ready", "true");
   await expect(error).toBeHidden();
+});
+
+test("a saved run error explains failed and skipped backups", async ({ page }, testInfo) => {
+  await signup(page, `backup-failure-${Date.now()}@rakazo.test`, "password12", "Backup Failure");
+  await completeOnboarding(page);
+  const botId = activeBotId(page);
+  await page.route("**/rpc/threads/get", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as { json: ThreadSnapshot };
+    const snapshot = body.json;
+    snapshot.run = {
+      id: "backup-failure-fixture",
+      botId,
+      threadId: snapshot.threadId,
+      taskId: "backup-task-fixture",
+      status: "failed",
+      trigger: "user",
+      routineId: null,
+      modelProvider: "openrouter",
+      modelId: "example:free",
+      startedAt: null,
+      completedAt: null,
+      createdAt: "2026-10-01T00:00:00Z",
+      error: JSON.stringify({
+        message: "Quota exhausted",
+        backupModels: [
+          {
+            provider: "openrouter",
+            model: "example:free",
+            name: "OpenRouter / Example",
+            reason: "failed",
+          },
+          { provider: "example", model: "backup", name: "Example / Backup", reason: "connection" },
+        ],
+      }),
+    };
+    await route.fulfill({ response, json: body });
+  });
+  await page.reload();
+  const error = page.getByTestId("composer-error");
+  await expect(error).toContainText("Backup OpenRouter / Example also failed.");
+  await expect(error).toContainText("Backup Example / Backup was skipped: no connection.");
+  await captureScreenshot(page, testInfo, "run-error-backup-outcomes");
 });

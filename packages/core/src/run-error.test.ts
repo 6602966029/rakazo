@@ -250,3 +250,20 @@ describe("isModelRequiredSendError", () => {
     expect(isModelRequiredSendError(error)).toBe(false);
   });
 });
+
+it.each([
+  ["failed", "Backup OpenRouter / Example also failed."],
+  ["connection", "Backup OpenRouter / Example was skipped: no connection."],
+  ["context", "Backup OpenRouter / Example was skipped: context too large."],
+  ["images", "Backup OpenRouter / Example was skipped: cannot read images."],
+  ["unknown_model", "Backup OpenRouter / Example was skipped: unknown model."],
+  ["thinking", "Backup OpenRouter / Example was skipped: thinking unavailable."],
+])("renders structured backup outcome %s", (reason, copy) => {
+  const backupModels = [
+    { provider: "openrouter", model: "example:free", name: "OpenRouter / Example", reason },
+  ];
+  const details = JSON.stringify({ message: "429 quota exhausted", backupModels });
+  const result = normalizeRunError(details);
+  expect(result.summary).toBe(`Your model provider reached its spending limit. ${copy}`);
+  expect(result).toMatchObject({ details, recovery: "connection", backupModels });
+});

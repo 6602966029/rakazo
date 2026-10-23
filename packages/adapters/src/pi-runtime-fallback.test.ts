@@ -57,7 +57,11 @@ vi.mock("./pi-openai-compatible-provider.js", () => ({
   registerOpenAiCompatibleRuntime: (models: unknown) => models,
 }));
 
+import { normalizeRunError } from "@rakazo/core";
+import { getLogger } from "@rakazo/logging";
+import googleQuota from "../../adapter-kit/src/fixtures/google-quota.json" with { type: "json" };
 import { estimateModelContextTokens } from "./model-context.js";
+import { UnavailableModelForAuthError } from "./model-selection.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "./model-vision.js";
 import { MODEL_STREAM_IDLE_TIMEOUT_MESSAGE, PiAgentRuntime } from "./pi-runtime.js";
 import { MODEL_STREAM_IDLE_TIMEOUT_MS, MODEL_STREAM_TIMEOUT_MS } from "./pi-runtime-limits.js";
@@ -607,6 +611,116 @@ describe("Pi runtime transient model retries", () => {
 });
 
 describe("Pi runtime ordered model fallback", () => {
+  it.each([
+    googleQuota,
+    "429 Too Many Requests",
+    "Quota exhausted",
+    "RESOURCE_EXHAUSTED",
+    "Spending limit reached",
+  ])("uses the saved backup for a provider limit: %s", async (failure) => {
+    const input = request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-key" }]);
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", failure))
+        : stream(target, message(target, [{ type: "text", text: "Done" }], "stop")),
+    );
+    const events = await run(input);
+    expect(events.at(-1)).toEqual({ type: "done", text: "Done" });
+    expect(providerState.stream.mock.calls.map(([target]) => target.provider)).toEqual([
+      primary.provider,
+      backupA.provider,
+    ]);
+  });
+  it("uses the reasoning backup's own default instead of inheriting primary thinking", async () => {
+    providerState.models.set(`${primary.provider}/${primary.id}`, { ...primary, reasoning: true });
+    providerState.models.set(`${backupA.provider}/${backupA.id}`, { ...backupA, reasoning: true });
+    const input = request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-key" }]);
+    input.model.thinkingLevel = "low";
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      target.provider === primary.provider
+        ? stream(target, message(target, [], "error", googleQuota))
+        : stream(target, message(target, [{ type: "text", text: "Done" }], "stop")),
+    );
+    await run(input);
+    expect(providerState.stream.mock.calls.at(-1)?.[2]?.reasoning).toBe("medium");
+  });
+  it("categorizes an unknown model rejected by the connection resolver", async () => {
+    const input = request([{ provider: backupA.provider, id: backupA.id }]);
+    input.resolveFallbackModel = async () => {
+      throw new UnavailableModelForAuthError("Unknown model for that provider");
+    };
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [], "error", googleQuota)),
+    );
+    const error = await run(input).catch((error: Error) => error);
+    expect(normalizeRunError((error as Error).message)).toMatchObject({
+      backupModels: [{ reason: "unknown_model" }],
+    });
+  });
+  it("reports when a backup was tried and also failed", async () => {
+    const log = vi.spyOn(getLogger(), "info");
+    providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+      stream(target, message(target, [], "error", googleQuota)),
+    );
+    const error = await run(
+      request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-key" }]),
+    ).catch((error: Error) => error);
+    expect(error).toBeInstanceOf(Error);
+    expect(normalizeRunError((error as Error).message).summary).toContain(
+      "Backup provider-b / backup-a also failed.",
+    );
+    expect(providerState.stream).toHaveBeenCalledTimes(2);
+    expect(log).toHaveBeenCalledWith("model.backup.switched", {
+      provider: backupA.provider,
+      model: backupA.id,
+      reason: "provider_unavailable",
+    });
+  });
+
+  it.each(["connection", "unknown_model", "context", "images", "thinking"])(
+    "reports a skipped backup: %s",
+    async (reason) => {
+      const log = vi.spyOn(getLogger(), "warn");
+      const input = request([{ provider: backupA.provider, id: backupA.id, apiKey: "fake-key" }]);
+      if (reason === "connection")
+        input.resolveFallbackModel = async () => {
+          throw new Error("No connection");
+        };
+      if (reason === "unknown_model")
+        providerState.models.delete(`${backupA.provider}/${backupA.id}`);
+      if (reason === "context") input.prompt = "x".repeat(8_000);
+      if (reason === "images") {
+        providerState.models.set(`${backupA.provider}/${backupA.id}`, {
+          ...backupA,
+          input: ["text"],
+        });
+        input.tools = [{ ...input.tools[0]!, name: "computer_observe" }];
+      }
+      if (reason === "thinking")
+        input.resolveFallbackModel = async () => ({
+          provider: backupA.provider,
+          id: backupA.id,
+          apiKey: "fake-key",
+          thinkingLevel: "low",
+        });
+      providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
+        stream(target, message(target, [], "error", googleQuota)),
+      );
+      const error = await run(input).catch((error: Error) => error);
+      const normalized = normalizeRunError((error as Error).message);
+      expect(normalized).toMatchObject({
+        backupModels: [{ provider: backupA.provider, model: backupA.id, reason }],
+      });
+      expect(normalized.summary).toContain("Backup provider-b / backup-a was skipped:");
+      expect(log).toHaveBeenCalledWith("model.backup.skipped", {
+        provider: backupA.provider,
+        model: backupA.id,
+        reason,
+      });
+      expect(providerState.stream).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it.each(["absent", "empty"])(
     "passes the original stream options and terminal content through with %s backups",
     async (backups) => {
@@ -1017,6 +1131,8 @@ describe("Pi runtime ordered model fallback", () => {
     const input = request([
       { provider: backupA.provider, id: backupA.id, apiKey: "fake-backup-a" },
     ]);
+    providerState.models.set(`${primary.provider}/${primary.id}`, { ...primary, reasoning: true });
+    input.model.thinkingLevel = "low";
     const executeTool = vi.mocked(input.executeTool!);
     let primaryCalls = 0;
     let backupContext: { messages?: unknown[] } | undefined;
@@ -1033,15 +1149,7 @@ describe("Pi runtime ordered model fallback", () => {
             };
             return stream(target, message(target, [call], "toolUse"));
           }
-          return stream(
-            target,
-            message(
-              target,
-              [],
-              "error",
-              "Server requested 3301s retry delay (max:60s). 429 rate_limit_error",
-            ),
-          );
+          return stream(target, message(target, [], "error", googleQuota));
         }
         backupContext = context;
         return stream(
@@ -1691,7 +1799,7 @@ describe("Pi runtime ordered model fallback", () => {
     ).toEqual([primary.provider, smallContextBackup.provider]);
   });
 
-  it("skips backups without the primary turn's reasoning capability", async () => {
+  it("uses a non-reasoning backup despite the primary thinking level", async () => {
     const reasoningPrimary = { ...primary, reasoning: true };
     const textOnlyBackup = { ...backupA, reasoning: false };
     const reasoningBackup = { ...backupB, reasoning: true };
@@ -1703,20 +1811,21 @@ describe("Pi runtime ordered model fallback", () => {
       { provider: backupB.provider, id: backupB.id, apiKey: "reasoning-key" },
     ]);
     input.model.reasoning = true;
-    input.model.thinkingLevel = "high";
+    input.model.thinkingLevel = "low";
     providerState.stream.mockImplementation((target: Model<"openai-completions">) =>
       target.provider === primary.provider
-        ? stream(target, message(target, [], "error", "429 rate_limit_error"))
+        ? stream(target, message(target, [], "error", googleQuota))
         : stream(target, message(target, [{ type: "text", text: "reasoned" }], "stop")),
     );
 
     await run(input);
+    expect(providerState.stream.mock.calls.at(-1)?.[2]?.reasoning).toBeUndefined();
 
     expect(
       providerState.stream.mock.calls.map(
         ([target]) => (target as Model<"openai-completions">).provider,
       ),
-    ).toEqual([primary.provider, backupB.provider]);
+    ).toEqual([primary.provider, backupA.provider]);
   });
 
   it.each([...IMAGE_RETURNING_COMPUTER_TOOLS, "write_effect"])(

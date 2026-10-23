@@ -5454,3 +5454,27 @@ msgstr "Your voice provider is out of credit."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Your voice provider key was rejected."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} also failed."
+msgstr "Backup {model} also failed."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: no connection."
+msgstr "Backup {model} was skipped: no connection."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: context too large."
+msgstr "Backup {model} was skipped: context too large."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: cannot read images."
+msgstr "Backup {model} was skipped: cannot read images."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: unknown model."
+msgstr "Backup {model} was skipped: unknown model."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: thinking unavailable."
+msgstr "Backup {model} was skipped: thinking unavailable."

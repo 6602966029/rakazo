@@ -5454,3 +5454,27 @@ msgstr "Ses sağlayıcınızın kredisi bitti."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Ses sağlayıcınız anahtarı reddetti."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} also failed."
+msgstr "Yedek model {model} de başarısız oldu."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: no connection."
+msgstr "Yedek model {model} atlandı: bağlantı yok."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: context too large."
+msgstr "Yedek model {model} atlandı: bağlam çok büyük."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: cannot read images."
+msgstr "Yedek model {model} atlandı: görüntüleri okuyamıyor."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: unknown model."
+msgstr "Yedek model {model} atlandı: bilinmeyen model."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: thinking unavailable."
+msgstr "Yedek model {model} atlandı: akıl yürütme kullanılamıyor."

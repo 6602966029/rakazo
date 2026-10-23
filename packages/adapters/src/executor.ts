@@ -3097,6 +3097,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
       modelId,
       { hostedProvider },
     );
+    if (validationError === "Unknown model for that provider") {
+      throw new UnavailableModelForAuthError(validationError);
+    }
     if (validationError) throw new Error(validationError);
     const credential = await findConnectedModelCredential(
       deps.prisma,

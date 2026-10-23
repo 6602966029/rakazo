@@ -3412,7 +3412,7 @@ description: Prepare standup notes
         COMPATIBLE_PROVIDER,
         "custom",
       ),
-    ).rejects.toThrow("Unknown model for that provider");
+    ).rejects.toThrow(UnavailableModelForAuthError);
   });
 
   it("keeps a bot's thinking level on a non-default enabled model", async () => {

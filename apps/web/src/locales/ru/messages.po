@@ -5454,3 +5454,27 @@ msgstr "У вашего голосового провайдера закончи
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Ваш голосовой провайдер отклонил ключ."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} also failed."
+msgstr "Резервная модель {model} тоже завершилась с ошибкой."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: no connection."
+msgstr "Резервная модель {model} пропущена: нет подключения."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: context too large."
+msgstr "Резервная модель {model} пропущена: слишком большой контекст."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: cannot read images."
+msgstr "Резервная модель {model} пропущена: не поддерживает изображения."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: unknown model."
+msgstr "Резервная модель {model} пропущена: неизвестная модель."
+
+#: src/lib/run-error.ts
+msgid "Backup {model} was skipped: thinking unavailable."
+msgstr "Резервная модель {model} пропущена: рассуждения недоступны."
