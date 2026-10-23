@@ -185,6 +185,11 @@ msgstr "{provider}에서 요청한 모델을 찾을 수 없습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} is overloaded right now. Try again in a moment."
+msgstr "{provider}에 현재 과부하가 걸려 있습니다. 잠시 후 다시 시도하세요."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is rate limiting requests. Try again shortly."
 msgstr "{provider}에서 요청 속도를 제한하고 있습니다. 잠시 후 다시 시도하세요."
 
@@ -921,6 +926,10 @@ msgstr "연결할 Bot"
 msgid "Bot's model"
 msgstr "봇의 모델"
 
+#: src/components/SignupSurvey.tsx
+msgid "Both"
+msgstr ""
+
 #: src/pages/Artifacts.tsx
 msgid "Bots"
 msgstr ""
@@ -1441,6 +1450,7 @@ msgid "Context limit"
 msgstr "컨텍스트 한도"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/components/SignupSurvey.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
@@ -2709,6 +2719,14 @@ msgstr "시간"
 msgid "hours"
 msgstr "시간"
 
+#: src/components/SignupSurvey.tsx
+msgid "How big is your team?"
+msgstr ""
+
+#: src/components/SignupSurvey.tsx
+msgid "How did you hear about us?"
+msgstr ""
+
 #: src/pages/RoutineSchedule.tsx
 msgid "How often"
 msgstr "실행 주기"
@@ -2720,6 +2738,10 @@ msgstr "다른 봇이 이 봇을 보는 방식"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "How to check"
 msgstr "완료 확인 방법"
+
+#: src/components/SignupSurvey.tsx
+msgid "How will you use Rakazo?"
+msgstr ""
 
 #: src/pages/shell/computer-release-actions.tsx
 msgid "I’m done"
@@ -3663,6 +3685,7 @@ msgstr "채팅 여는 중…"
 msgid "Opening your Space…"
 msgstr "작업공간을 여는 중…"
 
+#: src/components/SignupSurvey.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3764,6 +3787,10 @@ msgstr "일시 중지됨"
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
 msgstr "권한"
+
+#: src/components/SignupSurvey.tsx
+msgid "Personal"
+msgstr ""
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
@@ -4898,6 +4925,11 @@ msgstr "이 채팅은 읽기 전용입니다"
 msgid "this computer"
 msgstr "이 컴퓨터"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message."
+msgstr "이 대화는 모델이 처리하기에 너무 깁니다. 다시 시도해도 해결되지 않습니다. 새 채팅을 시작하거나 메시지를 줄이세요."
+
 #. placeholder {0}: pendingDelete.versionCount
 #: src/pages/Artifacts.tsx
 msgid "This deletes all {0} versions of this artifact. This can't be undone."
@@ -5318,9 +5350,17 @@ msgstr ""
 msgid "Weekdays"
 msgstr "주중"
 
+#: src/components/SignupSurvey.tsx
+msgid "Welcome to Rakazo"
+msgstr ""
+
 #: src/pages/shell/dialogs.tsx
 msgid "What about its memories?"
 msgstr "이 Bot의 기억은 어떻게 할까요?"
+
+#: src/components/SignupSurvey.tsx
+msgid "What do you most want Rakazo to help with?"
+msgstr ""
 
 #: src/pages/shell/message-cards.tsx
 msgid "What do you want me on first?"
@@ -5374,6 +5414,10 @@ msgstr "Bot을 어디에서 실행할까요?"
 msgid "Won't do"
 msgstr ""
 
+#: src/components/SignupSurvey.tsx
+msgid "Work"
+msgstr ""
+
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
 #: src/pages/shell/transcript.tsx
@@ -5403,6 +5447,7 @@ msgstr "나"
 msgid "You can close this tab if it does not redirect automatically."
 msgstr "자동으로 이동하지 않으면 이 탭을 닫아도 됩니다."
 
+#: src/pages/IntegrationCallback.tsx
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this window."
 msgstr "이 창을 닫아도 됩니다."

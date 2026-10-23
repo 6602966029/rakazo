@@ -185,6 +185,11 @@ msgstr "{provider} could not find the requested model."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "{provider} is overloaded right now. Try again in a moment."
+msgstr "{provider} is overloaded right now. Try again in a moment."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "{provider} is rate limiting requests. Try again shortly."
 msgstr "{provider} is rate limiting requests. Try again shortly."
 
@@ -921,6 +926,10 @@ msgstr "Bot to link"
 msgid "Bot's model"
 msgstr "Bot's model"
 
+#: src/components/SignupSurvey.tsx
+msgid "Both"
+msgstr "Both"
+
 #: src/pages/Artifacts.tsx
 msgid "Bots"
 msgstr "Bots"
@@ -1441,6 +1450,7 @@ msgid "Context limit"
 msgstr "Context limit"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/components/SignupSurvey.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 msgid "Continue"
@@ -2709,6 +2719,14 @@ msgstr "hour"
 msgid "hours"
 msgstr "hours"
 
+#: src/components/SignupSurvey.tsx
+msgid "How big is your team?"
+msgstr "How big is your team?"
+
+#: src/components/SignupSurvey.tsx
+msgid "How did you hear about us?"
+msgstr "How did you hear about us?"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "How often"
 msgstr "How often"
@@ -2720,6 +2738,10 @@ msgstr "How other bots see it"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "How to check"
 msgstr "How to check"
+
+#: src/components/SignupSurvey.tsx
+msgid "How will you use Rakazo?"
+msgstr "How will you use Rakazo?"
 
 #: src/pages/shell/computer-release-actions.tsx
 msgid "I’m done"
@@ -3663,6 +3685,7 @@ msgstr "Opening chat…"
 msgid "Opening your Space…"
 msgstr "Opening your Space…"
 
+#: src/components/SignupSurvey.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -3764,6 +3787,10 @@ msgstr "Paused"
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
 msgstr "Permissions"
+
+#: src/components/SignupSurvey.tsx
+msgid "Personal"
+msgstr "Personal"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
@@ -4898,6 +4925,11 @@ msgstr "This chat is view-only"
 msgid "this computer"
 msgstr "this computer"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message."
+msgstr "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message."
+
 #. placeholder {0}: pendingDelete.versionCount
 #: src/pages/Artifacts.tsx
 msgid "This deletes all {0} versions of this artifact. This can't be undone."
@@ -5318,9 +5350,17 @@ msgstr "week"
 msgid "Weekdays"
 msgstr "Weekdays"
 
+#: src/components/SignupSurvey.tsx
+msgid "Welcome to Rakazo"
+msgstr "Welcome to Rakazo"
+
 #: src/pages/shell/dialogs.tsx
 msgid "What about its memories?"
 msgstr "What about its memories?"
+
+#: src/components/SignupSurvey.tsx
+msgid "What do you most want Rakazo to help with?"
+msgstr "What do you most want Rakazo to help with?"
 
 #: src/pages/shell/message-cards.tsx
 msgid "What do you want me on first?"
@@ -5374,6 +5414,10 @@ msgstr "Where should bots run?"
 msgid "Won't do"
 msgstr "Won't do"
 
+#: src/components/SignupSurvey.tsx
+msgid "Work"
+msgstr "Work"
+
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
 #: src/pages/shell/transcript.tsx
@@ -5403,6 +5447,7 @@ msgstr "You"
 msgid "You can close this tab if it does not redirect automatically."
 msgstr "You can close this tab if it does not redirect automatically."
 
+#: src/pages/IntegrationCallback.tsx
 #: src/pages/McpOAuthCallback.tsx
 msgid "You can close this window."
 msgstr "You can close this window."
