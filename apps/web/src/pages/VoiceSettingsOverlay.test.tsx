@@ -102,12 +102,11 @@ it("saves a Fish speech model on the existing provider pane", async () => {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  const button = (text: string) => {
-    const found = [...container.querySelectorAll("button")].find((entry) =>
-      entry.textContent?.includes(text),
-    );
-    if (!found) throw new Error(`Missing button: ${text}`);
-    return found;
+  const chooseProvider = (value: string) => {
+    const select = container.querySelector("select");
+    if (!select) throw new Error("Missing provider select");
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
   };
   try {
     await act(async () => {
@@ -122,7 +121,7 @@ it("saves a Fish speech model on the existing provider pane", async () => {
     expect(input?.placeholder).toBe("Optional");
 
     await act(async () => {
-      button("ElevenLabs").click();
+      chooseProvider("elevenlabs");
     });
     await act(async () => {
       await Promise.resolve();
@@ -130,7 +129,7 @@ it("saves a Fish speech model on the existing provider pane", async () => {
     expect(speechModelInput(container)).toBeUndefined();
 
     await act(async () => {
-      button("Fish Audio").click();
+      chooseProvider("fish-audio");
     });
     await act(async () => {
       await Promise.resolve();
