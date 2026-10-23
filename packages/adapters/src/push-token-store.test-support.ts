@@ -10,6 +10,12 @@ export class MemoryPushTokenStore implements PushTokenStore {
     for (const [owner, row] of this.rows) if (row.token === token) this.rows.delete(owner);
     this.rows.set(userId, { token, ...(sessionId ? { sessionId } : {}) });
   }
+  async importLegacy(userId: string, token: string, sessionId: string) {
+    if (this.rows.has(userId) || [...this.rows.values()].some((row) => row.token === token))
+      return false;
+    await this.save(userId, token, sessionId);
+    return true;
+  }
   async remove(userId: string, digest?: string) {
     const row = this.rows.get(userId);
     if (row && (!digest || credentialDigest(row.token) === digest)) this.rows.delete(userId);

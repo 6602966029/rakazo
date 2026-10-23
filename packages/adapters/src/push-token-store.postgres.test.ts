@@ -105,6 +105,29 @@ suite("database push registrations", () => {
     expect((await worker.load(user("b")))?.token).toBe(token("shared"));
   });
 
+  it("imports only unclaimed devices and accounts, including concurrent imports", async () => {
+    await api.save(user("b"), token("owned"), session("b"));
+    expect(await worker.importLegacy(user("a"), token("owned"), session("a"))).toBe(false);
+    expect(await worker.load(user("a"))).toBeUndefined();
+    expect((await api.load(user("b")))?.token).toBe(token("owned"));
+    expect(await worker.importLegacy(user("b"), token("stale"), session("b"))).toBe(false);
+    expect((await api.load(user("b")))?.token).toBe(token("owned"));
+    const imported = await Promise.all([
+      api.importLegacy(user("a"), token("unclaimed"), session("a")),
+      worker.importLegacy(user("c"), token("unclaimed"), session("c")),
+    ]);
+    expect(imported.filter(Boolean)).toHaveLength(1);
+  });
+
+  it("lets authenticated registration win a race with legacy import", async () => {
+    await Promise.all([
+      api.importLegacy(user("a"), token("racing"), session("a")),
+      worker.save(user("b"), token("racing"), session("b")),
+    ]);
+    expect(await api.load(user("a"))).toBeUndefined();
+    expect((await worker.load(user("b")))?.token).toBe(token("racing"));
+  });
+
   it("rejects expired, missing and another account's sessions without stealing tokens", async () => {
     await api.save(user("a"), token("shared"), session("a"));
     for (const invalid of [session("missing"), session("a")])

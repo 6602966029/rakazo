@@ -1931,13 +1931,17 @@ The artifact migration uploads and decrypts each file to verify it before condit
 updating its database storage key. It keeps the original local files and skips rows already
 migrated, so interrupted runs can resume. A database failure after upload can leave an
 unreferenced object; do not delete objects blindly after a failed migration. Keep local
-originals until the migration is complete and verified. Object-backed artifacts require
+originals until the migration is complete and verified. Files absent from the mounted volume
+are counted as pending while migration continues for files present on that volume. Run the
+command on each original volume, then run `artifacts --dry-run` again and require `pending: 0`
+before starting independent replicas. Object-backed artifacts require
 object storage to remain configured; old application versions cannot read their new keys.
 The local content-encryption CLI operates on local artifacts only; object artifacts stay
 encrypted and retain access through the key versions referenced in their headers.
 
 The push import preserves registrations with a live session, skips missing/expired or
-sessionless registrations and accounts already registered in Postgres, and archives processed
+sessionless registrations, accounts already registered in Postgres, and devices owned by any
+existing database registration. Import never hands a device back to an older account. It archives processed
 files with a `.migrated` suffix. Those archives are never used as a runtime fallback, so they
 cannot restore a registration after logout. Clients skipped during migration register again
 when they next open the app. Remove the archived token files after verifying the import.

@@ -52,7 +52,15 @@ export async function migrateLocalArtifacts(
           traceId: "artifact.migrate",
           signal,
         };
-        const bytes = await local.get(row.storageKey, context);
+        let bytes: Uint8Array;
+        try {
+          bytes = await local.get(row.storageKey, context);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+          // The file can belong to another original volume. Keep scanning this one.
+          counts.pending++;
+          continue;
+        }
         const saved = await target.put({ name: row.name, mimeType: row.mimeType, bytes }, context);
         try {
           if (!Buffer.from(await target.get(saved.id, context)).equals(Buffer.from(bytes)))
@@ -105,11 +113,11 @@ export async function migrateLocalPushTokens(
       await handle.close();
     }
     const [token, sessionId] = record.trim().split("\n");
-    if (!token || !sessionId || (await tokens.load(userId))) counts.skipped++;
+    if (!token || !sessionId) counts.skipped++;
     else {
       try {
-        await tokens.save(userId, token, sessionId);
-        counts.migrated++;
+        if (await tokens.importLegacy(userId, token, sessionId)) counts.migrated++;
+        else counts.skipped++;
       } catch (error) {
         if (!(error instanceof PushSessionEndedError)) throw error;
         counts.skipped++;

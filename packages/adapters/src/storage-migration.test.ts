@@ -64,7 +64,7 @@ async function artifactFixture() {
     current: async () => key,
     byId: async () => key,
   });
-  return { local, target, row, prisma, originalKey, bytes, storage, updateMany };
+  return { local, target, row, prisma, originalKey, bytes, storage, updateMany, findMany };
 }
 
 it("verifies an artifact before moving its pointer and keeps the local original", async () => {
@@ -147,4 +147,62 @@ it("imports only session-bound registrations and never resurrects archived files
     pending: 0,
   });
   expect(await tokens.load("a")).toBeUndefined();
+});
+
+it("does not let legacy files reclaim a device already owned by another account", async () => {
+  const dir = await root();
+  await mkdir(path.join(dir, "push-tokens"));
+  await writeFile(
+    path.join(dir, "push-tokens", "old-account.txt"),
+    "ExponentPushToken[device]\nsession-old",
+  );
+  const tokens = new MemoryPushTokenStore();
+  await tokens.save("current-account", "ExponentPushToken[device]", "session-current");
+  expect(await migrateLocalPushTokens(dir, tokens)).toEqual({
+    migrated: 0,
+    skipped: 1,
+    pending: 0,
+  });
+  expect(await tokens.load("old-account")).toBeUndefined();
+  expect(await tokens.load("current-account")).toEqual({
+    token: "ExponentPushToken[device]",
+    sessionId: "session-current",
+  });
+});
+
+it("continues past files on another original volume and reports unfinished rows", async () => {
+  const f = await artifactFixture();
+  const missing = { ...f.row, id: "artifact-0", storageKey: "not-on-this-volume" };
+  const rows = [missing, f.row];
+  f.findMany.mockImplementation(async ({ where }) =>
+    rows
+      .filter((row) => !row.storageKey.startsWith("object:") && (!where.id || row.id > where.id.gt))
+      .map((row) => ({ ...row })),
+  );
+  f.updateMany.mockImplementation(async ({ where, data }) => {
+    const row = rows.find((row) => row.storageKey === where.storageKey);
+    if (!row) return { count: 0 };
+    row.storageKey = data.storageKey;
+    return { count: 1 };
+  });
+  expect(await migrateLocalArtifacts(f.prisma, f.local, f.target)).toEqual({
+    migrated: 1,
+    pending: 1,
+  });
+  expect(f.row.storageKey).toMatch(/^object:/);
+  expect(missing.storageKey).toBe("not-on-this-volume");
+  expect(await migrateLocalArtifacts(f.prisma, f.local, f.target, { dryRun: true })).toEqual({
+    migrated: 0,
+    pending: 1,
+  });
+  // Simulate mounting the volume holding the remaining file.
+  vi.spyOn(f.local, "get").mockResolvedValue(f.bytes);
+  expect(await migrateLocalArtifacts(f.prisma, f.local, f.target)).toEqual({
+    migrated: 1,
+    pending: 0,
+  });
+  expect(await migrateLocalArtifacts(f.prisma, f.local, f.target, { dryRun: true })).toEqual({
+    migrated: 0,
+    pending: 0,
+  });
 });

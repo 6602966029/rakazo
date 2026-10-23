@@ -12,6 +12,8 @@ export interface PushRecord {
 export interface PushTokenStore {
   load(userId: string): Promise<PushRecord | undefined>;
   save(userId: string, token: string, sessionId: string): Promise<void>;
+  /** Import only when neither the account nor the device is registered already. */
+  importLegacy(userId: string, token: string, sessionId: string): Promise<boolean>;
   remove(userId: string, tokenDigest?: string): Promise<void>;
   endSession(userId: string, sessionId: string, nextSessionId?: string): Promise<void>;
 }
@@ -44,6 +46,19 @@ export class PrismaPushTokenStore implements PushTokenStore {
   }
 
   async save(userId: string, token: string, sessionId: string): Promise<void> {
+    await this.register(userId, token, sessionId, "register");
+  }
+
+  importLegacy(userId: string, token: string, sessionId: string): Promise<boolean> {
+    return this.register(userId, token, sessionId, "import");
+  }
+
+  private async register(
+    userId: string,
+    token: string,
+    sessionId: string,
+    mode: "register" | "import",
+  ): Promise<boolean> {
     const value = token.trim();
     if (!value) throw new Error("Push token is empty");
     const tokenDigest = credentialDigest(value);
@@ -58,25 +73,40 @@ export class PrismaPushTokenStore implements PushTokenStore {
       },
       { recordId: `push-token:${userId}` },
     );
-    await runAsSystem("register a device for its authenticated account", () =>
+    return runAsSystem("register or import a notification device", () =>
       withTransactionRetry(() =>
         this.prisma.$transaction(async (tx) => {
           // Account locks serialize sign-out/replacement; token locks serialize device handover.
           // Keep advisory acquisition ordered; row-lock conflicts during handover are retried.
           for (const key of [`push-user:${userId}`, `push-token:${tokenDigest}`].sort())
             await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))::text`;
+          // Legacy files are weaker evidence than any existing database registration.
+          // Use the same locks as live registration so the check and insert are atomic.
+          if (
+            mode === "import" &&
+            (await tx.pushToken.findFirst({
+              where: { OR: [{ userId }, { tokenDigest }] },
+              select: { userId: true },
+            }))
+          )
+            return false;
           // Lock the session against deletion until registration commits. A late registration
           // after sign-out cannot publish a token, even when its request authenticated earlier.
           const sessions = await tx.$queryRaw<Array<{ id: string }>>`
           SELECT id FROM "session" WHERE id = ${sessionId} AND "userId" = ${userId}
           AND "expiresAt" > CURRENT_TIMESTAMP FOR UPDATE`;
           if (!sessions.length) throw new PushSessionEndedError();
-          await tx.pushToken.deleteMany({ where: { tokenDigest, userId: { not: userId } } });
-          await tx.pushToken.upsert({
-            where: { userId },
-            create: { userId, ciphertext: sealed.ciphertext, tokenDigest, sessionId },
-            update: { ciphertext: sealed.ciphertext, tokenDigest, sessionId },
-          });
+          const data = { ciphertext: sealed.ciphertext, tokenDigest, sessionId };
+          if (mode === "import") await tx.pushToken.create({ data: { userId, ...data } });
+          else {
+            await tx.pushToken.deleteMany({ where: { tokenDigest, userId: { not: userId } } });
+            await tx.pushToken.upsert({
+              where: { userId },
+              create: { userId, ...data },
+              update: data,
+            });
+          }
+          return true;
         }),
       ),
     );
