@@ -153,6 +153,7 @@ import { parse as parseShellCommand } from "shell-quote";
 import {
   connectAgent,
   messageConnectedAgent,
+  prepareAgentConnectionResponse,
   respondAgentConnection,
 } from "./agent-connections.js";
 import {
@@ -4998,18 +4999,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
             args = prepared.canonical;
             fleetSummary = prepared.summary;
           }
-          if (name === "respond_agent_connection" && nextApprovedTool !== name) {
-            const pending = await deps.prisma.agentConnection.findFirst({
-              where: { targetBotId: bot.id, status: "pending" },
-              orderBy: { updatedAt: "desc" },
-              select: { id: true, requestVersion: true },
-            });
-            if (!pending) return { error: "no pending connection request" };
-            args = {
-              accept: Boolean(args.accept),
-              connection_id: pending.id,
-              connection_version: pending.requestVersion,
-            };
+          if (name === "respond_agent_connection") {
+            if (nextApprovedTool !== name) {
+              const request = await prepareAgentConnectionResponse(
+                deps.prisma,
+                bot.id,
+                Boolean(args.accept),
+              );
+              if (!request) return { error: "no pending connection request" };
+              args = request;
+            } else if (
+              typeof args.requester_name !== "string" ||
+              typeof args.requester_address !== "string" ||
+              typeof args.requester_provider !== "string"
+            ) {
+              return { error: "connection request is no longer pending" };
+            }
           }
           if (
             name === "propose_instructions_update" ||

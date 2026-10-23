@@ -195,6 +195,38 @@ async function requestConnection(
   return { ok: true, status: "pending" };
 }
 
+/** Capture the exact request and requester shown on the owner's approval card. */
+export function prepareAgentConnectionResponse(
+  prisma: PrismaClient,
+  targetBotId: string,
+  accept: boolean,
+) {
+  return runAsSystem("prepare an agent connection response for its target bot", async () => {
+    const pending = await prisma.agentConnection.findFirst({
+      where: { targetBotId, status: "pending" },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, requestVersion: true, requesterBotId: true },
+    });
+    if (!pending) return null;
+    const [requester, identity] = await Promise.all([
+      prisma.bot.findUnique({ where: { id: pending.requesterBotId }, select: { name: true } }),
+      prisma.messagingIdentity.findUnique({
+        where: { botId: pending.requesterBotId },
+        select: { address: true, provider: true },
+      }),
+    ]);
+    if (!requester || !identity) return null;
+    return {
+      accept,
+      connection_id: pending.id,
+      connection_version: pending.requestVersion,
+      requester_name: requester.name,
+      requester_address: identity.address,
+      requester_provider: identity.provider,
+    };
+  });
+}
+
 /** The target bot answers a pending request on its owner's instruction. */
 export function respondAgentConnection(
   ...args: Parameters<typeof respondToConnection>

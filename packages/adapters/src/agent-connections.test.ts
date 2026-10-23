@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   connectAgent,
   messageConnectedAgent,
+  prepareAgentConnectionResponse,
   respondAgentConnection,
 } from "./agent-connections.js";
 
@@ -670,4 +671,36 @@ it("rejects an approval when the same connection is reopened during the approval
     data: { status: "approved" },
   });
   expect(replacement.status).toBe("pending");
+});
+
+it("captures the requester and decision with the request version for approval", async () => {
+  const deps = createDeps({
+    pendingConnection: {
+      id: "request-1",
+      requestVersion: 3,
+      requesterBotId: "bot-2",
+      targetBotId: "bot-1",
+      status: "pending",
+    },
+  });
+  const captured = await prepareAgentConnectionResponse(deps.prisma, "bot-1", false);
+  expect(captured).toEqual({
+    accept: false,
+    connection_id: "request-1",
+    connection_version: 3,
+    requester_name: "Helper",
+    requester_address: targetIdentity.address,
+    requester_provider: targetIdentity.provider,
+  });
+  deps.prisma.agentConnection.findFirst.mockResolvedValueOnce({
+    id: "request-2",
+    requestVersion: 1,
+    requesterBotId: "bot-1",
+  } as never);
+  await prepareAgentConnectionResponse(deps.prisma, "bot-1", true);
+  expect(captured).toMatchObject({
+    connection_id: "request-1",
+    connection_version: 3,
+    requester_name: "Helper",
+  });
 });
