@@ -214,6 +214,7 @@ import {
   createRepos,
   createSpaceForMember,
   createThreadMessageInTransaction,
+  crossSpaceCommunicationAllowed,
   defaultModelCredentialCandidates,
   deleteEmptySpaceForMember,
   deleteUnreferencedCredentialSecret,
@@ -2070,6 +2071,9 @@ export function createRouter(deps: RouterDeps) {
               ? { teamChatAmbientEnabled: input.teamChatAmbientEnabled }
               : {}),
             ...(input.teamChatRules !== undefined ? { teamChatRules: input.teamChatRules } : {}),
+            ...(input.crossSpaceCommunication !== undefined
+              ? { crossSpaceCommunication: input.crossSpaceCommunication }
+              : {}),
             ...(input.fleetManagement !== undefined
               ? { fleetManagement: input.fleetManagement }
               : {}),
@@ -6205,6 +6209,16 @@ export function createRouter(deps: RouterDeps) {
               // The claim holds the connection row lock through commit, so a
               // revoke either beats it or waits — it can never interleave with
               // the confirmation write below.
+              if (
+                input.accept &&
+                !(await crossSpaceCommunicationAllowed(
+                  tx,
+                  connection.requesterBotId,
+                  connection.targetBotId,
+                ))
+              ) {
+                throw new ORPCError("FORBIDDEN");
+              }
               const { count } = await tx.agentConnection.updateMany({
                 where: { id: connection.id, status: "pending" },
                 data: { status: input.accept ? "approved" : "declined" },

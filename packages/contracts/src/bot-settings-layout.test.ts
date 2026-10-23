@@ -22,6 +22,7 @@ describe("bot settings layout", () => {
       "memoryScope",
       "readAloud",
       "voice",
+      "crossSpaceCommunication",
       "fleetManagement",
       "description",
       "disabledTools",

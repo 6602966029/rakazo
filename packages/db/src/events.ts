@@ -30,6 +30,10 @@ import { cancelRunsInTransaction } from "./cancel-runs.js";
 import type { Prisma, PrismaClient } from "./client.js";
 import { expireComputerExecutionLeases } from "./computers.js";
 import {
+  CrossSpaceCommunicationBlockedError,
+  crossSpaceCommunicationAllowed,
+} from "./cross-space-communication.js";
+import {
   assertRunCanWriteHistory,
   assertRunIsCancelled,
   createThreadMessageInTransaction,
@@ -241,6 +245,8 @@ export interface SendUserMessageInput {
   trigger: "user" | "follow_up" | "webhook" | "messaging";
   clientNonce?: string;
   linkMessageToRun?: boolean;
+  /** Internal bot sender: enforce both bots' cross-space policy in the write transaction. */
+  crossSpaceSenderBotId?: string;
   /** When false, persist the user message without starting a run (team-chat transcript). */
   createRun?: boolean;
   /** When true, start a new run even if the bot is already busy (team-chat delivery). */
@@ -437,6 +443,12 @@ export async function sendUserMessage(
         blocks: input.blocks,
         clientNonce: input.clientNonce,
       });
+      if (
+        input.crossSpaceSenderBotId &&
+        !(await crossSpaceCommunicationAllowed(tx, input.crossSpaceSenderBotId, input.botId))
+      ) {
+        throw new CrossSpaceCommunicationBlockedError();
+      }
       const createRun = input.createRun !== false;
       // Include the creation intro. It has no tools, so it must not absorb the message, and a
       // second run would overlap it on a dedicated computer. Pending steering waits for the

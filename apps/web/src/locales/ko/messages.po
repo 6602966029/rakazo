@@ -589,6 +589,10 @@ msgstr "확인 없이 {0} 커넥터 허용"
 msgid "Allow {0} without asking"
 msgstr "확인 없이 {0} 허용"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Allow cross-space bot communication"
+msgstr ""
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Allow email actions without asking"
 msgstr "확인 없이 이메일 동작 허용"

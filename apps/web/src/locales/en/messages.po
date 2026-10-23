@@ -589,6 +589,10 @@ msgstr "Allow {0} connector without asking"
 msgid "Allow {0} without asking"
 msgstr "Allow {0} without asking"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Allow cross-space bot communication"
+msgstr "Allow cross-space bot communication"
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Allow email actions without asking"
 msgstr "Allow email actions without asking"

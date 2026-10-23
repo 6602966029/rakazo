@@ -589,6 +589,10 @@ msgstr "允许 {0} 连接器，无需询问"
 msgid "Allow {0} without asking"
 msgstr "允许 {0}，无需询问"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Allow cross-space bot communication"
+msgstr ""
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Allow email actions without asking"
 msgstr "允许邮件操作，无需询问"

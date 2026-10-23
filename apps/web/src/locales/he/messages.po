@@ -589,6 +589,10 @@ msgstr "לאפשר את החיבור {0} בלי לשאול"
 msgid "Allow {0} without asking"
 msgstr "לאפשר {0} בלי לשאול"
 
+#: src/pages/shell/bot-panel.tsx
+msgid "Allow cross-space bot communication"
+msgstr ""
+
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Allow email actions without asking"
 msgstr "לאפשר פעולות אימייל בלי לשאול"
