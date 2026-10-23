@@ -14,29 +14,22 @@ function fixture(
   clientNonce: string | null = routineTimerNonce("routine-1", "2026-01-01T00:00:00Z"),
 ) {
   const updatedAt = new Date("2026-01-01T00:00:00Z");
-  const findMany = vi.fn(async (args: Prisma.RunFindManyArgs) =>
-    (args.where?.clientNonce === null) === (clientNonce === null)
-      ? [{ id: "run-1", taskId: "task-1", clientNonce, leaseFence: 0, updatedAt }]
+  const findMany = vi.fn(async (_args: Prisma.RunFindManyArgs) =>
+    clientNonce?.startsWith("routine-timer:routine-1:")
+      ? [{ id: "run-1", taskId: "task-1", leaseFence: 0, updatedAt }]
       : [],
   );
   const updateMany = vi.fn(async () => ({ count: 1 }));
-  const event = vi.fn(
-    async (): Promise<
-      { runId: string; payload: { scheduledFor: string; routineId: string } }[]
-    > => [],
-  );
   const tx = {
-    $queryRaw: vi.fn(async () => (clientNonce === null ? [{ runId: "run-1" }] : [])),
     run: { findMany, updateMany },
-    event: { findMany: event },
     computerExecutionLease: { findMany: vi.fn(async () => []) },
     computer: { findMany: vi.fn(async () => []) },
   } as unknown as Prisma.TransactionClient;
-  return { tx, findMany, updateMany, event, updatedAt };
+  return { tx, findMany, updateMany, updatedAt };
 }
 describe("pending routine timer coalescing", () => {
   it("reuses only pristine matching work and keeps its schedule and timestamps", async () => {
-    const { tx, findMany, updateMany, event, updatedAt } = fixture();
+    const { tx, findMany, updateMany, updatedAt } = fixture();
     expect(await findPendingRoutineTick(tx, config)).toEqual({ id: "run-1", taskId: "task-1" });
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -54,30 +47,19 @@ describe("pending routine timer coalescing", () => {
         }),
       }),
     );
-    const { clientNonce: _provenance, ...pristine } = findMany.mock.calls[0]![0]!.where!;
     expect(updateMany).toHaveBeenCalledWith({
-      where: { ...pristine, id: "run-1", leaseFence: 0 },
+      where: { ...findMany.mock.calls[0]![0]!.where, id: "run-1", leaseFence: 0 },
       data: { updatedAt },
     });
-    expect(event).not.toHaveBeenCalled();
   });
   it("preserves manual runs even with no client nonce", async () => {
-    const { tx, updateMany, event } = fixture(null);
+    const { tx, updateMany } = fixture(null);
     expect(await findPendingRoutineTick(tx, config)).toBeNull();
-    expect(event).toHaveBeenCalled();
     expect(updateMany).not.toHaveBeenCalled();
   });
-  it("accepts a legacy timer only with its scheduled firing event", async () => {
-    const { tx, event } = fixture(null);
-    event.mockResolvedValue([
-      { runId: "run-1", payload: { scheduledFor: "2026-01-01T00:00:00Z", routineId: "routine-1" } },
-    ]);
-    expect(await findPendingRoutineTick(tx, config)).toEqual({ id: "run-1", taskId: "task-1" });
-  });
   it("never mistakes an explicitly identified manual test for a timer", async () => {
-    const { tx, event, updateMany } = fixture("manual-test-1");
+    const { tx, updateMany } = fixture("manual-test-1");
     expect(await findPendingRoutineTick(tx, config)).toBeNull();
-    expect(event).not.toHaveBeenCalled();
     expect(updateMany).not.toHaveBeenCalled();
   });
   it("does not reuse a run claimed between selection and locking", async () => {

@@ -59,17 +59,17 @@ These are server-side availability measurements. They do not measure network
 delivery or rendering on a user's device. Client delivery/render timing would need
 a separate acknowledgement.
 
-Recurring timer routines keep one pristine pending catch-up run for the same
-routine, prompt, thread, and model selection. A later tick reuses that pending
-work and advances the next scheduled tick, preserving any computer retry delay.
-Already started runs, manual tests, explicit retries, one-shot schedules, and
-change/event-triggered runs remain separate. Timer provenance is durable on new
-runs; older pending work is reused only when its scheduled firing event exists.
-A bounded pass also cancels redundant legacy timer rows with no attempts,
-effects, output, steering, checkpoint, or live computer ownership, preserving
-historical rows and terminal events. Old pre-attempt start timestamps or lease
-fences alone do not protect a redundant tick. The `routine.coalesced` log records
-reuse without another `routine.fired` event.
+Recurring timer routines mark their origin durably and keep one pristine pending
+catch-up run for the same routine, prompt, thread, and model selection. A later
+tick reuses that pending work and advances the next scheduled tick, preserving
+any computer retry delay. Already started runs, manual tests, explicit retries,
+one-shot schedules, and change/event-triggered runs remain separate. Unmarked
+older firings are preserved: a scheduled firing event alone cannot distinguish
+recurring work from a one-shot whose routine was later edited.
+A bounded pass cancels redundant marked timer rows with no attempts, effects,
+output, steering, checkpoint, or live computer ownership, preserving historical
+rows and terminal events. The `routine.coalesced` log records reuse without
+another `routine.fired` event.
 
 Interactive work is scanned before scheduled/reaction work in each bounded pass.
 When memory admission declines a run, dispatch leaves it durable and continues

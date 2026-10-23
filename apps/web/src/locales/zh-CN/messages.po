@@ -4986,6 +4986,11 @@ msgstr ""
 msgid "this Mac"
 msgstr "这台 Mac"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
+msgstr "此模型无法容纳所需的指令和工具。请选择上下文窗口更大的模型。"
+
 #: src/pages/Artifacts.tsx
 msgid "This month"
 msgstr ""
@@ -5550,8 +5555,3 @@ msgstr "你的语音提供方额度已用完。"
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "你的语音提供方拒绝了该密钥。"
-
-#. js-lingui-explicit-id
-#: src/lib/run-error.ts
-msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
-msgstr "此模型无法容纳所需的指令和工具。请选择上下文窗口更大的模型。"

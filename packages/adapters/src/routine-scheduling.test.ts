@@ -40,11 +40,10 @@ function pendingTimerFixture() {
   const pending = {
     id: "pending-1",
     taskId: "task-1",
-    clientNonce: "routine-timer:routine-1:earlier",
+    leaseFence: 0,
     updatedAt: scheduledAt,
   };
   const tx = {
-    $queryRaw: vi.fn(async () => []),
     computerExecutionLease: { findMany: vi.fn(async () => []) },
     computer: { findMany: vi.fn(async () => []) },
     routine: {

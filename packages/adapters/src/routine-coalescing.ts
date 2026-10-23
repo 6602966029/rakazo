@@ -27,6 +27,9 @@ export async function findPendingRoutineTick(
 ) {
   const pristine: Prisma.RunWhereInput = {
     routineId: config.routineId,
+    // Older firings did not distinguish recurring ticks from one-shot schedules.
+    // Preserve all ambiguous legacy work, even when routine.fired was recorded.
+    clientNonce: { startsWith: `routine-timer:${config.routineId}:` },
     spaceId: config.spaceId,
     botId: config.botId,
     userId: config.userId,
@@ -50,82 +53,15 @@ export async function findPendingRoutineTick(
     steeringMessages: { none: {} },
     task: { status: "queued", prompt: config.prompt },
   };
-  const selection = {
+  const candidates = await tx.run.findMany({
+    where: pristine,
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    select: { id: true, taskId: true, clientNonce: true, leaseFence: true, updatedAt: true },
+    select: { id: true, taskId: true, leaseFence: true, updatedAt: true },
     take: 100,
-  } satisfies Omit<Prisma.RunFindManyArgs, "where">;
-  // Known timer provenance must not sit behind arbitrary manual runs in the
-  // same bounded page. The legacy query mirrors pristine eligibility before its
-  // limit, so attempted or older-config rows cannot hide matching pending work.
-  // Event.runId intentionally has no Prisma relation on Run.
-  const [knownTimers, legacyReferences] = await Promise.all([
-    tx.run.findMany({
-      ...selection,
-      where: {
-        ...pristine,
-        clientNonce: { startsWith: `routine-timer:${config.routineId}:` },
-      },
-    }),
-    tx.$queryRaw<{ runId: string }[]>`
-      SELECT r.id AS "runId"
-      FROM runs r JOIN tasks t ON t.id = r."taskId"
-      WHERE r."routineId" = ${config.routineId}
-        AND r."spaceId" = ${config.spaceId}
-        AND r."botId" = ${config.botId}
-        AND r."userId" = ${config.userId}
-        AND r."threadId" = ${config.threadId}
-        AND r.trigger = 'routine' AND r.status = 'queued'
-        AND r."clientNonce" IS NULL AND r."retryOfRunId" IS NULL
-        AND r."sourceMessageId" IS NULL AND r."leaseOwner" IS NULL
-        AND r."leaseExpiresAt" IS NULL AND r."completedAt" IS NULL
-        AND r."firstResponseAt" IS NULL AND r.checkpoint IS NULL AND r.error IS NULL
-        AND r."modelProvider" IS NOT DISTINCT FROM ${config.modelProvider ?? null}
-        AND r."modelId" IS NOT DISTINCT FROM ${config.modelId ?? null}
-        AND r."thinkingLevel" IS NOT DISTINCT FROM ${config.thinkingLevel ?? null}
-        AND r."modelPinned" = ${config.modelPinned ?? false}
-        AND t.status = 'queued' AND t.prompt = ${config.prompt}
-        AND NOT EXISTS (SELECT 1 FROM attempts a WHERE a."runId" = r.id)
-        AND NOT EXISTS (SELECT 1 FROM external_effects x WHERE x."runId" = r.id)
-        AND NOT EXISTS (SELECT 1 FROM steering_messages s WHERE s."runId" = r.id)
-        AND NOT EXISTS (
-          SELECT 1 FROM computer_execution_leases l
-          WHERE l."runId" = r.id AND l."expiresAt" > CURRENT_TIMESTAMP
-        )
-        AND NOT EXISTS (SELECT 1 FROM computers c WHERE c."controlRunId" = r.id)
-        AND EXISTS (
-          SELECT 1 FROM events e WHERE e."runId" = r.id AND e.type = 'routine.fired'
-        )
-      ORDER BY r."createdAt", r.id LIMIT 100
-    `,
-  ]);
-  const legacyCandidates = legacyReferences.length
-    ? await tx.run.findMany({
-        ...selection,
-        where: {
-          ...pristine,
-          clientNonce: null,
-          id: { in: legacyReferences.map(({ runId }) => runId) },
-        },
-      })
-    : [];
-  // Reserved-provenance rows always get a place, so ambiguous legacy records
-  // cannot cause recurring ticks to grow a fresh pending backlog.
-  const candidates = [...knownTimers, ...legacyCandidates].slice(0, 100);
+  });
   if (!candidates.length) return null;
   const runIds = candidates.map((candidate) => candidate.id);
-  const legacyIds = candidates
-    .filter((candidate) => candidate.clientNonce === null)
-    .map((candidate) => candidate.id);
-  // Bound round trips independently of backlog size. Event payloads are encrypted
-  // at rest; read their decrypted values rather than filtering JSON paths in SQL.
-  const [legacyEvents, leases, computers] = await Promise.all([
-    legacyIds.length
-      ? tx.event.findMany({
-          where: { runId: { in: legacyIds }, type: "routine.fired" },
-          select: { runId: true, payload: true },
-        })
-      : [],
+  const [leases, computers] = await Promise.all([
     tx.computerExecutionLease.findMany({
       where: { runId: { in: runIds }, expiresAt: { gt: new Date() } },
       select: { runId: true },
@@ -135,30 +71,14 @@ export async function findPendingRoutineTick(
       select: { controlRunId: true },
     }),
   ]);
-  const legacyTimers = new Set(
-    legacyEvents
-      .filter(
-        ({ payload }) =>
-          payload &&
-          typeof payload === "object" &&
-          !Array.isArray(payload) &&
-          typeof payload.scheduledFor === "string" &&
-          payload.routineId === config.routineId,
-      )
-      .map(({ runId }) => runId),
-  );
   const held = new Set(leases.map(({ runId }) => runId));
   const controlled = new Set(computers.map(({ controlRunId }) => controlRunId));
   let retained: { id: string; taskId: string } | null = null;
   const cancelledEvents: { threadId: string; seq: number }[] = [];
   for (const candidate of candidates) {
-    // Missing provenance is deliberately preserved instead of risking manual work.
-    const timer =
-      candidate.clientNonce?.startsWith(`routine-timer:${config.routineId}:`) ||
-      (candidate.clientNonce === null && legacyTimers.has(candidate.id));
-    // A stale pre-attempt timestamp/fence from an older release does not prove
-    // execution. Attempts, effects, checkpoints and live computer ownership do.
-    if (!timer || held.has(candidate.id) || controlled.has(candidate.id)) continue;
+    // A stale pre-attempt timestamp/fence does not prove execution. Attempts,
+    // effects, checkpoints and live computer ownership do.
+    if (held.has(candidate.id) || controlled.has(candidate.id)) continue;
     // Dispatch can race the earlier read. Lock and recheck, including its exact
     // fence, so work claimed since the selection is never folded or cancelled.
     const locked = await tx.run.updateMany({

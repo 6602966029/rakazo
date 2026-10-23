@@ -4986,6 +4986,11 @@ msgstr "הקובץ אינו טקסט UTF-8 תקין."
 msgid "this Mac"
 msgstr "ה-Mac הזה"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
+msgstr "ההוראות והכלים הנדרשים לא נכנסים בחלון ההקשר של המודל הזה. יש לבחור מודל עם חלון הקשר גדול יותר."
+
 #: src/pages/Artifacts.tsx
 msgid "This month"
 msgstr "החודש"
@@ -5550,8 +5555,3 @@ msgstr "לספק הקול שלך נגמר הקרדיט."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "ספק הקול שלך דחה את המפתח."
-
-#. js-lingui-explicit-id
-#: src/lib/run-error.ts
-msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
-msgstr "ההוראות והכלים הנדרשים לא נכנסים בחלון ההקשר של המודל הזה. יש לבחור מודל עם חלון הקשר גדול יותר."

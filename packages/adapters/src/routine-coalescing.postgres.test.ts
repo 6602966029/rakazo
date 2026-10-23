@@ -1,7 +1,15 @@
 import { randomUUID } from "node:crypto";
+import { ONCE_ROUTINE_CRON } from "@rakazo/core";
 import type { Prisma, PrismaClient } from "@rakazo/db";
-import { asSystem, createDb, provisionMessagingIdentity, runAsSystem } from "@rakazo/db";
+import {
+  appendEvent,
+  asSystem,
+  createDb,
+  provisionMessagingIdentity,
+  runAsSystem,
+} from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createRunExecutor } from "./executor.js";
 import { findPendingRoutineTick, routineTimerNonce } from "./routine-coalescing.js";
 
 const url = process.env.DATABASE_URL;
@@ -64,40 +72,100 @@ describePostgres("routine timer coalescing (PostgreSQL)", () => {
     }
     return { routine, config, create };
   }
+
   it("serializes concurrent ticks into one pending catch-up", async () => {
     const { routine, config, create } = await fixture();
     const tick = (index: number) =>
       system.$transaction(async (tx) => {
         await tx.routine.update({ where: { id: routine.id }, data: { lastRunAt: new Date() } });
-        const pending = await findPendingRoutineTick(tx, config);
-        return pending ?? create(tx, routineTimerNonce(routine.id, `tick-${index}`));
+        return (
+          (await findPendingRoutineTick(tx, config)) ??
+          create(tx, routineTimerNonce(routine.id, `tick-${index}`))
+        );
       });
     const results = await Promise.all([tick(1), tick(2)]);
     expect(results[0]!.id).toBe(results[1]!.id);
     expect(await system.run.count({ where: { routineId: routine.id } })).toBe(1);
   });
-  it("preserves manual work and requires timer provenance for old runs", async () => {
+  it("preserves ambiguous legacy runs even with scheduled firing events", async () => {
     const { config, create } = await fixture();
-    const manual = await system.$transaction((tx) => create(tx, null));
+    const legacy = await system.$transaction((tx) => create(tx, null));
+    await appendEvent(system, {
+      spaceId: identity.spaceId,
+      threadId: identity.threadId,
+      botId: identity.botId,
+      type: "routine.fired",
+      runId: legacy.id,
+      payload: { routineId: config.routineId, scheduledFor: "2026-01-01T00:00:00Z" },
+    });
     expect(await system.$transaction((tx) => findPendingRoutineTick(tx, config))).toBeNull();
-    await system.event.create({
+    expect(await system.run.findUnique({ where: { id: legacy.id } })).toMatchObject({
+      status: "queued",
+    });
+  });
+  it("preserves a queued one-shot when its routine is edited into a recurring timer", async () => {
+    const { routine, create } = await fixture();
+    const scheduledAt = new Date(Date.now() - 1_000);
+    await system.routine.update({
+      where: { id: routine.id },
       data: {
-        spaceId: identity.spaceId,
-        threadId: identity.threadId,
-        botId: identity.botId,
-        type: "routine.fired",
-        seq: 200,
-        runId: manual.id,
-        payload: { routineId: config.routineId, scheduledFor: "2026-01-01T00:00:00Z" },
+        crons: [ONCE_ROUTINE_CRON],
+        nextRunAt: scheduledAt,
       },
     });
-    expect(await system.$transaction((tx) => findPendingRoutineTick(tx, config))).toEqual({
-      id: manual.id,
-      taskId: manual.taskId,
+    const executor = createRunExecutor({
+      prisma: system,
+      jobs: {
+        enqueue: async () => undefined,
+        cancel: async () => undefined,
+        close: async () => undefined,
+      },
+      events: {
+        append: (input: Parameters<typeof appendEvent>[1]) => appendEvent(system, input),
+        notify: async () => undefined,
+      },
+    } as unknown as Parameters<typeof createRunExecutor>[0]);
+    await executor.wakeRoutine(routine.id, scheduledAt.toISOString());
+    const oneShot = await system.run.findFirstOrThrow({ where: { routineId: routine.id } });
+    expect(oneShot.clientNonce).toBeNull();
+    let duplicateId: string | null = null;
+    for (let tick = 0; tick < 3; tick++) {
+      const dueAt = new Date(scheduledAt.getTime() + tick);
+      await system.routine.update({
+        where: { id: routine.id },
+        data: {
+          crons: ["* * * * *"],
+          active: true,
+          nextRunAt: dueAt,
+        },
+      });
+      await executor.wakeRoutine(routine.id, dueAt.toISOString());
+      if (tick === 0) {
+        const duplicate = await system.$transaction((tx) =>
+          create(tx, routineTimerNonce(routine.id, "duplicate")),
+        );
+        duplicateId = duplicate.id;
+      }
+    }
+    expect(await system.run.findUnique({ where: { id: oneShot.id } })).toMatchObject({
+      status: "queued",
     });
-    await system.run.update({ where: { id: manual.id }, data: { startedAt: new Date() } });
-    await system.attempt.create({ data: { runId: manual.id, fence: 1, status: "running" } });
-    expect(await system.$transaction((tx) => findPendingRoutineTick(tx, config))).toBeNull();
+    expect(await system.run.count({ where: { routineId: routine.id } })).toBe(3);
+    expect(await system.run.findUnique({ where: { id: duplicateId! } })).toMatchObject({
+      status: "cancelled",
+    });
+    expect(
+      await system.run.count({
+        where: {
+          routineId: routine.id,
+          status: "queued",
+          clientNonce: { startsWith: `routine-timer:${routine.id}:` },
+        },
+      }),
+    ).toBe(1);
+    expect(await system.event.count({ where: { runId: oneShot.id, type: "run.cancelled" } })).toBe(
+      0,
+    );
   });
   it("keeps an existing busy-computer delay on a reused run", async () => {
     const { config, create, routine } = await fixture();
@@ -107,33 +175,23 @@ describePostgres("routine timer coalescing (PostgreSQL)", () => {
     const wakeAt = new Date(Date.now() + 60_000);
     const updated = await system.run.update({ where: { id: pending.id }, data: { wakeAt } });
     await system.$transaction((tx) => findPendingRoutineTick(tx, config));
-    const after = await system.run.findUniqueOrThrow({ where: { id: pending.id } });
-    expect(after.wakeAt).toEqual(wakeAt);
-    expect(after.updatedAt).toEqual(updated.updatedAt);
+    expect(await system.run.findUniqueOrThrow({ where: { id: pending.id } })).toMatchObject({
+      wakeAt,
+      updatedAt: updated.updatedAt,
+    });
   });
-  it("cancels redundant old timer rows without deleting history or touching a real attempt", async () => {
-    const { config, create } = await fixture();
-    const older = await system.$transaction((tx) => create(tx, null));
-    const duplicate = await system.$transaction((tx) => create(tx, null));
-    const attempted = await system.$transaction((tx) => create(tx, null));
-    for (const [index, run] of [older, duplicate, attempted].entries()) {
-      await system.run.update({
-        where: { id: run.id },
-        data: { leaseFence: 4, startedAt: new Date() },
-      });
-      await system.event.create({
-        data: {
-          spaceId: identity.spaceId,
-          threadId: identity.threadId,
-          botId: identity.botId,
-          type: "routine.fired",
-          seq: 300 + index,
-          runId: run.id,
-          payload: { routineId: config.routineId, scheduledFor: "2026-01-01T00:00:00Z" },
-        },
-      });
-    }
-    await system.attempt.create({ data: { runId: attempted.id, fence: 4, status: "running" } });
+  it("cancels redundant recurring ticks without touching an actual attempt", async () => {
+    const { config, create, routine } = await fixture();
+    const older = await system.$transaction((tx) =>
+      create(tx, routineTimerNonce(routine.id, "older")),
+    );
+    const duplicate = await system.$transaction((tx) =>
+      create(tx, routineTimerNonce(routine.id, "duplicate")),
+    );
+    const attempted = await system.$transaction((tx) =>
+      create(tx, routineTimerNonce(routine.id, "attempted")),
+    );
+    await system.attempt.create({ data: { runId: attempted.id, fence: 1, status: "running" } });
     const reused = await system.$transaction((tx) => findPendingRoutineTick(tx, config));
     expect(reused?.id).toBe(older.id);
     expect(reused?.cancelledEvents).toHaveLength(1);
@@ -150,36 +208,38 @@ describePostgres("routine timer coalescing (PostgreSQL)", () => {
       status: "queued",
     });
   });
-  it("preserves prior change-triggered work after its routine becomes a timer", async () => {
-    const { config, create } = await fixture();
-    const watched = await system.$transaction((tx) => create(tx, null));
-    // Change-triggered tasks always include this nonempty note, independently
-    // of whether the checker had a detail string to report.
-    await system.task.update({
-      where: { id: watched.taskId },
-      data: {
-        prompt: `${config.prompt}\n\nThis run was started because something you watch changed (fixture).\nWhat changed since the last check:\n(no detail)`,
-      },
-    });
-    await system.event.create({
-      data: {
-        spaceId: identity.spaceId,
-        threadId: identity.threadId,
-        botId: identity.botId,
-        type: "routine.fired",
-        seq: 400,
-        runId: watched.id,
-        payload: { routineId: config.routineId, scheduledFor: "2026-01-01T00:00:00Z" },
-      },
-    });
-    expect(await system.$transaction((tx) => findPendingRoutineTick(tx, config))).toBeNull();
-    expect(await system.run.findUnique({ where: { id: watched.id } })).toMatchObject({
-      status: "queued",
-    });
-  });
-  it("drains a full bounded legacy batch inside the default transaction deadline", async () => {
+  it("drains a bounded recurring batch within the default transaction deadline", async () => {
     const { routine, config } = await fixture();
     const rows = Array.from({ length: 100 }, () => ({ id: randomUUID(), taskId: randomUUID() }));
+    await system.task.createMany({
+      data: rows.map(({ taskId }) => ({
+        ...identity,
+        id: taskId,
+        status: "queued",
+        prompt: "fixture",
+      })),
+    });
+    await system.run.createMany({
+      data: rows.map(({ id, taskId }, index) => ({
+        ...identity,
+        id,
+        taskId,
+        routineId: routine.id,
+        trigger: "routine",
+        status: "queued",
+        clientNonce: routineTimerNonce(routine.id, `tick-${index}`),
+      })),
+    });
+    const reused = await system.$transaction((tx) => findPendingRoutineTick(tx, config));
+    expect(reused?.cancelledEvents).toHaveLength(99);
+    expect(await system.run.count({ where: { routineId: routine.id, status: "queued" } })).toBe(1);
+    expect(await system.run.count({ where: { routineId: routine.id, status: "cancelled" } })).toBe(
+      99,
+    );
+  });
+  it("finds pending recurring work behind over a page of ambiguous legacy rows", async () => {
+    const { routine, config, create } = await fixture();
+    const rows = Array.from({ length: 120 }, () => ({ id: randomUUID(), taskId: randomUUID() }));
     await system.task.createMany({
       data: rows.map(({ taskId }) => ({
         ...identity,
@@ -196,159 +256,22 @@ describePostgres("routine timer coalescing (PostgreSQL)", () => {
         routineId: routine.id,
         trigger: "routine",
         status: "queued",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
       })),
     });
-    await system.event.createMany({
-      data: rows.map(({ id }, index) => ({
-        spaceId: identity.spaceId,
-        threadId: identity.threadId,
-        botId: identity.botId,
-        type: "routine.fired",
-        seq: 500 + index,
-        runId: id,
-        payload: { routineId: routine.id, scheduledFor: "2026-01-01T00:00:00Z" },
-      })),
-    });
-    // Deliberately do not increase Prisma's default interactive transaction limit.
-    const reused = await system.$transaction((tx) => findPendingRoutineTick(tx, config));
-    expect(reused?.cancelledEvents).toHaveLength(99);
-    expect(await system.run.count({ where: { routineId: routine.id, status: "queued" } })).toBe(1);
+    const pending = await system.$transaction((tx) =>
+      create(tx, routineTimerNonce(routine.id, "tick")),
+    );
+    for (let tick = 0; tick < 3; tick++) {
+      expect(await system.$transaction((tx) => findPendingRoutineTick(tx, config))).toMatchObject({
+        id: pending.id,
+      });
+    }
+    expect(await system.run.count({ where: { routineId: routine.id, status: "queued" } })).toBe(
+      121,
+    );
     expect(await system.run.count({ where: { routineId: routine.id, status: "cancelled" } })).toBe(
-      99,
+      0,
     );
   });
-  it.each(["reserved nonce", "legacy firing event"])(
-    "finds a pending timer behind over a page of manual rows using %s",
-    async (origin) => {
-      const { routine, config, create } = await fixture();
-      const rows = Array.from({ length: 120 }, () => ({ id: randomUUID(), taskId: randomUUID() }));
-      await system.task.createMany({
-        data: rows.map(({ taskId }) => ({
-          ...identity,
-          id: taskId,
-          status: "queued",
-          prompt: "fixture",
-        })),
-      });
-      await system.run.createMany({
-        data: rows.map(({ id, taskId }) => ({
-          ...identity,
-          id,
-          taskId,
-          routineId: routine.id,
-          trigger: "routine",
-          status: "queued",
-          createdAt: new Date("2026-01-01T00:00:00Z"),
-        })),
-      });
-      const pending = await system.$transaction((tx) =>
-        create(tx, origin === "reserved nonce" ? routineTimerNonce(routine.id, "tick") : null),
-      );
-      if (origin === "legacy firing event") {
-        await system.event.create({
-          data: {
-            spaceId: identity.spaceId,
-            threadId: identity.threadId,
-            botId: identity.botId,
-            type: "routine.fired",
-            seq: 900,
-            runId: pending.id,
-            payload: { routineId: routine.id, scheduledFor: "2026-01-01T00:00:00Z" },
-          },
-        });
-      }
-      for (let tick = 0; tick < 3; tick++) {
-        expect(await system.$transaction((tx) => findPendingRoutineTick(tx, config))).toMatchObject(
-          { id: pending.id },
-        );
-      }
-      expect(await system.run.count({ where: { routineId: routine.id, status: "queued" } })).toBe(
-        121,
-      );
-      expect(
-        await system.run.count({ where: { routineId: routine.id, status: "cancelled" } }),
-      ).toBe(0);
-    },
-  );
-  it.each(["different prompt", "different model", "existing attempt"])(
-    "finds eligible legacy ticks behind over a page with %s",
-    async (reason) => {
-      const { routine, config, create } = await fixture();
-      const rows = Array.from({ length: 120 }, () => ({ id: randomUUID(), taskId: randomUUID() }));
-      await system.task.createMany({
-        data: rows.map(({ taskId }) => ({
-          ...identity,
-          id: taskId,
-          status: "queued",
-          prompt: reason === "different prompt" ? "prior instructions" : config.prompt,
-        })),
-      });
-      await system.run.createMany({
-        data: rows.map(({ id, taskId }) => ({
-          ...identity,
-          id,
-          taskId,
-          routineId: routine.id,
-          trigger: "routine",
-          status: "queued",
-          ...(reason === "different model"
-            ? { modelPinned: true, modelProvider: "prior-provider", modelId: "prior-model" }
-            : {}),
-          createdAt: new Date("2026-01-01T00:00:00Z"),
-        })),
-      });
-      if (reason === "existing attempt") {
-        await system.attempt.createMany({
-          data: rows.map(({ id }) => ({ runId: id, fence: 1, status: "failed" })),
-        });
-      }
-      // All ineligible rows have genuine encrypted legacy firing events; the
-      // selector must apply execution/config checks before paginating them.
-      await system.event.createMany({
-        data: rows.map(({ id }, index) => ({
-          spaceId: identity.spaceId,
-          threadId: identity.threadId,
-          botId: identity.botId,
-          type: "routine.fired",
-          seq: 2000 + index,
-          runId: id,
-          payload: { routineId: routine.id, scheduledFor: "2026-01-01T00:00:00Z" },
-        })),
-      });
-      const pending = await system.$transaction((tx) => create(tx, null));
-      const duplicate = await system.$transaction((tx) => create(tx, null));
-      for (const [index, run] of [pending, duplicate].entries()) {
-        await system.event.create({
-          data: {
-            spaceId: identity.spaceId,
-            threadId: identity.threadId,
-            botId: identity.botId,
-            type: "routine.fired",
-            seq: 2200 + index,
-            runId: run.id,
-            payload: { routineId: routine.id, scheduledFor: "2026-01-01T00:00:00Z" },
-          },
-        });
-      }
-      for (let tick = 0; tick < 3; tick++) {
-        expect(await system.$transaction((tx) => findPendingRoutineTick(tx, config))).toMatchObject(
-          { id: pending.id },
-        );
-      }
-      expect(await system.run.findUnique({ where: { id: duplicate.id } })).toMatchObject({
-        status: "cancelled",
-      });
-      expect(
-        await system.run.count({
-          where: { id: { in: rows.map(({ id }) => id) }, status: "queued" },
-        }),
-      ).toBe(120);
-      expect(await system.run.count({ where: { routineId: routine.id } })).toBe(122);
-      // Each parameter case shares a thread fixture; clear its direct fixture
-      // events so the next case can reuse deterministic sequence values.
-      await system.event.deleteMany({
-        where: { runId: { in: [...rows.map(({ id }) => id), pending.id, duplicate.id] } },
-      });
-    },
-  );
 });

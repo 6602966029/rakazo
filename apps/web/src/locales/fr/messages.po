@@ -4986,6 +4986,11 @@ msgstr "Ce fichier n'est pas un texte UTF-8 valide."
 msgid "this Mac"
 msgstr "ce Mac"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
+msgstr "Les instructions et outils requis ne tiennent pas dans ce modèle. Choisissez un modèle avec une fenêtre de contexte plus grande."
+
 #: src/pages/Artifacts.tsx
 msgid "This month"
 msgstr "Ce mois-ci"
@@ -5550,8 +5555,3 @@ msgstr "Votre fournisseur vocal n'a plus de crédit."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Votre fournisseur vocal a refusé la clé."
-
-#. js-lingui-explicit-id
-#: src/lib/run-error.ts
-msgid "This model cannot fit the required instructions and tools. Choose a model with a larger context window."
-msgstr "Les instructions et outils requis ne tiennent pas dans ce modèle. Choisissez un modèle avec une fenêtre de contexte plus grande."
