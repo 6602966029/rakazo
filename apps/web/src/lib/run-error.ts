@@ -42,6 +42,24 @@ export const translateRunError: RunErrorTranslator = (message, values) => {
         message: "{provider} could not find the requested model.",
         values,
       });
+    case "{provider} denied access to this model.":
+      return i18n._({
+        id: "{provider} denied access to this model.",
+        message: "{provider} denied access to this model.",
+        values,
+      });
+    case "The model returned an unusable response. Try again.":
+      return i18n._({
+        id: "The model returned an unusable response. Try again.",
+        message: "The model returned an unusable response. Try again.",
+        values,
+      });
+    case "This model's context window is too small. Choose another model.":
+      return i18n._({
+        id: "This model's context window is too small. Choose another model.",
+        message: "This model's context window is too small. Choose another model.",
+        values,
+      });
     case "{provider} took too long to respond. Try again.":
       return i18n._({
         id: "{provider} took too long to respond. Try again.",
