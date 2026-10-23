@@ -9,6 +9,7 @@ import type {
   Routine,
 } from "@rakazo/contracts";
 import {
+  ATTACHMENT_MAX_COUNT,
   attachmentMaxBytes,
   canReactToThreadMessage,
   isAttachmentAudioMimeType,
@@ -225,7 +226,13 @@ import {
 } from "../lib/notification-open";
 import { peerChipPress } from "../lib/peer-chip";
 import type { PickedAttachment } from "../lib/pick-attachments";
-import { pickDocuments, pickFromLibrary, takePhoto } from "../lib/pick-attachments";
+import {
+  pickDocuments,
+  pickFromLibrary,
+  readDroppedFiles,
+  takePhoto,
+} from "../lib/pick-attachments";
+import { attachmentCountSkipReason } from "../lib/pick-attachments-filter";
 import { threadRefreshDelayMs } from "../lib/refresh";
 import {
   getCachedResponseStreamingEnabled,
@@ -265,6 +272,7 @@ import {
 } from "../lib/thread-scroll";
 import { reconcileVisibleThreadSnapshot } from "../lib/thread-snapshot";
 import { prepareUnsentSends } from "../lib/unsent-sends";
+import { useFileDrop } from "../lib/use-file-drop";
 import type { UserBubble } from "../lib/user-bubble";
 import { withUserBubble } from "../lib/user-bubble";
 import { errorText } from "../lib/user-error";
@@ -745,6 +753,9 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const latestMessage = latestArrivalMessage(visibleMessages, peerTranscript.markerOf);
   const latestMessageId = latestMessage?.id ?? null;
   const activePendingAttachments = attachmentsForThread(pendingAttachments, threadKey);
+  // Read by a second drop that starts before the first one commits.
+  const pendingAttachmentsRef = useRef(pendingAttachments);
+  pendingAttachmentsRef.current = pendingAttachments;
   const composerRef = useRef<ThreadComposerHandle>(null);
   const composerMentionTargets = useMemo(
     () =>
@@ -2189,23 +2200,49 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     if (!targetKey) return;
     const result = await picker(activePendingAttachments.length, attachmentMaxBytes(uploadConfig));
     if ((groupId ?? botId) !== targetKey) return;
-    if (result.attachments.length) {
+    // Two drops can overlap, so the room left is settled against the draft as it
+    // is now, not as it was when this read began.
+    const room = Math.max(
+      0,
+      ATTACHMENT_MAX_COUNT - attachmentsForThread(pendingAttachmentsRef.current, targetKey).length,
+    );
+    const accepted = result.attachments.slice(0, room);
+    if (accepted.length) {
       setPendingAttachments((current) => [
         ...current,
-        ...result.attachments.map((attachment) => ({
+        ...accepted.map((attachment) => ({
           ...attachment,
           threadKey: targetKey,
         })),
       ]);
     }
+    const skipped = [
+      ...result.skipped,
+      ...result.attachments.slice(room).map((attachment) => ({
+        name: attachment.name,
+        reason: attachmentCountSkipReason(),
+      })),
+    ];
     setAttachmentNotice(
-      result.skipped.length
+      skipped.length
         ? t("Skipped {items}", {
-            items: result.skipped.map((item) => formatAttachmentSkip(item)).join(", "),
+            items: skipped.map((item) => formatAttachmentSkip(item)).join(", "),
           })
         : null,
     );
   }
+
+  useFileDrop(
+    threadKey ?? null,
+    ({ files, skipped }) => {
+      void addAttachments((count, maxBytes) => readDroppedFiles(files, count, maxBytes, skipped));
+    },
+    {
+      enabled: !readOnly && Boolean(groupId ?? botId),
+      maxBytes: attachmentMaxBytes(uploadConfig),
+      maxFiles: ATTACHMENT_MAX_COUNT,
+    },
+  );
 
   const answerableAskIds = useMemo(() => answerableAskMessageIds(snap), [snap]);
   const dismissableAskIds = useMemo(() => dismissableAskMessageIds(snap, userId), [snap, userId]);
