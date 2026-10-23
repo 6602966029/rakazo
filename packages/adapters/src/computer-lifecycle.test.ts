@@ -1023,77 +1023,65 @@ describe("computer provisioning", () => {
     },
   );
 
-  const rolledBackTo = new Date("2024-01-01T00:10:00.000Z");
+  const savedAt = new Date("2024-01-01T00:20:00.000Z");
   it.each([
     {
-      saved: "a newer checkpoint",
-      homeRevisionAt: new Date("2024-01-01T00:20:00.000Z"),
-      restores: true,
+      saved: "a timed save",
+      homeRevision: "revision-1",
+      homeRevisionAt: savedAt,
+      expected: savedAt,
     },
-    { saved: "a checkpoint of unknown age", homeRevisionAt: null, restores: true },
     {
-      saved: "an older checkpoint",
-      homeRevisionAt: new Date("2024-01-01T00:05:00.000Z"),
-      restores: false,
+      saved: "a save of unknown age",
+      homeRevision: "revision-1",
+      homeRevisionAt: null,
+      expected: undefined,
     },
-    { saved: "no checkpoint", homeRevisionAt: null, restores: false, empty: true },
-  ])(
-    "after the provider rolls back to its snapshot, restores $saved: $restores",
-    async ({ homeRevisionAt, restores, empty }) => {
-      const dataDir = await mkdtemp(path.join(tmpdir(), "rakazo-provision-rollback-"));
-      const home = new LocalAgentHomeStore(dataDir);
-      const sandbox = new FakeSandboxProvider();
-      const ref = {
-        ...(await sandbox.provision({ botId: "bot-1", homePath: dataDir }, context)),
-        kind: "boat" as const,
-        providerRef: "provider-1",
-        fresh: false,
-        started: true,
-        restoredFrom: rolledBackTo,
-      };
-      vi.spyOn(sandbox, "provision").mockResolvedValue(ref);
-      const prisma = {
-        computer: {
-          findUniqueOrThrow: vi.fn().mockResolvedValue({
-            id: "computer-1",
-            homeKey: "bot-1",
-            homeRevision: empty ? "empty" : "revision-1",
-            homeRevisionAt,
-            providerRef: "provider-1",
-            kind: "boat",
-            scope: "dedicated",
-            state: "running",
-            controlLeaseId: null,
-            updatedAt: new Date("2024-01-01T00:00:00.000Z"),
-          }),
-          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        },
-      } as unknown as PrismaClient;
+    { saved: "no save", homeRevision: "empty", homeRevisionAt: savedAt, expected: undefined },
+  ])("tells the provider when the workspace was saved for $saved", async (row) => {
+    const dataDir = await mkdtemp(path.join(tmpdir(), "rakazo-provision-saved-at-"));
+    const home = new LocalAgentHomeStore(dataDir);
+    const sandbox = new FakeSandboxProvider();
+    const ref = await sandbox.provision({ botId: "bot-1", homePath: dataDir }, context);
+    const provision = vi
+      .spyOn(sandbox, "provision")
+      .mockResolvedValue({ ...ref, kind: "boat", providerRef: "provider-1", fresh: false });
+    const prisma = {
+      computer: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          id: "computer-1",
+          homeKey: "bot-1",
+          homeRevision: row.homeRevision,
+          homeRevisionAt: row.homeRevisionAt,
+          providerRef: "provider-1",
+          kind: "boat",
+          scope: "dedicated",
+          state: "running",
+          controlLeaseId: null,
+          updatedAt: new Date("2024-01-01T00:00:00.000Z"),
+        }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    } as unknown as PrismaClient;
 
-      try {
-        await home.writeFile("bot-1", "notes/keep.txt", "saved work", context);
-        await provisionComputer(
-          {
-            prisma,
-            sandbox,
-            home,
-            jobs: {} as JobPublisher,
-            events: {} as ThreadEvents,
-            dataDir,
-          },
-          "computer-1",
-          context,
-        );
-        const restored = await sandbox.readFile(ref, "notes/keep.txt", context).then(
-          () => true,
-          () => false,
-        );
-        expect(restored).toBe(restores);
-      } finally {
-        await rm(dataDir, { recursive: true, force: true });
-      }
-    },
-  );
+    try {
+      await provisionComputer(
+        {
+          prisma,
+          sandbox,
+          home,
+          jobs: {} as JobPublisher,
+          events: {} as ThreadEvents,
+          dataDir,
+        },
+        "computer-1",
+        context,
+      );
+      expect((provision.mock.calls[0]?.[0] as { savedAt?: Date }).savedAt).toEqual(row.expected);
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
 
   it.each([
     { fresh: true, cleanup: "destroy" as const },

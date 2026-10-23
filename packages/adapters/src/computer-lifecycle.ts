@@ -341,6 +341,11 @@ export async function provisionComputer(
             homePath,
             providerRef: existing.providerRef ?? undefined,
             providerKind: existing.kind as ComputerRef["kind"],
+            // A save from an older release has no time; the provider keeps its own state then.
+            savedAt:
+              existing.homeRevision === "empty"
+                ? undefined
+                : (existing.homeRevisionAt ?? undefined),
           },
           context,
         ),
@@ -352,7 +357,7 @@ export async function provisionComputer(
       !existing.providerRef ||
       existing.providerRef !== ref.providerRef ||
       existing.kind !== ref.kind;
-    if (replacement || checkpointNewerThan(existing, ref.restoredFrom)) {
+    if (replacement) {
       await onProgress?.("restoring");
       await restoreComputerWorkspace(deps.home, deps.sandbox, existing.homeKey, ref, context);
     }
@@ -1024,16 +1029,4 @@ export async function replaceComputer(
       .catch(() => undefined);
     throw error;
   }
-}
-
-/**
- * Whether the saved workspace may hold work the provider's snapshot does not, after the provider
- * rolled the computer back to that snapshot. A save from an older release has no time; restore it.
- */
-function checkpointNewerThan(
-  computer: { homeRevision: string; homeRevisionAt?: Date | null },
-  restoredFrom: Date | undefined,
-): boolean {
-  if (!restoredFrom || computer.homeRevision === "empty") return false;
-  return !computer.homeRevisionAt || computer.homeRevisionAt > restoredFrom;
 }

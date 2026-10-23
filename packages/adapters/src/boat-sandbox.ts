@@ -200,6 +200,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       homePath: string;
       providerRef?: string;
       providerKind?: ComputerRef["kind"];
+      savedAt?: Date;
     },
     context: AdapterContext,
   ): Promise<ComputerRef> {
@@ -220,13 +221,16 @@ export class BoatSandboxProvider implements SandboxProvider {
       botId: string;
       providerRef?: string;
       providerKind?: ComputerRef["kind"];
+      savedAt?: Date;
     },
     context: AdapterContext,
   ): Promise<ComputerRef> {
     if (request.providerRef && request.providerKind === "boat") {
       try {
-        const state = await this.ensureRunnable(request.providerRef, context.signal, true);
-        return { ...this.ref(request.providerRef, request.botId, false), ...state };
+        const started = await this.ensureRunnable(request.providerRef, context.signal, {
+          savedAt: request.savedAt,
+        });
+        return { ...this.ref(request.providerRef, request.botId, false), started };
       } catch (error) {
         if (!isSandboxGoneError(error)) throw error;
         this.forget(request.providerRef);
@@ -668,23 +672,23 @@ export class BoatSandboxProvider implements SandboxProvider {
   /**
    * Waits until the sandbox can run commands, resuming or recovering it on the way. Throws a
    * gone error when Boat cannot bring it back, so the caller replaces it from its checkpoint.
-   * Returns whether this call started it, and the snapshot time when it rolled the disk back.
+   * Returns whether this call started it.
    *
    * A sandbox in `error` follows Boat's documented order: recover it and wait for it to answer;
-   * if it still does not, force-stop it to its last good snapshot and resume that. Only one with
-   * no snapshot is gone, since a forced stop would keep nothing of it. The rollback happens only
-   * when `reconnecting`, so the caller can restore a newer checkpoint before anything runs on it;
-   * elsewhere the sandbox is reported unavailable and the next reconnect rolls it back.
+   * if it still does not, force-stop it to its last good snapshot and resume that. It is gone
+   * instead when it has no snapshot, or when the caller's saved workspace is at least as new,
+   * since a replacement restores that save in full. The rollback happens only on `reconnect`,
+   * before anything runs on the sandbox; elsewhere it is reported unavailable until then.
    */
   private async ensureRunnable(
     id: string,
     signal?: AbortSignal,
-    reconnecting = false,
-  ): Promise<{ started: boolean; restoredFrom?: Date }> {
+    reconnect?: { savedAt?: Date },
+  ): Promise<boolean> {
     let deadline = Date.now() + BOAT_READY_TIMEOUT_MS;
     let started = false;
     let recovering = false;
-    let restoredFrom: Date | undefined;
+    let forced = false;
     let pause = 1_000;
     while (true) {
       if (signal?.aborted) {
@@ -692,8 +696,8 @@ export class BoatSandboxProvider implements SandboxProvider {
       }
       const { sandbox } = await this.client.get({ sandboxId: id }, { signal });
       if (RUNNABLE_STATES.has(sandbox.state)) {
-        if (recovering) logRecovery(restoredFrom ? "resumed" : "answered");
-        return { started, ...(restoredFrom ? { restoredFrom } : {}) };
+        if (recovering) logRecovery(forced ? "resumed" : "answered");
+        return started;
       }
       // `cancelled` is terminal, and a stopped sandbox whose data Boat deleted cannot resume.
       if (sandbox.state === "cancelled" || sandbox.dataExpiredAt) throw boatSandboxGone(id);
@@ -710,19 +714,23 @@ export class BoatSandboxProvider implements SandboxProvider {
             cause: new Error(`Boat ${id} did not become ready`),
           });
         }
-        const snapshotAt = sandbox.snapshotCompletedAt ?? undefined;
-        if (restoredFrom || !snapshotAt) {
-          logRecovery("gone", restoredFrom ? "resume_failed" : "no_snapshot");
+        const snapshotAt = sandbox.snapshotCompletedAt;
+        if (forced || !snapshotAt) {
+          logRecovery("gone", forced ? "resume_failed" : "no_snapshot");
           throw boatSandboxGone(id);
         }
-        if (!reconnecting) {
+        if (!reconnect) {
           logRecovery("deferred");
           throw new SandboxUnavailableError({ cause: new Error(`Boat ${id} is not answering`) });
+        }
+        if (reconnect.savedAt && reconnect.savedAt >= snapshotAt) {
+          logRecovery("gone", "checkpoint_newer");
+          throw boatSandboxGone(id);
         }
         // Read just now and still not answering, so the stop cannot cut off live work.
         logRecovery("force_stop");
         await this.client.stop({ sandboxId: id, stopRequest: { force: true } }, { signal });
-        restoredFrom = snapshotAt;
+        forced = true;
         started = false;
         deadline = Date.now() + BOAT_READY_TIMEOUT_MS;
       }

@@ -54,13 +54,14 @@ async function boat() {
   return { api, provider, computer };
 }
 
-function reconnect(provider: BoatSandboxProvider, computer: ComputerRef) {
+function reconnect(provider: BoatSandboxProvider, computer: ComputerRef, savedAt?: Date) {
   return provider.provision(
     {
       botId: computer.botId,
       homePath: "/unused",
       providerRef: computer.providerRef,
       providerKind: "boat",
+      savedAt,
     },
     context,
   );
@@ -354,7 +355,6 @@ describe("BoatSandboxProvider", () => {
       expect(ref.providerRef === computer.providerRef).toBe(outcome !== "replaced");
       expect(ref.fresh).toBe(outcome === "replaced");
       if (outcome !== "replaced") expect(ref.started).toBe(outcome !== "kept");
-      expect(ref.restoredFrom !== undefined).toBe(outcome === "rolled back");
       expect(["ready", "idle", "running"]).toContain(api.state(ref.providerRef));
     },
   );
@@ -533,14 +533,16 @@ describe("BoatSandboxProvider", () => {
           const { api, provider, computer } = await boat();
           const file = (path: string) => ({ path, content: Uint8Array.of(1) });
           await provider.writeFile(computer, file("saved.txt"), context);
-          const snapshotAt = new Date();
+          // The caller's own save is older than Boat's snapshot.
+          const savedAt = new Date();
+          vi.setSystemTime(Date.now() + 60_000);
           api.saveSnapshot(computer.id);
           vi.setSystemTime(Date.now() + 60_000);
           await provider.writeFile(computer, file("unsaved.txt"), context);
           api.fail(computer.id, recovery);
           const failedAt = Date.now();
 
-          const ref = await reconnect(provider, computer);
+          const ref = await reconnect(provider, computer, savedAt);
 
           expect(Date.now() - failedAt).toBeGreaterThanOrEqual(5 * 60_000);
           expect(stop).toHaveBeenCalledExactlyOnceWith(
@@ -552,10 +554,9 @@ describe("BoatSandboxProvider", () => {
             providerRef: computer.providerRef,
             fresh: false,
             started: true,
-            restoredFrom: snapshotAt,
           });
           expect(api.state(computer.id)).toBe("ready");
-          // Boat's snapshot is all that is left; the caller restores a newer checkpoint.
+          // Boat's snapshot is the newest saved state; what came after it is lost.
           expect(await provider.readFile(ref, "saved.txt", context)).toEqual(Uint8Array.of(1));
           await expect(provider.readFile(ref, "unsaved.txt", context)).rejects.toThrow();
           const steps = sink.events.filter((event) => event.message === "sandbox.recover");
@@ -570,6 +571,35 @@ describe("BoatSandboxProvider", () => {
             expect.objectContaining({ level: "warn", provider: "boat", step: "resumed" }),
           ]);
           expect(JSON.stringify(steps)).not.toContain(computer.id);
+        } finally {
+          installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+        }
+      });
+
+      it("reports it gone without stopping it when the caller's save is newer", async () => {
+        const sink = createTestSink();
+        installLogger(createLogger({ service: "test", sinks: [sink] }));
+        try {
+          const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
+          const { api, provider, computer } = await boat();
+          api.saveSnapshot(computer.id);
+          vi.setSystemTime(Date.now() + 60_000);
+          const savedAt = new Date();
+          api.fail(computer.id, recovery);
+
+          const ref = await reconnect(provider, computer, savedAt);
+
+          expect(ref.fresh).toBe(true);
+          expect(ref.providerRef).not.toBe(computer.providerRef);
+          expect(stop).not.toHaveBeenCalled();
+          expect(sink.events).toContainEqual(
+            expect.objectContaining({
+              level: "warn",
+              message: "sandbox.recover",
+              step: "gone",
+              reason: "checkpoint_newer",
+            }),
+          );
         } finally {
           installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
         }
