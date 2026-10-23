@@ -318,6 +318,10 @@ msgstr "${0} in monthly model credits. No API key needed."
 msgid "A bit of everything"
 msgstr "A bit of everything"
 
+#: src/components/SharedSpaceRules.tsx
+msgid "A bot uses the accounts of whoever messages it, and anyone here can read its reply."
+msgstr "A bot uses the accounts of whoever messages it, and anyone here can read its reply."
+
 #: src/pages/RoutineEditor.tsx
 msgid "A command's output"
 msgstr "A command's output"
@@ -2442,10 +2446,9 @@ msgstr "Every month"
 msgid "Every week"
 msgstr "Every week"
 
-#: src/components/SpaceMembersSettings.tsx
-#: src/pages/Invite.tsx
-msgid "Everyone in this space can read its chats and memory."
-msgstr "Everyone in this space can read its chats and memory."
+#: src/components/SharedSpaceRules.tsx
+msgid "Everyone in this space sees all its chats, bots and memory."
+msgstr "Everyone in this space sees all its chats, bots and memory."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Executor token"
@@ -3133,6 +3136,7 @@ msgstr "Medium"
 msgid "Member"
 msgstr "Member"
 
+#: src/components/SpaceMembersSettings.tsx
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Members"
@@ -5503,6 +5507,10 @@ msgstr "Your OpenAI"
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
 msgstr "Your OpenRouter"
+
+#: src/components/SharedSpaceRules.tsx
+msgid "Your other spaces stay private."
+msgstr "Your other spaces stay private."
 
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."

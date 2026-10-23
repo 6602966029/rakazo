@@ -949,8 +949,11 @@ export const NL_MESSAGES: Record<string, string> = {
   "{label}, below": "{label}, onder",
   Invite: "Uitnodigen",
   "Leave space": "Space verlaten",
-  "Everyone in this space can read its chats and memory.":
-    "Iedereen in deze space kan de chats en het geheugen lezen.",
+  "Everyone in this space sees all its chats, bots and memory.":
+    "Iedereen in deze space ziet alle chats, bots en het geheugen.",
+  "Your other spaces stay private.": "Je andere spaces blijven privé.",
+  "A bot uses the accounts of whoever messages it, and anyone here can read its reply.":
+    "Een bot gebruikt de accounts van wie hem een bericht stuurt, en iedereen hier kan zijn antwoord lezen.",
   Leave: "Verlaten",
   "Leave {name}?": "{name} verlaten?",
   "Remove {name}?": "{name} verwijderen?",

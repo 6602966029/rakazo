@@ -99,7 +99,7 @@ async function renderWith(members: SpaceMembers, onLeft = vi.fn()) {
 it("lets the owner invite and remove members but not leave", async () => {
   await renderWith({ members: [owner, member], canManage: true });
   expect(rpc.spaces.members.list).toHaveBeenCalledWith({ spaceId: space.id });
-  const rows = [...host.querySelectorAll("li")];
+  const rows = [...host.querySelectorAll('ul[aria-label="Members"] > li')];
   expect(rows.map((row) => row.textContent)).toEqual([
     "AAda LovelaceOwnerada@example.test",
     "BBob Stonebob@example.testRemove",
@@ -156,6 +156,6 @@ it("removes a member only after confirming", async () => {
     spaceId: space.id,
     userId: member.userId,
   });
-  expect(host.querySelectorAll("li")).toHaveLength(1);
+  expect(host.querySelectorAll('ul[aria-label="Members"] > li')).toHaveLength(1);
   expect(host.querySelector("h2")).toBeNull();
 });

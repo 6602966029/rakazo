@@ -993,8 +993,11 @@ export const DE_MESSAGES: Record<string, string> = {
   "{label}, below": "{label}, unten",
   Invite: "Einladen",
   "Leave space": "Space verlassen",
-  "Everyone in this space can read its chats and memory.":
-    "Alle in diesem Space können seine Chats und Erinnerungen lesen.",
+  "Everyone in this space sees all its chats, bots and memory.":
+    "Alle in diesem Space sehen alle Chats, Bots und Erinnerungen.",
+  "Your other spaces stay private.": "Deine anderen Spaces bleiben privat.",
+  "A bot uses the accounts of whoever messages it, and anyone here can read its reply.":
+    "Ein Bot nutzt die Konten der Person, die ihm schreibt, und alle hier können seine Antwort lesen.",
   Leave: "Verlassen",
   "Leave {name}?": "{name} verlassen?",
   "Remove {name}?": "{name} entfernen?",

@@ -118,9 +118,15 @@ export default function SpaceMembersScreen() {
         {members ? (
           <SettingsGroup
             accessibilityLabel={t("Members")}
-            footer={
-              canManage ? t("Everyone in this space can read its chats and memory.") : undefined
-            }
+            footer={[
+              t("Everyone in this space sees all its chats, bots and memory."),
+              t("Your other spaces stay private."),
+              t(
+                "A bot uses the accounts of whoever messages it, and anyone here can read its reply.",
+              ),
+            ]
+              .map((rule) => `• ${rule}`)
+              .join("\n")}
           >
             {members.members.map((member) => {
               const display = accountDisplay(member, member.email);

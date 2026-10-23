@@ -318,6 +318,10 @@ msgstr ""
 msgid "A bit of everything"
 msgstr "קצת מהכול"
 
+#: src/components/SharedSpaceRules.tsx
+msgid "A bot uses the accounts of whoever messages it, and anyone here can read its reply."
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "A command's output"
 msgstr ""
@@ -2442,9 +2446,8 @@ msgstr "כל חודש"
 msgid "Every week"
 msgstr "כל שבוע"
 
-#: src/components/SpaceMembersSettings.tsx
-#: src/pages/Invite.tsx
-msgid "Everyone in this space can read its chats and memory."
+#: src/components/SharedSpaceRules.tsx
+msgid "Everyone in this space sees all its chats, bots and memory."
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
@@ -3133,6 +3136,7 @@ msgstr "בינוני"
 msgid "Member"
 msgstr "חבר"
 
+#: src/components/SpaceMembersSettings.tsx
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Members"
@@ -5503,6 +5507,10 @@ msgstr "OpenAI"
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
 msgstr "OpenRouter"
+
+#: src/components/SharedSpaceRules.tsx
+msgid "Your other spaces stay private."
+msgstr ""
 
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."

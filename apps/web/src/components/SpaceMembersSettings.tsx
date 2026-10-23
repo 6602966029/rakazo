@@ -25,6 +25,7 @@ import { Copy, MoreHorizontal, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
+import { SharedSpaceRules } from "./SharedSpaceRules";
 
 type Confirm = { kind: "remove"; member: SpaceMember } | { kind: "leave" };
 
@@ -120,6 +121,7 @@ export function SpaceMembersSettings({
     confirm?.kind === "remove" ? accountDisplay(confirm.member, confirm.member.email).label : "";
   return (
     <div data-testid="space-members-settings" className="pt-5">
+      <SharedSpaceRules className="mb-5 max-w-md text-[13px]" />
       {canManage ? (
         <div className="mb-5 flex flex-col items-start gap-3">
           <Button variant="outline" disabled={inviting} onClick={() => void invite()}>
@@ -145,16 +147,11 @@ export function SpaceMembersSettings({
               </InputGroupAddon>
             </InputGroup>
           ) : null}
-          {inviteUrl ? (
-            <p className="text-[13px] text-muted-foreground">
-              <Trans>Everyone in this space can read its chats and memory.</Trans>
-            </p>
-          ) : null}
         </div>
       ) : null}
       {error ? <p className="mb-3 text-[13px] text-destructive">{error}</p> : null}
       {members ? (
-        <ul className="space-y-1">
+        <ul className="space-y-1" aria-label={t`Members`}>
           {members.members.map((member) => (
             <MemberRow
               key={member.userId}

@@ -956,8 +956,11 @@ export const ZH_MESSAGES: Record<string, string> = {
   "{label}, below": "{label}，下方",
   Invite: "邀请",
   "Leave space": "退出空间",
-  "Everyone in this space can read its chats and memory.":
-    "空间中的每个人都能看到其中的聊天和记忆。",
+  "Everyone in this space sees all its chats, bots and memory.":
+    "此空间中的每个人都能看到其中所有的聊天、机器人和记忆。",
+  "Your other spaces stay private.": "你的其他空间仍保持私密。",
+  "A bot uses the accounts of whoever messages it, and anyone here can read its reply.":
+    "机器人会使用给它发消息的人的账户，这里的每个人都能看到它的回复。",
   Leave: "退出",
   "Leave {name}?": "退出 {name}？",
   "Remove {name}?": "移除 {name}？",

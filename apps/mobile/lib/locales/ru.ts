@@ -989,8 +989,11 @@ export const RU_MESSAGES: Record<string, string> = {
   "{label}, below": "{label}, ниже",
   Invite: "Пригласить",
   "Leave space": "Покинуть пространство",
-  "Everyone in this space can read its chats and memory.":
-    "Все участники этого пространства видят его чаты и память.",
+  "Everyone in this space sees all its chats, bots and memory.":
+    "Все участники этого пространства видят все его чаты, ботов и память.",
+  "Your other spaces stay private.": "Ваши другие пространства остаются личными.",
+  "A bot uses the accounts of whoever messages it, and anyone here can read its reply.":
+    "Бот использует аккаунты того, кто ему пишет, и все здесь могут прочитать его ответ.",
   Leave: "Покинуть",
   "Leave {name}?": "Покинуть {name}?",
   "Remove {name}?": "Удалить {name}?",
