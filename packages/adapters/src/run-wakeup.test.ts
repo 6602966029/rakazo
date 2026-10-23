@@ -144,7 +144,11 @@ describe("durable direct run wakeups", () => {
   it("keeps direct dispatch running while background startup waits for database capacity", async () => {
     const runs = { start: vi.fn(), stop: vi.fn() } as unknown as RunWorkerHost;
     const background = {
-      start: vi.fn().mockRejectedValue(new Error("fixture scheduler unavailable")),
+      start: vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("fixture scheduler unavailable"), { code: "53300" }),
+        ),
       stop: vi.fn(),
     };
     await expect(
@@ -152,5 +156,51 @@ describe("durable direct run wakeups", () => {
     ).rejects.toThrow("fixture scheduler unavailable");
     expect(runs.start).toHaveBeenCalledOnce();
     expect(runs.stop).not.toHaveBeenCalled();
+  });
+  it("drains direct runs before propagating a fatal scheduler startup failure", async () => {
+    let release!: () => void;
+    const drain = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runs = { start: vi.fn(), stop: vi.fn(() => drain) } as unknown as RunWorkerHost;
+    const background = {
+      start: vi.fn().mockRejectedValue(new Error("fatal fixture startup")),
+      stop: vi.fn(),
+    };
+    let rejected = false;
+    const starting = withRunWorker(runs, background)
+      .start({} as BackgroundJobHandlers)
+      .catch(() => {
+        rejected = true;
+      });
+    await vi.waitFor(() => expect(runs.stop).toHaveBeenCalledOnce());
+    expect(rejected).toBe(false);
+    release();
+    await starting;
+    expect(rejected).toBe(true);
+  });
+
+  it("waits for an in-flight scheduler start before finishing shutdown", async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runs = { start: vi.fn(), stop: vi.fn() } as unknown as RunWorkerHost;
+    const background = { start: vi.fn(() => pending), stop: vi.fn() };
+    const host = withRunWorker(runs, background);
+    const starting = host.start({} as BackgroundJobHandlers);
+    await vi.waitFor(() => expect(background.start).toHaveBeenCalledOnce());
+    let stopped = false;
+    const stopping = host.stop().then(() => {
+      stopped = true;
+    });
+    await Promise.resolve();
+    expect(runs.stop).toHaveBeenCalledOnce();
+    expect(stopped).toBe(false);
+    release();
+    await starting;
+    await stopping;
+    expect(stopped).toBe(true);
+    expect(background.stop).toHaveBeenCalledTimes(2);
   });
 });

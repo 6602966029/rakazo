@@ -20,3 +20,23 @@ DO $$ BEGIN
     WHERE r.id = scheduled.run_id AND r.status = 'queued';
   END IF;
 END $$;
+
+-- The previous worker release requeues before publishing its retry. Preserve its
+-- bounded computer/setup backoff atomically even when it does not know wakeAt.
+-- Explicit schedules written by the new worker take precedence. Remove this
+-- compatibility trigger only after releases that omit wakeAt have drained.
+CREATE OR REPLACE FUNCTION preserve_legacy_run_retry_wake() RETURNS trigger
+LANGUAGE plpgsql AS $legacy$
+BEGIN
+  IF OLD.status IN ('leased', 'running') AND NEW.status = 'queued'
+     AND NEW."leaseOwner" IS NULL AND NEW."leaseExpiresAt" IS NULL
+     AND NEW."wakeAt" IS NOT DISTINCT FROM OLD."wakeAt" THEN
+    NEW."wakeAt" := (clock_timestamp() AT TIME ZONE 'UTC') +
+      INTERVAL '1 millisecond' * least(10000, 250 * power(2, least(greatest(NEW."leaseFence" - 1, 0), 5)));
+  END IF;
+  RETURN NEW;
+END;
+$legacy$;
+DROP TRIGGER IF EXISTS runs_legacy_retry_wake ON runs;
+CREATE TRIGGER runs_legacy_retry_wake BEFORE UPDATE ON runs
+FOR EACH ROW EXECUTE FUNCTION preserve_legacy_run_retry_wake();

@@ -7,7 +7,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { dispatchBackgroundJob } from "@rakazo/adapter-kit";
 import type { Prisma, PrismaClient } from "@rakazo/db";
-import { runAsSystem } from "@rakazo/db";
+import { isTooManyDatabaseConnections, runAsSystem } from "@rakazo/db";
 import { getLogger, runCorrelatedJob } from "@rakazo/logging";
 import { RunExecutionHost } from "./run-execution.js";
 
@@ -190,14 +190,34 @@ export class RunWorkerHost implements JobWorkerHost {
 
 /** Start direct execution even if the background scheduler is temporarily unavailable. */
 export function withRunWorker(runs: RunWorkerHost, background: JobWorkerHost): JobWorkerHost {
+  let stopping = false;
+  let starting: Promise<void> | undefined;
   return {
-    async start(handlers) {
-      await runs.start(handlers);
-      await background.start(handlers);
+    start(handlers) {
+      if (stopping) return Promise.resolve();
+      if (starting) return starting;
+      starting = (async () => {
+        try {
+          await runs.start(handlers);
+          if (!stopping) await background.start(handlers);
+        } catch (error) {
+          if (!isTooManyDatabaseConnections(error)) {
+            await Promise.allSettled([runs.stop(), background.stop()]);
+          }
+          throw error;
+        }
+      })().finally(() => {
+        starting = undefined;
+      });
+      return starting;
     },
     async stop() {
-      const results = await Promise.allSettled([runs.stop(), background.stop()]);
-      const failed = results.find((result) => result.status === "rejected");
+      stopping = true;
+      // A scheduler start already in flight can create listeners after its first
+      // stop. Wait for startup, then stop it again before releasing dependencies.
+      const results = await Promise.allSettled([runs.stop(), background.stop(), starting]);
+      await background.stop();
+      const failed = results.slice(0, 2).find((result) => result.status === "rejected");
       if (failed?.status === "rejected") throw failed.reason;
     },
   };

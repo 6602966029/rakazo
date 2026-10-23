@@ -16,7 +16,10 @@ Graphile remains responsible for scheduled and maintenance jobs. Those jobs can
 create runs, which use the same direct dispatch path. Legacy run deliveries remain
 supported during rolling upgrades and drain safely against the same database
 claims. Pending legacy retry times are carried into the new run schedule by the
-additive migration. Embedded installations using the memory job driver retain their
+additive migration. A compatibility trigger also stamps retry backoff when an
+older worker requeues after the migration; explicit new-worker schedules take
+precedence. Remove that trigger only after those older releases have drained.
+Embedded installations using the memory job driver retain their
 existing dispatch and recovery behavior.
 
 ## Timing
