@@ -111,6 +111,9 @@ export function VoiceSettingsOverlay({
 
   const selected = catalog.find((entry) => entry.id === provider) ?? catalog[0];
   const credential = credentials.find((entry) => entry.provider === provider);
+  const hiddenSelfHosted =
+    !catalog.some((entry) => entry.id === OPENAI_COMPATIBLE_PROVIDER_ID) &&
+    credentials.some((entry) => entry.provider === OPENAI_COMPATIBLE_PROVIDER_ID);
   const voiceOptions = useMemo(
     () => (voices.length ? voices : voiceId ? [{ id: voiceId, label: voiceId }] : []),
     [voices, voiceId],
@@ -149,15 +152,15 @@ export function VoiceSettingsOverlay({
     }
   }
 
-  async function disconnectProvider() {
-    if (!credential) return;
+  async function disconnectProvider(providerId = credential?.provider) {
+    if (!providerId) return;
     setError(null);
     setNotice(null);
     markPending("disconnect");
     try {
-      await rpc.voice.disconnect({ provider: credential.provider });
+      await rpc.voice.disconnect({ provider: providerId });
       setApiKey("");
-      await refresh(credential.provider);
+      await refresh(providerId);
     } catch (err) {
       setError(errorText(err, t`Could not disconnect this voice provider`));
     } finally {
@@ -243,6 +246,15 @@ export function VoiceSettingsOverlay({
           <div className="mb-3 text-[13.5px] text-muted-foreground">
             <Trans>Providers</Trans>
           </div>
+          {hiddenSelfHosted ? (
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void disconnectProvider(OPENAI_COMPATIBLE_PROVIDER_ID)}
+            >
+              <Trans>Disconnect Self-hosted</Trans>
+            </Button>
+          ) : null}
           <div className="rk-scroll overflow-y-auto rounded-xl border border-border">
             {catalog.map((entry) => {
               const connected = credentials.some((cred) => cred.provider === entry.id);

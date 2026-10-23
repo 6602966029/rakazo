@@ -80,7 +80,10 @@ it("selects an available provider when the saved self-hosted provider is hidden"
   voice.catalog.mockResolvedValue([
     { id: "elevenlabs", name: "ElevenLabs", description: "", transcribe: true },
   ]);
-  voice.credentials.mockResolvedValue([]);
+  voice.credentials
+    .mockResolvedValueOnce([{ ...fish, provider: "openai-compatible" }])
+    .mockResolvedValue([]);
+  voice.disconnect.mockClear().mockResolvedValue(undefined);
   voice.status.mockResolvedValue({ ready: true, provider: "openai-compatible" });
   voice.voices.mockClear();
   const container = document.createElement("div");
@@ -91,10 +94,16 @@ it("selects an available provider when the saved self-hosted provider is hidden"
       root.render(<VoiceSettingsOverlay embedded onClose={() => undefined} />);
     });
     expect(container.textContent).toContain("ElevenLabs");
-    expect(container.textContent).not.toContain("Self-hosted");
     expect(container.textContent).not.toContain("Server URL");
     expect(container.querySelector('input[placeholder="Paste your API key"]')).not.toBeNull();
     expect(voice.voices).not.toHaveBeenCalled();
+    const disconnect = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Disconnect Self-hosted",
+    );
+    expect(disconnect).toBeTruthy();
+    await act(async () => disconnect!.click());
+    expect(voice.disconnect).toHaveBeenCalledWith({ provider: "openai-compatible" });
+    expect(container.textContent).not.toContain("Self-hosted");
   } finally {
     await act(async () => root.unmount());
     container.remove();
