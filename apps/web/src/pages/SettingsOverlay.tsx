@@ -67,6 +67,7 @@ export function SettingsOverlay({
   onUsageOpen,
   section: requestedSection,
   onSectionChange,
+  onNameSaved,
   timezone,
   onTimezoneChange,
   billingEnabled = false,
@@ -96,6 +97,7 @@ export function SettingsOverlay({
   onUsageOpen: () => void;
   section: SettingsSection;
   onSectionChange: (section: SettingsSection) => void;
+  onNameSaved?: () => Promise<void>;
   timezone: string | null;
   onTimezoneChange: (timezone: string) => Promise<void>;
   billingEnabled?: boolean;
@@ -392,6 +394,7 @@ export function SettingsOverlay({
                   <GeneralSettingsPanels
                     email={email}
                     name={name}
+                    onNameSaved={onNameSaved}
                     timezone={timezone}
                     onTimezoneChange={onTimezoneChange}
                     messagingEnabled={messagingEnabled}

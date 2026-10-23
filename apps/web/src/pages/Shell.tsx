@@ -4061,7 +4061,10 @@ function SpaceShell() {
             spaces={spaces}
             currentSpaceId={currentSpaceId}
             onSpaceChange={(spaceId) => setOverlay({ ...overlay, spaceId })}
-            name={userName}
+            name={session.data?.user.name ?? ""}
+            onNameSaved={async () => {
+              await session.refetch({ query: { disableCookieCache: true } });
+            }}
             email={session.data?.user.email}
             usage={usage}
             onUsageOpen={refreshUsage}

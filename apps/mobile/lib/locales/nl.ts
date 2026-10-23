@@ -1,4 +1,6 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "Use 80 characters or fewer": "Gebruik maximaal 80 tekens",
+  "Could not update name": "Naam kon niet worden bijgewerkt",
   "{summary} Your backup models also failed.": "{summary} Je reservemodellen zijn ook mislukt.",
   "{summary} No backup model was usable for this request.":
     "{summary} Er was geen reservemodel bruikbaar voor dit verzoek.",

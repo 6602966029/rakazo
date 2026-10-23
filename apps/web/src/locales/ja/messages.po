@@ -200,7 +200,7 @@ msgstr "{provider}で指定されたモデルが見つかりませんでした�
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{provider} denied access to this model."
-msgstr "{provider} がこのモデルへのアクセスを拒否しました。"
+msgstr "{provider}がこのモデルへのアクセスを拒否しました。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -305,12 +305,12 @@ msgstr "{stepCount, plural, one {作業中… · #個のツール} other {作業
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{summary} Backup models failed or were unavailable for this request."
-msgstr "{summary} このリクエストではバックアップモデルが失敗したか、利用できませんでした。"
+msgstr "{summary} 予備のモデルでエラーが発生したか、このリクエストでは利用できませんでした。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{summary} No backup model was usable for this request."
-msgstr "{summary} このリクエストで使えるバックアップモデルがありませんでした。"
+msgstr "{summary} このリクエストで利用できる予備のモデルはありませんでした。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -320,7 +320,7 @@ msgstr "{summary}{date}にリセットされます。"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "{summary} Your backup models also failed."
-msgstr "{summary} バックアップモデルも失敗しました。"
+msgstr "{summary} 予備のモデルでもエラーが発生しました。"
 
 #: src/pages/ActivityList.tsx
 msgid "{title}, {label}"
@@ -1031,6 +1031,7 @@ msgstr "画像を読み取れません"
 #: src/components/markdown-link-prompt.tsx
 #: src/components/PasskeySettings.tsx
 #: src/components/teach/TeachComputerOverlay.tsx
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -1958,6 +1959,10 @@ msgstr "請求情報を更新できませんでした"
 msgid "Could not update computer"
 msgstr "コンピューターを更新できませんでした"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Could not update name"
+msgstr "名前を更新できませんでした"
+
 #: src/pages/Shell.tsx
 msgid "Could not update reaction"
 msgstr "リアクションを更新できませんでした"
@@ -2351,6 +2356,7 @@ msgid "Each name can be used once."
 msgstr "各名前は一度だけ使用できます。"
 
 #: src/components/AskCard.tsx
+#: src/pages/AccountSettingsOverlay.tsx
 msgid "Edit"
 msgstr "編集"
 
@@ -3356,6 +3362,7 @@ msgid "Muted"
 msgstr "ミュート中"
 
 #: src/components/teach/SkillDraftCard.tsx
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
@@ -4353,6 +4360,7 @@ msgstr "このボットがこのプロバイダーから検証済みのメッセ
 #: src/components/AskCard.tsx
 #: src/components/PasskeySettings.tsx
 #: src/components/teach/SkillDraftCard.tsx
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Board.tsx
 #: src/pages/ExternalConversationSettings.tsx
 #: src/pages/GroupPanel.tsx
@@ -4915,7 +4923,7 @@ msgstr "モデルプロバイダーがエラーを返しました。"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "The model returned an unusable response. Try again."
-msgstr "モデルから使用できない応答が返されました。もう一度お試しください。"
+msgstr "モデルが利用できない応答を返しました。もう一度お試しください。"
 
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
@@ -4990,7 +4998,7 @@ msgstr "このMac"
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
 msgid "This model's context window is too small. Choose another model."
-msgstr "このモデルのコンテキストウィンドウが小さすぎます。別のモデルを選んでください。"
+msgstr "このモデルのコンテキストウィンドウは小さすぎます。別のモデルを選択してください。"
 
 #: src/pages/Artifacts.tsx
 msgid "This month"
