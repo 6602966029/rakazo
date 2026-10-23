@@ -12,6 +12,10 @@ claims can start concurrently; model streams and tools run independently after
 durable ownership and heartbeats are established. Memory admission and graceful
 shutdown are shared with legacy queue deliveries.
 
+Runs waiting behind another run's live computer lease stay queued without repeated
+claims. The recovery scan picks them up after release or expiry, while unrelated
+bots can run. Execution timing starts after computer ownership is acquired.
+
 Graphile remains responsible for scheduled and maintenance jobs. Those jobs can
 create runs, which use the same direct dispatch path. Legacy run deliveries remain
 supported during rolling upgrades and drain safely against the same database
