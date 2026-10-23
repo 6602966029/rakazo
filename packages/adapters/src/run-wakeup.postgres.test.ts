@@ -80,6 +80,66 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
   const wait = async (assertion: () => Promise<void> | void) =>
     vi.waitFor(assertion, { timeout: 5_000, interval: 20 });
 
+  it("keeps blocked rows unchanged, scans past them, and resumes after release or expiry", async () => {
+    const computer = await system.computer.create({
+      data: {
+        spaceId: identity.spaceId,
+        userId: identity.userId,
+        scopeKey: `dispatch-busy-${randomUUID()}`,
+        homeKey: `dispatch-busy-${randomUUID()}`,
+        kind: "fake",
+      },
+    });
+    const bot = await system.bot.update({
+      where: { id: identity.botId },
+      data: { computerId: computer.id },
+    });
+    const blocked = await createRun();
+    const owner = await createRun();
+    const aged = await system.run.update({
+      where: { id: blocked.id },
+      data: { createdAt: new Date(0), updatedAt: new Date(0) },
+    });
+    const lease = await system.computerExecutionLease.create({
+      data: {
+        computerId: computer.id,
+        botId: bot.id,
+        runId: owner.id,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    const host = new RunWorkerHost(db.prisma, new InMemoryRealtimeFanout(), {
+      intervalMs: 25,
+      batchSize: 1,
+    });
+    const entered: string[] = [];
+    try {
+      await host.start({
+        "run.continue": async ({ runId }) => {
+          entered.push(runId);
+          await system.run.update({ where: { id: runId }, data: { status: "completed" } });
+        },
+      } as BackgroundJobHandlers);
+      // A blocked oldest row must not starve the holder's explicit resume.
+      await wait(() => expect(entered).toContain(owner.id));
+      expect(entered).not.toContain(blocked.id);
+      expect(await system.run.findUniqueOrThrow({ where: { id: blocked.id } })).toMatchObject({
+        status: "queued",
+        leaseFence: 0,
+        startedAt: null,
+        updatedAt: aged.updatedAt,
+      });
+      await system.computerExecutionLease.update({
+        where: { id: lease.id },
+        data: { expiresAt: new Date(0) },
+      });
+      await wait(() => expect(entered).toContain(blocked.id));
+    } finally {
+      await host.stop();
+      await system.computerExecutionLease.delete({ where: { id: lease.id } });
+    }
+  });
+
   it("recovers an unnotified commit, deduplicates competing workers and drains active runs", async () => {
     const run = await createRun();
     const realtime = new InMemoryRealtimeFanout();
