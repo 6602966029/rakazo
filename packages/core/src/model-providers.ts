@@ -71,11 +71,6 @@ export function popularModelProvidersFirst<T>(
   return [...items].sort((a, b) => rank(a) - rank(b));
 }
 
-/** Whether a provider is one of the few shown before "More providers". */
-export function isFeaturedModelProvider(providerId: string): boolean {
-  return POPULAR_MODEL_PROVIDER_IDS_LIST.includes(canonicalPiProviderId(providerId));
-}
-
 /**
  * Model to preselect when a provider row is opened: the preferred id (usually the
  * space or deployment default) when that provider carries it, otherwise the

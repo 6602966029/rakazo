@@ -1,10 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, signup } from "./helpers";
 
-// Fit the whole onboarding form so the full-page screenshot does not resize the
-// page and close the open Thinking menu.
-test.use({ viewport: { width: 1280, height: 1000 } });
-
 test("onboarding requires a model and uses compact model selects without misleading latest labels", async ({
   page,
 }, testInfo) => {
@@ -41,39 +37,38 @@ test("onboarding requires a model and uses compact model selects without mislead
   await page.getByLabel("API key", { exact: true }).fill("");
   await captureScreenshot(page, testInfo, "onboarding-model-required");
 
-  await expect(page.getByRole("radio", { name: "OpenRouter", exact: true })).toBeChecked();
-  const thinking = page.getByRole("combobox", { name: "Thinking", exact: true });
-  await thinking.click();
-  const thinkingMenu = page.getByRole("listbox");
-  await expect(thinkingMenu).toBeVisible();
-  const defaultOption = page.getByRole("option", { name: "Default (Medium)", exact: true });
-  await expect(defaultOption).toHaveAttribute("aria-selected", "true");
+  const provider = page.getByRole("combobox", { name: "Provider" });
+  await expect(provider).toContainText("OpenRouter");
+  // Onboarding stays simple: thinking effort is a Models setting, not a setup step.
+  await expect(page.getByRole("combobox", { name: "Thinking", exact: true })).toHaveCount(0);
+  await page.getByLabel("API key").fill("openrouter-only-key");
+  await provider.click();
+  const providerMenu = page.getByRole("listbox");
+  await expect(providerMenu).toBeVisible();
+  // Subscriptions and the common API providers lead; the rest follow the separator.
+  const options = await page.getByRole("option").allTextContents();
+  expect(options.slice(0, 6)).toEqual([
+    "ChatGPT subscription",
+    "Claude subscription",
+    "OpenAI API",
+    "Anthropic API",
+    "OpenRouter",
+    "Google",
+  ]);
+  await expect(page.getByRole("option", { name: "Vercel AI Gateway" })).toBeVisible();
   const menu = page.locator('[data-slot="select-content"]');
-  const group = menu.locator('[data-slot="select-group"]');
-  await expect(group).toBeVisible();
+  const firstOption = page.getByRole("option", { name: "ChatGPT subscription", exact: true });
   await expect
     .poll(async () => {
       const menuBounds = await menu.boundingBox();
-      const optionBounds = await defaultOption.boundingBox();
+      const optionBounds = await firstOption.boundingBox();
       return menuBounds && optionBounds ? optionBounds.x - menuBounds.x : 0;
     })
     .toBeGreaterThan(0);
-  await captureScreenshot(page, testInfo, "onboarding-thinking-menu");
-  await page.getByRole("option", { name: "High", exact: true }).click();
-  await expect(thinking).toContainText("High");
-  await expect(thinkingMenu).toBeHidden();
-  await thinking.click();
-  await expect(page.getByRole("option", { name: "High", exact: true })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await page.keyboard.press("Escape");
-  await expect(thinkingMenu).toBeHidden();
-  await page.getByLabel("API key").fill("openrouter-only-key");
-  await expect(page.getByRole("radio", { name: "ChatGPT", exact: true })).toBeVisible();
-  await expect(page.getByRole("option", { name: "Vercel AI Gateway" })).toHaveCount(0);
-  await page.getByRole("radio", { name: "Anthropic", exact: true }).click();
-  await expect(page.getByRole("radio", { name: "Anthropic", exact: true })).toBeChecked();
+  await captureScreenshot(page, testInfo, "onboarding-provider-menu");
+  await page.getByRole("option", { name: "Anthropic API", exact: true }).click();
+  await expect(provider).toContainText("Anthropic API");
+  await expect(page.getByRole("button", { name: /Sign in with Claude/ })).toHaveCount(0);
   await expect(page.getByLabel(/API key/)).toHaveValue("");
 
   const models = page.getByRole("combobox", { name: "Model", exact: true });
@@ -96,8 +91,7 @@ test("onboarding requires a model and uses compact model selects without mislead
       body: JSON.stringify({ json: { models: ["probed-model"] } }),
     });
   });
-  await page.getByRole("button", { name: "More providers", exact: true }).click();
-  await page.getByRole("combobox", { name: "More providers" }).click();
+  await provider.click();
   await page.getByRole("option", { name: "OpenAI-compatible" }).click();
   await page.getByLabel("OpenAI-compatible server URL").fill("http://127.0.0.1:8090/v1");
   const manualModel = page.getByLabel("Model id");

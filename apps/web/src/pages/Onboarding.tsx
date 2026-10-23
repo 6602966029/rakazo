@@ -21,7 +21,6 @@ import {
   clampCatalogThinkingLevel,
   createModelProbe,
   initialModelProbeState,
-  isFeaturedModelProvider,
   pickCatalogModelId,
   popularModelProvidersFirst,
 } from "@rakazo/core";
@@ -30,12 +29,11 @@ import {
   Disclosure,
   Input,
   ModelThinkingOptions,
-  RadioGroup,
-  RadioGroupItem,
   Select,
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
   Spinner,
@@ -49,9 +47,7 @@ import {
 } from "../components/ModelConnectionPreflightNotice";
 import { ModelHeadersEditor } from "../components/ModelHeadersEditor";
 import { useCopyText } from "../lib/copy-text";
-import { providerRowHint } from "../lib/localized-provider-hint";
 import type { ModelCatalogEntry } from "../lib/model-auth";
-import { thinkingLevelLabel } from "../lib/model-catalog";
 import type { ModelPreflightFailure } from "../lib/model-connection-preflight";
 import {
   classifyModelConnectionFailure,
@@ -65,7 +61,21 @@ import { useModelOAuthSignIn } from "../lib/use-model-oauth-signin";
 import { errorText } from "../lib/user-error";
 
 const CUSTOM_MODEL_OPTION = "__rakazo_custom_model__";
-const DEFAULT_THINKING_LEVEL_OPTION = "__rakazo_default_thinking__";
+/** A provider whose catalog entry offers both sign-in and a key appears once per way to connect. */
+type ProviderAuth = "sign-in" | "key";
+
+const MAIN_PROVIDER_OPTIONS: ReadonlyArray<{ provider: string; auth?: ProviderAuth }> = [
+  { provider: "openai-codex" },
+  { provider: "anthropic", auth: "sign-in" },
+  { provider: "openai" },
+  { provider: "anthropic", auth: "key" },
+  { provider: "openrouter" },
+  { provider: "google" },
+];
+
+function providerOptionValue(provider: string, auth?: ProviderAuth): string {
+  return auth ? `${provider}:${auth}` : provider;
+}
 const FIRST_BOT_NAME = "Chief";
 const FIRST_BOT_SPAWN_KEY = "onboarding:first";
 const FIRST_BOT_LOCK = "rakazo:onboarding-first-bot";
@@ -135,6 +145,7 @@ export function OnboardingPage() {
   const [billingEnabled, setBillingEnabled] = useState(false);
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
   const [provider, setProvider] = useState("openrouter");
+  const [providerAuth, setProviderAuth] = useState<ProviderAuth | undefined>();
   const [modelId, setModelId] = useState("");
   const modelIdRef = useRef(modelId);
   modelIdRef.current = modelId;
@@ -179,19 +190,6 @@ export function OnboardingPage() {
     onClearError: () => setError(null),
     onError: setError,
     onFinished: async () => {
-      // OAuth connect ignores thinkingLevel; persist the staged catalog choice.
-      const level = clampCatalogThinkingLevel(
-        thinkingLevel,
-        catalog.find((entry) => entry.provider === provider && entry.id === modelId)
-          ?.thinkingLevels,
-      );
-      if (level && provider !== OPENAI_COMPATIBLE_PROVIDER_ID && modelId) {
-        try {
-          await rpc.models.setDefault({ provider, modelId, thinkingLevel: level as ThinkingLevel });
-        } catch {
-          // The connection itself succeeded; the effort stays adjustable in Models.
-        }
-      }
       setStep("bot");
     },
   });
@@ -210,6 +208,9 @@ export function OnboardingPage() {
           models[0];
         if (preferred) {
           setProvider(preferred.provider);
+          setProviderAuth(
+            MAIN_PROVIDER_OPTIONS.find((option) => option.provider === preferred.provider)?.auth,
+          );
           setModelId(preferred.provider === OPENAI_COMPATIBLE_PROVIDER_ID ? "" : preferred.id);
         }
         setStep(me.needsModel ? "model" : "bot");
@@ -227,16 +228,6 @@ export function OnboardingPage() {
     }
     return popularModelProvidersFirst([...seen.values()], (entry) => entry.provider);
   }, [catalog]);
-  const featuredProviders = useMemo(
-    () => providers.filter((entry) => isFeaturedModelProvider(entry.provider)),
-    [providers],
-  );
-  const moreProviders = useMemo(
-    () => providers.filter((entry) => !isFeaturedModelProvider(entry.provider)),
-    [providers],
-  );
-  const [showMoreProviders, setShowMoreProviders] = useState(false);
-  const providerIsFeatured = isFeaturedModelProvider(provider);
 
   const modelsForProvider = useMemo(
     () => catalog.filter((entry) => entry.provider === provider),
@@ -248,14 +239,8 @@ export function OnboardingPage() {
   const isCloudflareGateway = provider === CLOUDFLARE_AI_GATEWAY_PROVIDER_ID;
   const cloudflareRoutingReady =
     !isCloudflareGateway || cloudflareGatewayRouting({ accountId, gatewayId }) !== undefined;
-  // Effort levels for the staged catalog model — "off" stays out, matching the
-  // model settings and per-bot Thinking pickers.
-  const catalogThinkingLevels =
-    !isOpenAiCompatible && selected
-      ? (selected.thinkingLevels ?? []).filter((level) => level !== "off")
-      : [];
-  const subscriptionSignIn = selected?.signIn !== undefined;
-  const acceptsKey = selected?.auth !== "oauth";
+  const subscriptionSignIn = selected?.signIn !== undefined && providerAuth !== "key";
+  const acceptsKey = selected?.auth !== "oauth" && providerAuth !== "sign-in";
   const signInLabel = selected?.oauthLabel ?? t`Sign in`;
   const openAiCompatibleReady = openAiCompatibleConnectReady({
     baseUrl,
@@ -270,24 +255,36 @@ export function OnboardingPage() {
       (isOpenAiCompatible ? openAiCompatibleReady : acceptsKey && apiKey.trim()),
   );
   const otherModelLabel = t`Other model…`;
+  // Subscriptions and the common API providers first; every other provider follows.
+  const providerOptions = useMemo(() => {
+    const byId = new Map(providers.map((entry) => [entry.provider, entry]));
+    const optionLabel = (id: string, auth?: ProviderAuth) => {
+      if (id === "openai-codex") return t`ChatGPT subscription`;
+      if (id === "anthropic") return auth === "sign-in" ? t`Claude subscription` : t`Anthropic API`;
+      if (id === "openai") return t`OpenAI API`;
+      return providerLabel(byId.get(id)!);
+    };
+    const main = MAIN_PROVIDER_OPTIONS.filter((option) => byId.has(option.provider)).map(
+      (option) => ({
+        value: providerOptionValue(option.provider, option.auth),
+        label: optionLabel(option.provider, option.auth),
+      }),
+    );
+    const rest = providers
+      .filter(
+        (entry) => !MAIN_PROVIDER_OPTIONS.some((option) => option.provider === entry.provider),
+      )
+      .map((entry) => ({ value: entry.provider, label: providerLabel(entry) }));
+    return { main, rest };
+  }, [providers, t]);
   // Base UI Select.Value only resolves labels when Root gets `items`.
-  const moreProviderItems = useMemo(
-    () => moreProviders.map((entry) => ({ value: entry.provider, label: providerLabel(entry) })),
-    [moreProviders],
+  const providerItems = useMemo(
+    () => [...providerOptions.main, ...providerOptions.rest],
+    [providerOptions],
   );
   const modelItems = useMemo(
     () => modelsForProvider.map((entry) => ({ value: entry.id, label: entry.label })),
     [modelsForProvider],
-  );
-  const thinkingLevelItems = useMemo(
-    () => [
-      {
-        value: DEFAULT_THINKING_LEVEL_OPTION,
-        label: t`Default (${thinkingLevelLabel("medium")})`,
-      },
-      ...catalogThinkingLevels.map((level) => ({ value: level, label: thinkingLevelLabel(level) })),
-    ],
-    [catalogThinkingLevels, t],
   );
   const probeModelItems = useMemo(
     () => [
@@ -321,10 +318,12 @@ export function OnboardingPage() {
     invalidatePreflight();
   }
 
-  function selectProvider(nextProvider: string) {
-    if (nextProvider === provider) return;
+  function selectProvider(option: string) {
+    if (option === providerOptionValue(provider, providerAuth)) return;
+    const [nextProvider = option, auth] = option.split(":") as [string, ProviderAuth?];
     cancelOAuthAttempt();
     setProvider(nextProvider);
+    setProviderAuth(auth);
     setApiKey("");
     setHeaderRows(null);
     setAccountId("");
@@ -452,7 +451,7 @@ export function OnboardingPage() {
   function stagedThinkingLevel(): ThinkingLevel | null {
     return clampCatalogThinkingLevel(
       thinkingLevel,
-      isOpenAiCompatible ? (reasoning ? COMPATIBLE_THINKING_LEVELS : []) : selected?.thinkingLevels,
+      reasoning ? COMPATIBLE_THINKING_LEVELS : [],
     ) as ThinkingLevel | null;
   }
 
@@ -508,15 +507,8 @@ export function OnboardingPage() {
             ? { accountId: accountId.trim(), gatewayId: gatewayId.trim() }
             : {}),
           modelId,
-          thinkingLevel: stagedThinkingLevel(),
           label: selected?.providerName ?? provider,
         });
-      }
-      // Catalog providers keep the staged effort on the saved model preference;
-      // openai-compatible already stored its level inside the endpoint config.
-      const level = stagedThinkingLevel();
-      if (level && !isOpenAiCompatible && modelId) {
-        await rpc.models.setDefault({ provider, modelId, thinkingLevel: level });
       }
       setStep("bot");
     } catch (err) {
@@ -529,10 +521,6 @@ export function OnboardingPage() {
     void startSubscriptionSignIn({
       provider: selected.provider,
       modelId: selected.id,
-      thinkingLevel: clampCatalogThinkingLevel(
-        thinkingLevel,
-        selected.thinkingLevels,
-      ) as ThinkingLevel | null,
       label: selected.providerName ?? selected.provider,
     });
   }
@@ -577,70 +565,41 @@ export function OnboardingPage() {
             <h1 className="text-[32px] font-medium text-foreground">
               <Trans>Connect a model</Trans>
             </h1>
-            <div className="mt-8 text-sm text-foreground">
-              <span id={`${fieldId}-provider`} className="font-medium">
+            <div className="mt-8 block text-sm font-medium text-foreground">
+              <span>
                 <Trans>Provider</Trans>
               </span>
-              <RadioGroup
-                aria-labelledby={`${fieldId}-provider`}
-                value={providerIsFeatured ? provider : ""}
+              <Select
+                value={providerOptionValue(provider, providerAuth)}
                 onValueChange={(value) => {
-                  if (typeof value === "string" && value) selectProvider(value);
+                  if (typeof value !== "string" || !value) return;
+                  selectProvider(value);
                 }}
-                className="mt-2 gap-0 overflow-hidden rounded-xl border border-border"
+                items={providerItems}
               >
-                {featuredProviders.map((entry) => (
-                  // biome-ignore lint/a11y/noLabelWithoutControl: the wrapped RadioGroupItem is the control.
-                  <label
-                    key={entry.provider}
-                    className="flex cursor-pointer items-center gap-3 border-b border-border px-3.5 py-3 last:border-0 hover:bg-accent/50"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[15px]">{providerLabel(entry)}</span>
-                      {providerRowHint(entry) ? (
-                        <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
-                          {providerRowHint(entry)}
-                        </span>
-                      ) : null}
-                    </span>
-                    <RadioGroupItem value={entry.provider} aria-label={providerLabel(entry)} />
-                  </label>
-                ))}
-              </RadioGroup>
-              {moreProviders.length ? (
-                showMoreProviders || !providerIsFeatured ? (
-                  <Select
-                    value={providerIsFeatured ? null : provider}
-                    onValueChange={(value) => {
-                      if (typeof value !== "string" || !value) return;
-                      selectProvider(value);
-                    }}
-                    items={moreProviderItems}
-                  >
-                    <SelectTrigger aria-label={t`More providers`} className="mt-3 w-full">
-                      <SelectValue placeholder={t`More providers`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {moreProviders.map((entry) => (
-                          <SelectItem key={entry.provider} value={entry.provider}>
-                            {providerLabel(entry)}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Button
-                    variant="link"
-                    size="xs"
-                    className="mt-2 px-0 text-muted-foreground"
-                    onClick={() => setShowMoreProviders(true)}
-                  >
-                    <Trans>More providers</Trans>
-                  </Button>
-                )
-              ) : null}
+                <SelectTrigger aria-label={t`Provider`} className="mt-2 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {providerOptions.main.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  {providerOptions.main.length && providerOptions.rest.length ? (
+                    <SelectSeparator />
+                  ) : null}
+                  <SelectGroup>
+                    {providerOptions.rest.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
             <div className="mt-6 block text-sm text-foreground">
               {isOpenAiCompatible ? (
@@ -809,39 +768,6 @@ export function OnboardingPage() {
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                  {catalogThinkingLevels.length ? (
-                    <div className="mt-4 block">
-                      <span className="font-medium">
-                        <Trans>Thinking</Trans>
-                      </span>
-                      <Select
-                        value={thinkingLevel ?? DEFAULT_THINKING_LEVEL_OPTION}
-                        onValueChange={(value) => {
-                          const next = String(value);
-                          setThinkingLevel(
-                            next === DEFAULT_THINKING_LEVEL_OPTION ? null : (next as ThinkingLevel),
-                          );
-                        }}
-                        items={thinkingLevelItems}
-                      >
-                        <SelectTrigger aria-label={t`Thinking`} className="mt-2 w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectItem value={DEFAULT_THINKING_LEVEL_OPTION}>
-                              {t`Default (${thinkingLevelLabel("medium")})`}
-                            </SelectItem>
-                            {catalogThinkingLevels.map((level) => (
-                              <SelectItem key={level} value={level}>
-                                {thinkingLevelLabel(level)}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : null}
                 </>
               )}
             </div>

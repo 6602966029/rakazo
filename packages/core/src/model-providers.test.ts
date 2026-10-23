@@ -10,7 +10,6 @@ import {
   filterModelCatalog,
   filterModelChoices,
   groupModelChoices,
-  isFeaturedModelProvider,
   pickCatalogModelId,
   popularModelProvidersFirst,
   resolveSelectableModelId,
@@ -29,7 +28,7 @@ function provider(provider: string): ModelCatalogEntry {
   };
 }
 
-describe("featured model providers", () => {
+describe("popularModelProvidersFirst", () => {
   it("lists subscriptions and the common API providers first", () => {
     const ids = ["azure", "google", "openai", "anthropic", "openai-codex", "openrouter"];
     expect(popularModelProvidersFirst(ids, (id) => id)).toEqual([
@@ -40,13 +39,6 @@ describe("featured model providers", () => {
       "google",
       "azure",
     ]);
-  });
-
-  it("keeps everything else behind More providers", () => {
-    expect(isFeaturedModelProvider("openai-codex")).toBe(true);
-    expect(isFeaturedModelProvider("anthropic")).toBe(true);
-    expect(isFeaturedModelProvider("vercel-ai-gateway")).toBe(false);
-    expect(isFeaturedModelProvider("openai-compatible")).toBe(false);
   });
 });
 

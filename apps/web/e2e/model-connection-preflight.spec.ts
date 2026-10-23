@@ -17,15 +17,18 @@ test("onboarding preflight stays on the connection being tested", async ({ page 
     timeout: 20_000,
   });
 
-  await expect(page.getByRole("radio", { name: "OpenRouter", exact: true })).toBeChecked();
+  const provider = page.getByRole("combobox", { name: "Provider" });
+  await expect(provider).toContainText("OpenRouter");
   await expect(page.getByRole("button", { name: "Test API key" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Test sign-in" })).toHaveCount(0);
 
-  await page.getByRole("radio", { name: "OpenAI", exact: true }).click();
+  await provider.click();
+  await page.getByRole("option", { name: "OpenAI API", exact: true }).click();
   await expect(page.getByRole("button", { name: "Test API key" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Test sign-in" })).toHaveCount(0);
 
-  await page.getByRole("radio", { name: "Anthropic", exact: true }).click();
+  await provider.click();
+  await page.getByRole("option", { name: "Claude subscription", exact: true }).click();
   await expect(page.getByRole("button", { name: "Test sign-in" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Test API key" })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "onboarding-model-preflight");
@@ -43,8 +46,7 @@ test("onboarding preflight stays on the connection being tested", async ({ page 
     });
   });
 
-  await page.getByRole("button", { name: "More providers", exact: true }).click();
-  await page.getByRole("combobox", { name: "More providers" }).click();
+  await provider.click();
   await page.getByRole("option", { name: "OpenAI-compatible" }).click();
   await page.getByLabel("OpenAI-compatible server URL").fill("http://127.0.0.1:8090/v1");
   const modelId = page.getByLabel("Model id");
