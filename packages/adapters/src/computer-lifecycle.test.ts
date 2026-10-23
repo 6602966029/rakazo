@@ -1077,7 +1077,9 @@ describe("computer provisioning", () => {
         "computer-1",
         context,
       );
-      expect((provision.mock.calls[0]?.[0] as { savedAt?: Date }).savedAt).toEqual(row.expected);
+      const request = provision.mock.calls[0]?.[0] as { savedAt?: Date } | undefined;
+      expect(request).toBeDefined();
+      expect(request?.savedAt).toEqual(row.expected);
     } finally {
       await rm(dataDir, { recursive: true, force: true });
     }
