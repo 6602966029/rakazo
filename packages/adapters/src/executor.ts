@@ -33,6 +33,7 @@ import {
   DEFAULT_CONTEXT_STRATEGY,
   historyCompactJob,
   MEMORY_REVISION_CONFLICT_ERROR,
+  ModelAccountError,
   routineJobKey,
   routineRetryJob,
   routineWakeupJob,
@@ -8505,13 +8506,23 @@ export function createRunExecutor(deps: ExecutorDeps) {
             error: message,
           });
           if (!failed) return;
-          getLogger().error(
-            "run.failed",
-            sanitizedError(error, (text) => redactSecrets(text, runSecrets)),
-            {
+          if (error instanceof TransientModelError || error instanceof ModelAccountError) {
+            // Provider outages that outlasted retries, and keys or limits the user fixes, are
+            // not server faults; the run error already tells the user what to do.
+            getLogger().warn("run.failed", {
               "run.outcome": "failed",
-            },
-          );
+              "run.failure": error.name,
+              reason: message,
+            });
+          } else {
+            getLogger().error(
+              "run.failed",
+              sanitizedError(error, (text) => redactSecrets(text, runSecrets)),
+              {
+                "run.outcome": "failed",
+              },
+            );
+          }
           if (failed.continuationRunId) {
             await deps.jobs
               .enqueue(runContinueJob(failed.continuationRunId))
