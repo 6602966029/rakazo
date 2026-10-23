@@ -37,14 +37,10 @@ test("agent-attached files appear as cards with previews and downloads", async (
   const previewReady = new Promise<void>((resolve) => {
     releasePreview = resolve;
   });
-  await page.route(
-    "**/rpc/artifacts/get",
-    async (route) => {
-      await previewReady;
-      await route.continue();
-    },
-    { times: 1 },
-  );
+  await page.route("**/rpc/artifacts/get", async (route) => {
+    await previewReady;
+    await route.continue();
+  });
   await previewButton.click();
 
   const dialog = page.getByRole("dialog", { name: "preview.md" });
