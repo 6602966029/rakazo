@@ -319,7 +319,7 @@ describe("run workspace checkpoint", () => {
     await expect(checkpoint.flush()).resolves.toBe(true);
   });
 
-  it("keeps a failed checkpoint dirty for retry", async () => {
+  it("defers a failed checkpoint without failing the run and keeps it dirty for retry", async () => {
     const persist = vi
       .fn<() => Promise<void>>()
       .mockRejectedValueOnce(new Error("checkpoint failed"))
@@ -327,9 +327,21 @@ describe("run workspace checkpoint", () => {
     const checkpoint = createRunWorkspaceCheckpoint(persist);
     checkpoint.markDirty();
 
-    await expect(checkpoint.flush()).rejects.toThrow("checkpoint failed");
+    await expect(checkpoint.flush()).resolves.toBe(false);
     await expect(checkpoint.flush()).resolves.toBe(true);
     expect(persist).toHaveBeenCalledTimes(2);
+  });
+
+  it("still stops a cancelled run whose checkpoint fails", async () => {
+    const controller = new AbortController();
+    const aborted = new DOMException("Aborted", "AbortError");
+    const checkpoint = createRunWorkspaceCheckpoint(async () => {
+      controller.abort(aborted);
+      throw aborted;
+    }, controller.signal);
+    checkpoint.markDirty();
+
+    await expect(checkpoint.flush()).rejects.toBe(aborted);
   });
 });
 

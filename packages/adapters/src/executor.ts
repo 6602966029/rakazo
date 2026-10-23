@@ -517,8 +517,15 @@ const TURN_ATTACHMENT_UNAVAILABLE =
 const STEERING_ATTACHMENT_UNAVAILABLE = TURN_ATTACHMENT_UNAVAILABLE;
 const BUILTIN_AGENT_TOOL_NAMES = new Set(builtinAgentTools.map((tool) => tool.name));
 
-/** Avoid an expensive remote workspace export when a turn never touched the computer. */
-export function createRunWorkspaceCheckpoint(checkpoint: () => Promise<unknown>) {
+/**
+ * Avoid an expensive remote workspace export when a turn never touched the computer. A failed
+ * export does not fail the run: its work is done, the computer keeps the files, and the idle
+ * sleep checkpoints them again before stopping it. Only cancelling the run stops it.
+ */
+export function createRunWorkspaceCheckpoint(
+  checkpoint: () => Promise<unknown>,
+  signal?: AbortSignal,
+) {
   let dirty = false;
   return {
     markDirty() {
@@ -535,7 +542,9 @@ export function createRunWorkspaceCheckpoint(checkpoint: () => Promise<unknown>)
         return true;
       } catch (error) {
         dirty = true;
-        throw error;
+        if (signal?.aborted) throw error;
+        getLogger().warn("computer.checkpoint_deferred", { error });
+        return false;
       }
     },
   };
@@ -4143,7 +4152,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const workspaceCheckpoint = createRunWorkspaceCheckpoint(async () => {
           if (!runComputer.ready) return;
           await checkpointRunComputerWorkspace(deps, storedComputer, runComputer.ready, context);
-        });
+        }, context.signal);
         const pendingTurnFiles: MessageBlock[][] = [turnBlocks ?? []];
         let copyingTurnFiles = Promise.resolve();
         // Serialize copies before each tool, including attachments received while a boot is in flight.

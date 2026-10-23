@@ -2,7 +2,7 @@ import type * as TimersPromises from "node:timers/promises";
 import type { FileUrlResponse, SandboxStateEnum } from "@boatdev/sdk";
 import { ResponseError } from "@boatdev/sdk";
 import type { ComputerRef } from "@rakazo/adapter-kit";
-import { SandboxRateLimitError } from "@rakazo/adapter-kit";
+import { SandboxRateLimitError, SandboxUnresponsiveError } from "@rakazo/adapter-kit";
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { parse } from "shell-quote";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -678,7 +678,7 @@ describe("BoatSandboxProvider", () => {
     ).rejects.toBe(reason);
   });
 
-  it("exports browser profile files over 5 MiB without losing their bytes", async () => {
+  it("exports files listed over 5 MiB through a private download URL, not the artifact route", async () => {
     const artifactRaw = vi.spyOn(FakeBoatApi.prototype, "artifactRaw");
     const { api, provider, computer } = await boat();
     const content = Buffer.alloc(6 * 1024 * 1024, 0xab);
@@ -686,19 +686,68 @@ describe("BoatSandboxProvider", () => {
       content,
       executable: false,
     });
+    api.files(computer.id).set("/home/user/rakazo-home/notes.txt", {
+      content: Buffer.from("small"),
+      executable: false,
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (url) => api.serveDownload(String(url)));
+
     const exported = [];
     for await (const file of provider.exportWorkspace(computer, context)) exported.push(file);
 
-    expect(exported).toHaveLength(1);
-    expect(exported[0]?.path).toBe(".browser-profiles/chrome/Default/History");
+    expect(exported.map((file) => file.path)).toEqual([
+      ".browser-profiles/chrome/Default/History",
+      "notes.txt",
+    ]);
     expect(Buffer.from(exported[0]!.content).equals(content)).toBe(true);
-    expect(artifactRaw).toHaveBeenCalledWith(
-      {
-        sandboxId: computer.id,
-        path: "/home/user/rakazo-home/.browser-profiles/chrome/Default/History",
-      },
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(artifactRaw).toHaveBeenCalledExactlyOnceWith(
+      { sandboxId: computer.id, path: "/home/user/rakazo-home/notes.txt" },
       { signal: context.signal },
     );
+  });
+
+  it("downloads a file the artifact route could not send before Boat's proxy timed out", async () => {
+    const artifactRaw = vi.spyOn(FakeBoatApi.prototype, "artifactRaw");
+    const { api, provider, computer } = await boat();
+    api.files(computer.id).set("/home/user/rakazo-home/report.pdf", {
+      content: Buffer.from("slow but small"),
+      executable: false,
+    });
+    artifactRaw.mockRejectedValueOnce(
+      boatError(502, "sandbox_direct_failed", "Request timeout after 74997ms"),
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (url) => api.serveDownload(String(url)));
+
+    const exported = [];
+    for await (const file of provider.exportWorkspace(computer, context)) exported.push(file);
+
+    expect(Buffer.from(exported[0]!.content).toString()).toBe("slow but small");
+    // The sandbox already had the request; resending it would only time out again.
+    expect(artifactRaw).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("reports a command Boat's proxy timed out as an unresponsive sandbox without resending it", async () => {
+    const run = vi.spyOn(FakeBoatApi.prototype, "command");
+    const { provider, computer } = await boat();
+    await provider.prepare(computer, context);
+    run.mockClear();
+    run.mockRejectedValueOnce(
+      boatError(502, "sandbox_direct_failed", "Request timeout after 74997ms"),
+    );
+
+    const error = await provider
+      .listFiles(computer, "", context)
+      .catch((failure: unknown) => failure);
+
+    expect(error).toBeInstanceOf(SandboxUnresponsiveError);
+    expect(isSandboxGoneError(error)).toBe(false);
+    expect(run).toHaveBeenCalledOnce();
   });
 
   it("exports files over the artifact limit through a private download URL", async () => {
@@ -730,8 +779,6 @@ describe("BoatSandboxProvider", () => {
   });
 
   it("keeps large files out of the same export batch", async () => {
-    const read = FakeBoatApi.prototype.artifactRaw;
-    const artifactRaw = vi.spyOn(FakeBoatApi.prototype, "artifactRaw");
     const { api, provider, computer } = await boat();
     const files = api.files(computer.id);
     for (const name of ["a", "b", "c"]) {
@@ -742,11 +789,11 @@ describe("BoatSandboxProvider", () => {
     }
     let active = 0;
     let peak = 0;
-    artifactRaw.mockImplementation(async function (this: FakeBoatApi, request) {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
       peak = Math.max(peak, ++active);
       await Promise.resolve();
       active--;
-      return read.call(this, request);
+      return api.serveDownload(String(url));
     });
 
     let count = 0;

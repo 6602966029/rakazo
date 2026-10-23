@@ -2,7 +2,9 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
 import type { AgentHomeStore, JobPublisher, SandboxProvider } from "@rakazo/adapter-kit";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
+import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { boatError, FakeBoatApi, fakeBoatProvider } from "./boat-sandbox.test-support.js";
 import {
   BACKGROUND_WORK_LAUNCH,
   BACKGROUND_WORK_PROBE,
@@ -28,6 +30,7 @@ describe("sandbox idle", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
+    installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
   });
 
   it("defaults to ten minutes when SANDBOX_IDLE_MS is unset", () => {
@@ -244,6 +247,40 @@ describe("sandbox idle", () => {
 
     expect(harness.sandbox.stop).not.toHaveBeenCalled();
     expect(harness.prisma.computer.update).not.toHaveBeenCalled();
+  });
+
+  it("defers sleep with a warning when the sandbox does not answer in time", async () => {
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "test", sinks: [sink] }));
+    const command = vi
+      .spyOn(FakeBoatApi.prototype, "command")
+      .mockRejectedValue(boatError(502, "sandbox_direct_failed", "Request timeout after 74997ms"));
+    const boat = fakeBoatProvider();
+    const boatComputer = await boat.provision(
+      { botId: "bot", homePath: "/unused" },
+      {
+        operationId: "test",
+        traceId: "test",
+        spaceId: "workspace",
+        userId: "user",
+        signal: new AbortController().signal,
+      },
+    );
+    const harness = idleHarness();
+    harness.deps.sandbox.exportWorkspace = (_computer, context) =>
+      boat.exportWorkspace(boatComputer, context);
+
+    await expect(sleepComputerIfIdle(harness.deps, harness.computer.id)).resolves.toBeUndefined();
+
+    expect(command).toHaveBeenCalled();
+    expect(harness.sandbox.stop).not.toHaveBeenCalled();
+    expect(harness.home.commit).not.toHaveBeenCalled();
+    expect(harness.computer.state).toBe("running");
+    expect(harness.jobs.enqueue).toHaveBeenCalledOnce();
+    expect(sink.events).toContainEqual(
+      expect.objectContaining({ level: "warn", message: "computer.sleep_deferred" }),
+    );
+    expect(sink.events.some((event) => event.level === "error")).toBe(false);
   });
 
   it("stops a computer whose sandbox is gone instead of retrying the checkpoint", async () => {
