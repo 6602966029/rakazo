@@ -10,8 +10,13 @@ test("create opens form, then empty chat; picker lists bots; sidebar collapses",
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
 
-  await page.getByTestId("create-menu-trigger").click();
   const picker = page.getByTestId("bot-create-picker");
+  await page.keyboard.press("ControlOrMeta+n");
+  await expect(picker.getByPlaceholder("Search")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(picker).toHaveCount(0);
+
+  await page.getByTestId("create-menu-trigger").click();
   await expect(picker).toBeVisible();
   await expect(picker.getByPlaceholder("Search")).toBeVisible();
   await expect(picker.getByTestId("create-new-bot")).toBeVisible();
