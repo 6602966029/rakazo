@@ -233,16 +233,33 @@ x-app-environment: &app-environment
 
 services:
   postgres:
-    image: ${POSTGRES_IMAGE:-postgres:16}
+    image: ${POSTGRES_IMAGE:-postgres:18}
+    # A Postgres 16 POSTGRES_IMAGE would ignore these mounts and open an empty database.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        if [ "$$PG_MAJOR" != 18 ]; then
+          echo "POSTGRES_IMAGE must be Postgres 18, not $${PG_MAJOR:-unknown}" >&2
+          exit 1
+        fi
+        exec docker-entrypoint.sh "$$@"
+      - postgres
+    command: ["postgres"]
     environment:
-      # USER/PASSWORD/DB apply only on first pgdata init. Keep existing values in
-      # .env, or ALTER ROLE / rename in place. Recreate pgdata only after backup
-      # (or when the volume is disposable); down -v deletes all DB state.
+      # USER/PASSWORD/DB apply only on first volume init. Keep existing values in
+      # .env, or ALTER ROLE / rename in place. Recreate the volume only after backup
+      # (or when it is disposable); down -v deletes all DB state.
       POSTGRES_USER: ${POSTGRES_USER:-rakazo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-rakazo}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # Postgres 18 keeps each major version's cluster in /var/lib/postgresql/<major>/docker.
+      - postgres:/var/lib/postgresql
+      # The Postgres 16 volume from earlier releases, read-only. While it holds data and no 18
+      # cluster exists, the image refuses to start instead of creating an empty database; run
+      # upgrade-postgres.sh (docs/self-host.md#upgrading-to-postgres-18).
+      - pgdata:/var/lib/postgresql/16/docker:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rakazo} -d ${POSTGRES_DB:-rakazo}"]
       interval: 3s
@@ -418,5 +435,6 @@ services:
       - api
 
 volumes:
+  postgres:
   pgdata:
   webassets:
