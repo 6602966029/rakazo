@@ -257,7 +257,12 @@ import { ThreadJumpAnchor } from "../lib/thread-jump";
 import { threadKeyboardOffset } from "../lib/thread-keyboard-offset";
 import { ThreadReadOnlyContext } from "../lib/thread-read-only";
 import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll";
-import { latestArrivalMessageId, ThreadScrollBehavior } from "../lib/thread-scroll";
+import {
+  isOwnThreadMessage,
+  latestArrivalMessage,
+  latestThreadRowKey,
+  ThreadScrollBehavior,
+} from "../lib/thread-scroll";
 import { reconcileVisibleThreadSnapshot } from "../lib/thread-snapshot";
 import { prepareUnsentSends } from "../lib/unsent-sends";
 import type { UserBubble } from "../lib/user-bubble";
@@ -737,7 +742,8 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     [dismissedChoiceQuestions, expandedPeerMarkers, peerTranscript],
   );
   const visibleMessages = reactionView.visibleMessages;
-  const latestMessageId = latestArrivalMessageId(visibleMessages, peerTranscript.markerOf);
+  const latestMessage = latestArrivalMessage(visibleMessages, peerTranscript.markerOf);
+  const latestMessageId = latestMessage?.id ?? null;
   const activePendingAttachments = attachmentsForThread(pendingAttachments, threadKey);
   const composerRef = useRef<ThreadComposerHandle>(null);
   const composerMentionTargets = useMemo(
@@ -1859,6 +1865,12 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     });
   }
 
+  function followOwnSend() {
+    if (pinnedAroundRef.current || jumpScrollTarget.current) showLatest();
+    performScroll(scrollBehavior.current.onOwnSend());
+    publishThreadScrollState(scrollBehavior.current.state());
+  }
+
   async function send() {
     if (readOnly) return;
     const initialBotTarget = botId;
@@ -1927,9 +1939,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     setReplyTarget(null);
     setReplyQuote(null);
     setAttachmentNotice(null);
-    if (pinnedAroundRef.current) showLatest();
-    performScroll(scrollBehavior.current.jumpToLatest());
-    publishThreadScrollState(scrollBehavior.current.state());
+    followOwnSend();
     await deliver(attempt);
   }
 
@@ -2698,7 +2708,10 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       key={attempt.clientNonce}
       attempt={attempt}
       needsModel={needsModel}
-      onRetry={() => void deliver(attempt, true)}
+      onRetry={() => {
+        followOwnSend();
+        void deliver(attempt, true);
+      }}
       onDelete={() => feedback.discard(attempt)}
       userBubble={userBubble}
     />
@@ -2875,7 +2888,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
                 }}
                 // Keep tracking after release: a fling can cross the threshold mid-momentum.
                 onScrollEndDrag={(event) => {
-                  updateUserScroll(event);
+                  if (scrollBehavior.current.isTrackingUserScroll()) updateUserScroll(event);
                   scrollBehavior.current.onUserDragEnd();
                   liveScrollBack.current.onDragEnd();
                   scheduleScrollIdle();
@@ -2917,7 +2930,16 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
                             pinnedAroundRef.current.groupId === groupId))) ||
                       expandedHistoryThread.current === snap?.threadId,
                   );
-                  performScroll(scrollBehavior.current.onContentChanged(blocked, latestMessageId));
+                  performScroll(
+                    scrollBehavior.current.onContentChanged(
+                      blocked,
+                      latestThreadRowKey(
+                        latestMessageId,
+                        feedback.unsentSends.map((attempt) => attempt.clientNonce),
+                        isOwnThreadMessage(latestMessage, userId),
+                      ),
+                    ),
+                  );
                   publishThreadScrollState(scrollBehavior.current.state());
                 }}
                 ListFooterComponent={loadEarlierControl}
