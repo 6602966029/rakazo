@@ -8,6 +8,7 @@ import type {
   JobWorkerHost,
 } from "@rakazo/adapter-kit";
 import { dispatchBackgroundJob } from "@rakazo/adapter-kit";
+import { ATTACHMENT_MAX_BYTES } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { isTooManyDatabaseConnections, runAsSystem } from "@rakazo/db";
 import { getLogger, runCorrelatedJob, unwrapJobPayload, wrapJobPayload } from "@rakazo/logging";
@@ -280,7 +281,15 @@ export class GraphileJobWorkerHost implements JobWorkerHost {
     while (this.activeRuns.size > 0) {
       if (this.stopping) throw new Error("Worker is stopping");
       const heap = getHeapStatistics();
-      if (heap.used_heap_size < heap.heap_size_limit * 0.75) break;
+      // Image bytes and their base64/JSON copies live outside the JS heap.
+      // Reserve four attachment budgets per resident run, including one that
+      // has not loaded its history yet; also respect the OS/container headroom.
+      const reserve = ATTACHMENT_MAX_BYTES * 4 * (this.activeRuns.size + 1);
+      if (
+        heap.used_heap_size + heap.external_memory + reserve < heap.heap_size_limit * 0.75 &&
+        process.availableMemory() > reserve
+      )
+        break;
       await new Promise<void>((resolve) => {
         const finish = () => {
           clearTimeout(timer);

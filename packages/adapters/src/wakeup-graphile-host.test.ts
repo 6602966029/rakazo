@@ -10,12 +10,16 @@ import { createLogger, createTestSink, installLogger, wrapJobPayload } from "@ra
 import type { Runner } from "graphile-worker";
 import { makeWorkerUtils } from "graphile-worker";
 import type { Pool } from "pg";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const run = vi.hoisted(() => vi.fn());
 
 vi.mock("node:v8", () => ({
-  getHeapStatistics: vi.fn(() => ({ used_heap_size: 0, heap_size_limit: 100 })),
+  getHeapStatistics: vi.fn(() => ({
+    used_heap_size: 0,
+    external_memory: 0,
+    heap_size_limit: 1024 ** 3,
+  })),
 }));
 
 vi.mock("graphile-worker", () => ({
@@ -354,12 +358,17 @@ describe("reserved Graphile workloads", () => {
 });
 
 describe("GraphileJobWorkerHost runner lifecycle", () => {
+  beforeEach(() => {
+    vi.spyOn(process, "availableMemory").mockReturnValue(8 * 1024 ** 3);
+  });
   afterEach(() => {
     run.mockReset();
+    vi.mocked(process.availableMemory).mockRestore();
     vi.useRealTimers();
     vi.mocked(getHeapStatistics).mockReturnValue({
       used_heap_size: 0,
-      heap_size_limit: 100,
+      external_memory: 0,
+      heap_size_limit: 1024 ** 3,
     } as ReturnType<typeof getHeapStatistics>);
   });
 
@@ -413,14 +422,16 @@ describe("GraphileJobWorkerHost runner lifecycle", () => {
       await dispatch({ runId: "0" });
       await dispatch({ runId: "1" });
       vi.mocked(getHeapStatistics).mockReturnValue({
-        used_heap_size: 80,
-        heap_size_limit: 100,
+        used_heap_size: 0,
+        external_memory: 0.8 * 1024 ** 3,
+        heap_size_limit: 1024 ** 3,
       } as ReturnType<typeof getHeapStatistics>);
       const third = dispatch({ runId: "2" });
       expect(entered).toEqual(["0", "1"]);
       vi.mocked(getHeapStatistics).mockReturnValue({
-        used_heap_size: 20,
-        heap_size_limit: 100,
+        used_heap_size: 0.2 * 1024 ** 3,
+        external_memory: 0,
+        heap_size_limit: 1024 ** 3,
       } as ReturnType<typeof getHeapStatistics>);
       releases[0]!.resolve();
       await third;
@@ -466,14 +477,16 @@ describe("GraphileJobWorkerHost runner lifecycle", () => {
       const dispatch = run.mock.calls[0]![0].taskList["run.continue"];
       await dispatch({ runId: "first" });
       vi.mocked(getHeapStatistics).mockReturnValue({
-        used_heap_size: 80,
-        heap_size_limit: 100,
+        used_heap_size: 0,
+        external_memory: 0.8 * 1024 ** 3,
+        heap_size_limit: 1024 ** 3,
       } as ReturnType<typeof getHeapStatistics>);
       const second = dispatch({ runId: "second" });
       expect(entered).toBe(1);
       vi.mocked(getHeapStatistics).mockReturnValue({
-        used_heap_size: 20,
-        heap_size_limit: 100,
+        used_heap_size: 0.2 * 1024 ** 3,
+        external_memory: 0,
+        heap_size_limit: 1024 ** 3,
       } as ReturnType<typeof getHeapStatistics>);
       await vi.advanceTimersByTimeAsync(1_000);
       await second;
