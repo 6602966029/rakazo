@@ -229,9 +229,9 @@ Docker 互換 CLI を試すには、アプリを起動する前に `RAKAZO_DOCKE
 ## UI の言語
 
 Web（および Electron 内）の UI は、**Settings → Language**（設定 → 言語）で English、Deutsch、한국어、Türkçe、हिन्दी、
-Português (Brasil)、简体中文、Español、Русский、Français、עברית、Nederlands に対応しています。
-Expo アプリには English、简体中文、Русский、Deutsch、Nederlands のカタログが含まれ、
-**Account → Language**（アカウント → 言語）にこの 5 つが表示されます。保存された選択がない場合は、デバイスの言語または
+Português (Brasil)、简体中文、Español、Русский、Français、עברית、Nederlands、日本語 に対応しています。
+Expo アプリには English、简体中文、Русский、Deutsch、Nederlands、日本語 のカタログが含まれ、
+**Account → Language**（アカウント → 言語）にこの 6 つが表示されます。保存された選択がない場合は、デバイスの言語または
 `EXPO_PUBLIC_DEFAULT_UI_LOCALE` が最初のカタログを決めます。
 マーケティング用ホームページ（`apps/www`）は、フッターの言語リンクから en/de/ko/zh/ja で表示できます（`/`、`/de/`、
 `/ko/`、`/zh/`、`/ja/`）。その他のマーケティングページは英語のままです。ロシア語のマーケティング用ホームページと、
