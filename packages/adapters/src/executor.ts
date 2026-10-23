@@ -118,7 +118,7 @@ import {
   stableJsonValue,
   toolEffectIdempotencyKey,
 } from "@rakazo/core/node/approval-effect-key";
-import type { McpServer, PrismaClient, ThreadEvents } from "@rakazo/db";
+import type { McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
   countUnreadInboxChats,
@@ -131,7 +131,6 @@ import {
   isTooManyDatabaseConnections,
   loadRunHistoryMessages,
   loadRunTurnCheckpoint,
-  Prisma,
   parseComputerMode,
   RUN_TURN_CHECKPOINT_KIND,
   RunHistoryWriteError,
@@ -371,6 +370,7 @@ import {
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
+import { findPendingRoutineTick, routineTimerNonce } from "./routine-coalescing.js";
 import { routineTaskInstructions, tickRoutineWatch } from "./routine-watch.js";
 import { lazyRunComputer } from "./run-computer.js";
 import {
@@ -3311,7 +3311,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
               new Date(Date.now()),
               routine.timezone,
             );
-      const previousLastRunAt = routine.lastRunAt;
       const skillRecords = await listAgentSkillRecords(deps.prisma, {
         spaceId: routine.spaceId,
         userId: routine.userId,
@@ -3341,6 +3340,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
           select: { modelProvider: true, modelId: true, thinkingLevel: true },
         });
         if (!currentModel) return null;
+        const timerTick = routine.watch == null && !isOneShotRoutineCrons(routine.crons);
+        if (timerTick) {
+          const pending = await findPendingRoutineTick(tx, {
+            routineId: routine.id,
+            spaceId: routine.spaceId,
+            botId: bot.id,
+            userId: routine.userId,
+            threadId: thread.id,
+            prompt: routinePrompt,
+            ...routineRunModelPin(currentModel),
+          });
+          if (pending) return { ...pending, coalesced: true };
+        }
         const task = await tx.task.create({
           data: {
             spaceId: routine.spaceId,
@@ -3351,7 +3363,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             status: "queued",
           },
         });
-        return tx.run.create({
+        const run = await tx.run.create({
           data: {
             spaceId: routine.spaceId,
             botId: bot.id,
@@ -3361,51 +3373,50 @@ export function createRunExecutor(deps: ExecutorDeps) {
             status: "queued",
             trigger: "routine",
             routineId: routine.id,
+            ...(timerTick ? { clientNonce: routineTimerNonce(routine.id, scheduledFor) } : {}),
             ...routineRunModelPin(currentModel),
           },
         });
+        return { ...run, coalesced: false };
       });
       if (!claimed) return;
+      if ("cancelledEvents" in claimed && claimed.cancelledEvents) {
+        for (const event of claimed.cancelledEvents) {
+          await deps.events.notify(event.threadId, event.seq).catch(() => undefined);
+        }
+      }
       // Enqueue continuation first so a thread-signal failure cannot strand the run.
       try {
-        await deps.jobs.enqueue(runContinueJob(claimed.id));
-      } catch (error) {
-        // Restore the claim so wakeup retry / routine reconciliation can fire again.
-        await deps.prisma.$transaction(async (tx) => {
-          await tx.run.deleteMany({
-            where: { id: claimed.id, status: "queued" },
-          });
-          await tx.task.deleteMany({
-            where: { id: claimed.taskId, status: "queued" },
-          });
-          await tx.routine.updateMany({
-            where: {
-              id: routine.id,
-              nextRunAt,
-              ...(nextRunAt ? {} : { active: false }),
-            },
-            data: {
-              nextRunAt: scheduledAt,
-              active: true,
-              lastRunAt: previousLastRunAt,
-              // Put the old fingerprint back too, or the retry would see no change.
-              ...(watchTick?.run
-                ? { watchState: (routine.watchState as Prisma.InputJsonValue) ?? Prisma.DbNull }
-                : {}),
-            },
-          });
+        await deps.jobs.enqueue({
+          ...runContinueJob(claimed.id),
+          ...(claimed.coalesced ? { keepExisting: true } : {}),
         });
-        throw error;
+      } catch (error) {
+        // The committed run and advanced schedule are the durable source of
+        // truth. Another tick or dispatcher may already own them; recovery scans
+        // repair missed notifications without rolling back committed work.
+        getLogger().warn("routine.run_wakeup_failed", {
+          "routine.id": routine.id,
+          "run.id": claimed.id,
+          error: sanitizedError(error),
+        });
+      }
+      if (claimed.coalesced) {
+        getLogger().info("routine.coalesced", {
+          "routine.id": routine.id,
+          "run.id": claimed.id,
+        });
       }
       try {
-        await deps.events.append({
-          spaceId: routine.spaceId,
-          threadId: thread.id,
-          botId: bot.id,
-          type: "routine.fired",
-          runId: claimed.id,
-          payload: { routineId: routine.id, scheduledFor },
-        });
+        if (!claimed.coalesced)
+          await deps.events.append({
+            spaceId: routine.spaceId,
+            threadId: thread.id,
+            botId: bot.id,
+            type: "routine.fired",
+            runId: claimed.id,
+            payload: { routineId: routine.id, scheduledFor },
+          });
       } catch {
         // Best effort: the run is already queued.
       }

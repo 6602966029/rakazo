@@ -469,6 +469,20 @@ export function selectContext<T extends ContextMessage>(
   const fixed = fixedTokens(options.budget);
   const available = Math.floor(options.budget.contextWindow - options.budget.outputReserve - fixed);
   const groups = messageGroups(messages, options.budget.imageTokens);
+  // Pi can carry mandatory instructions and tool schemas in system messages.
+  // A new conversation cannot make either representation fit a smaller model.
+  const requiredFixed =
+    fixed +
+    groups
+      .filter((group) => messages[group.indexes[0]!]!.role === "system")
+      .reduce((total, group) => total + group.tokens, 0);
+  if (requiredFixed > options.budget.contextWindow - options.budget.outputReserve) {
+    throw new ContextBudgetError(
+      requiredFixed,
+      options.budget.contextWindow - options.budget.outputReserve,
+      true,
+    );
+  }
   // A result followed by any assistant message has been read, with or without a later tool call.
   const latestAssistant = messages.findLastIndex((message) => message.role === "assistant");
   const protectedIndexes = new Set(options.protectedIndexes ?? []);

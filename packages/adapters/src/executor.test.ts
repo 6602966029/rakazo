@@ -1915,7 +1915,7 @@ describe("createRunExecutor", () => {
             })),
           },
           task: { create: taskCreate },
-          run: { create: runCreate },
+          run: { create: runCreate, findMany: vi.fn(async () => []) },
         }),
       ),
     } as unknown as PrismaClient;
@@ -1984,7 +1984,7 @@ describe("createRunExecutor", () => {
             })),
           },
           task: { create: taskCreate },
-          run: { create: runCreate },
+          run: { create: runCreate, findMany: vi.fn(async () => []) },
         }),
       ),
     } as unknown as PrismaClient;
@@ -2059,7 +2059,7 @@ describe("createRunExecutor", () => {
               findUnique: vi.fn(async () => claimedModel),
             },
             task: { create: taskCreate },
-            run: { create: runCreate },
+            run: { create: runCreate, findMany: vi.fn(async () => []) },
           }),
         ),
       } as unknown as PrismaClient;
@@ -2209,7 +2209,7 @@ describe("createRunExecutor", () => {
             })),
           },
           task: { create: taskCreate },
-          run: { create: runCreate },
+          run: { create: runCreate, findMany: vi.fn(async () => []) },
         }),
       ),
     } as unknown as PrismaClient;
@@ -2281,7 +2281,7 @@ describe("createRunExecutor", () => {
             })),
           },
           task: { create: taskCreate },
-          run: { create: runCreate },
+          run: { create: runCreate, findMany: vi.fn(async () => []) },
         }),
       ),
     } as unknown as PrismaClient;
@@ -2447,7 +2447,7 @@ description: Prepare standup notes
     expect(cancel).toHaveBeenCalledWith("routine:routine-1");
   });
 
-  it("restores the routine claim when run.continue enqueue fails", async () => {
+  it("preserves the committed one-shot when run.continue enqueue fails", async () => {
     const scheduledAt = new Date(Date.now() - 1_000);
     const previousLastRunAt = new Date(Date.now() - 60_000);
     const enqueue = vi.fn(async () => {
@@ -2511,21 +2511,11 @@ description: Prepare standup notes
       events: { append: vi.fn(async () => undefined) },
     } as unknown as Parameters<typeof createRunExecutor>[0]);
 
-    await expect(executor.wakeRoutine("routine-1", scheduledAt.toISOString())).rejects.toThrow(
-      "enqueue failed",
-    );
-    expect(deleteRunMany).toHaveBeenCalledWith({ where: { id: "run-1", status: "queued" } });
-    expect(deleteTaskMany).toHaveBeenCalledWith({ where: { id: "task-1", status: "queued" } });
-    expect(restoreUpdateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: "routine-1", active: false, nextRunAt: null }),
-        data: expect.objectContaining({
-          nextRunAt: scheduledAt,
-          active: true,
-          lastRunAt: previousLastRunAt,
-        }),
-      }),
-    );
+    await executor.wakeRoutine("routine-1", scheduledAt.toISOString());
+    expect(deleteRunMany).not.toHaveBeenCalled();
+    expect(deleteTaskMany).not.toHaveBeenCalled();
+    expect(restoreUpdateMany).not.toHaveBeenCalled();
+    expect(claimUpdateMany).toHaveBeenCalledTimes(1);
   });
 
   it("consumes a persisted takeover checkpoint when claiming the run", async () => {

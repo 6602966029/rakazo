@@ -32,6 +32,16 @@ describe("bounded context selection", () => {
     expect(selected.estimatedInputTokens).toBeLessThan(budget.contextWindow - budget.outputReserve);
     expect(selected.estimatedInputTokens).toBeGreaterThan(estimateContextTokens(user("current")));
   });
+  it("counts mandatory system-message context before trying to shorten conversation history", () => {
+    const messages = [{ role: "system", content: "x".repeat(3000) }, user("A short request")];
+    expect(() => selectContext(messages, { budget, strategy: "retrieval" })).toThrow(
+      MODEL_CONTEXT_TOO_SMALL_ERROR,
+    );
+    expect(messages).toEqual([
+      { role: "system", content: "x".repeat(3000) },
+      user("A short request"),
+    ]);
+  });
   it("does not budget unknown images as zero or count local-only Pi metadata", () => {
     const image = {
       role: "user",
