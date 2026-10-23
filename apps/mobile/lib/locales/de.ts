@@ -1,6 +1,6 @@
 export const DE_MESSAGES: Record<string, string> = {
-  "Allow cross-space bot communication":
-    "Kommunikation zwischen Bots in verschiedenen Spaces erlauben",
+  "Ollama Cloud": "Ollama Cloud",
+  "Ollama API key": "Ollama API-Schlüssel",
   "Show password": "Passwort anzeigen",
   "Hide password": "Passwort verbergen",
   Export: "Exportieren",
@@ -29,6 +29,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Search bots": "Bots suchen",
   "About {label}": "Über {label}",
   "Manage the bots it creates": "Die von ihm erstellten Bots verwalten",
+  "Allow cross-space bot communication":
+    "Kommunikation zwischen Bots in verschiedenen Spaces erlauben",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
     "Ordne die Seitenleiste und bearbeite Bots. Änderungen an Gruppen, Anweisungen, Modellen und Routinen brauchen deine Zustimmung.",
 
@@ -984,9 +986,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Continue with credits": "Mit Guthaben fortfahren",
   "Add credits": "Guthaben hinzufügen",
   "Manage billing": "Abrechnung verwalten",
-  "Your API key": "Dein API-Schlüssel",
-  "Free. Pay your model provider directly.": "Kostenlos. Bezahle deinen Modellanbieter direkt.",
-  "Use my API key": "Meinen API-Schlüssel verwenden",
+  "Your subscription or API key": "Dein Abo oder API-Schlüssel",
+  "Free. ChatGPT, Claude, or any model provider.":
+    "Kostenlos. ChatGPT, Claude oder ein beliebiger Modellanbieter.",
+  "Use my subscription or API key": "Mein Abo oder meinen API-Schlüssel verwenden",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Monatliches Guthaben verfällt bei Verlängerung. Einmalige Aufladungen verfallen nicht.",
   "Use Rakazo credits": "Rakazo-Guthaben verwenden",

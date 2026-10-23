@@ -32,6 +32,7 @@ import {
   anySignal,
   attachmentsForThread,
   buildComposerMentionOptions,
+  chatUserBubbleColors,
   createChatQueues,
   dismissableAskMessageIds,
   foldPeerReplies,
@@ -781,6 +782,10 @@ function SpaceShell() {
 
   const inGroup = Boolean(groupId);
   const active = inGroup ? undefined : (bots.find((b) => b.id === botId) ?? bots[0]);
+  const userBubble = useMemo(
+    () => (active ? chatUserBubbleColors(active.color, active.id) : undefined),
+    [active?.color, active?.id],
+  );
   const computerBot =
     (computerBotId ? bots.find((bot) => bot.id === computerBotId) : undefined) ?? active;
   computerOpenRef.current = computerOpen;
@@ -3509,6 +3514,7 @@ function SpaceShell() {
             dismissableAskIds={dismissableAskIds}
             running={transcriptRunning}
             workingBots={workingBots}
+            userBubble={userBubble}
             onCallBack={
               bootstrapMe?.phoneCallsEnabled && !inGroup && active
                 ? () => callBot(active)

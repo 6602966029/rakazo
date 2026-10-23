@@ -142,6 +142,7 @@ import {
   validateRoutineWatch,
   verifyCatalogProviderApiKey,
   verifyMcpInstall,
+  verifyOpenAiCompatibleApiKey,
 } from "@rakazo/adapters";
 import type { Auth } from "@rakazo/auth";
 import type {
@@ -168,6 +169,7 @@ import {
   canonicalPiProviderId,
   foldComputerCommands,
   isDeletableMemoryDocument,
+  isOllamaCloudBaseUrl,
   mcpOAuthEnvReferences,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   parseTicketRef,
@@ -475,6 +477,9 @@ function concreteKeepAccountIds(
   }
   return { keepIds, canRevokeUnreferenced };
 }
+
+/** Connection flows hold the provider lock across provider calls (45s budget plus database work). */
+const PROVIDER_LOCK_TRANSACTION_MS = 60_000;
 
 async function lockProviderConnectionScope(
   tx: Prisma.TransactionClient,
@@ -1532,6 +1537,12 @@ export function createRouter(deps: RouterDeps) {
             omitVisionModelIds,
             allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
           });
+          if (input.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
+            const saved = parseModelSecret(plaintext);
+            if (saved.kind === "openai_compatible") {
+              await verifyOpenAiCompatibleApiKey(saved, deps.modelConnectionFetch, context.signal);
+            }
+          }
           if (input.apiKey?.trim()) {
             await verifyCatalogProviderApiKey(
               { provider: input.provider, apiKey: input.apiKey },
@@ -1627,7 +1638,7 @@ export function createRouter(deps: RouterDeps) {
           try {
             const models = await probeOpenAiCompatibleModels(
               { ...input, apiKey, headers },
-              undefined,
+              isOllamaCloudBaseUrl(input.baseUrl) ? deps.modelConnectionFetch : undefined,
               context.signal,
               { allowPrivate: mayUsePrivateEndpoint(deps) },
             );
@@ -5219,41 +5230,45 @@ export function createRouter(deps: RouterDeps) {
         }
         // Share the revoke scope lock so a slug-wide remote delete cannot miss a
         // row that is inserted after SELECT FOR UPDATE and before remote revoke.
-        const row = await deps.prisma.$transaction(async (tx) => {
-          await lockProviderConnectionScope(tx, context.actor, input.connectorId, input.provider);
-          const existing = await tx.connection.findMany({
-            where: {
-              spaceId: context.actor.spaceId,
-              userId: context.actor.userId,
-              connectorId: input.connectorId,
-              provider: input.provider,
-            },
-            select: { id: true, status: true },
-            orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-          });
-          const reusable = pickReusableConnection(existing);
-          if (reusable) {
-            return tx.connection.update({
-              where: { id: reusable.id },
+        // Complete and revoke hold that lock across provider calls, so wait as long as they may.
+        const row = await deps.prisma.$transaction(
+          async (tx) => {
+            await lockProviderConnectionScope(tx, context.actor, input.connectorId, input.provider);
+            const existing = await tx.connection.findMany({
+              where: {
+                spaceId: context.actor.spaceId,
+                userId: context.actor.userId,
+                connectorId: input.connectorId,
+                provider: input.provider,
+              },
+              select: { id: true, status: true },
+              orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+            });
+            const reusable = pickReusableConnection(existing);
+            if (reusable) {
+              return tx.connection.update({
+                where: { id: reusable.id },
+                data: {
+                  displayName: input.displayName,
+                  status: "pending",
+                  providerRef: null,
+                  metadata: {},
+                },
+              });
+            }
+            return tx.connection.create({
               data: {
+                spaceId: context.actor.spaceId,
+                userId: context.actor.userId,
+                connectorId: input.connectorId,
+                provider: input.provider,
                 displayName: input.displayName,
                 status: "pending",
-                providerRef: null,
-                metadata: {},
               },
             });
-          }
-          return tx.connection.create({
-            data: {
-              spaceId: context.actor.spaceId,
-              userId: context.actor.userId,
-              connectorId: input.connectorId,
-              provider: input.provider,
-              displayName: input.displayName,
-              status: "pending",
-            },
-          });
-        });
+          },
+          { timeout: PROVIDER_LOCK_TRANSACTION_MS },
+        );
         try {
           const auth = await connector.begin(
             { provider: input.provider, redirectUrl: `${deps.env.webOrigin}/app` },
@@ -5261,23 +5276,31 @@ export function createRouter(deps: RouterDeps) {
           );
           // Re-take the provider lock and only advance still-pending rows so a
           // concurrent revoke cannot be overwritten back to pending/connected.
-          const applied = await deps.prisma.$transaction(async (tx) => {
-            await lockProviderConnectionScope(tx, context.actor, input.connectorId, input.provider);
-            const updated = await tx.connection.updateMany({
-              where: {
-                id: row.id,
-                spaceId: context.actor.spaceId,
-                userId: context.actor.userId,
-                status: "pending",
-              },
-              data: {
-                status: auth.authorizationUrl ? "pending" : "connected",
-                providerRef: auth.state || null,
-                metadata: { state: auth.state },
-              },
-            });
-            return updated.count > 0;
-          });
+          const applied = await deps.prisma.$transaction(
+            async (tx) => {
+              await lockProviderConnectionScope(
+                tx,
+                context.actor,
+                input.connectorId,
+                input.provider,
+              );
+              const updated = await tx.connection.updateMany({
+                where: {
+                  id: row.id,
+                  spaceId: context.actor.spaceId,
+                  userId: context.actor.userId,
+                  status: "pending",
+                },
+                data: {
+                  status: auth.authorizationUrl ? "pending" : "connected",
+                  providerRef: auth.state || null,
+                  metadata: { state: auth.state },
+                },
+              });
+              return updated.count > 0;
+            },
+            { timeout: PROVIDER_LOCK_TRANSACTION_MS },
+          );
           if (applied && !auth.authorizationUrl) {
             await recordSecurityEvent(
               connectionCreatedEvent("connections.begin", row.id, context.actor),
@@ -5385,7 +5408,7 @@ export function createRouter(deps: RouterDeps) {
                       if (!canRevokeUnreferenced) return;
                       await revokeUnreferenced(input.provider, keepIds, adapterContext);
                     },
-                    { timeout: 60_000 },
+                    { timeout: PROVIDER_LOCK_TRANSACTION_MS },
                   )
                   .catch(() => undefined);
               }
@@ -5734,7 +5757,7 @@ export function createRouter(deps: RouterDeps) {
               if (!next) throw new IsolationError();
               return next;
             },
-            { timeout: 60_000 },
+            { timeout: PROVIDER_LOCK_TRANSACTION_MS },
           );
         }
         // Clients poll this procedure, so it records the credential once, on the transition.
@@ -5924,7 +5947,7 @@ export function createRouter(deps: RouterDeps) {
               previousStatus: row.status,
             };
           },
-          { timeout: 60_000 },
+          { timeout: PROVIDER_LOCK_TRANSACTION_MS },
         );
 
         if (outcome.remote) {

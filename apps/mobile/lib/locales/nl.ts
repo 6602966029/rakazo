@@ -1,6 +1,6 @@
 export const NL_MESSAGES: Record<string, string> = {
-  "Allow cross-space bot communication":
-    "Communicatie tussen bots in verschillende ruimtes toestaan",
+  "Ollama Cloud": "Ollama Cloud",
+  "Ollama API key": "Ollama API-sleutel",
   "Show password": "Wachtwoord tonen",
   "Hide password": "Wachtwoord verbergen",
   Export: "Exporteren",
@@ -29,6 +29,8 @@ export const NL_MESSAGES: Record<string, string> = {
   "Search bots": "Bots zoeken",
   "About {label}": "Over {label}",
   "Manage the bots it creates": "De bots beheren die deze bot maakt",
+  "Allow cross-space bot communication":
+    "Communicatie tussen bots in verschillende ruimtes toestaan",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
     "Orden de zijbalk en bewerk bots. Wijzigingen aan groepen, instructies, modellen en routines vereisen je goedkeuring.",
 
@@ -940,9 +942,10 @@ export const NL_MESSAGES: Record<string, string> = {
   "Continue with credits": "Doorgaan met tegoed",
   "Add credits": "Tegoed toevoegen",
   "Manage billing": "Facturering beheren",
-  "Your API key": "Je API-sleutel",
-  "Free. Pay your model provider directly.": "Gratis. Betaal je modelaanbieder rechtstreeks.",
-  "Use my API key": "Mijn API-sleutel gebruiken",
+  "Your subscription or API key": "Je abonnement of API-sleutel",
+  "Free. ChatGPT, Claude, or any model provider.":
+    "Gratis. ChatGPT, Claude of elke modelaanbieder.",
+  "Use my subscription or API key": "Mijn abonnement of API-sleutel gebruiken",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Maandelijks tegoed vervalt bij verlenging. Los gekocht tegoed verloopt niet.",
   "Use Rakazo credits": "Rakazo-tegoed gebruiken",

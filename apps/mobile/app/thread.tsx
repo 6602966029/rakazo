@@ -22,6 +22,7 @@ import {
   attachmentsForThread,
   buildComposerMentionOptions,
   canMarkMessageUnread,
+  chatUserBubbleColors,
   cloudAgentHttpsUrl,
   createChatQueues,
   dismissableAskMessageIds,
@@ -39,6 +40,7 @@ import {
   isSecretAskBlock,
   jumpTargetId,
   leaveThreadWindow,
+  liveActivityLine,
   liveMessageComposing,
   openThreadWindow,
   plainTextFromMarkdown,
@@ -256,6 +258,8 @@ import type { ThreadScrollAction, ThreadScrollState } from "../lib/thread-scroll
 import { latestArrivalMessageId, ThreadScrollBehavior } from "../lib/thread-scroll";
 import { reconcileVisibleThreadSnapshot } from "../lib/thread-snapshot";
 import { prepareUnsentSends } from "../lib/unsent-sends";
+import type { UserBubble } from "../lib/user-bubble";
+import { withUserBubble } from "../lib/user-bubble";
 import { errorText } from "../lib/user-error";
 import { speakQueue, speakText } from "../lib/voice";
 import {
@@ -763,7 +767,16 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const notificationThreadId = snap?.threadId ?? requestedThreadId ?? currentBot?.threadId;
   activeThreadId.current = notificationThreadId;
   const currentBotStatus = snap ? snap.run?.status : currentBot?.status;
-  const hasLiveProgress = visibleMessages.some((message) => message.id.startsWith("progress:"));
+  // Only reply text being written replaces the footer; earlier sentences above a tool call don't.
+  const hasLiveProgress = visibleMessages.some(
+    (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
+  );
+  const activityLine = liveActivityLine(snap?.messages ?? []);
+  const userBubble = useMemo(
+    () =>
+      !inGroup && currentBot ? chatUserBubbleColors(currentBot.color, currentBot.id) : undefined,
+    [inGroup, currentBot?.color, currentBot?.id],
+  );
   const activeGroupBots = useMemo(() => {
     if (!inGroup) return [];
     const seen = new Set<string>();
@@ -2483,6 +2496,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           activityBotId={activityBotId}
           activityColor={activityBot?.color}
           activityStatus={activityStatus}
+          userBubble={userBubble}
           inGroup={inGroup}
           columnWidth={columnWidth}
           enableJump={options?.enableJump ?? false}
@@ -2506,6 +2520,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       groupId,
       currentBot,
       currentBotStatus,
+      userBubble,
       rowActions,
       readOnly,
       onCall,
@@ -2571,6 +2586,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
             },
           ]}
           atBottom={!threadScrollState.detached}
+          label={activityLine ?? t("Working…")}
         />
       </View>
     ) : inGroup && workingGroupBots.length > 0 ? (
@@ -2591,6 +2607,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
             composing: composingBots.split(",").includes(bot.botId),
           }))}
           atBottom={!threadScrollState.detached}
+          label={activityLine ?? t("Working…")}
         />
       </View>
     ) : null;
@@ -2602,12 +2619,18 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         onPress={() => void loadOlderMessages()}
         style={{
           alignSelf: "center",
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 8,
           paddingHorizontal: 12,
           paddingVertical: 10,
         }}
       >
+        {loadingOlder ? (
+          <ActivityIndicator color={tokens.mutedForeground} accessibilityLabel={t("Loading…")} />
+        ) : null}
         <Text style={{ color: tokens.mutedForeground, fontSize: 13 }}>
-          {loadingOlder ? t("Loading…") : t("Load earlier messages")}
+          {t("Load earlier messages")}
         </Text>
       </Pressable>
     ) : null;
@@ -2619,6 +2642,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       needsModel={needsModel}
       onRetry={() => void deliver(attempt, true)}
       onDelete={() => feedback.discard(attempt)}
+      userBubble={userBubble}
     />
   ));
 
@@ -3284,6 +3308,7 @@ type MessageRowProps = {
   activityBotId?: string;
   activityColor?: string;
   activityStatus?: MobileBot["status"];
+  userBubble?: UserBubble;
   inGroup: boolean;
   columnWidth: number;
   enableJump: boolean;
@@ -3324,6 +3349,7 @@ const MessageRow = memo(function MessageRow({
   activityBotId,
   activityColor,
   activityStatus,
+  userBubble,
   inGroup,
   columnWidth,
   enableJump,
@@ -3624,6 +3650,7 @@ const MessageRow = memo(function MessageRow({
                 onTogglePeerReplies={actions.togglePeerReplies}
                 onOpenPeerChat={actions.openPeerChat}
                 actionProps={actionProps}
+                userBubble={userBubble}
               />
             </ThreadReadOnlyContext.Provider>
           </MessageContextMenu>
@@ -3681,6 +3708,7 @@ const MessageBubble = memo(function MessageBubble({
   onTogglePeerReplies,
   onOpenPeerChat,
   actionProps,
+  userBubble,
 }: {
   botId: string;
   botName?: string;
@@ -3706,9 +3734,10 @@ const MessageBubble = memo(function MessageBubble({
   onTogglePeerReplies: (markerId: string) => void;
   onOpenPeerChat: (peer: { peerBotId: string; peerBotName: string }) => void;
   actionProps: MessageActionProps;
+  userBubble?: UserBubble;
 }) {
   const colorScheme = useResolvedAppearance();
-  const tokens = mobileTokens();
+  const tokens = withUserBubble(mobileTokens(), userBubble);
   const { t } = useI18n();
   const [peerExpanded, setPeerExpanded] = useState(false);
   const artifactTarget: MobileArtifactTarget = groupId ? { groupId } : { botId };
@@ -4369,6 +4398,7 @@ const MessageBubble = memo(function MessageBubble({
           speaker={showBotSenderName && index === firstContent ? speaker : undefined}
           speakerColor={showBotSenderName && index === firstContent ? speakerColor : undefined}
           actionProps={actionProps}
+          userBubble={userBubble}
         />
       ))}
       {choiceBlocks.map((block, index) => (
@@ -4412,14 +4442,16 @@ function MessageTextCard({
   speaker,
   speakerColor,
   actionProps,
+  userBubble,
 }: {
   message: MobileMessage;
   speaker?: string;
   speakerColor?: string;
   actionProps: MessageActionProps;
+  userBubble?: UserBubble;
 }) {
   const colorScheme = useResolvedAppearance();
-  const tokens = mobileTokens();
+  const tokens = withUserBubble(mobileTokens(), userBubble);
   const contentText = blockText(message);
   if (!contentText) return null;
   return (

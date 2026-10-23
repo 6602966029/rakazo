@@ -1,6 +1,7 @@
 import { avatarPhotoDot } from "@rakazo/core";
+import { MAX_FONT_SCALE, typeScale } from "@rakazo/ui-tokens";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import Animated, {
   cancelAnimation,
@@ -41,15 +42,18 @@ const DOTS_RUN_MS = 24 * 60 * 60 * 1000;
 /**
  * The bot at the end of a chat while it works: its avatar moves (or turns into the
  * typing dots while it writes) and plays a little reaction when tapped. It grows in once
- * the chat is scrolled to the newest message.
+ * the chat is scrolled to the newest message. `label` says what it is doing beside it.
  */
 export function ActivityMark({
   bots,
   atBottom,
+  label,
 }: {
   bots: readonly ActivityMarkBot[];
   atBottom: boolean;
+  label?: string;
 }) {
+  const tokens = useMobileTokens();
   const reducedMotion = useReducedMotion();
   // A covered screen or a backgrounded app neither cycles members nor pulses dots.
   const onScreen = useAvatarOnScreen();
@@ -104,6 +108,15 @@ export function ActivityMark({
           )}
         </Animated.View>
       </Animated.View>
+      {label ? (
+        <Text
+          numberOfLines={1}
+          maxFontSizeMultiplier={MAX_FONT_SCALE}
+          style={{ flexShrink: 1, color: tokens.mutedForeground, ...typeScale.secondary }}
+        >
+          {label}
+        </Text>
+      ) : null}
     </Animated.View>
   );
 }

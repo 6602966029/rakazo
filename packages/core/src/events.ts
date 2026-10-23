@@ -349,6 +349,15 @@ export function liveMessageComposing(blocks: readonly MessageBlock[]): boolean {
   );
 }
 
+/** The tool status line the newest live message is showing ("Searching the web: …"), if any. */
+export function liveActivityLine(
+  messages: readonly { id: string; blocks: readonly MessageBlock[] }[],
+): string | undefined {
+  const live = messages.findLast((message) => message.id.startsWith("progress:"));
+  const tail = live?.blocks.at(-1);
+  return (tail?.kind === "progress" && tail.activity && tail.text.trim()) || undefined;
+}
+
 export type ToolStep = { label: string; count: number };
 
 export function appendToolStep(steps: readonly ToolStep[], toolName: string): ToolStep[] {

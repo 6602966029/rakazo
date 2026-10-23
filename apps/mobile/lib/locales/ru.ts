@@ -1,5 +1,6 @@
 export const RU_MESSAGES: Record<string, string> = {
-  "Allow cross-space bot communication": "Разрешить общение ботов из разных пространств",
+  "Ollama Cloud": "Ollama Cloud",
+  "Ollama API key": "API-ключ Ollama",
   "Show password": "Показать пароль",
   "Hide password": "Скрыть пароль",
   Export: "Экспорт",
@@ -28,6 +29,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Search bots": "Поиск ботов",
   "About {label}": "О настройке «{label}»",
   "Manage the bots it creates": "Управлять созданными им ботами",
+  "Allow cross-space bot communication": "Разрешить общение ботов из разных пространств",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
     "Упорядочивайте боковую панель и редактируйте ботов. Изменения групп, инструкций, моделей и процедур требуют вашего одобрения.",
 
@@ -979,9 +981,10 @@ export const RU_MESSAGES: Record<string, string> = {
   "Continue with credits": "Продолжить с кредитами",
   "Add credits": "Пополнить кредиты",
   "Manage billing": "Управление оплатой",
-  "Your API key": "Ваш API-ключ",
-  "Free. Pay your model provider directly.": "Бесплатно. Оплачивайте модель напрямую провайдеру.",
-  "Use my API key": "Использовать свой API-ключ",
+  "Your subscription or API key": "Ваша подписка или API-ключ",
+  "Free. ChatGPT, Claude, or any model provider.":
+    "Бесплатно. ChatGPT, Claude или любой провайдер моделей.",
+  "Use my subscription or API key": "Использовать свою подписку или API-ключ",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Ежемесячные кредиты истекают при продлении. Разовые пополнения не сгорают.",
   "Use Rakazo credits": "Использовать кредиты Rakazo",

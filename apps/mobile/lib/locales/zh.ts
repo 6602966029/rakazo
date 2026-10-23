@@ -1,5 +1,6 @@
 export const ZH_MESSAGES: Record<string, string> = {
-  "Allow cross-space bot communication": "允许跨空间机器人通信",
+  "Ollama Cloud": "Ollama Cloud",
+  "Ollama API key": "Ollama API 密钥",
   "Show password": "显示密码",
   "Hide password": "隐藏密码",
   Export: "导出",
@@ -28,6 +29,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Search bots": "搜索 Bot",
   "About {label}": "关于{label}",
   "Manage the bots it creates": "管理它创建的机器人",
+  "Allow cross-space bot communication": "允许跨空间机器人通信",
   "Organize the sidebar and edit bots. Instruction, model, routine and group edits need approval.":
     "整理侧边栏并编辑机器人。更改群组、指令、模型和例行任务需要你的批准。",
 
@@ -946,9 +948,9 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Continue with credits": "使用额度继续",
   "Add credits": "充值",
   "Manage billing": "管理账单",
-  "Your API key": "你的 API 密钥",
-  "Free. Pay your model provider directly.": "免费。模型费用直接付给提供商。",
-  "Use my API key": "使用我的 API 密钥",
+  "Your subscription or API key": "你的订阅或 API 密钥",
+  "Free. ChatGPT, Claude, or any model provider.": "免费。ChatGPT、Claude 或任意模型提供商。",
+  "Use my subscription or API key": "使用我的订阅或 API 密钥",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "每月额度在续费时到期。单次充值额度不会过期。",
   "Use Rakazo credits": "使用 Rakazo 额度",
