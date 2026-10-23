@@ -92,7 +92,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ComputerMaintenanceActions } from "../components/ComputerMaintenanceActions";
 import { computersAreUnavailable } from "../components/ComputersUnavailableHint";
 import { ComputerUpdateProgress } from "../components/ComputerUpdateProgress";
@@ -231,8 +231,6 @@ import { useRoutineEditor } from "./shell/use-routine-editor";
 import { useSidebarExpansion } from "./shell/use-sidebar-expansion";
 import type { SettingsSection, ShellOverlay } from "./shell-overlay";
 import {
-  isOverlayEntry,
-  OVERLAY_ENTRY_STATE,
   readShellOverlay,
   searchString,
   shellOverlaySearch,
@@ -499,18 +497,10 @@ function SpaceShell() {
   function updateSnapshot(update: (prev: ThreadSnapshot | null) => ThreadSnapshot | null) {
     commitSnapshot(update(snapshotRef.current));
   }
-  const location = useLocation();
   const overlay = readShellOverlay(searchParams);
-  /** Opening pushes a history entry so Back closes it; switching or closing reuses that entry. */
+  // Overlays replace the URL rather than adding history, so opening and closing never race a navigation.
   function setOverlay(next: ShellOverlay) {
-    const pushed = isOverlayEntry(location.state);
-    if (!next && pushed) {
-      navigate(-1);
-      return;
-    }
-    const search = searchString(withShellOverlay(searchParams, next));
-    if (next && !overlay) navigate({ search }, { state: OVERLAY_ENTRY_STATE });
-    else navigate({ search }, { replace: true, state: next ? location.state : null });
+    navigate({ search: searchString(withShellOverlay(searchParams, next)) }, { replace: true });
   }
   const [messagingSurfaceEnabled, setMessagingSurfaceEnabled] = useState(false);
   const [messagingProviders, setMessagingProviders] = useState<string[]>([]);

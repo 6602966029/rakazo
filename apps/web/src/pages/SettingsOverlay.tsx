@@ -255,9 +255,11 @@ export function SettingsOverlay({
     await onVoiceStatusMaybeChanged?.();
   }
 
+  // Leaving is immediate, so the URL updates in the same tick; voice readiness refreshes behind it.
   function leaveSettings(next: () => void) {
     if (panelBusy) return;
-    void refreshVoiceStatus().finally(next);
+    void refreshVoiceStatus();
+    next();
   }
 
   function requestClose() {

@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  isOverlayEntry,
-  OVERLAY_ENTRY_STATE,
   readShellOverlay,
   searchString,
   shellOverlaySearch,
@@ -77,13 +75,5 @@ describe("shellOverlaySearch", () => {
       "?settings=voice",
     );
     expect(shellOverlaySearch(new URLSearchParams("?routine=r_1"))).toBe("");
-  });
-});
-
-describe("isOverlayEntry", () => {
-  it("recognizes only the entry an overlay pushed", () => {
-    expect(isOverlayEntry(OVERLAY_ENTRY_STATE)).toBe(true);
-    expect(isOverlayEntry(null)).toBe(false);
-    expect(isOverlayEntry({ other: true })).toBe(false);
   });
 });

@@ -254,7 +254,7 @@ test("Honcho memory settings empty and filled", async ({ page }, testInfo) => {
   await captureScreenshot(page, testInfo, "memory-dark-bottom");
 });
 
-test("shell overlays open from the URL and Back closes them", async ({ page }, testInfo) => {
+test("shell overlays open from the URL and keep it in sync", async ({ page }, testInfo) => {
   await signup(page, `settings-url-${Date.now()}@rakazo.test`, "password12", "Settings");
   await completeOnboarding(page);
   const botPath = new URL(page.url()).pathname;
@@ -274,7 +274,4 @@ test("shell overlays open from the URL and Back closes them", async ({ page }, t
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   await expect(apps).toBeVisible();
   await expect(page).toHaveURL((url) => url.searchParams.has("integrations"));
-  await page.goBack();
-  await expect(apps).toHaveCount(0);
-  await expect(page).toHaveURL((url) => url.pathname === botPath && url.search === "");
 });

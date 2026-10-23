@@ -64,14 +64,3 @@ export function searchString(params: URLSearchParams): string {
 export function shellOverlaySearch(params: URLSearchParams): string {
   return searchString(withShellOverlay(new URLSearchParams(), readShellOverlay(params)));
 }
-
-/** History state on the entry an overlay pushed, so closing it can go Back instead of stacking. */
-export const OVERLAY_ENTRY_STATE = { shellOverlay: true } as const;
-
-export function isOverlayEntry(state: unknown): boolean {
-  return (
-    typeof state === "object" &&
-    state !== null &&
-    (state as { shellOverlay?: unknown }).shellOverlay === true
-  );
-}
