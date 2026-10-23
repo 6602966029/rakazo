@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import type { BackgroundJobHandlers, JobPublisher } from "@rakazo/adapter-kit";
 import { runContinueJob } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
@@ -17,6 +18,7 @@ import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { InMemoryRealtimeFanout } from "./realtime.js";
 import { RunJobPublisher, RunWorkerHost } from "./run-wakeup.js";
+import { GraphileJobPublisher } from "./wakeup.js";
 
 const url = process.env.DATABASE_URL;
 const describePostgres =
@@ -271,6 +273,30 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
       );
     } finally {
       installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+    }
+  });
+  it("preserves legacy retry instants when the migration session uses a non-UTC timezone", async () => {
+    const run = await createRun();
+    const legacy = new GraphileJobPublisher(db.pool);
+    const due = new Date(Date.now() + 60_000);
+    const migration = readFileSync(
+      new URL(
+        "../../db/prisma/migrations/20261023180000_run_dispatch_timing/migration.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    try {
+      await legacy.enqueue({ ...runContinueJob(run.id), availableAt: due });
+      await system.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe("SET LOCAL TIME ZONE 'America/New_York'");
+        await tx.$executeRawUnsafe(migration.slice(migration.indexOf("DO $$")));
+      });
+      expect((await system.run.findUniqueOrThrow({ where: { id: run.id } })).wakeAt).toEqual(due);
+    } finally {
+      await legacy.cancel(`run:${run.id}`);
+      await legacy.close();
+      await system.run.update({ where: { id: run.id }, data: { status: "completed" } });
     }
   });
 });

@@ -10,7 +10,7 @@ DO $$ BEGIN
     UPDATE runs AS r SET "wakeAt" = scheduled.due
     FROM (
       SELECT coalesce(j.payload->>'runId', j.payload->'payload'->>'runId') AS run_id,
-             max(j.run_at) AS due
+             max(j.run_at) AT TIME ZONE 'UTC' AS due
       FROM graphile_worker._private_jobs j
       JOIN graphile_worker._private_tasks t ON t.id = j.task_id
       WHERE t.identifier IN ('run.continue', 'run.interactive')
