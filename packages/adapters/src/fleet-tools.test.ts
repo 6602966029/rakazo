@@ -340,13 +340,18 @@ describe("prepareFleetRequest update_group", () => {
 });
 
 describe("prepareFleetRequest set_child_bot_model", () => {
-  it("refuses a bot the caller did not create", async () => {
-    const { deps } = fakeFleet(fleet);
+  it("refuses a bot outside the current space", async () => {
+    const { deps } = fakeFleet({
+      ...fleet,
+      bots: fleet.bots.map((bot) =>
+        bot.id === "bot-ops" ? { ...bot, spaceId: "other-space" } : bot,
+      ),
+    });
     expect(
       await prepareFleetRequest(deps, run, "set_child_bot_model", { bot_name: "Ops", clear: true }),
     ).toEqual({
       ok: false,
-      error: "You can only change bots you created. The owner edits the others.",
+      error: 'No bot named "Ops". Call list_fleet and pass bot_id.',
     });
     expect(
       await prepareFleetRequest(deps, run, "set_child_bot_model", {
@@ -591,8 +596,13 @@ describe("prepareFleetRequest create_child_routine", () => {
     });
   });
 
-  it("refuses a bot the caller did not create", async () => {
-    const { deps } = fakeFleet(fleet);
+  it("refuses a bot outside the current space", async () => {
+    const { deps } = fakeFleet({
+      ...fleet,
+      bots: fleet.bots.map((bot) =>
+        bot.id === "bot-ops" ? { ...bot, spaceId: "other-space" } : bot,
+      ),
+    });
     expect(
       await prepareFleetRequest(deps, run, "create_child_routine", {
         bot_id: "bot-ops",
@@ -602,7 +612,7 @@ describe("prepareFleetRequest create_child_routine", () => {
       }),
     ).toEqual({
       ok: false,
-      error: "You can only change bots you created. The owner edits the others.",
+      error: 'No bot with id "bot-ops". Call list_fleet for ids.',
     });
   });
 });
@@ -972,7 +982,7 @@ describe("listFleet", () => {
     });
   });
 
-  it("returns a child's instructions and version, and refuses any other bot", async () => {
+  it("returns instructions and versions for created bots and peers", async () => {
     const { deps } = fakeFleet({
       bots: [
         { id: "bot-self", name: "Designer" },
@@ -993,8 +1003,8 @@ describe("listFleet", () => {
     expect(await listFleet(deps, run, { bot_id: "bot-fresh" })).toMatchObject({
       bot: { id: "bot-fresh", instructions: "Start.", instructionsVersion: "initial" },
     });
-    expect(await listFleet(deps, run, { bot_id: "bot-peer" })).toEqual({
-      error: "You can only change bots you created. The owner edits the others.",
+    expect(await listFleet(deps, run, { bot_id: "bot-peer" })).toMatchObject({
+      bot: { id: "bot-peer", instructions: "Secret plan.", instructionsVersion: "initial" },
     });
     expect(JSON.stringify(await listFleet(deps, run, {}))).not.toContain("Secret plan.");
   });
@@ -1143,17 +1153,19 @@ describe("updateChildBot", () => {
   const child = {
     id: "bot-child",
     name: "Child",
-    parentBotId: "bot-self",
+    parentBotId: null,
     instructions: "Research venues.",
     instructionHistory: [{ id: "version-2" }],
   };
   const bots = [{ id: "bot-self", name: "Designer" }, child, { id: "bot-ops", name: "Ops" }];
 
-  it("refuses a bot the caller did not create and changes nothing", async () => {
-    const { prisma } = fakeFleet({ bots });
+  it("refuses a bot outside the current space and changes nothing", async () => {
+    const { prisma } = fakeFleet({
+      bots: bots.map((bot) => (bot.id === "bot-ops" ? { ...bot, spaceId: "other-space" } : bot)),
+    });
     expect(
       await updateChildBot(writeDeps(prisma), run, { bot_id: "bot-ops", name: "Mine now" }),
-    ).toEqual({ error: "You can only change bots you created. The owner edits the others." });
+    ).toEqual({ error: 'No bot with id "bot-ops". Call list_fleet for ids.' });
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(prisma.bot.update).not.toHaveBeenCalled();
   });
@@ -1235,7 +1247,7 @@ describe("prepareFleetRequest set_child_instructions", () => {
   const child = {
     id: "bot-child",
     name: "Child",
-    parentBotId: "bot-self",
+    parentBotId: null,
     instructions: "Research venues.",
     instructionHistory: [{ id: "version-2" }],
   };
@@ -1323,8 +1335,10 @@ describe("prepareFleetRequest set_child_instructions", () => {
     ).toEqual({ ok: false, error: "instructions must be at most 20000 characters." });
   });
 
-  it("refuses a bot the caller did not create", async () => {
-    const { deps } = fakeFleet({ bots });
+  it("refuses a bot outside the current space", async () => {
+    const { deps } = fakeFleet({
+      bots: bots.map((bot) => (bot.id === "bot-ops" ? { ...bot, spaceId: "other-space" } : bot)),
+    });
     expect(
       await prepareFleetRequest(deps, run, "set_child_instructions", {
         ...edit,
@@ -1332,7 +1346,7 @@ describe("prepareFleetRequest set_child_instructions", () => {
       }),
     ).toEqual({
       ok: false,
-      error: "You can only change bots you created. The owner edits the others.",
+      error: 'No bot with id "bot-ops". Call list_fleet for ids.',
     });
   });
 
@@ -1360,7 +1374,7 @@ describe("setChildInstructions", () => {
   const child = {
     id: "bot-child",
     name: "Child",
-    parentBotId: "bot-self",
+    parentBotId: null,
     instructions: "Research venues.",
     instructionHistory: [{ id: "version-2" }],
   };
@@ -1562,14 +1576,14 @@ describe("createChildRoutine", () => {
     );
   });
 
-  it("refuses a bot that is no longer the caller's child", async () => {
+  it("refuses a bot that moved outside the current space after approval", async () => {
     const { prisma } = fakeFleet({
       bots: fleet.bots.map((bot) =>
-        bot.id === "bot-writer" ? { ...bot, parentBotId: null } : bot,
+        bot.id === "bot-writer" ? { ...bot, spaceId: "other-space" } : bot,
       ),
     });
     expect(await createChildRoutine(writeDeps(prisma), run, canonical)).toEqual({
-      error: "You can only change bots you created. The owner edits the others.",
+      error: 'No bot with id "bot-writer". Call list_fleet for ids.',
     });
     expect(prisma.routine.create).not.toHaveBeenCalled();
   });
@@ -1584,4 +1598,46 @@ describe("createChildRoutine", () => {
     ).toEqual({ error: "One-shot schedules must run in the future." });
     expect(prisma.routine.create).not.toHaveBeenCalled();
   });
+});
+
+describe("space bot management", () => {
+  const target = {
+    id: "peer",
+    name: "Peer",
+    parentBotId: "another-creator",
+    instructions: "Original instructions.",
+    instructionHistory: [{ id: "v1" }],
+    modelProvider: "old-provider",
+    modelId: "old-model",
+  };
+  const requests = [
+    ["set_child_instructions", { instructions: "Updated instructions.", expected_version: "v1" }],
+    ["set_child_bot_model", { clear: true }],
+    ["create_child_routine", { name: "Daily", prompt: "Check in", delayMinutes: 5 }],
+  ] as const;
+
+  it.each(requests)("prepares %s for a peer", async (tool, args) => {
+    const { deps } = fakeFleet({ bots: [target] });
+    expect(
+      await prepareFleetRequest(deps, run, tool, { bot_id: target.id, ...args }),
+    ).toMatchObject({ ok: true });
+  });
+
+  // A teammate's bot in the same shared space is in scope; another space's is not.
+  it.each([{ spaceId: "another-space" }])(
+    "refuses management outside the current space (%j)",
+    async (scope) => {
+      const { deps, prisma } = fakeFleet({ bots: [{ ...target, ...scope }] });
+      for (const [tool, args] of requests) {
+        expect(
+          await prepareFleetRequest(deps, run, tool, { bot_id: target.id, ...args }),
+        ).toMatchObject({ ok: false });
+      }
+      expect(await listFleet(deps, run, { bot_id: target.id })).toHaveProperty("error");
+      expect(
+        await updateChildBot(writeDeps(prisma), run, { bot_id: target.id, name: "Updated" }),
+      ).toHaveProperty("error");
+      expect(prisma.bot.update).not.toHaveBeenCalled();
+    },
+  );
 });
