@@ -153,7 +153,7 @@ msgstr "vor {hours} Std."
 
 #: src/pages/Invite.tsx
 msgid "{inviterName} invited you"
-msgstr ""
+msgstr "{inviterName} hat dich eingeladen"
 
 #: src/lib/relative-time.ts
 msgid "{minutes}m ago"
@@ -320,7 +320,7 @@ msgstr ""
 
 #: src/components/SharedSpaceRules.tsx
 msgid "A bot uses the accounts of whoever messages it, and anyone here can read its reply."
-msgstr ""
+msgstr "Ein Bot nutzt die Konten der Person, die ihm schreibt, und alle hier können seine Antwort lesen."
 
 #: src/pages/RoutineEditor.tsx
 msgid "A command's output"
@@ -2448,7 +2448,7 @@ msgstr "Jede Woche"
 
 #: src/components/SharedSpaceRules.tsx
 msgid "Everyone in this space sees all its chats, bots and memory."
-msgstr ""
+msgstr "Alle in diesem Space sehen alle Chats, Bots und Erinnerungen."
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Executor token"
@@ -2841,7 +2841,7 @@ msgstr "Ungültiger Code"
 
 #: src/components/SpaceMembersSettings.tsx
 msgid "Invite"
-msgstr ""
+msgstr "Einladen"
 
 #: src/components/SpaceMembersSettings.tsx
 msgid "Invite link"
@@ -2849,7 +2849,7 @@ msgstr ""
 
 #: src/components/SpaceMembersSettings.tsx
 msgid "Invite link copied"
-msgstr ""
+msgstr "Einladungslink kopiert"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -2870,11 +2870,11 @@ msgstr "Seine Unterhaltung, Dateien und Routinen werden dauerhaft gelöscht. Von
 
 #: src/pages/Invite.tsx
 msgid "Join"
-msgstr ""
+msgstr "Beitreten"
 
 #: src/pages/Invite.tsx
 msgid "Join {spaceName}"
-msgstr ""
+msgstr "{spaceName} beitreten"
 
 #: src/pages/shell/transcript.tsx
 msgid "Jump to latest"
@@ -2926,7 +2926,7 @@ msgstr ""
 
 #: src/components/SpaceMembersSettings.tsx
 msgid "Leave space"
-msgstr ""
+msgstr "Space verlassen"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
@@ -3140,7 +3140,7 @@ msgstr "Mitglied"
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Members"
-msgstr ""
+msgstr "Mitglieder"
 
 #. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
@@ -5510,7 +5510,7 @@ msgstr "Dein OpenRouter"
 
 #: src/components/SharedSpaceRules.tsx
 msgid "Your other spaces stay private."
-msgstr ""
+msgstr "Deine anderen Spaces bleiben privat."
 
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."

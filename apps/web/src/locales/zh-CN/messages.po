@@ -153,7 +153,7 @@ msgstr "{hours} 小时前"
 
 #: src/pages/Invite.tsx
 msgid "{inviterName} invited you"
-msgstr ""
+msgstr "{inviterName} 邀请了你"
 
 #: src/lib/relative-time.ts
 msgid "{minutes}m ago"
@@ -320,7 +320,7 @@ msgstr "什么都做一点"
 
 #: src/components/SharedSpaceRules.tsx
 msgid "A bot uses the accounts of whoever messages it, and anyone here can read its reply."
-msgstr ""
+msgstr "机器人会使用给它发消息的人的账户，这里的每个人都能看到它的回复。"
 
 #: src/pages/RoutineEditor.tsx
 msgid "A command's output"
@@ -1349,7 +1349,7 @@ msgstr "请确认此浏览器会话可以访问该 URL，然后重新测试。"
 
 #: src/pages/SettingsOverlay.tsx
 msgid "Confirmations"
-msgstr ""
+msgstr "确认"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
@@ -2448,7 +2448,7 @@ msgstr "每周"
 
 #: src/components/SharedSpaceRules.tsx
 msgid "Everyone in this space sees all its chats, bots and memory."
-msgstr ""
+msgstr "此空间中的每个人都能看到其中所有的聊天、机器人和记忆。"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Executor token"
@@ -2841,7 +2841,7 @@ msgstr "验证码无效"
 
 #: src/components/SpaceMembersSettings.tsx
 msgid "Invite"
-msgstr ""
+msgstr "邀请"
 
 #: src/components/SpaceMembersSettings.tsx
 msgid "Invite link"
@@ -2849,7 +2849,7 @@ msgstr ""
 
 #: src/components/SpaceMembersSettings.tsx
 msgid "Invite link copied"
-msgstr ""
+msgstr "邀请链接已复制"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -2870,11 +2870,11 @@ msgstr "它的对话、文件和例行任务将被永久删除。它创建的 Bo
 
 #: src/pages/Invite.tsx
 msgid "Join"
-msgstr ""
+msgstr "加入"
 
 #: src/pages/Invite.tsx
 msgid "Join {spaceName}"
-msgstr ""
+msgstr "加入 {spaceName}"
 
 #: src/pages/shell/transcript.tsx
 msgid "Jump to latest"
@@ -2926,7 +2926,7 @@ msgstr ""
 
 #: src/components/SpaceMembersSettings.tsx
 msgid "Leave space"
-msgstr ""
+msgstr "退出空间"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
@@ -3140,7 +3140,7 @@ msgstr "成员"
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/Shell.tsx
 msgid "Members"
-msgstr ""
+msgstr "成员"
 
 #. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
@@ -5510,7 +5510,7 @@ msgstr "你的 OpenRouter"
 
 #: src/components/SharedSpaceRules.tsx
 msgid "Your other spaces stay private."
-msgstr ""
+msgstr "你的其他空间仍保持私密。"
 
 #: src/pages/Welcome.tsx
 msgid "Your team of always-on agents<0/>that you can give real work to."

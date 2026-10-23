@@ -129,7 +129,8 @@ export function SettingsOverlay({
 }) {
   const { t, i18n } = useLingui();
   const panelRef = useRef<HTMLDivElement>(null);
-  const navRef = useRef<HTMLElement>(null);
+  // State, not a ref: the overflow watcher must follow the nav when it remounts.
+  const [nav, setNav] = useState<HTMLElement | null>(null);
   const [navOverflow, setNavOverflow] = useState({ previous: false, next: false });
   const usageRef = useRef<HTMLDivElement>(null);
   const [section, setSection] = useState<SettingsSection>(initialSection);
@@ -232,7 +233,6 @@ export function SettingsOverlay({
   ];
 
   useEffect(() => {
-    const nav = navRef.current;
     if (!nav) return;
     const measure = () => {
       const offset = Math.abs(nav.scrollLeft);
@@ -259,10 +259,9 @@ export function SettingsOverlay({
       nav.removeEventListener("scroll", measure);
       observer?.disconnect();
     };
-  }, [section, showComputer, billingEnabled, showUpdates, i18n.locale]);
+  }, [nav, section, showComputer, billingEnabled, showUpdates, i18n.locale]);
 
   function scrollSections(direction: number) {
-    const nav = navRef.current;
     if (!nav) return;
     const rtl = getComputedStyle(nav).direction === "rtl";
     nav.scrollBy({ left: nav.clientWidth * 0.75 * direction * (rtl ? -1 : 1), behavior: "smooth" });
@@ -330,7 +329,7 @@ export function SettingsOverlay({
               <ChevronLeft className="rtl:rotate-180" />
             </Button>
             <nav
-              ref={navRef}
+              ref={setNav}
               data-testid="settings-nav"
               aria-label={t`Settings`}
               className="flex min-w-0 flex-1 flex-row gap-1 overflow-x-auto py-3 md:w-[200px] md:shrink-0 md:flex-none md:flex-col md:overflow-y-auto md:border-e md:border-border md:px-3 md:py-4"
