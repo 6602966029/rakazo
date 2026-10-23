@@ -1,34 +1,25 @@
 import { createCipheriv, createHash } from "node:crypto";
+import type { HttpInstance } from "@larksuiteoapi/node-sdk";
 import type { AdapterContext, MessagingInboundEvent } from "@rakazo/adapter-kit";
-import type * as LarkAdapterModule from "chat-adapter-lark";
-import type { HttpInstance } from "chat-adapter-lark";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatSdkMessagingSurface } from "./chat-sdk-surface.js";
+import { LazyLarkAdapter } from "./lark/lazy-adapter.js";
+import { Domain, decodeThreadId, encodeThreadId } from "./lark/thread-id.js";
 import { messagingPlatformsFromEnv } from "./messaging-platforms.js";
 
 const { request } = vi.hoisted(() => ({ request: vi.fn() }));
 
-// Exercise the pinned adapter and SDK; replace only their outbound HTTP boundary.
-vi.mock("chat-adapter-lark", async (importOriginal) => {
-  const actual = await importOriginal<typeof LarkAdapterModule>();
-  return {
-    ...actual,
-    createLarkAdapter: (config: Parameters<typeof actual.createLarkAdapter>[0]) =>
-      actual.createLarkAdapter({
-        ...config,
-        httpInstance: {
-          request,
-          get: request,
-          delete: request,
-          head: request,
-          options: request,
-          put: request,
-          patch: request,
-          post: (url: string, data: unknown) => request({ url, data, method: "POST" }),
-        } satisfies HttpInstance,
-      }),
-  };
-});
+// Exercise the real adapter and SDK; replace only outbound HTTP.
+const httpInstance: HttpInstance = {
+  request,
+  get: request,
+  delete: request,
+  head: request,
+  options: request,
+  put: request,
+  patch: request,
+  post: (url: string, data: unknown) => request({ url, data, method: "POST" }),
+};
 
 const context: AdapterContext = {
   operationId: "op-test",
@@ -41,18 +32,21 @@ const token = "test-verification-token";
 const encryptKey = "test-encryption-key";
 
 function createSurface(encrypted = false) {
-  const platforms = messagingPlatformsFromEnv({
-    larkAppId: "cli-test",
-    larkAppSecret: "test-app-secret",
-    larkVerificationToken: token,
-    ...(encrypted ? { larkEncryptKey: encryptKey } : {}),
-  });
+  const platforms = messagingPlatformsFromEnv(
+    {
+      larkAppId: "cli-test",
+      larkAppSecret: "test-app-secret",
+      larkVerificationToken: token,
+      ...(encrypted ? { larkEncryptKey: encryptKey } : {}),
+    },
+    { larkTransport: httpInstance },
+  );
   const surface = new ChatSdkMessagingSurface(platforms);
   const events: MessagingInboundEvent[] = [];
   surface.onInbound(async (event) => {
     events.push(event);
   });
-  return { surface, events };
+  return { surface, events, adapter: platforms[0]!.adapter };
 }
 
 function message(chatType = "p2p", sender = "ou-test") {
@@ -114,6 +108,9 @@ beforeEach(() => {
     }
     if (url.endsWith("/contact/v3/users/ou-test")) {
       return { code: 0, data: { user: { name: "Test user" } } };
+    }
+    if (url.endsWith("/im/v1/messages/om-reply")) {
+      return { code: 0 };
     }
     if (url.endsWith("/im/v1/messages")) {
       return { code: 0, data: { message_id: "om-reply" } };
@@ -208,5 +205,112 @@ describe("Lark messaging conformance", () => {
       throw new Error("Persistence unavailable");
     });
     expect((await surface.handleWebhook("lark", webhook(message())))?.status).toBe(500);
+  });
+  it.each([false, true])(
+    "rejects unauthenticated URL verification (encrypted: %s)",
+    async (encrypted) => {
+      const { surface } = createSurface(encrypted);
+      const payload = { type: "url_verification", token: "wrong-token", challenge: "challenge" };
+      expect(
+        (
+          await surface.handleWebhook(
+            "lark",
+            encrypted ? encryptedWebhook(payload) : webhook(payload),
+          )
+        )?.status,
+      ).toBe(403);
+    },
+  );
+
+  it("rejects malformed JSON and encrypted payloads", async () => {
+    const { adapter } = createSurface();
+    expect(
+      (
+        await adapter.handleWebhook(
+          new Request("https://example.test", { method: "POST", body: "{" }),
+        )
+      ).status,
+    ).toBe(400);
+    expect((await adapter.handleWebhook(webhook({ encrypt: "invalid" }))).status).toBe(403);
+  });
+
+  it("preserves encoded chat and thread IDs byte for byte", () => {
+    expect(encodeThreadId({ chatId: "oc-test" })).toBe("lark:b2MtdGVzdA");
+    expect(encodeThreadId({ chatId: "oc-test", threadId: "omt-test" })).toBe(
+      "lark:b2MtdGVzdA:b210LXRlc3Q",
+    );
+    expect(decodeThreadId("lark:b2MtdGVzdA:b210LXRlc3Q")).toEqual({
+      chatId: "oc-test",
+      threadId: "omt-test",
+    });
+    expect(() => decodeThreadId("slack:abc")).toThrow("Invalid thread ID prefix");
+    expect(() => decodeThreadId("lark:")).toThrow("missing chatId");
+  });
+
+  it("edits and deletes text messages through the SDK", async () => {
+    const { surface, adapter } = createSurface();
+    await surface.handleWebhook("lark", webhook(message()));
+    const threadId = encodeThreadId({ chatId: "oc-test" });
+    expect(
+      await adapter.editMessage(threadId, "om-reply", { markdown: "**edited**" }),
+    ).toMatchObject({ id: "om-reply", threadId });
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "PUT",
+        data: { msg_type: "text", content: JSON.stringify({ text: "**edited**" }) },
+      }),
+    );
+    await adapter.deleteMessage(threadId, "om-reply");
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ method: "DELETE" }));
+  });
+
+  it("fails outbound delivery on API errors", async () => {
+    const { surface, adapter } = createSurface();
+    await surface.handleWebhook("lark", webhook(message()));
+    request.mockResolvedValueOnce({ code: 230001, msg: "Request rejected" });
+    await expect(
+      adapter.postMessage(encodeThreadId({ chatId: "oc-test" }), "reply"),
+    ).rejects.toThrow("230001");
+  });
+
+  it("renders post content and links", async () => {
+    const { surface, events } = createSurface();
+    const payload = message();
+    payload.event.message.message_type = "post";
+    payload.event.message.content = JSON.stringify({
+      post: {
+        en_us: {
+          title: "Title",
+          content: [
+            [
+              { tag: "text", text: "See " },
+              { tag: "a", text: "guide", href: "https://example.test/guide" },
+            ],
+          ],
+        },
+      },
+    });
+    await surface.handleWebhook("lark", webhook(payload));
+    expect(events).toEqual([
+      expect.objectContaining({ content: "Title\n\nSee guide (https://example.test/guide)" }),
+    ]);
+  });
+
+  it("uses the selected API origin and keeps typing passive", async () => {
+    const adapter = new LazyLarkAdapter({
+      appId: "test-app",
+      appSecret: "test-secret",
+      verificationToken: token,
+      encryptKey: "",
+      domain: Domain.Lark,
+      httpInstance,
+    });
+    await adapter.startTyping();
+    expect(request).not.toHaveBeenCalled();
+    await adapter.openDM!("ou-test");
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({ url: "https://open.larksuite.com/open-apis/im/v1/chats" }),
+    );
+    expect(adapter.isDM(encodeThreadId({ chatId: "oc-test" }))).toBe(true);
   });
 });
