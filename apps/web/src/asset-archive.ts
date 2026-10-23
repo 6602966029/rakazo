@@ -105,13 +105,16 @@ export function archiveAssets(options: {
   const touched = new Date(now);
   for (const file of files) {
     const target = path.join(archivedAssets, file);
-    // Hashed names: an archived file with the same name has the same content.
-    if (!fs.existsSync(target)) {
-      writeAtomically(target, (temporary) =>
-        fs.copyFileSync(path.join(assetsDir, file), temporary),
-      );
+    // Hashed names: an archived file with the same name has the same content. Touching it fails
+    // when it is missing, including when a racing prune removed it a moment ago; copy it then.
+    try {
+      fs.utimesSync(target, touched, touched);
+    } catch {
+      writeAtomically(target, (temporary) => {
+        fs.copyFileSync(path.join(assetsDir, file), temporary);
+        fs.utimesSync(temporary, touched, touched);
+      });
     }
-    fs.utimesSync(target, touched, touched);
   }
 
   const builds = fs
