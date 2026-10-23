@@ -25,8 +25,8 @@ test("a failed overlay chunk keeps the shell and the draft, and Refresh loads it
 
   await page.unroute(pluginsChunk);
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  // The reload keeps ?integrations, so the overlay opens on its own once the chunk loads.
   await failed.getByRole("button", { name: "Refresh", exact: true }).click();
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   await expect(page.getByPlaceholder("Search apps")).toBeVisible();
 });
 
