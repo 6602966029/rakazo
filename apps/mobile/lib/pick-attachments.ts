@@ -1,4 +1,9 @@
-import { ATTACHMENT_MAX_BYTES, ATTACHMENT_MAX_COUNT } from "@rakazo/contracts";
+import {
+  ATTACHMENT_IMAGE_MAX_EDGE,
+  ATTACHMENT_IMAGE_QUALITY,
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MAX_COUNT,
+} from "@rakazo/contracts";
 import { inferAttachmentMimeType } from "@rakazo/core";
 import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
@@ -9,10 +14,6 @@ import type { PickedAttachment, PickSkip } from "./pick-attachments-filter.js";
 import { filterPickedAttachments } from "./pick-attachments-filter.js";
 
 export type { PickedAttachment, PickSkip } from "./pick-attachments-filter.js";
-
-/** A phone photo does not need its native resolution to be useful in chat. */
-const MAX_IMAGE_EDGE = 1_600;
-const IMAGE_COMPRESSION = 0.7;
 
 let imageManipulator: typeof ImageManipulatorModule | null | undefined;
 
@@ -44,7 +45,7 @@ async function prepareImage(
   const mimeType = inferAttachmentMimeType(name, sourceMimeType ?? undefined);
   // Preserve animation and transparency in GIF and WebP images.
   if (mimeType === "image/gif" || mimeType === "image/webp") return { uri, name, mimeType };
-  if (!width || !height || Math.max(width, height) <= MAX_IMAGE_EDGE) {
+  if (!width || !height || Math.max(width, height) <= ATTACHMENT_IMAGE_MAX_EDGE) {
     return { uri, name, mimeType };
   }
   const manipulator = loadImageManipulator();
@@ -53,9 +54,13 @@ async function prepareImage(
     mimeType === "image/png" ? manipulator.SaveFormat.PNG : manipulator.SaveFormat.JPEG;
   try {
     const context = manipulator.ImageManipulator.manipulate(uri);
-    context.resize(width >= height ? { width: MAX_IMAGE_EDGE } : { height: MAX_IMAGE_EDGE });
+    context.resize(
+      width >= height
+        ? { width: ATTACHMENT_IMAGE_MAX_EDGE }
+        : { height: ATTACHMENT_IMAGE_MAX_EDGE },
+    );
     const image = await context.renderAsync();
-    const saved = await image.saveAsync({ compress: IMAGE_COMPRESSION, format });
+    const saved = await image.saveAsync({ compress: ATTACHMENT_IMAGE_QUALITY, format });
     return {
       uri: saved.uri,
       name: compressedImageName(name, format),
