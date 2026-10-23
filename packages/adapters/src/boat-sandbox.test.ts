@@ -10,9 +10,14 @@ import {
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { parse } from "shell-quote";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BoatSandboxProvider } from "./boat-sandbox.js";
+import {
+  BOAT_COMPUTER_SNAPSHOT,
+  BoatSandboxProvider,
+  boatComputerSnapshotName,
+} from "./boat-sandbox.js";
 import type { BoatRecovery } from "./boat-sandbox.test-support.js";
 import { BOAT_ARTIFACT_MAX_BYTES, boatError, FakeBoatApi } from "./boat-sandbox.test-support.js";
+import { PREPARE_LINUX_DESKTOP } from "./linux-desktop.js";
 import { isSandboxGoneError } from "./sandbox-errors.js";
 
 // Polling waits advance a virtual clock, so state and deadline tests run instantly.
@@ -115,6 +120,7 @@ describe("BoatSandboxProvider", () => {
           ttlSeconds: 7200,
           noEnv: true,
           env: { RAKAZO_BOT_ID: "bot-a", RAKAZO_SANDBOX: "computer" },
+          from: BOAT_COMPUTER_SNAPSHOT,
         },
       },
       { signal: context.signal },
@@ -1126,5 +1132,191 @@ describe("BoatSandboxProvider", () => {
     await expect(pending).rejects.toThrow("Boat boat-test was not deleted within 60 seconds");
     expect(fetchMock.mock.calls[0]?.[1]?.signal).toBe(deadline.signal);
     expect(fetchMock.mock.calls[1]?.[1]?.signal).toBe(deadline.signal);
+  });
+});
+
+describe("Boat computer snapshot", () => {
+  function provision(provider: BoatSandboxProvider) {
+    return provider.provision({ botId: "bot-a", homePath: "/unused" }, context);
+  }
+
+  it("names the snapshot after the setup it captures", () => {
+    expect(BOAT_COMPUTER_SNAPSHOT).toMatch(/^rakazo-computer-[0-9a-f]{12}$/);
+    expect(boatComputerSnapshotName(["mkdir -p a", PREPARE_LINUX_DESKTOP])).not.toBe(
+      boatComputerSnapshotName(["mkdir -p b", PREPARE_LINUX_DESKTOP]),
+    );
+    expect(boatComputerSnapshotName(["a", "b"])).toBe(boatComputerSnapshotName(["a", "b"]));
+  });
+
+  it("starts new computers from the ready snapshot with only their own env", async () => {
+    const api = new FakeBoatApi();
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
+
+    await provision(provider);
+    await provision(provider);
+
+    expect(api.creates).toEqual([
+      {
+        ttlSeconds: 7200,
+        noEnv: true,
+        env: { RAKAZO_BOT_ID: "bot-a", RAKAZO_SANDBOX: "computer" },
+        from: BOAT_COMPUTER_SNAPSHOT,
+      },
+      expect.objectContaining({ from: BOAT_COMPUTER_SNAPSHOT }),
+    ]);
+  });
+
+  it("installs on a plain sandbox and builds the snapshot once when it is missing", async () => {
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "test", sinks: [sink] }));
+    try {
+      const api = new FakeBoatApi();
+      api.namedSnapshots.clear();
+      const remove = vi.spyOn(api, "deleteSandbox");
+      const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
+
+      const first = await provision(provider);
+      const second = await provision(provider);
+      await vi.waitFor(() =>
+        expect(api.namedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.status).toBe("ready"),
+      );
+      await vi.waitFor(() => expect(remove).toHaveBeenCalledOnce());
+      const third = await provision(provider);
+
+      const computers = api.creates.filter((request) => request.env?.RAKAZO_BOT_ID);
+      expect(computers.map((request) => request.from)).toEqual([
+        undefined,
+        undefined,
+        BOAT_COMPUTER_SNAPSHOT,
+      ]);
+      const builds = api.creates.filter((request) => !request.env?.RAKAZO_BOT_ID);
+      expect(builds).toEqual([{ ttlSeconds: 1800, noEnv: true }]);
+      const buildId = api.namedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.sourceSandboxId;
+      expect([first.id, second.id, third.id]).not.toContain(buildId);
+      expect(remove).toHaveBeenCalledWith(buildId);
+      expect(api.state(buildId!)).toBeUndefined();
+      expect(
+        sink.events
+          .filter((event) => event.message === "sandbox.base_image")
+          .map(({ outcome }) => outcome),
+      ).toEqual(["missing", "built"]);
+    } finally {
+      installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+    }
+  });
+
+  it("falls back to a plain sandbox when Boat no longer has the snapshot", async () => {
+    const api = new FakeBoatApi();
+    const create = vi.spyOn(api, "create");
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
+    await provision(provider);
+    api.namedSnapshots.clear();
+    create.mockClear();
+    const build = vi.spyOn(provider, "buildComputerSnapshot");
+
+    const computer = await provision(provider);
+
+    const attempts = create.mock.calls.map(([request]) => request?.createSandboxRequest);
+    expect(attempts.slice(0, 2)).toEqual([
+      expect.objectContaining({ from: BOAT_COMPUTER_SNAPSHOT }),
+      {
+        ttlSeconds: 7200,
+        noEnv: true,
+        env: { RAKAZO_BOT_ID: "bot-a", RAKAZO_SANDBOX: "computer" },
+      },
+    ]);
+    expect(computer.id).toBe("bx_fake2");
+    expect(build).toHaveBeenCalledOnce();
+    await vi.waitFor(() =>
+      expect(api.namedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.status).toBe("ready"),
+    );
+  });
+
+  it("builds from a clean sandbox, checks the desktop, and skips a ready snapshot", async () => {
+    const api = new FakeBoatApi();
+    api.namedSnapshots.clear();
+    const command = vi.spyOn(api, "command");
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
+
+    await expect(provider.buildComputerSnapshot()).resolves.toEqual({
+      name: BOAT_COMPUTER_SNAPSHOT,
+      built: true,
+    });
+    expect(api.creates).toEqual([{ ttlSeconds: 1800, noEnv: true }]);
+    const commands = command.mock.calls.map(([request]) => request.commandRequest.command);
+    expect(commands.some((line) => line.includes("apt-get install"))).toBe(true);
+    expect(commands.some((line) => line.includes("xdpyinfo -display :99"))).toBe(true);
+    expect(commands.join("\n")).not.toContain("RAKAZO_BOT_ID");
+
+    await expect(provider.buildComputerSnapshot()).resolves.toEqual({
+      name: BOAT_COMPUTER_SNAPSHOT,
+      built: false,
+    });
+    expect(api.creates).toHaveLength(1);
+  });
+
+  it("waits for a save already in progress instead of building again", async () => {
+    const api = new FakeBoatApi();
+    api.namedSnapshots.set(BOAT_COMPUTER_SNAPSHOT, {
+      name: BOAT_COMPUTER_SNAPSHOT,
+      status: "saving",
+      sourceSandboxId: "bx_other",
+      createdAt: new Date(0),
+    });
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
+
+    await expect(provider.buildComputerSnapshot()).resolves.toEqual({
+      name: BOAT_COMPUTER_SNAPSHOT,
+      built: false,
+    });
+    expect(api.creates).toEqual([]);
+  });
+
+  it("keeps using the snapshot after a boot is cancelled during its lookup", async () => {
+    const api = new FakeBoatApi();
+    const lookup = vi.spyOn(api, "getNamedSnapshot");
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
+    const cancelled = new AbortController();
+    lookup.mockImplementationOnce(async () => {
+      cancelled.abort(new Error("boot cancelled"));
+      throw cancelled.signal.reason;
+    });
+
+    await expect(
+      provider.provision(
+        { botId: "bot-a", homePath: "/unused" },
+        { ...context, signal: cancelled.signal },
+      ),
+    ).rejects.toThrow("boot cancelled");
+    await provision(provider);
+
+    expect(api.creates).toEqual([expect.objectContaining({ from: BOAT_COMPUTER_SNAPSHOT })]);
+  });
+
+  it("does not save a snapshot whose desktop check fails", async () => {
+    const api = new FakeBoatApi();
+    api.namedSnapshots.clear();
+    const run = api.command.bind(api);
+    vi.spyOn(api, "command").mockImplementation(async (request) =>
+      request.commandRequest.command.includes("xdpyinfo -display :99")
+        ? {
+            ok: true,
+            type: "command.finished",
+            success: false,
+            exitCode: 1,
+            stdout: "",
+            stderr: "Xvfb did not start\n",
+            timedOut: false,
+          }
+        : run(request),
+    );
+    const remove = vi.spyOn(api, "deleteSandbox");
+    const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
+
+    await expect(provider.buildComputerSnapshot()).rejects.toMatchObject({
+      cause: { message: "exit 1: Xvfb did not start" },
+    });
+    expect(api.namedSnapshots.size).toBe(0);
+    expect(remove).toHaveBeenCalledWith("bx_fake1");
   });
 });
