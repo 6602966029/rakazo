@@ -3,7 +3,7 @@ import { historyCompactJob } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
 import { authorLabelledText, blocksToAgentHistoryText, escapePromptData } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
-import { loadMessageAuthors, recordUsage } from "@rakazo/db";
+import { loadMessageAuthors, recordUsage, runAsTenant } from "@rakazo/db";
 import { getLogger, unwrapJobPayload } from "@rakazo/logging";
 import { formatCurrentTimeInstruction } from "./current-time.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
@@ -362,12 +362,11 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
     userId: thread.userId,
     botId: thread.botId,
   });
-  const model = deps.resolveModel
-    ? await deps.resolveModel({
-        userId,
-        spaceId: thread.spaceId,
-        botId: thread.botId,
-      })
+  const resolveModel = deps.resolveModel;
+  const { spaceId, botId } = thread;
+  const model = resolveModel
+    ? // Their credentials are only readable as them, not as the thread's departed creator.
+      await runAsTenant({ spaceId, userId }, () => resolveModel({ userId, spaceId, botId }))
     : deps.deploymentModelConfigured
       ? {
           // Provider must come from the same resolver as the key, not a hardcoded one.

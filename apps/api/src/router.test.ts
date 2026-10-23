@@ -26,6 +26,7 @@ import type { Actor, Bot, ProductEvent } from "@rakazo/contracts";
 import { REPLY_QUOTE_MAX_LENGTH } from "@rakazo/contracts";
 import { openScreenCapability } from "@rakazo/core/node/screen-capability";
 import type { PrismaClient } from "@rakazo/db";
+import { Prisma } from "@rakazo/db";
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
@@ -5623,6 +5624,20 @@ describe("routines.update", () => {
     const { response } = await call();
     expect(response.status).toBe(404);
     expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("takes over a routine and restarts its watch baseline when someone else edits it", async () => {
+    const { call, update } = fixture(false, false, { userId: "user-2" });
+    expect((await call({ name: "Renamed" })).response.status).toBe(200);
+    const data = update.mock.calls[0]![0].data;
+    expect(data.userId).toBe("user-1");
+    expect(data).toHaveProperty("watchState", Prisma.DbNull);
+  });
+
+  it("keeps its watch baseline when the owner edits it", async () => {
+    const { call, update } = fixture(false);
+    expect((await call({ name: "Renamed" })).response.status).toBe(200);
+    expect(update.mock.calls[0]![0].data).not.toHaveProperty("watchState");
   });
 
   const ownModel = {

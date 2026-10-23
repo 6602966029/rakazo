@@ -7,6 +7,7 @@ import type {
 import { historyCompactJob } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
+import { currentDbContext } from "@rakazo/db";
 import { createLogger, createTestSink, installLogger, wrapJobPayload } from "@rakazo/logging";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -658,15 +659,17 @@ describe("compactHistory", () => {
   });
 
   it("summarizes as the bot's creator once the thread's creator left the space", async () => {
-    const resolveModel = vi.fn(async () => ({
-      provider: "anthropic",
-      id: "claude-sonnet",
-      apiKey: "owner-model-key",
-    }));
+    let lookupContext: unknown;
+    const resolveModel = vi.fn(async () => {
+      lookupContext = currentDbContext();
+      return { provider: "anthropic", id: "claude-sonnet", apiKey: "owner-model-key" };
+    });
     const harness = compactionHarness({ resolveModel, threadCreatorLeft: true });
 
     await compactHistory(harness.deps, "thread-1");
 
+    // Their credentials are only readable as them, so the lookup runs as the owner.
+    expect(lookupContext).toEqual({ kind: "tenant", spaceId: "workspace-1", userId: "owner-1" });
     expect(resolveModel).toHaveBeenCalledWith({
       userId: "owner-1",
       spaceId: "workspace-1",

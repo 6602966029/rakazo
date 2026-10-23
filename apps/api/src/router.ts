@@ -4125,13 +4125,14 @@ export function createRouter(deps: RouterDeps) {
               githubEnabled: input.githubEnabled,
               messageProvider: input.messageProvider,
               ...(touchesModel ? { modelProvider, modelId, thinkingLevel } : {}),
-              // A changed watch starts from a fresh baseline.
+              // A changed watch starts from a fresh baseline, and so does one that now reads
+              // a different person's accounts.
               ...(input.watch === undefined
                 ? {}
-                : {
-                    watch: (input.watch as Prisma.InputJsonValue | null) ?? Prisma.DbNull,
-                    ...(watchChanged ? { watchState: Prisma.DbNull } : {}),
-                  }),
+                : { watch: (input.watch as Prisma.InputJsonValue | null) ?? Prisma.DbNull }),
+              ...(watchChanged || existing.userId !== context.actor.userId
+                ? { watchState: Prisma.DbNull }
+                : {}),
               nextRunAt,
             },
           })
