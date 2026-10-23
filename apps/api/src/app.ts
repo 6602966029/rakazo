@@ -317,6 +317,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           (() => {
             throw new Error("Graphile job publisher requires a PostgreSQL pool");
           })(),
+        prisma,
       );
   const ticketChanges = createTicketChangeNotifier({
     boardEvents,
