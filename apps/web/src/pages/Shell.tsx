@@ -158,6 +158,7 @@ import {
 } from "../lib/pending-attachments";
 import { markAfterPaint, markOnce } from "../lib/performance";
 import { usePreloadRecoveryState } from "../lib/preload-recovery";
+import { prepareImageFile } from "../lib/prepare-image-file";
 import { getResponseStreamingEnabled, subscribeResponseStreaming } from "../lib/response-streaming";
 import type { Panel, RightPanelState } from "../lib/right-panel-state";
 import {
@@ -2359,11 +2360,12 @@ function SpaceShell() {
         }
         const artifactIds: string[] = [];
         for (const pending of attachments) {
-          const mimeType = inferAttachmentMimeType(pending.file.name, pending.file.type);
+          const file = await prepareImageFile(pending.file);
+          const mimeType = inferAttachmentMimeType(file.name, file.type);
           if (!mimeType) {
             throw new Error(t`Unsupported file type: ${pending.file.name}`);
           }
-          const contentBase64 = await readFileAsBase64(pending.file);
+          const contentBase64 = await readFileAsBase64(file);
           const artifact = await rpc.artifacts.create(
             groupTarget
               ? { groupId: groupTarget, name: pending.file.name, mimeType, contentBase64 }
