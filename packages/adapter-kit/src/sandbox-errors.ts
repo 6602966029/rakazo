@@ -6,3 +6,14 @@ export class SandboxRateLimitError extends Error {
     this.name = "SandboxRateLimitError";
   }
 }
+
+/**
+ * The sandbox took a request but did not answer before the provider gave up on it. It is not
+ * resent; background work skips this attempt and tries again later.
+ */
+export class SandboxUnresponsiveError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "SandboxUnresponsiveError";
+  }
+}
