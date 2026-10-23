@@ -48,6 +48,18 @@ export type RunErrorTranslator = (
 const english: RunErrorTranslator = (message, values) =>
   message.replace(/\{(\w+)\}/g, (match, key: string) => String(values?.[key] ?? match));
 
+export type ModelBackupOutcome = {
+  provider: string;
+  modelId: string;
+  status: "failed" | "skipped";
+  reason: string;
+};
+
+/** Persist fallback outcomes with the original failure, without changing provider diagnostics. */
+export function modelFallbackFailure(primaryError: string, backups: ModelBackupOutcome[]): string {
+  return JSON.stringify({ modelFallbackVersion: 1, primaryError, backups });
+}
+
 /** Keep provider diagnostics available without exposing them in the visible summary. */
 export function normalizeRunError(
   details: string,
@@ -62,7 +74,7 @@ export function normalizeRunError(
   kind?: "key" | "credit" | "spending" | "rate" | "auth" | "model";
   period?: "none" | "daily" | "weekly" | "monthly";
 } {
-  const prefix = details.trim().match(/^(\d{3})\s*:\s*/);
+  const prefix = details.trim().match(/^(\d{3})(?:\s*:\s*|\s+)/);
   const body = details.trim().slice(prefix?.[0].length ?? 0);
   let parsed: unknown;
   try {
@@ -71,6 +83,35 @@ export function normalizeRunError(
     // Plain text is handled below; malformed HTTP envelopes still get a safe summary.
   }
   const record = asRecord(parsed);
+  if (
+    record.modelFallbackVersion === 1 &&
+    typeof record.primaryError === "string" &&
+    Array.isArray(record.backups) &&
+    record.backups.length > 0 &&
+    record.backups.every((item: unknown) => {
+      const outcome = asRecord(item);
+      return (
+        typeof outcome.provider === "string" &&
+        typeof outcome.modelId === "string" &&
+        typeof outcome.reason === "string" &&
+        (outcome.status === "failed" || outcome.status === "skipped")
+      );
+    })
+  ) {
+    const primary = normalizeRunError(record.primaryError, translate, locale, now);
+    const failed = record.backups.some((item) => item.status === "failed");
+    const skipped = record.backups.some((item) => item.status === "skipped");
+    const message = failed
+      ? skipped
+        ? "{summary} Backup models failed or were unavailable for this request."
+        : "{summary} Your backup models also failed."
+      : "{summary} No backup model was usable for this request.";
+    return {
+      ...primary,
+      summary: translate(message, { summary: primary.summary }),
+      details,
+    };
+  }
   // Preserve only known recovery advice: provider diagnostics can also be plain text.
   if (APP_RUN_ERRORS.has(details.trim())) {
     return { summary: details, details };
@@ -145,6 +186,15 @@ export function normalizeRunError(
         });
       }
     }
+  } else if (
+    status === 413 ||
+    /context[_ -](?:length|window)|maximum context|exceeds the model context|prompt is too long|too many tokens|request too large/i.test(
+      signals,
+    )
+  ) {
+    summary = translate(
+      "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.",
+    );
   } else if (status === 429) {
     recovery = "connection";
     kind = "rate";
@@ -169,9 +219,18 @@ export function normalizeRunError(
     kind = "model";
     summary = translate("{provider} could not find the requested model.", { provider });
   } else if (
+    status === 502 ||
+    status === 503 ||
+    status === 529 ||
+    /overload|over capacity|temporarily unavailable|service unavailable/i.test(signals)
+  ) {
+    summary = translate("{provider} is overloaded right now. Try again in a moment.", { provider });
+  } else if (
     status === 408 ||
     status === 504 ||
-    /timed?[_ -]?out|timeout|ETIMEDOUT/i.test(signals)
+    /timed?[_ -]?out|timeout|ETIMEDOUT|stream ended|\bterminated\b|socket hang up|ECONNRESET|connection reset|fetch failed|network error/i.test(
+      signals,
+    )
   ) {
     summary = translate("{provider} took too long to respond. Try again.", { provider });
   }

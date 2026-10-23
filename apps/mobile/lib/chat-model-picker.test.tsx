@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   catalogEmpty: false,
   extraProviders: false,
   gateway: false,
+  workers: false,
   savedMaxTokens: undefined as number | undefined,
   savedAccountId: "account-fixture",
   savedGatewayId: "gateway-fixture",
@@ -78,6 +79,11 @@ vi.mock("./api", () => ({
   captureApiRequestContext: async () => ({}),
   selectedSpaceId: () => "space-fixture",
   rpc: async (procedure: string, input?: unknown, options?: { signal?: AbortSignal }) => {
+    const cloudflare = mocks.gateway
+      ? { provider: "cloudflare-ai-gateway", providerName: "Cloudflare AI Gateway" }
+      : mocks.workers
+        ? { provider: "cloudflare-workers-ai", providerName: "Cloudflare Workers AI" }
+        : undefined;
     const result = mocks.rpc(procedure, input);
     if (procedure === "models/connect") {
       await result;
@@ -105,7 +111,7 @@ vi.mock("./api", () => ({
       return {
         userId: "user-fixture",
         spaceId: "space-fixture",
-        defaultProvider: mocks.gateway ? "cloudflare-ai-gateway" : "openrouter",
+        defaultProvider: cloudflare?.provider ?? "openrouter",
         defaultModel: "vendor/model-1",
         hostCredentialProvider: mocks.serverCredentials ? "openrouter" : undefined,
       };
@@ -127,8 +133,8 @@ vi.mock("./api", () => ({
             : [
                 ...catalog.map((entry) => ({
                   ...entry,
-                  provider: mocks.gateway ? "cloudflare-ai-gateway" : entry.provider,
-                  providerName: mocks.gateway ? "Cloudflare AI Gateway" : entry.providerName,
+                  provider: cloudflare?.provider ?? entry.provider,
+                  providerName: cloudflare?.providerName ?? entry.providerName,
                 })),
                 ...(mocks.extraProviders
                   ? ["Anthropic", "Google", "OpenAI", "Other", "Last"].map((name) => ({
@@ -142,12 +148,14 @@ vi.mock("./api", () => ({
       return mocks.connected
         ? [
             {
-              provider: mocks.gateway ? "cloudflare-ai-gateway" : "openrouter",
-              label: mocks.gateway ? "Cloudflare AI Gateway" : "OpenRouter",
+              provider: cloudflare?.provider ?? "openrouter",
+              label: cloudflare?.providerName ?? "OpenRouter",
               maxTokens: mocks.savedMaxTokens,
               ...(mocks.gateway
                 ? { accountId: mocks.savedAccountId, gatewayId: mocks.savedGatewayId }
-                : {}),
+                : mocks.workers
+                  ? { accountId: mocks.savedAccountId }
+                  : {}),
               modelId: "vendor/model-1",
               thinkingLevel: "high",
             },
@@ -369,6 +377,7 @@ vi.mock("../components/settings-group", () => ({
     trailing,
     value,
     accessibilityLabel,
+    accessibilityHint,
     accessibilityValue,
     disabled,
     chevron,
@@ -381,6 +390,7 @@ vi.mock("../components/settings-group", () => ({
     chevron?: "right" | "down";
     value?: string;
     accessibilityLabel?: string;
+    accessibilityHint?: string;
     accessibilityValue?: { text: string };
     title: string;
     detail?: string;
@@ -395,6 +405,7 @@ vi.mock("../components/settings-group", () => ({
         "data-accessibility-actions": accessibilityActions?.map((action) => action.label).join(),
         type: "button",
         "aria-label": accessibilityLabel ?? title,
+        "aria-description": accessibilityHint,
         "data-settings-row": true,
         "data-chevron": chevron,
         "aria-expanded": accessibilityState?.expanded,
@@ -456,6 +467,9 @@ vi.mock("../components/row-accessories", () => ({
   Chevron: () => null,
   Checkmark: () => createElement("i", { "data-checkmark": true }),
 }));
+vi.mock("../components/text-only-mark", () => ({
+  TextOnlyMark: () => createElement("i", { "data-text-only": true }),
+}));
 vi.mock("../components/native-symbol", () => ({ NativeSymbol: () => null }));
 vi.mock("@expo/ui/community/menu", () => ({
   MenuView: ({
@@ -487,6 +501,7 @@ beforeEach(() => {
   mocks.catalogEmpty = false;
   mocks.extraProviders = false;
   mocks.gateway = false;
+  mocks.workers = false;
   mocks.savedMaxTokens = undefined;
   mocks.savedAccountId = "account-fixture";
   mocks.savedGatewayId = "gateway-fixture";
@@ -694,7 +709,19 @@ describe("connection settings provider picker", () => {
     expect(models).toHaveLength(1);
     expect(thinking).toHaveLength(1);
     expect(thinking[0]!.getAttribute("data-settings-row")).toBe("true");
-    expect(thinking[0]!.getAttribute("aria-valuetext")).toBeTruthy();
+    expect(thinking[0]!.getAttribute("aria-valuetext")).toBe("High");
+    expect(container.textContent).not.toContain("Active model");
+    const thinkingMenu = mocks.menus.get("Thinking")!;
+    expect(thinkingMenu.actions.map((action) => action.title)).toEqual([
+      "Default",
+      "Low",
+      "Medium",
+      "High",
+    ]);
+    act(() => thinkingMenu.onPressAction({ nativeEvent: { event: "choice:medium" } }));
+    expect(thinking[0]!.getAttribute("aria-valuetext")).toBe("Medium");
+    act(() => mocks.menus.get("Thinking")!.onPressAction({ nativeEvent: { event: "choice:" } }));
+    expect(thinking[0]!.getAttribute("aria-valuetext")).toBe("Default");
     const advanced = buttonWithText("Advanced")!;
     expect(advanced.dataset.settingsRow).toBe("true");
     expect(advanced.getAttribute("aria-expanded")).toBe("false");
@@ -708,7 +735,7 @@ describe("connection settings provider picker", () => {
       providers[0]!.nextElementSibling,
       models[0],
       models[0]!.nextElementSibling,
-      thinking[0],
+      thinking[0]!.closest("[data-menu]")!.parentElement,
     ]);
     expect(providers[0]!.nextElementSibling?.tagName).toBe("DIV");
     expect(models[0]!.nextElementSibling?.tagName).toBe("DIV");
@@ -889,6 +916,23 @@ describe("connection settings limit saves", () => {
     expect(buttonWithText("Save")?.nextElementSibling?.textContent).toContain(
       "Enter a whole number",
     );
+  });
+
+  it("edits a Workers AI account without a gateway or replacement key", async () => {
+    mocks.workers = true;
+    await renderModels();
+    expect(container.querySelector('input[aria-label="Account ID"]')).not.toBeNull();
+    expect(container.querySelector('input[aria-label="Gateway ID"]')).toBeNull();
+    editField("Account ID", "account-updated");
+    expect(buttonWithText("Save")?.disabled).toBe(false);
+    await act(async () => buttonWithText("Save")!.click());
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "models/connect",
+      expect.objectContaining({ provider: "cloudflare-workers-ai", accountId: "account-updated" }),
+    );
+    expect(
+      mocks.rpc.mock.calls.find(([procedure]) => procedure === "models/connect")?.[1].apiKey,
+    ).toBeUndefined();
   });
 
   it("enables the connected gateway Save only for changed routing and keeps feedback at that button", async () => {
@@ -1390,6 +1434,30 @@ describe("shared model picker presentation", () => {
     searchModels("unknown");
     expect(container.textContent).toBe("No matching models");
     expect(mocks.announce).toHaveBeenCalledWith("No matching models");
+  });
+
+  it("marks models that cannot read images and announces it", async () => {
+    await act(async () =>
+      root.render(
+        <ModelPickerList
+          choices={[
+            { key: "text", label: "Text only", images: false },
+            { key: "vision", label: "Vision", images: true },
+            { key: "custom", label: "Custom" },
+          ]}
+          selectedKey="text"
+          onSelect={() => undefined}
+        />,
+      ),
+    );
+    const [textOnly, vision, custom] = pickerRows();
+    expect(textOnly?.querySelector("[data-text-only]")).not.toBeNull();
+    expect(textOnly?.querySelector("[data-checkmark]")).not.toBeNull();
+    expect(textOnly?.getAttribute("aria-description")).toBe("Can't read images");
+    for (const row of [vision, custom]) {
+      expect(row?.querySelector("[data-text-only]")).toBeNull();
+      expect(row?.hasAttribute("aria-description")).toBe(false);
+    }
   });
 
   it("renders loading and load errors", async () => {

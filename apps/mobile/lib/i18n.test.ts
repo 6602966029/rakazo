@@ -128,6 +128,9 @@ describe("mobile i18n", () => {
     const ids = new Set<string>([
       ...Object.values(AI_DATA_DISCLOSURES),
       ...Object.values(RUN_ERROR_LIMIT_MESSAGES).flatMap(Object.values),
+      "{summary} Your backup models also failed.",
+      "{summary} No backup model was usable for this request.",
+      "{summary} Backup models failed or were unavailable for this request.",
       "Your OpenRouter",
       "Your OpenAI",
       "Your Anthropic",
@@ -138,6 +141,8 @@ describe("mobile i18n", () => {
       "{provider} rejected the API key. Check your connection settings.",
       "{provider} could not find the requested model.",
       "{provider} took too long to respond. Try again.",
+      "{provider} is overloaded right now. Try again in a moment.",
+      "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.",
 
       EMPTY_PLUGIN_CATALOG_MESSAGE,
       OPENAI_COMPATIBLE_BASE_URL_HINT,

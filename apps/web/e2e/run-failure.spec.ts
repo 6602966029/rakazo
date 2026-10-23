@@ -138,3 +138,35 @@ test("a covered run error is not remembered until it is presented", async ({ pag
   await expect(page.getByTestId("shell-root")).toHaveAttribute("data-ready", "true");
   await expect(error).toBeHidden();
 });
+
+test("an overloaded provider is named instead of a generic error", async ({ page }, testInfo) => {
+  await signup(page, `overloaded-run-${Date.now()}@rakazo.test`, "password12", "Overloaded Run");
+  await completeOnboarding(page);
+
+  await page.getByPlaceholder(/^Message /).fill("fail this run as overloaded");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  const error = page.getByTestId("composer-error");
+  await expect(error).toContainText(
+    "Your model provider is overloaded right now. Try again in a moment.",
+    { timeout: 30_000 },
+  );
+  await expect(error).not.toContainText("The model provider returned an error.");
+  await captureScreenshot(page, testInfo, "overloaded-run-error");
+});
+
+test("a failed run explains that backup models also failed", async ({ page }, testInfo) => {
+  await signup(page, `backup-failure-${Date.now()}@rakazo.test`, "password12", "Backup Failure");
+  await completeOnboarding(page);
+  await page.getByPlaceholder(/^Message /).fill("fail this run with exhausted backups");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  const error = page.getByTestId("composer-error");
+  await expect(error).toContainText(
+    "Your model provider is rate limiting requests. Try again shortly.",
+    { timeout: 30_000 },
+  );
+  await expect(error).toContainText("Your backup models also failed.");
+  await expect(error.locator("pre")).toBeHidden();
+  await captureScreenshot(page, testInfo, "backup-models-exhausted");
+});

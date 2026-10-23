@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isModelRequiredSendError,
   MODEL_REQUIRED_SEND_ERROR,
+  modelFallbackFailure,
   normalizeRunError,
 } from "./run-error.js";
 
@@ -139,6 +140,59 @@ describe("normalizeRunError", () => {
       normalizeRunError('403: {"message":"Key limit exceeded; resets not-a-date"}').summary,
     ).toBe("Your model provider key hit its limit.");
   });
+
+  describe("overloaded, too-long and dropped-connection failures", () => {
+    const overloaded = "Your model provider is overloaded right now. Try again in a moment.";
+    const tooLong =
+      "This conversation is too long for the model. Retrying won't help. Start a new chat or shorten your message.";
+    const tookTooLong = "Your model provider took too long to respond. Try again.";
+
+    it.each([
+      [
+        '529: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}',
+        overloaded,
+      ],
+      [
+        '{"error":{"type":"overloaded_error","message":"Overloaded","metadata":{"provider":"Anthropic"}}}',
+        "Your Anthropic is overloaded right now. Try again in a moment.",
+      ],
+      ['503: {"message":"Service Unavailable"}', overloaded],
+      ["502 Bad Gateway", overloaded],
+      ["503 provider unavailable", overloaded],
+      [
+        '502: {"message":"Gateway error","metadata":{"provider":"OpenAI"}}',
+        "Your OpenAI is overloaded right now. Try again in a moment.",
+      ],
+      ["Codex error: Our servers are currently overloaded. Please try again later.", overloaded],
+      [
+        '400: {"error":{"message":"This model\'s maximum context length is 128000 tokens. However, your messages resulted in 130512 tokens.","code":"context_length_exceeded"}}',
+        tooLong,
+      ],
+      ["prompt is too long: 210344 tokens > 200000 maximum", tooLong],
+      ['413: {"message":"Request entity too large"}', tooLong],
+      ["Required context exceeds the model context budget", tooLong],
+      ["terminated", tookTooLong],
+      ["read ECONNRESET", tookTooLong],
+      ["socket hang up", tookTooLong],
+      ["fetch failed", tookTooLong],
+      ["Model stream ended without a terminal event", tookTooLong],
+    ])("summarizes %s without recovery advice", (details, summary) => {
+      expect(normalizeRunError(details)).toEqual({ summary, details });
+    });
+
+    it.each([
+      [
+        '429: {"message":"Request too large for gpt-4o on tokens per min (TPM): Limit 30000, Requested 50000."}',
+        {
+          summary: "Your model provider is rate limiting requests. Try again shortly.",
+          kind: "rate",
+        },
+      ],
+      ['504: {"message":"Gateway error"}', { summary: tookTooLong }],
+    ])("keeps upstream's earlier branch for %s", (details, expected) => {
+      expect(normalizeRunError(details)).toMatchObject({ ...expected, details });
+    });
+  });
 });
 
 it.each(["2026-10-19T00:00:00Z", "2026-10-20T00:00:00Z", "not-a-date"])(
@@ -249,4 +303,38 @@ describe("isModelRequiredSendError", () => {
   ])("rejects unrelated values: %s", (error) => {
     expect(isModelRequiredSendError(error)).toBe(false);
   });
+});
+
+it.each([
+  [["failed"], "Your backup models also failed."],
+  [["skipped"], "No backup model was usable for this request."],
+  [["failed", "skipped"], "Backup models failed or were unavailable for this request."],
+] as const)("explains exhausted backups: %s", (statuses, explanation) => {
+  const primaryError = '429: {"message":"Too many requests"}';
+  const details = modelFallbackFailure(
+    primaryError,
+    statuses.map((status) => ({
+      provider: "fake-provider",
+      modelId: "fake-model",
+      status,
+      reason: "fake-diagnostic",
+    })),
+  );
+  expect(normalizeRunError(details)).toEqual({
+    ...normalizeRunError(primaryError),
+    details,
+    summary: `${normalizeRunError(primaryError).summary} ${explanation}`,
+  });
+});
+
+it("does not expose malformed fallback metadata as user-facing copy", () => {
+  expect(
+    normalizeRunError(
+      JSON.stringify({
+        modelFallbackVersion: 1,
+        primaryError: "private diagnostic",
+        backups: [{ status: "unknown" }],
+      }),
+    ).summary,
+  ).toBe("The model provider returned an error.");
 });
