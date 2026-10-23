@@ -29,7 +29,7 @@ function threadStore(initial: Row, beforeWrite?: (row: Row) => void) {
     return { count: 1 };
   });
   const findFirst = vi.fn(async ({ where }: { where: Record<string, string> }) =>
-    where.userId === actor.userId && where.spaceId === actor.spaceId ? { ...row } : null,
+    where.spaceId === actor.spaceId ? { ...row } : null,
   );
   const prisma = { thread: { findFirst, updateMany } } as unknown as PrismaClient;
   return { prisma, updateMany, row: () => row };
@@ -44,7 +44,6 @@ describe("markThreadRead", () => {
       where: {
         id: "thread-1",
         spaceId: "space-1",
-        userId: "user-1",
         lastReadSeq: 3,
         nextMessageSeq: 7,
       },

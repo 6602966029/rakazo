@@ -34,6 +34,7 @@ type FakeGroup = {
   id: string;
   name: string;
   memberIds: string[];
+  spaceId?: string;
   userId?: string;
   archivedAt?: Date | null;
   pinned?: boolean;
@@ -184,7 +185,7 @@ const fleet = {
     { id: "bot-twin-1", name: "Twin" },
     { id: "bot-twin-2", name: "Twin" },
     { id: "bot-ghost", name: "Ghost", parentBotId: "bot-self", archivedAt: new Date(0) },
-    { id: "bot-foreign", name: "Stranger", userId: "user-2" },
+    { id: "bot-foreign", name: "Stranger", spaceId: "space-2" },
   ],
   groups: [
     { id: "group-launch", name: "Launch", memberIds: ["bot-self", "bot-scout", "bot-ops"] },
@@ -244,7 +245,22 @@ describe("prepareFleetRequest create_group", () => {
     ).toEqual({ ok: false, error: 'More than one bot is named "Twin". Pass bot_id instead.' });
   });
 
-  it("never resolves archived bots or bots of another user", async () => {
+  it("resolves a bot another member of the space created", async () => {
+    const { deps } = fakeFleet({
+      bots: [
+        { id: "bot-scout", name: "Scout" },
+        { id: "bot-shared", name: "Partner", userId: "user-2" },
+      ],
+    });
+    expect(
+      await prepareFleetRequest(deps, run, "create_group", {
+        name: "Crew",
+        bot_names: ["Scout", "Partner"],
+      }),
+    ).toMatchObject({ ok: true, canonical: { botIds: ["bot-scout", "bot-shared"] } });
+  });
+
+  it("never resolves archived bots or bots of another space", async () => {
     const { deps } = fakeFleet(fleet);
     expect(
       await prepareFleetRequest(deps, run, "create_group", {
@@ -888,7 +904,7 @@ describe("listFleet", () => {
     });
   });
 
-  it("lists only the user's active bots and groups and flags the bots the caller created", async () => {
+  it("lists only the space's active bots and groups and flags the bots the caller created", async () => {
     const { deps } = fakeFleet({
       ...fleet,
       bots: fleet.bots.map((bot) =>
@@ -1068,7 +1084,7 @@ describe("organizeBot refusals", () => {
       ...fleet,
       groups: [
         ...fleet.groups,
-        { id: "group-foreign", name: "Theirs", memberIds: ["bot-foreign"], userId: "user-2" },
+        { id: "group-foreign", name: "Theirs", memberIds: ["bot-foreign"], spaceId: "space-2" },
       ],
     });
     const fleetDeps = {
@@ -1113,7 +1129,7 @@ describe("organizeBot refusals", () => {
     });
   });
 
-  it("cannot target a bot or group of another user in the same space", async () => {
+  it("cannot target a bot or group of another space", async () => {
     expect(await organize({ bot_name: "Stranger", pinned: true })).toEqual({
       error: 'No bot named "Stranger". Call list_fleet and pass bot_id.',
     });

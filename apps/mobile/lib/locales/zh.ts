@@ -954,4 +954,15 @@ export const ZH_MESSAGES: Record<string, string> = {
   "{count} need attention": "{count} 个需要处理",
   "{label}, above": "{label}，上方",
   "{label}, below": "{label}，下方",
+  Invite: "邀请",
+  "Leave space": "退出空间",
+  "Everyone in this space can read its chats and memory.":
+    "空间中的每个人都能看到其中的聊天和记忆。",
+  Leave: "退出",
+  "Leave {name}?": "退出 {name}？",
+  "Remove {name}?": "移除 {name}？",
+  "Could not load members": "无法加载成员",
+  "Could not create invite link": "无法创建邀请链接",
+  "Could not remove member": "无法移除成员",
+  "Could not leave space": "无法退出空间",
 };

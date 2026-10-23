@@ -118,13 +118,13 @@ export function resolveSkillContent(input: {
   };
 }
 
+/** Skills are the space's: every member's bots see and edit the same set. */
 export function createAgentSkillsService(prisma: PrismaClient) {
   async function owned(actor: Actor, skillId: string) {
     const row = await prisma.agentSkill.findFirst({
       where: {
         id: skillId,
         spaceId: actor.spaceId,
-        userId: actor.userId,
       },
     });
     if (!row) throw new IsolationError();
@@ -134,7 +134,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
   return {
     async list(actor: Actor): Promise<Omit<AgentSkill, "content">[]> {
       const rows = await prisma.agentSkill.findMany({
-        where: { spaceId: actor.spaceId, userId: actor.userId },
+        where: { spaceId: actor.spaceId },
         orderBy: [{ name: "asc" }, { id: "asc" }],
       });
       return mergeBuiltinSkills(builtinCatalog(), rows.map(mapAgentSkill)).map(
@@ -144,7 +144,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
 
     async listWithContent(actor: Actor): Promise<AgentSkill[]> {
       const rows = await prisma.agentSkill.findMany({
-        where: { spaceId: actor.spaceId, userId: actor.userId },
+        where: { spaceId: actor.spaceId },
         orderBy: [{ name: "asc" }, { id: "asc" }],
       });
       return mergeBuiltinSkills(builtinCatalog(), rows.map(mapAgentSkill));
@@ -163,7 +163,6 @@ export function createAgentSkillsService(prisma: PrismaClient) {
       const rows = await prisma.agentSkill.findMany({
         where: {
           spaceId: actor.spaceId,
-          userId: actor.userId,
         },
         orderBy: [{ name: "asc" }, { id: "asc" }],
       });
@@ -182,7 +181,6 @@ export function createAgentSkillsService(prisma: PrismaClient) {
       const clash = await prisma.agentSkill.findFirst({
         where: {
           spaceId: actor.spaceId,
-          userId: actor.userId,
           name: { equals: resolved.name, mode: "insensitive" },
         },
       });
@@ -235,7 +233,6 @@ export function createAgentSkillsService(prisma: PrismaClient) {
         const clash = await prisma.agentSkill.findFirst({
           where: {
             spaceId: actor.spaceId,
-            userId: actor.userId,
             name: { equals: resolved.name, mode: "insensitive" },
             NOT: { id: existing.id },
           },
@@ -247,13 +244,12 @@ export function createAgentSkillsService(prisma: PrismaClient) {
           throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
         }
       }
-      // Mutate only owner-scoped user rows (never builtin/plugin), even if source was tampered.
+      // Mutate only the space's user rows (never builtin/plugin), even if source was tampered.
       try {
         const updated = await prisma.agentSkill.updateMany({
           where: {
             id: existing.id,
             spaceId: actor.spaceId,
-            userId: actor.userId,
             source: "user",
           },
           data: {
@@ -278,7 +274,6 @@ export function createAgentSkillsService(prisma: PrismaClient) {
         where: {
           id: existing.id,
           spaceId: actor.spaceId,
-          userId: actor.userId,
         },
       });
       if (!row) throw new IsolationError();
@@ -294,7 +289,6 @@ export function createAgentSkillsService(prisma: PrismaClient) {
         where: {
           id: existing.id,
           spaceId: actor.spaceId,
-          userId: actor.userId,
           source: "user",
         },
       });

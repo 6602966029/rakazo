@@ -40,7 +40,7 @@ import {
   SandboxRateLimitError,
   TransientModelError,
 } from "@rakazo/adapter-kit";
-import type { ComputerCommand, MessageBlock, RunStatus } from "@rakazo/contracts";
+import type { ComputerCommand, MessageAuthor, MessageBlock, RunStatus } from "@rakazo/contracts";
 import {
   ATTACHMENT_MAX_BYTES,
   BotSecretName,
@@ -61,6 +61,7 @@ import {
   appendToolCallSegment,
   applyJudgeDecision,
   assertTransition,
+  authorLabelledText,
   blocksToAgentHistoryText,
   botMessageAllowsSilence,
   CALL_CLIENT_NONCE_PREFIX,
@@ -125,6 +126,7 @@ import {
   InstructionConflictError,
   InvalidSpaceNameError,
   isTooManyDatabaseConnections,
+  loadMessageAuthors,
   loadRunHistoryMessages,
   loadRunTurnCheckpoint,
   Prisma,
@@ -399,6 +401,7 @@ import {
   updateScratchpadItemFromTool,
 } from "./scratchpad-tools.js";
 import { inferScript } from "./scripted-runtime.js";
+import { loadSharedSpaceNote } from "./shared-space-note.js";
 import {
   isRunningShellCommand,
   observeShellCommand,
@@ -3147,11 +3150,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
       spaceId: string;
       botId?: string;
     }): Promise<AgentRunRequest["model"]> {
+      // The bot's model is shared config; the credential that runs it stays the run user's.
       const override = scope.botId
         ? await deps.prisma.bot.findFirst({
             where: {
               id: scope.botId,
-              userId: scope.userId,
               spaceId: scope.spaceId,
             },
             select: { modelProvider: true, modelId: true, thinkingLevel: true },
@@ -3293,7 +3296,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
       const previousLastRunAt = routine.lastRunAt;
       const skillRecords = await listAgentSkillRecords(deps.prisma, {
         spaceId: routine.spaceId,
-        userId: routine.userId,
       });
       const routinePrompt =
         expandSkillReferencesInPrompt(routine.prompt, skillRecords) +
@@ -3787,7 +3789,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
             where: { id: run.botId },
             include: { computer: true },
           }),
-          deps.prisma.thread.findUniqueOrThrow({ where: { id: run.threadId } }),
+          deps.prisma.thread.findUniqueOrThrow({
+            where: { id: run.threadId },
+            include: { space: { select: { _count: { select: { memberships: true } } } } },
+          }),
           loadRunHistoryMessages(deps.prisma, run, LEGACY_HISTORY_WINDOW_SIZE, channelId),
           run.trigger === "bot_message"
             ? loadBotMessageContext(deps.prisma, run.sourceMessageId)
@@ -3812,10 +3817,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           deps.prisma.taughtSkill.findMany({
             where: { botId: run.botId, spaceId: run.spaceId, status: "saved" },
           }),
-          listAgentSkillRecords(deps.prisma, {
-            spaceId: run.spaceId,
-            userId: run.userId,
-          }),
+          listAgentSkillRecords(deps.prisma, { spaceId: run.spaceId }),
           deps.prisma.agentSecret.findMany({
             where: { spaceId: run.spaceId },
             select: {
@@ -3910,6 +3912,26 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const discoveredPromise = deps.connector
           ? deps.connector.discoverTools(context)
           : Promise.resolve([]);
+        // Only a space several people share names who wrote each line; a personal
+        // space keeps the exact prompt it always had.
+        const sharedSpace = (thread.space?._count.memberships ?? 0) > 1;
+        const authors = sharedSpace
+          ? await loadMessageAuthors(
+              deps.prisma,
+              messages.map((message) => message.authorUserId),
+            )
+          : new Map<string, MessageAuthor>();
+        const authorName = (message: {
+          role: string;
+          authorUserId?: string | null;
+          blocks: unknown;
+        }) => {
+          if (!sharedSpace || message.role !== "user" || !message.authorUserId) return undefined;
+          // Group-chat lines already carry their sender.
+          const blocks = Array.isArray(message.blocks) ? (message.blocks as MessageBlock[]) : [];
+          if (blocks.some((block) => block.kind === "channel_message")) return undefined;
+          return authors.get(message.authorUserId)?.name;
+        };
         const threadContext = threadContextForRun(
           run.trigger,
           {
@@ -3921,7 +3943,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 | "user"
                 | "assistant"
                 | "system",
-              content: messageToAgentHistoryText(m),
+              content: messageToAgentHistoryText(m, authorName(m)),
             })),
             summary: thread.historyCompactionSummary,
             historyCompactedUpToSeq: thread.historyCompactedUpToSeq,
@@ -6242,7 +6264,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return taskCatalogFromTool(deps, {
               spaceId: run.spaceId,
               botId: bot.id,
-              userId: run.userId,
               ...(thread.groupId ? { threadId: thread.id } : {}),
               tools,
             });
@@ -6399,7 +6420,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return listSchedulesFromTool(deps, {
               spaceId: run.spaceId,
               botId: bot.id,
-              userId: run.userId,
               ...(thread.groupId ? { threadId: thread.id } : {}),
             });
           }
@@ -6407,7 +6427,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
             const cancelled = await cancelScheduleFromTool(deps, {
               spaceId: run.spaceId,
               botId: bot.id,
-              userId: run.userId,
               ...(thread.groupId ? { threadId: thread.id } : {}),
               routineId: args.routineId ? String(args.routineId) : undefined,
               name: args.name ? String(args.name) : undefined,
@@ -6608,7 +6627,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (name === "search_history" || name === "read_history") {
             const scope = {
               spaceId: run.spaceId,
-              userId: run.userId,
               threadId: run.threadId,
               botId: run.botId,
               channelId,
@@ -7191,7 +7209,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               loadArtifact: async (id) => {
                 if (!deps.artifacts) return null;
                 const row = await deps.prisma.artifact.findFirst({
-                  where: { id, spaceId: run.spaceId, userId: run.userId },
+                  where: { id, spaceId: run.spaceId },
                   select: { mimeType: true, storageKey: true },
                 });
                 if (!row || !isAttachmentImageMimeType(row.mimeType)) return null;
@@ -7488,12 +7506,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const invokedSkill = savedSkills.find((skill) =>
           promptInvokesSkill(taskPrompt, skill.name || skill.goal),
         );
+        const turnSource = messages.find((message) => message.id === run.sourceMessageId);
+        const turnAuthorName = turnSource ? authorName(turnSource) : undefined;
+        const turnPrompt = turnAuthorName
+          ? authorLabelledText(turnAuthorName, taskPrompt)
+          : taskPrompt;
         const basePrompt = invokedSkill
           ? `${formatSkillRunPrompt(
               invokedSkill.name || invokedSkill.goal.slice(0, 80),
               parsePlaybook(invokedSkill.playbook),
-            )}\n\n${taskPrompt}`
-          : taskPrompt;
+            )}\n\n${turnPrompt}`
+          : turnPrompt;
         if (turnCheckpoint) {
           try {
             const saved = restoreTurnCheckpoint(turnCheckpoint, {
@@ -7578,6 +7601,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
         } catch {
           // Timezone is optional context; a lookup failure must not prevent a run.
         }
+        const sharedSpaceNote = sharedSpace
+          ? await loadSharedSpaceNote(deps.prisma, run.spaceId, run.userId)
+          : undefined;
         const prompt = [
           replyContext,
           run.trigger === "reaction" && replyContext ? undefined : basePrompt,
@@ -7587,6 +7613,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           voiceCall && !callEndRun ? voiceCallInstruction(disabledBuiltinTools) : undefined,
           // Per-turn, not in the system prompt: the timestamp changes every call and would break the cacheable prefix.
           formatCurrentTimeInstruction(new Date(), userTimeZone),
+          sharedSpaceNote,
         ]
           .filter(Boolean)
           .join("\n\n");
@@ -7627,7 +7654,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 await deps.prisma.bot.findMany({
                   where: {
                     spaceId: run.spaceId,
-                    userId: run.userId,
                     archivedAt: null,
                     id: { not: bot.id },
                     thread: { isNot: null },
@@ -7861,8 +7887,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   leaseFence: fence,
                   seenIds,
                 });
+                if (sharedSpace) {
+                  for (const [id, author] of await loadMessageAuthors(
+                    deps.prisma,
+                    steering.map((item) =>
+                      authors.has(item.authorUserId ?? "") ? undefined : item.authorUserId,
+                    ),
+                  ))
+                    authors.set(id, author);
+                }
                 return Promise.all(
                   steering.map(async (item) => {
+                    const steeringAuthor = authorName({ role: "user", ...item });
+                    const historyText = steeringAuthor
+                      ? authorLabelledText(steeringAuthor, item.text)
+                      : item.text;
                     const { images, files, unavailableInstruction } =
                       await settleSteeringAttachmentLoads(
                         loadCurrentTurnImages(deps, item.blocks, context),
@@ -7877,10 +7916,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
                     return {
                       id: item.id,
                       messageId: item.messageId,
-                      historyText: item.text,
+                      historyText,
                       text: [
                         await loadReplyContext(deps.prisma, thread.id, item.messageId),
-                        item.text,
+                        historyText,
                         filesInstruction,
                         unavailableInstruction,
                       ]
@@ -8825,10 +8864,7 @@ async function notifyRun(
   if (!notice?.enabled) return;
   // The icon shows what the inbox shows: unread chats across the user's Spaces. Without a
   // count the push leaves the badge as it is.
-  const badge = await countUnreadInboxChats(deps.prisma, {
-    userId: run.userId,
-    spaceId: run.spaceId,
-  }).catch((error) => {
+  const badge = await countUnreadInboxChats(deps.prisma, { userId: run.userId }).catch((error) => {
     getLogger().error("unread chat count", error);
     return undefined;
   });
@@ -10340,7 +10376,6 @@ export async function loadCurrentTurnImages(
     where: {
       id: { in: imageBlocks.map((block) => block.artifactId) },
       spaceId: context.spaceId,
-      userId: context.userId,
     },
   });
   const byId = new Map(rows.map((row) => [row.id, row]));
@@ -10421,7 +10456,6 @@ async function loadTurnImagesWithinBudget(
     where: {
       id: { in: imageBlocks.map((block) => block.artifactId) },
       spaceId: context.spaceId,
-      userId: context.userId,
     },
     select: { id: true, storageKey: true, size: true },
   });

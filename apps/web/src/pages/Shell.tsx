@@ -41,6 +41,7 @@ import {
   isRunTerminalEvent,
   isRunWorking,
   jumpTargetId,
+  otherAuthor,
   reorderBotTo,
   resolveComposerSendPlan,
   runThreadSubscription,
@@ -78,6 +79,7 @@ import {
   Settings,
   SlidersHorizontal,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import type { MutableRefObject } from "react";
@@ -2009,7 +2011,7 @@ function SpaceShell() {
   );
   const replyTargetName = activeReplyTarget
     ? activeReplyTarget.role === "user"
-      ? t`You`
+      ? (otherAuthor(activeReplyTarget.author, userId)?.name ?? t`You`)
       : (resolveTranscriptMemberName(activeReplyTarget.botId) ?? active?.name ?? t`Bot`)
     : undefined;
   const composerMentionTargets = useMemo(
@@ -2570,8 +2572,8 @@ function SpaceShell() {
 
   // Space-scoped sections bind their own rpc client to this space, so another
   // space's settings open in place without switching the app or reloading.
-  function openSpaceSettings(spaceId: string) {
-    openSettings("models");
+  function openSpaceSettings(spaceId: string, section: SettingsSection = "models") {
+    openSettings(section);
     setSettingsSpaceId(spaceId);
   }
 
@@ -3479,6 +3481,7 @@ function SpaceShell() {
         ) : (
           <Transcript
             key={activeSnapshot?.threadId}
+            meId={userId}
             scrollRef={messageScroll}
             scrollRequest={scrollRequest}
             onScrollRequestHandled={clearScrollRequest}
@@ -3805,6 +3808,17 @@ function SpaceShell() {
                   {t`Settings`}
                 </DropdownMenuItem>
               ) : null}
+              {spaceMenuTarget ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSpaceMenu(null);
+                    openSpaceSettings(spaceMenuTarget.id, "members");
+                  }}
+                >
+                  <Users />
+                  {t`Members`}
+                </DropdownMenuItem>
+              ) : null}
               {spaceMenuTarget?.canRename ? (
                 <DropdownMenuItem
                   onClick={() => {
@@ -4084,6 +4098,18 @@ function SpaceShell() {
                 // Prefer reopening Voice settings over starting a call with stale readiness.
                 setVoiceStatus(null);
               }
+            }}
+            onLeftSpace={(spaceId, activeSpaceId) => {
+              setSettingsOpen(false);
+              setSettingsSection("general");
+              setSettingsSpaceId(null);
+              const effectiveSpaceId = selectedSpaceId() ?? bootstrapMe?.spaceId;
+              // Leaving the open space changes the auth boundary, so reload like a space switch.
+              if (effectiveSpaceId === spaceId && selectSpace(activeSpaceId)) {
+                window.location.assign("/app");
+                return;
+              }
+              void refreshBots(true);
             }}
             onClose={() => {
               setSettingsOpen(false);

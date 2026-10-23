@@ -149,6 +149,57 @@ export function resolvePersonaColorDef(
   return BOT_COLOR_LIST[index % BOT_COLOR_LIST.length] ?? BOT_COLOR_LIST[0]!;
 }
 
+/** The colors a bot's message bubble uses, keyed like the theme tokens they replace. */
+export type BotBubblePalette = {
+  background: string;
+  foreground: string;
+  mutedForeground: string;
+  faintForeground: string;
+  link: string;
+  /** Fills nested in the bubble: code, tables, quotes. */
+  muted: string;
+  border: string;
+};
+
+const BUBBLE_DARK_TEXT = "#141414";
+const BUBBLE_LIGHT_TEXT = "#FFFFFF";
+
+/**
+ * A bot's replies sit on its full color. Text takes whichever of near-black or white
+ * has the higher contrast on that color, and nested fills are drawn in that ink.
+ */
+export function botBubblePalette(color: string): BotBubblePalette {
+  const background = `#${expandHex(color)}`;
+  const dark =
+    contrastRatio(background, BUBBLE_DARK_TEXT) >= contrastRatio(background, BUBBLE_LIGHT_TEXT);
+  const foreground = dark ? BUBBLE_DARK_TEXT : BUBBLE_LIGHT_TEXT;
+  const ink = (alpha: number) =>
+    dark ? `rgba(0, 0, 0, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+  return {
+    background,
+    foreground,
+    mutedForeground: ink(dark ? 0.68 : 0.8),
+    faintForeground: ink(dark ? 0.5 : 0.62),
+    link: foreground,
+    muted: ink(dark ? 0.08 : 0.16),
+    border: ink(dark ? 0.16 : 0.28),
+  };
+}
+
+function relativeLuminance(hex: string): number {
+  const num = Number.parseInt(expandHex(hex), 16) || 0;
+  const channel = (shift: number) => {
+    const value = ((num >> shift) & 255) / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
+}
+
+function contrastRatio(a: string, b: string): number {
+  const [light, dark] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (light! + 0.05) / (dark! + 0.05);
+}
+
 function expandHex(hex: string): string {
   const c = hex.replace("#", "");
   if (c.length === 3) {

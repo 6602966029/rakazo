@@ -82,12 +82,13 @@ function rejectInvalidSkillFields(name: string, description: string): string | u
   return undefined;
 }
 
+/** Skills are the space's: every member's runs see the same set. */
 export async function listAgentSkillRecords(
   prisma: PrismaClient,
-  owner: SkillOwner,
+  space: Pick<SkillOwner, "spaceId">,
 ): Promise<Array<SkillRecord & { id: string }>> {
   const rows = await prisma.agentSkill.findMany({
-    where: { spaceId: owner.spaceId, userId: owner.userId },
+    where: { spaceId: space.spaceId },
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
   return mergeBuiltinSkills(builtinRecords(), rows.map(toRecord));
@@ -95,7 +96,7 @@ export async function listAgentSkillRecords(
 
 async function findOwnedSkill(
   prisma: PrismaClient,
-  owner: SkillOwner,
+  owner: Pick<SkillOwner, "spaceId">,
   input: { skillId?: string; name?: string },
 ): Promise<(SkillRecord & { id: string }) | null> {
   const skills = await listAgentSkillRecords(prisma, owner);
@@ -241,12 +242,11 @@ export async function skillUpdateFromTool(
   }
 
   try {
-    // Re-scope mutate to owner + user source so a stale id cannot cross tenants.
+    // Re-scope mutate to the space + user source so a stale id cannot cross tenants.
     const updated = await prisma.agentSkill.updateMany({
       where: {
         id: existing.id,
         spaceId: owner.spaceId,
-        userId: owner.userId,
         source: "user",
       },
       data: {
@@ -276,7 +276,6 @@ export async function skillDeleteFromTool(
     where: {
       id: existing.id,
       spaceId: owner.spaceId,
-      userId: owner.userId,
       source: "user",
     },
   });

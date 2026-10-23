@@ -215,6 +215,22 @@ export interface CompactHistoryDeps {
   }) => Promise<AgentRunRequest["model"]>;
 }
 
+async function compactionUserId(
+  prisma: PrismaClient,
+  thread: { spaceId: string; userId: string; botId: string },
+): Promise<string> {
+  const member = await prisma.spaceMember.findUnique({
+    where: { spaceId_userId: { spaceId: thread.spaceId, userId: thread.userId } },
+    select: { userId: true },
+  });
+  if (member) return thread.userId;
+  const bot = await prisma.bot.findUnique({
+    where: { id: thread.botId },
+    select: { userId: true },
+  });
+  return bot?.userId ?? thread.userId;
+}
+
 export async function compactHistory(deps: CompactHistoryDeps, threadId: string): Promise<void> {
   const thread = await deps.prisma.thread.findUniqueOrThrow({ where: { id: threadId } });
   if (!thread.botId) return;
@@ -326,9 +342,16 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
   // text keyed off the prompt, so summarizing with it would save nonsense to external memory and
   // advance the cursor past messages that are then lost from both stores. Skip instead.
   const deploymentFallback = resolveDeploymentModel();
+  // In a shared space the thread's creator may have left; summarize as the bot's creator
+  // (reassigned to the space owner on departure) so the credential still belongs to a member.
+  const userId = await compactionUserId(deps.prisma, {
+    spaceId: thread.spaceId,
+    userId: thread.userId,
+    botId: thread.botId,
+  });
   const model = deps.resolveModel
     ? await deps.resolveModel({
-        userId: thread.userId,
+        userId,
         spaceId: thread.spaceId,
         botId: thread.botId,
       })
@@ -365,7 +388,7 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
       onUsage: async (event) => {
         await recordUsage(deps.prisma, event, {
           spaceId: thread.spaceId,
-          userId: thread.userId,
+          userId,
           botId: thread.botId!,
           operationId: `compact:${threadId}:${fromSeqExclusive}`,
           operationKind: "compaction",
@@ -387,14 +410,14 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
       operationId: `compact:${threadId}`,
       traceId: `compact:${threadId}`,
       spaceId: thread.spaceId,
-      userId: thread.userId,
+      userId,
       signal: AbortSignal.timeout(summarizeTimeoutMs(prompt.length)),
     },
   )) {
     if (event.type === "usage" && !event.accounted) {
       await recordUsage(deps.prisma, event, {
         spaceId: thread.spaceId,
-        userId: thread.userId,
+        userId,
         botId: thread.botId,
         operationId: `compact:${threadId}:${fromSeqExclusive}`,
         operationKind: "compaction",
@@ -447,7 +470,7 @@ export async function compactHistory(deps: CompactHistoryDeps, threadId: string)
     operationId: `history-compact:${threadId}`,
     traceId: `history-compact:${threadId}`,
     spaceId: thread.spaceId,
-    userId: thread.userId,
+    userId,
     botId: thread.botId,
     signal: new AbortController().signal,
   };

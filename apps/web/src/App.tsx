@@ -30,6 +30,7 @@ import {
   sessionRetryDelayMs,
   showSessionUnavailable,
 } from "./lib/session-gate";
+import { signInNext } from "./lib/sign-in-next";
 import { completeSsoCallback, SSO_CALLBACK_PATH } from "./lib/sso-flow";
 import { IntegrationSetupPage } from "./pages/IntegrationSetup";
 import { McpOAuthCallbackPage } from "./pages/McpOAuthCallback";
@@ -49,6 +50,9 @@ const ArtifactsPage = lazyComponent(() =>
   import("./pages/Artifacts").then((module) => module.ArtifactsPage),
 );
 const BoardPage = lazyComponent(() => import("./pages/Board").then((module) => module.BoardPage));
+const InvitePage = lazyComponent(() =>
+  import("./pages/Invite").then((module) => module.InvitePage),
+);
 
 function SsoCallbackPage() {
   useEffect(() => {
@@ -81,8 +85,7 @@ export function App() {
 
 function SessionApp() {
   const [searchParams] = useSearchParams();
-  const signInDestination =
-    searchParams.get("next") === "/integrations/setup" ? "/integrations/setup" : "/app";
+  const next = signInNext(searchParams.get("next"));
   const ticketBoardEnabled = useSyncExternalStore(
     subscribeTicketBoardEnabled,
     getTicketBoardEnabled,
@@ -150,12 +153,18 @@ function SessionApp() {
           <Route
             path="/sign-in"
             element={
-              user ? <Navigate to={signInDestination} replace /> : <AuthPage key="in" mode="in" />
+              user ? <Navigate to={next ?? "/app"} replace /> : <AuthPage key="in" mode="in" />
             }
           />
           <Route
             path="/sign-up"
-            element={user ? <Navigate to="/onboarding" replace /> : <AuthPage key="up" mode="up" />}
+            element={
+              user ? (
+                <Navigate to={next ?? "/onboarding"} replace />
+              ) : (
+                <AuthPage key="up" mode="up" />
+              )
+            }
           />
           <Route
             path="/forgot-password"
@@ -175,6 +184,16 @@ function SessionApp() {
                 <IntegrationSetupPage />
               ) : (
                 <Navigate to="/sign-in?next=/integrations/setup" replace />
+              )
+            }
+          />
+          <Route
+            path="/invite/:token"
+            element={
+              user ? (
+                <InvitePage />
+              ) : (
+                <Navigate to={`/sign-in?next=${encodeURIComponent(pathname)}`} replace />
               )
             }
           />

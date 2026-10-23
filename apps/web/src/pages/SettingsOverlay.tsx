@@ -19,6 +19,7 @@ import {
   Monitor,
   Settings,
   ShieldCheck,
+  Users,
   Volume2,
   XIcon,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import type { ComponentType } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalRulesSettings } from "../components/ApprovalRulesSettings";
 import { computersAreUnavailable } from "../components/ComputersUnavailableHint";
+import { SpaceMembersSettings } from "../components/SpaceMembersSettings";
 import { desktopBridge } from "../lib/desktop";
 import { rpcForSpace } from "../lib/rpc";
 import { SpaceRpcProvider } from "../lib/space-rpc";
@@ -47,6 +49,7 @@ export type SettingsSection =
   | "memory"
   | "voice"
   | "confirmations"
+  | "members"
   | "usage"
   | "computer"
   | "billing"
@@ -58,6 +61,7 @@ const SPACE_SECTIONS: ReadonlySet<SettingsSection> = new Set([
   "memory",
   "voice",
   "confirmations",
+  "members",
 ]);
 
 type NavItem = {
@@ -89,6 +93,7 @@ export function SettingsOverlay({
   onMemoryConfigChange,
   onClose,
   onVoiceStatusMaybeChanged,
+  onLeftSpace,
 }: {
   /** The space the per-space sections act on; it need not be the selected space. */
   space?: { id: string; name: string } | null;
@@ -119,6 +124,8 @@ export function SettingsOverlay({
   onMemoryConfigChange: (config: SpaceMemoryConfig | null) => void;
   onClose: () => void;
   onVoiceStatusMaybeChanged?: () => void | Promise<void>;
+  /** After leaving a space, with the space the server moved this person to. */
+  onLeftSpace?: (spaceId: string, activeSpaceId: string) => void;
 }) {
   const { t, i18n } = useLingui();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -217,6 +224,7 @@ export function SettingsOverlay({
     { id: "memory", label: t`Memory`, icon: Brain },
     { id: "voice", label: t`Voice`, icon: Volume2 },
     { id: "confirmations", label: t`Confirmations`, icon: ShieldCheck },
+    { id: "members", label: t`Members`, icon: Users },
     { id: "usage", label: t`Usage`, icon: Gauge },
     ...(showComputer ? [{ id: "computer" as const, label: t`Computer`, icon: Monitor }] : []),
     ...(billingEnabled ? [{ id: "billing" as const, label: t`Billing`, icon: CreditCard }] : []),
@@ -423,6 +431,12 @@ export function SettingsOverlay({
                   />
                 ) : null}
                 {section === "confirmations" ? <ApprovalRulesSettings /> : null}
+                {section === "members" && space ? (
+                  <SpaceMembersSettings
+                    space={space}
+                    onLeft={(activeSpaceId) => onLeftSpace?.(space.id, activeSpaceId)}
+                  />
+                ) : null}
                 {section === "usage" ? (
                   <UsageSettingsPanel usage={usage} panelRef={usageRef} />
                 ) : null}

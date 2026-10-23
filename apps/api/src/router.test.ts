@@ -6460,7 +6460,7 @@ describe("threads.answerCall and threads.declineCall", () => {
     expect((await call("answerCall", {})).response.status).not.toBe(200);
     expect(prisma.bot.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: "bot-1", userId: "user-1", spaceId: "space-1" }),
+        where: expect.objectContaining({ id: "bot-1", spaceId: "space-1" }),
       }),
     );
     expect(prisma.message.updateMany).not.toHaveBeenCalled();
@@ -7094,7 +7094,7 @@ describe("memory documents", () => {
     });
     await expect(client.memory.remove({ documentId: "doc-1" })).resolves.toEqual({ ok: true });
     expect(memoryDocument.findFirst).toHaveBeenCalledWith({
-      where: { id: "doc-1", spaceId: "space-1", userId: "user-1" },
+      where: { id: "doc-1", spaceId: "space-1" },
     });
     expect(memory.remove).toHaveBeenCalledWith(
       { id: "doc-1", scope: "bot", botId: "bot-1", path: "projects/retired.md" },
@@ -7185,7 +7185,7 @@ describe("routine watch creation boundaries", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("uses the owner boundary before creating or changing a command watch", async () => {
+  it("uses the space boundary before creating or changing a command watch", async () => {
     const { client, create, update, findBot, findRoutine } = fixture();
     findBot.mockResolvedValueOnce(null as never);
     const watch = {
@@ -7199,7 +7199,7 @@ describe("routine watch creation boundaries", () => {
     ).rejects.toBeDefined();
     expect(findBot).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ spaceId: actor.spaceId, userId: actor.userId }),
+        where: expect.objectContaining({ spaceId: actor.spaceId }),
       }),
     );
     findRoutine.mockResolvedValueOnce(null as never);
@@ -7208,7 +7208,7 @@ describe("routine watch creation boundaries", () => {
     });
     expect(findRoutine).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ spaceId: actor.spaceId, userId: actor.userId }),
+        where: expect.objectContaining({ spaceId: actor.spaceId }),
       }),
     );
     expect(create).not.toHaveBeenCalled();
@@ -7288,4 +7288,51 @@ describe("API-key live model catalog", () => {
       );
     },
   );
+});
+
+describe("shared space bot permissions", () => {
+  const actor = { userId: "user-1", spaceId: "space-1", email: "user@rakazo.test" };
+
+  function sharedBotClient(role: string) {
+    const bot = {
+      id: "bot-1",
+      spaceId: "space-1",
+      userId: "user-2",
+      archivedAt: null,
+      webhookSecretId: null,
+      thread: { id: "thread-1" },
+      computer: null,
+    };
+    const prisma = {
+      bot: { findFirst: vi.fn(async () => bot) },
+      spaceMember: { findUnique: vi.fn(async () => ({ role })) },
+    };
+    const secrets = { put: vi.fn() };
+    const deps = {
+      prisma,
+      secrets,
+      env: { webOrigin: "https://example.test" },
+    } as unknown as RouterDeps;
+    const client = createRouterClient(createRouter(deps), { context: { actor } as never });
+    return { client, prisma, secrets };
+  }
+
+  it("lets only the bot's creator or the space owner delete a bot for good", async () => {
+    const { client, prisma } = sharedBotClient("member");
+    await expect(
+      client.bots.remove({ botId: "bot-1", deleteMemories: false }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(prisma.spaceMember.findUnique).toHaveBeenCalledWith({
+      where: { spaceId_userId: { spaceId: "space-1", userId: "user-1" } },
+      select: { role: true },
+    });
+  });
+
+  it("keeps a bot's webhook secret with its creator", async () => {
+    const { client, secrets } = sharedBotClient("owner");
+    await expect(client.bots.rotateWebhookSecret({ botId: "bot-1" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(secrets.put).not.toHaveBeenCalled();
+  });
 });

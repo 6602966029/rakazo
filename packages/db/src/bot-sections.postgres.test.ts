@@ -110,20 +110,16 @@ describePostgres("deleteBotSection (PostgreSQL)", () => {
     expect(chatGroup.archivedAt).toBeNull();
   });
 
-  it("treats another user's section in the same space as not found", async () => {
+  it("lets any member of the space delete a section another member made", async () => {
     const system = asSystem(prisma);
     const neighborSection = await system.botSection.create({
       data: { spaceId: owner.spaceId, userId: neighborId, name: "Theirs" },
     });
 
-    await expect(
-      runAsTenant(owner, () =>
-        createRepos(prisma).deleteBotSection(actorFor(owner), { sectionId: neighborSection.id }),
-      ),
-    ).rejects.toBeInstanceOf(IsolationError);
-    expect(
-      await system.botSection.findUnique({ where: { id: neighborSection.id } }),
-    ).not.toBeNull();
+    await runAsTenant(owner, () =>
+      createRepos(prisma).deleteBotSection(actorFor(owner), { sectionId: neighborSection.id }),
+    );
+    expect(await system.botSection.findUnique({ where: { id: neighborSection.id } })).toBeNull();
   });
 
   it("treats another space's section as not found", async () => {

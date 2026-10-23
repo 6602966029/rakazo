@@ -33,7 +33,8 @@ import {
   createThreadMessageInTransaction,
   expireComputerExecutionLeases,
   IsolationError,
-  lockOwnedGroup,
+  loadMessageAuthor,
+  lockSpaceGroup,
   primaryActiveRun,
   retireWaitingQuestionInTransaction,
   touchGroupUpdatedAt,
@@ -261,12 +262,11 @@ async function lockAndLoadGroupMembers(
   actor: Actor,
   target: Extract<ThreadTarget, { kind: "group" }>,
 ) {
-  await lockOwnedGroup(tx, actor, target.groupId);
+  await lockSpaceGroup(tx, actor, target.groupId);
   const group = await tx.chatGroup.findFirst({
     where: {
       id: target.groupId,
       spaceId: actor.spaceId,
-      userId: actor.userId,
       archivedAt: null,
       thread: { id: target.threadId },
     },
@@ -658,13 +658,14 @@ export async function sendThreadMessage(
 
   const commit = () =>
     deps.prisma.$transaction(async (tx) => {
+      const author = await loadMessageAuthor(tx, actor.userId);
       let replyToMessageId: string | undefined;
       let replyQuote: string | undefined;
       let replyPreview: ReplyPreview | null | undefined;
       if (input.replyToMessageId) {
         const reply = await tx.message.findFirst({
           where: { id: input.replyToMessageId, threadId: target.threadId },
-          select: { id: true, blocks: true, role: true, botId: true },
+          select: { id: true, blocks: true, role: true, botId: true, authorUserId: true },
         });
         // A missing target must not lose the send or retain an unverified id.
         // The empty server-owned quote preserves the unavailable state after reload.
@@ -680,6 +681,7 @@ export async function sendThreadMessage(
               parsed.data,
               reply.role as ReplyPreview["role"],
               reply.botId ?? undefined,
+              await loadMessageAuthor(tx, reply.authorUserId),
             );
             // Attachment labels stay in the preview; only selected text is persisted as a quote.
             if (!requestedReplyQuote && !replyPreview.attachment) {
@@ -721,6 +723,7 @@ export async function sendThreadMessage(
         const message = await createThreadMessageInTransaction(tx, {
           threadId: target.threadId,
           role: "user",
+          authorUserId: actor.userId,
           blocks,
           replyToMessageId,
           replyQuote,
@@ -771,6 +774,7 @@ export async function sendThreadMessage(
               seq: message.seq,
               role: "user",
               blocks,
+              author,
               callId,
               runIds: answered.map((run) => run.id),
               replyToMessageId,
@@ -805,6 +809,7 @@ export async function sendThreadMessage(
               seq: message.seq,
               role: "user",
               blocks,
+              author,
               callId,
               replyToMessageId,
               replyQuote,
@@ -853,6 +858,7 @@ export async function sendThreadMessage(
             seq: message.seq,
             role: "user",
             blocks,
+            author,
             callId,
             runIds: [run.id],
             replyToMessageId,
@@ -887,6 +893,7 @@ export async function sendThreadMessage(
       const message = await createThreadMessageInTransaction(tx, {
         threadId: target.threadId,
         role: "user",
+        authorUserId: actor.userId,
         blocks,
         replyToMessageId,
         replyQuote,
@@ -1006,6 +1013,7 @@ export async function sendThreadMessage(
           seq: message.seq,
           role: "user",
           blocks,
+          author,
           callId,
           runIds: runs.map((run) => run.id),
           replyToMessageId,
@@ -1099,9 +1107,11 @@ export async function reactToThreadMessage(
       (currentTarget.kind === "bot" ? currentTarget.botId : currentTarget.memberBotIds[0]);
     if (!botId) throw new IsolationError();
     const blocks: MessageBlock[] = [{ kind: "text", text: input.reaction }];
+    const author = await loadMessageAuthor(tx, actor.userId);
     const message = await createThreadMessageInTransaction(tx, {
       threadId: target.threadId,
       role: "user",
+      authorUserId: actor.userId,
       blocks,
       replyToMessageId: parent.id,
       clientNonce: input.clientNonce,
@@ -1123,6 +1133,7 @@ export async function reactToThreadMessage(
         messageId: message.id,
         role: "user",
         blocks,
+        author,
         replyToMessageId: parent.id,
         ...(runs.length ? { runIds: runs.map((run) => run.id) } : {}),
       },
@@ -1434,7 +1445,7 @@ export async function markThreadRead(
   actor: Actor,
   target: ThreadTarget,
 ): Promise<number | null> {
-  const where = { id: target.threadId, spaceId: actor.spaceId, userId: actor.userId };
+  const where = { id: target.threadId, spaceId: actor.spaceId };
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const thread = await prisma.thread.findFirst({
       where,
@@ -1484,7 +1495,6 @@ export async function setThreadUnreadState(
     where: {
       id: target.threadId,
       spaceId: actor.spaceId,
-      userId: actor.userId,
       unread: { not: unread },
     },
     data: { unread },

@@ -987,4 +987,15 @@ export const RU_MESSAGES: Record<string, string> = {
   "{count} need attention": "Требуют внимания: {count}",
   "{label}, above": "{label}, выше",
   "{label}, below": "{label}, ниже",
+  Invite: "Пригласить",
+  "Leave space": "Покинуть пространство",
+  "Everyone in this space can read its chats and memory.":
+    "Все участники этого пространства видят его чаты и память.",
+  Leave: "Покинуть",
+  "Leave {name}?": "Покинуть {name}?",
+  "Remove {name}?": "Удалить {name}?",
+  "Could not load members": "Не удалось загрузить участников",
+  "Could not create invite link": "Не удалось создать ссылку-приглашение",
+  "Could not remove member": "Не удалось удалить участника",
+  "Could not leave space": "Не удалось покинуть пространство",
 };

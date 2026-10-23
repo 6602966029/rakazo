@@ -238,6 +238,7 @@ function compactionHarness(
     historyCompactionSummary?: string | null;
     historyCompactionGeneration?: number;
     wasCleared?: boolean;
+    threadCreatorLeft?: boolean;
     resolveModel?: (scope: {
       userId: string;
       spaceId: string;
@@ -301,6 +302,12 @@ function compactionHarness(
     },
     event: {
       findFirst: vi.fn(async () => (options.wasCleared ? { seq: 0 } : null)),
+    },
+    spaceMember: {
+      findUnique: vi.fn(async () => (options.threadCreatorLeft ? null : { userId: "user-1" })),
+    },
+    bot: {
+      findUnique: vi.fn(async () => ({ userId: "owner-1" })),
     },
     message: {
       findMany: vi.fn(
@@ -617,6 +624,23 @@ describe("compactHistory", () => {
       provider: "anthropic",
       id: "claude-sonnet",
       apiKey: "user-model-key",
+    });
+  });
+
+  it("summarizes as the bot's creator once the thread's creator left the space", async () => {
+    const resolveModel = vi.fn(async () => ({
+      provider: "anthropic",
+      id: "claude-sonnet",
+      apiKey: "owner-model-key",
+    }));
+    const harness = compactionHarness({ resolveModel, threadCreatorLeft: true });
+
+    await compactHistory(harness.deps, "thread-1");
+
+    expect(resolveModel).toHaveBeenCalledWith({
+      userId: "owner-1",
+      spaceId: "workspace-1",
+      botId: "bot-1",
     });
   });
 

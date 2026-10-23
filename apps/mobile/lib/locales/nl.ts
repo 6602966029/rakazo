@@ -947,4 +947,15 @@ export const NL_MESSAGES: Record<string, string> = {
   "{count} need attention": "{count} vragen aandacht",
   "{label}, above": "{label}, boven",
   "{label}, below": "{label}, onder",
+  Invite: "Uitnodigen",
+  "Leave space": "Space verlaten",
+  "Everyone in this space can read its chats and memory.":
+    "Iedereen in deze space kan de chats en het geheugen lezen.",
+  Leave: "Verlaten",
+  "Leave {name}?": "{name} verlaten?",
+  "Remove {name}?": "{name} verwijderen?",
+  "Could not load members": "Kan leden niet laden",
+  "Could not create invite link": "Kan uitnodigingslink niet maken",
+  "Could not remove member": "Kan lid niet verwijderen",
+  "Could not leave space": "Kan space niet verlaten",
 };

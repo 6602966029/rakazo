@@ -224,13 +224,12 @@ type LifecycleBot = {
   webhookSecretId?: string | null;
 };
 
-/** Bots the caller created. No `archivedAt` filter: a retry on an archived child must still reconcile. */
-export function createdByWhere(caller: {
-  botId: string;
-  userId: string;
-  spaceId: string;
-}): Prisma.BotWhereInput {
-  return { parentBotId: caller.botId, userId: caller.userId, spaceId: caller.spaceId };
+/**
+ * Bots the caller created, whichever member's run spawned them. No `archivedAt` filter: a retry
+ * on an archived child must still reconcile.
+ */
+export function createdByWhere(caller: { botId: string; spaceId: string }): Prisma.BotWhereInput {
+  return { parentBotId: caller.botId, spaceId: caller.spaceId };
 }
 
 export async function archiveSpawnedBot(
@@ -250,11 +249,7 @@ export async function archiveSpawnedBot(
   }
 
   const spawned = await deps.prisma.bot.findMany({
-    where: createdByWhere({
-      botId: input.spawnedByBotId,
-      userId: input.userId,
-      spaceId: input.spaceId,
-    }),
+    where: createdByWhere({ botId: input.spawnedByBotId, spaceId: input.spaceId }),
   });
   const matches = input.botId
     ? spawned.filter((bot) => bot.id === input.botId)

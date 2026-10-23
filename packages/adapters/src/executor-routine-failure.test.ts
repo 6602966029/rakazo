@@ -207,10 +207,7 @@ describe("routine failure notifications", () => {
       expect.objectContaining({ kind: "failure", badge: 3 }),
       expect.anything(),
     );
-    expect(countUnreadInboxChats).toHaveBeenCalledWith(prisma, {
-      userId: "user-1",
-      spaceId: "space-1",
-    });
+    expect(countUnreadInboxChats).toHaveBeenCalledWith(prisma, { userId: "user-1" });
   });
 
   it("still sends without a badge when counting fails", async () => {

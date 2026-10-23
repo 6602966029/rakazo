@@ -1,8 +1,14 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown, LinkifiedText } from "@rakazo/chat-ui/web";
 import type { MessageReaction, ThreadMessage } from "@rakazo/contracts";
-import { isPeerReceiptBlocks, isToolActivityBlock } from "@rakazo/core";
-import { BotAvatar, Button, resolvePersonaColorDef } from "@rakazo/ui-web";
+import {
+  botBubblePalette,
+  isPeerReceiptBlocks,
+  isToolActivityBlock,
+  otherAuthor,
+} from "@rakazo/core";
+import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@rakazo/ui-web";
+import type { CSSProperties } from "react";
 import { memo, useMemo } from "react";
 import { ArtifactFileCard } from "../../components/ArtifactFileCard";
 import { AskCard } from "../../components/AskCard";
@@ -40,6 +46,7 @@ export const MessageView = memo(function MessageView({
   canAnswer,
   canDismiss,
   message,
+  meId,
   onAnswer,
   onOpenBot,
   onOpenPeerMessages,
@@ -65,6 +72,8 @@ export const MessageView = memo(function MessageView({
   canAnswer: boolean;
   canDismiss: boolean;
   message: ThreadMessage;
+  /** The signed-in person; anyone else's message is named and set apart. */
+  meId?: string;
   onAnswer: (
     message: ThreadMessage,
     text: string,
@@ -104,11 +113,31 @@ export const MessageView = memo(function MessageView({
   const visibleNarrationBlocks = renderableMessageBlocks(message.blocks, showToolActivity);
 
   const replyBotId = message.replyPreview?.botId ?? replyParent?.botId;
+  const author = message.role === "user" ? otherAuthor(message.author, meId) : undefined;
+  const replyAuthor = otherAuthor(message.replyPreview?.author ?? replyParent?.author, meId);
   const speakerBot = message.botId ? peerBot?.(message.botId) : undefined;
   const speakerColorDef = useMemo(
     () => resolvePersonaColorDef(message.botId ?? "bot", speakerBot?.color),
     [message.botId, speakerBot?.color],
   );
+  // Bot replies sit on their bot's full color; the theme inside the bubble follows it.
+  const botBubbleStyle = useMemo(() => {
+    const palette = botBubblePalette(speakerColorDef.light);
+    return {
+      backgroundColor: palette.background,
+      color: palette.foreground,
+      "--foreground": palette.foreground,
+      "--muted-foreground": palette.mutedForeground,
+      "--faint-foreground": palette.faintForeground,
+      "--link": palette.link,
+      "--muted": palette.muted,
+      "--accent": palette.muted,
+      "--secondary": palette.muted,
+      "--card": palette.muted,
+      "--border": palette.border,
+      "--input": palette.border,
+    } as CSSProperties;
+  }, [speakerColorDef.light]);
   const messageContext = (
     <>
       {speakerName ? (
@@ -124,6 +153,13 @@ export const MessageView = memo(function MessageView({
           />
           {speakerName}
         </div>
+      ) : author ? (
+        <div
+          className="mb-1.5 text-right text-[13px] font-semibold tracking-tight text-muted-foreground"
+          dir="auto"
+        >
+          {author.name}
+        </div>
       ) : null}
       <ReplyLine
         target={artifactTarget}
@@ -131,7 +167,7 @@ export const MessageView = memo(function MessageView({
         fallbackText={replyParent ? previewMessageText(replyParent) : undefined}
         author={
           (message.replyPreview?.role ?? replyParent?.role) === "user"
-            ? t`You`
+            ? (replyAuthor?.name ?? t`You`)
             : ((replyBotId ? peerBot(replyBotId)?.name : undefined) ??
               memberName?.(replyBotId) ??
               t`Bot`)
@@ -172,6 +208,7 @@ export const MessageView = memo(function MessageView({
             <div
               data-testid="message-bot-bubble"
               className="max-w-full space-y-2.5 rounded-[20px] bg-muted px-[18px] py-3 text-[15.5px] leading-[1.5] text-foreground/90"
+              style={botBubbleStyle}
               dir="auto"
             >
               {visibleNarrationBlocks.map((block, i) => {
@@ -313,6 +350,7 @@ export const MessageView = memo(function MessageView({
                 <div
                   data-testid="message-bot-bubble"
                   className="max-w-full rounded-[20px] bg-muted px-[18px] py-3 text-[15.5px] leading-[1.5] text-foreground/90"
+                  style={botBubbleStyle}
                   dir="auto"
                 >
                   <ChatMarkdown streaming>{block.text}</ChatMarkdown>
@@ -475,7 +513,12 @@ export const MessageView = memo(function MessageView({
                 <div
                   data-testid="message-user-bubble"
                   data-quote-message-id={quoteMessageId}
-                  className="max-w-full whitespace-pre-wrap wrap-anywhere rounded-[20px] bg-chat-user px-[18px] py-3 text-[15.5px] leading-[1.45] text-chat-user-foreground"
+                  className={cn(
+                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-[20px] px-[18px] py-3 text-[15.5px] leading-[1.45]",
+                    author
+                      ? "bg-muted text-foreground/90"
+                      : "bg-chat-user text-chat-user-foreground",
+                  )}
                   dir="auto"
                 >
                   <LinkifiedText>{block.text}</LinkifiedText>
@@ -493,6 +536,7 @@ export const MessageView = memo(function MessageView({
                 <div
                   data-testid="message-bot-bubble"
                   className="max-w-full rounded-[20px] bg-muted px-[18px] py-3 text-[15.5px] leading-[1.5] text-foreground/90"
+                  style={botBubbleStyle}
                   dir="auto"
                 >
                   <div data-quote-message-id={quoteMessageId}>

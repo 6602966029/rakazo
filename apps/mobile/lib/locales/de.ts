@@ -991,4 +991,15 @@ export const DE_MESSAGES: Record<string, string> = {
   "{count} need attention": "{count} brauchen Aufmerksamkeit",
   "{label}, above": "{label}, oben",
   "{label}, below": "{label}, unten",
+  Invite: "Einladen",
+  "Leave space": "Space verlassen",
+  "Everyone in this space can read its chats and memory.":
+    "Alle in diesem Space können seine Chats und Erinnerungen lesen.",
+  Leave: "Verlassen",
+  "Leave {name}?": "{name} verlassen?",
+  "Remove {name}?": "{name} entfernen?",
+  "Could not load members": "Mitglieder konnten nicht geladen werden",
+  "Could not create invite link": "Einladungslink konnte nicht erstellt werden",
+  "Could not remove member": "Mitglied konnte nicht entfernt werden",
+  "Could not leave space": "Space konnte nicht verlassen werden",
 };

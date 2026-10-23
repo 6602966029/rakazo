@@ -33,6 +33,7 @@ import {
   assertRunCanWriteHistory,
   assertRunIsCancelled,
   createThreadMessageInTransaction,
+  loadMessageAuthor,
   RunHistoryWriteError,
 } from "./messages.js";
 import { RUN_TURN_CHECKPOINT_KIND } from "./run-turn-checkpoint.js";
@@ -112,6 +113,7 @@ export interface ClaimedSteeringMessage {
   messageId: string;
   text: string;
   blocks: MessageBlock[];
+  authorUserId?: string | null;
 }
 
 export interface FinalizeRunResult {
@@ -236,6 +238,8 @@ export interface SendUserMessageInput {
   threadId: string;
   botId: string;
   userId: string;
+  /** The person who wrote the message; omitted when the sender is not a known user. */
+  authorUserId?: string;
   blocks: MessageBlock[];
   prompt: string;
   trigger: "user" | "follow_up" | "webhook" | "messaging";
@@ -435,8 +439,10 @@ export async function sendUserMessage(
         threadId: input.threadId,
         role: "user",
         blocks: input.blocks,
+        authorUserId: input.authorUserId,
         clientNonce: input.clientNonce,
       });
+      const author = await loadMessageAuthor(tx, input.authorUserId);
       const createRun = input.createRun !== false;
       // Include the creation intro. It has no tools, so it must not absorb the message, and a
       // second run would overlap it on a dedicated computer. Pending steering waits for the
@@ -527,6 +533,7 @@ export async function sendUserMessage(
           messageId: message.id,
           role: "user",
           blocks: input.blocks,
+          author,
           // Carries the call id on the live event so a spoken turn groups into the
           // call card immediately, instead of after a refetch reads the nonce.
           callId: callIdFromClientNonce(message.clientNonce),
@@ -610,7 +617,7 @@ export async function claimSteering(
               : {}),
         },
       },
-      include: { message: { select: { blocks: true, seq: true } } },
+      include: { message: { select: { blocks: true, seq: true, authorUserId: true } } },
       orderBy: [{ message: { seq: "asc" } }, { id: "asc" }],
     });
     if (steering.length === 0) return [];
@@ -637,6 +644,7 @@ export async function claimSteering(
       messageId: item.messageId,
       text: blocksToAgentHistoryText(item.message.blocks as MessageBlock[]),
       blocks: item.message.blocks as MessageBlock[],
+      authorUserId: item.message.authorUserId,
     }));
   });
 }
@@ -729,6 +737,9 @@ async function commitAnswerRunInput(
     return null;
   if (secretAsk && !dismissed && !runSecretWriter) return null;
   if (secretAsk && pendingAsk.credential && run.userId !== input.answeredByUserId) return null;
+  // An approval lets the run act with its user's credentials and rules, so in a shared
+  // space only that user decides it.
+  if (approvalAsk && run.userId !== input.answeredByUserId) return null;
   const loginAsk = secretAsk && !dismissed && pendingAsk.credential?.auth.type === "login";
   // A username belongs only to a login card, which cannot be saved without one.
   if (loginAsk !== Boolean(input.username?.trim())) return null;
@@ -809,16 +820,18 @@ async function commitAnswerRunInput(
       role: "user",
       blocks,
       botId: run.botId,
+      authorUserId: input.answeredByUserId,
       runId: input.runId,
       clientNonce: input.clientNonce,
     });
+    const author = await loadMessageAuthor(tx, input.answeredByUserId);
     await appendEventInTransaction(tx, {
       spaceId: input.spaceId,
       threadId: input.threadId,
       botId: run.botId,
       type: "thread.message.created",
       runId: input.runId,
-      payload: { messageId: utterance.id, role: "user", blocks, callId },
+      payload: { messageId: utterance.id, role: "user", blocks, callId, author },
     });
   }
 

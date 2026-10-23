@@ -54,7 +54,7 @@ function makePrisma(rows: Array<Record<string, unknown>> = []) {
             (row) =>
               row.id === where.id &&
               row.spaceId === where.spaceId &&
-              row.userId === where.userId &&
+              (where.userId === undefined || row.userId === where.userId) &&
               row.source === where.source,
           );
           if (index < 0) return { count: 0 };
@@ -73,7 +73,7 @@ function makePrisma(rows: Array<Record<string, unknown>> = []) {
           (row) =>
             row.id === where.id &&
             row.spaceId === where.spaceId &&
-            row.userId === where.userId &&
+            (where.userId === undefined || row.userId === where.userId) &&
             row.source === where.source,
         );
         if (index < 0) return { count: 0 };
