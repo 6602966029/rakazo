@@ -1,4 +1,6 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Use 80 characters or fewer": "Не более 80 символов",
+  "Could not update name": "Не удалось обновить имя",
   "{summary} Your backup models also failed.":
     "{summary} Резервные модели тоже завершились с ошибкой.",
   "{summary} No backup model was usable for this request.":
