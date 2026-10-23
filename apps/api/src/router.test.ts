@@ -276,7 +276,8 @@ describe("account preferences", () => {
 });
 
 describe("billing", () => {
-  const upsertSignupSurvey = vi.fn().mockResolvedValue({});
+  const surveyCreatedAt = new Date("2026-10-23T12:00:00Z");
+  const upsertSignupSurvey = vi.fn().mockResolvedValue({ createdAt: surveyCreatedAt });
 
   function billingDeps(
     isDeploymentOwner: boolean,
@@ -370,7 +371,10 @@ describe("billing", () => {
       ["user-1", { name: "signup_survey_answered", skipped: false, use: "work", teamSize: "2-10" }],
       ["user-1", { name: "signup_survey_answered", skipped: true }],
     ]);
-    expect(capture.mock.calls[0]?.[2]).toMatchObject({ id: "user-1" });
+    expect(capture.mock.calls.map(([, , identity]) => identity)).toEqual([
+      { id: "user-1", at: surveyCreatedAt },
+      { id: "user-1", at: surveyCreatedAt },
+    ]);
   });
 
   it("records a blank survey as skipped", async () => {

@@ -5090,7 +5090,7 @@ export function createRouter(deps: RouterDeps) {
           teamSize: signupSurveyAsksTeamSize(input.use) ? (input.teamSize ?? null) : null,
           source: input.source || null,
         };
-        await deps.prisma.signupSurvey.upsert({
+        const saved = await deps.prisma.signupSurvey.upsert({
           where: { userId: context.actor.userId },
           create: { userId: context.actor.userId, ...answers },
           update: answers,
@@ -5103,8 +5103,8 @@ export function createRouter(deps: RouterDeps) {
             ...(answers.use ? { use: answers.use } : {}),
             ...(answers.teamSize ? { teamSize: answers.teamSize } : {}),
           },
-          // One event per account, even if the survey is submitted again.
-          { id: context.actor.userId, at: new Date() },
+          // The first save's time keeps a resubmission a duplicate of the same event.
+          { id: context.actor.userId, at: saved.createdAt },
         );
         return { ok: true as const };
       }),
