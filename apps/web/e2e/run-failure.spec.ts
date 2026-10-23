@@ -171,3 +171,19 @@ test("a model too small for required instructions offers a model change", async 
   await expect(error).not.toContainText("Start a new chat");
   await captureScreenshot(page, testInfo, "required-context-model-recovery");
 });
+
+test("a failed run explains that backup models also failed", async ({ page }, testInfo) => {
+  await signup(page, `backup-failure-${Date.now()}@rakazo.test`, "password12", "Backup Failure");
+  await completeOnboarding(page);
+  await page.getByPlaceholder(/^Message /).fill("fail this run with exhausted backups");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  const error = page.getByTestId("composer-error");
+  await expect(error).toContainText(
+    "Your model provider is rate limiting requests. Try again shortly.",
+    { timeout: 30_000 },
+  );
+  await expect(error).toContainText("Your backup models also failed.");
+  await expect(error.locator("pre")).toBeHidden();
+  await captureScreenshot(page, testInfo, "backup-models-exhausted");
+});
