@@ -2,7 +2,11 @@ import type * as TimersPromises from "node:timers/promises";
 import type { FileUrlResponse, SandboxStateEnum } from "@boatdev/sdk";
 import { ResponseError } from "@boatdev/sdk";
 import type { ComputerRef } from "@rakazo/adapter-kit";
-import { SandboxRateLimitError, SandboxUnresponsiveError } from "@rakazo/adapter-kit";
+import {
+  SandboxRateLimitError,
+  SandboxUnavailableError,
+  SandboxUnresponsiveError,
+} from "@rakazo/adapter-kit";
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { parse } from "shell-quote";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -465,6 +469,53 @@ describe("BoatSandboxProvider", () => {
     const error = await provider.prepare(computer, context).catch((failure: unknown) => failure);
     expect((error as Error).message).toContain("HTTP 409");
     expect(isSandboxGoneError(error)).toBe(false);
+  });
+
+  it("reports a sandbox that never becomes runnable as unavailable, not gone", async () => {
+    const get = FakeBoatApi.prototype.get;
+    vi.spyOn(FakeBoatApi.prototype, "get").mockImplementation(async function (
+      this: FakeBoatApi,
+      request,
+    ) {
+      const response = await get.call(this, request);
+      return { ...response, sandbox: { ...response.sandbox, state: "provisioning" } };
+    });
+    const { provider, computer } = await boat();
+
+    const error = await reconnect(provider, computer).catch((failure: unknown) => failure);
+
+    expect(error).toBeInstanceOf(SandboxUnavailableError);
+    expect(isSandboxGoneError(error)).toBe(false);
+    expect((error as Error).cause).toMatchObject({
+      message: `Boat ${computer.id} did not become ready`,
+    });
+  });
+
+  it("keeps why desktop tool setup failed without changing the reported message", async () => {
+    const run = FakeBoatApi.prototype.command;
+    vi.spyOn(FakeBoatApi.prototype, "command").mockImplementation(async function (
+      this: FakeBoatApi,
+      request,
+    ) {
+      if (!request.commandRequest.command.includes("apt-get")) return run.call(this, request);
+      return {
+        ok: true,
+        type: "command.finished",
+        success: false,
+        exitCode: 100,
+        stdout: "",
+        stderr: "Reading package lists...\nE: Could not get lock /var/lib/dpkg/lock-frontend\n",
+        timedOut: false,
+      };
+    });
+    const { provider, computer } = await boat();
+
+    const error = await provider.prepare(computer, context).catch((failure: unknown) => failure);
+
+    expect(error).toMatchObject({
+      message: "could not prepare computer desktop tools",
+      cause: { message: "exit 100: E: Could not get lock /var/lib/dpkg/lock-frontend" },
+    });
   });
 
   it("replaces a sandbox whose data expires between the lookup and the resume", async () => {

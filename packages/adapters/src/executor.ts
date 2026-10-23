@@ -142,6 +142,7 @@ import {
   searchHistory,
   settleReleasedTakeoverCards,
   validateInstructionProposal,
+  withTransactionRetry,
   writeBotInstructions,
 } from "@rakazo/db";
 import { enrichLogContext, getLogger } from "@rakazo/logging";
@@ -9794,33 +9795,37 @@ async function publishMessage(
     blocks = blocks.filter((block) => block.kind === "ask" || block.kind === "computer");
     if (blocks.length === 0 && !stoppedHelper) return null;
   }
-  const committed = await deps.prisma.$transaction(async (tx) => {
-    // Only synthetic terminal helper writes may bypass the cancellation guard.
-    // Commit their event and durable message together so cleanup retries are safe.
-    let helperEvent: { seq: number } | undefined;
-    if (stoppedHelper) {
-      const { kind: _kind, ...payload } = stoppedHelper;
-      helperEvent = await appendEventInTransaction(tx, {
-        spaceId: run.spaceId,
-        threadId: run.threadId,
-        botId: run.botId,
-        runId: run.id,
-        type: "thread.subagent",
-        payload,
-        allowCancelledRun: true,
-      });
-    }
-    if (blocks.length === 0 && helperEvent) return { message: null, eventSeq: helperEvent.seq };
-    return persistMessageInTransaction(
-      tx,
-      run,
-      role,
-      blocks,
-      markUnread,
-      clientNonce,
-      Boolean(stoppedHelper),
-    );
-  });
+  // Concurrent runs in one thread contend for its sequence counters; Postgres aborts a
+  // deadlock victim, which commits nothing, so retry instead of failing the run.
+  const committed = await withTransactionRetry(() =>
+    deps.prisma.$transaction(async (tx) => {
+      // Only synthetic terminal helper writes may bypass the cancellation guard.
+      // Commit their event and durable message together so cleanup retries are safe.
+      let helperEvent: { seq: number } | undefined;
+      if (stoppedHelper) {
+        const { kind: _kind, ...payload } = stoppedHelper;
+        helperEvent = await appendEventInTransaction(tx, {
+          spaceId: run.spaceId,
+          threadId: run.threadId,
+          botId: run.botId,
+          runId: run.id,
+          type: "thread.subagent",
+          payload,
+          allowCancelledRun: true,
+        });
+      }
+      if (blocks.length === 0 && helperEvent) return { message: null, eventSeq: helperEvent.seq };
+      return persistMessageInTransaction(
+        tx,
+        run,
+        role,
+        blocks,
+        markUnread,
+        clientNonce,
+        Boolean(stoppedHelper),
+      );
+    }),
+  );
   await deps.events.notify(run.threadId, committed.eventSeq).catch((error) => {
     getLogger().error("thread message realtime notification", error);
   });
