@@ -135,6 +135,7 @@ import {
   RUN_TURN_CHECKPOINT_KIND,
   RunHistoryWriteError,
   readHistory,
+  readRunTimingFields,
   recordUsage,
   reserveInstructionProposal,
   retireModelCredential,
@@ -3608,6 +3609,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         where: {
           id: runId,
           ...continueRunClaimFence(run),
+          AND: [{ OR: [{ wakeAt: null }, { wakeAt: { lte: now } }] }],
           OR: [
             { status: { in: ["queued", "waiting_input", "waiting_takeover"] } },
             {
@@ -3623,6 +3625,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           leaseExpiresAt: new Date(Date.now() + 5 * 60_000),
           error: null,
           checkpoint: null,
+          wakeAt: null,
         },
       });
       if (leased.count !== 1) return;
@@ -3648,6 +3651,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
         data: { status: "running", startedAt: current.startedAt ?? new Date() },
       });
       if (started.count !== 1) return;
+      getLogger().info("run.execution_started", {
+        ...(await readRunTimingFields(deps.prisma, runId)),
+      });
       const leaseTarget = await deps.prisma.bot.findUniqueOrThrow({
         where: { id: run.botId },
         select: {
@@ -5391,7 +5397,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   return persistMessageInTransaction(tx, run, "bot", [block]);
                 });
                 if (committed)
-                  await deps.events.notify(run.threadId, committed.eventSeq).catch(() => undefined);
+                  await deps.events
+                    .notify(run.threadId, committed.eventSeq, committed.firstResponseRunId)
+                    .catch(() => undefined);
               },
             });
           };
@@ -6543,6 +6551,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             const oauthLikely = needsOAuthProbe(parsed);
             let serverRow: McpServer;
             let approvalEventSeq: number | undefined;
+            let approvalResponseRunId: string | undefined;
             try {
               const created = await deps.prisma.$transaction(async (tx) => {
                 if (storedCredential) {
@@ -6588,10 +6597,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   },
                 ];
                 const committed = await persistMessageInTransaction(tx, run, "bot", blocks);
-                return { server, eventSeq: committed.eventSeq };
+                return {
+                  server,
+                  eventSeq: committed.eventSeq,
+                  firstResponseRunId: committed.firstResponseRunId,
+                };
               });
               serverRow = created.server;
               approvalEventSeq = created.eventSeq;
+              approvalResponseRunId = created.firstResponseRunId;
             } catch (error) {
               if (isUniqueViolation(error)) {
                 return finish({
@@ -6601,9 +6615,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
               throw error;
             }
             if (approvalEventSeq !== undefined) {
-              await deps.events.notify(run.threadId, approvalEventSeq).catch((error) => {
-                getLogger().error("MCP approval realtime notification", error);
-              });
+              await deps.events
+                .notify(run.threadId, approvalEventSeq, approvalResponseRunId)
+                .catch((error) => {
+                  getLogger().error("MCP approval realtime notification", error);
+                });
             }
             return finish({
               ok: true,
@@ -7097,7 +7113,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (committed && "error" in committed) return finish(committed);
             if (committed)
               await deps.events
-                .notify(run.threadId, committed.eventSeq)
+                .notify(run.threadId, committed.eventSeq, committed.firstResponseRunId)
                 .catch((error) =>
                   getLogger().error("instruction update realtime notification", error),
                 );
@@ -9725,6 +9741,7 @@ async function writeComputerRunRequeue(
   };
   const releasedHold = {
     status: "queued" as const,
+    wakeAt: new Date(Date.now() + computerRetryDelay(fence)),
     error,
     leaseOwner: null,
     leaseExpiresAt: null,
@@ -9739,7 +9756,10 @@ async function writeComputerRunRequeue(
   if (preserve.count === 1) return true;
   const planned = await deps.prisma.run.updateMany({
     where: { ...whereLease, checkpoint: null },
-    data: computerRunRequeueData(resumeCheckpoint, error, heldForTakeover),
+    data: {
+      ...computerRunRequeueData(resumeCheckpoint, error, heldForTakeover),
+      wakeAt: releasedHold.wakeAt,
+    },
   });
   if (planned.count === 1) return true;
   const retried = await deps.prisma.run.updateMany({
@@ -9829,7 +9849,8 @@ async function publishMessage(
           allowCancelledRun: true,
         });
       }
-      if (blocks.length === 0 && helperEvent) return { message: null, eventSeq: helperEvent.seq };
+      if (blocks.length === 0 && helperEvent)
+        return { message: null, eventSeq: helperEvent.seq, firstResponseRunId: undefined };
       return persistMessageInTransaction(
         tx,
         run,
@@ -9841,9 +9862,11 @@ async function publishMessage(
       );
     }),
   );
-  await deps.events.notify(run.threadId, committed.eventSeq).catch((error) => {
-    getLogger().error("thread message realtime notification", error);
-  });
+  await deps.events
+    .notify(run.threadId, committed.eventSeq, committed.firstResponseRunId)
+    .catch((error) => {
+      getLogger().error("thread message realtime notification", error);
+    });
   return committed.message;
 }
 
@@ -9880,7 +9903,11 @@ async function persistMessageInTransaction(
       callId: callIdFromClientNonce(clientNonce),
     },
   });
-  return { message, eventSeq: event.seq };
+  return {
+    message,
+    eventSeq: event.seq,
+    firstResponseRunId: event.firstResponse ? run.id : undefined,
+  };
 }
 
 /** Provider tool IDs are unique only within a run, never across users or workflows. */
