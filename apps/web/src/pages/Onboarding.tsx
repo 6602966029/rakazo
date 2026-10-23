@@ -49,7 +49,7 @@ import {
 } from "../components/ModelConnectionPreflightNotice";
 import { ModelHeadersEditor } from "../components/ModelHeadersEditor";
 import { useCopyText } from "../lib/copy-text";
-import { localizedProviderHint } from "../lib/localized-provider-hint";
+import { providerRowHint } from "../lib/localized-provider-hint";
 import type { ModelCatalogEntry } from "../lib/model-auth";
 import { thinkingLevelLabel } from "../lib/model-catalog";
 import type { ModelPreflightFailure } from "../lib/model-connection-preflight";
@@ -597,9 +597,11 @@ export function OnboardingPage() {
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block text-[15px]">{providerLabel(entry)}</span>
-                      <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
-                        {localizedProviderHint(entry)}
-                      </span>
+                      {providerRowHint(entry) ? (
+                        <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
+                          {providerRowHint(entry)}
+                        </span>
+                      ) : null}
                     </span>
                     <RadioGroupItem value={entry.provider} aria-label={providerLabel(entry)} />
                   </label>
