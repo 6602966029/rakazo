@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, signup } from "./helpers";
 
+// Fit the whole onboarding form so the full-page screenshot does not resize the
+// page and close the open Thinking menu.
+test.use({ viewport: { width: 1280, height: 1000 } });
+
 test("onboarding requires a model and uses compact model selects without misleading latest labels", async ({
   page,
 }, testInfo) => {
