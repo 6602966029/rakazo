@@ -1297,6 +1297,10 @@ msgstr ""
 msgid "Complete"
 msgstr "완료"
 
+#: src/components/SubagentCard.tsx
+msgid "Completed"
+msgstr "완료"
+
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/message-view.tsx
@@ -2484,6 +2488,7 @@ msgstr ""
 msgid "failed"
 msgstr "실패"
 
+#: src/components/SubagentCard.tsx
 #: src/pages/ActivityList.tsx
 msgid "Failed"
 msgstr "실패"
@@ -4298,6 +4303,7 @@ msgid "running"
 msgstr "실행 중"
 
 #: src/components/McpServerHealthLine.tsx
+#: src/components/SubagentCard.tsx
 #: src/pages/ActivityList.tsx
 msgid "Running"
 msgstr "실행 중"
@@ -4768,7 +4774,6 @@ msgid "Stream replies"
 msgstr "답변 스트리밍"
 
 #: src/lib/identity-display.ts
-#: src/pages/shell/message-view.tsx
 msgid "subagent"
 msgstr "보조 에이전트"
 
