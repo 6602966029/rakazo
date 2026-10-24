@@ -1605,6 +1605,20 @@ export function createRouter(deps: RouterDeps) {
           ...(primary ? [primary] : []),
           ...(backups ?? []),
         ]);
+        // A compatible connection's previous main model may only run because it was the
+        // default; switching away must not strand choices that still use it.
+        if (role === "main" && primary?.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
+          const current = await getModelRole(deps.prisma, context.actor, "main");
+          if (current.primary?.modelId !== primary.modelId) {
+            const thinking = await prepareAllowedThinkingLevels(
+              deps,
+              context.actor,
+              primary.provider,
+              primary.modelId,
+            );
+            await assertCompatibleDefaultChange(deps, context.actor, primary.modelId, thinking);
+          }
+        }
         return updateModelRole(
           deps.prisma,
           context.actor,
@@ -7762,7 +7776,10 @@ async function compatibleModelPins(
           where: { ...where, modelProvider: provider, bot: { archivedAt: null } },
           select: { ...pin, name: true },
         }),
-        deps.prisma.spaceModelRoleChoice.findMany({ where: { ...where, provider }, select: pin }),
+        deps.prisma.spaceModelRoleChoice.findMany({
+          where: { ...where, provider },
+          select: { ...pin, role: true, position: true },
+        }),
       ]),
   );
   return { named: [...bots, ...routines], backups: roleChoices };
@@ -7857,7 +7874,14 @@ async function assertCompatibleDefaultChange(
     spaceId: actor.spaceId,
     modelId: outgoing,
   });
-  refuseModelPins(pins, () => true);
+  // The main model's own row is the choice being replaced, not a pin left behind.
+  refuseModelPins(
+    {
+      ...pins,
+      backups: pins.backups.filter((row) => !(row.role === "main" && row.position === 0)),
+    },
+    () => true,
+  );
 }
 
 /** A routine may only name a model the space has connected. */

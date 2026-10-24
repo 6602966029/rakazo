@@ -2,6 +2,7 @@ import type { MenuAction } from "@expo/ui/community/menu";
 import { MenuView } from "@expo/ui/community/menu";
 import type {
   ModelBackupChoice,
+  ModelCatalogEntry,
   ModelCredential,
   ModelRole,
   ModelRoleSettings as Settings,
@@ -193,12 +194,14 @@ export function ModelRoleSettings({
   type Narrowed = {
     provider: string;
     credentials: ModelCredential[];
+    /** Loaded after the connection, so account-specific models it unlocks are listed. */
+    catalog: ModelCatalogEntry[];
     selected?: ModelBackupChoice;
   };
 
   function pickerRequest(slot: Slot, narrowed?: Narrowed): ModelPickerRequest {
     const primarySlot = isPrimarySlot(slot);
-    const all = narrowed ? connectedBackupOptions(state.catalog, narrowed.credentials) : options;
+    const all = narrowed ? connectedBackupOptions(narrowed.catalog, narrowed.credentials) : options;
     const pool = all.filter(
       (option) =>
         !narrowed ||
@@ -242,11 +245,12 @@ export function ModelRoleSettings({
           onConnected: async (connected) => {
             const [fresh] = await Promise.all([
               send<ModelCredential[]>("models/credentials", {}),
-              makeDefault ? controller.load() : undefined,
+              controller.load(),
             ]);
             const next = pickerRequest(slot, {
               provider: connected.provider,
               credentials: fresh,
+              catalog: controller.snapshot().catalog,
               selected: makeDefault ? connected : undefined,
             });
             return next.choices.length ? pickerRoute(next) : undefined;

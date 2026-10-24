@@ -5996,6 +5996,8 @@ describe("openai-compatible enabled models", () => {
     archived?: boolean;
     spaceId?: string;
     userId?: string;
+    role?: string;
+    position?: number;
   };
   type PinWhere = {
     spaceId?: string;
@@ -6031,7 +6033,13 @@ describe("openai-compatible enabled models", () => {
             ? pin.modelId === where.modelId
             : !where.modelId?.notIn?.includes(pin.modelId)),
       )
-      .map(({ name, spaceId, modelId }) => ({ name, spaceId, modelId }));
+      .map(({ name, spaceId, modelId, role, position }) => ({
+        name,
+        spaceId,
+        modelId,
+        role,
+        position,
+      }));
   }
 
   function pinStores(options: {
@@ -6039,11 +6047,26 @@ describe("openai-compatible enabled models", () => {
     routines?: Pin[];
     backups?: string[];
     roleChoices?: string[];
+    mainPrimary?: string;
   }) {
-    // Main-model fallbacks are role choices too.
-    const roleChoices = [...(options.backups ?? []), ...(options.roleChoices ?? [])].map(
-      (modelId) => ({ name: "", modelId }),
-    );
+    // The main model and its fallbacks are role choices too.
+    const roleChoices = [
+      ...(options.mainPrimary
+        ? [{ name: "", modelId: options.mainPrimary, role: "main", position: 0 }]
+        : []),
+      ...(options.backups ?? []).map((modelId, index) => ({
+        name: "",
+        modelId,
+        role: "main",
+        position: index + 1,
+      })),
+      ...(options.roleChoices ?? []).map((modelId) => ({
+        name: "",
+        modelId,
+        role: "approval",
+        position: 0,
+      })),
+    ];
     return {
       bots: (where: PinWhere) => matching(options.bots, where),
       routine: {
@@ -6146,6 +6169,7 @@ describe("openai-compatible enabled models", () => {
     routines?: Pin[];
     backups?: string[];
     roleChoices?: string[];
+    mainPrimary?: string;
   }) {
     const state = {
       credential: {
@@ -6569,6 +6593,30 @@ describe("openai-compatible enabled models", () => {
       );
     },
   );
+
+  it("lets the main model leave an implicit compatible default it alone uses", async () => {
+    const { call } = fixture({
+      plaintext: secretText(),
+      defaultModel: "m-a",
+      mainPrimary: "m-a",
+    });
+    expect((await call("models/setDefault", { provider: compatible, modelId: "m-b" })).status).toBe(
+      200,
+    );
+  });
+
+  it("refuses leaving an implicit compatible default another purpose still uses", async () => {
+    const { call } = fixture({
+      plaintext: secretText(),
+      defaultModel: "m-a",
+      mainPrimary: "m-a",
+      roleChoices: ["m-a"],
+    });
+    expect(await call("models/setDefault", { provider: compatible, modelId: "m-b" })).toEqual({
+      status: 400,
+      message: refusal("backup models"),
+    });
+  });
 
   it("refuses setDefault to an id outside a listed secret", async () => {
     const { call, prisma } = fixture({
