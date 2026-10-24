@@ -1580,6 +1580,19 @@ export function createRouter(deps: RouterDeps) {
       setRole: authed.models.setRole.handler(async ({ context, input }) => {
         if (input.expectedUserId && input.expectedUserId !== context.actor.userId)
           throw new ORPCError("FORBIDDEN");
+        // Main defaults share the existing connection-backed preference storage.
+        if (
+          input.role === "main" &&
+          input.primary &&
+          !(await findModelCredential(
+            deps.prisma,
+            context.actor,
+            input.primary.provider,
+            input.primary.modelId,
+          ))
+        ) {
+          throw new ORPCError("BAD_REQUEST", { message: "Connect that model provider first" });
+        }
         const choices = [...(input.primary ? [input.primary] : []), ...(input.backups ?? [])];
         await validateRoleChoices(context.actor, input.role, choices);
         return updateModelRole(deps.prisma, context.actor, input.role, input);

@@ -16,6 +16,7 @@ const owner: Actor = {
 function setup(
   options: {
     actor?: Actor;
+    credits?: boolean;
     existing?: Array<Record<string, unknown>>;
     /** An openai-compatible connection with this stored list and space default. */
     compatible?: { enabledModelIds: string[]; defaultModel: string };
@@ -80,11 +81,16 @@ function setup(
     spaceBackupModel,
   };
   const prisma = {
+    space: {
+      findFirst: vi.fn(async () => ({ organization: { modelCredits: { mode: "credits" } } })),
+    },
     spaceBackupModel,
     spaceModelRole,
     userModelCredential: {
       findMany: vi.fn(async ({ where }: { where: { userId: string; provider?: string } }) =>
-        where.userId === owner.userId && (!where.provider || where.provider === credential.provider)
+        !options.credits &&
+        where.userId === owner.userId &&
+        (!where.provider || where.provider === credential.provider)
           ? [credential]
           : [],
       ),
@@ -119,6 +125,7 @@ function setup(
     userModelCredential: prisma.userModelCredential,
   });
   const deps = {
+    billing: options.credits ? { modelCreditsEnabled: true } : undefined,
     prisma,
     secrets: {
       load: vi.fn(() =>
@@ -420,4 +427,26 @@ describe("role-based model settings API", () => {
     const legacy = await call("models/backups", {});
     expect((await legacy.response.json()).json).toEqual(backups);
   });
+});
+
+it("rejects a managed main primary before writing while allowing managed role backups", async () => {
+  vi.stubEnv("PI_DEFAULT_PROVIDER", "openrouter");
+  vi.stubEnv("OPENROUTER_API_KEY", "fake-hosted-key");
+  try {
+    const { call, prisma } = setup({ credits: true });
+    const primary = { provider: availableModel.provider, modelId: availableModel.id };
+    const catalog = await call("models/forRole", { role: "main" });
+    expect((await catalog.response.json()).json).toContainEqual(
+      expect.objectContaining({ id: primary.modelId, managed: true }),
+    );
+    const rejected = await call("models/setRole", { role: "main", primary });
+    expect(rejected.response.status).toBe(400);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    const backup = await call("models/setRole", { role: "main", backups: [primary] });
+    expect(backup.response.status).toBe(200);
+    const approval = await call("models/setRole", { role: "approval", primary });
+    expect(approval.response.status).toBe(200);
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });
