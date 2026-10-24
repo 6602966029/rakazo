@@ -759,10 +759,6 @@ msgstr "arşivlendi"
 msgid "Archived"
 msgstr "Arşivlendi"
 
-#: src/pages/shell/message-view.tsx
-msgid "Archived. Chat, memory, and files kept."
-msgstr "Arşivlendi. Sohbet, hafıza ve dosyalar korundu."
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Arguments"
 msgstr "Argümanlar"
@@ -3727,10 +3723,6 @@ msgstr ""
 msgid "OpenAI-compatible server URL"
 msgstr "OpenAI uyumlu sunucu URL'si"
 
-#: src/pages/shell/message-view.tsx
-msgid "Opened its thread."
-msgstr "Sohbeti açıldı."
-
 #: src/pages/Onboarding.tsx
 msgid "Opening chat…"
 msgstr "Sohbet açılıyor…"
@@ -4152,10 +4144,6 @@ msgstr "{0} becerisini kaldır"
 msgid "Remove webhook"
 msgstr ""
 
-#: src/pages/shell/message-view.tsx
-msgid "Removed with chat, computer, and memory."
-msgstr "Sohbeti, bilgisayarı ve hafızasıyla birlikte kaldırıldı."
-
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"
 msgstr "Kaldırıldı ama liste yenilenemedi"
@@ -4338,6 +4326,10 @@ msgstr "Rutinler"
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
 msgstr ""
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Run actions without asking"
+msgstr "Eylemleri sormadan çalıştır"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"

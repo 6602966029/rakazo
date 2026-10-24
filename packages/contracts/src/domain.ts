@@ -744,6 +744,8 @@ export type ActionApprovalRule = z.infer<typeof ActionApprovalRuleSchema>;
 export const ActionAutoReviewSettingsSchema = z.object({
   enabled: z.boolean(),
   checkerAvailable: z.boolean(),
+  /** Run every action that would ask, except the ones that always need a person. */
+  skipApprovals: z.boolean(),
 });
 export type ActionAutoReviewSettings = z.infer<typeof ActionAutoReviewSettingsSchema>;
 
