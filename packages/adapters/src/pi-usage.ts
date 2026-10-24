@@ -362,7 +362,7 @@ export function observedPiStream(
         const collectRawUsage =
           /^(openai-|anthropic-)/.test(model.api) && !model.provider.startsWith("google");
         // Each guarded reservation covers one HTTP attempt, not hidden SDK retries.
-        const streamOptions = withGoogleToolHistory(model, preparedContext, {
+        const streamOptions = withGoogleToolHistory(model, {
           ...options,
           ...(cacheRetention ? { cacheRetention } : {}),
           ...(observer ? { maxRetries: 0 } : {}),
