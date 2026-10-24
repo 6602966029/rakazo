@@ -105,12 +105,6 @@ msgstr "{0} MB"
 msgid "{0} rollup hours"
 msgstr ""
 
-#. placeholder {0}: usage.runs
-#. placeholder {1}: usage.totalTokens ?? "—"
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "{0} runs · {1} tokens"
-msgstr "{0} रन · {1} टोकन"
-
 #. placeholder {0}: bot.name
 #: src/pages/ExternalConversationSettings.tsx
 msgid "{0} will still respond to direct mentions."
@@ -687,7 +681,7 @@ msgstr "दूसरा एजेंट"
 
 #: src/components/AskCard.tsx
 msgid "Answer"
-msgstr "उत्तर"
+msgstr ""
 
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
@@ -934,7 +928,7 @@ msgstr "बॉट"
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
-msgstr "बॉट"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -1009,6 +1003,10 @@ msgstr "आपको कॉल कर रहा है…"
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
 msgstr "कॉल हो रही है…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Calls"
+msgstr "कॉल"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Can edit and organise bots it creates"
@@ -1290,7 +1288,7 @@ msgstr "क्लाउड"
 
 #: src/components/AskCard.tsx
 msgid "Code"
-msgstr "कोड"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgctxt "email sign-in"
@@ -1540,6 +1538,10 @@ msgstr "कॉपी करें"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr ""
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Cost"
+msgstr "लागत"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -2123,7 +2125,7 @@ msgstr "डिफ़ॉल्ट"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
-msgstr "डिफ़ॉल्ट ({0})"
+msgstr ""
 
 #. js-lingui-explicit-id
 #. placeholder {0}: thinkingLevelLabel("medium")
@@ -2525,7 +2527,7 @@ msgstr ""
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Extra high"
-msgstr "अतिरिक्त उच्च"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2745,7 +2747,7 @@ msgstr "ट्रांसक्रिप्ट छिपाएँ"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "High"
-msgstr "उच्च"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2836,6 +2838,10 @@ msgstr "आने वाली कॉल"
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
 msgstr "डिफ़ॉल्ट का पालन करें"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Input"
+msgstr "इनपुट"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -3063,7 +3069,7 @@ msgstr "लॉग आउट"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Low"
-msgstr "निम्न"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3127,7 +3133,7 @@ msgstr "अपठित चिह्नित करें"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
-msgstr "अधिकतम"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3162,7 +3168,7 @@ msgstr "MCP सर्वर"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
-msgstr "मध्यम"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3199,7 +3205,7 @@ msgstr ""
 #: src/pages/shell/chat-shared.ts
 #: src/pages/shell/composer.tsx
 msgid "Message"
-msgstr "संदेश"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -3246,7 +3252,7 @@ msgstr "माइक्रोफ़ोन विफल"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Minimal"
-msgstr "न्यूनतम"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3278,6 +3284,7 @@ msgstr "मिनट"
 msgid "Missed call"
 msgstr "मिस्ड कॉल"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/model-settings/model-picker.tsx
@@ -3304,10 +3311,6 @@ msgstr "मॉडल आईडी"
 #: src/pages/model-settings/role-model-picker.tsx
 msgid "Model options"
 msgstr "मॉडल विकल्प"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Model spend uses your provider keys."
-msgstr "मॉडल का खर्च आपकी प्रोवाइडर कुंजियों से होता है।"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
@@ -3757,6 +3760,10 @@ msgstr "मूल संदेश उपलब्ध नहीं है"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "अन्य मॉडल…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Output"
+msgstr "आउटपुट"
 
 #: src/lib/identity-display.ts
 #: src/pages/Board.tsx
@@ -4347,6 +4354,10 @@ msgstr "चल रहा है · रोकें"
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
 msgstr "चल रहा है…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Runs"
+msgstr "रन"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
@@ -5071,6 +5082,10 @@ msgstr "प्रति:"
 msgid "Today"
 msgstr "आज"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Tokens"
+msgstr "टोकन"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Tool arguments (JSON)"
 msgstr "टूल आर्ग्युमेंट (JSON)"
@@ -5245,7 +5260,6 @@ msgid "Urgent"
 msgstr ""
 
 #: src/components/SidebarFooter.tsx
-#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Usage"
 msgstr "उपयोग"

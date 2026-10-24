@@ -105,12 +105,6 @@ msgstr "{0} MB"
 msgid "{0} rollup hours"
 msgstr "שעות סיכום של {0}"
 
-#. placeholder {0}: usage.runs
-#. placeholder {1}: usage.totalTokens ?? "—"
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "{0} runs · {1} tokens"
-msgstr "{0} הרצות · {1} טוקנים"
-
 #. placeholder {0}: bot.name
 #: src/pages/ExternalConversationSettings.tsx
 msgid "{0} will still respond to direct mentions."
@@ -687,7 +681,7 @@ msgstr "סוכן אחר"
 
 #: src/components/AskCard.tsx
 msgid "Answer"
-msgstr "תשובה"
+msgstr ""
 
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
@@ -934,7 +928,7 @@ msgstr "בוט"
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
-msgstr "בוט"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -1009,6 +1003,10 @@ msgstr ""
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
 msgstr ""
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Calls"
+msgstr "קריאות"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Can edit and organise bots it creates"
@@ -1290,7 +1288,7 @@ msgstr "ענן"
 
 #: src/components/AskCard.tsx
 msgid "Code"
-msgstr "קוד"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgctxt "email sign-in"
@@ -1540,6 +1538,10 @@ msgstr "העתקה"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr "העתקת דוגמת .env"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Cost"
+msgstr "עלות"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -2123,7 +2125,7 @@ msgstr "ברירת מחדל"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
-msgstr "ברירת מחדל ({0})"
+msgstr ""
 
 #. js-lingui-explicit-id
 #. placeholder {0}: thinkingLevelLabel("medium")
@@ -2525,7 +2527,7 @@ msgstr "שיחה חיצונית"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Extra high"
-msgstr "גבוה מאוד"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2745,7 +2747,7 @@ msgstr "הסתרת התמליל"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "High"
-msgstr "גבוהה"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2836,6 +2838,10 @@ msgstr ""
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
 msgstr "ירושה מברירת המחדל"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Input"
+msgstr "קלט"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -3063,7 +3069,7 @@ msgstr "התנתקות"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Low"
-msgstr "נמוך"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3127,7 +3133,7 @@ msgstr "סימון כלא נקראה"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
-msgstr "מקסימלי"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3162,7 +3168,7 @@ msgstr "שרתי MCP"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
-msgstr "בינוני"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3199,7 +3205,7 @@ msgstr "אזכורים בלבד"
 #: src/pages/shell/chat-shared.ts
 #: src/pages/shell/composer.tsx
 msgid "Message"
-msgstr "הודעה"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -3246,7 +3252,7 @@ msgstr "המיקרופון נכשל"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Minimal"
-msgstr "מינימלי"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3278,6 +3284,7 @@ msgstr "דקות"
 msgid "Missed call"
 msgstr ""
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/model-settings/model-picker.tsx
@@ -3304,10 +3311,6 @@ msgstr "מזהה מודל"
 #: src/pages/model-settings/role-model-picker.tsx
 msgid "Model options"
 msgstr "אפשרויות מודל"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Model spend uses your provider keys."
-msgstr "העלות של המודלים מחויבת דרך מפתחות הספק שלך."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
@@ -3757,6 +3760,10 @@ msgstr "ההודעה המקורית אינה זמינה"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "מודל אחר…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Output"
+msgstr "פלט"
 
 #: src/lib/identity-display.ts
 #: src/pages/Board.tsx
@@ -4347,6 +4354,10 @@ msgstr "פועל · עצירה"
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
 msgstr "מריץ…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Runs"
+msgstr "הרצות"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
@@ -5071,6 +5082,10 @@ msgstr "אל:"
 msgid "Today"
 msgstr "היום"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Tokens"
+msgstr "טוקנים"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Tool arguments (JSON)"
 msgstr ""
@@ -5245,7 +5260,6 @@ msgid "Urgent"
 msgstr "דחוף"
 
 #: src/components/SidebarFooter.tsx
-#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Usage"
 msgstr "שימוש"

@@ -105,12 +105,6 @@ msgstr "{0} МБ"
 msgid "{0} rollup hours"
 msgstr "{0} ч. сводки"
 
-#. placeholder {0}: usage.runs
-#. placeholder {1}: usage.totalTokens ?? "—"
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "{0} runs · {1} tokens"
-msgstr "Запусков: {0} · токенов: {1}"
-
 #. placeholder {0}: bot.name
 #: src/pages/ExternalConversationSettings.tsx
 msgid "{0} will still respond to direct mentions."
@@ -687,7 +681,7 @@ msgstr "Другой агент"
 
 #: src/components/AskCard.tsx
 msgid "Answer"
-msgstr "Ответ"
+msgstr ""
 
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
@@ -934,7 +928,7 @@ msgstr "бот"
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
-msgstr "Бот"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -1009,6 +1003,10 @@ msgstr "Звонит вам…"
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
 msgstr "Вызов…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Calls"
+msgstr "Вызовы"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Can edit and organise bots it creates"
@@ -1290,7 +1288,7 @@ msgstr "Облако"
 
 #: src/components/AskCard.tsx
 msgid "Code"
-msgstr "Код"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgctxt "email sign-in"
@@ -1540,6 +1538,10 @@ msgstr "Копировать"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr ""
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Cost"
+msgstr "Стоимость"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -2123,7 +2125,7 @@ msgstr "По умолчанию"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
-msgstr "По умолчанию ({0})"
+msgstr ""
 
 #. js-lingui-explicit-id
 #. placeholder {0}: thinkingLevelLabel("medium")
@@ -2525,7 +2527,7 @@ msgstr "Внешний диалог"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Extra high"
-msgstr "Очень высокий"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2745,7 +2747,7 @@ msgstr "Скрыть расшифровку"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "High"
-msgstr "Высокий"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2836,6 +2838,10 @@ msgstr "Входящий звонок"
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
 msgstr "Наследовать значение по умолчанию"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Input"
+msgstr "Ввод"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -3063,7 +3069,7 @@ msgstr "Выйти"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Low"
-msgstr "Низкий"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3127,7 +3133,7 @@ msgstr "Отметить как непрочитанное"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
-msgstr "Макс"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3162,7 +3168,7 @@ msgstr "MCP-серверы"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
-msgstr "Средний"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3199,7 +3205,7 @@ msgstr "Только упоминания"
 #: src/pages/shell/chat-shared.ts
 #: src/pages/shell/composer.tsx
 msgid "Message"
-msgstr "Сообщение"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -3246,7 +3252,7 @@ msgstr "Ошибка микрофона"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Minimal"
-msgstr "Минимальный"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3278,6 +3284,7 @@ msgstr "минуты"
 msgid "Missed call"
 msgstr "Пропущенный звонок"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/model-settings/model-picker.tsx
@@ -3304,10 +3311,6 @@ msgstr "Идентификатор модели"
 #: src/pages/model-settings/role-model-picker.tsx
 msgid "Model options"
 msgstr "Варианты модели"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Model spend uses your provider keys."
-msgstr "Расходы на модель оплачиваются ключами вашего провайдера."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
@@ -3581,7 +3584,7 @@ msgstr "Ещё не проверено"
 
 #: src/pages/model-settings/role-model-picker.tsx
 msgid "Not connected"
-msgstr "Не подключено"
+msgstr "Не подключена"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -3757,6 +3760,10 @@ msgstr "Исходное сообщение недоступно"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "Другая модель…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Output"
+msgstr "Вывод"
 
 #: src/lib/identity-display.ts
 #: src/pages/Board.tsx
@@ -4347,6 +4354,10 @@ msgstr "Выполняется · Остановить"
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
 msgstr "Выполняется…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Runs"
+msgstr "Запуски"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
@@ -5071,6 +5082,10 @@ msgstr "К:"
 msgid "Today"
 msgstr "Сегодня"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Tokens"
+msgstr "Токены"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Tool arguments (JSON)"
 msgstr "Аргументы инструмента (JSON)"
@@ -5245,7 +5260,6 @@ msgid "Urgent"
 msgstr ""
 
 #: src/components/SidebarFooter.tsx
-#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Usage"
 msgstr "Использование"

@@ -105,12 +105,6 @@ msgstr "{0} Mo"
 msgid "{0} rollup hours"
 msgstr "{0} heures de regroupement"
 
-#. placeholder {0}: usage.runs
-#. placeholder {1}: usage.totalTokens ?? "—"
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "{0} runs · {1} tokens"
-msgstr "{0} exécutions · {1} jetons"
-
 #. placeholder {0}: bot.name
 #: src/pages/ExternalConversationSettings.tsx
 msgid "{0} will still respond to direct mentions."
@@ -687,7 +681,7 @@ msgstr "Un autre agent"
 
 #: src/components/AskCard.tsx
 msgid "Answer"
-msgstr "Répondre"
+msgstr ""
 
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
@@ -934,7 +928,7 @@ msgstr "bot"
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
-msgstr "Bot"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -1009,6 +1003,10 @@ msgstr "Vous appelle…"
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
 msgstr "Appel en cours…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Calls"
+msgstr "Appels"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Can edit and organise bots it creates"
@@ -1290,7 +1288,7 @@ msgstr "Cloud"
 
 #: src/components/AskCard.tsx
 msgid "Code"
-msgstr "Code"
+msgstr ""
 
 #: src/pages/Auth.tsx
 msgctxt "email sign-in"
@@ -1540,6 +1538,10 @@ msgstr "Copier"
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Copy .env example"
 msgstr ""
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Cost"
+msgstr "Coût"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not add"
@@ -2123,7 +2125,7 @@ msgstr "Par défaut"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
-msgstr "Par défaut ({0})"
+msgstr ""
 
 #. js-lingui-explicit-id
 #. placeholder {0}: thinkingLevelLabel("medium")
@@ -2525,7 +2527,7 @@ msgstr "Conversation externe"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Extra high"
-msgstr "Très élevé"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2745,7 +2747,7 @@ msgstr "Masquer la transcription"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "High"
-msgstr "Élevé"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2836,6 +2838,10 @@ msgstr "Appel entrant"
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
 msgstr "Hériter du défaut"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Input"
+msgstr "Entrée"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
@@ -3063,7 +3069,7 @@ msgstr "Se déconnecter"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Low"
-msgstr "Faible"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3127,7 +3133,7 @@ msgstr "Marquer comme non lu"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
-msgstr "Max"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3162,7 +3168,7 @@ msgstr "Serveurs MCP"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
-msgstr "Moyen"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3199,7 +3205,7 @@ msgstr "Mentions uniquement"
 #: src/pages/shell/chat-shared.ts
 #: src/pages/shell/composer.tsx
 msgid "Message"
-msgstr "Message"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -3246,7 +3252,7 @@ msgstr "Le microphone a échoué"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Minimal"
-msgstr "Minimal"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3278,6 +3284,7 @@ msgstr "minutes"
 msgid "Missed call"
 msgstr "Appel manqué"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/model-settings/model-picker.tsx
@@ -3304,10 +3311,6 @@ msgstr "ID du modèle"
 #: src/pages/model-settings/role-model-picker.tsx
 msgid "Model options"
 msgstr "Options du modèle"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Model spend uses your provider keys."
-msgstr "La consommation du modèle utilise vos clés de fournisseur."
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
@@ -3757,6 +3760,10 @@ msgstr "Message d’origine indisponible"
 #: src/pages/Onboarding.tsx
 msgid "Other model…"
 msgstr "Autre modèle…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Output"
+msgstr "Sortie"
 
 #: src/lib/identity-display.ts
 #: src/pages/Board.tsx
@@ -4347,6 +4354,10 @@ msgstr "En cours · Arrêter"
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
 msgstr "Exécution en cours…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Runs"
+msgstr "Exécutions"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
@@ -5071,6 +5082,10 @@ msgstr "À :"
 msgid "Today"
 msgstr "Aujourd'hui"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Tokens"
+msgstr "Jetons"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Tool arguments (JSON)"
 msgstr "Arguments de l’outil (JSON)"
@@ -5245,7 +5260,6 @@ msgid "Urgent"
 msgstr ""
 
 #: src/components/SidebarFooter.tsx
-#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Usage"
 msgstr "Utilisation"
