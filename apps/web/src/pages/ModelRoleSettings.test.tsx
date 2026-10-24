@@ -206,6 +206,33 @@ describe("shared role editor", () => {
     await pick("Change Jev 1.14", "Deployment default");
     expect(saved).toEqual({ primary: null, backups: [mini] });
   });
+  it("leaves a model where the loaded list has it when it is picked again", async () => {
+    saved = { primary: chat, backups: [jev] };
+    await render();
+    await click(trigger("Add fallback"));
+    // A reload is still in flight when Mini is picked; it brings Mini in as the main model.
+    let finish = () => {};
+    api.role.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ primary: mini, backups: [chat, jev] });
+        }),
+    );
+    await render({ credentials: [...credentials] });
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (entry) => optionName(entry) === "Mini",
+    );
+    expect(option).toBeDefined();
+    await act(async () => option?.click());
+    await act(async () => finish());
+    // Mini stays the main model and is not added a second time as a fallback.
+    for (const [patch] of api.setRole.mock.calls) {
+      expect(patch.primary?.modelId ?? "mini").toBe("mini");
+      expect(
+        patch.backups?.filter((entry: { modelId: string }) => entry.modelId === "mini") ?? [],
+      ).toHaveLength(0);
+    }
+  });
   it("replaces a fallback in place without duplicating it", async () => {
     saved = { primary: chat, backups: [jev] };
     await render();

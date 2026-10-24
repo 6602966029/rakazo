@@ -156,13 +156,13 @@ export function ModelRoleSettings({
   const place = (slot: ModelBackupChoice | "add", choice: ModelBackupChoice) =>
     save((current) => {
       const list = current.primary ? [current.primary, ...current.backups] : current.backups;
+      // A pick made from rows that were still catching up may already be in the loaded
+      // list; it keeps its place rather than moving and displacing the main model.
+      if (list.some((item) => sameChoice(item, choice))) return {};
       const at = slot === "add" ? -1 : list.findIndex((item) => sameChoice(item, slot));
-      if (at < 0)
-        return listPatch(current, [...list.filter((c) => !sameChoice(c, choice)), choice]);
-      const next = list.map((item, index) => (index === at ? choice : item));
       return listPatch(
         current,
-        next.filter((item, index) => index === at || !sameChoice(item, choice)),
+        at < 0 ? [...list, choice] : list.map((item, index) => (index === at ? choice : item)),
       );
     });
   const setThinking = (level: ThinkingLevel | null) =>
