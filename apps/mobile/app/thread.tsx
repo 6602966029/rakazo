@@ -3910,6 +3910,8 @@ const MessageBubble = memo(function MessageBubble(
         key={first.kind === "subagent" ? first.agentId : `${first.kind}-${index}`}
         special={first}
         actionProps={props.actionProps}
+        bots={props.bots}
+        members={props.members}
         onOpenBot={props.onOpenBot}
         onHelperToggle={props.onHelperToggle}
         userBubble={props.userBubble}
@@ -4530,7 +4532,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
 
 type SpecialMessageCardProps = Pick<
   ComponentProps<typeof MessageBubbleContent>,
-  "actionProps" | "onOpenBot" | "onHelperToggle" | "userBubble"
+  "actionProps" | "bots" | "members" | "onOpenBot" | "onHelperToggle" | "userBubble"
 > & { special: SpecialMessageBlock };
 
 function HelperMessageCard({
@@ -4661,7 +4663,7 @@ function HelperMessageCard({
 }
 
 function SpecialMessageCard(props: SpecialMessageCardProps) {
-  const { special, actionProps, onOpenBot, userBubble } = props;
+  const { special, actionProps, bots, members, onOpenBot, userBubble } = props;
   const tokens = withUserBubble(mobileTokens(), userBubble);
   const { t } = useI18n();
   if (special.kind === "subagent") return <HelperMessageCard {...props} special={special} />;
@@ -4726,48 +4728,54 @@ function SpecialMessageCard(props: SpecialMessageCardProps) {
   }
   if (special.kind === "child_bot") {
     const removed = special.status === "deleted" || special.status === "archived";
+    // A deleted or archived bot keeps its name but loses its color and link.
+    const color = removed
+      ? undefined
+      : (bots.find((bot) => bot.id === special.botId)?.color ??
+        members?.find((member) => member.botId === special.botId)?.color);
     return (
       <Pressable
         {...actionProps}
-        onPress={
-          removed ? undefined : () => onOpenBot(special.botId ?? "", special.name ?? t("Bot"))
-        }
-        style={{
-          width: "90%",
-          borderRadius: 18,
-          backgroundColor: tokens.card,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          opacity: removed ? 0.6 : 1,
-        }}
+        accessibilityRole={color ? "button" : undefined}
+        onPress={color ? () => onOpenBot(special.botId, special.name || t("Bot")) : undefined}
+        style={({ pressed }) => ({
+          alignSelf: "flex-start",
+          maxWidth: "100%",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          borderRadius: 10,
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          backgroundColor: pressed ? tokens.accent : undefined,
+        })}
       >
-        <View
+        {color ? (
+          <BotAvatar color={color} identity={special.botId} size={20} />
+        ) : (
+          <NativeSymbol
+            ios="person"
+            android="person-outline"
+            size={16}
+            color={tokens.mutedForeground}
+          />
+        )}
+        <Text
+          numberOfLines={1}
           style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            gap: 8,
+            flexShrink: 1,
+            color: color ? speakerColorFor(bots, members, special.botId) : tokens.foreground,
+            fontSize: 15.5,
+            fontWeight: "500",
           }}
         >
-          <Text style={{ flexShrink: 1, color: tokens.foreground, ...typeScale.cardTitle }}>
-            {special.name || t("Bot")}
-          </Text>
-          <Text
-            style={{ color: removed ? tokens.destructive : tokens.success, ...typeScale.caption }}
-          >
-            {special.status === "archived"
-              ? t("archived")
-              : special.status === "deleted"
-                ? t("deleted")
-                : t("bot")}
-          </Text>
-        </View>
-        <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
-          {removed
-            ? special.status === "archived"
-              ? t("Archived. Chat, memory, and files kept.")
-              : t("Removed with chat, computer, and memory.")
-            : special.title || t("Opened its thread.")}
+          {special.name || t("Bot")}
         </Text>
+        {removed ? (
+          <Text style={{ color: tokens.mutedForeground, fontSize: 15.5 }}>
+            {special.status === "archived" ? t("archived") : t("deleted")}
+          </Text>
+        ) : null}
       </Pressable>
     );
   }

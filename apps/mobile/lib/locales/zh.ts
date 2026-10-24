@@ -233,7 +233,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Collapse {name}": "折叠 {name}",
   "Expand {name}": "展开 {name}",
   Archived: "已归档",
-  "Archived. Chat, memory, and files kept.": "已归档。对话、记忆和文件均已保留。",
   Asleep: "已休眠",
   Attach: "附件",
   "Attach file": "添加附件",
@@ -555,7 +554,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Remove {name}": "移除 {name}",
   "Remove mention {name}": "移除提及 {name}",
   "Remove skill {name}": "移除技能 {name}",
-  "Removed with chat, computer, and memory.": "已连同对话、电脑和记忆一起移除。",
   "Replies and completed work": "回复和已完成的工作",
   Reply: "回复",
   "Replying to": "正在回复",
@@ -726,7 +724,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Open conversation": "打开对话",
   "Open in full window": "在全窗口中打开",
   "OpenAPI JSON": "OpenAPI JSON",
-  "Opened its thread.": "已打开其对话。",
   "Paste the OpenAI-compatible address from your server. Rakazo adds /v1 if needed.":
     "粘贴你服务器的 OpenAI 兼容地址。如有需要，Rakazo 会自动补上 /v1。",
   Paused: "已暂停",

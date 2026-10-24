@@ -765,10 +765,6 @@ msgstr "已归档"
 msgid "Archived"
 msgstr "已归档"
 
-#: src/pages/shell/message-view.tsx
-msgid "Archived. Chat, memory, and files kept."
-msgstr "已归档。对话、记忆和文件保留。"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Arguments"
 msgstr "参数"
@@ -3724,10 +3720,6 @@ msgstr ""
 msgid "OpenAI-compatible server URL"
 msgstr "OpenAI 兼容服务器 URL"
 
-#: src/pages/shell/message-view.tsx
-msgid "Opened its thread."
-msgstr "已打开其对话。"
-
 #: src/pages/Onboarding.tsx
 msgid "Opening chat…"
 msgstr "正在打开聊天…"
@@ -4144,10 +4136,6 @@ msgstr "移除技能 {0}"
 #: src/pages/RoutineEditor.tsx
 msgid "Remove webhook"
 msgstr "移除 Webhook"
-
-#: src/pages/shell/message-view.tsx
-msgid "Removed with chat, computer, and memory."
-msgstr "已连同对话、电脑和记忆一起移除。"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"

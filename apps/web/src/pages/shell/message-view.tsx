@@ -3,6 +3,7 @@ import { ChatMarkdown, LinkifiedText } from "@rakazo/chat-ui/web";
 import type { MessageReaction, ThreadMessage } from "@rakazo/contracts";
 import { isPeerReceiptBlocks, isSecretAskBlock, isToolActivityBlock } from "@rakazo/core";
 import { BotAvatar, Button, resolvePersonaColorDef } from "@rakazo/ui-web";
+import { UserRound } from "lucide-react";
 import { memo, useMemo } from "react";
 import { ArtifactFileCard } from "../../components/ArtifactFileCard";
 import { AskCard } from "../../components/AskCard";
@@ -333,41 +334,44 @@ export const MessageView = memo(function MessageView({
           }
           if (block.kind === "child_bot") {
             const removed = block.status === "deleted" || block.status === "archived";
+            // A deleted or archived bot keeps its name but loses its color and link.
+            const color = removed ? undefined : peerBot(block.botId)?.color;
             return (
-              <button
-                key={i}
-                type="button"
-                disabled={removed}
-                onClick={() => onOpenBot(block.botId)}
-                data-testid="bot-link-card"
-                className="w-[340px] max-w-full rounded-[18px] border border-border bg-muted px-[18px] py-4 text-start disabled:opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[15px] font-medium text-foreground" dir="auto">
+              <div key={i} className="flex justify-start">
+                <button
+                  type="button"
+                  disabled={!color}
+                  onClick={() => onOpenBot(block.botId)}
+                  data-testid="bot-link"
+                  className="inline-flex max-w-full items-center gap-2 rounded-lg px-2 py-1 text-[15.5px] font-medium text-foreground transition-colors enabled:hover:bg-accent"
+                >
+                  {color ? (
+                    <BotAvatar color={color} identity={block.botId} size={20} />
+                  ) : (
+                    <UserRound className="size-[18px] text-muted-foreground" aria-hidden="true" />
+                  )}
+                  <span
+                    dir="auto"
+                    className="truncate"
+                    style={
+                      color
+                        ? { color: resolvePersonaColorDef(block.botId, color).light }
+                        : undefined
+                    }
+                  >
                     {block.name}
                   </span>
-                  <span
-                    className={`rounded-full px-[11px] py-1 text-[13px] ${
-                      removed ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"
-                    }`}
-                  >
-                    {block.status === "archived" ? (
-                      <Trans>archived</Trans>
-                    ) : block.status === "deleted" ? (
-                      <Trans>deleted</Trans>
-                    ) : (
-                      <Trans>bot</Trans>
-                    )}
-                  </span>
-                </div>
-                <div className="mt-2 text-[14.5px] leading-[1.5] text-foreground/75" dir="auto">
-                  {removed
-                    ? block.status === "archived"
-                      ? t`Archived. Chat, memory, and files kept.`
-                      : t`Removed with chat, computer, and memory.`
-                    : block.title || t`Opened its thread.`}
-                </div>
-              </button>
+                  {removed ? (
+                    <span className="font-normal text-muted-foreground">
+                      {block.status === "archived" ? (
+                        <Trans>archived</Trans>
+                      ) : (
+                        <Trans>deleted</Trans>
+                      )}
+                    </span>
+                  ) : null}
+                </button>
+              </div>
             );
           }
           if (block.kind === "choice") {
