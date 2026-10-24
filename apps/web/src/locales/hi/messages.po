@@ -770,10 +770,6 @@ msgstr "आर्काइव किया गया"
 msgid "Archived"
 msgstr "आर्काइव किया गया"
 
-#: src/pages/shell/message-view.tsx
-msgid "Archived. Chat, memory, and files kept."
-msgstr "आर्काइव किया गया। चैट, मेमोरी और फ़ाइलें सुरक्षित रखी गईं।"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Arguments"
 msgstr "आर्ग्युमेंट"
@@ -3721,10 +3717,6 @@ msgstr ""
 msgid "OpenAI-compatible server URL"
 msgstr "OpenAI-संगत सर्वर URL"
 
-#: src/pages/shell/message-view.tsx
-msgid "Opened its thread."
-msgstr "इसका थ्रेड खोला।"
-
 #: src/pages/Onboarding.tsx
 msgid "Opening chat…"
 msgstr "चैट खुल रही है…"
@@ -4140,10 +4132,6 @@ msgstr "स्किल {0} हटाएं"
 msgid "Remove webhook"
 msgstr ""
 
-#: src/pages/shell/message-view.tsx
-msgid "Removed with chat, computer, and memory."
-msgstr "चैट, कंप्यूटर और मेमोरी सहित हटाया गया।"
-
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"
 msgstr "हटाया गया, लेकिन सूची रिफ़्रेश विफल रही"
@@ -4326,6 +4314,10 @@ msgstr "रूटीन्स"
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
 msgstr ""
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Run actions without asking"
+msgstr "बिना पूछे कार्य चलाएँ"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"

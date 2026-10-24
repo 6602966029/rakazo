@@ -244,8 +244,6 @@ export const DE_MESSAGES: Record<string, string> = {
     "Genehmige diesen Server, damit dein Agent seine Tools nutzen kann.",
   "Answered: {answer}": "Beantwortet: {answer}",
   Archive: "Archivieren",
-  "Archived. Chat, memory, and files kept.":
-    "Archiviert. Chat, Erinnerungen und Dateien bleiben erhalten.",
   Attach: "Anhängen",
   "Attach file": "Datei anhängen",
   Attachment: "Anhang",
@@ -301,14 +299,11 @@ export const DE_MESSAGES: Record<string, string> = {
   "Messaged {peer}": "Nachricht an {peer} gesendet",
   "Message…": "Nachricht…",
   "No longer active": "Nicht mehr aktiv",
-  "Opened its thread.": "Thread geöffnet.",
   "Photo library": "Fotomediathek",
   "Pull request": "Pull Request",
   React: "Reagieren",
   "Remove mention {name}": "Erwähnung {name} entfernen",
   "Remove skill {name}": "Skill {name} entfernen",
-  "Removed with chat, computer, and memory.":
-    "Zusammen mit Chat, Computer und Erinnerungen entfernt.",
   Reply: "Antworten",
   "Replying to": "Antwort auf",
   "Return to inbox": "Zurück zur Übersicht",
@@ -664,6 +659,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Scheduled tasks": "Geplante Aufgaben",
   "Sign out": "Abmelden",
   "Stream replies": "Antworten streamen",
+  "Run actions without asking": "Aktionen ohne Nachfrage ausführen",
   "Load web images automatically": "Webbilder automatisch laden",
   System: "System",
   "This permanently deletes your account, bots, conversations, memories, files, and saved connections. This cannot be undone.":

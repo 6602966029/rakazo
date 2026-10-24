@@ -1,11 +1,13 @@
 import { MenuView } from "@expo/ui/community/menu";
-import type { AccountSecurity } from "@rakazo/contracts";
+import type { AccountSecurity, ActionAutoReviewSettings } from "@rakazo/contracts";
 import { accountDisplay, displayName } from "@rakazo/core";
+import * as Notifications from "expo-notifications";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -141,6 +143,7 @@ export default function Account() {
   const notificationQueue = useRef<ReturnType<
     typeof createQueuedSave<LiveNotificationSettings>
   > | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<string | null>(null);
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -181,11 +184,28 @@ export default function Account() {
   );
   const loadRemoteImagesLabel = t("Load web images automatically");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [autoReview, setAutoReview] = useState<ActionAutoReviewSettings | null>(null);
+  const [skipApprovalsPending, setSkipApprovalsPending] = useState(false);
   const stackOptions = useStackedSettings();
   const styles = useThemedStyles(createAccountStyles);
   const versionInfo = getAppVersionInfo();
   const updateLabel = formatUpdateLabel(versionInfo.update, t);
   const versionAccessibility = [versionInfo.nativeLabel, updateLabel].filter(Boolean).join(". ");
+
+  useEffect(() => {
+    if (!advancedOpen || autoReview) return;
+    void rpc<ActionAutoReviewSettings>("autoReview/get")
+      .then(setAutoReview)
+      .catch(() => undefined);
+  }, [advancedOpen, autoReview]);
+
+  function setSkipApprovals(skipApprovals: boolean) {
+    setSkipApprovalsPending(true);
+    void rpc<ActionAutoReviewSettings>("autoReview/set", { skipApprovals })
+      .then(setAutoReview)
+      .catch((cause: unknown) => Alert.alert(t("Run actions without asking"), errorText(cause)))
+      .finally(() => setSkipApprovalsPending(false));
+  }
 
   useEffect(() => {
     void rpc<MobileMe>("me")
@@ -232,6 +252,30 @@ export default function Account() {
       });
       return () => {
         active = false;
+      };
+    }, []),
+  );
+
+  // Granting notifications in system settings leaves this screen mounted, so the
+  // row would keep saying blocked until the app comes back to the foreground.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== "android") return;
+      let active = true;
+      const read = () => {
+        void Notifications.getPermissionsAsync()
+          .then((permission) => {
+            if (active) setNotificationPermission(permission.status);
+          })
+          .catch(() => undefined);
+      };
+      read();
+      const subscription = AppState.addEventListener("change", (state) => {
+        if (state === "active") read();
+      });
+      return () => {
+        active = false;
+        subscription.remove();
       };
     }, []),
   );
@@ -541,6 +585,14 @@ export default function Account() {
 
         {Platform.OS === "android" ? (
           <SettingsGroup accessibilityLabel={t("Notifications")} label={t("Notifications")}>
+            {notificationPermission === "denied" ? (
+              <SettingsRow
+                accessibilityRole="button"
+                detail={t("Android blocked notifications.")}
+                onPress={() => void openLiveNotificationSettings()}
+                title={t("Notifications")}
+              />
+            ) : null}
             <SettingsSwitch
               label={t("Live working status")}
               value={notifications.liveConnection}
@@ -641,6 +693,14 @@ export default function Account() {
               label={loadRemoteImagesLabel}
               value={loadRemoteImages}
               onChange={(checked) => void setRemoteImagesPreference(checked ? "on" : "off")}
+            />
+          ) : null}
+          {advancedOpen ? (
+            <SettingsSwitch
+              label={t("Run actions without asking")}
+              value={autoReview?.skipApprovals ?? false}
+              disabled={!autoReview || skipApprovalsPending}
+              onChange={setSkipApprovals}
             />
           ) : null}
         </SettingsGroup>

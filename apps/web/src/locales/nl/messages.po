@@ -770,10 +770,6 @@ msgstr "gearchiveerd"
 msgid "Archived"
 msgstr "Gearchiveerd"
 
-#: src/pages/shell/message-view.tsx
-msgid "Archived. Chat, memory, and files kept."
-msgstr "Gearchiveerd. Chat, geheugen en bestanden blijven bewaard."
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Arguments"
 msgstr "Argumenten"
@@ -3721,10 +3717,6 @@ msgstr ""
 msgid "OpenAI-compatible server URL"
 msgstr "OpenAI-compatibele server-URL"
 
-#: src/pages/shell/message-view.tsx
-msgid "Opened its thread."
-msgstr "De thread ervan is geopend."
-
 #: src/pages/Onboarding.tsx
 msgid "Opening chat…"
 msgstr "Chat openen…"
@@ -4140,10 +4132,6 @@ msgstr "Skill {0} verwijderen"
 msgid "Remove webhook"
 msgstr "Webhook verwijderen"
 
-#: src/pages/shell/message-view.tsx
-msgid "Removed with chat, computer, and memory."
-msgstr "Verwijderd samen met chat, computer en geheugen."
-
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"
 msgstr "Verwijderd, maar het vernieuwen van de lijst mislukte"
@@ -4326,6 +4314,10 @@ msgstr "Routines"
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
 msgstr "Routines die draaien terwijl je weg bent"
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Run actions without asking"
+msgstr "Acties uitvoeren zonder te vragen"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"

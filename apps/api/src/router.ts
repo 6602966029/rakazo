@@ -93,6 +93,7 @@ import {
   modelCredentialDto,
   normalizeSecretDestination,
   PushSessionEndedError,
+  pageUrlOrigin,
   parseModelSecret,
   parseRoutineWatch,
   parseRoutineWatchState,
@@ -6486,13 +6487,19 @@ export function createRouter(deps: RouterDeps) {
       put: authed.botSecrets.put.handler(async ({ context, input }) => {
         const bot = await repos.getBot(context.actor, input.botId);
         const scope = botSecretScope(context.actor, bot.id);
+        // A pasted page URL is saved under its site. One with a username or password is left
+        // as typed, so the origin rule turns it down and the person can fix it.
+        const site = pageUrlOrigin(input.destination.origin, {
+          allowUserinfo: false,
+          maxLength: 2048,
+        });
         let row: Awaited<ReturnType<typeof getBotSecretMetadata>>;
         try {
           row = await storeBotSecret({
             prisma: deps.prisma,
             secretStore: deps.secrets,
             scope,
-            destination: input.destination,
+            destination: site ? { ...input.destination, origin: site } : input.destination,
             plaintext: input.value,
           });
         } catch (error) {
@@ -6578,9 +6585,10 @@ export function createRouter(deps: RouterDeps) {
           create: {
             spaceId: context.actor.spaceId,
             userId: context.actor.userId,
-            enabled: input.enabled,
+            enabled: input.enabled ?? deploymentAutoReviewDefault(process.env),
+            skipApprovals: input.skipApprovals ?? false,
           },
-          update: { enabled: input.enabled },
+          update: { enabled: input.enabled, skipApprovals: input.skipApprovals },
         });
         return loadAutoReviewSettings(deps, context.actor);
       }),
@@ -7107,7 +7115,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor) {
           userId: actor.userId,
         },
       },
-      select: { enabled: true },
+      select: { enabled: true, skipApprovals: true },
     }),
     requiredUserProvider
       ? deps.prisma.userModelCredential.findFirst({
@@ -7118,7 +7126,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor) {
   ]);
   const enabled = preference?.enabled ?? deploymentAutoReviewDefault(process.env);
   const checkerAvailable = environmentAvailable || Boolean(credential);
-  return { enabled, checkerAvailable };
+  return { enabled, checkerAvailable, skipApprovals: preference?.skipApprovals ?? false };
 }
 
 function hostCredentials(active: boolean, provider: string) {

@@ -770,10 +770,6 @@ msgstr "보관됨"
 msgid "Archived"
 msgstr "보관됨"
 
-#: src/pages/shell/message-view.tsx
-msgid "Archived. Chat, memory, and files kept."
-msgstr "보관되었습니다. 대화, 기억, 파일은 유지됩니다."
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Arguments"
 msgstr "인자"
@@ -3721,10 +3717,6 @@ msgstr ""
 msgid "OpenAI-compatible server URL"
 msgstr "OpenAI 호환 서버 주소"
 
-#: src/pages/shell/message-view.tsx
-msgid "Opened its thread."
-msgstr "대화가 만들어졌습니다."
-
 #: src/pages/Onboarding.tsx
 msgid "Opening chat…"
 msgstr "채팅 여는 중…"
@@ -4140,10 +4132,6 @@ msgstr "작업 기술 {0} 삭제"
 msgid "Remove webhook"
 msgstr "웹훅 제거"
 
-#: src/pages/shell/message-view.tsx
-msgid "Removed with chat, computer, and memory."
-msgstr "대화, 컴퓨터, 기억과 함께 삭제되었습니다."
-
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"
 msgstr "삭제했지만 목록을 새로고침하지 못했습니다."
@@ -4326,6 +4314,10 @@ msgstr "자동 실행"
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
 msgstr ""
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Run actions without asking"
+msgstr "묻지 않고 작업 실행"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
