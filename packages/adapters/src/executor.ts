@@ -5146,17 +5146,18 @@ export function createRunExecutor(deps: ExecutorDeps) {
             siteGate === "new" ||
             connectorReadGated ||
             toolRequiresApproval(name, viaConnector, declaredReadOnly);
-          // An owner who skips approvals gets their bot's own instruction updates applied directly,
-          // with Undo on the card, unless outside content entered the run and could have written them.
-          const instructionUpdateSkipsApproval =
-            name === "propose_instructions_update" &&
+          // An owner who skips approvals gets new spaces, and their bot's own instruction updates
+          // (with Undo on the card), without a card. An update still asks once outside content
+          // entered the run, since that content could have written it.
+          const ownerSkipsMandatoryApproval =
+            (name === "create_space" || name === "propose_instructions_update") &&
             (await loadAutoReviewPreference()).skipApprovals &&
-            !(await isRunTainted());
+            (name === "create_space" || !(await isRunTainted()));
           const requiresMandatoryApproval =
             commandWatch ||
             scheduleNamesNewSite ||
             requiresUnattendedApproval ||
-            (toolRequiresExplicitApproval(name) && !instructionUpdateSkipsApproval);
+            (toolRequiresExplicitApproval(name) && !ownerSkipsMandatoryApproval);
           const approvalResolved = requiresMandatoryApproval
             ? {
                 decision: "ask" as const,

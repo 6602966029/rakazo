@@ -965,6 +965,22 @@ describe("connector read-only metadata and approval enforcement", () => {
   });
 });
 
+describe("create_space", () => {
+  it("asks by default and skips the card when the owner skips approvals", async () => {
+    const asked = fixture({ name: "create_space", builtin: true, autoReview: true });
+    asked.setCalls([{ args: { name: "Support" }, executionId: "call-1" }]);
+    await asked.run();
+    expect(asked.pauseRunForInput).toHaveBeenCalledOnce();
+
+    const skipped = fixture({ name: "create_space", builtin: true, skipApprovals: true });
+    skipped.setCalls([{ args: { name: "Support" }, executionId: "call-1" }]);
+    // Past the gate, creation needs space tables this fixture does not mock.
+    await skipped.run(true);
+    expect(skipped.pauseRunForInput).not.toHaveBeenCalled();
+    expect(skipped.effects[0]?.status).not.toBe("intended");
+  });
+});
+
 describe("self instruction proposals", () => {
   const args = { instructions: "Draft only. Ask before sending.", reason: "Learned a preference" };
   it("asks even when general rules and auto review allow it, then applies the persisted approved text", async () => {
