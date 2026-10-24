@@ -268,10 +268,18 @@ describe.skipIf(!enabled)("persisted Pi usage accounting", () => {
         ),
       );
       expect(await db.usageRecord.count({ where: { botId: bot.id } })).toBe(7);
-      const summary = await rpc<{ totalTokens: number; modelCalls: number; runs: number }>(
-        "usage/summary",
-      );
+      const summary = await rpc<{
+        totalTokens: number;
+        modelCalls: number;
+        runs: number;
+        costUsd: number;
+        models: { model: string; modelCalls: number; totalTokens: number; costUsd: number }[];
+      }>("usage/summary");
       expect(summary).toMatchObject({ totalTokens: 910, modelCalls: 7, runs: 3 });
+      expect(summary.costUsd).toBeCloseTo(0.00084);
+      expect(summary.models).toEqual([
+        expect.objectContaining({ model: rows[0]?.model, modelCalls: 7, totalTokens: 910 }),
+      ]);
       for (const row of rows)
         expect(row).toMatchObject({
           inputTokens: 60,
