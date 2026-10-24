@@ -3,6 +3,10 @@ import { stuckWorkStatusMessages } from "./stuck-work.js";
 export const MISSING_TOOL_FINAL_RESPONSE_ERROR =
   "The tools finished, but the model did not write a final answer. Rephrase the request and try again.";
 
+/** Resumed without its saved turn, the model did not call the action the user approved. */
+export const APPROVED_ACTION_NOT_RUN_ERROR =
+  "The model did not run the approved action. Try again.";
+
 /** The model ran out of output tokens before writing anything the run could use. */
 export const MODEL_OUTPUT_LIMIT_ERROR = "The model hit its output limit before writing a response.";
 
@@ -24,7 +28,11 @@ export function isModelRequiredSendError(error: unknown): boolean {
   return typeof message === "string" && message.trim() === MODEL_REQUIRED_SEND_ERROR;
 }
 
-const APP_RUN_ERRORS = new Set([MISSING_TOOL_FINAL_RESPONSE_ERROR, ...stuckWorkStatusMessages()]);
+const MODEL_OUTPUT_RUN_ERRORS = new Set([
+  MISSING_TOOL_FINAL_RESPONSE_ERROR,
+  APPROVED_ACTION_NOT_RUN_ERROR,
+]);
+const APP_RUN_ERRORS = new Set([...MODEL_OUTPUT_RUN_ERRORS, ...stuckWorkStatusMessages()]);
 
 export const RUN_ERROR_LIMIT_MESSAGES = {
   key: {
@@ -145,7 +153,7 @@ export function normalizeRunError(
   }
   // Preserve only known recovery advice: provider diagnostics can also be plain text.
   if (APP_RUN_ERRORS.has(trimmed)) {
-    return trimmed === MISSING_TOOL_FINAL_RESPONSE_ERROR
+    return MODEL_OUTPUT_RUN_ERRORS.has(trimmed)
       ? { summary: details, details, kind: "output" }
       : { summary: details, details };
   }
