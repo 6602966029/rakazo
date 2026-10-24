@@ -185,11 +185,30 @@ describe("normalizeRunError", () => {
       ["socket hang up", tookTooLong],
       ["fetch failed", tookTooLong],
       ["Model stream ended without a terminal event", tookTooLong],
+      ["Request timed out.", tookTooLong],
     ])("summarizes %s without recovery advice", (details, summary) => {
       expect(normalizeRunError(details)).toEqual({
         summary,
         details,
         ...(summary === tooLong ? { kind: "context" } : {}),
+      });
+    });
+
+    it.each([
+      // What the OpenAI and Anthropic SDKs report when a local server is down or the host is unknown.
+      "Connection error.",
+      "fetch failed: connect ECONNREFUSED 127.0.0.1:11434",
+      "connect ECONNREFUSED ::1:8000",
+      "getaddrinfo ENOTFOUND ollama.local",
+      "connect EHOSTUNREACH 192.168.1.20:11434",
+      "connect ENETUNREACH 10.0.0.5:8000",
+      "getaddrinfo EAI_AGAIN vllm",
+      "Connection refused",
+    ])("says an unreachable provider %s should be checked", (details) => {
+      expect(normalizeRunError(details)).toEqual({
+        summary: "Your model provider couldn't be reached. Check that it's running.",
+        details,
+        recovery: "connection",
       });
     });
 

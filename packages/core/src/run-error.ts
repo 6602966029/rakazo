@@ -295,6 +295,15 @@ export function normalizeRunError(
   ) {
     summary = translate("{provider} is overloaded right now. Try again in a moment.", { provider });
   } else if (
+    // The provider SDKs report a refused or unresolvable host as a bare "Connection error.".
+    /^connection error\.?$/i.test(message.trim()) ||
+    /ECONNREFUSED|connection refused|ENOTFOUND|getaddrinfo|EHOSTUNREACH|ENETUNREACH|EAI_AGAIN/i.test(
+      signals,
+    )
+  ) {
+    recovery = "connection";
+    summary = translate("{provider} couldn't be reached. Check that it's running.", { provider });
+  } else if (
     status === 408 ||
     status === 504 ||
     /timed?[_ -]?out|timeout|ETIMEDOUT|stream ended|\bterminated\b|socket hang up|ECONNRESET|connection reset|fetch failed|network error/i.test(
