@@ -23,7 +23,7 @@ test("the chat header floats over the transcript", async ({ page }, testInfo) =>
   expect(scroller.y).toBeLessThan(header.y);
   // The gaps beside the title reach the transcript under them.
   const gapHitsTranscript = await page.evaluate(
-    ({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-testid="transcript"]') !== null,
+    ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('[data-testid="transcript"]')),
     { x: scroller.x + scroller.width / 4, y: header.y + header.height / 2 },
   );
   expect(gapHitsTranscript).toBe(true);
