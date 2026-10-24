@@ -5,6 +5,7 @@ import type {
   AgentRuntimeEvent,
 } from "@rakazo/adapter-kit";
 import {
+  APPROVED_ACTION_NOT_RUN_ERROR,
   abortableDelay,
   BOT_MESSAGE_WAKE_CUE,
   inferHandoffTargetName,
@@ -665,6 +666,7 @@ function shouldFail(prompt: string): boolean {
  */
 function scriptedFailure(prompt: string): string {
   if (/\bfixed context\b/i.test(prompt)) return MODEL_CONTEXT_TOO_SMALL_ERROR;
+  if (/\bunrun approval\b/i.test(prompt)) return APPROVED_ACTION_NOT_RUN_ERROR;
   if (/\bunreachable\b/i.test(prompt)) return "Connection error.";
   if (/\bexhausted backups\b/i.test(prompt)) {
     return modelFallbackFailure('429: {"message":"Too many requests"}', [

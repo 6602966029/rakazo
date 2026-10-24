@@ -1,6 +1,7 @@
 import { COMPUTER_RATE_LIMIT_ERROR } from "@rakazo/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  APPROVED_ACTION_NOT_RUN_ERROR,
   isModelRequiredSendError,
   MISSING_TOOL_FINAL_RESPONSE_ERROR,
   MODEL_CONTEXT_TOO_SMALL_ERROR,
@@ -357,13 +358,12 @@ describe("normalizeRunError", () => {
       });
     });
 
-    it("keeps the missing final answer advice while attributing it to the model", () => {
-      expect(normalizeRunError(MISSING_TOOL_FINAL_RESPONSE_ERROR)).toEqual({
-        summary: MISSING_TOOL_FINAL_RESPONSE_ERROR,
-        details: MISSING_TOOL_FINAL_RESPONSE_ERROR,
-        kind: "output",
-      });
-    });
+    it.each([MISSING_TOOL_FINAL_RESPONSE_ERROR, APPROVED_ACTION_NOT_RUN_ERROR])(
+      "keeps the advice while attributing it to the model: %s",
+      (details) => {
+        expect(normalizeRunError(details)).toEqual({ summary: details, details, kind: "output" });
+      },
+    );
 
     it.each([
       google({
