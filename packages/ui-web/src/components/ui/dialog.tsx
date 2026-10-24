@@ -60,7 +60,9 @@ function DialogContent({
           <DialogPrimitive.Close
             data-slot="dialog-close"
             // Centered on the title's first line, with the icon on the content's right edge.
-            render={<Button variant="ghost" className="absolute top-4.5 right-4.5" size="icon-sm" />}
+            render={
+              <Button variant="ghost" className="absolute top-4.5 right-4.5" size="icon-sm" />
+            }
           >
             <XIcon />
             <span className="sr-only">Close</span>
