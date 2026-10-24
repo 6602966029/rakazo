@@ -187,3 +187,18 @@ test("a failed run explains that backup models also failed", async ({ page }, te
   await expect(error.locator("pre")).toBeHidden();
   await captureScreenshot(page, testInfo, "backup-models-exhausted");
 });
+
+test("an unreachable provider is named instead of a generic error", async ({ page }, testInfo) => {
+  await signup(page, `unreachable-${Date.now()}@rakazo.test`, "password12", "Unreachable");
+  await completeOnboarding(page);
+  await page.getByPlaceholder(/^Message /).fill("fail this run with an unreachable provider");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  const error = page.getByTestId("composer-error");
+  await expect(error).toContainText(
+    "Your model provider couldn't be reached. Check that it's running.",
+    { timeout: 30_000 },
+  );
+  await expect(error).not.toContainText("The model provider returned an error.");
+  await captureScreenshot(page, testInfo, "unreachable-run-error");
+});

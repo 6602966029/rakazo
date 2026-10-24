@@ -374,6 +374,7 @@ import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
 import { findPendingRoutineTick, routineTimerNonce } from "./routine-coalescing.js";
+import { lateRoutineRunInstruction } from "./routine-lateness.js";
 import { routineTaskInstructions, tickRoutineWatch } from "./routine-watch.js";
 import { lazyRunComputer } from "./run-computer.js";
 import {
@@ -3716,12 +3717,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
         return;
       }
       let attempt: { id: string };
+      // Resumed attempts keep the first start, so lateness reflects when the run began.
+      const executionStartedAt = current.startedAt ?? new Date();
       try {
         // Acquiring the computer can requeue a busy run. Count that wait as queue
         // time, and only stamp execution once this attempt can use its computer.
         const executionStarted = await deps.prisma.run.updateMany({
           where: { id: runId, status: "running", leaseOwner: workerId, leaseFence: fence },
-          data: { startedAt: current.startedAt ?? new Date() },
+          data: { startedAt: executionStartedAt },
         });
         if (executionStarted.count !== 1) {
           await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
@@ -7712,6 +7715,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
         } catch {
           // Timezone is optional context; a lookup failure must not prevent a run.
         }
+        let lateRoutineNote: string | undefined;
+        if (run.trigger === "routine" && run.routineId && run.clientNonce) {
+          try {
+            const routine = await deps.prisma.routine.findUnique({
+              where: { id: run.routineId },
+              select: { crons: true, timezone: true },
+            });
+            if (routine)
+              lateRoutineNote = lateRoutineRunInstruction(run, routine, executionStartedAt);
+          } catch {
+            // Lateness is optional context; a lookup failure must not prevent a run.
+          }
+        }
         const prompt = [
           replyContext,
           run.trigger === "reaction" && replyContext ? undefined : basePrompt,
@@ -7721,6 +7737,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           voiceCall && !callEndRun ? voiceCallInstruction(disabledBuiltinTools) : undefined,
           // Per-turn, not in the system prompt: the timestamp changes every call and would break the cacheable prefix.
           formatCurrentTimeInstruction(new Date(), userTimeZone),
+          lateRoutineNote,
         ]
           .filter(Boolean)
           .join("\n\n");
@@ -8643,11 +8660,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (
             error instanceof TransientModelError ||
             error instanceof ModelAccountError ||
-            error instanceof ModelOutputError
+            error instanceof ModelOutputError ||
+            error instanceof SandboxRateLimitError
           ) {
             // Provider outages that outlasted retries, provider accounts, plans and model
-            // choices the user fixes, and unusable model output are not server faults; the
-            // run error already tells the user what to do.
+            // choices the user fixes, unusable model output and the computer provider's own
+            // rate limit are not server faults; the run error already tells the user what to do.
             getLogger().warn("run.failed", {
               "run.outcome": "failed",
               "run.failure": error.name,
