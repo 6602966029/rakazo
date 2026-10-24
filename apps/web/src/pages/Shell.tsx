@@ -3393,8 +3393,8 @@ function SpaceShell() {
             className="absolute bottom-20 start-0 top-16 z-20 w-8 touch-none md:hidden"
           />
         ) : null}
-        <div className="app-drag flex items-center justify-between border-b border-sidebar-border px-3 py-[17px] md:px-[22px]">
-          <div className="flex min-w-0 items-center gap-2">
+        <div className="app-drag grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 px-3 py-[13px] md:px-[22px]">
+          <div className="flex items-center">
             <button
               type="button"
               aria-label={t`Open navigation`}
@@ -3403,35 +3403,35 @@ function SpaceShell() {
             >
               <Menu size={19} strokeWidth={1.7} />
             </button>
-            <button
-              type="button"
-              data-testid="bot-settings-trigger"
-              onClick={() => setPanel(inGroup ? "group-settings" : "settings")}
-              className="app-no-drag flex min-w-0 items-center gap-3"
-            >
-              {inGroup ? (
-                <GroupAvatar
-                  members={activeSnapshot?.members ?? activeGroup?.members ?? []}
-                  size={26}
-                />
-              ) : active ? (
-                <BotAvatar
-                  color={active.color}
-                  identity={active.id}
-                  size={26}
-                  status={active.status}
-                />
-              ) : null}
-              <span className="min-w-0">
-                <span className="block truncate text-[16px] font-medium text-foreground" dir="auto">
-                  {inGroup
-                    ? (activeGroup?.name ?? activeSnapshot?.groupName ?? t`Group`)
-                    : (active?.name ?? t`Select a bot`)}
-                </span>
-              </span>
-            </button>
           </div>
-          <div className="flex items-center gap-1">
+          <button
+            type="button"
+            data-testid="bot-settings-trigger"
+            onClick={() => setPanel(inGroup ? "group-settings" : "settings")}
+            className="app-no-drag flex min-w-0 items-center gap-2 rounded-full bg-muted py-1 ps-1 pe-3.5 hover:bg-accent"
+          >
+            {inGroup ? (
+              <GroupAvatar
+                members={activeSnapshot?.members ?? activeGroup?.members ?? []}
+                size={26}
+              />
+            ) : active ? (
+              <BotAvatar
+                color={active.color}
+                identity={active.id}
+                size={26}
+                status={active.status}
+              />
+            ) : null}
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-medium text-foreground" dir="auto">
+                {inGroup
+                  ? (activeGroup?.name ?? activeSnapshot?.groupName ?? t`Group`)
+                  : (active?.name ?? t`Select a bot`)}
+              </span>
+            </span>
+          </button>
+          <div className="flex items-center justify-self-end gap-1">
             {bootstrapMe?.phoneCallsEnabled && !inGroup && active ? (
               <IconTooltip label={call?.botId === active.id ? t`Open call` : t`Call`}>
                 <button
