@@ -102,6 +102,12 @@ export function ModelRoleSettings({
   );
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot);
   const [dragging, setDragging] = useState<number | null>(null);
+  // After a connection the slot's picker reopens on that provider's models.
+  const [reopen, setReopen] = useState<{
+    slot: "primary" | number | "add";
+    query: string;
+    key: number;
+  } | null>(null);
   useEffect(() => {
     void controller.load();
   }, [controller, credentials]);
@@ -136,8 +142,7 @@ export function ModelRoleSettings({
       : options;
   const providerName = (choice: ModelBackupChoice) => providerLabel(choice.provider);
   const modelLabel = (choice: ModelBackupChoice) => entryFor(choice)?.label ?? choice.modelId;
-  // Saves wait for a reload, so only the first load needs to hold the controls.
-  const busy = !settings;
+  const busy = state.busy || !settings;
 
   async function save(
     update: (current: ModelRoleSettingsValue) => Partial<ModelRoleSettingsValue>,
@@ -194,14 +199,13 @@ export function ModelRoleSettings({
     onConnect(provider, {
       makeDefault: role === "main" && slot === "primary",
       onConnected: async (choice) => {
-        // A main-model connection is already the default once it saves.
-        if (role === "main" && slot === "primary") {
-          await controller.load();
-          onChanged?.();
-        } else if (slot === "primary") await setPrimary(choice);
-        else await place(slot, choice);
+        await controller.load();
+        onChanged?.();
+        setReopen({ slot, query: providerLabel(choice.provider), key: Date.now() });
       },
     });
+  const reopenFor = (slot: "primary" | number | "add") =>
+    reopen?.slot === slot ? { query: reopen.query, key: reopen.key } : undefined;
 
   const canAdd = backups.length < MAX_MODEL_BACKUPS;
   const rowClass = "flex min-h-[52px] items-center gap-2.5 py-2 ps-2 pe-2";
@@ -238,6 +242,7 @@ export function ModelRoleSettings({
                 option ? void setPrimary({ provider: option.provider, modelId: option.id }) : null
               }
               onConnect={connectFor("primary")}
+              reopen={reopenFor("primary")}
             />
           </li>
         )}
@@ -286,6 +291,7 @@ export function ModelRoleSettings({
                     : void setPrimary(null)
                 }
                 onConnect={connectFor(isPrimary ? "primary" : index)}
+                reopen={reopenFor(isPrimary ? "primary" : index)}
               />
               {isPrimary && thinking?.value ? (
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[12.5px] text-muted-foreground">
@@ -388,6 +394,7 @@ export function ModelRoleSettings({
                 option ? void place("add", { provider: option.provider, modelId: option.id }) : null
               }
               onConnect={connectFor("add")}
+              reopen={reopenFor("add")}
             />
           </li>
         ) : null}

@@ -6,6 +6,8 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+/** Provider rows end with their "Connect" action; models show their name alone. */
+const optionName = (entry: Element) => entry.textContent?.replace(/Connect$/, "");
 const api = vi.hoisted(() => ({ role: vi.fn(), forRole: vi.fn(), setRole: vi.fn() }));
 vi.mock("../lib/localized-provider-hint", () => ({
   providerDisplayName: (provider: string, name: string, auth?: string) =>
@@ -81,7 +83,7 @@ async function click(element: HTMLElement | null | undefined) {
 async function pick(label: string, option: string) {
   await click(trigger(label));
   const found = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
-    (entry) => entry.textContent === option,
+    (entry) => optionName(entry) === option,
   );
   if (!found) throw new Error(`Missing option ${option}`);
   await click(found);
@@ -216,7 +218,7 @@ describe("shared role editor", () => {
     await pick("Change Jev 1.14", "Mini");
     expect(saved).toEqual({ primary: chat, backups: [mini] });
   });
-  it("hands a not-connected provider to the connect flow and appends it once connected", async () => {
+  it("hands a not-connected provider to the connect flow and reopens its models once connected", async () => {
     saved = { primary: chat, backups: [] };
     await render();
     await pick("Add fallback", "DeepSeek");
@@ -225,11 +227,10 @@ describe("shared role editor", () => {
       expect.objectContaining({ makeDefault: false }),
     );
     const intent = onConnect.mock.lastCall?.[1];
-    await act(async () => intent.onConnected({ provider: "deepseek", modelId: "deepseek-chat" }));
-    expect(saved).toEqual({
-      primary: chat,
-      backups: [{ provider: "deepseek", modelId: "deepseek-chat" }],
-    });
+    await act(async () => intent.onConnected({ provider: "openrouter", modelId: "mini" }));
+    expect(api.setRole).not.toHaveBeenCalled();
+    const search = document.querySelector<HTMLInputElement>('input[aria-label="Search models"]');
+    expect(search?.value).toBe("OpenRouter");
   });
   it("makes only the main role's first slot the space default on connect", async () => {
     await render();
@@ -238,7 +239,7 @@ describe("shared role editor", () => {
       deepseek,
       expect.objectContaining({ makeDefault: true }),
     );
-    // The connection itself sets the main model, so the list only reloads.
+    // The connection itself sets the main model, so the list only reloads and reopens.
     await act(async () =>
       onConnect.mock.lastCall?.[1].onConnected({ provider: "deepseek", modelId: "deepseek-chat" }),
     );
@@ -256,7 +257,10 @@ describe("shared role editor", () => {
     await act(async () =>
       onConnect.mock.lastCall?.[1].onConnected({ provider: "deepseek", modelId: "deepseek-chat" }),
     );
-    expect(saved.primary).toEqual({ provider: "deepseek", modelId: "deepseek-chat" });
+    expect(api.setRole).not.toHaveBeenCalled();
+    expect(
+      document.querySelector<HTMLInputElement>('input[aria-label="Search models"]')?.value,
+    ).toBe("deepseek");
   });
   it("manages a connected row's provider and shows thinking only on the main primary", async () => {
     saved = { primary: chat, backups: [jev] };

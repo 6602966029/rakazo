@@ -7,13 +7,14 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
+  CommandShortcut,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@rakazo/ui-web";
-import { ChevronRight } from "lucide-react";
 import type { ReactElement } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ModelCatalogEntry } from "../../lib/model-auth";
 
 /** `baseUrl` presets an OpenAI-compatible server, such as Ollama Cloud. */
@@ -32,6 +33,7 @@ export function RoleModelPicker({
   disabled,
   onPick,
   onConnect,
+  reopen,
 }: {
   trigger: ReactElement;
   label: string;
@@ -42,6 +44,8 @@ export function RoleModelPicker({
   disabled?: boolean;
   onPick: (option: ModelCatalogEntry | null) => void;
   onConnect: (provider: ConnectableProvider) => void;
+  /** Opens the picker searching for `query`, e.g. a provider that just connected. */
+  reopen?: { query: string; key: number };
 }) {
   const { t } = useLingui();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -60,6 +64,11 @@ export function RoleModelPicker({
     provider.name.toLowerCase().includes(needle),
   );
   const close = () => setOpen(false);
+  useEffect(() => {
+    if (!reopen) return;
+    setQuery(reopen.query);
+    setOpen(true);
+  }, [reopen]);
   return (
     <Popover
       open={open}
@@ -116,8 +125,9 @@ export function RoleModelPicker({
                 ))}
               </CommandGroup>
             ))}
+            {matchingProviders.length && groups.length ? <CommandSeparator /> : null}
             {matchingProviders.length ? (
-              <CommandGroup heading={t`Not connected`}>
+              <CommandGroup>
                 {matchingProviders.map((provider) => (
                   <CommandItem
                     key={`${provider.id}:${provider.baseUrl ?? ""}`}
@@ -127,8 +137,10 @@ export function RoleModelPicker({
                       onConnect(provider);
                     }}
                   >
-                    <span className="min-w-0 flex-1 truncate">{provider.name}</span>
-                    <ChevronRight className="ml-auto text-muted-foreground" aria-hidden />
+                    <span className="min-w-0 truncate">{provider.name}</span>
+                    <CommandShortcut className="text-[13px] tracking-normal">
+                      <Trans>Connect</Trans>
+                    </CommandShortcut>
                   </CommandItem>
                 ))}
               </CommandGroup>

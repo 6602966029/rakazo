@@ -9,6 +9,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 type UiWebModule = typeof UiWeb;
 
+/** Provider rows end with their "Connect" action; models show their name alone. */
+const optionName = (entry: Element) => entry.textContent?.replace(/Connect$/, "");
 const models = vi.hoisted(() => ({
   list: vi.fn(),
   role: vi.fn(),
@@ -235,9 +237,7 @@ function section(role: "main" | "approval") {
 
 /** Visible names of the open picker's options. */
 function pickerOptions() {
-  return [...document.querySelectorAll<HTMLElement>('[role="option"]')].map(
-    (entry) => entry.textContent,
-  );
+  return [...document.querySelectorAll<HTMLElement>('[role="option"]')].map(optionName);
 }
 
 async function openPicker(label: string, role: "main" | "approval" = "main") {
@@ -246,7 +246,7 @@ async function openPicker(label: string, role: "main" | "approval" = "main") {
 
 async function choose(option: string) {
   await click(
-    [...document.querySelectorAll('[role="option"]')].find((entry) => entry.textContent === option),
+    [...document.querySelectorAll('[role="option"]')].find((entry) => optionName(entry) === option),
   );
 }
 
@@ -462,7 +462,7 @@ it("labels the empty main slot by what runs there", async () => {
   }
 });
 
-it("connects a provider from Add fallback without replacing the main model, then appends it", async () => {
+it("connects a provider from Add fallback without replacing the main model, then picks its model", async () => {
   models.list.mockResolvedValue([deepseekEntry, openrouterEntry]);
   models.credentials.mockResolvedValue([deepseekCredential]);
   const view = await renderSettings();
@@ -492,6 +492,11 @@ it("connects a provider from Add fallback without replacing the main model, then
         makeDefault: false,
       }),
     );
+    // The key belongs to the provider; its models are then chosen in the reopened picker.
+    expect(titles(view.container)).toEqual([]);
+    expect(models.setRole).not.toHaveBeenCalled();
+    expect(pickerOptions()).toEqual([openrouterEntry.label]);
+    await choose(openrouterEntry.label);
     expect(models.setRole).toHaveBeenCalledTimes(1);
     expect(models.setRole).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -501,7 +506,6 @@ it("connects a provider from Add fallback without replacing the main model, then
       }),
       expect.anything(),
     );
-    expect(titles(view.container)).toEqual([]);
   } finally {
     await view.unmount();
   }
@@ -810,10 +814,7 @@ it("lists not-connected providers by name alone", async () => {
   try {
     await openPicker("Change Main model");
     expect(pickerOptions()).toEqual(["DeepSeek", "OpenAI-compatible", "Ollama Cloud"]);
-    const heading = [...document.querySelectorAll("[cmdk-group-heading]")].map(
-      (entry) => entry.textContent,
-    );
-    expect(heading).toEqual(["Not connected"]);
+    expect(document.querySelectorAll("[cmdk-group-heading]")).toHaveLength(0);
   } finally {
     await view.unmount();
   }
@@ -1041,7 +1042,7 @@ it("offers a saved Ollama connection's models without the Ollama preset", async 
   }
 });
 
-it("keeps the Ollama preset under Not connected beside a saved local connection", async () => {
+it("keeps the Ollama preset to connect beside a saved local connection", async () => {
   models.list.mockResolvedValue([compatibleEntry]);
   models.credentials.mockResolvedValue([
     {
@@ -1056,10 +1057,6 @@ it("keeps the Ollama preset under Not connected beside a saved local connection"
   try {
     await openPicker("Add fallback");
     expect(pickerOptions()).toEqual(["fixture-model", "Ollama Cloud"]);
-    const headings = [...document.querySelectorAll("[cmdk-group-heading]")].map(
-      (entry) => entry.textContent,
-    );
-    expect(headings.at(-1)).toBe("Not connected");
     await choose("Ollama Cloud");
     expect(baseUrlField(view.container).value).toBe("https://ollama.com/v1");
   } finally {

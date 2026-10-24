@@ -31,7 +31,6 @@ import { useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
 import type { ModelRoleConnectIntent } from "./ModelRoleSettings";
 import { ModelRoleSettings } from "./ModelRoleSettings";
-import { CatalogModelFields } from "./model-settings/catalog-model-fields";
 import { CompatibleModelFields } from "./model-settings/compatible-model-fields";
 import { CompatibleKeyControls, ConnectionControls } from "./model-settings/connection-controls";
 import type { ConnectableProvider } from "./model-settings/role-model-picker";
@@ -203,10 +202,7 @@ export function ModelSettingsOverlay({
             </Trans>
           </p>
         ) : null}
-        <CatalogModelFields {...model} />
-        <div className="mt-6">
-          <ConnectionControls {...model} />
-        </div>
+        <ConnectionControls {...model} />
       </>
     )
   ) : null;
