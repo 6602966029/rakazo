@@ -25,6 +25,7 @@ describe("projectBotMentions", () => {
     ]);
     expect(view.visibleMessages.map((message) => message.id)).toEqual(["b", "c"]);
     expect(view.mentions.get("c")).toEqual([created]);
+    expect(view.foldedInto.get("a")).toBe("c");
   });
 
   it("keeps an announcement with no reply from that bot yet", () => {

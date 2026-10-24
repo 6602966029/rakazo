@@ -15,7 +15,8 @@ function isProse(block: MessageBlock): boolean {
  */
 export function projectBotMentions<Message extends MentionMessage>(messages: readonly Message[]) {
   const mentions = new Map<string, ChildBotBlock[]>();
-  const folded = new Set<string>();
+  // A folded announcement's id resolves to the reply that now shows it, so quotes can still jump.
+  const foldedInto = new Map<string, string>();
   messages.forEach((message, index) => {
     if (
       message.role !== "bot" ||
@@ -31,12 +32,13 @@ export function projectBotMentions<Message extends MentionMessage>(messages: rea
         ...(mentions.get(next.id) ?? []),
         ...(message.blocks as ChildBotBlock[]),
       ]);
-      folded.add(message.id);
+      foldedInto.set(message.id, next.id);
       return;
     }
   });
   return {
-    visibleMessages: messages.filter((message) => !folded.has(message.id)),
+    visibleMessages: messages.filter((message) => !foldedInto.has(message.id)),
     mentions,
+    foldedInto,
   };
 }

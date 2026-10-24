@@ -152,6 +152,10 @@ export const Transcript = memo(function Transcript({
     [messages],
   );
   const mentionView = useMemo(() => projectBotMentions(messages), [messages]);
+  const jumpToMessage = useCallback(
+    (messageId: string) => onJumpToMessage(mentionView.foldedInto.get(messageId) ?? messageId),
+    [mentionView, onJumpToMessage],
+  );
   const reactionView = useMemo(
     () => projectMessageReactions(mentionView.visibleMessages),
     [mentionView],
@@ -518,7 +522,7 @@ export const Transcript = memo(function Transcript({
                           ? messageById.get(message.replyToMessageId)
                           : undefined
                       }
-                      onJumpToMessage={onJumpToMessage}
+                      onJumpToMessage={jumpToMessage}
                       onRefresh={onRefresh}
                       onBotChanged={onBotChanged}
                       onAddRoutine={onAddRoutine}

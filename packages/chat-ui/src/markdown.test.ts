@@ -374,6 +374,12 @@ describe("withMentions", () => {
     ]);
   });
 
+  it("keeps a mention link already in the text as its name", () => {
+    expect(withMentions(["[Planner](rakazo-mention:bot-1) is ready."], [planner])).toEqual([
+      `${link} is ready.`,
+    ]);
+  });
+
   it("escapes markdown in the name and encodes the id", () => {
     expect(withMentions(["hi"], [{ id: "a/b", name: "[x]_y" }])).toEqual([
       "[\\[x\\]\\_y](rakazo-mention:a%2Fb) hi",

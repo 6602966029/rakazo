@@ -748,6 +748,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
     return {
       ...projectMessageReactions(mentionView.visibleMessages),
       mentions: mentionView.mentions,
+      foldedInto: mentionView.foldedInto,
     };
   }, [dismissedChoiceQuestions, expandedPeerMarkers, peerTranscript]);
   const visibleMessages = reactionView.visibleMessages;
@@ -2392,7 +2393,11 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         params: { ...target, ...(groupId ? { groupId } : { botId }) },
       }),
     jump: (messageId) => {
-      void applyMessageJump({ botId, groupId, messageId }).catch(() => undefined);
+      void applyMessageJump({
+        botId,
+        groupId,
+        messageId: reactionView.foldedInto.get(messageId) ?? messageId,
+      }).catch(() => undefined);
     },
     dismissChoice: (messageId, question) => {
       setDismissedChoiceQuestions((current) => {
