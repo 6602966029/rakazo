@@ -486,7 +486,7 @@ msgstr "Добавьте URL-адрес HTTPS-сервера."
 msgid "Add another"
 msgstr "Добавить еще"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Add backup model"
 msgstr "Добавить резервную модель"
 
@@ -891,7 +891,7 @@ msgstr "Назад"
 msgid "Back to sign in"
 msgstr "Вернуться ко входу"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Backup models"
 msgstr "Резервные модели"
 
@@ -1725,7 +1725,7 @@ msgstr "Не удалось загрузить правила одобрения
 msgid "Could not load artifacts."
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not load backup models"
 msgstr "Не удалось загрузить резервные модели."
 
@@ -1867,7 +1867,7 @@ msgstr "Не удалось сохранить"
 msgid "Could not save Auto Review"
 msgstr "Не удалось сохранить автообзор."
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not save backup models"
 msgstr "Не удалось сохранить резервные модели."
 
@@ -3346,11 +3346,11 @@ msgstr "Ещё"
 msgid "More computer actions"
 msgstr "Больше действий с компьютером"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} down"
 msgstr "Переместить {full} ниже"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} up"
 msgstr "Переместить {full} выше"
 
@@ -3577,7 +3577,7 @@ msgstr ""
 msgid "Not checked yet"
 msgstr "Ещё не проверено"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Not connected"
 msgstr "Не подключена"
 
@@ -4103,7 +4103,7 @@ msgstr "Удалить {0}"
 msgid "Remove {0} from the group"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Remove {full}"
 msgstr "Удалить {full}"
 
@@ -4278,7 +4278,7 @@ msgstr "Восстановление вашего рабочего простр�
 #: src/components/AccountAccess.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Retry"
@@ -4726,11 +4726,11 @@ msgstr "Что-то пошло не так. Попробуйте ещё раз."
 msgid "Space"
 msgstr "Пространство"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
 msgstr "Пространство изменилось. Откройте раздел «Модели» снова, чтобы загрузить список резервных моделей."
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to save its backup list."
 msgstr "Пространство изменилось. Откройте раздел «Модели» снова, чтобы сохранить список резервных моделей."
 
@@ -5149,7 +5149,7 @@ msgstr ""
 msgid "Trial ends {day}"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Tried in order if the active model fails."
 msgstr "Используются по порядку, если активная модель не сработает."
 
@@ -5573,3 +5573,7 @@ msgstr "У вашего голосового провайдера закончи
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Ваш голосовой провайдер отклонил ключ."
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "Модель проверки действий"

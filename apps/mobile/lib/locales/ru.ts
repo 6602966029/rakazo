@@ -1,4 +1,5 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Approval model": "Модель проверки действий",
   "Use 80 characters or fewer": "Не более 80 символов",
   "Could not update name": "Не удалось обновить имя",
   "{summary} Your backup models also failed.":

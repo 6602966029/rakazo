@@ -1335,6 +1335,8 @@ export const SpaceMemoryConfigSchema = z.object({
 export type SpaceMemoryConfig = z.infer<typeof SpaceMemoryConfigSchema>;
 
 export const ModelCatalogEntrySchema = z.object({
+  /** Omitted by older servers and ordinary chat connections. */
+  protocol: z.enum(["chat", "decisions"]).optional(),
   /** Preselected for a new connection when there is no saved model choice. */
   recommended: z.boolean().optional(),
   /** Available through the deployment without a personal credential. */

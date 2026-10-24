@@ -486,7 +486,7 @@ msgstr "Voeg een HTTPS-server-URL toe."
 msgid "Add another"
 msgstr "Nog een toevoegen"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Add backup model"
 msgstr "Back-upmodel toevoegen"
 
@@ -891,7 +891,7 @@ msgstr "Terug"
 msgid "Back to sign in"
 msgstr "Terug naar aanmelden"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Backup models"
 msgstr "Back-upmodellen"
 
@@ -1725,7 +1725,7 @@ msgstr "Goedkeuringsregels laden mislukt"
 msgid "Could not load artifacts."
 msgstr "Artefacten laden mislukt."
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not load backup models"
 msgstr "Back-upmodellen laden mislukt"
 
@@ -1867,7 +1867,7 @@ msgstr "Opslaan mislukt"
 msgid "Could not save Auto Review"
 msgstr "Auto Review opslaan mislukt"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not save backup models"
 msgstr "Back-upmodellen opslaan mislukt"
 
@@ -3346,11 +3346,11 @@ msgstr "Meer"
 msgid "More computer actions"
 msgstr "Meer computeracties"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} down"
 msgstr "{full} omlaag verplaatsen"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} up"
 msgstr "{full} omhoog verplaatsen"
 
@@ -3577,7 +3577,7 @@ msgstr "Normaal"
 msgid "Not checked yet"
 msgstr "Nog niet gecontroleerd"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Not connected"
 msgstr "Niet verbonden"
 
@@ -4103,7 +4103,7 @@ msgstr "{0} verwijderen"
 msgid "Remove {0} from the group"
 msgstr "{0} uit de groep verwijderen"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Remove {full}"
 msgstr "{full} verwijderen"
 
@@ -4278,7 +4278,7 @@ msgstr "Je werkruimte herstellen"
 #: src/components/AccountAccess.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Retry"
@@ -4726,11 +4726,11 @@ msgstr "Er is iets misgegaan. Probeer het opnieuw."
 msgid "Space"
 msgstr "Space"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
 msgstr "De space is gewijzigd. Open Modellen opnieuw om de back-uplijst te laden."
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to save its backup list."
 msgstr "De space is gewijzigd. Open Modellen opnieuw om de back-uplijst op te slaan."
 
@@ -5149,7 +5149,7 @@ msgstr "Proefperiode"
 msgid "Trial ends {day}"
 msgstr "Proefperiode eindigt op {day}"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Tried in order if the active model fails."
 msgstr "Op volgorde geprobeerd als het actieve model faalt."
 
@@ -5573,3 +5573,7 @@ msgstr "Je spraakaanbieder heeft geen tegoed meer."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Je spraakaanbieder heeft de sleutel geweigerd."
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "Goedkeuringsmodel"

@@ -486,7 +486,7 @@ msgstr "Ajoutez une URL de serveur HTTPS."
 msgid "Add another"
 msgstr "En ajouter un autre"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Add backup model"
 msgstr "Ajouter un modèle de secours"
 
@@ -891,7 +891,7 @@ msgstr "Retour"
 msgid "Back to sign in"
 msgstr "Retour à la connexion"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Backup models"
 msgstr "Modèles de secours"
 
@@ -1725,7 +1725,7 @@ msgstr "Impossible de charger les règles d'approbation"
 msgid "Could not load artifacts."
 msgstr "Impossible de charger les artefacts."
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not load backup models"
 msgstr "Impossible de charger les modèles de secours."
 
@@ -1867,7 +1867,7 @@ msgstr "Impossible d'enregistrer"
 msgid "Could not save Auto Review"
 msgstr "Impossible d'enregistrer la révision automatique"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not save backup models"
 msgstr "Impossible d’enregistrer les modèles de secours."
 
@@ -3346,11 +3346,11 @@ msgstr "Plus"
 msgid "More computer actions"
 msgstr "Plus d'actions pour l'ordinateur"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} down"
 msgstr "Déplacer {full} vers le bas"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} up"
 msgstr "Déplacer {full} vers le haut"
 
@@ -3577,7 +3577,7 @@ msgstr ""
 msgid "Not checked yet"
 msgstr "Pas encore vérifié"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Not connected"
 msgstr "Non connecté"
 
@@ -4103,7 +4103,7 @@ msgstr "Retirer {0}"
 msgid "Remove {0} from the group"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Remove {full}"
 msgstr "Supprimer {full}"
 
@@ -4278,7 +4278,7 @@ msgstr "Restauration de votre espace de travail"
 #: src/components/AccountAccess.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Retry"
@@ -4726,11 +4726,11 @@ msgstr "Un problème est survenu. Réessayez."
 msgid "Space"
 msgstr "Espace"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
 msgstr "L’espace a changé. Rouvrez Modèles pour charger sa liste de secours."
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to save its backup list."
 msgstr "L’espace a changé. Rouvrez Modèles pour enregistrer sa liste de secours."
 
@@ -5149,7 +5149,7 @@ msgstr ""
 msgid "Trial ends {day}"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Tried in order if the active model fails."
 msgstr "Essayés dans l’ordre si le modèle actif échoue."
 
@@ -5573,3 +5573,7 @@ msgstr "Votre fournisseur vocal n'a plus de crédit."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Votre fournisseur vocal a refusé la clé."
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "Modèle d’approbation"

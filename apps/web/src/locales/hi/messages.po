@@ -486,7 +486,7 @@ msgstr "एक HTTPS सर्वर URL दर्ज करें।"
 msgid "Add another"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Add backup model"
 msgstr "बैकअप मॉडल जोड़ें"
 
@@ -891,7 +891,7 @@ msgstr "वापस"
 msgid "Back to sign in"
 msgstr "साइन इन पर वापस जाएँ"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Backup models"
 msgstr "बैकअप मॉडल"
 
@@ -1725,7 +1725,7 @@ msgstr "अनुमोदन नियम लोड नहीं हो सक�
 msgid "Could not load artifacts."
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not load backup models"
 msgstr "बैकअप मॉडल लोड नहीं हो सके।"
 
@@ -1867,7 +1867,7 @@ msgstr "सहेजा नहीं जा सका"
 msgid "Could not save Auto Review"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not save backup models"
 msgstr "बैकअप मॉडल सहेजे नहीं जा सके।"
 
@@ -3346,11 +3346,11 @@ msgstr ""
 msgid "More computer actions"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} down"
 msgstr "{full} को नीचे ले जाएँ"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} up"
 msgstr "{full} को ऊपर ले जाएँ"
 
@@ -3577,7 +3577,7 @@ msgstr ""
 msgid "Not checked yet"
 msgstr "अभी तक जाँच नहीं हुई"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Not connected"
 msgstr "कनेक्ट नहीं है"
 
@@ -4103,7 +4103,7 @@ msgstr "{0} हटाएं"
 msgid "Remove {0} from the group"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Remove {full}"
 msgstr "{full} हटाएँ"
 
@@ -4278,7 +4278,7 @@ msgstr ""
 #: src/components/AccountAccess.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Retry"
@@ -4726,11 +4726,11 @@ msgstr "कुछ गलत हो गया। फिर से कोशिश
 msgid "Space"
 msgstr "कार्यस्थान"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
 msgstr "स्पेस बदल गया। बैकअप सूची लोड करने के लिए मॉडल फिर खोलें।"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to save its backup list."
 msgstr "स्पेस बदल गया। बैकअप सूची सहेजने के लिए मॉडल फिर खोलें।"
 
@@ -5149,7 +5149,7 @@ msgstr ""
 msgid "Trial ends {day}"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Tried in order if the active model fails."
 msgstr "सक्रिय मॉडल विफल होने पर क्रम से आज़माए जाते हैं।"
 
@@ -5573,3 +5573,7 @@ msgstr "आपके आवाज़ प्रोवाइडर का क्�
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "आपके आवाज़ प्रोवाइडर ने कुंजी अस्वीकार कर दी।"
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "अनुमोदन मॉडल"

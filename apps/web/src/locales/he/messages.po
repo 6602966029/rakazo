@@ -486,7 +486,7 @@ msgstr "יש להוסיף URL של שרת HTTPS."
 msgid "Add another"
 msgstr "הוספת עוד"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Add backup model"
 msgstr "הוספת מודל גיבוי"
 
@@ -891,7 +891,7 @@ msgstr "חזרה"
 msgid "Back to sign in"
 msgstr "חזרה להתחברות"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Backup models"
 msgstr "מודלי גיבוי"
 
@@ -1725,7 +1725,7 @@ msgstr "לא ניתן לטעון את כללי האישור"
 msgid "Could not load artifacts."
 msgstr "לא ניתן לטעון את התוצרים."
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not load backup models"
 msgstr "לא ניתן לטעון את מודלי הגיבוי"
 
@@ -1867,7 +1867,7 @@ msgstr "השמירה נכשלה"
 msgid "Could not save Auto Review"
 msgstr "לא ניתן לשמור את Auto Review"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Could not save backup models"
 msgstr "לא ניתן לשמור את מודלי הגיבוי"
 
@@ -3346,11 +3346,11 @@ msgstr "עוד"
 msgid "More computer actions"
 msgstr "פעולות נוספות במחשב"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} down"
 msgstr "הזזת {full} למטה"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Move {full} up"
 msgstr "הזזת {full} למעלה"
 
@@ -3577,7 +3577,7 @@ msgstr "רגיל"
 msgid "Not checked yet"
 msgstr "טרם נבדק"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Not connected"
 msgstr "לא מחובר"
 
@@ -4103,7 +4103,7 @@ msgstr "הסרת {0}"
 msgid "Remove {0} from the group"
 msgstr ""
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Remove {full}"
 msgstr "הסרת {full}"
 
@@ -4278,7 +4278,7 @@ msgstr "משחזר את סביבת העבודה"
 #: src/components/AccountAccess.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
 msgid "Retry"
@@ -4726,11 +4726,11 @@ msgstr "משהו השתבש. אפשר לנסות שוב."
 msgid "Space"
 msgstr "מרחב"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to load its backup list."
 msgstr "המרחב השתנה. יש לפתוח מחדש את המודלים כדי לטעון את רשימת הגיבוי שלו."
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Space changed. Reopen Models to save its backup list."
 msgstr "המרחב השתנה. יש לפתוח מחדש את המודלים כדי לשמור את רשימת הגיבוי שלו."
 
@@ -5149,7 +5149,7 @@ msgstr "תקופת ניסיון"
 msgid "Trial ends {day}"
 msgstr "תקופת הניסיון מסתיימת {day}"
 
-#: src/pages/ModelBackupsSettings.tsx
+#: src/pages/ModelRoleSettings.tsx
 msgid "Tried in order if the active model fails."
 msgstr "ינוסו לפי הסדר אם המודל הפעיל נכשל."
 
@@ -5573,3 +5573,7 @@ msgstr "לספק הקול שלך נגמר הקרדיט."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "ספק הקול שלך דחה את המפתח."
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "מודל אישור"

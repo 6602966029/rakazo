@@ -1,4 +1,5 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Approval model": "审批模型",
   "Use 80 characters or fewer": "请使用不超过 80 个字符",
   "Could not update name": "无法更新姓名",
   "{summary} Your backup models also failed.": "{summary} 备用模型也失败了。",

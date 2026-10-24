@@ -76,7 +76,8 @@ vi.mock("./appearance", () => ({ mobileTokens: () => ({}) }));
 vi.mock("./message-action-sheet", () => ({ presentMessageActionSheet: vi.fn() }));
 
 vi.mock("./api", () => ({
-  captureApiRequestContext: async () => ({}),
+  currentApiBase: () => "https://app.example.test",
+  captureApiRequestContext: async () => ({ headers: {} }),
   selectedSpaceId: () => "space-fixture",
   rpc: async (procedure: string, input?: unknown, options?: { signal?: AbortSignal }) => {
     const cloudflare = mocks.gateway
@@ -103,8 +104,18 @@ vi.mock("./api", () => ({
       };
     if (procedure === "models/completeOAuth") return mocks.completeOAuth(options?.signal);
     if (procedure === "bots/update") return mocks.update(input);
+    if (procedure === "models/role")
+      return {
+        primary: null,
+        backups: (input as { role: string }).role === "main" ? await mocks.backups : [],
+      };
+    if (procedure === "models/forRole") return mocks.catalogEmpty ? [] : catalog;
+    if (procedure === "models/setRole") {
+      await result;
+      return { primary: null, backups: (input as { backups?: unknown }).backups ?? [] };
+    }
     if (procedure === "models/backups") return mocks.backups;
-    if (procedure === "models/setBackups") return result;
+    if (procedure === "models/setRole") return result;
     if (procedure === "bots/get")
       return { id: "bot-fixture", name: "Fixture", title: "", computerMode: "team" };
     if (procedure === "me")
@@ -1103,14 +1114,13 @@ describe("connection settings model picker", () => {
     ].map((row) => row.textContent);
   const backupSaves = () =>
     mocks.rpc.mock.calls
-      .filter(([procedure]) => procedure === "models/setBackups")
-      .map(([, input]) => input);
+      .filter(([procedure]) => procedure === "models/setRole")
+      .map(([, input]) => (input as { backups: unknown }).backups);
   const menuAction = async (title: string, action: string) =>
     act(async () => mocks.menus.get(title)!.onPressAction({ nativeEvent: { event: action } }));
 
   it("adds a backup from the shared searchable picker and saves it immediately", async () => {
     await renderModels();
-    expect(container.textContent).toContain("Tried in order if the active model fails.");
     expect(buttonWithText("Save backups")).toBeUndefined();
     const add = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Add backup model"]',
@@ -1163,7 +1173,7 @@ describe("connection settings model picker", () => {
       fail: () => undefined,
     };
     mocks.rpc.mockImplementation((procedure: string) =>
-      procedure === "models/setBackups" && backupSaves().length === 1
+      procedure === "models/setRole" && backupSaves().length === 1
         ? new Promise<void>((resolve, reject) => {
             first.finish = resolve;
             first.fail = reject;
@@ -1173,7 +1183,10 @@ describe("connection settings model picker", () => {
     return first;
   };
   const backupLoads = () =>
-    mocks.rpc.mock.calls.filter(([procedure]) => procedure === "models/backups").length;
+    mocks.rpc.mock.calls.filter(
+      ([procedure, input]) =>
+        procedure === "models/role" && (input as { role: string })?.role === "main",
+    ).length;
   const leaveModels = () => {
     act(() => root.unmount());
     root = createRoot(container);
@@ -1236,7 +1249,7 @@ describe("connection settings model picker", () => {
     mocks.backups = [backup(2), backup(3)];
     await renderModels();
     mocks.rpc.mockImplementation((procedure: string) =>
-      procedure === "models/setBackups" ? Promise.reject(new Error("Save failed")) : undefined,
+      procedure === "models/setRole" ? Promise.reject(new Error("Save failed")) : undefined,
     );
     await menuAction("Model 2", "remove");
     expect(backupSaves()).toEqual([[backup(3)]]);

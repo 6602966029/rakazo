@@ -22,7 +22,6 @@ export async function replaceSpaceBackupModels(
   scope: BackupModelScope,
   models: ModelBackupChoice[],
 ): Promise<void> {
-  const scoped = { userId: scope.userId, spaceId: scope.spaceId };
   await withTransactionRetry(() =>
     prisma.$transaction(
       async (tx) => {
@@ -34,13 +33,23 @@ export async function replaceSpaceBackupModels(
           FOR UPDATE
         `;
         if (membership.length !== 1) throw new Error("Space membership not found");
-        await tx.spaceBackupModel.deleteMany({ where: scoped });
-        if (models.length === 0) return;
-        await tx.spaceBackupModel.createMany({
-          data: models.map((model, position) => ({ ...scoped, ...model, position })),
-        });
+        await writeSpaceBackupModels(tx, scope, models);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     ),
   );
+}
+
+/** Caller holds the membership lock; shared by main-role and older backup endpoints. */
+export async function writeSpaceBackupModels(
+  prisma: Pick<PrismaClient, "spaceBackupModel">,
+  scope: BackupModelScope,
+  models: ModelBackupChoice[],
+): Promise<void> {
+  const scoped = { userId: scope.userId, spaceId: scope.spaceId };
+  await prisma.spaceBackupModel.deleteMany({ where: scoped });
+  if (models.length)
+    await prisma.spaceBackupModel.createMany({
+      data: models.map((model, position) => ({ ...scoped, ...model, position })),
+    });
 }

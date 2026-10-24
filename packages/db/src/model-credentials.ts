@@ -85,7 +85,7 @@ function withModelPreference<
 }
 
 export async function findDefaultModelCredential(
-  prisma: PrismaClient,
+  prisma: Pick<PrismaClient, "spaceModelPreference">,
   scope: ModelCredentialScope,
 ) {
   const preference = await prisma.spaceModelPreference.findFirst({
@@ -97,7 +97,7 @@ export async function findDefaultModelCredential(
 }
 
 export function findNewestUserModelCredential(
-  prisma: PrismaClient,
+  prisma: Pick<PrismaClient, "userModelCredential">,
   userId: string,
   provider: string,
 ) {
@@ -267,7 +267,7 @@ function credentialFromChoice<
 }
 
 export async function findModelCredential(
-  prisma: PrismaClient,
+  prisma: Pick<PrismaClient, "spaceModelPreference" | "userModelCredential">,
   scope: ModelCredentialScope,
   provider: string,
   modelId?: string | null,

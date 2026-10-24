@@ -35,7 +35,7 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   await openUserSettings(page, "models");
   await page.getByPlaceholder("Search providers").fill("openrouter");
   await page.getByRole("button", { name: /^OpenRouter( |$)/ }).click();
-  const backups = page.getByTestId("model-backups");
+  const backups = page.getByTestId("model-role-main");
   await expect(page.getByLabel("API key")).toBeVisible();
   await captureScreenshot(page, testInfo, "model-settings-cleanup-1-not-connected");
 
@@ -53,7 +53,7 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   await page.getByRole("button", { name: "Connect API key", exact: true }).click();
   await expect(page.getByRole("button", { name: "Disconnect", exact: true })).toBeVisible();
   await expect(backups.getByRole("heading", { name: "Backup models" })).toBeVisible();
-  const addBackup = backups.getByRole("button", { name: "Add backup model" });
+  const addBackup = backups.getByRole("combobox", { name: "Add backup model" });
   await expect(addBackup).toBeVisible();
   const model = page.getByRole("combobox", { name: "Model", exact: true });
   await expect(model).toBeVisible();
@@ -100,10 +100,10 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
 
   // Choosing a backup saves it at once; there is no separate save step.
   await addBackup.click();
-  const backupMenu = page.getByRole("menu");
+  const backupMenu = page.getByRole("listbox", { name: "Model options" });
   await expect(backupMenu).toBeVisible();
   await captureScreenshot(page, testInfo, "model-settings-cleanup-4-backup-menu-open");
-  const backupItem = backupMenu.getByRole("menuitem").first();
+  const backupItem = backupMenu.getByRole("option").first();
   const backupLabel = (await backupItem.innerText()).trim();
   await backupItem.click();
   await expect(backupMenu).toBeHidden();

@@ -64,6 +64,7 @@ import {
   computerUpdateView,
   createFaviconResolver,
   createTicket,
+  decisionModelCatalog,
   defaultCatalogModelId,
   deploymentAutoReviewDefault,
   destroyBot,
@@ -74,6 +75,7 @@ import {
   findConnectedModelCredential,
   forgetBotSecret,
   hasActiveComputerControl,
+  hasHostedModelCredits,
   hostCredentialSource,
   isAutoReviewCheckerConfigured,
   isComputerScreenUnavailable,
@@ -155,6 +157,8 @@ import type {
   ExportManifest,
   McpServer,
   Me,
+  ModelCatalogEntry,
+  ModelRole,
   ProductEvent,
   Routine,
   SpaceNavigation,
@@ -170,6 +174,7 @@ import {
   isDeletableMemoryDocument,
   isOllamaCloudBaseUrl,
   mcpOAuthEnvReferences,
+  modelSupportsRole,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   parseTicketRef,
   signupSurveyAsksTeamSize,
@@ -227,6 +232,7 @@ import {
   findSpaceMemoryConfig,
   findTicket,
   formatMessagingLinkCode,
+  getModelRole,
   InstructionConflictError,
   InvalidSpaceNameError,
   IsolationError,
@@ -259,6 +265,7 @@ import {
   toTicketCommentDto,
   toTicketDto,
   touchGroupUpdatedAt,
+  updateModelRole,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "./agent-secrets.js";
@@ -1094,6 +1101,53 @@ export function createRouter(deps: RouterDeps) {
         : entry,
     );
   };
+
+  const modelRoleCatalog = async (actor: Actor, role: ModelRole): Promise<ModelCatalogEntry[]> => {
+    const catalog = await catalogForSpace(actor);
+    const decisions = role === "approval" ? decisionModelCatalog() : [];
+    const managedProviders = new Set(
+      catalog.filter((entry) => "managed" in entry && entry.managed).map((entry) => entry.provider),
+    );
+    return [
+      ...catalog,
+      ...decisions.map((entry) => ({ ...entry, managed: managedProviders.has(entry.provider) })),
+    ].filter((entry) => modelSupportsRole(entry, role));
+  };
+  const validateRoleChoices = async (
+    actor: Actor,
+    role: ModelRole,
+    choices: Array<{ provider: string; modelId: string }>,
+  ) => {
+    if (choices.length === 0) return;
+    const catalog = await modelRoleCatalog(actor, role);
+    for (const choice of choices) {
+      const entry = catalog.find(
+        (entry) =>
+          entry.provider === canonicalPiProviderId(choice.provider) && entry.id === choice.modelId,
+      );
+      const credential = await findModelCredential(
+        deps.prisma,
+        actor,
+        choice.provider,
+        choice.modelId,
+      );
+      if (!credential && !(entry && "managed" in entry && entry.managed))
+        throw new ORPCError("BAD_REQUEST", { message: "Connect that model provider first" });
+      if (entry && !entry.placeholder && choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID)
+        continue;
+      const error = await validateConnectedModelChoice(
+        deps.prisma,
+        deps.secrets,
+        actor,
+        choice.provider,
+        choice.modelId,
+      );
+      if (error || choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID)
+        throw new ORPCError("BAD_REQUEST", {
+          message: error ?? "That model is not available for this connection",
+        });
+    }
+  };
   const groupRepos = createGroupRepos(deps.prisma);
   const taughtSkills = createTaughtSkillsService({
     prisma: deps.prisma,
@@ -1514,47 +1568,26 @@ export function createRouter(deps: RouterDeps) {
           }),
         );
       }),
+      forRole: authed.models.forRole.handler(async ({ context, input }) =>
+        modelRoleCatalog(context.actor, input.role),
+      ),
+      role: authed.models.role.handler(async ({ context, input }) => {
+        if (input.expectedUserId && input.expectedUserId !== context.actor.userId)
+          throw new ORPCError("FORBIDDEN");
+        return getModelRole(deps.prisma, context.actor, input.role);
+      }),
+      setRole: authed.models.setRole.handler(async ({ context, input }) => {
+        if (input.expectedUserId && input.expectedUserId !== context.actor.userId)
+          throw new ORPCError("FORBIDDEN");
+        const choices = [...(input.primary ? [input.primary] : []), ...(input.backups ?? [])];
+        await validateRoleChoices(context.actor, input.role, choices);
+        return updateModelRole(deps.prisma, context.actor, input.role, input);
+      }),
       backups: authed.models.backups.handler(async ({ context }) =>
         listSpaceBackupModels(deps.prisma, context.actor),
       ),
       setBackups: authed.models.setBackups.handler(async ({ context, input }) => {
-        if (input.length > 0) {
-          const catalog = await catalogForSpace(context.actor);
-          for (const choice of input) {
-            const credential = await findModelCredential(
-              deps.prisma,
-              context.actor,
-              choice.provider,
-              choice.modelId,
-            );
-            if (!credential) {
-              throw new ORPCError("BAD_REQUEST", {
-                message: "Connect that model provider first",
-              });
-            }
-            if (
-              choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID &&
-              catalog.some(
-                (entry) =>
-                  entry.provider === canonicalPiProviderId(choice.provider) &&
-                  entry.id === choice.modelId,
-              )
-            )
-              continue;
-            const error = await validateConnectedModelChoice(
-              deps.prisma,
-              deps.secrets,
-              context.actor,
-              choice.provider,
-              choice.modelId,
-            );
-            if (error || choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID) {
-              throw new ORPCError("BAD_REQUEST", {
-                message: error ?? "That model is not available for this connection",
-              });
-            }
-          }
-        }
+        await validateRoleChoices(context.actor, "main", input);
         await replaceSpaceBackupModels(deps.prisma, context.actor, input);
         return { ok: true as const };
       }),
@@ -7033,6 +7066,36 @@ function partitionBySpace<T extends { spaceId: string }>(rows: T[]): Map<string,
 }
 
 async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor) {
+  const role = await getModelRole(deps.prisma, actor, "approval");
+  if (role.primary || role.backups.length > 0) {
+    const candidates = [...(role.primary ? [role.primary] : []), ...role.backups];
+    const [connections, preference] = await Promise.all([
+      Promise.all(
+        candidates.map((choice) =>
+          findModelCredential(deps.prisma, actor, choice.provider, choice.modelId),
+        ),
+      ),
+      deps.prisma.actionAutoReviewPreference.findUnique({
+        where: { spaceId_userId: { spaceId: actor.spaceId, userId: actor.userId } },
+        select: { enabled: true },
+      }),
+    ]);
+    let checkerAvailable = connections.some(Boolean);
+    if (!checkerAvailable)
+      checkerAvailable = (
+        await Promise.all(
+          [...new Set(candidates.map((choice) => choice.provider))].map((provider) =>
+            hasHostedModelCredits(deps.prisma, actor, provider),
+          ),
+        )
+      ).some(Boolean);
+    if (!role.primary && isAutoReviewCheckerConfigured({ env: process.env }))
+      checkerAvailable = true;
+    return {
+      enabled: preference?.enabled ?? deploymentAutoReviewDefault(process.env),
+      checkerAvailable,
+    };
+  }
   const environmentAvailable = isAutoReviewCheckerConfigured({ env: process.env });
   const checker = environmentAvailable ? null : resolveAutoReviewChecker(process.env);
   const requiredUserProvider = checker?.provider === "scripted" ? null : checker?.provider;

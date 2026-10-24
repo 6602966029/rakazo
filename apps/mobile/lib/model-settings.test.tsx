@@ -15,7 +15,8 @@ const { push, saved } = vi.hoisted(() => ({
 }));
 
 vi.mock("./api", () => ({
-  captureApiRequestContext: async () => ({}),
+  currentApiBase: () => "https://app.example.test",
+  captureApiRequestContext: async () => ({ headers: {} }),
   selectedSpaceId: () => "space-fixture",
   rpc: async (procedure: string) => {
     if (procedure === "me")
@@ -25,6 +26,8 @@ vi.mock("./api", () => ({
         defaultProvider: "openai-compatible",
         defaultModel: "model-fixture",
       };
+    if (procedure === "models/role") return { primary: null, backups: [] };
+    if (procedure === "models/forRole") return [];
     if (procedure === "models/list")
       return [{ provider: "openai-compatible", id: "model-fixture", label: "Fixture" }];
     if (procedure === "models/credentials")

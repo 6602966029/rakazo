@@ -11,6 +11,9 @@ type UiWebModule = typeof UiWeb;
 const models = vi.hoisted(() => ({
   list: vi.fn(),
   backups: vi.fn(async () => []),
+  role: vi.fn(async () => ({ primary: null, backups: [] })),
+  forRole: vi.fn(async () => []),
+  setRole: vi.fn(async () => ({ primary: null, backups: [] })),
   setBackups: vi.fn(async () => ({ ok: true })),
   credentials: vi.fn(),
   connect: vi.fn(),

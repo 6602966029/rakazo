@@ -1,4 +1,5 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "Approval model": "Goedkeuringsmodel",
   "Use 80 characters or fewer": "Gebruik maximaal 80 tekens",
   "Could not update name": "Naam kon niet worden bijgewerkt",
   "{summary} Your backup models also failed.": "{summary} Je reservemodellen zijn ook mislukt.",

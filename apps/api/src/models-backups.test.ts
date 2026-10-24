@@ -51,9 +51,37 @@ function setup(
     createdAt: new Date(0),
     updatedAt: new Date(0),
   };
-  const tx = { $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]), spaceBackupModel };
+  const roleRows = new Map<string, Record<string, unknown>>();
+  const spaceModelRole = {
+    findUnique: vi.fn(
+      async ({ where }: { where: { spaceId_userId_role: Record<string, string> } }) =>
+        roleRows.get(JSON.stringify(where.spaceId_userId_role)) ?? null,
+    ),
+    upsert: vi.fn(
+      async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { spaceId_userId_role: Record<string, string> };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => {
+        const key = JSON.stringify(where.spaceId_userId_role);
+        const row = roleRows.has(key) ? { ...roleRows.get(key), ...update } : create;
+        roleRows.set(key, row);
+        return row;
+      },
+    ),
+  };
+  const tx = {
+    spaceModelRole,
+    $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]),
+    spaceBackupModel,
+  };
   const prisma = {
     spaceBackupModel,
+    spaceModelRole,
     userModelCredential: {
       findMany: vi.fn(async ({ where }: { where: { userId: string; provider?: string } }) =>
         where.userId === owner.userId && (!where.provider || where.provider === credential.provider)
@@ -86,6 +114,10 @@ function setup(
     },
     $transaction: vi.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
   } as unknown as PrismaClient;
+  Object.assign(tx, {
+    spaceModelPreference: prisma.spaceModelPreference,
+    userModelCredential: prisma.userModelCredential,
+  });
   const deps = {
     prisma,
     secrets: {
@@ -323,5 +355,69 @@ describe("model backup settings API", () => {
     expect(spaceBackupModel.deleteMany).toHaveBeenCalledWith({
       where: { userId: actor.userId, spaceId: actor.spaceId },
     });
+  });
+});
+
+describe("role-based model settings API", () => {
+  it("stores approval choices independently of main backups using the existing connection", async () => {
+    const { call, rows, prisma } = setup();
+    const primary = { provider: "openrouter", modelId: "typesafe/jev-1.14" };
+    const { response } = await call("models/setRole", {
+      role: "approval",
+      primary,
+      backups: [{ provider: availableModel.provider, modelId: availableModel.id }],
+    });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.json.primary).toEqual(primary);
+    expect(prisma.spaceModelRole.findUnique).toHaveBeenCalledWith({
+      where: {
+        spaceId_userId_role: { userId: owner.userId, spaceId: owner.spaceId, role: "approval" },
+      },
+    });
+    const read = await call("models/role", { role: "approval" });
+    expect((await read.response.json()).json).toEqual(body.json);
+    expect(rows).toEqual([]);
+  });
+  it("filters decision models out of main choices and rejects saving them for main", async () => {
+    const { call } = setup();
+    const main = await call("models/forRole", { role: "main" });
+    expect(
+      (await main.response.json()).json.some(
+        (entry: { protocol?: string }) => entry.protocol === "decisions",
+      ),
+    ).toBe(false);
+    const approval = await call("models/forRole", { role: "approval" });
+    expect((await approval.response.json()).json).toContainEqual(
+      expect.objectContaining({ id: "typesafe/jev-1.14", protocol: "decisions" }),
+    );
+    const invalid = await call("models/setRole", {
+      role: "main",
+      primary: { provider: "openrouter", modelId: "typesafe/jev-1.14" },
+    });
+    expect(invalid.response.status).toBe(400);
+  });
+  it("rejects stale sessions and unavailable connections without replacing settings", async () => {
+    const { call } = setup();
+    const stale = await call("models/setRole", {
+      role: "approval",
+      expectedUserId: "different-user",
+      primary: null,
+    });
+    expect(stale.response.status).toBe(403);
+    const missing = await call("models/setRole", {
+      role: "approval",
+      primary: { provider: "not-connected", modelId: "model" },
+    });
+    expect(missing.response.status).toBe(400);
+    const read = await call("models/role", { role: "approval" });
+    expect((await read.response.json()).json).toEqual({ primary: null, backups: [] });
+  });
+  it("retains backwards-compatible main backup storage", async () => {
+    const { call } = setup();
+    const backups = [{ provider: availableModel.provider, modelId: availableModel.id }];
+    expect((await call("models/setRole", { role: "main", backups })).response.status).toBe(200);
+    const legacy = await call("models/backups", {});
+    expect((await legacy.response.json()).json).toEqual(backups);
   });
 });

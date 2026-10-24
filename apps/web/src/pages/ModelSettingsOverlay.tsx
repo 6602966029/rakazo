@@ -18,7 +18,7 @@ import {
   Spinner,
 } from "@rakazo/ui-web";
 import { X } from "lucide-react";
-import { ModelBackupsSettings } from "./ModelBackupsSettings";
+import { ModelRoleSettings } from "./ModelRoleSettings";
 
 import { CatalogModelFields } from "./model-settings/catalog-model-fields";
 import { CompatibleModelFields } from "./model-settings/compatible-model-fields";
@@ -44,7 +44,6 @@ export function ModelSettingsOverlay({
   const {
     activeThinkingLabel,
     busy,
-    catalog,
     confirmDisconnect,
     credential,
     credentials,
@@ -212,12 +211,17 @@ export function ModelSettingsOverlay({
             />
           ) : null}
           {me ? (
-            <ModelBackupsSettings
-              userId={me.userId}
-              spaceId={me.spaceId}
-              catalog={catalog}
-              credentials={credentials}
-            />
+            <ModelRoleSettings userId={me.userId} spaceId={me.spaceId} credentials={credentials} />
+          ) : null}
+          {me ? (
+            <Disclosure summary={<Trans>Approval model</Trans>} className="mt-6">
+              <ModelRoleSettings
+                userId={me.userId}
+                spaceId={me.spaceId}
+                credentials={credentials}
+                modelRole="approval"
+              />
+            </Disclosure>
           ) : null}
         </div>
       </div>

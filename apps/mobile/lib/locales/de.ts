@@ -1,4 +1,5 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Approval model": "Freigabemodell",
   "Use 80 characters or fewer": "Höchstens 80 Zeichen verwenden",
   "Could not update name": "Name konnte nicht aktualisiert werden",
   "{summary} Your backup models also failed.":
