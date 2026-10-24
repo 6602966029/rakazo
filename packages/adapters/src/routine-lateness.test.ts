@@ -48,6 +48,17 @@ describe("lateRoutineRunInstruction", () => {
     ).toContain("it was due Monday, 2026-10-19 15:00 (UTC-04:00)");
   });
 
+  it("finds the most recent occurrence after a very long outage", () => {
+    // Created 50 days earlier; 1,200 hourly occurrences were missed since.
+    expect(
+      lateRoutineRunInstruction(
+        timerRun("2026-08-30T12:00:00.000Z"),
+        hourly,
+        new Date("2026-10-19T19:40:00Z"),
+      ),
+    ).toContain("it was due Monday, 2026-10-19 15:00 (UTC-04:00)");
+  });
+
   it("ignores runs that are not recurring timer ticks", () => {
     const at = new Date("2026-10-19T19:02:00Z");
     expect(

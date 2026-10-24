@@ -70,7 +70,7 @@ A bounded pass cancels redundant marked timer rows with no attempts, effects,
 output, steering, checkpoint, or live computer ownership, preserving historical
 rows and terminal events. The `routine.coalesced` log records reuse without
 another `routine.fired` event.
-A timer run that starts more than 15 minutes after the most recent occurrence
+A timer run whose first start is more than 15 minutes after the most recent occurrence
 due by then (counted from the occurrence in its marker) tells the agent both
 times in the routine's timezone, so a catch-up after downtime can adapt instead
 of assuming it is still the scheduled time. Late runs are never skipped.

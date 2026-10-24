@@ -3714,12 +3714,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
         return;
       }
       let attempt: { id: string };
+      // Resumed attempts keep the first start, so lateness reflects when the run began.
+      const executionStartedAt = current.startedAt ?? new Date();
       try {
         // Acquiring the computer can requeue a busy run. Count that wait as queue
         // time, and only stamp execution once this attempt can use its computer.
         const executionStarted = await deps.prisma.run.updateMany({
           where: { id: runId, status: "running", leaseOwner: workerId, leaseFence: fence },
-          data: { startedAt: current.startedAt ?? new Date() },
+          data: { startedAt: executionStartedAt },
         });
         if (executionStarted.count !== 1) {
           await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
@@ -7672,7 +7674,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
         } catch {
           // Timezone is optional context; a lookup failure must not prevent a run.
         }
-        const startedAt = new Date();
         let lateRoutineNote: string | undefined;
         if (run.trigger === "routine" && run.routineId && run.clientNonce) {
           try {
@@ -7680,7 +7681,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               where: { id: run.routineId },
               select: { crons: true, timezone: true },
             });
-            if (routine) lateRoutineNote = lateRoutineRunInstruction(run, routine, startedAt);
+            if (routine)
+              lateRoutineNote = lateRoutineRunInstruction(run, routine, executionStartedAt);
           } catch {
             // Lateness is optional context; a lookup failure must not prevent a run.
           }
@@ -7693,7 +7695,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // A hang-up turn is read, not heard: no spoken-reply constraint.
           voiceCall && !callEndRun ? voiceCallInstruction(disabledBuiltinTools) : undefined,
           // Per-turn, not in the system prompt: the timestamp changes every call and would break the cacheable prefix.
-          formatCurrentTimeInstruction(startedAt, userTimeZone),
+          formatCurrentTimeInstruction(new Date(), userTimeZone),
           lateRoutineNote,
         ]
           .filter(Boolean)
