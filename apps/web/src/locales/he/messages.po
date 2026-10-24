@@ -3078,6 +3078,7 @@ msgstr "נמוך"
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr "אותיות לטיניות קטנות, ספרות, מקפים וקווים תחתונים, ובהתחלה אות."
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
 msgstr "ניהול"
@@ -3090,10 +3091,6 @@ msgstr "ניהול חיוב"
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "ניהול שרתי MCP"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Manage messaging settings"
-msgstr "ניהול הגדרות ההודעות"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Manage the bots it creates"
@@ -3892,6 +3889,10 @@ msgstr ""
 msgid "POST to"
 msgstr "POST אל"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Preferences"
+msgstr "העדפות"
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -4496,6 +4497,10 @@ msgstr "חיפוש: {0}"
 #: src/pages/SpaceSearch.tsx
 msgid "Searching…"
 msgstr "מחפש…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Security"
+msgstr "אבטחה"
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

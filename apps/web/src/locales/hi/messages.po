@@ -3078,9 +3078,10 @@ msgstr ""
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr ""
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
-msgstr ""
+msgstr "प्रबंधित करें"
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
@@ -3090,10 +3091,6 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "MCP सर्वर प्रबंधित करें"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Manage messaging settings"
-msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Manage the bots it creates"
@@ -3892,6 +3889,10 @@ msgstr "चैट में “कोई बदलाव नहीं” पो�
 msgid "POST to"
 msgstr ""
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Preferences"
+msgstr "प्राथमिकताएँ"
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -4496,6 +4497,10 @@ msgstr ""
 #: src/pages/SpaceSearch.tsx
 msgid "Searching…"
 msgstr "खोजा जा रहा है…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Security"
+msgstr "सुरक्षा"
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"
