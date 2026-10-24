@@ -10,8 +10,10 @@ import {
   expandAdvancedSection,
   manageModelConnection,
   modelConnectionDialog,
+  modelConnectOption,
   openModelConnection,
   openUserSettings,
+  pickReopenedModel,
   rpc,
   signup,
 } from "./helpers";
@@ -56,6 +58,7 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   providerConnected = true;
   await dialog.getByRole("button", { name: "Connect API key", exact: true }).click();
   await expect(dialog).toBeHidden();
+  await pickReopenedModel(page);
   const primary = mainList.getByTestId("model-role-row-1");
   await expect(primary).toContainText("OpenRouter");
   const addFallback = mainList.getByRole("button", { name: "Add fallback", exact: true });
@@ -132,6 +135,7 @@ test("custom connections persist reasoning support and bot thinking", async ({
   await captureScreenshot(page, testInfo, "openai-compatible-thinking-connection");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog).toBeHidden();
+  await pickReopenedModel(page);
   await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
   await expect(page.getByTestId("model-role-main").getByTestId("model-role-row-1")).toContainText(
     "arbitrary-model",
@@ -452,6 +456,7 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
 
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(modelConnectionDialog(page, "OpenAI-compatible")).toBeHidden();
+    await pickReopenedModel(page);
     await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
     await expect(page.getByTestId("model-role-main").getByTestId("model-role-row-1")).toContainText(
       LOCAL_MODEL_ID,
@@ -552,24 +557,31 @@ test("model settings connect, replace, and cancel provider authentication", asyn
 
   const mainList = page.getByTestId("model-role-main");
   const connect = await openModelConnection(page, "Scripted");
-  await expect(connect.getByRole("combobox", { name: "Model", exact: true })).toHaveText(
-    /Scripted runtime/,
-  );
+  // Connecting only asks for credentials; the model is picked afterwards.
+  await expect(connect.getByRole("combobox", { name: "Model", exact: true })).toHaveCount(0);
+  await expect(connect.getByText("Advanced", { exact: true })).toHaveCount(0);
   const apiKeyInput = connect.getByLabel("API key");
   await expect(apiKeyInput).toHaveAttribute("autocomplete", "new-password");
   await apiKeyInput.fill("fake-scripted-key-one");
-  await connect.getByText("Advanced", { exact: true }).click();
-  await connect.getByLabel("Maximum output tokens").fill("8192");
-  await captureScreenshot(page, testInfo, "builtin-provider-max-tokens");
   await connect.getByRole("button", { name: "Connect API key" }).click();
   await expect(connect).toBeHidden();
+  await pickReopenedModel(page, "Scripted runtime");
   await expect(mainList.getByTestId("model-role-row-1")).toContainText("Scripted runtime");
+  // The output limit lives with the saved connection.
+  const limits = await manageModelConnection(page, "Scripted");
+  await limits.getByText("Advanced", { exact: true }).click();
+  await limits.getByLabel("Maximum output tokens").fill("8192");
+  await captureScreenshot(page, testInfo, "builtin-provider-max-tokens");
+  await limits.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(limits.getByText("Saved.", { exact: true })).toBeVisible();
   const connected = await rpc<Array<{ provider: string; maxTokens?: number }>>(
     page,
     "models/credentials",
     {},
   );
   expect(connected.find((entry) => entry.provider === "scripted")?.maxTokens).toBe(8192);
+  await page.keyboard.press("Escape");
+  await expect(limits).toBeHidden();
   // A limits-only save keeps the dialog open and confirms inside it.
   const manage = await manageModelConnection(page, "Scripted");
   await manage.getByText("Advanced", { exact: true }).click();
@@ -692,20 +704,18 @@ test("model settings connect, replace, and cancel provider authentication", asyn
   await page.keyboard.press("Escape");
   await expect(manage).toBeHidden();
 
-  // A finished sign-in closes the dialog; the provider leaves the "Not connected" list.
+  // A finished sign-in closes the dialog and reopens the picker; the provider no longer
+  // offers to connect.
   oauthReady = true;
   await openModelConnection(page, "ChatGPT subscription", { search: "ChatGPT" });
   await codex.getByRole("button", { name: /Sign in with ChatGPT Plus\/Pro/ }).click();
   await expect(codex).toBeHidden();
-  await mainList
-    .getByRole("button", { name: /^Change / })
-    .first()
-    .click();
-  await page.getByRole("combobox", { name: "Search models" }).fill("ChatGPT");
-  await expect(page.getByRole("option", { name: "ChatGPT subscription", exact: true })).toHaveCount(
-    0,
-  );
+  const reopened = page.getByRole("combobox", { name: "Search models" });
+  await expect(reopened).toBeVisible();
+  await reopened.fill("ChatGPT");
+  await expect(modelConnectOption(page, "ChatGPT subscription")).toHaveCount(0);
   await page.keyboard.press("Escape");
+  await expect(reopened).toBeHidden();
 
   // Disconnect removes the credential and empties the main model slot.
   await manageModelConnection(page, "Scripted");
@@ -833,33 +843,47 @@ test("catalog models keep a space default thinking level per saved model", async
 
   await openUserSettings(page, "models");
 
-  // A non-reasoning provider never shows the control.
-  const scripted = await openModelConnection(page, "Scripted");
-  await expect(scripted.getByRole("combobox", { name: "Model", exact: true })).toBeVisible();
-  await expect(scripted.getByRole("combobox", { name: "Thinking", exact: true })).toBeHidden();
-  await page.keyboard.press("Escape");
-  await expect(scripted).toBeHidden();
+  const primary = page.getByTestId("model-role-main").getByTestId("model-role-row-1");
+  const rowOptions = primary.getByRole("button", { name: / options$/ });
 
-  // The level chosen while connecting is stored with the connection's model.
+  // A non-reasoning main model never offers the control.
+  const scripted = await openModelConnection(page, "Scripted");
+  await scripted.getByLabel("API key").fill("fake-scripted-key");
+  await scripted.getByRole("button", { name: "Connect API key" }).click();
+  await expect(scripted).toBeHidden();
+  await pickReopenedModel(page);
+  await expect(primary).toContainText("Scripted");
+  await rowOptions.click();
+  await expect(page.getByRole("menuitem", { name: "Manage Scripted", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Thinking", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // The level chosen from the main model's menu is stored with the connection's model.
   const anthropic = await openModelConnection(page, "Anthropic");
-  const thinking = anthropic.getByRole("combobox", { name: "Thinking", exact: true });
-  await expect(thinking).toBeVisible();
-  await expect(thinking).toHaveValue("");
-  await thinking.selectOption("high");
-  await captureScreenshot(page, testInfo, "catalog-model-thinking");
   await anthropic.getByLabel("API key").fill("fake-anthropic-key");
   await anthropic.getByRole("button", { name: "Connect API key" }).click();
   await expect(anthropic).toBeHidden();
+  await pickReopenedModel(page);
+  await expect(primary.getByText(/^Thinking: /)).toHaveCount(0);
+  await rowOptions.click();
+  await page.getByRole("menuitem", { name: "Thinking", exact: true }).click();
+  const high = page.getByRole("menuitemradio", { name: "High", exact: true });
+  await expect(page.getByRole("menuitemradio", { name: "Default", exact: true })).toBeChecked();
+  await captureScreenshot(page, testInfo, "catalog-model-thinking");
+  await high.click();
   // The main model row surfaces the effective effort while the model can think.
-  const primary = page.getByTestId("model-role-main").getByTestId("model-role-row-1");
   await expect(primary.getByText("Thinking: High", { exact: true })).toBeVisible();
 
-  const credentials = await rpc<Array<{ provider: string; thinkingLevel?: string | null }>>(
-    page,
-    "models/credentials",
-    {},
-  );
-  expect(credentials.find((entry) => entry.provider === "anthropic")?.thinkingLevel).toBe("high");
+  await expect
+    .poll(async () => {
+      const credentials = await rpc<Array<{ provider: string; thinkingLevel?: string | null }>>(
+        page,
+        "models/credentials",
+        {},
+      );
+      return credentials.find((entry) => entry.provider === "anthropic")?.thinkingLevel;
+    })
+    .toBe("high");
 
   // The level persists across reloads while the same model stays selected.
   await page.reload();
@@ -982,6 +1006,7 @@ test("Ollama Cloud preset saves an OpenAI-compatible connection", async ({ page 
   await expect(dialog.getByRole("checkbox", { name: "fixture-model", exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog).toBeHidden();
+  await pickReopenedModel(page);
   await expect
     .poll(async () => {
       const credentials = await rpc<

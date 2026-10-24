@@ -5,6 +5,7 @@ import {
   completeOnboarding,
   openModelConnection,
   openUserSettings,
+  pickReopenedModel,
   rpc,
   signup,
 } from "./helpers";
@@ -25,6 +26,7 @@ test("Workers AI settings save the account without requiring a gateway", async (
   await captureScreenshot(page, testInfo, "workers-ai-account-settings");
   await connect.click();
   await expect(dialog).toBeHidden();
+  await pickReopenedModel(page);
   await expect(page.getByTestId("model-role-main").getByTestId("model-role-row-1")).toContainText(
     "Cloudflare Workers AI",
   );

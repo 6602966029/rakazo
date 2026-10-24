@@ -5,6 +5,7 @@ import {
   manageModelConnection,
   openModelConnection,
   openUserSettings,
+  pickReopenedModel,
   signup,
 } from "./helpers";
 
@@ -133,6 +134,7 @@ test("settings preflight distinguishes a stored API key from sign-in", async ({
   await settings.getByLabel(/API key/).fill("sk-anthropic-test");
   await settings.getByRole("button", { name: "Connect API key" }).click();
   await expect(settings).toBeHidden();
+  await pickReopenedModel(page);
   settings = await manageModelConnection(page, "Anthropic");
   await expect(settings.getByRole("button", { name: "Disconnect", exact: true })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Sign in again" })).toHaveCount(0);

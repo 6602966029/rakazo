@@ -223,9 +223,16 @@ export function modelConnectionDialog(page: Page, provider: string) {
     .filter({ has: page.getByRole("heading", { name: new RegExp(`^(Connect )?${name}$`) }) });
 }
 
+/** A picker option that connects a provider, listed after the connected models with a "Connect" shortcut. */
+export function modelConnectOption(page: Page, provider: string) {
+  return page
+    .locator('[role="option"][data-value^="connect:"]')
+    .filter({ has: page.getByText(provider, { exact: true }) });
+}
+
 /**
- * Opens a model list's picker on the Models settings page and chooses a provider under
- * "Not connected". The "main" slot is the list's first row, so connecting there sets the
+ * Opens a model list's picker on the Models settings page and chooses a provider that still
+ * needs connecting. The "main" slot is the list's first row, so connecting there sets the
  * role's primary model; "fallback" appends through "Add fallback".
  */
 export async function openModelConnection(
@@ -243,14 +250,27 @@ export async function openModelConnection(
     : section.getByRole("button", { name: "Add fallback", exact: true })
   ).click();
   await page.getByRole("combobox", { name: "Search models" }).fill(search);
-  await page
-    .locator('[data-slot="command-group"]')
-    .filter({ has: page.locator("[cmdk-group-heading]", { hasText: /^Not connected$/ }) })
-    .getByRole("option", { name: provider, exact: true })
-    .click();
+  await modelConnectOption(page, provider).click();
   const dialog = modelConnectionDialog(page, provider);
   await expect(dialog).toBeVisible();
   return dialog;
+}
+
+/**
+ * After a connection the slot's picker reopens on that provider's models. Picks `model`
+ * there, or closes the picker when the test keeps whatever the connection placed.
+ */
+export async function pickReopenedModel(page: Page, model?: string) {
+  const search = page.getByRole("combobox", { name: "Search models" });
+  await expect(search).toBeVisible();
+  if (model === undefined) await search.press("Escape");
+  else
+    await page
+      .getByRole("listbox", { name: "Model options" })
+      .getByRole("option", { name: model, exact: true })
+      .first()
+      .click();
+  await expect(search).toBeHidden();
 }
 
 /** Opens "Manage X" from a model row's options menu and returns the connection dialog. */
