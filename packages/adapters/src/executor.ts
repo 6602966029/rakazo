@@ -121,10 +121,10 @@ import {
 import type { McpServer, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
-  clearRunTurnCheckpoints,
   countUnreadInboxChats,
   createSpaceForMember,
   createThreadMessageInTransaction,
+  dropRunTurnCheckpoint,
   effectiveMemoryScope,
   findDefaultModelCredential,
   InstructionConflictError,
@@ -4634,7 +4634,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             storedTurnCheckpoint = true;
           } else if (storedTurnCheckpoint) {
             // Helper calls have no saved turn. An earlier pause's turn must not resume this one.
-            await clearRunTurnCheckpoints(deps.prisma, [run.id]);
+            await dropRunTurnCheckpoint(deps.prisma, run, workerId, fence);
             storedTurnCheckpoint = false;
           }
         };
