@@ -350,7 +350,7 @@ export function GeneralSettingsPanels({
                   value={timezone ?? deviceTimezone}
                   disabled={timezonePending}
                   onChange={(event) => void chooseTimezone(event.target.value)}
-                  className="w-48 sm:w-56"
+                  className="w-56 max-w-full"
                 >
                   {timezoneOptions(timezone ?? deviceTimezone).map((zone) => (
                     <NativeSelectOption key={zone} value={zone}>
@@ -779,7 +779,7 @@ function UiLocalePicker({
   const { t } = useLingui();
   return (
     <OptionSelect
-      className="w-48 sm:w-56"
+      className="w-56 max-w-full"
       data-testid="ui-locale-select"
       aria-label={t`Language`}
       options={UI_LOCALES.map((code) => ({ value: code, label: UI_LOCALE_LABELS[code] }))}

@@ -3079,7 +3079,7 @@ msgstr ""
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
-msgstr ""
+msgstr "Gérer"
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
@@ -3892,7 +3892,7 @@ msgstr "POST vers"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
-msgstr ""
+msgstr "Préférences"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -4497,7 +4497,7 @@ msgstr "Recherche en cours…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
-msgstr ""
+msgstr "Sécurité"
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

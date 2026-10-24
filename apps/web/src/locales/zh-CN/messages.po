@@ -3079,7 +3079,7 @@ msgstr ""
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
-msgstr ""
+msgstr "管理"
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
@@ -3892,7 +3892,7 @@ msgstr "POST 到"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
-msgstr ""
+msgstr "偏好设置"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -4497,7 +4497,7 @@ msgstr "正在搜索…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
-msgstr ""
+msgstr "安全"
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

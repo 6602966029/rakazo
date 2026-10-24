@@ -3892,7 +3892,7 @@ msgstr "POST naar"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
-msgstr ""
+msgstr "Voorkeuren"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -4497,7 +4497,7 @@ msgstr "Bezig met zoeken…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
-msgstr ""
+msgstr "Beveiliging"
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

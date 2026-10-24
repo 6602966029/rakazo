@@ -3079,7 +3079,7 @@ msgstr ""
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
-msgstr ""
+msgstr "प्रबंधित करें"
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
@@ -3892,7 +3892,7 @@ msgstr ""
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
-msgstr ""
+msgstr "प्राथमिकताएँ"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -4497,7 +4497,7 @@ msgstr "खोजा जा रहा है…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
-msgstr ""
+msgstr "सुरक्षा"
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

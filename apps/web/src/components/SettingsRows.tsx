@@ -20,7 +20,7 @@ export function SettingsGroup({
   );
 }
 
-/** One setting: its label on the left, its control on the right, optional detail below. */
+/** One setting: label then control, side by side when they fit, optional detail below. */
 export function SettingsRow({
   label,
   control,
@@ -32,9 +32,11 @@ export function SettingsRow({
 }) {
   return (
     <div className="px-4 py-3">
-      <div className="flex min-h-9 items-center justify-between gap-4">
+      <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 text-[14px] text-foreground">{label}</div>
-        {control ? <div className="flex shrink-0 items-center gap-2">{control}</div> : null}
+        {control ? (
+          <div className="flex max-w-full min-w-0 items-center gap-2">{control}</div>
+        ) : null}
       </div>
       {children}
     </div>

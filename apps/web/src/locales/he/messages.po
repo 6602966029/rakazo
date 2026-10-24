@@ -3892,7 +3892,7 @@ msgstr "POST אל"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
-msgstr ""
+msgstr "העדפות"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -4497,7 +4497,7 @@ msgstr "מחפש…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
-msgstr ""
+msgstr "אבטחה"
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

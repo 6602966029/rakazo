@@ -3079,7 +3079,7 @@ msgstr ""
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
-msgstr ""
+msgstr "관리"
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
@@ -3892,7 +3892,7 @@ msgstr "POST 대상"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
-msgstr ""
+msgstr "환경설정"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -4497,7 +4497,7 @@ msgstr "검색 중…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
-msgstr ""
+msgstr "보안"
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

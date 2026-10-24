@@ -3892,7 +3892,7 @@ msgstr "POST先"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
-msgstr ""
+msgstr "環境設定"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -4497,7 +4497,7 @@ msgstr "検索中…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
-msgstr ""
+msgstr "セキュリティ"
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"
