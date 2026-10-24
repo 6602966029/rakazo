@@ -47,7 +47,10 @@ export function RoleModelPicker({
   onConnect: (provider: ConnectableProvider) => void;
   /** Opens the picker searching for `query`, e.g. a provider that just connected. */
   reopen?: { query: string; key: number };
-  /** Called once the reopen request is shown, so a remounted row does not show it again. */
+  /**
+   * Called when a picker opened by `reopen` closes. Until then the request stands, so a row
+   * that is replaced while its picker is open (a reload settling) reopens in its new row.
+   */
   onReopened?: () => void;
 }) {
   const { t } = useLingui();
@@ -77,7 +80,13 @@ export function RoleModelPicker({
   useEffect(() => {
     setActiveValue(firstValue);
   }, [firstValue]);
-  const close = () => setOpen(false);
+  const fromReopen = useRef(false);
+  const close = () => {
+    setOpen(false);
+    if (!fromReopen.current) return;
+    fromReopen.current = false;
+    reopened.current?.();
+  };
   // Keyed on the request, so later renders of the same request do not reopen it.
   const reopenKey = reopen?.key;
   const reopenQuery = useRef(reopen?.query);
@@ -88,14 +97,15 @@ export function RoleModelPicker({
     if (reopenKey === undefined) return;
     setQuery(reopenQuery.current ?? "");
     setOpen(true);
-    reopened.current?.();
+    fromReopen.current = true;
   }, [reopenKey]);
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
-        if (next) setQuery("");
-        setOpen(next);
+        if (!next) return close();
+        setQuery("");
+        setOpen(true);
       }}
     >
       <PopoverTrigger render={trigger} aria-label={label} disabled={disabled} />
