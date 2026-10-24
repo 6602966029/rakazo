@@ -231,10 +231,10 @@ export default function Account() {
           key={`${row.provider}:${row.model}`}
           accessible
           title={row.model}
-          detail={t("{calls} calls · {tokens} tokens", {
+          detail={`${row.provider} · ${t("{calls} calls · {tokens} tokens", {
             calls: count.format(row.modelCalls),
             tokens: tokens(row.totalTokens),
-          })}
+          })}`}
           value={cost(row.costUsd)}
         />
       ))}
