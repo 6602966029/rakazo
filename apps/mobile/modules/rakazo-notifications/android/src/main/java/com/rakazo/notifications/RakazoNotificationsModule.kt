@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -64,6 +65,14 @@ class RakazoNotificationsModule : Module() {
 
     AsyncFunction("setOpenThread") { botId: String?, threadId: String? ->
       RakazoNotificationService.setOpenThread(context(), botId, threadId)
+    }
+
+    AsyncFunction("startCall") { title: String, promise: Promise ->
+      RakazoCallService.start(context(), title) { started -> promise.resolve(started) }
+    }
+
+    AsyncFunction("stopCall") {
+      RakazoCallService.stop(context())
     }
 
     AsyncFunction("openSettings") {
