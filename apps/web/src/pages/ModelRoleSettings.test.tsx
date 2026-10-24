@@ -226,6 +226,23 @@ describe("shared role editor", () => {
     const search = document.querySelector<HTMLInputElement>('input[aria-label="Search models"]');
     expect(search?.value).toBe("OpenRouter");
   });
+  it("does not reopen a picker after its model is replaced following a connection", async () => {
+    saved = { primary: chat, backups: [] };
+    await render();
+    await pick("Change Chat", "DeepSeek");
+    await act(async () =>
+      onConnect.mock.lastCall?.[1].onConnected({ provider: "openrouter", modelId: "chat" }),
+    );
+    const search = () =>
+      document.querySelector<HTMLInputElement>('input[aria-label="Search models"]');
+    expect(search()?.value).toBe("OpenRouter");
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (entry) => optionName(entry) === "Mini",
+    );
+    await click(option);
+    expect(saved.primary).toEqual(expect.objectContaining(mini));
+    expect(search()).toBeNull();
+  });
   it("makes only the main role's first slot the space default on connect", async () => {
     await render();
     await pick("Change Main model", "DeepSeek");

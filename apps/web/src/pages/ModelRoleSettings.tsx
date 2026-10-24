@@ -227,6 +227,7 @@ export function ModelRoleSettings({
               }
               onConnect={connectFor("primary")}
               reopen={reopenFor("primary")}
+              onReopened={() => setReopen(null)}
             />
           </li>
         )}
@@ -276,6 +277,7 @@ export function ModelRoleSettings({
                 }
                 onConnect={connectFor(isPrimary ? "primary" : index)}
                 reopen={reopenFor(isPrimary ? "primary" : index)}
+                onReopened={() => setReopen(null)}
               />
               {isPrimary && thinkingLevels.length && choice.thinkingLevel ? (
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[12.5px] text-muted-foreground">
@@ -379,6 +381,7 @@ export function ModelRoleSettings({
               }
               onConnect={connectFor("add")}
               reopen={reopenFor("add")}
+              onReopened={() => setReopen(null)}
             />
           </li>
         ) : null}

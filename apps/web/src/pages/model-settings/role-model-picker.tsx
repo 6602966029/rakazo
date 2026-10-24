@@ -34,6 +34,7 @@ export function RoleModelPicker({
   onPick,
   onConnect,
   reopen,
+  onReopened,
 }: {
   trigger: ReactElement;
   label: string;
@@ -46,6 +47,8 @@ export function RoleModelPicker({
   onConnect: (provider: ConnectableProvider) => void;
   /** Opens the picker searching for `query`, e.g. a provider that just connected. */
   reopen?: { query: string; key: number };
+  /** Called once the reopen request is shown, so a remounted row does not show it again. */
+  onReopened?: () => void;
 }) {
   const { t } = useLingui();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -79,10 +82,13 @@ export function RoleModelPicker({
   const reopenKey = reopen?.key;
   const reopenQuery = useRef(reopen?.query);
   reopenQuery.current = reopen?.query;
+  const reopened = useRef(onReopened);
+  reopened.current = onReopened;
   useEffect(() => {
     if (reopenKey === undefined) return;
     setQuery(reopenQuery.current ?? "");
     setOpen(true);
+    reopened.current?.();
   }, [reopenKey]);
   return (
     <Popover
