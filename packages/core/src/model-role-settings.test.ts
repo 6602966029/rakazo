@@ -18,7 +18,7 @@ function setup(key = crypto.randomUUID()) {
   const transport = {
     load: vi.fn(async () => empty),
     catalog: vi.fn(async () => []),
-    save: vi.fn(async () => saved),
+    save: vi.fn(async (_patch: Partial<ModelRoleSettings>) => saved),
   };
   return { transport, controller: createModelRoleSettings(transport, key), key };
 }
