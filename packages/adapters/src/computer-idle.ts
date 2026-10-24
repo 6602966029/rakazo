@@ -26,9 +26,9 @@ export const DEFAULT_SANDBOX_IDLE_MS = 10 * 60 * 1000;
  */
 export const DEFAULT_COMPUTER_MAX_ACTIVE_MS = 2 * 60 * 60 * 1000;
 /**
- * How long a run waiting for takeover keeps its computer awake after asking. Long enough to
- * answer the push and finish a login, Duo, or CAPTCHA step on the same open page; short enough
- * that an ignored request does not keep a billed computer running. The uptime cap still wins.
+ * How long a run waiting for takeover keeps a computer that does not bill while running awake
+ * after asking, so the user can answer the push and finish a login, Duo, or CAPTCHA step on the
+ * same open page. Billed computers get no grace: an ignored request would keep them running.
  */
 export const TAKEOVER_IDLE_GRACE_MS = 30 * 60 * 1000;
 const EXECUTING_RUN_STATUSES = ["leased", "running"] as const;
@@ -296,7 +296,7 @@ export async function sleepComputerIfIdle(
   // Past the lifetime limit only a run executing right now holds the computer up; waiting
   // runs and background work start it again when they next need it. A user in control is
   // left alone: control leases expire on their own, and that release resumes the waiting run.
-  // Otherwise a run waiting for takeover holds it only for TAKEOVER_IDLE_GRACE_MS after asking.
+  // Otherwise a run waiting for takeover holds an unbilled computer for TAKEOVER_IDLE_GRACE_MS.
   const activeControl = hasActiveComputerControl(computer);
   const limitReached =
     activeLimitReached(deps.sandbox, ref, computer.runningSince) && !activeControl;
@@ -311,7 +311,7 @@ export async function sleepComputerIfIdle(
       ? Promise.resolve(false)
       : hasActiveBackgroundWork(deps.sandbox, ref, ctx, computerId);
   const graceEndsAt = () =>
-    limitReached || activeControl
+    activeControl || deps.sandbox.billsWhileRunning?.(ref) === true
       ? Promise.resolve(null)
       : takeoverGraceEndsAt(deps.prisma, computerId);
   const runHeld = Boolean(await runHolds());

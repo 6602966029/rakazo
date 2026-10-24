@@ -581,22 +581,28 @@ describe("maximum active lifetime", () => {
     expect(harness.sandbox.stop).not.toHaveBeenCalled();
   });
 
-  it("keeps a computer awake for a run that just asked for takeover", async () => {
-    const harness = idleHarness({ takeoverRequestedAt: new Date(now - 5 * 60_000) });
+  it.each([undefined, false])(
+    "keeps an unbilled computer (%s) awake for a run that just asked for takeover",
+    async (billing) => {
+      const harness = idleHarness({
+        billsWhileRunning: billing,
+        takeoverRequestedAt: new Date(now - 5 * 60_000),
+      });
 
-    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+      await sleepComputerIfIdle(harness.deps, harness.computer.id);
 
-    expect(harness.prisma.run.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { bot: { computerId: harness.computer.id }, status: "waiting_takeover" },
-      }),
-    );
-    expect(harness.sandbox.stop).not.toHaveBeenCalled();
-    expect(harness.sandbox.keepAlive).toHaveBeenCalledOnce();
-    expect(harness.jobs.enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ availableAt: new Date(now + DEFAULT_SANDBOX_IDLE_MS) }),
-    );
-  });
+      expect(harness.prisma.run.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { bot: { computerId: harness.computer.id }, status: "waiting_takeover" },
+        }),
+      );
+      expect(harness.sandbox.stop).not.toHaveBeenCalled();
+      expect(harness.sandbox.keepAlive).toHaveBeenCalledOnce();
+      expect(harness.jobs.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({ availableAt: new Date(now + DEFAULT_SANDBOX_IDLE_MS) }),
+      );
+    },
+  );
 
   it("rechecks a waiting takeover when its grace ends", async () => {
     const requestedAt = new Date(now - TAKEOVER_IDLE_GRACE_MS + 60_000);
@@ -625,18 +631,24 @@ describe("maximum active lifetime", () => {
     expect(harness.sandbox.stop).toHaveBeenCalledOnce();
   });
 
-  it("lets the lifetime limit suspend a computer within the takeover grace", async () => {
-    const harness = idleHarness({
-      billsWhileRunning: true,
-      runningSince: longAgo,
-      takeoverRequestedAt: new Date(now - 60_000),
-    });
+  it.each([
+    ["within", recently],
+    ["past", longAgo],
+  ])(
+    "suspends a billed computer %s the lifetime limit inside the takeover grace",
+    async (_, runningSince) => {
+      const harness = idleHarness({
+        billsWhileRunning: true,
+        runningSince,
+        takeoverRequestedAt: new Date(now - 60_000),
+      });
 
-    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+      await sleepComputerIfIdle(harness.deps, harness.computer.id);
 
-    expect(harness.prisma.event.findFirst).not.toHaveBeenCalled();
-    expect(harness.sandbox.stop).toHaveBeenCalledOnce();
-  });
+      expect(harness.prisma.event.findFirst).not.toHaveBeenCalled();
+      expect(harness.sandbox.stop).toHaveBeenCalledOnce();
+    },
+  );
 
   it("holds a waiting takeover under user control without the grace", async () => {
     const harness = idleHarness({
