@@ -91,6 +91,7 @@ import {
   modelCredentialDto,
   normalizeSecretDestination,
   PushSessionEndedError,
+  pageUrlOrigin,
   parseModelSecret,
   parseRoutineWatch,
   parseRoutineWatchState,
@@ -6453,13 +6454,19 @@ export function createRouter(deps: RouterDeps) {
       put: authed.botSecrets.put.handler(async ({ context, input }) => {
         const bot = await repos.getBot(context.actor, input.botId);
         const scope = botSecretScope(context.actor, bot.id);
+        // A pasted page URL is saved under its site. One with a username or password is left
+        // as typed, so the origin rule turns it down and the person can fix it.
+        const site = pageUrlOrigin(input.destination.origin, {
+          allowUserinfo: false,
+          maxLength: 2048,
+        });
         let row: Awaited<ReturnType<typeof getBotSecretMetadata>>;
         try {
           row = await storeBotSecret({
             prisma: deps.prisma,
             secretStore: deps.secrets,
             scope,
-            destination: input.destination,
+            destination: site ? { ...input.destination, origin: site } : input.destination,
             plaintext: input.value,
           });
         } catch (error) {
