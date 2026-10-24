@@ -1,6 +1,7 @@
 import type { MessageBlock, ThreadMessage } from "@rakazo/contracts";
 import { cloudAgentBlockFromPayload } from "./cloud-agent.js";
 import { preserveIdentitySource } from "./identity-source.js";
+import { modelFallbackFailure, parseModelFallbackFailure } from "./run-error.js";
 
 export function projectMessages(
   events: Array<{
@@ -276,8 +277,20 @@ export function runFailureError(event: {
   const error = event.payload?.error;
   if (typeof error !== "string" || !error.trim()) return null;
   const message = error.trim();
-  // A provider can fail with a stack or a whole response body; the run record keeps the full
-  // text while the UI shows a bounded first line.
+  // Clamp each model's diagnostic so a fallback summary stays parseable for display.
+  const fallback = parseModelFallbackFailure(message);
+  if (fallback) {
+    return modelFallbackFailure(
+      clampRunFailure(fallback.primaryError),
+      fallback.backups.map((item) => ({ ...item, reason: clampRunFailure(item.reason) })),
+    );
+  }
+  return clampRunFailure(message);
+}
+
+// A provider can fail with a stack or a whole response body; the run record keeps the full
+// text while the UI shows a bounded first line.
+function clampRunFailure(message: string): string {
   return message.length > RUN_FAILURE_ERROR_MAX
     ? `${message.slice(0, RUN_FAILURE_ERROR_MAX)}…`
     : message;

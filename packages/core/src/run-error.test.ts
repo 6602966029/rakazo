@@ -1,3 +1,4 @@
+import { COMPUTER_RATE_LIMIT_ERROR } from "@rakazo/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isModelRequiredSendError,
@@ -510,8 +511,28 @@ it.each([
   );
   expect(normalizeRunError(details)).toEqual({
     ...normalizeRunError(primaryError),
-    details,
+    details: [
+      primaryError,
+      ...statuses.map(() => "fake-provider fake-model: fake-diagnostic"),
+    ].join("\n"),
     summary: `${normalizeRunError(primaryError).summary} ${explanation}`,
+  });
+});
+
+it.each([
+  "ResourceExhausted: Worker local total request limit reached (16/16)",
+  "ResourceExhausted: Worker local total request limit reached (4358/16)",
+])("reads a provider concurrency limit as rate limiting: %s", (details) => {
+  expect(normalizeRunError(details)).toMatchObject({
+    summary: "Your model provider is rate limiting requests. Try again shortly.",
+    kind: "rate",
+  });
+});
+
+it("shows the computer rate limit as written", () => {
+  expect(normalizeRunError(COMPUTER_RATE_LIMIT_ERROR)).toEqual({
+    summary: COMPUTER_RATE_LIMIT_ERROR,
+    details: COMPUTER_RATE_LIMIT_ERROR,
   });
 });
 

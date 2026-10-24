@@ -1,3 +1,4 @@
+import { COMPUTER_RATE_LIMIT_ERROR } from "@rakazo/contracts";
 import { stuckWorkStatusMessages } from "./stuck-work.js";
 
 export const MISSING_TOOL_FINAL_RESPONSE_ERROR =
@@ -24,7 +25,11 @@ export function isModelRequiredSendError(error: unknown): boolean {
   return typeof message === "string" && message.trim() === MODEL_REQUIRED_SEND_ERROR;
 }
 
-const APP_RUN_ERRORS = new Set([MISSING_TOOL_FINAL_RESPONSE_ERROR, ...stuckWorkStatusMessages()]);
+const APP_RUN_ERRORS = new Set([
+  MISSING_TOOL_FINAL_RESPONSE_ERROR,
+  COMPUTER_RATE_LIMIT_ERROR,
+  ...stuckWorkStatusMessages(),
+]);
 
 export const RUN_ERROR_LIMIT_MESSAGES = {
   key: {
@@ -65,6 +70,31 @@ export type ModelBackupOutcome = {
 /** Persist fallback outcomes with the original failure, without changing provider diagnostics. */
 export function modelFallbackFailure(primaryError: string, backups: ModelBackupOutcome[]): string {
   return JSON.stringify({ modelFallbackVersion: 1, primaryError, backups });
+}
+
+/** Read a persisted fallback failure back into its parts; any other text returns undefined. */
+export function parseModelFallbackFailure(
+  details: string,
+): { primaryError: string; backups: ModelBackupOutcome[] } | undefined {
+  const record = asRecord(parseJson(details.trim()));
+  if (
+    record.modelFallbackVersion !== 1 ||
+    typeof record.primaryError !== "string" ||
+    !Array.isArray(record.backups) ||
+    record.backups.length === 0 ||
+    !record.backups.every((item: unknown) => {
+      const outcome = asRecord(item);
+      return (
+        typeof outcome.provider === "string" &&
+        typeof outcome.modelId === "string" &&
+        typeof outcome.reason === "string" &&
+        (outcome.status === "failed" || outcome.status === "skipped")
+      );
+    })
+  ) {
+    return undefined;
+  }
+  return { primaryError: record.primaryError, backups: record.backups as ModelBackupOutcome[] };
 }
 
 /**
@@ -114,24 +144,11 @@ export function normalizeRunError(
   );
   const body = trimmed.slice(prefix?.[0].length ?? 0);
   const record = asRecord(parseJson(body));
-  if (
-    record.modelFallbackVersion === 1 &&
-    typeof record.primaryError === "string" &&
-    Array.isArray(record.backups) &&
-    record.backups.length > 0 &&
-    record.backups.every((item: unknown) => {
-      const outcome = asRecord(item);
-      return (
-        typeof outcome.provider === "string" &&
-        typeof outcome.modelId === "string" &&
-        typeof outcome.reason === "string" &&
-        (outcome.status === "failed" || outcome.status === "skipped")
-      );
-    })
-  ) {
-    const primary = normalizeRunError(record.primaryError, translate, locale, now);
-    const failed = record.backups.some((item) => item.status === "failed");
-    const skipped = record.backups.some((item) => item.status === "skipped");
+  const fallback = parseModelFallbackFailure(trimmed);
+  if (fallback) {
+    const primary = normalizeRunError(fallback.primaryError, translate, locale, now);
+    const failed = fallback.backups.some((item) => item.status === "failed");
+    const skipped = fallback.backups.some((item) => item.status === "skipped");
     const message = failed
       ? skipped
         ? "{summary} Backup models failed or were unavailable for this request."
@@ -140,7 +157,11 @@ export function normalizeRunError(
     return {
       ...primary,
       summary: translate(message, { summary: primary.summary }),
-      details,
+      // One diagnostic line per model instead of the persisted JSON envelope.
+      details: [
+        fallback.primaryError,
+        ...fallback.backups.map((item) => `${item.provider} ${item.modelId}: ${item.reason}`),
+      ].join("\n"),
     };
   }
   // Preserve only known recovery advice: provider diagnostics can also be plain text.
@@ -196,7 +217,13 @@ export function normalizeRunError(
     /insufficient[_ ](?:quota|balance)|credits?|funds|spend|budget|billing|openrouter_key_limit/i.test(
       signals,
     );
-  if ((status === 429 || /rate[_ -]limit|too many requests/i.test(signals)) && !financialQuota) {
+  if (
+    (status === 429 ||
+      /rate[_ -]limit|too many requests|resource[_ ]?exhausted|request limit reached/i.test(
+        signals,
+      )) &&
+    !financialQuota
+  ) {
     recovery = "connection";
     kind = "rate";
     summary = translate("{provider} is rate limiting requests. Try again shortly.", { provider });
