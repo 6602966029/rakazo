@@ -403,7 +403,7 @@ export const Transcript = memo(function Transcript({
             following.current = false;
           }
         }}
-        className="rk-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-5 md:px-[max(1.75rem,calc((100%_-_60rem)/2))] md:py-6"
+        className="rk-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto scroll-pt-16 px-4 pt-20 pb-5 md:px-[max(1.75rem,calc((100%_-_60rem)/2))] md:pt-[84px] md:pb-6"
         style={
           userBubble
             ? ({
