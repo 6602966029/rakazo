@@ -7,7 +7,7 @@ test("the chat header floats over the transcript", async ({ page }, testInfo) =>
   await completeOnboarding(page);
   await rpc(page, "onboarding/dismissFocus", { botId: activeBotId(page) });
 
-  const composer = page.getByPlaceholder(/Message/);
+  const composer = page.getByRole("combobox", { name: /Message/ });
   const transcript = page.getByTestId("transcript");
   for (let item = 1; item <= 8; item++) {
     const text = `Question ${item}: what is the status of launch item ${item}? The draft is reviewed and the checklist is complete.`;
