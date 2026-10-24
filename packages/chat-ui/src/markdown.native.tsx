@@ -1494,5 +1494,5 @@ const layout = StyleSheet.create({
 });
 
 export type { ChatMarkdownProps, LinkFavicons } from "./markdown";
-export { LinkFaviconsContext, RemoteImagesContext, withMentions } from "./markdown";
+export { LinkFaviconsContext, RemoteImagesContext, withBlockMentions } from "./markdown";
 export { MarkdownLinkPromptProvider } from "./markdown-link-prompt";

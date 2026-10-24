@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChatMarkdown, LinkifiedText, withMentions } from "@rakazo/chat-ui/web";
+import { ChatMarkdown, LinkifiedText, withBlockMentions } from "@rakazo/chat-ui/web";
 import type { MessageReaction, ThreadMessage } from "@rakazo/contracts";
 import type { ChildBotBlock } from "@rakazo/core";
 import { isPeerReceiptBlocks, isSecretAskBlock, isToolActivityBlock } from "@rakazo/core";
@@ -109,15 +109,19 @@ export const MessageView = memo(function MessageView({
     );
   const isLive = message.id.startsWith("progress:");
   const quoteMessageId = message.id.includes(":") ? undefined : message.id;
-  const visibleNarrationBlocks = renderableMessageBlocks(message.blocks, showToolActivity);
 
-  const mentionText = (text: string) =>
-    mentions?.length
-      ? withMentions(
-          text,
-          mentions.map((bot) => ({ id: bot.botId, name: bot.name })),
-        )
-      : text;
+  // Only what is drawn names the mentioned bots; copy, quote, and speech keep the original text.
+  const blocks = useMemo(
+    () =>
+      mentions?.length
+        ? withBlockMentions(
+            message.blocks,
+            mentions.map((bot) => ({ id: bot.botId, name: bot.name })),
+          )
+        : message.blocks,
+    [message.blocks, mentions],
+  );
+  const visibleNarrationBlocks = renderableMessageBlocks(blocks, showToolActivity);
   const renderMention = (id: string) => {
     const block = mentions?.find((bot) => bot.botId === id);
     return block ? (
@@ -227,7 +231,7 @@ export const MessageView = memo(function MessageView({
                         streaming={block.kind === "progress"}
                         renderMention={renderMention}
                       >
-                        {mentionText(block.text)}
+                        {block.text}
                       </ChatMarkdown>
                     </div>
                   );
@@ -255,7 +259,7 @@ export const MessageView = memo(function MessageView({
     <>
       {messageContext}
       <div className="relative flex flex-col gap-2">
-        {message.blocks.map((block, i) => {
+        {blocks.map((block, i) => {
           if (block.kind === "steps" && shouldRenderToolCard(block, showToolActivity)) {
             return (
               <StandaloneToolActivity
@@ -345,7 +349,7 @@ export const MessageView = memo(function MessageView({
                   dir="auto"
                 >
                   <ChatMarkdown streaming renderMention={renderMention}>
-                    {mentionText(block.text)}
+                    {block.text}
                   </ChatMarkdown>
                 </div>
               </div>
@@ -468,9 +472,7 @@ export const MessageView = memo(function MessageView({
                   dir="auto"
                 >
                   <div data-quote-message-id={quoteMessageId}>
-                    <ChatMarkdown renderMention={renderMention}>
-                      {mentionText(block.text)}
-                    </ChatMarkdown>
+                    <ChatMarkdown renderMention={renderMention}>{block.text}</ChatMarkdown>
                   </div>
                   {voiceReady ? (
                     <button

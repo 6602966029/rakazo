@@ -10,7 +10,7 @@ function isProse(block: MessageBlock): boolean {
 }
 
 /**
- * A message that only announces bots it created folds into the same bot's next reply, which names
+ * A message that only announces new bots it created folds into the same bot's next reply, which names
  * them inline. Announcements with no later reply yet stay visible on their own.
  */
 export function projectBotMentions<Message extends MentionMessage>(messages: readonly Message[]) {
@@ -20,7 +20,8 @@ export function projectBotMentions<Message extends MentionMessage>(messages: rea
     if (
       message.role !== "bot" ||
       message.blocks.length === 0 ||
-      !message.blocks.every((block) => block.kind === "child_bot")
+      // Archive and delete notices keep their status, so only new bots fold into the reply.
+      !message.blocks.every((block) => block.kind === "child_bot" && block.status === "created")
     )
       return;
     for (const next of messages.slice(index + 1)) {

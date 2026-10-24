@@ -47,4 +47,11 @@ describe("projectBotMentions", () => {
     expect(view.visibleMessages.map((message) => message.id)).toEqual(["a", "b"]);
     expect(view.mentions.size).toBe(0);
   });
+
+  it("keeps archive and delete notices with their status", () => {
+    const archived: MessageBlock = { ...created, status: "archived" } as MessageBlock;
+    const view = projectBotMentions([bot("a", [archived]), bot("b", [text("Done.")])]);
+    expect(view.visibleMessages.map((message) => message.id)).toEqual(["a", "b"]);
+    expect(view.mentions.size).toBe(0);
+  });
 });

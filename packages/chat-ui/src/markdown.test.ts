@@ -12,6 +12,7 @@ import {
   plainTextLinkParts,
   sanitizeMarkdownImageUrl,
   sanitizeMarkdownUrl,
+  withBlockMentions,
   withMentions,
 } from "./markdown";
 
@@ -349,33 +350,49 @@ it("highlights the destination host after userinfo containing the same host text
 
 describe("withMentions", () => {
   const planner = { id: "bot-1", name: "Planner" };
+  const link = "[Planner](rakazo-mention:bot-1)";
 
-  it("links the first appearance of the name", () => {
-    expect(withMentions("Planner is ready. Ask Planner anything.", [planner])).toBe(
-      "[Planner](rakazo-mention:bot-1) is ready. Ask Planner anything.",
-    );
+  it("links the first appearance of the name across the message", () => {
+    expect(
+      withMentions(["Working.", "Planner is ready. Ask Planner.", "Planner again."], [planner]),
+    ).toEqual(["Working.", `${link} is ready. Ask Planner.`, "Planner again."]);
   });
 
-  it("puts the mention first when the text does not name it", () => {
-    expect(withMentions("Ready when you are.", [planner])).toBe(
-      "[Planner](rakazo-mention:bot-1) Ready when you are.",
-    );
-    expect(withMentions("- first step", [planner])).toBe(
-      "[Planner](rakazo-mention:bot-1)\n\n- first step",
-    );
+  it("puts the mention once at the start when the message does not name it", () => {
+    expect(withMentions(["Ready when you are.", "Done."], [planner])).toEqual([
+      `${link} Ready when you are.`,
+      "Done.",
+    ]);
+    expect(withMentions(["- first step"], [planner])).toEqual([`${link}\n\n- first step`]);
   });
 
   it("leaves code, links, and longer words alone", () => {
-    expect(withMentions("`Planner` and [Planner](https://example.test) Planners", [planner])).toBe(
-      "[Planner](rakazo-mention:bot-1) `Planner` and [Planner](https://example.test) Planners",
-    );
+    const text =
+      "`Planner` [Planner](https://example.test) Planners\n\n```\nPlanner\n```\n\n    Planner\n\nPlanner is ready.";
+    expect(withMentions([text], [planner])).toEqual([
+      text.replace("Planner is ready.", `${link} is ready.`),
+    ]);
   });
 
   it("escapes markdown in the name and encodes the id", () => {
-    expect(withMentions("hi", [{ id: "a/b", name: "[x]_y" }])).toBe(
+    expect(withMentions(["hi"], [{ id: "a/b", name: "[x]_y" }])).toEqual([
       "[\\[x\\]\\_y](rakazo-mention:a%2Fb) hi",
-    );
+    ]);
     expect(markdownMentionId("rakazo-mention:a%2Fb")).toBe("a/b");
     expect(markdownMentionId("https://example.test")).toBeUndefined();
+  });
+
+  it("rewrites only prose blocks", () => {
+    const blocks = withBlockMentions(
+      [
+        { kind: "progress", text: "Planner tool", activity: true },
+        { kind: "text", text: "Planner is ready." },
+      ],
+      [planner],
+    );
+    expect(blocks).toEqual([
+      { kind: "progress", text: "Planner tool", activity: true },
+      { kind: "text", text: `${link} is ready.` },
+    ]);
   });
 });

@@ -134,3 +134,17 @@ it("shows an announcement with no reply yet on its own", () => {
   expect(mention.textContent).toBe("Planner");
   expect(onOpenBot).toHaveBeenCalledWith("child");
 });
+
+it("names the bot once across a reply's text blocks", () => {
+  renderMessage(
+    [
+      { kind: "text", text: "Setting up." },
+      { kind: "text", text: "Planner is ready." },
+    ],
+    existingBot,
+    [planner()],
+  );
+  expect(container.querySelectorAll('[data-testid="bot-mention"]')).toHaveLength(1);
+  expect(container.textContent).toContain("Setting up.");
+  expect(container.textContent).toContain("Planner is ready.");
+});

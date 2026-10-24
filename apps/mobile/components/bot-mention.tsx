@@ -63,16 +63,13 @@ export function MessageMentions({
   onOpenBot: (botId: string, name: string) => void;
   children: ReactNode;
 }) {
-  const value = {
-    mentions: mentions.map((block) => ({ id: block.botId, name: block.name })),
-    render: (id: string) => {
-      const block = mentions.find((mention) => mention.botId === id);
-      return block ? (
-        <BotMention block={block} color={colorOf(id)} tokens={tokens} onOpenBot={onOpenBot} />
-      ) : undefined;
-    },
+  const render = (id: string) => {
+    const block = mentions.find((mention) => mention.botId === id);
+    return block ? (
+      <BotMention block={block} color={colorOf(id)} tokens={tokens} onOpenBot={onOpenBot} />
+    ) : undefined;
   };
   return (
-    <MessageMentionsContext.Provider value={value}>{children}</MessageMentionsContext.Provider>
+    <MessageMentionsContext.Provider value={render}>{children}</MessageMentionsContext.Provider>
   );
 }

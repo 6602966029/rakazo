@@ -1,5 +1,5 @@
 import type { MenuAction } from "@expo/ui/community/menu";
-import { ChatMarkdown, markdownCodeBlocks } from "@rakazo/chat-ui/native";
+import { ChatMarkdown, markdownCodeBlocks, withBlockMentions } from "@rakazo/chat-ui/native";
 import type {
   AgentSkillCatalogEntry,
   Connection,
@@ -3911,7 +3911,16 @@ const MessageBubble = memo(function MessageBubble({
       tokens={mobileTokens()}
       onOpenBot={props.onOpenBot}
     >
-      <MessageBubbleBody {...props} />
+      <MessageBubbleBody
+        {...props}
+        message={{
+          ...props.message,
+          blocks: withBlockMentions(
+            props.message.blocks,
+            mentions.map((bot) => ({ id: bot.botId, name: bot.name })),
+          ),
+        }}
+      />
     </MessageMentions>
   );
 });

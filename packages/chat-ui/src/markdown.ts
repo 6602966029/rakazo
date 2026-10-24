@@ -1,4 +1,6 @@
 /// <reference path="./linkify-it.d.ts" />
+
+import type { MessageBlock } from "@rakazo/contracts";
 import LinkifyIt from "linkify-it";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
@@ -26,36 +28,71 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Inline code and existing links keep their text; a mention is never placed inside them.
-const PROTECTED_MARKDOWN = /(`[^`\n]*`|!?\[[^\]\n]*\]\([^)\n]*\))/;
+// Code and existing links keep their text; a mention is never placed inside them.
+const PROTECTED_MARKDOWN =
+  /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|(?:^|\n)(?: {4}|\t)[^\n]*|`[^`\n]*`|!?\[[^\]\n]*\]\([^)\n]*\))/;
 const OPENS_WITH_BLOCK = /^\s*(#|>|\||```|~~~|[-*+]\s|\d+[.)]\s)/;
 
-/** Markdown naming each entry as a mention link at its first appearance, or up front if absent. */
+function linkFirstName(text: string, name: string, link: string): string | undefined {
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}_])${escapeRegExp(name)}(?![\\p{L}\\p{N}_])`, "u");
+  let placed = false;
+  const result = text
+    .split(PROTECTED_MARKDOWN)
+    .map((part, index) => {
+      if (placed || index % 2 === 1) return part;
+      return part.replace(pattern, (_match, prefix: string) => {
+        placed = true;
+        return `${prefix}${link}`;
+      });
+    })
+    .join("");
+  return placed ? result : undefined;
+}
+
+/**
+ * Markdown texts of one message naming each entry once as a mention link: at its first
+ * appearance across the texts, or at the start of the first text when none names it.
+ */
 export function withMentions(
-  text: string,
+  texts: readonly string[],
   mentions: readonly { id: string; name: string }[],
-): string {
-  let result = text;
+): string[] {
+  const result = [...texts];
+  if (result.length === 0) return result;
   for (const mention of mentions) {
     const name = mention.name.trim();
     if (!name) continue;
     const link = `[${name.replace(/[\\[\]*_`<>]/g, "\\$&")}](${MENTION_URL_PREFIX}${encodeURIComponent(mention.id)})`;
-    const pattern = new RegExp(`(^|[^\\p{L}\\p{N}_])${escapeRegExp(name)}(?![\\p{L}\\p{N}_])`, "u");
-    let placed = false;
-    result = result
-      .split(PROTECTED_MARKDOWN)
-      .map((part, index) => {
-        if (placed || index % 2 === 1) return part;
-        return part.replace(pattern, (_match, prefix: string) => {
-          placed = true;
-          return `${prefix}${link}`;
-        });
-      })
-      .join("");
-    if (!placed)
-      result = OPENS_WITH_BLOCK.test(result) ? `${link}\n\n${result}` : `${link} ${result}`;
+    const placed = result.some((text, index) => {
+      const linked = linkFirstName(text, name, link);
+      if (linked !== undefined) result[index] = linked;
+      return linked !== undefined;
+    });
+    if (placed) continue;
+    const first = result[0]!;
+    result[0] = OPENS_WITH_BLOCK.test(first) ? `${link}\n\n${first}` : `${link} ${first}`;
   }
   return result;
+}
+
+/** Message blocks whose prose names each entry once as a mention link. Tool activity is left alone. */
+export function withBlockMentions(
+  blocks: readonly MessageBlock[],
+  mentions: readonly { id: string; name: string }[],
+): MessageBlock[] {
+  const prose = blocks.flatMap((block, index) =>
+    block.kind === "text" || (block.kind === "progress" && !block.activity) ? [index] : [],
+  );
+  const texts = withMentions(
+    prose.map((index) => (blocks[index] as { text: string }).text),
+    mentions,
+  );
+  return blocks.map((block, index) => {
+    const prosePosition = prose.indexOf(index);
+    return prosePosition === -1
+      ? block
+      : ({ ...block, text: texts[prosePosition] } as MessageBlock);
+  });
 }
 
 type LinkifyRules = {
