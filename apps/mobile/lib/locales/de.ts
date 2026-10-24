@@ -658,6 +658,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Scheduled tasks": "Geplante Aufgaben",
   "Sign out": "Abmelden",
   "Stream replies": "Antworten streamen",
+  "Run actions without asking": "Aktionen ohne Nachfrage ausführen",
   "Load web images automatically": "Webbilder automatisch laden",
   System: "System",
   "This permanently deletes your account, bots, conversations, memories, files, and saved connections. This cannot be undone.":

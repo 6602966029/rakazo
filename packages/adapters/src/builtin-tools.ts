@@ -1156,7 +1156,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "create_space",
     description:
-      "Propose a new space in the current organization when the user asks for a separate data boundary. A space can contain many bots and groups, but its chats, files, memory, tools, and integrations stay isolated from other spaces. This always shows the user a confirmation card before creation. Creating the space is the whole action; do not create bots in it unless the user asks later.",
+      "Propose a new space in the current organization when the user asks for a separate data boundary. A space can contain many bots and groups, but its chats, files, memory, tools, and integrations stay isolated from other spaces. Creating the space is the whole action; do not create bots in it unless the user asks later.",
     inputSchema: {
       type: "object",
       properties: {

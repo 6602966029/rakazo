@@ -6552,9 +6552,10 @@ export function createRouter(deps: RouterDeps) {
           create: {
             spaceId: context.actor.spaceId,
             userId: context.actor.userId,
-            enabled: input.enabled,
+            enabled: input.enabled ?? deploymentAutoReviewDefault(process.env),
+            skipApprovals: input.skipApprovals ?? false,
           },
-          update: { enabled: input.enabled },
+          update: { enabled: input.enabled, skipApprovals: input.skipApprovals },
         });
         return loadAutoReviewSettings(deps, context.actor);
       }),
@@ -7051,7 +7052,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor) {
           userId: actor.userId,
         },
       },
-      select: { enabled: true },
+      select: { enabled: true, skipApprovals: true },
     }),
     requiredUserProvider
       ? deps.prisma.userModelCredential.findFirst({
@@ -7062,7 +7063,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor) {
   ]);
   const enabled = preference?.enabled ?? deploymentAutoReviewDefault(process.env);
   const checkerAvailable = environmentAvailable || Boolean(credential);
-  return { enabled, checkerAvailable };
+  return { enabled, checkerAvailable, skipApprovals: preference?.skipApprovals ?? false };
 }
 
 function hostCredentials(active: boolean, provider: string) {

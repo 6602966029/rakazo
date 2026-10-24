@@ -1,5 +1,5 @@
 import { MenuView } from "@expo/ui/community/menu";
-import type { AccountSecurity } from "@rakazo/contracts";
+import type { AccountSecurity, ActionAutoReviewSettings } from "@rakazo/contracts";
 import { accountDisplay, displayName } from "@rakazo/core";
 import * as Notifications from "expo-notifications";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -184,11 +184,28 @@ export default function Account() {
   );
   const loadRemoteImagesLabel = t("Load web images automatically");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [autoReview, setAutoReview] = useState<ActionAutoReviewSettings | null>(null);
+  const [skipApprovalsPending, setSkipApprovalsPending] = useState(false);
   const stackOptions = useStackedSettings();
   const styles = useThemedStyles(createAccountStyles);
   const versionInfo = getAppVersionInfo();
   const updateLabel = formatUpdateLabel(versionInfo.update, t);
   const versionAccessibility = [versionInfo.nativeLabel, updateLabel].filter(Boolean).join(". ");
+
+  useEffect(() => {
+    if (!advancedOpen || autoReview) return;
+    void rpc<ActionAutoReviewSettings>("autoReview/get")
+      .then(setAutoReview)
+      .catch(() => undefined);
+  }, [advancedOpen, autoReview]);
+
+  function setSkipApprovals(skipApprovals: boolean) {
+    setSkipApprovalsPending(true);
+    void rpc<ActionAutoReviewSettings>("autoReview/set", { skipApprovals })
+      .then(setAutoReview)
+      .catch((cause: unknown) => Alert.alert(t("Run actions without asking"), errorText(cause)))
+      .finally(() => setSkipApprovalsPending(false));
+  }
 
   useEffect(() => {
     void rpc<MobileMe>("me")
@@ -676,6 +693,14 @@ export default function Account() {
               label={loadRemoteImagesLabel}
               value={loadRemoteImages}
               onChange={(checked) => void setRemoteImagesPreference(checked ? "on" : "off")}
+            />
+          ) : null}
+          {advancedOpen ? (
+            <SettingsSwitch
+              label={t("Run actions without asking")}
+              value={autoReview?.skipApprovals ?? false}
+              disabled={!autoReview || skipApprovalsPending}
+              onChange={setSkipApprovals}
             />
           ) : null}
         </SettingsGroup>

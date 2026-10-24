@@ -4320,6 +4320,10 @@ msgstr "Rutinler"
 msgid "Routines that run while you're away"
 msgstr ""
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Run actions without asking"
+msgstr "Eylemleri sormadan çalıştır"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
 msgstr ""

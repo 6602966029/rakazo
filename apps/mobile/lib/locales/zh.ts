@@ -566,6 +566,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Resetting…": "正在重置…",
   Restore: "恢复",
   "Stream replies": "流式回复",
+  "Run actions without asking": "无需询问直接执行操作",
   "Load web images automatically": "自动加载网络图片",
   "Restore the last saved workspace. Unsaved work on the computer is lost.":
     "恢复上次保存的工作区。电脑上未保存的工作将会丢失。",
