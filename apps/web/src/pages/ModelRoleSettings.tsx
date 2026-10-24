@@ -1,32 +1,85 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { ModelBackupChoice, ModelCredential, ModelRole } from "@rakazo/contracts";
+import type {
+  ModelBackupChoice,
+  ModelCatalogEntry,
+  ModelCredential,
+  ModelRole,
+  ModelRoleSettings as ModelRoleSettingsValue,
+  ThinkingLevel,
+} from "@rakazo/contracts";
 import {
   backupChoiceKey,
+  canonicalPiProviderId,
   connectedBackupOptions,
   MAX_MODEL_BACKUPS,
-  moveBackupChoice,
 } from "@rakazo/contracts";
 import { createModelRoleSettings } from "@rakazo/core";
-import { Button, Spinner } from "@rakazo/ui-web";
-import { ArrowDown, ArrowUp, X } from "lucide-react";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { providerDisplayName } from "../lib/localized-provider-hint";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  Spinner,
+} from "@rakazo/ui-web";
+import { GripVertical, MoreHorizontal, Plus } from "lucide-react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { thinkingLevelLabel } from "../lib/model-catalog";
 import { useSpaceRpc } from "../lib/space-rpc";
-import { ModelPicker } from "./model-settings/model-picker";
+import type { ConnectableProvider } from "./model-settings/role-model-picker";
+import { RoleModelPicker } from "./model-settings/role-model-picker";
+
+export type ModelRoleConnectIntent = {
+  /** Only the main role's first slot replaces the space's default model on connect. */
+  makeDefault: boolean;
+  onConnected: (choice: ModelBackupChoice) => Promise<void>;
+};
 
 type Props = {
   userId: string;
   spaceId: string;
   credentials: ModelCredential[];
   modelRole?: ModelRole;
+  title: string;
+  /** What runs when the first slot is empty. */
+  defaultLabel: string;
+  providers: ConnectableProvider[];
+  /** Connection-aware names, such as "Claude subscription" or a compatible server's host. */
+  providerLabel: (provider: string) => string;
+  onConnect: (provider: ConnectableProvider, intent: ModelRoleConnectIntent) => void;
+  onManage: (provider: string) => void;
+  /** Effort for the first slot, when its model can think. */
+  thinking?: {
+    levels: ThinkingLevel[];
+    value: ThinkingLevel | null;
+    onChange: (level: ThinkingLevel | null) => void;
+  };
+  onChanged?: () => void;
 };
 
-/** Primary selection and ordered backups share one editor for every model purpose. */
+const sameChoice = (left: ModelBackupChoice, right: ModelBackupChoice) =>
+  backupChoiceKey(left) === backupChoiceKey(right);
+
+/** One ordered list per model purpose: the first row runs, the rest take over in order. */
 export function ModelRoleSettings({
   userId,
   spaceId,
   credentials,
   modelRole: role = "main",
+  title,
+  defaultLabel,
+  providers,
+  providerLabel,
+  onConnect,
+  onManage,
+  thinking,
+  onChanged,
 }: Props) {
   const rpc = useSpaceRpc();
   const { t } = useLingui();
@@ -48,132 +101,279 @@ export function ModelRoleSettings({
     [rpc, userId, spaceId, role],
   );
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot);
+  const [dragging, setDragging] = useState<number | null>(null);
   useEffect(() => {
     void controller.load();
   }, [controller, credentials]);
-  const displayCatalog = state.catalog.map((entry) => ({
-    ...entry,
-    providerName: providerDisplayName(
-      entry.provider,
-      entry.providerName ?? entry.provider,
-      credentials.find((credential) => credential.provider === entry.provider)?.authKind,
-    ),
-  }));
-  const options = connectedBackupOptions(displayCatalog, credentials);
-  const label = (choice: ModelBackupChoice) => {
-    const option = displayCatalog.find(
-      (entry) => entry.provider === choice.provider && entry.id === choice.modelId,
-    );
-    return option
-      ? `${option.providerName ?? option.provider} · ${option.label}`
-      : `${choice.provider} · ${choice.modelId}`;
-  };
+
   const settings = state.settings;
+  const primary = settings?.primary ?? null;
   const backups = settings?.backups ?? [];
-  const selected = new Set(
-    [...(settings?.primary ? [settings.primary] : []), ...backups].map(backupChoiceKey),
-  );
-  const addable = options.filter((choice) => !selected.has(backupChoiceKey(choice)));
-  const catalogOptions = (choices: typeof options) =>
-    choices.map(
-      (choice) =>
-        displayCatalog.find(
-          (entry) => entry.provider === choice.provider && entry.id === choice.modelId,
-        ) ?? { provider: choice.provider, id: choice.modelId, label: choice.label, billing: "" },
+  const rows = primary ? [primary, ...backups] : backups;
+  const entryFor = (choice: ModelBackupChoice) =>
+    state.catalog.find(
+      (entry) =>
+        canonicalPiProviderId(entry.provider) === canonicalPiProviderId(choice.provider) &&
+        entry.id === choice.modelId,
     );
-  if (role === "main" && !state.error && (!settings || (!backups.length && !addable.length)))
-    return null;
+  const connected = new Set(credentials.map((entry) => canonicalPiProviderId(entry.provider)));
+  const options: ModelCatalogEntry[] = connectedBackupOptions(state.catalog, credentials).map(
+    (choice) => ({
+      ...(entryFor(choice) ?? {
+        provider: choice.provider,
+        id: choice.modelId,
+        label: choice.label,
+        billing: "",
+      }),
+      providerName: providerLabel(choice.provider),
+    }),
+  );
+  // The main model is chosen through a personal connection, so deployment-managed
+  // models can only back it up.
+  const primaryOptions =
+    role === "main"
+      ? options.filter((entry) => connected.has(canonicalPiProviderId(entry.provider)))
+      : options;
+  const providerName = (choice: ModelBackupChoice) => providerLabel(choice.provider);
+  const modelLabel = (choice: ModelBackupChoice) => entryFor(choice)?.label ?? choice.modelId;
+  const busy = state.busy || !settings;
+
+  async function save(
+    update: (current: ModelRoleSettingsValue) => Partial<ModelRoleSettingsValue>,
+  ) {
+    await controller.save(update);
+    onChanged?.();
+  }
+  // The first row is the primary; moving a fallback there promotes it.
+  const commit = (next: ModelBackupChoice[]) => save((current) => listPatch(current, next));
+  const place = (slot: number | "add", choice: ModelBackupChoice) =>
+    save((current) => {
+      const list = current.primary ? [current.primary, ...current.backups] : current.backups;
+      if (slot === "add")
+        return listPatch(current, [...list.filter((c) => !sameChoice(c, choice)), choice]);
+      const next = list.map((item, index) => (index === slot ? choice : item));
+      return listPatch(
+        current,
+        next.filter((item, index) => index === slot || !sameChoice(item, choice)),
+      );
+    });
+  const setPrimary = (choice: ModelBackupChoice | null) =>
+    save((current) => ({
+      primary: choice,
+      backups: choice
+        ? current.backups.filter((item) => !sameChoice(item, choice))
+        : current.backups,
+    }));
+  const move = (index: number, target: number) => {
+    if (target < 0 || target >= rows.length || target === index) return;
+    const next = [...rows];
+    const [item] = next.splice(index, 1);
+    next.splice(target, 0, item!);
+    void commit(next);
+  };
+  const remove = (index: number) => void commit(rows.filter((_, item) => item !== index));
+  const connectFor = (slot: "primary" | number | "add") => (provider: ConnectableProvider) =>
+    onConnect(provider, {
+      makeDefault: role === "main" && slot === "primary",
+      onConnected: async (choice) => {
+        // A main-model connection is already the default once it saves.
+        if (role === "main" && slot === "primary") {
+          await controller.load();
+          onChanged?.();
+        } else if (slot === "primary") await setPrimary(choice);
+        else await place(slot, choice);
+      },
+    });
+
+  const canAdd = backups.length < MAX_MODEL_BACKUPS;
+  const rowClass = "flex min-h-[52px] items-center gap-2.5 py-2 ps-2 pe-2";
+  const number = (index: number) => (
+    <span className="grid size-5 shrink-0 place-items-center rounded-md bg-muted text-[12px] text-muted-foreground">
+      {index + 1}
+    </span>
+  );
+  const pickerTrigger = (label: string, sub?: string) => (
+    <button
+      type="button"
+      className="flex min-w-0 flex-1 items-baseline gap-1.5 rounded-md py-1 text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <span className="truncate text-[15px] text-foreground">{label}</span>
+      {sub ? <span className="truncate text-[13px] text-muted-foreground">· {sub}</span> : null}
+    </button>
+  );
+
   return (
-    <section className="mt-6 border-t border-border pt-5" data-testid={`model-role-${role}`}>
-      {role !== "main" ? (
-        <div className="mb-4">
-          <ModelPicker
-            options={[
-              { provider: "", id: "", label: t`Deployment default`, billing: "" },
-              ...catalogOptions(options),
-            ]}
-            value={settings?.primary?.modelId ?? ""}
-            provider={settings?.primary?.provider ?? ""}
-            placeholder={settings?.primary ? label(settings.primary) : undefined}
-            label={t`Approval model`}
-            disabled={state.busy || !settings}
-            onChange={(_id, entry) =>
-              void controller.save({
-                primary: entry.id ? { provider: entry.provider, modelId: entry.id } : null,
-              })
-            }
-          />
-        </div>
-      ) : null}
-      <h3 className="text-[13.5px] text-muted-foreground">
-        <Trans>Backup models</Trans>
-      </h3>
-      {state.busy ? <Spinner aria-label={t`Loading model catalog…`} /> : null}
-      {backups.length ? (
-        <ol className="mt-3 divide-y divide-border rounded-xl border border-border">
-          {backups.map((choice, index) => (
+    <section className="mb-8" data-testid={`model-role-${role}`}>
+      <h3 className="mb-2.5 text-[15px] font-medium text-foreground">{title}</h3>
+      <ol className="divide-y divide-border rounded-xl border border-border">
+        {primary ? null : (
+          <li className={`${rowClass} ps-8`} data-testid="model-role-default">
+            {number(0)}
+            <RoleModelPicker
+              trigger={pickerTrigger(defaultLabel)}
+              label={t`Change ${title}`}
+              options={primaryOptions}
+              providers={providers}
+              disabled={busy}
+              onPick={(option) =>
+                option ? void setPrimary({ provider: option.provider, modelId: option.id }) : null
+              }
+              onConnect={connectFor("primary")}
+            />
+          </li>
+        )}
+        {rows.map((choice, index) => {
+          const isPrimary = Boolean(primary) && index === 0;
+          const name = modelLabel(choice);
+          const offset = primary ? 0 : 1;
+          const manageable = connected.has(canonicalPiProviderId(choice.provider));
+          return (
             <li
               key={backupChoiceKey(choice)}
-              className="flex items-center gap-3 py-2 ps-3 pe-2"
-              data-testid={`model-backup-${index + 1}`}
+              className={`${rowClass} ${dragging === index ? "opacity-50" : ""}`}
+              data-testid={`model-role-row-${index + offset + 1}`}
+              draggable={rows.length > 1 && !busy}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                setDragging(index);
+              }}
+              onDragEnd={() => setDragging(null)}
+              onDragOver={(event) => {
+                if (dragging !== null) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (dragging !== null) move(dragging, index);
+                setDragging(null);
+              }}
             >
-              <span className="min-w-0 flex-1 truncate">{label(choice)}</span>
-              {backups.length > 1 ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={t`Move ${label(choice)} up`}
-                    disabled={state.busy || index === 0}
-                    onClick={() =>
-                      void controller.save({ backups: moveBackupChoice(backups, index, -1) })
-                    }
-                  >
-                    <ArrowUp />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={t`Move ${label(choice)} down`}
-                    disabled={state.busy || index === backups.length - 1}
-                    onClick={() =>
-                      void controller.save({ backups: moveBackupChoice(backups, index, 1) })
-                    }
-                  >
-                    <ArrowDown />
-                  </Button>
-                </>
-              ) : null}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t`Remove ${label(choice)}`}
-                disabled={state.busy}
-                onClick={() =>
-                  void controller.save({ backups: backups.filter((_, item) => item !== index) })
+              <GripVertical
+                aria-hidden
+                className={`size-3.5 shrink-0 text-muted-foreground/60 ${rows.length > 1 ? "cursor-grab" : "invisible"}`}
+              />
+              {number(index + offset)}
+              <RoleModelPicker
+                trigger={pickerTrigger(name, providerName(choice))}
+                label={t`Change ${name}`}
+                options={isPrimary ? primaryOptions : options}
+                providers={providers}
+                disabled={busy}
+                onPick={(option) =>
+                  option
+                    ? void (isPrimary
+                        ? setPrimary({ provider: option.provider, modelId: option.id })
+                        : place(index, { provider: option.provider, modelId: option.id }))
+                    : null
                 }
-              >
-                <X />
-              </Button>
+                onConnect={connectFor(isPrimary ? "primary" : index)}
+              />
+              {isPrimary && thinking?.value ? (
+                <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[12.5px] text-muted-foreground">
+                  <Trans>Thinking: {thinkingLevelLabel(thinking.value)}</Trans>
+                </span>
+              ) : null}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="shrink-0 text-muted-foreground"
+                      aria-label={t`${name} options`}
+                      disabled={busy}
+                    />
+                  }
+                >
+                  <MoreHorizontal />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[200px]">
+                  {isPrimary && thinking?.levels.length ? (
+                    <>
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <Trans>Thinking</Trans>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          <DropdownMenuRadioGroup
+                            value={thinking.value ?? ""}
+                            onValueChange={(value) =>
+                              thinking.onChange((value || null) as ThinkingLevel | null)
+                            }
+                          >
+                            <DropdownMenuRadioItem value="">
+                              <Trans>Default</Trans>
+                            </DropdownMenuRadioItem>
+                            {thinking.levels.map((level) => (
+                              <DropdownMenuRadioItem key={level} value={level}>
+                                {thinkingLevelLabel(level)}
+                              </DropdownMenuRadioItem>
+                            ))}
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : null}
+                  {rows.length > 1 ? (
+                    <>
+                      <DropdownMenuItem
+                        disabled={index === 0}
+                        onClick={() => move(index, index - 1)}
+                      >
+                        <Trans>Move up</Trans>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={index === rows.length - 1}
+                        onClick={() => move(index, index + 1)}
+                      >
+                        <Trans>Move down</Trans>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : null}
+                  {manageable ? (
+                    <DropdownMenuItem onClick={() => onManage(choice.provider)}>
+                      <Trans>Manage {providerName(choice)}</Trans>
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem variant="destructive" onClick={() => remove(index)}>
+                    <Trans>Remove</Trans>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </li>
-          ))}
-        </ol>
-      ) : null}
-      {backups.length < MAX_MODEL_BACKUPS && addable.length ? (
-        <div className="mt-3">
-          <ModelPicker
-            options={catalogOptions(addable)}
-            value=""
-            label={t`Add backup model`}
-            placeholder={t`Add backup model`}
-            disabled={state.busy || !settings}
-            onChange={(_id, entry) =>
-              void controller.save({
-                backups: [...backups, { provider: entry.provider, modelId: entry.id }],
-              })
-            }
-          />
-        </div>
+          );
+        })}
+        {canAdd ? (
+          <li>
+            <RoleModelPicker
+              trigger={
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-b-xl px-3 py-3 text-start text-[14px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <Plus className="size-4" aria-hidden />
+                  <Trans>Add fallback</Trans>
+                </button>
+              }
+              label={t`Add fallback`}
+              options={options.filter((option) =>
+                rows.every(
+                  (row) => !sameChoice(row, { provider: option.provider, modelId: option.id }),
+                ),
+              )}
+              providers={providers}
+              disabled={busy}
+              onPick={(option) =>
+                option ? void place("add", { provider: option.provider, modelId: option.id }) : null
+              }
+              onConnect={connectFor("add")}
+            />
+          </li>
+        ) : null}
+      </ol>
+      {state.busy && !settings ? (
+        <Spinner className="mt-3" aria-label={t`Loading model catalog…`} />
       ) : null}
       {state.error ? (
         <div role="alert" className="mt-2 text-sm text-destructive">
@@ -185,4 +385,11 @@ export function ModelRoleSettings({
       ) : null}
     </section>
   );
+}
+
+function listPatch(
+  current: ModelRoleSettingsValue,
+  list: ModelBackupChoice[],
+): Partial<ModelRoleSettingsValue> {
+  return current.primary ? { primary: list[0] ?? null, backups: list.slice(1) } : { backups: list };
 }

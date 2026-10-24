@@ -20,11 +20,28 @@ export function createModelRoleSettings(transport: ModelRoleTransport, scopeKey:
   let state: ModelRoleState = { settings: null, catalog: [], busy: true, error: null };
   let generation = 0;
   let confirmed: ModelRoleSettings | null = null;
+  let loading: Promise<void> | null = null;
   const listeners = new Set<() => void>();
   const publish = (patch: Partial<ModelRoleState>) => {
     state = { ...state, ...patch };
     for (const listener of listeners) listener();
   };
+  async function fetchSettings(current: number) {
+    try {
+      await pendingWrites.get(scopeKey)?.tail;
+      const [settings, catalog] = await Promise.all([transport.load(), transport.catalog()]);
+      if (current === generation) {
+        confirmed = settings;
+        publish({ settings, catalog, busy: false });
+      }
+    } catch (error) {
+      if (current === generation)
+        publish({
+          busy: false,
+          error: error instanceof Error ? error.message : "Could not load models",
+        });
+    }
+  }
   return {
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -33,26 +50,25 @@ export function createModelRoleSettings(transport: ModelRoleTransport, scopeKey:
       };
     },
     snapshot: () => state,
-    async load() {
+    load() {
       const current = ++generation;
       publish({ busy: true, error: null });
-      try {
-        await pendingWrites.get(scopeKey)?.tail;
-        const [settings, catalog] = await Promise.all([transport.load(), transport.catalog()]);
-        if (current === generation) {
-          confirmed = settings;
-          publish({ settings, catalog, busy: false });
-        }
-      } catch (error) {
-        if (current === generation)
-          publish({
-            busy: false,
-            error: error instanceof Error ? error.message : "Could not load models",
-          });
-      }
+      loading = fetchSettings(current);
+      return loading;
     },
-    async save(patch: Partial<ModelRoleSettings>) {
+    /** A function patch reads the settings as they are once any in-flight load settles. */
+    async save(
+      update:
+        | Partial<ModelRoleSettings>
+        | ((settings: ModelRoleSettings) => Partial<ModelRoleSettings>),
+    ) {
+      while (state.busy && loading) {
+        const settled = loading;
+        await settled;
+        if (loading === settled) break;
+      }
       if (state.busy || !state.settings) return;
+      const patch = typeof update === "function" ? update(state.settings) : update;
       const current = generation;
       publish({ settings: { ...state.settings, ...patch }, error: null });
       const queue = pendingWrites.get(scopeKey) ?? { tail: Promise.resolve(), failures: 0 };

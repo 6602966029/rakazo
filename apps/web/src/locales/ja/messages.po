@@ -187,6 +187,10 @@ msgstr "{name}が失敗しました"
 msgid "{name} finished"
 msgstr "{name}が完了しました"
 
+#: src/pages/ModelRoleSettings.tsx
+msgid "{name} options"
+msgstr "{name} のオプション"
+
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
 msgid "{name} stopped"
@@ -422,10 +426,6 @@ msgstr "スペースの操作"
 msgid "Active"
 msgstr "有効"
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Active model"
-msgstr "使用中のモデル"
-
 #: src/pages/shell/sidebar-header.tsx
 msgid "Activity"
 msgstr "アクティビティ"
@@ -486,10 +486,6 @@ msgstr "HTTPSのサーバーURLを追加してください。"
 msgid "Add another"
 msgstr "別のものを追加"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Add backup model"
-msgstr "バックアップモデルを追加"
-
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
 msgstr "認証情報を追加"
@@ -501,6 +497,10 @@ msgstr "クレジットを追加"
 #: src/pages/PluginsOverlay.tsx
 msgid "Add Executor"
 msgstr "Executorを追加"
+
+#: src/pages/ModelRoleSettings.tsx
+msgid "Add fallback"
+msgstr "フォールバックを追加"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add GraphQL"
@@ -573,6 +573,7 @@ msgstr "追加中…"
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -600,10 +601,6 @@ msgstr "エージェント:"
 #: src/pages/Artifacts.tsx
 msgid "All bots"
 msgstr "すべてのボット"
-
-#: src/pages/model-settings/provider-list.tsx
-msgid "All providers"
-msgstr "すべてのプロバイダー"
 
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
@@ -744,7 +741,6 @@ msgstr "適用"
 msgid "Approval boundaries"
 msgstr "承認の範囲"
 
-#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Approval model"
 msgstr "承認モデル"
@@ -891,10 +887,6 @@ msgstr "戻る"
 #: src/pages/Auth.tsx
 msgid "Back to sign in"
 msgstr "ログインに戻る"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Backup models"
-msgstr "バックアップモデル"
 
 #: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
@@ -1076,6 +1068,14 @@ msgstr "キャンセル済み"
 msgid "Card view"
 msgstr "カード表示"
 
+#: src/pages/ModelRoleSettings.tsx
+msgid "Change {name}"
+msgstr "{name} を変更"
+
+#: src/pages/ModelRoleSettings.tsx
+msgid "Change {title}"
+msgstr "{title} を変更"
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "パスワードを変更"
@@ -1171,6 +1171,10 @@ msgstr "ボットの形や色を選ぶか、画像をアップロード"
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Choose a bot…"
 msgstr "ボットを選択…"
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Choose a model"
+msgstr "モデルを選択"
 
 #: src/pages/Auth.tsx
 msgid "Choose a new password"
@@ -1383,10 +1387,6 @@ msgstr "コンピューターは無効です。SANDBOX_PROVIDER=docker と SANDB
 msgid "Configure a plugin catalog on the server to connect apps."
 msgstr "アプリを接続するには、サーバーでプラグインカタログを設定してください。"
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Configured by deployment"
-msgstr "デプロイ設定で構成済み"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
 msgstr "設定済みのサーバー"
@@ -1416,6 +1416,10 @@ msgstr "確認"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
 msgstr "接続"
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Connect {selectedProviderName}"
+msgstr "{selectedProviderName} に接続"
 
 #: src/pages/Onboarding.tsx
 msgid "Connect a model"
@@ -1452,7 +1456,6 @@ msgstr "Tregを接続"
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpOAuthCallback.tsx
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/model-settings/provider-list.tsx
 #: src/pages/shell/message-cards.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connected"
@@ -1558,7 +1561,7 @@ msgstr "このアプリを承認できませんでした"
 msgid "Could not change password"
 msgstr "パスワードを変更できませんでした"
 
-#: src/pages/model-settings/use-model-settings.ts
+#: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not change the default model"
 msgstr "デフォルトモデルを変更できませんでした"
 
@@ -2110,6 +2113,7 @@ msgid "Decline"
 msgstr "拒否"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Default"
@@ -2205,7 +2209,6 @@ msgstr "拒否済み"
 msgid "Deny"
 msgstr "拒否"
 
-#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "デプロイのデフォルト"
@@ -3071,9 +3074,18 @@ msgstr "低"
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr "小文字、数字、ハイフン、アンダースコアのみ使用でき、先頭は文字にしてください。"
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Main model"
+msgstr "メインモデル"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
 msgstr "管理"
+
+#. placeholder {0}: providerName(choice)
+#: src/pages/ModelRoleSettings.tsx
+msgid "Manage {0}"
+msgstr "{0} を管理"
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
@@ -3133,6 +3145,7 @@ msgstr "リクエストあたりの最大画像数"
 
 #: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Maximum output tokens"
 msgstr "最大出力トークン数"
@@ -3288,16 +3301,13 @@ msgid "Model id"
 msgstr "モデルID"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 msgid "Model options"
 msgstr "モデルのオプション"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Model spend uses your provider keys."
 msgstr "モデルの利用料金はあなたのプロバイダーキーで支払われます。"
-
-#: src/pages/model-settings/use-model-settings.ts
-msgid "Model updated."
-msgstr "モデルを更新しました。"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
@@ -3341,15 +3351,9 @@ msgstr "その他"
 msgid "More computer actions"
 msgstr "コンピューターのその他の操作"
 
-#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {0} down"
-msgstr "{0}を下へ移動"
-
-#. placeholder {0}: label(choice)
-#: src/pages/ModelRoleSettings.tsx
-msgid "Move {0} up"
-msgstr "{0}を上へ移動"
+msgid "Move down"
+msgstr "下へ移動"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3358,6 +3362,10 @@ msgstr "共有メモリに移動します。"
 #: src/pages/BotContextMenu.tsx
 msgid "Move to"
 msgstr "移動先"
+
+#: src/pages/ModelRoleSettings.tsx
+msgid "Move up"
+msgstr "上へ移動"
 
 #: src/components/call/CallCard.tsx
 msgid "Mute"
@@ -3501,6 +3509,7 @@ msgid "No matching artifacts on this page."
 msgstr "このページに一致するアーティファクトはありません。"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
 msgstr "一致するモデルはありません"
@@ -3528,10 +3537,6 @@ msgstr "利用できるモデルカタログがありません。"
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
 msgstr "モデルが一覧にありません。"
-
-#: src/pages/model-settings/provider-list.tsx
-msgid "No providers found."
-msgstr "プロバイダーが見つかりません。"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "No remote MCP servers found"
@@ -3574,6 +3579,10 @@ msgstr "通常"
 msgid "Not checked yet"
 msgstr "未確認"
 
+#: src/pages/model-settings/role-model-picker.tsx
+msgid "Not connected"
+msgstr "未接続"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
 msgstr "プラグインカタログにありません"
@@ -3597,11 +3606,6 @@ msgstr "通知"
 #: src/pages/ActivityList.tsx
 msgid "Now"
 msgstr "現在"
-
-#. placeholder {0}: selected.label
-#: src/pages/model-settings/use-model-settings.ts
-msgid "Now using {0}."
-msgstr "{0}を使用中です。"
 
 #: src/pages/McpOAuthCallback.tsx
 msgid "OAuth authorization was cancelled."
@@ -3634,7 +3638,7 @@ msgstr "OAuthの有効期限切れ"
 msgid "Ollama API key"
 msgstr "OllamaのAPIキー"
 
-#: src/pages/model-settings/provider-list.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Ollama Cloud"
 msgstr "Ollama Cloud"
@@ -3917,10 +3921,6 @@ msgstr "保護された入力"
 msgid "Provider"
 msgstr "プロバイダー"
 
-#: src/pages/model-settings/provider-list.tsx
-msgid "Providers"
-msgstr "プロバイダー"
-
 #: src/components/CloudAgentCard.tsx
 msgid "Pull request"
 msgstr "プルリクエスト"
@@ -4076,6 +4076,7 @@ msgstr "再読み込み"
 
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4083,8 +4084,6 @@ msgid "Remove"
 msgstr "削除"
 
 #. placeholder {0}: attachment.file.name
-#. placeholder {0}: label(choice)
-#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "{0}を削除"
@@ -4362,6 +4361,7 @@ msgstr "このボットがこのプロバイダーから検証済みのメッセ
 #: src/pages/GroupPanel.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4410,6 +4410,7 @@ msgstr "保存中..."
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4429,6 +4430,7 @@ msgid "Scopes (optional)"
 msgstr "スコープ（任意）"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
@@ -4459,13 +4461,10 @@ msgid "Search integrations.sh"
 msgstr "integrations.shを検索"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/shell/chat-model-picker.tsx
 msgid "Search models"
 msgstr "モデルを検索"
-
-#: src/pages/model-settings/provider-list.tsx
-msgid "Search providers"
-msgstr "プロバイダーを検索"
 
 #: src/pages/Shell.tsx
 msgid "Search runs"
@@ -4836,7 +4835,6 @@ msgstr "切り替え"
 msgid "Switch bot"
 msgstr "ボットを切り替え"
 
-#: src/pages/model-settings/connection-controls.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 msgid "Switching…"
 msgstr "切り替え中…"
@@ -4931,14 +4929,16 @@ msgstr "保存された設定を読み取れません。削除してから再度
 
 #: src/components/call/CallCard.tsx
 #: src/pages/model-settings/catalog-model-fields.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Thinking"
 msgstr "思考"
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Thinking: {activeThinkingLabel}"
-msgstr "思考: {activeThinkingLabel}"
+#. placeholder {0}: thinkingLevelLabel(thinking.value)
+#: src/pages/ModelRoleSettings.tsx
+msgid "Thinking: {0}"
+msgstr "思考: {0}"
 
 #: src/pages/shell/computer-view.tsx
 msgid "This bot runs on this computer, not a Linux desktop. Shell and files use your home folder."
@@ -5302,17 +5302,9 @@ msgstr "Rakazoクレジットを使用"
 msgid "Use space default"
 msgstr "スペースのデフォルトを使用"
 
-#: src/pages/model-settings/connection-controls.tsx
-msgid "Use this model"
-msgstr "このモデルを使用"
-
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "Use up to 512 letters, digits, _ or -."
 msgstr "英数字、_、-のみで512文字以内で入力してください。"
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Use your own key"
-msgstr "自分のキーを使用"
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "User peer"

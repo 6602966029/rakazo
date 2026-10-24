@@ -55,6 +55,52 @@ describe("shared model role settings lifecycle", () => {
     expect(transport.save).toHaveBeenCalledTimes(2);
     expect(reopened.snapshot().settings).toEqual(saved);
   });
+  it("applies a save issued during a load once the load settles, against the loaded settings", async () => {
+    const { transport, controller } = setup();
+    const loaded: ModelRoleSettings = {
+      primary: saved.primary,
+      backups: [{ provider: "openrouter", modelId: "chat" }],
+    };
+    const load = deferred<ModelRoleSettings>();
+    transport.load.mockReturnValueOnce(load.promise);
+    transport.save.mockImplementation(async (patch) => ({ ...loaded, ...patch }));
+    const loading = controller.load();
+    const seen = vi.fn((settings: ModelRoleSettings) => ({
+      backups: [...settings.backups, { provider: "openrouter", modelId: "mini" }],
+    }));
+    const saving = controller.save(seen);
+    await Promise.resolve();
+    expect(transport.save).not.toHaveBeenCalled();
+    load.resolve(loaded);
+    await Promise.all([loading, saving]);
+    expect(seen).toHaveBeenCalledWith(loaded);
+    expect(transport.save).toHaveBeenCalledWith({
+      backups: [
+        { provider: "openrouter", modelId: "chat" },
+        { provider: "openrouter", modelId: "mini" },
+      ],
+    });
+    expect(controller.snapshot().settings).toEqual({
+      primary: saved.primary,
+      backups: [
+        { provider: "openrouter", modelId: "chat" },
+        { provider: "openrouter", modelId: "mini" },
+      ],
+    });
+  });
+  it("waits for a newer load that starts while a save is waiting", async () => {
+    const { transport, controller } = setup();
+    const first = deferred<ModelRoleSettings>();
+    transport.load.mockReturnValueOnce(first.promise).mockResolvedValueOnce(saved);
+    void controller.load();
+    const seen = vi.fn(() => ({ backups: [] }));
+    const saving = controller.save(seen);
+    const second = controller.load();
+    first.resolve(empty);
+    await Promise.all([second, saving]);
+    expect(seen).toHaveBeenCalledExactlyOnceWith(saved);
+    expect(transport.save).toHaveBeenCalledTimes(1);
+  });
   it("does not block unrelated roles or scopes and ignores obsolete loads", async () => {
     const { transport, controller } = setup();
     const old = deferred<ModelRoleSettings>();

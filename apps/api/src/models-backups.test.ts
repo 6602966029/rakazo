@@ -52,31 +52,26 @@ function setup(
     createdAt: new Date(0),
     updatedAt: new Date(0),
   };
-  const roleRows = new Map<string, Record<string, unknown>>();
-  const spaceModelRole = {
-    findUnique: vi.fn(
-      async ({ where }: { where: { spaceId_userId_role: Record<string, string> } }) =>
-        roleRows.get(JSON.stringify(where.spaceId_userId_role)) ?? null,
+  let roleRows: Array<Record<string, unknown>> = [];
+  const spaceModelRoleChoice = {
+    findMany: vi.fn(async ({ where }: { where: Record<string, string> }) =>
+      roleRows
+        .filter((row) => Object.entries(where).every(([key, value]) => row[key] === value))
+        .sort((left, right) => Number(left.position) - Number(right.position)),
     ),
-    upsert: vi.fn(
-      async ({
-        where,
-        create,
-        update,
-      }: {
-        where: { spaceId_userId_role: Record<string, string> };
-        create: Record<string, unknown>;
-        update: Record<string, unknown>;
-      }) => {
-        const key = JSON.stringify(where.spaceId_userId_role);
-        const row = roleRows.has(key) ? { ...roleRows.get(key), ...update } : create;
-        roleRows.set(key, row);
-        return row;
-      },
-    ),
+    deleteMany: vi.fn(async ({ where }: { where: Record<string, string> }) => {
+      roleRows = roleRows.filter(
+        (row) => !Object.entries(where).every(([key, value]) => row[key] === value),
+      );
+      return { count: 0 };
+    }),
+    createMany: vi.fn(async ({ data }: { data: Array<Record<string, unknown>> }) => {
+      roleRows.push(...data);
+      return { count: data.length };
+    }),
   };
   const tx = {
-    spaceModelRole,
+    spaceModelRoleChoice,
     $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]),
     spaceBackupModel,
   };
@@ -85,7 +80,7 @@ function setup(
       findFirst: vi.fn(async () => ({ organization: { modelCredits: { mode: "credits" } } })),
     },
     spaceBackupModel,
-    spaceModelRole,
+    spaceModelRoleChoice,
     userModelCredential: {
       findMany: vi.fn(async ({ where }: { where: { userId: string; provider?: string } }) =>
         !options.credits &&
@@ -377,11 +372,11 @@ describe("role-based model settings API", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.json.primary).toEqual(primary);
-    expect(prisma.spaceModelRole.findUnique).toHaveBeenCalledWith({
-      where: {
-        spaceId_userId_role: { userId: owner.userId, spaceId: owner.spaceId, role: "approval" },
-      },
-    });
+    expect(prisma.spaceModelRoleChoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: owner.userId, spaceId: owner.spaceId, role: "approval" },
+      }),
+    );
     const read = await call("models/role", { role: "approval" });
     expect((await read.response.json()).json).toEqual(body.json);
     expect(rows).toEqual([]);
@@ -420,6 +415,26 @@ describe("role-based model settings API", () => {
     const read = await call("models/role", { role: "approval" });
     expect((await read.response.json()).json).toEqual({ primary: null, backups: [] });
   });
+  it("keeps the main model's preference when a list save repeats its primary", async () => {
+    const { call, prisma } = setup();
+    const primary = { provider: availableModel.provider, modelId: availableModel.id };
+    const preferences = prisma.spaceModelPreference as unknown as {
+      findFirst: ReturnType<typeof vi.fn>;
+      upsert: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
+    };
+    preferences.findFirst.mockResolvedValue({
+      isDefault: true,
+      modelId: primary.modelId,
+      thinkingLevel: "high",
+      credential: { id: "credential-one", provider: primary.provider },
+    });
+    const backups = [{ provider: availableModel.provider, modelId: "another-model" }];
+    await call("models/setRole", { role: "main", primary, backups });
+    expect(preferences.upsert).not.toHaveBeenCalled();
+    expect(preferences.updateMany).not.toHaveBeenCalled();
+  });
+
   it("retains backwards-compatible main backup storage", async () => {
     const { call } = setup();
     const backups = [{ provider: availableModel.provider, modelId: availableModel.id }];

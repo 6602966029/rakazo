@@ -187,6 +187,10 @@ msgstr "{name} 失败"
 msgid "{name} finished"
 msgstr "{name} 已完成"
 
+#: src/pages/ModelRoleSettings.tsx
+msgid "{name} options"
+msgstr "{name} 选项"
+
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
 msgid "{name} stopped"
@@ -422,10 +426,6 @@ msgstr ""
 msgid "Active"
 msgstr "启用"
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Active model"
-msgstr "当前模型"
-
 #: src/pages/shell/sidebar-header.tsx
 msgid "Activity"
 msgstr "动态"
@@ -486,10 +486,6 @@ msgstr "请填写 HTTPS 服务器 URL。"
 msgid "Add another"
 msgstr ""
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Add backup model"
-msgstr "添加备用模型"
-
 #: src/pages/shell/bot-credentials.tsx
 msgid "Add credential"
 msgstr ""
@@ -501,6 +497,10 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 msgid "Add Executor"
 msgstr "添加 Executor"
+
+#: src/pages/ModelRoleSettings.tsx
+msgid "Add fallback"
+msgstr "添加备用模型"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add GraphQL"
@@ -573,6 +573,7 @@ msgstr "正在添加…"
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
@@ -599,10 +600,6 @@ msgstr "Agent："
 
 #: src/pages/Artifacts.tsx
 msgid "All bots"
-msgstr ""
-
-#: src/pages/model-settings/provider-list.tsx
-msgid "All providers"
 msgstr ""
 
 #: src/pages/ActivityList.tsx
@@ -744,7 +741,6 @@ msgstr "应用"
 msgid "Approval boundaries"
 msgstr "审批边界"
 
-#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Approval model"
 msgstr "审批模型"
@@ -891,10 +887,6 @@ msgstr "返回"
 #: src/pages/Auth.tsx
 msgid "Back to sign in"
 msgstr "返回登录"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Backup models"
-msgstr "备用模型"
 
 #: src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
@@ -1076,6 +1068,14 @@ msgstr "已取消"
 msgid "Card view"
 msgstr ""
 
+#: src/pages/ModelRoleSettings.tsx
+msgid "Change {name}"
+msgstr "更改 {name}"
+
+#: src/pages/ModelRoleSettings.tsx
+msgid "Change {title}"
+msgstr "更改{title}"
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "修改密码"
@@ -1171,6 +1171,10 @@ msgstr "选择机器人形状和颜色，或上传图片"
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Choose a bot…"
 msgstr "选择 Bot…"
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Choose a model"
+msgstr "选择模型"
 
 #: src/pages/Auth.tsx
 msgid "Choose a new password"
@@ -1383,10 +1387,6 @@ msgstr "电脑未开启。请设置 SANDBOX_PROVIDER=docker 并提供 SANDBOX_SU
 msgid "Configure a plugin catalog on the server to connect apps."
 msgstr ""
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Configured by deployment"
-msgstr "由部署配置"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Configured servers"
 msgstr "已配置的服务器"
@@ -1416,6 +1416,10 @@ msgstr ""
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
 msgstr "连接"
+
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Connect {selectedProviderName}"
+msgstr "连接 {selectedProviderName}"
 
 #: src/pages/Onboarding.tsx
 msgid "Connect a model"
@@ -1452,7 +1456,6 @@ msgstr "连接 Treg"
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpOAuthCallback.tsx
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/model-settings/provider-list.tsx
 #: src/pages/shell/message-cards.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connected"
@@ -1558,7 +1561,7 @@ msgstr "无法授权此应用"
 msgid "Could not change password"
 msgstr "无法修改密码"
 
-#: src/pages/model-settings/use-model-settings.ts
+#: src/pages/ModelSettingsOverlay.tsx
 msgid "Could not change the default model"
 msgstr "无法更改默认模型"
 
@@ -2110,6 +2113,7 @@ msgid "Decline"
 msgstr "拒绝"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Default"
@@ -2205,7 +2209,6 @@ msgstr "已拒绝"
 msgid "Deny"
 msgstr "拒绝"
 
-#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "部署默认"
@@ -3071,9 +3074,18 @@ msgstr ""
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr ""
 
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Main model"
+msgstr "主模型"
+
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
 msgstr ""
+
+#. placeholder {0}: providerName(choice)
+#: src/pages/ModelRoleSettings.tsx
+msgid "Manage {0}"
+msgstr "管理 {0}"
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
@@ -3133,6 +3145,7 @@ msgstr "每次请求的最大图像数"
 
 #: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Maximum output tokens"
 msgstr "最大输出 token 数"
@@ -3288,16 +3301,13 @@ msgid "Model id"
 msgstr "模型 ID"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 msgid "Model options"
 msgstr "模型选项"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Model spend uses your provider keys."
 msgstr "模型费用使用你的提供方密钥。"
-
-#: src/pages/model-settings/use-model-settings.ts
-msgid "Model updated."
-msgstr "模型已更新。"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
@@ -3341,15 +3351,9 @@ msgstr ""
 msgid "More computer actions"
 msgstr ""
 
-#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {0} down"
-msgstr "将 {0} 下移"
-
-#. placeholder {0}: label(choice)
-#: src/pages/ModelRoleSettings.tsx
-msgid "Move {0} up"
-msgstr "将 {0} 上移"
+msgid "Move down"
+msgstr "下移"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3358,6 +3362,10 @@ msgstr "把它们移到共享记忆。"
 #: src/pages/BotContextMenu.tsx
 msgid "Move to"
 msgstr "移动到"
+
+#: src/pages/ModelRoleSettings.tsx
+msgid "Move up"
+msgstr "上移"
 
 #: src/components/call/CallCard.tsx
 msgid "Mute"
@@ -3501,6 +3509,7 @@ msgid "No matching artifacts on this page."
 msgstr ""
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
 msgstr "没有匹配的模型"
@@ -3528,10 +3537,6 @@ msgstr "没有可用的模型目录。"
 #: src/lib/model-connection-preflight.ts
 msgid "No models listed."
 msgstr "未列出模型。"
-
-#: src/pages/model-settings/provider-list.tsx
-msgid "No providers found."
-msgstr "未找到提供方。"
 
 #: src/components/integrations/IntegrationSetup.tsx
 msgid "No remote MCP servers found"
@@ -3574,6 +3579,10 @@ msgstr ""
 msgid "Not checked yet"
 msgstr "尚未检查"
 
+#: src/pages/model-settings/role-model-picker.tsx
+msgid "Not connected"
+msgstr "未连接"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
 msgstr "不在插件目录中"
@@ -3597,11 +3606,6 @@ msgstr "通知"
 #: src/pages/ActivityList.tsx
 msgid "Now"
 msgstr "现在"
-
-#. placeholder {0}: selected.label
-#: src/pages/model-settings/use-model-settings.ts
-msgid "Now using {0}."
-msgstr "正在使用 {0}。"
 
 #: src/pages/McpOAuthCallback.tsx
 msgid "OAuth authorization was cancelled."
@@ -3634,7 +3638,7 @@ msgstr "OAuth 已过期"
 msgid "Ollama API key"
 msgstr ""
 
-#: src/pages/model-settings/provider-list.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 msgid "Ollama Cloud"
 msgstr ""
@@ -3917,10 +3921,6 @@ msgstr ""
 msgid "Provider"
 msgstr "提供方"
 
-#: src/pages/model-settings/provider-list.tsx
-msgid "Providers"
-msgstr "提供方"
-
 #: src/components/CloudAgentCard.tsx
 msgid "Pull request"
 msgstr "拉取请求"
@@ -4076,6 +4076,7 @@ msgstr "重新加载"
 
 #: src/components/ApprovalRulesSettings.tsx
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4083,8 +4084,6 @@ msgid "Remove"
 msgstr "移除"
 
 #. placeholder {0}: attachment.file.name
-#. placeholder {0}: label(choice)
-#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "移除 {0}"
@@ -4362,6 +4361,7 @@ msgstr ""
 #: src/pages/GroupPanel.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4410,6 +4410,7 @@ msgstr ""
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4429,6 +4430,7 @@ msgid "Scopes (optional)"
 msgstr "范围（可选）"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
@@ -4459,13 +4461,10 @@ msgid "Search integrations.sh"
 msgstr ""
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/shell/chat-model-picker.tsx
 msgid "Search models"
 msgstr "搜索模型"
-
-#: src/pages/model-settings/provider-list.tsx
-msgid "Search providers"
-msgstr "搜索提供方"
 
 #: src/pages/Shell.tsx
 msgid "Search runs"
@@ -4836,7 +4835,6 @@ msgstr ""
 msgid "Switch bot"
 msgstr ""
 
-#: src/pages/model-settings/connection-controls.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 msgid "Switching…"
 msgstr "正在切换…"
@@ -4931,14 +4929,16 @@ msgstr ""
 
 #: src/components/call/CallCard.tsx
 #: src/pages/model-settings/catalog-model-fields.tsx
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Thinking"
 msgstr "思考"
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Thinking: {activeThinkingLabel}"
-msgstr ""
+#. placeholder {0}: thinkingLevelLabel(thinking.value)
+#: src/pages/ModelRoleSettings.tsx
+msgid "Thinking: {0}"
+msgstr "思考：{0}"
 
 #: src/pages/shell/computer-view.tsx
 msgid "This bot runs on this computer, not a Linux desktop. Shell and files use your home folder."
@@ -5302,17 +5302,9 @@ msgstr ""
 msgid "Use space default"
 msgstr ""
 
-#: src/pages/model-settings/connection-controls.tsx
-msgid "Use this model"
-msgstr "使用此模型"
-
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "Use up to 512 letters, digits, _ or -."
 msgstr ""
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Use your own key"
-msgstr "使用自己的密钥"
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "User peer"

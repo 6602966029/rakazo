@@ -1,8 +1,18 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import type { ModelCatalogEntry, ModelRoleSettings } from "@rakazo/contracts";
 import { captureScreenshot, completeOnboarding, openUserSettings, rpc, signup } from "./helpers";
 
-test("approval models reuse connections and persist independent backups", async ({
+async function pickModel(page: Page, search: string, label: string) {
+  await page.getByRole("combobox", { name: "Search models" }).fill(search);
+  await page
+    .getByRole("listbox", { name: "Model options" })
+    .getByRole("option", { name: label, exact: true })
+    .first()
+    .click();
+}
+
+test("approval models reuse connections and persist independent fallbacks", async ({
   page,
 }, testInfo) => {
   test.setTimeout(45_000);
@@ -10,7 +20,11 @@ test("approval models reuse connections and persist independent backups", async 
   await signup(page, `model-roles-${Date.now()}@rakazo.test`, "password12", "Model roles");
   await completeOnboarding(page);
   const catalog = await rpc<ModelCatalogEntry[]>(page, "models/list", {});
-  const main = catalog.find((entry) => entry.provider === "openrouter" && !entry.placeholder)!;
+  const openRouter = catalog.filter(
+    (entry) => entry.provider === "openrouter" && !entry.placeholder,
+  );
+  const main = openRouter[0]!;
+  const fallback = openRouter.find((entry) => entry.label !== main.label)!;
   await rpc(page, "models/connect", {
     provider: "openrouter",
     apiKey: "fake-role-api-key",
@@ -19,36 +33,45 @@ test("approval models reuse connections and persist independent backups", async 
   const original = await rpc<ModelRoleSettings>(page, "models/role", { role: "main" });
   await page.reload();
   await openUserSettings(page, "models");
-  await page.getByText("Approval model", { exact: true }).click();
+
   const approval = page.getByTestId("model-role-approval");
-  await approval.getByRole("combobox", { name: "Approval model", exact: true }).click();
-  await page.locator('input[aria-label="Search models"]').fill("Jev 1.14");
-  await page.getByRole("option", { name: "Jev 1.14", exact: true }).click();
-  await expect(
-    approval.getByRole("combobox", { name: "Approval model", exact: true }),
-  ).toContainText("Jev 1.14");
+  await expect(approval.getByTestId("model-role-default")).toContainText("Deployment default");
+  await approval.getByRole("button", { name: "Change Approval model", exact: true }).click();
+  await pickModel(page, "Jev 1.14", "Jev 1.14");
+  await expect(approval.getByTestId("model-role-row-1")).toContainText("Jev 1.14");
   await expect
     .poll(
       async () =>
         (await rpc<ModelRoleSettings>(page, "models/role", { role: "approval" })).primary?.modelId,
     )
     .toBe("typesafe/jev-1.14");
-  await approval.getByRole("combobox", { name: "Add backup model" }).click();
-  await page.locator('input[aria-label="Search models"]').fill(main.label);
-  await page.getByRole("option").filter({ hasText: main.label }).first().click();
-  await expect(approval.getByTestId("model-backup-1")).toContainText(main.label);
+  await approval.getByRole("button", { name: "Add fallback", exact: true }).click();
+  await pickModel(page, main.label, main.label);
+  await expect(approval.getByTestId("model-role-row-2")).toContainText(main.label);
   expect(await rpc<ModelRoleSettings>(page, "models/role", { role: "main" })).toEqual(original);
   await approval.scrollIntoViewIfNeeded();
   await captureScreenshot(page, testInfo, "approval-model-with-backup");
-  await page.screenshot({ path: "../../.context/model-roles.png", fullPage: true });
+
+  // The main list takes its own fallback without touching the approval list.
+  const mainList = page.getByTestId("model-role-main");
+  await expect(mainList.getByTestId("model-role-row-1")).toContainText(main.label);
+  await mainList.getByRole("button", { name: "Add fallback", exact: true }).click();
+  await pickModel(page, fallback.label, fallback.label);
+  await expect(mainList.getByTestId("model-role-row-2")).toContainText(fallback.label);
+  await expect
+    .poll(async () => (await rpc<ModelRoleSettings>(page, "models/role", { role: "main" })).backups)
+    .toHaveLength(1);
+  await mainList.scrollIntoViewIfNeeded();
+  await captureScreenshot(page, testInfo, "model-settings-roles");
+
   await page.reload();
-  await page.getByText("Approval model", { exact: true }).click();
   await expect(
-    page
-      .getByTestId("model-role-approval")
-      .getByRole("combobox", { name: "Approval model", exact: true }),
+    page.getByTestId("model-role-approval").getByTestId("model-role-row-1"),
   ).toContainText("Jev 1.14");
-  await expect(page.getByTestId("model-role-approval").getByTestId("model-backup-1")).toContainText(
-    main.label,
+  await expect(
+    page.getByTestId("model-role-approval").getByTestId("model-role-row-2"),
+  ).toContainText(main.label);
+  await expect(page.getByTestId("model-role-main").getByTestId("model-role-row-2")).toContainText(
+    fallback.label,
   );
 });

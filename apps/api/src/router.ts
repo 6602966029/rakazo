@@ -260,6 +260,7 @@ import {
   SpaceLimitError,
   SpaceNotEmptyError,
   SpaceNotFoundError,
+  saveSpaceModelPreference,
   selectSpaceModelPreference,
   selectSpaceVoicePreference,
   toBoardDto,
@@ -1675,6 +1676,7 @@ export function createRouter(deps: RouterDeps) {
             // secret; catalog providers store it on the space preference.
             thinkingLevel:
               input.provider === OPENAI_COMPATIBLE_PROVIDER_ID ? undefined : input.thinkingLevel,
+            makeDefault: input.makeDefault,
             supportsImages: input.supportsImages,
             signal: context.signal,
           },
@@ -1770,6 +1772,7 @@ export function createRouter(deps: RouterDeps) {
           provider: input.provider,
           modelId: input.modelId,
           thinkingLevel: input.thinkingLevel,
+          makeDefault: input.makeDefault,
           label: input.label,
           signal: context.signal,
         });
@@ -1801,6 +1804,7 @@ export function createRouter(deps: RouterDeps) {
                   listPiCatalog().find((entry) => entry.provider === login.provider)?.providerName,
                 modelId: login.modelId,
                 thinkingLevel: login.thinkingLevel,
+                makeDefault: login.makeDefault,
                 signal: login.signal,
               },
               codexCatalog,
@@ -7515,6 +7519,8 @@ async function persistModelCredential(
     label?: string;
     modelId?: string;
     thinkingLevel?: string | null;
+    /** False keeps another connection as the space default. */
+    makeDefault?: boolean;
     supportsImages?: boolean;
     signal?: AbortSignal;
   },
@@ -7620,7 +7626,23 @@ async function persistModelCredential(
         thinkingLevel = defaultModel
           ? clampCatalogThinkingLevel(thinkingLevel, allowedThinking)
           : null;
-        await selectSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel);
+        const otherDefault =
+          input.makeDefault === false
+            ? await tx.spaceModelPreference.findFirst({
+                where: {
+                  spaceId: actor.spaceId,
+                  userId: actor.userId,
+                  isDefault: true,
+                  credentialId: { not: credential.id },
+                },
+                select: { id: true },
+              })
+            : null;
+        if (otherDefault) {
+          await saveSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel);
+        } else {
+          await selectSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel);
+        }
         throwIfAborted(input.signal);
         if (existing) {
           await deleteUnreferencedCredentialSecret(tx, {
@@ -7630,7 +7652,7 @@ async function persistModelCredential(
           });
           throwIfAborted(input.signal);
         }
-        return { ...credential, isDefault: true, defaultModel };
+        return { ...credential, isDefault: !otherDefault, defaultModel };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ),

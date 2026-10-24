@@ -1,4 +1,5 @@
 import type { ChatModelChoice } from "@rakazo/core";
+import type { Href } from "expo-router";
 
 export type ModelPickerRequest = {
   title?: string;
@@ -7,6 +8,8 @@ export type ModelPickerRequest = {
   selectedKey: string;
   providerLabel?: string;
   onSelect: (choice: ChatModelChoice) => void;
+  /** A choice that continues elsewhere replaces the picker with that screen. */
+  continueTo?: (choice: ChatModelChoice) => Href | undefined;
 };
 
 let nextId = 0;
@@ -27,11 +30,13 @@ export function closeModelPicker(id: string): void {
   requests.delete(id);
 }
 
-export function selectPickerModel(id: string, key: string): boolean {
+export function selectPickerModel(id: string, key: string): Href | boolean {
   const request = requests.get(id);
   const choice = request?.choices.find((entry) => entry.key === key);
   if (!request || !choice) return false;
   requests.delete(id);
+  const next = request.continueTo?.(choice);
+  if (next) return next;
   request.onSelect(choice);
   return true;
 }

@@ -1,5 +1,9 @@
 export const RU_MESSAGES: Record<string, string> = {
   "Approval model": "Модель проверки действий",
+  "Main model": "Основная модель",
+  "Add fallback": "Добавить резервную модель",
+  "Manage {provider}": "Управление: {provider}",
+  "Choose a model": "Выберите модель",
   "Use 80 characters or fewer": "Не более 80 символов",
   "Could not update name": "Не удалось обновить имя",
   "{summary} Your backup models also failed.":
@@ -31,8 +35,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Not sent · No model": "Не отправлено · Нет модели",
   "Update required": "Требуется обновление",
   Update: "Обновить",
-  Provider: "Провайдер",
-  "No matching providers": "Подходящие провайдеры не найдены",
   "To:": "Кому:",
   Next: "Далее",
   "Ex: Project Falcon": "Например: проект «Сокол»",
@@ -327,7 +329,6 @@ export const RU_MESSAGES: Record<string, string> = {
   Connected: "Подключено",
   "Connected. Its tools are available from your next message.":
     "Подключено. Его инструменты доступны со следующего сообщения.",
-  "Connected and using {label}.": "Подключено и используется {label}.",
   Copy: "Копировать",
   More: "Ещё",
   "Could not add source": "Не удалось добавить источник",
@@ -515,7 +516,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Message {name}": "Написать {name}",
   Model: "Модель",
   "Model id": "Идентификатор модели",
-  "Model updated.": "Модель обновлена.",
   Models: "Модели",
   "Move to": "Переместить в",
   Name: "Имя",
@@ -542,7 +542,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "No results": "Нет результатов",
   "Not connected": "Не подключено",
   "Not now": "Не сейчас",
-  "Now using {label}.": "Сейчас используется {label}.",
   Now: "Сейчас",
   Notifications: "Уведомления",
   "No longer active": "Больше не активно",
@@ -661,7 +660,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Starting…": "Запуск…",
   Stop: "Остановить",
   Submit: "Отправить",
-  "Switching…": "Переключение…",
   "Take control": "Взять управление",
   "Tap + to create a bot": "Нажмите +, чтобы создать бота",
   Team: "Команда",
@@ -689,7 +687,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Use a found model": "Использовать найденную модель",
   "Use an http or https URL": "Используйте URL-адрес http или https.",
   "Use default server": "Использовать сервер по умолчанию",
-  "Use this model": "Использовать эту модель",
   Voice: "Голос",
   Webhook: "Вебхук",
   "Waiting for sign-in…": "Ожидание входа в систему…",
@@ -770,7 +767,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "sk-…": "sk-…",
   Submitted: "Отправлено",
   "Teach a task": "Научить задачу",
-  "this model": "эта модель",
   "This removes the empty space for everyone.": "Это удалит пустое пространство для всех.",
   "This removes every message and stops current work. The bot, computer, memory, and routines are kept.":
     "Это удалит все сообщения и остановит текущую работу. Бот, компьютер, память и задачи сохранятся.",
@@ -805,12 +801,10 @@ export const RU_MESSAGES: Record<string, string> = {
   "Could not save that preference": "Не удалось сохранить эту настройку",
   Username: "Имя пользователя",
   // app/(settings)/models.tsx
-  "Add backup model": "Добавить резервную модель",
   "Move down": "Переместить ниже",
   "Move up": "Переместить выше",
   "Tried in order if the active model fails.":
     "Используются по порядку, если активная модель не отвечает.",
-  "Backup models": "Резервные модели",
   "Could not load backup models": "Не удалось загрузить резервные модели.",
   "Could not save backup models": "Не удалось сохранить резервные модели.",
   "Space changed. Reload Models to refresh backup models.":
@@ -819,7 +813,6 @@ export const RU_MESSAGES: Record<string, string> = {
     "Пространство изменилось. Перезагрузите раздел «Модели», прежде чем сохранять резервные модели.",
   "A sign-in page opened — enter this code there:":
     "Открылась страница входа — введите там этот код:",
-  "All providers": "Все провайдеры",
   Copied: "Скопировано",
   "Copy code": "Копировать код",
   "Could not disconnect this provider": "Не удалось отключить этого провайдера",

@@ -36,8 +36,15 @@ type Tenant = {
 function rowsFor(t: Tenant, tag: string): Array<[string, Record<string, unknown>]> {
   return [
     [
-      "spaceModelRole",
-      { spaceId: t.spaceId, userId: t.userId, role: `approval-${tag}`, backups: [] },
+      "spaceModelRoleChoice",
+      {
+        spaceId: t.spaceId,
+        userId: t.userId,
+        role: `approval-${tag}`,
+        position: 0,
+        provider: "openrouter",
+        modelId: `model-${tag}`,
+      },
     ],
     [
       "botSecret",

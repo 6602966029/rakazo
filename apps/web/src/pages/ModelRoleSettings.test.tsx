@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { i18n } from "@lingui/core";
 import type { ModelCatalogEntry, ModelRoleSettings as Settings } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
@@ -21,54 +22,6 @@ vi.mock("@lingui/react/macro", () => ({
   }),
   Trans: ({ children }: { children?: ReactNode }) => children,
 }));
-vi.mock("@rakazo/ui-web", () => ({
-  Button: ({
-    variant: _v,
-    size: _s,
-    ...props
-  }: ComponentProps<"button"> & { variant?: string; size?: string }) => <button {...props} />,
-  Spinner: () => null,
-}));
-vi.mock("./model-settings/model-picker", () => ({
-  ModelPicker: ({
-    options,
-    value,
-    provider,
-    label,
-    disabled,
-    placeholder,
-    onChange,
-  }: {
-    options: ModelCatalogEntry[];
-    value: string;
-    provider?: string;
-    label?: string;
-    disabled?: boolean;
-    placeholder?: string;
-    onChange: (value: string, option: ModelCatalogEntry) => void;
-  }) => (
-    <select
-      aria-label={label}
-      disabled={disabled}
-      value={JSON.stringify([provider ?? "", value])}
-      onChange={(event) => {
-        const [provider, id] = JSON.parse(event.target.value);
-        const option = options.find((entry) => entry.provider === provider && entry.id === id)!;
-        onChange(id, option);
-      }}
-    >
-      {placeholder ? <option value={JSON.stringify(["", ""])}>{placeholder}</option> : null}
-      {options.map((option) => (
-        <option
-          key={JSON.stringify([option.provider, option.id])}
-          value={JSON.stringify([option.provider, option.id])}
-        >
-          {option.label}
-        </option>
-      ))}
-    </select>
-  ),
-}));
 
 import { ModelRoleSettings } from "./ModelRoleSettings";
 
@@ -82,6 +35,7 @@ const catalog: ModelCatalogEntry[] = [
     protocol: "decisions",
   },
   { provider: "openrouter", id: "chat", label: "Chat", providerName: "OpenRouter", billing: "" },
+  { provider: "openrouter", id: "mini", label: "Mini", providerName: "OpenRouter", billing: "" },
 ];
 const credentials = [
   {
@@ -93,27 +47,73 @@ const credentials = [
     modelId: "chat",
   },
 ];
+const jev = { provider: "openrouter", modelId: "typesafe/jev-1.14" };
+const chat = { provider: "openrouter", modelId: "chat" };
+const mini = { provider: "openrouter", modelId: "mini" };
+const deepseek = { id: "deepseek", name: "DeepSeek" };
+const onConnect = vi.fn();
+const onManage = vi.fn();
 let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
 let saved: Settings;
-const props = { userId: "user", spaceId: "space", credentials };
+const props = {
+  userId: "user",
+  spaceId: "space",
+  credentials,
+  title: "Main model",
+  defaultLabel: "Deployment default",
+  providers: [deepseek],
+  providerLabel: (id: string) => (id === "openrouter" ? "OpenRouter" : id),
+  onConnect,
+  onManage,
+};
 async function render(extra: Partial<ComponentProps<typeof ModelRoleSettings>> = {}) {
   await act(async () => root.render(<ModelRoleSettings {...props} {...extra} />));
 }
-async function choose(label: string, provider: string, id: string) {
-  const field = container.querySelector(`select[aria-label="${label}"]`) as HTMLSelectElement;
-  await act(async () => {
-    field.value = JSON.stringify([provider, id]);
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+function trigger(label: string) {
+  return container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
 }
-async function click(label: string) {
-  const button = container.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
-  await act(async () => button.click());
+async function click(element: HTMLElement | null | undefined) {
+  if (!element) throw new Error("Missing element");
+  await act(async () => element.click());
 }
+/** Opens a model picker and chooses an option by its visible name. */
+async function pick(label: string, option: string) {
+  await click(trigger(label));
+  const found = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+    (entry) => entry.textContent === option,
+  );
+  if (!found) throw new Error(`Missing option ${option}`);
+  await click(found);
+}
+/** Opens a row's options menu and chooses an item. */
+async function menu(name: string, item: string) {
+  await click(trigger(`${name} options`));
+  const found = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+    (entry) => entry.textContent === item,
+  );
+  if (!found) throw new Error(`Missing menu item ${item}`);
+  await click(found);
+}
+const rows = () =>
+  [...container.querySelectorAll('[data-testid^="model-role-row-"]')].map(
+    (row) => row.querySelector("button")?.textContent,
+  );
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  i18n.loadAndActivate({ locale: "en", messages: {} });
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  Element.prototype.scrollIntoView = () => undefined;
   saved = { primary: null, backups: [] };
+  onConnect.mockReset();
+  onManage.mockReset();
   api.role.mockReset().mockImplementation(async () => saved);
   api.forRole.mockReset().mockResolvedValue(catalog);
   api.setRole.mockReset().mockImplementation(async ({ role: _r, expectedUserId: _u, ...patch }) => {
@@ -126,62 +126,148 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await act(async () => root.unmount());
-  container.remove();
+  document.body.replaceChildren();
   vi.unstubAllGlobals();
 });
 describe("shared role editor", () => {
-  it("selects an approval model through an existing connection and resets to the default", async () => {
-    await render({ modelRole: "approval" });
-    await choose("Approval model", "openrouter", "typesafe/jev-1.14");
+  it("selects an approval model through an existing connection and removes it back to the default", async () => {
+    await render({ modelRole: "approval", title: "Approval model" });
+    expect(container.querySelector('[data-testid="model-role-default"]')?.textContent).toContain(
+      "Deployment default",
+    );
+    await pick("Change Approval model", "Jev 1.14");
     expect(api.setRole).toHaveBeenLastCalledWith(
       expect.objectContaining({
         role: "approval",
         expectedUserId: "user",
-        primary: { provider: "openrouter", modelId: "typesafe/jev-1.14" },
+        primary: jev,
+        backups: [],
       }),
       { context: { spaceId: "space" } },
     );
-    await choose("Approval model", "", "");
+    expect(rows()).toEqual(["Jev 1.14· OpenRouter"]);
+    await menu("Jev 1.14", "Remove");
     expect(saved.primary).toBeNull();
+    expect(container.querySelector('[data-testid="model-role-default"]')).not.toBeNull();
   });
-  it("uses the same add, order and remove controls for main and approval backups", async () => {
+  it("uses the same add, order and remove controls for main and approval fallbacks", async () => {
     await render();
-    await choose("Add backup model", "openrouter", "chat");
-    await choose("Add backup model", "openrouter", "typesafe/jev-1.14");
-    await click("Move OpenRouter · Jev 1.14 up");
-    expect(saved.backups.map((choice) => choice.modelId)).toEqual(["typesafe/jev-1.14", "chat"]);
-    await click("Remove OpenRouter · Chat");
-    expect(saved.backups).toHaveLength(1);
+    await pick("Add fallback", "Chat");
+    await pick("Add fallback", "Jev 1.14");
+    expect(saved.backups).toEqual([chat, jev]);
+    await menu("Jev 1.14", "Move up");
+    expect(saved.backups).toEqual([jev, chat]);
+    await menu("Chat", "Remove");
+    expect(saved).toEqual({ primary: null, backups: [jev] });
     expect(api.setRole).toHaveBeenLastCalledWith(
       expect.objectContaining({ role: "main" }),
       expect.anything(),
     );
   });
+  it("promotes a fallback with Move up by saving the primary and fallbacks together", async () => {
+    saved = { primary: chat, backups: [jev, mini] };
+    await render();
+    await menu("Jev 1.14", "Move up");
+    expect(api.setRole).toHaveBeenCalledTimes(1);
+    expect(api.setRole).toHaveBeenLastCalledWith(
+      expect.objectContaining({ primary: jev, backups: [chat, mini] }),
+      expect.anything(),
+    );
+    expect(rows().map((row) => row?.split("·")[0])).toEqual(["Jev 1.14", "Chat", "Mini"]);
+  });
+  it("promotes the first fallback when the primary is removed", async () => {
+    saved = { primary: chat, backups: [jev, mini] };
+    await render();
+    await menu("Chat", "Remove");
+    expect(api.setRole).toHaveBeenLastCalledWith(
+      expect.objectContaining({ primary: jev, backups: [mini] }),
+      expect.anything(),
+    );
+  });
+  it("replaces a fallback in place without duplicating it", async () => {
+    saved = { primary: chat, backups: [jev] };
+    await render();
+    await pick("Change Jev 1.14", "Mini");
+    expect(saved).toEqual({ primary: chat, backups: [mini] });
+  });
+  it("hands a not-connected provider to the connect flow and appends it once connected", async () => {
+    saved = { primary: chat, backups: [] };
+    await render();
+    await pick("Add fallback", "DeepSeek");
+    expect(onConnect).toHaveBeenCalledWith(
+      deepseek,
+      expect.objectContaining({ makeDefault: false }),
+    );
+    const intent = onConnect.mock.lastCall?.[1];
+    await act(async () => intent.onConnected({ provider: "deepseek", modelId: "deepseek-chat" }));
+    expect(saved).toEqual({
+      primary: chat,
+      backups: [{ provider: "deepseek", modelId: "deepseek-chat" }],
+    });
+  });
+  it("makes only the main role's first slot the space default on connect", async () => {
+    await render();
+    await pick("Change Main model", "DeepSeek");
+    expect(onConnect).toHaveBeenLastCalledWith(
+      deepseek,
+      expect.objectContaining({ makeDefault: true }),
+    );
+    // The connection itself sets the main model, so the list only reloads.
+    await act(async () =>
+      onConnect.mock.lastCall?.[1].onConnected({ provider: "deepseek", modelId: "deepseek-chat" }),
+    );
+    expect(api.setRole).not.toHaveBeenCalled();
+    expect(api.role).toHaveBeenCalledTimes(2);
+
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await render({ modelRole: "approval", title: "Approval model" });
+    await pick("Change Approval model", "DeepSeek");
+    expect(onConnect).toHaveBeenLastCalledWith(
+      deepseek,
+      expect.objectContaining({ makeDefault: false }),
+    );
+    await act(async () =>
+      onConnect.mock.lastCall?.[1].onConnected({ provider: "deepseek", modelId: "deepseek-chat" }),
+    );
+    expect(saved.primary).toEqual({ provider: "deepseek", modelId: "deepseek-chat" });
+  });
+  it("manages a connected row's provider and shows thinking only on the main primary", async () => {
+    saved = { primary: chat, backups: [jev] };
+    const onChange = vi.fn();
+    await render({ thinking: { levels: ["low", "high"], value: "high", onChange } });
+    expect(container.textContent).toContain("Thinking: High");
+    await menu("Chat", "Manage OpenRouter");
+    expect(onManage).toHaveBeenCalledWith("openrouter");
+    await click(trigger("Jev 1.14 options"));
+    expect(
+      [...document.querySelectorAll('[role="menuitem"]')].map((entry) => entry.textContent),
+    ).not.toContain("Thinking");
+  });
   it("does not replace unseen settings after a failed load and retries", async () => {
     api.role.mockRejectedValueOnce(new Error("offline"));
-    await render({ modelRole: "approval" });
-    expect(
-      (container.querySelector('select[aria-label="Approval model"]') as HTMLSelectElement)
-        .disabled,
-    ).toBe(true);
+    await render({ modelRole: "approval", title: "Approval model" });
+    expect(trigger("Change Approval model")?.disabled).toBe(true);
+    expect(trigger("Add fallback")?.disabled).toBe(true);
     expect(api.setRole).not.toHaveBeenCalled();
     const retry = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Retry",
-    )!;
-    await act(async () => retry.click());
+    );
+    await click(retry);
     expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(trigger("Change Approval model")?.disabled).toBe(false);
   });
   it("retains confirmed settings when a save fails", async () => {
-    saved = { primary: null, backups: [{ provider: "openrouter", modelId: "chat" }] };
+    saved = { primary: null, backups: [chat] };
     api.setRole.mockRejectedValueOnce(new Error("save failed"));
     await render();
-    await click("Remove OpenRouter · Chat");
-    expect(container.textContent).toContain("OpenRouter · Chat");
+    await menu("Chat", "Remove");
+    expect(rows()).toEqual(["Chat· OpenRouter"]);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("save failed");
   });
 });
 
-it("keeps subscription connection names in saved rows and picker options", async () => {
+it("names rows and menus by their connection", async () => {
   api.forRole.mockResolvedValue([
     {
       provider: "anthropic",
@@ -194,6 +280,8 @@ it("keeps subscription connection names in saved rows and picker options", async
   saved = { primary: null, backups: [{ provider: "anthropic", modelId: "claude" }] };
   await render({
     modelRole: "approval",
+    title: "Approval model",
+    providerLabel: (id) => (id === "anthropic" ? "Claude subscription" : id),
     credentials: [
       {
         id: "subscription",
@@ -206,8 +294,9 @@ it("keeps subscription connection names in saved rows and picker options", async
       },
     ],
   });
-  expect(container.textContent).toContain("Claude subscription · Claude");
+  expect(rows()).toEqual(["Claude· Claude subscription"]);
+  await click(trigger("Claude options"));
   expect(
-    container.querySelector('button[aria-label="Remove Claude subscription · Claude"]'),
-  ).not.toBeNull();
+    [...document.querySelectorAll('[role="menuitem"]')].map((entry) => entry.textContent),
+  ).toContain("Manage Claude subscription");
 });

@@ -215,6 +215,61 @@ export async function openUserSettings(
   return settings;
 }
 
+/** The connection dialog for a provider, titled "Connect X" until it is connected and "X" after. */
+export function modelConnectionDialog(page: Page, provider: string) {
+  const name = provider.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return page
+    .getByRole("dialog")
+    .filter({ has: page.getByRole("heading", { name: new RegExp(`^(Connect )?${name}$`) }) });
+}
+
+/**
+ * Opens a model list's picker on the Models settings page and chooses a provider under
+ * "Not connected". The "main" slot is the list's first row, so connecting there sets the
+ * role's primary model; "fallback" appends through "Add fallback".
+ */
+export async function openModelConnection(
+  page: Page,
+  provider: string,
+  {
+    slot = "main",
+    role = "main",
+    search = provider,
+  }: { slot?: "main" | "fallback"; role?: "main" | "approval"; search?: string } = {},
+) {
+  const section = page.getByTestId(`model-role-${role}`);
+  await (slot === "main"
+    ? section.getByRole("button", { name: /^Change / }).first()
+    : section.getByRole("button", { name: "Add fallback", exact: true })
+  ).click();
+  await page.getByRole("combobox", { name: "Search models" }).fill(search);
+  await page
+    .locator('[data-slot="command-group"]')
+    .filter({ has: page.locator("[cmdk-group-heading]", { hasText: /^Not connected$/ }) })
+    .getByRole("option", { name: provider, exact: true })
+    .click();
+  const dialog = modelConnectionDialog(page, provider);
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** Opens "Manage X" from a model row's options menu and returns the connection dialog. */
+export async function manageModelConnection(
+  page: Page,
+  provider: string,
+  { role = "main", row = 1 }: { role?: "main" | "approval"; row?: number } = {},
+) {
+  await page
+    .getByTestId(`model-role-${role}`)
+    .getByTestId(`model-role-row-${row}`)
+    .getByRole("button", { name: / options$/ })
+    .click();
+  await page.getByRole("menuitem", { name: `Manage ${provider}`, exact: true }).click();
+  const dialog = modelConnectionDialog(page, provider);
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 /** Create a named bot via RPC for test setup (skips the + picker). */
 export async function createNamedBot(
   page: Page,

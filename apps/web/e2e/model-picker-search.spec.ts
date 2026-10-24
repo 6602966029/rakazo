@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, openUserSettings, signup } from "./helpers";
+import {
+  captureScreenshot,
+  completeOnboarding,
+  openModelConnection,
+  openUserSettings,
+  signup,
+} from "./helpers";
 
 test("model dropdown search and provider group headers", async ({ page }, testInfo) => {
   const stamp = Date.now();
@@ -11,11 +17,8 @@ test("model dropdown search and provider group headers", async ({ page }, testIn
   await expect(page.getByRole("button", { name: "Close model settings" })).toBeVisible();
 
   // OpenRouter has many models so group headers and search are obvious.
-  const providerSearch = page.getByPlaceholder("Search providers");
-  await providerSearch.fill("openrouter");
-  await page.getByRole("button", { name: /OpenRouter/ }).click();
-
-  const modelCombobox = page.getByRole("combobox", { name: "Model", exact: true });
+  const dialog = await openModelConnection(page, "OpenRouter");
+  const modelCombobox = dialog.getByRole("combobox", { name: "Model", exact: true });
   await modelCombobox.click();
 
   const modelSearch = page.getByRole("combobox", { name: "Search models" });

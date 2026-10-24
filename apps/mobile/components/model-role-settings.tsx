@@ -1,187 +1,445 @@
+import type { MenuAction } from "@expo/ui/community/menu";
 import { MenuView } from "@expo/ui/community/menu";
-import type { ModelCredential, ModelRole, ModelRoleSettings as Settings } from "@rakazo/contracts";
+import type {
+  ModelBackupChoice,
+  ModelCredential,
+  ModelRole,
+  ModelRoleSettings as Settings,
+  ThinkingLevel,
+} from "@rakazo/contracts";
 import {
   backupChoiceKey,
+  canonicalPiProviderId,
   connectedBackupOptions,
   MAX_MODEL_BACKUPS,
-  moveBackupChoice,
+  OPENAI_COMPATIBLE_PROVIDER_ID,
 } from "@rakazo/contracts";
+import type { ChatModelChoice } from "@rakazo/core";
 import { createModelRoleSettings } from "@rakazo/core";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { AccessibilityInfo, Text } from "react-native";
+import type { Href } from "expo-router";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { AccessibilityInfo, StyleSheet, Text, View } from "react-native";
 import { captureApiRequestContext, currentApiBase, rpc } from "../lib/api";
+import { mobileTokens } from "../lib/appearance";
 import { useI18n } from "../lib/i18n";
 import type { ModelPickerRequest } from "../lib/model-picker-selection";
+import { native, useResolvedAppearance, useThemedStyles } from "../lib/native";
+import { thinkingLevelLabel } from "../lib/thinking-level";
+import { errorText } from "../lib/user-error";
 import { SettingsGroup, SettingsRow } from "./settings-group";
 
-/** Native menus and pickers over the same role settings and lifecycle as web. */
+export type ConnectableProvider = { id: string; name: string; baseUrl?: string };
+
+export type ModelConnectIntent = {
+  /** Only the main model's first slot replaces the space's default on connect. */
+  makeDefault: boolean;
+  onConnected: (choice: ModelBackupChoice) => Promise<void>;
+};
+
+/** A row index, the empty first slot, or a new fallback at the end. */
+type Slot = number | "empty" | "add";
+
+const sameChoice = (left: ModelBackupChoice, right: ModelBackupChoice) =>
+  backupChoiceKey(left) === backupChoiceKey(right);
+
+const connectKey = (provider: ConnectableProvider) =>
+  `connect:${provider.id}:${provider.baseUrl ?? ""}`;
+
+/** Sends the first slot only when it changes: rewriting the main model resets its effort. */
+function listPatch(current: Settings, list: ModelBackupChoice[]): Partial<Settings> {
+  if (!current.primary) return { backups: list };
+  const primary = list[0] ?? null;
+  return primary && sameChoice(primary, current.primary)
+    ? { backups: list.slice(1) }
+    : { primary, backups: list.slice(1) };
+}
+
+/** One ordered list per model purpose: the first row runs, the rest take over in order. */
 export function ModelRoleSettings({
   userId,
   spaceId,
   modelRole: role,
   credentials,
+  title,
+  defaultLabel,
+  providers,
   openPicker,
+  connectRoute,
+  onManage,
+  onChanged,
 }: {
   userId: string;
   spaceId: string;
   modelRole: ModelRole;
   credentials: ModelCredential[];
+  title: string;
+  /** What runs when the first slot is empty. */
+  defaultLabel: string;
+  /** Providers without a connection, offered at the end of the picker. */
+  providers: ConnectableProvider[];
   openPicker: (request: ModelPickerRequest) => void;
+  /** Registers a connect flow and returns the screen that runs it. */
+  connectRoute: (provider: ConnectableProvider, intent: ModelConnectIntent) => Href;
+  onManage: (provider: string) => void;
+  /** The main model's first slot is the space default, which other settings read. */
+  onChanged?: () => void;
 }) {
   const { t } = useI18n();
+  const styles = useThemedStyles(createStyles);
   const apiBase = currentApiBase();
-  const controller = useMemo(() => {
+  const { controller, send } = useMemo(() => {
     const requestContext = captureApiRequestContext().then((context) => ({
       ...context,
       headers: { ...context.headers, "x-rakazo-space-id": spaceId },
     }));
-    const call = async <T,>(proc: string, patch = {}) =>
-      rpc<T>(
-        proc,
-        { role, expectedUserId: userId, ...patch },
-        { requestContext: await requestContext },
-      );
-    return createModelRoleSettings(
-      {
-        load: () => call<Settings>("models/role"),
-        catalog: () => call("models/forRole"),
-        save: (patch) => call<Settings>("models/setRole", patch),
-      },
-      JSON.stringify([apiBase, userId, spaceId, role]),
-    );
+    const send = async <T,>(proc: string, input: object) =>
+      rpc<T>(proc, input, { requestContext: await requestContext });
+    const call = <T,>(proc: string, patch = {}) =>
+      send<T>(proc, { role, expectedUserId: userId, ...patch });
+    return {
+      send,
+      controller: createModelRoleSettings(
+        {
+          load: () => call<Settings>("models/role"),
+          catalog: () => call("models/forRole"),
+          save: (patch) => call<Settings>("models/setRole", patch),
+        },
+        JSON.stringify([apiBase, userId, spaceId, role]),
+      ),
+    };
   }, [apiBase, userId, spaceId, role]);
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot);
+  const [thinkingError, setThinkingError] = useState<string | null>(null);
   useEffect(() => {
     void controller.load();
   }, [controller, credentials]);
+  const error = state.error ?? thinkingError;
   useEffect(() => {
-    if (state.error) AccessibilityInfo.announceForAccessibility(state.error);
-  }, [state.error]);
-  const choices = connectedBackupOptions(state.catalog, credentials);
+    if (error) AccessibilityInfo.announceForAccessibility(error);
+  }, [error]);
+
   const settings = state.settings;
+  const primary = settings?.primary ?? null;
   const backups = settings?.backups ?? [];
-  const label = (choice: { provider: string; modelId: string }) => {
-    const model = state.catalog.find(
-      (entry) => entry.provider === choice.provider && entry.id === choice.modelId,
+  const rows = primary ? [primary, ...backups] : backups;
+  const busy = state.busy || !settings;
+  const entryFor = (choice: ModelBackupChoice) =>
+    state.catalog.find(
+      (entry) =>
+        canonicalPiProviderId(entry.provider) === canonicalPiProviderId(choice.provider) &&
+        entry.id === choice.modelId,
     );
-    return model
-      ? `${model.providerName ?? model.provider} · ${model.label}`
-      : `${choice.provider} · ${choice.modelId}`;
-  };
-  const selected = new Set(
-    [...(settings?.primary ? [settings.primary] : []), ...backups].map(backupChoiceKey),
-  );
-  function pick(primary: boolean) {
-    if (state.busy || !settings) return;
+  const connected = new Set(credentials.map((entry) => canonicalPiProviderId(entry.provider)));
+  const options = connectedBackupOptions(state.catalog, credentials);
+  // The main model runs on a personal connection, so deployment-managed models only back it up.
+  const primaryOptions =
+    role === "main"
+      ? options.filter((option) => connected.has(canonicalPiProviderId(option.provider)))
+      : options;
+  const optionFor = (choice: ModelBackupChoice) =>
+    options.find((option) => sameChoice(option, choice));
+  const modelLabel = (choice: ModelBackupChoice) =>
+    entryFor(choice)?.label ?? optionFor(choice)?.label ?? choice.modelId;
+  const providerName = (choice: ModelBackupChoice) =>
+    entryFor(choice)?.providerName ??
+    optionFor(choice)?.providerName ??
+    providers.find((provider) => provider.id === choice.provider)?.name ??
+    choice.provider;
+  const isPrimarySlot = (slot: Slot) => slot === "empty" || (slot === 0 && primary !== null);
+
+  // Effort belongs to the main model's connection; compatible endpoints keep their own.
+  const primaryCredential =
+    role === "main" && primary
+      ? credentials.find(
+          (entry) =>
+            canonicalPiProviderId(entry.provider) === canonicalPiProviderId(primary.provider) &&
+            (entry.isDefault || entry.modelId === primary.modelId),
+        )
+      : undefined;
+  const thinkingLevels =
+    primary && primaryCredential && primary.provider !== OPENAI_COMPATIBLE_PROVIDER_ID
+      ? (entryFor(primary)?.thinkingLevels ?? []).filter((level) => level !== "off")
+      : [];
+  const thinking = primaryCredential?.thinkingLevel ?? null;
+
+  async function save(update: (current: Settings) => Partial<Settings>) {
+    let primaryChanged = false;
+    await controller.save((current) => {
+      const patch = update(current);
+      primaryChanged = "primary" in patch;
+      return patch;
+    });
+    if (role === "main" && primaryChanged) onChanged?.();
+  }
+  const setPrimary = (choice: ModelBackupChoice | null) =>
+    save((current) => ({
+      primary: choice,
+      backups: choice
+        ? current.backups.filter((item) => !sameChoice(item, choice))
+        : current.backups,
+    }));
+  const place = (slot: number | "add", choice: ModelBackupChoice) =>
+    save((current) => {
+      const list = current.primary ? [current.primary, ...current.backups] : current.backups;
+      if (slot === "add")
+        return listPatch(current, [...list.filter((item) => !sameChoice(item, choice)), choice]);
+      return listPatch(
+        current,
+        list
+          .map((item, index) => (index === slot ? choice : item))
+          .filter((item, index) => index === slot || !sameChoice(item, choice)),
+      );
+    });
+  // Moving a fallback into the first row promotes it.
+  const commit = (next: ModelBackupChoice[]) => save((current) => listPatch(current, next));
+  const fill = (slot: Slot, choice: ModelBackupChoice) =>
+    slot === "empty" || isPrimarySlot(slot) ? setPrimary(choice) : place(slot, choice);
+
+  async function setThinking(level: ThinkingLevel | null) {
+    if (!primary) return;
+    setThinkingError(null);
+    try {
+      await send("models/setDefault", {
+        provider: primary.provider,
+        modelId: primary.modelId,
+        thinkingLevel: level,
+      });
+      onChanged?.();
+    } catch (err) {
+      setThinkingError(errorText(err, t("Could not change the default model")));
+    }
+  }
+
+  function pick(slot: Slot) {
+    if (busy) return;
+    const primarySlot = isPrimarySlot(slot);
+    const pool = primarySlot ? primaryOptions : options;
+    const current = typeof slot === "number" ? rows[slot] : undefined;
+    const taken = new Set(rows.map(backupChoiceKey));
+    const choices: ChatModelChoice[] = [
+      ...(primarySlot && role !== "main"
+        ? [{ key: "default", label: defaultLabel, modelLabel: defaultLabel }]
+        : []),
+      ...pool
+        .filter((option) => slot !== "add" || !taken.has(backupChoiceKey(option)))
+        .map((option) => ({
+          key: backupChoiceKey(option),
+          label: `${option.providerName} · ${option.label}`,
+          modelLabel: option.label,
+          providerLabel: option.providerName,
+          provider: option.provider,
+          modelId: option.modelId,
+        })),
+      ...providers.map((provider) => ({
+        key: connectKey(provider),
+        label: provider.name,
+        modelLabel: provider.name,
+        providerLabel: t("Not connected"),
+      })),
+    ];
     openPicker({
-      title: primary ? t("Approval model") : t("Add backup model"),
-      selectedKey: primary && settings.primary ? backupChoiceKey(settings.primary) : "",
-      choices: [
-        ...(primary
-          ? [
-              {
-                key: "default",
-                label: t("Deployment default"),
-                modelLabel: t("Deployment default"),
-                providerLabel: "",
-              },
-            ]
-          : []),
-        ...choices
-          .filter((choice) => primary || !selected.has(backupChoiceKey(choice)))
-          .map((choice) => ({
-            ...choice,
-            key: backupChoiceKey(choice),
-            label: label(choice),
-            modelLabel: choice.label,
-            providerLabel: choice.providerName,
-          })),
-      ],
+      title: slot === "add" ? t("Add fallback") : title,
+      selectedKey: current ? backupChoiceKey(current) : primarySlot ? "default" : "",
+      choices,
+      continueTo: (choice) => {
+        const provider = providers.find((entry) => connectKey(entry) === choice.key);
+        if (!provider) return undefined;
+        const makeDefault = role === "main" && primarySlot;
+        return connectRoute(provider, {
+          makeDefault,
+          onConnected: async (connectedChoice) => {
+            // Connecting already made it the space default.
+            if (makeDefault) await controller.load();
+            else await fill(slot, connectedChoice);
+          },
+        });
+      },
       onSelect: (choice) => {
-        const model =
-          choice.provider && choice.modelId
-            ? { provider: choice.provider, modelId: choice.modelId }
-            : null;
-        void controller.save(
-          primary ? { primary: model } : { backups: model ? [...backups, model] : backups },
-        );
+        if (choice.key === "default") {
+          void setPrimary(null);
+          return;
+        }
+        if (!choice.provider || !choice.modelId) return;
+        const picked = { provider: choice.provider, modelId: choice.modelId };
+        if (!current || !sameChoice(current, picked)) void fill(slot, picked);
       },
     });
   }
-  if (role === "main" && !state.error && (!settings || (!backups.length && !choices.length)))
-    return null;
-  const groupLabel = role === "main" ? t("Backup models") : t("Approval model");
+
+  function act(index: number, id: string) {
+    if (busy) return;
+    const choice = rows[index];
+    if (!choice) return;
+    if (id.startsWith("thinking:")) {
+      void setThinking((id.slice("thinking:".length) || null) as ThinkingLevel | null);
+    } else if (id === "moveUp" || id === "moveDown") {
+      const target = index + (id === "moveUp" ? -1 : 1);
+      if (target < 0 || target >= rows.length) return;
+      const next = [...rows];
+      next.splice(target, 0, ...next.splice(index, 1));
+      void commit(next);
+    } else if (id === "manage") {
+      onManage(choice.provider);
+    } else if (id === "remove") {
+      void commit(rows.filter((_, item) => item !== index));
+    }
+  }
+
+  if (!settings && !state.error) return null;
+  const offset = primary ? 0 : 1;
+  const number = (index: number) => (
+    <Text style={styles.number} accessibilityElementsHidden importantForAccessibility="no">
+      {index + 1}
+    </Text>
+  );
   return (
-    <SettingsGroup accessibilityLabel={groupLabel} label={groupLabel}>
-      {role !== "main" ? (
+    <SettingsGroup accessibilityLabel={title} label={title}>
+      {primary || !settings ? null : (
         <SettingsRow
-          title={settings?.primary ? label(settings.primary) : t("Deployment default")}
-          disabled={state.busy}
-          onPress={() => pick(true)}
+          key="empty"
+          leading={number(0)}
+          title={defaultLabel}
+          disabled={busy}
+          onPress={() => pick("empty")}
         />
-      ) : null}
-      {backups.map((choice, index) => {
-        const option = choices.find((entry) => backupChoiceKey(entry) === backupChoiceKey(choice));
-        const name =
-          option?.label ??
-          state.catalog.find(
-            (entry) => entry.provider === choice.provider && entry.id === choice.modelId,
-          )?.label ??
-          choice.modelId;
-        const actions = [
+      )}
+      {rows.map((choice, index) => {
+        const name = modelLabel(choice);
+        const showThinking = role === "main" && index === 0 && primary !== null;
+        const thinkingMenu: MenuAction[] =
+          showThinking && thinkingLevels.length
+            ? [
+                {
+                  id: "thinking",
+                  title: t("Thinking"),
+                  subactions: [null, ...thinkingLevels].map((level) => ({
+                    // MenuView reports an empty id as the title, so keep a prefix.
+                    id: `thinking:${level ?? ""}`,
+                    title: level ? thinkingLevelLabel(level, t) : t("Default"),
+                    state: level === thinking ? "on" : "off",
+                  })),
+                },
+              ]
+            : [];
+        const actions: MenuAction[] = [
+          ...thinkingMenu,
           ...(index > 0 ? [{ id: "moveUp", title: t("Move up") }] : []),
-          ...(index < backups.length - 1 ? [{ id: "moveDown", title: t("Move down") }] : []),
+          ...(index < rows.length - 1 ? [{ id: "moveDown", title: t("Move down") }] : []),
+          ...(connected.has(canonicalPiProviderId(choice.provider))
+            ? [{ id: "manage", title: t("Manage {provider}", { provider: providerName(choice) }) }]
+            : []),
           { id: "remove", title: t("Remove"), attributes: { destructive: true } },
         ];
-        const action = (id: string) => {
-          if (state.busy) return;
-          void controller.save({
-            backups:
-              id === "remove"
-                ? backups.filter((_, i) => i !== index)
-                : moveBackupChoice(backups, index, id === "moveUp" ? -1 : 1),
-          });
-        };
+        const accessibilityActions = actions.flatMap((action) =>
+          action.subactions
+            ? action.subactions.map((sub) => ({
+                name: sub.id ?? sub.title,
+                label: t("Thinking: {level}", { level: sub.title }),
+              }))
+            : [{ name: action.id ?? action.title, label: action.title }],
+        );
+        const detail = [
+          providerName(choice),
+          ...(showThinking && thinking
+            ? [t("Thinking: {level}", { level: thinkingLevelLabel(thinking, t) })]
+            : []),
+        ].join(" · ");
         return (
-          <MenuView
+          <RowMenu
             key={backupChoiceKey(choice)}
             title={name}
             actions={actions}
-            onPressAction={({ nativeEvent }) => action(nativeEvent.event)}
+            onAction={(id) => act(index, id)}
           >
             <SettingsRow
-              accessible
               accessibilityRole="button"
+              leading={number(index + offset)}
               title={name}
-              detail={option?.providerName ?? t("Not connected")}
-              disabled={state.busy}
-              accessibilityActions={actions.map((entry) => ({
-                name: entry.id,
-                label: entry.title,
-              }))}
-              onAccessibilityAction={({ nativeEvent }) => action(nativeEvent.actionName)}
+              detail={detail}
+              disabled={busy}
+              onPress={() => pick(index)}
+              accessibilityActions={accessibilityActions}
+              onAccessibilityAction={({ nativeEvent }) => act(index, nativeEvent.actionName)}
             />
-          </MenuView>
+          </RowMenu>
         );
       })}
-      {backups.length < MAX_MODEL_BACKUPS &&
-      choices.some((choice) => !selected.has(backupChoiceKey(choice))) ? (
+      {settings && backups.length < MAX_MODEL_BACKUPS ? (
         <SettingsRow
-          title={t("Add backup model")}
-          disabled={state.busy}
-          onPress={() => pick(false)}
+          key="add"
+          title={t("Add fallback")}
+          disabled={busy}
+          onPress={() => pick("add")}
         />
       ) : null}
+      {error ? (
+        <Text key="error" accessibilityRole="alert" style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
       {state.error ? (
-        <>
-          <Text accessibilityRole="alert">{state.error}</Text>
-          <SettingsRow
-            title={t("Retry")}
-            disabled={state.busy}
-            onPress={() => void controller.load()}
-          />
-        </>
+        <SettingsRow
+          key="retry"
+          title={t("Retry")}
+          disabled={state.busy}
+          onPress={() => void controller.load()}
+        />
       ) : null}
     </SettingsGroup>
   );
+}
+
+/** A long-press native menu around a full-width row. */
+function RowMenu({
+  title,
+  actions,
+  onAction,
+  children,
+}: {
+  title: string;
+  actions: MenuAction[];
+  onAction: (id: string) => void;
+  children: ReactNode;
+}) {
+  const colorScheme = useResolvedAppearance();
+  // Native menu hosts size to their contents, so measure outside the host.
+  const [width, setWidth] = useState<number>();
+  return (
+    <View
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      style={rowMenuStyles.fullWidth}
+    >
+      <MenuView
+        shouldOpenOnLongPress
+        colorScheme={colorScheme}
+        title={title}
+        actions={actions}
+        onPressAction={({ nativeEvent }) => onAction(nativeEvent.event)}
+        style={rowMenuStyles.fullWidth}
+      >
+        <View style={{ width }}>{children}</View>
+      </MenuView>
+    </View>
+  );
+}
+
+const rowMenuStyles = StyleSheet.create({ fullWidth: { width: "100%" } });
+
+function createStyles() {
+  const tokens = mobileTokens();
+  return StyleSheet.create({
+    number: {
+      minWidth: 16,
+      color: native.secondaryLabel,
+      fontSize: 15,
+      fontVariant: ["tabular-nums"],
+    },
+    error: {
+      color: tokens.destructive,
+      fontSize: 15,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+    },
+  });
 }

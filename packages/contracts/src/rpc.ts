@@ -303,6 +303,7 @@ export const appContract = {
           label: z.string().optional(),
           modelId: z.string().optional(),
           thinkingLevel: ThinkingLevelSchema.nullable().optional(),
+          makeDefault: z.boolean().optional(),
         }),
       )
       .output(ModelOAuthBeginSchema),

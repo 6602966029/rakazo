@@ -311,15 +311,14 @@ function fixture({
           : null,
       ),
     },
-    spaceModelRole: {
-      findUnique: vi.fn(async () =>
+    spaceModelRoleChoice: {
+      findMany: vi.fn(async () =>
         approvalRole
-          ? {
-              provider: approvalRole.primary?.provider,
-              modelId: approvalRole.primary?.modelId,
-              backups: approvalRole.backups,
-            }
-          : null,
+          ? [
+              ...(approvalRole.primary ? [{ ...approvalRole.primary, position: 0 }] : []),
+              ...approvalRole.backups.map((backup, index) => ({ ...backup, position: index + 1 })),
+            ]
+          : [],
       ),
     },
     secret: { findFirst: vi.fn(async () => ({ id: "review-secret", ciphertext: "fake-cipher" })) },

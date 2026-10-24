@@ -332,7 +332,7 @@ model SpaceMember {
   voicePreferences SpaceVoicePreference[]
   aiDataConsents AiDataConsent[]
   backupModels SpaceBackupModel[]
-  modelRoles SpaceModelRole[]
+  modelRoleChoices SpaceModelRoleChoice[]
 
   @@unique([spaceId, userId])
   @@index([organizationId, userId])
@@ -1692,17 +1692,18 @@ model ModelCreditLot {
   @@map("model_credit_lots")
 }
 
-/// Main still uses the existing preferences during rolling deployments. Other purposes
-/// share this storage, without adding a table or columns for every new purpose.
-model SpaceModelRole {
-  spaceId String
-  userId String
-  role String
+/// Ordered models for purposes other than the main model, which keeps its preference
+/// and space_backup_models. Position 0 is the purpose's own model; fallbacks follow.
+model SpaceModelRoleChoice {
+  spaceId     String
+  userId      String
   spaceMember SpaceMember @relation(fields: [spaceId, userId], references: [spaceId, userId], onDelete: Cascade)
-  provider String?
-  modelId String?
-  backups Json @default("[]")
+  role        String
+  position    Int
+  provider    String
+  modelId     String
 
-  @@id([spaceId, userId, role])
-  @@map("space_model_roles")
+  @@id([spaceId, userId, role, position])
+  @@unique([spaceId, userId, role, provider, modelId])
+  @@map("space_model_role_choices")
 }

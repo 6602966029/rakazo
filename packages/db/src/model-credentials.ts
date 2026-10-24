@@ -60,6 +60,35 @@ export async function selectSpaceModelPreference(
   });
 }
 
+/** Stores a connection's model choice for the space without making it the default. */
+export function saveSpaceModelPreference(
+  prisma: Pick<PrismaClient, "spaceModelPreference">,
+  scope: ModelCredentialScope,
+  credentialId: string,
+  modelId: string | null | undefined,
+  thinkingLevel?: string | null,
+) {
+  const persistedModelId = usableModelId(modelId);
+  return prisma.spaceModelPreference.upsert({
+    where: {
+      spaceId_userId_credentialId: {
+        spaceId: scope.spaceId,
+        userId: scope.userId,
+        credentialId,
+      },
+    },
+    create: {
+      spaceId: scope.spaceId,
+      userId: scope.userId,
+      credentialId,
+      modelId: persistedModelId,
+      thinkingLevel: thinkingLevel ?? null,
+      isDefault: false,
+    },
+    update: { modelId: persistedModelId, thinkingLevel: thinkingLevel ?? null },
+  });
+}
+
 function withModelPreference<
   T extends {
     credential: {

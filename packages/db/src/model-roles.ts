@@ -1,5 +1,5 @@
 import type { ModelRole, ModelRoleSettings } from "@rakazo/contracts";
-import { ModelRoleSettingsSchema } from "@rakazo/contracts";
+import { backupChoiceKey, ModelRoleSettingsSchema } from "@rakazo/contracts";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
 import { listSpaceBackupModels, writeSpaceBackupModels } from "./model-backups.js";
@@ -12,9 +12,9 @@ import { withTransactionRetry } from "./transaction-retry.js";
 
 type Scope = { userId: string; spaceId: string };
 
-/** The main-role bridge keeps one source of truth for older clients and rolling releases. */
+/** Main reads the default preference and backup list that older releases also use. */
 export async function getModelRole(
-  prisma: Pick<PrismaClient, "spaceModelPreference" | "spaceBackupModel" | "spaceModelRole">,
+  prisma: Pick<PrismaClient, "spaceModelPreference" | "spaceBackupModel" | "spaceModelRoleChoice">,
   scope: Scope,
   role: ModelRole,
 ): Promise<ModelRoleSettings> {
@@ -31,12 +31,16 @@ export async function getModelRole(
       backups,
     };
   }
-  const row = await prisma.spaceModelRole.findUnique({
-    where: { spaceId_userId_role: { ...scoped, role } },
+  const rows = await prisma.spaceModelRoleChoice.findMany({
+    where: { ...scoped, role },
+    orderBy: { position: "asc" },
+    select: { position: true, provider: true, modelId: true },
   });
+  const choice = ({ provider, modelId }: (typeof rows)[number]) => ({ provider, modelId });
+  const primary = rows.find((row) => row.position === 0);
   return ModelRoleSettingsSchema.parse({
-    primary: row?.provider && row.modelId ? { provider: row.provider, modelId: row.modelId } : null,
-    backups: row?.backups ?? [],
+    primary: primary ? choice(primary) : null,
+    backups: rows.filter((row) => row.position > 0).map(choice),
   });
 }
 
@@ -55,7 +59,15 @@ export async function updateModelRole(
     `;
         if (members.length !== 1) throw new Error("Space membership not found");
         if (role === "main") {
-          if (patch.primary) {
+          const current = patch.primary ? await getModelRole(tx, scope, role) : null;
+          // Re-saving the same primary must keep the effort stored on its preference.
+          if (
+            patch.primary &&
+            !(
+              current?.primary &&
+              backupChoiceKey(current.primary) === backupChoiceKey(patch.primary)
+            )
+          ) {
             const credential = await findModelCredential(
               tx,
               scope,
@@ -69,17 +81,18 @@ export async function updateModelRole(
           }
           if (patch.backups) await writeSpaceBackupModels(tx, scope, patch.backups);
         } else {
-          const primary =
-            patch.primary === undefined
-              ? {}
-              : {
-                  provider: patch.primary?.provider ?? null,
-                  modelId: patch.primary?.modelId ?? null,
-                };
-          await tx.spaceModelRole.upsert({
-            where: { spaceId_userId_role: { ...scoped, role } },
-            create: { ...scoped, role, ...primary, backups: patch.backups ?? [] },
-            update: { ...primary, ...(patch.backups ? { backups: patch.backups } : {}) },
+          const current = await getModelRole(tx, scope, role);
+          const primary = patch.primary === undefined ? current.primary : patch.primary;
+          // The primary already runs first, so a matching fallback would never be tried.
+          const backups = (patch.backups ?? current.backups).filter(
+            (backup) => !primary || backupChoiceKey(backup) !== backupChoiceKey(primary),
+          );
+          await tx.spaceModelRoleChoice.deleteMany({ where: { ...scoped, role } });
+          await tx.spaceModelRoleChoice.createMany({
+            data: [
+              ...(primary ? [{ ...primary, position: 0 }] : []),
+              ...backups.map((backup, index) => ({ ...backup, position: index + 1 })),
+            ].map((row) => ({ ...scoped, role, ...row })),
           });
         }
         return getModelRole(tx, scope, role);

@@ -3810,6 +3810,50 @@ describe("model credential persistence", () => {
     });
   });
 
+  it("keeps another connection as the space default when makeDefault is false", async () => {
+    const { upsert, deps, handler } = persistDeps();
+    const preferences = deps.prisma.spaceModelPreference as unknown as {
+      findFirst: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
+    };
+    preferences.findFirst.mockImplementation(async ({ where }: { where: { isDefault?: true } }) =>
+      where.isDefault ? { id: "other-default" } : null,
+    );
+
+    const response = await call(handler, "models/connect", {
+      provider: "test-provider",
+      apiKey: "sk-test-key-123",
+      modelId: "fallback-model",
+      makeDefault: false,
+    });
+
+    expect(response.status).toBe(200);
+    expect(preferences.updateMany).not.toHaveBeenCalled();
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ modelId: "fallback-model", isDefault: false }),
+        update: expect.not.objectContaining({ isDefault: true }),
+      }),
+    );
+    await expect(response.json()).resolves.toMatchObject({ json: { isDefault: false } });
+  });
+
+  it("still makes the first connection the default when makeDefault is false", async () => {
+    const { upsert, handler } = persistDeps();
+
+    const response = await call(handler, "models/connect", {
+      provider: "test-provider",
+      apiKey: "sk-test-key-123",
+      modelId: "only-model",
+      makeDefault: false,
+    });
+
+    expect(response.status).toBe(200);
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: expect.objectContaining({ isDefault: true }) }),
+    );
+  });
+
   it("does not persist a missing model id as the string null", async () => {
     const { upsert, handler } = persistDeps({ envDefaultModel: "null" });
 

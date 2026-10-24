@@ -22,7 +22,9 @@ export default function SettingsModelPickerScreen() {
       emptyMessage={request?.emptyMessage}
       error={request ? null : t("Could not load model settings")}
       onSelect={(choice) => {
-        if (selectPickerModel(requestId, choice.key)) router.back();
+        const next = selectPickerModel(requestId, choice.key);
+        if (next === true) router.back();
+        else if (next) router.replace(next);
       }}
     />
   );

@@ -153,6 +153,8 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   await expect(settings).toHaveAttribute("data-settings-section", "models");
   await expect(settings.getByRole("heading", { name: "Models", exact: true })).toBeVisible();
   await expect(settings.getByTestId("model-settings")).toBeVisible();
+  await expect(settings.getByTestId("model-role-main")).toBeVisible();
+  await expect(settings.getByTestId("model-role-approval")).toBeVisible();
   await captureScreenshot(page, testInfo, "settings-shell-models");
 
   await settings.getByTestId("settings-nav-memory").click();
