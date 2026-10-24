@@ -201,6 +201,7 @@ import type {
   ThreadEvents,
 } from "@rakazo/db";
 import {
+  AnswerTooLongError,
   appendEventInTransaction,
   BotSectionNameConflictError,
   botProfileLabelsChanged,
@@ -2927,6 +2928,8 @@ export function createRouter(deps: RouterDeps) {
             dismiss: input.dismiss,
           })
           .catch((error: unknown) => {
+            if (error instanceof AnswerTooLongError)
+              throw new ORPCError("BAD_REQUEST", { message: error.message });
             // A typed credential its destination cannot carry (e.g. a header with a line break).
             throw mapBotSecretInputError(error);
           });

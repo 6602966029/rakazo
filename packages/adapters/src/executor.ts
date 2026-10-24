@@ -95,6 +95,7 @@ import {
   nextFence,
   nextRoutineRunDateAcross,
   outboundSiteGate,
+  plainTextFromMarkdown,
   planActionGate,
   promptInvokesSkill,
   redactSecrets,
@@ -107,6 +108,7 @@ import {
   toolRequiresExplicitApproval,
   toolResultTaintsRun,
   truncatedPlainText,
+  truncatePlainText,
   unattendedTriggerToolRequiresApproval,
   userTurnMessageForRun,
 } from "@rakazo/core";
@@ -141,6 +143,7 @@ import {
   reserveInstructionProposal,
   retireModelCredential,
   runAsSystem,
+  runSecretKind,
   SpaceLimitError,
   saveRunTurnCheckpoint,
   searchHistory,
@@ -384,7 +387,6 @@ import {
   reconcileManagedConnection,
   resolveCompletedSecretLeftover,
   resolveMissingRunSecretAction,
-  runSecretKind,
   secretPausedToolResult,
   tryCompleteConnectionWithCode,
 } from "./run-secret.js";
@@ -7181,8 +7183,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
             await notifyRun(deps, run, {
               kind: "help",
-              title: `${displayName(bot.name, "Bot")} needs a code`,
-              body: String(args.label ?? "Code"),
+              ...secretAskNotification(
+                displayName(bot.name, "Bot"),
+                String(args.label ?? "Code"),
+                runSecrets,
+              ),
               botId: bot.id,
               threadId: thread.id,
             });
@@ -9808,6 +9813,17 @@ const COMPLETION_NOTIFICATION_MAX_CHARS = 180;
 /** Push body: Markdown stripped, then truncated so a cut cannot land inside a marker. */
 export function completionNotificationPreview(text: string): string {
   return truncatedPlainText(text, COMPLETION_NOTIFICATION_MAX_CHARS);
+}
+
+/** A secret card can ask for a code or a login, so the title stays generic and the label short. */
+export function secretAskNotification(botName: string, label: string, runSecrets: string[]) {
+  // Strip and redact before shortening so no protected value is left half-shown.
+  const text = plainTextFromMarkdown(redactSecrets(label, runSecrets), { maxSource: Infinity });
+  const body = truncatePlainText(
+    redactSecrets(text, runSecrets),
+    COMPLETION_NOTIFICATION_MAX_CHARS,
+  );
+  return { title: `${botName} needs an answer`, body };
 }
 
 export function completionMarksUnread(
