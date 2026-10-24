@@ -659,9 +659,13 @@ function shouldFail(prompt: string): boolean {
   return prompt.toLowerCase().includes("fail this run");
 }
 
-/** The error a failing run throws; "overloaded" sends the body Anthropic returns with a 529. */
+/**
+ * The error a failing run throws; "overloaded" sends the body Anthropic returns with a 529 and
+ * "unreachable" sends what the provider SDKs report when nothing listens at the base URL.
+ */
 function scriptedFailure(prompt: string): string {
   if (/\bfixed context\b/i.test(prompt)) return MODEL_CONTEXT_TOO_SMALL_ERROR;
+  if (/\bunreachable\b/i.test(prompt)) return "Connection error.";
   if (/\bexhausted backups\b/i.test(prompt)) {
     return modelFallbackFailure('429: {"message":"Too many requests"}', [
       {
