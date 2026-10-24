@@ -4364,7 +4364,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
             .then((rules) => rules as ActionApprovalRule[]);
           return approvalRulesPromise;
         };
-        let autoReviewPreferencePromise: Promise<boolean> | undefined;
+        let autoReviewPreferencePromise:
+          | Promise<{ enabled: boolean; skipApprovals: boolean }>
+          | undefined;
         const loadAutoReviewPreference = () => {
           autoReviewPreferencePromise ??= deps.prisma.actionAutoReviewPreference
             .findUnique({
@@ -4374,9 +4376,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   userId: run.userId,
                 },
               },
-              select: { enabled: true },
+              select: { enabled: true, skipApprovals: true },
             })
-            .then((row) => row?.enabled ?? deploymentAutoReviewDefault());
+            .then((row) => ({
+              enabled: row?.enabled ?? deploymentAutoReviewDefault(),
+              skipApprovals: row?.skipApprovals ?? false,
+            }));
           return autoReviewPreferencePromise;
         };
         // Outbound destinations this run may reach without asking. See outboundSiteGate and
@@ -5141,11 +5146,17 @@ export function createRunExecutor(deps: ExecutorDeps) {
             siteGate === "new" ||
             connectorReadGated ||
             toolRequiresApproval(name, viaConnector, declaredReadOnly);
+          // An owner who skips approvals gets their bot's own instruction updates applied directly,
+          // with Undo on the card, unless outside content entered the run and could have written them.
+          const instructionUpdateSkipsApproval =
+            name === "propose_instructions_update" &&
+            (await loadAutoReviewPreference()).skipApprovals &&
+            !(await isRunTainted());
           const requiresMandatoryApproval =
             commandWatch ||
             scheduleNamesNewSite ||
             requiresUnattendedApproval ||
-            toolRequiresExplicitApproval(name);
+            (toolRequiresExplicitApproval(name) && !instructionUpdateSkipsApproval);
           const approvalResolved = requiresMandatoryApproval
             ? {
                 decision: "ask" as const,
@@ -5159,9 +5170,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 site: fetchSite,
                 rules: await loadApprovalRules(),
               });
-          const autoReviewPref = requiresMandatoryApproval
-            ? false
+          const preference = requiresMandatoryApproval
+            ? { enabled: false, skipApprovals: false }
             : await loadAutoReviewPreference();
+          const autoReviewPref = preference.enabled && !preference.skipApprovals;
           const injectedReview = requiresMandatoryApproval ? undefined : deps.autoReview;
           const checker = requiresMandatoryApproval ? undefined : resolveAutoReviewChecker();
           const checkerConfigured =
@@ -5186,6 +5198,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 autoReviewEnabled: autoReviewPref,
                 checkerConfigured,
                 newDestination: siteGate === "new",
+                skipApprovals: preference.skipApprovals,
               });
           let reviewReason: string | undefined;
           let gateDecision: "ask" | "allow" = plan === "ask" ? "ask" : "allow";
@@ -7159,7 +7172,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             };
           }
           if (name === "propose_instructions_update") {
-            if (nextApprovedTool !== name || !claimedEffect) {
+            if ((nextApprovedTool !== name && !bypassApproval) || !claimedEffect) {
               return finish({ error: "Instruction updates require human approval." });
             }
             const committed = await deps.prisma.$transaction(async (tx) => {
@@ -9525,7 +9538,7 @@ export function userTurnInstructions(parts: {
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "create_space",
-      "create_space proposes a new privacy boundary inside the current organization. Use it when the user asks to create a space or separate data between teams or projects. It always pauses for explicit user approval; never claim the space exists before the tool succeeds.",
+      "create_space proposes a new privacy boundary inside the current organization. Use it when the user asks to create a space or separate data between teams or projects. Never claim the space exists before the tool succeeds.",
     ),
     spawnBotClause(parts.disabledBuiltinTools),
     offeredBuiltinClause(

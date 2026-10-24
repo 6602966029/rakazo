@@ -4332,6 +4332,10 @@ msgstr "Rotinas"
 msgid "Routines that run while you're away"
 msgstr ""
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Run actions without asking"
+msgstr "Executar ações sem perguntar"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
 msgstr ""

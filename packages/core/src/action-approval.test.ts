@@ -31,7 +31,7 @@ describe("toolRequiresApproval", () => {
     expect(toolRequiresApproval("archive_bot", false)).toBe(true);
     expect(toolRequiresApproval("cloud_agent_launch", false)).toBe(true);
     expect(toolRequiresApproval("create_space", false)).toBe(true);
-    expect(toolRequiresExplicitApproval("create_space")).toBe(true);
+    expect(toolRequiresExplicitApproval("create_space")).toBe(false);
     expect(toolRequiresExplicitApproval("save_shared_memory")).toBe(false);
     expect(toolRequiresExplicitApproval("archive_bot")).toBe(false);
   });
@@ -336,6 +336,24 @@ describe("resolveActionApproval", () => {
 
 describe("planActionGate", () => {
   const consequential = true;
+
+  it("allows without judging when approvals are skipped, except under a require rule", () => {
+    const gate = (decision: "ask" | "allow") =>
+      planActionGate({
+        resolved: {
+          decision,
+          source: decision === "ask" ? "require_approval" : "default",
+          matchingRules: [],
+        },
+        consequential,
+        autoReviewEnabled: true,
+        checkerConfigured: true,
+        newDestination: true,
+        skipApprovals: true,
+      });
+    expect(gate("allow")).toBe("allow");
+    expect(gate("ask")).toBe("ask");
+  });
 
   it("lets require_approval win without judging", () => {
     expect(

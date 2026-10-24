@@ -51,7 +51,7 @@ describe("buildApprovalAskBlock", () => {
     expect(block.detail).toContain("to: person@example.test");
   });
 
-  it("uses a one-time create or cancel choice for a new security boundary", () => {
+  it("uses a one-time create or cancel choice for a new space", () => {
     const block = buildApprovalAskBlock(
       "effect-1",
       "create_space",

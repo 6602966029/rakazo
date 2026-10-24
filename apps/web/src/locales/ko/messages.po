@@ -4332,6 +4332,10 @@ msgstr "자동 실행"
 msgid "Routines that run while you're away"
 msgstr ""
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Run actions without asking"
+msgstr "묻지 않고 작업 실행"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
 msgstr "실행 시간"

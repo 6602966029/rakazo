@@ -4332,6 +4332,10 @@ msgstr "רוטינות"
 msgid "Routines that run while you're away"
 msgstr "רוטינות שרצות גם כשלא נמצאים"
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Run actions without asking"
+msgstr "להריץ פעולות בלי לשאול"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
 msgstr "הרצה ב-"

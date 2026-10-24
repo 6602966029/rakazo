@@ -4332,6 +4332,10 @@ msgstr "ルーティン"
 msgid "Routines that run while you're away"
 msgstr "不在中に実行されるルーティン"
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Run actions without asking"
+msgstr "確認せずにアクションを実行"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
 msgstr "実行日時"
