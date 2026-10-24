@@ -378,6 +378,8 @@ describe("withMentions", () => {
     expect(withMentions(["[Planner](rakazo-mention:bot-1) is ready."], [planner])).toEqual([
       `${link} is ready.`,
     ]);
+    const code = "`[Planner](rakazo-mention:bot-1)`\n\n```\n[Planner](rakazo-mention:bot-1)\n```";
+    expect(withMentions([code], [planner])).toEqual([`${link} ${code}`]);
   });
 
   it("escapes markdown in the name and encodes the id", () => {

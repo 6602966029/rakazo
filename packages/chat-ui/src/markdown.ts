@@ -28,9 +28,11 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Code and existing links keep their text; a mention is never placed inside them.
-const PROTECTED_MARKDOWN =
-  /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|(?:^|\n)(?: {4}|\t)[^\n]*|`[^`\n]*`|!?\[[^\]\n]*\]\([^)\n]*\))/;
+// Code keeps its source exactly; existing links keep their text. A mention is never placed in them.
+const CODE_MARKDOWN =
+  "```[\\s\\S]*?(?:```|$)|~~~[\\s\\S]*?(?:~~~|$)|(?:^|\\n)(?: {4}|\\t)[^\\n]*|`[^`\\n]*`";
+const CODE = new RegExp(`(${CODE_MARKDOWN})`);
+const PROTECTED_MARKDOWN = new RegExp(`(${CODE_MARKDOWN}|!?\\[[^\\]\\n]*\\]\\([^)\\n]*\\))`);
 const MODEL_MENTION_LINK = /\[([^\]\n]*)\]\(\s*<?rakazo-mention:[^)\n]*\)/gi;
 const OPENS_WITH_BLOCK = /^\s*(#|>|\||```|~~~|[-*+]\s|\d+[.)]\s)/;
 
@@ -59,7 +61,12 @@ export function withMentions(
   mentions: readonly { id: string; name: string }[],
 ): string[] {
   // Only links placed here draw as mentions; ones already in the text keep just their name.
-  const result = texts.map((text) => text.replace(MODEL_MENTION_LINK, "$1"));
+  const result = texts.map((text) =>
+    text
+      .split(CODE)
+      .map((part, index) => (index % 2 === 1 ? part : part.replace(MODEL_MENTION_LINK, "$1")))
+      .join(""),
+  );
   if (result.length === 0) return result;
   for (const mention of mentions) {
     const name = mention.name.trim();
