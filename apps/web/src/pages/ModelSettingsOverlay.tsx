@@ -295,7 +295,7 @@ export function ModelSettingsOverlay({
           if (!open) closeConnection();
         }}
       >
-        <DialogContent className="max-h-[calc(100%-2rem)] w-[480px] max-w-[calc(100%-2rem)] overflow-y-auto rounded-2xl p-6">
+        <DialogContent className="max-h-[calc(100%-2rem)] w-[480px] max-w-[calc(100%-2rem)] overflow-y-auto rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg">
               {connected ? selectedProviderName : <Trans>Connect {selectedProviderName}</Trans>}
