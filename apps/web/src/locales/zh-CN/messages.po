@@ -1563,10 +1563,6 @@ msgstr "无法授权此应用"
 msgid "Could not change password"
 msgstr "无法修改密码"
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Could not change the default model"
-msgstr "无法更改默认模型"
-
 #: src/lib/model-connection-preflight.ts
 msgid "Could not check stored credentials."
 msgstr "无法检查已存储的凭据。"
@@ -4938,7 +4934,7 @@ msgstr ""
 msgid "Thinking"
 msgstr "思考"
 
-#. placeholder {0}: thinkingLevelLabel(thinking.value)
+#. placeholder {0}: thinkingLevelLabel(choice.thinkingLevel)
 #: src/pages/ModelRoleSettings.tsx
 msgid "Thinking: {0}"
 msgstr "思考：{0}"

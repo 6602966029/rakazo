@@ -448,7 +448,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Connected. Its tools are available from your next message.":
     "Gekoppeld. Zijn tools zijn beschikbaar vanaf je volgende bericht.",
   "Context limit": "Contextlimiet",
-  "Could not change the default model": "Het standaardmodel wijzigen mislukt",
   "Could not connect this provider": "Deze aanbieder koppelen mislukt",
   "Could not finish sign-in": "Aanmelden afronden mislukt",
   "Could not reach this model server": "Deze modelserver is niet bereikbaar",

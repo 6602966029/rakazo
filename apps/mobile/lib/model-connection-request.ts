@@ -5,7 +5,7 @@ export type ModelConnectionRequest = {
   provider: string;
   /** Prefills an OpenAI-compatible endpoint, such as the Ollama Cloud preset. */
   baseUrl?: string;
-  /** Only the main model's first slot replaces the space's default on connect. */
+  /** Only the main model's empty first slot takes the new connection's model on connect. */
   makeDefault: boolean;
   /** Set when connecting fills a model slot; managing a connection leaves it unset. */
   /** May return the screen to continue in, such as the slot's picker for this provider. */

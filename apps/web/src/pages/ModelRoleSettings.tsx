@@ -36,7 +36,7 @@ import type { ConnectableProvider } from "./model-settings/role-model-picker";
 import { RoleModelPicker } from "./model-settings/role-model-picker";
 
 export type ModelRoleConnectIntent = {
-  /** Only the main role's first slot replaces the space's default model on connect. */
+  /** Only the main role's empty first slot takes the new connection's model on connect. */
   makeDefault: boolean;
   onConnected: (choice: ModelBackupChoice) => Promise<void>;
 };
@@ -54,14 +54,8 @@ type Props = {
   providerLabel: (provider: string) => string;
   onConnect: (provider: ConnectableProvider, intent: ModelRoleConnectIntent) => void;
   onManage: (provider: string) => void;
-  /** Effort for the first slot, when its model can think. */
-  thinking?: {
-    levels: ThinkingLevel[];
-    value: ThinkingLevel | null;
-    onChange: (level: ThinkingLevel | null) => void;
-    /** A thinking save rewrites the main model's preference, so edits wait for it. */
-    saving?: boolean;
-  };
+  /** Offer effort for the first row when its model can think. */
+  thinking?: boolean;
   onChanged?: () => void;
 };
 
@@ -125,6 +119,10 @@ export function ModelRoleSettings({
         entry.id === choice.modelId,
     );
   const connected = new Set(credentials.map((entry) => canonicalPiProviderId(entry.provider)));
+  const thinkingLevels =
+    thinking && primary
+      ? (entryFor(primary)?.thinkingLevels ?? []).filter((level) => level !== "off")
+      : [];
   const options: ModelCatalogEntry[] = connectedBackupOptions(state.catalog, credentials).map(
     (choice) => ({
       ...(entryFor(choice) ?? {
@@ -136,15 +134,9 @@ export function ModelRoleSettings({
       providerName: providerLabel(choice.provider),
     }),
   );
-  // The main model is chosen through a personal connection, so deployment-managed
-  // models can only back it up.
-  const primaryOptions =
-    role === "main"
-      ? options.filter((entry) => connected.has(canonicalPiProviderId(entry.provider)))
-      : options;
   const providerName = (choice: ModelBackupChoice) => providerLabel(choice.provider);
   const modelLabel = (choice: ModelBackupChoice) => entryFor(choice)?.label ?? choice.modelId;
-  const busy = state.busy || state.stale || Boolean(thinking?.saving) || !settings;
+  const busy = state.busy || state.stale || !settings;
 
   async function save(
     update: (current: ModelRoleSettingsValue) => Partial<ModelRoleSettingsValue>,
@@ -152,25 +144,11 @@ export function ModelRoleSettings({
     await controller.save(update);
     onChanged?.();
   }
-  // The main model needs a personal connection; deployment-managed models only back it up.
-  const canLead = (choice: ModelBackupChoice) =>
-    role !== "main" || connected.has(canonicalPiProviderId(choice.provider));
-  // The first row is the primary; moving a fallback there promotes it. When the main model
-  // goes, the first fallback that can lead takes over, or the deployment's own model runs.
-  const commit = (next: ModelBackupChoice[]) =>
-    save((current) => {
-      if (!current.primary) return { backups: next };
-      const lead = next.findIndex(canLead);
-      return lead < 0
-        ? { primary: null, backups: next }
-        : { primary: next[lead]!, backups: next.filter((_, index) => index !== lead) };
-    });
+  // The first row is the primary; moving a fallback there promotes it. When the primary
+  // goes, the next fallback takes over, or the deployment's default runs.
+  const commit = (next: ModelBackupChoice[]) => save((current) => listPatch(current, next));
   const canMove = (index: number, target: number) =>
-    target >= 0 &&
-    target < rows.length &&
-    target !== index &&
-    !(primary && target === 0 && !canLead(rows[index]!)) &&
-    !(primary && index === 0 && !canLead(rows[1]!));
+    target >= 0 && target < rows.length && target !== index;
   const place = (slot: number | "add", choice: ModelBackupChoice) =>
     save((current) => {
       const list = current.primary ? [current.primary, ...current.backups] : current.backups;
@@ -182,6 +160,10 @@ export function ModelRoleSettings({
         next.filter((item, index) => index === slot || !sameChoice(item, choice)),
       );
     });
+  const setThinking = (level: ThinkingLevel | null) =>
+    save((current) => ({
+      primary: current.primary && { ...current.primary, thinkingLevel: level },
+    }));
   const setPrimary = (choice: ModelBackupChoice | null) =>
     save((current) => ({
       primary: choice,
@@ -199,7 +181,7 @@ export function ModelRoleSettings({
   const remove = (index: number) => void commit(rows.filter((_, item) => item !== index));
   const connectFor = (slot: "primary" | number | "add") => (provider: ConnectableProvider) =>
     onConnect(provider, {
-      makeDefault: role === "main" && slot === "primary",
+      makeDefault: role === "main" && slot === "primary" && !primary,
       onConnected: async (choice) => {
         await controller.load();
         onChanged?.();
@@ -236,7 +218,7 @@ export function ModelRoleSettings({
             <RoleModelPicker
               trigger={pickerTrigger(defaultLabel)}
               label={t`Change ${title}`}
-              options={primaryOptions}
+              options={options}
               defaultOption={role === "main" ? undefined : defaultLabel}
               providers={providers}
               disabled={busy}
@@ -281,7 +263,7 @@ export function ModelRoleSettings({
               <RoleModelPicker
                 trigger={pickerTrigger(name, providerName(choice))}
                 label={t`Change ${name}`}
-                options={isPrimary ? primaryOptions : options}
+                options={options}
                 defaultOption={isPrimary && role !== "main" ? defaultLabel : undefined}
                 providers={providers}
                 disabled={busy}
@@ -295,9 +277,9 @@ export function ModelRoleSettings({
                 onConnect={connectFor(isPrimary ? "primary" : index)}
                 reopen={reopenFor(isPrimary ? "primary" : index)}
               />
-              {isPrimary && thinking?.value ? (
+              {isPrimary && thinkingLevels.length && choice.thinkingLevel ? (
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[12.5px] text-muted-foreground">
-                  <Trans>Thinking: {thinkingLevelLabel(thinking.value)}</Trans>
+                  <Trans>Thinking: {thinkingLevelLabel(choice.thinkingLevel)}</Trans>
                 </span>
               ) : null}
               <DropdownMenu>
@@ -315,7 +297,7 @@ export function ModelRoleSettings({
                   <MoreHorizontal />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[200px]">
-                  {isPrimary && thinking?.levels.length ? (
+                  {isPrimary && thinkingLevels.length ? (
                     <>
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger>
@@ -323,15 +305,15 @@ export function ModelRoleSettings({
                         </DropdownMenuSubTrigger>
                         <DropdownMenuSubContent>
                           <DropdownMenuRadioGroup
-                            value={thinking.value ?? ""}
+                            value={choice.thinkingLevel ?? ""}
                             onValueChange={(value) =>
-                              thinking.onChange((value || null) as ThinkingLevel | null)
+                              void setThinking((value || null) as ThinkingLevel | null)
                             }
                           >
                             <DropdownMenuRadioItem value="">
                               <Trans>Default</Trans>
                             </DropdownMenuRadioItem>
-                            {thinking.levels.map((level) => (
+                            {thinkingLevels.map((level) => (
                               <DropdownMenuRadioItem key={level} value={level}>
                                 {thinkingLevelLabel(level)}
                               </DropdownMenuRadioItem>

@@ -1563,10 +1563,6 @@ msgstr "このアプリを承認できませんでした"
 msgid "Could not change password"
 msgstr "パスワードを変更できませんでした"
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Could not change the default model"
-msgstr "デフォルトモデルを変更できませんでした"
-
 #: src/lib/model-connection-preflight.ts
 msgid "Could not check stored credentials."
 msgstr "保存された認証情報を確認できませんでした。"
@@ -4938,7 +4934,7 @@ msgstr "保存された設定を読み取れません。削除してから再度
 msgid "Thinking"
 msgstr "思考"
 
-#. placeholder {0}: thinkingLevelLabel(thinking.value)
+#. placeholder {0}: thinkingLevelLabel(choice.thinkingLevel)
 #: src/pages/ModelRoleSettings.tsx
 msgid "Thinking: {0}"
 msgstr "思考: {0}"

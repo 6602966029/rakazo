@@ -439,7 +439,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Connected. Its tools are available from your next message.":
     "接続しました。次のメッセージからツールを使えます。",
   "Context limit": "コンテキスト上限",
-  "Could not change the default model": "デフォルトモデルを変更できませんでした",
   "Could not connect this provider": "このプロバイダーに接続できませんでした",
   "Could not finish sign-in": "ログインを完了できませんでした",
   "Could not reach this model server": "このモデルサーバーに接続できませんでした",

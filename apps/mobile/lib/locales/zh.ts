@@ -313,7 +313,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Could not archive bot": "无法归档 Bot",
   "Could not authorize this app": "无法授权此应用",
   "Could not change language": "无法切换语言",
-  "Could not change the default model": "无法更改默认模型",
   "Could not change password": "无法更改密码",
   "Could not clear conversation": "无法清除对话",
   "Could not clear the custom server URL": "无法清除自定义服务器地址",

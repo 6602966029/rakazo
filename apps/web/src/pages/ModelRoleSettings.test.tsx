@@ -186,7 +186,7 @@ describe("shared role editor", () => {
       expect.anything(),
     );
   });
-  it("never promotes a deployment-managed fallback to the main model", async () => {
+  it("lets any fallback lead the main model, including a deployment-managed one", async () => {
     const managed = { provider: "anthropic", modelId: "claude" };
     api.forRole.mockResolvedValue([
       ...catalog,
@@ -194,15 +194,9 @@ describe("shared role editor", () => {
     ]);
     saved = { primary: chat, backups: [managed, mini] };
     await render();
-    await click(trigger("Claude options"));
-    const moveUp = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-      (entry) => entry.textContent === "Move up",
-    );
-    expect(moveUp?.getAttribute("aria-disabled")).toBe("true");
-    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
-    await menu("Chat", "Remove");
+    await menu("Claude", "Move up");
     expect(api.setRole).toHaveBeenLastCalledWith(
-      expect.objectContaining({ primary: mini, backups: [managed] }),
+      expect.objectContaining({ primary: managed, backups: [chat, mini] }),
       expect.anything(),
     );
   });
@@ -263,9 +257,13 @@ describe("shared role editor", () => {
     ).toBe("deepseek");
   });
   it("manages a connected row's provider and shows thinking only on the main primary", async () => {
-    saved = { primary: chat, backups: [jev] };
-    const onChange = vi.fn();
-    await render({ thinking: { levels: ["low", "high"], value: "high", onChange } });
+    api.forRole.mockResolvedValue(
+      catalog.map((entry) =>
+        entry.id === "chat" ? { ...entry, thinkingLevels: ["off", "low", "high"] } : entry,
+      ),
+    );
+    saved = { primary: { ...chat, thinkingLevel: "high" }, backups: [jev] };
+    await render({ thinking: true });
     expect(container.textContent).toContain("Thinking: High");
     await menu("Chat", "Manage OpenRouter");
     expect(onManage).toHaveBeenCalledWith("openrouter");
@@ -273,6 +271,25 @@ describe("shared role editor", () => {
     expect(
       [...document.querySelectorAll('[role="menuitem"]')].map((entry) => entry.textContent),
     ).not.toContain("Thinking");
+  });
+  it("saves the main model's thinking with its list", async () => {
+    api.forRole.mockResolvedValue(
+      catalog.map((entry) =>
+        entry.id === "chat" ? { ...entry, thinkingLevels: ["off", "low", "high"] } : entry,
+      ),
+    );
+    saved = { primary: { ...chat, thinkingLevel: "high" }, backups: [jev] };
+    await render({ thinking: true });
+    await menu("Chat", "Thinking");
+    await click(
+      [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+        (entry) => entry.textContent === "Low",
+      ),
+    );
+    expect(api.setRole).toHaveBeenLastCalledWith(
+      { role: "main", expectedUserId: "user", primary: { ...chat, thinkingLevel: "low" } },
+      expect.anything(),
+    );
   });
   it("does not replace unseen settings after a failed load and retries", async () => {
     api.role.mockRejectedValueOnce(new Error("offline"));

@@ -47,7 +47,7 @@ const mocks = vi.hoisted(() => ({
   setOptions: vi.fn(),
   announce: vi.fn(),
   backups: [] as { provider: string; modelId: string }[] | Promise<unknown>,
-  primary: null as { provider: string; modelId: string } | null,
+  primary: null as { provider: string; modelId: string; thinkingLevel?: string | null } | null,
   menus: new Map<
     string,
     {
@@ -984,7 +984,7 @@ describe("model role lists", () => {
     )!;
 
   it("numbers the main model and its fallbacks, then offers Add fallback", async () => {
-    mocks.primary = model(1);
+    mocks.primary = { ...model(1), thinkingLevel: "high" };
     mocks.backups = [model(2)];
     await renderModels();
     expect(container.textContent).not.toContain("Active model");
@@ -1062,36 +1062,18 @@ describe("model role lists", () => {
     ]);
   });
 
-  it("only lets a personally connected model lead the main list", async () => {
-    const unconnected = { provider: "anthropic", modelId: "claude-fixture" };
+  it("lets any listed model lead the main list, including one the deployment runs", async () => {
+    const managed = { provider: "anthropic", modelId: "claude-fixture" };
     mocks.primary = model(1);
-    mocks.backups = [unconnected, model(3)];
+    mocks.backups = [managed, model(3)];
     await renderModels();
-    const disabled = (title: string, id: string) =>
-      (
-        mocks.menus.get(title)!.actions.find((action) => action.id === id) as {
-          attributes?: { disabled?: boolean };
-        }
-      ).attributes?.disabled;
-    expect(disabled("Model 1", "moveDown")).toBe(true);
-    expect(disabled("claude-fixture", "moveUp")).toBe(true);
-    expect(disabled("claude-fixture", "moveDown")).toBe(false);
-    expect(
-      rowButton("Main model", "claude-fixture").getAttribute("data-accessibility-actions"),
-    ).toBe("Move down,Remove");
-    await menuAction("Model 1", "moveDown");
-    expect(roleSaves()).toEqual([]);
-    await menuAction("Model 1", "remove");
-    expect(rowTitles()).toEqual(["Model 3", "claude-fixture"]);
-    await menuAction("Model 3", "remove");
-    expect(roleSaves()).toEqual([
-      { primary: model(3), backups: [unconnected] },
-      { primary: null, backups: [unconnected] },
-    ]);
+    await menuAction("claude-fixture", "moveUp");
+    expect(rowTitles()).toEqual(["claude-fixture", "Model 1", "Model 3"]);
+    expect(roleSaves()).toEqual([{ primary: managed, backups: [model(1), model(3)] }]);
   });
 
-  it("changes the main model's thinking through the space default", async () => {
-    mocks.primary = model(1);
+  it("changes the main model's thinking with its role list", async () => {
+    mocks.primary = { ...model(1), thinkingLevel: "high" };
     await renderModels();
     const thinking = mocks.menus.get("Model 1")!.actions[0]!;
     expect(thinking.subactions!.map((action) => [action.title, action.state])).toEqual([
@@ -1102,14 +1084,13 @@ describe("model role lists", () => {
     ]);
     await menuAction("Model 1", "thinking:medium");
     await menuAction("Model 1", "thinking:");
-    expect(
-      mocks.rpc.mock.calls
-        .filter(([procedure]) => procedure === "models/setDefault")
-        .map(([, input]) => input),
-    ).toEqual([
-      { provider: "openrouter", modelId: "vendor/model-1", thinkingLevel: "medium" },
-      { provider: "openrouter", modelId: "vendor/model-1", thinkingLevel: null },
+    expect(roleSaves()).toEqual([
+      { primary: { ...model(1), thinkingLevel: "medium" } },
+      { primary: { ...model(1), thinkingLevel: null } },
     ]);
+    expect(mocks.rpc.mock.calls.some(([procedure]) => procedure === "models/setDefault")).toBe(
+      false,
+    );
   });
 
   it("opens the manage screen for a row's provider", async () => {
@@ -1143,9 +1124,10 @@ describe("model role lists", () => {
       params: { requestId: string };
     };
     expect(route.pathname).toBe("/model-connection");
+    // Connecting from a chosen main model leaves it running until a model is picked.
     expect(modelConnectionRequest(route.params.requestId)).toMatchObject({
       provider: "anthropic",
-      makeDefault: true,
+      makeDefault: false,
     });
 
     act(() => mocks.back());

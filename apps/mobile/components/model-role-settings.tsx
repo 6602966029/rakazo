@@ -25,13 +25,12 @@ import { useI18n } from "../lib/i18n";
 import type { ModelPickerRequest } from "../lib/model-picker-selection";
 import { native, useResolvedAppearance, useThemedStyles } from "../lib/native";
 import { thinkingLevelLabel } from "../lib/thinking-level";
-import { errorText } from "../lib/user-error";
 import { SettingsGroup, SettingsRow } from "./settings-group";
 
 export type ConnectableProvider = { id: string; name: string; baseUrl?: string };
 
 export type ModelConnectIntent = {
-  /** Only the main model's first slot replaces the space's default on connect. */
+  /** Only the main model's empty first slot takes the new connection's model on connect. */
   makeDefault: boolean;
   /** Returns the picker to continue in, narrowed to the newly connected provider. */
   onConnected: (choice: ModelBackupChoice) => Promise<Href | undefined>;
@@ -46,7 +45,7 @@ const sameChoice = (left: ModelBackupChoice, right: ModelBackupChoice) =>
 const connectKey = (provider: ConnectableProvider) =>
   `connect:${provider.id}:${provider.baseUrl ?? ""}`;
 
-/** Sends the first slot only when it changes: rewriting the main model resets its effort. */
+/** Sends the first slot only when it changes. */
 function listPatch(current: Settings, list: ModelBackupChoice[]): Partial<Settings> {
   if (!current.primary) return { backups: list };
   const primary = list[0] ?? null;
@@ -113,11 +112,10 @@ export function ModelRoleSettings({
     };
   }, [apiBase, userId, spaceId, role]);
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot);
-  const [thinkingError, setThinkingError] = useState<string | null>(null);
   useEffect(() => {
     void controller.load();
   }, [controller, credentials]);
-  const error = state.error ?? thinkingError;
+  const error = state.error;
   useEffect(() => {
     if (error) AccessibilityInfo.announceForAccessibility(error);
   }, [error]);
@@ -126,9 +124,7 @@ export function ModelRoleSettings({
   const primary = settings?.primary ?? null;
   const backups = settings?.backups ?? [];
   const rows = primary ? [primary, ...backups] : backups;
-  // A thinking save rewrites the main model's preference, so edits wait for it.
-  const [thinkingSaving, setThinkingSaving] = useState(false);
-  const busy = state.busy || state.stale || thinkingSaving || !settings;
+  const busy = state.busy || state.stale || !settings;
   const entryFor = (choice: ModelBackupChoice) =>
     state.catalog.find(
       (entry) =>
@@ -148,20 +144,12 @@ export function ModelRoleSettings({
     choice.provider;
   const isPrimarySlot = (slot: Slot) => slot === "empty" || (slot === 0 && primary !== null);
 
-  // Effort belongs to the main model's connection; compatible endpoints keep their own.
-  const primaryCredential =
-    role === "main" && primary
-      ? credentials.find(
-          (entry) =>
-            canonicalPiProviderId(entry.provider) === canonicalPiProviderId(primary.provider) &&
-            (entry.isDefault || entry.modelId === primary.modelId),
-        )
-      : undefined;
+  // Compatible endpoints keep their effort with the connection.
   const thinkingLevels =
-    primary && primaryCredential && primary.provider !== OPENAI_COMPATIBLE_PROVIDER_ID
+    role === "main" && primary && primary.provider !== OPENAI_COMPATIBLE_PROVIDER_ID
       ? (entryFor(primary)?.thinkingLevels ?? []).filter((level) => level !== "off")
       : [];
-  const thinking = primaryCredential?.thinkingLevel ?? null;
+  const thinking = primary?.thinkingLevel ?? null;
 
   async function save(update: (current: Settings) => Partial<Settings>) {
     let primaryChanged = false;
@@ -191,42 +179,15 @@ export function ModelRoleSettings({
           .filter((item, index) => index === slot || !sameChoice(item, choice)),
       );
     });
-  // The main model runs on a personal connection; other roles can lead with anything.
-  const canLead = (choice: ModelBackupChoice) =>
-    role !== "main" || connected.has(canonicalPiProviderId(choice.provider));
-  // The first entry that can lead becomes the primary; with none, the deployment's model runs.
-  const commit = (next: ModelBackupChoice[]) =>
-    save((current) => {
-      if (!current.primary) return { backups: next };
-      const lead = next.findIndex(canLead);
-      if (lead < 0) return { primary: null, backups: next };
-      return listPatch(current, [next[lead]!, ...next.filter((_, index) => index !== lead)]);
-    });
-  // Only a model that can lead may move into, or be moved under, the first row.
-  const canMove = (index: number, target: number) =>
-    target >= 0 &&
-    target < rows.length &&
-    (primary === null || Math.min(index, target) > 0 || canLead(rows[Math.max(index, target)]!));
+  // The first entry becomes the primary; with none, the deployment's default runs.
+  const commit = (next: ModelBackupChoice[]) => save((current) => listPatch(current, next));
   const fill = (slot: Slot, choice: ModelBackupChoice) =>
     slot === "empty" || isPrimarySlot(slot) ? setPrimary(choice) : place(slot, choice);
 
-  async function setThinking(level: ThinkingLevel | null) {
-    if (!primary) return;
-    setThinkingError(null);
-    setThinkingSaving(true);
-    try {
-      await send("models/setDefault", {
-        provider: primary.provider,
-        modelId: primary.modelId,
-        thinkingLevel: level,
-      });
-      onChanged?.();
-    } catch (err) {
-      setThinkingError(errorText(err, t("Could not change the default model")));
-    } finally {
-      setThinkingSaving(false);
-    }
-  }
+  const setThinking = (level: ThinkingLevel | null) =>
+    save((current) => ({
+      primary: current.primary && { ...current.primary, thinkingLevel: level },
+    }));
 
   /** After a connection, the same slot's picker shows only that provider's models. */
   type Narrowed = {
@@ -238,17 +199,7 @@ export function ModelRoleSettings({
   function pickerRequest(slot: Slot, narrowed?: Narrowed): ModelPickerRequest {
     const primarySlot = isPrimarySlot(slot);
     const all = narrowed ? connectedBackupOptions(state.catalog, narrowed.credentials) : options;
-    // The main model runs on a personal connection, so deployment-managed models only back it up.
-    const pool = (
-      primarySlot && role === "main"
-        ? all.filter((option) =>
-            (narrowed?.credentials ?? credentials).some(
-              (entry) =>
-                canonicalPiProviderId(entry.provider) === canonicalPiProviderId(option.provider),
-            ),
-          )
-        : all
-    ).filter(
+    const pool = all.filter(
       (option) =>
         !narrowed ||
         canonicalPiProviderId(option.provider) === canonicalPiProviderId(narrowed.provider),
@@ -285,7 +236,7 @@ export function ModelRoleSettings({
         const provider = providers.find((entry) => connectKey(entry) === choice.key);
         if (!provider) return undefined;
         // Only the main model's empty first slot takes the connection itself as its model.
-        const makeDefault = role === "main" && primarySlot;
+        const makeDefault = role === "main" && slot === "empty";
         return connectRoute(provider, {
           makeDefault,
           onConnected: async (connected) => {
@@ -326,7 +277,7 @@ export function ModelRoleSettings({
       void setThinking((id.slice("thinking:".length) || null) as ThinkingLevel | null);
     } else if (id === "moveUp" || id === "moveDown") {
       const target = index + (id === "moveUp" ? -1 : 1);
-      if (!canMove(index, target)) return;
+      if (target < 0 || target >= rows.length) return;
       const next = [...rows];
       next.splice(target, 0, ...next.splice(index, 1));
       void commit(next);
@@ -375,24 +326,8 @@ export function ModelRoleSettings({
             : [];
         const actions: MenuAction[] = [
           ...thinkingMenu,
-          ...(index > 0
-            ? [
-                {
-                  id: "moveUp",
-                  title: t("Move up"),
-                  attributes: { disabled: !canMove(index, index - 1) },
-                },
-              ]
-            : []),
-          ...(index < rows.length - 1
-            ? [
-                {
-                  id: "moveDown",
-                  title: t("Move down"),
-                  attributes: { disabled: !canMove(index, index + 1) },
-                },
-              ]
-            : []),
+          ...(index > 0 ? [{ id: "moveUp", title: t("Move up") }] : []),
+          ...(index < rows.length - 1 ? [{ id: "moveDown", title: t("Move down") }] : []),
           ...(connected.has(canonicalPiProviderId(choice.provider))
             ? [{ id: "manage", title: t("Manage {provider}", { provider: providerName(choice) }) }]
             : []),

@@ -1563,10 +1563,6 @@ msgstr "इस ऐप को ऑथराइज़ नहीं किया ज
 msgid "Could not change password"
 msgstr "पासवर्ड बदला नहीं जा सका"
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Could not change the default model"
-msgstr "डिफ़ॉल्ट मॉडल बदला नहीं जा सका"
-
 #: src/lib/model-connection-preflight.ts
 msgid "Could not check stored credentials."
 msgstr "संग्रहीत क्रेडेंशियल जाँचे नहीं जा सके।"
@@ -4938,7 +4934,7 @@ msgstr ""
 msgid "Thinking"
 msgstr "सोच रहा है"
 
-#. placeholder {0}: thinkingLevelLabel(thinking.value)
+#. placeholder {0}: thinkingLevelLabel(choice.thinkingLevel)
 #: src/pages/ModelRoleSettings.tsx
 msgid "Thinking: {0}"
 msgstr "सोच: {0}"

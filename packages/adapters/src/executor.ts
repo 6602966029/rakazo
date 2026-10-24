@@ -129,8 +129,6 @@ import {
   createThreadMessageInTransaction,
   dropRunTurnCheckpoint,
   effectiveMemoryScope,
-  findDefaultModelCredential,
-  getModelRole,
   InstructionConflictError,
   InvalidSpaceNameError,
   isTooManyDatabaseConnections,
@@ -334,6 +332,12 @@ import {
   HostedModelCreditsRequiredError,
   hostedModelCreditObserver,
 } from "./model-credit-observer.js";
+import type { EffectiveModelRole } from "./model-roles.js";
+import {
+  effectiveModelRole,
+  resolveMemberMainModel,
+  selectConfiguredModel,
+} from "./model-roles.js";
 import {
   enabledOpenAiCompatibleModelIds,
   findConnectedModelCredential,
@@ -341,7 +345,6 @@ import {
   pinnedModelCredentialError,
   routineRunModelPin,
   runModelChoice,
-  selectConfiguredModel,
   UnavailableModelForAuthError,
   validateConnectedModelChoice,
   validateModelAuthAvailability,
@@ -3106,6 +3109,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
     modelId: string,
     registerSecrets?: (values: string[]) => void,
     requireStoredSecret = false,
+    /** A fallback's own effort from its role list. */
+    thinkingLevel?: string | null,
   ): Promise<AgentRunRequest["model"]> => {
     const hostedProvider = (await modelCreditBillingEnabled(deps))
       ? resolveDeploymentModel().provider
@@ -3158,9 +3163,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
       acceptsImages: resolved.acceptsImages,
       maxImagesPerPrompt: resolved.maxImagesPerPrompt,
       thinkingLevel:
-        ((credential?.defaultModel === modelId
-          ? credential?.thinkingLevel
-          : null) as AgentRunRequest["model"]["thinkingLevel"]) ??
+        ((thinkingLevel !== undefined
+          ? thinkingLevel
+          : credential?.defaultModel === modelId
+            ? credential?.thinkingLevel
+            : null) as AgentRunRequest["model"]["thinkingLevel"]) ??
         resolved.thinkingLevel ??
         null,
       oauth: resolved.oauth
@@ -3191,7 +3198,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           })
         : null;
       const hasOverride = Boolean(override?.modelProvider && override.modelId);
-      const [overrideCredential, defaultCredential, settings] = await Promise.all([
+      const [overrideCredential, main, settings] = await Promise.all([
         hasOverride
           ? findConnectedModelCredential(
               deps.prisma,
@@ -3201,7 +3208,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               override!.modelId,
             )
           : Promise.resolve(null),
-        findDefaultModelCredential(deps.prisma, scope),
+        resolveMemberMainModel(deps, scope),
         deps.prisma.deploymentSettings.findUnique({
           where: { id: "default" },
         }),
@@ -3209,12 +3216,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
       const selected = selectConfiguredModel({
         override,
         overrideCredential,
-        defaultCredential,
-        settings,
+        main,
         hostedProvider: (await modelCreditBillingEnabled(deps))
           ? resolveDeploymentModel().provider
           : undefined,
-        deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
+        defaults: {
+          settings,
+          deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
+        },
       });
       const { credential, thinkingLevel } = selected;
       let { provider, id } = selected;
@@ -3844,7 +3853,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           peerMessage,
           task,
           storedConnections,
-          defaultCredential,
+          main,
           settings,
           configuredMemory,
           savedSkills,
@@ -3874,7 +3883,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               status: true,
             },
           }),
-          findDefaultModelCredential(deps.prisma, run),
+          resolveMemberMainModel(deps, run),
           deps.prisma.deploymentSettings.findUnique({
             where: { id: "default" },
           }),
@@ -4117,12 +4126,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const selected = selectConfiguredModel({
           override: modelChoice,
           overrideCredential,
-          defaultCredential,
-          settings,
+          main,
           hostedProvider: (await modelCreditBillingEnabled(deps))
             ? resolveDeploymentModel().provider
             : undefined,
-          deployment: runDeployment,
+          defaults: { settings, deployment: runDeployment },
         });
         const { credential, thinkingLevel } = selected;
         const runModelProvider = selected.provider ?? runtimeFallback?.provider;
@@ -4379,12 +4387,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
             .then((rules) => rules as ActionApprovalRule[]);
           return approvalRulesPromise;
         };
-        let approvalModelPromise: ReturnType<typeof getModelRole> | undefined;
+        let approvalModelPromise: Promise<EffectiveModelRole> | undefined;
         const loadApprovalModel = () =>
-          (approvalModelPromise ??= getModelRole(
+          (approvalModelPromise ??= effectiveModelRole(
             deps.prisma,
             { userId: run.userId, spaceId: run.spaceId },
             "approval",
+            {},
           ));
         let autoReviewPreferencePromise:
           | Promise<{ enabled: boolean; skipApprovals: boolean }>
@@ -5219,15 +5228,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
             requiresMandatoryApproval || !autoReviewPref || injectedReview
               ? null
               : await loadApprovalModel();
+          const memberChecker = reviewSettings?.primarySource === "member";
           const checker = requiresMandatoryApproval
             ? undefined
-            : reviewSettings?.primary
-              ? { provider: reviewSettings.primary.provider, model: reviewSettings.primary.modelId }
+            : reviewSettings
+              ? reviewSettings.primary
+                ? {
+                    provider: reviewSettings.primary.provider,
+                    model: reviewSettings.primary.modelId,
+                  }
+                : null
               : resolveAutoReviewChecker();
           const checkerConfigured =
             autoReviewPref &&
             (Boolean(injectedReview) ||
-              Boolean(reviewSettings?.primary) ||
+              memberChecker ||
               Boolean(reviewSettings?.backups.length) ||
               (checker
                 ? isAutoReviewCheckerConfigured({}) ||
@@ -5338,8 +5353,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               ): Promise<AutoReviewProvider> => {
                 if (injectedReview) return injectedReview;
                 const kind =
-                  reviewSettings?.primary ||
-                  (checker.provider !== "jev" && checker.provider !== "scripted")
+                  memberChecker || (checker.provider !== "jev" && checker.provider !== "scripted")
                     ? "llm"
                     : resolveAutoReviewProviderKind();
                 if (kind === "jev" || kind === "scripted") {
@@ -5353,7 +5367,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   checker.model,
                 );
                 if (
-                  (reviewSettings?.primary ||
+                  (memberChecker ||
                     reviewSettings?.backups.some(
                       (choice) =>
                         choice.provider === checker.provider && choice.modelId === checker.model,
@@ -7944,14 +7958,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
           return;
         }
 
-        let fallbackModels: { provider: string; modelId: string }[] = [];
+        let fallbackModels: Array<{
+          provider: string;
+          modelId: string;
+          thinkingLevel?: string | null;
+        }> = [];
         if (!scripted) {
           try {
-            fallbackModels = await deps.prisma.spaceBackupModel.findMany({
-              where: { userId: run.userId, spaceId: run.spaceId },
-              orderBy: { position: "asc" },
-              select: { provider: true, modelId: true },
-            });
+            fallbackModels = (
+              await effectiveModelRole(deps.prisma, run, "main", {
+                settings,
+                deployment: runDeployment,
+              })
+            ).backups;
           } catch (error) {
             getLogger().warn("Backup models could not be loaded", { runId, error });
           }
@@ -8063,6 +8082,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
                       modelId,
                       (values) => runSecrets.push(...values),
                       true,
+                      fallbackModels.find(
+                        (candidate) =>
+                          candidate.provider === provider && candidate.modelId === modelId,
+                      )?.thinkingLevel ?? null,
                     );
                   }
                 : undefined,
@@ -9204,16 +9227,21 @@ function fleetPrepareDeps(
           provider,
         ),
       defaultModel: async () => {
-        const [defaultCredential, settings] = await Promise.all([
-          findDefaultModelCredential(deps.prisma, scope),
+        const [main, settings] = await Promise.all([
+          resolveMemberMainModel(deps, scope),
           deps.prisma.deploymentSettings.findUnique({ where: { id: "default" } }),
         ]);
         const selected = selectConfiguredModel({
           override: null,
           overrideCredential: null,
-          defaultCredential,
-          settings,
-          deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
+          main,
+          hostedProvider: (await modelCreditBillingEnabled(deps))
+            ? resolveDeploymentModel().provider
+            : undefined,
+          defaults: {
+            settings,
+            deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
+          },
         });
         return { provider: selected.provider ?? null, model: selected.id ?? null };
       },

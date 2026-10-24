@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { ThinkingLevel } from "@rakazo/contracts";
 import {
   compatibleConnectionName,
   isOllamaCloudBaseUrl,
@@ -27,8 +26,6 @@ import {
 } from "@rakazo/ui-web";
 import { X } from "lucide-react";
 import { useState } from "react";
-import { useSpaceRpc } from "../lib/space-rpc";
-import { errorText } from "../lib/user-error";
 import type { ModelRoleConnectIntent } from "./ModelRoleSettings";
 import { ModelRoleSettings } from "./ModelRoleSettings";
 import { CompatibleModelFields } from "./model-settings/compatible-model-fields";
@@ -46,7 +43,6 @@ export function ModelSettingsOverlay({
   embedded?: boolean;
 }) {
   const { t } = useLingui();
-  const rpc = useSpaceRpc();
   const model = useModelSettings(onClose);
   const {
     baseUrl,
@@ -77,13 +73,11 @@ export function ModelSettingsOverlay({
     selected,
     selectedProviderName,
     setConfirmDisconnect,
-    setError,
     setMaxTokens,
     setNotice,
     settingsDirty,
   } = model;
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [thinkingSaving, setThinkingSaving] = useState(false);
 
   const providers: ConnectableProvider[] = groups
     .filter((group) => !credentialByProvider.has(group.id))
@@ -107,10 +101,6 @@ export function ModelSettingsOverlay({
     credential &&
       (!isOpenAiCompatible || savedCompatibleEndpointMatches(baseUrl, credential.baseUrl)),
   );
-  const activeCredential = credentials.find(
-    (entry) => entry.provider === me?.defaultProvider && entry.modelId === me?.defaultModel,
-  );
-  const thinkingLevels = (currentEntry?.thinkingLevels ?? []).filter((level) => level !== "off");
 
   function openConnection(next: ConnectableProvider, intent: ModelRoleConnectIntent | null) {
     model.chooseProvider(next.id, next.baseUrl);
@@ -129,23 +119,6 @@ export function ModelSettingsOverlay({
     cancelOAuthAttempt();
     intentRef.current = null;
     setDialogOpen(false);
-  }
-
-  async function changeThinking(level: ThinkingLevel | null) {
-    if (!me?.defaultProvider || !me.defaultModel) return;
-    setThinkingSaving(true);
-    try {
-      await rpc.models.setDefault({
-        provider: me.defaultProvider,
-        modelId: me.defaultModel,
-        thinkingLevel: level,
-      });
-      await refresh();
-    } catch (err) {
-      setError(errorText(err, t`Could not change the default model`));
-    } finally {
-      setThinkingSaving(false);
-    }
   }
 
   const disconnectButton = connected ? (
@@ -254,16 +227,7 @@ export function ModelSettingsOverlay({
                 providerLabel={providerLabel}
                 onConnect={openConnection}
                 onManage={(id) => openConnection({ id, name: id }, null)}
-                thinking={
-                  activeCredential && thinkingLevels.length
-                    ? {
-                        levels: thinkingLevels,
-                        value: (activeCredential.thinkingLevel ?? null) as ThinkingLevel | null,
-                        onChange: (level) => void changeThinking(level),
-                        saving: thinkingSaving,
-                      }
-                    : undefined
-                }
+                thinking
                 onChanged={() => void refresh()}
               />
               {me.needsModel ? null : (

@@ -465,7 +465,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Connected. Its tools are available from your next message.":
     "Verbunden. Seine Tools sind ab deiner nächsten Nachricht verfügbar.",
   "Context limit": "Kontextlimit",
-  "Could not change the default model": "Standardmodell konnte nicht geändert werden",
   "Could not connect this provider": "Anbieter konnte nicht verbunden werden",
   "Could not finish sign-in": "Anmeldung konnte nicht abgeschlossen werden",
   "Could not reach this model server": "Modellserver konnte nicht erreicht werden",

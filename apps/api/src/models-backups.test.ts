@@ -52,7 +52,13 @@ function setup(
     createdAt: new Date(0),
     updatedAt: new Date(0),
   };
-  let roleRows: Array<Record<string, unknown>> = [];
+  // The dual write keeps both copies of the main model's fallbacks in step.
+  let roleRows: Array<Record<string, unknown>> = rows.map((row) => ({
+    ...row,
+    role: "main",
+    position: Number(row.position) + 1,
+    thinkingLevel: null,
+  }));
   const spaceModelRoleChoice = {
     findMany: vi.fn(async ({ where }: { where: Record<string, string> }) =>
       roleRows
@@ -123,14 +129,17 @@ function setup(
     billing: options.credits ? { modelCreditsEnabled: true } : undefined,
     prisma,
     secrets: {
-      load: vi.fn(() =>
-        options.compatible
-          ? serializeModelSecret({
-              kind: "openai_compatible",
-              baseUrl: "http://127.0.0.1:11434/v1",
-              enabledModelIds: options.compatible.enabledModelIds,
-            })
-          : "fake-api-key-for-offline-tests",
+      // A fixture ciphertext that is already a stored secret decrypts to itself.
+      load: vi.fn((ciphertext: string) =>
+        ciphertext.startsWith("{")
+          ? ciphertext
+          : options.compatible
+            ? serializeModelSecret({
+                kind: "openai_compatible",
+                baseUrl: "http://127.0.0.1:11434/v1",
+                enabledModelIds: options.compatible.enabledModelIds,
+              })
+            : "fake-api-key-for-offline-tests",
       ),
     },
     env: {
@@ -154,7 +163,8 @@ function setup(
       }),
       { prefix: "/rpc", context: { actor } },
     );
-  return { rows, prisma, spaceBackupModel, call };
+  const roles = () => roleRows;
+  return { rows, roles, prisma, spaceBackupModel, call };
 }
 
 const availableModel = listPiCatalog().find(
@@ -174,7 +184,7 @@ describe("model backup settings API", () => {
   });
 
   it("returns an empty list for a new user and reads only that user's active Space", async () => {
-    const { call, spaceBackupModel } = setup({
+    const { call, prisma } = setup({
       existing: [
         {
           userId: "user-one",
@@ -206,20 +216,24 @@ describe("model backup settings API", () => {
     await expect(response.json()).resolves.toEqual({
       json: [{ provider: "openrouter", modelId: "first" }],
     });
-    expect(spaceBackupModel.findMany).toHaveBeenCalledWith({
-      where: { userId: owner.userId, spaceId: owner.spaceId },
-      orderBy: { position: "asc" },
-      select: { provider: true, modelId: true },
-    });
+    expect(prisma.spaceModelRoleChoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: owner.userId, spaceId: owner.spaceId, role: "main" },
+      }),
+    );
   });
 
   it("persists an ordered list for a connected usable model without changing the primary", async () => {
-    const { call, prisma, spaceBackupModel, rows } = setup();
+    const { call, prisma, spaceBackupModel, rows, roles } = setup();
     const input = [{ provider: availableModel.provider, modelId: availableModel.id }];
 
     const { response } = await call("models/setBackups", input);
 
     expect(response.status).toBe(200);
+    // An installed app's backup list writes the main role; the previous release's copy follows.
+    expect(roles()).toEqual([
+      expect.objectContaining({ role: "main", position: 1, modelId: availableModel.id }),
+    ]);
     expect(rows).toEqual([
       {
         userId: owner.userId,
@@ -415,24 +429,106 @@ describe("role-based model settings API", () => {
     const read = await call("models/role", { role: "approval" });
     expect((await read.response.json()).json).toEqual({ primary: null, backups: [] });
   });
-  it("keeps the main model's preference when a list save repeats its primary", async () => {
-    const { call, prisma } = setup();
-    const primary = { provider: availableModel.provider, modelId: availableModel.id };
-    const preferences = prisma.spaceModelPreference as unknown as {
-      findFirst: ReturnType<typeof vi.fn>;
-      upsert: ReturnType<typeof vi.fn>;
-      updateMany: ReturnType<typeof vi.fn>;
-    };
-    preferences.findFirst.mockResolvedValue({
-      isDefault: true,
-      modelId: primary.modelId,
-      thinkingLevel: "high",
-      credential: { id: "credential-one", provider: primary.provider },
+  it("keeps the main model's effort when a list save repeats its primary", async () => {
+    const { call, prisma, roles } = setup();
+    const [thinking, other] = listPiCatalog().filter(
+      (entry) =>
+        entry.provider === "openrouter" &&
+        !entry.placeholder &&
+        entry.thinkingLevels?.includes("high"),
+    );
+    const primary = { provider: thinking!.provider, modelId: thinking!.id };
+    const first = await call("models/setRole", {
+      role: "main",
+      primary: { ...primary, thinkingLevel: "high" },
     });
-    const backups = [{ provider: availableModel.provider, modelId: "another-model" }];
-    await call("models/setRole", { role: "main", primary, backups });
-    expect(preferences.upsert).not.toHaveBeenCalled();
-    expect(preferences.updateMany).not.toHaveBeenCalled();
+    expect(first.response.status).toBe(200);
+    const preferences = prisma.spaceModelPreference as unknown as {
+      upsert: ReturnType<typeof vi.fn>;
+    };
+    preferences.upsert.mockClear();
+
+    const backups = [{ provider: other!.provider, modelId: other!.id }];
+    const { response } = await call("models/setRole", { role: "main", primary, backups });
+    expect(response.status).toBe(200);
+
+    expect((await response.json()).json.primary).toEqual({ ...primary, thinkingLevel: "high" });
+    expect(roles()[0]).toMatchObject({ position: 0, thinkingLevel: "high" });
+    expect(preferences.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          spaceId_userId_credentialId: expect.objectContaining({
+            credentialId: "credential-one",
+          }),
+        }),
+        update: expect.objectContaining({ isDefault: true, thinkingLevel: "high" }),
+      }),
+    );
+  });
+
+  it("serves a compatible main model from the connection that enables it", async () => {
+    // Connection A is the space default; model B is enabled only on connection B.
+    const { call, prisma, roles } = setup({
+      compatible: { enabledModelIds: ["model-a"], defaultModel: "model-a" },
+    });
+    const connection = (id: string) => ({
+      id,
+      userId: owner.userId,
+      provider: "openai-compatible",
+      label: id,
+      secretId: `secret-${id}`,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+    });
+    const [connectionA, connectionB] = [connection("a"), connection("b")];
+    const client = prisma as unknown as {
+      userModelCredential: { findMany: ReturnType<typeof vi.fn> };
+      spaceModelPreference: {
+        findMany: ReturnType<typeof vi.fn>;
+        upsert: ReturnType<typeof vi.fn>;
+      };
+      secret: { findFirst: ReturnType<typeof vi.fn> };
+    };
+    client.userModelCredential.findMany.mockResolvedValue([connectionA, connectionB]);
+    client.spaceModelPreference.findMany.mockResolvedValue([
+      {
+        id: "preference-a",
+        modelId: "model-a",
+        thinkingLevel: null,
+        isDefault: true,
+        updatedAt: new Date(0),
+        credential: connectionA,
+      },
+    ]);
+    client.secret.findFirst.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+      id: where.id,
+      ciphertext: serializeModelSecret({
+        kind: "openai_compatible",
+        baseUrl: "http://127.0.0.1:11434/v1",
+        enabledModelIds: [where.id === connectionB.secretId ? "model-b" : "model-a"],
+      }),
+    }));
+    const { response } = await call("models/setRole", {
+      role: "main",
+      primary: { provider: "openai-compatible", modelId: "model-b" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(roles()).toEqual([
+      expect.objectContaining({ position: 0, provider: "openai-compatible", modelId: "model-b" }),
+    ]);
+    expect(client.spaceModelPreference.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          spaceId_userId_credentialId: {
+            spaceId: owner.spaceId,
+            userId: owner.userId,
+            credentialId: "b",
+          },
+        },
+        update: expect.objectContaining({ modelId: "model-b", isDefault: true }),
+      }),
+    );
   });
 
   it("retains backwards-compatible main backup storage", async () => {
@@ -444,21 +540,29 @@ describe("role-based model settings API", () => {
   });
 });
 
-it("rejects a managed main primary before writing while allowing managed role backups", async () => {
+it("lets a deployment-managed model lead the main model like any other purpose", async () => {
   vi.stubEnv("PI_DEFAULT_PROVIDER", "openrouter");
   vi.stubEnv("OPENROUTER_API_KEY", "fake-hosted-key");
   try {
-    const { call, prisma } = setup({ credits: true });
+    const { call, prisma, roles } = setup({ credits: true });
     const primary = { provider: availableModel.provider, modelId: availableModel.id };
     const catalog = await call("models/forRole", { role: "main" });
     expect((await catalog.response.json()).json).toContainEqual(
       expect.objectContaining({ id: primary.modelId, managed: true }),
     );
-    const rejected = await call("models/setRole", { role: "main", primary });
-    expect(rejected.response.status).toBe(400);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-    const backup = await call("models/setRole", { role: "main", backups: [primary] });
-    expect(backup.response.status).toBe(200);
+    const main = await call("models/setRole", { role: "main", primary });
+    expect(main.response.status).toBe(200);
+    expect(roles()).toEqual([expect.objectContaining({ role: "main", position: 0 })]);
+    // No connection serves it, so the previous release falls back to the deployment's model.
+    const preferences = prisma.spaceModelPreference as unknown as {
+      upsert: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
+    };
+    expect(preferences.upsert).not.toHaveBeenCalled();
+    expect(preferences.updateMany).toHaveBeenCalledWith({
+      where: { userId: owner.userId, spaceId: owner.spaceId, isDefault: true },
+      data: { isDefault: false },
+    });
     const approval = await call("models/setRole", { role: "approval", primary });
     expect(approval.response.status).toBe(200);
   } finally {

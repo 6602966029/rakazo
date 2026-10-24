@@ -1215,23 +1215,27 @@ export const ModelBackupChoiceSchema = z.object({
   modelId: z.string().trim().min(1).max(512),
 });
 export type ModelBackupChoice = z.infer<typeof ModelBackupChoiceSchema>;
-export const ModelBackupListSchema = z
-  .array(ModelBackupChoiceSchema)
-  .max(MAX_MODEL_BACKUPS)
-  .superRefine((choices, ctx) => {
-    const seen = new Set<string>();
-    for (const [index, choice] of choices.entries()) {
-      const key = JSON.stringify([choice.provider, choice.modelId]);
-      if (seen.has(key)) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Backup models must be unique",
-          path: [index],
-        });
+/** At most MAX_MODEL_BACKUPS choices, each model once. */
+export function modelChoiceListSchema<T extends z.ZodType<ModelBackupChoice>>(choice: T) {
+  return z
+    .array(choice)
+    .max(MAX_MODEL_BACKUPS)
+    .superRefine((choices, ctx) => {
+      const seen = new Set<string>();
+      for (const [index, choice] of choices.entries()) {
+        const key = JSON.stringify([choice.provider, choice.modelId]);
+        if (seen.has(key)) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Backup models must be unique",
+            path: [index],
+          });
+        }
+        seen.add(key);
       }
-      seen.add(key);
-    }
-  });
+    });
+}
+export const ModelBackupListSchema = modelChoiceListSchema(ModelBackupChoiceSchema);
 
 export const OPENAI_COMPATIBLE_PROVIDER_ID = "openai-compatible";
 

@@ -1563,10 +1563,6 @@ msgstr "No se pudo autorizar esta app"
 msgid "Could not change password"
 msgstr "No se pudo cambiar la contraseña"
 
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Could not change the default model"
-msgstr "No se pudo cambiar el modelo predeterminado"
-
 #: src/lib/model-connection-preflight.ts
 msgid "Could not check stored credentials."
 msgstr "No se pudieron comprobar las credenciales guardadas."
@@ -4938,7 +4934,7 @@ msgstr ""
 msgid "Thinking"
 msgstr "Pensando"
 
-#. placeholder {0}: thinkingLevelLabel(thinking.value)
+#. placeholder {0}: thinkingLevelLabel(choice.thinkingLevel)
 #: src/pages/ModelRoleSettings.tsx
 msgid "Thinking: {0}"
 msgstr "Razonamiento: {0}"

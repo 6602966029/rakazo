@@ -337,7 +337,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Could not archive bot": "Не удалось заархивировать бота",
   "Could not authorize this app": "Не удалось авторизовать это приложение",
   "Could not change language": "Не удалось изменить язык",
-  "Could not change the default model": "Не удалось изменить модель по умолчанию",
   "Could not change password": "Не удалось изменить пароль",
   "Could not clear conversation": "Не удалось очистить диалог",
   "Could not clear the custom server URL":
