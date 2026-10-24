@@ -744,6 +744,11 @@ msgstr "適用"
 msgid "Approval boundaries"
 msgstr "承認の範囲"
 
+#: src/pages/ModelRoleSettings.tsx
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "承認モデル"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -1725,10 +1730,6 @@ msgstr "承認ルールを読み込めませんでした"
 msgid "Could not load artifacts."
 msgstr "アーティファクトを読み込めませんでした。"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not load backup models"
-msgstr "バックアップモデルを読み込めませんでした"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Could not load billing"
 msgstr "請求情報を読み込めませんでした"
@@ -1866,10 +1867,6 @@ msgstr "保存できませんでした"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not save Auto Review"
 msgstr "自動レビューを保存できませんでした"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not save backup models"
-msgstr "バックアップモデルを保存できませんでした"
 
 #: src/pages/GroupPanel.tsx
 msgid "Could not save group"
@@ -2212,6 +2209,7 @@ msgstr "拒否済み"
 msgid "Deny"
 msgstr "拒否"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "デプロイのデフォルト"
@@ -3018,6 +3016,7 @@ msgstr "連携を読み込み中…"
 msgid "Loading memory settings…"
 msgstr "メモリ設定を読み込み中…"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "モデルカタログを読み込み中…"
@@ -3346,13 +3345,15 @@ msgstr "その他"
 msgid "More computer actions"
 msgstr "コンピューターのその他の操作"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} down"
-msgstr "{full}を下へ移動"
+msgid "Move {0} down"
+msgstr "{0}を下へ移動"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} up"
-msgstr "{full}を上へ移動"
+msgid "Move {0} up"
+msgstr "{0}を上へ移動"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3576,10 +3577,6 @@ msgstr "通常"
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "未確認"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Not connected"
-msgstr "未接続"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -4094,6 +4091,8 @@ msgid "Remove"
 msgstr "削除"
 
 #. placeholder {0}: attachment.file.name
+#. placeholder {0}: label(choice)
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "{0}を削除"
@@ -4102,10 +4101,6 @@ msgstr "{0}を削除"
 #: src/pages/GroupPanel.tsx
 msgid "Remove {0} from the group"
 msgstr "{0}をグループから外す"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Remove {full}"
-msgstr "{full}を削除"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
@@ -4726,14 +4721,6 @@ msgstr "問題が発生しました。もう一度お試しください。"
 msgid "Space"
 msgstr "スペース"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to load its backup list."
-msgstr "スペースが変更されました。バックアップ一覧を読み込むには、モデルを開き直してください。"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to save its backup list."
-msgstr "スペースが変更されました。バックアップ一覧を保存するには、モデルを開き直してください。"
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "スペースのデフォルト"
@@ -5148,10 +5135,6 @@ msgstr "トライアル"
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr "トライアル終了: {day}"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Tried in order if the active model fails."
-msgstr "使用中のモデルが失敗した場合に順番に試行します。"
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
@@ -5573,7 +5556,3 @@ msgstr "音声プロバイダーのクレジットが不足しています。"
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "音声プロバイダーのキーが拒否されました。"
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Approval model"
-msgstr "承認モデル"

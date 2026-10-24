@@ -744,6 +744,11 @@ msgstr "Apply"
 msgid "Approval boundaries"
 msgstr "Approval boundaries"
 
+#: src/pages/ModelRoleSettings.tsx
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "Approval model"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -1725,10 +1730,6 @@ msgstr "Could not load approval rules"
 msgid "Could not load artifacts."
 msgstr "Could not load artifacts."
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not load backup models"
-msgstr "Could not load backup models"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Could not load billing"
 msgstr "Could not load billing"
@@ -1866,10 +1867,6 @@ msgstr "Could not save"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not save Auto Review"
 msgstr "Could not save Auto Review"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not save backup models"
-msgstr "Could not save backup models"
 
 #: src/pages/GroupPanel.tsx
 msgid "Could not save group"
@@ -2212,6 +2209,7 @@ msgstr "Denied"
 msgid "Deny"
 msgstr "Deny"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "Deployment default"
@@ -3018,6 +3016,7 @@ msgstr "Loading integrations…"
 msgid "Loading memory settings…"
 msgstr "Loading memory settings…"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "Loading model catalog…"
@@ -3346,13 +3345,15 @@ msgstr "More"
 msgid "More computer actions"
 msgstr "More computer actions"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} down"
-msgstr "Move {full} down"
+msgid "Move {0} down"
+msgstr "Move {0} down"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} up"
-msgstr "Move {full} up"
+msgid "Move {0} up"
+msgstr "Move {0} up"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3576,10 +3577,6 @@ msgstr "Normal"
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "Not checked yet"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Not connected"
-msgstr "Not connected"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -4094,6 +4091,8 @@ msgid "Remove"
 msgstr "Remove"
 
 #. placeholder {0}: attachment.file.name
+#. placeholder {0}: label(choice)
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "Remove {0}"
@@ -4102,10 +4101,6 @@ msgstr "Remove {0}"
 #: src/pages/GroupPanel.tsx
 msgid "Remove {0} from the group"
 msgstr "Remove {0} from the group"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Remove {full}"
-msgstr "Remove {full}"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
@@ -4726,14 +4721,6 @@ msgstr "Something went wrong. Try again."
 msgid "Space"
 msgstr "Space"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to load its backup list."
-msgstr "Space changed. Reopen Models to load its backup list."
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to save its backup list."
-msgstr "Space changed. Reopen Models to save its backup list."
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Space default"
@@ -5148,10 +5135,6 @@ msgstr "Trial"
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr "Trial ends {day}"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Tried in order if the active model fails."
-msgstr "Tried in order if the active model fails."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
@@ -5573,7 +5556,3 @@ msgstr "Your voice provider is out of credit."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Your voice provider key was rejected."
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Approval model"
-msgstr "Approval model"

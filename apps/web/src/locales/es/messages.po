@@ -744,6 +744,11 @@ msgstr "Aplicar"
 msgid "Approval boundaries"
 msgstr "Límites de aprobación"
 
+#: src/pages/ModelRoleSettings.tsx
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "Modelo de aprobación"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -1725,10 +1730,6 @@ msgstr "No se pudieron cargar las reglas de aprobación"
 msgid "Could not load artifacts."
 msgstr ""
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not load backup models"
-msgstr "No se pudieron cargar los modelos de respaldo."
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Could not load billing"
 msgstr ""
@@ -1866,10 +1867,6 @@ msgstr "No se pudo guardar"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not save Auto Review"
 msgstr "No se pudo guardar Auto Review"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not save backup models"
-msgstr "No se pudieron guardar los modelos de respaldo."
 
 #: src/pages/GroupPanel.tsx
 msgid "Could not save group"
@@ -2212,6 +2209,7 @@ msgstr "Denegado"
 msgid "Deny"
 msgstr "Denegar"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "Predeterminado del despliegue"
@@ -3018,6 +3016,7 @@ msgstr "Cargando integraciones…"
 msgid "Loading memory settings…"
 msgstr "Cargando configuración de memoria…"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "Cargando catálogo de modelos…"
@@ -3346,13 +3345,15 @@ msgstr ""
 msgid "More computer actions"
 msgstr "Más acciones de computadora"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} down"
-msgstr "Mover {full} hacia abajo"
+msgid "Move {0} down"
+msgstr "Mover {0} hacia abajo"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} up"
-msgstr "Mover {full} hacia arriba"
+msgid "Move {0} up"
+msgstr "Mover {0} hacia arriba"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3576,10 +3577,6 @@ msgstr ""
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "Aún no comprobado"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Not connected"
-msgstr "No conectado"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -4094,6 +4091,8 @@ msgid "Remove"
 msgstr "Quitar"
 
 #. placeholder {0}: attachment.file.name
+#. placeholder {0}: label(choice)
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "Quitar {0}"
@@ -4102,10 +4101,6 @@ msgstr "Quitar {0}"
 #: src/pages/GroupPanel.tsx
 msgid "Remove {0} from the group"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Remove {full}"
-msgstr "Quitar {full}"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
@@ -4726,14 +4721,6 @@ msgstr "Algo salió mal. Inténtalo de nuevo."
 msgid "Space"
 msgstr "Espacio"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to load its backup list."
-msgstr "El espacio cambió. Vuelve a abrir Modelos para cargar la lista de respaldo."
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to save its backup list."
-msgstr "El espacio cambió. Vuelve a abrir Modelos para guardar la lista de respaldo."
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Predeterminado del Space"
@@ -5148,10 +5135,6 @@ msgstr ""
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Tried in order if the active model fails."
-msgstr "Se prueban en orden si falla el modelo activo."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
@@ -5573,7 +5556,3 @@ msgstr "Tu proveedor de voz se quedó sin crédito."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Tu proveedor de voz rechazó la clave."
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Approval model"
-msgstr "Modelo de aprobación"

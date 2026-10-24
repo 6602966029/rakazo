@@ -744,6 +744,11 @@ msgstr "应用"
 msgid "Approval boundaries"
 msgstr "审批边界"
 
+#: src/pages/ModelRoleSettings.tsx
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "审批模型"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -1725,10 +1730,6 @@ msgstr "无法加载审批规则"
 msgid "Could not load artifacts."
 msgstr ""
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not load backup models"
-msgstr "无法加载备用模型。"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Could not load billing"
 msgstr ""
@@ -1866,10 +1867,6 @@ msgstr "无法保存"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not save Auto Review"
 msgstr "无法保存自动审核"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not save backup models"
-msgstr "无法保存备用模型。"
 
 #: src/pages/GroupPanel.tsx
 msgid "Could not save group"
@@ -2212,6 +2209,7 @@ msgstr "已拒绝"
 msgid "Deny"
 msgstr "拒绝"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "部署默认"
@@ -3018,6 +3016,7 @@ msgstr "正在加载集成…"
 msgid "Loading memory settings…"
 msgstr "正在加载记忆设置…"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "正在加载模型目录…"
@@ -3346,13 +3345,15 @@ msgstr ""
 msgid "More computer actions"
 msgstr ""
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} down"
-msgstr "将 {full} 下移"
+msgid "Move {0} down"
+msgstr "将 {0} 下移"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} up"
-msgstr "将 {full} 上移"
+msgid "Move {0} up"
+msgstr "将 {0} 上移"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3576,10 +3577,6 @@ msgstr ""
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "尚未检查"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Not connected"
-msgstr "未连接"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -4094,6 +4091,8 @@ msgid "Remove"
 msgstr "移除"
 
 #. placeholder {0}: attachment.file.name
+#. placeholder {0}: label(choice)
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "移除 {0}"
@@ -4102,10 +4101,6 @@ msgstr "移除 {0}"
 #: src/pages/GroupPanel.tsx
 msgid "Remove {0} from the group"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Remove {full}"
-msgstr "移除 {full}"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
@@ -4726,14 +4721,6 @@ msgstr "出了点问题。请重试。"
 msgid "Space"
 msgstr "工作区"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to load its backup list."
-msgstr "空间已更改。重新打开“模型”以加载备用列表。"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to save its backup list."
-msgstr "空间已更改。重新打开“模型”以保存备用列表。"
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "工作区默认"
@@ -5148,10 +5135,6 @@ msgstr ""
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Tried in order if the active model fails."
-msgstr "当前模型失败时按顺序尝试。"
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
@@ -5573,7 +5556,3 @@ msgstr "你的语音提供方额度已用完。"
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "你的语音提供方拒绝了该密钥。"
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Approval model"
-msgstr "审批模型"

@@ -744,6 +744,11 @@ msgstr "Применить"
 msgid "Approval boundaries"
 msgstr "Границы одобрения"
 
+#: src/pages/ModelRoleSettings.tsx
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "Модель проверки действий"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -1725,10 +1730,6 @@ msgstr "Не удалось загрузить правила одобрения
 msgid "Could not load artifacts."
 msgstr ""
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not load backup models"
-msgstr "Не удалось загрузить резервные модели."
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Could not load billing"
 msgstr ""
@@ -1866,10 +1867,6 @@ msgstr "Не удалось сохранить"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not save Auto Review"
 msgstr "Не удалось сохранить автообзор."
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not save backup models"
-msgstr "Не удалось сохранить резервные модели."
 
 #: src/pages/GroupPanel.tsx
 msgid "Could not save group"
@@ -2212,6 +2209,7 @@ msgstr "Отклонено"
 msgid "Deny"
 msgstr "Запретить"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "Развертывание по умолчанию"
@@ -3018,6 +3016,7 @@ msgstr "Загрузка интеграций…"
 msgid "Loading memory settings…"
 msgstr "Загрузка настроек памяти…"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "Загрузка каталога моделей…"
@@ -3346,13 +3345,15 @@ msgstr "Ещё"
 msgid "More computer actions"
 msgstr "Больше действий с компьютером"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} down"
-msgstr "Переместить {full} ниже"
+msgid "Move {0} down"
+msgstr "Переместить {0} ниже"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} up"
-msgstr "Переместить {full} выше"
+msgid "Move {0} up"
+msgstr "Переместить {0} выше"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3576,10 +3577,6 @@ msgstr ""
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "Ещё не проверено"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Not connected"
-msgstr "Не подключена"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -4094,6 +4091,8 @@ msgid "Remove"
 msgstr "Удалить"
 
 #. placeholder {0}: attachment.file.name
+#. placeholder {0}: label(choice)
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "Удалить {0}"
@@ -4102,10 +4101,6 @@ msgstr "Удалить {0}"
 #: src/pages/GroupPanel.tsx
 msgid "Remove {0} from the group"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Remove {full}"
-msgstr "Удалить {full}"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
@@ -4726,14 +4721,6 @@ msgstr "Что-то пошло не так. Попробуйте ещё раз."
 msgid "Space"
 msgstr "Пространство"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to load its backup list."
-msgstr "Пространство изменилось. Откройте раздел «Модели» снова, чтобы загрузить список резервных моделей."
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to save its backup list."
-msgstr "Пространство изменилось. Откройте раздел «Модели» снова, чтобы сохранить список резервных моделей."
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Пространство по умолчанию"
@@ -5148,10 +5135,6 @@ msgstr ""
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Tried in order if the active model fails."
-msgstr "Используются по порядку, если активная модель не сработает."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
@@ -5573,7 +5556,3 @@ msgstr "У вашего голосового провайдера закончи
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Ваш голосовой провайдер отклонил ключ."
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Approval model"
-msgstr "Модель проверки действий"

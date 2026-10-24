@@ -744,6 +744,11 @@ msgstr "Uygula"
 msgid "Approval boundaries"
 msgstr "Onay sınırları"
 
+#: src/pages/ModelRoleSettings.tsx
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "Onay modeli"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -1725,10 +1730,6 @@ msgstr "Onay kuralları yüklenemedi"
 msgid "Could not load artifacts."
 msgstr ""
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not load backup models"
-msgstr "Yedek modeller yüklenemedi."
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Could not load billing"
 msgstr ""
@@ -1866,10 +1867,6 @@ msgstr "Kaydedilemedi"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not save Auto Review"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not save backup models"
-msgstr "Yedek modeller kaydedilemedi."
 
 #: src/pages/GroupPanel.tsx
 msgid "Could not save group"
@@ -2212,6 +2209,7 @@ msgstr "Reddedildi"
 msgid "Deny"
 msgstr "Reddet"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "Dağıtım varsayılanı"
@@ -3018,6 +3016,7 @@ msgstr "Entegrasyonlar yükleniyor…"
 msgid "Loading memory settings…"
 msgstr "Hafıza ayarları yükleniyor…"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "Model kataloğu yükleniyor…"
@@ -3346,13 +3345,15 @@ msgstr ""
 msgid "More computer actions"
 msgstr ""
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} down"
-msgstr "{full} modelini aşağı taşı"
+msgid "Move {0} down"
+msgstr "{0} modelini aşağı taşı"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} up"
-msgstr "{full} modelini yukarı taşı"
+msgid "Move {0} up"
+msgstr "{0} modelini yukarı taşı"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3576,10 +3577,6 @@ msgstr ""
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "Henüz kontrol edilmedi"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Not connected"
-msgstr "Bağlı değil"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -4094,6 +4091,8 @@ msgid "Remove"
 msgstr "Kaldır"
 
 #. placeholder {0}: attachment.file.name
+#. placeholder {0}: label(choice)
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "{0} kaldır"
@@ -4102,10 +4101,6 @@ msgstr "{0} kaldır"
 #: src/pages/GroupPanel.tsx
 msgid "Remove {0} from the group"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Remove {full}"
-msgstr "{full} modelini kaldır"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
@@ -4726,14 +4721,6 @@ msgstr "Bir şeyler ters gitti. Tekrar deneyin."
 msgid "Space"
 msgstr "Alan"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to load its backup list."
-msgstr "Alan değişti. Yedek listesini yüklemek için Modelleri yeniden açın."
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to save its backup list."
-msgstr "Alan değişti. Yedek listesini kaydetmek için Modelleri yeniden açın."
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Alan varsayılanı"
@@ -5148,10 +5135,6 @@ msgstr ""
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Tried in order if the active model fails."
-msgstr "Etkin model başarısız olursa sırayla denenir."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
@@ -5573,7 +5556,3 @@ msgstr "Ses sağlayıcınızın kredisi bitti."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Ses sağlayıcınız anahtarı reddetti."
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Approval model"
-msgstr "Onay modeli"

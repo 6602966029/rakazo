@@ -744,6 +744,11 @@ msgstr "Appliquer"
 msgid "Approval boundaries"
 msgstr "Limites d'approbation"
 
+#: src/pages/ModelRoleSettings.tsx
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "Modèle d’approbation"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -1725,10 +1730,6 @@ msgstr "Impossible de charger les règles d'approbation"
 msgid "Could not load artifacts."
 msgstr "Impossible de charger les artefacts."
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not load backup models"
-msgstr "Impossible de charger les modèles de secours."
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Could not load billing"
 msgstr ""
@@ -1866,10 +1867,6 @@ msgstr "Impossible d'enregistrer"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not save Auto Review"
 msgstr "Impossible d'enregistrer la révision automatique"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not save backup models"
-msgstr "Impossible d’enregistrer les modèles de secours."
 
 #: src/pages/GroupPanel.tsx
 msgid "Could not save group"
@@ -2212,6 +2209,7 @@ msgstr "Refusé"
 msgid "Deny"
 msgstr "Refuser"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "Défaut du déploiement"
@@ -3018,6 +3016,7 @@ msgstr "Chargement des intégrations…"
 msgid "Loading memory settings…"
 msgstr "Chargement des paramètres de mémoire…"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "Chargement du catalogue de modèles…"
@@ -3346,13 +3345,15 @@ msgstr "Plus"
 msgid "More computer actions"
 msgstr "Plus d'actions pour l'ordinateur"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} down"
-msgstr "Déplacer {full} vers le bas"
+msgid "Move {0} down"
+msgstr "Déplacer {0} vers le bas"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} up"
-msgstr "Déplacer {full} vers le haut"
+msgid "Move {0} up"
+msgstr "Déplacer {0} vers le haut"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3576,10 +3577,6 @@ msgstr ""
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "Pas encore vérifié"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Not connected"
-msgstr "Non connecté"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -4094,6 +4091,8 @@ msgid "Remove"
 msgstr "Retirer"
 
 #. placeholder {0}: attachment.file.name
+#. placeholder {0}: label(choice)
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "Retirer {0}"
@@ -4102,10 +4101,6 @@ msgstr "Retirer {0}"
 #: src/pages/GroupPanel.tsx
 msgid "Remove {0} from the group"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Remove {full}"
-msgstr "Supprimer {full}"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
@@ -4726,14 +4721,6 @@ msgstr "Un problème est survenu. Réessayez."
 msgid "Space"
 msgstr "Espace"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to load its backup list."
-msgstr "L’espace a changé. Rouvrez Modèles pour charger sa liste de secours."
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to save its backup list."
-msgstr "L’espace a changé. Rouvrez Modèles pour enregistrer sa liste de secours."
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Défaut de l'espace"
@@ -5148,10 +5135,6 @@ msgstr ""
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr ""
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Tried in order if the active model fails."
-msgstr "Essayés dans l’ordre si le modèle actif échoue."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
@@ -5573,7 +5556,3 @@ msgstr "Votre fournisseur vocal n'a plus de crédit."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Votre fournisseur vocal a refusé la clé."
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Approval model"
-msgstr "Modèle d’approbation"

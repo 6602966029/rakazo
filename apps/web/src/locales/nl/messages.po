@@ -744,6 +744,11 @@ msgstr "Toepassen"
 msgid "Approval boundaries"
 msgstr "Goedkeuringsgrenzen"
 
+#: src/pages/ModelRoleSettings.tsx
+#: src/pages/ModelSettingsOverlay.tsx
+msgid "Approval model"
+msgstr "Goedkeuringsmodel"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -1725,10 +1730,6 @@ msgstr "Goedkeuringsregels laden mislukt"
 msgid "Could not load artifacts."
 msgstr "Artefacten laden mislukt."
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not load backup models"
-msgstr "Back-upmodellen laden mislukt"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Could not load billing"
 msgstr "Facturatie laden mislukt"
@@ -1866,10 +1867,6 @@ msgstr "Opslaan mislukt"
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not save Auto Review"
 msgstr "Auto Review opslaan mislukt"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Could not save backup models"
-msgstr "Back-upmodellen opslaan mislukt"
 
 #: src/pages/GroupPanel.tsx
 msgid "Could not save group"
@@ -2212,6 +2209,7 @@ msgstr "Geweigerd"
 msgid "Deny"
 msgstr "Weigeren"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Deployment default"
 msgstr "Standaard van de implementatie"
@@ -3018,6 +3016,7 @@ msgstr "Integraties laden…"
 msgid "Loading memory settings…"
 msgstr "Geheugeninstellingen laden…"
 
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Loading model catalog…"
 msgstr "Modelcatalogus laden…"
@@ -3346,13 +3345,15 @@ msgstr "Meer"
 msgid "More computer actions"
 msgstr "Meer computeracties"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} down"
-msgstr "{full} omlaag verplaatsen"
+msgid "Move {0} down"
+msgstr "{0} omlaag verplaatsen"
 
+#. placeholder {0}: label(choice)
 #: src/pages/ModelRoleSettings.tsx
-msgid "Move {full} up"
-msgstr "{full} omhoog verplaatsen"
+msgid "Move {0} up"
+msgstr "{0} omhoog verplaatsen"
 
 #: src/pages/shell/dialogs.tsx
 msgid "Move them to your shared memory."
@@ -3576,10 +3577,6 @@ msgstr "Normaal"
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "Nog niet gecontroleerd"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Not connected"
-msgstr "Niet verbonden"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -4094,6 +4091,8 @@ msgid "Remove"
 msgstr "Verwijderen"
 
 #. placeholder {0}: attachment.file.name
+#. placeholder {0}: label(choice)
+#: src/pages/ModelRoleSettings.tsx
 #: src/pages/shell/composer.tsx
 msgid "Remove {0}"
 msgstr "{0} verwijderen"
@@ -4102,10 +4101,6 @@ msgstr "{0} verwijderen"
 #: src/pages/GroupPanel.tsx
 msgid "Remove {0} from the group"
 msgstr "{0} uit de groep verwijderen"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Remove {full}"
-msgstr "{full} verwijderen"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Remove {secretName}? This bot will no longer be able to use it."
@@ -4726,14 +4721,6 @@ msgstr "Er is iets misgegaan. Probeer het opnieuw."
 msgid "Space"
 msgstr "Space"
 
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to load its backup list."
-msgstr "De space is gewijzigd. Open Modellen opnieuw om de back-uplijst te laden."
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Space changed. Reopen Models to save its backup list."
-msgstr "De space is gewijzigd. Open Modellen opnieuw om de back-uplijst op te slaan."
-
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Spacestandaard"
@@ -5148,10 +5135,6 @@ msgstr "Proefperiode"
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr "Proefperiode eindigt op {day}"
-
-#: src/pages/ModelRoleSettings.tsx
-msgid "Tried in order if the active model fails."
-msgstr "Op volgorde geprobeerd als het actieve model faalt."
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
@@ -5573,7 +5556,3 @@ msgstr "Je spraakaanbieder heeft geen tegoed meer."
 #: src/lib/user-error.ts
 msgid "Your voice provider key was rejected."
 msgstr "Je spraakaanbieder heeft de sleutel geweigerd."
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Approval model"
-msgstr "Goedkeuringsmodel"
