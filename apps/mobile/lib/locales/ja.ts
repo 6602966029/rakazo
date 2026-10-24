@@ -225,8 +225,6 @@ export const JA_MESSAGES: Record<string, string> = {
     "このサーバーを承認すると、エージェントがそのツールを使用できるようになります。",
   "Answered: {answer}": "回答済み: {answer}",
   Archive: "アーカイブ",
-  "Archived. Chat, memory, and files kept.":
-    "アーカイブしました。チャット、メモリ、ファイルは保持されます。",
   Attach: "添付",
   "Attach file": "ファイルを添付",
   Attachment: "添付ファイル",
@@ -282,14 +280,11 @@ export const JA_MESSAGES: Record<string, string> = {
   "Messaged {peer}": "{peer}にメッセージを送信しました",
   "Message…": "メッセージ…",
   "No longer active": "無効になりました",
-  "Opened its thread.": "スレッドを開きました。",
   "Photo library": "フォトライブラリ",
   "Pull request": "プルリクエスト",
   React: "リアクション",
   "Remove mention {name}": "メンション{name}を削除",
   "Remove skill {name}": "スキル{name}を削除",
-  "Removed with chat, computer, and memory.":
-    "チャット、コンピューター、メモリとともに削除されました。",
   Reply: "返信",
   "Replying to": "返信先",
   "Return to inbox": "受信トレイに戻る",

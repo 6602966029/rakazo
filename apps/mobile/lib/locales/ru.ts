@@ -255,7 +255,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Collapse {name}": "Свернуть {name}",
   "Expand {name}": "Развернуть {name}",
   Archived: "В архиве",
-  "Archived. Chat, memory, and files kept.": "В архиве. Чат, память и файлы сохраняются.",
   Asleep: "Спит",
   Attach: "Вложение",
   "Attach file": "Прикрепить файл",
@@ -587,7 +586,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Remove mention {name}": "Удалить упоминание {name}",
   "Remove skill {name}": "Удалить навык {name}",
   "Remove thumbs-up": "Убрать отметку «Нравится»",
-  "Removed with chat, computer, and memory.": "Удалено вместе с чатом, компьютером и памятью.",
   "Replies and completed work": "Ответы и выполненная работа",
   Reply: "Ответить",
   "Replying to": "Ответ пользователю",
@@ -758,7 +756,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Open conversation": "Открыть диалог",
   "Open in full window": "Открыть в полном окне",
   "OpenAPI JSON": "OpenAPI JSON",
-  "Opened its thread.": "Диалог открыт.",
   "Paste the OpenAI-compatible address from your server. Rakazo adds /v1 if needed.":
     "Вставьте OpenAI-совместимый адрес со своего сервера. При необходимости Rakazo добавляет /v1.",
   Paused: "Приостановлено",

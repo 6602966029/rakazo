@@ -765,10 +765,6 @@ msgstr "archiviert"
 msgid "Archived"
 msgstr "Archiviert"
 
-#: src/pages/shell/message-view.tsx
-msgid "Archived. Chat, memory, and files kept."
-msgstr "Archiviert. Chat, Erinnerungen und Dateien bleiben erhalten."
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Arguments"
 msgstr "Argumente"
@@ -3724,10 +3720,6 @@ msgstr ""
 msgid "OpenAI-compatible server URL"
 msgstr "URL eines OpenAI-kompatiblen Servers"
 
-#: src/pages/shell/message-view.tsx
-msgid "Opened its thread."
-msgstr "Thread geöffnet."
-
 #: src/pages/Onboarding.tsx
 msgid "Opening chat…"
 msgstr "Chat wird geöffnet…"
@@ -4144,10 +4136,6 @@ msgstr "Skill {0} entfernen"
 #: src/pages/RoutineEditor.tsx
 msgid "Remove webhook"
 msgstr ""
-
-#: src/pages/shell/message-view.tsx
-msgid "Removed with chat, computer, and memory."
-msgstr "Zusammen mit Chat, Computer und Erinnerungen entfernt."
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"

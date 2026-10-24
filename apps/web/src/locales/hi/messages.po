@@ -765,10 +765,6 @@ msgstr "आर्काइव किया गया"
 msgid "Archived"
 msgstr "आर्काइव किया गया"
 
-#: src/pages/shell/message-view.tsx
-msgid "Archived. Chat, memory, and files kept."
-msgstr "आर्काइव किया गया। चैट, मेमोरी और फ़ाइलें सुरक्षित रखी गईं।"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Arguments"
 msgstr "आर्ग्युमेंट"
@@ -3724,10 +3720,6 @@ msgstr ""
 msgid "OpenAI-compatible server URL"
 msgstr "OpenAI-संगत सर्वर URL"
 
-#: src/pages/shell/message-view.tsx
-msgid "Opened its thread."
-msgstr "इसका थ्रेड खोला।"
-
 #: src/pages/Onboarding.tsx
 msgid "Opening chat…"
 msgstr "चैट खुल रही है…"
@@ -4144,10 +4136,6 @@ msgstr "स्किल {0} हटाएं"
 #: src/pages/RoutineEditor.tsx
 msgid "Remove webhook"
 msgstr ""
-
-#: src/pages/shell/message-view.tsx
-msgid "Removed with chat, computer, and memory."
-msgstr "चैट, कंप्यूटर और मेमोरी सहित हटाया गया।"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"

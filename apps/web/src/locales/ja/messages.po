@@ -765,10 +765,6 @@ msgstr "アーカイブ済み"
 msgid "Archived"
 msgstr "アーカイブ済み"
 
-#: src/pages/shell/message-view.tsx
-msgid "Archived. Chat, memory, and files kept."
-msgstr "アーカイブしました。チャット、メモリ、ファイルは保持されます。"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Arguments"
 msgstr "引数"
@@ -3724,10 +3720,6 @@ msgstr "OpenAI API"
 msgid "OpenAI-compatible server URL"
 msgstr "OpenAI互換サーバーのURL"
 
-#: src/pages/shell/message-view.tsx
-msgid "Opened its thread."
-msgstr "スレッドを開きました。"
-
 #: src/pages/Onboarding.tsx
 msgid "Opening chat…"
 msgstr "チャットを開いています…"
@@ -4144,10 +4136,6 @@ msgstr "スキル{0}を削除"
 #: src/pages/RoutineEditor.tsx
 msgid "Remove webhook"
 msgstr "Webhookを削除"
-
-#: src/pages/shell/message-view.tsx
-msgid "Removed with chat, computer, and memory."
-msgstr "チャット、コンピューター、メモリと一緒に削除されました。"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"
