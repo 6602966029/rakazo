@@ -530,7 +530,13 @@ export function sanitizeJsonValue<T>(value: T): T {
       used.set(safeKey, seen + 1);
       // Deterministic collision handling when sanitizing collapses distinct keys.
       if (seen > 0) safeKey = `${safeKey}#${seen + 1}`;
-      out[safeKey] = sanitizeJsonValue(nested);
+      // An own property, so a parsed "__proto__" key stays data instead of setting the prototype.
+      Object.defineProperty(out, safeKey, {
+        value: sanitizeJsonValue(nested),
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
     }
     return out as T;
   }

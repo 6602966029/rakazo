@@ -55,6 +55,19 @@ describe("sanitizeWriteArgs", () => {
     });
   });
 
+  it("keeps a parsed __proto__ key as data when cleaning keys", () => {
+    const payload = JSON.parse('{"bad\\u0000":1,"__proto__":{"keep":2}}');
+    const out = sanitizeWriteArgs("create", { data: { payload } }) as {
+      data: { payload: Record<string, unknown> };
+    };
+
+    expect(Object.getPrototypeOf(out.data.payload)).toBe(Object.prototype);
+    expect(JSON.parse(JSON.stringify(out.data.payload))).toEqual(
+      JSON.parse('{"bad\\ufffd":1,"__proto__":{"keep":2}}'),
+    );
+    expect(Object.hasOwn(out.data.payload, "__proto__")).toBe(true);
+  });
+
   it("leaves reads alone", () => {
     const args = { where: { name: "a\0" } };
     expect(sanitizeWriteArgs("findFirst", args)).toBe(args);
