@@ -512,7 +512,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "No matching models": "没有匹配的模型",
   "No messages yet": "还没有消息",
   "No results": "没有结果",
-  "Not connected": "未连接",
   "Not now": "暂不",
   Now: "现在",
   Notifications: "通知",

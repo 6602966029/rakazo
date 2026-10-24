@@ -750,31 +750,18 @@ function editField(label: string, value: string) {
 }
 
 describe("provider connection screen", () => {
-  it("offers the model and its thinking only when connecting the main model", async () => {
+  it("connects a provider with only its connection controls", async () => {
     mocks.connected = false;
     await renderConnection({ makeDefault: true });
     expect(mocks.setOptions).toHaveBeenCalledWith({ title: "OpenRouter" });
     expect(container.querySelector('button[aria-label="Provider"]')).toBeNull();
-    expect(modelRow().getAttribute("aria-valuetext")).toBe("Model 1");
-    const thinking = container.querySelectorAll('button[aria-label="Thinking"]');
-    expect(thinking).toHaveLength(1);
-    const thinkingMenu = mocks.menus.get("Thinking")!;
-    expect(thinkingMenu.actions.map((action) => action.title)).toEqual([
-      "Default",
-      "Low",
-      "Medium",
-      "High",
-    ]);
-    act(() => thinkingMenu.onPressAction({ nativeEvent: { event: "choice:medium" } }));
-    expect(thinking[0]!.getAttribute("aria-valuetext")).toBe("Medium");
-    expect(buttonWithText("Connect API key")?.dataset.prominence).toBe("primary");
-    expect(buttonWithText("Disconnect")).toBeUndefined();
-
-    act(() => root.unmount());
-    root = createRoot(container);
-    await renderConnection({ makeDefault: false });
-    expect(modelRow()).not.toBeNull();
+    expect(modelRow()).toBeNull();
     expect(container.querySelector('button[aria-label="Thinking"]')).toBeNull();
+    expect(buttonWithText("Advanced")).toBeUndefined();
+    expect(container.querySelector('input[aria-label="Maximum output tokens"]')).toBeNull();
+    expect(buttonWithText("Connect API key")?.dataset.prominence).toBe("primary");
+    expect(buttonWithText("Connect API key")?.disabled).toBe(true);
+    expect(buttonWithText("Disconnect")).toBeUndefined();
   });
 
   it("manages a connected provider without choosing its model again", async () => {
@@ -796,35 +783,24 @@ describe("provider connection screen", () => {
     expect(advanced.dataset.chevron).toBe("down");
   });
 
-  it("reveals the own-key form behind server credentials", async () => {
+  it("reveals only the own-key controls behind server credentials", async () => {
     mocks.connected = false;
     mocks.serverCredentials = true;
     await renderConnection();
-    expect(modelRow()).toBeNull();
+    expect(buttonWithText("Connect API key")).toBeUndefined();
     act(() => buttonWithText("Use your own key")!.click());
-    expect(container.querySelectorAll('button[aria-label="Model"]')).toHaveLength(1);
+    expect(buttonWithText("Connect API key")).toBeDefined();
+    expect(modelRow()).toBeNull();
     expect(buttonWithText("Disconnect")).toBeUndefined();
   });
 
-  it("connects with the picked model and hands it back to the slot that asked", async () => {
+  it("continues in the screen the slot hands back after connecting", async () => {
     mocks.connected = false;
-    const onConnected = vi.fn();
+    const onConnected = vi.fn(async () => ({
+      pathname: "/model-picker" as const,
+      params: { requestId: "picker-fixture" },
+    }));
     await renderConnection({ onConnected });
-    act(() => modelRow().click());
-    const id = mocks.params.requestId!;
-    expect(mocks.setOptions).toHaveBeenCalledWith({ title: "Model" });
-    expect(pickerRows()).toHaveLength(11);
-    expect(
-      pickerRows()
-        .filter((row) => row.getAttribute("aria-selected") === "true")
-        .map((row) => row.textContent),
-    ).toEqual(["Model 1"]);
-    searchModels("vendor/model-3");
-    act(() => pickerRows()[0]!.click());
-    expect(modelPickerRequest(id)).toBeUndefined();
-    expect(modelRow().getAttribute("aria-valuetext")).toBe("Model 3");
-    expect(mocks.dismissKeyboard).toHaveBeenCalled();
-    mocks.back.mockClear();
     editField("API key", "fixture-key");
     await act(async () => buttonWithText("Connect API key")!.click());
     expect(mocks.rpc).toHaveBeenCalledWith(
@@ -832,52 +808,27 @@ describe("provider connection screen", () => {
       expect.objectContaining({
         provider: "openrouter",
         apiKey: "fixture-key",
-        modelId: "vendor/model-3",
         makeDefault: false,
       }),
     );
-    expect(onConnected).toHaveBeenCalledWith({ provider: "openrouter", modelId: "vendor/model-3" });
+    expect(onConnected).toHaveBeenCalledWith({ provider: "openrouter", modelId: "vendor/model-1" });
+    expect(mocks.replace).toHaveBeenCalledWith({
+      pathname: "/model-picker",
+      params: { requestId: "picker-fixture" },
+    });
+    expect(mocks.back).not.toHaveBeenCalled();
+  });
+
+  it("returns to the list when there is nothing to pick after connecting", async () => {
+    mocks.connected = false;
+    await renderConnection({ onConnected: async () => undefined });
+    editField("API key", "fixture-key");
+    await act(async () => buttonWithText("Connect API key")!.click());
+    expect(mocks.replace).not.toHaveBeenCalled();
     expect(mocks.back).toHaveBeenCalledOnce();
   });
 
-  it("shows only the stripped staged name in the row and vendor-only headings in the picker", async () => {
-    mocks.connected = false;
-    mocks.vendorLabels = true;
-    await renderConnection();
-    expect(modelRow().getAttribute("aria-valuetext")).toBe("Claude Sonnet 4.5");
-    expect(modelRow().textContent).toBe("ModelClaude Sonnet 4.5");
-    act(() => modelRow().click());
-    expect([...container.querySelectorAll("h2")].map((heading) => heading.textContent)).toEqual([
-      "Anthropic",
-      "Google",
-    ]);
-    expect(pickerRows()[0]?.textContent).toBe("Claude Sonnet 4.5");
-    searchModels("does not exist");
-    expect(container.querySelector("ul")?.textContent).toBe("No matching models");
-    expect(mocks.announce).toHaveBeenCalledWith("No matching models");
-  });
-
-  it("cancels the model picker without losing the draft", async () => {
-    mocks.connected = false;
-    await renderConnection();
-    act(() => modelRow().click());
-    const id = mocks.params.requestId!;
-    act(() => mocks.back());
-    expect(modelRow().getAttribute("aria-valuetext")).toBe("Model 1");
-    expect(modelPickerRequest(id)).toBeUndefined();
-  });
-
-  it("cleans up picker requests if the screen unmounts while the picker is open", async () => {
-    mocks.connected = false;
-    await renderConnection();
-    act(() => modelRow().click());
-    const id = mocks.params.requestId!;
-    expect(modelPickerRequest(id)).toBeDefined();
-    act(() => root.render(null));
-    expect(modelPickerRequest(id)).toBeUndefined();
-  });
-
-  it("aborts pending subscription sign-in when the screen unmounts with the picker open", async () => {
+  it("aborts pending subscription sign-in when the screen unmounts", async () => {
     mocks.connected = false;
     mocks.subscriptionSignIn = true;
     let completeSignIn!: (result: { status: "ready" }) => void;
@@ -893,22 +844,12 @@ describe("provider connection screen", () => {
       expect.objectContaining({ provider: "openrouter", makeDefault: true }),
     );
     const signal = mocks.completeOAuth.mock.lastCall![0] as AbortSignal;
-    act(() => modelRow().click());
-    const id = mocks.params.requestId!;
     expect(signal.aborted).toBe(false);
     act(() => root.render(null));
-    expect(modelPickerRequest(id)).toBeUndefined();
     expect(signal.aborted).toBe(true);
     expect(mocks.rpc).toHaveBeenCalledWith("models/cancelOAuth", { loginId: "login-fixture" });
     await act(async () => completeSignIn({ status: "ready" }));
     expect(mocks.rpc).not.toHaveBeenCalledWith("models/finishOAuth", expect.anything());
-  });
-
-  it("omits the model row for an empty catalog", async () => {
-    mocks.connected = false;
-    mocks.catalogEmpty = true;
-    await renderConnection();
-    expect(modelRow()).toBeNull();
   });
 });
 
@@ -963,15 +904,6 @@ describe("provider connection limit saves", () => {
     await act(async () => finish());
     expect(buttonWithText("Saving…")).toBeUndefined();
     expect(container.textContent).toContain("Saved.");
-  });
-
-  it("does not offer a limits save before connecting", async () => {
-    mocks.connected = false;
-    await renderConnection();
-    act(() => buttonWithText("Advanced")!.click());
-    editField("Maximum output tokens", "2000");
-    expect(buttonWithText("Save")).toBeUndefined();
-    expect(buttonWithText("Connect API key")?.disabled).toBe(true);
   });
 
   it("keeps invalid limits feedback beside Advanced Save", async () => {
@@ -1193,16 +1125,17 @@ describe("model role lists", () => {
     expect(request.onConnected).toBeUndefined();
   });
 
-  it("continues from a provider that is not connected into its connect screen", async () => {
+  it("lists providers to connect after the models and reopens the slot on that provider", async () => {
     mocks.primary = model(1);
     mocks.extraProviders = true;
     await renderModels();
     act(() => rowButton("Main model", "Model 1").click());
     expect([...container.querySelectorAll("h2")].map((heading) => heading.textContent)).toEqual([
       "OpenRouter",
-      "Not connected",
     ]);
-    const anthropic = pickerRows().find((row) => row.textContent === "Anthropic")!;
+    const anthropic = pickerRows().find((row) => row.textContent?.startsWith("Anthropic"))!;
+    expect(anthropic.textContent).toBe("AnthropicConnect");
+    expect(anthropic.dataset.chevron).toBe("right");
     act(() => anthropic.click());
     expect(mocks.back).not.toHaveBeenCalled();
     const route = mocks.replace.mock.lastCall![0] as {
@@ -1219,15 +1152,57 @@ describe("model role lists", () => {
     act(() => rowButton("Main model", "Add fallback").click());
     act(() =>
       pickerRows()
-        .find((row) => row.textContent === "Google")!
+        .find((row) => row.textContent?.startsWith("Google"))!
         .click(),
     );
     const fallback = modelConnectionRequest(
       (mocks.replace.mock.lastCall![0] as { params: { requestId: string } }).params.requestId,
     )!;
     expect(fallback).toMatchObject({ provider: "google", makeDefault: false });
-    await act(async () => fallback.onConnected!({ provider: "google", modelId: "vendor/model-1" }));
-    expect(roleSaves()).toEqual([{ backups: [{ provider: "google", modelId: "vendor/model-1" }] }]);
+    // Nothing joins the list until a model is picked from that provider.
+    let next: unknown;
+    await act(async () => {
+      next = await fallback.onConnected!({ provider: "openrouter", modelId: "vendor/model-1" });
+    });
+    expect(roleSaves()).toEqual([]);
+    const picker = modelPickerRequest(
+      (next as { params: { requestId: string } }).params.requestId,
+    )!;
+    expect(picker.title).toBe("Add fallback");
+    expect(picker.connectChoices).toBeUndefined();
+    expect(picker.choices.map((choice) => choice.modelLabel)).toEqual(
+      catalog.slice(1).map((entry) => entry.label),
+    );
+    await act(async () => picker.onSelect(picker.choices[2]!));
+    expect(roleSaves()).toEqual([{ backups: [model(4)] }]);
+  });
+
+  it("reopens the empty main slot on the connection that became the main model", async () => {
+    mocks.connected = false;
+    await renderModels();
+    act(() => rowButton("Main model", "Choose a model").click());
+    act(() =>
+      pickerRows()
+        .find((row) => row.textContent?.startsWith("OpenRouter"))!
+        .click(),
+    );
+    const request = modelConnectionRequest(
+      (mocks.replace.mock.lastCall![0] as { params: { requestId: string } }).params.requestId,
+    )!;
+    expect(request.makeDefault).toBe(true);
+    mocks.connected = true;
+    mocks.primary = model(1);
+    let next: unknown;
+    await act(async () => {
+      next = await request.onConnected!(model(1));
+    });
+    const picker = modelPickerRequest(
+      (next as { params: { requestId: string } }).params.requestId,
+    )!;
+    expect(picker.selectedKey).toBe(JSON.stringify(["openrouter", "vendor/model-1"]));
+    expect(picker.choices).toHaveLength(11);
+    await act(async () => picker.onSelect(picker.choices[0]!));
+    expect(roleSaves()).toEqual([]);
   });
 
   it("sets the approval model and clears it back to the deployment default", async () => {

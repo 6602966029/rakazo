@@ -24,7 +24,6 @@ import {
   clampCatalogThinkingLevel,
   compatibleModelRows,
   createModelProbe,
-  groupModelChoices,
   initialModelProbeState,
   pickCatalogModelId,
   savedCompatibleModelIds,
@@ -62,8 +61,6 @@ import {
   waitForModelOAuth,
 } from "../../lib/model-auth";
 import { modelConnectionRequest } from "../../lib/model-connection-request";
-import type { ModelPickerRequest } from "../../lib/model-picker-selection";
-import { closeModelPicker, openModelPicker } from "../../lib/model-picker-selection";
 import { native, useThemedStyles } from "../../lib/native";
 import { thinkingLevelLabel } from "../../lib/thinking-level";
 import { errorText } from "../../lib/user-error";
@@ -98,16 +95,6 @@ export default function ModelConnection() {
   const { requestId = "" } = useLocalSearchParams<{ requestId?: string }>();
   const [request] = useState(() => modelConnectionRequest(requestId));
   const makeDefault = request?.makeDefault ?? false;
-  const pickerRequestRef = useRef<string | null>(null);
-  const returningFromPickerRef = useRef(false);
-
-  function pushModelPicker(request: ModelPickerRequest) {
-    if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
-    const requestId = openModelPicker(request);
-    pickerRequestRef.current = requestId;
-    returningFromPickerRef.current = true;
-    router.push({ pathname: "/model-picker", params: { requestId } });
-  }
   const { t } = useI18n();
   const [catalog, setCatalog] = useState<MobileModel[]>([]);
   const [credentials, setCredentials] = useState<MobileModelCredential[]>([]);
@@ -199,7 +186,6 @@ export default function ModelConnection() {
 
   useEffect(
     () => () => {
-      if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
       cancelInFlightWork();
     },
     [cancelInFlightWork],
@@ -275,23 +261,14 @@ export default function ModelConnection() {
 
   useFocusEffect(
     useCallback(() => {
-      // A child picker edits this draft; refocusing must not reload saved values.
-      if (returningFromPickerRef.current) {
-        returningFromPickerRef.current = false;
-        if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
-        pickerRequestRef.current = null;
-      } else
-        void load()
-          .catch((err: unknown) =>
-            publishFeedback("connection", {
-              error: errorText(err, t("Could not load model settings")),
-            }),
-          )
-          .finally(() => setLoading(false));
-      return () => {
-        if (returningFromPickerRef.current) return;
-        cancelInFlightWork();
-      };
+      void load()
+        .catch((err: unknown) =>
+          publishFeedback("connection", {
+            error: errorText(err, t("Could not load model settings")),
+          }),
+        )
+        .finally(() => setLoading(false));
+      return cancelInFlightWork;
     }, [cancelInFlightWork, load]),
   );
 
@@ -304,20 +281,6 @@ export default function ModelConnection() {
   useLayoutEffect(() => {
     if (selectedProviderLabel) navigation.setOptions({ title: selectedProviderLabel });
   }, [navigation, selectedProviderLabel]);
-  const selectedSection = selected
-    ? groupModelChoices(
-        [
-          {
-            key: selected.id,
-            label: selected.label,
-            modelLabel: selected.label,
-            providerLabel: selectedProviderLabel,
-          },
-        ],
-        "",
-      )[0]
-    : undefined;
-  const selectedChoice = selectedSection?.data[0];
   const isOpenAiCompatible = provider === OPENAI_COMPATIBLE_PROVIDER_ID;
   const isCloudflareGateway = provider === CLOUDFLARE_AI_GATEWAY_PROVIDER_ID;
   const isCloudflare = isCloudflareModelProvider(provider);
@@ -331,12 +294,6 @@ export default function ModelConnection() {
   );
   const acceptsKey = selected?.auth !== "oauth";
   const subscriptionSignIn = selected?.signIn !== undefined;
-  // Effort levels for the staged catalog model — "off" stays out, matching the
-  // model settings and per-bot Thinking pickers.
-  const catalogThinkingLevels: ThinkingLevel[] =
-    !isOpenAiCompatible && selected
-      ? (selected.thinkingLevels ?? []).filter((level) => level !== "off")
-      : [];
   const reasoningEffortValue = thinkingLevel ? thinkingLevelLabel(thinkingLevel, t) : t("Default");
   const busy = pending !== null || oauthPending;
   const effectiveBaseUrl = baseUrl.trim();
@@ -561,11 +518,12 @@ export default function ModelConnection() {
     publishFeedback("connection", { notice: t("Saved.") });
   }
 
-  /** A connect that fills a model slot hands the chosen model back and returns to the list. */
+  /** A connect started from a picker continues in that slot's picker for this provider. */
   async function finishConnecting(connectedModelId: string): Promise<boolean> {
     if (!request?.onConnected || !connectedModelId) return false;
-    await request.onConnected({ provider, modelId: connectedModelId });
-    router.back();
+    const next = await request.onConnected({ provider, modelId: connectedModelId });
+    if (next) router.replace(next);
+    else router.back();
     return true;
   }
 
@@ -1015,76 +973,10 @@ export default function ModelConnection() {
     ) : null;
 
   // Managing a connection keeps its model choice in the list that opened it.
+  // Keys belong to the provider: models are picked in the list, limits only once connected.
   const catalogModelCard =
-    !isOpenAiCompatible && selected ? (
+    !isOpenAiCompatible && selected && credential ? (
       <>
-        {credential ? null : (
-          <View style={styles.card}>
-            <SettingsRow
-              title={t("Model")}
-              value={selectedChoice?.title ?? selected.label}
-              accessibilityRole="button"
-              accessibilityLabel={t("Model")}
-              accessibilityValue={{ text: selectedChoice?.title ?? selected.label }}
-              chevron="right"
-              onPress={() =>
-                pushModelPicker({
-                  selectedKey: selected.id,
-                  providerLabel: selectedProviderLabel,
-                  choices: modelsForProvider.map((entry) => ({
-                    key: entry.id,
-                    label: entry.label,
-                    modelLabel: entry.label,
-                    modelId: entry.id,
-                    provider: entry.provider,
-                    providerLabel: entry.providerName ?? entry.provider,
-                    images: entry.images,
-                  })),
-                  onSelect: (choice) => {
-                    const entry = modelsForProvider.find((model) => model.id === choice.key);
-                    if (!entry) return;
-                    Keyboard.dismiss();
-                    cancelOAuth();
-                    setModelId(entry.id);
-                    setThinkingLevel(null);
-                    clearFeedback();
-                  },
-                })
-              }
-            />
-            {makeDefault && catalogThinkingLevels.length ? (
-              <View style={styles.modelDivider} />
-            ) : null}
-            {makeDefault && catalogThinkingLevels.length ? (
-              <MenuPickerMenu
-                label={t("Thinking")}
-                choices={[
-                  { key: "", label: t("Default") },
-                  ...catalogThinkingLevels.map((level) => ({
-                    key: level,
-                    label: thinkingLevelLabel(level, t),
-                  })),
-                ]}
-                value={thinkingLevel ?? ""}
-                disabled={busy}
-                onChange={(value) => setThinkingLevel((value || null) as ThinkingLevel | null)}
-              >
-                <View>
-                  <SettingsRow
-                    title={t("Thinking")}
-                    value={reasoningEffortValue}
-                    chevron="down"
-                    accessibilityRole="button"
-                    accessible
-                    accessibilityLabel={t("Thinking")}
-                    accessibilityState={{ disabled: busy }}
-                    accessibilityValue={{ text: reasoningEffortValue }}
-                  />
-                </View>
-              </MenuPickerMenu>
-            ) : null}
-          </View>
-        )}
         {disclosureRow(t("Advanced"), showAdvanced, () => setShowAdvanced((visible) => !visible))}
         {showAdvanced ? (
           <>
@@ -1426,11 +1318,6 @@ function createModelsStyles() {
       gap: 12,
       marginTop: 8,
       marginBottom: 16,
-    },
-    modelDivider: {
-      height: StyleSheet.hairlineWidth,
-      marginStart: 16,
-      backgroundColor: native.separator,
     },
     modelRow: {
       minHeight: 54,

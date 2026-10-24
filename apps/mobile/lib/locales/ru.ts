@@ -541,7 +541,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "No matching models": "Нет подходящих моделей",
   "No messages yet": "Сообщений пока нет",
   "No results": "Нет результатов",
-  "Not connected": "Не подключено",
   "Not now": "Не сейчас",
   Now: "Сейчас",
   Notifications: "Уведомления",

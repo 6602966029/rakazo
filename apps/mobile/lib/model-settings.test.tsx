@@ -243,9 +243,7 @@ async function notConnectedChoices() {
   expect(add).toBeDefined();
   await act(async () => add!.click());
   const route = push.mock.calls.at(-1)?.[0] as { params: { requestId: string } };
-  return modelPickerRequest(route.params.requestId)!.choices.filter(
-    (choice) => choice.providerLabel === "Not connected",
-  );
+  return modelPickerRequest(route.params.requestId)!.connectChoices ?? [];
 }
 
 it("offers deployment-funded providers and Ollama Cloud once among providers to connect", async () => {
@@ -281,7 +279,7 @@ it("opens the Ollama preset through the compatible form with a visible key field
 });
 
 it("hands a connected model back to the slot that asked for it", async () => {
-  const onConnected = vi.fn();
+  const onConnected = vi.fn(async () => undefined);
   await remount(() => renderConnection({ makeDefault: true, onConnected }));
   const save = [...container.querySelectorAll("button")].find(
     (button) => button.textContent === "Save",

@@ -471,7 +471,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Maximum output tokens": "Maximaal aantal uitvoertokens",
   "Model id": "Model-id",
   "No matching models": "Geen overeenkomende modellen",
-  "Not connected": "Niet verbonden",
   "Not now": "Niet nu",
   "OpenAI-compatible server URL": "OpenAI-compatibele server-URL",
   Optional: "Optioneel",

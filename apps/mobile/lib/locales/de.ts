@@ -488,7 +488,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Maximum output tokens": "Maximale Ausgabetokens",
   "Model id": "Modell-ID",
   "No matching models": "Keine passenden Modelle",
-  "Not connected": "Nicht verbunden",
   "Not now": "Nicht jetzt",
   "OpenAI-compatible server URL": "URL eines OpenAI-kompatiblen Servers",
   Optional: "Optional",

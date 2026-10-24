@@ -14,7 +14,6 @@ import {
   MAX_MODEL_BACKUPS,
   OPENAI_COMPATIBLE_PROVIDER_ID,
 } from "@rakazo/contracts";
-import type { ChatModelChoice } from "@rakazo/core";
 import { createModelRoleSettings } from "@rakazo/core";
 import type { Href } from "expo-router";
 import type { ReactNode } from "react";
@@ -34,7 +33,8 @@ export type ConnectableProvider = { id: string; name: string; baseUrl?: string }
 export type ModelConnectIntent = {
   /** Only the main model's first slot replaces the space's default on connect. */
   makeDefault: boolean;
-  onConnected: (choice: ModelBackupChoice) => Promise<void>;
+  /** Returns the picker to continue in, narrowed to the newly connected provider. */
+  onConnected: (choice: ModelBackupChoice) => Promise<Href | undefined>;
 };
 
 /** A row index, the empty first slot, or a new fallback at the end. */
@@ -65,6 +65,7 @@ export function ModelRoleSettings({
   defaultLabel,
   providers,
   openPicker,
+  pickerRoute,
   connectRoute,
   onManage,
   onChanged,
@@ -79,6 +80,8 @@ export function ModelRoleSettings({
   /** Providers without a connection, offered at the end of the picker. */
   providers: ConnectableProvider[];
   openPicker: (request: ModelPickerRequest) => void;
+  /** Registers a picker that continues from another screen and returns its route. */
+  pickerRoute: (request: ModelPickerRequest) => Href;
   /** Registers a connect flow and returns the screen that runs it. */
   connectRoute: (provider: ConnectableProvider, intent: ModelConnectIntent) => Href;
   onManage: (provider: string) => void;
@@ -132,11 +135,6 @@ export function ModelRoleSettings({
     );
   const connected = new Set(credentials.map((entry) => canonicalPiProviderId(entry.provider)));
   const options = connectedBackupOptions(state.catalog, credentials);
-  // The main model runs on a personal connection, so deployment-managed models only back it up.
-  const primaryOptions =
-    role === "main"
-      ? options.filter((option) => connected.has(canonicalPiProviderId(option.provider)))
-      : options;
   const optionFor = (choice: ModelBackupChoice) =>
     options.find((option) => sameChoice(option, choice));
   const modelLabel = (choice: ModelBackupChoice) =>
@@ -225,47 +223,77 @@ export function ModelRoleSettings({
     }
   }
 
-  function pick(slot: Slot) {
-    if (busy) return;
+  /** After a connection, the same slot's picker shows only that provider's models. */
+  type Narrowed = {
+    provider: string;
+    credentials: ModelCredential[];
+    selected?: ModelBackupChoice;
+  };
+
+  function pickerRequest(slot: Slot, narrowed?: Narrowed): ModelPickerRequest {
     const primarySlot = isPrimarySlot(slot);
-    const pool = primarySlot ? primaryOptions : options;
-    const current = typeof slot === "number" ? rows[slot] : undefined;
+    const all = narrowed ? connectedBackupOptions(state.catalog, narrowed.credentials) : options;
+    // The main model runs on a personal connection, so deployment-managed models only back it up.
+    const pool = (
+      primarySlot && role === "main"
+        ? all.filter((option) =>
+            (narrowed?.credentials ?? credentials).some(
+              (entry) =>
+                canonicalPiProviderId(entry.provider) === canonicalPiProviderId(option.provider),
+            ),
+          )
+        : all
+    ).filter(
+      (option) =>
+        !narrowed ||
+        canonicalPiProviderId(option.provider) === canonicalPiProviderId(narrowed.provider),
+    );
+    const current = narrowed?.selected ?? (typeof slot === "number" ? rows[slot] : undefined);
     const taken = new Set(rows.map(backupChoiceKey));
-    const choices: ChatModelChoice[] = [
-      ...(primarySlot && role !== "main"
-        ? [{ key: "default", label: defaultLabel, modelLabel: defaultLabel }]
-        : []),
-      ...pool
-        .filter((option) => slot !== "add" || !taken.has(backupChoiceKey(option)))
-        .map((option) => ({
-          key: backupChoiceKey(option),
-          label: `${option.providerName} · ${option.label}`,
-          modelLabel: option.label,
-          providerLabel: option.providerName,
-          provider: option.provider,
-          modelId: option.modelId,
-        })),
-      ...providers.map((provider) => ({
-        key: connectKey(provider),
-        label: provider.name,
-        modelLabel: provider.name,
-        providerLabel: t("Not connected"),
-      })),
-    ];
-    openPicker({
+    const offerDefault = primarySlot && role !== "main" && !narrowed;
+    return {
       title: slot === "add" ? t("Add fallback") : title,
-      selectedKey: current ? backupChoiceKey(current) : primarySlot ? "default" : "",
-      choices,
+      selectedKey: current ? backupChoiceKey(current) : offerDefault ? "default" : "",
+      choices: [
+        ...(offerDefault
+          ? [{ key: "default", label: defaultLabel, modelLabel: defaultLabel }]
+          : []),
+        ...pool
+          .filter((option) => slot !== "add" || !taken.has(backupChoiceKey(option)))
+          .map((option) => ({
+            key: backupChoiceKey(option),
+            label: `${option.providerName} · ${option.label}`,
+            modelLabel: option.label,
+            providerLabel: option.providerName,
+            provider: option.provider,
+            modelId: option.modelId,
+          })),
+      ],
+      connectChoices: narrowed
+        ? undefined
+        : providers.map((provider) => ({
+            key: connectKey(provider),
+            label: provider.name,
+            modelLabel: provider.name,
+          })),
       continueTo: (choice) => {
         const provider = providers.find((entry) => connectKey(entry) === choice.key);
         if (!provider) return undefined;
+        // Only the main model's empty first slot takes the connection itself as its model.
         const makeDefault = role === "main" && primarySlot;
         return connectRoute(provider, {
           makeDefault,
-          onConnected: async (connectedChoice) => {
-            // Connecting already made it the space default.
-            if (makeDefault) await controller.load();
-            else await fill(slot, connectedChoice);
+          onConnected: async (connected) => {
+            const [fresh] = await Promise.all([
+              send<ModelCredential[]>("models/credentials", {}),
+              makeDefault ? controller.load() : undefined,
+            ]);
+            const next = pickerRequest(slot, {
+              provider: connected.provider,
+              credentials: fresh,
+              selected: makeDefault ? connected : undefined,
+            });
+            return next.choices.length ? pickerRoute(next) : undefined;
           },
         });
       },
@@ -278,7 +306,11 @@ export function ModelRoleSettings({
         const picked = { provider: choice.provider, modelId: choice.modelId };
         if (!current || !sameChoice(current, picked)) void fill(slot, picked);
       },
-    });
+    };
+  }
+
+  function pick(slot: Slot) {
+    if (!busy) openPicker(pickerRequest(slot));
   }
 
   function act(index: number, id: string) {

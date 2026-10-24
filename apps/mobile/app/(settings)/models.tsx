@@ -71,12 +71,18 @@ export default function Models() {
     }, [load]),
   );
 
-  function pushModelPicker(request: ModelPickerRequest) {
+  /** A picker reopened after connecting returns to a list that must reload its connections. */
+  function pickerRoute(request: ModelPickerRequest): Href {
     if (pickerRequestRef.current) closeModelPicker(pickerRequestRef.current);
     const requestId = openModelPicker(request);
     pickerRequestRef.current = requestId;
+    returningFromPickerRef.current = false;
+    return { pathname: "/model-picker", params: { requestId } };
+  }
+
+  function pushModelPicker(request: ModelPickerRequest) {
+    router.push(pickerRoute(request));
     returningFromPickerRef.current = true;
-    router.push({ pathname: "/model-picker", params: { requestId } });
   }
 
   function connectionRoute(request: ModelConnectionRequest): Href {
@@ -132,6 +138,7 @@ export default function Models() {
     credentials,
     providers,
     openPicker: pushModelPicker,
+    pickerRoute,
     connectRoute,
     onManage: manage,
   };

@@ -17,6 +17,7 @@ export default function SettingsModelPickerScreen() {
   return (
     <ModelPickerList
       choices={request?.choices ?? []}
+      connectChoices={request?.connectChoices}
       selectedKey={request?.selectedKey ?? ""}
       providerLabel={request?.providerLabel}
       emptyMessage={request?.emptyMessage}

@@ -5,6 +5,8 @@ export type ModelPickerRequest = {
   title?: string;
   emptyMessage?: string;
   choices: ChatModelChoice[];
+  /** Providers that need a connection first, listed after the models. */
+  connectChoices?: ChatModelChoice[];
   selectedKey: string;
   providerLabel?: string;
   onSelect: (choice: ChatModelChoice) => void;
@@ -32,7 +34,9 @@ export function closeModelPicker(id: string): void {
 
 export function selectPickerModel(id: string, key: string): Href | boolean {
   const request = requests.get(id);
-  const choice = request?.choices.find((entry) => entry.key === key);
+  const choice = [...(request?.choices ?? []), ...(request?.connectChoices ?? [])].find(
+    (entry) => entry.key === key,
+  );
   if (!request || !choice) return false;
   requests.delete(id);
   const next = request.continueTo?.(choice);

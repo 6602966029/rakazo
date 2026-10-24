@@ -462,7 +462,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Maximum output tokens": "最大出力トークン数",
   "Model id": "モデルID",
   "No matching models": "一致するモデルはありません",
-  "Not connected": "未接続",
   "Not now": "後で",
   "OpenAI-compatible server URL": "OpenAI互換サーバーのURL",
   Optional: "任意",

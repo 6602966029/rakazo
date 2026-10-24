@@ -1,4 +1,5 @@
 import type { ModelBackupChoice } from "@rakazo/contracts";
+import type { Href } from "expo-router";
 
 export type ModelConnectionRequest = {
   provider: string;
@@ -7,7 +8,8 @@ export type ModelConnectionRequest = {
   /** Only the main model's first slot replaces the space's default on connect. */
   makeDefault: boolean;
   /** Set when connecting fills a model slot; managing a connection leaves it unset. */
-  onConnected?: (choice: ModelBackupChoice) => Promise<void> | void;
+  /** May return the screen to continue in, such as the slot's picker for this provider. */
+  onConnected?: (choice: ModelBackupChoice) => Promise<Href | undefined>;
 };
 
 let nextId = 0;
