@@ -565,7 +565,6 @@ msgstr "जोड़ा जा रहा है…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -1411,6 +1410,7 @@ msgstr ""
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
 msgstr "कनेक्ट करें"
@@ -2124,12 +2124,6 @@ msgstr "डिफ़ॉल्ट"
 #. placeholder {0}: thinkingLevelLabel(defaultThinkingLevel)
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
-msgid "Default ({0})"
-msgstr "डिफ़ॉल्ट ({0})"
-
-#. js-lingui-explicit-id
-#. placeholder {0}: thinkingLevelLabel("medium")
-#: src/pages/model-settings/catalog-model-fields.tsx
 msgid "Default ({0})"
 msgstr "डिफ़ॉल्ट ({0})"
 
@@ -3084,9 +3078,10 @@ msgstr ""
 msgid "Main model"
 msgstr "मुख्य मॉडल"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
-msgstr ""
+msgstr "प्रबंधित करें"
 
 #. placeholder {0}: providerName(choice)
 #: src/pages/ModelRoleSettings.tsx
@@ -3101,10 +3096,6 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "MCP सर्वर प्रबंधित करें"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Manage messaging settings"
-msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Manage the bots it creates"
@@ -3149,7 +3140,6 @@ msgstr ""
 msgid "Maximum images per request"
 msgstr "प्रति अनुरोध अधिकतम इमेज"
 
-#: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3285,7 +3275,6 @@ msgid "Missed call"
 msgstr "मिस्ड कॉल"
 
 #: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/model-settings/model-picker.tsx
 #: src/pages/Onboarding.tsx
@@ -3581,10 +3570,6 @@ msgstr ""
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "अभी तक जाँच नहीं हुई"
-
-#: src/pages/model-settings/role-model-picker.tsx
-msgid "Not connected"
-msgstr "कनेक्ट नहीं है"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -3892,6 +3877,10 @@ msgstr "चैट में “कोई बदलाव नहीं” पो�
 #: src/pages/RoutineEditor.tsx
 msgid "POST to"
 msgstr ""
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Preferences"
+msgstr "प्राथमिकताएँ"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -4491,6 +4480,10 @@ msgstr ""
 msgid "Searching…"
 msgstr "खोजा जा रहा है…"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Security"
+msgstr "सुरक्षा"
+
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "एक बॉट चुनें"
@@ -4939,7 +4932,6 @@ msgid "These saved settings can't be read. Remove it and add it again."
 msgstr ""
 
 #: src/components/call/CallCard.tsx
-#: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx

@@ -565,7 +565,6 @@ msgstr "追加中…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -1411,6 +1410,7 @@ msgstr "確認"
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
 msgstr "接続"
@@ -2124,12 +2124,6 @@ msgstr "デフォルト"
 #. placeholder {0}: thinkingLevelLabel(defaultThinkingLevel)
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
-msgid "Default ({0})"
-msgstr "デフォルト（{0}）"
-
-#. js-lingui-explicit-id
-#. placeholder {0}: thinkingLevelLabel("medium")
-#: src/pages/model-settings/catalog-model-fields.tsx
 msgid "Default ({0})"
 msgstr "デフォルト（{0}）"
 
@@ -3084,6 +3078,7 @@ msgstr "小文字、数字、ハイフン、アンダースコアのみ使用で
 msgid "Main model"
 msgstr "メインモデル"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
 msgstr "管理"
@@ -3101,10 +3096,6 @@ msgstr "請求を管理"
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "MCPサーバーを管理"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Manage messaging settings"
-msgstr "メッセージ設定を管理"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Manage the bots it creates"
@@ -3149,7 +3140,6 @@ msgstr "最大化"
 msgid "Maximum images per request"
 msgstr "リクエストあたりの最大画像数"
 
-#: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -3285,7 +3275,6 @@ msgid "Missed call"
 msgstr "不在着信"
 
 #: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/model-settings/model-picker.tsx
 #: src/pages/Onboarding.tsx
@@ -3581,10 +3570,6 @@ msgstr "通常"
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "未確認"
-
-#: src/pages/model-settings/role-model-picker.tsx
-msgid "Not connected"
-msgstr "未接続"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Not in the plugin catalog"
@@ -3892,6 +3877,10 @@ msgstr "チャットに「変更なし」と投稿"
 #: src/pages/RoutineEditor.tsx
 msgid "POST to"
 msgstr "POST先"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Preferences"
+msgstr "環境設定"
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
@@ -4491,6 +4480,10 @@ msgstr "検索: {0}"
 msgid "Searching…"
 msgstr "検索中…"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Security"
+msgstr "セキュリティ"
+
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "ボットを選択"
@@ -4939,7 +4932,6 @@ msgid "These saved settings can't be read. Remove it and add it again."
 msgstr "保存された設定を読み取れません。削除してから再度追加してください。"
 
 #: src/components/call/CallCard.tsx
-#: src/pages/model-settings/catalog-model-fields.tsx
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx

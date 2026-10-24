@@ -96,6 +96,7 @@ import {
   nextFence,
   nextRoutineRunDateAcross,
   outboundSiteGate,
+  plainTextFromMarkdown,
   planActionGate,
   promptInvokesSkill,
   redactSecrets,
@@ -108,6 +109,7 @@ import {
   toolRequiresExplicitApproval,
   toolResultTaintsRun,
   truncatedPlainText,
+  truncatePlainText,
   unattendedTriggerToolRequiresApproval,
   userTurnMessageForRun,
 } from "@rakazo/core";
@@ -143,6 +145,7 @@ import {
   reserveInstructionProposal,
   retireModelCredential,
   runAsSystem,
+  runSecretKind,
   SpaceLimitError,
   saveRunTurnCheckpoint,
   searchHistory,
@@ -218,6 +221,7 @@ import {
   forgetBotSecret,
   listBotSecrets,
   loadBotCommandEnvironment,
+  loadLoginPasswordRedactions,
   normalizeSecretDestination,
   requestWithBotSecret,
   resolveLoginFill,
@@ -390,7 +394,6 @@ import {
   reconcileManagedConnection,
   resolveCompletedSecretLeftover,
   resolveMissingRunSecretAction,
-  runSecretKind,
   secretPausedToolResult,
   tryCompleteConnectionWithCode,
 } from "./run-secret.js";
@@ -3848,6 +3851,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           agentSkills,
           agentSecretRows,
           initialBotCommandEnvironment,
+          savedLoginPasswordRedactions,
         ] = await Promise.all([
           deps.prisma.bot.findUniqueOrThrow({
             where: { id: run.botId },
@@ -3890,6 +3894,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             },
           }),
           loadBotCommandEnvironment(deps.prisma, deps.secretStore, run),
+          loadLoginPasswordRedactions(deps.prisma, deps.secretStore, run),
         ]);
         const historySearchBeforeSeq =
           contextStrategy !== "current" && run.sourceMessageId
@@ -3906,6 +3911,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
         runSecrets.push(...Object.values(agentEnvironment));
         // Encoded forms too: read_file redacts with these values before any shell command runs.
         runSecrets.push(...commandCredentialRedactions(initialBotCommandEnvironment));
+        // A login filled in an earlier run may still be on its page, and anything this run reads
+        // or is given may contain it, so every run hides its saved passwords before the model runs.
+        runSecrets.push(...savedLoginPasswordRedactions);
         const agentEnvironmentInstruction = formatAgentEnvironmentInstruction({
           ...agentEnvironment,
           ...initialBotCommandEnvironment,
@@ -4738,8 +4746,18 @@ export function createRunExecutor(deps: ExecutorDeps) {
             visualActionKey,
           );
           unchangedVisualStreak = guard.streak;
+          // A browser window's title is the page title, which can echo a signed-in username.
+          const activeWindow = observation.activeWindow;
           const result = observationToolResult(
-            observation,
+            activeWindow?.title
+              ? {
+                  ...observation,
+                  activeWindow: {
+                    ...activeWindow,
+                    title: redactSecrets(activeWindow.title, runSecrets),
+                  },
+                }
+              : observation,
             note,
             lastComputerFrameId,
             visualActionKey ? { unchangedVisualCount: guard.streak.count } : undefined,
@@ -4827,6 +4845,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (IMAGE_RETURNING_COMPUTER_TOOLS.has(name) && !acceptsImages) {
             return { error: MODEL_CANNOT_SEE_MESSAGE };
           }
+          const registerRunSecrets = (values: string[]) => {
+            const additions = values.filter((value) => !runSecrets.includes(value));
+            if (additions.length === 0) return;
+            pendingProgress += progressRedactor.finish();
+            runSecrets.push(...additions);
+            progressRedactor = createStreamingRedactor(runSecrets);
+          };
           let connectorCall: ConnectorCall = {
             tool: name,
             args,
@@ -5741,13 +5766,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
               : Promise.resolve(true);
           const finish = async (result: unknown) =>
             (await persistEffectResult(result)) ? result : uncertainEffectResult(name, args);
-          const registerRunSecrets = (values: string[]) => {
-            const additions = values.filter((value) => !runSecrets.includes(value));
-            if (additions.length === 0) return;
-            pendingProgress += progressRedactor.finish();
-            runSecrets.push(...additions);
-            progressRedactor = createStreamingRedactor(runSecrets);
-          };
           const appendComputerCommand = (payload: ComputerCommand) =>
             deps.events
               .append({
@@ -5841,7 +5859,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
               path: requestedPath,
               entries: entries.map((entry) => ({
                 ...entry,
-                path: displayBotWorkspacePath(computerMode, bot.id, requestedPath, entry.path),
+                // A file name can carry a value an earlier command or page wrote.
+                path: redactSecrets(
+                  displayBotWorkspacePath(computerMode, bot.id, requestedPath, entry.path),
+                  runSecrets,
+                ),
               })),
             };
           }
@@ -6011,7 +6033,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
               }
               return finish({ ok: true, path: outPath, attached });
             } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
+              const message = redactSecrets(
+                error instanceof Error ? error.message : String(error),
+                runSecrets,
+              );
               if (!checkingSpec)
                 getLogger().error(`render_plot failed for bot ${bot.id}: ${message}`);
               return finish({
@@ -7227,8 +7252,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
             await notifyRun(deps, run, {
               kind: "help",
-              title: `${displayName(bot.name, "Bot")} needs a code`,
-              body: String(args.label ?? "Code"),
+              ...secretAskNotification(
+                displayName(bot.name, "Bot"),
+                String(args.label ?? "Code"),
+                runSecrets,
+              ),
               botId: bot.id,
               threadId: thread.id,
             });
@@ -9854,6 +9882,17 @@ const COMPLETION_NOTIFICATION_MAX_CHARS = 180;
 /** Push body: Markdown stripped, then truncated so a cut cannot land inside a marker. */
 export function completionNotificationPreview(text: string): string {
   return truncatedPlainText(text, COMPLETION_NOTIFICATION_MAX_CHARS);
+}
+
+/** A secret card can ask for a code or a login, so the title stays generic and the label short. */
+export function secretAskNotification(botName: string, label: string, runSecrets: string[]) {
+  // Strip and redact before shortening so no protected value is left half-shown.
+  const text = plainTextFromMarkdown(redactSecrets(label, runSecrets), { maxSource: Infinity });
+  const body = truncatePlainText(
+    redactSecrets(text, runSecrets),
+    COMPLETION_NOTIFICATION_MAX_CHARS,
+  );
+  return { title: `${botName} needs an answer`, body };
 }
 
 export function completionMarksUnread(
