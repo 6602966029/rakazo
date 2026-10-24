@@ -256,6 +256,7 @@ import {
   renewSpaceDeletionClaim,
   restoreBotUnderComputerQuota,
   runAsSystem,
+  runAsSystemInTransaction,
   runAsTenant,
   SPACE_DELETION_CLAIM_TIMEOUT_MS,
   SpaceDeletionInProgressError,
@@ -2047,19 +2048,20 @@ export function createRouter(deps: RouterDeps) {
         await withSerializableRetry(() =>
           deps.prisma.$transaction(
             async (tx) => {
-              // Its models leave every purpose in every Space, like the connection itself.
-              await tx.spaceModelRoleChoice.deleteMany({
-                where: {
-                  userId: context.actor.userId,
-                  provider: modelCredentialProviderFilter(input.provider),
+              // Its models leave every purpose in every Space, like the connection itself;
+              // the tenant scope would otherwise limit these deletes to the active Space.
+              await runAsSystemInTransaction(
+                tx,
+                "disconnect a model connection from every Space",
+                async () => {
+                  const where = {
+                    userId: context.actor.userId,
+                    provider: modelCredentialProviderFilter(input.provider),
+                  };
+                  await tx.spaceModelRoleChoice.deleteMany({ where });
+                  await tx.spaceBackupModel.deleteMany({ where });
                 },
-              });
-              await tx.spaceBackupModel.deleteMany({
-                where: {
-                  userId: context.actor.userId,
-                  provider: modelCredentialProviderFilter(input.provider),
-                },
-              });
+              );
               const existing = await tx.userModelCredential.findMany({
                 where: {
                   userId: context.actor.userId,

@@ -36,6 +36,8 @@ const SENSITIVE_REVIEW_ARG_KEY =
 export type AutoReviewChecker = {
   provider: string;
   model: string;
+  /** The effort saved with this approval choice; the model's default when unset. */
+  thinkingLevel?: AgentRunModel["thinkingLevel"];
 };
 
 export type AutoReviewJudgeResult = AutoReviewResult;
@@ -316,6 +318,7 @@ export async function runAutoReviewJudge(
           contextWindow: input.contextWindow,
           maxTokens: input.maxTokens,
           reasoning: input.reasoning,
+          thinkingLevel: input.checker.thinkingLevel ?? null,
           oauth: input.oauth,
           callObserver: input.callObserver,
         },

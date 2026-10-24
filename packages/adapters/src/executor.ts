@@ -5236,6 +5236,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 ? {
                     provider: reviewSettings.primary.provider,
                     model: reviewSettings.primary.modelId,
+                    thinkingLevel: reviewSettings.primary.thinkingLevel,
                   }
                 : null
               : resolveAutoReviewChecker();
@@ -5452,6 +5453,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   ...(reviewSettings?.backups.map((choice) => ({
                     provider: choice.provider,
                     model: choice.modelId,
+                    thinkingLevel: choice.thinkingLevel,
                   })) ?? []),
                 ],
                 async (checker) => {
