@@ -1,4 +1,4 @@
-import { sanitizeUtf16ForJson } from "@rakazo/core";
+import { sanitizeJsonValue, sanitizeUtf16ForJson } from "@rakazo/core";
 import type { PrismaClient } from "./generated/prisma/client.js";
 
 const WRITE_OPERATIONS = new Set([
@@ -26,7 +26,10 @@ function sanitizeValue(value: unknown): unknown {
     return items.some((item, index) => item !== value[index]) ? items : value;
   }
   if (!isPlainObject(value)) return value;
-  return sanitizeEntries(value, Object.keys(value));
+  const keys = Object.keys(value);
+  // Only JSON can carry such a key (Prisma field names cannot); keep colliding keys apart.
+  if (keys.some((key) => sanitizeUtf16ForJson(key) !== key)) return sanitizeJsonValue(value);
+  return sanitizeEntries(value, keys);
 }
 
 function sanitizeEntries(value: Record<string, unknown>, keys: readonly string[]) {

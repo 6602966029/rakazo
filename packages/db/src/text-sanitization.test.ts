@@ -46,6 +46,15 @@ describe("sanitizeWriteArgs", () => {
     expect(sanitizeWriteArgs("createMany", clean)).toBe(clean);
   });
 
+  it("cleans JSON keys and keeps keys that collide once cleaned", () => {
+    const out = sanitizeWriteArgs("create", {
+      data: { payload: { "a\0b": 1, "a�b": 2, nested: { "\uD800": "x" } } },
+    });
+    expect(out).toEqual({
+      data: { payload: { "a�b": 1, "a�b#2": 2, nested: { "�": "x" } } },
+    });
+  });
+
   it("leaves reads alone", () => {
     const args = { where: { name: "a\0" } };
     expect(sanitizeWriteArgs("findFirst", args)).toBe(args);
