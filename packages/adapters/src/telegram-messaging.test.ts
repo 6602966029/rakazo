@@ -64,12 +64,12 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("Telegram messaging Markdown", () => {
   it.each([
-    "a".repeat(9000),
-    `${"a".repeat(4095)}😀${"b".repeat(4096)}`,
-    "!".repeat(4096),
-    `**${"!".repeat(4090)}**`,
-    `\`\`\`text\n${"\\".repeat(4090)}\n\`\`\``,
-  ])("sends every split part without adapter truncation", async (body) => {
+    ["a".repeat(9000), "a".repeat(9000)],
+    [`${"a".repeat(4095)}😀${"b".repeat(4096)}`, `${"a".repeat(4095)}😀${"b".repeat(4096)}`],
+    ["!".repeat(4096), "!".repeat(4096)],
+    [`**${"!".repeat(4090)}**`, "!".repeat(4090)],
+    [`\`\`\`text\n${"\\".repeat(4090)}\n\`\`\``, "\\".repeat(4090)],
+  ])("sends every split part without adapter truncation", async (body, expected) => {
     const { surface, sends, threadId } = createSurface();
     const parts = splitOutboundBody("telegram", body);
     for (const part of parts) {
@@ -81,9 +81,16 @@ describe("Telegram messaging Markdown", () => {
       true,
     );
     expect(sends.every(({ text }) => !text.includes("…"))).toBe(true);
-    if (!body.startsWith("**") && !body.startsWith("```")) {
-      expect(sends.map(({ text }) => text.replaceAll("\\!", "!")).join("")).toBe(body);
-    }
+    // Remove the fixtures' MarkdownV2 wrappers before unescaping literal content.
+    const visibleText = sends
+      .map(({ text }) =>
+        text
+          .replace(/^```[^\n]*\n([\s\S]*)\n```$/, "$1")
+          .replace(/^\*([^*]*)\*$/s, "$1")
+          .replace(/\\([\\!*`])/g, "$1"),
+      )
+      .join("");
+    expect(visibleText).toBe(expected);
   });
 
   it("keeps every split part in the plain-text fallback after Markdown rejection", async () => {

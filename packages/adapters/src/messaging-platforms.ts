@@ -1,5 +1,9 @@
 import { createSlackAdapter } from "@chat-adapter/slack";
-import { createTelegramAdapter, TelegramFormatConverter } from "@chat-adapter/telegram";
+import {
+  createTelegramAdapter,
+  escapeMarkdownV2,
+  TelegramFormatConverter,
+} from "@chat-adapter/telegram";
 import { createWhatsAppAdapter, splitMessage, WhatsAppApiError } from "@chat-adapter/whatsapp";
 import type { HttpInstance } from "@larksuiteoapi/node-sdk";
 import type { MessagingInboundMessage, MessagingOutboundStatus } from "@rakazo/adapter-kit";
@@ -347,6 +351,31 @@ export function splitOutboundBody(provider: string, body: string): string[] {
   if (provider === "whatsapp") return splitMessage(body);
   if (provider !== "telegram" && !provider.startsWith("telegram-")) return [body];
 
+  return splitTelegramPart(body);
+}
+
+const TELEGRAM_MESSAGE_LIMIT = 4096;
+const telegramFormat = new TelegramFormatConverter();
+
+function splitTelegramPart(body: string, literal = false): string[] {
+  const markdown = literal ? escapeMarkdownV2(body) : body;
+  const plainText = literal ? body : markdownToPlainText(body);
+  // The adapter truncates *after* rendering and emoji conversion, including
+  // its plain-text fallback. Measure both payloads in UTF-16 units as it does.
+  const payloads = [telegramFormat.fromMarkdown(markdown), plainText.trim() ? plainText : markdown];
+  if (
+    markdown.length <= TELEGRAM_MESSAGE_LIMIT &&
+    payloads.every(
+      (text) => convertEmojiPlaceholders(text, "gchat").length <= TELEGRAM_MESSAGE_LIMIT,
+    )
+  ) {
+    return [markdown];
+  }
+
+  // Parse before splitting: cutting Markdown can turn code into prose and
+  // consume literal backslashes. Oversized formatted replies use escaped text.
+  if (!literal && plainText !== body) return splitTelegramPart(plainText, true);
+
   const parts = splitMessage(body);
   // The shared helper counts UTF-16 units but can cut between surrogate pairs.
   for (let index = 0; index < parts.length - 1; index++) {
@@ -356,25 +385,7 @@ export function splitOutboundBody(provider: string, body: string): string[] {
       parts[index + 1] = part.slice(-1) + parts[index + 1]!;
     }
   }
-  return parts.flatMap(splitTelegramPart);
-}
-
-const TELEGRAM_MESSAGE_LIMIT = 4096;
-const telegramFormat = new TelegramFormatConverter();
-
-function splitTelegramPart(body: string): string[] {
-  const plainText = markdownToPlainText(body);
-  // The adapter truncates *after* rendering and emoji conversion, including
-  // its plain-text fallback. Measure both payloads in UTF-16 units as it does.
-  const payloads = [telegramFormat.fromMarkdown(body), plainText.trim() ? plainText : body];
-  if (
-    body.length <= TELEGRAM_MESSAGE_LIMIT &&
-    payloads.every(
-      (text) => convertEmojiPlaceholders(text, "gchat").length <= TELEGRAM_MESSAGE_LIMIT,
-    )
-  ) {
-    return [body];
-  }
+  if (parts.length > 1) return parts.flatMap((part) => splitTelegramPart(part, literal));
 
   // Refine only chunks that grow beyond the limit during rendering.
   const midpoint = Math.floor(body.length / 2);
@@ -383,8 +394,8 @@ function splitTelegramPart(body: string): string[] {
   if (boundary < midpoint / 2) boundary = midpoint;
   if (/[\uD800-\uDBFF]/.test(body[boundary - 1]!)) boundary--;
   return [
-    ...splitTelegramPart(body.slice(0, boundary)),
-    ...splitTelegramPart(body.slice(boundary)),
+    ...splitTelegramPart(body.slice(0, boundary), literal),
+    ...splitTelegramPart(body.slice(boundary), literal),
   ];
 }
 
