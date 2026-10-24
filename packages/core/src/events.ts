@@ -511,25 +511,11 @@ function endsWithHighSurrogate(value: string): boolean {
  * in json and text columns (command output and binary-ish tool results carry both).
  */
 export function sanitizeUtf16ForJson(value: string): string {
-  let result = "";
-  for (let i = 0; i < value.length; i++) {
-    const code = value.charCodeAt(i);
-    if (isHighSurrogate(code)) {
-      const next = i + 1 < value.length ? value.charCodeAt(i + 1) : -1;
-      if (isLowSurrogate(next)) {
-        result += value[i]! + value[i + 1]!;
-        i += 1;
-      } else {
-        result += "\uFFFD";
-      }
-    } else if (isLowSurrogate(code) || code === 0) {
-      result += "\uFFFD";
-    } else {
-      result += value[i]!;
-    }
-  }
-  return result;
+  return value.replace(UNSAFE_UTF16, "\uFFFD");
 }
+
+/** NUL, a high surrogate with no low after it, or a low surrogate with no high before it. */
+const UNSAFE_UTF16 = /\0|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 
 /** Deep-sanitize string leaves and keys so event payloads always persist in Postgres. */
 export function sanitizeJsonValue<T>(value: T): T {
