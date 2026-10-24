@@ -4747,7 +4747,7 @@ function SpecialMessageCard(props: SpecialMessageCardProps) {
           borderRadius: 10,
           paddingHorizontal: 8,
           paddingVertical: 4,
-          backgroundColor: pressed ? tokens.accent : undefined,
+          backgroundColor: pressed && color ? tokens.accent : undefined,
         })}
       >
         {color ? (
