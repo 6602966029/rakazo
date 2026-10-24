@@ -47,8 +47,9 @@ describe("model catalog artifact boundary", () => {
     );
     mkdirSync(artifact);
     writeFileSync(path.join(root, manifest), '{"version":"2"}\n');
+    writeFileSync(path.join(root, "pnpm-lock.yaml"), "version: 2\n");
     writeFileSync(path.join(artifact, "bump.patch"), git("diff"));
-    git("checkout", "--", manifest);
+    git("checkout", "--", manifest, "pnpm-lock.yaml");
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -62,8 +63,12 @@ describe("model catalog artifact boundary", () => {
     git("reset", "-q");
     rmSync(path.join(root, "unexpected-script"));
     expect(apply().status).toBe(0);
-    expect(git("diff", "--cached", "--name-only").trim()).toBe(manifest);
-    expect(readFileSync(path.join(root, manifest), "utf8")).toContain('"2"');
+    expect(git("diff", "--cached", "--name-only").trim().split("\n")).toEqual([
+      manifest,
+      "pnpm-lock.yaml",
+    ]);
+    expect(git("show", `:${manifest}`)).toBe('{"version":"2"}\n');
+    expect(git("show", ":pnpm-lock.yaml")).toBe("version: 2\n");
     expect(git("status", "--porcelain", "--", "unexpected-script")).toBe("");
   });
 
