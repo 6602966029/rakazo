@@ -1,10 +1,11 @@
 import { createSlackAdapter } from "@chat-adapter/slack";
-import { createTelegramAdapter } from "@chat-adapter/telegram";
+import { createTelegramAdapter, TelegramFormatConverter } from "@chat-adapter/telegram";
 import { createWhatsAppAdapter, splitMessage, WhatsAppApiError } from "@chat-adapter/whatsapp";
 import type { HttpInstance } from "@larksuiteoapi/node-sdk";
 import type { MessagingInboundMessage, MessagingOutboundStatus } from "@rakazo/adapter-kit";
 import { getLogger } from "@rakazo/logging";
 import type { Adapter } from "chat";
+import { convertEmojiPlaceholders, markdownToPlainText } from "chat";
 import { createSendblueAdapter } from "chat-adapter-sendblue";
 import type { ClientOptions as SendblueClientOptions } from "sendblue";
 import type { MessagingPlatform } from "./chat-sdk-surface.js";
@@ -341,13 +342,50 @@ const SLACK_PERMANENT_ERRORS = new Set([
 /** Meta 131047: outside the 24-hour window only a template can reach the user. */
 const WHATSAPP_REENGAGEMENT_REQUIRED = 131047;
 
-/**
- * WhatsApp caps one text at 4096 characters and the adapter sends longer
- * ones as several messages. The outbox splits first, the same way, so each
- * part is its own row and a retry re-sends only the parts that failed.
- */
+/** Split before enqueueing so retries only resend the parts that failed. */
 export function splitOutboundBody(provider: string, body: string): string[] {
-  return provider === "whatsapp" ? splitMessage(body) : [body];
+  if (provider === "whatsapp") return splitMessage(body);
+  if (provider !== "telegram" && !provider.startsWith("telegram-")) return [body];
+
+  const parts = splitMessage(body);
+  // The shared helper counts UTF-16 units but can cut between surrogate pairs.
+  for (let index = 0; index < parts.length - 1; index++) {
+    const part = parts[index]!;
+    if (/[\uD800-\uDBFF]$/.test(part)) {
+      parts[index] = part.slice(0, -1);
+      parts[index + 1] = part.slice(-1) + parts[index + 1]!;
+    }
+  }
+  return parts.flatMap(splitTelegramPart);
+}
+
+const TELEGRAM_MESSAGE_LIMIT = 4096;
+const telegramFormat = new TelegramFormatConverter();
+
+function splitTelegramPart(body: string): string[] {
+  const plainText = markdownToPlainText(body);
+  // The adapter truncates *after* rendering and emoji conversion, including
+  // its plain-text fallback. Measure both payloads in UTF-16 units as it does.
+  const payloads = [telegramFormat.fromMarkdown(body), plainText.trim() ? plainText : body];
+  if (
+    body.length <= TELEGRAM_MESSAGE_LIMIT &&
+    payloads.every(
+      (text) => convertEmojiPlaceholders(text, "gchat").length <= TELEGRAM_MESSAGE_LIMIT,
+    )
+  ) {
+    return [body];
+  }
+
+  // Refine only chunks that grow beyond the limit during rendering.
+  const midpoint = Math.floor(body.length / 2);
+  const prefix = body.slice(0, midpoint);
+  let boundary = Math.max(prefix.lastIndexOf("\n"), prefix.lastIndexOf(" "));
+  if (boundary < midpoint / 2) boundary = midpoint;
+  if (/[\uD800-\uDBFF]/.test(body[boundary - 1]!)) boundary--;
+  return [
+    ...splitTelegramPart(body.slice(0, boundary)),
+    ...splitTelegramPart(body.slice(boundary)),
+  ];
 }
 
 /** Sendblue reports outbound delivery as webhooks the Chat SDK ignores. */

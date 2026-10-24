@@ -2,6 +2,7 @@ import { createTelegramAdapter } from "@chat-adapter/telegram";
 import type { AdapterContext, MessagingInboundEvent } from "@rakazo/adapter-kit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatSdkMessagingSurface } from "./chat-sdk-surface.js";
+import { splitOutboundBody } from "./messaging-platforms.js";
 
 const context: AdapterContext = {
   operationId: "op-test",
@@ -62,6 +63,46 @@ function createSurface(sendErrors: string[] = []) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Telegram messaging Markdown", () => {
+  it.each([
+    "a".repeat(9000),
+    `${"a".repeat(4095)}😀${"b".repeat(4096)}`,
+    "!".repeat(4096),
+    `**${"!".repeat(4090)}**`,
+    `\`\`\`text\n${"\\".repeat(4090)}\n\`\`\``,
+  ])("sends every split part without adapter truncation", async (body) => {
+    const { surface, sends, threadId } = createSurface();
+    const parts = splitOutboundBody("telegram", body);
+    for (const part of parts) {
+      await surface.sendToThread({ threadId, body: part }, context);
+    }
+
+    expect(sends).toHaveLength(parts.length);
+    expect(sends.every(({ text }) => text.length <= 4096 && !/[\uD800-\uDFFF]/u.test(text))).toBe(
+      true,
+    );
+    expect(sends.every(({ text }) => !text.includes("…"))).toBe(true);
+    if (!body.startsWith("**") && !body.startsWith("```")) {
+      expect(sends.map(({ text }) => text.replaceAll("\\!", "!")).join("")).toBe(body);
+    }
+  });
+
+  it("keeps every split part in the plain-text fallback after Markdown rejection", async () => {
+    const { surface, sends, threadId } = createSurface([
+      "Bad Request: can't parse entities",
+      "",
+      "Bad Request: can't parse entities",
+    ]);
+    const body = "!".repeat(4096);
+    for (const part of splitOutboundBody("telegram", body)) {
+      await surface.sendToThread({ threadId, body: part }, context);
+    }
+
+    const fallback = sends.filter((send) => !send.parse_mode);
+    expect(fallback).toHaveLength(2);
+    expect(fallback.map(({ text }) => text).join("")).toBe(body);
+    expect(sends.every(({ text }) => text.length <= 4096)).toBe(true);
+  });
+
   it("renders headings, bold, links and escaped punctuation as MarkdownV2", async () => {
     const { surface, sends, threadId } = createSurface();
     const result = await surface.sendToThread(
