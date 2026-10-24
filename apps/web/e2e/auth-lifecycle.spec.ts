@@ -334,18 +334,15 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
   await captureScreenshot(page, testInfo, "42-password-reset-requested");
 
   const emailApi = process.env.API_URL ?? "http://127.0.0.1:3110";
-  await expect
-    .poll(async () => {
-      const response = await page.request.get(`${emailApi}/__e2e/emails`);
-      return ((await response.json()) as unknown[]).length;
-    })
-    .toBeGreaterThan(0);
-  const messagesResponse = await page.request.get(`${emailApi}/__e2e/emails`);
-  expect(messagesResponse.headers()["cache-control"]).toBe("no-store");
-  const messages = (await messagesResponse.json()) as Array<{
-    text: string;
-  }>;
-  const resetUrl = messages.at(-1)?.text.match(/https?:\/\/\S+/)?.[0];
+  // Workers share one outbox, so read only this user's mail.
+  const sentToUser = async () => {
+    const response = await page.request.get(`${emailApi}/__e2e/emails`);
+    expect(response.headers()["cache-control"]).toBe("no-store");
+    const messages = (await response.json()) as Array<{ to: string; text: string }>;
+    return messages.filter((message) => message.to === email);
+  };
+  await expect.poll(async () => (await sentToUser()).length).toBeGreaterThan(0);
+  const resetUrl = (await sentToUser()).at(-1)?.text.match(/https?:\/\/\S+/)?.[0];
   expect(resetUrl).toBeTruthy();
 
   await page.goto(resetUrl!);

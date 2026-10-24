@@ -11,6 +11,7 @@ import {
   Button,
   Input,
 } from "@rakazo/ui-web";
+import { Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth";
 import {
@@ -166,20 +167,22 @@ function PasskeyList({ onRetry }: { onRetry: () => void }) {
                   </span>
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="icon-sm"
+                    aria-label={t`Rename`}
                     disabled={pending}
                     onClick={() => setRenaming({ id: passkey.id, name: passkey.name ?? "" })}
                   >
-                    <Trans>Rename</Trans>
+                    <Pencil />
                   </Button>
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="icon-sm"
+                    aria-label={t`Delete`}
                     disabled={pending}
                     className="text-destructive hover:text-destructive"
                     onClick={() => setDeleting(passkey)}
                   >
-                    <Trans>Delete</Trans>
+                    <Trash2 />
                   </Button>
                 </>
               )}
