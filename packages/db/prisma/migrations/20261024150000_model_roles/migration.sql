@@ -25,25 +25,30 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "space_model_role_choices" TO rakazo_app
 -- has nothing to copy and keeps following the deployment default.
 INSERT INTO "space_model_role_choices"
   ("spaceId", "userId", "role", "position", "provider", "modelId", "thinkingLevel")
-SELECT p."spaceId", p."userId", 'main', 0,
+SELECT DISTINCT ON (p."spaceId", p."userId") p."spaceId", p."userId", 'main', 0,
   CASE WHEN c."provider" = 'azure-openai-responses' THEN 'azure' ELSE c."provider" END,
   btrim(p."modelId"), p."thinkingLevel"
 FROM "space_model_preferences" p
 JOIN "user_model_credentials" c ON c."id" = p."credentialId" AND c."userId" = p."userId"
 WHERE p."isDefault"
   AND btrim(p."modelId") NOT IN ('', 'null', 'undefined')
+-- Earlier releases read the newest default when more than one is marked.
+ORDER BY p."spaceId", p."userId", p."updatedAt" DESC, p."id" DESC
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "space_model_role_choices"
   ("spaceId", "userId", "role", "position", "provider", "modelId")
 SELECT b."spaceId", b."userId", 'main',
   (row_number() OVER (PARTITION BY b."spaceId", b."userId" ORDER BY b."position"))::INTEGER,
-  b."provider", b."modelId"
+  CASE WHEN b."provider" = 'azure-openai-responses' THEN 'azure' ELSE b."provider" END,
+  b."modelId"
 FROM "space_backup_models" b
 WHERE NOT EXISTS (
   -- The main model already runs first, so a matching fallback would never be tried.
   SELECT 1 FROM "space_model_role_choices" r
   WHERE r."spaceId" = b."spaceId" AND r."userId" = b."userId" AND r."role" = 'main'
-    AND r."position" = 0 AND r."provider" = b."provider" AND r."modelId" = b."modelId"
+    AND r."position" = 0
+    AND r."provider" = CASE WHEN b."provider" = 'azure-openai-responses' THEN 'azure' ELSE b."provider" END
+    AND r."modelId" = b."modelId"
 )
 ON CONFLICT DO NOTHING;
