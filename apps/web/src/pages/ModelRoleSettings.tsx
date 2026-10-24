@@ -144,8 +144,25 @@ export function ModelRoleSettings({
     await controller.save(update);
     onChanged?.();
   }
-  // The first row is the primary; moving a fallback there promotes it.
-  const commit = (next: ModelBackupChoice[]) => save((current) => listPatch(current, next));
+  // The main model needs a personal connection; deployment-managed models only back it up.
+  const canLead = (choice: ModelBackupChoice) =>
+    role !== "main" || connected.has(canonicalPiProviderId(choice.provider));
+  // The first row is the primary; moving a fallback there promotes it. When the main model
+  // goes, the first fallback that can lead takes over, or the deployment's own model runs.
+  const commit = (next: ModelBackupChoice[]) =>
+    save((current) => {
+      if (!current.primary) return { backups: next };
+      const lead = next.findIndex(canLead);
+      return lead < 0
+        ? { primary: null, backups: next }
+        : { primary: next[lead]!, backups: next.filter((_, index) => index !== lead) };
+    });
+  const canMove = (index: number, target: number) =>
+    target >= 0 &&
+    target < rows.length &&
+    target !== index &&
+    !(primary && target === 0 && !canLead(rows[index]!)) &&
+    !(primary && index === 0 && !canLead(rows[1]!));
   const place = (slot: number | "add", choice: ModelBackupChoice) =>
     save((current) => {
       const list = current.primary ? [current.primary, ...current.backups] : current.backups;
@@ -165,7 +182,7 @@ export function ModelRoleSettings({
         : current.backups,
     }));
   const move = (index: number, target: number) => {
-    if (target < 0 || target >= rows.length || target === index) return;
+    if (!canMove(index, target)) return;
     const next = [...rows];
     const [item] = next.splice(index, 1);
     next.splice(target, 0, item!);
@@ -213,6 +230,7 @@ export function ModelRoleSettings({
               trigger={pickerTrigger(defaultLabel)}
               label={t`Change ${title}`}
               options={primaryOptions}
+              defaultOption={role === "main" ? undefined : defaultLabel}
               providers={providers}
               disabled={busy}
               onPick={(option) =>
@@ -256,6 +274,7 @@ export function ModelRoleSettings({
                 trigger={pickerTrigger(name, providerName(choice))}
                 label={t`Change ${name}`}
                 options={isPrimary ? primaryOptions : options}
+                defaultOption={isPrimary && role !== "main" ? defaultLabel : undefined}
                 providers={providers}
                 disabled={busy}
                 onPick={(option) =>
@@ -263,7 +282,7 @@ export function ModelRoleSettings({
                     ? void (isPrimary
                         ? setPrimary({ provider: option.provider, modelId: option.id })
                         : place(index, { provider: option.provider, modelId: option.id }))
-                    : null
+                    : void setPrimary(null)
                 }
                 onConnect={connectFor(isPrimary ? "primary" : index)}
               />
@@ -317,13 +336,13 @@ export function ModelRoleSettings({
                   {rows.length > 1 ? (
                     <>
                       <DropdownMenuItem
-                        disabled={index === 0}
+                        disabled={!canMove(index, index - 1)}
                         onClick={() => move(index, index - 1)}
                       >
                         <Trans>Move up</Trans>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        disabled={index === rows.length - 1}
+                        disabled={!canMove(index, index + 1)}
                         onClick={() => move(index, index + 1)}
                       >
                         <Trans>Move down</Trans>

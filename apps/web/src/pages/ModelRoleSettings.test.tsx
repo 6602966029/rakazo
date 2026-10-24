@@ -184,6 +184,32 @@ describe("shared role editor", () => {
       expect.anything(),
     );
   });
+  it("never promotes a deployment-managed fallback to the main model", async () => {
+    const managed = { provider: "anthropic", modelId: "claude" };
+    api.forRole.mockResolvedValue([
+      ...catalog,
+      { provider: "anthropic", id: "claude", label: "Claude", billing: "", managed: true },
+    ]);
+    saved = { primary: chat, backups: [managed, mini] };
+    await render();
+    await click(trigger("Claude options"));
+    const moveUp = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (entry) => entry.textContent === "Move up",
+    );
+    expect(moveUp?.getAttribute("aria-disabled")).toBe("true");
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+    await menu("Chat", "Remove");
+    expect(api.setRole).toHaveBeenLastCalledWith(
+      expect.objectContaining({ primary: mini, backups: [managed] }),
+      expect.anything(),
+    );
+  });
+  it("resets the approval model to the deployment default and keeps its fallbacks", async () => {
+    saved = { primary: jev, backups: [mini] };
+    await render({ modelRole: "approval", title: "Approval model" });
+    await pick("Change Jev 1.14", "Deployment default");
+    expect(saved).toEqual({ primary: null, backups: [mini] });
+  });
   it("replaces a fallback in place without duplicating it", async () => {
     saved = { primary: chat, backups: [jev] };
     await render();

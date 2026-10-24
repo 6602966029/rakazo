@@ -7559,6 +7559,10 @@ async function persistModelCredential(
           defaultModel,
         ).allowed
       : await allowedThinkingLevels(deps, actor, input.provider, defaultModel);
+  // A connection added for a fallback or another purpose leaves a working main model alone,
+  // including the deployment's own; it becomes the default only when nothing else runs chat.
+  const mainModelServes =
+    input.makeDefault === false && !(await modelSetup(deps, actor)).needsModel;
   const stored = await deps.secrets.put(input.plaintext, {
     operationId: "cred",
     traceId: "cred",
@@ -7626,23 +7630,21 @@ async function persistModelCredential(
         thinkingLevel = defaultModel
           ? clampCatalogThinkingLevel(thinkingLevel, allowedThinking)
           : null;
-        const otherDefault =
-          input.makeDefault === false
-            ? await tx.spaceModelPreference.findFirst({
-                where: {
-                  spaceId: actor.spaceId,
-                  userId: actor.userId,
-                  isDefault: true,
-                  credentialId: { not: credential.id },
-                },
-                select: { id: true },
-              })
-            : null;
-        if (otherDefault) {
-          await saveSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel);
-        } else {
-          await selectSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel);
-        }
+        const keepDefault =
+          input.makeDefault === false &&
+          (mainModelServes ||
+            (await tx.spaceModelPreference.findFirst({
+              where: {
+                spaceId: actor.spaceId,
+                userId: actor.userId,
+                isDefault: true,
+                credentialId: { not: credential.id },
+              },
+              select: { id: true },
+            })) !== null);
+        const preference = keepDefault
+          ? await saveSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel)
+          : await selectSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel);
         throwIfAborted(input.signal);
         if (existing) {
           await deleteUnreferencedCredentialSecret(tx, {
@@ -7652,7 +7654,7 @@ async function persistModelCredential(
           });
           throwIfAborted(input.signal);
         }
-        return { ...credential, isDefault: !otherDefault, defaultModel };
+        return { ...credential, isDefault: preference.isDefault, defaultModel };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ),

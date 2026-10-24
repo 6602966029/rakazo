@@ -94,21 +94,17 @@ export default function Models() {
 
   const providers = useMemo(() => {
     const connected = new Set(credentials.map((entry) => canonicalPiProviderId(entry.provider)));
-    const grouped = new Map<string, ConnectableProvider & { managed: boolean }>();
+    // Deployment-funded providers stay listed so people can still add their own key.
+    const grouped = new Map<string, ConnectableProvider>();
     for (const entry of catalog) {
-      if (connected.has(canonicalPiProviderId(entry.provider))) continue;
-      const group = grouped.get(entry.provider) ?? {
+      if (connected.has(canonicalPiProviderId(entry.provider)) || grouped.has(entry.provider))
+        continue;
+      grouped.set(entry.provider, {
         id: entry.provider,
         name: entry.providerName ?? entry.provider,
-        managed: true,
-      };
-      group.managed &&= Boolean(entry.managed);
-      grouped.set(entry.provider, group);
+      });
     }
-    const unconnected: ConnectableProvider[] = popularModelProvidersFirst(
-      [...grouped.values()].filter((group) => !group.managed),
-      (group) => group.id,
-    ).map(({ id, name }) => ({ id, name }));
+    const unconnected = popularModelProvidersFirst([...grouped.values()], (group) => group.id);
     const compatible = credentials.find(
       (entry) => entry.provider === OPENAI_COMPATIBLE_PROVIDER_ID,
     );

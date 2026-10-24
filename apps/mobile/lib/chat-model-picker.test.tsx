@@ -1130,6 +1130,34 @@ describe("model role lists", () => {
     ]);
   });
 
+  it("only lets a personally connected model lead the main list", async () => {
+    const unconnected = { provider: "anthropic", modelId: "claude-fixture" };
+    mocks.primary = model(1);
+    mocks.backups = [unconnected, model(3)];
+    await renderModels();
+    const disabled = (title: string, id: string) =>
+      (
+        mocks.menus.get(title)!.actions.find((action) => action.id === id) as {
+          attributes?: { disabled?: boolean };
+        }
+      ).attributes?.disabled;
+    expect(disabled("Model 1", "moveDown")).toBe(true);
+    expect(disabled("claude-fixture", "moveUp")).toBe(true);
+    expect(disabled("claude-fixture", "moveDown")).toBe(false);
+    expect(
+      rowButton("Main model", "claude-fixture").getAttribute("data-accessibility-actions"),
+    ).toBe("Move down,Remove");
+    await menuAction("Model 1", "moveDown");
+    expect(roleSaves()).toEqual([]);
+    await menuAction("Model 1", "remove");
+    expect(rowTitles()).toEqual(["Model 3", "claude-fixture"]);
+    await menuAction("Model 3", "remove");
+    expect(roleSaves()).toEqual([
+      { primary: model(3), backups: [unconnected] },
+      { primary: null, backups: [unconnected] },
+    ]);
+  });
+
   it("changes the main model's thinking through the space default", async () => {
     mocks.primary = model(1);
     await renderModels();

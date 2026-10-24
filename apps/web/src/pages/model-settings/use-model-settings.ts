@@ -61,7 +61,11 @@ export type ModelConnectIntent = {
 export function useModelSettings(onClose: () => void) {
   const rpc = useSpaceRpc();
   const intentRef = useRef<ModelConnectIntent | null>(null);
-  const oauthChoiceRef = useRef<{ provider: string; modelId: string } | null>(null);
+  // Sign-in finishes later; it keeps the slot it was started for even if the dialog closes.
+  const oauthChoiceRef = useRef<{
+    choice: { provider: string; modelId: string };
+    intent: ModelConnectIntent | null;
+  } | null>(null);
   const { t } = useLingui();
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
   const [credentials, setCredentials] = useState<ModelCredential[]>([]);
@@ -116,9 +120,9 @@ export function useModelSettings(onClose: () => void) {
     onError: setError,
     onFinished: async () => {
       await refresh();
-      const choice = oauthChoiceRef.current;
+      const started = oauthChoiceRef.current;
       oauthChoiceRef.current = null;
-      if (choice) await intentRef.current?.onConnected?.(choice);
+      if (started) await started.intent?.onConnected?.(started.choice);
     },
   });
 
@@ -475,6 +479,8 @@ export function useModelSettings(onClose: () => void) {
   // without touching the key field; key replacement stays on its own button.
   async function connectKey({ settingsOnly = false }: { settingsOnly?: boolean } = {}) {
     if (!selected) return;
+    // Closing the dialog mid-save must not drop the slot this connection is for.
+    const intent = intentRef.current;
     const newKey = settingsOnly ? "" : apiKey.trim();
     const savingLimitOnly = !isOpenAiCompatible && !newKey;
     const activeModelId = isOpenAiCompatible ? modelId.trim() : selected.id;
@@ -547,7 +553,7 @@ export function useModelSettings(onClose: () => void) {
               contextWindow: parsedContextWindow,
               supportsImages,
               maxImagesPerPrompt: maxImagesPerPromptInput,
-              ...(intentRef.current ? { makeDefault: intentRef.current.makeDefault } : {}),
+              ...(intent ? { makeDefault: intent.makeDefault } : {}),
               apiKey: apiKey.trim() || undefined,
               label: selected.providerName ?? selected.provider,
             }
@@ -562,7 +568,7 @@ export function useModelSettings(onClose: () => void) {
               ...(!savingLimitOnly || modelChanged || thinkingDirty
                 ? { thinkingLevel: stagedThinking }
                 : {}),
-              ...(intentRef.current ? { makeDefault: intentRef.current.makeDefault } : {}),
+              ...(intent ? { makeDefault: intent.makeDefault } : {}),
               maxTokens: parsedMaxTokens ?? null,
               label: selected.providerName ?? selected.provider,
             },
@@ -570,7 +576,7 @@ export function useModelSettings(onClose: () => void) {
       if (!settingsOnly) setApiKey("");
       await refresh();
       if (!settingsOnly)
-        await intentRef.current?.onConnected?.({
+        await intent?.onConnected?.({
           provider: selected.provider,
           modelId: activeModelId,
         });
@@ -610,11 +616,15 @@ export function useModelSettings(onClose: () => void) {
   function beginSelectedSubscriptionSignIn() {
     if (!selected) return;
     setNotice(null);
-    oauthChoiceRef.current = { provider: selected.provider, modelId: selected.id };
+    const intent = intentRef.current;
+    oauthChoiceRef.current = {
+      choice: { provider: selected.provider, modelId: selected.id },
+      intent,
+    };
     void startSubscriptionSignIn({
       provider: selected.provider,
       modelId: selected.id,
-      ...(intentRef.current ? { makeDefault: intentRef.current.makeDefault } : {}),
+      ...(intent ? { makeDefault: intent.makeDefault } : {}),
       thinkingLevel: clampCatalogThinkingLevel(
         thinkingLevel,
         selected.thinkingLevels,

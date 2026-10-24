@@ -3602,8 +3602,19 @@ describe("model credential persistence", () => {
     isDeploymentOwner: true,
   } satisfies Actor;
 
-  function persistDeps(options?: { envDefaultModel?: string }) {
-    const upsert = vi.fn().mockResolvedValue({ id: "preference" });
+  function persistDeps(options?: {
+    envDefaultModel?: string;
+    deploymentModelConfigured?: boolean;
+  }) {
+    const upsert = vi.fn(
+      async ({
+        create,
+        update,
+      }: {
+        create: { isDefault: boolean };
+        update: { isDefault?: boolean };
+      }) => ({ id: "preference", isDefault: update.isDefault ?? create.isDefault }),
+    );
     const finish = vi.fn();
     // Connect loads any previous credential on the root client before the write transaction.
     const userModelCredential = {
@@ -3633,6 +3644,7 @@ describe("model credential persistence", () => {
       prisma: {
         userModelCredential,
         spaceModelPreference,
+        deploymentSettings: { findUnique: vi.fn().mockResolvedValue(null) },
         $transaction: vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
       },
       secrets: {
@@ -3648,6 +3660,7 @@ describe("model credential persistence", () => {
         screenProxySecret: "fake-test-secret",
         sandboxProvider: "fake",
         agentRuntime: "pi",
+        deploymentModelConfigured: options?.deploymentModelConfigured ?? false,
       },
     } as unknown as RouterDeps;
     return { upsert, finish, deps, handler: new RPCHandler(createRouter(deps)) };
@@ -3834,6 +3847,23 @@ describe("model credential persistence", () => {
         create: expect.objectContaining({ modelId: "fallback-model", isDefault: false }),
         update: expect.not.objectContaining({ isDefault: true }),
       }),
+    );
+    await expect(response.json()).resolves.toMatchObject({ json: { isDefault: false } });
+  });
+
+  it("keeps a working deployment model when a fallback connection is added", async () => {
+    const { upsert, handler } = persistDeps({ deploymentModelConfigured: true });
+
+    const response = await call(handler, "models/connect", {
+      provider: "test-provider",
+      apiKey: "sk-test-key-123",
+      modelId: "fallback-model",
+      makeDefault: false,
+    });
+
+    expect(response.status).toBe(200);
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ create: expect.objectContaining({ isDefault: false }) }),
     );
     await expect(response.json()).resolves.toMatchObject({ json: { isDefault: false } });
   });

@@ -191,8 +191,22 @@ export function ModelRoleSettings({
           .filter((item, index) => index === slot || !sameChoice(item, choice)),
       );
     });
-  // Moving a fallback into the first row promotes it.
-  const commit = (next: ModelBackupChoice[]) => save((current) => listPatch(current, next));
+  // The main model runs on a personal connection; other roles can lead with anything.
+  const canLead = (choice: ModelBackupChoice) =>
+    role !== "main" || connected.has(canonicalPiProviderId(choice.provider));
+  // The first entry that can lead becomes the primary; with none, the deployment's model runs.
+  const commit = (next: ModelBackupChoice[]) =>
+    save((current) => {
+      if (!current.primary) return { backups: next };
+      const lead = next.findIndex(canLead);
+      if (lead < 0) return { primary: null, backups: next };
+      return listPatch(current, [next[lead]!, ...next.filter((_, index) => index !== lead)]);
+    });
+  // Only a model that can lead may move into, or be moved under, the first row.
+  const canMove = (index: number, target: number) =>
+    target >= 0 &&
+    target < rows.length &&
+    (primary === null || Math.min(index, target) > 0 || canLead(rows[Math.max(index, target)]!));
   const fill = (slot: Slot, choice: ModelBackupChoice) =>
     slot === "empty" || isPrimarySlot(slot) ? setPrimary(choice) : place(slot, choice);
 
@@ -275,7 +289,7 @@ export function ModelRoleSettings({
       void setThinking((id.slice("thinking:".length) || null) as ThinkingLevel | null);
     } else if (id === "moveUp" || id === "moveDown") {
       const target = index + (id === "moveUp" ? -1 : 1);
-      if (target < 0 || target >= rows.length) return;
+      if (!canMove(index, target)) return;
       const next = [...rows];
       next.splice(target, 0, ...next.splice(index, 1));
       void commit(next);
@@ -324,8 +338,24 @@ export function ModelRoleSettings({
             : [];
         const actions: MenuAction[] = [
           ...thinkingMenu,
-          ...(index > 0 ? [{ id: "moveUp", title: t("Move up") }] : []),
-          ...(index < rows.length - 1 ? [{ id: "moveDown", title: t("Move down") }] : []),
+          ...(index > 0
+            ? [
+                {
+                  id: "moveUp",
+                  title: t("Move up"),
+                  attributes: { disabled: !canMove(index, index - 1) },
+                },
+              ]
+            : []),
+          ...(index < rows.length - 1
+            ? [
+                {
+                  id: "moveDown",
+                  title: t("Move down"),
+                  attributes: { disabled: !canMove(index, index + 1) },
+                },
+              ]
+            : []),
           ...(connected.has(canonicalPiProviderId(choice.provider))
             ? [{ id: "manage", title: t("Manage {provider}", { provider: providerName(choice) }) }]
             : []),
@@ -337,7 +367,9 @@ export function ModelRoleSettings({
                 name: sub.id ?? sub.title,
                 label: t("Thinking: {level}", { level: sub.title }),
               }))
-            : [{ name: action.id ?? action.title, label: action.title }],
+            : action.attributes?.disabled
+              ? []
+              : [{ name: action.id ?? action.title, label: action.title }],
         );
         const detail = [
           providerName(choice),

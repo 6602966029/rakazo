@@ -39,6 +39,14 @@ vi.mock("./api", () => ({
       return [
         { provider: "openai-compatible", id: "model-fixture", label: "Fixture" },
         { provider: "anthropic", providerName: "Anthropic", id: "claude-fixture", label: "Claude" },
+        // Deployment-funded models still leave room for a personal key.
+        {
+          provider: "openrouter",
+          providerName: "OpenRouter",
+          id: "funded-fixture",
+          label: "Funded",
+          managed: true,
+        },
       ];
     if (procedure === "models/credentials")
       return [
@@ -240,9 +248,10 @@ async function notConnectedChoices() {
   );
 }
 
-it("offers Ollama Cloud once among providers that still need a connection", async () => {
+it("offers deployment-funded providers and Ollama Cloud once among providers to connect", async () => {
   expect((await notConnectedChoices()).map((choice) => choice.label)).toEqual([
     "Anthropic",
+    "OpenRouter",
     "Ollama Cloud",
   ]);
 });
@@ -250,7 +259,10 @@ it("offers Ollama Cloud once among providers that still need a connection", asyn
 it("does not offer Ollama Cloud again once it is the saved connection", async () => {
   saved.baseUrl = "https://ollama.com/";
   try {
-    expect((await notConnectedChoices()).map((choice) => choice.label)).toEqual(["Anthropic"]);
+    expect((await notConnectedChoices()).map((choice) => choice.label)).toEqual([
+      "Anthropic",
+      "OpenRouter",
+    ]);
   } finally {
     saved.baseUrl = savedEndpoint;
   }
