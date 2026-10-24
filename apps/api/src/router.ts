@@ -36,6 +36,7 @@ import type {
   MemoryProviderResolver,
   PiOAuthLogins,
   ProviderCatalogCache,
+  PushTokenStore,
   RemoteConnectorDependencies,
   TicketChangeNotifier,
 } from "@rakazo/adapters";
@@ -64,7 +65,6 @@ import {
   createFaviconResolver,
   createTicket,
   defaultCatalogModelId,
-  deletePushToken,
   deploymentAutoReviewDefault,
   destroyBot,
   displayBotWorkspacePath,
@@ -119,7 +119,6 @@ import {
   routineRunModelPin,
   sanitizeComposioError,
   savedCatalogSelections,
-  savePushToken,
   scheduleComputerControlExpiry,
   scheduleComputerSleep,
   screenLeaseIdForRun,
@@ -241,7 +240,6 @@ import {
   newestVoiceCredentialOrder,
   Prisma,
   parseComputerMode,
-  pushSessionExpiresAt,
   recordSecurityEvent,
   releaseSpaceDeletionClaim,
   renameSpaceForMember,
@@ -655,6 +653,7 @@ function mcpAssignmentDto(row: {
 }
 
 export interface RouterDeps {
+  pushTokens: PushTokenStore;
   analytics?: ProductAnalytics;
   cloudAgent?: CloudAgentConnection | null;
   prisma: PrismaClient;
@@ -6739,12 +6738,7 @@ export function createRouter(deps: RouterDeps) {
         const sessionId = context.sessionId;
         if (!sessionId) throw new ORPCError("UNAUTHORIZED");
         try {
-          await savePushToken(deps.dataDir, context.actor.userId, input.token, sessionId, {
-            sessionActive: async () => {
-              const expiresAt = await pushSessionExpiresAt(deps.prisma, sessionId);
-              return expiresAt !== null && expiresAt.getTime() > Date.now();
-            },
-          });
+          await deps.pushTokens.save(context.actor.userId, input.token, sessionId);
         } catch (error) {
           if (error instanceof PushSessionEndedError) throw new ORPCError("UNAUTHORIZED");
           throw error;
@@ -6752,7 +6746,7 @@ export function createRouter(deps: RouterDeps) {
         return { ok: true as const };
       }),
       unregisterPush: authed.notifications.unregisterPush.handler(async ({ context }) => {
-        await deletePushToken(deps.dataDir, context.actor.userId);
+        await deps.pushTokens.remove(context.actor.userId);
         return { ok: true as const };
       }),
     },
