@@ -137,6 +137,9 @@ export function ModelRoleSettings({
   const providerName = (choice: ModelBackupChoice) => providerLabel(choice.provider);
   const modelLabel = (choice: ModelBackupChoice) => entryFor(choice)?.label ?? choice.modelId;
   const busy = state.busy || state.stale || !settings;
+  // Picks build their change from the settings loaded when they save, so a reload in flight
+  // does not lock them; moves and removals use the rows on screen and wait for it.
+  const pickerLocked = state.stale || !settings;
 
   async function save(
     update: (current: ModelRoleSettingsValue) => Partial<ModelRoleSettingsValue>,
@@ -149,15 +152,17 @@ export function ModelRoleSettings({
   const commit = (next: ModelBackupChoice[]) => save((current) => listPatch(current, next));
   const canMove = (index: number, target: number) =>
     target >= 0 && target < rows.length && target !== index;
-  const place = (slot: number | "add", choice: ModelBackupChoice) =>
+  // A replaced row is found by its model in the loaded list, since a reload may reorder it.
+  const place = (slot: ModelBackupChoice | "add", choice: ModelBackupChoice) =>
     save((current) => {
       const list = current.primary ? [current.primary, ...current.backups] : current.backups;
-      if (slot === "add")
+      const at = slot === "add" ? -1 : list.findIndex((item) => sameChoice(item, slot));
+      if (at < 0)
         return listPatch(current, [...list.filter((c) => !sameChoice(c, choice)), choice]);
-      const next = list.map((item, index) => (index === slot ? choice : item));
+      const next = list.map((item, index) => (index === at ? choice : item));
       return listPatch(
         current,
-        next.filter((item, index) => index === slot || !sameChoice(item, choice)),
+        next.filter((item, index) => index === at || !sameChoice(item, choice)),
       );
     });
   const setThinking = (level: ThinkingLevel | null) =>
@@ -221,7 +226,7 @@ export function ModelRoleSettings({
               options={options}
               defaultOption={role === "main" ? undefined : defaultLabel}
               providers={providers}
-              disabled={busy}
+              disabled={pickerLocked}
               onPick={(option) =>
                 option ? void setPrimary({ provider: option.provider, modelId: option.id }) : null
               }
@@ -267,12 +272,12 @@ export function ModelRoleSettings({
                 options={options}
                 defaultOption={isPrimary && role !== "main" ? defaultLabel : undefined}
                 providers={providers}
-                disabled={busy}
+                disabled={pickerLocked}
                 onPick={(option) =>
                   option
                     ? void (isPrimary
                         ? setPrimary({ provider: option.provider, modelId: option.id })
-                        : place(index, { provider: option.provider, modelId: option.id }))
+                        : place(choice, { provider: option.provider, modelId: option.id }))
                     : void setPrimary(null)
                 }
                 onConnect={connectFor(isPrimary ? "primary" : index)}
@@ -375,7 +380,7 @@ export function ModelRoleSettings({
                 ),
               )}
               providers={providers}
-              disabled={busy}
+              disabled={pickerLocked}
               onPick={(option) =>
                 option ? void place("add", { provider: option.provider, modelId: option.id }) : null
               }
