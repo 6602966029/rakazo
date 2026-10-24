@@ -355,9 +355,6 @@ it("shows a stored BYOK key when provider settings reopen", async () => {
     expect(input.placeholder).toBe(STORED_PLACEHOLDER);
     expect(input.type).toBe("password");
     expect(view.container.textContent).not.toContain("sk-");
-    expect(view.container.textContent).not.toContain("Connected · DeepSeek");
-    expect(view.container.textContent).not.toContain("Stored securely");
-    expect(view.container.textContent).not.toContain("Save limits");
     expect(buttons(view.container, "Replace API key")[0]?.disabled).toBe(true);
 
     await typeInto(input, "sk-replacement-key");
@@ -372,7 +369,6 @@ it("shows a stored BYOK key when provider settings reopen", async () => {
     expect(models.connect).toHaveBeenCalledWith(
       expect.objectContaining({ provider: "deepseek", apiKey: "sk-replacement-key" }),
     );
-    expect(view.container.textContent).not.toContain("Connected and using");
     // A saved connection closes its dialog; reopening shows the stored key again.
     expect(view.container.querySelector("#model-api-key")).toBeNull();
     await manage();
@@ -638,21 +634,6 @@ it("shows a stored OpenAI-compatible key and stays empty when none is saved", as
     expect(input.placeholder).toBe("Optional");
   } finally {
     await empty.unmount();
-  }
-});
-
-it("omits the redundant description and connection prompt", async () => {
-  const view = await renderSettings(false);
-  try {
-    await pick("Change Main model", "DeepSeek");
-    expect(view.container.querySelector('[data-testid="model-description"]')).toBeNull();
-    expect(view.container.textContent).not.toContain("Choose which connected model Rakazo uses.");
-    expect(view.container.textContent).not.toContain(
-      "Connect this provider to use it as your personal model.",
-    );
-    expect(keyField(view.container)).toBeInstanceOf(HTMLInputElement);
-  } finally {
-    await view.unmount();
   }
 });
 

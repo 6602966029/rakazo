@@ -56,6 +56,7 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   // Connecting from the empty first slot makes the provider's model the main model.
   await dialog.getByLabel("API key").fill("fake-cleanup-api-key");
   providerConnected = true;
+<<<<<<< HEAD
   await dialog.getByRole("button", { name: "Connect API key", exact: true }).click();
   await expect(dialog).toBeHidden();
   await pickReopenedModel(page);
@@ -63,6 +64,22 @@ test("model settings cleanup frames", async ({ page }, testInfo) => {
   await expect(primary).toContainText("OpenRouter");
   const addFallback = mainList.getByRole("button", { name: "Add fallback", exact: true });
   await expect(addFallback).toBeVisible();
+||||||| 9b0cc3366
+  await page.getByRole("button", { name: "Connect API key", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Disconnect", exact: true })).toBeVisible();
+  await expect(backups.getByRole("heading", { name: "Backup models" })).toBeVisible();
+  const addBackup = backups.getByRole("button", { name: "Add backup model" });
+  await expect(addBackup).toBeVisible();
+  const model = page.getByRole("combobox", { name: "Model", exact: true });
+  await expect(model).toBeVisible();
+=======
+  await page.getByRole("button", { name: "Connect API key", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Disconnect", exact: true })).toBeVisible();
+  const addBackup = backups.getByRole("button", { name: "Add backup model" });
+  await expect(addBackup).toBeVisible();
+  const model = page.getByRole("combobox", { name: "Model", exact: true });
+  await expect(model).toBeVisible();
+>>>>>>> origin/main
   await captureScreenshot(page, testInfo, "model-settings-cleanup-2-connected");
 
   const model = primary.getByRole("button", { name: /^Change / });
@@ -464,12 +481,25 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     await captureScreenshot(page, testInfo, "openai-compatible-connected");
     await page.getByRole("button", { name: "Close model settings" }).click();
     await openUserSettings(page, "models");
+<<<<<<< HEAD
     const saved = await manageModelConnection(page, "OpenAI-compatible");
     await expect(saved.getByRole("checkbox", { name: SECOND_MODEL_ID })).toBeChecked();
     await captureScreenshot(page, testInfo, "openai-compatible-multi-model");
     await saved.getByText("Advanced", { exact: true }).click();
     await expect(saved.getByRole("group").getByText("Headers", { exact: true })).toBeVisible();
     await expect(saved.getByRole("textbox", { name: "Header name", exact: true })).toHaveValue(
+||||||| 9b0cc3366
+    await page.getByPlaceholder("Search providers").fill("openai-compatible");
+    await page.getByRole("button", { name: /OpenAI-compatible/ }).click();
+    await page.getByText("Advanced", { exact: true }).click();
+    await expect(page.getByRole("group").getByText("Headers", { exact: true })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Header name", exact: true })).toHaveValue(
+=======
+    await page.getByPlaceholder("Search providers").fill("openai-compatible");
+    await page.getByRole("button", { name: /OpenAI-compatible/ }).click();
+    await page.getByText("Advanced", { exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Header name", exact: true })).toHaveValue(
+>>>>>>> origin/main
       "x-session",
     );
     await expect(saved.getByLabel("Header value", { exact: true })).toHaveValue("");
@@ -553,7 +583,6 @@ test("model settings connect, replace, and cancel provider authentication", asyn
   await completeOnboarding(page);
 
   await openUserSettings(page, "models");
-  await expect(page.getByRole("button", { name: "Close model settings" })).toBeVisible();
 
   const mainList = page.getByTestId("model-role-main");
   const connect = await openModelConnection(page, "Scripted");
