@@ -10362,12 +10362,10 @@ async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMateria
   const [deps, userId, spaceId, , provider] = args;
   const billingEnabled = await modelCreditBillingEnabled(deps);
   const scope = { userId, spaceId };
-  if (
-    billingEnabled &&
-    !args[7]?.requireStoredSecret &&
-    (await hasHostedModelCredits(deps.prisma, scope, provider))
-  ) {
+  if (billingEnabled && (await hasHostedModelCredits(deps.prisma, scope, provider))) {
     args[3] = null;
+    // Funded managed backups use deployment credentials just like the primary.
+    args[7] = { ...args[7], requireStoredSecret: false };
   }
   const credential = args[3];
   const material = await resolveModelKeyMaterial(...args);
@@ -10389,7 +10387,7 @@ async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMateria
   }
   const callObserver =
     !credential && billingEnabled ? await hostedModelCreditObserver(deps.prisma, scope) : undefined;
-  return { ...material, callObserver };
+  return { ...material, apiKey: material.apiKey ?? runtimeKey, callObserver };
 }
 
 async function resolveModelKeyMaterial(

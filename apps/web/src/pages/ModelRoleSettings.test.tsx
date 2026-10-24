@@ -6,6 +6,10 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => ({ role: vi.fn(), forRole: vi.fn(), setRole: vi.fn() }));
+vi.mock("../lib/localized-provider-hint", () => ({
+  providerDisplayName: (provider: string, name: string, auth?: string) =>
+    provider === "anthropic" && auth === "oauth" ? "Claude subscription" : name,
+}));
 vi.mock("../lib/space-rpc", () => {
   const client = { models: api };
   return { useSpaceRpc: () => client };
@@ -86,7 +90,7 @@ const credentials = [
     label: "OpenRouter",
     isDefault: true,
     hasKey: true,
-    defaultModel: "chat",
+    modelId: "chat",
   },
 ];
 let container: HTMLDivElement;
@@ -175,4 +179,35 @@ describe("shared role editor", () => {
     expect(container.textContent).toContain("OpenRouter · Chat");
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("save failed");
   });
+});
+
+it("keeps subscription connection names in saved rows and picker options", async () => {
+  api.forRole.mockResolvedValue([
+    {
+      provider: "anthropic",
+      id: "claude",
+      label: "Claude",
+      providerName: "Anthropic",
+      billing: "",
+    },
+  ]);
+  saved = { primary: null, backups: [{ provider: "anthropic", modelId: "claude" }] };
+  await render({
+    modelRole: "approval",
+    credentials: [
+      {
+        id: "subscription",
+        provider: "anthropic",
+        label: "Anthropic",
+        isDefault: true,
+        hasKey: true,
+        authKind: "oauth",
+        modelId: "claude",
+      },
+    ],
+  });
+  expect(container.textContent).toContain("Claude subscription · Claude");
+  expect(
+    container.querySelector('button[aria-label="Remove Claude subscription · Claude"]'),
+  ).not.toBeNull();
 });

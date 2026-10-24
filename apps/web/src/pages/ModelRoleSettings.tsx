@@ -10,6 +10,7 @@ import { createModelRoleSettings } from "@rakazo/core";
 import { Button, Spinner } from "@rakazo/ui-web";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { providerDisplayName } from "../lib/localized-provider-hint";
 import { useSpaceRpc } from "../lib/space-rpc";
 import { ModelPicker } from "./model-settings/model-picker";
 
@@ -50,9 +51,17 @@ export function ModelRoleSettings({
   useEffect(() => {
     void controller.load();
   }, [controller, credentials]);
-  const options = connectedBackupOptions(state.catalog, credentials);
+  const displayCatalog = state.catalog.map((entry) => ({
+    ...entry,
+    providerName: providerDisplayName(
+      entry.provider,
+      entry.providerName ?? entry.provider,
+      credentials.find((credential) => credential.provider === entry.provider)?.authKind,
+    ),
+  }));
+  const options = connectedBackupOptions(displayCatalog, credentials);
   const label = (choice: ModelBackupChoice) => {
-    const option = state.catalog.find(
+    const option = displayCatalog.find(
       (entry) => entry.provider === choice.provider && entry.id === choice.modelId,
     );
     return option
@@ -68,7 +77,7 @@ export function ModelRoleSettings({
   const catalogOptions = (choices: typeof options) =>
     choices.map(
       (choice) =>
-        state.catalog.find(
+        displayCatalog.find(
           (entry) => entry.provider === choice.provider && entry.id === choice.modelId,
         ) ?? { provider: choice.provider, id: choice.modelId, label: choice.label, billing: "" },
     );

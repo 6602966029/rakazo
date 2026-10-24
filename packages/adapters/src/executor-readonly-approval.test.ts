@@ -2065,3 +2065,40 @@ it("asks instead of using deployment credentials after a selected approval conne
     vi.unstubAllGlobals();
   }
 });
+
+it("uses the OpenRouter environment key for a decision checker on another deployment provider", async () => {
+  vi.stubEnv("PI_DEFAULT_PROVIDER", "anthropic");
+  vi.stubEnv("RAKAZO_AUTO_REVIEW_PROVIDER", "openrouter");
+  vi.stubEnv("RAKAZO_AUTO_REVIEW_MODEL", "typesafe/jev-1.14");
+  vi.stubEnv("OPENROUTER_API_KEY", "fake-environment-review-key");
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        answers: { decision: { type: "choice", choice: "pass", confidence: 0.99 } },
+      }),
+    ),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  try {
+    const f = fixture({
+      name: "demo_send_message",
+      readOnly: false,
+      autoReview: true,
+      nativeReview: true,
+      checkerConnected: false,
+    });
+    await f.run();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://openrouter.ai/api/alpha/decisions",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer fake-environment-review-key",
+        }),
+      }),
+    );
+    expect(f.execute).toHaveBeenCalledOnce();
+  } finally {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  }
+});

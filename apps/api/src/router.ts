@@ -7085,7 +7085,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor) {
       ),
       deps.prisma.actionAutoReviewPreference.findUnique({
         where: { spaceId_userId: { spaceId: actor.spaceId, userId: actor.userId } },
-        select: { enabled: true },
+        select: { enabled: true, skipApprovals: true },
       }),
     ]);
     let checkerAvailable = connections.some(Boolean);
@@ -7102,6 +7102,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor) {
     return {
       enabled: preference?.enabled ?? deploymentAutoReviewDefault(process.env),
       checkerAvailable,
+      skipApprovals: preference?.skipApprovals ?? false,
     };
   }
   const environmentAvailable = isAutoReviewCheckerConfigured({ env: process.env });
