@@ -3159,13 +3159,9 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
             }}
           />
         ) : null}
+        {/* The header buttons float over the chat; only the clock gets a soft backdrop. */}
         {headerHeight > 0 ? (
-          <View
-            pointerEvents="none"
-            style={[styles.headerFade, { height: headerClearance.opaqueHeight }]}
-          >
-            <View style={styles.headerFadeEdge} />
-          </View>
+          <View pointerEvents="none" style={[styles.statusBarFade, { height: insets.top }]} />
         ) : null}
       </KeyboardAvoidingView>
     </View>
