@@ -136,7 +136,8 @@ export function ModelRoleSettings({
       : options;
   const providerName = (choice: ModelBackupChoice) => providerLabel(choice.provider);
   const modelLabel = (choice: ModelBackupChoice) => entryFor(choice)?.label ?? choice.modelId;
-  const busy = state.busy || !settings;
+  // Saves wait for a reload, so only the first load needs to hold the controls.
+  const busy = !settings;
 
   async function save(
     update: (current: ModelRoleSettingsValue) => Partial<ModelRoleSettingsValue>,

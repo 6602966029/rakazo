@@ -75,7 +75,7 @@ export function RoleModelPicker({
         initialFocus={searchRef}
         className="w-[min(360px,var(--available-width))] gap-0 overflow-hidden p-0 motion-reduce:animate-none"
       >
-        <Command label={label} shouldFilter={false} loop>
+        <Command label={t`Search models`} shouldFilter={false} loop>
           <CommandInput
             ref={searchRef}
             value={query}
