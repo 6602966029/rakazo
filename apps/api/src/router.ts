@@ -1065,6 +1065,12 @@ export function createRouter(deps: RouterDeps) {
     deps.refreshExpiredModelCredential ??
     ((scope: { userId: string; spaceId: string }, secretId: string, provider: string) =>
       kickModelCredentialRefresh(deps.prisma, deps.secrets, scope, secretId, provider));
+  // The scripted fixture only exists to drive the scripted runtime; a real runtime
+  // cannot execute it, so it stays out of the user-facing catalog otherwise.
+  const chatCatalog = async (actor: Actor) => {
+    const catalog = await catalogForSpace(actor);
+    return deps.env.agentRuntime === "scripted" ? [...catalog, scriptedCatalogEntry] : catalog;
+  };
   const catalogForSpace = async (actor: Actor) => {
     const auth = await modelCredentialAuthKindsForSpace(
       deps.prisma,
@@ -1108,7 +1114,7 @@ export function createRouter(deps: RouterDeps) {
   };
 
   const modelRoleCatalog = async (actor: Actor, role: ModelRole): Promise<ModelCatalogEntry[]> => {
-    const catalog = await catalogForSpace(actor);
+    const catalog = await chatCatalog(actor);
     const decisions = role === "approval" ? decisionModelCatalog() : [];
     const managedProviders = new Set(
       catalog.filter((entry) => "managed" in entry && entry.managed).map((entry) => entry.provider),
@@ -1532,12 +1538,7 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     models: {
-      list: authed.models.list.handler(async ({ context }) => {
-        const catalog = await catalogForSpace(context.actor);
-        // The scripted fixture only exists to drive the scripted runtime; a real
-        // runtime cannot execute it, so it stays out of the user-facing catalog.
-        return deps.env.agentRuntime === "scripted" ? [...catalog, scriptedCatalogEntry] : catalog;
-      }),
+      list: authed.models.list.handler(async ({ context }) => chatCatalog(context.actor)),
       credentials: authed.models.credentials.handler(async ({ context }) => {
         const rows = await deps.prisma.userModelCredential.findMany({
           where: { userId: context.actor.userId },

@@ -63,6 +63,17 @@ export function RoleModelPicker({
   const matchingProviders = providers.filter((provider) =>
     provider.name.toLowerCase().includes(needle),
   );
+  const values = [
+    ...(defaultOption && !needle ? ["default"] : []),
+    ...groups.flatMap(([, entries]) => entries.map((option) => `${option.provider}:${option.id}`)),
+    ...matchingProviders.map((provider) => `connect:${provider.id}:${provider.baseUrl ?? ""}`),
+  ];
+  // The first row is active whenever the list changes, so Enter always picks something.
+  const [activeValue, setActiveValue] = useState("");
+  const firstValue = values[0] ?? "";
+  useEffect(() => {
+    setActiveValue(firstValue);
+  }, [firstValue]);
   const close = () => setOpen(false);
   // Keyed on the request, so later renders of the same request do not reopen it.
   const reopenKey = reopen?.key;
@@ -88,7 +99,23 @@ export function RoleModelPicker({
         initialFocus={searchRef}
         className="w-[min(360px,var(--available-width))] gap-0 overflow-hidden p-0 motion-reduce:animate-none"
       >
-        <Command label={t`Search models`} shouldFilter={false} loop>
+        <Command
+          ref={(command) => {
+            if (!command || !searchRef.current) return;
+            // cmdk can keep a stale selected item when the controlled value changes before
+            // filtered rows commit, so the input names the committed active row itself.
+            const active = [...command.querySelectorAll<HTMLElement>("[cmdk-item]")].find(
+              (item) => item.dataset.value === activeValue,
+            );
+            if (active) searchRef.current.setAttribute("aria-activedescendant", active.id);
+            else searchRef.current.removeAttribute("aria-activedescendant");
+          }}
+          label={t`Search models`}
+          shouldFilter={false}
+          loop
+          value={activeValue}
+          onValueChange={setActiveValue}
+        >
           <CommandInput
             ref={searchRef}
             value={query}

@@ -563,7 +563,7 @@ test("model settings connect, replace, and cancel provider authentication", asyn
   await apiKeyInput.fill("fake-scripted-key-one");
   await connect.getByRole("button", { name: "Connect API key" }).click();
   await expect(connect).toBeHidden();
-  await pickReopenedModel(page, "Scripted runtime");
+  await pickReopenedModel(page, "Scripted runtime (local verification)");
   await expect(mainList.getByTestId("model-role-row-1")).toContainText("Scripted runtime");
   // The output limit lives with the saved connection.
   const limits = await manageModelConnection(page, "Scripted");
@@ -861,7 +861,14 @@ test("catalog models keep a space default thinking level per saved model", async
   await anthropic.getByLabel("API key").fill("fake-anthropic-key");
   await anthropic.getByRole("button", { name: "Connect API key" }).click();
   await expect(anthropic).toBeHidden();
-  await pickReopenedModel(page);
+  // Connecting keeps the current main model; choose an Anthropic model in its reopened picker.
+  await page
+    .getByRole("listbox", { name: "Model options" })
+    .getByRole("option")
+    .filter({ hasText: /Claude/ })
+    .first()
+    .click();
+  await expect(primary).toContainText("Claude");
   await expect(primary.getByText(/^Thinking: /)).toHaveCount(0);
   await rowOptions.click();
   await page.getByRole("menuitem", { name: "Thinking", exact: true }).click();
