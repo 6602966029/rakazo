@@ -681,7 +681,7 @@ msgstr "Een andere agent"
 
 #: src/components/AskCard.tsx
 msgid "Answer"
-msgstr ""
+msgstr "Antwoorden"
 
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
@@ -928,7 +928,7 @@ msgstr "bot"
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
-msgstr ""
+msgstr "Bot"
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -1288,7 +1288,7 @@ msgstr "Cloud"
 
 #: src/components/AskCard.tsx
 msgid "Code"
-msgstr ""
+msgstr "Code"
 
 #: src/pages/Auth.tsx
 msgctxt "email sign-in"
@@ -2125,7 +2125,7 @@ msgstr "Standaard"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
-msgstr ""
+msgstr "Standaard ({0})"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: thinkingLevelLabel("medium")
@@ -2527,7 +2527,7 @@ msgstr "Extern gesprek"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Extra high"
-msgstr ""
+msgstr "Extra hoog"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2747,7 +2747,7 @@ msgstr "Transcript verbergen"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "High"
-msgstr ""
+msgstr "Hoog"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3069,7 +3069,7 @@ msgstr "Uitloggen"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Low"
-msgstr ""
+msgstr "Laag"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3133,7 +3133,7 @@ msgstr "Markeren als ongelezen"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
-msgstr ""
+msgstr "Max"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3168,7 +3168,7 @@ msgstr "MCP-servers"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
-msgstr ""
+msgstr "Gemiddeld"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3205,7 +3205,7 @@ msgstr "Alleen vermeldingen"
 #: src/pages/shell/chat-shared.ts
 #: src/pages/shell/composer.tsx
 msgid "Message"
-msgstr ""
+msgstr "Bericht"
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -3252,7 +3252,7 @@ msgstr "Microfoon mislukt"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Minimal"
-msgstr ""
+msgstr "Minimaal"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts

@@ -681,7 +681,7 @@ msgstr "Outro agente"
 
 #: src/components/AskCard.tsx
 msgid "Answer"
-msgstr ""
+msgstr "Resposta"
 
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
@@ -928,7 +928,7 @@ msgstr "bot"
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
-msgstr ""
+msgstr "Bot"
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -1288,7 +1288,7 @@ msgstr "Nuvem"
 
 #: src/components/AskCard.tsx
 msgid "Code"
-msgstr ""
+msgstr "Código"
 
 #: src/pages/Auth.tsx
 msgctxt "email sign-in"
@@ -2125,13 +2125,13 @@ msgstr "Padrão"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
-msgstr ""
+msgstr "Padrão ({0})"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: thinkingLevelLabel("medium")
 #: src/pages/model-settings/catalog-model-fields.tsx
 msgid "Default ({0})"
-msgstr ""
+msgstr "Padrão ({0})"
 
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "Default scope"
@@ -2527,12 +2527,12 @@ msgstr ""
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Extra high"
-msgstr ""
+msgstr "Extra alta"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Extra high"
-msgstr ""
+msgstr "Extra alta"
 
 #: src/components/CloudAgentCard.tsx
 msgid "failed"
@@ -2747,12 +2747,12 @@ msgstr "Ocultar transcrição"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "High"
-msgstr ""
+msgstr "Alto"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "High"
-msgstr ""
+msgstr "Alto"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Hold to talk"
@@ -3069,12 +3069,12 @@ msgstr "Sair"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Low"
-msgstr ""
+msgstr "Baixo"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Low"
-msgstr ""
+msgstr "Baixo"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
@@ -3133,12 +3133,12 @@ msgstr "Marcar como Não Lida"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
-msgstr ""
+msgstr "Máximo"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Max"
-msgstr ""
+msgstr "Máximo"
 
 #: src/pages/Artifacts.tsx
 msgid "Maximize"
@@ -3168,12 +3168,12 @@ msgstr "Servidores MCP"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
-msgstr ""
+msgstr "Médio"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Medium"
-msgstr ""
+msgstr "Médio"
 
 #: src/lib/identity-display.ts
 msgid "Member"
@@ -3205,7 +3205,7 @@ msgstr ""
 #: src/pages/shell/chat-shared.ts
 #: src/pages/shell/composer.tsx
 msgid "Message"
-msgstr ""
+msgstr "Mensagem"
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -3252,12 +3252,12 @@ msgstr "Falha no microfone"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Minimal"
-msgstr ""
+msgstr "Mínimo"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Minimal"
-msgstr ""
+msgstr "Mínimo"
 
 #: src/pages/WindowChrome.tsx
 msgid "Minimize"

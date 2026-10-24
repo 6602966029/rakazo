@@ -3829,8 +3829,9 @@ describe("model credential persistence", () => {
       findFirst: ReturnType<typeof vi.fn>;
       updateMany: ReturnType<typeof vi.fn>;
     };
-    preferences.findFirst.mockImplementation(async ({ where }: { where: { isDefault?: true } }) =>
-      where.isDefault ? { id: "other-default" } : null,
+    preferences.findFirst.mockImplementation(
+      async ({ where }: { where: { credentialId?: unknown; isDefault?: true } }) =>
+        where.isDefault && typeof where.credentialId === "object" ? { id: "other-default" } : null,
     );
 
     const response = await call(handler, "models/connect", {
@@ -3866,6 +3867,29 @@ describe("model credential persistence", () => {
       expect.objectContaining({ create: expect.objectContaining({ isDefault: false }) }),
     );
     await expect(response.json()).resolves.toMatchObject({ json: { isDefault: false } });
+  });
+
+  it("leaves the main model's choice alone when its own connection is saved for another role", async () => {
+    const { upsert, deps, handler } = persistDeps({ deploymentModelConfigured: true });
+    const preferences = deps.prisma.spaceModelPreference as unknown as {
+      findFirst: ReturnType<typeof vi.fn>;
+    };
+    preferences.findFirst.mockImplementation(
+      async ({ where }: { where: { credentialId?: unknown; isDefault?: true } }) =>
+        where.isDefault && typeof where.credentialId === "string"
+          ? { id: "main", isDefault: true, modelId: "chat-model" }
+          : null,
+    );
+
+    const response = await call(handler, "models/connect", {
+      provider: "test-provider",
+      apiKey: "sk-test-key-123",
+      modelId: "approval-model",
+      makeDefault: false,
+    });
+
+    expect(response.status).toBe(200);
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it("still makes the first connection the default when makeDefault is false", async () => {

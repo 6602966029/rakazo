@@ -681,7 +681,7 @@ msgstr "別のエージェント"
 
 #: src/components/AskCard.tsx
 msgid "Answer"
-msgstr ""
+msgstr "回答"
 
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
@@ -928,7 +928,7 @@ msgstr "ボット"
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
-msgstr ""
+msgstr "ボット"
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -1288,7 +1288,7 @@ msgstr "クラウド"
 
 #: src/components/AskCard.tsx
 msgid "Code"
-msgstr ""
+msgstr "コード"
 
 #: src/pages/Auth.tsx
 msgctxt "email sign-in"
@@ -2125,7 +2125,7 @@ msgstr "デフォルト"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
-msgstr ""
+msgstr "デフォルト（{0}）"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: thinkingLevelLabel("medium")
@@ -2527,7 +2527,7 @@ msgstr "外部の会話"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Extra high"
-msgstr ""
+msgstr "非常に高い"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -2747,7 +2747,7 @@ msgstr "文字起こしを非表示"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "High"
-msgstr ""
+msgstr "高"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3069,7 +3069,7 @@ msgstr "ログアウト"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Low"
-msgstr ""
+msgstr "低"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3133,7 +3133,7 @@ msgstr "未読にする"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
-msgstr ""
+msgstr "最大"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3168,7 +3168,7 @@ msgstr "MCPサーバー"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
-msgstr ""
+msgstr "中"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
@@ -3205,7 +3205,7 @@ msgstr "メンションのみ"
 #: src/pages/shell/chat-shared.ts
 #: src/pages/shell/composer.tsx
 msgid "Message"
-msgstr ""
+msgstr "メッセージ"
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -3252,7 +3252,7 @@ msgstr "マイクのエラー"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Minimal"
-msgstr ""
+msgstr "最小"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts

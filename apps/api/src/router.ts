@@ -7668,8 +7668,17 @@ async function persistModelCredential(
               },
               select: { id: true },
             })) !== null);
+        // When this connection already runs chat, its model choice stays as the main model's.
         const preference = keepDefault
-          ? await saveSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel)
+          ? ((await tx.spaceModelPreference.findFirst({
+              where: {
+                spaceId: actor.spaceId,
+                userId: actor.userId,
+                credentialId: credential.id,
+                isDefault: true,
+              },
+            })) ??
+            (await saveSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel)))
           : await selectSpaceModelPreference(tx, actor, credential.id, defaultModel, thinkingLevel);
         throwIfAborted(input.signal);
         if (existing) {

@@ -681,7 +681,7 @@ msgstr "Ein anderer Agent"
 
 #: src/components/AskCard.tsx
 msgid "Answer"
-msgstr ""
+msgstr "Antwort"
 
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
@@ -928,12 +928,12 @@ msgstr "Bot"
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
-msgstr ""
+msgstr "Bot"
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
 msgid "Bot"
-msgstr ""
+msgstr "Bot"
 
 #: src/pages/model-settings/space-bots-model.tsx
 msgid "Bot models"
@@ -1288,7 +1288,7 @@ msgstr "Cloud"
 
 #: src/components/AskCard.tsx
 msgid "Code"
-msgstr ""
+msgstr "Code"
 
 #: src/pages/Auth.tsx
 msgctxt "email sign-in"
@@ -2125,13 +2125,13 @@ msgstr "Standard"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Default ({0})"
-msgstr ""
+msgstr "Standard ({0})"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: thinkingLevelLabel("medium")
 #: src/pages/model-settings/catalog-model-fields.tsx
 msgid "Default ({0})"
-msgstr ""
+msgstr "Standard ({0})"
 
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "Default scope"
@@ -2527,12 +2527,12 @@ msgstr ""
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Extra high"
-msgstr ""
+msgstr "Sehr hoch"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Extra high"
-msgstr ""
+msgstr "Sehr hoch"
 
 #: src/components/CloudAgentCard.tsx
 msgid "failed"
@@ -2747,12 +2747,12 @@ msgstr "Transkript ausblenden"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "High"
-msgstr ""
+msgstr "Hoch"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "High"
-msgstr ""
+msgstr "Hoch"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Hold to talk"
@@ -3069,12 +3069,12 @@ msgstr "Abmelden"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Low"
-msgstr ""
+msgstr "Niedrig"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Low"
-msgstr ""
+msgstr "Niedrig"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
@@ -3133,12 +3133,12 @@ msgstr "Als ungelesen markieren"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
-msgstr ""
+msgstr "Max."
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Max"
-msgstr ""
+msgstr "Max."
 
 #: src/pages/Artifacts.tsx
 msgid "Maximize"
@@ -3168,12 +3168,12 @@ msgstr "MCP-Server"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Medium"
-msgstr ""
+msgstr "Mittel"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Medium"
-msgstr ""
+msgstr "Mittel"
 
 #: src/lib/identity-display.ts
 msgid "Member"
@@ -3205,7 +3205,7 @@ msgstr ""
 #: src/pages/shell/chat-shared.ts
 #: src/pages/shell/composer.tsx
 msgid "Message"
-msgstr ""
+msgstr "Nachricht"
 
 #. js-lingui-explicit-id
 #: src/lib/browser-notifications.ts
@@ -3252,12 +3252,12 @@ msgstr "Mikrofonfehler"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Minimal"
-msgstr ""
+msgstr "Minimal"
 
 #. js-lingui-explicit-id
 #: src/lib/model-catalog.ts
 msgid "Minimal"
-msgstr ""
+msgstr "Minimal"
 
 #: src/pages/WindowChrome.tsx
 msgid "Minimize"
