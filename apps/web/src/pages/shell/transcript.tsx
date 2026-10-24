@@ -37,6 +37,13 @@ import { TimeSeparator, UnreadDivider } from "./chat-context";
 import { MessageView } from "./message-view";
 import { QuoteSelectionButton } from "./quote-selection-button";
 
+/** Bubbles stop at a readable line length instead of stretching with wide windows. */
+export function bubbleFrameWidth(role: ThreadMessage["role"]) {
+  return role === "user"
+    ? "max-w-[min(84%,calc(100%_-_8rem),39rem)] [@media(hover:none)]:max-w-[min(84%,39rem)]"
+    : "max-w-[min(88%,calc(100%_-_8rem),39rem)] [@media(hover:none)]:max-w-[min(88%,39rem)]";
+}
+
 export const Transcript = memo(function Transcript({
   scrollRef,
   scrollRequest,
@@ -396,7 +403,7 @@ export const Transcript = memo(function Transcript({
             following.current = false;
           }
         }}
-        className="rk-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-5 md:px-7 md:py-6"
+        className="rk-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-5 md:px-[max(1.75rem,calc((100%_-_60rem)/2))] md:py-6"
         style={
           userBubble
             ? ({
@@ -475,11 +482,7 @@ export const Transcript = memo(function Transcript({
                               (block) => block.kind === "ask" || block.kind === "mcp_approval",
                             )
                           ? "relative w-full min-w-0 max-w-full"
-                          : `relative ${message.blocks.some((block) => block.kind === "app_connect") ? "w-full" : "w-fit"} min-w-0 ${
-                              message.role === "user"
-                                ? "max-w-[min(84%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[84%]"
-                                : "max-w-[min(88%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[88%]"
-                            }`
+                          : `relative ${message.blocks.some((block) => block.kind === "app_connect") ? "w-full" : "w-fit"} min-w-0 ${bubbleFrameWidth(message.role)}`
                     }
                   >
                     <MessageView
