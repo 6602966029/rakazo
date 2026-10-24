@@ -202,7 +202,7 @@ describe("passkey sign-in", () => {
       .mockReset()
       .mockResolvedValueOnce({
         response: Response.json({}),
-        body: { challenge: "challenge" },
+        body: { challenge: "challenge", rpId: "rakazo.example.test" },
       });
     await expect(signInWithPasskey()).rejects.toThrow("Could not continue");
     expect(get).not.toHaveBeenCalled();
