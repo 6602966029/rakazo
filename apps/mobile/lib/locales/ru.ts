@@ -600,6 +600,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Resetting…": "Сброс…",
   Restore: "Восстановить",
   "Stream replies": "Потоковые ответы",
+  "Run actions without asking": "Выполнять действия без подтверждения",
   "Load web images automatically": "Автоматически загружать изображения из интернета",
   "Restore the last saved workspace. Unsaved work on the computer is lost.":
     "Восстановить последнее сохранённое рабочее пространство. Несохранённые данные на компьютере будут потеряны.",

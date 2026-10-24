@@ -645,6 +645,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Scheduled tasks": "Geplande taken",
   "Sign out": "Uitloggen",
   "Stream replies": "Antwoorden streamen",
+  "Run actions without asking": "Acties uitvoeren zonder te vragen",
   "Load web images automatically": "Webafbeeldingen automatisch laden",
   System: "Systeem",
   "This permanently deletes your account, bots, conversations, memories, files, and saved connections. This cannot be undone.":

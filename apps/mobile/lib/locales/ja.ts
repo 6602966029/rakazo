@@ -636,6 +636,7 @@ export const JA_MESSAGES: Record<string, string> = {
   "Scheduled tasks": "スケジュール済みのタスク",
   "Sign out": "ログアウト",
   "Stream replies": "返信をストリーミング",
+  "Run actions without asking": "確認せずにアクションを実行",
   "Load web images automatically": "Web画像を自動で読み込む",
   System: "システム",
   "This permanently deletes your account, bots, conversations, memories, files, and saved connections. This cannot be undone.":
