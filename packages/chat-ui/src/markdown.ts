@@ -6,7 +6,57 @@ import { createContext, useContext, useEffect, useSyncExternalStore } from "reac
 export type ChatMarkdownProps = {
   children: string;
   streaming?: boolean;
+  /** Draws a mention link from `withMentions`; returning nothing leaves its plain name. */
+  renderMention?: (id: string, name: string) => ReactNode;
 };
+
+const MENTION_URL_PREFIX = "rakazo-mention:";
+
+/** The id of a mention link, if this href is one. */
+export function markdownMentionId(href: string | undefined): string | undefined {
+  if (!href?.startsWith(MENTION_URL_PREFIX)) return undefined;
+  try {
+    return decodeURIComponent(href.slice(MENTION_URL_PREFIX.length)) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Inline code and existing links keep their text; a mention is never placed inside them.
+const PROTECTED_MARKDOWN = /(`[^`\n]*`|!?\[[^\]\n]*\]\([^)\n]*\))/;
+const OPENS_WITH_BLOCK = /^\s*(#|>|\||```|~~~|[-*+]\s|\d+[.)]\s)/;
+
+/** Markdown naming each entry as a mention link at its first appearance, or up front if absent. */
+export function withMentions(
+  text: string,
+  mentions: readonly { id: string; name: string }[],
+): string {
+  let result = text;
+  for (const mention of mentions) {
+    const name = mention.name.trim();
+    if (!name) continue;
+    const link = `[${name.replace(/[\\[\]*_`<>]/g, "\\$&")}](${MENTION_URL_PREFIX}${encodeURIComponent(mention.id)})`;
+    const pattern = new RegExp(`(^|[^\\p{L}\\p{N}_])${escapeRegExp(name)}(?![\\p{L}\\p{N}_])`, "u");
+    let placed = false;
+    result = result
+      .split(PROTECTED_MARKDOWN)
+      .map((part, index) => {
+        if (placed || index % 2 === 1) return part;
+        return part.replace(pattern, (_match, prefix: string) => {
+          placed = true;
+          return `${prefix}${link}`;
+        });
+      })
+      .join("");
+    if (!placed)
+      result = OPENS_WITH_BLOCK.test(result) ? `${link}\n\n${result}` : `${link} ${result}`;
+  }
+  return result;
+}
 
 type LinkifyRules = {
   set(options: { fuzzyLink: boolean }): unknown;

@@ -1,0 +1,41 @@
+import type { MessageBlock } from "@rakazo/contracts";
+import { isToolActivityBlock } from "./tool-activity.js";
+
+export type ChildBotBlock = Extract<MessageBlock, { kind: "child_bot" }>;
+
+type MentionMessage = { id: string; role: string; botId?: string; blocks: MessageBlock[] };
+
+function isProse(block: MessageBlock): boolean {
+  return (block.kind === "text" || block.kind === "progress") && !isToolActivityBlock(block);
+}
+
+/**
+ * A message that only announces bots it created folds into the same bot's next reply, which names
+ * them inline. Announcements with no later reply yet stay visible on their own.
+ */
+export function projectBotMentions<Message extends MentionMessage>(messages: readonly Message[]) {
+  const mentions = new Map<string, ChildBotBlock[]>();
+  const folded = new Set<string>();
+  messages.forEach((message, index) => {
+    if (
+      message.role !== "bot" ||
+      message.blocks.length === 0 ||
+      !message.blocks.every((block) => block.kind === "child_bot")
+    )
+      return;
+    for (const next of messages.slice(index + 1)) {
+      if (next.role !== "bot" || next.botId !== message.botId) return;
+      if (!next.blocks.some(isProse)) continue;
+      mentions.set(next.id, [
+        ...(mentions.get(next.id) ?? []),
+        ...(message.blocks as ChildBotBlock[]),
+      ]);
+      folded.add(message.id);
+      return;
+    }
+  });
+  return {
+    visibleMessages: messages.filter((message) => !folded.has(message.id)),
+    mentions,
+  };
+}

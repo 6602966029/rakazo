@@ -40,7 +40,18 @@ type PeerBot = ComponentProps<typeof MessageView>["peerBot"];
 const missingBot: PeerBot = () => undefined;
 const existingBot: PeerBot = () => ({ color: "orange" });
 
-function renderChildBot(status: "created" | "archived" | "deleted", peerBot: PeerBot) {
+const planner = (status: "created" | "archived" | "deleted" = "created") => ({
+  kind: "child_bot" as const,
+  botId: "child",
+  name: "Planner",
+  status,
+});
+
+function renderMessage(
+  blocks: ThreadMessage["blocks"],
+  peerBot: PeerBot,
+  mentions?: ReturnType<typeof planner>[],
+) {
   const onOpenBot = vi.fn();
   const message: ThreadMessage = {
     id: "message",
@@ -48,7 +59,7 @@ function renderChildBot(status: "created" | "archived" | "deleted", peerBot: Pee
     seq: 1,
     role: "bot",
     createdAt: new Date().toISOString(),
-    blocks: [{ kind: "child_bot", botId: "child", name: "Planner", status }],
+    blocks,
   };
   act(() =>
     root.render(
@@ -57,6 +68,7 @@ function renderChildBot(status: "created" | "archived" | "deleted", peerBot: Pee
         canAnswer={false}
         canDismiss={false}
         message={message}
+        mentions={mentions}
         onAnswer={vi.fn()}
         onOpenBot={onOpenBot}
         onOpenPeerMessages={vi.fn()}
@@ -76,25 +88,49 @@ function renderChildBot(status: "created" | "archived" | "deleted", peerBot: Pee
       />,
     ),
   );
-  const link = container.querySelector<HTMLButtonElement>('[data-testid="bot-link"]')!;
-  act(() => link.click());
-  return { link, onOpenBot };
+  const mention = container.querySelector<HTMLElement>('[data-testid="bot-mention"]')!;
+  act(() => mention.click());
+  return { mention, onOpenBot };
 }
 
-it("links a new bot inline in its color", () => {
-  const { link, onOpenBot } = renderChildBot("created", existingBot);
-  expect(link.textContent).toBe("Planner");
-  expect(link.querySelector("span")?.getAttribute("style")).toContain("color");
+it("names a new bot inline in the reply, in its color", () => {
+  const { mention, onOpenBot } = renderMessage(
+    [{ kind: "text", text: "Planner is ready." }],
+    existingBot,
+    [planner()],
+  );
+  const bubble = container.querySelector('[data-testid="message-bot-bubble"]');
+  expect(bubble?.contains(mention)).toBe(true);
+  expect(bubble?.textContent).toBe("Planner is ready.");
+  expect(mention.tagName).toBe("BUTTON");
+  expect(mention.querySelector("span[dir]")?.getAttribute("style")).toContain("color");
   expect(onOpenBot).toHaveBeenCalledWith("child");
+});
+
+it("puts the bot first when the reply does not name it", () => {
+  renderMessage([{ kind: "text", text: "Ready when you are." }], existingBot, [planner()]);
+  expect(container.querySelector('[data-testid="message-bot-bubble"]')?.textContent).toBe(
+    "Planner Ready when you are.",
+  );
 });
 
 it.each([
   ["no longer exists", "created", missingBot],
   ["was deleted", "deleted", existingBot],
 ] as const)("keeps the name without color or link when the bot %s", (_, status, peerBot) => {
-  const { link, onOpenBot } = renderChildBot(status, peerBot);
-  expect(link.textContent).toContain("Planner");
-  expect(link.disabled).toBe(true);
-  expect(link.querySelector("span")?.getAttribute("style")).toBeNull();
+  const { mention, onOpenBot } = renderMessage(
+    [{ kind: "text", text: "Planner is gone." }],
+    peerBot,
+    [planner(status)],
+  );
+  expect(mention.textContent).toBe("Planner");
+  expect(mention.tagName).toBe("SPAN");
+  expect(mention.querySelector("span[dir]")?.getAttribute("style")).toBeNull();
   expect(onOpenBot).not.toHaveBeenCalled();
+});
+
+it("shows an announcement with no reply yet on its own", () => {
+  const { mention, onOpenBot } = renderMessage([planner()], existingBot);
+  expect(mention.textContent).toBe("Planner");
+  expect(onOpenBot).toHaveBeenCalledWith("child");
 });

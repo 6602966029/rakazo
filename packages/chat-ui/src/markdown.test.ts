@@ -8,9 +8,11 @@ import {
   linkLabel,
   markdownLinkDisplayParts,
   markdownLinkRequiresConfirmation,
+  markdownMentionId,
   plainTextLinkParts,
   sanitizeMarkdownImageUrl,
   sanitizeMarkdownUrl,
+  withMentions,
 } from "./markdown";
 
 type Token = { type: string; attrGet(name: string): string | null; children: Token[] | null };
@@ -342,5 +344,38 @@ it("highlights the destination host after userinfo containing the same host text
     before: "https://docs.example:docs.example@",
     host: "docs.example",
     after: "/a",
+  });
+});
+
+describe("withMentions", () => {
+  const planner = { id: "bot-1", name: "Planner" };
+
+  it("links the first appearance of the name", () => {
+    expect(withMentions("Planner is ready. Ask Planner anything.", [planner])).toBe(
+      "[Planner](rakazo-mention:bot-1) is ready. Ask Planner anything.",
+    );
+  });
+
+  it("puts the mention first when the text does not name it", () => {
+    expect(withMentions("Ready when you are.", [planner])).toBe(
+      "[Planner](rakazo-mention:bot-1) Ready when you are.",
+    );
+    expect(withMentions("- first step", [planner])).toBe(
+      "[Planner](rakazo-mention:bot-1)\n\n- first step",
+    );
+  });
+
+  it("leaves code, links, and longer words alone", () => {
+    expect(withMentions("`Planner` and [Planner](https://example.test) Planners", [planner])).toBe(
+      "[Planner](rakazo-mention:bot-1) `Planner` and [Planner](https://example.test) Planners",
+    );
+  });
+
+  it("escapes markdown in the name and encodes the id", () => {
+    expect(withMentions("hi", [{ id: "a/b", name: "[x]_y" }])).toBe(
+      "[\\[x\\]\\_y](rakazo-mention:a%2Fb) hi",
+    );
+    expect(markdownMentionId("rakazo-mention:a%2Fb")).toBe("a/b");
+    expect(markdownMentionId("https://example.test")).toBeUndefined();
   });
 });

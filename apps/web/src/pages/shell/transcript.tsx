@@ -8,6 +8,7 @@ import {
   isPeerReceiptBlocks,
   liveActivityLine,
   liveMessageComposing,
+  projectBotMentions,
   projectMessageReactions,
   timeSeparatorIds,
   unreadDividerMessageId,
@@ -150,7 +151,11 @@ export const Transcript = memo(function Transcript({
     () => new Map(messages.map((message) => [message.id, message])),
     [messages],
   );
-  const reactionView = useMemo(() => projectMessageReactions(messages), [messages]);
+  const mentionView = useMemo(() => projectBotMentions(messages), [messages]);
+  const reactionView = useMemo(
+    () => projectMessageReactions(mentionView.visibleMessages),
+    [mentionView],
+  );
   const shownMessages = reactionView.visibleMessages.filter((message) =>
     messageHasVisibleBlocks(message.blocks, showToolActivity),
   );
@@ -485,6 +490,7 @@ export const Transcript = memo(function Transcript({
                     <MessageView
                       artifactTarget={artifactTarget}
                       message={message}
+                      mentions={mentionView.mentions.get(message.id)}
                       canAnswer={answerableAskIds.has(message.id)}
                       canDismiss={dismissableAskIds.has(message.id)}
                       onOpenBot={onOpenBot}

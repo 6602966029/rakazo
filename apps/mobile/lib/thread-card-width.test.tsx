@@ -75,10 +75,14 @@ vi.mock("./native", () => ({
   useMobileTokens: () => ({}),
 }));
 
+vi.mock("../components/bot-avatar", () => ({ BotAvatar: () => <i /> }));
+vi.mock("../components/native-symbol", () => ({ NativeSymbol: () => <i /> }));
+
 vi.mock("../components/native-action-button", () => ({
   NativeActionButton: ({ label }: { label: string }) => <button type="button">{label}</button>,
 }));
 
+import { BotMention, MessageMentions } from "../components/bot-mention";
 import { McpApprovalCard } from "../components/McpApprovalCard";
 import { withUserBubble } from "./user-bubble";
 
@@ -112,6 +116,8 @@ const scope = {
   Animated: { View },
   NativeSymbol: () => <i data-chevron="down" />,
   BotAvatar: () => <i />,
+  BotMention,
+  MessageMentions,
   useResolvedAppearance: () => "light",
   mobileTokens: () => ({}),
   withUserBubble,
@@ -251,10 +257,12 @@ describe("thread cards", () => {
   ])("keeps a child bot's name without a link when it is %s", (_, block, bots) => {
     const onOpenBot = vi.fn();
     renderBlocks([block as MessageBlock], { bots, onOpenBot });
-    const link = container.firstElementChild as HTMLElement;
-    expect(link.textContent).toContain("Planner");
-    expect(link.getAttribute("role")).toBeNull();
-    act(() => link.click());
+    const row = container.firstElementChild as HTMLElement;
+    expect(row.textContent).toContain("Planner");
+    expect(row.querySelector('[role="link"]')).toBeNull();
+    act(() => {
+      for (const span of row.querySelectorAll("span")) span.click();
+    });
     expect(onOpenBot).not.toHaveBeenCalled();
   });
 
@@ -268,11 +276,11 @@ describe("thread cards", () => {
     });
     const cards = [...container.firstElementChild!.children] as HTMLElement[];
     expect(cards).toHaveLength(3);
-    act(() => cards[1]!.click());
+    act(() => cards[1]!.querySelector<HTMLElement>('[role="link"]')!.click());
     expect(onOpenBot).toHaveBeenCalledWith("child-1", "Planner");
     act(() =>
       cards.forEach((card) => {
-        const target = card.tagName === "BUTTON" ? card : card.querySelector("button")!;
+        const target = card.tagName === "DIV" ? card.querySelector("button")! : card;
         target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
       }),
     );
