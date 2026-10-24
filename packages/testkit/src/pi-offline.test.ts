@@ -407,7 +407,7 @@ describe("real Pi against an offline model HTTP endpoint", () => {
           expect(request) {
             expect(request.messages.at(-1)).toMatchObject({
               role: "user",
-              content: [{ type: "text", text: "Save hello to notes.txt." }],
+              content: "Save hello to notes.txt.",
             });
             expect(request.tools).toContainEqual(
               expect.objectContaining({
