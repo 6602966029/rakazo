@@ -8602,11 +8602,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (
             error instanceof TransientModelError ||
             error instanceof ModelAccountError ||
-            error instanceof ModelOutputError
+            error instanceof ModelOutputError ||
+            error instanceof SandboxRateLimitError
           ) {
             // Provider outages that outlasted retries, provider accounts, plans and model
-            // choices the user fixes, and unusable model output are not server faults; the
-            // run error already tells the user what to do.
+            // choices the user fixes, unusable model output and the computer provider's own
+            // rate limit are not server faults; the run error already tells the user what to do.
             getLogger().warn("run.failed", {
               "run.outcome": "failed",
               "run.failure": error.name,
