@@ -5985,8 +5985,14 @@ describe("openai-compatible enabled models", () => {
       .map(({ name, spaceId, modelId }) => ({ name, spaceId, modelId }));
   }
 
-  function pinStores(options: { bots?: Pin[]; routines?: Pin[]; backups?: string[] }) {
+  function pinStores(options: {
+    bots?: Pin[];
+    routines?: Pin[];
+    backups?: string[];
+    roleChoices?: string[];
+  }) {
     const backups = options.backups?.map((modelId) => ({ name: "", modelId }));
+    const roleChoices = options.roleChoices?.map((modelId) => ({ name: "", modelId }));
     return {
       bots: (where: PinWhere) => matching(options.bots, where),
       routine: {
@@ -5996,6 +6002,9 @@ describe("openai-compatible enabled models", () => {
       },
       spaceBackupModel: {
         findMany: vi.fn(async ({ where }: { where: PinWhere }) => matching(backups, where)),
+      },
+      spaceModelRoleChoice: {
+        findMany: vi.fn(async ({ where }: { where: PinWhere }) => matching(roleChoices, where)),
       },
     };
   }
@@ -6088,6 +6097,7 @@ describe("openai-compatible enabled models", () => {
     bots?: Pin[];
     routines?: Pin[];
     backups?: string[];
+    roleChoices?: string[];
   }) {
     const state = {
       credential: {
@@ -6234,6 +6244,7 @@ describe("openai-compatible enabled models", () => {
     ["bot", { bots: [{ name: "Ada", modelId: "m-b" }] }, "Ada"],
     ["routine", { routines: [{ name: "Nightly digest", modelId: "m-b" }] }, "Nightly digest"],
     ["backup", { backups: ["m-b"] }, "backup models"],
+    ["approval model", { roleChoices: ["m-b"] }, "backup models"],
   ])("refuses a shrunk list while a %s pins the removed id", async (_kind, pins, names) => {
     const { call, secrets, state, initialCredential, prisma } = fixture({
       plaintext: secretText(["m-a", "m-b"]),
@@ -7657,6 +7668,7 @@ describe("API-key live model catalog", () => {
         bot: { findMany: vi.fn(async () => [{ modelProvider: "openai", modelId: saved }]) },
         routine: { findMany: vi.fn(async () => []) },
         spaceBackupModel: { findMany: vi.fn(async () => []) },
+        spaceModelRoleChoice: { findMany: vi.fn(async () => []) },
         deploymentSettings: { findFirst: vi.fn(async () => null) },
       };
       const load = vi.fn(async () => "fake-api-key");

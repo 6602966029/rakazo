@@ -83,6 +83,7 @@ export function ModelSettingsOverlay({
     settingsDirty,
   } = model;
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [thinkingSaving, setThinkingSaving] = useState(false);
 
   const providers: ConnectableProvider[] = groups
     .filter((group) => !credentialByProvider.has(group.id))
@@ -132,6 +133,7 @@ export function ModelSettingsOverlay({
 
   async function changeThinking(level: ThinkingLevel | null) {
     if (!me?.defaultProvider || !me.defaultModel) return;
+    setThinkingSaving(true);
     try {
       await rpc.models.setDefault({
         provider: me.defaultProvider,
@@ -141,6 +143,8 @@ export function ModelSettingsOverlay({
       await refresh();
     } catch (err) {
       setError(errorText(err, t`Could not change the default model`));
+    } finally {
+      setThinkingSaving(false);
     }
   }
 
@@ -256,6 +260,7 @@ export function ModelSettingsOverlay({
                         levels: thinkingLevels,
                         value: (activeCredential.thinkingLevel ?? null) as ThinkingLevel | null,
                         onChange: (level) => void changeThinking(level),
+                        saving: thinkingSaving,
                       }
                     : undefined
                 }

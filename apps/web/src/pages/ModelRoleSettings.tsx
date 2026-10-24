@@ -59,6 +59,8 @@ type Props = {
     levels: ThinkingLevel[];
     value: ThinkingLevel | null;
     onChange: (level: ThinkingLevel | null) => void;
+    /** A thinking save rewrites the main model's preference, so edits wait for it. */
+    saving?: boolean;
   };
   onChanged?: () => void;
 };
@@ -142,7 +144,7 @@ export function ModelRoleSettings({
       : options;
   const providerName = (choice: ModelBackupChoice) => providerLabel(choice.provider);
   const modelLabel = (choice: ModelBackupChoice) => entryFor(choice)?.label ?? choice.modelId;
-  const busy = state.busy || !settings;
+  const busy = state.busy || state.stale || Boolean(thinking?.saving) || !settings;
 
   async function save(
     update: (current: ModelRoleSettingsValue) => Partial<ModelRoleSettingsValue>,

@@ -7726,7 +7726,7 @@ async function compatibleModelPins(
   const where = { userId: actor.userId, ...filter };
   const pin = { spaceId: true, modelId: true } as const;
   // A connection is the account's, so its pins are checked in every Space it is used in.
-  const [bots, routines, backups] = await runAsSystem(
+  const [bots, routines, backups, roleChoices] = await runAsSystem(
     "model pins across the account's Spaces",
     () =>
       Promise.all([
@@ -7739,9 +7739,10 @@ async function compatibleModelPins(
           select: { ...pin, name: true },
         }),
         deps.prisma.spaceBackupModel.findMany({ where: { ...where, provider }, select: pin }),
+        deps.prisma.spaceModelRoleChoice.findMany({ where: { ...where, provider }, select: pin }),
       ]),
   );
-  return { named: [...bots, ...routines], backups };
+  return { named: [...bots, ...routines], backups: [...backups, ...roleChoices] };
 }
 
 type ModelPinRow = { spaceId: string; modelId: string | null };

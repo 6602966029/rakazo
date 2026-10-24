@@ -38,6 +38,19 @@ describe("shared model role settings lifecycle", () => {
       busy: false,
     });
   });
+  it("blocks edits built on outdated settings after a failed reload until a load succeeds", async () => {
+    const { transport, controller } = setup();
+    await controller.load();
+    transport.load.mockRejectedValueOnce(new Error("offline"));
+    await controller.load();
+    expect(controller.snapshot()).toMatchObject({ stale: true, error: "offline" });
+    await controller.save({ backups: [] });
+    expect(transport.save).not.toHaveBeenCalled();
+    await controller.load();
+    expect(controller.snapshot().stale).toBe(false);
+    await controller.save({ backups: [] });
+    expect(transport.save).toHaveBeenCalledTimes(1);
+  });
   it("waits for an accepted write before reopening the same role and serializes edits", async () => {
     const { transport, controller, key } = setup();
     await controller.load();

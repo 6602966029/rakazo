@@ -9,6 +9,8 @@ export type ModelRoleState = {
   settings: ModelRoleSettings | null;
   catalog: ModelCatalogEntry[];
   busy: boolean;
+  /** The last load failed, so the shown settings may be outdated and cannot be edited. */
+  stale: boolean;
   error: string | null;
 };
 
@@ -17,7 +19,13 @@ const pendingWrites = new Map<string, SaveQueue>();
 
 /** Shared web/native lifecycle. Writes finish in their original scope; stale loads cannot win. */
 export function createModelRoleSettings(transport: ModelRoleTransport, scopeKey: string) {
-  let state: ModelRoleState = { settings: null, catalog: [], busy: true, error: null };
+  let state: ModelRoleState = {
+    settings: null,
+    catalog: [],
+    busy: true,
+    stale: false,
+    error: null,
+  };
   let generation = 0;
   let confirmed: ModelRoleSettings | null = null;
   let loading: Promise<void> | null = null;
@@ -32,12 +40,13 @@ export function createModelRoleSettings(transport: ModelRoleTransport, scopeKey:
       const [settings, catalog] = await Promise.all([transport.load(), transport.catalog()]);
       if (current === generation) {
         confirmed = settings;
-        publish({ settings, catalog, busy: false });
+        publish({ settings, catalog, busy: false, stale: false });
       }
     } catch (error) {
       if (current === generation)
         publish({
           busy: false,
+          stale: true,
           error: error instanceof Error ? error.message : "Could not load models",
         });
     }
@@ -67,7 +76,7 @@ export function createModelRoleSettings(transport: ModelRoleTransport, scopeKey:
         await settled;
         if (loading === settled) break;
       }
-      if (state.busy || !state.settings) return;
+      if (state.busy || state.stale || !state.settings) return;
       const patch = typeof update === "function" ? update(state.settings) : update;
       const current = generation;
       publish({ settings: { ...state.settings, ...patch }, error: null });

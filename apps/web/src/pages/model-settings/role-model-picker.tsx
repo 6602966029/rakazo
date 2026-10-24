@@ -64,11 +64,15 @@ export function RoleModelPicker({
     provider.name.toLowerCase().includes(needle),
   );
   const close = () => setOpen(false);
+  // Keyed on the request, so later renders of the same request do not reopen it.
+  const reopenKey = reopen?.key;
+  const reopenQuery = useRef(reopen?.query);
+  reopenQuery.current = reopen?.query;
   useEffect(() => {
-    if (!reopen) return;
-    setQuery(reopen.query);
+    if (reopenKey === undefined) return;
+    setQuery(reopenQuery.current ?? "");
     setOpen(true);
-  }, [reopen]);
+  }, [reopenKey]);
   return (
     <Popover
       open={open}

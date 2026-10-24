@@ -126,7 +126,9 @@ export function ModelRoleSettings({
   const primary = settings?.primary ?? null;
   const backups = settings?.backups ?? [];
   const rows = primary ? [primary, ...backups] : backups;
-  const busy = state.busy || !settings;
+  // A thinking save rewrites the main model's preference, so edits wait for it.
+  const [thinkingSaving, setThinkingSaving] = useState(false);
+  const busy = state.busy || state.stale || thinkingSaving || !settings;
   const entryFor = (choice: ModelBackupChoice) =>
     state.catalog.find(
       (entry) =>
@@ -211,6 +213,7 @@ export function ModelRoleSettings({
   async function setThinking(level: ThinkingLevel | null) {
     if (!primary) return;
     setThinkingError(null);
+    setThinkingSaving(true);
     try {
       await send("models/setDefault", {
         provider: primary.provider,
@@ -220,6 +223,8 @@ export function ModelRoleSettings({
       onChanged?.();
     } catch (err) {
       setThinkingError(errorText(err, t("Could not change the default model")));
+    } finally {
+      setThinkingSaving(false);
     }
   }
 
