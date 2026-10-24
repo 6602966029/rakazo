@@ -3076,6 +3076,7 @@ msgstr ""
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr ""
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
 msgstr ""
@@ -3088,10 +3089,6 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "Управление серверами MCP"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Manage messaging settings"
-msgstr "Управление настройками обмена сообщениями"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Manage the bots it creates"
@@ -3893,6 +3890,10 @@ msgstr "Писать «Без изменений» в чат"
 msgid "POST to"
 msgstr "ОТПРАВИТЬ в"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Preferences"
+msgstr ""
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -4493,6 +4494,10 @@ msgstr ""
 #: src/pages/SpaceSearch.tsx
 msgid "Searching…"
 msgstr "Поиск…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Security"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

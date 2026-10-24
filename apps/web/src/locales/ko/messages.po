@@ -3076,6 +3076,7 @@ msgstr ""
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr ""
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
 msgstr ""
@@ -3088,10 +3089,6 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "MCP 서버 관리"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Manage messaging settings"
-msgstr "메시징 설정 관리"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Manage the bots it creates"
@@ -3893,6 +3890,10 @@ msgstr "채팅에 “변경 없음” 게시"
 msgid "POST to"
 msgstr "POST 대상"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Preferences"
+msgstr ""
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -4493,6 +4494,10 @@ msgstr ""
 #: src/pages/SpaceSearch.tsx
 msgid "Searching…"
 msgstr "검색 중…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Security"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

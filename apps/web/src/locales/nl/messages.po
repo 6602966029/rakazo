@@ -3076,6 +3076,7 @@ msgstr "Laag"
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr "Kleine letters, cijfers, koppeltekens en underscores, beginnend met een letter."
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
 msgstr "Beheren"
@@ -3088,10 +3089,6 @@ msgstr "Facturatie beheren"
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "MCP-servers beheren"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Manage messaging settings"
-msgstr "Berichtinstellingen beheren"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Manage the bots it creates"
@@ -3893,6 +3890,10 @@ msgstr "Plaats \"No changes\" in de chat"
 msgid "POST to"
 msgstr "POST naar"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Preferences"
+msgstr ""
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -4493,6 +4494,10 @@ msgstr "Zoeken: {0}"
 #: src/pages/SpaceSearch.tsx
 msgid "Searching…"
 msgstr "Bezig met zoeken…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Security"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"

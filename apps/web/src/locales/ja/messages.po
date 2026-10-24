@@ -3076,6 +3076,7 @@ msgstr "低"
 msgid "Lowercase letters, numbers, hyphens and underscores, starting with a letter."
 msgstr "小文字、数字、ハイフン、アンダースコアのみ使用でき、先頭は文字にしてください。"
 
+#: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Manage"
 msgstr "管理"
@@ -3088,10 +3089,6 @@ msgstr "請求を管理"
 #: src/pages/PluginsOverlay.tsx
 msgid "Manage MCP servers"
 msgstr "MCPサーバーを管理"
-
-#: src/pages/AccountSettingsOverlay.tsx
-msgid "Manage messaging settings"
-msgstr "メッセージ設定を管理"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Manage the bots it creates"
@@ -3893,6 +3890,10 @@ msgstr "チャットに「変更なし」と投稿"
 msgid "POST to"
 msgstr "POST先"
 
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Preferences"
+msgstr ""
+
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
 msgid "Preview {0}"
@@ -4493,6 +4494,10 @@ msgstr "検索: {0}"
 #: src/pages/SpaceSearch.tsx
 msgid "Searching…"
 msgstr "検索中…"
+
+#: src/pages/AccountSettingsOverlay.tsx
+msgid "Security"
+msgstr ""
 
 #: src/pages/Shell.tsx
 msgid "Select a bot"
