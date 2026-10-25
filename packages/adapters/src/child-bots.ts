@@ -382,6 +382,8 @@ export async function destroyBot(
   context: AdapterContext,
   options: {
     deleteMemories: boolean;
+    /** Runs in the deletion transaction once the bot row is locked; may set `deleteMemories`. */
+    within?: (tx: Prisma.TransactionClient) => Promise<{ deleteMemories: boolean } | undefined>;
     /** Fail before deleting anything when the provider cannot confirm the sandbox is gone,
      * so the computer row keeps its handle for a retry. */
     strictTeardown?: boolean;
@@ -433,6 +435,7 @@ export async function destroyBot(
         FOR UPDATE
       `;
       const webhookSecretId = locked[0]?.webhookSecretId ?? bot.webhookSecretId ?? null;
+      const deleteMemories = (await options.within?.(tx))?.deleteMemories ?? options.deleteMemories;
       const botArtifacts = await tx.artifact.findMany({
         where: { botId: bot.id, groupId: null, spaceId: bot.spaceId },
         select: { storageKey: true },
@@ -449,7 +452,7 @@ export async function destroyBot(
         },
         data: releasedComputerLease(),
       });
-      if (!options.deleteMemories) {
+      if (!deleteMemories) {
         const directory = archivedMemoryDirectory(bot.name, bot.id);
         await tx.$executeRaw`
           UPDATE "memory_documents"
@@ -466,7 +469,7 @@ export async function destroyBot(
           spaceId: bot.spaceId,
           name: bot.name,
           deletedByUserId: context.userId,
-          memoriesPreserved: !options.deleteMemories,
+          memoriesPreserved: !deleteMemories,
         },
       });
       await tx.bot.delete({ where: { id: bot.id } });

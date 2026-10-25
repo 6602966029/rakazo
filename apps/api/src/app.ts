@@ -494,7 +494,15 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       await Promise.all(
         bots.map((bot) =>
           destroyBot(
-            { prisma, sandbox, home, jobs, artifacts, dataDir: env.dataDir },
+            {
+              prisma,
+              sandbox,
+              home,
+              jobs,
+              artifacts,
+              dataDir: env.dataDir,
+              messagingInstallations,
+            },
             bot,
             {
               operationId: `account-delete:${userId}`,
@@ -682,6 +690,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       integrationsCatalogUrl: env.integrationsCatalogUrl,
       mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
       desktopHostChoiceEnabled: Boolean(env.desktopStackToken),
+      mcpStdioEnabled: env.mcpStdioEnabled,
+      mcpStdioAllowedCommands: env.mcpStdioAllowedCommands,
     },
   });
   const rpc = new RPCHandler(router, {
