@@ -1413,6 +1413,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Убедитесь, что URL доступен из этого сеанса браузера, и повторите тест."
 
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Confirmations"
 msgstr ""
 
@@ -2098,6 +2099,14 @@ msgstr ""
 #: src/pages/shell/dialogs.tsx
 msgid "Customer support"
 msgstr "Поддержка клиентов"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize"
+msgstr "Настроить"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize {label}"
+msgstr "Настроить: {label}"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Customize bot avatar"
@@ -3316,6 +3325,7 @@ msgstr "Варианты модели"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Models"
 msgstr "Модели"
 
@@ -4263,6 +4273,7 @@ msgstr "Восстановление вашего рабочего простр�
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "Повторить"
 
@@ -5296,6 +5307,14 @@ msgstr "Используйте «Подключить», чтобы провер
 msgid "Use default guidance"
 msgstr "Использовать рекомендации по умолчанию"
 
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults"
+msgstr "Использовать ваши настройки"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults for {label}"
+msgstr "Использовать ваши настройки: {label}"
+
 #: src/pages/Auth.tsx
 msgid "Use email code"
 msgstr "Использовать код из письма"
@@ -5365,6 +5384,7 @@ msgstr "Открыть чат"
 
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "Голос"
@@ -5520,6 +5540,10 @@ msgstr "Вы управляете"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Ваш Anthropic"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Your defaults"
+msgstr "Ваши настройки по умолчанию"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

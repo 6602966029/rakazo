@@ -1413,6 +1413,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Confirma que la URL es accesible desde esta sesión del navegador y vuelve a probar."
 
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Confirmations"
 msgstr ""
 
@@ -2098,6 +2099,14 @@ msgstr ""
 #: src/pages/shell/dialogs.tsx
 msgid "Customer support"
 msgstr "Atención al cliente"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize"
+msgstr "Personalizar"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize {label}"
+msgstr "Personalizar {label}"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Customize bot avatar"
@@ -3316,6 +3325,7 @@ msgstr "Opciones del modelo"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Models"
 msgstr "Modelos"
 
@@ -4263,6 +4273,7 @@ msgstr ""
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "Reintentar"
 
@@ -5296,6 +5307,14 @@ msgstr "Usa Conectar para verificar la clave."
 msgid "Use default guidance"
 msgstr ""
 
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults"
+msgstr "Usar predeterminados"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults for {label}"
+msgstr "Usar predeterminados en {label}"
+
 #: src/pages/Auth.tsx
 msgid "Use email code"
 msgstr "Usar código por correo"
@@ -5365,6 +5384,7 @@ msgstr "Ver chat"
 
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "Voz"
@@ -5520,6 +5540,10 @@ msgstr "Tienes el control"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Tu Anthropic"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Your defaults"
+msgstr "Tus predeterminados"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

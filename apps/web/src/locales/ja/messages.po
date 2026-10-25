@@ -1413,6 +1413,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "このブラウザセッションからURLにアクセスできることを確認してから、もう一度テストしてください。"
 
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Confirmations"
 msgstr "確認"
 
@@ -2098,6 +2099,14 @@ msgstr "カスタムヘッダー"
 #: src/pages/shell/dialogs.tsx
 msgid "Customer support"
 msgstr "カスタマーサポート"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize"
+msgstr "カスタマイズ"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize {label}"
+msgstr "{label}をカスタマイズ"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Customize bot avatar"
@@ -3316,6 +3325,7 @@ msgstr "モデルのオプション"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Models"
 msgstr "モデル"
 
@@ -4263,6 +4273,7 @@ msgstr "ワークスペースを復元中"
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "再試行"
 
@@ -5296,6 +5307,14 @@ msgstr "「接続」でキーを確認してください。"
 msgid "Use default guidance"
 msgstr "デフォルトのガイダンスを使用"
 
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults"
+msgstr "デフォルトを使用"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults for {label}"
+msgstr "{label}でデフォルトを使用"
+
 #: src/pages/Auth.tsx
 msgid "Use email code"
 msgstr "メールのコードを使用"
@@ -5365,6 +5384,7 @@ msgstr "チャットを表示"
 
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "音声"
@@ -5520,6 +5540,10 @@ msgstr "あなたが操作中"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "お使いのAnthropic"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Your defaults"
+msgstr "デフォルト設定"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

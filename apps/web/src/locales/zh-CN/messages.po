@@ -1413,6 +1413,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "请确认此浏览器会话可以访问该 URL，然后重新测试。"
 
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Confirmations"
 msgstr ""
 
@@ -2098,6 +2099,14 @@ msgstr ""
 #: src/pages/shell/dialogs.tsx
 msgid "Customer support"
 msgstr "客户支持"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize"
+msgstr "自定义"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize {label}"
+msgstr "自定义{label}"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Customize bot avatar"
@@ -3316,6 +3325,7 @@ msgstr "模型选项"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Models"
 msgstr "模型"
 
@@ -4263,6 +4273,7 @@ msgstr ""
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "重试"
 
@@ -5296,6 +5307,14 @@ msgstr "请使用“连接”验证密钥。"
 msgid "Use default guidance"
 msgstr ""
 
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults"
+msgstr "使用默认设置"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults for {label}"
+msgstr "{label}使用默认设置"
+
 #: src/pages/Auth.tsx
 msgid "Use email code"
 msgstr "使用邮箱验证码"
@@ -5365,6 +5384,7 @@ msgstr "查看聊天"
 
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "语音"
@@ -5520,6 +5540,10 @@ msgstr "你已接管"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "你的 Anthropic"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Your defaults"
+msgstr "你的默认设置"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

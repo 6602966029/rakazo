@@ -65,6 +65,7 @@ let queryClient: QueryClient;
 const props = {
   userId: "user",
   spaceId: "space",
+  scope: "account" as const,
   credentials,
   title: "Main model",
   defaultLabel: "Deployment default",
@@ -129,10 +130,12 @@ beforeEach(() => {
   onManage.mockReset();
   api.role.mockReset().mockImplementation(async () => saved);
   api.forRole.mockReset().mockResolvedValue(catalog);
-  api.setRole.mockReset().mockImplementation(async ({ role: _r, expectedUserId: _u, ...patch }) => {
-    saved = { ...saved, ...patch };
-    return saved;
-  });
+  api.setRole
+    .mockReset()
+    .mockImplementation(async ({ role: _r, expectedUserId: _u, scope: _s, ...patch }) => {
+      saved = { ...saved, ...patch };
+      return saved;
+    });
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -360,7 +363,12 @@ describe("shared role editor", () => {
       ),
     );
     expect(api.setRole).toHaveBeenLastCalledWith(
-      { role: "main", expectedUserId: "user", primary: { ...chat, thinkingLevel: "low" } },
+      {
+        role: "main",
+        expectedUserId: "user",
+        scope: "account",
+        primary: { ...chat, thinkingLevel: "low" },
+      },
       expect.anything(),
     );
   });
@@ -449,4 +457,38 @@ it("groups models by connection and runs the same model on either account", asyn
   expect(rows()).toEqual(["Chat· OpenRouter", "Chat· OpenRouter · Work"]);
   await menu("Chat", "Manage OpenRouter");
   expect(onManage).toHaveBeenLastCalledWith("openrouter", "key");
+});
+
+it("reads and saves a Space's own list without mixing it with the account's", async () => {
+  const lists: Record<string, Settings> = {
+    account: { primary: pin(chat), backups: [] },
+    space: { primary: pin(mini), backups: [] },
+  };
+  api.role.mockImplementation(async ({ scope }: { scope: string }) => lists[scope]);
+  api.setRole.mockImplementation(
+    async ({ role: _r, expectedUserId: _u, scope, ...patch }: Record<string, unknown>) => {
+      lists[scope as string] = { ...lists[scope as string]!, ...patch };
+      return lists[scope as string];
+    },
+  );
+  await render({ scope: "space" });
+  await vi.waitFor(() => expect(rows()).toEqual(["Mini· OpenRouter"]));
+  expect(api.role).toHaveBeenLastCalledWith(
+    { role: "main", expectedUserId: "user", scope: "space" },
+    { context: { spaceId: "space" } },
+  );
+  // Which models a role can use does not depend on whose list it is.
+  expect(api.forRole).toHaveBeenLastCalledWith(
+    { role: "main", expectedUserId: "user" },
+    { context: { spaceId: "space" } },
+  );
+  await pick("Add fallback", "Jev 1.14");
+  expect(api.setRole).toHaveBeenLastCalledWith(
+    expect.objectContaining({ scope: "space", backups: [pin(jev)] }),
+    { context: { spaceId: "space" } },
+  );
+  expect(lists.account).toEqual({ primary: pin(chat), backups: [] });
+
+  await render({ scope: "account" });
+  await vi.waitFor(() => expect(rows()).toEqual(["Chat· OpenRouter"]));
 });
