@@ -3715,14 +3715,12 @@ function SpaceShell() {
           <div className="rk-scroll h-full w-full overflow-y-auto px-5 py-[17px]">
             {panel !== "routine" && panel !== "create-group" && panel !== "group-settings" ? (
               <div className="mb-4 flex items-center justify-between">
-                <span className="text-[13.5px] text-muted-foreground">
-                  {panel === "settings" ? null : active ? (
-                    (computer?.state ?? active.status)
-                  ) : (
+                {!active && panel !== "settings" ? (
+                  <span className="text-[13.5px] text-muted-foreground">
                     <Trans>Group</Trans>
-                  )}
-                </span>
-                <div className="flex gap-1">
+                  </span>
+                ) : null}
+                <div className="ml-auto flex gap-1">
                   {active &&
                   panel === "computer" &&
                   !computerOpen &&
