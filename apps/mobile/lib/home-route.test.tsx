@@ -11,6 +11,8 @@ import { expect, it, vi } from "vitest";
 
 const testFileUrl = import.meta.url;
 const source = readFileSync(new URL("../app/index.tsx", testFileUrl), "utf8");
+const headerSource = readFileSync(new URL("./use-home-header.ts", testFileUrl), "utf8");
+const stylesSource = readFileSync(new URL("../components/home-styles.ts", testFileUrl), "utf8");
 function evaluate(code: string, scope: Record<string, unknown>) {
   const compiled = ts.transpileModule(code, {
     compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
@@ -53,8 +55,8 @@ it.each([false, true])(
       locale: "en",
     };
     // Run the real Home header effect on mount, including its embedded guard.
-    const headerStart = source.indexOf("  useLayoutEffect(() => {\n    if (!nativeHeader)");
-    const header = source.slice(headerStart, source.indexOf("  const openBot =", headerStart));
+    const headerStart = headerSource.indexOf("  useLayoutEffect(() => {\n    if (!nativeHeader)");
+    const header = headerSource.slice(headerStart, headerSource.indexOf("\n}\n", headerStart));
     const nativeHeader = source.match(/ {2}const nativeHeader = .*;/)![0];
     const HomeSession = evaluate(
       `return function HomeSession({ embedded = false }) {
@@ -116,7 +118,7 @@ it("shows a translated, safe-area-centred placeholder only in the split pane", (
     useI18n: () => ({ t }),
     useThemedStyles: () =>
       evaluate(
-        `${source.slice(source.indexOf("function createHomeStyles()"))}\nreturn createHomeStyles();`,
+        `${stylesSource.slice(stylesSource.indexOf("function createHomeStyles()"))}\nreturn createHomeStyles();`,
         {
           mobileTokens: () => ({}),
           StyleSheet: { create: (styles: unknown) => styles },

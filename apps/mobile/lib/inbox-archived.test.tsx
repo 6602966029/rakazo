@@ -27,13 +27,18 @@ vi.mock("./user-error", () => ({ errorText: () => "failure" }));
 vi.mock("./search-inbox", () => ({ removeFromSearchInbox: vi.fn() }));
 
 const testFileUrl = import.meta.url;
-const source = readFileSync(new URL("../app/index.tsx", testFileUrl), "utf8");
-const slice = (start: string, end: string) => {
-  const from = source.indexOf(start);
-  const to = source.indexOf(end, from);
+const read = (path: string) =>
+  readFileSync(new URL(path, testFileUrl), "utf8").replace(/^export /gm, "");
+const source = read("../app/index.tsx");
+const rowsSource = read("../components/inbox-rows.tsx");
+const stylesSource = read("../components/home-styles.ts");
+const archivedSource = read("./use-archived-count.ts");
+const slice = (start: string, end: string, text = source) => {
+  const from = text.indexOf(start);
+  const to = text.indexOf(end, from);
   expect(from).toBeGreaterThan(-1);
   expect(to).toBeGreaterThan(from);
-  return source.slice(from, to);
+  return text.slice(from, to);
 };
 const compile = (text: string) =>
   ts.transpileModule(text, {
@@ -45,7 +50,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("archived chats row", () => {
   let compact = false;
-  const dimensions = slice("const INBOX_ROW =", "function ConversationRow(");
+  const dimensions = slice("const INBOX_ROW =", "function createHomeStyles()", stylesSource);
   const styles = new Function(
     "mobileTokens",
     "StyleSheet",
@@ -53,7 +58,7 @@ describe("archived chats row", () => {
     "typeScale",
     "fontWeight",
     compile(
-      `${dimensions}\n${source.slice(source.indexOf("function createHomeStyles()"))}\nreturn createHomeStyles();`,
+      `${dimensions}\n${stylesSource.slice(stylesSource.indexOf("function createHomeStyles()"))}\nreturn createHomeStyles();`,
     ),
   )(() => ({}), { create: (value: unknown) => value }, {}, typeScale, fontWeight);
   const ArchivedChatsRow = new Function(
@@ -69,7 +74,7 @@ describe("archived chats row", () => {
     "native",
     "createHomeStyles",
     compile(
-      `${dimensions}\n${slice("function ArchivedChatsRow(", "/** Points right while a section")}\nreturn ArchivedChatsRow;`,
+      `${dimensions}\n${slice("function ArchivedChatsRow(", "/** Points right while a section", rowsSource)}\nreturn ArchivedChatsRow;`,
     ),
   )(
     React,
@@ -191,10 +196,8 @@ describe("archived count", () => {
     "archivedChatCounts",
     "onArchivedChatsChanged",
     compile(`return function Counter({ me, hasSession }) {
-      const [archived, setArchived] = useState({ spaceId: "", count: 0 });
-      const archivedCounts = useRef({ spaceId: "", bots: 0, groups: 0 });
-      const archivedRequestId = useRef(0);
-      ${slice("  const spaceId = me?.spaceId;", "  const loadActivity = useCallback(")}
+      const spaceId = me?.spaceId;
+      ${slice("  const [archived, setArchived]", "  return archivedCount;", archivedSource)}
       return React.createElement("span", null, String(archivedCount));
     };`),
   );

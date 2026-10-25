@@ -504,11 +504,14 @@ describe("cross-space organize", () => {
 });
 
 describe("inbox swipe handlers", () => {
-  const source = readFileSync(new URL("../app/index.tsx", testFileUrl), "utf8");
+  const source = readFileSync(new URL("./use-inbox-chat-actions.ts", testFileUrl), "utf8").replace(
+    /^export /gm,
+    "",
+  );
   const handlerSource = [
     source.slice(
       source.indexOf("/** Sends a request about a chat to that chat's space"),
-      source.indexOf("export default function HomeRoute()"),
+      source.indexOf("type ListUpdate<T>"),
     ),
     source.slice(
       source.indexOf("  // One path for the long-press sheet and the swipe actions."),

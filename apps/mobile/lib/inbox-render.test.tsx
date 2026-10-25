@@ -18,19 +18,25 @@ import { inboxRowActionList } from "./inbox-swipe";
 vi.mock("./api", () => ({}));
 
 const testFileUrl = import.meta.url;
-const source = readFileSync(new URL("../app/index.tsx", testFileUrl), "utf8");
-const rowDimensions = source.slice(
-  source.indexOf("const INBOX_ROW ="),
-  source.indexOf("function ConversationRow("),
+const read = (path: string) =>
+  readFileSync(new URL(path, testFileUrl), "utf8").replace(/^export /gm, "");
+const source = read("../app/index.tsx");
+const rowsSource = read("../components/inbox-rows.tsx");
+const stylesSource = read("../components/home-styles.ts");
+const daySourceFile = read("./use-inbox-day.ts");
+const spacesSource = read("./inbox-spaces.ts");
+const rowDimensions = stylesSource.slice(
+  stylesSource.indexOf("const INBOX_ROW ="),
+  stylesSource.indexOf("function createHomeStyles()"),
 );
 
 // Run the actual row and renderItem code with native presentation stubbed out.
 // React still performs real memo comparisons; this measures JS row executions only.
 function measure(before: boolean) {
   let renders = 0;
-  const rowSource = source.slice(
-    source.indexOf("const BotRow = memo("),
-    source.indexOf("const GroupRow = memo("),
+  const rowSource = rowsSource.slice(
+    rowsSource.indexOf("const BotRow = memo("),
+    rowsSource.indexOf("const GroupRow = memo("),
   );
   const listSource = source.slice(
     source.indexOf("  const renderItem = useCallback("),
@@ -226,13 +232,10 @@ it.each(["midnight", "focus", "foreground"])(
       t: action,
       toggleCollapsed: action,
     };
-    const rowSource = source.slice(
-      source.indexOf("const BotRow = memo("),
-      source.indexOf("function createHomeStyles()"),
-    );
-    const daySource = source.slice(
-      source.indexOf("  const [day, setDay]"),
-      source.indexOf("  const [bots, setBots]"),
+    const rowSource = rowsSource.slice(rowsSource.indexOf("const BotRow = memo("));
+    const daySource = daySourceFile.slice(
+      daySourceFile.indexOf("  const [day, setDay]"),
+      daySourceFile.indexOf("  return day;"),
     );
     const listSource = source.slice(
       source.indexOf("  const renderItem = useCallback("),
@@ -334,9 +337,9 @@ it("renders saved bot rows without a title or notification setting", () => {
       <i data-row={id}>{children}</i>
     ),
   };
-  const rowSource = source.slice(
-    source.indexOf("const BotRow = memo("),
-    source.indexOf("const GroupRow = memo("),
+  const rowSource = rowsSource.slice(
+    rowsSource.indexOf("const BotRow = memo("),
+    rowsSource.indexOf("const GroupRow = memo("),
   );
   const compiled = ts.transpileModule(`${rowDimensions}\n${rowSource}\nreturn BotRow;`, {
     compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
@@ -391,9 +394,9 @@ it("says working only while the bot works, and shows nothing beside the time", (
     BotAvatar: () => null,
     AvatarRow: ({ children }: { children: ReactElement }) => children,
   };
-  const rowSource = source.slice(
-    source.indexOf("const BotRow = memo("),
-    source.indexOf("const GroupRow = memo("),
+  const rowSource = rowsSource.slice(
+    rowsSource.indexOf("const BotRow = memo("),
+    rowsSource.indexOf("const GroupRow = memo("),
   );
   const compiled = ts.transpileModule(`${rowDimensions}\n${rowSource}\nreturn BotRow;`, {
     compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
@@ -437,9 +440,9 @@ it("ties the pinned tiles' avatars to the pinned row, so they freeze when it scr
     source.indexOf("  if (!ready) {"),
   );
   // The list's own key for each item.
-  const keySource = source.slice(
-    source.indexOf("function inboxItemKey("),
-    source.indexOf("function inboxSignal("),
+  const keySource = spacesSource.slice(
+    spacesSource.indexOf("function inboxItemKey("),
+    spacesSource.indexOf("function inboxSignal("),
   );
   const scope = {
     React,
@@ -565,7 +568,7 @@ it("collapses a section from its heading and keeps the choice for the account", 
     spaceRecoveryId: null,
     // The heading's own style, so its tap target is checked against the real value.
     styles: new Function(
-      `return {${source.slice(source.indexOf("    sectionToggle: {"), source.indexOf("    sectionTitle: {"))}};`,
+      `return {${stylesSource.slice(stylesSource.indexOf("    sectionToggle: {"), stylesSource.indexOf("    sectionTitle: {"))}};`,
     )(),
     t: (text: string, values?: { name?: string }) => text.replace("{name}", values?.name ?? ""),
     SWIPE_ROWS: true,
@@ -788,10 +791,7 @@ it("gives the long-press menu, and with it Delete, only to chats in the current 
     t: action,
     toggleCollapsed: action,
   };
-  const rowSource = source.slice(
-    source.indexOf("const BotRow = memo("),
-    source.indexOf("function createHomeStyles()"),
-  );
+  const rowSource = rowsSource.slice(rowsSource.indexOf("const BotRow = memo("));
   const listSource = source.slice(
     source.indexOf("  const renderItem = useCallback("),
     source.indexOf("  if (!ready) {"),

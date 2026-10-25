@@ -10,7 +10,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { isSettingsLink, openFromSettingsSheet, registerSettingsSheet } from "./settings-sheet";
 
 const testFileUrl = import.meta.url;
-const home = readFileSync(new URL("../app/index.tsx", testFileUrl), "utf8");
+const homeHeader = readFileSync(new URL("./use-home-header.ts", testFileUrl), "utf8");
+const inboxHeader = readFileSync(new URL("../components/inbox-header.tsx", testFileUrl), "utf8");
 const account = readFileSync(new URL("../app/(settings)/account.tsx", testFileUrl), "utf8");
 function slice(source: string, start: string, end: string) {
   const from = source.indexOf(start);
@@ -58,7 +59,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 it("keeps only Activity, Search and Create in the transparent native home header", () => {
   const setOptions = vi.fn();
-  evaluate(slice(home, "  useLayoutEffect(() => {\n    if (!nativeHeader)", "  const openBot ="), {
+  evaluate(slice(homeHeader, "  useLayoutEffect(() => {\n    if (!nativeHeader)", "\n}\n"), {
     useLayoutEffect: (effect: () => void) => effect(),
     nativeHeader: true,
     navigation: { setOptions },
@@ -84,13 +85,12 @@ it("keeps only Activity, Search and Create in the transparent native home header
 
 it.each(["android", "ios"])("omits Artifacts from the %s fallback header", (platform) => {
   const header = slice(
-    home,
-    "      {nativeHeader ? null : (",
-    "      <SelectedChatContext.Provider",
-  ).trim();
+    inboxHeader,
+    "    <View\n      style={[\n        styles.header",
+    "\n  );\n}",
+  );
   const element = evaluate(`return <>${header}</>;`, {
     React,
-    nativeHeader: false,
     View: ({
       children,
       accessibilityLabel,
