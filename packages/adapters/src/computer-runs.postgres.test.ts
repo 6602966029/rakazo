@@ -96,7 +96,10 @@ describePostgres("computer runs (PostgreSQL)", () => {
     const o = await owner();
 
     await o.start();
-    const { runningSince } = await system.computer.findUniqueOrThrow({ where: { id: o.id } });
+    const { runningSince, providerRef } = await system.computer.findUniqueOrThrow({
+      where: { id: o.id },
+    });
+    expect(providerRef).toBeTruthy();
     // A reconnect within the same stretch is the same run.
     await o.start();
     const open = await runAsTenant(o.tenant, () =>
@@ -107,6 +110,7 @@ describePostgres("computer runs (PostgreSQL)", () => {
         spaceId: o.id,
         userId: o.id,
         kind: "fake",
+        providerRef,
         startedAt: runningSince,
         endedAt: null,
         endReason: null,
@@ -187,7 +191,9 @@ describePostgres("computer runs (PostgreSQL)", () => {
   it("opens the run of a running computer whose start was never recorded", async () => {
     const o = await owner();
     await o.start();
-    const { runningSince } = await system.computer.findUniqueOrThrow({ where: { id: o.id } });
+    const { runningSince, providerRef } = await system.computer.findUniqueOrThrow({
+      where: { id: o.id },
+    });
     // A crash between activating the computer and writing its run.
     await system.computerRun.deleteMany({ where: { computerId: o.id } });
 
@@ -198,6 +204,7 @@ describePostgres("computer runs (PostgreSQL)", () => {
       expect.objectContaining({
         userId: o.id,
         kind: "fake",
+        providerRef,
         startedAt: runningSince,
         endedAt: null,
       }),

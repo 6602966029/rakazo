@@ -419,7 +419,7 @@ export async function provisionComputer(
     // or lost at the provider without us.
     await recordComputerRunStart(
       deps.prisma,
-      { ...existing, kind: ref.kind },
+      { ...existing, kind: ref.kind, providerRef: ref.providerRef },
       runningSince,
       existing.state === "running" ? "gone" : "reconciled",
     );

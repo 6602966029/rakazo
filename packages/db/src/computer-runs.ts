@@ -29,7 +29,13 @@ type RunsClient = Pick<PrismaClient, "computerRun">;
  */
 export async function recordComputerRunStart(
   prisma: RunsClient,
-  computer: { id: string; spaceId: string; userId: string; kind: string },
+  computer: {
+    id: string;
+    spaceId: string;
+    userId: string;
+    kind: string;
+    providerRef: string | null;
+  },
   startedAt: Date,
   previousEnd: ComputerRunEnd = "reconciled",
 ): Promise<void> {
@@ -47,6 +53,7 @@ export async function recordComputerRunStart(
           spaceId: computer.spaceId,
           userId: computer.userId,
           kind: computer.kind,
+          providerRef: computer.providerRef,
           startedAt,
         },
       ],
@@ -116,8 +123,8 @@ export async function reconcileComputerRuns(
   // A booting computer may still carry the start of its previous stretch, so only rows that
   // finished starting count. Host computers are never recorded (see recordComputerRunStart).
   await prisma.$executeRaw`
-    INSERT INTO "computer_runs" ("id", "computerId", "spaceId", "userId", "kind", "startedAt")
-    SELECT gen_random_uuid()::text, c."id", c."spaceId", c."userId", c."kind", c."runningSince"
+    INSERT INTO "computer_runs" ("id", "computerId", "spaceId", "userId", "kind", "providerRef", "startedAt")
+    SELECT gen_random_uuid()::text, c."id", c."spaceId", c."userId", c."kind", c."providerRef", c."runningSince"
     FROM "computers" AS c
     WHERE c."state" IN ('running', 'suspending')
       AND c."runningSince" IS NOT NULL
