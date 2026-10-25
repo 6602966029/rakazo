@@ -2954,6 +2954,10 @@ msgstr ""
 msgid "Leave"
 msgstr ""
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "बॉट्स को MEMORY.md के साथ-साथ अर्थ के आधार पर तथ्य सहेजने और याद करने देता है।"
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "लाइट"

@@ -2954,6 +2954,10 @@ msgstr "מאוחר יותר"
 msgid "Leave"
 msgstr "יציאה"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "מאפשר לבוטים לשמור ולשלוף עובדות לפי משמעות, לצד MEMORY.md."
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "בהיר"

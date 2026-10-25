@@ -233,6 +233,9 @@ export function MemorySettingsOverlay({
               <h3 id={providerSelectId} className="text-heading3 font-medium text-foreground">
                 <Trans>Provider</Trans>
               </h3>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                <Trans>Lets bots save and recall facts by meaning, alongside MEMORY.md.</Trans>
+              </p>
               {MEMORY_PROVIDER_SETTINGS.length > 1 ? (
                 <div className="mt-3">
                   <NativeSelect
@@ -252,9 +255,6 @@ export function MemorySettingsOverlay({
               ) : (
                 <p className="mt-3 text-[14px] text-foreground">{registration.name}</p>
               )}
-              {registration.description ? (
-                <p className="mt-2 text-[13px] text-muted-foreground">{registration.description}</p>
-              ) : null}
 
               <div className="mt-4">
                 <ScopePicker value={defaultScope} disabled={busy} onChange={setDefaultScope} />

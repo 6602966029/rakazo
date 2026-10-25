@@ -17,7 +17,6 @@ export interface MemoryProviderSettingsFormProps {
 export interface MemoryProviderSettingsRegistration {
   id: string;
   name: string;
-  description: string;
   SettingsForm: ComponentType<MemoryProviderSettingsFormProps>;
   connectedLabel: (config: SpaceMemoryConfig) => string;
 }
@@ -26,7 +25,6 @@ export const MEMORY_PROVIDER_SETTINGS: readonly MemoryProviderSettingsRegistrati
   {
     id: "supermemory",
     name: "Supermemory",
-    description: "Add semantic recall alongside native MEMORY.md memory.",
     SettingsForm: SupermemorySettingsForm,
     connectedLabel: (config) =>
       config.settings.mode === "cloud"
@@ -36,7 +34,6 @@ export const MEMORY_PROVIDER_SETTINGS: readonly MemoryProviderSettingsRegistrati
   {
     id: "serenity",
     name: "Serenity",
-    description: "Hosted or self-hosted Serenity brain for durable memory.",
     SettingsForm: SerenitySettingsForm,
     connectedLabel: (config) => {
       const label = config.settings.brainLabel?.trim();
@@ -48,7 +45,6 @@ export const MEMORY_PROVIDER_SETTINGS: readonly MemoryProviderSettingsRegistrati
   {
     id: "honcho",
     name: "Honcho",
-    description: "Hosted or self-hosted Honcho for long-term memory.",
     SettingsForm: HonchoSettingsForm,
     connectedLabel: (config) => {
       const { mode, baseUrl, workspaceId } = config.settings;
