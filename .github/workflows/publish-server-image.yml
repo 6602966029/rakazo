@@ -90,7 +90,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ matrix.name == 'app' && format('GIT_SHA={0}', github.sha) || '' }}
-          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-from: |
+            type=gha,scope=pr-${{ github.event.pull_request.number }}-${{ matrix.name }}
+            type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=pr-${{ github.event.pull_request.number }}-${{ matrix.name }}
           provenance: false
           sbom: false
