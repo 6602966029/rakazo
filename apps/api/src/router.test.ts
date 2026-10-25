@@ -26,7 +26,7 @@ import type { Actor, Bot, ProductEvent } from "@rakazo/contracts";
 import { REPLY_QUOTE_MAX_LENGTH } from "@rakazo/contracts";
 import { openScreenCapability } from "@rakazo/core/node/screen-capability";
 import type { PrismaClient } from "@rakazo/db";
-import { AnswerTooLongError } from "@rakazo/db";
+import { AnswerTooLongError, runProviderTransaction } from "@rakazo/db";
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { withMainRole } from "../../../packages/adapters/src/testing/model-roles.js";
@@ -2423,6 +2423,87 @@ describe("connections.begin", () => {
       json: { connectionId: "conn-old" },
     });
   });
+
+  it("cancels the remote authorization when its result cannot be saved before the slot frees", async () => {
+    vi.useFakeTimers();
+    let releaseSlot = () => {};
+    let holder: Promise<void> = Promise.resolve();
+    const begin = vi.fn(async () => {
+      // Another provider call takes the slot while this one talks to the provider.
+      holder = runProviderTransaction(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseSlot = resolve;
+          }),
+        120_000,
+      );
+      return { state: "request-1", authorizationUrl: "https://provider.test/authorize" };
+    });
+    const cancelAuthorizationRequest = vi.fn(async () => undefined);
+    const rootUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(undefined),
+      connection: {
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue({ id: "conn-1", status: "pending" }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma = {
+      connection: { updateMany: rootUpdateMany },
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx)),
+    } as unknown as PrismaClient;
+    const handler = new RPCHandler(
+      createRouter({
+        prisma,
+        connectors: { managed: vi.fn(() => ({ begin, cancelAuthorizationRequest })) },
+        env: {
+          defaultProvider: "fake",
+          defaultModel: "fake-model",
+          webOrigin: "http://127.0.0.1:5173",
+          screenProxySecret: "fake-test-secret",
+          sandboxProvider: "fake",
+        },
+        dataDir: "/tmp/rakazo-router-test",
+      } as unknown as RouterDeps),
+    );
+    try {
+      const handled = handler.handle(
+        new Request("http://127.0.0.1/rpc/connections/begin", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            json: { connectorId: "composio", provider: "gmail", displayName: "Gmail" },
+          }),
+        }),
+        {
+          prefix: "/rpc",
+          context: {
+            actor: {
+              spaceId: "workspace-1",
+              userId: "user-1",
+              email: "user@rakazo.test",
+              isDeploymentOwner: true,
+            },
+          },
+        },
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      const { response } = await handled;
+
+      expect(response.status).not.toBe(200);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(tx.connection.updateMany).not.toHaveBeenCalled();
+      expect(cancelAuthorizationRequest).toHaveBeenCalledWith("request-1", expect.anything());
+      expect(rootUpdateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: "error" } }),
+      );
+    } finally {
+      releaseSlot();
+      await holder;
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("connections.complete", () => {
@@ -2475,7 +2556,7 @@ describe("connections.complete", () => {
           updateMany: vi.fn(async () => ({ count: 1 })),
         },
         $executeRaw: vi.fn(),
-        $queryRaw: vi.fn(async () => []),
+        $queryRaw: vi.fn(async () => [{ locked: true }]),
       };
       const prisma = {
         ...client,
@@ -2589,6 +2670,7 @@ describe("connections.complete", () => {
         };
         const tx = {
           $executeRaw: vi.fn().mockResolvedValue(undefined),
+          $queryRaw: vi.fn().mockResolvedValue([{ locked: true }]),
           connection: {
             findFirst: vi
               .fn()
@@ -2647,6 +2729,87 @@ describe("connections.complete", () => {
     expect(connectionReady).toHaveBeenCalled();
   });
 
+  it.each(["lock", "slot"] as const)(
+    "reports the row as pending without a provider call while another call holds the %s",
+    async (held) => {
+      vi.useFakeTimers();
+      const row = {
+        id: "conn-1",
+        connectorId: "composio",
+        provider: "gmail",
+        displayName: "Gmail",
+        providerRef: "gmail-state",
+        status: "pending",
+        createdAt: new Date("2026-08-26T00:00:00.000Z"),
+      };
+      const connectionReady = vi.fn().mockResolvedValue(true);
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([{ locked: false }]),
+        connection: { findFirst: vi.fn().mockResolvedValue(row) },
+      };
+      const prisma = {
+        connection: { findFirst: vi.fn().mockResolvedValue(row) },
+        $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx)),
+      } as unknown as PrismaClient;
+      const handler = new RPCHandler(
+        createRouter({
+          prisma,
+          connectors: { managed: vi.fn(() => ({ connectionReady })) },
+          env: {
+            defaultProvider: "fake",
+            defaultModel: "fake-model",
+            webOrigin: "http://127.0.0.1:5173",
+            screenProxySecret: "fake-test-secret",
+            sandboxProvider: "fake",
+          },
+          dataDir: "/tmp/rakazo-router-test",
+        } as unknown as RouterDeps),
+      );
+      let releaseSlot = () => {};
+      const holder =
+        held === "slot"
+          ? runProviderTransaction(
+              () =>
+                new Promise<void>((resolve) => {
+                  releaseSlot = resolve;
+                }),
+              60_000,
+            )
+          : Promise.resolve();
+      try {
+        const handled = handler.handle(
+          new Request("http://127.0.0.1/rpc/connections/complete", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ json: { connectionId: "conn-1" } }),
+          }),
+          {
+            prefix: "/rpc",
+            context: {
+              actor: {
+                spaceId: "workspace-1",
+                userId: "user-1",
+                email: "user@rakazo.test",
+                isDeploymentOwner: true,
+              },
+            },
+          },
+        );
+        await vi.advanceTimersByTimeAsync(2_000);
+        const { response } = await handled;
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({ json: { id: "conn-1", status: "pending" } });
+        expect(connectionReady).not.toHaveBeenCalled();
+        expect(prisma.$transaction).toHaveBeenCalledTimes(held === "lock" ? 1 : 0);
+      } finally {
+        releaseSlot();
+        await holder;
+        vi.useRealTimers();
+      }
+    },
+  );
+
   afterEach(() => {
     installLogger(createLogger({ service: "rakazo-api", level: "off", sinks: [] }));
   });
@@ -2676,7 +2839,11 @@ describe("connections.complete", () => {
         },
       ),
     };
-    const client = { connection, $executeRaw: vi.fn(async () => undefined) };
+    const client = {
+      connection,
+      $executeRaw: vi.fn(async () => undefined),
+      $queryRaw: vi.fn(async () => [{ locked: true }]),
+    };
     const prisma = {
       ...client,
       $transaction: vi.fn(async (fn: (tx: typeof client) => Promise<unknown>) => fn(client)),
