@@ -1,12 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sdk = vi.hoisted(() => ({
   init: vi.fn(),
+  flush: vi.fn(async () => true),
   captureException: vi.fn(),
   close: vi.fn(async () => {}),
   setUser: vi.fn(),
   setTag: vi.fn(),
 }));
+const storage = vi.hoisted(() => new Map<string, string>());
+const secureStorage = {
+  getItem: (key: string) => storage.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    storage.set(key, value);
+  },
+};
 vi.mock("@sentry/react-native", () => sdk);
 vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 const response = (body: unknown) =>
@@ -15,9 +23,217 @@ const response = (body: unknown) =>
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
+  storage.clear();
+  sdk.flush.mockResolvedValue(true);
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+function installErrorUtils() {
+  const previous = vi.fn();
+  let handler: (error: Error, fatal?: boolean) => void = previous;
+  vi.stubGlobal("ErrorUtils", {
+    getGlobalHandler: () => handler,
+    setGlobalHandler: (next: typeof handler) => {
+      handler = next;
+    },
+  });
+  return { previous, handle: (error: Error, fatal?: boolean) => handler(error, fatal) };
+}
+
 describe("mobile monitoring", () => {
+  it("flushes an early fatal error before handing it to native recovery", async () => {
+    vi.useFakeTimers();
+    const native = installErrorUtils();
+    const monitor = await import("./monitoring");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    const error = new Error("startup failed");
+    native.handle(error, true);
+    expect(native.previous).not.toHaveBeenCalled();
+    await monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    await vi.waitFor(() => expect(native.previous).toHaveBeenCalledExactlyOnceWith(error, true));
+    expect(sdk.captureException).toHaveBeenCalledExactlyOnceWith(error, {
+      mechanism: { handled: false, type: "onerror" },
+      captureContext: { level: "fatal", tags: { operation: "mobile.startup", surface: "mobile" } },
+    });
+    expect(sdk.flush).toHaveBeenCalledOnce();
+    expect((await import("./startup-error")).readStartupError(secureStorage)).toBeUndefined();
+  });
+
+  it("preserves a fatal error across process restarts when configuration never arrives", async () => {
+    vi.useFakeTimers();
+    const native = installErrorUtils();
+    let monitor = await import("./monitoring");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    const error = new TypeError("startup failed");
+    native.handle(error, true);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(native.previous).toHaveBeenCalledExactlyOnceWith(error, true);
+    expect(sdk.captureException).not.toHaveBeenCalled();
+
+    vi.resetModules();
+    installErrorUtils();
+    monitor = await import("./monitoring");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    await monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(sdk.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "TypeError",
+        message: error.message,
+        stack: expect.stringContaining("monitoring.test.ts"),
+      }),
+      {
+        mechanism: { handled: false, type: "onerror" },
+        captureContext: {
+          level: "fatal",
+          tags: {
+            operation: "mobile.startup",
+            surface: "mobile",
+            "startup.previous_launch": "true",
+          },
+        },
+      },
+    );
+    await vi.waitFor(async () =>
+      expect((await import("./startup-error")).readStartupError(secureStorage)).toBeUndefined(),
+    );
+    const beforeSend = sdk.init.mock.calls[0]![0].beforeSend;
+    expect(beforeSend({ tags: { "startup.previous_launch": "true" } }).user).toEqual({
+      ip_address: null,
+    });
+  });
+
+  it("still sends the fatal error when the ordinary early-error queue is full", async () => {
+    const native = installErrorUtils();
+    const monitor = await import("./monitoring");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    for (let i = 0; i < 25; i++) monitor.reportMobileError(new Error("nonfatal"), "react.render");
+    const fatal = new Error("startup failed");
+    native.handle(fatal, true);
+    await monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(sdk.captureException).toHaveBeenCalledWith(fatal, {
+      mechanism: { handled: false, type: "onerror" },
+      captureContext: { level: "fatal", tags: { operation: "mobile.startup", surface: "mobile" } },
+    });
+    await vi.waitFor(() => expect(native.previous).toHaveBeenCalledExactlyOnceWith(fatal, true));
+  });
+
+  it("keeps the startup failure when anonymous reporting acquires the saved session", async () => {
+    const native = installErrorUtils();
+    const monitor = await import("./monitoring");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    let release!: (value: Response) => void;
+    const anonymous = monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    const error = new Error("startup failed");
+    native.handle(error, true);
+    const authenticated = monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      { authorization: "Bearer fake-session" },
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    release(new Response(JSON.stringify({ dsn: "https://key@errors.example.com/8" })));
+    await Promise.all([anonymous, authenticated]);
+    expect(sdk.captureException).toHaveBeenCalledWith(
+      error,
+      expect.objectContaining({
+        captureContext: expect.objectContaining({ level: "fatal" }),
+      }),
+    );
+    await vi.waitFor(() => expect(native.previous).toHaveBeenCalledExactlyOnceWith(error, true));
+  });
+
+  it("aborts a superseded anonymous configuration so fatal reporting need not wait for its timeout", async () => {
+    const native = installErrorUtils();
+    const monitor = await import("./monitoring");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    let signal: AbortSignal | undefined;
+    const anonymous = monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          signal = init?.signal ?? undefined;
+          signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+        }),
+    );
+    await vi.waitFor(() => expect(signal).toBeDefined());
+    const error = new Error("startup failed");
+    native.handle(error, true);
+    const authenticated = monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      { authorization: "Bearer fake-session" },
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(signal?.aborted).toBe(true);
+    await Promise.all([anonymous, authenticated]);
+    await vi.waitFor(() => expect(native.previous).toHaveBeenCalledExactlyOnceWith(error, true));
+    expect(sdk.captureException).toHaveBeenCalledWith(
+      error,
+      expect.objectContaining({
+        captureContext: expect.objectContaining({ level: "fatal" }),
+      }),
+    );
+  });
+
+  it("does not replay a stored startup error after switching sessions", async () => {
+    const persisted = await import("./startup-error");
+    persisted.saveStartupError(new Error("previous account"), secureStorage);
+    installErrorUtils();
+    const monitor = await import("./monitoring");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    monitor.resetMobileMonitoring();
+    await monitor.configureMobileMonitoring(
+      "https://other.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(sdk.captureException).not.toHaveBeenCalled();
+    expect(persisted.readStartupError(secureStorage)).toBeUndefined();
+  });
+
+  it("keeps the fatal path bounded when flushing fails and retains the report for retry", async () => {
+    vi.useFakeTimers();
+    const native = installErrorUtils();
+    const monitor = await import("./monitoring");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    sdk.flush.mockRejectedValueOnce(new Error("offline"));
+    const error = new Error("fatal");
+    native.handle(error, true);
+    await monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    await vi.waitFor(() => expect(native.previous).toHaveBeenCalledExactlyOnceWith(error, true));
+    expect((await import("./startup-error")).readStartupError(secureStorage)?.message).toBe(
+      "fatal",
+    );
+  });
+
   it("stays optional, reports caught startup errors, and strips private data", async () => {
     const monitor = await import("./monitoring");
     const error = new Error("startup");

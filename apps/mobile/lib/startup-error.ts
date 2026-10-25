@@ -1,0 +1,67 @@
+import { sanitizedError } from "@rakazo/logging/monitoring";
+import { API_BASE_STORAGE_KEY, DEFAULT_API } from "./server-config";
+
+export interface StartupErrorStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+const KEY = "rakazo.startup-error";
+const MAX_LENGTH = 8_192;
+
+function selectedServer(storage: StartupErrorStorage): string {
+  return new URL(storage.getItem(API_BASE_STORAGE_KEY) || DEFAULT_API).origin;
+}
+
+/** Synchronous because React Native's fatal handler may terminate before a write promise runs. */
+export function saveStartupError(error: unknown, storage?: StartupErrorStorage): void {
+  if (!storage) return;
+  try {
+    const safe = sanitizedError(error);
+    storage.setItem(
+      KEY,
+      JSON.stringify({
+        server: selectedServer(storage),
+        name: safe.name.slice(0, 128),
+        message: safe.message.slice(0, 1_024),
+        stack: safe.stack?.slice(0, 4_096),
+      }),
+    );
+  } catch {
+    // Locked storage or a missing native host must not replace the original fatal error.
+  }
+}
+
+export function readStartupError(storage?: StartupErrorStorage): Error | undefined {
+  if (!storage) return;
+  try {
+    const raw = storage.getItem(KEY);
+    if (!raw || raw.length > MAX_LENGTH) return;
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== "object") return;
+    const stored = value as {
+      server?: unknown;
+      name?: unknown;
+      message?: unknown;
+      stack?: unknown;
+    };
+    // A failed best-effort wipe must never send another server's report after a restart.
+    if (stored.server !== selectedServer(storage)) return;
+    if (typeof stored.message !== "string" || typeof stored.name !== "string") return;
+    const error = new Error(stored.message);
+    error.name = stored.name;
+    if (typeof stored.stack === "string") error.stack = stored.stack;
+    return sanitizedError(error);
+  } catch {
+    return;
+  }
+}
+
+export function clearStartupError(storage?: StartupErrorStorage): void {
+  if (!storage) return;
+  try {
+    storage.setItem(KEY, "");
+  } catch {
+    // Reporting remains optional when secure storage is unavailable.
+  }
+}

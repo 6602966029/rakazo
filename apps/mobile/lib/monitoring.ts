@@ -8,6 +8,8 @@ import {
   sanitizeMonitoringEvent,
 } from "@rakazo/logging/monitoring";
 import type * as NativeSentry from "@sentry/react-native";
+import type { StartupErrorStorage } from "./startup-error";
+import { clearStartupError, readStartupError, saveStartupError } from "./startup-error";
 
 const errors = createClientErrorReporter();
 let sdk: typeof NativeSentry | undefined;
@@ -16,6 +18,41 @@ let connectionKey: string | undefined;
 let configured = false;
 let closing: Promise<unknown> = Promise.resolve();
 let configuring: Promise<void> | undefined;
+let configRequest: AbortController | undefined;
+let reportingReady: (() => void) | undefined;
+let earlyHandlerInstalled = false;
+let pendingStartupError: Error | undefined;
+let startupStorage: StartupErrorStorage | undefined;
+let startupFromPreviousLaunch = false;
+
+/** Bound the time given to configuration and the native SDK before preserving RN's fatal path. */
+async function flushStartupError(): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      (async () => {
+        if (!sdk)
+          await new Promise<void>((resolve) => {
+            reportingReady = resolve;
+          });
+        const reporter = sdk;
+        const current = generation;
+        if (reporter && (await reporter.flush()) && reporter === sdk && current === generation) {
+          pendingStartupError = undefined;
+          clearStartupError(startupStorage);
+        }
+      })(),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, 2_000);
+      }),
+    ]);
+  } catch {
+    // The next launch can retry the persisted report.
+  } finally {
+    clearTimeout(timer);
+    reportingReady = undefined;
+  }
+}
 
 export function reportMobileError(
   error: unknown,
@@ -30,6 +67,9 @@ export function reportMobileError(
 /** Clear account context synchronously, before a server/session change starts any I/O. */
 export function resetMobileMonitoring(): void {
   generation += 1;
+  configRequest?.abort();
+  pendingStartupError = undefined;
+  clearStartupError(startupStorage);
   connectionKey = undefined;
   configured = false;
   errors.reset();
@@ -46,7 +86,18 @@ export function configureMobileMonitoring(
 ): Promise<void> {
   const key = JSON.stringify([base, headers]);
   if (key === connectionKey && (configured || configuring)) return configuring ?? Promise.resolve();
-  if (connectionKey !== undefined && key !== connectionKey) errors.reset();
+  // The first anonymous request can be upgraded to this server's saved session. Session
+  // changes still call resetMobileMonitoring; do not discard the fatal startup error here.
+  if (
+    connectionKey !== undefined &&
+    key !== connectionKey &&
+    connectionKey !== JSON.stringify([base, {}])
+  ) {
+    errors.reset();
+    pendingStartupError = undefined;
+    clearStartupError(startupStorage);
+  }
+  configRequest?.abort();
   connectionKey = key;
   configured = false;
   const current = ++generation;
@@ -57,20 +108,29 @@ export function configureMobileMonitoring(
     if (sdk) await sdk.close();
     sdk = undefined;
     let config: MonitoringConfig;
+    const request = new AbortController();
+    configRequest = request;
+    const timeout = setTimeout(() => request.abort(), 8_000);
     try {
       const response = await fetchImpl(`${base}/api/monitoring/config`, {
         headers,
-        signal: AbortSignal.timeout(8_000),
+        signal: request.signal,
       });
       if (!response.ok) return;
       config = (await response.json()) as MonitoringConfig;
     } catch {
       return;
+    } finally {
+      clearTimeout(timeout);
+      if (configRequest === request) configRequest = undefined;
     }
     if (current !== generation) return;
     if (!config.dsn) {
       configured = true;
       errors.install(undefined);
+      pendingStartupError = undefined;
+      clearStartupError(startupStorage);
+      reportingReady?.();
       return;
     }
     try {
@@ -111,7 +171,10 @@ export function configureMobileMonitoring(
           if (current !== generation || isAbandonedRequest(hint?.originalException)) return null;
           if (Platform.OS === "ios" || Platform.OS === "android")
             event.tags = { ...event.tags, "mobile.platform": Platform.OS };
-          return sanitizeMonitoringEvent(event, userId);
+          return sanitizeMonitoringEvent(
+            event,
+            event.tags?.["startup.previous_launch"] === "true" ? undefined : userId,
+          );
         },
       });
       sdk = Sentry;
@@ -126,6 +189,21 @@ export function configureMobileMonitoring(
             Sentry.captureException(error, { tags: { ...tags, operation, surface: "mobile" } });
         },
       });
+      if (pendingStartupError) {
+        Sentry.captureException(pendingStartupError, {
+          mechanism: { handled: false, type: "onerror" },
+          captureContext: {
+            level: "fatal",
+            tags: {
+              operation: "mobile.startup",
+              surface: "mobile",
+              ...(startupFromPreviousLaunch ? { "startup.previous_launch": "true" } : {}),
+            },
+          },
+        });
+      }
+      if (reportingReady) reportingReady();
+      else if (pendingStartupError) void flushStartupError();
     } catch {
       // Retain the bounded startup queue; foreground/reconnect retries configuration.
     }
@@ -139,7 +217,12 @@ export function configureMobileMonitoring(
 }
 
 /** Install before Expo Router imports so early JS failures retain their original handler. */
-export function installMobileEarlyErrorReporting(): void {
+export function installMobileEarlyErrorReporting(storage: StartupErrorStorage): void {
+  if (earlyHandlerInstalled) return;
+  earlyHandlerInstalled = true;
+  startupStorage = storage;
+  pendingStartupError = readStartupError(storage);
+  startupFromPreviousLaunch = pendingStartupError !== undefined;
   const target = globalThis as typeof globalThis & {
     ErrorUtils?: {
       getGlobalHandler(): (error: Error, fatal?: boolean) => void;
@@ -149,7 +232,16 @@ export function installMobileEarlyErrorReporting(): void {
   const previous = target.ErrorUtils?.getGlobalHandler();
   if (previous)
     target.ErrorUtils?.setGlobalHandler((error, fatal) => {
-      if (!sdk) reportMobileError(error, "react.render");
+      if (!sdk) {
+        if (fatal) {
+          pendingStartupError = error;
+          startupFromPreviousLaunch = false;
+          saveStartupError(error, startupStorage);
+          void flushStartupError().finally(() => previous(error, fatal));
+          return;
+        }
+        reportMobileError(error, "react.render");
+      }
       previous(error, fatal);
     });
 }
