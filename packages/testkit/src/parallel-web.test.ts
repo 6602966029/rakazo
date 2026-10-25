@@ -84,7 +84,6 @@ function executorFixture(
     botSecret: { findMany: async () => [] },
     agentSkill: { findMany: async () => [] },
     scratchpadItem: { findMany: async () => [] },
-    spaceSettingOverride: { findUnique: async () => null },
     userActionApprovalRule: { findMany: async () => [] },
     userActionAutoReviewPreference: { findUnique: async () => ({ enabled: false }) },
     externalEffect: { findMany: async () => [] },

@@ -22,7 +22,6 @@ function setup() {
       secret: { findMany: vi.fn(async () => []) },
       bot: { findMany: vi.fn(async () => []) },
       routine: { findMany: vi.fn(async () => []) },
-      spaceSettingOverride: { findUnique: vi.fn(async () => null) },
       userVoicePreference: {
         findFirst: vi.fn(async () => ({ credential: { provider: "openai" }, voiceId: "alloy" })),
         findMany: vi.fn(async () => [{ credential: { provider: "openai" } }]),
