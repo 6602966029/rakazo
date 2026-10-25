@@ -35,6 +35,7 @@ interface Scenario {
   unreadChats?: number;
   badgeFails?: boolean;
   switchToBackup?: { provider: string; modelId: string };
+  personalKey?: boolean;
 }
 
 async function failRun(scenario: Scenario) {
@@ -86,6 +87,7 @@ async function failRun(scenario: Scenario) {
             ? new Date(NOW.getTime() + 24 * 60 * MINUTE)
             : scenario.nextRunAt,
       })),
+      updateMany: vi.fn(async () => ({ count: 0 })),
     },
     chatGroup: { findMany: vi.fn(async () => []) },
     event: { count: vi.fn(async () => scenario.toolCalls ?? 0) },
@@ -131,13 +133,40 @@ async function failRun(scenario: Scenario) {
     spaceSettingOverride: { findUnique: vi.fn(async () => null) },
     userModelRoleChoice: {
       findMany: vi.fn(async ({ where }: { where: { role: string } }) =>
-        where.role === "main" && scenario.switchToBackup
-          ? [{ ...scenario.switchToBackup, position: 1, thinkingLevel: null }]
-          : [],
+        where.role !== "main"
+          ? []
+          : scenario.personalKey
+            ? [
+                {
+                  provider: "openrouter",
+                  modelId: "deepseek/deepseek-v4-flash-0731",
+                  credentialId: "personal",
+                  position: 0,
+                  thinkingLevel: null,
+                },
+              ]
+            : scenario.switchToBackup
+              ? [{ ...scenario.switchToBackup, position: 1, thinkingLevel: null }]
+              : [],
       ),
     },
-    secret: { findFirst: vi.fn(async () => null) },
-    userModelCredential: { findFirst: vi.fn(async () => null) },
+    secret: {
+      findFirst: vi.fn(async () =>
+        scenario.personalKey ? { id: "personal-secret", ciphertext: "fixture-ciphertext" } : null,
+      ),
+    },
+    userModelCredential: {
+      findFirst: vi.fn(async () =>
+        scenario.personalKey
+          ? {
+              id: "personal",
+              provider: "openrouter",
+              secretId: "personal-secret",
+              userPreferences: [],
+            }
+          : null,
+      ),
+    },
     deploymentSettings: {
       findUnique: vi.fn(async () => ({
         defaultModelProvider: "openrouter",
@@ -160,6 +189,7 @@ async function failRun(scenario: Scenario) {
   const executor = createRunExecutor({
     prisma,
     deploymentModelKey: "fake-deployment-key",
+    secretStore: { load: vi.fn(async () => "fixture-personal-key"), put: vi.fn() },
     runtime: { describe: () => ({ capabilities: { scripted: false } }), run: runtimeRun },
     sandbox: {
       describe: () => ({ capabilities: { graphical: false } }),
@@ -241,6 +271,36 @@ describe("routine failure notifications", () => {
     });
 
     expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe("counting refused model credentials against a routine", () => {
+  const refusedKey = () =>
+    new ModelAccountError('401: {"error":{"message":"Invalid API key","code":401}}');
+  const counted = (prisma: Awaited<ReturnType<typeof failRun>>["prisma"]) =>
+    prisma.routine.updateMany.mock.calls.some(
+      ([args]) => (args as { data?: { credentialFailures?: unknown } }).data?.credentialFailures,
+    );
+
+  it("counts a refusal of the user's own key", async () => {
+    const { prisma } = await failRun({ error: refusedKey(), personalKey: true });
+    expect(counted(prisma)).toBe(true);
+  });
+
+  it.each([
+    ["the deployment's own key", { error: refusedKey() }],
+    [
+      "a rate limit",
+      {
+        error: new ModelAccountError('429: {"error":{"message":"Rate limit reached"}}'),
+        personalKey: true,
+      },
+    ],
+    ["a transient failure", { error: overloaded(), personalKey: true }],
+    ["a chat run", { error: refusedKey(), personalKey: true, trigger: "user" }],
+  ] satisfies Array<[string, Scenario]>)("does not count %s", async (_label, scenario) => {
+    const { prisma } = await failRun(scenario);
+    expect(counted(prisma)).toBe(false);
   });
 });
 
