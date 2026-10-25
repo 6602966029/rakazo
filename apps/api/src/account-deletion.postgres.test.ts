@@ -376,6 +376,50 @@ describePostgres("account deletion on bot computers (PostgreSQL)", () => {
     expect(sandbox.destroyed).toContain(`sb-solo-${suffix}`);
   });
 
+  it("releases its claim on a space someone joined before a failed attempt", async () => {
+    sandbox.failDestroy.add(`sb-dedicated-${suffix}`);
+    sandbox.beforeDestroy = async (providerRef) => {
+      if (providerRef !== `sb-dedicated-${suffix}`) return;
+      await system.spaceMember.upsert({
+        where: { id: `${ids.soloSpace}-joined` },
+        update: {},
+        create: {
+          id: `${ids.soloSpace}-joined`,
+          spaceId: ids.soloSpace,
+          organizationId: ids.sharedOrg,
+          userId: ids.stayer,
+          role: "member",
+          createdAt: new Date(),
+        },
+      });
+    };
+    await expect(deleteAccount(ids.leaver)).rejects.toThrow("provider unavailable");
+    sandbox.failDestroy.clear();
+
+    await deleteAccount(ids.leaver);
+
+    expect(await system.space.findUnique({ where: { id: ids.soloSpace } })).toMatchObject({
+      deletingAt: null,
+      deletionClaimId: null,
+    });
+  });
+
+  it("waits for another deletion of a leaving space, and takes over once it is stale", async () => {
+    await system.space.update({
+      where: { id: ids.soloSpace },
+      data: { deletingAt: new Date(), deletionClaimId: "another-deletion" },
+    });
+    await expect(deleteAccount(ids.leaver)).rejects.toThrow(SpaceDeletionInProgressError);
+
+    await system.space.update({
+      where: { id: ids.soloSpace },
+      data: { deletingAt: new Date(Date.now() - 60 * 60_000) },
+    });
+    await deleteAccount(ids.leaver);
+
+    expect(await system.space.findUnique({ where: { id: ids.soloSpace } })).toBeNull();
+  });
+
   it("fails and retries when the other member's stored home cannot be saved", async () => {
     const legacyKey = legacyTeamHomeKey(ids.sharedSpace);
     const put = storage.put.bind(storage);

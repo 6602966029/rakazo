@@ -527,40 +527,52 @@ export async function personalOrganizationIds(
 /**
  * Claim the spaces nobody else can use once this account is gone: every space of its personal
  * organizations, and spaces elsewhere where it is the only member. A claimed space refuses new
- * content, so nobody who joins later can lose a bot to the teardown. Claiming again after a
- * failed deletion picks up the same spaces.
+ * content, so nobody who joins later can lose a bot to the teardown. A retry after a failed
+ * deletion keeps every space this account already claimed, even one someone has since joined,
+ * so the last step can release it. A space another deletion is still working on fails the
+ * account deletion until that claim finishes or goes stale.
  */
 export async function claimSpacesLeavingWithAccount(
   prisma: PrismaClient,
   userId: string,
 ): Promise<string[]> {
   const organizationIds = await personalOrganizationIds(prisma, userId);
+  const claimId = accountDeletionClaimId(userId);
   const candidates = await prisma.space.findMany({
     where: {
       OR: [
         { organizationId: { in: organizationIds } },
         { memberships: { some: { userId }, every: { userId } } },
+        { deletionClaimId: claimId },
       ],
     },
     select: { id: true },
     orderBy: { createdAt: "asc" },
   });
-  const claimId = accountDeletionClaimId(userId);
   const claimed: string[] = [];
   for (const { id } of candidates) {
     const won = await withTransactionRetry(() =>
       prisma.$transaction(
         async (tx) => {
           await lockSpaceDeletion(tx, id);
+          const space = await tx.space.findUnique({
+            where: { id },
+            select: { deletingAt: true, deletionClaimId: true },
+          });
+          if (!space) return false;
+          if (space.deletionClaimId === claimId) return true;
           const others = await tx.spaceMember.count({
             where: { spaceId: id, userId: { not: userId } },
           });
           if (others > 0) return false;
-          const { count } = await tx.space.updateMany({
-            where: { id, OR: [{ deletionClaimId: null }, { deletionClaimId: claimId }] },
+          const stale = new Date(Date.now() - SPACE_DELETION_CLAIM_TIMEOUT_MS);
+          if (space.deletionClaimId && space.deletingAt && space.deletingAt >= stale)
+            throw new SpaceDeletionInProgressError();
+          await tx.space.update({
+            where: { id },
             data: { deletingAt: new Date(), deletionClaimId: claimId },
           });
-          return count === 1;
+          return true;
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       ),
