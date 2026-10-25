@@ -93,7 +93,7 @@ const link = new RPCLink<RpcClientContext>({
     }
     // Server exceptions are reported by the API; do not report every HTTP failure twice.
     recheckSessionOnUnauthorized(response.status);
-    if (response.status === 401 && options.context.spaceId === undefined && spaceId)
+    if (response.status === 401 && spaceId && spaceId === selectedSpaceId())
       void leaveUnavailableSpace(spaceId);
     for (const listener of responseListeners) listener(response);
     return response;

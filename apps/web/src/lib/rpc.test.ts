@@ -47,10 +47,10 @@ describe("unavailable space", () => {
       },
       location: { origin: "http://app.example", reload },
     });
-    const fetch = vi.fn(async (request: Request) => {
+    const fetch = vi.fn(async (_request: Request, init?: RequestInit) => {
       if (!spaces)
         return Response.json({ json: { code: "UNAUTHORIZED", status: 401 } }, { status: 401 });
-      expect(request.headers.has("x-rakazo-space-id")).toBe(false);
+      expect(new Headers(init?.headers).has("x-rakazo-space-id")).toBe(false);
       return Response.json({
         json: {
           current: {
@@ -74,6 +74,20 @@ describe("unavailable space", () => {
     await leaveUnavailableSpace("space-gone");
     expect(items.has("rakazo:space-id")).toBe(false);
     expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("recovers from a 401 on the shell's space-bound client", async () => {
+    const { items, reload } = browser("space-gone", ["home"]);
+    const fetch = vi.mocked(globalThis.fetch);
+    const list = fetch.getMockImplementation()!;
+    fetch.mockImplementation(async (request, init) =>
+      new Headers(init?.headers).get("x-rakazo-space-id") === "space-gone"
+        ? Response.json({ json: { code: "UNAUTHORIZED", status: 401 } }, { status: 401 })
+        : list(request, init),
+    );
+    await expect(createSpaceRpc("space-gone").me()).rejects.toMatchObject({ status: 401 });
+    await vi.waitFor(() => expect(reload).toHaveBeenCalledOnce());
+    expect(items.has("rakazo:space-id")).toBe(false);
   });
 
   it("keeps a space the user still has, and keeps it when signed out", async () => {
