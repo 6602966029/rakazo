@@ -75,6 +75,7 @@ const catalog = Array.from({ length: 11 }, (_, index) => ({
   thinkingLevels: ["low", "medium", "high"],
 }));
 
+vi.mock("./side-insets", () => ({ useSideInsets: () => ({}) }));
 vi.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ bottom: 34 }),
   SafeAreaView: ({ children }: { children: ReactNode }) => createElement("div", {}, children),

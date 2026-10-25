@@ -20,6 +20,7 @@ const { push, back, params, rpcCalls, saved } = vi.hoisted(() => ({
   saved: { baseUrl: "https://models.example.test/v1", hasKey: false },
 }));
 
+vi.mock("./side-insets", () => ({ useSideInsets: () => ({}) }));
 vi.mock("./api", () => ({
   currentApiBase: () => "https://app.example.test",
   captureApiRequestContext: async () => ({ headers: {} }),

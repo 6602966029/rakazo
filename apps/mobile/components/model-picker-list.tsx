@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFloatingHeaderInset } from "../lib/floating-header";
 import { useI18n } from "../lib/i18n";
 import { native, useThemedStyles } from "../lib/native";
+import { useSideInsets } from "../lib/side-insets";
 import { Checkmark } from "./row-accessories";
 import { SettingsLabel, SettingsRow } from "./settings-group";
 import { TextOnlyMark } from "./text-only-mark";
@@ -44,6 +45,7 @@ export function ModelPickerList({
   const { t } = useI18n();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const sideInsets = useSideInsets();
   const styles = useThemedStyles(createStyles);
   const headerInset = useFloatingHeaderInset();
   const list = useRef<SectionList<ChatModelChoice>>(null);
@@ -188,7 +190,7 @@ export function ModelPickerList({
       onScrollToIndexFailed={retryInitialSelection}
       onScrollBeginDrag={cancelInitialScroll}
       key={Platform.OS === "android" ? "android" : query}
-      style={styles.screen}
+      style={[styles.screen, sideInsets]}
       contentContainerStyle={[
         styles.content,
         { paddingTop: headerInset + 16, paddingBottom: insets.bottom + 72 },

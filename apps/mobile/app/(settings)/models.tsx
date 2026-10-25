@@ -21,10 +21,12 @@ import { closeModelConnection, openModelConnection } from "../../lib/model-conne
 import type { ModelPickerRequest } from "../../lib/model-picker-selection";
 import { closeModelPicker, openModelPicker } from "../../lib/model-picker-selection";
 import { native, useThemedStyles } from "../../lib/native";
+import { useSideInsets } from "../../lib/side-insets";
 import { errorText } from "../../lib/user-error";
 
 /** The main and approval model lists; connecting a provider opens its own screen. */
 export default function Models() {
+  const sideInsets = useSideInsets();
   const styles = useThemedStyles(createModelsStyles);
   const router = useRouter();
   const { t } = useI18n();
@@ -144,7 +146,11 @@ export default function Models() {
   };
   return (
     <SafeAreaView edges={["bottom"]} style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic">
+      <ScrollView
+        style={sideInsets}
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+      >
         {error ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {error}

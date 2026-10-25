@@ -57,6 +57,7 @@ import { loadDeviceVoiceEnabled } from "../lib/device-voice";
 import { useI18n } from "../lib/i18n";
 import { native, useMobileTokens } from "../lib/native";
 import { createQueuedSave } from "../lib/queued-save";
+import { useSideInsets } from "../lib/side-insets";
 import { thinkingLevelLabel } from "../lib/thinking-level";
 import { errorText } from "../lib/user-error";
 import { stopVoicePlayback } from "../lib/voice";
@@ -66,6 +67,7 @@ type BotSettingsRecord = MobileBot & {
 };
 
 export default function BotSettingsScreen() {
+  const sideInsets = useSideInsets();
   const tokens = useMobileTokens();
   const { t } = useI18n();
   const router = useRouter();
@@ -492,7 +494,7 @@ export default function BotSettingsScreen() {
       <Stack.Screen options={glassHeaderOptions(t("Chat settings"))} />
       <ScrollView
         ref={scrollRef}
-        style={{ flex: 1, backgroundColor: tokens.background }}
+        style={[{ flex: 1, backgroundColor: tokens.background }, sideInsets]}
         contentContainerStyle={{ padding: 24 }}
         automaticallyAdjustKeyboardInsets
         contentInsetAdjustmentBehavior="automatic"
