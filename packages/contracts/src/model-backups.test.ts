@@ -6,6 +6,7 @@ import {
   modelRoleChoiceKey,
   moveBackupChoice,
   sameBackupChoices,
+  withConnectionName,
 } from "./model-backups.js";
 
 const catalog: ModelCatalogEntry[] = [
@@ -305,4 +306,13 @@ it("keeps saved Azure connections available for backup selection", () => {
     ),
   ).toMatchObject([current]);
   expect(sameBackupChoices([legacy], [current])).toBe(true);
+});
+
+describe("withConnectionName", () => {
+  it("names the connection after the model without nesting brackets", () => {
+    expect(withConnectionName("Claude Sonnet", "OpenRouter")).toBe("Claude Sonnet (OpenRouter)");
+    expect(withConnectionName("Claude Sonnet", "OpenRouter (Work)")).toBe(
+      "Claude Sonnet (OpenRouter, Work)",
+    );
+  });
 });

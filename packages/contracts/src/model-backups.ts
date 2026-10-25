@@ -55,6 +55,15 @@ export function connectionDisplayName(
 }
 
 /**
+ * "Model (OpenRouter)", folding a named connection in so it reads "Model (OpenRouter, Work)"
+ * instead of nesting brackets.
+ */
+export function withConnectionName(label: string, connection: string): string {
+  const named = connection.match(/^(.+) \((.+)\)$/);
+  return `${label} (${named ? `${named[1]}, ${named[2]}` : connection})`;
+}
+
+/**
  * Models a role can pick, grouped by the connection that runs them: every connection of a
  * provider offers that provider's models, and deployment-managed models need none.
  */

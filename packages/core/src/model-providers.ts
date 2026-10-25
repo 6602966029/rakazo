@@ -3,6 +3,7 @@ import {
   canonicalPiProviderId,
   normalizeOpenAiCompatibleBaseUrl,
   selectCompatibleModelCredential,
+  withConnectionName,
 } from "@rakazo/contracts";
 import { matchesSearchQuery } from "./search.js";
 
@@ -216,7 +217,7 @@ function freeFormChoice(credential: CredentialModelRef, modelId: string): Connec
     key: modelOptionKey(credential.provider, modelId),
     provider: credential.provider,
     modelId,
-    label: `${modelId} (${credential.label})`,
+    label: withConnectionName(modelId, credential.label),
     providerLabel: credential.label,
     modelLabel: modelId,
   };
@@ -229,7 +230,7 @@ function catalogChoices(providerModels: readonly CatalogModelRef[]): ConnectedMo
       key: modelOptionKey(entry.provider, modelId),
       provider: entry.provider,
       modelId,
-      label: `${entry.label} (${entry.providerName ?? entry.provider})`,
+      label: withConnectionName(entry.label, entry.providerName ?? entry.provider),
       providerLabel: entry.providerName ?? entry.provider,
       modelLabel: entry.label,
       images: entry.images,
@@ -351,7 +352,7 @@ export function groupModelChoices(choices: readonly ChatModelChoice[], query: st
     const vendor = choice.modelLabel?.match(/^([^:]+): (.+)$/);
     const heading = choice.providerLabel
       ? vendor?.[1]
-        ? `${vendor[1]} (${choice.providerLabel})`
+        ? withConnectionName(vendor[1], choice.providerLabel)
         : choice.providerLabel
       : undefined;
     const key = heading ? `provider:${heading}` : "ungrouped";
