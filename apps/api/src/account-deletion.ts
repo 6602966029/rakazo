@@ -5,7 +5,7 @@ import {
   removeDeletedBotsFromLegacyTeamHome,
   toComputerRef,
 } from "@rakazo/adapters";
-import { deleteSpaceLeavingWithAccount, spacesLeavingWithAccount } from "@rakazo/db";
+import { claimSpacesLeavingWithAccount, deleteSpaceLeavingWithAccount } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { SpaceDeletionDeps } from "./space-deletion.js";
 
@@ -28,7 +28,7 @@ export async function deleteAccountContent(deps: SpaceDeletionDeps, userId: stri
     ...(botId ? { botId } : {}),
     signal: new AbortController().signal,
   });
-  const leaving = await spacesLeavingWithAccount(deps.prisma, userId);
+  const leaving = await claimSpacesLeavingWithAccount(deps.prisma, userId);
   const bots = await deps.prisma.bot.findMany({
     where: { OR: [{ userId }, { spaceId: { in: leaving } }] },
     select: {

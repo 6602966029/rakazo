@@ -525,15 +525,17 @@ export async function personalOrganizationIds(
 }
 
 /**
- * Spaces that nobody else can use once this account is gone: every space of its personal
- * organizations, and spaces elsewhere where it is the only member.
+ * Claim the spaces nobody else can use once this account is gone: every space of its personal
+ * organizations, and spaces elsewhere where it is the only member. A claimed space refuses new
+ * content, so nobody who joins later can lose a bot to the teardown. Claiming again after a
+ * failed deletion picks up the same spaces.
  */
-export async function spacesLeavingWithAccount(
-  prisma: Pick<PrismaClient, "member" | "space">,
+export async function claimSpacesLeavingWithAccount(
+  prisma: PrismaClient,
   userId: string,
 ): Promise<string[]> {
   const organizationIds = await personalOrganizationIds(prisma, userId);
-  const spaces = await prisma.space.findMany({
+  const candidates = await prisma.space.findMany({
     where: {
       OR: [
         { organizationId: { in: organizationIds } },
@@ -543,18 +545,41 @@ export async function spacesLeavingWithAccount(
     select: { id: true },
     orderBy: { createdAt: "asc" },
   });
-  return spaces.map(({ id }) => id);
+  const claimId = accountDeletionClaimId(userId);
+  const claimed: string[] = [];
+  for (const { id } of candidates) {
+    const won = await withTransactionRetry(() =>
+      prisma.$transaction(
+        async (tx) => {
+          await lockSpaceDeletion(tx, id);
+          const others = await tx.spaceMember.count({
+            where: { spaceId: id, userId: { not: userId } },
+          });
+          if (others > 0) return false;
+          const { count } = await tx.space.updateMany({
+            where: { id, OR: [{ deletionClaimId: null }, { deletionClaimId: claimId }] },
+            data: { deletingAt: new Date(), deletionClaimId: claimId },
+          });
+          return count === 1;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      ),
+    );
+    if (won) claimed.push(id);
+  }
+  return claimed;
 }
 
 /**
- * Delete a space that is leaving with an account, once its bots and sandboxes are gone. Rows
- * left in it go by cascade, and its keys with it. Returns the stored artifacts to remove after
- * commit, or null when someone else joined the space in the meantime and it stays.
+ * Delete a space claimed by `claimSpacesLeavingWithAccount`, once its bots and sandboxes are
+ * gone. Rows left in it go by cascade, and its keys with it. Returns the stored artifacts to
+ * remove after commit, or null when someone joined after the claim: the space stays, unclaimed.
  */
 export async function deleteSpaceLeavingWithAccount(
   prisma: PrismaClient,
   input: { spaceId: string; userId: string },
 ): Promise<{ artifactKeys: string[] } | null> {
+  const claimId = accountDeletionClaimId(input.userId);
   return withTransactionRetry(() =>
     prisma.$transaction(
       async (tx) => {
@@ -570,10 +595,16 @@ export async function deleteSpaceLeavingWithAccount(
             select: { storageKey: true },
           }),
         ]);
-        if (others > 0) return null;
-        // Content created while the account was being deleted; deleting again removes it.
+        if (others > 0) {
+          await tx.space.updateMany({
+            where: { id: input.spaceId, deletionClaimId: claimId },
+            data: { deletingAt: null, deletionClaimId: null },
+          });
+          return null;
+        }
+        // Teardown was cut short; deleting again finishes it.
         if (remainingBots > 0 || remainingComputers > 0) throw new SpaceDeletionInProgressError();
-        await tx.space.deleteMany({ where: { id: input.spaceId } });
+        await tx.space.deleteMany({ where: { id: input.spaceId, deletionClaimId: claimId } });
         return { artifactKeys: artifacts.map((artifact) => artifact.storageKey) };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -603,4 +634,9 @@ export async function renameSpaceForMember(
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ),
   );
+}
+
+/** Stable per account, so a retried deletion keeps its own claims. */
+function accountDeletionClaimId(userId: string) {
+  return `account-deletion:${userId}`;
 }

@@ -25,7 +25,9 @@ import {
   createDb,
   LocalKeyProvider,
   legacyTeamHomeKey,
+  lockSpaceForContentCreation,
   runAsSystem,
+  SpaceDeletionInProgressError,
 } from "@rakazo/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryObjectStorage } from "../../../packages/adapters/src/object-storage.test-support.ts";
@@ -352,11 +354,20 @@ describePostgres("account deletion on bot computers (PostgreSQL)", () => {
           createdAt: new Date(),
         },
       });
+      // Until the deletion settles, the new member cannot add content it would tear down.
+      await expect(
+        prisma.$transaction((tx) =>
+          lockSpaceForContentCreation(tx, { spaceId: ids.soloSpace, userId: ids.stayer }),
+        ),
+      ).rejects.toThrow(SpaceDeletionInProgressError);
     };
 
     await deleteAccount(ids.leaver);
 
-    expect(await system.space.findUnique({ where: { id: ids.soloSpace } })).not.toBeNull();
+    expect(await system.space.findUnique({ where: { id: ids.soloSpace } })).toMatchObject({
+      deletingAt: null,
+      deletionClaimId: null,
+    });
     expect(
       await system.spaceMember.findUnique({ where: { id: `${ids.soloSpace}-joined` } }),
     ).not.toBeNull();
