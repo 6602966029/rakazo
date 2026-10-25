@@ -33,7 +33,6 @@ import {
   sanitizeConnectorError,
 } from "./connector-safety.js";
 import { credentialDigest } from "./credential-digest.js";
-import { appendToolCompletionAudit } from "./executor.js";
 import {
   CATALOG_EXECUTE,
   catalogEntries,
@@ -62,6 +61,7 @@ import type { McpServerHealthUpdate } from "./mcp-server-health.js";
 import { recordMcpServerHealth } from "./mcp-server-health.js";
 import { McpSession, mcpStdioRefusal } from "./mcp-transport.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
+import { appendToolCompletionAudit } from "./tool-completion-audit.js";
 
 type SessionEntry = {
   session: McpSession;

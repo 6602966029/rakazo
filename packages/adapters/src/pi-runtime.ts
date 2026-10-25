@@ -95,7 +95,6 @@ export const SILENT_ALLOWED_TOOL_CONTINUATION_PROMPT = automated(
 // tools and misses a final answer again.
 export { MISSING_TOOL_FINAL_RESPONSE_ERROR } from "@rakazo/core";
 // The executor canonicalizes checkpoint tool names with the same mapping.
-export { namedAgentTools } from "./pi-runtime-tools.js";
 
 export interface PiAgentRuntimeOptions {
   /** Directory where Pi JSONL sessions are written. Omit to disable recording. */

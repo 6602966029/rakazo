@@ -18,7 +18,7 @@ import {
   touchGroupUpdatedAt,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
-import type { ExecutorDeps } from "./executor.js";
+import type { ExecutorDeps } from "./executor-deps.js";
 
 export async function handoffToGroupBot(
   deps: Pick<ExecutorDeps, "prisma" | "events" | "jobs">,
