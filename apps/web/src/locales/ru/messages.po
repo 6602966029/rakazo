@@ -126,6 +126,10 @@ msgstr "Компьютер {botName}"
 msgid "{commandVariable} is reserved and cannot be used as a command variable. Choose another name."
 msgstr "{commandVariable} зарезервирована и не может использоваться как переменная команды. Выберите другое имя."
 
+#: src/components/markdown-copy.tsx
+msgid "{count, plural, one {# row} other {# rows}}"
+msgstr "{count, plural, one {# строка} few {# строки} many {# строк} other {# строки}}"
+
 #: src/lib/billing.ts
 msgid "{count} days"
 msgstr ""
@@ -146,6 +150,14 @@ msgstr ""
 msgid "{days}d ago"
 msgstr "{days} дн. назад"
 
+#: src/components/markdown-copy.tsx
+msgid "{from}–{to} of {total} rows"
+msgstr "{from}–{to} из {total} строк"
+
+#: src/components/markdown-copy.tsx
+msgid "{header}, column {index}"
+msgstr "{header}, столбец {index}"
+
 #: src/components/ToolActivityDisclosure.tsx
 msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
 msgstr ""
@@ -153,6 +165,10 @@ msgstr ""
 #: src/lib/relative-time.ts
 msgid "{hours}h ago"
 msgstr "{hours} ч назад"
+
+#: src/components/markdown-copy.tsx
+msgid "{label}, empty"
+msgstr "{label}, пусто"
 
 #: src/lib/relative-time.ts
 msgid "{minutes}m ago"
@@ -1283,6 +1299,10 @@ msgstr "Закрыть панель"
 msgid "Close preview"
 msgstr "Закрыть предварительный просмотр"
 
+#: src/components/markdown-copy.tsx
+msgid "Close table"
+msgstr "Закрыть таблицу"
+
 #: src/pages/SettingsOverlay.tsx
 msgid "Close user settings"
 msgstr "Закрыть настройки пользователя"
@@ -1321,6 +1341,10 @@ msgstr "Цвет"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Color {color}"
 msgstr "Цвет {color}"
+
+#: src/components/markdown-copy.tsx
+msgid "column {index}"
+msgstr "столбец {index}"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Comfortable"
@@ -1550,11 +1574,12 @@ msgid "Conversations"
 msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
+#: src/components/markdown-copy.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
-msgstr ""
+msgstr "Скопировано"
 
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
@@ -1566,9 +1591,21 @@ msgstr "Копировать"
 msgid "Copy .env example"
 msgstr ""
 
+#: src/components/markdown-copy.tsx
+msgid "Copy code"
+msgstr "Копировать код"
+
+#: src/components/markdown-copy.tsx
+msgid "Copy diagram source"
+msgstr "Копировать источник диаграммы"
+
 #: src/pages/shell/agent-import.tsx
 msgid "Copy prompt"
 msgstr "Скопировать промпт"
+
+#: src/components/markdown-copy.tsx
+msgid "Copy rows"
+msgstr "Копировать строки"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Cost"
@@ -2388,6 +2425,10 @@ msgstr "Скачать {0}"
 msgid "Download {name}"
 msgstr "Скачать {name}"
 
+#: src/components/markdown-copy.tsx
+msgid "Download CSV"
+msgstr "Скачать CSV"
+
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
 msgstr "Скачивание…"
@@ -2561,6 +2602,10 @@ msgstr "Развернуть {0}"
 #: src/pages/shell/message-view.tsx
 msgid "Expand {label}"
 msgstr "Развернуть {label}"
+
+#: src/components/markdown-copy.tsx
+msgid "Expand table"
+msgstr "Развернуть таблицу"
 
 #: src/components/CloudAgentCard.tsx
 msgid "expired"
@@ -3229,6 +3274,10 @@ msgstr "Отметить как непрочитанное"
 msgid "Mark as Unread"
 msgstr "Отметить как непрочитанное"
 
+#: src/components/markdown-copy.tsx
+msgid "Markdown table"
+msgstr "Таблица Markdown"
+
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
@@ -3610,6 +3659,10 @@ msgstr "Новое пространство"
 msgid "New ticket"
 msgstr ""
 
+#: src/components/markdown-copy.tsx
+msgid "Next page"
+msgstr "Следующая страница"
+
 #: src/pages/SettingsOverlay.tsx
 msgid "Next settings sections"
 msgstr ""
@@ -3694,6 +3747,10 @@ msgstr "Удаленные MCP-серверы не найдены"
 #: src/pages/SpaceSearch.tsx
 msgid "No results"
 msgstr "Нет результатов"
+
+#: src/components/markdown-copy.tsx
+msgid "No rows"
+msgstr "Нет строк"
 
 #: src/pages/ActivityList.tsx
 msgid "No runs match these filters."
@@ -3919,6 +3976,10 @@ msgstr "Вывод"
 msgid "Owner"
 msgstr "Владелец"
 
+#: src/components/markdown-copy.tsx
+msgid "Page {page} of {count}"
+msgstr "Страница {page} из {count}"
+
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
 msgstr "Инцидент PagerDuty"
@@ -4071,6 +4132,10 @@ msgstr "Предварительный просмотр {0}"
 #: src/pages/Artifacts.tsx
 msgid "Preview isn't available for this file type — download it to view it."
 msgstr ""
+
+#: src/components/markdown-copy.tsx
+msgid "Previous page"
+msgstr "Предыдущая страница"
 
 #: src/pages/SettingsOverlay.tsx
 msgid "Previous settings sections"
@@ -4514,6 +4579,10 @@ msgstr "Задачи"
 msgid "Routines that run while you're away"
 msgstr ""
 
+#: src/components/markdown-copy.tsx
+msgid "Row"
+msgstr "Строка"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
 msgstr "Запустить в"
@@ -4950,6 +5019,22 @@ msgstr "Только что добавлено что-то с таким же и
 msgid "Something you chose cannot work here. Untick it and try again."
 msgstr "Что-то из выбранного здесь не работает. Снимите отметку и повторите попытку."
 
+#: src/components/markdown-copy.tsx
+msgid "Sort by {column}"
+msgstr "Сортировать по {column}"
+
+#: src/components/markdown-copy.tsx
+msgid "Sort cleared"
+msgstr "Сортировка сброшена"
+
+#: src/components/markdown-copy.tsx
+msgid "Sorted by {column}, ascending"
+msgstr "Сортировка по {column}, по возрастанию"
+
+#: src/components/markdown-copy.tsx
+msgid "Sorted by {column}, descending"
+msgstr "Сортировка по {column}, по убыванию"
+
 #: src/lib/identity-display.ts
 #: src/pages/SettingsOverlay.tsx
 msgid "Space"
@@ -5094,6 +5179,10 @@ msgstr "Переключение…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "System"
 msgstr "Системная"
+
+#: src/components/markdown-copy.tsx
+msgid "Table"
+msgstr "Таблица"
 
 #: src/pages/shell/computer-overlay.tsx
 msgid "Take control"
