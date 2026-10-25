@@ -82,15 +82,18 @@ vi.mock("react-native", () => {
       accessibilityLabel,
       value,
       onChangeText,
+      onBlur,
     }: {
       accessibilityLabel: string;
       value: string;
       onChangeText?: (value: string) => void;
+      onBlur?: () => void;
     }) => (
       <input
         aria-label={accessibilityLabel}
         value={value}
         onChange={(event) => onChangeText?.(event.currentTarget.value)}
+        onBlur={onBlur}
       />
     ),
   };
@@ -357,4 +360,50 @@ it("keeps a field typed into while the opening refresh is in flight", async () =
   expect(container.querySelector<HTMLInputElement>('input[aria-label="Speech model"]')!.value).toBe(
     "typed",
   );
+});
+
+it("keeps a saved speech model when an opening read started before the save lands after it", async () => {
+  state.load.mockResolvedValue(false);
+  await render();
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  let serverSpeechModel = "speech-model";
+  let releaseCatalog!: () => void;
+  const catalogHeld = new Promise<void>((resolve) => {
+    releaseCatalog = resolve;
+  });
+  const original = state.rpc.getMockImplementation()!;
+  state.rpc.mockImplementation(async (proc: string, args?: { provider: string }) => {
+    if (proc === "voice/catalog") await catalogHeld;
+    if (proc === "voice/credentials") {
+      return credentials.map((entry) =>
+        entry.id === "fish" ? { ...entry, speechModel: serverSpeechModel } : entry,
+      );
+    }
+    if (proc === "voice/setSpeechModel") {
+      serverSpeechModel = "saved-model";
+      return { ...credentials[0], speechModel: serverSpeechModel };
+    }
+    return original(proc, args);
+  });
+  await render();
+  const input = () =>
+    container.querySelector<HTMLInputElement>('input[aria-label="Speech model"]')!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
+      input(),
+      "saved-model",
+    );
+    input().dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => {
+    input().focus();
+    input().blur();
+  });
+  expect(state.rpc).toHaveBeenCalledWith("voice/setSpeechModel", {
+    provider: "fish-audio",
+    speechModel: "saved-model",
+  });
+  await act(async () => releaseCatalog());
+  await vi.waitFor(() => expect(input().value).toBe("saved-model"));
 });

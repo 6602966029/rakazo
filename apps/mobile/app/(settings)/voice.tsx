@@ -376,10 +376,13 @@ export default function VoiceSettings() {
       });
       const merge = (current: VoiceCredential[] = []) =>
         current.map((entry) => (entry.id === saved.id ? { ...entry, ...saved } : entry));
+      // A read still out started before this save, so it must not land; read again after it.
+      loadRevision.current++;
       edited.current.delete("speechModel");
       setSpeechModel(saved.speechModel ?? "");
       setCredentials(merge);
       await writeSaved(voiceReads().credentials.queryKey, merge);
+      void load(selected.id, true).catch(() => undefined);
     } catch (err) {
       setError(errorText(err, t("Could not save that speech model")));
     } finally {
