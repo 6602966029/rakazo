@@ -31,13 +31,13 @@ test("a short reply thread shows one time separator and navigates to its parent"
   await parent.hover();
   await parent.getByRole("button", { name: "Reply", exact: true }).click();
   await captureScreenshot(page, testInfo, "time-separator-reply-composer");
-  await composer.fill("Start with the mobile changes.");
+  await composer.fill("OK");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByTestId("reply-chip")).toHaveCount(0);
   const reply = transcript
     .locator("[data-message-id]")
     .filter({ has: page.getByTestId("message-user-bubble") })
-    .filter({ hasText: "Start with the mobile changes." })
+    .filter({ hasText: "OK" })
     .first();
   const quote = reply.getByTestId("reply-parent-preview");
   await expect(quote).toHaveText("↩ You: Let's review the release notes.");
