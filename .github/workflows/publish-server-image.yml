@@ -196,6 +196,7 @@ jobs:
     concurrency:
       group: publish-image-${{ github.ref }}-${{ matrix.name }}
       cancel-in-progress: false
+      queue: max
     strategy:
       fail-fast: false
       matrix:
@@ -282,6 +283,7 @@ jobs:
     concurrency:
       group: publish-image-${{ github.ref }}-${{ matrix.name }}
       cancel-in-progress: false
+      queue: max
     strategy:
       fail-fast: false
       matrix:

@@ -1766,6 +1766,7 @@ project and on GitHub's runners otherwise, and one manifest is assembled per ima
 publish and attest each image in the same job; native GitHub builds combine their architecture
 artifacts in a separate publication job. Main CI revisions validate independently. Publication
 locks are per image, and a superseded main build keeps its commit tag without moving `edge`.
+Image and release queues retain pending jobs so a slower older run cannot displace a newer one.
 Production deployment remains serialized and deploys the exact revision that passed its checks.
 Before any tag points at a new app image, CI fails the publish if it holds a `.env` file, a `.git` directory or a
 private key (`infra/compose/check-image.sh`). Until a
