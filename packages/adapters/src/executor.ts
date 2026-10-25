@@ -8351,6 +8351,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 hasStreamedText = false;
                 pendingProgress = "";
               }
+              // Give the user a full idle period to answer before the computer may suspend.
+              scheduleComputerSleep(deps.jobs, storedComputer.id);
               await publishMessage(
                 deps,
                 run,
