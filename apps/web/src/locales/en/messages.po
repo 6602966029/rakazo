@@ -1964,6 +1964,10 @@ msgstr "Could not start OAuth"
 msgid "Could not start teaching"
 msgstr "Could not start teaching"
 
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Could not stop computer"
+msgstr "Could not stop computer"
+
 #: src/components/AskCard.tsx
 msgid "Could not submit this answer"
 msgstr "Could not submit this answer"
@@ -5018,6 +5022,10 @@ msgstr "Steps"
 msgid "Stop"
 msgstr "Stop"
 
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Stop computer"
+msgstr "Stop computer"
+
 #: src/pages/shell/message-view.tsx
 msgid "Stop speaking"
 msgstr "Stop speaking"
@@ -5030,6 +5038,10 @@ msgstr "Stop teaching"
 #: src/lib/browser-notifications.ts
 msgid "Stopped."
 msgstr "Stopped."
+
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Stopping…"
+msgstr "Stopping…"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Stored encrypted"

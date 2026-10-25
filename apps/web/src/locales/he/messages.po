@@ -1964,6 +1964,10 @@ msgstr "לא ניתן להתחיל OAuth"
 msgid "Could not start teaching"
 msgstr "לא ניתן להתחיל לימוד"
 
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Could not stop computer"
+msgstr ""
+
 #: src/components/AskCard.tsx
 msgid "Could not submit this answer"
 msgstr "לא ניתן לשלוח את התשובה"
@@ -5018,6 +5022,10 @@ msgstr "שלבים"
 msgid "Stop"
 msgstr "עצירה"
 
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Stop computer"
+msgstr ""
+
 #: src/pages/shell/message-view.tsx
 msgid "Stop speaking"
 msgstr "הפסקת ההקראה"
@@ -5030,6 +5038,10 @@ msgstr "הפסקת הלימוד"
 #: src/lib/browser-notifications.ts
 msgid "Stopped."
 msgstr "נעצר."
+
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Stopping…"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Stored encrypted"

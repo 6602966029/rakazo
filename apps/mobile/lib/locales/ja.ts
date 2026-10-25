@@ -681,6 +681,8 @@ export const JA_MESSAGES: Record<string, string> = {
   "Recover computer": "コンピューターを復旧",
   "Recovering…": "復旧中…",
   Reset: "リセット",
+  "Stop computer": "コンピューターを停止",
+  "Could not stop computer": "コンピューターを停止できませんでした",
   "Reset computer": "コンピューターをリセット",
   "Reset computer?": "コンピューターをリセットしますか？",
   "Resetting…": "リセット中…",

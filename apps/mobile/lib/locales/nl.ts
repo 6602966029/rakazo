@@ -689,6 +689,8 @@ export const NL_MESSAGES: Record<string, string> = {
   "Recover computer": "Computer herstellen",
   "Recovering…": "Bezig met herstellen…",
   Reset: "Opnieuw instellen",
+  "Stop computer": "Computer stoppen",
+  "Could not stop computer": "Computer stoppen mislukt",
   "Reset computer": "Computer opnieuw instellen",
   "Reset computer?": "Computer opnieuw instellen?",
   "Resetting…": "Bezig met opnieuw instellen…",
