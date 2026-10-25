@@ -1171,6 +1171,8 @@ model ComputerRun {
   user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   /// The provider kind, such as docker or e2b.
   kind       String
+  /// The provider's id for the sandbox, to match runs with the provider's own usage and billing.
+  providerRef String?
   startedAt  DateTime
   /// Null while running. When the end was not seen as it happened, this is when it was detected.
   endedAt    DateTime?

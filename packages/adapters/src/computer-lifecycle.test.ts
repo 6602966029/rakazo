@@ -1552,6 +1552,7 @@ describe("Team Computer wake", () => {
           spaceId: "workspace-1",
           userId: "user-1",
           kind: "e2b",
+          providerRef: "sandbox-1",
           startedAt,
         },
       ],
