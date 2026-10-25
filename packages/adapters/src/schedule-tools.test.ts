@@ -98,6 +98,9 @@ describe("resolveScheduleTiming", () => {
     expect(first({ cron: "0 10 * * 1", startAt: "2026-11-02T09:00:00Z" }, "Europe/Berlin")).toBe(
       "2026-11-02T09:00:00.000Z",
     );
+    expect(first({ cron: "0 10 * * 1", startAt: "2026-11-02T10:00:00.5" }, "Europe/Berlin")).toBe(
+      "2026-11-09T09:00:00.000Z",
+    );
     // Across New York's fall-back change: 09:00 is EDT on the 31st and EST on 1 November.
     expect(first({ cron: "0 9 * * *", startAt: "2026-10-31" }, "America/New_York")).toBe(
       "2026-10-31T13:00:00.000Z",
@@ -898,7 +901,8 @@ describe("updateScheduleFromTool", () => {
         id: "routine-1",
         bot: { archivedAt: null },
       },
-      data: expect.objectContaining({ prompt, nextRunAt: weekly.nextRunAt }),
+      // Only the prompt, so a run claimed meanwhile keeps its advance.
+      data: { prompt },
     });
     expect(enqueue).not.toHaveBeenCalled();
     expect(append).toHaveBeenCalledWith(
@@ -920,6 +924,20 @@ describe("updateScheduleFromTool", () => {
       }),
     );
     expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ availableAt: first }));
+  });
+
+  it("applies a timing change only if no run advanced the routine since the read", async () => {
+    const { updateMany, enqueue, update } = setup();
+    updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(update({ schedule: { startAt: "2026-11-02" } })).resolves.toEqual({
+      error: "The schedule changed while saving. Call schedule_list and try again.",
+    });
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ active: true, nextRunAt: weekly.nextRunAt }),
+      }),
+    );
+    expect(enqueue).not.toHaveBeenCalled();
   });
 
   it("replaces the timing, turning a one-shot into a weekly routine", async () => {

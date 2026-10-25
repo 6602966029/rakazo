@@ -28,6 +28,9 @@ describe("zonedDateTime", () => {
     expect(zonedDateTime("2026-11-02 10:00:30", "UTC")?.toISOString()).toBe(
       "2026-11-02T10:00:30.000Z",
     );
+    expect(zonedDateTime("2026-11-02T10:00:00.5", "Europe/Berlin")?.toISOString()).toBe(
+      "2026-11-02T09:00:00.500Z",
+    );
     expect(zonedDateTime("2026-11-02", "America/Los_Angeles")?.toISOString()).toBe(
       "2026-11-02T08:00:00.000Z",
     );

@@ -557,27 +557,36 @@ export async function updateScheduleFromTool(
     } else nextRunAt = nextCronDateAcross(crons, new Date(), timezone);
   }
   if (!active) nextRunAt = null;
+  const timingChanged =
+    retime || active !== existing.active || nextRunAt?.getTime() !== existing.nextRunAt?.getTime();
 
   // The scope is part of the write, so the routine cannot change hands between the read and it.
+  // A name or prompt edit writes only those fields, so a run claimed meanwhile keeps its advance;
+  // a timing edit applies only if no run advanced the routine since the read.
   const { count } = await deps.prisma.routine.updateMany({
-    where: { ...scope, id: existing.id, bot: { archivedAt: null } },
+    where: {
+      ...scope,
+      id: existing.id,
+      bot: { archivedAt: null },
+      ...(timingChanged ? { active: existing.active, nextRunAt: existing.nextRunAt } : {}),
+    },
     data: {
       ...(name === undefined ? {} : { name }),
       ...(prompt === undefined ? {} : { prompt }),
-      crons,
-      timezone,
-      active,
-      nextRunAt,
+      ...(timingChanged ? { crons, timezone, active, nextRunAt } : {}),
     },
   });
-  if (count === 0) return { error: "Schedule not found." };
+  if (count === 0) {
+    return {
+      error: timingChanged
+        ? "The schedule changed while saving. Call schedule_list and try again."
+        : "Schedule not found.",
+    };
+  }
 
-  if (active && nextRunAt) {
-    if (!existing.active || existing.nextRunAt?.getTime() !== nextRunAt.getTime()) {
-      await deps.jobs.enqueue(routineWakeupJob(existing.id, nextRunAt));
-    }
-  } else if (existing.active) {
-    await deps.jobs.cancel(routineJobKey(existing.id));
+  if (timingChanged) {
+    if (active && nextRunAt) await deps.jobs.enqueue(routineWakeupJob(existing.id, nextRunAt));
+    else if (existing.active) await deps.jobs.cancel(routineJobKey(existing.id));
   }
 
   try {

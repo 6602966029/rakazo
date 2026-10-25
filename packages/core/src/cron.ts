@@ -385,7 +385,7 @@ export function nextCronDateAcrossStrict(
 }
 
 const OFFSET_SUFFIX = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i;
-const WALL_CLOCK = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?$/;
+const WALL_CLOCK = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?)?$/;
 
 /**
  * An ISO date or datetime as an instant. One with an offset (or Z) is taken as written; a date
@@ -401,8 +401,9 @@ export function zonedDateTime(value: string, timezone = "UTC"): Date | null {
     return Number.isFinite(instant.getTime()) ? instant : null;
   }
   const [year, month, day, hour, minute, second] = wall
-    .slice(1)
+    .slice(1, 7)
     .map((part) => (part === undefined ? 0 : Number(part)));
+  const ms = wall[7] ? Math.floor(Number(`0.${wall[7]}`) * 1000) : 0;
   const check = new Date(
     Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1, hour ?? 0, minute ?? 0, second ?? 0),
   );
@@ -411,7 +412,8 @@ export function zonedDateTime(value: string, timezone = "UTC"): Date | null {
     check.getUTCMonth() !== (month ?? 1) - 1 ||
     check.getUTCDate() !== day ||
     check.getUTCHours() !== hour ||
-    check.getUTCMinutes() !== minute
+    check.getUTCMinutes() !== minute ||
+    check.getUTCSeconds() !== second
   ) {
     return null;
   }
@@ -423,7 +425,8 @@ export function zonedDateTime(value: string, timezone = "UTC"): Date | null {
   local.minute = check.getUTCMinutes();
   local.second = check.getUTCSeconds();
   local.ms = 0;
-  return local.getDate();
+  // Keep any fraction so a time just after an occurrence does not include it.
+  return new Date(local.getDate().getTime() + ms);
 }
 
 function validTimezoneOrUtc(timezone: string): string {
