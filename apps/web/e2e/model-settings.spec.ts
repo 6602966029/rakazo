@@ -492,7 +492,7 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     // Closing without saving leaves the stored connection as it was.
     await page
       .getByTestId("model-connection")
-      .getByRole("button", { name: "Models", exact: true })
+      .getByRole("button", { name: "Close", exact: true })
       .click();
     await expect(saved).toBeHidden();
     await page.getByRole("button", { name: "Close model settings" }).click();
@@ -583,7 +583,7 @@ test("model settings connect, replace, and cancel provider authentication", asyn
   expect(connected.find((entry) => entry.provider === "scripted")?.maxTokens).toBe(8192);
   await page
     .getByTestId("model-connection")
-    .getByRole("button", { name: "Models", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
     .click();
   await expect(limits).toBeHidden();
   // A limits-only save keeps the page open and confirms on it.
@@ -699,7 +699,7 @@ test("model settings connect, replace, and cancel provider authentication", asyn
   );
   await page
     .getByTestId("model-connection")
-    .getByRole("button", { name: "Models", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
     .click();
   await expect(codex).toBeHidden();
   await cancelled;
@@ -710,7 +710,7 @@ test("model settings connect, replace, and cancel provider authentication", asyn
   await expect(page.getByText("TEST-CODE")).toBeHidden();
   await page
     .getByTestId("model-connection")
-    .getByRole("button", { name: "Models", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
     .click();
   await expect(manage).toBeHidden();
 
@@ -1129,7 +1129,7 @@ test("a Claude subscription folds the key form and bots move to the space defaul
   await expect(dialog.getByRole("button", { name: "Connect API key" })).toBeVisible();
   await page
     .getByTestId("model-connection")
-    .getByRole("button", { name: "Models", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
     .click();
   await expect(dialog).toBeHidden();
 

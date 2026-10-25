@@ -127,7 +127,7 @@ test("settings preflight distinguishes a stored API key from sign-in", async ({
 
   await page
     .getByTestId("model-connection")
-    .getByRole("button", { name: "Models", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
     .click();
   await expect(settings).toBeHidden();
   settings = await openModelConnection(page, "Anthropic");
