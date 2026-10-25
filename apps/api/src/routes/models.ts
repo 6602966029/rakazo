@@ -26,10 +26,10 @@ import {
 import { clampCatalogThinkingLevel } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import {
+  appliedModelRole,
   comparePreferenceOrder,
   defaultModelCredentialCandidates,
   deleteUnreferencedCredentialSecret,
-  appliedModelRole,
   findModelCredential,
   getModelRole,
   modelCredentialProviderFilter,
