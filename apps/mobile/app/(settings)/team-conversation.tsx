@@ -43,6 +43,8 @@ export default function TeamConversationSettings() {
   const [mode, setMode] = useState<ListenMode>("inherit");
   const [rules, setRules] = useState<string | null>(null);
   const [policies, setPolicies] = useState<AutomatedSenderPolicies>({});
+  // Typed hours stay a draft until saved, so Save works while the field still has focus.
+  const [hoursDrafts, setHoursDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +91,13 @@ export default function TeamConversationSettings() {
         externalConversationId: conversation.id,
         teamChatAmbientEnabled: ambientValue(mode),
         teamChatRules: rules,
-        automatedSenderPolicies: policies,
+        automatedSenderPolicies: senders.reduce(
+          (current, sender) =>
+            hoursDrafts[sender.id] !== undefined && current[sender.id]?.mode === "rollup"
+              ? withRollupHours(current, sender, Number(hoursDrafts[sender.id]))
+              : current,
+          policies,
+        ),
       });
       router.back();
     } catch (err) {
@@ -212,11 +220,9 @@ export default function TeamConversationSettings() {
                     <TextInput
                       accessibilityLabel={t("{sender} rollup hours", { sender: sender.name })}
                       keyboardType="number-pad"
-                      defaultValue={String(policy.rollupHours ?? 6)}
-                      onEndEditing={(event) =>
-                        setPolicies((current) =>
-                          withRollupHours(current, sender, Number(event.nativeEvent.text)),
-                        )
+                      value={hoursDrafts[sender.id] ?? String(policy.rollupHours ?? 6)}
+                      onChangeText={(text) =>
+                        setHoursDrafts((current) => ({ ...current, [sender.id]: text }))
                       }
                       style={[styles.hoursInput, { color: tokens.foreground }]}
                     />

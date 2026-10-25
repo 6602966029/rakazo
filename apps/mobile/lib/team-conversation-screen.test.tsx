@@ -92,8 +92,20 @@ vi.mock("react-native", () => {
     View,
     ScrollView: View,
     Text: View,
-    TextInput: ({ accessibilityLabel }: { accessibilityLabel?: string }) => (
-      <input aria-label={accessibilityLabel} />
+    TextInput: ({
+      accessibilityLabel,
+      value,
+      onChangeText,
+    }: {
+      accessibilityLabel?: string;
+      value?: string;
+      onChangeText?: (text: string) => void;
+    }) => (
+      <input
+        aria-label={accessibilityLabel}
+        value={value ?? ""}
+        onChange={(event) => onChangeText?.(event.target.value)}
+      />
     ),
     StyleSheet: { create: (styles: unknown) => styles },
   };
@@ -162,4 +174,24 @@ it("saves listening and sender handling for the room, then goes back", async () 
     automatedSenderPolicies: { B_GITHUB: { name: "GitHub", mode: "rollup", rollupHours: 6 } },
   });
   expect(back).toHaveBeenCalled();
+});
+
+it("saves typed hours while the field still has focus", async () => {
+  await act(async () => root.render(<TeamConversationSettings />));
+  await click("GitHub: Group updates");
+  const hours = container.querySelector<HTMLInputElement>(
+    'input[aria-label="GitHub rollup hours"]',
+  );
+  if (!hours) throw new Error("Missing hours field");
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(hours, "12");
+    hours.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await click("Save");
+  expect(rpc).toHaveBeenCalledWith(
+    "externalConversations/updatePolicy",
+    expect.objectContaining({
+      automatedSenderPolicies: { B_GITHUB: { name: "GitHub", mode: "rollup", rollupHours: 12 } },
+    }),
+  );
 });
