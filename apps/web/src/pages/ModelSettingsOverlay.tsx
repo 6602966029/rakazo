@@ -230,7 +230,7 @@ export function ModelSettingsOverlay({
 
       <div ref={scrollRef} className="rk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
         {connectionOpen ? (
-          <div className="mx-auto max-w-[600px]" data-testid="model-connection">
+          <div className="max-w-[600px]" data-testid="model-connection">
             <Button
               type="button"
               variant="ghost"
@@ -268,7 +268,7 @@ export function ModelSettingsOverlay({
           </div>
         ) : null}
         {/* The lists stay mounted while a connection is open so a pending pick can reopen. */}
-        <div className="mx-auto max-w-[600px]" hidden={connectionOpen}>
+        <div className="max-w-[600px]" hidden={connectionOpen}>
           {error && !connectionOpen ? (
             <p className="mb-4 text-sm text-destructive" role="alert">
               {error}
