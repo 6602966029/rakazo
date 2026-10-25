@@ -159,10 +159,10 @@ export function PluginsOverlay({
   const connections = integrations.data?.connections ?? NO_CONNECTIONS;
   const sources = integrations.data?.sources ?? NO_SOURCES;
   const catalogFeedEnabled = integrations.data?.catalogFeedEnabled ?? false;
-  const loadError =
-    integrations.error && !catalogLoaded
-      ? errorText(integrations.error, t`Could not load integrations`)
-      : null;
+  // A failed refresh is shown even over what was cached, so stale apps never pass as current.
+  const loadError = integrations.error
+    ? errorText(integrations.error, t`Could not load integrations`)
+    : null;
   const toolsQuery = useQuery(
     queries.connections.tools.queryOptions({
       input: detailKey
@@ -727,7 +727,7 @@ export function PluginsOverlay({
           {catalogError || loadError ? (
             <div className="mb-4 flex items-center gap-3">
               <p className="text-sm text-destructive">{catalogError ?? loadError}</p>
-              {!catalogLoaded ? (
+              {!catalogLoaded || (loadError && !catalogError) ? (
                 <Button variant="outline" size="sm" onClick={() => void integrations.refetch()}>
                   <Trans>Retry</Trans>
                 </Button>

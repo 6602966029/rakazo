@@ -45,11 +45,7 @@ export function BoardPage() {
   const bots = botsQuery.data ?? [];
   const [selected, setSelected] = useState<Ticket | "new" | null>(null);
   const [streamError, setError] = useState("");
-  const loadFailed = ticketsQuery.isLoadingError
-    ? ticketsQuery.error
-    : botsQuery.isLoadingError
-      ? botsQuery.error
-      : null;
+  const loadFailed = ticketsQuery.error ?? botsQuery.error;
   const error = streamError || (loadFailed ? errorText(loadFailed) : "");
   /** A read sent after a change, so an older one in flight cannot bring back the old board. */
   const reload = () => fetchFresh(queryClient, ticketsOptions).then(() => undefined);

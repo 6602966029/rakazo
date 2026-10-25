@@ -18,7 +18,9 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       gcTime: 30 * 60_000,
-      // Screens refresh when they open; live updates and polling keep open ones current.
+      // Screens refresh every time they open, even over a recent read; live updates and
+      // polling keep open ones current.
+      refetchOnMount: "always",
       refetchOnWindowFocus: false,
       retry: (failures, error) => failures < 1 && isRetryableError(error),
     },

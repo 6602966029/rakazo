@@ -135,8 +135,7 @@ export function McpServersOverlay({
   }, [bots, assignmentsQuery.data]);
   // replace() overwrites a bot's whole list, so changes wait for a read of every assignment.
   const assignmentsReady = assignmentsQuery.isSuccess && !assignmentsQuery.isFetching;
-  const loadFailed =
-    serversQuery.isLoadingError || botsQuery.isLoadingError || assignmentsQuery.isError;
+  const loadFailed = serversQuery.isError || botsQuery.isError || assignmentsQuery.isError;
   const shownError = error ?? (loadFailed ? t`Could not load MCP servers` : null);
 
   /** Reads everything again with requests sent after a change. */

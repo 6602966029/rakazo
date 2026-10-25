@@ -90,6 +90,17 @@ export function PeerMessagesOverlay({
           </DialogClose>
         </div>
 
+        {history.data !== undefined && history.isError && !history.isFetching ? (
+          <div
+            role="alert"
+            className="flex items-center justify-center gap-2 px-4 pt-3 text-[13px] text-destructive"
+          >
+            <Trans>Could not load this chat.</Trans>
+            <Button variant="link" size="xs" onClick={() => void history.refetch()}>
+              <Trans>Retry now</Trans>
+            </Button>
+          </div>
+        ) : null}
         {!historyReady ? (
           <div className="grid flex-1 place-items-center px-8 text-center text-[13.5px] text-muted-foreground/80">
             <Spinner aria-label={t`Loading…`} />

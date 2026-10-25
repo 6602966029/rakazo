@@ -129,6 +129,11 @@ export function ArtifactsPage() {
   const loadingMore = listing.isFetchingNextPage;
   const loadError =
     listing.error && !listing.data ? errorText(listing.error, t`Could not load artifacts.`) : null;
+  // A failed refresh over the cached list is still said; a failed next page keeps Load more.
+  const refreshError =
+    listing.data && listing.isRefetchError
+      ? errorText(listing.error, t`Could not load artifacts.`)
+      : null;
 
   function loadMore() {
     // A failed page keeps what is shown so Load more can be retried.
@@ -307,6 +312,11 @@ export function ArtifactsPage() {
         ) : null}
       </header>
 
+      {refreshError ? (
+        <p role="alert" className="px-6 py-2 text-sm text-destructive">
+          {refreshError}
+        </p>
+      ) : null}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {artifactId ? (
           <>

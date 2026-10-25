@@ -1,3 +1,4 @@
+import { QueryObserver } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./rpc", () => {
@@ -119,5 +120,19 @@ describe("the chat a space reopens with", () => {
       spaceSeedKey("user-a", "space-a"),
     ].map((key) => JSON.stringify(key));
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe("the shared query client", () => {
+  it("refreshes a screen every time it opens, even right after a read", async () => {
+    const queryFn = vi.fn(async () => "value");
+    const options = { queryKey: ["screen-open-test"], queryFn };
+    for (const _open of [1, 2]) {
+      const observer = new QueryObserver(queryClient, options);
+      const unsubscribe = observer.subscribe(() => undefined);
+      await vi.waitFor(() => expect(observer.getCurrentResult().isFetching).toBe(false));
+      unsubscribe();
+    }
+    expect(queryFn).toHaveBeenCalledTimes(2);
   });
 });

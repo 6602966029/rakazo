@@ -374,3 +374,23 @@ it("lets agent access change once assignments have loaded", async () => {
     await act(async () => root.unmount());
   }
 });
+
+it("says when reopening could not refresh, while still showing the cached servers", async () => {
+  mocks.list.mockReset().mockResolvedValue([server("cached")]);
+  const host = document.createElement("div");
+  const first = createRoot(host);
+  await act(async () => first.render(overlay()));
+  await vi.waitFor(() => expect(host.textContent).toContain("cached"));
+  await act(async () => first.unmount());
+  await client.invalidateQueries();
+
+  mocks.list.mockRejectedValue(new Error("offline"));
+  const second = createRoot(host);
+  try {
+    await act(async () => second.render(overlay()));
+    await vi.waitFor(() => expect(host.textContent).toContain("Could not load MCP servers"));
+    expect(host.textContent).toContain("cached");
+  } finally {
+    await act(async () => second.unmount());
+  }
+});
