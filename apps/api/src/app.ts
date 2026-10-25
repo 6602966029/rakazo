@@ -34,6 +34,7 @@ import {
   createBackgroundJobHandlers,
   createCloudAgentConnection,
   createConnectorStack,
+  createIdleComputerSweeper,
   createJobReconciler,
   createMessagingContextLoader,
   createMessagingTeamChatHistory,
@@ -618,6 +619,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           prisma,
           securityEventRetentionDays(),
         ),
+        reconcileIdleComputers: createIdleComputerSweeper({ prisma, jobs }),
       })
     : undefined;
   reconciler?.start();
