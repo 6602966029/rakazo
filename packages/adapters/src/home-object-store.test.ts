@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { PrismaClient, SpaceKeyRecord, SpaceKeyStore } from "@rakazo/db";
@@ -363,6 +363,44 @@ describe("ObjectAgentHomeStore", () => {
 
     expect(await store.sweep()).toBe(2);
     expect([...storage.objects.keys()].sort()).toEqual([kept, inProgress].sort());
+  });
+
+  it("removes folders from the stored copy, so another host never gets them back", async () => {
+    const { store, otherHost } = await setup(["team-1"]);
+    await store.commit(
+      "team-1",
+      await staged({
+        "bots/gone/notes.txt": "deleted bot",
+        "bots/kept/notes.txt": "other bot",
+        ".browser-profiles/chromium-bot-gone/Cookies": "session",
+        "shared/plan.txt": "shared",
+      }),
+      context,
+    );
+
+    await expect(store.removeFolders("team-1", "bots", ["gone", "missing"])).resolves.toBe(true);
+    await store.removeFolders("team-1", ".browser-profiles", ["chromium-bot-gone"]);
+    // Nothing left to remove does not save a new revision.
+    await expect(store.removeFolders("team-1", "bots", ["gone"])).resolves.toBe(false);
+
+    expect(await exported(await otherHost(), "team-1")).toEqual({
+      "bots/kept/notes.txt": "other bot",
+      "shared/plan.txt": "shared",
+    });
+  });
+
+  it("removes a deleted home's cache, previous copy and revision marker", async () => {
+    const { root, store } = await setup(["team-1", "team-2"]);
+    await store.commit("team-1", await staged({ "a.txt": "gone" }), context);
+    await store.commit("team-2", await staged({ "a.txt": "kept" }), context);
+    await mkdir(`${store.pathFor("team-1")}.previous`, { recursive: true });
+    await writeFile(path.join(`${store.pathFor("team-1")}.previous`, "a.txt"), "gone");
+
+    await store.remove("team-1");
+    await store.remove("team-1");
+
+    await expect(readdir(path.join(root, "homes"))).resolves.toEqual(["team-2"]);
+    await expect(readdir(path.join(root, "home-revisions"))).resolves.toEqual(["team-2.txt"]);
   });
 
   it("deletes nothing when the database knows none of the stored homes", async () => {

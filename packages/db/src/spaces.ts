@@ -507,6 +507,80 @@ export async function deleteClaimedSpaceForMember(
   );
 }
 
+/** Organizations whose only member is this user; they are deleted with the account. */
+export async function personalOrganizationIds(
+  prisma: Pick<PrismaClient, "member">,
+  userId: string,
+): Promise<string[]> {
+  const memberships = await prisma.member.findMany({
+    where: { userId },
+    select: {
+      organizationId: true,
+      organization: { select: { members: { select: { userId: true } } } },
+    },
+  });
+  return memberships
+    .filter(({ organization }) => organization.members.every((member) => member.userId === userId))
+    .map(({ organizationId }) => organizationId);
+}
+
+/**
+ * Spaces that nobody else can use once this account is gone: every space of its personal
+ * organizations, and spaces elsewhere where it is the only member.
+ */
+export async function spacesLeavingWithAccount(
+  prisma: Pick<PrismaClient, "member" | "space">,
+  userId: string,
+): Promise<string[]> {
+  const organizationIds = await personalOrganizationIds(prisma, userId);
+  const spaces = await prisma.space.findMany({
+    where: {
+      OR: [
+        { organizationId: { in: organizationIds } },
+        { memberships: { some: { userId }, every: { userId } } },
+      ],
+    },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return spaces.map(({ id }) => id);
+}
+
+/**
+ * Delete a space that is leaving with an account, once its bots and sandboxes are gone. Rows
+ * left in it go by cascade, and its keys with it. Returns the stored artifacts to remove after
+ * commit, or null when someone else joined the space in the meantime and it stays.
+ */
+export async function deleteSpaceLeavingWithAccount(
+  prisma: PrismaClient,
+  input: { spaceId: string; userId: string },
+): Promise<{ artifactKeys: string[] } | null> {
+  return withTransactionRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        await lockSpaceDeletion(tx, input.spaceId);
+        const [others, remainingBots, remainingComputers, artifacts] = await Promise.all([
+          tx.spaceMember.count({
+            where: { spaceId: input.spaceId, userId: { not: input.userId } },
+          }),
+          tx.bot.count({ where: { spaceId: input.spaceId } }),
+          tx.computer.count({ where: { spaceId: input.spaceId } }),
+          tx.artifact.findMany({
+            where: { spaceId: input.spaceId },
+            select: { storageKey: true },
+          }),
+        ]);
+        if (others > 0) return null;
+        // Content created while the account was being deleted; deleting again removes it.
+        if (remainingBots > 0 || remainingComputers > 0) throw new SpaceDeletionInProgressError();
+        await tx.space.deleteMany({ where: { id: input.spaceId } });
+        return { artifactKeys: artifacts.map((artifact) => artifact.storageKey) };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
+  );
+}
+
 /** Rename a space the caller owns in the active organization. */
 export async function renameSpaceForMember(
   prisma: PrismaClient,

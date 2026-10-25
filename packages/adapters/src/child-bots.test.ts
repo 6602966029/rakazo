@@ -1500,6 +1500,63 @@ describe("destroyBot", () => {
     }
   });
 
+  it("removes the deleted bot's folder and profile from the space's shared Team Computer from before each person got their own", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "rakazo-team-folder-legacy-"));
+    try {
+      const home = new LocalAgentHomeStore(root);
+      const legacyHome = home.pathFor("team-workspace-1");
+      const profile = path.basename(browserProfilePathForScreen("bot-1"));
+      await seedFile(legacyHome, "bots/bot-1/old.txt", "gone");
+      await seedFile(legacyHome, `.browser-profiles/${profile}/Cookies`, "gone");
+      await seedFile(legacyHome, "bots/bot-2/work.txt", "another member's");
+      const own = {
+        id: "own-team",
+        homeKey: "team-own",
+        kind: "e2b",
+        providerRef: null,
+        scope: "team",
+        state: "stopped",
+      };
+      const legacy = { ...own, id: "legacy-team", homeKey: "team-workspace-1", userId: "user-2" };
+      const prisma = deletionPrisma(own);
+      vi.mocked(prisma.computer.findUnique).mockImplementation((async (query: {
+        where: { id?: string; scopeKey?: string; homeKey?: string };
+      }) => {
+        if (query.where.homeKey === legacy.homeKey) return legacy;
+        if (query.where.id === own.id || query.where.scopeKey === "team:workspace-1:user-1")
+          return own;
+        return null;
+      }) as never);
+
+      await destroyBot(
+        {
+          prisma,
+          sandbox: {} as SandboxProvider,
+          home,
+          jobs: { cancel: vi.fn() } as unknown as JobPublisher,
+        },
+        {
+          id: "bot-1",
+          spaceId: "workspace-1",
+          userId: "user-1",
+          name: "Researcher",
+          archivedAt: null,
+          computerId: own.id,
+        },
+        context,
+        { deleteMemories: true },
+      );
+
+      await expect(access(path.join(legacyHome, "bots", "bot-1"))).rejects.toThrow();
+      await expect(access(path.join(legacyHome, ".browser-profiles", profile))).rejects.toThrow();
+      await expect(readFile(path.join(legacyHome, "bots/bot-2/work.txt"), "utf8")).resolves.toBe(
+        "another member's",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not wake a stopped Team Computer to remove the deleted bot's folder", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "rakazo-team-folder-stopped-"));
     try {

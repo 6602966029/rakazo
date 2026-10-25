@@ -128,6 +128,14 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
     await this.revise(botId);
   }
 
+  /** Removes the folders from the stored copy too, so no host or later boot gets them back. */
+  override async removeFolders(botId: string, parent: string, names: readonly string[]) {
+    await this.hydrate(botId);
+    if (!(await super.removeFolders(botId, parent, names))) return false;
+    await this.revise(botId);
+    return true;
+  }
+
   /**
    * Saves the cached copy, which a Docker computer has been changing in place. Refused when
    * the cache is missing or older than the stored revision, so a stale or empty copy never
