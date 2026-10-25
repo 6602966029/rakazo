@@ -84,7 +84,11 @@ export function connectedBackupOptions(
       continue;
     }
     for (const connection of owners)
-      options.push(...models.map((entry) => option(entry, connection)));
+      options.push(
+        ...models
+          .filter((entry) => !entry.credentialIds || entry.credentialIds.includes(connection.id))
+          .map((entry) => option(entry, connection)),
+      );
   }
   for (const credential of credentials) {
     if (credential.provider !== OPENAI_COMPATIBLE_PROVIDER_ID) continue;

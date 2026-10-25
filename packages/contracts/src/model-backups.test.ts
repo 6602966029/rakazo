@@ -220,6 +220,22 @@ describe("connected backup model choices", () => {
     expect(new Set(options.map(modelRoleChoiceKey)).size).toBe(4);
   });
 
+  it("offers a model only under the connections that can run it", () => {
+    const work: ModelCredential = { ...credentials[0]!, id: "cred-anthropic-work", label: "Work" };
+    const limited = catalog.map((entry) =>
+      entry.id === "claude-haiku" ? { ...entry, credentialIds: [work.id] } : entry,
+    );
+    expect(
+      connectedBackupOptions(limited, [credentials[0]!, work])
+        .filter((option) => option.provider === "anthropic")
+        .map((option) => [option.credentialId, option.modelId]),
+    ).toEqual([
+      ["cred-anthropic", "claude-sonnet"],
+      ["cred-anthropic-work", "claude-sonnet"],
+      ["cred-anthropic-work", "claude-haiku"],
+    ]);
+  });
+
   it("offers deployment-managed models only while the provider has no connection", () => {
     const managed: ModelCatalogEntry = { ...catalog[2]!, managed: true };
     expect(connectedBackupOptions([managed], [])).toEqual([

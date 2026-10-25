@@ -1,4 +1,5 @@
 import { RPCHandler } from "@orpc/server/fetch";
+import * as adapters from "@rakazo/adapters";
 import { listPiCatalog, serializeModelSecret } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
@@ -474,6 +475,52 @@ describe("role-based model settings API", () => {
       primary: { ...model, credentialId: "credential-removed" },
     });
     expect(gone.response.status).toBe(400);
+  });
+  it("offers and accepts a model only on the connections that can run it", async () => {
+    const { call, prisma } = setup();
+    const connection = (id: string) => ({
+      id,
+      userId: owner.userId,
+      provider: "openrouter",
+      label: id,
+      secretId: `${id}-secret`,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      preferences: [],
+    });
+    Object.assign(prisma.userModelCredential, {
+      findMany: vi.fn(async () => [
+        connection("credential-personal"),
+        connection("credential-work"),
+      ]),
+      findFirst: vi.fn(async ({ where }: { where: { id: string } }) => connection(where.id)),
+    });
+    const serves = vi
+      .spyOn(adapters, "connectionServesModel")
+      .mockImplementation(
+        async (_deps, _userId, credential, _provider, modelId) =>
+          modelId !== availableModel.id || credential.secretId === "credential-personal-secret",
+      );
+    try {
+      const catalog = (await (await call("models/forRole", { role: "main" })).response.json())
+        .json as Array<{ id: string; credentialIds?: string[] }>;
+      expect(catalog.find((entry) => entry.id === availableModel.id)?.credentialIds).toEqual([
+        "credential-personal",
+      ]);
+      const model = { provider: availableModel.provider, modelId: availableModel.id };
+      const wrong = await call("models/setRole", {
+        role: "main",
+        primary: { ...model, credentialId: "credential-work" },
+      });
+      expect(wrong.response.status).toBe(400);
+      const right = await call("models/setRole", {
+        role: "main",
+        primary: { ...model, credentialId: "credential-personal" },
+      });
+      expect(right.response.status).toBe(200);
+    } finally {
+      serves.mockRestore();
+    }
   });
   it("keeps the main model's effort when a list save repeats its primary", async () => {
     const { call, prisma, roles } = setup();

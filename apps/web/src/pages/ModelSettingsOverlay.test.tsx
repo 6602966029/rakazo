@@ -1263,6 +1263,36 @@ it("replaces one connection's key and disconnects only that connection", async (
   }
 });
 
+it("keeps another connection's form when an earlier save finishes", async () => {
+  models.list.mockResolvedValue([deepseekEntry, openrouterEntry]);
+  models.credentials.mockResolvedValue([deepseekCredential]);
+  let finishSave!: (value: unknown) => void;
+  models.connect.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishSave = resolve;
+      }),
+  );
+  const view = await renderSettings();
+  try {
+    await openPicker("Add fallback");
+    await choose("OpenRouter");
+    await typeInto(keyField(view.container), "sk-fixture-router");
+    await click(buttons(view.container, "Connect API key")[0]);
+    // The main model's connection opens while the first key still saves.
+    await manage();
+    expect(titles(view.container)).toEqual(["DeepSeek"]);
+    await act(async () => {
+      finishSave({ ...deepseekCredential, id: "cred-openrouter", provider: "openrouter" });
+    });
+    expect(titles(view.container)).toEqual(["DeepSeek"]);
+    // The finished save's slot picker does not take over.
+    expect(pickerOptions()).toEqual([]);
+  } finally {
+    await view.unmount();
+  }
+});
+
 it("renames a connection", async () => {
   models.rename.mockResolvedValue({ ok: true });
   models.credentials.mockResolvedValue([deepseekCredential, workCredential]);

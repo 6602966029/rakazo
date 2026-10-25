@@ -1190,8 +1190,8 @@ export class PiOAuthLogins {
 
   /** Retire every sign-in this user started for one provider, in any space —
    *  disconnect removes the account credential, so no space's session may
-   *  finish afterward. With `credentialId`, only sign-ins renewing that connection
-   *  are retired; a sign-in adding another account carries on. The shared provider
+   *  finish afterward. With `credentialId`, only sign-ins that may renew that
+   *  connection are retired; a sign-in adding another account carries on. The shared provider
    *  lock orders this against begin. */
   async cancelProvider(input: {
     userId: string;
@@ -1209,7 +1209,10 @@ export class PiOAuthLogins {
                 (session) =>
                   session.userId === input.userId &&
                   session.provider === input.provider &&
-                  (!input.credentialId || session.credentialId === input.credentialId),
+                  (!input.credentialId ||
+                    session.credentialId === input.credentialId ||
+                    // A sign-in that never named its connection may renew this one.
+                    session.credentialId === undefined),
               )
               .map((session) => session.scope),
           ),

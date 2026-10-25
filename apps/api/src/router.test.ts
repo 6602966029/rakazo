@@ -4262,6 +4262,40 @@ describe("model credential persistence", () => {
     expect(missing.status).toBe(404);
   });
 
+  it("binds an older app's sign-in to the provider's newest connection when it begins", async () => {
+    const { deps, handler } = persistDeps();
+    const begin = vi.fn(async () => ({
+      loginId: "login-1",
+      provider: "openai-codex",
+      mode: "auth-url" as const,
+      verificationUri: "https://auth.example.com/authorize",
+      expiresInSeconds: 60,
+    }));
+    Object.assign(deps.oauthLogins, { begin });
+    const credentials = deps.prisma.userModelCredential as unknown as Record<
+      string,
+      ReturnType<typeof vi.fn>
+    >;
+    credentials.findFirst!.mockResolvedValue({
+      id: "cred-newest",
+      userId: actor.userId,
+      provider: "openai-codex",
+      label: "ChatGPT",
+      secretId: "secret-newest",
+    });
+
+    expect((await call(handler, "models/beginOAuth", { provider: "openai-codex" })).status).toBe(
+      200,
+    );
+    expect(begin).toHaveBeenLastCalledWith(
+      expect.objectContaining({ credentialId: "cred-newest" }),
+    );
+
+    // A new account stays a new account.
+    await call(handler, "models/beginOAuth", { provider: "openai-codex", credentialId: null });
+    expect(begin).toHaveBeenLastCalledWith(expect.objectContaining({ credentialId: null }));
+  });
+
   it("names a second subscription account by the email it signed in with", async () => {
     const { finish, deps, handler } = persistDeps();
     const access = `fake.${Buffer.from(

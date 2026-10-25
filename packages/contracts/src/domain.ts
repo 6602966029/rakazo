@@ -1376,6 +1376,8 @@ export const ModelCatalogEntrySchema = z.object({
   protocol: z.enum(["chat", "decisions"]).optional(),
   /** Preselected for a new connection when there is no saved model choice. */
   recommended: z.boolean().optional(),
+  /** The provider's connections that can run it, when not all of them can. */
+  credentialIds: z.array(z.string()).optional(),
   /** Available through the deployment without a personal credential. */
   managed: z.boolean().optional(),
   provider: z.string(),

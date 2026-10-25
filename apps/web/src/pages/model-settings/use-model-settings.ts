@@ -140,9 +140,10 @@ export function useModelSettings(onClose: () => void) {
     },
   });
 
-  async function refresh() {
+  /** `keepForm` reloads the lists without resetting the open connection's fields. */
+  async function refresh({ keepForm = false }: { keepForm?: boolean } = {}) {
     const refreshRevision = ++refreshRevisionRef.current;
-    const selectionRevision = selectionRevisionRef.current;
+    const selectionRevision = keepForm ? -1 : selectionRevisionRef.current;
     const [nextCatalog, nextCredentials, nextMe] = await Promise.all([
       rpc.models.list(),
       rpc.models.credentials(),
@@ -569,6 +570,9 @@ export function useModelSettings(onClose: () => void) {
     setError(null);
     setNotice(null);
     setPending(settingsOnly ? "settings" : "connect");
+    // Another connection opened while this saves keeps its own form.
+    const selection = selectionRevisionRef.current;
+    const stillSelected = () => selection === selectionRevisionRef.current;
     try {
       const saved = await rpc.models.connect(
         isOpenAiCompatible
@@ -607,10 +611,15 @@ export function useModelSettings(onClose: () => void) {
               credentialId: credential?.id ?? null,
             },
       );
+      if (!stillSelected()) {
+        await refresh({ keepForm: true });
+        return;
+      }
       // Saving again edits the connection just made instead of adding another.
       if (saved?.id) setCredentialId(saved.id);
       if (!settingsOnly) setApiKey("");
       await refresh();
+      if (!stillSelected()) return;
       if (!settingsOnly)
         await intent?.onConnected?.({
           provider: selected.provider,
@@ -620,7 +629,7 @@ export function useModelSettings(onClose: () => void) {
       // A fresh connection speaks for itself through the Active model row.
       if (isOpenAiCompatible || savingLimitOnly) setNotice(t`Saved.`);
     } catch (err) {
-      setError(errorText(err, t`Could not connect this provider`));
+      if (stillSelected()) setError(errorText(err, t`Could not connect this provider`));
     } finally {
       setPending(null);
     }

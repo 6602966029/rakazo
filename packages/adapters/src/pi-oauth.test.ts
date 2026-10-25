@@ -1695,6 +1695,21 @@ describe("PiOAuthLogins", () => {
     control.logins.abortAll();
   });
 
+  it("retires a sign-in that named no connection when one connection is disconnected", async () => {
+    const actor = { userId: "owner", spaceId: "workspace" };
+    const control = createControlledOAuthLogins();
+    const legacy = await control.logins.begin({ ...actor, provider: CHATGPT_OAUTH_PROVIDER });
+    control.resolve(0);
+    await flushMicrotasks();
+    await control.logins.cancelProvider({
+      userId: actor.userId,
+      provider: CHATGPT_OAUTH_PROVIDER,
+      credentialId: "personal",
+    });
+    expect(control.logins.complete(legacy.loginId, actor).status).toBe("error");
+    control.logins.abortAll();
+  });
+
   it("waits for successful finalization before starting a replacement", async () => {
     const actor = { userId: "owner", spaceId: "workspace" };
     const control = createControlledOAuthLogins();

@@ -49,6 +49,46 @@ async function credentialLiveListsModel(
   return secret ? codexLiveListsModel(codex, userId, secret, modelId) : false;
 }
 
+/**
+ * Whether this connection can run the model: a bundled model its sign-in or key can call,
+ * or one its own live catalog lists. Two accounts of one provider can differ here.
+ */
+export async function connectionServesModel(
+  deps: {
+    prisma: PrismaClient;
+    secretStore: Pick<SecretStore, "load">;
+    codexCatalog?: CodexLiveCatalog;
+  },
+  userId: string,
+  credential: { secretId: string },
+  provider: string,
+  modelId: string,
+): Promise<boolean> {
+  if (isCatalogModelChoice(provider, modelId)) {
+    if (!modelAuthIsRestricted(provider, modelId)) return true;
+    return !(await validateStoredModelAuth(
+      deps.prisma,
+      deps.secretStore,
+      userId,
+      credential.secretId,
+      provider,
+      modelId,
+      deps.codexCatalog,
+    ));
+  }
+  // Models no live catalog lists, such as decision models, are not tied to an account.
+  if (!liveCatalogEntry(provider, modelId)) return true;
+  return credentialLiveListsModel(
+    deps.prisma,
+    deps.secretStore,
+    userId,
+    credential.secretId,
+    provider,
+    modelId,
+    deps.codexCatalog,
+  );
+}
+
 export function defaultCatalogModelId(
   provider: string,
   credentialPlaintext?: string,

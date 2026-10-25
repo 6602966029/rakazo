@@ -62,6 +62,7 @@ import {
   computerSupportsTerminal,
   computerSupportsUpdate,
   computerUpdateView,
+  connectionServesModel,
   createFaviconResolver,
   createTicket,
   decisionModelCatalog,
@@ -1140,11 +1141,49 @@ export function createRouter(deps: RouterDeps) {
     const managedProviders = new Set(
       catalog.filter((entry) => "managed" in entry && entry.managed).map((entry) => entry.provider),
     );
-    return [
-      ...catalog,
-      ...decisions.map((entry) => ({ ...entry, managed: managedProviders.has(entry.provider) })),
-    ].filter((entry) => modelSupportsRole(entry, role));
+    return withServingConnections(
+      actor,
+      [
+        ...catalog,
+        ...decisions.map((entry) => ({ ...entry, managed: managedProviders.has(entry.provider) })),
+      ].filter((entry) => modelSupportsRole(entry, role)),
+    );
   };
+  /**
+   * The space's catalog merges what any of a provider's connections can run. Where two
+   * accounts differ (one ChatGPT plan lists a model the other does not), each entry names
+   * the connections that can run it.
+   */
+  const withServingConnections = async (
+    actor: Actor,
+    catalog: ModelCatalogEntry[],
+  ): Promise<ModelCatalogEntry[]> => {
+    const connections = await deps.prisma.userModelCredential.findMany({
+      where: { userId: actor.userId },
+      select: { id: true, provider: true, secretId: true },
+    });
+    const byProvider = new Map<string, typeof connections>();
+    for (const connection of connections) {
+      const provider = canonicalPiProviderId(connection.provider);
+      byProvider.set(provider, [...(byProvider.get(provider) ?? []), connection]);
+    }
+    return Promise.all(
+      catalog.map(async (entry) => {
+        const owners = byProvider.get(canonicalPiProviderId(entry.provider)) ?? [];
+        // Funded models run on the deployment's key, whichever connection is chosen.
+        if (owners.length < 2 || entry.placeholder || ("managed" in entry && entry.managed))
+          return entry;
+        const serving: string[] = [];
+        for (const owner of owners)
+          if (
+            await connectionServesModel(servingDeps, actor.userId, owner, entry.provider, entry.id)
+          )
+            serving.push(owner.id);
+        return serving.length === owners.length ? entry : { ...entry, credentialIds: serving };
+      }),
+    );
+  };
+  const servingDeps = { prisma: deps.prisma, secretStore: deps.secrets, codexCatalog };
   /** The connection serving each choice (null when deployment-managed), the one runs use. */
   const validateRoleChoices = async (
     actor: Actor,
@@ -1172,6 +1211,22 @@ export function createRouter(deps: RouterDeps) {
       credentials.push(credential);
       if (!credential && (choice.credentialId || !(entry && "managed" in entry && entry.managed)))
         throw new ORPCError("BAD_REQUEST", { message: "Connect that model provider first" });
+      // Another account of the provider listing the model does not make it run on this one.
+      if (
+        credential &&
+        choice.credentialId &&
+        choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID &&
+        !(await connectionServesModel(
+          servingDeps,
+          actor.userId,
+          credential,
+          choice.provider,
+          choice.modelId,
+        ))
+      )
+        throw new ORPCError("BAD_REQUEST", {
+          message: "That model is not available for this connection",
+        });
       if (choice.thinkingLevel) {
         const { allowed } = await prepareAllowedThinkingLevels(
           deps,
@@ -1845,13 +1900,19 @@ export function createRouter(deps: RouterDeps) {
         }
       }),
       beginOAuth: authed.models.beginOAuth.handler(async ({ context, input }) => {
-        if (input.credentialId)
-          await modelConnectionTarget(deps, context.actor, input.provider, input.credentialId);
+        // An older app's sign-in renews the provider's newest connection, bound now so a
+        // disconnect of that connection retires it and it never lands on another one.
+        const target = await modelConnectionTarget(
+          deps,
+          context.actor,
+          input.provider,
+          input.credentialId,
+        );
         return deps.oauthLogins.begin({
           userId: context.actor.userId,
           spaceId: context.actor.spaceId,
           provider: input.provider,
-          credentialId: input.credentialId,
+          credentialId: target?.id ?? null,
           modelId: input.modelId,
           thinkingLevel: input.thinkingLevel,
           makeDefault: input.makeDefault,
