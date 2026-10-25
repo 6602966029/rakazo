@@ -181,7 +181,6 @@ msgstr "{name} échoué"
 msgid "{name} finished"
 msgstr "{name} terminé"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "Options de {name}"
@@ -1035,7 +1034,6 @@ msgstr "Ne peut pas lire les images"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -2244,7 +2242,6 @@ msgstr "Supprimer l’enregistrement"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2362,7 +2359,6 @@ msgstr "Chaque nom ne peut être utilisé qu’une fois."
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "Modifier"
 
@@ -4146,7 +4142,6 @@ msgid "Removing…"
 msgstr "Retrait en cours…"
 
 #: src/components/PasskeySettings.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "Renommer"
 
@@ -4173,7 +4168,6 @@ msgstr "Rouvrir"
 msgid "Replace API key"
 msgstr "Remplacer la clé API"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "Remplacer la clé"
@@ -4659,7 +4653,6 @@ msgstr "Se connecter"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "Se reconnecter"
 

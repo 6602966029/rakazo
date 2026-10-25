@@ -87,13 +87,11 @@ test("approval models reuse connections and persist independent fallbacks", asyn
   await page.reload();
   const providers = page.getByTestId("model-providers");
   await expect(providers.getByText("OpenRouter 2", { exact: true })).toBeVisible();
-  await providers.getByRole("button", { name: "OpenRouter 2 options", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
-  const rename = page
-    .getByRole("dialog")
-    .filter({ has: page.getByRole("heading", { name: "Rename", exact: true }) });
-  await rename.getByRole("textbox").fill("Work");
-  await rename.getByRole("button", { name: "Save", exact: true }).click();
+  await providers.getByRole("button", { name: "OpenRouter 2", exact: true }).click();
+  const connection = page.getByTestId("model-connection");
+  await connection.getByRole("textbox", { name: "Name", exact: true }).fill("Work");
+  await connection.getByRole("button", { name: "Save", exact: true }).click();
+  await connection.getByRole("button", { name: "Models", exact: true }).click();
   await expect(providers.getByText("OpenRouter · Work", { exact: true })).toBeVisible();
   // Its models are offered as a group of their own.
   await page

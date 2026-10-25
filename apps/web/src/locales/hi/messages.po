@@ -181,7 +181,6 @@ msgstr "{name} विफल रहा"
 msgid "{name} finished"
 msgstr "{name} पूरा हुआ"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "{name} विकल्प"
@@ -1035,7 +1034,6 @@ msgstr "तस्वीरें नहीं पढ़ सकता"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -2244,7 +2242,6 @@ msgstr "रिकॉर्डिंग हटाएँ"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2362,7 +2359,6 @@ msgstr "हर नाम का उपयोग केवल एक बार �
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "संपादित करें"
 
@@ -4146,7 +4142,6 @@ msgid "Removing…"
 msgstr "हटाया जा रहा है…"
 
 #: src/components/PasskeySettings.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "नाम बदलें"
 
@@ -4173,7 +4168,6 @@ msgstr "पुनः खोलें"
 msgid "Replace API key"
 msgstr "API कुंजी बदलें"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "कुंजी बदलें"
@@ -4659,7 +4653,6 @@ msgstr "साइन इन करें"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "फिर से साइन इन करें"
 

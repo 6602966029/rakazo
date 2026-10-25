@@ -181,7 +181,6 @@ msgstr "{name} 失败"
 msgid "{name} finished"
 msgstr "{name} 已完成"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "{name} 选项"
@@ -1035,7 +1034,6 @@ msgstr "无法读取图像"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -2244,7 +2242,6 @@ msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2362,7 +2359,6 @@ msgstr "每个名称只能使用一次。"
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "编辑"
 
@@ -4146,7 +4142,6 @@ msgid "Removing…"
 msgstr "正在移除…"
 
 #: src/components/PasskeySettings.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "重命名"
 
@@ -4173,7 +4168,6 @@ msgstr "重新打开"
 msgid "Replace API key"
 msgstr "替换 API 密钥"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "替换密钥"
@@ -4659,7 +4653,6 @@ msgstr "登录"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "重新登录"
 

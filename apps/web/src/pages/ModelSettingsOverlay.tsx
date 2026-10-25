@@ -25,14 +25,14 @@ import {
   ModelThinkingOptions,
   Spinner,
 } from "@rakazo/ui-web";
-import { X } from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, X } from "lucide-react";
+import { useRef, useState } from "react";
 import type { ModelCredential } from "../lib/model-auth";
 import type { ModelRoleConnectIntent } from "./ModelRoleSettings";
 import { ModelRoleSettings } from "./ModelRoleSettings";
 import { CompatibleModelFields } from "./model-settings/compatible-model-fields";
 import { CompatibleKeyControls, ConnectionControls } from "./model-settings/connection-controls";
-import { ProvidersSection } from "./model-settings/providers-section";
+import { ConnectionNameField, ProvidersSection } from "./model-settings/providers-section";
 import type { ConnectableProvider } from "./model-settings/role-model-picker";
 import { SpaceBotsModelNotice } from "./model-settings/space-bots-model";
 import { useModelSettings } from "./model-settings/use-model-settings";
@@ -81,7 +81,8 @@ export function ModelSettingsOverlay({
     setNotice,
     settingsDirty,
   } = model;
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [connectionOpen, setConnectionOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const providers: ConnectableProvider[] = groups
     .filter((group) => !credentialByProvider.has(group.id))
@@ -134,18 +135,19 @@ export function ModelSettingsOverlay({
     intentRef.current = {
       makeDefault: intent?.makeDefault ?? false,
       onConnected: async (choice) => {
-        setDialogOpen(false);
+        setConnectionOpen(false);
         intentRef.current = null;
         await intent?.onConnected(choice);
       },
     };
-    setDialogOpen(true);
+    setConnectionOpen(true);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }
 
   function closeConnection() {
     cancelOAuthAttempt();
     intentRef.current = null;
-    setDialogOpen(false);
+    setConnectionOpen(false);
   }
 
   const disconnectButton = connected ? (
@@ -226,14 +228,53 @@ export function ModelSettingsOverlay({
         </DialogHeader>
       ) : null}
 
-      <div className="rk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
-        <div className="mx-auto max-w-[600px]">
-          {error && !dialogOpen ? (
+      <div ref={scrollRef} className="rk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
+        {connectionOpen ? (
+          <div className="mx-auto max-w-[600px]" data-testid="model-connection">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="-ml-2.5 mb-3 text-muted-foreground"
+              onClick={closeConnection}
+            >
+              <ChevronLeft aria-hidden />
+              <Trans>Models</Trans>
+            </Button>
+            <h3
+              data-testid="model-connection-title"
+              className="mb-5 text-lg font-medium text-foreground"
+            >
+              {connected ? selectedConnectionName : <Trans>Connect {selectedProviderName}</Trans>}
+            </h3>
+            {error ? (
+              <p className="mb-4 text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
+            {notice ? (
+              <p className="mb-4 text-sm text-success" role="status">
+                {notice}
+              </p>
+            ) : null}
+            {connected && credential ? (
+              <ConnectionNameField
+                key={credential.id}
+                credential={credential}
+                onRenamed={() => void refresh()}
+              />
+            ) : null}
+            {connection}
+          </div>
+        ) : null}
+        {/* The lists stay mounted while a connection is open so a pending pick can reopen. */}
+        <div className="mx-auto max-w-[600px]" hidden={connectionOpen}>
+          {error && !connectionOpen ? (
             <p className="mb-4 text-sm text-destructive" role="alert">
               {error}
             </p>
           ) : null}
-          {notice && !dialogOpen ? (
+          {notice && !connectionOpen ? (
             <p className="mb-4 text-sm text-success" role="status">
               {notice}
             </p>
@@ -287,11 +328,6 @@ export function ModelSettingsOverlay({
                 onOpen={(entry) =>
                   openConnection({ id: entry.provider, name: entry.provider }, null, entry.id)
                 }
-                onDisconnect={(entry) => {
-                  model.chooseProvider(entry.provider, entry.baseUrl, entry.id);
-                  setConfirmDisconnect(true);
-                }}
-                onRenamed={() => void refresh()}
               />
             </>
           ) : loading ? (
@@ -303,32 +339,6 @@ export function ModelSettingsOverlay({
           )}
         </div>
       </div>
-
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          if (!open) closeConnection();
-        }}
-      >
-        <DialogContent className="max-h-[calc(100%-2rem)] w-[480px] max-w-[calc(100%-2rem)] overflow-y-auto rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg">
-              {connected ? selectedConnectionName : <Trans>Connect {selectedProviderName}</Trans>}
-            </DialogTitle>
-          </DialogHeader>
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
-          {notice ? (
-            <p className="text-sm text-success" role="status">
-              {notice}
-            </p>
-          ) : null}
-          <div>{connection}</div>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
         <AlertDialogContent>
@@ -349,7 +359,7 @@ export function ModelSettingsOverlay({
               disabled={pending === "disconnect"}
               onClick={() => {
                 setConfirmDisconnect(false);
-                setDialogOpen(false);
+                setConnectionOpen(false);
                 intentRef.current = null;
                 void disconnectCredential();
               }}

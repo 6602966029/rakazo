@@ -272,7 +272,9 @@ async function manage() {
 }
 
 function titles(container: HTMLElement) {
-  return [...container.querySelectorAll("h2")].map((entry) => entry.textContent);
+  return [...container.querySelectorAll('[data-testid="model-connection-title"]')].map(
+    (entry) => entry.textContent,
+  );
 }
 
 async function renderSettings(embedded = true) {
@@ -1187,10 +1189,10 @@ function providersSection() {
   return found as HTMLElement;
 }
 
-async function providerMenu(name: string, item: string) {
-  await click(providersSection().querySelector(`button[aria-label="${name} options"]`));
+/** Opens a connection's page from the Providers list. */
+async function openProvider(name: string) {
   await click(
-    [...document.querySelectorAll('[role="menuitem"]')].find((entry) => entry.textContent === item),
+    [...providersSection().querySelectorAll("button")].find((entry) => entry.textContent === name),
   );
 }
 
@@ -1236,7 +1238,7 @@ it("replaces one connection's key and disconnects only that connection", async (
   models.credentials.mockResolvedValue([deepseekCredential, workCredential]);
   const view = await renderSettings();
   try {
-    await providerMenu("DeepSeek · Work", "Replace key");
+    await openProvider("DeepSeek · Work");
     expect(titles(view.container)).toEqual(["DeepSeek · Work"]);
     await typeInto(keyField(view.container), "sk-fixture-rotated");
     await click(buttons(view.container, "Replace API key")[0]);
@@ -1248,7 +1250,8 @@ it("replaces one connection's key and disconnects only that connection", async (
       }),
     );
 
-    await providerMenu("DeepSeek · Work", "Disconnect");
+    await openProvider("DeepSeek · Work");
+    await click(buttons(view.container, "Disconnect")[0]);
     const confirm = buttons(view.container, "Disconnect");
     await click(confirm[confirm.length - 1]);
     expect(models.disconnect).toHaveBeenCalledWith({
@@ -1265,7 +1268,7 @@ it("renames a connection", async () => {
   models.credentials.mockResolvedValue([deepseekCredential, workCredential]);
   const view = await renderSettings();
   try {
-    await providerMenu("DeepSeek · Work", "Rename");
+    await openProvider("DeepSeek · Work");
     const input = view.container.querySelector<HTMLInputElement>("input[maxlength]");
     if (!input) throw new Error("Missing name field");
     expect(input.value).toBe("Work");

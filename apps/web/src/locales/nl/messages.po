@@ -181,7 +181,6 @@ msgstr "{name} is mislukt"
 msgid "{name} finished"
 msgstr "{name} is klaar"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "Opties voor {name}"
@@ -1035,7 +1034,6 @@ msgstr "Kan afbeeldingen niet lezen"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -2244,7 +2242,6 @@ msgstr "Opname weggooien"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2362,7 +2359,6 @@ msgstr "Elke naam kan maar één keer worden gebruikt."
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "Bewerken"
 
@@ -4146,7 +4142,6 @@ msgid "Removing…"
 msgstr "Bezig met verwijderen…"
 
 #: src/components/PasskeySettings.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "Naam wijzigen"
 
@@ -4173,7 +4168,6 @@ msgstr "Heropenen"
 msgid "Replace API key"
 msgstr "API-sleutel vervangen"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "Sleutel vervangen"
@@ -4659,7 +4653,6 @@ msgstr "Aanmelden"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "Opnieuw aanmelden"
 

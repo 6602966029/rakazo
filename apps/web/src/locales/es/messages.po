@@ -181,7 +181,6 @@ msgstr "{name} falló"
 msgid "{name} finished"
 msgstr "{name} terminó"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "Opciones de {name}"
@@ -1035,7 +1034,6 @@ msgstr "No puede leer imágenes"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -2244,7 +2242,6 @@ msgstr "Descartar grabación"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2362,7 +2359,6 @@ msgstr "Cada nombre solo se puede usar una vez."
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "Editar"
 
@@ -4146,7 +4142,6 @@ msgid "Removing…"
 msgstr "Quitando…"
 
 #: src/components/PasskeySettings.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "Cambiar nombre"
 
@@ -4173,7 +4168,6 @@ msgstr "Reabrir"
 msgid "Replace API key"
 msgstr "Reemplazar clave de API"
 
-#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "Reemplazar clave"
@@ -4659,7 +4653,6 @@ msgstr "Iniciar sesión"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
-#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "Vuelve a iniciar sesión"
 

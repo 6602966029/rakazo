@@ -218,7 +218,7 @@ export function ModelRoleSettings({
   const canAdd = backups.length < MAX_MODEL_BACKUPS;
   const rowClass = "flex min-h-[52px] items-center gap-2.5 py-2 ps-2 pe-2";
   const number = (index: number) => (
-    <span className="grid size-5 shrink-0 place-items-center rounded-md bg-muted text-[12px] text-muted-foreground">
+    <span className="grid size-5 shrink-0 place-items-center rounded-md bg-accent text-[12px] text-muted-foreground">
       {index + 1}
     </span>
   );
@@ -302,7 +302,7 @@ export function ModelRoleSettings({
                 onReopened={() => setReopen(null)}
               />
               {isPrimary && thinkingLevels.length && choice.thinkingLevel ? (
-                <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[12.5px] text-muted-foreground">
+                <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[12.5px] text-muted-foreground">
                   <Trans>Thinking: {thinkingLevelLabel(choice.thinkingLevel)}</Trans>
                 </span>
               ) : null}

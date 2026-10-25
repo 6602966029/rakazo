@@ -215,11 +215,11 @@ export async function openUserSettings(
   return settings;
 }
 
-/** The connection dialog for a provider, titled "Connect X" until it is connected and "X" after. */
+/** The connection page for a provider, titled "Connect X" until it is connected and "X" after. */
 export function modelConnectionDialog(page: Page, provider: string) {
   const name = provider.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return page
-    .getByRole("dialog")
+    .getByTestId("model-connection")
     .filter({ has: page.getByRole("heading", { name: new RegExp(`^(Connect )?${name}$`) }) });
 }
 

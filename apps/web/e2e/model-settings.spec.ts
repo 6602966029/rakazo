@@ -490,7 +490,10 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     await expect(saved.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
 
     // Closing without saving leaves the stored connection as it was.
-    await page.keyboard.press("Escape");
+    await page
+      .getByTestId("model-connection")
+      .getByRole("button", { name: "Models", exact: true })
+      .click();
     await expect(saved).toBeHidden();
     await page.getByRole("button", { name: "Close model settings" }).click();
     await page.locator("main").getByRole("button", { name: "Chief", exact: true }).click();
@@ -578,9 +581,12 @@ test("model settings connect, replace, and cancel provider authentication", asyn
     {},
   );
   expect(connected.find((entry) => entry.provider === "scripted")?.maxTokens).toBe(8192);
-  await page.keyboard.press("Escape");
+  await page
+    .getByTestId("model-connection")
+    .getByRole("button", { name: "Models", exact: true })
+    .click();
   await expect(limits).toBeHidden();
-  // A limits-only save keeps the dialog open and confirms inside it.
+  // A limits-only save keeps the page open and confirms on it.
   const manage = await manageModelConnection(page, "Scripted");
   await manage.getByText("Advanced", { exact: true }).click();
   await manage.getByLabel("Maximum output tokens").fill("16384");
@@ -691,7 +697,10 @@ test("model settings connect, replace, and cancel provider authentication", asyn
   const cancelled = page.waitForRequest((request) =>
     request.url().includes("/rpc/models/cancelOAuth"),
   );
-  await page.keyboard.press("Escape");
+  await page
+    .getByTestId("model-connection")
+    .getByRole("button", { name: "Models", exact: true })
+    .click();
   await expect(codex).toBeHidden();
   await cancelled;
   expect(finishRequests).toBe(0);
@@ -699,7 +708,10 @@ test("model settings connect, replace, and cancel provider authentication", asyn
   await manage.getByLabel("Replace API key").fill("fake-scripted-key-three");
   await expect(manage.getByRole("button", { name: "Replace API key" })).toBeEnabled();
   await expect(page.getByText("TEST-CODE")).toBeHidden();
-  await page.keyboard.press("Escape");
+  await page
+    .getByTestId("model-connection")
+    .getByRole("button", { name: "Models", exact: true })
+    .click();
   await expect(manage).toBeHidden();
 
   // A finished sign-in closes the dialog and reopens the picker; the provider no longer
@@ -1115,7 +1127,10 @@ test("a Claude subscription folds the key form and bots move to the space defaul
   await dialog.getByRole("button", { name: "Or paste an API key" }).click();
   await expect(dialog.getByLabel("Or paste an API key")).toBeFocused();
   await expect(dialog.getByRole("button", { name: "Connect API key" })).toBeVisible();
-  await page.keyboard.press("Escape");
+  await page
+    .getByTestId("model-connection")
+    .getByRole("button", { name: "Models", exact: true })
+    .click();
   await expect(dialog).toBeHidden();
 
   await bots.getByRole("button", { name: "Use space default" }).click();

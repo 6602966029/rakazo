@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { MAX_MODEL_CONNECTION_LABEL, OPENAI_COMPATIBLE_PROVIDER_ID } from "@rakazo/contracts";
+import { MAX_MODEL_CONNECTION_LABEL } from "@rakazo/contracts";
 import {
   Button,
   Command,
@@ -8,22 +8,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@rakazo/ui-web";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { ModelCredential } from "../../lib/model-auth";
 import { useSpaceRpc } from "../../lib/space-rpc";
@@ -38,8 +28,6 @@ export function ProvidersSection({
   disabled,
   onAdd,
   onOpen,
-  onDisconnect,
-  onRenamed,
 }: {
   credentials: ModelCredential[];
   /** Every provider that can be connected, connected ones included. */
@@ -49,11 +37,7 @@ export function ProvidersSection({
   disabled?: boolean;
   onAdd: (provider: ConnectableProvider) => void;
   onOpen: (credential: ModelCredential) => void;
-  onDisconnect: (credential: ModelCredential) => void;
-  onRenamed: () => void;
 }) {
-  const { t } = useLingui();
-  const [renaming, setRenaming] = useState<ModelCredential | null>(null);
   return (
     <section className="mb-8" data-testid="model-providers">
       <h3 className="mb-2.5 text-[15px] font-medium text-foreground">
@@ -63,70 +47,79 @@ export function ProvidersSection({
         {[...credentials]
           // Saving a key reorders the account's connections; this list stays put.
           .sort((left, right) => nameOf(left).localeCompare(nameOf(right)))
-          .map((credential) => {
-            const name = nameOf(credential);
-            return (
-              <li
-                key={credential.id}
-                className="flex min-h-[52px] items-center gap-2.5 py-2 ps-3 pe-2"
-                data-testid={`model-provider-${credential.id}`}
+          .map((credential) => (
+            <li key={credential.id} data-testid={`model-provider-${credential.id}`}>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onOpen(credential)}
+                className="flex min-h-[52px] w-full items-center gap-2.5 py-2 ps-3 pe-3 text-start outline-none first:rounded-t-xl hover:bg-accent/50 focus-visible:ring-3 focus-visible:ring-ring/50"
               >
-                <span className="min-w-0 flex-1 truncate text-[15px] text-foreground">{name}</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="shrink-0 text-muted-foreground"
-                        aria-label={t`${name} options`}
-                        disabled={disabled}
-                      />
-                    }
-                  >
-                    <MoreHorizontal />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-[200px]">
-                    <DropdownMenuItem onClick={() => setRenaming(credential)}>
-                      <Trans>Rename</Trans>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onOpen(credential)}>
-                      {credential.authKind === "oauth" ? (
-                        <Trans>Sign in again</Trans>
-                      ) : credential.provider === OPENAI_COMPATIBLE_PROVIDER_ID ? (
-                        <Trans>Edit</Trans>
-                      ) : (
-                        <Trans>Replace key</Trans>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => onDisconnect(credential)}
-                    >
-                      <Trans>Disconnect</Trans>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </li>
-            );
-          })}
+                <span className="min-w-0 flex-1 truncate text-[15px] text-foreground">
+                  {nameOf(credential)}
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              </button>
+            </li>
+          ))}
         <li>
           <AddProvider providers={providers} disabled={disabled} onPick={onAdd} />
         </li>
       </ul>
-      {renaming ? (
-        <RenameConnectionDialog
-          credential={renaming}
-          name={renaming.label}
-          onClose={() => setRenaming(null)}
-          onRenamed={() => {
-            setRenaming(null);
-            onRenamed();
-          }}
-        />
-      ) : null}
     </section>
+  );
+}
+
+/** A connection's editable name, saved on its own. */
+export function ConnectionNameField({
+  credential,
+  onRenamed,
+}: {
+  credential: ModelCredential;
+  onRenamed: () => void;
+}) {
+  const rpc = useSpaceRpc();
+  const { t } = useLingui();
+  const nameId = useId();
+  const [name, setName] = useState(credential.label);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const trimmed = name.trim();
+  return (
+    <form
+      className="mb-6"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!trimmed || saving || trimmed === credential.label) return;
+        setSaving(true);
+        setError(null);
+        rpc.models
+          .rename({ credentialId: credential.id, label: trimmed })
+          .then(onRenamed, (err: unknown) =>
+            setError(errorText(err, t`Could not rename connection`)),
+          )
+          .finally(() => setSaving(false));
+      }}
+    >
+      <label htmlFor={nameId} className="block text-[13.5px] text-muted-foreground">
+        <Trans>Name</Trans>
+      </label>
+      <div className="mt-2 flex gap-2">
+        <Input
+          id={nameId}
+          maxLength={MAX_MODEL_CONNECTION_LABEL}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          className="h-10 text-foreground"
+        />
+        {trimmed && trimmed !== credential.label ? (
+          <Button type="submit" variant="secondary" className="h-10 rounded-full" disabled={saving}>
+            {saving ? <Trans>Saving…</Trans> : <Trans>Save</Trans>}
+          </Button>
+        ) : null}
+      </div>
+      {error ? <p className="mt-2 text-[13.5px] text-destructive">{error}</p> : null}
+    </form>
   );
 }
 
@@ -201,77 +194,5 @@ function AddProvider({
         </Command>
       </PopoverContent>
     </Popover>
-  );
-}
-
-function RenameConnectionDialog({
-  credential,
-  name: initial,
-  onClose,
-  onRenamed,
-}: {
-  credential: ModelCredential;
-  name: string;
-  onClose: () => void;
-  onRenamed: () => void;
-}) {
-  const rpc = useSpaceRpc();
-  const { t } = useLingui();
-  const nameId = useId();
-  const [name, setName] = useState(initial);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const trimmed = name.trim();
-  return (
-    <Dialog
-      open
-      onOpenChange={(next) => {
-        if (!next && !saving) onClose();
-      }}
-    >
-      <DialogContent showCloseButton={false} aria-describedby={undefined}>
-        <form
-          className="contents"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!trimmed || saving) return;
-            setSaving(true);
-            setError(null);
-            rpc.models
-              .rename({ credentialId: credential.id, label: trimmed })
-              .then(onRenamed, (err: unknown) => {
-                setError(errorText(err, t`Could not rename connection`));
-                setSaving(false);
-              });
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>
-              <Trans>Rename</Trans>
-            </DialogTitle>
-          </DialogHeader>
-          <label htmlFor={nameId} className="block text-[13.5px] text-foreground/75">
-            <Trans>Name</Trans>
-            <Input
-              id={nameId}
-              maxLength={MAX_MODEL_CONNECTION_LABEL}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="mt-2"
-              autoFocus
-            />
-          </label>
-          {error ? <p className="text-[13.5px] text-destructive">{error}</p> : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button type="submit" disabled={saving || !trimmed || trimmed === initial}>
-              {saving ? <Trans>Saving…</Trans> : <Trans>Save</Trans>}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
