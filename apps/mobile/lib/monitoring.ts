@@ -75,7 +75,7 @@ export function configureMobileMonitoring(
     }
     try {
       const Sentry = await import("@sentry/react-native");
-      const { Platform } = await import("react-native");
+      const { Platform } = await import("./monitoring-platform");
       if (current !== generation) return;
       const userId = isMonitoringUserId(config.userId) ? config.userId : undefined;
       Sentry.init({
