@@ -24,6 +24,7 @@ import {
   COMPATIBLE_THINKING_LEVELS,
   clampCatalogThinkingLevel,
   compatibleModelRows,
+  connectionMaxTokensField,
   createModelProbe,
   initialModelProbeState,
   pickCatalogModelId,
@@ -65,22 +66,6 @@ import { native, useThemedStyles } from "../../lib/native";
 import { ACCOUNT_SETTINGS, settingsRpc } from "../../lib/settings-target";
 import { thinkingLevelLabel } from "../../lib/thinking-level";
 import { errorText } from "../../lib/user-error";
-
-function connectionMaxTokensField(providerId: string, stored: number | undefined): string {
-  if (providerId === OPENAI_COMPATIBLE_PROVIDER_ID) {
-    return String(stored ?? DEFAULT_MODEL_MAX_TOKENS);
-  }
-  return stored !== undefined ? String(stored) : "";
-}
-
-const THINKING_LEVEL_OPTIONS: ThinkingLevel[] = [
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-];
 
 type ModelSelection = {
   modelId?: string;
@@ -819,7 +804,7 @@ export default function ModelConnection() {
                 label={t("Reasoning effort")}
                 choices={[
                   { key: "", label: t("Default") },
-                  ...THINKING_LEVEL_OPTIONS.map((level) => ({
+                  ...COMPATIBLE_THINKING_LEVELS.map((level) => ({
                     key: level,
                     label: thinkingLevelLabel(level, t),
                   })),

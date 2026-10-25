@@ -24,6 +24,7 @@ import {
   COMPATIBLE_THINKING_LEVELS,
   clampCatalogThinkingLevel,
   compatibleModelRows,
+  connectionMaxTokensField,
   createModelProbe,
   initialModelProbeState,
   pickCatalogModelId,
@@ -50,13 +51,6 @@ import { errorText } from "../../lib/user-error";
 
 const NO_CATALOG: ModelCatalogEntry[] = [];
 const NO_CREDENTIALS: never[] = [];
-
-function connectionMaxTokensField(providerId: string, stored: number | undefined): string {
-  if (providerId === OPENAI_COMPATIBLE_PROVIDER_ID) {
-    return String(stored ?? DEFAULT_MODEL_MAX_TOKENS);
-  }
-  return stored !== undefined ? String(stored) : "";
-}
 
 export type ModelConnectIntent = {
   /** False keeps the current main model; the connection is for a fallback or another role. */
