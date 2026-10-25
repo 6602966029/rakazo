@@ -11,7 +11,7 @@ vi.mock("./rpc", () => {
   };
 });
 
-import { queryClient, setQueryUser, spaceQueries } from "./query";
+import { lastChatOf, queryClient, setQueryUser, spaceQueries, spaceSeedKey } from "./query";
 
 afterEach(() => {
   queryClient.clear();
@@ -40,6 +40,13 @@ describe("query scopes", () => {
     ).toBeUndefined();
   });
 
+  it("keeps the unselected space's seed apart from every chosen space", () => {
+    const keys = [spaceSeedKey("user-a", null), spaceSeedKey("user-a", "space-a")].map((key) =>
+      JSON.stringify(key),
+    );
+    expect(new Set(keys).size).toBe(2);
+  });
+
   it("forgets the cache when a different user signs in or everyone signs out", () => {
     const key = spaceQueries("user-a", "space-a").voice.status.queryKey();
     setQueryUser("user-a");
@@ -51,5 +58,28 @@ describe("query scopes", () => {
     queryClient.setQueryData(key, { ready: true } as never);
     setQueryUser("user-b");
     expect(queryClient.getQueryData(key)).toBeUndefined();
+  });
+});
+
+describe("lastChatOf", () => {
+  const seed = (thread: { botId?: string; groupId?: string } | null) =>
+    ({
+      bots: [{ id: "bot-a" }],
+      groups: [{ id: "group-a" }],
+      thread,
+    }) as never;
+
+  it("reopens the bot or group chat a cached space was showing", () => {
+    expect(lastChatOf(seed({ botId: "bot-a" }))).toEqual({ botId: "bot-a" });
+    expect(lastChatOf(seed({ groupId: "group-a", botId: "bot-a" }))).toEqual({
+      groupId: "group-a",
+    });
+  });
+
+  it("falls back when the cached chat is gone or there is no cache", () => {
+    expect(lastChatOf(seed({ botId: "bot-gone" }))).toBeUndefined();
+    expect(lastChatOf(seed({ groupId: "group-gone" }))).toBeUndefined();
+    expect(lastChatOf(seed(null))).toBeUndefined();
+    expect(lastChatOf(undefined)).toBeUndefined();
   });
 });

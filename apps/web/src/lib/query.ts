@@ -1,5 +1,6 @@
 import type { RouterUtils } from "@orpc/tanstack-query";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+import type { AppBootstrap } from "@rakazo/contracts";
 import { isRetryableError } from "@rakazo/core";
 import type { DataTag, QueryFunction, QueryKey } from "@tanstack/react-query";
 import { QueryClient } from "@tanstack/react-query";
@@ -49,8 +50,23 @@ export function spaceQueries(userId: string | null, spaceId: string | null): Spa
  * Where a space's last bootstrap is kept. It holds the whole space (bots, groups, account), so
  * it is not keyed by bot: a visited space opens at once through any of its chats.
  */
-export function spaceSeedKey(userId: string | null, spaceId: string) {
+export function spaceSeedKey(userId: string | null, spaceId: string | null) {
   return spaceQueries(userId, spaceId).bootstrap.queryKey({ input: {} });
+}
+
+/** The chat a cached space was showing, if it still lists it. */
+export function lastChatOf(
+  seed: AppBootstrap | undefined,
+): { botId?: string; groupId?: string } | undefined {
+  const thread = seed?.thread;
+  if (thread?.groupId) {
+    return seed?.groups.some((group) => group.id === thread.groupId)
+      ? { groupId: thread.groupId }
+      : undefined;
+  }
+  return thread?.botId && seed?.bots.some((bot) => bot.id === thread.botId)
+    ? { botId: thread.botId }
+    : undefined;
 }
 
 const QueryUserContext = createContext<string | null>(null);
