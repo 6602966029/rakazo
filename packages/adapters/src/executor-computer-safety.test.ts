@@ -167,6 +167,27 @@ with Path("reports/history.jsonl").open("a") as log:
     expect(desktopProtectionGuardMessage("protected command pkill")).not.toContain("python3 -c");
   });
 
+  it("allows Basic authentication recovery without shell substitution or credential exposure", () => {
+    const command = 'curl -H "Authorization: Basic $(printf test | base64)" https://example.test';
+    expect(protectedComputerLifecycleRefusal(command)).toBe("command substitution");
+    for (const reason of ["command substitution", "backtick"]) {
+      const message = desktopProtectionGuardMessage(reason);
+      expect(message).toContain("os.environ");
+      expect(message).toContain("No request ran");
+    }
+    const script = `import base64, http.client, os
+token = os.environ["EXAMPLE_API_TOKEN"]
+authorization = "Basic " + base64.b64encode((token + ":token").encode()).decode()
+connection = http.client.HTTPSConnection("example.test")
+connection.request("GET", "/api", headers={"Authorization": authorization})
+print(connection.getresponse().status)
+connection.close()`;
+    expect(protectedComputerLifecycleRefusal(`python3 -c '${script}'`)).toBeUndefined();
+    expect(protectedComputerLifecycleRefusal(`python3 -c '${script}'; pkill chromium`)).toBe(
+      "protected command pkill",
+    );
+  });
+
   it("keeps computed variables, variable source paths, and interpreter heredocs closed", () => {
     expect(protectedComputerLifecycleRefusal('dir=/tmp/$USER; ls "$dir"')).toBe(
       "unresolved variable $dir",
