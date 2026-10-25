@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { ActionApprovalRule, ApprovalMode } from "./action-approval.js";
 import {
-  type ActionApprovalRule,
-  type ApprovalMode,
   applyJudgeDecision,
   approvalModeFromPreference,
   approvalPreferenceFromMode,
