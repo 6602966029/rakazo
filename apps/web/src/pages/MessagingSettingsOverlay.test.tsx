@@ -245,3 +245,12 @@ it("ignores a pending response after expiry", async () => {
   expect(container.textContent).not.toContain("424242");
   expect(messaging.status).toHaveBeenCalledTimes(calls);
 });
+
+it("offers personal Slack linking alongside a workspace install", async () => {
+  messaging.status.mockResolvedValue({ ...statusWith([]), providers: ["slack"] });
+  messaging.installations.list.mockResolvedValueOnce({ available: true, installations: [] });
+  await act(async () => root.render(<MessagingSettingsOverlay onClose={() => undefined} />));
+  const items = [...container.querySelectorAll("button")].map((button) => button.textContent);
+  expect(items).toContain("Slack");
+  expect(items).toContain("Slack workspace");
+});

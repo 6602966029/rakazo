@@ -169,11 +169,9 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
       .join(" · ");
   }
 
-  // Slack installs workspace-wide when this server supports it; every other
-  // app links with a code sent from the chat app.
-  const codeProviders = (status?.providers ?? []).filter(
-    (provider) => provider !== "slack" || !installationStatus.available,
-  );
+  // Every app links personal DMs with a code sent from the chat app; Slack can
+  // also be installed workspace-wide when this server supports it.
+  const codeProviders = status?.providers ?? [];
   const invitedChannels = channels.filter((channel) => channel.status === "invited");
   const incomingConnections = connections.filter(
     (connection) => connection.status === "pending" && connection.incoming,
@@ -358,16 +356,16 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                 <ChevronDownIcon data-icon="inline-end" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-auto min-w-44">
-                {installationStatus.available ? (
-                  <DropdownMenuItem onClick={installSlack}>
-                    {providerLabel("slack")}
-                  </DropdownMenuItem>
-                ) : null}
                 {codeProviders.map((provider) => (
                   <DropdownMenuItem key={provider} onClick={() => startLink(provider)}>
                     {providerLabel(provider)}
                   </DropdownMenuItem>
                 ))}
+                {installationStatus.available ? (
+                  <DropdownMenuItem onClick={installSlack}>
+                    <Trans>Slack workspace</Trans>
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
