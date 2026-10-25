@@ -256,6 +256,8 @@ async function branchDatabase(shared, sharedDataDir) {
   const owner = new Client({ connectionString: shared.migrationUrl });
   await owner.connect();
   try {
+    // Two starts of the same branch take turns; the lock ends with this connection.
+    await owner.query("SELECT pg_advisory_lock(hashtext($1))", [name]);
     const existing = await owner.query(
       `SELECT shobj_description(oid, 'pg_database') AS comment FROM pg_database WHERE datname = $1`,
       [name],
@@ -393,7 +395,15 @@ env.DATABASE_MIGRATION_URL = database.migrationUrl;
 env.DATA_DIR = database.dataDir;
 
 generateClientIfStale(env);
-execFileSync("pnpm", ["db:migrate"], { cwd: root, env, stdio: "inherit" });
+// Checkouts starting together would otherwise grant the runtime role at the same moment and fail.
+const migrationLock = new Client({ connectionString: database.migrationUrl });
+await migrationLock.connect();
+try {
+  await migrationLock.query("SELECT pg_advisory_lock(hashtext('rakazo dev migrate'))");
+  execFileSync("pnpm", ["db:migrate"], { cwd: root, env, stdio: "inherit" });
+} finally {
+  await migrationLock.end();
+}
 
 if (ports) log(`Open http://127.0.0.1:${ports.web}`);
 const turbo = spawn(
