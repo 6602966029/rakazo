@@ -18,15 +18,23 @@ export function saveStartupError(error: unknown, storage?: StartupErrorStorage):
   if (!storage) return;
   try {
     const safe = sanitizedError(error);
-    storage.setItem(
-      KEY,
-      JSON.stringify({
-        server: selectedServer(storage),
-        name: safe.name.slice(0, 128),
-        message: safe.message.slice(0, 1_024),
-        stack: safe.stack?.slice(0, 4_096),
-      }),
-    );
+    const record = {
+      server: selectedServer(storage),
+      name: safe.name.slice(0, 128),
+      message: safe.message.slice(0, 1_024),
+      stack: safe.stack?.slice(0, 4_096),
+    };
+    let serialized = JSON.stringify(record);
+    if (serialized.length > MAX_LENGTH && record.stack) {
+      // Escaped characters can occupy several characters in JSON. Preserve the message
+      // and shorten the stack until the final record fits the reader's size limit.
+      record.stack = record.stack.slice(
+        0,
+        Math.max(0, record.stack.length - (serialized.length - MAX_LENGTH)),
+      );
+      serialized = JSON.stringify(record);
+    }
+    if (serialized.length <= MAX_LENGTH) storage.setItem(KEY, serialized);
   } catch {
     // Locked storage or a missing native host must not replace the original fatal error.
   }

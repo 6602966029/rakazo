@@ -34,6 +34,14 @@ describe("persisted startup error", () => {
     expect(readStartupError(secureStorage)).toBeUndefined();
   });
 
+  it("round-trips escaped error text within the serialized size limit", () => {
+    const error = new Error('"\\\n\u0000'.repeat(1_024));
+    error.stack = `at startup.ts:42\n${'"\\\n\u0000'.repeat(4_096)}`;
+    saveStartupError(error, secureStorage);
+    expect(store.values.get("rakazo.startup-error")!.length).toBeLessThanOrEqual(8_192);
+    expect(readStartupError(secureStorage)?.message).toBe(error.message.slice(0, 1_024));
+  });
+
   it("does not replay another server's error even if wiping storage failed", () => {
     store.values.set("rakazo.api_base", "https://first.example.com");
     saveStartupError(new Error("old server"), secureStorage);

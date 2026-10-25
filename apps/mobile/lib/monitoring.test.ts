@@ -199,6 +199,48 @@ describe("mobile monitoring", () => {
     );
   });
 
+  it("retains the first fatal failure when another arrives before configuration", async () => {
+    vi.useFakeTimers();
+    const native = installErrorUtils();
+    const monitor = await import("./monitoring");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    const first = new Error("original startup failure");
+    native.handle(first, true);
+    native.handle(new Error("follow-on failure"), true);
+    expect((await import("./startup-error")).readStartupError(secureStorage)?.message).toBe(
+      first.message,
+    );
+    await monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    await vi.waitFor(() => expect(native.previous).toHaveBeenCalledExactlyOnceWith(first, true));
+    expect(sdk.captureException).toHaveBeenCalledExactlyOnceWith(first, expect.any(Object));
+  });
+
+  it("skips a stale request superseded while the previous SDK is closing", async () => {
+    const monitor = await import("./monitoring");
+    const config = { dsn: "https://key@errors.example.com/8" };
+    await monitor.configureMobileMonitoring("https://first.example.com", {}, response(config));
+    let finishClose!: () => void;
+    sdk.close.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishClose = resolve;
+        }),
+    );
+    const staleFetch = response(config);
+    const stale = monitor.configureMobileMonitoring("https://stale.example.com", {}, staleFetch);
+    await vi.waitFor(() => expect(finishClose).toBeTypeOf("function"));
+    const latestFetch = response(config);
+    const latest = monitor.configureMobileMonitoring("https://latest.example.com", {}, latestFetch);
+    finishClose();
+    await Promise.all([stale, latest]);
+    expect(staleFetch).not.toHaveBeenCalled();
+    expect(latestFetch).toHaveBeenCalledOnce();
+  });
+
   it("does not replay a stored startup error after switching sessions", async () => {
     const persisted = await import("./startup-error");
     persisted.saveStartupError(new Error("previous account"), secureStorage);

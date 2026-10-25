@@ -21,6 +21,7 @@ let configuring: Promise<void> | undefined;
 let configRequest: AbortController | undefined;
 let reportingReady: (() => void) | undefined;
 let earlyHandlerInstalled = false;
+let handlingEarlyFatal = false;
 let pendingStartupError: Error | undefined;
 let startupStorage: StartupErrorStorage | undefined;
 let startupFromPreviousLaunch = false;
@@ -105,8 +106,10 @@ export function configureMobileMonitoring(
   const next = (configuring ?? Promise.resolve()).then(async () => {
     if (current !== generation) return;
     await closing;
+    if (current !== generation) return;
     if (sdk) await sdk.close();
     sdk = undefined;
+    if (current !== generation) return;
     let config: MonitoringConfig;
     const request = new AbortController();
     configRequest = request;
@@ -234,9 +237,13 @@ export function installMobileEarlyErrorReporting(storage: StartupErrorStorage): 
     target.ErrorUtils?.setGlobalHandler((error, fatal) => {
       if (!sdk) {
         if (fatal) {
-          pendingStartupError = error;
-          startupFromPreviousLaunch = false;
-          saveStartupError(error, startupStorage);
+          if (handlingEarlyFatal) return;
+          handlingEarlyFatal = true;
+          if (!pendingStartupError) {
+            pendingStartupError = error;
+            startupFromPreviousLaunch = false;
+            saveStartupError(error, startupStorage);
+          }
           void flushStartupError().finally(() => previous(error, fatal));
           return;
         }
