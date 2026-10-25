@@ -1456,6 +1456,10 @@ msgstr ""
 msgid "Connect OAuth"
 msgstr "OAuth koppelen"
 
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Connect Slack workspace"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Treg"
 msgstr "Treg koppelen"
@@ -2244,6 +2248,7 @@ msgstr "Opname weggooien"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"

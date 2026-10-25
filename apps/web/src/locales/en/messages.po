@@ -1456,6 +1456,10 @@ msgstr "Connect my own"
 msgid "Connect OAuth"
 msgstr "Connect OAuth"
 
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Connect Slack workspace"
+msgstr "Connect Slack workspace"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Treg"
 msgstr "Connect Treg"
@@ -2244,6 +2248,7 @@ msgstr "Discard recording"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
