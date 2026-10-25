@@ -4,7 +4,7 @@ import { isRetiredImportSetup } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
-import { SuccessPop } from "../../components/ai/primitives";
+import { BuiCard, SuccessPop } from "../../components/ai/primitives";
 import { rpc } from "../../lib/rpc";
 import { useImportStatusText } from "./import-status";
 
@@ -76,21 +76,18 @@ export function ImportSetupCard({
   // Rows that cannot be checked keep the full list.
   if (state && block.items.every((item) => isDone(item, state) === true)) {
     return (
-      <div
+      <BuiCard
         data-testid="import-setup-card"
         data-complete="true"
-        className="w-[420px] max-w-full rounded-[20px] bg-card px-[18px] py-[14px] text-[14px] text-foreground"
+        className="w-[420px] max-w-full px-[18px] py-[14px] text-[14px] text-foreground"
       >
         <SuccessPop label={t`Setup complete`} />
-      </div>
+      </BuiCard>
     );
   }
 
   return (
-    <div
-      data-testid="import-setup-card"
-      className="w-[420px] max-w-full rounded-[20px] bg-card px-[18px] py-[14px]"
-    >
+    <BuiCard data-testid="import-setup-card" className="w-[420px] max-w-full px-[18px] py-[14px]">
       <p className="text-[15.5px] text-foreground/90">
         <Trans>Finish setting up</Trans>
       </p>
@@ -152,6 +149,6 @@ export function ImportSetupCard({
           );
         })}
       </ul>
-    </div>
+    </BuiCard>
   );
 }
