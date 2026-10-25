@@ -179,6 +179,14 @@ test("marking a message unread brings the chat back with New above the reply fro
   await firstReply.hover();
   await firstReply.getByRole("button", { name: "More" }).click();
   await expect(page.getByRole("menuitem")).toHaveText(["Reply", "Copy"]);
+  // Scrolled messages meet the composer instead of clipping above an empty strip.
+  const transcriptBounds = await page.getByTestId("transcript").boundingBox();
+  const composerBounds = await page.getByTestId("composer-bar").boundingBox();
+  expect(transcriptBounds).not.toBeNull();
+  expect(composerBounds).not.toBeNull();
+  expect(
+    Math.abs(composerBounds!.y - (transcriptBounds!.y + transcriptBounds!.height)),
+  ).toBeLessThan(1);
   await captureScreenshot(page, testInfo, "message-marked-unread-menu");
   await page.keyboard.press("Escape");
 
