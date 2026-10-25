@@ -45,6 +45,11 @@ model User {
   botSections                 BotSection[]
   actionApprovalRules         ActionApprovalRule[]
   actionAutoReviewPreferences ActionAutoReviewPreference[]
+  modelRoleChoices            UserModelRoleChoice[]
+  modelPreferences            UserModelPreference[]
+  voicePreferences            UserVoicePreference[]
+  approvalRules               UserActionApprovalRule[]
+  autoReviewPreference        UserActionAutoReviewPreference?
   createdSpaces               Space[]                      @relation("SpaceCreator")
   botSecrets BotSecret[]
   agentSecrets               AgentSecret[]
@@ -333,6 +338,7 @@ model SpaceMember {
   aiDataConsents AiDataConsent[]
   backupModels SpaceBackupModel[]
   modelRoleChoices SpaceModelRoleChoice[]
+  settingOverrides SpaceSettingOverride[]
 
   @@unique([spaceId, userId])
   @@index([organizationId, userId])
@@ -407,6 +413,8 @@ model UserModelCredential {
   updatedAt   DateTime               @updatedAt
   preferences SpaceModelPreference[]
   roleChoices SpaceModelRoleChoice[]
+  userPreferences UserModelPreference[]
+  userRoleChoices UserModelRoleChoice[]
 
   @@unique([id, userId])
   @@index([userId, provider, updatedAt])
@@ -422,6 +430,7 @@ model UserVoiceCredential {
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
   preferences SpaceVoicePreference[]
+  userPreferences UserVoicePreference[]
 
   @@unique([id, userId])
   @@index([userId, provider, updatedAt])
@@ -1708,4 +1717,95 @@ model SpaceModelRoleChoice {
   @@id([spaceId, userId, role, position])
   @@index([credentialId, userId])
   @@map("space_model_role_choices")
+}
+
+/// Which of a member's account-wide settings a Space replaces with its own. Without a row the
+/// Space follows the account: "models" covers every model role, "voice" the voice choices,
+/// "confirmations" the approval rules and auto review.
+model SpaceSettingOverride {
+  spaceId     String
+  userId      String
+  spaceMember SpaceMember @relation(fields: [spaceId, userId], references: [spaceId, userId], onDelete: Cascade)
+  setting     String
+  createdAt   DateTime    @default(now())
+
+  @@id([spaceId, userId, setting])
+  @@map("space_setting_overrides")
+}
+
+/// The member's account-wide models per purpose; position 0 runs, the rest take over in order.
+model UserModelRoleChoice {
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          String
+  position      Int
+  provider      String
+  modelId       String
+  thinkingLevel String?
+  credentialId  String?
+  credential    UserModelCredential? @relation(fields: [credentialId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@id([userId, role, position])
+  @@index([credentialId, userId])
+  // Unique index user_model_role_choices_model_connection_key (NULLS NOT DISTINCT) is created in SQL.
+  @@map("user_model_role_choices")
+}
+
+/// A connection's own model and effort, which belong to the connection in every Space.
+model UserModelPreference {
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId  String
+  credential    UserModelCredential @relation(fields: [credentialId, userId], references: [id, userId], onDelete: Cascade)
+  modelId       String?
+  thinkingLevel String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@id([userId, credentialId])
+  @@map("user_model_preferences")
+}
+
+/// The member's account-wide voice per voice connection; one is the default.
+model UserVoicePreference {
+  userId       String
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String
+  credential   UserVoiceCredential @relation(fields: [credentialId, userId], references: [id, userId], onDelete: Cascade)
+  voiceId      String              @default("")
+  // Fish speech-model override. Null keeps the deployment default.
+  speechModel  String?
+  isDefault    Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@id([userId, credentialId])
+  // Partial unique index user_voice_preferences_default_key is created in SQL.
+  @@map("user_voice_preferences")
+}
+
+/// The member's account-wide action approval rules.
+model UserActionApprovalRule {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  effect     String
+  matchKind  String
+  matchValue String
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, effect, matchKind, matchValue])
+  @@map("user_action_approval_rules")
+}
+
+/// The member's account-wide auto review and skip-approvals choice.
+model UserActionAutoReviewPreference {
+  userId        String   @id
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled       Boolean  @default(false)
+  skipApprovals Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("user_action_auto_review_preferences")
 }
