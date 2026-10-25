@@ -12,13 +12,7 @@ import type {
   SecretStore,
   UsageOperationKind,
 } from "@rakazo/adapter-kit";
-import {
-  MEMORY_REVISION_CONFLICT_ERROR,
-  messagingDeliverJob,
-  routineJobKey,
-  routineWakeupJob,
-  runContinueJob,
-} from "@rakazo/adapter-kit";
+import { messagingDeliverJob } from "@rakazo/adapter-kit";
 import type {
   CloudAgentConnection,
   CodexLiveCatalog,
@@ -38,10 +32,6 @@ import type {
 import {
   commentTicket,
   createTicket,
-  isScratchpadStatus,
-  listScratchpadItems,
-  mapScratchpadItem,
-  parseRoutineWatch,
   persistPreparedSecret,
   pickReusableConnection,
   planLiveConnectionSync,
@@ -50,43 +40,35 @@ import {
   prepareManagedConnectorForTransaction,
   recordMcpServerHealth,
   resolveBotWorkspacePath,
-  routineRunModelPin,
   sanitizeComposioError,
-  stableStringify,
   updateTicket,
-  validateRoutineWatch,
   verifyMcpInstall,
 } from "@rakazo/adapters";
 import type { Auth } from "@rakazo/auth";
 import type { Actor, BoardEvent, ExportManifest } from "@rakazo/contracts";
-import {
-  attachmentMaxBytes,
-  canonicalPiProviderId,
-  isDeletableMemoryDocument,
-  parseTicketRef,
-  signupSurveyAsksTeamSize,
-} from "@rakazo/contracts";
+import { attachmentMaxBytes, parseTicketRef, signupSurveyAsksTeamSize } from "@rakazo/contracts";
 import {
   AttachmentValidationError,
   containsSecret,
   displayName,
   escapeSearchWildcards,
-  expandSkillReferencesInPrompt,
-  hasMixedOneShotSchedule,
-  isOneShotRoutineCrons,
 } from "@rakazo/core";
-import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
+import type {
+  BoardEvents,
+  Board as BoardRow,
+  Prisma,
+  PrismaClient,
+  ThreadEvents,
+} from "@rakazo/db";
 import {
   crossSpaceCommunicationAllowed,
   ensureBoard,
-  findSpaceMemoryConfig,
   findTicket,
   formatMessagingLinkCode,
   IsolationError,
   issueMessagingLinkCode,
   listBoards,
   listTicketComments,
-  Prisma,
   parseComputerMode,
   recordSecurityEvent,
   runAsSystem,
@@ -118,13 +100,6 @@ import {
   mcpServerDto,
 } from "./mcp-servers.js";
 import {
-  disconnectMemoryProvider,
-  persistMemoryProviderConfig,
-  serializeSpaceMemoryConfig,
-  updateMemoryProviderDefaultScope,
-} from "./memory-provider-config.js";
-import { assertRoutineModel } from "./model-pins.js";
-import {
   chooseFocus,
   dismissFocus,
   markAppConnected,
@@ -135,26 +110,17 @@ import { accountRoutes } from "./routes/account.js";
 import { botsRoutes } from "./routes/bots.js";
 import { computerRoutes } from "./routes/computer.js";
 import { createRouterContext } from "./routes/context.js";
+import { memoryRoutes } from "./routes/memory.js";
 import { modelsRoutes } from "./routes/models.js";
+import { routinesRoutes } from "./routes/routines.js";
 import {
   computerContext,
   HEARTBEAT_MS,
-  isRecordNotFound,
   isUniqueViolation,
   SESSION_RECHECK_MS,
 } from "./routes/shared.js";
 import { spacesRoutes } from "./routes/spaces.js";
 import { threadsRoutes } from "./routes/threads.js";
-import { listRoutineRuns } from "./routine-runs.js";
-import {
-  assertRoutineSchedule,
-  firstWatchCheck,
-  listRoutinesDto,
-  mapRoutine,
-  nextRoutineDate,
-  routineNextRunAt,
-  routineRowData,
-} from "./routines.js";
 import { listSpaceRuns } from "./runs.js";
 import { querySpaceSearch } from "./search.js";
 import { connectionCreatedEvent } from "./security-audit.js";
@@ -422,12 +388,8 @@ export function createRouter(deps: RouterDeps) {
     prepareMcpServer,
     insertMcpServer,
     announceMcpServer,
-    announceRoutine,
-    codexCatalog,
     favicons,
     groupRepos,
-    taughtSkills,
-    agentSkills,
     authed,
     boardEnabled,
     ticketDeps,
@@ -440,524 +402,8 @@ export function createRouter(deps: RouterDeps) {
     ...botsRoutes(ctx),
     ...threadsRoutes(ctx),
     ...computerRoutes(ctx),
-    memory: {
-      list: authed.memory.list.handler(async ({ context, input }) => {
-        const docs = await deps.prisma.memoryDocument.findMany({
-          where: {
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-            ...(input.botId ? { botId: input.botId } : {}),
-            ...(input.scope ? { scope: input.scope } : {}),
-          },
-        });
-        return docs.map((doc) => ({
-          id: doc.id,
-          scope: doc.scope as "bot" | "user",
-          botId: doc.botId,
-          path: doc.path,
-          content: doc.content,
-          revision: doc.revision,
-          updatedAt: doc.updatedAt.toISOString(),
-        }));
-      }),
-      update: authed.memory.update.handler(async ({ context, input }) => {
-        const doc = await deps.prisma.memoryDocument.findFirst({
-          where: {
-            id: input.documentId,
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-          },
-        });
-        if (!doc) throw new IsolationError();
-        const updated = await deps.memory
-          .commit(
-            {
-              scope: doc.scope as "bot" | "user",
-              botId: doc.botId ?? undefined,
-              path: doc.path,
-              content: input.content,
-              expectedRevision: input.expectedRevision,
-            },
-            {
-              operationId: "mem",
-              traceId: "mem",
-              spaceId: context.actor.spaceId,
-              userId: context.actor.userId,
-              signal: new AbortController().signal,
-            },
-          )
-          .catch((error: unknown) => {
-            if (error instanceof Error && error.message === MEMORY_REVISION_CONFLICT_ERROR) {
-              throw new ORPCError("CONFLICT", { message: error.message });
-            }
-            throw error;
-          });
-        return {
-          id: updated.id,
-          scope: doc.scope as "bot" | "user",
-          botId: doc.botId,
-          path: updated.path,
-          content: updated.content,
-          revision: updated.revision,
-          updatedAt: new Date().toISOString(),
-        };
-      }),
-      remove: authed.memory.remove.handler(async ({ context, input }) => {
-        const doc = await deps.prisma.memoryDocument.findFirst({
-          where: {
-            id: input.documentId,
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-          },
-        });
-        if (!doc) throw new IsolationError();
-        if (!isDeletableMemoryDocument(doc.path)) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: `${doc.path} cannot be deleted; edit its content instead.`,
-          });
-        }
-        await deps.memory.remove(
-          {
-            id: doc.id,
-            scope: doc.scope as "bot" | "user",
-            botId: doc.botId ?? undefined,
-            path: doc.path,
-          },
-          {
-            operationId: "mem",
-            traceId: "mem",
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-            signal: new AbortController().signal,
-          },
-        );
-        return { ok: true as const };
-      }),
-      exportMarkdown: authed.memory.exportMarkdown.handler(async ({ context, input }) => {
-        const docs = await deps.prisma.memoryDocument.findMany({
-          where: {
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-            ...(input.botId ? { botId: input.botId } : {}),
-          },
-        });
-        return docs.map((d) => `# ${d.path}\n\n${d.content}`).join("\n\n");
-      }),
-      providerConfig: authed.memory.providerConfig.handler(async ({ context }) => {
-        const config = await findSpaceMemoryConfig(deps.prisma, context.actor.spaceId);
-        return config ? serializeSpaceMemoryConfig(config) : null;
-      }),
-      connectProvider: authed.memory.connectProvider.handler(async ({ context, input }) =>
-        persistMemoryProviderConfig(deps, context.actor, input),
-      ),
-      setDefaultScope: authed.memory.setDefaultScope.handler(async ({ context, input }) =>
-        updateMemoryProviderDefaultScope(deps, context.actor, input.defaultMemoryScope),
-      ),
-      disconnectProvider: authed.memory.disconnectProvider.handler(async ({ context }) =>
-        disconnectMemoryProvider(deps, context.actor),
-      ),
-    },
-    routines: {
-      history: authed.routines.history.handler(async ({ context, input }) =>
-        listRoutineRuns(deps.prisma, context.actor, input.routineId, input.before),
-      ),
-      list: authed.routines.list.handler(async ({ context, input }) => {
-        await repos.getBot(context.actor, input.botId);
-        return listRoutinesDto(deps, context.actor, input.botId);
-      }),
-      create: authed.routines.create.handler(async ({ context, input }) => {
-        assertRoutineSchedule(input);
-        const bot = await repos.getBot(context.actor, input.botId);
-        if (input.watch) {
-          try {
-            await validateRoutineWatch(
-              {},
-              input.watch,
-              { ...context.actor, botId: bot.id },
-              bot.computer,
-            );
-          } catch (error) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: error instanceof Error ? error.message : "Invalid change trigger.",
-            });
-          }
-        }
-        await assertRoutineModel(deps, context.actor, input, codexCatalog);
-        const row = await deps.prisma.routine.create({
-          data: routineRowData(context.actor, input, routineNextRunAt(input)),
-        });
-        await announceRoutine(context.actor, bot, row);
-        return mapRoutine(row);
-      }),
-      update: authed.routines.update.handler(async ({ context, input }) => {
-        // Archived bots keep their routines paused, so resolve an active parent before any write.
-        const existing = await deps.prisma.routine.findFirst({
-          where: {
-            id: input.routineId,
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-            bot: { archivedAt: null },
-          },
-        });
-        if (!existing) throw new ORPCError("NOT_FOUND");
-        const bot = await repos.getBot(context.actor, existing.botId);
-        const active = input.active ?? existing.active;
-        const crons = input.crons ?? existing.crons;
-        const timezone = input.timezone ?? existing.timezone;
-        const webhookEnabled = input.webhookEnabled ?? existing.webhookEnabled;
-        const githubEnabled = input.githubEnabled ?? existing.githubEnabled;
-        const messageProvider =
-          input.messageProvider === undefined ? existing.messageProvider : input.messageProvider;
-        const modelProvider =
-          input.modelProvider === undefined ? existing.modelProvider : input.modelProvider;
-        const modelId = input.modelId === undefined ? existing.modelId : input.modelId;
-        const hasModel = Boolean(modelProvider && modelId);
-        const modelChanged =
-          canonicalPiProviderId(modelProvider ?? "") !==
-            canonicalPiProviderId(existing.modelProvider ?? "") || modelId !== existing.modelId;
-        const touchesModel =
-          input.modelProvider !== undefined ||
-          input.modelId !== undefined ||
-          input.thinkingLevel !== undefined;
-        if (Boolean(modelProvider) !== Boolean(modelId)) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "Model provider and model id must both be set or both cleared",
-          });
-        }
-        if (input.thinkingLevel && !hasModel) {
-          throw new ORPCError("BAD_REQUEST", { message: "Pick a model for this routine first" });
-        }
-        // A thinking level belongs to a model, so changing the model resets it.
-        const thinkingLevel = !hasModel
-          ? null
-          : input.thinkingLevel === undefined
-            ? modelChanged
-              ? null
-              : existing.thinkingLevel
-            : input.thinkingLevel;
-        if (modelChanged) {
-          await assertRoutineModel(deps, context.actor, { modelProvider, modelId }, codexCatalog);
-        }
-        const watch = input.watch === undefined ? parseRoutineWatch(existing.watch) : input.watch;
-        if (input.watch) {
-          try {
-            await validateRoutineWatch(
-              {},
-              input.watch,
-              { ...context.actor, botId: bot.id },
-              bot.computer,
-            );
-          } catch (error) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: error instanceof Error ? error.message : "Invalid change trigger.",
-            });
-          }
-        }
-        const watchChanged =
-          input.watch !== undefined &&
-          stableStringify(input.watch) !== stableStringify(parseRoutineWatch(existing.watch));
-        if (crons.length === 0 && !webhookEnabled && !githubEnabled && !messageProvider && !watch) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "Add a schedule, webhook, GitHub, message, or change trigger",
-          });
-        }
-        if (watch && crons.length > 0) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "A change trigger checks on its own interval; remove the schedule",
-          });
-        }
-        if (hasMixedOneShotSchedule(crons)) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "A one-time schedule can't be combined with other schedules.",
-          });
-        }
-        if (active && isOneShotRoutineCrons(crons)) {
-          if (!isOneShotRoutineCrons(existing.crons)) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "One-shot schedules must be created from chat.",
-            });
-          }
-          if (!existing.nextRunAt && existing.lastRunAt) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "This one-shot already ran.",
-            });
-          }
-        }
-        const scheduleChanged =
-          (!existing.active && active) ||
-          (input.crons !== undefined &&
-            JSON.stringify(input.crons) !== JSON.stringify(existing.crons)) ||
-          (input.timezone !== undefined && input.timezone !== existing.timezone);
-        const recalculatedNextRunAt =
-          crons.length > 0 &&
-          !isOneShotRoutineCrons(crons) &&
-          (scheduleChanged || (active && !existing.nextRunAt))
-            ? nextRoutineDate(crons, timezone)
-            : null;
-        let armedOneShotAt: Date | null = null;
-        if (active && isOneShotRoutineCrons(crons) && !existing.nextRunAt && !existing.lastRunAt) {
-          if (!input.runAt) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "Add a run time for this one-shot.",
-            });
-          }
-          const parsed = new Date(input.runAt);
-          if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "Run time must be in the future.",
-            });
-          }
-          armedOneShotAt = parsed;
-        } else if (input.runAt !== undefined) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "A run time is only for one-shots that have not run yet.",
-          });
-        }
-        const nextRunAt = !active
-          ? null
-          : watch
-            ? // Turning a watch on, or changing it, checks right away; otherwise keep its rhythm.
-              !existing.active || watchChanged || !existing.nextRunAt
-              ? firstWatchCheck()
-              : existing.nextRunAt
-            : crons.length === 0
-              ? null
-              : isOneShotRoutineCrons(crons)
-                ? (armedOneShotAt ?? existing.nextRunAt)
-                : (recalculatedNextRunAt ?? existing.nextRunAt);
-        // Re-check the parent in the write itself so an archive that lands after the read wins.
-        // Model patches must also match the snapshot used to resolve omitted model fields.
-        const row = await deps.prisma.routine
-          .update({
-            where: {
-              id: existing.id,
-              bot: { archivedAt: null },
-              ...(touchesModel
-                ? {
-                    modelProvider: existing.modelProvider,
-                    modelId: existing.modelId,
-                    thinkingLevel: existing.thinkingLevel,
-                  }
-                : {}),
-            },
-            data: {
-              name: input.name,
-              prompt: input.prompt,
-              crons: input.crons,
-              timezone: input.timezone,
-              active: input.active,
-              notify: input.notify,
-              webhookEnabled: input.webhookEnabled,
-              githubEnabled: input.githubEnabled,
-              messageProvider: input.messageProvider,
-              ...(touchesModel ? { modelProvider, modelId, thinkingLevel } : {}),
-              // A changed watch starts from a fresh baseline.
-              ...(input.watch === undefined
-                ? {}
-                : {
-                    watch: (input.watch as Prisma.InputJsonValue | null) ?? Prisma.DbNull,
-                    ...(watchChanged ? { watchState: Prisma.DbNull } : {}),
-                  }),
-              nextRunAt,
-            },
-          })
-          .catch(async (error: unknown) => {
-            if (isRecordNotFound(error)) {
-              if (
-                touchesModel &&
-                (await deps.prisma.routine.findFirst({
-                  where: {
-                    id: existing.id,
-                    spaceId: context.actor.spaceId,
-                    userId: context.actor.userId,
-                    bot: { archivedAt: null },
-                  },
-                  select: { id: true },
-                }))
-              ) {
-                throw new ORPCError("CONFLICT", { message: "Routine model changed; retry." });
-              }
-              throw new ORPCError("NOT_FOUND");
-            }
-            throw error;
-          });
-        if (bot.thread) {
-          await deps.events.append({
-            spaceId: context.actor.spaceId,
-            threadId: bot.thread.id,
-            botId: bot.id,
-            type: "routine.updated",
-            payload: { routineId: row.id, active: row.active },
-          });
-        }
-        const scheduleNeedsSync =
-          existing.active !== row.active ||
-          scheduleChanged ||
-          watchChanged ||
-          existing.nextRunAt?.getTime() !== row.nextRunAt?.getTime() ||
-          (!existing.nextRunAt && !!row.nextRunAt);
-        if (scheduleNeedsSync) {
-          if (row.active && row.nextRunAt) {
-            await deps.jobs.enqueue(routineWakeupJob(row.id, row.nextRunAt));
-          } else {
-            await deps.jobs.cancel(routineJobKey(row.id));
-          }
-        }
-        return mapRoutine(row);
-      }),
-      remove: authed.routines.remove.handler(async ({ context, input }) => {
-        const existing = await deps.prisma.routine.findFirst({
-          where: { id: input.routineId, spaceId: context.actor.spaceId },
-        });
-        if (!existing) throw new IsolationError();
-        await deps.prisma.routine.delete({ where: { id: existing.id } });
-        await deps.jobs.cancel(routineJobKey(existing.id));
-        return { ok: true as const };
-      }),
-      testRun: authed.routines.testRun.handler(async ({ context, input }) => {
-        const routine = await deps.prisma.routine.findFirst({
-          where: {
-            id: input.routineId,
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-          },
-        });
-        if (!routine) throw new IsolationError();
-        const bot = await repos.getBot(context.actor, routine.botId);
-        if (!bot.thread) throw new IsolationError();
-        const threadId = bot.thread.id;
-        const nonce = input.clientNonce ? `routine-test:${input.clientNonce}` : undefined;
-        if (nonce) {
-          const existing = await deps.prisma.run.findFirst({
-            where: { threadId, clientNonce: nonce },
-            select: { id: true },
-          });
-          if (existing) return { runId: existing.id };
-        }
-        const skillRecords = await agentSkills.listWithContent(context.actor);
-        const prompt = expandSkillReferencesInPrompt(routine.prompt, skillRecords);
-        let run: { id: string };
-        try {
-          // Task + run must commit together so a nonce collision cannot leave an orphan queued Task.
-          run = await deps.prisma.$transaction(async (tx) => {
-            if (nonce) {
-              const existing = await tx.run.findFirst({
-                where: { threadId, clientNonce: nonce },
-                select: { id: true },
-              });
-              if (existing) return existing;
-            }
-            const task = await tx.task.create({
-              data: {
-                spaceId: context.actor.spaceId,
-                botId: bot.id,
-                threadId,
-                userId: context.actor.userId,
-                prompt,
-                status: "queued",
-              },
-            });
-            const currentModel = await tx.routine.findUnique({
-              where: { id: routine.id },
-              select: { modelProvider: true, modelId: true, thinkingLevel: true },
-            });
-            if (!currentModel) throw new IsolationError();
-            return tx.run.create({
-              data: {
-                spaceId: context.actor.spaceId,
-                botId: bot.id,
-                threadId,
-                taskId: task.id,
-                userId: context.actor.userId,
-                status: "queued",
-                trigger: "routine",
-                routineId: routine.id,
-                ...routineRunModelPin(currentModel),
-                clientNonce: nonce,
-              },
-              select: { id: true },
-            });
-          });
-        } catch (error) {
-          if (nonce) {
-            const existing = await deps.prisma.run.findFirst({
-              where: { threadId, clientNonce: nonce },
-              select: { id: true },
-            });
-            if (existing) return { runId: existing.id };
-          }
-          throw error;
-        }
-        // Keep enqueue outside the nonce-collision catch. The queued run is durable;
-        // log enqueue failures and still return success — the reconciler repairs a missed wake.
-        await deps.jobs.enqueue(runContinueJob(run.id)).catch((error) => {
-          getLogger().error("routine testRun enqueue", error);
-        });
-        return { runId: run.id };
-      }),
-    },
-    scratchpad: {
-      list: authed.scratchpad.list.handler(async ({ context, input }) => {
-        await repos.getBot(context.actor, input.botId);
-        return listScratchpadItems(
-          { prisma: deps.prisma },
-          {
-            spaceId: context.actor.spaceId,
-            botId: input.botId,
-            status: input.status,
-            includeDone: input.includeDone ?? false,
-          },
-        );
-      }),
-      create: authed.scratchpad.create.handler(async ({ context, input }) => {
-        await repos.getBot(context.actor, input.botId);
-        const row = await deps.prisma.scratchpadItem.create({
-          data: {
-            spaceId: context.actor.spaceId,
-            botId: input.botId,
-            userId: context.actor.userId,
-            title: input.title.trim(),
-            status: input.status,
-            notes: input.notes.trim(),
-          },
-        });
-        return mapScratchpadItem(row);
-      }),
-      update: authed.scratchpad.update.handler(async ({ context, input }) => {
-        const existing = await deps.prisma.scratchpadItem.findFirst({
-          where: {
-            id: input.itemId,
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-          },
-        });
-        if (!existing) throw new IsolationError();
-        if (input.status !== undefined && !isScratchpadStatus(input.status)) {
-          throw new ORPCError("BAD_REQUEST", { message: "Invalid scratchpad status." });
-        }
-        const row = await deps.prisma.scratchpadItem.update({
-          where: { id: existing.id },
-          data: {
-            ...(input.title !== undefined ? { title: input.title.trim() } : {}),
-            ...(input.status !== undefined ? { status: input.status } : {}),
-            ...(input.notes !== undefined ? { notes: input.notes.trim() } : {}),
-          },
-        });
-        return mapScratchpadItem(row);
-      }),
-      remove: authed.scratchpad.remove.handler(async ({ context, input }) => {
-        const existing = await deps.prisma.scratchpadItem.findFirst({
-          where: {
-            id: input.itemId,
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-          },
-        });
-        if (!existing) throw new IsolationError();
-        await deps.prisma.scratchpadItem.delete({ where: { id: existing.id } });
-        return { ok: true as const };
-      }),
-    },
+    ...memoryRoutes(ctx),
+    ...routinesRoutes(ctx),
     boards: {
       list: boardEnabled.boards.list.handler(async ({ context }) => {
         await ensureBoard(deps.prisma, context.actor.spaceId);
@@ -1116,58 +562,6 @@ export function createRouter(deps: RouterDeps) {
         const rows = await listTicketComments(deps.prisma, context.actor.spaceId, ticket.id);
         return rows.map(toTicketCommentDto);
       }),
-    },
-    skills: {
-      list: authed.skills.list.handler(async ({ context, input }) => {
-        await repos.getBot(context.actor, input.botId);
-        return taughtSkills.list(context.actor, input.botId);
-      }),
-      get: authed.skills.get.handler(async ({ context, input }) =>
-        taughtSkills.get(context.actor, input.skillId),
-      ),
-      start: authed.skills.start.handler(async ({ context, input }) => {
-        await repos.getBot(context.actor, input.botId);
-        return taughtSkills.start(context.actor, input.botId, input.goal);
-      }),
-      appendEvent: authed.skills.appendEvent.handler(async ({ context, input }) =>
-        taughtSkills.appendEvent(context.actor, input.skillId, input.event),
-      ),
-      snapshot: authed.skills.snapshot.handler(async ({ context, input }) =>
-        taughtSkills.snapshot(context.actor, input.skillId),
-      ),
-      stop: authed.skills.stop.handler(async ({ context, input }) =>
-        taughtSkills.stop(context.actor, input.skillId),
-      ),
-      updateDraft: authed.skills.updateDraft.handler(async ({ context, input }) =>
-        taughtSkills.updateDraft(context.actor, input.skillId, {
-          name: input.name,
-          playbook: input.playbook,
-        }),
-      ),
-      save: authed.skills.save.handler(async ({ context, input }) =>
-        taughtSkills.save(context.actor, input.skillId, input.name),
-      ),
-      testRun: authed.skills.testRun.handler(async ({ context, input }) =>
-        taughtSkills.testRun(context.actor, input.skillId, input.prompt),
-      ),
-      remove: authed.skills.remove.handler(async ({ context, input }) =>
-        taughtSkills.remove(context.actor, input.skillId),
-      ),
-    },
-    agentSkills: {
-      list: authed.agentSkills.list.handler(async ({ context }) => agentSkills.list(context.actor)),
-      get: authed.agentSkills.get.handler(async ({ context, input }) =>
-        agentSkills.get(context.actor, input),
-      ),
-      create: authed.agentSkills.create.handler(async ({ context, input }) =>
-        agentSkills.create(context.actor, input),
-      ),
-      update: authed.agentSkills.update.handler(async ({ context, input }) =>
-        agentSkills.update(context.actor, input),
-      ),
-      remove: authed.agentSkills.remove.handler(async ({ context, input }) =>
-        agentSkills.remove(context.actor, input.skillId),
-      ),
     },
     capabilities: {
       list: authed.capabilities.list.handler(async ({ context }) => {
