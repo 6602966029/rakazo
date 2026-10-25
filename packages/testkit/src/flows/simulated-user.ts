@@ -48,6 +48,7 @@ const CHAT_MOVES = `Moves:
 {"kind":"choose","actionId":"..."}                 press one of the pending card's buttons, by its id
 {"kind":"secret","value":"...","username":"..."}   fill a pending secret card (username only for login cards)
 {"kind":"done","reason":"..."}                     you have nothing more to ask right now, or you give up
+On an approval card, approve when what it shows is what you asked for; deny only something you did not want or that looks wrong.
 Choose "done" when the assistant has finished what you asked and nothing needs your input, or when it is clearly stuck after you have tried to help once.`;
 
 const SCREEN_MOVES = `The assistant handed you its computer screen and is waiting. You see the attached screenshot and control the mouse and keyboard. Do only what the person would do here (for example sign in or enter a code), one action at a time, then give the screen back.
@@ -55,7 +56,8 @@ Moves:
 {"kind":"click","x":0,"y":0}     click at pixel coordinates in the screenshot
 {"kind":"type","text":"..."}      type text into the focused field
 {"kind":"key","key":"Return"}     press a key (xdotool names: Return, Tab, BackSpace, Escape)
-{"kind":"release"}                give the screen back to the assistant`;
+{"kind":"release"}                give the screen back to the assistant
+If a step left the screen unchanged, do something different (close a pop-up, press Escape, click elsewhere) instead of repeating it.`;
 
 const MOVE_ATTEMPTS = 3;
 

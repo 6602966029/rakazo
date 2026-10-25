@@ -331,10 +331,16 @@ export async function runFlow<World>(
     const takeOver = async (wake?: number) => {
       await rpc("computer/takeover", { botId });
       const steps: string[] = [];
+      let before = "";
       for (let step = 0; step < MAX_SCREEN_STEPS; step += 1) {
         await withinLimits();
         const frame = await handles.sandbox.observe(ref, context);
         await record(frame);
+        // A person sees when a click did nothing; without this the model repeats dead clicks.
+        const hash = createHash("sha1").update(frame.image).digest("hex");
+        if (steps.length && hash === before)
+          steps[steps.length - 1] += " (nothing on screen changed)";
+        before = hash;
         const situation: Situation = {
           kind: "screen",
           image: { name: "screen.png", mimeType: frame.mimeType, data: frame.image },
