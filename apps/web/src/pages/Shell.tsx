@@ -755,6 +755,9 @@ function SpaceShell() {
     olderCursor: number | null;
   } | null>(null);
   const manuallyUnread = useRef(new Set<string>());
+  const [markedUnread, setMarkedUnread] = useState<{ visit: number; messageId: string } | null>(
+    null,
+  );
   const readVisibleGroups = useRef(new Set<string>());
   // What the user had read up to when the open chat was opened; the "New" divider
   // follows it for the rest of the visit. Each open of a chat is a new visit.
@@ -854,7 +857,10 @@ function SpaceShell() {
   // automatic read answering after the user marked the chat unread can't undo the hold.
   const markBotRead = useCallback(
     async (id: string, stillWanted?: () => boolean) => {
-      if (!stillWanted) manuallyUnread.current.delete(id);
+      if (!stillWanted) {
+        manuallyUnread.current.delete(id);
+        if (readVisit.current.chat === `bot:${id}`) setMarkedUnread(null);
+      }
       const answer = await readInOrder(`bot:${id}`, () =>
         !stillWanted || stillWanted() ? rpc.threads.markRead({ botId: id }) : Promise.resolve(null),
       );
@@ -867,6 +873,7 @@ function SpaceShell() {
   const markBotUnread = useCallback(
     async (id: string, messageId?: string) => {
       manuallyUnread.current.add(id);
+      const visit = readVisit.current.visit;
       try {
         // Through the chat's read queue, so a read already sent lands first and this one wins.
         await readInOrder(`bot:${id}`, () =>
@@ -876,6 +883,7 @@ function SpaceShell() {
         manuallyUnread.current.delete(id);
         throw err;
       }
+      if (messageId && readVisit.current.visit === visit) setMarkedUnread({ visit, messageId });
       updateBotUnread(id, true);
     },
     [readInOrder, updateBotUnread],
@@ -3007,7 +3015,10 @@ function SpaceShell() {
         } else {
           const groupId = contextGroup!.id;
           if (unread) manuallyUnread.current.add(groupId);
-          else manuallyUnread.current.delete(groupId);
+          else {
+            manuallyUnread.current.delete(groupId);
+            if (readVisit.current.chat === `group:${groupId}`) setMarkedUnread(null);
+          }
           const request = readInOrder(`group:${groupId}`, () =>
             unread ? rpc.threads.markUnread({ groupId }) : rpc.threads.markRead({ groupId }),
           );
@@ -3498,6 +3509,12 @@ function SpaceShell() {
               scrollRequest={scrollRequest}
               onScrollRequestHandled={clearScrollRequest}
               artifactTarget={transcriptArtifactTarget}
+              markedUnreadMessageId={
+                markedUnread?.visit === readVisit.current.visit &&
+                manuallyUnread.current.has(groupId ?? active?.id ?? "")
+                  ? markedUnread.messageId
+                  : undefined
+              }
               transcript={transcript}
               showToolActivity={showToolActivity}
               olderCursor={activeSnapshot?.olderCursor ?? null}
@@ -3526,16 +3543,20 @@ function SpaceShell() {
                 // The next open of this chat starts the New divider at this message.
                 if (groupId) {
                   manuallyUnread.current.add(groupId);
+                  const visit = readVisit.current.visit;
                   void readInOrder(`group:${groupId}`, () =>
                     rpc.threads.markUnread({ groupId, messageId: message.id }),
                   )
-                    .then(() =>
+                    .then(() => {
+                      if (readVisit.current.visit === visit) {
+                        setMarkedUnread({ visit, messageId: message.id });
+                      }
                       setGroups((current) =>
                         current.map((group) =>
                           group.id === groupId ? { ...group, unread: true } : group,
                         ),
-                      ),
-                    )
+                      );
+                    })
                     .catch(() => manuallyUnread.current.delete(groupId));
                 } else if (active) {
                   void markBotUnread(active.id, message.id).catch(() => undefined);
@@ -3562,62 +3583,65 @@ function SpaceShell() {
             />
           )}
         </div>
-        {recordingSkill ? (
-          <div className="px-6 pb-2 text-center text-[13px] text-destructive">
-            <Trans>Teaching in progress. Stop teaching before sending a new message.</Trans>
-          </div>
-        ) : null}
         {active || activeGroup ? (
-          <Composer
-            key={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
-            draftKey={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
-            enterToSend={enterToSend}
-            activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
-            running={composerRunning}
-            disabled={Boolean(recordingSkill)}
-            pendingAttachments={activePendingAttachments}
-            attachmentNotice={attachmentNotice}
-            sendError={sendError}
-            onOpenModels={() => {
-              if (active && !inGroup) {
-                setPanel("settings");
-                setModelFocusRequest(Date.now());
-              } else openSettings("models");
-            }}
-            runError={displayedRunError}
-            runErrorId={displayedRunErrorId}
-            onRunErrorPresented={handleRunErrorPresented}
-            onDismissError={dismissComposerError}
-            sending={sending}
-            fileInputRef={fileInputRef}
-            onAttachmentPick={onAttachmentPick}
-            onRemoveAttachment={removeAttachment}
-            onSend={sendMessage}
-            onStop={stopRun}
-            phoneCallsEnabled={bootstrapMe?.phoneCallsEnabled === true}
-            dictationTranscribe={voiceStatus ? Boolean(voiceStatus.transcribe) : undefined}
-            artifactTarget={transcriptArtifactTarget}
-            replyTarget={activeReplyTarget}
-            replyQuote={activeReplyQuote}
-            replyTargetName={replyTargetName}
-            onClearReply={clearReply}
-            mentionTargets={composerMentionTargets}
-            agentSkills={agentSkills}
-            onSlashOpen={refreshAgentSkills}
-            onSlashAction={(action) => {
-              if (action === "chat-settings") {
-                setPanel(inGroup ? "group-settings" : "settings");
-                return;
-              }
-              if (action === "settings-general") {
-                openSettings("general");
-                return;
-              }
-              if (action === "settings-usage") {
-                openSettings("usage");
-              }
-            }}
-          />
+          // Let messages continue behind the composer's rounded top corners.
+          <div className="pointer-events-none relative z-30 -mt-7">
+            {recordingSkill ? (
+              <div className="pointer-events-auto bg-background px-6 pb-2 text-center text-[13px] text-destructive">
+                <Trans>Teaching in progress. Stop teaching before sending a new message.</Trans>
+              </div>
+            ) : null}
+            <Composer
+              key={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
+              draftKey={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
+              enterToSend={enterToSend}
+              activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
+              running={composerRunning}
+              disabled={Boolean(recordingSkill)}
+              pendingAttachments={activePendingAttachments}
+              attachmentNotice={attachmentNotice}
+              sendError={sendError}
+              onOpenModels={() => {
+                if (active && !inGroup) {
+                  setPanel("settings");
+                  setModelFocusRequest(Date.now());
+                } else openSettings("models");
+              }}
+              runError={displayedRunError}
+              runErrorId={displayedRunErrorId}
+              onRunErrorPresented={handleRunErrorPresented}
+              onDismissError={dismissComposerError}
+              sending={sending}
+              fileInputRef={fileInputRef}
+              onAttachmentPick={onAttachmentPick}
+              onRemoveAttachment={removeAttachment}
+              onSend={sendMessage}
+              onStop={stopRun}
+              phoneCallsEnabled={bootstrapMe?.phoneCallsEnabled === true}
+              dictationTranscribe={voiceStatus ? Boolean(voiceStatus.transcribe) : undefined}
+              artifactTarget={transcriptArtifactTarget}
+              replyTarget={activeReplyTarget}
+              replyQuote={activeReplyQuote}
+              replyTargetName={replyTargetName}
+              onClearReply={clearReply}
+              mentionTargets={composerMentionTargets}
+              agentSkills={agentSkills}
+              onSlashOpen={refreshAgentSkills}
+              onSlashAction={(action) => {
+                if (action === "chat-settings") {
+                  setPanel(inGroup ? "group-settings" : "settings");
+                  return;
+                }
+                if (action === "settings-general") {
+                  openSettings("general");
+                  return;
+                }
+                if (action === "settings-usage") {
+                  openSettings("usage");
+                }
+              }}
+            />
+          </div>
         ) : null}
       </main>
 
