@@ -32,7 +32,6 @@ import type {
   getBotSecretMetadata,
   IntegrationProviderSettings,
   McpConnector,
-  McpOAuthSummary,
   MemoryProviderResolver,
   PiOAuthLogins,
   ProviderCatalogCache,
@@ -46,9 +45,6 @@ import {
   applyProviderLiveCatalog,
   applyTeachingDesktopInput,
   archiveBot,
-  assertSafeRemoteUrl,
-  buildMcpCredentialBlob,
-  buildModelConnectPlaintext,
   CHATGPT_OAUTH_PROVIDER,
   CodexCatalogCache,
   ComputerBusyError,
@@ -56,9 +52,7 @@ import {
   checkpointAndRecordComputerWorkspace,
   clearInactiveUserComputerControl,
   codexLiveCatalogsForSpace,
-  codexLiveListsModel,
   commentTicket,
-  compatibleThinkingLevels,
   computerSupportsTerminal,
   computerSupportsUpdate,
   computerUpdateView,
@@ -66,10 +60,8 @@ import {
   createFaviconResolver,
   createTicket,
   decisionModelCatalog,
-  defaultCatalogModelId,
   deploymentAutoReviewDefault,
   deploymentModelRole,
-  destroyBot,
   displayBotWorkspacePath,
   effectiveModelRole,
   enqueueTakeoverContinuation,
@@ -80,7 +72,6 @@ import {
   hasActiveComputerControl,
   hasHostedModelCredits,
   hostCredentialSource,
-  isAllowedStdioCommand,
   isAutoReviewCheckerConfigured,
   isComputerScreenUnavailable,
   isSandboxGoneError,
@@ -92,23 +83,19 @@ import {
   listScratchpadItems,
   McpOAuthBroker,
   mapScratchpadItem,
-  mcpServerHealthDto,
   modelCredentialAuthKindsForSpace,
   modelCredentialDto,
   normalizeSecretDestination,
   oauthCredentialEmail,
   PushSessionEndedError,
   pageUrlOrigin,
-  parseModelSecret,
   parseRoutineWatch,
-  parseRoutineWatchState,
   persistPreparedSecret,
   pickReusableConnection,
   planLiveConnectionSync,
   prepareApiInstall,
   prepareGraphqlInstall,
   prepareManagedConnectorForTransaction,
-  prepareAllowedThinkingLevels as prepareModelThinkingLevels,
   prepareStoredModelAuth,
   probeCatalogProviderModels,
   probeOpenAiCompatibleModels,
@@ -145,11 +132,8 @@ import {
   updateTicket,
   validateBotModelChange,
   validateConnectedModelChoice,
-  validateModelAuthAvailability,
   validateRoutineWatch,
-  verifyCatalogProviderApiKey,
   verifyMcpInstall,
-  verifyOpenAiCompatibleApiKey,
 } from "@rakazo/adapters";
 import type { Auth } from "@rakazo/auth";
 import type {
@@ -160,19 +144,14 @@ import type {
   BotSecretMetadata,
   ComputerReleaseReason,
   ComputerStatus,
-  CreateRoutineInput,
   ExportManifest,
-  McpServer,
-  McpServerConfigInput,
   Me,
   ModelCatalogEntry,
-  ModelConnectInput,
   ModelRole,
   ModelRoleChoice,
   ModelRoleSettings,
   ModelRoleView,
   ProductEvent,
-  Routine,
   SpaceNavigation,
   ThinkingLevel,
 } from "@rakazo/contracts";
@@ -187,13 +166,10 @@ import {
   foldComputerCommands,
   isDeletableMemoryDocument,
   isOllamaCloudBaseUrl,
-  ModelConnectInputSchema,
-  mcpOAuthEnvReferences,
   modelSupportsRole,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   parseTicketRef,
   signupSurveyAsksTeamSize,
-  storedPiProviderIds,
   usableModelId,
 } from "@rakazo/contracts";
 import {
@@ -209,16 +185,9 @@ import {
   hasMixedOneShotSchedule,
   isOneShotRoutineCrons,
   MODEL_REQUIRED_SEND_ERROR,
-  nextCronDateAcrossStrict,
   QUEUE_HOLDING_RUN_STATUSES,
 } from "@rakazo/core";
-import type {
-  BoardEvents,
-  Board as BoardRow,
-  McpServer as McpServerRow,
-  PrismaClient,
-  ThreadEvents,
-} from "@rakazo/db";
+import type { BoardEvents, Board as BoardRow, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   AnswerTooLongError,
   appendEventInTransaction,
@@ -243,7 +212,6 @@ import {
   findDefaultVoiceCredential,
   findModelCredential,
   findModelCredentialById,
-  findNewestUserModelCredential,
   findSpaceMemoryConfig,
   findTicket,
   formatMessagingLinkCode,
@@ -288,6 +256,7 @@ import {
   previewAgentImport,
   undoAgentImport,
 } from "./agent-import.js";
+import { createAgentImportServices } from "./agent-import-services.js";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "./agent-secrets.js";
 import { createAgentSkillsService } from "./agent-skills.js";
 import { aiConsentStatus, allowAiConsent } from "./ai-consent.js";
@@ -302,19 +271,24 @@ import {
   listSpaceArtifacts,
 } from "./artifacts.js";
 import type { BillingService } from "./billing.js";
+import { createBotRemoval } from "./bot-removal.js";
 import {
   executionBlocksUserTakeover,
   resolveBusyBotName,
   toComputerStatus,
 } from "./computer-status.js";
 import { searchIntegrationCatalog } from "./integration-catalog.js";
-import {
-  dismissMcpServerApprovals,
-  resolveMcpApprovalCards,
-  revertConnectedMcpApprovals,
-} from "./mcp-approval.js";
-import type { McpSecretMaterial } from "./mcp-material.js";
+import { resolveMcpApprovalCards, revertConnectedMcpApprovals } from "./mcp-approval.js";
 import { buildMcpUpdateMaterial } from "./mcp-material.js";
+import {
+  assertMcpOAuthTemplates,
+  assertMcpRemoteEndpoint,
+  createMcpServers,
+  MCP_OAUTH_PENDING_MESSAGE,
+  mayUsePrivateEndpoint,
+  mcpAssignmentDto,
+  mcpServerDto,
+} from "./mcp-servers.js";
 import {
   disconnectMemoryProvider,
   persistMemoryProviderConfig,
@@ -322,20 +296,38 @@ import {
   updateMemoryProviderDefaultScope,
 } from "./memory-provider-config.js";
 import {
+  createModelConnector,
+  modelConnectionTarget,
+  persistModelCredential,
+  prepareAllowedThinkingLevels,
+  throwIfAborted,
+} from "./model-credentials.js";
+import { assertCompatibleDefaultChange, assertRoutineModel } from "./model-pins.js";
+import {
   chooseFocus,
   dismissFocus,
   markAppConnected,
   promptFocus,
   startOnboarding,
 } from "./onboarding.js";
+import { computerContext } from "./routes/shared.js";
 import { listRoutineRuns } from "./routine-runs.js";
+import {
+  assertRoutineSchedule,
+  createRoutineAnnouncer,
+  firstWatchCheck,
+  listRoutinesDto,
+  mapRoutine,
+  nextRoutineDate,
+  routineNextRunAt,
+  routineRowData,
+} from "./routines.js";
 import { listSpaceRuns } from "./runs.js";
 import { addScreenProxyCapability } from "./screen-proxy.js";
 import { querySpaceSearch } from "./search.js";
 import { connectionCreatedEvent, procedureSecurityEvent } from "./security-audit.js";
 import { withSerializableRetry } from "./serializable-retry.js";
 import { deleteSpaceWithContent } from "./space-deletion.js";
-
 import { assertTeachingSendAllowed, createTaughtSkillsService } from "./taught-skills.js";
 import {
   isBackgroundRun,
@@ -519,76 +511,6 @@ async function lockProviderConnectionScope(
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('connection-provider'), hashtext(${scope}))`;
 }
 
-function computerContext(actor: Actor, botId: string, operationId: string): AdapterContext {
-  return {
-    operationId,
-    traceId: operationId,
-    spaceId: actor.spaceId,
-    userId: actor.userId,
-    botId,
-    signal: new AbortController().signal,
-  };
-}
-
-function mcpServerDto(
-  row: {
-    id: string;
-    spaceId: string;
-    slug: string;
-    name: string;
-    description: string;
-    transport: string;
-    endpoint: string | null;
-    command: string | null;
-    args: unknown;
-    env: unknown;
-    files: unknown;
-    headers: unknown;
-    secretId: string | null;
-    enabled: boolean;
-    revision: number;
-    healthStatus: string;
-    healthMessage: string | null;
-    healthToolCount: number | null;
-    healthCheckedAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  },
-  oauth: McpOAuthSummary = { status: "none", clientId: null },
-): McpServer {
-  const args = Array.isArray(row.args)
-    ? row.args.filter((item): item is string => typeof item === "string")
-    : [];
-  const keysOf = (value: unknown) =>
-    value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : [];
-  const envKeys = keysOf(row.env);
-  const headerKeys = keysOf(row.headers);
-  return {
-    id: row.id,
-    spaceId: row.spaceId,
-    slug: row.slug,
-    name: row.name,
-    description: row.description,
-    transport: row.transport as McpServer["transport"],
-    endpoint: row.endpoint,
-    command: row.command,
-    args,
-    envKeys,
-    fileKeys: keysOf(row.files),
-    headerKeys,
-    hasSecret: row.secretId !== null,
-    oauthStatus: oauth.status,
-    oauthClientId: oauth.clientId,
-    enabled: row.enabled,
-    revision: row.revision,
-    health: mcpServerHealthDto(row),
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
-const MCP_OAUTH_PENDING_MESSAGE = "Connect this server's account to check it.";
-
 function connectionContext(
   actor: Pick<Actor, "spaceId" | "userId">,
   operationId: string,
@@ -600,83 +522,6 @@ function connectionContext(
     spaceId: actor.spaceId,
     userId: actor.userId,
     signal: signal ?? new AbortController().signal,
-  };
-}
-
-/** Private server endpoints require explicit operator configuration. */
-function mayUsePrivateEndpoint(deps: Pick<RouterDeps, "env">): boolean {
-  return deps.env.mcpAllowPrivateEndpoint === true;
-}
-
-async function assertMcpRemoteEndpoint(
-  endpoint: string | null | undefined,
-  deps: Pick<RouterDeps, "remoteConnectors" | "env">,
-): Promise<void> {
-  if (!endpoint) return;
-  try {
-    await assertSafeRemoteUrl(endpoint, deps.remoteConnectors?.resolveHostname, {
-      allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
-    });
-  } catch (error) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: error instanceof Error ? error.message : "MCP endpoint is invalid",
-    });
-  }
-}
-
-/** A stdio server gets its OAuth grant through `{{oauth.*}}` references in env
- * values and credential file templates, so they must name real fields and the
- * server must have a client to run the flow. A key is either a value or a file path. */
-function assertMcpOAuthTemplates(
-  env: Record<string, string>,
-  files: Record<string, string>,
-  hasOAuthClient: boolean,
-): void {
-  for (const key of Object.keys(files)) {
-    if (key in env) {
-      throw new ORPCError("BAD_REQUEST", {
-        message: `${key} is set as both an environment variable and a credential file`,
-      });
-    }
-  }
-  const sources = [
-    ...Object.entries(env).map(([key, value]) => ({ label: `Environment variable ${key}`, value })),
-    ...Object.entries(files).map(([key, value]) => ({ label: `Credential file ${key}`, value })),
-  ];
-  for (const { label, value } of sources) {
-    const { fields, unknown } = mcpOAuthEnvReferences(value);
-    if (unknown[0] !== undefined) {
-      throw new ORPCError("BAD_REQUEST", {
-        message: `${label} references unknown OAuth field {{oauth.${unknown[0]}}}`,
-      });
-    }
-    if (fields[0] !== undefined && !hasOAuthClient) {
-      throw new ORPCError("BAD_REQUEST", {
-        message: `${label} uses {{oauth.${fields[0]}}}, which needs an OAuth client`,
-      });
-    }
-  }
-}
-
-function mcpAssignmentDto(row: {
-  id: string;
-  botId: string;
-  serverId: string;
-  allowAllTools: boolean;
-  allowedTools: unknown;
-  createdAt: Date;
-  updatedAt: Date;
-}) {
-  return {
-    id: row.id,
-    botId: row.botId,
-    serverId: row.serverId,
-    allowAllTools: row.allowAllTools,
-    allowedTools: Array.isArray(row.allowedTools)
-      ? row.allowedTools.filter((item): item is string => typeof item === "string")
-      : [],
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
@@ -1004,255 +849,21 @@ export function createRouter(deps: RouterDeps) {
   });
   const onboardingDeps = { prisma: deps.prisma, events: deps.events, connectors: deps.connectors };
   const mcpOAuth = deps.mcpOAuth ?? new McpOAuthBroker(deps.prisma, deps.secrets);
-  const mcpAwaitsOAuth = async (server: McpServerRow, actor: Actor, oauth: McpOAuthSummary) => {
-    if (oauth.status === "connected") return false;
-    const secret = server.secretId
-      ? await deps.prisma.secret.findFirst({
-          where: { id: server.secretId, spaceId: actor.spaceId, userId: actor.userId },
-        })
-      : null;
-    const material: McpSecretMaterial = secret
-      ? JSON.parse(await deps.secrets.load(secret.ciphertext, { recordId: secret.id }))
-      : {};
-    const needsGrant = [
-      ...Object.values(material.env ?? {}),
-      ...Object.values(material.files ?? {}),
-    ].some((value) => mcpOAuthEnvReferences(value).fields.length > 0);
-    return (
-      needsGrant ||
-      (oauth.clientId !== null &&
-        !material.secret &&
-        Object.keys(material.headers ?? {}).length === 0)
-    );
-  };
-  const probeMcpServer = async (server: McpServerRow, actor: Actor): Promise<void> => {
-    if (!deps.mcp) return;
-    try {
-      // The connector records the outcome itself.
-      await deps.mcp.probe(server, { spaceId: actor.spaceId, userId: actor.userId });
-    } catch {
-      getLogger().error("mcp server probe failed", { "mcp.server.id": server.id });
-      await recordMcpServerHealth(deps.prisma, server.id, {
-        status: "error",
-        message: "Could not check this MCP server",
-      });
-    }
-  };
-  /**
-   * After a server is created, reconfigured or its OAuth connected: show `installing` (stdio
-   * may have to download a package) and probe in the background so the settings page turns
-   * ok/error without a click. Returns the row with the health the caller should display.
-   * Never throws; a probe problem must not fail the save.
-   */
-  const beginMcpProbe = async (
-    row: McpServerRow,
-    actor: Actor,
-    oauth: McpOAuthSummary,
-  ): Promise<McpServerRow> => {
-    if (!deps.mcp || !row.enabled) return row;
-    const shown = async (
-      status: "unknown" | "installing",
-      message: string | null,
-    ): Promise<McpServerRow> => {
-      await recordMcpServerHealth(deps.prisma, row.id, { status, message });
-      return {
-        ...row,
-        healthStatus: status,
-        healthMessage: message,
-        healthToolCount: null,
-        healthCheckedAt: new Date(),
-      };
-    };
-    if (await mcpAwaitsOAuth(row, actor, oauth)) return shown("unknown", MCP_OAUTH_PENDING_MESSAGE);
-    const display = row.transport === "stdio" ? await shown("installing", null) : row;
-    void probeMcpServer(row, actor);
-    return display;
-  };
-  const removeMcpServerInTransaction = async (
-    tx: Prisma.TransactionClient,
-    actor: Actor,
-    server: { id: string; secretId: string | null },
-  ) => {
-    const painted = await dismissMcpServerApprovals(onboardingDeps, actor, server.id, tx);
-    await tx.mcpServer.delete({ where: { id: server.id } });
-    if (server.secretId) {
-      await tx.secret.deleteMany({
-        where: {
-          id: server.secretId,
-          spaceId: actor.spaceId,
-          userId: actor.userId,
-        },
-      });
-    }
-    return painted;
-  };
-  const prepareMcpServer = async (actor: Actor, input: McpServerConfigInput) => {
-    await assertMcpRemoteEndpoint("endpoint" in input ? input.endpoint : null, deps);
-    if (input.transport === "stdio") {
-      assertMcpOAuthTemplates(input.env, input.files ?? {}, Boolean(input.oauthClient));
-      await assertMcpRemoteEndpoint(input.oauthClient?.authorizationServer, deps);
-    }
-    const secretPayload = buildMcpCredentialBlob(input);
-    return secretPayload
-      ? await deps.secrets.put(secretPayload, computerContext(actor, "mcp", "mcp.create"))
-      : null;
-  };
-  const insertMcpServer = async (
-    tx: Prisma.TransactionClient,
-    actor: Actor,
-    input: McpServerConfigInput,
-    stored: Awaited<ReturnType<typeof prepareMcpServer>>,
-  ) => {
-    if (stored) {
-      await tx.secret.create({
-        data: {
-          id: stored.id,
-          userId: actor.userId,
-          spaceId: actor.spaceId,
-          kind: "mcp",
-          ciphertext: stored.ciphertext,
-        },
-      });
-    }
-    return tx.mcpServer.create({
-      data: {
-        spaceId: actor.spaceId,
-        userId: actor.userId,
-        slug: input.slug,
-        name: input.name,
-        description: input.description,
-        transport: input.transport,
-        endpoint: "endpoint" in input ? input.endpoint : null,
-        command: "command" in input ? input.command : null,
-        args: ("args" in input ? input.args : []) as Prisma.InputJsonValue,
-        env: ("env" in input
-          ? Object.fromEntries(Object.keys(input.env).map((key) => [key, true]))
-          : {}) as Prisma.InputJsonValue,
-        files: Object.fromEntries(
-          Object.keys("files" in input ? (input.files ?? {}) : {}).map((key) => [key, true]),
-        ) as Prisma.InputJsonValue,
-        headers: ("headers" in input
-          ? Object.fromEntries(Object.keys(input.headers).map((key) => [key, true]))
-          : {}) as Prisma.InputJsonValue,
-        secretId: stored?.id,
-        enabled: input.enabled,
-      },
-    });
-  };
-  const announceMcpServer = async (row: McpServerRow, actor: Actor) => {
-    const oauth = await mcpOAuth.summaryFor(row, actor);
-    return mcpServerDto(await beginMcpProbe(row, actor, oauth), oauth);
-  };
-  const announceRoutine = async (
-    actor: Actor,
-    bot: { id: string; thread: { id: string } | null },
-    row: Awaited<ReturnType<typeof deps.prisma.routine.create>>,
-  ) => {
-    if (bot.thread) {
-      await deps.events.append({
-        spaceId: actor.spaceId,
-        threadId: bot.thread.id,
-        botId: bot.id,
-        type: "routine.created",
-        payload: { name: row.name },
-      });
-    }
-    if (row.active && row.nextRunAt) {
-      await deps.jobs.enqueue(routineWakeupJob(row.id, row.nextRunAt));
-    }
-  };
+  const {
+    mcpAwaitsOAuth,
+    probeMcpServer,
+    beginMcpProbe,
+    removeMcpServerInTransaction,
+    prepareMcpServer,
+    insertMcpServer,
+    announceMcpServer,
+  } = createMcpServers(deps, onboardingDeps, mcpOAuth);
+  const announceRoutine = createRoutineAnnouncer(deps);
   const codexCatalog = deps.codexCatalog ?? new CodexCatalogCache();
-  const verifyModelConnection = async (
-    actor: Actor,
-    input: ModelConnectInput,
-    signal: AbortSignal | undefined,
-  ) => {
-    const credential = await modelConnectionTarget(deps, actor, input.provider, input.credentialId);
-    let plaintext: string;
-    try {
-      let previousPlaintext: string | undefined;
-      let omitVisionModelIds = false;
-      if (credential) {
-        const secret = await deps.prisma.secret.findFirst({
-          where: { id: credential.secretId, userId: actor.userId, spaceId: null },
-          select: { ciphertext: true },
-        });
-        if (secret) {
-          try {
-            previousPlaintext = await deps.secrets.load(secret.ciphertext, credential.secretId);
-          } catch (error) {
-            // Explicit key replacement must still succeed when the prior
-            // ciphertext is unreadable. For OpenAI-compatible connections,
-            // omit visionModelIds so a partial one-model list does not wipe
-            // other enabled models; DB supportsImages + defaultModel remain
-            // the legacy fallback.
-            if (input.apiKey === undefined) throw error;
-            if (input.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
-              omitVisionModelIds = true;
-            }
-          }
-        }
-      }
-      plaintext = buildModelConnectPlaintext(input, previousPlaintext, {
-        omitVisionModelIds,
-        allowPrivateEndpoint: mayUsePrivateEndpoint(deps),
-      });
-      if (input.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
-        const saved = parseModelSecret(plaintext);
-        if (saved.kind === "openai_compatible") {
-          await verifyOpenAiCompatibleApiKey(saved, deps.modelConnectionFetch, signal);
-        }
-      }
-      if (input.apiKey?.trim()) {
-        await verifyCatalogProviderApiKey(
-          { provider: input.provider, apiKey: input.apiKey },
-          deps.modelConnectionFetch,
-          signal,
-        );
-      }
-    } catch (error) {
-      throw new ORPCError("BAD_REQUEST", {
-        message: error instanceof Error ? error.message : "Invalid model connection",
-      });
-    }
-    if (input.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
-      // Limits: this runs before persistModelCredential's transaction. A pin saved in
-      // between can fall outside the stored list and then fails at run time with
-      // "Unknown model for that provider". Closing it needs every pin write (bots,
-      // routines, backups) serializable. Concurrent saves of the same connection are
-      // last-write-wins, as before this list existed, so one save's ticks can be dropped.
-      const saved = parseModelSecret(plaintext);
-      if (credential)
-        await assertNoDanglingModelPins(deps, actor, credential, saved, input.modelId ?? "");
-    }
-    return { plaintext, credential };
-  };
-  const connectModelCredential = async (
-    actor: Actor,
-    input: ModelConnectInput,
-    signal: AbortSignal | undefined,
-  ) => {
-    const { plaintext, credential } = await verifyModelConnection(actor, input, signal);
-    return persistModelCredential(
-      deps,
-      actor,
-      {
-        provider: input.provider,
-        credentialId: credential?.id ?? null,
-        plaintext,
-        label: input.label,
-        modelId: input.modelId,
-        // openai-compatible keeps its effort inside the stored endpoint
-        // secret; catalog providers store it on the space preference.
-        thinkingLevel:
-          input.provider === OPENAI_COMPATIBLE_PROVIDER_ID ? undefined : input.thinkingLevel,
-        makeDefault: input.makeDefault,
-        supportsImages: input.supportsImages,
-        signal,
-      },
-      codexCatalog,
-    );
-  };
+  const { verifyModelConnection, connectModelCredential } = createModelConnector(
+    deps,
+    codexCatalog,
+  );
   const favicons = deps.favicons ?? createFaviconResolver();
   const refreshExpiredCredential =
     deps.refreshExpiredModelCredential ??
@@ -1269,128 +880,19 @@ export function createRouter(deps: RouterDeps) {
       return { provider: me.defaultProvider, model: me.defaultModel };
     },
   });
-  const removeBot = async (
-    actor: Actor,
-    botId: string,
-    options: Parameters<typeof destroyBot>[3],
-  ) => {
-    const bot = await repos.getBot(actor, botId, { includeArchived: true });
-    await destroyBot(
-      {
-        prisma: deps.prisma,
-        sandbox: deps.sandbox,
-        home: deps.home,
-        jobs: deps.jobs,
-        artifacts: deps.artifacts,
-        dataDir: deps.dataDir,
-      },
-      bot,
-      {
-        operationId: "destroy",
-        traceId: "destroy",
-        spaceId: actor.spaceId,
-        userId: actor.userId,
-        botId: bot.id,
-        signal: new AbortController().signal,
-      },
-      options,
-    );
-  };
-  type ImportKey = {
-    credential: Parameters<typeof prepareModelCredential>[2];
-    prepared: Awaited<ReturnType<typeof prepareModelCredential>>;
-  };
-  const agentImportServices: AgentImportServices<ImportKey> = {
-    prisma: deps.prisma,
-    // Serializable so the create-only key check cannot race a connection saved meanwhile.
-    createBot: (actor, input) =>
-      withSerializableRetry(() =>
-        repos.createBot(actor, {
-          ...input,
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        }),
-      ),
-    hasModelConnection: async (actor, provider) =>
-      Boolean(await findModelCredential(deps.prisma, actor, provider)),
-    mcpCredentialValues: async (actor, server) => {
-      const secret = await deps.prisma.secret.findFirst({
-        where: { id: server.secretId, spaceId: actor.spaceId, userId: actor.userId },
-      });
-      if (!secret) return null;
-      // A decrypt or parse error can quote the secret, so it is neither rethrown nor logged.
-      try {
-        return mcpCredentialRecords(
-          JSON.parse(await deps.secrets.load(secret.ciphertext, { recordId: secret.id })),
-        );
-      } catch {
-        getLogger().warn("imported mcp server credential could not be read", {
-          "mcp.server.id": server.id,
-        });
-        return null;
-      }
-    },
-    connectedProviders: async (actor, providers) => {
-      const rows = await deps.prisma.userModelCredential.findMany({
-        where: { userId: actor.userId },
-        select: { provider: true },
-      });
-      const have = new Set(rows.map((row) => canonicalPiProviderId(row.provider)));
-      return new Set(providers.filter((provider) => have.has(canonicalPiProviderId(provider))));
-    },
-    validateBotModel: async (actor, provider, modelId) => {
-      const result = await validateBotModelChange(botModelValidation(actor), {
-        userId: actor.userId,
-        spaceId: actor.spaceId,
-        provider,
-        model: modelId,
-        thinkingLevel: undefined,
-        current: { provider: null, model: null },
-      });
-      return result.ok ? null : result.error;
-    },
-    stdioAllowed: (command) =>
-      deps.env.mcpStdioEnabled === true &&
-      isAllowedStdioCommand(command, deps.env.mcpStdioAllowedCommands ?? []),
-    prepareModelKey: async (actor, input, signal) => {
-      const connect = ModelConnectInputSchema.parse({ ...input, credentialId: null });
-      const { plaintext } = await verifyModelConnection(actor, connect, signal);
-      const credential = {
-        provider: input.provider,
-        credentialId: null,
-        plaintext,
-        modelId: input.modelId,
-        signal,
-        keepExistingDefault: true,
-      };
-      return {
-        credential,
-        prepared: await prepareModelCredential(deps, actor, credential, codexCatalog),
-      };
-    },
-    writeModelKey: async (tx, actor, key) => {
-      const row = await createImportedModelCredential(tx, actor, key.credential, key.prepared);
-      return row && { id: row.id, secretId: row.secretId, provider: row.provider };
-    },
-    afterModelKey: (provider) =>
-      (deps.providerCatalog ?? providerCatalogCache).invalidate(canonicalPiProviderId(provider)),
+  const removeBot = createBotRemoval(deps, repos);
+  const agentImportServices = createAgentImportServices({
+    deps,
+    repos,
+    codexCatalog,
+    verifyModelConnection,
+    botModelValidation,
     prepareMcpServer,
     insertMcpServer,
-    inTransaction: (run) =>
-      withSerializableRetry(() =>
-        deps.prisma.$transaction(run, {
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        }),
-      ),
-    findBot: async (actor, botId) =>
-      (await repos.listBots(actor)).find((bot) => bot.id === botId) ?? null,
-    assertRoutineSchedule,
-    routineNextRunAt,
-    routineRowData,
     announceRoutine,
-    destroyBot: removeBot,
-    removeMcpServer: removeMcpServerInTransaction,
-    notifyThread: (threadId, seq) => deps.events.notify(threadId, seq),
-  };
+    removeBot,
+    removeMcpServerInTransaction,
+  });
   // The scripted fixture only exists to drive the scripted runtime; a real runtime
   // cannot execute it, so it stays out of the user-facing catalog otherwise.
   const chatCatalog = async (actor: Actor) => {
@@ -7466,28 +6968,6 @@ async function modelSetup(deps: RouterDeps, actor: Actor) {
   };
 }
 
-function prepareAllowedThinkingLevels(
-  deps: RouterDeps,
-  actor: Actor,
-  provider: string,
-  modelId: string,
-  resolution?: { credentialId?: string | null },
-) {
-  return prepareModelThinkingLevels(
-    { prisma: deps.prisma, secretStore: deps.secrets },
-    actor,
-    provider,
-    modelId,
-    resolution,
-  );
-}
-
-async function allowedThinkingLevels(
-  ...args: Parameters<typeof prepareAllowedThinkingLevels>
-): Promise<string[] | undefined> {
-  return (await prepareAllowedThinkingLevels(...args)).allowed;
-}
-
 async function computerStatus(
   deps: RouterDeps,
   actor: Actor,
@@ -7758,522 +7238,6 @@ function computerHostFor(
   if (sandboxProvider !== "docker") return null;
   if (stored === "this-mac" || stored === "docker") return stored;
   return null;
-}
-
-/**
- * The connection a save updates: the named one, none for a new one, or the provider's
- * newest for apps that predate several connections per provider.
- */
-async function modelConnectionTarget(
-  deps: RouterDeps,
-  actor: Actor,
-  provider: string,
-  credentialId: string | null | undefined,
-) {
-  if (credentialId === null) return null;
-  if (credentialId === undefined)
-    return findNewestUserModelCredential(deps.prisma, actor.userId, provider);
-  const credential = await deps.prisma.userModelCredential.findFirst({
-    where: {
-      id: credentialId,
-      userId: actor.userId,
-      provider: modelCredentialProviderFilter(provider),
-    },
-  });
-  if (!credential) throw new ORPCError("NOT_FOUND", { message: "Connection not found" });
-  return credential;
-}
-
-/** `base`, or `base 2`, `base 3`… when another connection already has that name. */
-export function nextConnectionLabel(base: string, taken: readonly string[]): string {
-  const names = new Set(taken.map((label) => label.trim().toLowerCase()));
-  if (!names.has(base.toLowerCase())) return base;
-  let index = 2;
-  while (names.has(`${base} ${index}`.toLowerCase())) index += 1;
-  return `${base} ${index}`;
-}
-
-type ModelCredentialInput = {
-  provider: string;
-  /** The connection to update, or null to add one. */
-  credentialId: string | null;
-  plaintext: string;
-  label?: string;
-  modelId?: string;
-  thinkingLevel?: string | null;
-  /** False keeps another connection as the space default. */
-  makeDefault?: boolean;
-  supportsImages?: boolean;
-  signal?: AbortSignal;
-  /** Becomes the main model only while the space has none. */
-  keepExistingDefault?: boolean;
-};
-
-async function prepareModelCredential(
-  deps: RouterDeps,
-  actor: Actor,
-  input: ModelCredentialInput,
-  codexCatalog: CodexLiveCatalog,
-) {
-  throwIfAborted(input.signal);
-  const requestedModelId = usableModelId(input.modelId);
-  const authError = requestedModelId
-    ? validateModelAuthAvailability(input.provider, requestedModelId, input.plaintext)
-    : undefined;
-  // The backend's live catalog can clear a static OAuth exclusion for the
-  // account this credential signs into (e.g. Codex Spark on ChatGPT plans).
-  if (
-    authError &&
-    requestedModelId &&
-    !(await codexLiveListsModel(
-      codexCatalog,
-      actor.userId,
-      parseModelSecret(input.plaintext),
-      requestedModelId,
-    ))
-  ) {
-    throw new ORPCError("BAD_REQUEST", { message: authError });
-  }
-  const defaultModel =
-    requestedModelId ??
-    defaultCatalogModelId(input.provider, input.plaintext) ??
-    usableModelId(deps.env.defaultModel);
-  // A compatible connect may enable its new default, so judge it by the secret being saved.
-  const allowedThinking = !defaultModel
-    ? undefined
-    : input.provider === OPENAI_COMPATIBLE_PROVIDER_ID
-      ? compatibleThinkingLevels(
-          { id: "", provider: input.provider, label: "", defaultModel },
-          input.plaintext,
-          defaultModel,
-        ).allowed
-      : await allowedThinkingLevels(deps, actor, input.provider, defaultModel);
-  const stored = await deps.secrets.put(input.plaintext, {
-    operationId: "cred",
-    traceId: "cred",
-    spaceId: actor.spaceId,
-    userId: actor.userId,
-    signal: input.signal ?? new AbortController().signal,
-  });
-  return { stored, defaultModel, allowedThinking };
-}
-
-function mcpCredentialRecords(
-  material: unknown,
-): { headers: Record<string, string>; env: Record<string, string> } | null {
-  const record = (value: unknown): Record<string, string> | null => {
-    if (value === undefined) return {};
-    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-    const entries = Object.entries(value);
-    return entries.every(([, item]) => typeof item === "string")
-      ? (Object.fromEntries(entries) as Record<string, string>)
-      : null;
-  };
-  if (!material || typeof material !== "object" || Array.isArray(material)) return null;
-  const { headers, env } = material as { headers?: unknown; env?: unknown };
-  const parsed = { headers: record(headers), env: record(env) };
-  return parsed.headers && parsed.env ? { headers: parsed.headers, env: parsed.env } : null;
-}
-
-/** Create-only: null when the provider is already connected. */
-async function createImportedModelCredential(
-  tx: Prisma.TransactionClient,
-  actor: Actor,
-  input: ModelCredentialInput,
-  prepared: Awaited<ReturnType<typeof prepareModelCredential>>,
-) {
-  const existing = await tx.userModelCredential.findFirst({
-    where: { userId: actor.userId, provider: { in: storedPiProviderIds(input.provider) } },
-    select: { id: true },
-  });
-  if (existing) return null;
-  return writeModelCredential(tx, actor, input, prepared);
-}
-
-async function writeModelCredential(
-  tx: Prisma.TransactionClient,
-  actor: Actor,
-  input: ModelCredentialInput,
-  prepared: Awaited<ReturnType<typeof prepareModelCredential>>,
-) {
-  const { stored, defaultModel, allowedThinking } = prepared;
-  throwIfAborted(input.signal);
-  const existing = input.credentialId
-    ? await tx.userModelCredential.findFirst({
-        where: {
-          id: input.credentialId,
-          userId: actor.userId,
-          provider: { in: storedPiProviderIds(input.provider) },
-        },
-      })
-    : null;
-  // A connection removed while this save was in flight stays removed.
-  if (input.credentialId && !existing)
-    throw new ORPCError("NOT_FOUND", { message: "Connection not found" });
-  throwIfAborted(input.signal);
-  const secret = await tx.secret.create({
-    data: {
-      id: stored.id,
-      userId: actor.userId,
-      spaceId: null,
-      kind: "model",
-      ciphertext: stored.ciphertext,
-    },
-  });
-  throwIfAborted(input.signal);
-  const credential = !existing
-    ? await tx.userModelCredential.create({
-        data: {
-          userId: actor.userId,
-          provider: input.provider,
-          label: nextConnectionLabel(
-            input.label?.trim() || input.provider,
-            (
-              await tx.userModelCredential.findMany({
-                where: { userId: actor.userId },
-                select: { label: true },
-              })
-            ).map((row) => row.label),
-          ),
-          secretId: secret.id,
-          supportsImages: input.supportsImages ?? false,
-        },
-      })
-    : await tx.userModelCredential.update({
-        where: { id: existing.id },
-        // A new key or sign-in keeps the connection's name.
-        data: {
-          secretId: secret.id,
-          ...(input.supportsImages !== undefined ? { supportsImages: input.supportsImages } : {}),
-        },
-      });
-  throwIfAborted(input.signal);
-  // Connect and limit saves can still carry an effort chosen for the previous
-  // model. Keep it only when this model supports it; otherwise clamp or clear.
-  const thinkingLevel =
-    input.thinkingLevel === undefined
-      ? undefined
-      : defaultModel
-        ? clampCatalogThinkingLevel(input.thinkingLevel, allowedThinking)
-        : null;
-  const mainRole = await getModelRole(tx, actor, "main");
-  const runsMain = mainRole.primary?.credentialId === credential.id;
-  // Only an explicit main-model connect changes a role. Omitted means yes for older apps.
-  const becomesMain =
-    input.makeDefault !== false &&
-    Boolean(defaultModel) &&
-    (!input.keepExistingDefault || !mainRole.primary);
-  // A main-model connect keeps the effort its model already had.
-  const ownThinking = becomesMain
-    ? ((
-        await writeModelRole(tx, actor, "main", {
-          primary: {
-            provider: input.provider,
-            modelId: defaultModel!,
-            thinkingLevel: thinkingLevel as ThinkingLevel | null | undefined,
-            credentialId: credential.id,
-          },
-        })
-      ).primary?.thinkingLevel ?? null)
-    : (thinkingLevel ?? null);
-  // The connection's own model; a save for another purpose keeps the one running chat.
-  if (becomesMain || !runsMain)
-    await saveSpaceModelPreference(tx, actor, credential.id, defaultModel, ownThinking);
-  throwIfAborted(input.signal);
-  if (existing) {
-    await deleteUnreferencedCredentialSecret(tx, {
-      credentialKind: "model",
-      credentialId: existing.id,
-      secretId: existing.secretId,
-    });
-    throwIfAborted(input.signal);
-  }
-  return { ...credential, isDefault: becomesMain || runsMain, defaultModel };
-}
-
-async function persistModelCredential(
-  deps: RouterDeps,
-  actor: Actor,
-  input: ModelCredentialInput,
-  codexCatalog: CodexLiveCatalog,
-) {
-  const prepared = await prepareModelCredential(deps, actor, input, codexCatalog);
-  throwIfAborted(input.signal);
-  const cred = await withSerializableRetry(() =>
-    deps.prisma.$transaction((tx) => writeModelCredential(tx, actor, input, prepared), {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }),
-  );
-  (deps.providerCatalog ?? providerCatalogCache).invalidate(canonicalPiProviderId(input.provider));
-  return modelCredentialDto(cred, input.plaintext);
-}
-
-function assertRoutineSchedule(input: CreateRoutineInput): void {
-  if (hasMixedOneShotSchedule(input.crons)) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "A one-time schedule can't be combined with other schedules.",
-    });
-  }
-  if (input.active && isOneShotRoutineCrons(input.crons)) {
-    throw new ORPCError("BAD_REQUEST", {
-      message: "One-shot schedules must be created from chat.",
-    });
-  }
-}
-
-function routineNextRunAt(input: CreateRoutineInput): Date | null {
-  // Validate every recurring cron even when inactive; @once and webhook-only have no next date.
-  let nextRunAt: Date | null = null;
-  if (input.crons.length > 0 && !isOneShotRoutineCrons(input.crons)) {
-    const computedNextRunAt = nextRoutineDate(input.crons, input.timezone);
-    nextRunAt = input.active ? computedNextRunAt : null;
-  }
-  // A change trigger takes its first reading right away; that reading is the baseline.
-  if (input.watch && input.active) nextRunAt = firstWatchCheck();
-  return nextRunAt;
-}
-
-function routineRowData(actor: Actor, input: CreateRoutineInput, nextRunAt: Date | null) {
-  return {
-    spaceId: actor.spaceId,
-    botId: input.botId,
-    userId: actor.userId,
-    name: input.name,
-    prompt: input.prompt,
-    crons: input.crons,
-    timezone: input.timezone,
-    notify: input.notify,
-    active: input.active,
-    webhookEnabled: input.webhookEnabled,
-    githubEnabled: input.githubEnabled,
-    messageProvider: input.messageProvider,
-    modelProvider: input.modelProvider,
-    modelId: input.modelId,
-    thinkingLevel: input.thinkingLevel,
-    ...(input.watch ? { watch: input.watch as Prisma.InputJsonValue } : {}),
-    nextRunAt,
-  };
-}
-
-function throwIfAborted(signal?: AbortSignal) {
-  if (signal?.aborted) throw signal.reason ?? new Error("Request cancelled");
-}
-
-function nextRoutineDate(crons: string[], timezone: string): Date {
-  let next: Date | null;
-  try {
-    next = nextCronDateAcrossStrict(crons, new Date(), timezone);
-  } catch {
-    throw new ORPCError("BAD_REQUEST", { message: "Enter a valid cron expression." });
-  }
-  if (!next) throw new ORPCError("BAD_REQUEST", { message: "Enter a valid cron expression." });
-  return next;
-}
-
-/** The actor's active compatible bot, routine and backup pins matching `filter`. */
-async function compatibleModelPins(
-  deps: RouterDeps,
-  actor: Actor,
-  filter: { spaceId?: string; modelId: string | { notIn: string[] } },
-) {
-  const provider = OPENAI_COMPATIBLE_PROVIDER_ID;
-  const where = { userId: actor.userId, ...filter };
-  const pin = { spaceId: true, modelId: true } as const;
-  // A connection is the account's, so its pins are checked in every Space it is used in.
-  const [bots, routines, roleChoices] = await runAsSystem(
-    "model pins across the account's Spaces",
-    () =>
-      Promise.all([
-        deps.prisma.bot.findMany({
-          where: { ...where, archivedAt: null, modelProvider: provider },
-          select: { ...pin, name: true },
-        }),
-        deps.prisma.routine.findMany({
-          where: { ...where, modelProvider: provider, bot: { archivedAt: null } },
-          select: { ...pin, name: true },
-        }),
-        deps.prisma.spaceModelRoleChoice.findMany({
-          where: { ...where, provider },
-          select: { ...pin, role: true, position: true, credentialId: true },
-        }),
-      ]),
-  );
-  return { named: [...bots, ...routines], backups: roleChoices };
-}
-
-type ModelPinRow = { spaceId: string; modelId: string | null; credentialId?: string | null };
-
-/** Refusal naming the bots and routines (plus "backup models") left on a dropped model. */
-function refuseModelPins(
-  pins: { named: Array<ModelPinRow & { name: string }>; backups: ModelPinRow[] },
-  dangling: (row: ModelPinRow) => boolean,
-) {
-  const names = pins.named.filter(dangling).map((row) => row.name);
-  if (pins.backups.some(dangling)) names.push("backup models");
-  if (names.length === 0) return;
-  throw new ORPCError("BAD_REQUEST", {
-    message: `In use by ${[...new Set(names)].join(", ")}. Pick another model for them first.`,
-  });
-}
-
-/** Refuse only pins that runtime selection cannot serve after this connection save. */
-async function assertNoDanglingModelPins(
-  deps: RouterDeps,
-  actor: Actor,
-  connection: { id: string },
-  secret: ReturnType<typeof parseModelSecret>,
-  actorDefault: string,
-) {
-  const stored = secret.kind === "openai_compatible" ? (secret.enabledModelIds ?? []) : [];
-  const [preferences, pins] = await Promise.all([
-    deps.prisma.spaceModelPreference.findMany({
-      where: {
-        userId: actor.userId,
-        credential: { userId: actor.userId, provider: OPENAI_COMPATIBLE_PROVIDER_ID },
-      },
-      select: { spaceId: true, modelId: true, credentialId: true },
-    }),
-    compatibleModelPins(deps, actor, { modelId: { notIn: stored } }),
-  ]);
-  const defaults = new Map(
-    preferences
-      .filter((row) => row.credentialId === connection.id)
-      .map((row) => [row.spaceId, usableModelId(row.modelId)]),
-  );
-  defaults.set(actor.spaceId, usableModelId(actorDefault));
-  const dangling = new Set<ModelPinRow>();
-  for (const row of [...pins.named, ...pins.backups] as ModelPinRow[]) {
-    if (!row.modelId || row.modelId === defaults.get(row.spaceId)) continue;
-    // A row pinned to a connection runs only there.
-    if (row.credentialId) {
-      if (row.credentialId === connection.id) dangling.add(row);
-      continue;
-    }
-    const selected = await findConnectedModelCredential(
-      deps.prisma,
-      deps.secrets,
-      { ...actor, spaceId: row.spaceId },
-      OPENAI_COMPATIBLE_PROVIDER_ID,
-      row.modelId,
-      {
-        replacement: {
-          credentialId: connection.id,
-          secret,
-          defaultModel: defaults.get(row.spaceId) ?? null,
-        },
-      },
-    );
-    if (selected?.id === connection.id || !selected) dangling.add(row);
-  }
-  refuseModelPins(pins, (row) => dangling.has(row));
-}
-
-/**
- * `models.setDefault` on an openai-compatible connection: a listed secret only accepts an
- * effective id. It changes only this space's default and never the secret, so the only pins
- * it can strand are this space's pins on an outgoing default that is outside the stored list.
- */
-async function assertCompatibleDefaultChange(
-  deps: RouterDeps,
-  actor: Actor,
-  modelId: string,
-  thinking: { enabledModelIds?: string[]; storedEnabledModelIds?: string[] },
-) {
-  const requested = modelId.trim();
-  const enabled = thinking.enabledModelIds ?? [];
-  const stored = thinking.storedEnabledModelIds;
-  if (stored && !enabled.includes(requested)) {
-    throw new ORPCError("BAD_REQUEST", { message: "Unknown model for that provider" });
-  }
-  const outgoing = enabled.find((id) => id !== requested && !stored?.includes(id));
-  if (!outgoing) return;
-  const pins = await compatibleModelPins(deps, actor, {
-    spaceId: actor.spaceId,
-    modelId: outgoing,
-  });
-  // The main model's own row is the choice being replaced, not a pin left behind.
-  refuseModelPins(
-    {
-      ...pins,
-      backups: pins.backups.filter((row) => !(row.role === "main" && row.position === 0)),
-    },
-    () => true,
-  );
-}
-
-/** A routine may only name a model the space has connected. */
-async function assertRoutineModel(
-  deps: RouterDeps,
-  actor: Actor,
-  model: { modelProvider?: string | null; modelId?: string | null },
-  codexCatalog: CodexLiveCatalog,
-) {
-  if (!model.modelProvider || !model.modelId) return;
-  const message = await validateConnectedModelChoice(
-    deps.prisma,
-    deps.secrets,
-    actor,
-    model.modelProvider,
-    model.modelId,
-    { codexCatalog },
-  );
-  if (message) throw new ORPCError("BAD_REQUEST", { message });
-}
-
-/** A new or re-armed watch takes its first reading a moment from now. */
-function firstWatchCheck(): Date {
-  return new Date(Date.now() + 2_000);
-}
-
-function mapRoutine(row: {
-  id: string;
-  botId: string;
-  name: string;
-  prompt: string;
-  crons: string[];
-  timezone: string;
-  active: boolean;
-  notify: boolean;
-  webhookEnabled: boolean;
-  githubEnabled: boolean;
-  messageProvider: string | null;
-  modelProvider: string | null;
-  modelId: string | null;
-  thinkingLevel: string | null;
-  watch: unknown;
-  watchState: unknown;
-  lastRunAt: Date | null;
-  nextRunAt: Date | null;
-  createdAt: Date;
-}): Routine {
-  return {
-    id: row.id,
-    botId: row.botId,
-    name: row.name,
-    prompt: row.prompt,
-    crons: row.crons,
-    timezone: row.timezone,
-    active: row.active,
-    notify: row.notify,
-    webhookEnabled: row.webhookEnabled,
-    githubEnabled: row.githubEnabled,
-    messageProvider: row.messageProvider,
-    modelProvider: row.modelProvider ? canonicalPiProviderId(row.modelProvider) : null,
-    modelId: row.modelId ?? null,
-    thinkingLevel: (row.thinkingLevel as Routine["thinkingLevel"]) ?? null,
-    watch: parseRoutineWatch(row.watch),
-    watchState: parseRoutineWatchState(row.watchState),
-    lastRunAt: row.lastRunAt?.toISOString() ?? null,
-    nextRunAt: row.nextRunAt?.toISOString() ?? null,
-    createdAt: row.createdAt.toISOString(),
-  };
-}
-
-async function listRoutinesDto(deps: RouterDeps, actor: Actor, botId: string) {
-  const rows = await deps.prisma.routine.findMany({
-    where: { botId, spaceId: actor.spaceId },
-  });
-  return rows.map(mapRoutine);
 }
 
 /**
