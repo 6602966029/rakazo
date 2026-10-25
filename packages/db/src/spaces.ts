@@ -161,7 +161,6 @@ async function copyProviderPreferences(
             userId: input.userId,
             credentialId: preference.credentialId,
             modelId: preference.modelId,
-            isDefault: preference.isDefault,
             createdAt: input.createdAt,
             updatedAt: input.createdAt,
           })),

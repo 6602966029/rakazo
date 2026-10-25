@@ -177,6 +177,7 @@ import {
   attachmentMaxBytes,
   attachmentSizeLabel,
   BotSecretAuth,
+  backupChoiceKey,
   ComputerCommandSchema,
   canonicalPiProviderId,
   foldComputerCommands,
@@ -1196,10 +1197,9 @@ export function createRouter(deps: RouterDeps) {
     actor: Actor,
     role: ModelRole,
     choices: ModelRoleChoice[],
-  ): Promise<Array<{ id: string } | null>> => {
-    if (choices.length === 0) return [];
+  ): Promise<void> => {
+    if (choices.length === 0) return;
     const catalog = await modelRoleCatalog(actor, role);
-    const credentials: Array<{ id: string } | null> = [];
     for (const choice of choices) {
       const entry = catalog.find(
         (entry) =>
@@ -1215,7 +1215,6 @@ export function createRouter(deps: RouterDeps) {
         choice.modelId,
         resolution,
       );
-      credentials.push(credential);
       if (!credential && (choice.credentialId || !(entry && "managed" in entry && entry.managed)))
         throw new ORPCError("BAD_REQUEST", { message: "Connect that model provider first" });
       // Another account of the provider listing the model does not make it run on this one;
@@ -1257,7 +1256,6 @@ export function createRouter(deps: RouterDeps) {
           message: error ?? "That model is not available for this connection",
         });
     }
-    return credentials;
   };
   const groupRepos = createGroupRepos(deps.prisma);
   const taughtSkills = createTaughtSkillsService({
@@ -1623,15 +1621,18 @@ export function createRouter(deps: RouterDeps) {
     models: {
       list: authed.models.list.handler(async ({ context }) => chatCatalog(context.actor)),
       credentials: authed.models.credentials.handler(async ({ context }) => {
-        const rows = await deps.prisma.userModelCredential.findMany({
-          where: { userId: context.actor.userId },
-          include: {
-            preferences: {
-              where: { userId: context.actor.userId, spaceId: context.actor.spaceId },
+        const [rows, main] = await Promise.all([
+          deps.prisma.userModelCredential.findMany({
+            where: { userId: context.actor.userId },
+            include: {
+              preferences: {
+                where: { userId: context.actor.userId, spaceId: context.actor.spaceId },
+              },
             },
-          },
-          orderBy: newestModelCredentialOrder,
-        });
+            orderBy: newestModelCredentialOrder,
+          }),
+          resolveMemberMainModel({ prisma: deps.prisma, secretStore: deps.secrets }, context.actor),
+        ]);
         const secrets = rows.length
           ? await deps.prisma.secret.findMany({
               where: {
@@ -1652,12 +1653,20 @@ export function createRouter(deps: RouterDeps) {
         return Promise.all(
           rows.map(async (row) => {
             const preference = row.preferences[0];
-            const selected = {
-              ...row,
-              isDefault: preference?.isDefault ?? false,
-              defaultModel: preference?.modelId ?? null,
-              thinkingLevel: preference?.thinkingLevel ?? null,
-            };
+            // The connection running the main model shows that model, as apps read it.
+            const selected =
+              main?.credential && main.credential.id === row.id
+                ? {
+                    ...row,
+                    isDefault: true,
+                    defaultModel: main.modelId,
+                    thinkingLevel: main.thinkingLevel ?? null,
+                  }
+                : {
+                    ...row,
+                    defaultModel: preference?.modelId ?? null,
+                    thinkingLevel: preference?.thinkingLevel ?? null,
+                  };
             const dto = (plaintext?: string) => ({
               ...modelCredentialDto(selected, plaintext),
               ...(preference ? { preferenceRank: preferenceRanks.get(preference.id) } : {}),
@@ -1689,34 +1698,13 @@ export function createRouter(deps: RouterDeps) {
         if (input.expectedUserId && input.expectedUserId !== context.actor.userId)
           throw new ORPCError("FORBIDDEN");
         const { role, primary, backups } = input;
-        const credentials = await validateRoleChoices(context.actor, role, [
+        await validateRoleChoices(context.actor, role, [
           ...(primary ? [primary] : []),
           ...(backups ?? []),
         ]);
-        // A compatible connection's previous main model may only run because it was the
-        // default; switching away must not strand choices that still use it.
-        if (role === "main" && primary?.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
-          const current = await getModelRole(deps.prisma, context.actor, "main");
-          if (current.primary?.modelId !== primary.modelId) {
-            const thinking = await prepareAllowedThinkingLevels(
-              deps,
-              context.actor,
-              primary.provider,
-              primary.modelId,
-              { credentialId: primary.credentialId },
-            );
-            await assertCompatibleDefaultChange(deps, context.actor, primary.modelId, thinking);
-          }
-        }
         return withDeploymentDefault(
           role,
-          await updateModelRole(
-            deps.prisma,
-            context.actor,
-            role,
-            { primary, backups },
-            { primaryCredentialId: primary ? credentials[0]?.id : null },
-          ),
+          await updateModelRole(deps.prisma, context.actor, role, { primary, backups }),
         );
       }),
       backups: authed.models.backups.handler(async ({ context }) =>
@@ -1978,6 +1966,18 @@ export function createRouter(deps: RouterDeps) {
         return { ok: true as const };
       }),
       setDefault: authed.models.setDefault.handler(async ({ context, input }) => {
+        const modelId = usableModelId(input.modelId);
+        if (!modelId) throw new ORPCError("BAD_REQUEST", { message: "Choose a model" });
+        // An omitted level keeps the one this model already has in the main list.
+        const savedThinking = async (client: Pick<PrismaClient, "spaceModelRoleChoice">) => {
+          const main = await getModelRole(client, context.actor, "main");
+          const key = backupChoiceKey({ provider: input.provider, modelId });
+          return (
+            [...(main.primary ? [main.primary] : []), ...main.backups].find(
+              (choice) => backupChoiceKey(choice) === key,
+            )?.thinkingLevel ?? null
+          );
+        };
         const loadSpaceModelState = async (
           client: Pick<PrismaClient, "spaceModelPreference" | "userModelCredential">,
         ) => {
@@ -2038,11 +2038,7 @@ export function createRouter(deps: RouterDeps) {
           );
           const needsThinking =
             input.thinkingLevel === undefined
-              ? preparedState.preferences.some(
-                  (preference) =>
-                    preference.modelId === usableModelId(input.modelId) &&
-                    Boolean(preference.thinkingLevel),
-                )
+              ? Boolean(await savedThinking(deps.prisma))
               : Boolean(input.thinkingLevel);
           const compatible = input.provider === OPENAI_COMPATIBLE_PROVIDER_ID;
           // Compatible defaults always load the secret so the transaction rechecks it.
@@ -2056,7 +2052,7 @@ export function createRouter(deps: RouterDeps) {
                 )
               : { allowed: undefined, secret: undefined };
           if (compatible) {
-            await assertCompatibleDefaultChange(deps, context.actor, input.modelId, thinking);
+            await assertCompatibleDefaultChange(deps, context.actor, modelId, thinking);
           }
           return deps.prisma.$transaction(
             async (tx) => {
@@ -2116,39 +2112,29 @@ export function createRouter(deps: RouterDeps) {
                   message: authFailure ?? UNAVAILABLE_MODEL_FOR_AUTH_MESSAGE,
                 });
               }
-              let thinkingLevel: string | null | undefined = input.thinkingLevel;
-              if (thinkingLevel === undefined) {
-                // The level belongs to the preference's modelId — keep it only when the
-                // stored choice already names this model.
-                const existing = preferences.find(
-                  (preference) => preference.credential.id === credentialId,
-                );
-                thinkingLevel =
-                  existing?.modelId === usableModelId(input.modelId)
-                    ? existing.thinkingLevel
-                    : null;
-              }
+              let thinkingLevel: string | null =
+                input.thinkingLevel === undefined ? await savedThinking(tx) : input.thinkingLevel;
               if (thinkingLevel) {
                 if (!needsThinking) {
                   throw new ORPCError("CONFLICT", { message: "Model preferences changed; retry." });
                 }
                 thinkingLevel = clampCatalogThinkingLevel(thinkingLevel, thinking.allowed);
               }
-              const modelId = usableModelId(input.modelId);
-              if (!modelId) throw new ORPCError("BAD_REQUEST", { message: "Choose a model" });
-              await writeModelRole(
+              await writeModelRole(tx, context.actor, "main", {
+                primary: {
+                  provider: input.provider,
+                  modelId,
+                  thinkingLevel: thinkingLevel as ThinkingLevel | null,
+                  credentialId,
+                },
+              });
+              // Older apps edit one model per connection here, so it becomes the connection's own.
+              await saveSpaceModelPreference(
                 tx,
                 context.actor,
-                "main",
-                {
-                  primary: {
-                    provider: input.provider,
-                    modelId,
-                    thinkingLevel: thinkingLevel as ThinkingLevel | null,
-                    credentialId,
-                  },
-                },
-                { primaryCredentialId: credentialId },
+                credentialId,
+                modelId,
+                thinkingLevel,
               );
             },
             { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -2199,10 +2185,10 @@ export function createRouter(deps: RouterDeps) {
                 tx,
                 "disconnect a model connection from every Space",
                 async () => {
-                  const where = { userId: context.actor.userId, provider };
                   await tx.spaceModelRoleChoice.deleteMany({
                     where: {
-                      ...where,
+                      userId: context.actor.userId,
+                      provider,
                       OR: [
                         { credentialId: { in: ids } },
                         // Rows that name no connection ran on the provider's last one.
@@ -2210,7 +2196,6 @@ export function createRouter(deps: RouterDeps) {
                       ],
                     },
                   });
-                  if (lastConnection) await tx.spaceBackupModel.deleteMany({ where });
                 },
               );
               if (existing.length === 0) return;
@@ -7815,7 +7800,7 @@ async function persistModelCredential(
     ? undefined
     : input.provider === OPENAI_COMPATIBLE_PROVIDER_ID
       ? compatibleThinkingLevels(
-          { id: "", provider: input.provider, label: "", isDefault: true, defaultModel },
+          { id: "", provider: input.provider, label: "", defaultModel },
           input.plaintext,
           defaultModel,
         ).allowed
@@ -7892,37 +7877,26 @@ async function persistModelCredential(
             : defaultModel
               ? clampCatalogThinkingLevel(input.thinkingLevel, allowedThinking)
               : null;
-        const saved = await tx.spaceModelPreference.findFirst({
-          where: { spaceId: actor.spaceId, userId: actor.userId, credentialId: credential.id },
-          select: { isDefault: true },
-        });
         // Only an explicit main-model connect changes a role. Omitted means yes for older apps.
         const becomesMain = input.makeDefault !== false && Boolean(defaultModel);
-        if (becomesMain) {
-          await writeModelRole(
-            tx,
-            actor,
-            "main",
-            {
-              primary: {
-                provider: input.provider,
-                modelId: defaultModel!,
-                thinkingLevel: thinkingLevel as ThinkingLevel | null | undefined,
-                credentialId: credential.id,
-              },
-            },
-            { primaryCredentialId: credential.id },
-          );
-        } else if (!saved?.isDefault) {
-          // The connection's own model choice; the one running chat keeps the main model's.
-          await saveSpaceModelPreference(
-            tx,
-            actor,
-            credential.id,
-            defaultModel,
-            thinkingLevel ?? null,
-          );
-        }
+        const runsMain =
+          (await getModelRole(tx, actor, "main")).primary?.credentialId === credential.id;
+        // A main-model connect keeps the effort its model already had.
+        const ownThinking = becomesMain
+          ? ((
+              await writeModelRole(tx, actor, "main", {
+                primary: {
+                  provider: input.provider,
+                  modelId: defaultModel!,
+                  thinkingLevel: thinkingLevel as ThinkingLevel | null | undefined,
+                  credentialId: credential.id,
+                },
+              })
+            ).primary?.thinkingLevel ?? null)
+          : (thinkingLevel ?? null);
+        // The connection's own model; a save for another purpose keeps the one running chat.
+        if (becomesMain || !runsMain)
+          await saveSpaceModelPreference(tx, actor, credential.id, defaultModel, ownThinking);
         throwIfAborted(input.signal);
         if (existing) {
           await deleteUnreferencedCredentialSecret(tx, {
@@ -7932,7 +7906,11 @@ async function persistModelCredential(
           });
           throwIfAborted(input.signal);
         }
-        return { ...credential, isDefault: becomesMain || Boolean(saved?.isDefault), defaultModel };
+        return {
+          ...credential,
+          isDefault: becomesMain || runsMain,
+          defaultModel,
+        };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ),
