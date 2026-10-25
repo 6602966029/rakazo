@@ -74,7 +74,7 @@ const voiceReads = (target: SettingsTarget) => {
   };
 };
 const voicesRead = (target: SettingsTarget, provider: string) =>
-  rpcQuery<VoiceInfo[]>("voice/voices", { provider }, targetSpace(target));
+  rpcQuery<VoiceInfo[]>("voice/voices", { provider, scope: target.scope }, targetSpace(target));
 
 function pickProvider(catalog: VoiceCatalogEntry[], status: VoiceStatus, preferred?: string) {
   return (

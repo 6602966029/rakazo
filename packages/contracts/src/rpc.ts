@@ -1142,7 +1142,7 @@ export const appContract = {
       )
       .output(VoiceCredentialSchema),
     voices: oc
-      .input(z.object({ provider: z.string().optional() }))
+      .input(settingsScopeInput.extend({ provider: z.string().optional() }))
       .output(z.array(VoiceInfoSchema)),
     prepare: oc
       .input(

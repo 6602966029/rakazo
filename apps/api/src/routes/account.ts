@@ -264,13 +264,13 @@ export function accountRoutes(ctx: RouterContext) {
         updateVoiceSpeechModel(deps, context.actor, input),
       ),
       voices: authed.voice.voices.handler(async ({ context, input }) => {
-        const loaded = await loadDefaultVoiceCredential(deps, context.actor);
+        const loaded = await loadDefaultVoiceCredential(deps, context.actor, input.scope);
         if (!loaded) return [];
         const providerId = input.provider ?? loaded.cred.provider;
         const row =
           providerId === loaded.cred.provider
             ? loaded
-            : await loadVoiceCredential(deps, context.actor, providerId);
+            : await loadVoiceCredential(deps, context.actor, providerId, input.scope);
         if (!row) return [];
         return (await voiceProviderFor(deps, context.actor, row.cred.provider)).listVoices(
           row.apiKey,

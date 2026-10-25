@@ -62,7 +62,8 @@ export function VoiceSettingsOverlay({
     const provider = selectedProvider(catalog, [status.provider]);
     const credential = credentials.find((entry) => entry.provider === provider);
     const voices = credential
-      ? (queryClient.getQueryData(queries.voice.voices.queryKey({ input: { provider } })) ?? [])
+      ? (queryClient.getQueryData(queries.voice.voices.queryKey({ input: { provider, scope } })) ??
+        [])
       : [];
     return { catalog, credentials, status, provider, credential, voices };
   });
@@ -142,7 +143,10 @@ export function VoiceSettingsOverlay({
     if (!cred) return Promise.resolve();
     return queryClient
       .fetchQuery(
-        queries.voice.voices.queryOptions({ input: { provider: nextProvider }, staleTime: 0 }),
+        queries.voice.voices.queryOptions({
+          input: { provider: nextProvider, scope },
+          staleTime: 0,
+        }),
       )
       .then(
         (listed) => {
