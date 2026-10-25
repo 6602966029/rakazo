@@ -74,22 +74,31 @@ function isHttp2PseudoHeader(key: string) {
   return key.startsWith(":");
 }
 
+/**
+ * Headers for the provider request. The provider's own credentials replace the browser's, and the
+ * browser's Origin becomes the provider's: Boat refuses cross-origin WebSockets, and this proxy has
+ * already authorized the request with the sealed capability.
+ */
 export function safeProxyHeaders(
   headers: IncomingHttpHeaders,
-  upstreamHeaders?: Record<string, string>,
+  target?: Pick<ScreenProxyTarget, "protocol" | "hostname" | "port" | "headers">,
 ) {
-  return {
-    ...Object.fromEntries(
-      Object.entries(headers).filter(([key, value]) => {
-        return (
-          value != null &&
-          !isHttp2PseudoHeader(key) &&
-          !SENSITIVE_FORWARD_HEADERS.has(key.toLowerCase())
-        );
-      }),
-    ),
-    ...upstreamHeaders,
-  };
+  const forwarded: IncomingHttpHeaders = Object.fromEntries(
+    Object.entries(headers).filter(([key, value]) => {
+      return (
+        value != null &&
+        !isHttp2PseudoHeader(key) &&
+        !SENSITIVE_FORWARD_HEADERS.has(key.toLowerCase())
+      );
+    }),
+  );
+  if (target && forwarded.origin) forwarded.origin = screenTargetOrigin(target);
+  return { ...forwarded, ...target?.headers };
+}
+
+function screenTargetOrigin(target: Pick<ScreenProxyTarget, "protocol" | "hostname" | "port">) {
+  const defaultPort = target.protocol === "https:" ? 443 : 80;
+  return `${target.protocol}//${target.hostname}${target.port === defaultPort ? "" : `:${target.port}`}`;
 }
 
 /** Recheck streams as well as new requests; no positive authorization cache. */

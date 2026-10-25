@@ -22,9 +22,24 @@ describe("screen proxy", () => {
           host: "app.example",
           upgrade: "websocket",
         },
-        { cookie: "provider_auth=fake-token" },
+        {
+          protocol: "https:",
+          hostname: "screen.example",
+          port: 443,
+          headers: { cookie: "provider_auth=fake-token" },
+        },
       ),
     ).toEqual({ upgrade: "websocket", cookie: "provider_auth=fake-token" });
+  });
+
+  it("presents the provider's own origin so it accepts the proxied socket", () => {
+    const headers = { origin: "https://app.example", upgrade: "websocket" };
+    expect(
+      safeProxyHeaders(headers, { protocol: "https:", hostname: "screen.example", port: 443 }),
+    ).toEqual({ origin: "https://screen.example", upgrade: "websocket" });
+    expect(
+      safeProxyHeaders(headers, { protocol: "http:", hostname: "10.0.0.5", port: 6100 }),
+    ).toEqual({ origin: "http://10.0.0.5:6100", upgrade: "websocket" });
   });
 
   it("routes the socket stock noVNC opens from a capability's path", () => {
