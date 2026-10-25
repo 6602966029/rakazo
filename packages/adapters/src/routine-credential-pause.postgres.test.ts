@@ -81,6 +81,25 @@ describePostgres("pausing a routine on refused model credentials (PostgreSQL)", 
     });
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(await botMessages()).toBe(before + 1);
+    const message = await system.message.findFirst({
+      where: { threadId: identity.threadId, role: "bot" },
+      orderBy: { seq: "desc" },
+    });
+    expect(message?.blocks).toEqual([
+      {
+        kind: "text",
+        text: `I paused the **Morning digest** routine after ${ROUTINE_CREDENTIAL_FAILURE_LIMIT} runs in a row failed: Your model provider rejected the API key.\n\nTurn it back on once that's fixed.`,
+      },
+    ]);
+    expect(
+      await system.event.count({
+        where: {
+          threadId: identity.threadId,
+          type: "thread.message.created",
+          payload: { path: ["messageId"], equals: message!.id },
+        },
+      }),
+    ).toBe(1);
   });
 
   it("forgets earlier refusals after a run gets through", async () => {

@@ -87,7 +87,7 @@ async function failRun(scenario: Scenario) {
             ? new Date(NOW.getTime() + 24 * 60 * MINUTE)
             : scenario.nextRunAt,
       })),
-      updateMany: vi.fn(async () => ({ count: 0 })),
+      updateMany: vi.fn(async (_args: { data?: Record<string, unknown> }) => ({ count: 0 })),
     },
     chatGroup: { findMany: vi.fn(async () => []) },
     event: { count: vi.fn(async () => scenario.toolCalls ?? 0) },
@@ -278,9 +278,7 @@ describe("counting refused model credentials against a routine", () => {
   const refusedKey = () =>
     new ModelAccountError('401: {"error":{"message":"Invalid API key","code":401}}');
   const counted = (prisma: Awaited<ReturnType<typeof failRun>>["prisma"]) =>
-    prisma.routine.updateMany.mock.calls.some(
-      ([args]) => (args as { data?: { credentialFailures?: unknown } }).data?.credentialFailures,
-    );
+    prisma.routine.updateMany.mock.calls.some(([args]) => args.data?.credentialFailures);
 
   it("counts a refusal of the user's own key", async () => {
     const { prisma } = await failRun({ error: refusedKey(), personalKey: true });

@@ -77,62 +77,84 @@ function fakeRoutine(initial: { active?: boolean; credentialFailures?: number } 
         return { count: 1 };
       },
     ),
-    findUnique: vi.fn(async () => ({ name: row.name })),
+    findUniqueOrThrow: vi.fn(async () => ({ name: row.name })),
   };
-  const messages: string[] = [];
+  const messages: Array<{ role: string; text: string }> = [];
+  const events: Array<{ type: string; seq: number }> = [];
   const tx = {
+    routine,
     message: {
-      create: vi.fn(async ({ data }: { data: { blocks: Array<{ text: string }> } }) => {
-        messages.push(data.blocks[0]?.text ?? "");
-        return { id: `message-${messages.length}`, seq: messages.length };
+      create: vi.fn(
+        async ({ data }: { data: { role: string; blocks: Array<{ text: string }> } }) => {
+          messages.push({ role: data.role, text: data.blocks[0]?.text ?? "" });
+          return { id: `message-${messages.length}` };
+        },
+      ),
+    },
+    event: {
+      create: vi.fn(async ({ data }: { data: { type: string; seq: number } }) => {
+        events.push({ type: data.type, seq: data.seq });
+        return { ...data, id: `event-${events.length}` };
       }),
     },
-    thread: { update: vi.fn(async () => ({ nextMessageSeq: messages.length + 1 })) },
+    thread: {
+      update: vi.fn(async () => ({
+        nextMessageSeq: messages.length + 1,
+        nextEventSeq: events.length + 1,
+      })),
+    },
   };
   const prisma = {
     routine,
     $transaction: vi.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
   };
   const jobs = { enqueue: vi.fn(), cancel: vi.fn(async () => undefined), close: vi.fn() };
-  const events = { notify: vi.fn(async () => undefined) };
+  const notify = vi.fn(async () => undefined);
   const deps = {
     prisma: prisma as unknown as PrismaClient,
     jobs,
-    events: events as unknown as ThreadEvents,
+    events: { notify } as unknown as ThreadEvents,
   };
-  return { row, deps, jobs, messages, prisma };
+  return { row, deps, jobs, messages, events, notify };
 }
 
 describe("countRoutineCredentialFailure", () => {
   it("pauses the routine and says why once the limit is reached", async () => {
-    const { row, deps, jobs, prisma } = fakeRoutine();
+    const { row, deps, jobs, messages, events, notify } = fakeRoutine();
     const reason = "Your OpenAI rejected the API key. Check your connection settings.";
 
     for (let run = 1; run < ROUTINE_CREDENTIAL_FAILURE_LIMIT; run++) {
       await countRoutineCredentialFailure(deps, RUN, reason);
     }
     expect(row).toMatchObject({ active: true, credentialFailures: 2 });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(messages).toEqual([]);
 
     await countRoutineCredentialFailure(deps, RUN, reason);
 
     expect(row).toMatchObject({ active: false, nextRunAt: null, credentialFailures: 0 });
     expect(jobs.cancel).toHaveBeenCalledWith("routine:routine-1");
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(messages).toEqual([
+      {
+        role: "bot",
+        text: `I paused the **Morning digest** routine after 3 runs in a row failed: ${reason}\n\nTurn it back on once that's fixed.`,
+      },
+    ]);
+    expect(events).toEqual([{ type: "thread.message.created", seq: 0 }]);
+    expect(notify).toHaveBeenCalledWith(RUN.threadId, 0);
   });
 
   it("does not count or speak for a routine that is already paused", async () => {
-    const { row, deps, jobs, prisma } = fakeRoutine({ active: false, credentialFailures: 2 });
+    const { row, deps, jobs, messages } = fakeRoutine({ active: false, credentialFailures: 2 });
 
     await countRoutineCredentialFailure(deps, RUN, "refused");
 
     expect(row.credentialFailures).toBe(2);
     expect(jobs.cancel).not.toHaveBeenCalled();
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(messages).toEqual([]);
   });
 
   it("pauses once when failures that reach the limit land together", async () => {
-    const { row, deps, jobs } = fakeRoutine({ credentialFailures: 1 });
+    const { row, deps, jobs, messages, events } = fakeRoutine({ credentialFailures: 1 });
 
     await Promise.all([
       countRoutineCredentialFailure(deps, RUN, "refused"),
@@ -142,6 +164,8 @@ describe("countRoutineCredentialFailure", () => {
 
     expect(row.active).toBe(false);
     expect(jobs.cancel).toHaveBeenCalledTimes(1);
+    expect(messages).toHaveLength(1);
+    expect(events).toHaveLength(1);
   });
 
   it("starts over after a run gets through", async () => {

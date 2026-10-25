@@ -12,7 +12,7 @@ import type { RoutineWatch, RoutineWatchState } from "@rakazo/contracts";
 import { RoutineWatchSchema, RoutineWatchStateSchema } from "@rakazo/contracts";
 import type { ActionApprovalRule } from "@rakazo/core";
 import { connectorKindFromToolName, watchToolRefusal } from "@rakazo/core";
-import type { ComputerMode, PrismaClient, ThreadEvents } from "@rakazo/db";
+import type { ComputerMode, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
@@ -690,39 +690,47 @@ export async function tickRoutineWatch(
 /** A line in the routine's thread without a model run. */
 export async function postRoutineWatchMessage(
   deps: Pick<RoutineWatchDeps, "prisma" | "events">,
-  input: {
-    spaceId: string;
-    threadId: string;
-    botId: string;
-    role: "bot" | "system";
-    text: string;
-  },
+  input: RoutineMessage,
 ): Promise<void> {
-  const blocks =
-    input.role === "bot"
-      ? [{ kind: "text" as const, text: input.text }]
-      : [{ kind: "meta" as const, text: input.text }];
   try {
-    const seq = await deps.prisma.$transaction(async (tx) => {
-      const message = await createThreadMessageInTransaction(tx, {
-        threadId: input.threadId,
-        botId: input.botId,
-        role: input.role,
-        blocks,
-      });
-      const event = await appendEventInTransaction(tx, {
-        spaceId: input.spaceId,
-        threadId: input.threadId,
-        botId: input.botId,
-        type: "thread.message.created",
-        payload: { messageId: message.id, role: input.role, blocks },
-      });
-      return event.seq;
-    });
+    const seq = await deps.prisma.$transaction((tx) => writeRoutineMessageInTransaction(tx, input));
     if (seq !== undefined) await deps.events.notify(input.threadId, seq).catch(() => undefined);
   } catch {
     // Best effort: the routine's state is already saved.
   }
+}
+
+type RoutineMessage = {
+  spaceId: string;
+  threadId: string;
+  botId: string;
+  role: "bot" | "system";
+  text: string;
+};
+
+/** Saves a routine's thread line with the state change it explains; returns the event seq. */
+export async function writeRoutineMessageInTransaction(
+  tx: Prisma.TransactionClient,
+  input: RoutineMessage,
+): Promise<number | undefined> {
+  const blocks =
+    input.role === "bot"
+      ? [{ kind: "text" as const, text: input.text }]
+      : [{ kind: "meta" as const, text: input.text }];
+  const message = await createThreadMessageInTransaction(tx, {
+    threadId: input.threadId,
+    botId: input.botId,
+    role: input.role,
+    blocks,
+  });
+  const event = await appendEventInTransaction(tx, {
+    spaceId: input.spaceId,
+    threadId: input.threadId,
+    botId: input.botId,
+    type: "thread.message.created",
+    payload: { messageId: message.id, role: input.role, blocks },
+  });
+  return event.seq;
 }
 
 export function assertWatchToolReadOnly(tool: string, readOnly: boolean | undefined): void {

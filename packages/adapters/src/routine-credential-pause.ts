@@ -4,7 +4,7 @@ import type { RunErrorKind } from "@rakazo/core";
 import { normalizeRunError } from "@rakazo/core";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
-import { postRoutineWatchMessage } from "./routine-watch.js";
+import { writeRoutineMessageInTransaction } from "./routine-watch.js";
 
 /** Runs in a row the user's model connection must refuse before the routine stops firing. */
 export const ROUTINE_CREDENTIAL_FAILURE_LIMIT = 3;
@@ -55,29 +55,34 @@ export async function countRoutineCredentialFailure(
       data: { credentialFailures: { increment: 1 } },
     });
     if (counted.count !== 1) return;
-    // Only the failure that reaches the limit on a still-active routine pauses it and speaks.
-    const paused = await deps.prisma.routine.updateMany({
-      where: {
-        id: run.routineId,
-        active: true,
-        credentialFailures: { gte: ROUTINE_CREDENTIAL_FAILURE_LIMIT },
-      },
-      data: { active: false, nextRunAt: null, credentialFailures: 0 },
+    // Only the failure that reaches the limit on a still-active routine pauses it, and the
+    // pause commits with the message that explains it.
+    const seq = await deps.prisma.$transaction(async (tx) => {
+      const paused = await tx.routine.updateMany({
+        where: {
+          id: run.routineId,
+          active: true,
+          credentialFailures: { gte: ROUTINE_CREDENTIAL_FAILURE_LIMIT },
+        },
+        data: { active: false, nextRunAt: null, credentialFailures: 0 },
+      });
+      if (paused.count !== 1) return null;
+      const routine = await tx.routine.findUniqueOrThrow({
+        where: { id: run.routineId },
+        select: { name: true },
+      });
+      return writeRoutineMessageInTransaction(tx, {
+        spaceId: run.spaceId,
+        threadId: run.threadId,
+        botId: run.botId,
+        role: "bot",
+        text: `I paused the **${routine.name}** routine after ${ROUTINE_CREDENTIAL_FAILURE_LIMIT} runs in a row failed: ${reason}\n\nTurn it back on once that's fixed.`,
+      });
     });
-    if (paused.count !== 1) return;
-    await deps.jobs.cancel(routineJobKey(run.routineId)).catch(() => undefined);
-    const routine = await deps.prisma.routine.findUnique({
-      where: { id: run.routineId },
-      select: { name: true },
-    });
+    if (seq === null) return;
     getLogger().info("routine.paused_on_credentials", { "routine.id": run.routineId });
-    await postRoutineWatchMessage(deps, {
-      spaceId: run.spaceId,
-      threadId: run.threadId,
-      botId: run.botId,
-      role: "bot",
-      text: `I paused the **${routine?.name ?? "scheduled"}** routine after ${ROUTINE_CREDENTIAL_FAILURE_LIMIT} runs in a row failed: ${reason}\n\nTurn it back on once that's fixed.`,
-    });
+    await deps.jobs.cancel(routineJobKey(run.routineId)).catch(() => undefined);
+    if (seq !== undefined) await deps.events.notify(run.threadId, seq).catch(() => undefined);
   } catch (error) {
     getLogger().error("routine.credential_failure", error);
   }
