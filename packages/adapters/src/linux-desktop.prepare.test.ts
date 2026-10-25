@@ -21,8 +21,10 @@ function prepareDesktop({ repairExitCode = 0, installExitCode = 0, broken = true
 echo "$*" >> ${JSON.stringify(calls)}
 case " $* " in
   *" update "*) exit 0 ;;
+esac
+case " $* " in *" --no-remove "*) ;; *) exit 99 ;; esac
+case " $* " in
   *" --fix-broken "*)
-    case " $* " in *" --no-remove "*) ;; *) exit 99 ;; esac
     [ ${repairExitCode} -eq 0 ] || exit ${repairExitCode}
     : > ${JSON.stringify(repaired)}
     exit 0 ;;
