@@ -184,11 +184,11 @@ test("messaging settings show linked chat apps, channels, connections, and team 
 
   await expect(page.getByTestId("messaging-settings")).toBeVisible();
   await expect(
-    page.getByText("iMessage · Slack · WhatsApp · Telegram · Telegram (work) · Feishu"),
+    page.getByText(/iMessage\s*Slack\s*WhatsApp\s*Telegram\s*Telegram \(work\)\s*Feishu/),
   ).toBeVisible();
-  await expect(page.getByText("iMessage · +15551230001")).toBeVisible();
+  await expect(page.getByText("+15551230001", { exact: true })).toBeVisible();
   await expect(page.getByText("→ Chief")).toBeVisible();
-  await expect(page.getByText("Telegram (work) · 424242")).toBeVisible();
+  await expect(page.getByText("424242", { exact: true })).toBeVisible();
   await expect(page.getByText("→ Lead")).toBeVisible();
   await expect(page.getByRole("button", { name: "연결 해제" })).toHaveCount(2);
   await expect(page.getByText("Family")).toBeVisible();

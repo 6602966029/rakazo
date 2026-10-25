@@ -158,7 +158,7 @@ describe("shared role editor", () => {
       }),
       { context: { spaceId: "space" } },
     );
-    expect(rows()).toEqual(["Jev 1.14· OpenRouter"]);
+    expect(rows()).toEqual(["Jev 1.14OpenRouter"]);
     await menu("Jev 1.14", "Remove");
     expect(saved.primary).toBeNull();
     expect(container.querySelector('[data-testid="model-role-default"]')).not.toBeNull();
@@ -166,7 +166,7 @@ describe("shared role editor", () => {
   it("reopens on the cached list without a spinner while it refreshes", async () => {
     saved = { primary: chat, backups: [mini] };
     await render();
-    expect(rows()).toEqual(["Chat· OpenRouter", "Mini· OpenRouter"]);
+    expect(rows()).toEqual(["ChatOpenRouter", "MiniOpenRouter"]);
     await act(async () => root.unmount());
     root = createRoot(container);
     const hold = new Promise<never>(() => undefined);
@@ -175,7 +175,7 @@ describe("shared role editor", () => {
     const loads = api.role.mock.calls.length;
     await render();
     expect(container.querySelector('[aria-label="Loading model catalog…"]')).toBeNull();
-    expect(rows()).toEqual(["Chat· OpenRouter", "Mini· OpenRouter"]);
+    expect(rows()).toEqual(["ChatOpenRouter", "MiniOpenRouter"]);
     expect(api.role.mock.calls.length).toBe(loads + 1);
   });
   it("uses the same add, order and remove controls for main and approval fallbacks", async () => {
@@ -201,7 +201,11 @@ describe("shared role editor", () => {
       expect.objectContaining({ primary: jev, backups: [chat, mini] }),
       expect.anything(),
     );
-    expect(rows().map((row) => row?.split("·")[0])).toEqual(["Jev 1.14", "Chat", "Mini"]);
+    expect(rows().map((row) => row?.replace(/OpenRouter$/, ""))).toEqual([
+      "Jev 1.14",
+      "Chat",
+      "Mini",
+    ]);
   });
   it("promotes the first fallback when the primary is removed", async () => {
     saved = { primary: chat, backups: [jev, mini] };
@@ -232,7 +236,7 @@ describe("shared role editor", () => {
     await pick("Change Jev 1.14", "Chat");
     expect(saved).toMatchObject({ primary: null, backups: [mini] });
     expect(container.querySelector('[data-testid="model-role-default"]')?.textContent).toBe(
-      "1Chat· OpenRouter",
+      "1ChatOpenRouter",
     );
   });
   it("leaves a model where the loaded list has it when it is picked again", async () => {
@@ -382,7 +386,7 @@ describe("shared role editor", () => {
     api.setRole.mockRejectedValueOnce(new Error("save failed"));
     await render();
     await menu("Chat", "Remove");
-    expect(rows()).toEqual(["Chat· OpenRouter"]);
+    expect(rows()).toEqual(["ChatOpenRouter"]);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("save failed");
   });
 });
@@ -414,7 +418,7 @@ it("names rows and menus by their connection", async () => {
       },
     ],
   });
-  expect(rows()).toEqual(["Claude· Claude subscription"]);
+  expect(rows()).toEqual(["ClaudeClaude subscription"]);
   await click(trigger("Claude options"));
   expect(
     [...document.querySelectorAll('[role="menuitem"]')].map((entry) => entry.textContent),
@@ -431,22 +435,22 @@ it("groups models by connection and runs the same model on either account", asyn
   };
   saved = { primary: pin(chat), backups: [] };
   await render({ credentials: [...credentials, work] });
-  expect(rows()).toEqual(["Chat· OpenRouter"]);
+  expect(rows()).toEqual(["ChatOpenRouter"]);
   await click(trigger("Add fallback"));
   expect(
     [...document.querySelectorAll("[cmdk-group-heading]")].map((entry) => entry.textContent),
-  ).toEqual(["OpenRouter", "OpenRouter · Work"]);
+  ).toEqual(["OpenRouter", "OpenRouter (Work)"]);
   const workChat = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
     (entry) =>
       optionName(entry) === "Chat" &&
-      entry.closest("[cmdk-group]")?.textContent?.startsWith("OpenRouter · Work"),
+      entry.closest("[cmdk-group]")?.textContent?.startsWith("OpenRouter (Work)"),
   );
   await click(workChat);
   expect(saved).toEqual({
     primary: pin(chat),
     backups: [{ ...chat, credentialId: "work" }],
   });
-  expect(rows()).toEqual(["Chat· OpenRouter", "Chat· OpenRouter · Work"]);
+  expect(rows()).toEqual(["ChatOpenRouter", "ChatOpenRouter (Work)"]);
   await menu("Chat", "Manage OpenRouter");
   expect(onManage).toHaveBeenLastCalledWith("openrouter", "key");
 });

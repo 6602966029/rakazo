@@ -99,8 +99,8 @@ export function ModelPickerList({
       heading:
         providerLabel && section.heading === providerLabel
           ? undefined
-          : providerLabel && section.heading?.startsWith(`${providerLabel} · `)
-            ? section.heading.slice(providerLabel.length + 3)
+          : providerLabel && section.heading?.endsWith(` (${providerLabel})`)
+            ? section.heading.slice(0, -(providerLabel.length + 3))
             : section.heading,
     }));
     const connect = groupModelChoices(

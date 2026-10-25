@@ -51,7 +51,7 @@ export function connectionDisplayName(
   )
     return provider;
   if (label.toLowerCase().startsWith(providerName.toLowerCase())) return label;
-  return `${provider} · ${label}`;
+  return `${provider} (${label})`;
 }
 
 /**

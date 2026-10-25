@@ -22,11 +22,6 @@ msgstr " (לא נקראה)"
 msgid "{0, plural, one {# bot has its own model:} other {# bots have their own model:}}"
 msgstr ""
 
-#. placeholder {0}: health.toolCount
-#: src/components/McpServerHealthLine.tsx
-msgid "{0, plural, one {Running · # tool} other {Running · # tools}}"
-msgstr "{0, plural, one {פעיל · # כלי} other {פעיל · # כלים}}"
-
 #. placeholder {0}: pinned.length
 #: src/pages/model-settings/space-bots-model.tsx
 msgid "{0, plural, one {Switch # bot to the space default?} other {Switch # bots to the space default?}}"
@@ -290,8 +285,8 @@ msgid "{provider} took too long to respond. Try again."
 msgstr "{provider} לא הגיב בזמן. אפשר לנסות שוב."
 
 #: src/components/teach/TeachRecordingChrome.tsx
-msgid "{remaining} left · bot is watching, not acting"
-msgstr "נותרו {remaining} · הבוט צופה ולא פועל"
+msgid "{remaining} left"
+msgstr "נותרו {remaining}"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "{seats, plural, one {# seat} other {# seats}}"
@@ -300,14 +295,6 @@ msgstr "{seats, plural, one {# מושב} other {# מושבים}}"
 #: src/components/ArtifactFileCard.tsx
 msgid "{size} B"
 msgstr "{size} B"
-
-#: src/components/ToolActivityDisclosure.tsx
-msgid "{stepCount, plural, one {Done · # tool} other {Done · # tools}}"
-msgstr "{stepCount, plural, one {הושלם · # כלי} other {הושלם · # כלים}}"
-
-#: src/components/ToolActivityDisclosure.tsx
-msgid "{stepCount, plural, one {Working… · # tool} other {Working… · # tools}}"
-msgstr "{stepCount, plural, one {בעבודה… · # כלי} other {בעבודה… · # כלים}}"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -333,6 +320,8 @@ msgstr "{summary} גם מודלי הגיבוי נכשלו."
 msgid "{title}, {label}"
 msgstr "{title}, {label}"
 
+#: src/components/McpServerHealthLine.tsx
+#: src/components/ToolActivityDisclosure.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "{toolCount, plural, one {# tool} other {# tools}}"
 msgstr "{toolCount, plural, one {# כלי} other {# כלים}}"
@@ -942,6 +931,10 @@ msgstr "בוט"
 msgid "Bot"
 msgstr "בוט"
 
+#: src/components/teach/TeachRecordingChrome.tsx
+msgid "Bot is watching, not acting"
+msgstr "הבוט צופה ולא פועל"
+
 #: src/pages/model-settings/space-bots-model.tsx
 msgid "Bot models"
 msgstr ""
@@ -1304,7 +1297,7 @@ msgctxt "email sign-in"
 msgid "Code"
 msgstr "קוד"
 
-#. placeholder {0}: group.title
+#. placeholder {0}: headerName(group)
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Collapse {0}"
 msgstr "כיווץ {0}"
@@ -2321,6 +2314,7 @@ msgstr "המסמך השתנה. יש לפתוח אותו מחדש כדי לערו
 msgid "Don’t have an account?"
 msgstr "אין חשבון?"
 
+#: src/components/ToolActivityDisclosure.tsx
 #: src/lib/ticket-status.ts
 #: src/pages/ActivityList.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -2505,7 +2499,7 @@ msgstr "טוקן Executor"
 msgid "Expand"
 msgstr "הרחבה"
 
-#. placeholder {0}: group.title
+#. placeholder {0}: headerName(group)
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Expand {0}"
 msgstr "הרחבת {0}"
@@ -3666,7 +3660,7 @@ msgstr ""
 msgid "Open"
 msgstr "פתיחה"
 
-#. placeholder {0}: group.title
+#. placeholder {0}: headerName(group)
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Open {0}"
 msgstr "פתיחת {0}"
@@ -4337,12 +4331,9 @@ msgstr "פועל"
 #: src/components/McpServerHealthLine.tsx
 #: src/components/SubagentCard.tsx
 #: src/pages/ActivityList.tsx
+#: src/pages/RoutineEditor.tsx
 msgid "Running"
 msgstr "פועל"
-
-#: src/pages/RoutineEditor.tsx
-msgid "Running · Stop"
-msgstr "פועל · עצירה"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Running…"
@@ -4789,6 +4780,7 @@ msgstr "סטטוס"
 msgid "Steps"
 msgstr "שלבים"
 
+#: src/pages/RoutineEditor.tsx
 #: src/pages/shell/composer.tsx
 #: src/pages/shell/computer-overlay.tsx
 #: src/pages/shell/message-view.tsx
@@ -5474,6 +5466,7 @@ msgstr "לא יבוצע"
 msgid "Work"
 msgstr ""
 
+#: src/components/ToolActivityDisclosure.tsx
 #: src/lib/roster-status.ts
 #: src/pages/Auth.tsx
 #: src/pages/shell/transcript.tsx

@@ -33,7 +33,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Add an AI model to keep chatting": "Füge ein KI-Modell hinzu, um weiterzuchatten",
   "Not Now": "Jetzt nicht",
   "Add Model": "Modell hinzufügen",
-  "Not sent · No model": "Nicht gesendet · Kein Modell",
+  "Not sent. No model": "Nicht gesendet. Kein Modell",
   "Update required": "Update erforderlich",
   Update: "Aktualisieren",
   "To:": "An:",
@@ -133,7 +133,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Try Again": "Erneut versuchen",
   "Too many unsent messages": "Zu viele ungesendete Nachrichten",
   "Not sent": "Nicht gesendet",
-  "Not sent · Tap to retry": "Nicht gesendet · Zum Wiederholen tippen",
+  "Not sent. Tap to retry": "Nicht gesendet. Zum Wiederholen tippen",
   Photo: "Foto",
   Today: "Heute",
   Yesterday: "Gestern",
@@ -613,7 +613,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Hear a sample": "Beispiel anhören",
   "Hi, this is how I'll sound when I read replies out loud.":
     "Hallo, so klinge ich, wenn ich Antworten vorlese.",
-  "On · Free, works offline": "Ein · Kostenlos, funktioniert offline",
+  "Free, works offline": "Kostenlos, funktioniert offline",
   "Paste a replacement key": "Ersatzschlüssel einfügen",
   "Paste your API key": "Füge deinen API-Schlüssel ein",
   "Replace key": "Schlüssel ersetzen",
@@ -663,8 +663,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Try again.": "Versuche es erneut.",
   Usage: "Nutzung",
   "Your account": "Dein Konto",
-  "{runs} runs · {tokens} tokens": "{runs} Ausführungen · {tokens} Token",
-  "{calls} calls · {tokens} tokens": "{calls} Aufrufe · {tokens} Token",
+  "{runs} runs, {tokens} tokens": "{runs} Ausführungen, {tokens} Token",
+  "{calls} calls, {tokens} tokens": "{calls} Aufrufe, {tokens} Token",
   // app/(settings)/change-password.tsx
   "Confirm password": "Passwort bestätigen",
   "Could not change password": "Passwort konnte nicht geändert werden",
@@ -780,10 +780,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Waiting…": "Warten…",
   // lib/app-version.ts
   Embedded: "Eingebettet",
-  "OTA · {id}": "OTA · {id}",
-  "OTA · {id} · {date}": "OTA · {id} · {date}",
-  "{channel} · {id}": "{channel} · {id}",
-  "{channel} · {id} · {date}": "{channel} · {id} · {date}",
+  "OTA {id}": "OTA {id}",
+  "OTA {id}, {date}": "OTA {id}, {date}",
+  "{channel} {id}": "{channel} {id}",
+  "{channel} {id}, {date}": "{channel} {id}, {date}",
   // lib/artifact-open.ts
   "Saved {name} locally": "{name} lokal gespeichert",
   // lib/bot-lifecycle.ts

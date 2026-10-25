@@ -268,7 +268,7 @@ export function ModelRoleSettings({
           )
           .map((option) => ({
             key: modelRoleChoiceKey(option),
-            label: `${option.connectionName} · ${option.label}`,
+            label: `${option.label} (${option.connectionName})`,
             modelLabel: option.label,
             providerLabel: option.connectionName,
             provider: option.provider,
@@ -413,7 +413,7 @@ export function ModelRoleSettings({
           ...(showThinking && thinking
             ? [t("Thinking: {level}", { level: thinkingLevelLabel(thinking, t) })]
             : []),
-        ].join(" · ");
+        ].join(", ");
         return (
           <RowMenu
             key={modelRoleChoiceKey(choice)}

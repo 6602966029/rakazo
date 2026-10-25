@@ -74,7 +74,7 @@ describe("connected backup model choices", () => {
       "Claude subscription",
     );
     expect(connectionDisplayName({ ...credential, label: "Work" }, "Claude subscription")).toBe(
-      "Claude subscription · Work",
+      "Claude subscription (Work)",
     );
   });
   it("offers only non-placeholder catalog models for connected providers", () => {
@@ -101,7 +101,7 @@ describe("connected backup model choices", () => {
         label: "custom-model",
         providerName: "openai-compatible",
         credentialId: "cred-openai-compatible",
-        connectionName: "openai-compatible · Local server",
+        connectionName: "openai-compatible (Local server)",
       },
     ]);
   });
@@ -223,8 +223,8 @@ describe("connected backup model choices", () => {
     expect(options.map((option) => [option.connectionName, option.modelId])).toEqual([
       ["Anthropic", "claude-sonnet"],
       ["Anthropic", "claude-haiku"],
-      ["Anthropic · Work", "claude-sonnet"],
-      ["Anthropic · Work", "claude-haiku"],
+      ["Anthropic (Work)", "claude-sonnet"],
+      ["Anthropic (Work)", "claude-haiku"],
     ]);
     expect(new Set(options.map(modelRoleChoiceKey)).size).toBe(4);
   });
@@ -263,7 +263,7 @@ describe("connected backup model choices", () => {
     expect(connectionDisplayName(base, "ChatGPT")).toBe("ChatGPT");
     expect(connectionDisplayName({ ...base, label: "ChatGPT 2" }, "ChatGPT")).toBe("ChatGPT 2");
     expect(connectionDisplayName({ ...base, label: "me@example.com" }, "ChatGPT")).toBe(
-      "ChatGPT · me@example.com",
+      "ChatGPT (me@example.com)",
     );
     expect(connectionDisplayName({ ...base, label: "openai-codex" }, "ChatGPT")).toBe("ChatGPT");
   });

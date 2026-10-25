@@ -1605,16 +1605,16 @@ function ActivityRow({
   bot?: MobileBot;
   onPress: () => void;
 }) {
-  const title = run.groupName ? `${run.botName} · ${run.groupName}` : run.botName;
   const status = activityStatusLabel(run.status);
   const snippet = activityPreview(run);
-  const preview = snippet ? `${snippet} · ${status}` : status;
+  const preview = snippet ? `${status}: ${snippet}` : status;
   return (
     <ConversationRow
-      title={title}
+      title={run.botName}
+      tag={run.groupName}
       preview={preview}
       time={formatActivityRelativeTime(run.updatedAt)}
-      accessibilityLabel={`${title}, ${status}`}
+      accessibilityLabel={[run.botName, run.groupName, status].filter(Boolean).join(", ")}
       onPress={onPress}
       avatar={
         <BotAvatar

@@ -287,8 +287,8 @@ test("the bot's model picker marks models that cannot read images", async ({ pag
   await expect(picker).toBeVisible();
   await picker.click();
   await page.getByRole("combobox", { name: "Search models" }).fill("model");
-  const textOnly = page.getByRole("option", { name: "OpenRouter · Text-only model", exact: true });
-  const vision = page.getByRole("option", { name: "OpenRouter · Vision model 1", exact: true });
+  const textOnly = page.getByRole("option", { name: "Text-only model (OpenRouter)", exact: true });
+  const vision = page.getByRole("option", { name: "Vision model 1 (OpenRouter)", exact: true });
   await expect(textOnly).toBeVisible();
   await captureScreenshot(page, testInfo, "bot-model-picker-text-only-row");
   await page.evaluate(() => {
@@ -994,7 +994,7 @@ test("chat settings search a long model list", async ({ page }, testInfo) => {
   await captureScreenshot(page, testInfo, "chat-settings-model-search-empty");
 
   await search.fill(target.id);
-  const targetLabel = `${target.providerName ?? target.provider} · ${target.label}`;
+  const targetLabel = `${target.label} (${target.providerName ?? target.provider})`;
   await page
     .locator('[data-slot="command-list"]')
     .getByRole("option", { name: targetLabel, exact: true })

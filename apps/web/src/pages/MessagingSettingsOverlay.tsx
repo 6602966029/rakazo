@@ -121,7 +121,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
   }
 
   const agentByIdentity = new Map(status?.identities.map((i) => [i.id, i.botName]) ?? []);
-  function channelMeta(channel: MessagingChannelMembership): string {
+  function channelMeta(channel: MessagingChannelMembership): string[] {
     return [
       providerLabel(channel.provider),
       // Only meaningful once a second chat app is linked: the same group can
@@ -129,9 +129,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
       agentByIdentity.size > 1 ? agentByIdentity.get(channel.identityId) : undefined,
       channel.status,
       String(channel.memberCount),
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    ].filter((part): part is string => Boolean(part));
   }
 
   const linkCode = linkRequest?.code;
@@ -167,8 +165,10 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
             <Trans>Chat apps</Trans>
           </h3>
           {status ? (
-            <p className="mt-3 text-[13px] text-muted-foreground/70">
-              {status.providers.map(providerLabel).join(" · ")}
+            <p className="mt-3 flex flex-wrap gap-x-3 text-[13px] text-muted-foreground/70">
+              {status.providers.map((provider) => (
+                <span key={provider}>{providerLabel(provider)}</span>
+              ))}
             </p>
           ) : null}
           {status?.identities.length ? (
@@ -178,8 +178,9 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                   key={identity.id}
                   className="flex items-center justify-between gap-3 text-[14px] text-foreground/75"
                 >
-                  <span>
-                    {providerLabel(identity.provider)} · {identity.address}{" "}
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    <span>{providerLabel(identity.provider)}</span>
+                    <span>{identity.address}</span>
                     <span className="text-[12px] text-muted-foreground/70">
                       → {identity.botName}
                     </span>
@@ -255,8 +256,11 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                 >
                   <span>
                     {channel.name ?? t`Group`}{" "}
-                    <span className="text-[12px] text-muted-foreground/70">
-                      {channelMeta(channel)}
+                    <span className="inline-flex flex-wrap gap-x-2 text-[12px] text-muted-foreground/70">
+                      {channelMeta(channel).map((part, index) => (
+                        // Parts can repeat (status and count), so the position is the key.
+                        <span key={index}>{part}</span>
+                      ))}
                     </span>
                   </span>
                   <span className="flex gap-2">
