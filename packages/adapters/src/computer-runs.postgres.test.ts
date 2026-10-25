@@ -53,7 +53,9 @@ describePostgres("computer runs (PostgreSQL)", () => {
     await system.user.create({
       data: { id, name: "Run Owner", email: `${id}@example.test`, emailVerified: false },
     });
-    await system.organization.create({ data: { id, name: "Runs", slug: id, createdAt: new Date() } });
+    await system.organization.create({
+      data: { id, name: "Runs", slug: id, createdAt: new Date() },
+    });
     await system.space.create({ data: { id, organizationId: id, name: "Runs" } });
     const computer = await system.computer.create({
       data: { id, spaceId: id, userId: id, scopeKey: id, homeKey: id, kind: "fake" },
