@@ -3041,10 +3041,6 @@ msgstr "טוען קטלוג מודלים…"
 msgid "Loading preview…"
 msgstr "טוען תצוגה מקדימה…"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Loading rules…"
-msgstr "טוען כללים…"
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Loading voice providers…"
 msgstr "טוען ספקי קול…"
