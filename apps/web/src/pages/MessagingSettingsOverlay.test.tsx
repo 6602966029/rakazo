@@ -7,6 +7,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const messaging = vi.hoisted(() => ({
   status: vi.fn(),
+  installations: {
+    list: vi.fn(async () => ({ available: false, installations: [] })),
+    start: vi.fn(),
+    remove: vi.fn(),
+  },
   channels: { list: vi.fn(async () => []), respond: vi.fn(), leave: vi.fn() },
   connections: { list: vi.fn(async () => []), respond: vi.fn(), revoke: vi.fn() },
   identities: { unlink: vi.fn() },
@@ -53,6 +58,14 @@ vi.mock("@rakazo/ui-web", () => {
     DialogClose: Pass,
     DialogContent: Pass,
     DialogTitle: Pass,
+    DropdownMenu: Pass,
+    DropdownMenuContent: Pass,
+    DropdownMenuTrigger: Pass,
+    DropdownMenuItem: ({ children, onClick }: ComponentProps<"button">) => (
+      <button type="button" onClick={onClick}>
+        {children}
+      </button>
+    ),
     NativeSelect: (props: ComponentProps<"select">) => <select {...props} />,
     NativeSelectOption: (props: ComponentProps<"option">) => <option {...props} />,
   };
@@ -101,25 +114,22 @@ afterEach(() => {
   messaging.channels.list.mockResolvedValue([]);
 });
 
+function telegramItem() {
+  return [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Telegram",
+  );
+}
+
 async function startLink() {
   await act(async () => root.render(<MessagingSettingsOverlay onClose={() => undefined} />));
-  const select = container.querySelector("select");
-  if (!select) throw new Error("Missing bot select");
-  await act(async () => {
-    select.value = "bot-1";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-  const link = [...container.querySelectorAll("button")].find((button) =>
-    button.textContent?.includes("Link a chat app"),
-  );
-  await act(async () => link?.click());
+  await act(async () => telegramItem()?.click());
   expect(container.querySelector('[data-testid="messaging-link-code"]')).not.toBeNull();
 }
 
 it("lists a chat app linked from the chat app without reopening the dialog", async () => {
   messaging.status.mockResolvedValue(statusWith([]));
   await startLink();
-  expect(container.textContent).toContain("No chat apps linked yet.");
+  expect(container.textContent).not.toContain("424242");
 
   // The code is sent from the chat app; the server now reports the identity.
   messaging.status.mockResolvedValue(statusWith([identity]));
@@ -158,13 +168,13 @@ it("detects a same-address relink to the selected bot", async () => {
     statusWith([{ ...identity, botId: "bot-2", botName: "Other" }]),
   );
   await startLink();
-  expect(container.textContent).toContain("→ Other");
+  expect(container.textContent).toContain("424242 · Other");
 
   messaging.status.mockResolvedValue(statusWith([identity]));
   await act(async () => vi.advanceTimersByTimeAsync(3_000));
 
-  expect(container.textContent).toContain("→ Chief");
-  expect(container.textContent).not.toContain("→ Other");
+  expect(container.textContent).toContain("424242 · Chief");
+  expect(container.textContent).not.toContain("424242 · Other");
   expect(container.querySelector('[data-testid="messaging-link-code"]')).toBeNull();
 });
 
@@ -212,10 +222,7 @@ it("ignores a previous code's pending response after issuing a new code", async 
   const pending = pendingStatus();
   messaging.status.mockReturnValueOnce(pending.promise);
   await act(async () => vi.advanceTimersByTimeAsync(3_000));
-  const link = [...container.querySelectorAll("button")].find((button) =>
-    button.textContent?.includes("Link a chat app"),
-  );
-  await act(async () => link?.click());
+  await act(async () => telegramItem()?.click());
   const calls = messaging.status.mock.calls.length;
   await act(async () => pending.resolve(statusWith([identity])));
 
@@ -237,4 +244,13 @@ it("ignores a pending response after expiry", async () => {
   expect(container.querySelector('[data-testid="messaging-link-code"]')).toBeNull();
   expect(container.textContent).not.toContain("424242");
   expect(messaging.status).toHaveBeenCalledTimes(calls);
+});
+
+it("offers personal Slack linking alongside a workspace install", async () => {
+  messaging.status.mockResolvedValue({ ...statusWith([]), providers: ["slack"] });
+  messaging.installations.list.mockResolvedValueOnce({ available: true, installations: [] });
+  await act(async () => root.render(<MessagingSettingsOverlay onClose={() => undefined} />));
+  const items = [...container.querySelectorAll("button")].map((button) => button.textContent);
+  expect(items).toContain("Slack");
+  expect(items).toContain("Slack workspace");
 });
