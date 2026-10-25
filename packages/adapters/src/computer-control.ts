@@ -6,6 +6,7 @@ import {
   type SandboxProvider,
 } from "@rakazo/adapter-kit";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
+import { recordComputerRunEnd } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { toComputerRef } from "./computer-support.js";
 import { isSandboxGoneError } from "./sandbox-errors.js";
@@ -160,7 +161,7 @@ export async function revokeScreenControl(
     getLogger().error(`computer ${computer.id} sandbox ${computer.providerRef} is gone`, error);
     // Fence by lease + skip booting/suspending so a stale gone-cleanup cannot clobber an
     // in-flight replace/boot that still names this providerRef.
-    await deps.prisma.computer.updateMany({
+    const cleared = await deps.prisma.computer.updateMany({
       where: {
         id: computer.id,
         providerRef: computer.providerRef,
@@ -169,6 +170,7 @@ export async function revokeScreenControl(
       },
       data: { state: "stopped", providerRef: null },
     });
+    if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computer.id, "gone");
   }
 }
 

@@ -42,8 +42,8 @@ import {
   foldComputerCommands,
 } from "@rakazo/contracts";
 import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
-import { createRepos, IsolationError, parseComputerMode } from "@rakazo/db";
+import type { ComputerRunEnd, PrismaClient } from "@rakazo/db";
+import { createRepos, IsolationError, parseComputerMode, recordComputerRunEnd } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import {
   executionBlocksUserTakeover,
@@ -165,6 +165,7 @@ export function computerRoutes(ctx: RouterContext) {
           where: { computerId: bot.computer.id, botId: bot.id },
         });
         try {
+          let end: ComputerRunEnd = "stopped";
           if (bot.computer.providerRef) {
             const ctx = computerContext(context.actor, bot.id, "stop");
             const ref = toComputerRef(bot.computer);
@@ -174,6 +175,7 @@ export function computerRoutes(ctx: RouterContext) {
             } catch (error) {
               // The sandbox is already gone: nothing left to checkpoint or stop.
               if (!isSandboxGoneError(error)) throw error;
+              end = "gone";
             }
           }
           await deps.prisma.computer.update({
@@ -187,6 +189,7 @@ export function computerRoutes(ctx: RouterContext) {
               controlRunId: null,
             },
           });
+          await recordComputerRunEnd(deps.prisma, bot.computer.id, end);
         } catch (error) {
           await deps.prisma.computer
             .updateMany({
@@ -1082,10 +1085,11 @@ async function clearGoneSandbox(
 ): Promise<null> {
   if (!isSandboxGoneError(error)) throw error;
   getLogger().error(`computer ${computer.id} sandbox ${computer.providerRef} is gone`, error);
-  await deps.prisma.computer.updateMany({
+  const cleared = await deps.prisma.computer.updateMany({
     where: { id: computer.id, providerRef: computer.providerRef },
     data: { state: "stopped", providerRef: null },
   });
+  if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computer.id, "gone");
   return null;
 }
 

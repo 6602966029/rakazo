@@ -12,6 +12,7 @@ import {
 } from "@rakazo/adapter-kit";
 import { ACTIVE_RUN_STATUSES } from "@rakazo/core";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
+import { recordComputerRunEnd } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { expireComputerControl, hasActiveComputerControl } from "./computer-control.js";
 import { toComputerRef } from "./computer-lifecycle.js";
@@ -423,7 +424,7 @@ export async function sleepComputerIfIdle(
     if (isSandboxGoneError(error)) {
       // Nothing is left to checkpoint or stop. Retrying would fail the same way every idle
       // window, so clear the dead ref and let the next use boot from the last saved revision.
-      await deps.prisma.computer.updateMany({
+      const cleared = await deps.prisma.computer.updateMany({
         where: suspensionClaim,
         data: {
           state: "stopped",
@@ -436,6 +437,7 @@ export async function sleepComputerIfIdle(
           controlRunId: null,
         },
       });
+      if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computerId, "gone");
       return;
     }
     await deps.prisma.computer.updateMany({
@@ -520,6 +522,7 @@ export async function sleepComputerIfIdle(
     getLogger().warn("computer.suspend_superseded", { "computer.id": computerId });
     return;
   }
+  await recordComputerRunEnd(deps.prisma, computerId, limitReached ? "active_limit" : "idle");
   getLogger().info("computer.suspended", {
     "computer.id": computerId,
     provider: computer.kind,

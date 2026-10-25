@@ -27,6 +27,7 @@ import {
   commitBotUpdate,
   InstructionConflictError,
   IsolationError,
+  recordComputerRunEnd,
   restoreBotUnderComputerQuota,
   SpaceDeletionInProgressError,
 } from "@rakazo/db";
@@ -450,6 +451,7 @@ export function botsRoutes(ctx: RouterContext) {
                 executionLeaseExpiresAt: null,
               },
             });
+            await recordComputerRunEnd(deps.prisma, bot.computer.id, "stopped");
           }
           return await repos.setBotComputer(context.actor, bot.id, input.mode);
         } catch (error) {

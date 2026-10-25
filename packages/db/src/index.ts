@@ -8,6 +8,7 @@ export * from "./bot-instructions.js";
 export * from "./bot-update.js";
 export * from "./cancel-runs.js";
 export * from "./client.js";
+export * from "./computer-runs.js";
 export * from "./computers.js";
 export * from "./content-crypto.js";
 export * from "./content-encryption.js";
