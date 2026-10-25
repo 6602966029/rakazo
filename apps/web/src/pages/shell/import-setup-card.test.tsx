@@ -74,9 +74,9 @@ describe("the import setup checklist", () => {
     );
     expect(rows).toEqual([
       ["openrouter/example", "API key for openrouter"],
-      ["files", "Program: npx · Environment variables: EXAMPLE_TOKEN · Check this yourself"],
+      ["files", "Program: npx, Environment variables: EXAMPLE_TOKENCheck this yourself"],
       ["morning", "Paused"],
-      ["triage", "Needs: gh, curl · Check this yourself"],
+      ["triage", "Needs: gh, curlCheck this yourself"],
     ]);
     const buttons = [...container.querySelectorAll("button")];
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([

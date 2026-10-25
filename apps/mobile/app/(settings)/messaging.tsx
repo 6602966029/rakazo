@@ -109,7 +109,7 @@ export default function MessagingSettings() {
       agentByIdentity.size > 1 ? agentByIdentity.get(channel.identityId) : undefined,
     ]
       .filter(Boolean)
-      .join(" · ");
+      .join(", ");
   const invitedChannels = channels.filter((channel) => channel.status === "invited");
   const incomingConnections = connections.filter(
     (connection) => connection.status === "pending" && connection.incoming,
@@ -197,7 +197,7 @@ export default function MessagingSettings() {
           <SettingsRow
             key={identity.id}
             title={messagingProviderName(identity.provider)}
-            detail={`${identity.address} · ${identity.botName}`}
+            detail={`${identity.address}, ${identity.botName}`}
             trailing={textAction(
               t("Unlink"),
               () => rpc("messaging/identities/unlink", { identityId: identity.id }),
@@ -211,7 +211,7 @@ export default function MessagingSettings() {
             title={messagingProviderName(installation.provider)}
             detail={[installation.workspaceName, botName(installation.botId)]
               .filter(Boolean)
-              .join(" · ")}
+              .join(", ")}
             trailing={textAction(
               t("Disconnect"),
               () => rpc("messaging/installations/remove", { id: installation.id }),

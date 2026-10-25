@@ -1626,10 +1626,11 @@ function ActivityRow({
   bot?: MobileBot;
   onPress: () => void;
 }) {
-  const title = run.groupName ? `${run.botName} · ${run.groupName}` : run.botName;
   const status = activityStatusLabel(run.status);
   const snippet = activityPreview(run);
-  const preview = snippet ? `${snippet} · ${status}` : status;
+  const preview = snippet ? `${status}: ${snippet}` : status;
+  // Compact rows hide tags, so the group stays in the title.
+  const title = [run.botName, run.groupName].filter(Boolean).join(", ");
   return (
     <ConversationRow
       title={title}

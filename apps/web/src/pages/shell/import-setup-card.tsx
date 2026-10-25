@@ -103,7 +103,7 @@ export function ImportSetupCard({
               ? text.need({ kind: "api_key", provider: item.providerName ?? item.provider })
               : item.kind === "routine"
                 ? text.need({ kind: "turn_on" })
-                : item.needs.map(text.need).join(" · ");
+                : item.needs.map(text.need).join(", ");
           const target: ImportSetupTarget | null =
             item.kind === "model"
               ? { kind: "models" }
@@ -122,8 +122,12 @@ export function ImportSetupCard({
                 <p className="truncate text-[14px] text-foreground" dir="auto">
                   {name}
                 </p>
-                <p className="text-[12.5px] text-muted-foreground" dir="auto">
-                  {isVerifiable(item) ? detail : `${detail} · ${t`Check this yourself`}`}
+                <p
+                  className="flex flex-wrap gap-x-2 text-[12.5px] text-muted-foreground"
+                  dir="auto"
+                >
+                  <span>{detail}</span>
+                  {isVerifiable(item) ? null : <span>{t`Check this yourself`}</span>}
                 </p>
               </div>
               {done ? (

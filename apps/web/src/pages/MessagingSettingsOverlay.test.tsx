@@ -187,13 +187,13 @@ it("detects a same-address relink to the selected bot", async () => {
     statusWith([{ ...identity, botId: "bot-2", botName: "Other" }]),
   );
   await startLink();
-  expect(container.textContent).toContain("424242 · Other");
+  expect(container.textContent).toContain("424242, Other");
 
   messaging.status.mockResolvedValue(statusWith([identity]));
   await act(async () => vi.advanceTimersByTimeAsync(3_000));
 
-  expect(container.textContent).toContain("424242 · Chief");
-  expect(container.textContent).not.toContain("424242 · Other");
+  expect(container.textContent).toContain("424242, Chief");
+  expect(container.textContent).not.toContain("424242, Other");
   expect(container.querySelector('[data-testid="messaging-link-code"]')).toBeNull();
 });
 

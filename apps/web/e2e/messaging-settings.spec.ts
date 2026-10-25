@@ -202,8 +202,8 @@ test("messaging settings show linked chat apps, channels, connections, and team 
   await settings.getByRole("button", { name: "관리", exact: true }).click();
 
   await expect(page.getByTestId("messaging-settings")).toBeVisible();
-  await expect(page.getByText("+15551230001 · Chief")).toBeVisible();
-  await expect(page.getByText("424242 · Lead")).toBeVisible();
+  await expect(page.getByText("+15551230001, Chief")).toBeVisible();
+  await expect(page.getByText("424242, Lead")).toBeVisible();
   await expect(page.getByText("Family")).toBeVisible();
   await expect(page.getByText("Dana's Assistant")).toBeVisible();
   await expect(page.getByRole("button", { name: "승인" })).toHaveCount(2);

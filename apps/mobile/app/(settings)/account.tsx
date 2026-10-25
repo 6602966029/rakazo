@@ -222,7 +222,7 @@ export default function Account() {
       title={t("Usage")}
       detail={
         usage
-          ? t("{runs} runs · {tokens} tokens", {
+          ? t("{runs} runs, {tokens} tokens", {
               runs: count.format(usage.runs),
               tokens: tokens(usage.totalTokens),
             })
@@ -238,7 +238,7 @@ export default function Account() {
           key={`${row.provider}:${row.model}`}
           accessible
           title={row.model}
-          detail={`${row.provider} · ${t("{calls} calls · {tokens} tokens", {
+          detail={`${row.provider}, ${t("{calls} calls, {tokens} tokens", {
             calls: count.format(row.modelCalls),
             tokens: tokens(row.totalTokens),
           })}`}

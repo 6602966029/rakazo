@@ -173,7 +173,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
       agentByIdentity.size > 1 ? agentByIdentity.get(channel.identityId) : undefined,
     ]
       .filter(Boolean)
-      .join(" · ");
+      .join(", ");
   }
 
   // Every app links personal DMs with a code sent from the chat app; Slack can
@@ -309,7 +309,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                 >
                   <span className="text-foreground">{providerLabel(identity.provider)}</span>
                   <Meta>
-                    {identity.address} · {identity.botName}
+                    {identity.address}, {identity.botName}
                   </Meta>
                 </Row>
               ))}
@@ -332,7 +332,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                   <Meta>
                     {[installation.workspaceName, botName(installation.botId)]
                       .filter(Boolean)
-                      .join(" · ")}
+                      .join(", ")}
                   </Meta>
                 </Row>
               ))}

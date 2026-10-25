@@ -3568,7 +3568,7 @@ describe("mobile thread event reduction", () => {
           },
         ]),
       ),
-    ).toBe("SMS · Alex: Hello from the group");
+    ).toBe("Alex (SMS): Hello from the group");
     expect(
       blockText(
         mobileMessage("channel-2", [
@@ -3582,7 +3582,7 @@ describe("mobile thread event reduction", () => {
           },
         ]),
       ),
-    ).toBe("Slack · Alex: Hello from the group");
+    ).toBe("Alex (Slack): Hello from the group");
   });
 
   it("deduplicates durable messages and replaces matching transient subagent state", () => {
@@ -4108,7 +4108,7 @@ describe("mobile clipboard text", () => {
           { kind: "card", lines: [] },
         ],
       }),
-    ).toBe("Hello\nSMS · Sender: Reply");
+    ).toBe("Hello\nSender (SMS): Reply");
   });
 
   it("keeps leading whitespace for selection while copying trims it", async () => {
