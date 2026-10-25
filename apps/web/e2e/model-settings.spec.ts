@@ -14,6 +14,7 @@ import {
   openModelConnection,
   openUserSettings,
   pickReopenedModel,
+  presentMainDeploymentDefault,
   rpc,
   signup,
 } from "./helpers";
@@ -767,6 +768,11 @@ test("a deployment default on server credentials says so and keeps an own key op
       },
     });
   });
+  await presentMainDeploymentDefault(
+    page,
+    "amazon-bedrock",
+    "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+  );
   await openUserSettings(page, "models");
   await expect(page.getByTestId("model-role-main").getByTestId("model-role-default")).toContainText(
     "Claude Haiku",
@@ -814,6 +820,7 @@ test("a key connected in another space can replace server credentials for the sa
     await rpc<Array<{ provider: string; id: string; label: string }>>(page, "models/list", {})
   ).find((entry) => entry.provider === provider && entry.id === modelId);
   if (!haiku) throw new Error("catalog has no Bedrock Claude Haiku model");
+  await presentMainDeploymentDefault(page, provider, modelId);
   await openUserSettings(page, "models");
   const mainList = page.getByTestId("model-role-main");
   await expect(mainList.getByTestId("model-role-default")).toContainText(/Claude Haiku/);
