@@ -138,3 +138,12 @@ describe("clearRoutineBackoff", () => {
     expect(enqueue).not.toHaveBeenCalled();
   });
 });
+
+describe("clearRoutineBackoff when the database is unavailable", () => {
+  it("logs instead of throwing into the completed run", async () => {
+    const { deps } = fakeRoutine();
+    vi.mocked(deps.prisma.routine.count).mockRejectedValueOnce(new Error("connection lost"));
+
+    await expect(clearRoutineBackoff(deps, "routine-1", NOW)).resolves.toBeUndefined();
+  });
+});
