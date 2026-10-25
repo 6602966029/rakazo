@@ -1608,13 +1608,14 @@ function ActivityRow({
   const status = activityStatusLabel(run.status);
   const snippet = activityPreview(run);
   const preview = snippet ? `${status}: ${snippet}` : status;
+  // Compact rows hide tags, so the group stays in the title.
+  const title = [run.botName, run.groupName].filter(Boolean).join(", ");
   return (
     <ConversationRow
-      title={run.botName}
-      tag={run.groupName}
+      title={title}
       preview={preview}
       time={formatActivityRelativeTime(run.updatedAt)}
-      accessibilityLabel={[run.botName, run.groupName, status].filter(Boolean).join(", ")}
+      accessibilityLabel={`${title}, ${status}`}
       onPress={onPress}
       avatar={
         <BotAvatar
