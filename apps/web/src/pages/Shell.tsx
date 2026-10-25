@@ -755,6 +755,9 @@ function SpaceShell() {
     olderCursor: number | null;
   } | null>(null);
   const manuallyUnread = useRef(new Set<string>());
+  const [markedUnread, setMarkedUnread] = useState<{ visit: number; messageId: string } | null>(
+    null,
+  );
   const readVisibleGroups = useRef(new Set<string>());
   // What the user had read up to when the open chat was opened; the "New" divider
   // follows it for the rest of the visit. Each open of a chat is a new visit.
@@ -854,7 +857,10 @@ function SpaceShell() {
   // automatic read answering after the user marked the chat unread can't undo the hold.
   const markBotRead = useCallback(
     async (id: string, stillWanted?: () => boolean) => {
-      if (!stillWanted) manuallyUnread.current.delete(id);
+      if (!stillWanted) {
+        manuallyUnread.current.delete(id);
+        setMarkedUnread(null);
+      }
       const answer = await readInOrder(`bot:${id}`, () =>
         !stillWanted || stillWanted() ? rpc.threads.markRead({ botId: id }) : Promise.resolve(null),
       );
@@ -867,6 +873,7 @@ function SpaceShell() {
   const markBotUnread = useCallback(
     async (id: string, messageId?: string) => {
       manuallyUnread.current.add(id);
+      const visit = readVisit.current.visit;
       try {
         // Through the chat's read queue, so a read already sent lands first and this one wins.
         await readInOrder(`bot:${id}`, () =>
@@ -876,6 +883,7 @@ function SpaceShell() {
         manuallyUnread.current.delete(id);
         throw err;
       }
+      if (messageId) setMarkedUnread({ visit, messageId });
       updateBotUnread(id, true);
     },
     [readInOrder, updateBotUnread],
@@ -3007,7 +3015,10 @@ function SpaceShell() {
         } else {
           const groupId = contextGroup!.id;
           if (unread) manuallyUnread.current.add(groupId);
-          else manuallyUnread.current.delete(groupId);
+          else {
+            manuallyUnread.current.delete(groupId);
+            setMarkedUnread(null);
+          }
           const request = readInOrder(`group:${groupId}`, () =>
             unread ? rpc.threads.markUnread({ groupId }) : rpc.threads.markRead({ groupId }),
           );
@@ -3498,6 +3509,12 @@ function SpaceShell() {
               scrollRequest={scrollRequest}
               onScrollRequestHandled={clearScrollRequest}
               artifactTarget={transcriptArtifactTarget}
+              markedUnreadMessageId={
+                markedUnread?.visit === readVisit.current.visit &&
+                manuallyUnread.current.has(groupId ?? active?.id ?? "")
+                  ? markedUnread.messageId
+                  : undefined
+              }
               transcript={transcript}
               showToolActivity={showToolActivity}
               olderCursor={activeSnapshot?.olderCursor ?? null}
@@ -3526,16 +3543,18 @@ function SpaceShell() {
                 // The next open of this chat starts the New divider at this message.
                 if (groupId) {
                   manuallyUnread.current.add(groupId);
+                  const visit = readVisit.current.visit;
                   void readInOrder(`group:${groupId}`, () =>
                     rpc.threads.markUnread({ groupId, messageId: message.id }),
                   )
-                    .then(() =>
+                    .then(() => {
+                      setMarkedUnread({ visit, messageId: message.id });
                       setGroups((current) =>
                         current.map((group) =>
                           group.id === groupId ? { ...group, unread: true } : group,
                         ),
-                      ),
-                    )
+                      );
+                    })
                     .catch(() => manuallyUnread.current.delete(groupId));
                 } else if (active) {
                   void markBotUnread(active.id, message.id).catch(() => undefined);

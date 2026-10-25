@@ -175,6 +175,13 @@ test("marking a message unread brings the chat back with New above the reply fro
     "true",
   );
 
+  // The completed action disappears from this message, while the chat remains unread.
+  await firstReply.hover();
+  await firstReply.getByRole("button", { name: "More" }).click();
+  await expect(page.getByRole("menuitem")).toHaveText(["Reply", "Copy"]);
+  await captureScreenshot(page, testInfo, "message-marked-unread-menu");
+  await page.keyboard.press("Escape");
+
   await page.goto(`/app/${otherId}`);
   await expect(page.getByPlaceholder("Message Elsewhere")).toBeVisible();
   await page.goto(`/app/${chiefId}`);
@@ -184,6 +191,11 @@ test("marking a message unread brings the chat back with New above the reply fro
     `handled: ${first}`,
   );
   await captureScreenshot(page, testInfo, "message-mark-unread-divider");
+  // A new visit reads the chat and makes the action available again.
+  await firstReply.hover();
+  await firstReply.getByRole("button", { name: "More" }).click();
+  await expect(markUnread).toBeVisible();
+  await page.keyboard.press("Escape");
 
   // The user's own message offers it too; New then starts at the reply after it.
   const secondQuestion = page.locator("[data-message-id]").filter({ hasText: second }).first();
