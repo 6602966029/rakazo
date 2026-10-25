@@ -803,6 +803,11 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const notificationThreadId = snap?.threadId ?? requestedThreadId ?? currentBot?.threadId;
   activeThreadId.current = notificationThreadId;
   const currentBotStatus = snap ? snap.run?.status : titleBot?.status;
+  // The group's members in its order, once the chat or its group list has loaded them; the
+  // title seats the inbox's copy until then.
+  const groupMembers = groupId
+    ? (snap?.members ?? mentionGroups.find((group) => group.id === groupId)?.members)
+    : undefined;
   // Only reply text being written replaces the footer; earlier sentences above a tool call don't.
   const hasLiveProgress = visibleMessages.some(
     (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
@@ -939,10 +944,21 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         status: currentBotStatus,
         composing: titleComposing,
         name: titleName,
+        members: groupMembers,
         // The title opens the chat's own settings: the group's in a group, the bot's otherwise.
         settings: chatSettingsRoute({ groupId, botId, readOnly }),
       }),
-    [route.key, botId, groupId, readOnly, titleBot, currentBotStatus, titleComposing, titleName],
+    [
+      route.key,
+      botId,
+      groupId,
+      readOnly,
+      titleBot,
+      currentBotStatus,
+      titleComposing,
+      titleName,
+      groupMembers,
+    ],
   );
 
   useLayoutEffect(() => {
