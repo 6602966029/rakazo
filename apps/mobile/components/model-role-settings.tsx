@@ -414,7 +414,7 @@ export function ModelRoleSettings({
           ...(showThinking && thinking
             ? [t("Thinking: {level}", { level: thinkingLevelLabel(thinking, t) })]
             : []),
-        ].join(" · ");
+        ].join(", ");
         return (
           <RowMenu
             key={modelRoleChoiceKey(choice)}

@@ -1043,7 +1043,7 @@ describe("model role lists", () => {
     expect(container.querySelector('button[aria-label="Provider"]')).toBeNull();
     const main = section("Main model");
     expect([...main.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
-      "1Model 1OpenRouter · Thinking: High",
+      "1Model 1OpenRouter, Thinking: High",
       "2Model 2OpenRouter",
       "Add fallback",
     ]);

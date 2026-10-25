@@ -335,11 +335,14 @@ export function VoiceSettingsOverlay({
           >
             {catalog.map((entry) => {
               const connected = credentials.some((cred) => cred.provider === entry.id);
+              const notes = [
+                ...(entry.transcribe ? [] : [t`Speak only`]),
+                ...(connected ? [t`Connected`] : []),
+              ];
               return (
                 <NativeSelectOption key={entry.id} value={entry.id}>
                   {entry.name}
-                  {entry.transcribe ? "" : ` · ${t`Speak only`}`}
-                  {connected ? ` · ${t`Connected`}` : ""}
+                  {notes.length ? ` (${notes.join(", ")})` : ""}
                 </NativeSelectOption>
               );
             })}
@@ -486,7 +489,7 @@ export function VoiceSettingsOverlay({
                   {voiceOptions.map((voice) => (
                     <NativeSelectOption key={voice.id} value={voice.id}>
                       {voice.label}
-                      {voice.description ? ` · ${voice.description}` : ""}
+                      {voice.description ? ` (${voice.description})` : ""}
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>

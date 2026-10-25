@@ -258,10 +258,10 @@ export function ModelRoleSettings({
   const pickerTrigger = (label: string, sub?: string) => (
     <button
       type="button"
-      className="flex min-w-0 flex-1 items-baseline gap-1.5 rounded-md py-1 text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="flex min-w-0 flex-1 items-baseline gap-2 rounded-md py-1 text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <span className="truncate text-[15px] text-foreground">{label}</span>
-      {sub ? <span className="truncate text-[13px] text-muted-foreground">· {sub}</span> : null}
+      {sub ? <span className="truncate text-[13px] text-muted-foreground">{sub}</span> : null}
     </button>
   );
 
