@@ -3583,62 +3583,65 @@ function SpaceShell() {
             />
           )}
         </div>
-        {recordingSkill ? (
-          <div className="px-6 pb-2 text-center text-[13px] text-destructive">
-            <Trans>Teaching in progress. Stop teaching before sending a new message.</Trans>
-          </div>
-        ) : null}
         {active || activeGroup ? (
-          <Composer
-            key={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
-            draftKey={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
-            enterToSend={enterToSend}
-            activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
-            running={composerRunning}
-            disabled={Boolean(recordingSkill)}
-            pendingAttachments={activePendingAttachments}
-            attachmentNotice={attachmentNotice}
-            sendError={sendError}
-            onOpenModels={() => {
-              if (active && !inGroup) {
-                setPanel("settings");
-                setModelFocusRequest(Date.now());
-              } else openSettings("models");
-            }}
-            runError={displayedRunError}
-            runErrorId={displayedRunErrorId}
-            onRunErrorPresented={handleRunErrorPresented}
-            onDismissError={dismissComposerError}
-            sending={sending}
-            fileInputRef={fileInputRef}
-            onAttachmentPick={onAttachmentPick}
-            onRemoveAttachment={removeAttachment}
-            onSend={sendMessage}
-            onStop={stopRun}
-            phoneCallsEnabled={bootstrapMe?.phoneCallsEnabled === true}
-            dictationTranscribe={voiceStatus ? Boolean(voiceStatus.transcribe) : undefined}
-            artifactTarget={transcriptArtifactTarget}
-            replyTarget={activeReplyTarget}
-            replyQuote={activeReplyQuote}
-            replyTargetName={replyTargetName}
-            onClearReply={clearReply}
-            mentionTargets={composerMentionTargets}
-            agentSkills={agentSkills}
-            onSlashOpen={refreshAgentSkills}
-            onSlashAction={(action) => {
-              if (action === "chat-settings") {
-                setPanel(inGroup ? "group-settings" : "settings");
-                return;
-              }
-              if (action === "settings-general") {
-                openSettings("general");
-                return;
-              }
-              if (action === "settings-usage") {
-                openSettings("usage");
-              }
-            }}
-          />
+          // Let messages continue behind the composer's rounded top corners.
+          <div className="pointer-events-none relative z-30 -mt-7">
+            {recordingSkill ? (
+              <div className="pointer-events-auto bg-background px-6 pb-2 text-center text-[13px] text-destructive">
+                <Trans>Teaching in progress. Stop teaching before sending a new message.</Trans>
+              </div>
+            ) : null}
+            <Composer
+              key={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
+              draftKey={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
+              enterToSend={enterToSend}
+              activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
+              running={composerRunning}
+              disabled={Boolean(recordingSkill)}
+              pendingAttachments={activePendingAttachments}
+              attachmentNotice={attachmentNotice}
+              sendError={sendError}
+              onOpenModels={() => {
+                if (active && !inGroup) {
+                  setPanel("settings");
+                  setModelFocusRequest(Date.now());
+                } else openSettings("models");
+              }}
+              runError={displayedRunError}
+              runErrorId={displayedRunErrorId}
+              onRunErrorPresented={handleRunErrorPresented}
+              onDismissError={dismissComposerError}
+              sending={sending}
+              fileInputRef={fileInputRef}
+              onAttachmentPick={onAttachmentPick}
+              onRemoveAttachment={removeAttachment}
+              onSend={sendMessage}
+              onStop={stopRun}
+              phoneCallsEnabled={bootstrapMe?.phoneCallsEnabled === true}
+              dictationTranscribe={voiceStatus ? Boolean(voiceStatus.transcribe) : undefined}
+              artifactTarget={transcriptArtifactTarget}
+              replyTarget={activeReplyTarget}
+              replyQuote={activeReplyQuote}
+              replyTargetName={replyTargetName}
+              onClearReply={clearReply}
+              mentionTargets={composerMentionTargets}
+              agentSkills={agentSkills}
+              onSlashOpen={refreshAgentSkills}
+              onSlashAction={(action) => {
+                if (action === "chat-settings") {
+                  setPanel(inGroup ? "group-settings" : "settings");
+                  return;
+                }
+                if (action === "settings-general") {
+                  openSettings("general");
+                  return;
+                }
+                if (action === "settings-usage") {
+                  openSettings("usage");
+                }
+              }}
+            />
+          </div>
         ) : null}
       </main>
 
