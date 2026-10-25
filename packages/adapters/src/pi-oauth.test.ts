@@ -2264,6 +2264,31 @@ describe("PiOAuthLogins hand-off between API processes", () => {
     expect(rows.has(elsewhere.loginId)).toBe(false);
   });
 
+  it("cancels a sign-in another process started", async () => {
+    const { rows, store } = handoffStore();
+    const started = await apiProcess(store).logins.begin({ ...member, provider: "anthropic" });
+    const after = apiProcess(store);
+    await after.logins.cancel(started.loginId, member);
+    expect(rows.has(started.loginId)).toBe(false);
+    await expect(after.logins.submit(started.loginId, member, "the-code")).rejects.toThrow(
+      /not found/,
+    );
+  });
+
+  it("does not let an older sign-in's code replace a newer one", async () => {
+    const { rows, store } = handoffStore();
+    const older = await apiProcess(store).logins.begin({ ...member, provider: "anthropic" });
+    const after = apiProcess(store);
+    const newer = await after.logins.begin({ ...member, provider: "anthropic" });
+    expect(rows.has(older.loginId)).toBe(false);
+    await expect(after.logins.submit(older.loginId, member, "old-code")).rejects.toThrow(
+      /not found/,
+    );
+    await expect(after.logins.submit(newer.loginId, member, "new-code")).resolves.toEqual({
+      ok: true,
+    });
+  });
+
   it("keeps device-code sign-ins in memory", async () => {
     const { rows, store } = handoffStore();
     const logins = new PiOAuthLogins(async (_provider, _type, interaction) => {

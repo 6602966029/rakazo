@@ -1129,6 +1129,13 @@ export class PiOAuthLogins {
           where: { createdAt: { lt: new Date(Date.now() - PASTED_CODE_TTL_SECONDS * 1000) } },
         }),
       );
+      // This sign-in replaces any the member left open elsewhere for the provider, so an
+      // older code cannot come back and retire it.
+      await runAsTenant(actor, () =>
+        handoff.prisma.modelOAuthSession.deleteMany({
+          where: { ...actor, provider: input.provider },
+        }),
+      );
       const sealed = await handoff.secrets.put(
         JSON.stringify(stored),
         {
@@ -1281,6 +1288,8 @@ export class PiOAuthLogins {
     while (true) {
       const session = this.pending.get(loginId);
       if (!session || session.userId !== actor.userId || session.spaceId !== actor.spaceId) {
+        // Another process may have started it: no process may resume it now.
+        await this.forgetHandoff({ id: loginId, ...actor });
         return;
       }
       if (session.state === "finalizing") {
