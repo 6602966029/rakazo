@@ -69,7 +69,6 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   Menu,
   Monitor,
-  Pencil,
   Phone,
   Plus,
   Search,
@@ -98,6 +97,7 @@ import { CallCard, CallReturnBar } from "../components/call/CallCard";
 import { IncomingCall } from "../components/call/IncomingCall";
 import { lazyOverlay } from "../components/ErrorBoundary";
 import { IconTooltip } from "../components/IconTooltip";
+import { PageLoading } from "../components/PageLoading";
 import { PasskeyOffer } from "../components/PasskeyOffer";
 import { SidebarFooter } from "../components/SidebarFooter";
 import type { ActivityListFilters } from "../lib/activity-list-filters";
@@ -217,11 +217,11 @@ import {
   ClearConversationDialog,
   DeleteBotDialog,
   DeleteItemDialog,
+  DeleteSpaceDialog,
   NewBotSectionDialog,
   NewSpaceDialog,
   PickerInfoDialog,
   RenameBotSectionDialog,
-  RenameSpaceDialog,
 } from "./shell/dialogs";
 import type { RosterDropTarget } from "./shell/roster-drop";
 import { resolveRosterDrop } from "./shell/roster-drop";
@@ -587,7 +587,6 @@ function SpaceShell() {
   const [deleteTarget, setDeleteTarget] = useState<Bot | null>(null);
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<Group | null>(null);
   const [deleteSpaceTarget, setDeleteSpaceTarget] = useState<Space | null>(null);
-  const [renameSpaceTarget, setRenameSpaceTarget] = useState<Space | null>(null);
   const [spaceMenu, setSpaceMenu] = useState<{
     id: string;
     position: { x: number; y: number };
@@ -622,6 +621,8 @@ function SpaceShell() {
   const bootsInFlight = useRef(new Map<string, symbol>());
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [initialBotsLoaded, setInitialBotsLoaded] = useState(Boolean(seed));
+  // A failed first load falls back to the shell, whose polling and footer can still recover.
+  const [initialLoadFailed, setInitialLoadFailed] = useState(false);
   const [bootstrapMe, setBootstrapMe] = useState<Me | null | undefined>(seed?.me);
   const callsEnabledRef = useRef(false);
   useEffect(() => {
@@ -1300,7 +1301,9 @@ function SpaceShell() {
       .catch(() => {
         if (cancelled) return;
         if (!seed) setBootstrapMe(null);
-        void refreshBots(true).catch(() => undefined);
+        void refreshBots(true).catch(() => {
+          if (!cancelled) setInitialLoadFailed(true);
+        });
       });
     let refreshTimer: number | undefined;
     const refreshVisibleBots = () => {
@@ -2609,7 +2612,36 @@ function SpaceShell() {
   // Space-scoped sections bind their own rpc client to this space, so another
   // space's settings open in place without switching the app or reloading.
   function openSpaceSettings(spaceId: string) {
-    openSettings("models", spaceId);
+    openSettings("space", spaceId);
+  }
+
+  async function renameSpace(spaceId: string, name: string) {
+    await commitSpaceRename({
+      rename: async () => {
+        await rpc.spaces.rename({ spaceId, name });
+      },
+      apply: () => {
+        setSpaces((current) =>
+          current.map((space) => (space.id === spaceId ? { ...space, name } : space)),
+        );
+      },
+      refresh: () => refreshBots(),
+    });
+  }
+
+  async function removeSpace(spaceId: string) {
+    const result = await rpc.spaces.remove({ spaceId });
+    if (!alive.current) return;
+    setPanel(null);
+    const effectiveSpaceId = selectedSpaceId() ?? bootstrapMe?.spaceId;
+    if (effectiveSpaceId === spaceId) {
+      // The auth boundary changed, so reload like a space switch.
+      if (selectSpace(result.activeSpaceId)) {
+        window.location.assign("/app");
+        return;
+      }
+    }
+    await refreshBots(true);
   }
 
   async function createBot(input: CreateBotDialogInput) {
@@ -3683,14 +3715,12 @@ function SpaceShell() {
           <div className="rk-scroll h-full w-full overflow-y-auto px-5 py-[17px]">
             {panel !== "routine" && panel !== "create-group" && panel !== "group-settings" ? (
               <div className="mb-4 flex items-center justify-between">
-                <span className="text-[13.5px] text-muted-foreground">
-                  {panel === "settings" ? null : active ? (
-                    (computer?.state ?? active.status)
-                  ) : (
+                {!active && panel !== "settings" ? (
+                  <span className="text-[13.5px] text-muted-foreground">
                     <Trans>Group</Trans>
-                  )}
-                </span>
-                <div className="flex gap-1">
+                  </span>
+                ) : null}
+                <div className="ml-auto flex gap-1">
                   {active &&
                   panel === "computer" &&
                   !computerOpen &&
@@ -3879,17 +3909,6 @@ function SpaceShell() {
                   {t`Settings`}
                 </DropdownMenuItem>
               ) : null}
-              {spaceMenuTarget?.canRename ? (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setRenameSpaceTarget(spaceMenuTarget);
-                    setSpaceMenu(null);
-                  }}
-                >
-                  <Pencil />
-                  {t`Rename space`}
-                </DropdownMenuItem>
-              ) : null}
               {spaceMenuTarget?.canDelete ? (
                 <DropdownMenuItem
                   variant="destructive"
@@ -3933,51 +3952,13 @@ function SpaceShell() {
           />
         ) : null}
 
-        {renameSpaceTarget ? (
-          <RenameSpaceDialog
-            space={renameSpaceTarget}
-            onCancel={() => setRenameSpaceTarget(null)}
-            onConfirm={async (name) => {
-              const spaceId = renameSpaceTarget.id;
-              await commitSpaceRename({
-                rename: async () => {
-                  await rpc.spaces.rename({ spaceId, name });
-                },
-                apply: () => {
-                  setSpaces((current) =>
-                    current.map((space) => (space.id === spaceId ? { ...space, name } : space)),
-                  );
-                },
-                refresh: () => refreshBots(),
-              });
-              setRenameSpaceTarget(null);
-            }}
-          />
-        ) : null}
-
         {deleteSpaceTarget ? (
-          <DeleteItemDialog
-            item={deleteSpaceTarget}
-            noun="space"
-            description={
-              <Trans>Only empty spaces can be deleted. Delete its bots and groups first.</Trans>
-            }
+          <DeleteSpaceDialog
+            space={deleteSpaceTarget}
             onCancel={() => setDeleteSpaceTarget(null)}
             onConfirm={async () => {
-              const targetId = deleteSpaceTarget.id;
-              const result = await rpc.spaces.remove({ spaceId: targetId });
-              if (!alive.current) return;
+              await removeSpace(deleteSpaceTarget.id);
               setDeleteSpaceTarget(null);
-              setPanel(null);
-              const effectiveSpaceId = selectedSpaceId() ?? bootstrapMe?.spaceId;
-              if (effectiveSpaceId === targetId) {
-                // The auth boundary changed, so reload like a space switch.
-                if (selectSpace(result.activeSpaceId)) {
-                  window.location.assign("/app");
-                  return;
-                }
-              }
-              await refreshBots(true);
             }}
           />
         ) : null}
@@ -4115,6 +4096,11 @@ function SpaceShell() {
           <SettingsOverlay
             space={settingsSpace}
             spaces={spaces}
+            onRenameSpace={renameSpace}
+            onDeleteSpace={async (spaceId) => {
+              await removeSpace(spaceId);
+              if (alive.current) setOverlay(null);
+            }}
             currentSpaceId={currentSpaceId}
             onSpaceChange={(spaceId) => setOverlay({ ...overlay, spaceId })}
             name={session.data?.user.name ?? ""}
@@ -4202,7 +4188,8 @@ function SpaceShell() {
     </BotsSidebarLayout>
   );
 
-  return shell;
+  // Empty chrome until the first bot list lands would flash "Select a bot" before the chat.
+  return initialBotsLoaded || initialLoadFailed ? shell : <PageLoading />;
 }
 
 function routineListData(results: Array<{ data?: Routine[] }>) {
