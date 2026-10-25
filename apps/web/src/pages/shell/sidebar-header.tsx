@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import type { Bot } from "@rakazo/contracts";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web";
-import { Bell, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Bell, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { IconTooltip } from "../../components/IconTooltip";
 import { desktopBridge } from "../../lib/desktop";
@@ -14,6 +14,7 @@ export function SidebarHeader({
   mini = false,
   activityMode,
   toggleActivityMode,
+  onSearch,
   setBotsSidebarCollapsedPref,
   bots,
   setMobileSidebarOpen,
@@ -26,6 +27,7 @@ export function SidebarHeader({
   mini?: boolean;
   activityMode: boolean;
   toggleActivityMode: () => void;
+  onSearch?: () => void;
   setBotsSidebarCollapsedPref: (collapsed: boolean) => void;
   bots: Bot[];
   setMobileSidebarOpen: (open: boolean) => void;
@@ -54,6 +56,20 @@ export function SidebarHeader({
     >
       {!mini || hasWindowChrome ? <WindowChrome /> : null}
       <div className={`relative flex items-center ${mini ? "flex-col gap-0.5" : "gap-2.5"}`}>
+        {onSearch ? (
+          <IconTooltip label={t`Search`}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t`Search`}
+              data-testid="sidebar-search-trigger"
+              onClick={onSearch}
+              className="app-no-drag flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground/70 hover:text-foreground/75"
+            >
+              <Search size={15} strokeWidth={1.8} aria-hidden="true" />
+            </Button>
+          </IconTooltip>
+        ) : null}
         <IconTooltip label={t`Activity`}>
           <Button
             variant="ghost"

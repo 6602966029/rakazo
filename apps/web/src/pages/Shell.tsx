@@ -348,6 +348,7 @@ function SpaceShell() {
     setBotsSidebarCollapsed(readBotsSidebarCollapsed(userId));
   }, [userId]);
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [snapshot, setSnapshot] = useState<ThreadSnapshot | null>(null);
@@ -3184,6 +3185,19 @@ function SpaceShell() {
             if (miniSidebar) setBotsSidebarCollapsedPref(false);
             toggleActivityMode();
           }}
+          onSearch={
+            activityMode && !miniSidebar
+              ? undefined
+              : () => {
+                  if (miniSidebar) setBotsSidebarCollapsedPref(false);
+                  setSearchOpen(true);
+                  requestAnimationFrame(() =>
+                    document
+                      .querySelector<HTMLInputElement>('input[name="sidebar-search"]')
+                      ?.focus(),
+                  );
+                }
+          }
           setBotsSidebarCollapsedPref={setBotsSidebarCollapsedPref}
           bots={bots}
           setMobileSidebarOpen={setMobileSidebarOpen}
@@ -3193,24 +3207,7 @@ function SpaceShell() {
           setCreateBotOpen={setCreateBotOpen}
           setPickerInfoTopic={setPickerInfoTopic}
         />
-        {miniSidebar ? (
-          <IconTooltip label={t`Search`}>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={t`Search`}
-              className="mx-auto mb-1"
-              onClick={() => {
-                setBotsSidebarCollapsedPref(false);
-                requestAnimationFrame(() =>
-                  document.querySelector<HTMLInputElement>('input[name="sidebar-search"]')?.focus(),
-                );
-              }}
-            >
-              <Search size={16} aria-hidden="true" />
-            </Button>
-          </IconTooltip>
-        ) : (
+        {miniSidebar || !(activityMode || searchOpen || query) ? null : (
           <InputGroup
             data-testid="sidebar-search"
             className="mx-2.5 mb-3 w-auto rounded-xl bg-card dark:bg-input border border-border text-muted-foreground focus-within:border-ring"
@@ -3225,9 +3222,16 @@ function SpaceShell() {
                 else setQuery(e.target.value);
               }}
               onKeyDown={(event) => {
-                if (activityMode && event.key === "Escape") {
+                if (event.key !== "Escape") return;
+                if (activityMode) {
                   setActivityFilters({ ...activityFilters, query: "" });
+                  return;
                 }
+                setQuery("");
+                setSearchOpen(false);
+              }}
+              onBlur={() => {
+                if (!query) setSearchOpen(false);
               }}
               placeholder={activityMode ? t`Search runs` : t`Search`}
               aria-label={activityMode ? t`Search runs` : t`Search`}
