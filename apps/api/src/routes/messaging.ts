@@ -16,6 +16,21 @@ export function messagingRoutes(ctx: RouterContext) {
   const { deps, authed } = ctx;
   return {
     messaging: {
+      installations: {
+        list: authed.messaging.installations.list.handler(async ({ context }) => ({
+          available: Boolean(deps.messagingInstallations),
+          installations: (await deps.messagingInstallations?.list(context.actor)) ?? [],
+        })),
+        start: authed.messaging.installations.start.handler(async ({ context, input }) => {
+          if (!deps.messagingInstallations) throw new ORPCError("BAD_REQUEST");
+          return { url: await deps.messagingInstallations.start(context.actor, input.botId) };
+        }),
+        remove: authed.messaging.installations.remove.handler(async ({ context, input }) => {
+          if (!deps.messagingInstallations) throw new ORPCError("BAD_REQUEST");
+          await deps.messagingInstallations.remove(context.actor, input.id);
+          return { ok: true as const };
+        }),
+      },
       status: authed.messaging.status.handler(async ({ context }) => {
         const identities = await acrossChatIdentities(() =>
           deps.prisma.messagingIdentity.findMany({
@@ -74,6 +89,13 @@ export function messagingRoutes(ctx: RouterContext) {
             }),
           );
           if (!identity) throw new ORPCError("NOT_FOUND");
+          // A workspace install delivers DMs only into its own space, so moving
+          // the link elsewhere would silently drop them.
+          if (identity.installationId && identity.spaceId !== context.actor.spaceId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Pick a bot in the space this Slack workspace is connected to.",
+            });
+          }
           const bot = await deps.prisma.bot.findFirst({
             where: {
               id: input.botId,

@@ -18,6 +18,7 @@ export function createBotRemoval(deps: RouterDeps, repos: ReturnType<typeof crea
         jobs: deps.jobs,
         artifacts: deps.artifacts,
         dataDir: deps.dataDir,
+        messagingInstallations: deps.messagingInstallations,
       },
       bot,
       {

@@ -4,6 +4,7 @@ import type {
   ExternalConversation,
   MessagingAgentConnection,
   MessagingChannelMembership,
+  MessagingInstallationsStatus,
   MessagingStatus,
 } from "@rakazo/contracts";
 import { isRetryableError } from "@rakazo/core";
@@ -13,10 +14,15 @@ import {
   DialogClose,
   DialogContent,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   NativeSelect,
   NativeSelectOption,
 } from "@rakazo/ui-web";
-import { XIcon } from "lucide-react";
+import { ChevronDownIcon, XIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { providerLabel } from "../lib/messaging";
@@ -25,30 +31,51 @@ import { ExternalConversationSettings } from "./ExternalConversationSettings";
 
 const LINK_POLL_MS = 3_000;
 
+function Row({ children, actions }: { children: ReactNode; actions: ReactNode }) {
+  return (
+    <li className="flex items-center justify-between gap-3 text-[14px] text-foreground/75">
+      <span className="min-w-0 truncate">{children}</span>
+      <span className="flex shrink-0 gap-2">{actions}</span>
+    </li>
+  );
+}
+
+function Meta({ children }: { children: ReactNode }) {
+  return <span className="ml-2 text-[12px] text-muted-foreground/70">{children}</span>;
+}
+
 export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
   const { t } = useLingui();
+  const [installationStatus, setInstallationStatus] = useState<MessagingInstallationsStatus>({
+    available: false,
+    installations: [],
+  });
   const [status, setStatus] = useState<MessagingStatus | null>(null);
   const [channels, setChannels] = useState<MessagingChannelMembership[]>([]);
   const [connections, setConnections] = useState<MessagingAgentConnection[]>([]);
   const [bots, setBots] = useState<Bot[]>([]);
   const [externalConversations, setExternalConversations] = useState<ExternalConversation[]>([]);
   const [settingsConversationId, setSettingsConversationId] = useState<string | null>(null);
-  const [linkBotId, setLinkBotId] = useState("");
+  const [selectedBotId, setSelectedBotId] = useState("");
   const [linkRequest, setLinkRequest] = useState<{
     code: string;
     expiresAt: string;
     botId: string;
+    provider: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
-    const [nextStatus, nextChannels, nextConnections, nextBots, navigation] = await Promise.all([
-      rpc.messaging.status(),
-      rpc.messaging.channels.list(),
-      rpc.messaging.connections.list(),
-      rpc.bots.list(),
-      rpc.spaces.list(),
-    ]);
+    const [nextStatus, nextChannels, nextConnections, nextBots, navigation, installations] =
+      await Promise.all([
+        rpc.messaging.status(),
+        rpc.messaging.channels.list(),
+        rpc.messaging.connections.list(),
+        rpc.bots.list(),
+        rpc.spaces.list(),
+        rpc.messaging.installations.list(),
+      ]);
+    setInstallationStatus(installations);
     setStatus(nextStatus);
     setChannels(nextChannels);
     setConnections(nextConnections);
@@ -120,21 +147,80 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
     }
   }
 
+  useEffect(() => {
+    const onFocus = () => {
+      void refresh().catch(() => setError(t`Couldn't load messaging settings`));
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
+  const linkBotId = selectedBotId || bots[0]?.id || "";
+  const botName = (botId: string) => bots.find((bot) => bot.id === botId)?.name;
+  // Only meaningful once a second chat app is linked: the same group can then
+  // hold two of the caller's memberships, one per agent.
   const agentByIdentity = new Map(status?.identities.map((i) => [i.id, i.botName]) ?? []);
   function channelMeta(channel: MessagingChannelMembership): string {
     return [
       providerLabel(channel.provider),
-      // Only meaningful once a second chat app is linked: the same group can
-      // then hold two of the caller's memberships, one per agent.
       agentByIdentity.size > 1 ? agentByIdentity.get(channel.identityId) : undefined,
-      channel.status,
-      String(channel.memberCount),
     ]
       .filter(Boolean)
       .join(" · ");
   }
 
+  // Every app links personal DMs with a code sent from the chat app; Slack can
+  // also be installed workspace-wide when this server supports it.
+  const codeProviders = status?.providers ?? [];
+  const invitedChannels = channels.filter((channel) => channel.status === "invited");
+  const incomingConnections = connections.filter(
+    (connection) => connection.status === "pending" && connection.incoming,
+  );
+  const joinedChannels = channels.filter((channel) => channel.status === "approved");
+  const otherConnections = connections.filter(
+    (connection) =>
+      connection.status === "approved" || (connection.status === "pending" && !connection.incoming),
+  );
+  const linkedCount = (status?.identities.length ?? 0) + installationStatus.installations.length;
+  const hasRequests = invitedChannels.length > 0 || incomingConnections.length > 0;
+  const hasConversations =
+    joinedChannels.length > 0 || otherConnections.length > 0 || externalConversations.length > 0;
+
   const linkCode = linkRequest?.code;
+  const linkApp = linkRequest ? providerLabel(linkRequest.provider) : "";
+
+  function startLink(provider: string) {
+    void act(async () => {
+      const issued = await rpc.messaging.link.start({ botId: linkBotId });
+      setLinkRequest({ ...issued, botId: linkBotId, provider });
+    });
+  }
+
+  function installSlack() {
+    const popup = window.open("about:blank", "rakazo-slack-install");
+    if (popup) popup.opener = null;
+    void act(async () => {
+      try {
+        const { url } = await rpc.messaging.installations.start({ botId: linkBotId });
+        if (popup) popup.location.href = url;
+        else window.location.assign(url);
+      } catch (error) {
+        popup?.close();
+        throw error;
+      }
+    });
+  }
+
+  const respondButtons = (respond: (accept: boolean) => Promise<unknown>) => (
+    <>
+      <Button size="sm" onClick={() => void act(() => respond(true))}>
+        <Trans>Approve</Trans>
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => void act(() => respond(false))}>
+        <Trans>Decline</Trans>
+      </Button>
+    </>
+  );
 
   return (
     <Dialog
@@ -146,7 +232,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
       <DialogContent
         data-testid="messaging-settings"
         showCloseButton={false}
-        className="rk-scroll block max-h-[calc(100%-2rem)] w-[640px] overflow-y-auto rounded-2xl p-6 sm:max-h-[calc(100%-5rem)] sm:max-w-[calc(100%-5rem)] sm:p-8"
+        className="rk-scroll block max-h-[calc(100%-2rem)] w-[560px] overflow-y-auto rounded-2xl p-6 sm:max-h-[calc(100%-5rem)] sm:max-w-[calc(100%-5rem)] sm:p-8"
       >
         <div className="flex items-start justify-between gap-6">
           <DialogTitle className="text-heading2 font-medium text-foreground">
@@ -162,206 +248,170 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
 
         {error ? <p className="mt-4 text-[13px] text-destructive">{error}</p> : null}
 
-        <section className="mt-8 rounded-xl border border-border px-4 py-4">
-          <h3 className="text-heading3 font-medium text-foreground">
-            <Trans>Chat apps</Trans>
-          </h3>
-          {status ? (
-            <p className="mt-3 text-[13px] text-muted-foreground/70">
-              {status.providers.map(providerLabel).join(" · ")}
-            </p>
-          ) : null}
-          {status?.identities.length ? (
+        {hasRequests ? (
+          <section className="mt-6">
+            <h3 className="text-[13px] font-medium text-muted-foreground">
+              <Trans>Requests</Trans>
+            </h3>
             <ul className="mt-3 space-y-3">
-              {status.identities.map((identity) => (
-                <li
-                  key={identity.id}
-                  className="flex items-center justify-between gap-3 text-[14px] text-foreground/75"
+              {invitedChannels.map((channel) => (
+                <Row
+                  key={channel.id}
+                  actions={respondButtons((accept) =>
+                    rpc.messaging.channels.respond({ membershipId: channel.id, accept }),
+                  )}
                 >
-                  <span>
-                    {providerLabel(identity.provider)} · {identity.address}{" "}
-                    <span className="text-[12px] text-muted-foreground/70">
-                      → {identity.botName}
-                    </span>
-                  </span>
-                  <Button
-                    variant="secondary"
-                    onClick={() =>
-                      void act(() => rpc.messaging.identities.unlink({ identityId: identity.id }))
-                    }
-                  >
-                    <Trans>Unlink</Trans>
-                  </Button>
-                </li>
+                  {channel.name ?? t`Group`}
+                  <Meta>{channelMeta(channel)}</Meta>
+                </Row>
+              ))}
+              {incomingConnections.map((connection) => (
+                <Row
+                  key={connection.id}
+                  actions={respondButtons((accept) =>
+                    rpc.messaging.connections.respond({ connectionId: connection.id, accept }),
+                  )}
+                >
+                  {connection.peerOwnerLabel}
+                  {"'s "}
+                  {connection.peerBotName}
+                </Row>
               ))}
             </ul>
-          ) : (
-            <p className="mt-3 text-[14px] text-foreground/75">
-              <Trans>No chat apps linked yet.</Trans>
-            </p>
-          )}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <NativeSelect
-              aria-label={t`Bot to link`}
-              value={linkBotId}
-              onChange={(event) => {
-                setLinkBotId(event.target.value);
-                setLinkRequest(null);
-              }}
-            >
-              <NativeSelectOption value="">{t`Choose a bot…`}</NativeSelectOption>
-              {bots.map((bot) => (
-                <NativeSelectOption key={bot.id} value={bot.id}>
-                  {bot.name}
-                </NativeSelectOption>
+          </section>
+        ) : null}
+
+        <section className="mt-6">
+          {linkedCount > 0 ? (
+            <ul className="mb-4 space-y-3">
+              {status?.identities.map((identity) => (
+                <Row
+                  key={identity.id}
+                  actions={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void act(() => rpc.messaging.identities.unlink({ identityId: identity.id }))
+                      }
+                    >
+                      <Trans>Unlink</Trans>
+                    </Button>
+                  }
+                >
+                  <span className="text-foreground">{providerLabel(identity.provider)}</span>
+                  <Meta>
+                    {identity.address} · {identity.botName}
+                  </Meta>
+                </Row>
               ))}
-            </NativeSelect>
-            <Button
-              disabled={!linkBotId}
-              onClick={() =>
-                void act(async () => {
-                  const issued = await rpc.messaging.link.start({ botId: linkBotId });
-                  setLinkRequest({ ...issued, botId: linkBotId });
-                })
-              }
-            >
-              <Trans>Link a chat app</Trans>
-            </Button>
+              {installationStatus.installations.map((installation) => (
+                <Row
+                  key={installation.id}
+                  actions={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void act(() => rpc.messaging.installations.remove({ id: installation.id }))
+                      }
+                    >
+                      <Trans>Disconnect</Trans>
+                    </Button>
+                  }
+                >
+                  <span className="text-foreground">{providerLabel(installation.provider)}</span>
+                  <Meta>
+                    {[installation.workspaceName, botName(installation.botId)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Meta>
+                </Row>
+              ))}
+            </ul>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {bots.length > 1 ? (
+              <NativeSelect
+                aria-label={t`Bot`}
+                value={linkBotId}
+                onChange={(event) => {
+                  setSelectedBotId(event.target.value);
+                  setLinkRequest(null);
+                }}
+              >
+                {bots.map((bot) => (
+                  <NativeSelectOption key={bot.id} value={bot.id}>
+                    {bot.name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            ) : null}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={!linkBotId || (!codeProviders.length && !installationStatus.available)}
+                render={<Button variant="outline" />}
+              >
+                <Trans>Connect a chat app</Trans>
+                <ChevronDownIcon data-icon="inline-end" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-auto min-w-44">
+                {codeProviders.map((provider) => (
+                  <DropdownMenuItem key={provider} onClick={() => startLink(provider)}>
+                    {providerLabel(provider)}
+                  </DropdownMenuItem>
+                ))}
+                {installationStatus.available ? (
+                  <DropdownMenuItem onClick={installSlack}>
+                    <Trans>Slack workspace</Trans>
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           {linkCode ? (
             <p className="mt-3 text-[14px] text-foreground/75" data-testid="messaging-link-code">
               <Trans>
-                Send <span className="font-mono text-foreground">{linkCode}</span> to the line from
-                your chat app within 10 minutes. You'll get a confirmation reply once linked.
+                Send <span className="font-mono text-foreground">{linkCode}</span> from {linkApp}{" "}
+                within 10 minutes.
               </Trans>
             </p>
           ) : null}
         </section>
 
-        <section className="mt-5 rounded-xl border border-border px-4 py-4">
-          <h3 className="text-heading3 font-medium text-foreground">
-            <Trans>Channels</Trans>
-          </h3>
-          {channels.length === 0 ? (
-            <p className="mt-3 text-[13px] text-muted-foreground/70">
-              <Trans>No group chats yet.</Trans>
-            </p>
-          ) : (
+        {hasConversations ? (
+          <section className="mt-8">
+            <h3 className="text-[13px] font-medium text-muted-foreground">
+              <Trans>Conversations</Trans>
+            </h3>
             <ul className="mt-3 space-y-3">
-              {channels.map((channel) => (
-                <li
+              {joinedChannels.map((channel) => (
+                <Row
                   key={channel.id}
-                  className="flex items-center justify-between gap-3 text-[14px] text-foreground/75"
+                  actions={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void act(() => rpc.messaging.channels.leave({ membershipId: channel.id }))
+                      }
+                    >
+                      <Trans>Leave</Trans>
+                    </Button>
+                  }
                 >
-                  <span>
-                    {channel.name ?? t`Group`}{" "}
-                    <span className="text-[12px] text-muted-foreground/70">
-                      {channelMeta(channel)}
-                    </span>
-                  </span>
-                  <span className="flex gap-2">
-                    {channel.status === "invited" ? (
-                      <>
-                        <Button
-                          onClick={() =>
-                            void act(() =>
-                              rpc.messaging.channels.respond({
-                                membershipId: channel.id,
-                                accept: true,
-                              }),
-                            )
-                          }
-                        >
-                          <Trans>Approve</Trans>
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={() =>
-                            void act(() =>
-                              rpc.messaging.channels.respond({
-                                membershipId: channel.id,
-                                accept: false,
-                              }),
-                            )
-                          }
-                        >
-                          <Trans>Decline</Trans>
-                        </Button>
-                      </>
-                    ) : null}
-                    {channel.status === "approved" ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() =>
-                          void act(() => rpc.messaging.channels.leave({ membershipId: channel.id }))
-                        }
-                      >
-                        <Trans>Leave</Trans>
-                      </Button>
-                    ) : null}
-                  </span>
-                </li>
+                  {channel.name ?? t`Group`}
+                  <Meta>{channelMeta(channel)}</Meta>
+                </Row>
               ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="mt-5 rounded-xl border border-border px-4 py-4">
-          <h3 className="text-heading3 font-medium text-foreground">
-            <Trans>Agent connections</Trans>
-          </h3>
-          {connections.length === 0 ? (
-            <p className="mt-3 text-[13px] text-muted-foreground/70">
-              <Trans>No agent connections yet.</Trans>
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {connections.map((connection) => (
-                <li
+              {otherConnections.map((connection) => (
+                <Row
                   key={connection.id}
-                  className="flex items-center justify-between gap-3 text-[14px] text-foreground/75"
-                >
-                  <span>
-                    {connection.peerOwnerLabel}
-                    {"'s "}
-                    {connection.peerBotName}{" "}
-                    <span className="text-[12px] text-muted-foreground/70">
-                      {connection.status}
-                    </span>
-                  </span>
-                  <span className="flex gap-2">
-                    {connection.status === "pending" && connection.incoming ? (
-                      <>
-                        <Button
-                          onClick={() =>
-                            void act(() =>
-                              rpc.messaging.connections.respond({
-                                connectionId: connection.id,
-                                accept: true,
-                              }),
-                            )
-                          }
-                        >
-                          <Trans>Approve</Trans>
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={() =>
-                            void act(() =>
-                              rpc.messaging.connections.respond({
-                                connectionId: connection.id,
-                                accept: false,
-                              }),
-                            )
-                          }
-                        >
-                          <Trans>Decline</Trans>
-                        </Button>
-                      </>
-                    ) : null}
-                    {connection.status === "approved" ? (
+                  actions={
+                    connection.status === "approved" ? (
                       <Button
-                        variant="secondary"
+                        size="sm"
+                        variant="ghost"
                         onClick={() =>
                           void act(() =>
                             rpc.messaging.connections.revoke({ connectionId: connection.id }),
@@ -370,24 +420,18 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                       >
                         <Trans>Revoke</Trans>
                       </Button>
-                    ) : null}
-                  </span>
-                </li>
+                    ) : (
+                      <Meta>
+                        <Trans>Pending</Trans>
+                      </Meta>
+                    )
+                  }
+                >
+                  {connection.peerOwnerLabel}
+                  {"'s "}
+                  {connection.peerBotName}
+                </Row>
               ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="mt-5 rounded-xl border border-border px-4 py-4">
-          <h3 className="text-heading3 font-medium text-foreground">
-            <Trans>Team conversations</Trans>
-          </h3>
-          {externalConversations.length === 0 ? (
-            <p className="mt-3 text-[13px] text-muted-foreground/70">
-              <Trans>No team conversations yet.</Trans>
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-3">
               {externalConversations.map((conversation) => {
                 const bot = bots.find((candidate) => candidate.id === conversation.botId);
                 const open = settingsConversationId === conversation.id;
@@ -396,12 +440,11 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                     <div className="flex items-center justify-between gap-3">
                       <span className="min-w-0 truncate">
                         {conversation.displayName || t`External conversation`}
-                        <span className="ml-2 text-[12px] text-muted-foreground/70">
-                          {providerLabel(conversation.provider)}
-                        </span>
+                        <Meta>{providerLabel(conversation.provider)}</Meta>
                       </span>
                       <Button
-                        variant="secondary"
+                        size="sm"
+                        variant="ghost"
                         onClick={() => setSettingsConversationId(open ? null : conversation.id)}
                       >
                         {open ? <Trans>Close</Trans> : <Trans>Settings</Trans>}
@@ -426,8 +469,8 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                 );
               })}
             </ul>
-          )}
-        </section>
+          </section>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

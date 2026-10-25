@@ -55,6 +55,7 @@ import {
   InMemoryRealtimeFanout,
   InstalledConnectorProvider,
   IntegrationProviderSettings,
+  installedMessaging,
   isComposioEnabled,
   isMessagingSurfaceEnabled,
   isPipedreamEnabled,
@@ -154,6 +155,7 @@ import {
   prefersTeamChatSurface,
   settleWithTimeout,
   TEAM_CHAT_STARTUP_SHUTDOWN_MS,
+  TeamChatStartupRetries,
 } from "./team-chat-startup.js";
 import { mountVoiceHttpRoutes, voiceAccountErrorStatus } from "./voice.js";
 import { mountWebhookHttpRoutes } from "./webhook.js";
@@ -375,8 +377,10 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   // so it's the one that must hold Telegram's live getUpdates connection —
   // see messagingPlatformsFromEnv's docstring for why a second poller
   // elsewhere (e.g. the worker) would actively break this.
-  const messagingPlatforms = messagingPlatformsFromEnv(env, { pollInboundMessages: true });
-  const messaging =
+  const messagingPlatforms = messagingPlatformsFromEnv(env, { pollInboundMessages: true }).filter(
+    (platform) => platform.provider !== "slack" || !env.slackClientId,
+  );
+  const legacyMessaging =
     messagingOverride ??
     (isMessagingSurfaceEnabled(messagingPlatforms, {
       deploymentModelConfigured: env.deploymentModelConfigured,
@@ -384,6 +388,9 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     })
       ? new ChatSdkMessagingSurface(messagingPlatforms)
       : undefined);
+  const { messaging, installations: messagingInstallations } = messagingOverride
+    ? { messaging: messagingOverride, installations: undefined }
+    : installedMessaging(prisma, secrets, env, legacyMessaging, jobs);
   const configuredEmail = emailOverride ?? configuredEmailProvider(env);
   const localEmailEmulator =
     !configuredEmail && env.emailEmulator
@@ -487,7 +494,15 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       await Promise.all(
         bots.map((bot) =>
           destroyBot(
-            { prisma, sandbox, home, jobs, artifacts, dataDir: env.dataDir },
+            {
+              prisma,
+              sandbox,
+              home,
+              jobs,
+              artifacts,
+              dataDir: env.dataDir,
+              messagingInstallations,
+            },
             bot,
             {
               operationId: `account-delete:${userId}`,
@@ -650,6 +665,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     artifacts,
     dataDir: env.dataDir,
     billing,
+    messagingInstallations,
     messaging: {
       enabled: Boolean(messaging),
       providers: messaging?.platforms().map((platform) => platform.provider) ?? [],
@@ -775,6 +791,19 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     return actor && { actor, sessionId: session.session.id };
   };
   const sessionActor = async (request: Request) => (await requestSession(request))?.actor ?? null;
+  if (messagingInstallations) {
+    app.get("/api/v1/messaging/install/slack/callback", async (c) => {
+      try {
+        await messagingInstallations.complete(
+          c.req.query("state") ?? "",
+          c.req.query("code") ?? "",
+        );
+        return c.redirect(new URL("/app?messaging", env.webOrigin).toString());
+      } catch {
+        return c.text("Slack connection failed. Return to Rakazo and try again.", 400);
+      }
+    });
+  }
   app.use(
     "/rpc/*",
     clientBuildMiddleware({
@@ -823,6 +852,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   }
   // Shared with stop so a shutdown during retry delays does not restart polling.
   let messagingStopped = false;
+  let stopInstalledBridges: (() => Promise<void>) | undefined;
   let clearMessagingRetryDelay: (() => void) | undefined;
   let messagingInitTask: Promise<void> | undefined;
   let clearTeamChatRetryDelay: (() => void) | undefined;
@@ -943,7 +973,10 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     const flushPendingTeamChatInbound = (bridge: TeamChatBridge) => {
       pendingTeamChatInbound.flush((event) => handleTeamChatInbound(bridge, event));
     };
-    if (env.teamChatBotId) {
+    const makeTeamChatBridge = (
+      botId: string,
+      installation?: { id: string; workspaceId: string },
+    ) => {
       const judge =
         env.teamChatJudgeProvider && env.teamChatJudgeModel
           ? new ModelTeamChatEngagementJudge({
@@ -979,10 +1012,91 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
             input,
           ),
         providerId: "slack",
-        botId: env.teamChatBotId,
+        botId,
+        workspaceId: installation?.workspaceId,
+        conversationPrefix: installation ? `slack~${installation.id}:` : undefined,
+        onUnavailable: installation
+          ? () => {
+              installedBridges.delete(installation.id);
+            }
+          : undefined,
+        isAvailable: installation
+          ? async () => Boolean(await messagingInstallations?.isActive(installation.id))
+          : undefined,
         judge,
         acknowledge: receipts?.acknowledge,
       });
+      return bridge;
+    };
+    const installedBridges = new Map<
+      string,
+      { bridge: TeamChatBridge; pending: Promise<TeamChatBridge> }
+    >();
+    const installedRetries = new TeamChatStartupRetries((error) =>
+      getLogger().error("installed team chat restore failed; retrying", error),
+    );
+    const retryInstalledBridge = (installation: {
+      id: string;
+      botId: string;
+      workspaceId: string;
+    }) => {
+      installedRetries.schedule(installation.id, () =>
+        runAsSystem("retry installed team chat", async () => {
+          if (messagingStopped) return;
+          const active = await messagingInstallations?.isActive(installation.id);
+          if (!active || messagingStopped) return;
+          await installedBridge(installation);
+        }),
+      );
+    };
+    const installedBridge = (installation: { id: string; botId: string; workspaceId: string }) => {
+      const existing = installedBridges.get(installation.id);
+      if (existing) return existing.pending;
+      const bridge = makeTeamChatBridge(installation.botId, installation);
+      const pending = bridge
+        .start()
+        .then(() => {
+          installedRetries.succeeded(installation.id);
+          return bridge;
+        })
+        .catch(async (error) => {
+          installedBridges.delete(installation.id);
+          await bridge.stop();
+          retryInstalledBridge(installation);
+          throw error;
+        });
+      installedBridges.set(installation.id, { bridge, pending });
+      return pending;
+    };
+    if (messagingInstallations) {
+      await Promise.all(
+        (await messagingInstallations.targets()).map((installation) =>
+          runAsSystem("resume installed team chat", () => installedBridge(installation)).catch(
+            (error) => {
+              getLogger().error("installed team chat could not resume", error);
+            },
+          ),
+        ),
+      );
+    }
+    stopInstalledBridges = async () => {
+      installedRetries.stop();
+      // Stop first so an in-flight start() is cancelled, then bound the wait
+      // as the static bridge does.
+      await Promise.all(
+        [...installedBridges.values()].map(({ bridge, pending }) =>
+          settleWithTimeout(
+            bridge
+              .stop()
+              .catch(() => undefined)
+              .then(() => pending.catch(() => undefined)),
+            TEAM_CHAT_STARTUP_SHUTDOWN_MS,
+          ),
+        ),
+      );
+    };
+    if (env.teamChatBotId) {
+      const bridge = makeTeamChatBridge(env.teamChatBotId);
       teamChatBridgeInstance = bridge;
       try {
         await bridge.start();
@@ -1030,7 +1144,17 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
         await applyMessagingOutboundStatus(prisma, event);
         return;
       }
-      if (prefersTeamChatSurface(event, env.teamChatBotId)) {
+      if (event.installationBotId && !event.isDirect) {
+        if (!event.installationId || !event.workspaceId) return;
+        const installation = {
+          id: event.installationId,
+          botId: event.installationBotId,
+          workspaceId: event.workspaceId,
+        };
+        await handleTeamChatInbound(await installedBridge(installation), event);
+        return;
+      }
+      if (!event.installationBotId && prefersTeamChatSurface(event, env.teamChatBotId)) {
         const bridge = teamChatBridge;
         if (bridge) {
           await handleTeamChatInbound(bridge, event);
@@ -1154,6 +1278,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       await settleWithTimeout(teamChatInitTask, TEAM_CHAT_STARTUP_SHUTDOWN_MS);
       await messaging?.shutdown?.();
       await teamChatBridge?.stop();
+      await stopInstalledBridges?.();
       await email?.drain?.();
       await reconciler?.stop();
       await oauthTokenUpgrade;

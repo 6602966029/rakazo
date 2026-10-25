@@ -17,6 +17,7 @@ import type {
   McpConnector,
   McpOAuthBroker,
   MemoryProviderResolver,
+  MessagingInstallations,
   PiOAuthLogins,
   ProviderCatalogCache,
   PushTokenStore,
@@ -94,6 +95,7 @@ export interface RouterDeps {
   artifacts: ArtifactStore;
   dataDir: string;
   /** Present when the external messaging surface is enabled. */
+  messagingInstallations?: MessagingInstallations;
   messaging?: { enabled: boolean; providers: string[]; openSignup: boolean };
   /** Present only when the deployment bills; self-hosted installs leave it unset. */
   billing?: BillingService;
