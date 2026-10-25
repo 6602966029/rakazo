@@ -1953,16 +1953,18 @@ Plain `http://` is accepted only for a private IP, `localhost`, or a `.local` na
 Passkeys are on whenever `WEB_ORIGIN` is an HTTPS domain (or `localhost` in development); the
 relying party is that origin's host, so existing passkeys keep working only while `WEB_ORIGIN`
 stays on the same domain. They are off when password sign-in is disabled for SSO-only
-deployments. On web, a browser offers them where it has a platform authenticator; the macOS
-desktop app does not, so it hides them.
+deployments. On web, a browser offers them where it has a platform authenticator. The macOS
+desktop app uses the system passkey sheet, which only serves the domain the release is
+associated with (`app.rakazo.com`), so it hides passkeys for other servers.
 
 Native apps can use a domain's passkeys only when the domain vouches for them and the app was
 built for that domain (the app's associated domain comes from `EXPO_PUBLIC_API_URL` at build
 time). To let a build use this server's passkeys, set:
 
 ```bash
-# iOS: <Apple Team ID>.<bundle id>, comma-separated. Served as /.well-known/apple-app-site-association.
-PASSKEY_APPLE_APP_IDS=ABCDE12345.com.rakazo.app
+# iOS and the macOS desktop app (dev.rakazo.desktop): <Apple Team ID>.<bundle id>, comma-separated.
+# Served as /.well-known/apple-app-site-association.
+PASSKEY_APPLE_APP_IDS=ABCDE12345.com.rakazo.app,ABCDE12345.dev.rakazo.desktop
 # Android: SHA-256 fingerprints of the app signing certificates, comma-separated.
 # Served as /.well-known/assetlinks.json and accepted as passkey origins.
 PASSKEY_ANDROID_CERT_SHA256=AA:BB:...:FF
