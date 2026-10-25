@@ -1355,6 +1355,8 @@ model MessagingIdentity {
   address              String
   /// Opaque provider thread id for the 1:1 conversation; learned on inbound.
   dmThreadId           String?
+  installationId       String?
+  installation         MessagingInstallation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
   userId               String
   spaceId              String
   space                Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
@@ -1367,6 +1369,7 @@ model MessagingIdentity {
 
   @@unique([provider, address])
   @@index([userId])
+  @@index([installationId])
   @@map("messaging_identities")
 }
 
@@ -1732,6 +1735,7 @@ model MessagingInstallation {
   updatedAt DateTime @updatedAt
   @@unique([provider, workspaceId])
   @@index([spaceId, userId])
+  identities MessagingIdentity[]
   @@map("messaging_installations")
 }
 

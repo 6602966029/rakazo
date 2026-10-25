@@ -6,6 +6,7 @@ import {
   PendingTeamChatInbound,
   prefersTeamChatSurface,
   settleWithTimeout,
+  TeamChatStartupRetries,
 } from "./team-chat-startup.js";
 
 function message(overrides: Partial<MessagingInboundMessage> = {}): MessagingInboundMessage {
@@ -246,6 +247,50 @@ it("stops a disconnected installation's reconciliation timer and retains workspa
     expect(available).toHaveBeenCalledTimes(checks);
   } finally {
     await bridge.stop();
+    vi.useRealTimers();
+  }
+});
+
+it("retries restoration with capped backoff and cancels retries on shutdown", async () => {
+  vi.useFakeTimers();
+  const onError = vi.fn();
+  const retries = new TeamChatStartupRetries(onError);
+  const start = vi.fn(async () => {
+    throw new Error("temporary database failure");
+  });
+  try {
+    retries.schedule("install-a", start);
+    retries.schedule("install-a", start);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(start).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(start).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(start).toHaveBeenCalledTimes(3);
+    retries.stop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(start).toHaveBeenCalledTimes(3);
+  } finally {
+    retries.stop();
+    vi.useRealTimers();
+  }
+});
+
+it("a successful restore cancels pending retries without waiting for another message", async () => {
+  vi.useFakeTimers();
+  const retries = new TeamChatStartupRetries(vi.fn());
+  const start = vi.fn(async () => undefined);
+  try {
+    retries.schedule("install-a", start);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(start).toHaveBeenCalledTimes(1);
+    retries.schedule("install-b", start);
+    retries.succeeded("install-b");
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(start).toHaveBeenCalledTimes(1);
+  } finally {
+    retries.stop();
     vi.useRealTimers();
   }
 });

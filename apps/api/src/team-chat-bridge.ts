@@ -270,9 +270,9 @@ export class TeamChatBridge {
       provider: this.deps.providerId,
       botId: this.deps.botId,
       ...(this.deps.workspaceId ? { workspaceId: this.deps.workspaceId } : {}),
-      ...(this.deps.conversationPrefix
-        ? { conversationId: { startsWith: this.deps.conversationPrefix } }
-        : {}),
+      conversationId: this.deps.conversationPrefix
+        ? { startsWith: this.deps.conversationPrefix }
+        : { not: { startsWith: `${this.deps.providerId}~` } },
     };
   }
 

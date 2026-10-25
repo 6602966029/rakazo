@@ -73,6 +73,7 @@ function fixture() {
   const secrets = {
     put: vi.fn(async () => ({ ciphertext: "sealed-token" })),
     load: vi.fn(async () => "fake-token"),
+    delete: vi.fn(async () => undefined),
   } as unknown as SecretStore;
   return {
     manager: new MessagingInstallations(prisma as unknown as PrismaClient, secrets, provider),
@@ -155,6 +156,7 @@ it("disconnects only an installation owned by the current space and user", async
     provider: "slack",
     spaceId: "space-a",
     userId: "user-a",
+    ciphertext: "sealed-token",
   });
   await f.manager.remove({ ...actor, spaceId: "space-b" }, "installation-a");
   expect(f.prisma.messagingInstallation.deleteMany).not.toHaveBeenCalled();
@@ -167,6 +169,7 @@ it("disconnects only an installation owned by the current space and user", async
     },
   });
   expect(f.getInstallation()).toBeNull();
+  expect(f.secrets.delete).toHaveBeenCalledWith("sealed-token", "installation-a");
 });
 it("does not load credentials after the installation owner loses membership", async () => {
   const f = fixture();
@@ -181,4 +184,37 @@ it("does not load credentials after the installation owner loses membership", as
   f.prisma.spaceMember.findFirst.mockResolvedValueOnce(null as never);
   expect(await f.manager.getById("installation-a")).toBeNull();
   expect(f.secrets.load).not.toHaveBeenCalled();
+});
+
+it("removes an old secret reference after a successful reconnect", async () => {
+  const f = fixture();
+  await f.manager.complete(await begin(f), "code");
+  const id = f.getInstallation()!.id as string;
+  vi.mocked(f.secrets.put).mockResolvedValueOnce({
+    id,
+    ref: "replacement",
+    ciphertext: "replacement",
+  });
+  await f.manager.complete(await begin(f), "code");
+  expect(f.secrets.delete).toHaveBeenCalledWith("sealed-token", id);
+  expect(f.getInstallation()?.ciphertext).toBe("replacement");
+});
+
+it("removes an unreferenced secret if persisting an installation fails", async () => {
+  const f = fixture();
+  const state = await begin(f);
+  f.prisma.messagingInstallation.create.mockRejectedValueOnce(new Error("write failed"));
+  await expect(f.manager.complete(state, "code")).rejects.toThrow("write failed");
+  expect(f.secrets.delete).toHaveBeenCalledWith("sealed-token", expect.any(String));
+});
+
+it("does not delete a credential when a write committed before a transport error", async () => {
+  const f = fixture();
+  const state = await begin(f);
+  f.prisma.messagingInstallation.create.mockImplementationOnce(async ({ data }) => {
+    f.setInstallation(data);
+    throw new Error("response lost");
+  });
+  await expect(f.manager.complete(state, "code")).rejects.toThrow("response lost");
+  expect(f.secrets.delete).not.toHaveBeenCalled();
 });

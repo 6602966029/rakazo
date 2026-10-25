@@ -8,6 +8,7 @@ import type {
 import type { Actor, MessagingInstallationSummary } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { runAsSystem } from "@rakazo/db";
+import { getLogger } from "@rakazo/logging";
 import { credentialDigest } from "./credential-digest.js";
 
 /** OAuth state is short-lived, single-use and tied to a user, space and bot. */
@@ -85,6 +86,7 @@ export class MessagingInstallations implements MessagingInstallationStore {
         throw new Error("Workspace is already connected");
       }
       const id = existing?.id ?? randomBytes(16).toString("hex");
+      const previousCiphertext = existing?.ciphertext;
       const sealed = await this.secrets.put(
         external.credential,
         {
@@ -96,34 +98,51 @@ export class MessagingInstallations implements MessagingInstallationStore {
         },
         { recordId: id },
       );
-      if (existing) {
-        // Compare owner and previous ciphertext: disconnect/reinstall must not be undone.
-        const updated = await this.prisma.messagingInstallation.updateMany({
-          where: {
-            id,
-            spaceId: session.spaceId,
-            userId: session.userId,
-            botId: session.botId,
-            ciphertext: existing.ciphertext,
-          },
-          data: { ciphertext: sealed.ciphertext, workspaceName: external.workspaceName },
-        });
-        if (updated.count !== 1) throw new Error("Workspace connection changed; try again");
-      } else {
-        // The unique workspace key prevents concurrent installs claiming two tenants.
-        await this.prisma.messagingInstallation.create({
-          data: {
-            id,
-            provider: session.provider,
-            workspaceId: external.workspaceId,
-            workspaceName: external.workspaceName,
-            spaceId: session.spaceId,
-            userId: session.userId,
-            botId: session.botId,
-            ciphertext: sealed.ciphertext,
-          },
-        });
+      try {
+        if (existing) {
+          // Compare owner and previous ciphertext: disconnect/reinstall must not be undone.
+          const updated = await this.prisma.messagingInstallation.updateMany({
+            where: {
+              id,
+              spaceId: session.spaceId,
+              userId: session.userId,
+              botId: session.botId,
+              ciphertext: previousCiphertext,
+            },
+            data: { ciphertext: sealed.ciphertext, workspaceName: external.workspaceName },
+          });
+          if (updated.count !== 1) throw new Error("Workspace connection changed; try again");
+        } else {
+          // The unique workspace key prevents concurrent installs claiming two tenants.
+          await this.prisma.messagingInstallation.create({
+            data: {
+              id,
+              provider: session.provider,
+              workspaceId: external.workspaceId,
+              workspaceName: external.workspaceName,
+              spaceId: session.spaceId,
+              userId: session.userId,
+              botId: session.botId,
+              ciphertext: sealed.ciphertext,
+            },
+          });
+        }
+      } catch (error) {
+        // A transport error may happen after a committed write; never remove a referenced secret.
+        try {
+          const current = await this.prisma.messagingInstallation.findUnique({
+            where: { id },
+            select: { ciphertext: true },
+          });
+          if (current?.ciphertext !== sealed.ciphertext)
+            await this.secrets.delete(sealed.ciphertext, id);
+        } catch {
+          getLogger().warn("unused messaging credential cleanup failed");
+        }
+        throw error;
       }
+      if (previousCiphertext && previousCiphertext !== sealed.ciphertext)
+        await this.secrets.delete(previousCiphertext, id);
     });
   }
 
@@ -156,8 +175,9 @@ export class MessagingInstallations implements MessagingInstallationStore {
     provider: string;
     spaceId: string;
     userId: string;
+    ciphertext: string;
   }) {
-    await this.prisma.$transaction(async (tx) => {
+    const removed = await this.prisma.$transaction(async (tx) => {
       await tx.messagingIdentity.deleteMany({
         where: {
           spaceId: installation.spaceId,
@@ -165,10 +185,18 @@ export class MessagingInstallations implements MessagingInstallationStore {
           dmThreadId: { startsWith: `${installation.provider}~${installation.id}:` },
         },
       });
-      await tx.messagingInstallation.deleteMany({
-        where: { id: installation.id, spaceId: installation.spaceId, userId: installation.userId },
+      const result = await tx.messagingInstallation.deleteMany({
+        where: {
+          id: installation.id,
+          spaceId: installation.spaceId,
+          userId: installation.userId,
+          ciphertext: installation.ciphertext,
+        },
       });
+      if (result.count !== 1) throw new Error("Workspace connection changed; try again");
+      return true;
     });
+    if (removed) await this.secrets.delete(installation.ciphertext, installation.id);
   }
 
   async isActive(id: string): Promise<boolean> {

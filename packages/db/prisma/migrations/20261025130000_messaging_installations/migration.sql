@@ -23,3 +23,8 @@ CREATE POLICY messaging_install_sessions_tenant ON "messaging_install_sessions" 
 CREATE UNIQUE INDEX "messaging_installations_provider_workspaceId_key" ON "messaging_installations"("provider", "workspaceId");
 CREATE INDEX "messaging_installations_spaceId_userId_idx" ON "messaging_installations"("spaceId", "userId");
 CREATE INDEX "messaging_install_sessions_expiresAt_idx" ON "messaging_install_sessions"("expiresAt");
+
+ALTER TABLE "messaging_identities" ADD COLUMN "installationId" TEXT;
+ALTER TABLE "messaging_identities" ADD CONSTRAINT "messaging_identities_installationId_fkey"
+FOREIGN KEY ("installationId") REFERENCES "messaging_installations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX "messaging_identities_installationId_idx" ON "messaging_identities"("installationId");

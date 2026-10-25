@@ -155,6 +155,7 @@ import {
   prefersTeamChatSurface,
   settleWithTimeout,
   TEAM_CHAT_STARTUP_SHUTDOWN_MS,
+  TeamChatStartupRetries,
 } from "./team-chat-startup.js";
 import { mountVoiceHttpRoutes, voiceAccountErrorStatus } from "./voice.js";
 import { mountWebhookHttpRoutes } from "./webhook.js";
@@ -1012,16 +1013,36 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       return bridge;
     };
     const installedBridges = new Map<string, Promise<TeamChatBridge>>();
+    const installedRetries = new TeamChatStartupRetries((error) =>
+      getLogger().error("installed team chat restore failed; retrying", error),
+    );
+    const retryInstalledBridge = (installation: {
+      id: string;
+      botId: string;
+      workspaceId: string;
+    }) => {
+      installedRetries.schedule(installation.id, () =>
+        runAsSystem("retry installed team chat", async () => {
+          if (messagingStopped || !(await messagingInstallations?.isActive(installation.id)))
+            return;
+          await installedBridge(installation);
+        }),
+      );
+    };
     const installedBridge = (installation: { id: string; botId: string; workspaceId: string }) => {
       let pending = installedBridges.get(installation.id);
       if (!pending) {
         const bridge = makeTeamChatBridge(installation.botId, installation);
         pending = bridge
           .start()
-          .then(() => bridge)
+          .then(() => {
+            installedRetries.succeeded(installation.id);
+            return bridge;
+          })
           .catch(async (error) => {
             installedBridges.delete(installation.id);
             await bridge.stop();
+            retryInstalledBridge(installation);
             throw error;
           });
         installedBridges.set(installation.id, pending);
@@ -1040,6 +1061,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       );
     }
     stopInstalledBridges = async () => {
+      installedRetries.stop();
       await Promise.all(
         [...installedBridges.values()].map(async (pending) => {
           const bridge = await pending.catch(() => undefined);

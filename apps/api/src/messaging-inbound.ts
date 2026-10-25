@@ -333,6 +333,7 @@ async function tryRedeemLinkCode(
     address: event.from,
     dmThreadId: event.threadId,
     spaceId: event.installationSpaceId,
+    installationId: event.installationId,
   });
   if (!redeemed) return false;
   const bot = await deps.prisma.bot.findUnique({

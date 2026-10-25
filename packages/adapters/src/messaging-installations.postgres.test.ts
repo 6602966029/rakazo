@@ -118,6 +118,7 @@ describePostgres("messaging workspace installation (PostgreSQL)", () => {
         provider: "slack",
         address: "T-TEST:U1",
         dmThreadId: `slack~${row.id}:D1`,
+        installationId: row.id,
         spaceId: actors[0]!.spaceId,
         userId: actors[0]!.userId,
         botId: personal.id,
@@ -151,5 +152,44 @@ describePostgres("messaging workspace installation (PostgreSQL)", () => {
     });
     expect(await manager.isActive(installation!.id)).toBe(false);
     expect(await manager.getById(installation!.id)).toBeNull();
+  });
+  it("deleting a shared channel bot removes its installation and linked personal DMs", async () => {
+    const actor = actors[0]!;
+    const shared = await asSystem(prisma).bot.create({
+      data: { spaceId: actor.spaceId, userId: actor.userId, name: "Shared", color: "ink" },
+    });
+    const personal = await asSystem(prisma).bot.create({
+      data: { spaceId: actor.spaceId, userId: actor.userId, name: "Personal", color: "ink" },
+    });
+    const installation = await asSystem(prisma).messagingInstallation.create({
+      data: {
+        provider: "slack",
+        workspaceId: "T-CASCADE",
+        workspaceName: "Example workspace",
+        spaceId: actor.spaceId,
+        userId: actor.userId,
+        botId: shared.id,
+        ciphertext: "fake-unused-ciphertext",
+      },
+    });
+    await asSystem(prisma).messagingIdentity.create({
+      data: {
+        provider: "slack",
+        address: "T-CASCADE:U1",
+        dmThreadId: `slack~${installation.id}:D1`,
+        installationId: installation.id,
+        spaceId: actor.spaceId,
+        userId: actor.userId,
+        botId: personal.id,
+      },
+    });
+    await asSystem(prisma).bot.delete({ where: { id: shared.id } });
+    expect(
+      await asSystem(prisma).messagingInstallation.count({ where: { id: installation.id } }),
+    ).toBe(0);
+    expect(await asSystem(prisma).messagingIdentity.count({ where: { botId: personal.id } })).toBe(
+      0,
+    );
+    expect(await asSystem(prisma).bot.count({ where: { id: personal.id } })).toBe(1);
   });
 });
