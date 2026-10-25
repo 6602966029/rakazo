@@ -193,7 +193,7 @@ export function McpServersOverlay({
 
   function resetForm() {
     setEditing(null);
-    setTransport("streamable_http");
+    if (!stdioEnabled) setTransport("streamable_http");
     setName("");
     setEndpoint("");
     setSecret("");
