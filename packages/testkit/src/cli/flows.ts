@@ -134,7 +134,7 @@ async function main() {
       provider: "openrouter",
       id,
       apiKey: process.env.OPENROUTER_API_KEY!,
-      maxTokens: 2048,
+      maxTokens: 8192,
     });
     log(
       `flow ${flow.id} on ${sandbox.provider}, bot ${values.model}, user ${values["user-model"]}`,

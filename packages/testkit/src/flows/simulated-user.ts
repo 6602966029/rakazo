@@ -57,6 +57,8 @@ Moves:
 {"kind":"key","key":"Return"}     press a key (xdotool names: Return, Tab, BackSpace, Escape)
 {"kind":"release"}                give the screen back to the assistant`;
 
+const MOVE_ATTEMPTS = 3;
+
 export function createSimulatedUser(
   runtime: AgentRuntime,
   model: AgentRunModel,
@@ -64,7 +66,7 @@ export function createSimulatedUser(
   brief: () => Promise<string>,
   onUsage?: AgentRunRequest["onUsage"],
 ) {
-  const attempt = async (
+  const askOnce = async (
     transcript: TranscriptEntry[],
     situation: Situation,
     signal: AbortSignal,
@@ -115,12 +117,15 @@ export function createSimulatedUser(
     }
   };
   return async (transcript: TranscriptEntry[], situation: Situation, signal: AbortSignal) => {
-    try {
-      return await attempt(transcript, situation, signal);
-    } catch (error) {
-      if (signal.aborted) throw error;
-      // One correction, as a person would re-read the screen; a second miss is a harness failure.
-      return attempt(transcript, situation, signal, error instanceof Error ? error.message : "");
+    let correction: string | undefined;
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await askOnce(transcript, situation, signal, correction);
+      } catch (error) {
+        // A person re-reads the screen; repeated misses are a harness failure, not a bot one.
+        if (signal.aborted || attempt >= MOVE_ATTEMPTS) throw error;
+        correction = error instanceof Error ? error.message : String(error);
+      }
     }
   };
 }
