@@ -718,6 +718,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Recover computer": "Computer wiederherstellen",
   "Recovering…": "Wird wiederhergestellt…",
   Reset: "Zurücksetzen",
+  "Stop computer": "Computer stoppen",
+  "Could not stop computer": "Computer konnte nicht gestoppt werden",
   "Reset computer": "Computer zurücksetzen",
   "Reset computer?": "Computer zurücksetzen?",
   "Resetting…": "Wird zurückgesetzt…",

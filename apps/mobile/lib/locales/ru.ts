@@ -598,6 +598,8 @@ export const RU_MESSAGES: Record<string, string> = {
   "Replace key": "Заменить ключ",
   Reset: "Сбросить",
   "Reset your password": "Сбросить пароль",
+  "Stop computer": "Остановить компьютер",
+  "Could not stop computer": "Не удалось остановить компьютер",
   "Reset computer": "Сбросить компьютер",
   "Reset computer?": "Сбросить компьютер?",
   "Resetting…": "Сброс…",

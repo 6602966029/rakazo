@@ -1964,6 +1964,10 @@ msgstr "OAuthを開始できませんでした"
 msgid "Could not start teaching"
 msgstr "ティーチングを開始できませんでした"
 
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Could not stop computer"
+msgstr ""
+
 #: src/components/AskCard.tsx
 msgid "Could not submit this answer"
 msgstr "この回答を送信できませんでした"
@@ -5018,6 +5022,10 @@ msgstr "手順"
 msgid "Stop"
 msgstr "停止"
 
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Stop computer"
+msgstr ""
+
 #: src/pages/shell/message-view.tsx
 msgid "Stop speaking"
 msgstr "読み上げを停止"
@@ -5030,6 +5038,10 @@ msgstr "ティーチングを停止"
 #: src/lib/browser-notifications.ts
 msgid "Stopped."
 msgstr "停止しました。"
+
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Stopping…"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Stored encrypted"

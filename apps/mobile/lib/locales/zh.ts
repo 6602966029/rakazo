@@ -566,6 +566,8 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Replace key": "替换密钥",
   Reset: "重置",
   "Reset your password": "重置密码",
+  "Stop computer": "停止电脑",
+  "Could not stop computer": "无法停止电脑",
   "Reset computer": "重置电脑",
   "Reset computer?": "要重置电脑吗？",
   "Resetting…": "正在重置…",
