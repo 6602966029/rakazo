@@ -388,13 +388,10 @@ vi.mock("./pi-openai-compatible-provider.js", () => ({
 }));
 
 import { toolCompletionAuditPayload } from "./executor.js";
-import {
-  MISSING_TOOL_FINAL_RESPONSE_ERROR,
-  maxToolCallsPerTurn,
-  PiAgentRuntime,
-  providerFailureText,
-} from "./pi-runtime.js";
+import { MISSING_TOOL_FINAL_RESPONSE_ERROR, PiAgentRuntime } from "./pi-runtime.js";
+import { providerFailureText } from "./pi-runtime-errors.js";
 import { TOOL_RESULT_TEXT_LIMIT } from "./pi-runtime-limits.js";
+import { maxToolCallsPerTurn } from "./pi-runtime-tools.js";
 
 const destinationTool: ConnectorTool = {
   name: "destination.write",
