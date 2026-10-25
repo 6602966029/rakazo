@@ -223,7 +223,9 @@ export function ModelRoleSettings({
     reopen?.slot === slot ? { query: reopen.query, key: reopen.key } : undefined;
 
   const canAdd = backups.length < MAX_MODEL_BACKUPS;
-  const rowClass = "flex min-h-[52px] items-center gap-2.5 py-2 ps-2 pe-2";
+  // Order only means something once there is more than one row.
+  const ordered = rows.length + (primary ? 0 : 1) > 1;
+  const rowClass = `flex min-h-[52px] items-center gap-2.5 py-2 pe-2 ${ordered ? "ps-2" : "ps-3"}`;
   const number = (index: number) => (
     <span className="grid size-5 shrink-0 place-items-center rounded-md bg-accent text-[12px] text-muted-foreground">
       {index + 1}
@@ -244,8 +246,8 @@ export function ModelRoleSettings({
       <h3 className="mb-2.5 text-[15px] font-medium text-foreground">{title}</h3>
       <ol className="divide-y divide-border rounded-xl border border-border">
         {primary ? null : (
-          <li className={`${rowClass} ps-8`} data-testid="model-role-default">
-            {number(0)}
+          <li className={`${rowClass} ${ordered ? "ps-8" : ""}`} data-testid="model-role-default">
+            {ordered ? number(0) : null}
             <RoleModelPicker
               trigger={pickerTrigger(
                 deployment ? modelLabel(deployment) : defaultLabel,
@@ -287,11 +289,15 @@ export function ModelRoleSettings({
                 setDragging(null);
               }}
             >
-              <GripVertical
-                aria-hidden
-                className={`size-3.5 shrink-0 text-muted-foreground/60 ${rows.length > 1 ? "cursor-grab" : "invisible"}`}
-              />
-              {number(index + offset)}
+              {ordered ? (
+                <>
+                  <GripVertical
+                    aria-hidden
+                    className={`size-3.5 shrink-0 text-muted-foreground/60 ${rows.length > 1 ? "cursor-grab" : "invisible"}`}
+                  />
+                  {number(index + offset)}
+                </>
+              ) : null}
               <RoleModelPicker
                 trigger={pickerTrigger(name, providerName(choice))}
                 label={t`Change ${name}`}

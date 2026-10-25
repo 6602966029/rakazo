@@ -1040,8 +1040,9 @@ describe("model role lists", () => {
       "Add fallback",
     ]);
     const approval = [...section("Approval model").querySelectorAll("button")];
+    // A single row has no order to number.
     expect(approval.map((button) => button.textContent)).toEqual([
-      "1Model 1OpenRouter",
+      "Model 1OpenRouter",
       "Add fallback",
     ]);
   });

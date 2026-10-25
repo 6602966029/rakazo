@@ -347,6 +347,8 @@ export function ModelRoleSettings({
 
   if (!settings && !state.error) return null;
   const offset = primary ? 0 : 1;
+  // Order only means something once there is more than one row.
+  const ordered = rows.length + offset > 1;
   const number = (index: number) => (
     <Text style={styles.number} accessibilityElementsHidden importantForAccessibility="no">
       {index + 1}
@@ -357,7 +359,7 @@ export function ModelRoleSettings({
       {primary || !settings ? null : (
         <SettingsRow
           key="empty"
-          leading={number(0)}
+          leading={ordered ? number(0) : undefined}
           title={deploymentName ?? defaultLabel}
           detail={deployment ? providerName(deployment) : undefined}
           disabled={busy}
@@ -421,7 +423,7 @@ export function ModelRoleSettings({
           >
             <SettingsRow
               accessibilityRole="button"
-              leading={number(index + offset)}
+              leading={ordered ? number(index + offset) : undefined}
               title={name}
               detail={detail}
               disabled={busy}

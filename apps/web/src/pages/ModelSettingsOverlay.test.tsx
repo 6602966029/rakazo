@@ -442,11 +442,11 @@ it("labels the empty main slot by what runs there", async () => {
   const view = await renderSettings();
   try {
     expect(section("main").querySelector('[data-testid="model-role-default"]')?.textContent).toBe(
-      "1Choose a model",
+      "Choose a model",
     );
     expect(
       section("approval").querySelector('[data-testid="model-role-default"]')?.textContent,
-    ).toBe("1Choose a model");
+    ).toBe("Choose a model");
   } finally {
     await view.unmount();
   }
