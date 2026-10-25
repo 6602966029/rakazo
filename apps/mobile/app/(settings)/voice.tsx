@@ -444,7 +444,8 @@ export default function VoiceSettings() {
             })}
           </View>
         ) : null}
-        {hiddenSelfHosted ? (
+        {/* Connections belong to the account, so a space never removes them. */}
+        {hiddenSelfHosted && scope === "account" ? (
           <NativeActionButton
             label={t("Disconnect Self-hosted")}
             prominence="quiet"
@@ -527,7 +528,7 @@ export default function VoiceSettings() {
               }
               onPress={() => void connect()}
             />
-            {credential ? (
+            {credential && scope === "account" ? (
               <NativeActionButton
                 disabled={pending !== null}
                 label={pending === "disconnect" ? t("Disconnecting…") : t("Disconnect")}
