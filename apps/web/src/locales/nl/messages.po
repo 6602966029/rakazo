@@ -378,14 +378,6 @@ msgstr "Een abonnementsgegeven wordt veilig opgeslagen."
 msgid "About {label}"
 msgstr "Over {label}"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "About groups"
-msgstr "Over groepen"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "About spaces"
-msgstr "Over spaces"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "Toegangstoken (optioneel)"
@@ -2101,20 +2093,6 @@ msgstr "Account aanmaken"
 msgid "Create group"
 msgstr "Groep aanmaken"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create new Bot"
-msgstr "Nieuwe bot aanmaken"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Group"
-msgstr "Nieuwe groep aanmaken"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Space"
-msgstr "Nieuwe space aanmaken"
-
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
 msgstr "Routine aanmaken"
@@ -2806,10 +2784,6 @@ msgstr "Groepsinstellingen"
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Group updates"
 msgstr "Groepsupdates"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Groups"
-msgstr "Groepen"
 
 #: src/components/call/CallCard.tsx
 msgid "Hang up"
@@ -3624,13 +3598,20 @@ msgstr "Vereist: {names}"
 msgid "New"
 msgstr "Nieuw"
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "Nieuwe bot"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "Nieuwe groep"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "Nieuwe groepschat"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3644,6 +3625,10 @@ msgstr "Nieuw open werkpunt"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "Nieuw wachtwoord"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "Nieuwe privéruimte"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4138,7 +4123,7 @@ msgstr "Prioriteit"
 msgid "Private"
 msgstr "Privé"
 
-#: src/pages/shell/dialogs.tsx
+#: src/pages/shell/bot-picker.tsx
 msgid "Private workspace with its own bots and groups."
 msgstr "Privéwerkruimte met eigen bots en groepen."
 
@@ -4854,10 +4839,6 @@ msgstr ""
 msgid "Shared"
 msgstr "Gedeeld"
 
-#: src/pages/shell/dialogs.tsx
-msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
-msgstr "Gedeelde chat met {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. Ze antwoorden allemaal in dezelfde thread."
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "Gedeeld geheugen"
@@ -5020,10 +5001,6 @@ msgstr "Space"
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Spacestandaard"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Spaces"
-msgstr "Spaces"
 
 #: src/pages/shell/message-view.tsx
 msgid "Speak"

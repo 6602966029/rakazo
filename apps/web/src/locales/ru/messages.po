@@ -378,14 +378,6 @@ msgstr "Учётные данные подписки надежно сохран
 msgid "About {label}"
 msgstr "О настройке «{label}»"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "About groups"
-msgstr "О группах"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "About spaces"
-msgstr "О пространствах"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "Токен доступа (необязательно)"
@@ -2101,20 +2093,6 @@ msgstr "Зарегистрироваться"
 msgid "Create group"
 msgstr "Создать группу"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create new Bot"
-msgstr "Создать нового бота"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Group"
-msgstr "Создать новую группу"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Space"
-msgstr "Создать новое пространство"
-
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
 msgstr "Создать задачу"
@@ -2806,10 +2784,6 @@ msgstr "Настройки группы"
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Group updates"
 msgstr "Обновления группы"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Groups"
-msgstr "Группы"
 
 #: src/components/call/CallCard.tsx
 msgid "Hang up"
@@ -3624,13 +3598,20 @@ msgstr "Нужно: {names}"
 msgid "New"
 msgstr "Новые"
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "Новый бот"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "Новая группа"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "Новый групповой чат"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3644,6 +3625,10 @@ msgstr "Новая задача"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "Новый пароль"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "Новое личное пространство"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4138,7 +4123,7 @@ msgstr ""
 msgid "Private"
 msgstr "Личный"
 
-#: src/pages/shell/dialogs.tsx
+#: src/pages/shell/bot-picker.tsx
 msgid "Private workspace with its own bots and groups."
 msgstr "Приватное пространство со своими ботами и группами."
 
@@ -4854,10 +4839,6 @@ msgstr ""
 msgid "Shared"
 msgstr "Общий"
 
-#: src/pages/shell/dialogs.tsx
-msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
-msgstr "Общий чат с {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} ботами. Все отвечают в одной ветке."
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "Общая память"
@@ -5020,10 +5001,6 @@ msgstr "Пространство"
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Пространство по умолчанию"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Spaces"
-msgstr "Пространства"
 
 #: src/pages/shell/message-view.tsx
 msgid "Speak"

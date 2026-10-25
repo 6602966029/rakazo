@@ -378,14 +378,6 @@ msgstr "פרטי גישה של המנוי נשמרים בצורה מאובטחת
 msgid "About {label}"
 msgstr "על {label}"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "About groups"
-msgstr "על קבוצות"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "About spaces"
-msgstr "על מרחבים"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "טוקן גישה (אופציונלי)"
@@ -2101,20 +2093,6 @@ msgstr "יצירת חשבון"
 msgid "Create group"
 msgstr "יצירת קבוצה"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create new Bot"
-msgstr "יצירת בוט חדש"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Group"
-msgstr "יצירת קבוצה חדשה"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Space"
-msgstr "יצירת מרחב חדש"
-
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
 msgstr "יצירת רוטינה"
@@ -2806,10 +2784,6 @@ msgstr "הגדרות קבוצה"
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Group updates"
 msgstr "עדכוני קבוצה"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Groups"
-msgstr "קבוצות"
 
 #: src/components/call/CallCard.tsx
 msgid "Hang up"
@@ -3624,13 +3598,20 @@ msgstr "דורש: {names}"
 msgid "New"
 msgstr ""
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "בוט חדש"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "קבוצה חדשה"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "צ'אט קבוצתי חדש"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3644,6 +3625,10 @@ msgstr "פריט עבודה פתוחה חדש"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "סיסמה חדשה"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "מרחב פרטי חדש"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx
@@ -4138,7 +4123,7 @@ msgstr "עדיפות"
 msgid "Private"
 msgstr "פרטי"
 
-#: src/pages/shell/dialogs.tsx
+#: src/pages/shell/bot-picker.tsx
 msgid "Private workspace with its own bots and groups."
 msgstr "סביבת עבודה פרטית עם בוטים וקבוצות משלה."
 
@@ -4854,10 +4839,6 @@ msgstr ""
 msgid "Shared"
 msgstr "משותף"
 
-#: src/pages/shell/dialogs.tsx
-msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
-msgstr "צ׳אט משותף עם {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} בוטים. כולם עונים באותו שרשור."
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "זיכרון משותף"
@@ -5020,10 +5001,6 @@ msgstr "מרחב"
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "ברירת המחדל של המרחב"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Spaces"
-msgstr "מרחבים"
 
 #: src/pages/shell/message-view.tsx
 msgid "Speak"
