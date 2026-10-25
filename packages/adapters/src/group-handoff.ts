@@ -30,13 +30,12 @@ export async function handoffToGroupBot(
     userId: string;
   },
   groupId: string,
-  input: { bot_id?: string; confirm_name?: string; message: string },
+  input: { bot_id?: string; confirm_name?: string; message: string; deliveryKey?: string },
 ) {
   const text = input.message.trim();
   if (!text || text.length > BOT_MESSAGE_MAX_LENGTH) {
     return { error: `message must contain 1 to ${BOT_MESSAGE_MAX_LENGTH} characters` } as const;
   }
-  const deliveryKey = `group-handoff:${run.id}`;
   const committed = await deps.prisma.$transaction(async (tx) => {
     try {
       await lockOwnedGroup(tx, run, groupId);
@@ -86,6 +85,8 @@ export async function handoffToGroupBot(
       return { error: "source bot is no longer a group member" } as const;
     }
 
+    // A group stage has one owner; an outside turn can send several independent tasks.
+    const deliveryKey = `group-handoff:${inGroup ? run.id : (input.deliveryKey ?? run.id)}`;
     const existing = await tx.message.findUnique({
       where: { threadId_clientNonce: { threadId: targetThreadId, clientNonce: deliveryKey } },
       select: {

@@ -7653,6 +7653,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               bot_id: args.bot_id ? String(args.bot_id) : undefined,
               confirm_name: args.confirm_name ? String(args.confirm_name) : undefined,
               message: redactSecrets(String(args.message ?? ""), runSecrets),
+              deliveryKey: effectKey,
             });
             if ("ok" in result && result.ok && thread.groupId) handedOff = true;
             return finish(result);

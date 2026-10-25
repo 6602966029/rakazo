@@ -15,7 +15,7 @@ function harness(
   existing?: { id?: string; sourceRuns: { id: string; botId: string }[] },
 ) {
   const runCreate = vi.fn(async () => ({ id: "run-b" }));
-  const messageCreate = vi.fn(async () => ({ id: "message-1" }));
+  const messageCreate = vi.fn(async (_args: unknown) => ({ id: "message-1" }));
   const tx = {
     $queryRaw: vi.fn(async (..._args: unknown[]) => [{ id: "group-1" }]),
     chatGroup: {
@@ -40,7 +40,7 @@ function harness(
       create: runCreate,
     },
     message: {
-      findUnique: vi.fn(async () => existing ?? null),
+      findUnique: vi.fn(async (_args: unknown) => existing ?? null),
       create: messageCreate,
     },
     thread: {
@@ -48,7 +48,7 @@ function harness(
         args.select.nextMessageSeq ? { nextMessageSeq: 2 } : { nextEventSeq: 2 },
       ),
     },
-    task: { create: vi.fn(async () => ({ id: "task-b" })) },
+    task: { create: vi.fn(async (_args: unknown) => ({ id: "task-b" })) },
     event: {
       findFirst: vi.fn(async () => ({ seq: 1 })),
       create: vi.fn(async () => ({ seq: 1 })),
@@ -302,6 +302,52 @@ describe("explicit group destinations", () => {
       }),
     ).resolves.toHaveProperty("error");
     expect(h.runCreate).not.toHaveBeenCalled();
+  });
+
+  it("delivers distinct calls to the same group and replays only the matching call", async () => {
+    const h = privateTurn();
+    h.runCreate.mockResolvedValueOnce({ id: "run-b" }).mockResolvedValueOnce({ id: "run-c" });
+    const nonceOf = (args: unknown) => (args as { data: { clientNonce: string } }).data.clientNonce;
+    h.tx.message.findUnique.mockImplementation(async (args: unknown) => {
+      const nonce = (args as { where: { threadId_clientNonce: { clientNonce: string } } }).where
+        .threadId_clientNonce.clientNonce;
+      const index = h.messageCreate.mock.calls.findIndex(([call]) => nonceOf(call) === nonce);
+      return index < 0
+        ? null
+        : {
+            id: "message-1",
+            sourceRuns: [{ id: index === 0 ? "run-b" : "run-c", botId: "bot-b" }],
+          };
+    });
+    const send = (message: string, deliveryKey: string) =>
+      handoffToGroupBot(h.deps as never, run, "group-1", {
+        bot_id: "bot-b",
+        message,
+        deliveryKey,
+      });
+    await expect(send("Review the plan", "effect-1")).resolves.toMatchObject({
+      ok: true,
+      runId: "run-b",
+    });
+    await expect(send("Check the sources", "effect-2")).resolves.toMatchObject({
+      ok: true,
+      runId: "run-c",
+    });
+    await expect(send("Review the plan", "effect-1")).resolves.toMatchObject({
+      ok: true,
+      runId: "run-b",
+    });
+    expect(h.runCreate).toHaveBeenCalledTimes(2);
+    expect(h.messageCreate).toHaveBeenCalledTimes(2);
+    expect(h.messageCreate.mock.calls.map(([args]) => nonceOf(args))).toEqual([
+      "group-handoff:effect-1",
+      "group-handoff:effect-2",
+    ]);
+    expect(
+      h.tx.task.create.mock.calls.map(
+        ([args]) => (args as { data: { prompt: string } }).data.prompt,
+      ),
+    ).toEqual(["Review the plan", "Check the sources"]);
   });
 
   it("does not start group work after the source run stops", async () => {
