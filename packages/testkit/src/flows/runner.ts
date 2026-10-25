@@ -448,11 +448,7 @@ export async function runFlow<World>(
           crons: routine.crons,
           timezone: routine.timezone,
         };
-        if (
-          !routine.nextRunAt ||
-          routine.nextRunAt.getTime() >
-            Date.now() + (flow.wakeHorizonMs ?? Number.POSITIVE_INFINITY)
-        ) {
+        if (!wakeIsDue(routine.nextRunAt, Date.now(), flow.wakeHorizonMs)) {
           options.log(`routine "${routine.name}" is not due soon; not waking it early`);
           wakesNotDue += 1;
           break;
@@ -573,6 +569,16 @@ export async function runFlow<World>(
         .catch((error: unknown) => options.log(`computer cleanup failed: ${String(error)}`));
   }
   return result;
+}
+
+/**
+ * Whether to force a routine's next run now. The bot's clock does not move, so only a run due
+ * within the flow's horizon stands in for time passing; a later start the bot chose is kept.
+ */
+export function wakeIsDue(nextRunAt: Date | null, now: number, horizonMs?: number) {
+  return (
+    Boolean(nextRunAt) && nextRunAt!.getTime() <= now + (horizonMs ?? Number.POSITIVE_INFINITY)
+  );
 }
 
 const MAX_SCREEN_STEPS = 30;

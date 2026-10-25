@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FlowEvidence } from "./flow.js";
-import { isMondayMorningCron, weeklyShopping } from "./weekly-shopping.js";
+import { isWeeklyCron, weeklyShopping } from "./weekly-shopping.js";
 
 type World = Parameters<typeof weeklyShopping.grade>[0]["world"];
 
@@ -71,14 +71,14 @@ const failing = (e: FlowEvidence<World>) =>
     .map((criterion) => criterion.id);
 
 describe("weekly shopping grading", () => {
-  it("accepts only one Monday-morning run a week", () => {
-    expect(isMondayMorningCron("0 7 * * 1")).toBe(true);
-    expect(isMondayMorningCron("30 6 * * MON")).toBe(true);
-    expect(isMondayMorningCron("0 9 * * 1-5")).toBe(false);
-    expect(isMondayMorningCron("0 9 * * 2")).toBe(false);
-    expect(isMondayMorningCron("0 18 * * 1")).toBe(false);
-    expect(isMondayMorningCron("0 7 1 * 1")).toBe(false);
-    expect(isMondayMorningCron("0 7,19 * * 1")).toBe(false);
+  it("accepts only one run a week at a fixed time", () => {
+    expect(isWeeklyCron("0 7 * * 1")).toBe(true);
+    expect(isWeeklyCron("30 6 * * MON")).toBe(true);
+    expect(isWeeklyCron("0 12 * * 0")).toBe(true);
+    expect(isWeeklyCron("0 9 * * 1-5")).toBe(false);
+    expect(isWeeklyCron("0 9 * * *")).toBe(false);
+    expect(isWeeklyCron("0 7 1 * 1")).toBe(false);
+    expect(isWeeklyCron("0 7,19 * * 1")).toBe(false);
   });
 
   it("passes the right cart in the earliest open morning slot", () => {
