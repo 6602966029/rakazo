@@ -158,7 +158,7 @@ import {
 import { markAfterPaint, markOnce } from "../lib/performance";
 import { usePreloadRecoveryState } from "../lib/preload-recovery";
 import { canPrepareImage, prepareImage } from "../lib/prepare-image";
-import { queryClient, spaceQueries, spaceSeedKey, writeSaved } from "../lib/query";
+import { fetchFresh, queryClient, spaceQueries, spaceSeedKey, writeSaved } from "../lib/query";
 import { getResponseStreamingEnabled, subscribeResponseStreaming } from "../lib/response-streaming";
 import type { Panel, RightPanelState } from "../lib/right-panel-state";
 import {
@@ -439,7 +439,7 @@ function SpaceShell() {
   const agentSkills = agentSkillsQuery.data ?? NO_AGENT_SKILLS;
   const setAgentSkills = useCallback(
     (skills: AgentSkillCatalogEntry[]) =>
-      queryClient.setQueryData(queries.agentSkills.list.queryKey(), skills),
+      void writeSaved(queryClient, queries.agentSkills.list.queryKey(), () => skills),
     [queries],
   );
   const [teachBusy, setTeachBusy] = useState(false);
@@ -1130,12 +1130,10 @@ function SpaceShell() {
       snapTranscriptToEndAfterFrame();
     }
     void Promise.all([
-      queryClient
-        .fetchQuery({
-          ...queries.routines.list.queryOptions({ input: { botId: id } }),
-          staleTime: 0,
-        })
-        .catch(() => null),
+      // Runs after routine changes too, so an older read in flight is not reused.
+      fetchFresh(queryClient, queries.routines.list.queryOptions({ input: { botId: id } })).catch(
+        () => null,
+      ),
       rpc.skills.list({ botId: id }).catch(() => null),
       refreshComputerScreen(id).catch(() => null),
     ]).then(([routines, skills]) => {
