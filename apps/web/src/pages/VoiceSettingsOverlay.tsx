@@ -67,6 +67,8 @@ export function VoiceSettingsOverlay({
   const [provider, setProvider] = useState(cached?.provider ?? "");
   // The provider being edited, read by loads that finish after the user picked another one.
   const providerRef = useRef(provider);
+  // Fields the user changed since the form was last filled; a background refresh keeps them.
+  const edited = useRef(new Set<EditableField>());
   // Each list remembers its provider, so one provider's voices never show under another.
   const [voiceList, setVoiceList] = useState<{ provider: string; voices: VoiceInfo[] }>({
     provider: cached?.provider ?? "",
@@ -101,7 +103,8 @@ export function VoiceSettingsOverlay({
 
   /**
    * Fill the form from the provider's saved credential; voices load without blocking the form.
-   * A background refresh of the provider already on screen keeps what is being typed.
+   * A background refresh of the provider already on screen keeps only the fields the user has
+   * edited; the rest follow the saved settings, which may have changed elsewhere.
    */
   function showProvider(
     nextProvider: string,
@@ -111,16 +114,18 @@ export function VoiceSettingsOverlay({
     const request = ++voicesRequest.current;
     const cred = nextCredentials.find((entry) => entry.provider === nextProvider);
     const activeVoice = cred?.voiceId ?? "";
+    const keep = (field: EditableField) => keepForm && edited.current.has(field);
     if (!keepForm) {
+      edited.current.clear();
       providerRef.current = nextProvider;
       setProvider(nextProvider);
-      setVoiceId(activeVoice);
-      setSpeechModel(cred?.speechModel ?? "");
-      setBaseUrl(cred?.endpoint ?? "");
-      setTtsModel(cred?.ttsModel ?? "");
-      setSttModel(cred?.sttModel ?? "");
       setVoiceList({ provider: nextProvider, voices: [] });
     }
+    if (!keep("voiceId")) setVoiceId(activeVoice);
+    if (!keep("speechModel")) setSpeechModel(cred?.speechModel ?? "");
+    if (!keep("baseUrl")) setBaseUrl(cred?.endpoint ?? "");
+    if (!keep("ttsModel")) setTtsModel(cred?.ttsModel ?? "");
+    if (!keep("sttModel")) setSttModel(cred?.sttModel ?? "");
     if (!cred) return Promise.resolve();
     return queryClient
       .fetchQuery(
@@ -130,7 +135,7 @@ export function VoiceSettingsOverlay({
         (listed) => {
           if (request !== voicesRequest.current) return;
           setVoiceList({ provider: nextProvider, voices: listed });
-          if (!keepForm && !activeVoice && listed[0]) setVoiceId(listed[0].id);
+          if (!keep("voiceId") && !activeVoice && listed[0]) setVoiceId(listed[0].id);
         },
         (err: unknown) => {
           if (request === voicesRequest.current) throw err;
@@ -228,6 +233,7 @@ export function VoiceSettingsOverlay({
   }
 
   async function chooseVoice(nextVoiceId: string) {
+    edited.current.add("voiceId");
     setVoiceId(nextVoiceId);
     if (!credential) return;
     markPending("voice");
@@ -361,7 +367,10 @@ export function VoiceSettingsOverlay({
                     autoComplete="off"
                     spellCheck={false}
                     value={baseUrl}
-                    onChange={(event) => setBaseUrl(event.target.value)}
+                    onChange={(event) => {
+                      edited.current.add("baseUrl");
+                      setBaseUrl(event.target.value);
+                    }}
                     placeholder="http://192.168.1.10:8880/v1"
                   />
                 </Field>
@@ -397,7 +406,10 @@ export function VoiceSettingsOverlay({
                       spellCheck={false}
                       value={ttsModel}
                       maxLength={200}
-                      onChange={(event) => setTtsModel(event.target.value)}
+                      onChange={(event) => {
+                        edited.current.add("ttsModel");
+                        setTtsModel(event.target.value);
+                      }}
                       placeholder={DEFAULT_COMPATIBLE_TTS_MODEL}
                     />
                   </Field>
@@ -411,7 +423,10 @@ export function VoiceSettingsOverlay({
                       spellCheck={false}
                       value={sttModel}
                       maxLength={200}
-                      onChange={(event) => setSttModel(event.target.value)}
+                      onChange={(event) => {
+                        edited.current.add("sttModel");
+                        setSttModel(event.target.value);
+                      }}
                       placeholder={DEFAULT_COMPATIBLE_STT_MODEL}
                     />
                   </Field>
@@ -484,7 +499,10 @@ export function VoiceSettingsOverlay({
                         spellCheck={false}
                         disabled={busy}
                         placeholder={t`Optional`}
-                        onChange={(event) => setSpeechModel(event.target.value)}
+                        onChange={(event) => {
+                          edited.current.add("speechModel");
+                          setSpeechModel(event.target.value);
+                        }}
                         onBlur={() => void saveSpeechModel()}
                         onKeyDown={(event) => {
                           if (event.key !== "Enter") return;
@@ -552,3 +570,5 @@ function selectedProvider(
 }
 
 const NO_VOICES: VoiceInfo[] = [];
+
+type EditableField = "voiceId" | "speechModel" | "baseUrl" | "ttsModel" | "sttModel";

@@ -550,3 +550,71 @@ it("shows what a disconnect left, not a read sent before it", async () => {
     vi.unstubAllGlobals();
   }
 });
+
+it("lets a background refresh update untouched fields but keeps edited ones", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const catalog = [
+    {
+      id: "openai-compatible",
+      name: "Self-hosted",
+      description: "",
+      transcribe: true,
+    },
+  ];
+  const saved = {
+    ...fish,
+    provider: "openai-compatible",
+    voiceId: "",
+    endpoint: "http://127.0.0.1:8000/v1",
+    ttsModel: "tts-old",
+    sttModel: "stt-old",
+  };
+  voice.catalog.mockReset().mockResolvedValue(catalog);
+  voice.credentials.mockReset().mockResolvedValue([saved]);
+  voice.status.mockReset().mockResolvedValue({ ready: true, provider: "openai-compatible" });
+  voice.voices.mockReset().mockResolvedValue([]);
+  const client = new QueryClient();
+  const container = document.createElement("div");
+  document.body.append(container);
+  const mount = async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(withQueries(<VoiceSettingsOverlay embedded onClose={() => undefined} />, client));
+    });
+    return root;
+  };
+  try {
+    const first = await mount();
+    await vi.waitFor(() =>
+      expect(labelledInput(container, "Server URL").value).toBe(saved.endpoint),
+    );
+    await act(async () => first.unmount());
+
+    // Another device changed the saved models while this page was closed.
+    let releaseCredentials: () => void = () => undefined;
+    voice.credentials.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseCredentials = () =>
+            resolve([{ ...saved, ttsModel: "tts-new", sttModel: "stt-new" }]);
+        }),
+    );
+    const second = await mount();
+    const tts = labelledInput(container, "Speech model");
+    expect(tts.value).toBe("tts-old");
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(tts, "tts-typed");
+      tts.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => releaseCredentials());
+    await vi.waitFor(() =>
+      expect(labelledInput(container, "Transcription model").value).toBe("stt-new"),
+    );
+    expect(labelledInput(container, "Speech model").value).toBe("tts-typed");
+    await act(async () => second.unmount());
+  } finally {
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});
