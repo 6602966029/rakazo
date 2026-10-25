@@ -164,6 +164,7 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   await expect(settings).toHaveAttribute("data-settings-section", "memory");
   await expect(settings.getByTestId("memory-settings")).toBeVisible();
   const memory = settings.getByTestId("memory-settings");
+  await memory.getByRole("button", { name: "Connect memory provider", exact: true }).click();
   await expect(memory.getByLabel("Provider")).toBeVisible();
   await memory.getByLabel("Provider").selectOption("serenity");
   await expect(memory.getByLabel("MCP endpoint")).toBeVisible();
