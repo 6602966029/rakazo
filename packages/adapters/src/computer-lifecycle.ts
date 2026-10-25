@@ -972,7 +972,7 @@ export async function replaceComputer(
           existing.homeKey,
           oldRef,
           context,
-          await deletedTeamBotFolders(deps.prisma, existing),
+          () => deletedTeamBotFolders(deps.prisma, existing),
         );
         const recorded = await deps.prisma.computer.updateMany({
           where: { id: computerId, state: "suspending", updatedAt: claimStamp },

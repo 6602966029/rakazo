@@ -339,23 +339,51 @@ describePostgres("account deletion on bot computers (PostgreSQL)", () => {
   });
 
   it("keeps a space someone else joined while the account was being deleted", async () => {
-    await system.spaceMember.create({
-      data: {
-        id: `${ids.soloSpace}-joined`,
-        spaceId: ids.soloSpace,
-        organizationId: ids.sharedOrg,
-        userId: ids.stayer,
-        role: "member",
-        createdAt: new Date(),
-      },
-    });
+    // The stayer joins after deletion has decided the space was the leaver's alone.
+    sandbox.beforeDestroy = async (providerRef) => {
+      if (providerRef !== `sb-solo-${suffix}`) return;
+      await system.spaceMember.create({
+        data: {
+          id: `${ids.soloSpace}-joined`,
+          spaceId: ids.soloSpace,
+          organizationId: ids.sharedOrg,
+          userId: ids.stayer,
+          role: "member",
+          createdAt: new Date(),
+        },
+      });
+    };
 
     await deleteAccount(ids.leaver);
 
     expect(await system.space.findUnique({ where: { id: ids.soloSpace } })).not.toBeNull();
+    expect(
+      await system.spaceMember.findUnique({ where: { id: `${ids.soloSpace}-joined` } }),
+    ).not.toBeNull();
     // The leaver's bot and computer there still go.
     expect(await system.bot.findUnique({ where: { id: ids.soloBot } })).toBeNull();
     expect(sandbox.destroyed).toContain(`sb-solo-${suffix}`);
+  });
+
+  it("fails and retries when the other member's stored home cannot be saved", async () => {
+    const legacyKey = legacyTeamHomeKey(ids.sharedSpace);
+    const put = storage.put.bind(storage);
+    storage.put = async () => {
+      throw new Error("bucket unavailable");
+    };
+    await expect(deleteAccount(ids.leaver)).rejects.toThrow("bucket unavailable");
+    storage.put = put;
+    expect(await storedFiles(legacyKey)).toContain(`bots/${ids.leaverBot}/old.txt`);
+
+    await deleteAccount(ids.leaver);
+
+    expect(await storedFiles(legacyKey)).toEqual(
+      [
+        `.browser-profiles/${teamBrowserProfileName(ids.stayerBot)}/Cookies`,
+        `bots/${ids.stayerBot}/work.txt`,
+        "shared/plan.txt",
+      ].sort(),
+    );
   });
 });
 
@@ -388,7 +416,9 @@ function fakeSandbox(exportedPaths: string[] = []) {
   return {
     destroyed,
     failDestroy,
+    beforeDestroy: undefined as ((providerRef: string) => Promise<void>) | undefined,
     async destroy(computer: ComputerRef) {
+      await this.beforeDestroy?.(computer.providerRef);
       if (failDestroy.has(computer.providerRef)) throw new Error("provider unavailable");
       destroyed.push(computer.providerRef);
     },

@@ -1,5 +1,10 @@
 import type { AdapterContext } from "@rakazo/adapter-kit";
-import { destroyBot, removeAgentHome, toComputerRef } from "@rakazo/adapters";
+import {
+  destroyBot,
+  removeAgentHome,
+  removeDeletedBotsFromLegacyTeamHome,
+  toComputerRef,
+} from "@rakazo/adapters";
 import { deleteSpaceLeavingWithAccount, spacesLeavingWithAccount } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { SpaceDeletionDeps } from "./space-deletion.js";
@@ -42,6 +47,21 @@ export async function deleteAccountContent(deps: SpaceDeletionDeps, userId: stri
         deleteMemories: true,
         strictTeardown: true,
       }),
+    ),
+  );
+
+  // Bot deletion cleans these best-effort; here a failure fails the account deletion, and the
+  // retry finds the ids again in bot_deletions.
+  const deletions = await deps.prisma.botDeletion.findMany({
+    where: { deletedByUserId: userId, spaceId: { notIn: leaving } },
+    select: { id: true, spaceId: true },
+  });
+  const deletedBySpace = new Map<string, string[]>();
+  for (const { id, spaceId } of deletions)
+    deletedBySpace.set(spaceId, [...(deletedBySpace.get(spaceId) ?? []), id]);
+  await settleAll(
+    [...deletedBySpace].map(([spaceId, botIds]) =>
+      removeDeletedBotsFromLegacyTeamHome(deps, spaceId, botIds),
     ),
   );
 

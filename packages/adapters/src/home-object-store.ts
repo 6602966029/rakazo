@@ -132,7 +132,11 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
   override async removeFolders(botId: string, parent: string, names: readonly string[]) {
     await this.hydrate(botId);
     if (!(await super.removeFolders(botId, parent, names))) return false;
-    await this.revise(botId);
+    // A cache that no longer matches its stored revision would hide the folders from a retry.
+    await this.revise(botId).catch(async (error) => {
+      await this.remove(botId);
+      throw error;
+    });
     return true;
   }
 

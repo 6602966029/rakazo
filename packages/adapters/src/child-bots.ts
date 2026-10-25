@@ -797,6 +797,35 @@ async function removeTeamBotWorkspace(
   }
 }
 
+/**
+ * Remove deleted bots' folders and browser profiles from the stored home of the space's Team
+ * Computer from before each person got their own. Throws when the stored copy could not be
+ * saved; bot_deletions keeps the ids, so the caller can retry.
+ */
+export async function removeDeletedBotsFromLegacyTeamHome(
+  deps: Pick<BotLifecycleDeps, "prisma" | "home" | "dataDir">,
+  spaceId: string,
+  botIds: readonly string[],
+) {
+  const legacy = await deps.prisma.computer.findUnique({
+    where: { homeKey: legacyTeamHomeKey(spaceId) },
+  });
+  // Only a remote provider's stored copy is written by the server alone; see removeBotFolders.
+  if (legacy?.scope !== "team" || !REMOTE_TEAM_SANDBOX_KINDS.has(legacy.kind)) return;
+  const folders = botIds.filter(isTeamBotFolderName);
+  const profiles = botIds.flatMap((id) => teamBrowserProfileName(id) ?? []);
+  if (folders.length)
+    await removeAgentHomeFolders(deps.home, legacy.homeKey, "bots", folders, deps.dataDir);
+  if (profiles.length)
+    await removeAgentHomeFolders(
+      deps.home,
+      legacy.homeKey,
+      ".browser-profiles",
+      profiles,
+      deps.dataDir,
+    );
+}
+
 async function removeBotFolders(
   deps: BotLifecycleDeps,
   botId: string,

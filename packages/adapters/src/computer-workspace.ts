@@ -330,7 +330,8 @@ export async function checkpointComputerWorkspace(
   homeKey: string,
   computer: ComputerRef,
   context: AdapterContext,
-  excludedFolders?: ReadonlySet<string>,
+  /** Read after the export, just before saving, so a deletion during the export still counts. */
+  excludedFolders?: () => Promise<ReadonlySet<string> | undefined>,
 ): Promise<string> {
   if (computer.kind === "docker" && home instanceof LocalAgentHomeStore) {
     return home.revise(homeKey);
@@ -338,8 +339,10 @@ export async function checkpointComputerWorkspace(
   const staging = await mkdtemp(path.join(tmpdir(), "rakazo-workspace-"));
   try {
     for await (const file of sandbox.exportWorkspace(computer, context)) {
-      if (excludedFolders?.size && excludedFolders.has(topFolder(file.path))) continue;
       await writePortableFile(staging, file);
+    }
+    for (const folder of (await excludedFolders?.()) ?? []) {
+      await rm(path.join(staging, folder), { recursive: true, force: true });
     }
     return await home.commit(homeKey, staging, context);
   } finally {
@@ -405,18 +408,13 @@ export async function checkpointAndRecordComputerWorkspace(
     computerRecord.homeKey,
     computer,
     context,
-    await deletedTeamBotFolders(deps.prisma, computerRecord),
+    () => deletedTeamBotFolders(deps.prisma, computerRecord),
   );
   await deps.prisma.computer.updateMany({
     where: { id: computerRecord.id },
     data: { homeRevision: revision, homeRevisionAt: checkpointedAt },
   });
   return revision;
-}
-
-/** The first two segments of a workspace path, which name a bot folder or browser profile. */
-function topFolder(filePath: string) {
-  return normalizeWorkspacePath(filePath).split("/").slice(0, 2).join("/");
 }
 
 async function writePortableFile(root: string, file: PortableFile) {

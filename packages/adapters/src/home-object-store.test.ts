@@ -389,6 +389,23 @@ describe("ObjectAgentHomeStore", () => {
     });
   });
 
+  it("leaves the folders to a retry when the stored copy cannot be saved", async () => {
+    const { store, storage, otherHost } = await setup(["team-1"]);
+    await store.commit("team-1", await staged({ "bots/gone/notes.txt": "deleted bot" }), context);
+    const put = storage.put.bind(storage);
+    storage.put = async () => {
+      throw new Error("bucket unavailable");
+    };
+
+    await expect(store.removeFolders("team-1", "bots", ["gone"])).rejects.toThrow(
+      "bucket unavailable",
+    );
+    storage.put = put;
+    await expect(store.removeFolders("team-1", "bots", ["gone"])).resolves.toBe(true);
+
+    expect(await exported(await otherHost(), "team-1")).toEqual({});
+  });
+
   it("removes a deleted home's cache, previous copy and revision marker", async () => {
     const { root, store } = await setup(["team-1", "team-2"]);
     await store.commit("team-1", await staged({ "a.txt": "gone" }), context);

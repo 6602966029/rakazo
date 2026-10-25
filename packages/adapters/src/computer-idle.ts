@@ -405,7 +405,7 @@ export async function sleepComputerIfIdle(
       computer.homeKey,
       ref,
       ctx,
-      await deletedTeamBotFolders(deps.prisma, computer),
+      () => deletedTeamBotFolders(deps.prisma, computer),
     );
     const saved = await deps.prisma.computer.updateMany({
       where: suspensionClaim,

@@ -96,13 +96,21 @@ describe("provider-neutral computer workspace", () => {
         context,
       );
     }
-    const findMany = vi.fn().mockResolvedValue([{ id: "gone" }, { id: "gone-too" }]);
-    const excluded = await deletedTeamBotFolders({ botDeletion: { findMany } } as never, {
-      scope: "team",
-      spaceId: "workspace",
+    const deleted = [{ id: "gone" }];
+    const findMany = vi.fn(async () => deleted);
+    // A bot deleted while the export is in flight is left out too.
+    const exportWorkspace = provider.exportWorkspace.bind(provider);
+    vi.spyOn(provider, "exportWorkspace").mockImplementation(async function* (...args) {
+      yield* exportWorkspace(...args);
+      deleted.push({ id: "gone-too" });
     });
 
-    await checkpointComputerWorkspace(home, provider, "team", computer, context, excluded);
+    await checkpointComputerWorkspace(home, provider, "team", computer, context, () =>
+      deletedTeamBotFolders({ botDeletion: { findMany } } as never, {
+        scope: "team",
+        spaceId: "workspace",
+      }),
+    );
 
     const saved: string[] = [];
     for await (const file of home.exportHome("team", context)) saved.push(file.path);
