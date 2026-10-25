@@ -850,8 +850,8 @@ msgstr "Authentifizierung fehlgeschlagen."
 
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
-msgid "Authorization code or callback URL"
-msgstr "Autorisierungscode oder Callback-URL"
+msgid "Authorization code"
+msgstr "Autorisierungscode"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Authorization parameters (optional)"
@@ -2696,12 +2696,6 @@ msgstr "Suche läuft…"
 msgid "Finish setting up"
 msgstr "Einrichtung abschließen"
 
-#. placeholder {0}: new URL(oauth.verificationUri).hostname
-#: src/pages/model-settings/connection-controls.tsx
-#: src/pages/Onboarding.tsx
-msgid "Finish signing in at <0>{0}</0>. The final page may not load; paste its URL or code here."
-msgstr "Schließe die Anmeldung unter <0>{0}</0> ab. Die letzte Seite wird möglicherweise nicht geladen; füge ihre URL oder den Code hier ein."
-
 #: src/lib/model-connection-preflight.ts
 msgid "Finish subscription sign-in, then test again."
 msgstr "Schließe die Anmeldung per Abonnement ab und teste erneut."
@@ -3871,12 +3865,6 @@ msgstr "{name} öffnen"
 msgid "Open <0>{0}</0> and enter this code:"
 msgstr ""
 
-#. placeholder {0}: new URL(oauth.verificationUri).hostname
-#: src/pages/model-settings/connection-controls.tsx
-#: src/pages/Onboarding.tsx
-msgid "Open <0>{0}</0> to finish signing in."
-msgstr ""
-
 #: src/pages/Shell.tsx
 msgid "Open call"
 msgstr "Anruf öffnen"
@@ -4153,6 +4141,7 @@ msgid "Queued"
 msgstr "In Warteschlange"
 
 #: src/components/ModelCredits.tsx
+#: src/pages/Onboarding.tsx
 msgid "Rakazo credits"
 msgstr ""
 
@@ -4900,6 +4889,12 @@ msgstr "Anmelden"
 msgid "Sign in again"
 msgstr "Erneut anmelden"
 
+#. placeholder {0}: new URL(oauth.verificationUri).hostname
+#: src/pages/model-settings/connection-controls.tsx
+#: src/pages/Onboarding.tsx
+msgid "Sign in at <0>{0}</0>, then paste the code here."
+msgstr "Melde dich bei <0>{0}</0> an und füge dann den Code hier ein."
+
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"
 msgstr "Bei Rakazo anmelden"
@@ -5619,7 +5614,6 @@ msgid "Use Protected input for passwords."
 msgstr ""
 
 #: src/components/ModelCredits.tsx
-#: src/pages/Onboarding.tsx
 msgid "Use Rakazo credits"
 msgstr ""
 

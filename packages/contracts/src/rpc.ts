@@ -335,6 +335,8 @@ export const appContract = {
           thinkingLevel: ThinkingLevelSchema.nullable().optional(),
           makeDefault: z.boolean().optional(),
           scope: SettingsScopeSchema.optional(),
+          /** No loopback listener (web, mobile): the provider shows a code to paste instead. */
+          codePage: z.boolean().optional(),
         }),
       )
       .output(ModelOAuthBeginSchema),
