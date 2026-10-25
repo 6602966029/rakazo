@@ -41,6 +41,11 @@ test("a short reply thread shows one time separator and navigates to its parent"
     .first();
   const quote = reply.getByTestId("reply-parent-preview");
   await expect(quote).toHaveText("↩ You: Let's review the release notes.");
+  // A quote wider than its bubble must not pull the user bubble off the right edge.
+  const quoteBox = (await quote.boundingBox())!;
+  const bubbleBox = (await reply.getByTestId("message-user-bubble").boundingBox())!;
+  expect(quoteBox.width).toBeGreaterThan(bubbleBox.width);
+  expect(bubbleBox.x + bubbleBox.width).toBeCloseTo(quoteBox.x + quoteBox.width, 0);
   await expect(transcript.getByTestId("time-separator")).toHaveCount(1);
   await expect(transcript.getByTestId("time-separator")).toContainText("Today");
   await quote.click();

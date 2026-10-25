@@ -1,6 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import type { ReplyPreview, ThreadMessage } from "@rakazo/contracts";
 import { formatTimeSeparator, isPeerReceiptBlocks, replyLabel } from "@rakazo/core";
+import { cn } from "@rakazo/ui-web";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ArtifactTarget } from "../../lib/artifact-open";
@@ -159,7 +160,10 @@ export function ReplyLine({
     return (
       <div
         data-testid="reply-parent-preview"
-        className="mb-1 truncate text-xs text-muted-foreground"
+        className={cn(
+          "mb-1 truncate text-xs text-muted-foreground",
+          message.role === "user" && "text-end",
+        )}
       >{t`Original message unavailable`}</div>
     );
   const attachment = message.replyPreview?.attachment;
@@ -178,7 +182,10 @@ export function ReplyLine({
       onClick={() => {
         if (message.replyToMessageId) onJump?.(message.replyToMessageId);
       }}
-      className="mb-1 flex max-w-full items-center gap-1 text-start text-xs text-muted-foreground hover:text-foreground"
+      className={cn(
+        "mb-1 flex max-w-full items-center gap-1 text-start text-xs text-muted-foreground hover:text-foreground",
+        message.role === "user" && "ms-auto",
+      )}
       dir="auto"
     >
       <span aria-hidden="true">↩ </span>
