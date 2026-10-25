@@ -14,6 +14,15 @@ const SENSITIVE_FORWARD_HEADERS = new Set([
   "proxy-authorization",
 ]);
 
+/**
+ * Stock noVNC builds its socket URL as host + "/" + path, so the absolute capability path arrives
+ * as "//novnc/...". Collapse leading slashes so that socket reaches the proxy instead of hanging.
+ */
+export function novncRequestPath(url: string | undefined): string | null {
+  const path = url?.replace(/^\/{2,}/, "/");
+  return path?.startsWith("/novnc/") ? path : null;
+}
+
 /** Fail closed when the authoritative lifecycle check is unavailable. */
 export async function resolveNovncTarget(
   url: string | undefined,

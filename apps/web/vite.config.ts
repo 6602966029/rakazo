@@ -40,6 +40,7 @@ import {
 } from "./src/novnc-html.js";
 import { rakazoPwa } from "./src/pwa/plugin.js";
 import {
+  novncRequestPath,
   resolveNovncTarget,
   safeProxyHeaders,
   watchScreenAuthorization,
@@ -95,10 +96,12 @@ function attachDesktopStackProbe(
 
 function attachNovncProxy(server: ViteDevServer | PreviewServer, secret: string, api: string) {
   server.middlewares.use(async (req, res, next) => {
-    if (!req.url?.startsWith("/novnc/")) {
+    const path = novncRequestPath(req.url);
+    if (!path) {
       next();
       return;
     }
+    req.url = path;
     const connectionId = randomUUID();
     const bindings = {
       "screen.connection_id": connectionId,
@@ -252,7 +255,9 @@ function attachNovncProxy(server: ViteDevServer | PreviewServer, secret: string,
   });
 
   server.httpServer?.on("upgrade", async (req, socket, head) => {
-    if (!req.url?.startsWith("/novnc/")) return;
+    const path = novncRequestPath(req.url);
+    if (!path) return;
+    req.url = path;
     const connectionId = randomUUID();
     const startedAt = Date.now();
     const bindings = {
