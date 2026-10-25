@@ -57,7 +57,12 @@ describe("provider desktop preparation", () => {
         writeFileSync(path.join(bin, name), script);
         chmodSync(path.join(bin, name), 0o755);
       }
-      const result = spawnSync("/bin/sh", ["-c", PREPARE_LINUX_DESKTOP], {
+      // The host may have the font installed; point the check at a file that never exists.
+      const prepare = PREPARE_LINUX_DESKTOP.replaceAll(
+        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+        path.join(bin, "NotoColorEmoji.ttf"),
+      );
+      const result = spawnSync("/bin/sh", ["-c", prepare], {
         env: { PATH: bin },
         encoding: "utf8",
       });
