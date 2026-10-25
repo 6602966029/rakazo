@@ -230,6 +230,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Search conversations, files, and routines": "Unterhaltungen, Dateien und Routinen durchsuchen",
   "Searching…": "Suche…",
   "Space actions for {name}": "Space-Aktionen für {name}",
+  // app/(settings)/space.tsx
+  Customize: "Anpassen",
+  "Customize {setting}": "{setting} anpassen",
+  Confirmations: "Bestätigungen",
   "Tap + to create a bot": "Tippe auf +, um einen Bot zu erstellen",
   "This removes the space for everyone.": "Das entfernt den Space für alle.",
   "Delete {name} and its bot?": "{name} und seinen Bot löschen?",

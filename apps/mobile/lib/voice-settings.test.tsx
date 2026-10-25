@@ -6,13 +6,25 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import VoiceSettings from "../app/(settings)/voice";
 
-const state = vi.hoisted(() => ({ rpc: vi.fn(), load: vi.fn(), save: vi.fn() }));
+const state = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  load: vi.fn(),
+  save: vi.fn(),
+  params: {} as { spaceId?: string },
+}));
 const t = (text: string) => text;
 vi.mock("./side-insets", () => ({ useSideInsets: () => ({}) }));
 vi.mock("expo-router", () => ({
   useFocusEffect: (callback: () => void) => useEffect(callback, [callback]),
+  useLocalSearchParams: () => state.params,
 }));
-vi.mock("./api", () => ({ rpc: state.rpc }));
+vi.mock("./api", () => ({
+  rpc: state.rpc,
+  captureApiRequestContext: async (spaceId: string) => ({
+    apiBase: "https://app.example.test",
+    headers: { "x-rakazo-space-id": spaceId },
+  }),
+}));
 vi.mock("./device-voice", () => ({
   loadDeviceVoiceEnabled: state.load,
   saveDeviceVoiceEnabled: state.save,
@@ -107,6 +119,7 @@ async function click(label: string) {
 }
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  state.params = {};
   activeProvider = "fish-audio";
   state.load.mockReset().mockResolvedValue(true);
   state.save.mockReset().mockResolvedValue(undefined);
@@ -210,6 +223,7 @@ it("saves device voice off before activating a connected provider's saved voice"
   expect(state.rpc).toHaveBeenCalledWith("voice/setVoice", {
     provider: "other",
     voiceId: "other-voice",
+    scope: "account",
   });
   selected("Other provider");
   unselected("This device");
@@ -281,4 +295,28 @@ it("clears stale voices if the refresh fails after activating a provider", async
   expect(container.textContent).not.toContain("fish-audio voice");
   expect(container.textContent).toContain("Could not load voice settings");
   expect(state.save).not.toHaveBeenCalled();
+});
+
+it("edits a Space's override in that Space, leaving this device's voice and sounds out", async () => {
+  state.params = { spaceId: "space-other" };
+  await render();
+  const spaceContext = {
+    requestContext: {
+      apiBase: "https://app.example.test",
+      headers: { "x-rakazo-space-id": "space-other" },
+    },
+  };
+  expect(state.rpc).toHaveBeenCalledWith("voice/status", { scope: "space" }, spaceContext);
+  expect(state.rpc).toHaveBeenCalledWith("voice/credentials", { scope: "space" }, spaceContext);
+  expect(state.load).not.toHaveBeenCalled();
+  expect(container.textContent).not.toContain("This device");
+  expect(container.textContent).not.toContain("Call sounds");
+  selected("Fish Audio");
+  await click("Other provider");
+  expect(state.rpc).toHaveBeenCalledWith(
+    "voice/setVoice",
+    { provider: "other", voiceId: "other-voice", scope: "space" },
+    spaceContext,
+  );
+  selected("Other provider");
 });

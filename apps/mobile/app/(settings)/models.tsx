@@ -6,7 +6,7 @@ import {
 } from "@rakazo/contracts";
 import { popularModelProvidersFirst } from "@rakazo/core";
 import type { Href } from "expo-router";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,7 +14,6 @@ import { ModelProviders } from "../../components/model-providers";
 import type { ConnectableProvider, ModelConnectIntent } from "../../components/model-role-settings";
 import { ModelRoleSettings } from "../../components/model-role-settings";
 import type { MobileMe, MobileModel, MobileModelCredential } from "../../lib/api";
-import { rpc } from "../../lib/api";
 import { mobileTokens } from "../../lib/appearance";
 import { useI18n } from "../../lib/i18n";
 import type { ModelConnectionRequest } from "../../lib/model-connection-request";
@@ -22,11 +21,18 @@ import { closeModelConnection, openModelConnection } from "../../lib/model-conne
 import type { ModelPickerRequest } from "../../lib/model-picker-selection";
 import { closeModelPicker, openModelPicker } from "../../lib/model-picker-selection";
 import { native, useThemedStyles } from "../../lib/native";
+import { settingsRpc, settingsTarget } from "../../lib/settings-target";
 import { useSideInsets } from "../../lib/side-insets";
 import { errorText } from "../../lib/user-error";
 
-/** The main and approval model lists; connecting a provider opens its own screen. */
+/**
+ * The main and approval model lists; connecting a provider opens its own screen. Opened with a
+ * Space, it edits that Space's override instead of the account's.
+ */
 export default function Models() {
+  const params = useLocalSearchParams<{ spaceId?: string }>();
+  const target = useMemo(() => settingsTarget(params.spaceId), [params.spaceId]);
+  const rpc = useMemo(() => settingsRpc(target), [target]);
   const sideInsets = useSideInsets();
   const styles = useThemedStyles(createModelsStyles);
   const router = useRouter();
@@ -64,7 +70,7 @@ export default function Models() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [rpc, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,6 +108,7 @@ export default function Models() {
       provider: provider.id,
       baseUrl: provider.baseUrl,
       credentialId: null,
+      target,
       ...intent,
     });
   const manage = (credential: MobileModelCredential) =>
@@ -110,6 +117,7 @@ export default function Models() {
         provider: credential.provider,
         credentialId: credential.id,
         makeDefault: false,
+        target,
       }),
     );
 
@@ -166,6 +174,7 @@ export default function Models() {
               baseUrl: provider.baseUrl,
               credentialId: null,
               makeDefault: false,
+              target,
             })
           : undefined;
       },
@@ -197,6 +206,9 @@ export default function Models() {
     pickerRoute,
     connectRoute,
     onManage: manage,
+    userId: me?.userId ?? "",
+    spaceId: target.scope === "space" ? target.spaceId : (me?.spaceId ?? ""),
+    scope: target.scope,
   };
   return (
     <SafeAreaView edges={["bottom"]} style={styles.screen}>
@@ -214,8 +226,6 @@ export default function Models() {
           <>
             <ModelRoleSettings
               {...shared}
-              userId={me.userId}
-              spaceId={me.spaceId}
               modelRole="main"
               title={t("Main model")}
               defaultLabel={t("Choose a model")}
@@ -223,34 +233,35 @@ export default function Models() {
             />
             <ModelRoleSettings
               {...shared}
-              userId={me.userId}
-              spaceId={me.spaceId}
               modelRole="approval"
               title={t("Approval model")}
               defaultLabel={t("Choose a model")}
             />
-            <ModelProviders
-              catalog={catalog}
-              credentials={credentials}
-              onManage={manage}
-              onAdd={addProvider}
-              onRename={(credential, label) =>
-                void changeConnection(
-                  () => rpc("models/rename", { credentialId: credential.id, label }),
-                  t("Could not update name"),
-                )
-              }
-              onDisconnect={(credential) =>
-                void changeConnection(
-                  () =>
-                    rpc("models/disconnect", {
-                      provider: credential.provider,
-                      credentialId: credential.id,
-                    }),
-                  t("Could not disconnect this provider"),
-                )
-              }
-            />
+            {/* Connections are the account's in every Space, so a Space's override lists only its models. */}
+            {target.scope === "account" ? (
+              <ModelProviders
+                catalog={catalog}
+                credentials={credentials}
+                onManage={manage}
+                onAdd={addProvider}
+                onRename={(credential, label) =>
+                  void changeConnection(
+                    () => rpc("models/rename", { credentialId: credential.id, label }),
+                    t("Could not update name"),
+                  )
+                }
+                onDisconnect={(credential) =>
+                  void changeConnection(
+                    () =>
+                      rpc("models/disconnect", {
+                        provider: credential.provider,
+                        credentialId: credential.id,
+                      }),
+                    t("Could not disconnect this provider"),
+                  )
+                }
+              />
+            ) : null}
           </>
         ) : null}
       </ScrollView>

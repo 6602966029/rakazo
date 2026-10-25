@@ -3,8 +3,8 @@ import {
   DEFAULT_COMPATIBLE_TTS_MODEL,
   OPENAI_COMPATIBLE_PROVIDER_ID,
 } from "@rakazo/contracts";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -18,7 +18,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeActionButton } from "../../components/native-action-button";
 import { NativeSwitch } from "../../components/native-switch";
 import { Checkmark } from "../../components/row-accessories";
-import { rpc } from "../../lib/api";
 import { mobileTokens } from "../../lib/appearance";
 import {
   loadCallSoundsEnabled,
@@ -30,6 +29,7 @@ import {
 import { loadDeviceVoiceEnabled, saveDeviceVoiceEnabled } from "../../lib/device-voice";
 import { useI18n } from "../../lib/i18n";
 import { native, useThemedStyles } from "../../lib/native";
+import { settingsRpc, settingsTarget } from "../../lib/settings-target";
 import { useSideInsets } from "../../lib/side-insets";
 import { errorText } from "../../lib/user-error";
 import { speakText } from "../../lib/voice";
@@ -57,7 +57,16 @@ type VoiceStatus = {
 };
 type VoiceInfo = { id: string; label: string; description?: string };
 
+/**
+ * The voice that reads replies out loud. Opened with a Space, it edits that Space's override;
+ * this device's voice and sounds stay with the device, so only the account's screen shows them.
+ */
 export default function VoiceSettings() {
+  const params = useLocalSearchParams<{ spaceId?: string }>();
+  const target = useMemo(() => settingsTarget(params.spaceId), [params.spaceId]);
+  const rpc = useMemo(() => settingsRpc(target), [target]);
+  const scope = target.scope;
+  const deviceSettings = scope === "account";
   const sideInsets = useSideInsets();
   const styles = useThemedStyles(createVoiceStyles);
   const { t } = useI18n();
@@ -74,7 +83,7 @@ export default function VoiceSettings() {
   const [sttModel, setSttModel] = useState("");
   const speechModelSave = useRef<string | null>(null);
   const [deviceVoice, setDeviceVoice] = useState(false);
-  const [deviceVoiceReady, setDeviceVoiceReady] = useState(false);
+  const [deviceVoiceReady, setDeviceVoiceReady] = useState(!deviceSettings);
   const [callSounds, setCallSounds] = useState<boolean | null>(null);
   const [waitSound, setWaitSound] = useState<boolean | null>(null);
   // Prevent stale reads from overwriting a saved preference.
@@ -88,38 +97,45 @@ export default function VoiceSettings() {
   const deviceVoiceRevision = useRef(0);
   const deviceVoiceSaveInFlight = useRef(false);
 
-  const load = useCallback(async (nextProvider?: string) => {
-    const [nextCatalog, nextCredentials, nextStatus] = await Promise.all([
-      rpc<VoiceCatalogEntry[]>("voice/catalog"),
-      rpc<VoiceCredential[]>("voice/credentials"),
-      rpc<VoiceStatus>("voice/status"),
-    ]);
-    const selected =
-      [nextProvider, nextStatus.provider].find((id) =>
-        nextCatalog.some((entry) => entry.id === id),
-      ) ??
-      nextCatalog[0]?.id ??
-      "";
-    setCatalog(nextCatalog);
-    setCredentials(nextCredentials);
-    setStatus(nextStatus);
-    setProvider(selected);
-    const cred = nextCredentials.find((entry) => entry.provider === selected);
-    setVoiceId(cred?.voiceId ?? "");
-    setSpeechModel(cred?.speechModel ?? "");
-    setBaseUrl(cred?.endpoint ?? "");
-    setTtsModel(cred?.ttsModel ?? "");
-    setSttModel(cred?.sttModel ?? "");
-    if (cred) {
-      setVoices(await rpc<VoiceInfo[]>("voice/voices", { provider: selected }));
-    } else {
-      setVoices([]);
-    }
-  }, []);
+  const load = useCallback(
+    async (nextProvider?: string) => {
+      const [nextCatalog, nextCredentials, nextStatus] = await Promise.all([
+        rpc<VoiceCatalogEntry[]>("voice/catalog"),
+        rpc<VoiceCredential[]>("voice/credentials", { scope }),
+        rpc<VoiceStatus>("voice/status", { scope }),
+      ]);
+      const selected =
+        [nextProvider, nextStatus.provider].find((id) =>
+          nextCatalog.some((entry) => entry.id === id),
+        ) ??
+        nextCatalog[0]?.id ??
+        "";
+      setCatalog(nextCatalog);
+      setCredentials(nextCredentials);
+      setStatus(nextStatus);
+      setProvider(selected);
+      const cred = nextCredentials.find((entry) => entry.provider === selected);
+      setVoiceId(cred?.voiceId ?? "");
+      setSpeechModel(cred?.speechModel ?? "");
+      setBaseUrl(cred?.endpoint ?? "");
+      setTtsModel(cred?.ttsModel ?? "");
+      setSttModel(cred?.sttModel ?? "");
+      if (cred) {
+        setVoices(await rpc<VoiceInfo[]>("voice/voices", { provider: selected }));
+      } else {
+        setVoices([]);
+      }
+    },
+    [rpc, scope],
+  );
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
+      void load()
+        .catch((err: unknown) => setError(errorText(err, t("Could not load voice settings"))))
+        .finally(() => setLoading(false));
+      if (!deviceSettings) return;
       const revision = ++deviceVoiceRevision.current;
       void loadDeviceVoiceEnabled()
         .then((value) => {
@@ -146,10 +162,7 @@ export default function VoiceSettings() {
           }
         },
       );
-      void load()
-        .catch((err: unknown) => setError(errorText(err, t("Could not load voice settings"))))
-        .finally(() => setLoading(false));
-    }, [load, t]),
+    }, [deviceSettings, load, t]),
   );
 
   /** One sound-switch save at a time; a failed save rolls back only that switch. */
@@ -230,6 +243,7 @@ export default function VoiceSettings() {
           const saved = await rpc<VoiceStatus>("voice/setVoice", {
             voiceId: cred.voiceId,
             provider: nextProvider,
+            scope,
           });
           setStatus(saved);
         } catch (err) {
@@ -271,6 +285,7 @@ export default function VoiceSettings() {
     try {
       await rpc("voice/connect", {
         provider: selected.id,
+        scope,
         apiKey: apiKey.trim(),
         // The server drops this voice when the address or speech model really changed.
         voiceId: voiceId || undefined,
@@ -319,6 +334,7 @@ export default function VoiceSettings() {
       const saved = await rpc<VoiceCredential>("voice/setSpeechModel", {
         provider: selected.id,
         speechModel: next,
+        scope,
       });
       setSpeechModel(saved.speechModel ?? "");
       setCredentials((current) =>
@@ -336,7 +352,7 @@ export default function VoiceSettings() {
     setVoiceId(nextVoiceId);
     setPending("voice");
     try {
-      await rpc("voice/setVoice", { voiceId: nextVoiceId, provider: selected?.id });
+      await rpc("voice/setVoice", { voiceId: nextVoiceId, provider: selected?.id, scope });
       await load(selected?.id);
     } catch (err) {
       setError(errorText(err, t("Could not save that voice")));
@@ -369,29 +385,31 @@ export default function VoiceSettings() {
       >
         {loading ? <ActivityIndicator color={native.secondaryLabel} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <View style={styles.group}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: deviceVoice }}
-            disabled={pending !== null || !deviceVoiceReady}
-            onPress={() => void toggleDeviceVoice()}
-            style={({ pressed }) => [
-              styles.groupRow,
-              (pending !== null || !deviceVoiceReady) && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={styles.rowCopy}>
-              <Text style={styles.cardTitle}>{t("This device")}</Text>
-              <Text style={styles.cardMeta}>
-                {deviceVoice
-                  ? t("On · Free, works offline")
-                  : t("Your phone's built-in voice. Free, no account needed")}
-              </Text>
-            </View>
-            {deviceVoice ? <Checkmark /> : null}
-          </Pressable>
-        </View>
+        {deviceSettings ? (
+          <View style={styles.group}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: deviceVoice }}
+              disabled={pending !== null || !deviceVoiceReady}
+              onPress={() => void toggleDeviceVoice()}
+              style={({ pressed }) => [
+                styles.groupRow,
+                (pending !== null || !deviceVoiceReady) && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.rowCopy}>
+                <Text style={styles.cardTitle}>{t("This device")}</Text>
+                <Text style={styles.cardMeta}>
+                  {deviceVoice
+                    ? t("On · Free, works offline")
+                    : t("Your phone's built-in voice. Free, no account needed")}
+                </Text>
+              </View>
+              {deviceVoice ? <Checkmark /> : null}
+            </Pressable>
+          </View>
+        ) : null}
         {catalog.length ? (
           <View style={styles.group}>
             {catalog.map((entry, index) => {
@@ -559,37 +577,39 @@ export default function VoiceSettings() {
             ) : null}
           </>
         ) : null}
-        {deviceVoice || status?.ready ? (
+        {deviceSettings && (deviceVoice || status?.ready) ? (
           <NativeActionButton
             disabled={pending !== null}
             label={t("Hear a sample")}
             onPress={() => void testVoice()}
           />
         ) : null}
-        <View style={styles.group}>
-          <View style={styles.groupRow}>
-            <View style={styles.rowCopy}>
-              <Text style={styles.cardTitle}>{t("Call sounds")}</Text>
+        {deviceSettings ? (
+          <View style={styles.group}>
+            <View style={styles.groupRow}>
+              <View style={styles.rowCopy}>
+                <Text style={styles.cardTitle}>{t("Call sounds")}</Text>
+              </View>
+              <NativeSwitch
+                accessibilityLabel={t("Call sounds")}
+                value={callSounds === true}
+                disabled={callSounds === null}
+                onValueChange={(next) => void toggleCallSounds(next)}
+              />
             </View>
-            <NativeSwitch
-              accessibilityLabel={t("Call sounds")}
-              value={callSounds === true}
-              disabled={callSounds === null}
-              onValueChange={(next) => void toggleCallSounds(next)}
-            />
-          </View>
-          <View style={[styles.groupRow, styles.groupDivider]}>
-            <View style={styles.rowCopy}>
-              <Text style={styles.cardTitle}>{t("Waiting sound")}</Text>
+            <View style={[styles.groupRow, styles.groupDivider]}>
+              <View style={styles.rowCopy}>
+                <Text style={styles.cardTitle}>{t("Waiting sound")}</Text>
+              </View>
+              <NativeSwitch
+                accessibilityLabel={t("Waiting sound")}
+                value={waitSound === true}
+                disabled={waitSound === null}
+                onValueChange={(next) => void toggleWaitSound(next)}
+              />
             </View>
-            <NativeSwitch
-              accessibilityLabel={t("Waiting sound")}
-              value={waitSound === true}
-              disabled={waitSound === null}
-              onValueChange={(next) => void toggleWaitSound(next)}
-            />
           </View>
-        </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
