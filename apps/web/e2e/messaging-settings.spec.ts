@@ -164,7 +164,8 @@ test("messaging settings show linked chat apps, channels, connections, and team 
     messagingSettings.getByRole("heading", { name: "Team conversations" }),
   ).toBeVisible();
   await expect(messagingSettings.getByText("#launch")).toBeVisible();
-  await expect(messagingSettings.getByText("Slack", { exact: true })).toBeVisible();
+  // The linked-app list names Slack too; the channel row carries it as its own muted label.
+  await expect(messagingSettings.getByText("Slack", { exact: true }).last()).toBeVisible();
   await messagingSettings.getByRole("button", { name: "Settings", exact: true }).click();
   const conversationSettings = page.getByTestId("external-conversation-settings");
   await expect(conversationSettings).toBeVisible();
