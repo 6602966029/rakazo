@@ -14,6 +14,7 @@ import {
   BOT_INSTRUCTIONS_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
 } from "@rakazo/contracts";
+import type { AgentImportReader } from "@rakazo/core";
 import {
   AGENT_IMPORT_ARCHIVE_LIMITS,
   AGENT_IMPORT_NOT_FOUND,
@@ -65,13 +66,6 @@ const panelStyle = { section: "mt-6", heading: "text-sm text-foreground" };
 // Matches SignupSurvey's step style.
 const pageStyle = { section: "mt-6 first:mt-0", heading: "text-sm font-medium text-foreground" };
 
-/** A chosen folder or opened backup: its paths, and its files read on demand. */
-export type AgentImportSource = {
-  paths: string[];
-  read: (path: string) => Promise<string> | string;
-  size: (path: string) => number | undefined;
-};
-
 export type AgentImportCreateRequest = Parameters<typeof rpc.bots.importCreate>[0];
 
 export function AgentImportForm({
@@ -93,7 +87,7 @@ export function AgentImportForm({
   /** Bots the import can be added to; empty (onboarding) always makes a new bot. */
   bots?: readonly Bot[];
   /** A folder or backup dropped into a chat, previewed straight away. */
-  initialSource?: AgentImportSource;
+  initialSource?: AgentImportReader;
 }) {
   const page = layout === "page";
   const { section: sectionClass, heading: headingClass } = page ? pageStyle : panelStyle;
@@ -104,7 +98,7 @@ export function AgentImportForm({
   const folderInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<AgentImportFile[]>([]);
-  const [source, setSource] = useState<AgentImportSource | null>(null);
+  const [source, setSource] = useState<AgentImportReader | null>(null);
   const [sourceFiles, setSourceFiles] = useState<{ path: string; home: string; content: string }[]>(
     [],
   );
@@ -224,7 +218,7 @@ export function AgentImportForm({
   }
 
   /** Only the files an import uses leave the device; `.env`/`auth.json` are not read. */
-  async function loadSource(next: AgentImportSource) {
+  async function loadSource(next: AgentImportReader) {
     const read = ++latestRead.current;
     setError(null);
     setBusy(true);
@@ -305,7 +299,7 @@ export function AgentImportForm({
     }
   }
 
-  const loaded = useRef<AgentImportSource | null>(null);
+  const loaded = useRef<AgentImportReader | null>(null);
   useEffect(() => {
     if (!initialSource || loaded.current === initialSource) return;
     loaded.current = initialSource;
