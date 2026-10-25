@@ -2909,6 +2909,23 @@ function SpaceShell() {
     }
   }, [computer?.busyBotName]);
 
+  // Opening the computer while its bot was running was refused as busy; boot it once the run
+  // ends, or the open window is left on a stopped computer with nothing to press.
+  const computerBlockedByRun = computerTakeoverBlocked(computer, snapshot?.run?.status);
+  useEffect(() => {
+    if (computerBlockedByRun) return;
+    const botId = computer?.botId;
+    if (!botId || !computerOpenRef.current || computerBotIdRef.current !== botId) return;
+    if (activeBotId.current !== botId) return;
+    if (computer.state !== "stopped" && computer.state !== "suspended") return;
+    void bootComputer({
+      botId,
+      takeControl: false,
+      showProgress: true,
+      force: true,
+    }).catch(() => undefined);
+  }, [computerBlockedByRun]);
+
   useEffect(() => {
     if (panel !== "routine") {
       leaveRoutine();
@@ -4344,6 +4361,7 @@ function SpaceShell() {
           onStopRun={() => void stopRun()}
           onRelease={releaseComputer}
           onTakeControl={() => void openComputer(computerBot.id, true)}
+          onStart={() => void openComputer(computerBot.id)}
           onRefreshTeaching={refreshActiveTeaching}
           onRefreshComputer={async () => {
             await refreshComputerFor(computerBot.id);
