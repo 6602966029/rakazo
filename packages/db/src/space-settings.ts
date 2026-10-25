@@ -63,6 +63,11 @@ export async function setSpaceSettingOverride(
   return withTransactionRetry(() =>
     prisma.$transaction(
       async (tx) => {
+        // Saves that pick a copy take this lock too, so none lands between the check and the copy.
+        const members = await tx.$queryRaw<Array<{ locked: number }>>`
+          SELECT 1 AS locked FROM "space_members" WHERE "spaceId" = ${scope.spaceId} AND "userId" = ${scope.userId} FOR UPDATE
+        `;
+        if (members.length !== 1) throw new Error("Space membership not found");
         const key = {
           spaceId_userId_setting: { spaceId: scope.spaceId, userId: scope.userId, setting },
         };

@@ -128,28 +128,39 @@ export async function listModelRoleChoices(
   return rows.map((row) => ({ ...roleChoice(row), role: row.role, position: row.position }));
 }
 
+/**
+ * Saves a purpose's list to the copy `target.scope` names, or, when it names none, to the
+ * copy that applies in the Space at the moment of the save.
+ */
 export async function updateModelRole(
   prisma: PrismaClient,
-  target: ModelRoleTarget,
+  target: Scope & { scope?: SettingsScope },
   role: ModelRole,
   patch: Partial<ModelRoleSettings>,
 ): Promise<ModelRoleSettings> {
   return withTransactionRetry(() =>
     prisma.$transaction(
       async (tx) => {
-        // Lock a row that exists even when the list is empty: the membership for a Space's
-        // copy, the user for the account's. At ReadCommitted, the rewrite after this lock
-        // observes the previous writer's committed list.
-        const owners =
-          target.scope === "space"
-            ? await tx.$queryRaw<Array<{ locked: number }>>`
-                SELECT 1 AS locked FROM "space_members" WHERE "spaceId" = ${target.spaceId} AND "userId" = ${target.userId} FOR UPDATE
-              `
-            : await tx.$queryRaw<Array<{ locked: number }>>`
-                SELECT 1 AS locked FROM "user" WHERE "id" = ${target.userId} FOR UPDATE
-              `;
-        if (owners.length !== 1) throw new Error("Model settings owner not found");
-        return writeModelRole(tx, target, role, patch);
+        // The membership lock orders this save against the Space starting or ending its
+        // override, which takes the same lock, so the copy chosen here is the one written.
+        const members = await tx.$queryRaw<Array<{ locked: number }>>`
+          SELECT 1 AS locked FROM "space_members" WHERE "spaceId" = ${target.spaceId} AND "userId" = ${target.userId} FOR UPDATE
+        `;
+        if (members.length !== 1) throw new Error("Space membership not found");
+        const resolved = await modelRoleTarget(
+          tx,
+          { userId: target.userId, spaceId: target.spaceId },
+          target.scope,
+        );
+        // The account's list is shared by every Space, so its saves also queue on the user.
+        // At ReadCommitted, the rewrite after these locks observes the previous writer's list.
+        if (resolved.scope === "account") {
+          const users = await tx.$queryRaw<Array<{ locked: number }>>`
+            SELECT 1 AS locked FROM "user" WHERE "id" = ${target.userId} FOR UPDATE
+          `;
+          if (users.length !== 1) throw new Error("Model settings owner not found");
+        }
+        return writeModelRole(tx, resolved, role, patch);
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     ),

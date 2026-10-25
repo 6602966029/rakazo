@@ -1,3 +1,4 @@
+import type { SettingsScope } from "@rakazo/contracts";
 import { ensureAiDataConsent, readBoundedResponseBytes, toUtterances } from "@rakazo/core";
 import { File, Paths } from "expo-file-system";
 import type * as ExpoSpeech from "expo-speech";
@@ -13,6 +14,8 @@ import { errorText, voiceAccountErrorText } from "./user-error";
 /** Who is speaking, for the dock: it is mounted outside any one thread's bot list. */
 export type PlaybackSpeaker = { name?: string; color?: string };
 type SpeechOptions = {
+  /** Which copy of the voice settings to use; omitted means whichever applies in the space. */
+  scope?: SettingsScope;
   voiceId?: string;
   botId?: string;
   messageId?: string;
@@ -188,7 +191,7 @@ async function speakPrepared(text: string, opts: SpeechOptions, epoch: number): 
     if (!isCurrentSpeech(epoch)) return false;
     const prepared = await rpc<{ ready: boolean; utterances: string[] }>(
       "voice/prepare",
-      { text, voiceId: opts.voiceId, botId: opts.botId },
+      { text, voiceId: opts.voiceId, botId: opts.botId, scope: opts.scope },
       { requestContext },
     );
     if (!isCurrentSpeech(epoch)) return false;
@@ -385,7 +388,12 @@ async function renderUtterance(
           origin: "rakazo://",
           ...requestContext.headers,
         },
-        body: JSON.stringify({ text, voiceId: opts.voiceId, botId: opts.botId }),
+        body: JSON.stringify({
+          text,
+          voiceId: opts.voiceId,
+          botId: opts.botId,
+          scope: opts.scope,
+        }),
         signal: deadline.signal,
       }),
       deadline.signal,

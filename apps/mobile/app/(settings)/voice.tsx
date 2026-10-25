@@ -365,7 +365,9 @@ export default function VoiceSettings() {
     setPending("test");
     setError(null);
     try {
-      const ready = await speakText(t("Hi, this is how I'll sound when I read replies out loud."));
+      const ready = await speakText(t("Hi, this is how I'll sound when I read replies out loud."), {
+        scope,
+      });
       if (!ready) {
         throw new Error(t("Connect a voice provider first."));
       }

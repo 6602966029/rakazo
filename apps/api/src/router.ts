@@ -1956,7 +1956,7 @@ export function createRouter(deps: RouterDeps) {
           role,
           await updateModelRole(
             deps.prisma,
-            await modelRoleTarget(deps.prisma, context.actor, scope),
+            { userId: context.actor.userId, spaceId: context.actor.spaceId, scope },
             role,
             { primary, backups },
           ),
@@ -1971,11 +1971,9 @@ export function createRouter(deps: RouterDeps) {
         await validateRoleChoices(context.actor, "main", input);
         await updateModelRole(
           deps.prisma,
-          await modelRoleTarget(deps.prisma, context.actor),
+          { userId: context.actor.userId, spaceId: context.actor.spaceId },
           "main",
-          {
-            backups: input,
-          },
+          { backups: input },
         );
         return { ok: true as const };
       }),
