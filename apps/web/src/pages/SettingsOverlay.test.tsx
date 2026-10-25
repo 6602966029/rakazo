@@ -67,8 +67,9 @@ vi.mock("./AccountSettingsOverlay", () => ({
   UpdatesSettingsPanel: () => null,
   UsageSettingsPanel: () => null,
 }));
-const { memoryConfigs, providerConfig, updaterStatus } = vi.hoisted(() => ({
+const { memoryConfigs, memoryConfigChange, providerConfig, updaterStatus } = vi.hoisted(() => ({
   memoryConfigs: [] as unknown[],
+  memoryConfigChange: { current: (_config: unknown) => {} },
   providerConfig: vi.fn(async (_spaceId: string): Promise<unknown> => null),
   updaterStatus: vi.fn(async (): Promise<unknown> => ({ installKind: "compose" })),
 }));
@@ -82,8 +83,15 @@ vi.mock("../lib/rpc", () => ({
 }));
 vi.mock("./BillingSettingsPanel", () => ({ BillingSettingsPanel: () => null }));
 vi.mock("./MemorySettingsOverlay", () => ({
-  MemorySettingsOverlay: ({ config }: { config: unknown }) => {
+  MemorySettingsOverlay: ({
+    config,
+    onConfigChange,
+  }: {
+    config: unknown;
+    onConfigChange: (config: unknown) => void;
+  }) => {
     memoryConfigs.push(config);
+    memoryConfigChange.current = onConfigChange;
     return null;
   },
 }));
@@ -280,6 +288,34 @@ it("withholds memory connection controls after a failed load and retries the edi
     await vi.waitFor(() => expect(memoryConfigs.at(-1)).toBe(config));
     expect(container.textContent).not.toContain("Retry");
     expect(onMemoryConfigChange).not.toHaveBeenCalled();
+  } finally {
+    await cleanup();
+  }
+});
+
+it("keeps another space's saved memory config when an older read lands after it", async () => {
+  memoryConfigs.length = 0;
+  let resolveRead: (config: unknown) => void = () => undefined;
+  providerConfig.mockReset().mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveRead = resolve;
+      }),
+  );
+  const { cleanup } = await render({
+    space: spaces[1],
+    currentSpaceId: "space-a",
+    section: "memory",
+  });
+  try {
+    await vi.waitFor(() => expect(providerConfig).toHaveBeenCalledTimes(1));
+    const saved = { provider: "mem0", defaultMemoryScope: "shared" };
+    await act(async () => memoryConfigChange.current(saved));
+    await vi.waitFor(() => expect(memoryConfigs.at(-1)).toBe(saved));
+    await act(async () => resolveRead(null));
+    // Query updates reach components on a timer; let any late write land.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(memoryConfigs.at(-1)).toBe(saved);
   } finally {
     await cleanup();
   }

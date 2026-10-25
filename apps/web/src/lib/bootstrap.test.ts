@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./rpc", () => ({ rpc: { bootstrap: vi.fn() }, selectedSpaceId: vi.fn() }));
+vi.mock("./rpc", () => {
+  // Query keys walk the client's procedure paths; these tests never call through it.
+  const client = (): unknown => new Proxy(() => undefined, { get: () => client() });
+  return {
+    rpc: { bootstrap: vi.fn() },
+    selectedSpaceId: vi.fn(),
+    createSpaceRpc: client,
+    rpcForSpace: client,
+  };
+});
 vi.mock("./performance", () => ({ markOnce: vi.fn() }));
 
 import { rpc, selectedSpaceId } from "./rpc";
@@ -85,6 +94,28 @@ describe("revisiting a space", () => {
       { context: { spaceId: "space-b" } },
     );
     expect(peekBootstrapSeed("bot-b")).toBeUndefined();
+  });
+
+  it("opens a visited space through any of its chats, not only the one it was left on", async () => {
+    vi.stubGlobal("window", { location: { pathname: "/sign-in" } });
+    vi.mocked(rpc.bootstrap)
+      .mockReset()
+      .mockResolvedValue({ me: { ticketBoardEnabled: false } } as Awaited<
+        ReturnType<typeof rpc.bootstrap>
+      >);
+    const { queryClient, spaceSeedKey } = await import("./query");
+    const { peekBootstrapSeed, primeSpaceBootstrap } = await import("./bootstrap");
+    // Left while showing bot-b1; the switch back targets bot-b2.
+    const left = { me: { spaceId: "space-b" }, thread: { botId: "bot-b1" } } as Awaited<
+      ReturnType<typeof rpc.bootstrap>
+    >;
+    queryClient.setQueryData(spaceSeedKey("user-a", "space-b"), left);
+    const seed = queryClient.getQueryData(spaceSeedKey("user-a", "space-b"));
+    void primeSpaceBootstrap("space-b", "bot-b2", seed);
+    vi.mocked(selectedSpaceId).mockReturnValue("space-b");
+    expect(peekBootstrapSeed("bot-b2")).toBe(left);
+    expect(queryClient.getQueryData(spaceSeedKey("user-b", "space-b"))).toBeUndefined();
+    queryClient.clear();
   });
 
   it("never seeds a shell for another space", async () => {

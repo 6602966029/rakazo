@@ -64,8 +64,15 @@ export function VoiceSettingsOverlay({
   const [catalog, setCatalog] = useState<VoiceCatalogEntry[]>(cached?.catalog ?? []);
   const [credentials, setCredentials] = useState<VoiceCredential[]>(cached?.credentials ?? []);
   const [status, setStatus] = useState<VoiceStatus | null>(cached?.status ?? null);
-  const [voices, setVoices] = useState<VoiceInfo[]>(cached?.voices ?? []);
   const [provider, setProvider] = useState(cached?.provider ?? "");
+  // The provider being edited, read by loads that finish after the user picked another one.
+  const providerRef = useRef(provider);
+  // Each list remembers its provider, so one provider's voices never show under another.
+  const [voiceList, setVoiceList] = useState<{ provider: string; voices: VoiceInfo[] }>({
+    provider: cached?.provider ?? "",
+    voices: cached?.voices ?? [],
+  });
+  const voices = voiceList.provider === provider ? voiceList.voices : NO_VOICES;
   const [apiKey, setApiKey] = useState("");
   const [voiceId, setVoiceId] = useState(
     cached?.credential?.voiceId || (cached?.credential ? (cached.voices[0]?.id ?? "") : ""),
@@ -105,13 +112,14 @@ export function VoiceSettingsOverlay({
     const cred = nextCredentials.find((entry) => entry.provider === nextProvider);
     const activeVoice = cred?.voiceId ?? "";
     if (!keepForm) {
+      providerRef.current = nextProvider;
       setProvider(nextProvider);
       setVoiceId(activeVoice);
       setSpeechModel(cred?.speechModel ?? "");
       setBaseUrl(cred?.endpoint ?? "");
       setTtsModel(cred?.ttsModel ?? "");
       setSttModel(cred?.sttModel ?? "");
-      setVoices([]);
+      setVoiceList({ provider: nextProvider, voices: [] });
     }
     if (!cred) return Promise.resolve();
     return queryClient
@@ -121,7 +129,7 @@ export function VoiceSettingsOverlay({
       .then(
         (listed) => {
           if (request !== voicesRequest.current) return;
-          setVoices(listed);
+          setVoiceList({ provider: nextProvider, voices: listed });
           if (!keepForm && !activeVoice && listed[0]) setVoiceId(listed[0].id);
         },
         (err: unknown) => {
@@ -136,11 +144,12 @@ export function VoiceSettingsOverlay({
       queryClient.fetchQuery(queries.voice.credentials.queryOptions({ staleTime: 0 })),
       queryClient.fetchQuery(queries.voice.status.queryOptions({ staleTime: 0 })),
     ]);
-    const selected = selectedProvider(nextCatalog, [nextProvider, provider, nextStatus.provider]);
+    const current = providerRef.current;
+    const selected = selectedProvider(nextCatalog, [nextProvider, current, nextStatus.provider]);
     setCatalog(nextCatalog);
     setCredentials(nextCredentials);
     setStatus(nextStatus);
-    await showProvider(selected, nextCredentials, keepForm && selected === provider);
+    await showProvider(selected, nextCredentials, keepForm && selected === current);
   }
 
   function chooseProvider(nextProvider: string) {
@@ -540,3 +549,5 @@ function selectedProvider(
 ): string {
   return preferred.find((id) => catalog.some((entry) => entry.id === id)) ?? catalog[0]?.id ?? "";
 }
+
+const NO_VOICES: VoiceInfo[] = [];

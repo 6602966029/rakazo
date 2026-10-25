@@ -1,6 +1,7 @@
 import type { RouterUtils } from "@orpc/tanstack-query";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { isRetryableError } from "@rakazo/core";
+import type { DataTag, QueryKey } from "@tanstack/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { createContext, useContext } from "react";
 import type { RpcClient } from "./rpc";
@@ -44,6 +45,14 @@ export function spaceQueries(userId: string | null, spaceId: string | null): Spa
   return scope;
 }
 
+/**
+ * Where a space's last bootstrap is kept. It holds the whole space (bots, groups, account), so
+ * it is not keyed by bot: a visited space opens at once through any of its chats.
+ */
+export function spaceSeedKey(userId: string | null, spaceId: string) {
+  return spaceQueries(userId, spaceId).bootstrap.queryKey({ input: {} });
+}
+
 const QueryUserContext = createContext<string | null>(null);
 
 /** The signed-in user whose data the screens below may read from the cache. */
@@ -66,4 +75,17 @@ let cachedUserId: string | null | undefined;
 export function setQueryUser(userId: string | null): void {
   if (cachedUserId !== undefined && cachedUserId !== userId) queryClient.clear();
   cachedUserId = userId;
+}
+
+/**
+ * Writes what a save confirmed. An older read still in flight is cancelled first, or it could
+ * land afterwards and put the value from before the save back on screen.
+ */
+export async function writeSaved<T, E>(
+  client: QueryClient,
+  queryKey: DataTag<QueryKey, T, E>,
+  update: (current: T | undefined) => T,
+): Promise<void> {
+  await client.cancelQueries({ queryKey, exact: true });
+  client.setQueryData(queryKey, update);
 }

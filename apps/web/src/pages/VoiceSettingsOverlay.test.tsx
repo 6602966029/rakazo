@@ -439,3 +439,60 @@ it("reopens with the cached providers and refreshes them in the background", asy
     vi.unstubAllGlobals();
   }
 });
+
+it("keeps the provider picked during a background refresh and only its voices", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const catalog = [
+    { id: "fish-audio", name: "Fish Audio", description: "", transcribe: true },
+    { id: "elevenlabs", name: "ElevenLabs", description: "", transcribe: true },
+  ];
+  voice.catalog.mockReset().mockResolvedValue(catalog);
+  voice.credentials.mockReset().mockResolvedValue([fish, eleven]);
+  voice.status.mockReset().mockResolvedValue({ ready: true, provider: "fish-audio" });
+  voice.voices
+    .mockReset()
+    .mockImplementation(async ({ provider }: { provider?: string }) =>
+      provider === "elevenlabs"
+        ? [{ id: "rachel", label: "Rachel" }]
+        : [{ id: "voice-1", label: "Aria" }],
+    );
+  const client = new QueryClient();
+  const container = document.createElement("div");
+  document.body.append(container);
+  const mount = async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(withQueries(<VoiceSettingsOverlay embedded onClose={() => undefined} />, client));
+    });
+    return root;
+  };
+  try {
+    const first = await mount();
+    await vi.waitFor(() => expect(container.textContent).toContain("Aria"));
+    await act(async () => first.unmount());
+
+    let releaseCatalog: () => void = () => undefined;
+    voice.catalog.mockImplementationOnce(
+      () => new Promise((resolve) => (releaseCatalog = () => resolve(catalog))),
+    );
+    const second = await mount();
+    await act(async () => {
+      const select = container.querySelector("select");
+      if (!select) throw new Error("Missing provider select");
+      select.value = "elevenlabs";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await vi.waitFor(() => expect(container.textContent).toContain("Rachel"));
+    await act(async () => releaseCatalog());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(container.querySelector("select")?.value).toBe("elevenlabs");
+    expect(container.textContent).toContain("Rachel");
+    expect(container.textContent).not.toContain("Aria");
+    await act(async () => second.unmount());
+  } finally {
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});

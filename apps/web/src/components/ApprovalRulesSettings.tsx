@@ -4,7 +4,7 @@ import type { ActionApprovalRule, ActionAutoReviewSettings } from "@rakazo/contr
 import { Button, Label, Spinner, Switch } from "@rakazo/ui-web";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
-import { useSpaceQueries } from "../lib/query";
+import { useSpaceQueries, writeSaved } from "../lib/query";
 import { useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
 
@@ -47,13 +47,13 @@ export function ApprovalRulesSettings() {
     actionError ?? (loadFailed ? errorText(loadFailed, t`Could not load approval rules`) : null);
 
   function setRules(update: (current: ActionApprovalRule[]) => ActionApprovalRule[]) {
-    queryClient.setQueryData(queries.approvalRules.list.queryKey(), (current) =>
+    return writeSaved(queryClient, queries.approvalRules.list.queryKey(), (current) =>
       update(current ?? []),
     );
   }
 
   function setAutoReview(next: ActionAutoReviewSettings) {
-    queryClient.setQueryData(queries.autoReview.get.queryKey(), next);
+    return writeSaved(queryClient, queries.autoReview.get.queryKey(), () => next);
   }
 
   async function setPreset(matchValue: "email" | "purchase") {
@@ -76,7 +76,7 @@ export function ApprovalRulesSettings() {
         matchKind: "category",
         matchValue,
       });
-      setRules((current) => [...current, saved]);
+      await setRules((current) => [...current, saved]);
     } catch (err) {
       setError(errorText(err, t`Could not save rule`));
     } finally {
@@ -88,7 +88,7 @@ export function ApprovalRulesSettings() {
     setError(null);
     try {
       await rpc.approvalRules.remove({ id });
-      setRules((current) => current.filter((rule) => rule.id !== id));
+      await setRules((current) => current.filter((rule) => rule.id !== id));
     } catch (err) {
       setError(errorText(err, t`Could not remove rule`));
     }
@@ -99,7 +99,7 @@ export function ApprovalRulesSettings() {
     setSavingAutoReview(true);
     setError(null);
     try {
-      setAutoReview(await rpc.autoReview.set(input));
+      await setAutoReview(await rpc.autoReview.set(input));
     } catch (err) {
       setError(errorText(err, t`Could not save Auto Review`));
     } finally {

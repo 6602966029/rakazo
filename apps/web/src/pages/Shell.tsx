@@ -158,7 +158,7 @@ import {
 import { markAfterPaint, markOnce } from "../lib/performance";
 import { usePreloadRecoveryState } from "../lib/preload-recovery";
 import { canPrepareImage, prepareImage } from "../lib/prepare-image";
-import { queryClient, spaceQueries } from "../lib/query";
+import { queryClient, spaceQueries, spaceSeedKey, writeSaved } from "../lib/query";
 import { getResponseStreamingEnabled, subscribeResponseStreaming } from "../lib/response-streaming";
 import type { Panel, RightPanelState } from "../lib/right-panel-state";
 import {
@@ -1226,13 +1226,8 @@ function SpaceShell() {
     const appliedAtStart = botsRefreshApplied.current;
     void takeInitialBootstrap(botId)
       .then((bootstrap) => {
-        // Keyed by the space it belongs to, so switching back to it can paint at once.
-        queryClient.setQueryData(
-          spaceQueries(userId ?? null, bootstrap.me.spaceId).bootstrap.queryKey({
-            input: botId ? { botId } : {},
-          }),
-          bootstrap,
-        );
+        // Kept for the space it belongs to, so switching back to it can paint at once.
+        queryClient.setQueryData(spaceSeedKey(userId ?? null, bootstrap.me.spaceId), bootstrap);
         if (cancelled) return;
         const groupList = bootstrap.groups;
         setBootstrapMe(bootstrap.me);
@@ -1685,11 +1680,7 @@ function SpaceShell() {
         );
       const current = () => decision() !== "abandon";
       // A space visited before opens at once with what it showed then, refreshing behind it.
-      const cached = queryClient.getQueryData(
-        spaceQueries(userId ?? null, spaceId).bootstrap.queryKey({
-          input: target.botId ? { botId: target.botId } : {},
-        }),
-      );
+      const cached = queryClient.getQueryData(spaceSeedKey(userId ?? null, spaceId));
       const primed = primeSpaceBootstrap(spaceId, target.botId, cached);
       const remount = () =>
         remountShellForSpace(() => {
@@ -4104,10 +4095,7 @@ function SpaceShell() {
             }}
             memoryConfig={memoryProviderConfig}
             onMemoryConfigChange={(config) => {
-              const key = queries.memory.providerConfig.queryKey();
-              // An older read still in flight must not overwrite the saved config.
-              void queryClient.cancelQueries({ queryKey: key });
-              queryClient.setQueryData(key, config);
+              void writeSaved(queryClient, queries.memory.providerConfig.queryKey(), () => config);
             }}
             onVoiceStatusMaybeChanged={async () => {
               try {

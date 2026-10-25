@@ -28,7 +28,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalRulesSettings } from "../components/ApprovalRulesSettings";
 import { computersAreUnavailable } from "../components/ComputersUnavailableHint";
 import { desktopBridge } from "../lib/desktop";
-import { spaceQueries, useQueryUserId } from "../lib/query";
+import { spaceQueries, useQueryUserId, writeSaved } from "../lib/query";
 import { SpaceRpcProvider } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
 import {
@@ -142,7 +142,7 @@ export function SettingsOverlay({
       : undefined;
   const otherMemoryConfig = otherMemory.data;
   const setOtherMemoryConfig = (config: SpaceMemoryConfig | null) =>
-    queryClient.setQueryData(otherMemoryOptions.queryKey, config);
+    void writeSaved(queryClient, otherMemoryOptions.queryKey, () => config);
   const releaseComputerRecovery = useCallback(() => {
     window.clearTimeout(recoveryHoldTimer.current);
     recoveryHoldTimer.current = undefined;
