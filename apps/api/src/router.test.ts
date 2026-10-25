@@ -3134,7 +3134,11 @@ describe("computer screen url", () => {
     controlRunId: null,
   };
 
-  const callScreenUrl = async (connectScreen: () => Promise<unknown>, updateMany = vi.fn()) => {
+  const callScreenUrl = async (
+    connectScreen: () => Promise<unknown>,
+    updateMany = vi.fn().mockResolvedValue({ count: 1 }),
+  ) => {
+    const endRun = vi.fn().mockResolvedValue({ count: 1 });
     const prisma = {
       bot: {
         findFirst: vi.fn().mockResolvedValue({
@@ -3145,6 +3149,7 @@ describe("computer screen url", () => {
         }),
       },
       computer: { updateMany },
+      computerRun: { updateMany: endRun },
       computerExecutionLease: { findUnique: vi.fn().mockResolvedValue(null) },
     } as unknown as PrismaClient;
     const deps = {
@@ -3169,7 +3174,7 @@ describe("computer screen url", () => {
       }),
       { prefix: "/rpc", context: { actor } },
     );
-    return { response, updateMany };
+    return { response, updateMany, endRun };
   };
 
   it("issues lifecycle-bound capabilities for managed-provider screens too", async () => {
@@ -3203,7 +3208,7 @@ describe("computer screen url", () => {
   });
 
   it("clears the row instead of 500ing when the provider says the sandbox is gone", async () => {
-    const { response, updateMany } = await callScreenUrl(() =>
+    const { response, updateMany, endRun } = await callScreenUrl(() =>
       Promise.reject(
         Object.assign(new Error("Sandbox is probably not running anymore"), {
           name: "SandboxNotFoundError",
@@ -3216,6 +3221,9 @@ describe("computer screen url", () => {
       where: { id: "computer-1", providerRef: "sandbox-ref-1" },
       data: { state: "stopped", providerRef: null },
     });
+    expect(endRun).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ endReason: "gone" }) }),
+    );
   });
 
   it("keeps a transport blip an error and leaves the row alone", async () => {
