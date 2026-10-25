@@ -18,6 +18,7 @@ const settingsScreens = new Set([
   "models",
   "signup-survey",
   "space",
+  "team-conversation",
   "voice",
 ]);
 

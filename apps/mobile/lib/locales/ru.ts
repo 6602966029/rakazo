@@ -1029,4 +1029,25 @@ export const RU_MESSAGES: Record<string, string> = {
   "Send {code} to {address} from {app} within 10 minutes.":
     "Отправьте {code} на {address} из {app} в течение 10 минут.",
   "Slack workspace": "Рабочее пространство Slack",
+  "Always act": "Всегда действовать",
+  "Automated senders will appear after they post here.":
+    "Автоматические отправители появятся, когда напишут здесь.",
+  "Automated senders": "Автоматические отправители",
+  "Could not save": "Не удалось сохранить",
+  "Engage when... Ignore...": "Отвечать, когда… Игнорировать…",
+  Every: "Каждые",
+  "External conversation": "Внешний разговор",
+  "Group updates": "Группировать обновления",
+  Ignore: "Игнорировать",
+  Listen: "Слушать",
+  Listening: "Прослушивание",
+  "Mentions only": "Только упоминания",
+  "Room guidance": "Правила комнаты",
+  "Treat like a person": "Как с человеком",
+  "Use default guidance": "Использовать правила по умолчанию",
+  hours: "ч",
+  "{bot} default": "По умолчанию для {bot}",
+  "{bot} will still respond to direct mentions.":
+    "{bot} по-прежнему отвечает на прямые упоминания.",
+  "{sender} rollup hours": "{sender}: интервал группировки в часах",
 };

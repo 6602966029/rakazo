@@ -986,4 +986,25 @@ export const NL_MESSAGES: Record<string, string> = {
   "Send {code} to {address} from {app} within 10 minutes.":
     "Stuur {code} binnen 10 minuten vanuit {app} naar {address}.",
   "Slack workspace": "Slack-werkruimte",
+  "Always act": "Altijd handelen",
+  "Automated senders will appear after they post here.":
+    "Geautomatiseerde afzenders verschijnen zodra ze hier posten.",
+  "Automated senders": "Geautomatiseerde afzenders",
+  "Could not save": "Opslaan mislukt",
+  "Engage when... Ignore...": "Reageer wanneer… Negeer…",
+  Every: "Elke",
+  "External conversation": "Extern gesprek",
+  "Group updates": "Updates bundelen",
+  Ignore: "Negeren",
+  Listen: "Luisteren",
+  Listening: "Luisteren",
+  "Mentions only": "Alleen vermeldingen",
+  "Room guidance": "Ruimterichtlijnen",
+  "Treat like a person": "Behandelen als persoon",
+  "Use default guidance": "Standaardrichtlijnen gebruiken",
+  hours: "uur",
+  "{bot} default": "Standaard van {bot}",
+  "{bot} will still respond to direct mentions.":
+    "{bot} reageert nog steeds op directe vermeldingen.",
+  "{sender} rollup hours": "Bundeluren voor {sender}",
 };
