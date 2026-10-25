@@ -1279,6 +1279,8 @@ it("keeps another connection's form when an earlier save finishes", async () => 
     await choose("OpenRouter");
     await typeInto(keyField(view.container), "sk-fixture-router");
     await click(buttons(view.container, "Connect API key")[0]);
+    // Fields wait for the save, so it cannot overwrite edits made meanwhile.
+    expect(keyField(view.container).closest("fieldset")?.disabled).toBe(true);
     // The main model's connection opens while the first key still saves.
     await manage();
     expect(titles(view.container)).toEqual(["DeepSeek"]);
