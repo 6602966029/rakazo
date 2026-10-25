@@ -1762,8 +1762,12 @@ your CI cannot publish into someone else's.
 
 Every publish, including `edge` from main merges, is multi-arch (`amd64` + `arm64`): each
 architecture builds natively, on Depot when the `DEPOT_PROJECT_ID` repository variable names a
-project and on GitHub's runners otherwise, and one manifest is assembled per image. Before any tag
-points at a new app image, CI fails the publish if it holds a `.env` file, a `.git` directory or a
+project and on GitHub's runners otherwise, and one manifest is assembled per image. Depot builds
+publish and attest each image in the same job; native GitHub builds combine their architecture
+artifacts in a separate publication job. Main CI revisions validate independently. Publication
+locks are per image, and a superseded main build keeps its commit tag without moving `edge`.
+Production deployment remains serialized and deploys the exact revision that passed its checks.
+Before any tag points at a new app image, CI fails the publish if it holds a `.env` file, a `.git` directory or a
 private key (`infra/compose/check-image.sh`). Until a
 stable `vX.Y.Z` has been published, GHCR may only have `edge` and `sha-*` tags; do not pin
 `latest` unless that tag exists in the registry.
