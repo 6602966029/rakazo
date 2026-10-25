@@ -372,7 +372,10 @@ export async function speakUtterance(
         { requestContext },
       ),
     prompt: promptAiConsent,
-    allow: (input) => rpc("aiConsent/allow", input, { requestContext }),
+    allow: (input) =>
+      rpc("aiConsent/allow", opts.scope ? { ...input, settingsScope: opts.scope } : input, {
+        requestContext,
+      }),
     coalesceKey: aiConsentCoalesceKey(requestContext),
   });
   return renderUtterance(text, opts, requestContext);

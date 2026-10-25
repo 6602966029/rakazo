@@ -797,18 +797,22 @@ export async function rpc<T>(
   const requestSessionGeneration = currentSessionGeneration();
   const requestApiBase = options.requestContext?.apiBase ?? currentApiBase();
   const uses = aiDataUsesForProcedure(proc, body);
+  const consentTarget = aiConsentTarget(body);
   const consentContext =
     options.requestContext ?? (uses.length ? await captureApiRequestContext() : undefined);
   await ensureAiDataConsent({
     uses,
     status: () =>
+      rpc("aiConsent/status", { uses, ...consentTarget }, { requestContext: consentContext }),
+    prompt: promptAiConsent,
+    allow: (input) =>
       rpc(
-        "aiConsent/status",
-        { uses, ...aiConsentTarget(body) },
+        "aiConsent/allow",
+        consentTarget.settingsScope
+          ? { ...input, settingsScope: consentTarget.settingsScope }
+          : input,
         { requestContext: consentContext },
       ),
-    prompt: promptAiConsent,
-    allow: (input) => rpc("aiConsent/allow", input, { requestContext: consentContext }),
     coalesceKey: consentContext ? aiConsentCoalesceKey(consentContext) : undefined,
   });
   // Abort with an explicit reason so every consumer of the signal (the fetch, the bounded body

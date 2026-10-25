@@ -203,6 +203,8 @@ export const appContract = {
           scope: z.string(),
           version: z.string(),
           keys: z.array(z.string()).min(1).max(200),
+          /** The settings copy the reviewed recipients came from, as in `status`. */
+          settingsScope: SettingsScopeSchema.optional(),
         }),
       )
       .output(AiConsentStatusSchema),

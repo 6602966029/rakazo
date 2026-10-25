@@ -8,7 +8,13 @@ import {
   selectConfiguredModel,
   toStringRecord,
 } from "@rakazo/adapters";
-import type { Actor, AiConsentQuery, AiConsentStatus, AiRecipient } from "@rakazo/contracts";
+import type {
+  Actor,
+  AiConsentQuery,
+  AiConsentStatus,
+  AiRecipient,
+  SettingsScope,
+} from "@rakazo/contracts";
 import { AI_DISCLOSURE_VERSION, AI_PRIVACY_URL } from "@rakazo/contracts";
 import {
   findDefaultVoiceCredential,
@@ -254,9 +260,14 @@ export async function aiConsentStatus(
 export async function allowAiConsent(
   deps: RouterDeps,
   actor: Actor,
-  input: { scope: string; version: string; keys: string[] },
+  input: { scope: string; version: string; keys: string[]; settingsScope?: SettingsScope },
 ) {
-  const current = await aiConsentStatus(deps, actor);
+  // Checked against the same settings copy the member reviewed.
+  const current = await aiConsentStatus(
+    deps,
+    actor,
+    input.settingsScope ? { settingsScope: input.settingsScope } : {},
+  );
   const known = new Set(current.recipients.map((recipient) => recipient.key));
   if (
     input.scope !== current.scope ||

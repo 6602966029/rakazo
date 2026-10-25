@@ -243,3 +243,30 @@ it("asks about the account's voice provider when a voice action names the accoun
   });
   expect(account.recipients.map((recipient) => recipient.name)).toEqual(["OpenAI"]);
 });
+
+it("grants the account's voice provider when the grant names the account copy", async () => {
+  const { deps, actor, upsert } = setup();
+  Object.assign(deps.prisma, {
+    spaceVoicePreference: {
+      findMany: vi.fn(async () => [{ credential: { provider: "elevenlabs" } }]),
+    },
+  });
+  vi.mocked(deps.prisma.spaceSettingOverride.findUnique).mockResolvedValue({
+    setting: "voice",
+  } as never);
+  const reviewed = await aiConsentStatus(deps, actor, {
+    uses: ["voice"],
+    settingsScope: "account",
+  });
+  const keys = reviewed.recipients.map((recipient) => recipient.key);
+  await expect(
+    allowAiConsent(deps, actor, { scope: reviewed.scope, version: reviewed.version, keys }),
+  ).rejects.toThrow("AI data sharing changed");
+  await allowAiConsent(deps, actor, {
+    scope: reviewed.scope,
+    version: reviewed.version,
+    keys,
+    settingsScope: "account",
+  });
+  expect(upsert).toHaveBeenCalled();
+});
