@@ -1218,30 +1218,42 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
             >
               <Text style={styles.spaceTitle}>{item.title}</Text>
             </Pressable>
-            {canDeleteInboxSpace(item.space) ? (
-              <MenuView
-                actions={[
-                  {
-                    id: "delete",
-                    title: t("Delete space"),
-                    image: "trash",
-                    attributes: { destructive: true, disabled: spaceBusy || !!spaceRecoveryId },
-                  },
-                ]}
-                colorScheme={appearance}
-                onPressAction={() => {
-                  if (item.space) confirmDeleteSpace(item.space);
-                }}
+            <MenuView
+              actions={[
+                { id: "settings", title: t("Settings"), image: "gearshape" },
+                ...(canDeleteInboxSpace(item.space)
+                  ? [
+                      {
+                        id: "delete",
+                        title: t("Delete space"),
+                        image: "trash" as const,
+                        attributes: {
+                          destructive: true,
+                          disabled: spaceBusy || !!spaceRecoveryId,
+                        },
+                      },
+                    ]
+                  : []),
+              ]}
+              colorScheme={appearance}
+              onPressAction={({ nativeEvent }) => {
+                if (!item.space) return;
+                if (nativeEvent.event === "delete") confirmDeleteSpace(item.space);
+                else
+                  router.push({
+                    pathname: "/space",
+                    params: { spaceId: item.space.id, name: item.space.name },
+                  });
+              }}
+            >
+              <View
+                accessibilityLabel={t("Space actions for {name}", { name: item.title })}
+                accessibilityRole="button"
+                style={styles.spaceActions}
               >
-                <View
-                  accessibilityLabel={t("Space actions for {name}", { name: item.title })}
-                  accessibilityRole="button"
-                  style={styles.spaceActions}
-                >
-                  <NativeSymbol ios="ellipsis" android="ellipsis-horizontal" size={20} />
-                </View>
-              </MenuView>
-            ) : null}
+                <NativeSymbol ios="ellipsis" android="ellipsis-horizontal" size={20} />
+              </View>
+            </MenuView>
           </View>
         ) : (
           <View style={styles.sectionHeadingRow}>
@@ -1339,6 +1351,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       organizeBot,
       organizeFromMenu,
       organizeGroup,
+      router,
       spaceBusy,
       spaceRecoveryId,
       styles,

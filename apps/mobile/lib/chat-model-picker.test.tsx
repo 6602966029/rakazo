@@ -752,6 +752,7 @@ async function renderConnection(request: Partial<ModelConnectionRequest> = {}) {
         : "openrouter",
     credentialId: mocks.connected ? CREDENTIAL_ID : null,
     makeDefault: false,
+    target: { scope: "account" },
     ...request,
   });
   await renderStack("connection", { requestId });
@@ -917,6 +918,7 @@ describe("provider connection limit saves", () => {
       provider: "openrouter",
       modelId: "vendor/model-1",
       makeDefault: false,
+      scope: "account",
       maxTokens: 2000,
       label: "OpenRouter",
       // A save on a managed connection updates that connection only.
@@ -1018,7 +1020,12 @@ describe("model role lists", () => {
           procedure === "models/setRole" && (input as { role: string }).role === role,
       )
       .map(([, input]) => {
-        const { role: _role, expectedUserId: _user, ...patch } = input as Record<string, unknown>;
+        const {
+          role: _role,
+          expectedUserId: _user,
+          scope: _scope,
+          ...patch
+        } = input as Record<string, unknown>;
         return patch;
       });
   const menuAction = async (title: string, action: string) =>
@@ -1603,7 +1610,12 @@ describe("several connections for one provider", () => {
     mocks.rpc.mock.calls
       .filter(([procedure]) => procedure === "models/setRole")
       .map(([, input]) => {
-        const { role: _role, expectedUserId: _user, ...patch } = input as Record<string, unknown>;
+        const {
+          role: _role,
+          expectedUserId: _user,
+          scope: _scope,
+          ...patch
+        } = input as Record<string, unknown>;
         return patch;
       });
   const lastRequest = (mock: typeof mocks.push) =>
