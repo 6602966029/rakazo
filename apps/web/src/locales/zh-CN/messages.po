@@ -4753,6 +4753,10 @@ msgstr "发送"
 msgid "Send <0>{linkCode}</0> from {linkApp} within 10 minutes."
 msgstr ""
 
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Send <0>{linkCode}</0> to <1>{linkAddress}</1> from {linkApp} within 10 minutes."
+msgstr ""
+
 #: src/components/AskCard.tsx
 msgid "Send answer"
 msgstr "发送回答"
