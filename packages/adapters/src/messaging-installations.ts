@@ -156,6 +156,22 @@ export class MessagingInstallations implements MessagingInstallationStore {
     });
   }
 
+  async canLinkPersonalMessages(actor: Actor): Promise<boolean> {
+    return runAsSystem("check space messaging link availability", async () =>
+      Boolean(
+        await this.prisma.messagingInstallation.findFirst({
+          where: {
+            provider: this.provider.provider,
+            spaceId: actor.spaceId,
+            space: { memberships: { some: { userId: actor.userId } } },
+            bot: { archivedAt: null },
+          },
+          select: { id: true },
+        }),
+      ),
+    );
+  }
+
   async remove(actor: Actor, id: string): Promise<void> {
     const installation = await this.prisma.messagingInstallation.findFirst({
       where: { id, spaceId: actor.spaceId, userId: actor.userId },

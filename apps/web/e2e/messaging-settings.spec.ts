@@ -236,8 +236,9 @@ test("Slack setup has one Connect Slack action that opens workspace authorizatio
       }),
     ),
   );
+  let personalLinkAvailable = false;
   await page.route("**/rpc/messaging/installations/list", (route) =>
-    route.fulfill(fixture({ available: true, installations: [] })),
+    route.fulfill(fixture({ available: true, installations: [], personalLinkAvailable })),
   );
   await page.route("**/rpc/messaging/channels/list", (route) => route.fulfill(fixture([])));
   await page.route("**/rpc/messaging/connections/list", (route) => route.fulfill(fixture([])));
@@ -284,4 +285,14 @@ test("Slack setup has one Connect Slack action that opens workspace authorizatio
   expect(installs).toBe(1);
   expect(codeRequests).toBe(0);
   await popup.close();
+
+  // A teammate installed the workspace: personal linking works without installation ownership.
+  personalLinkAvailable = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(settings.getByRole("button", { name: "Link DMs", exact: true })).toBeEnabled();
+  await captureScreenshot(page, testInfo, "messaging-slack-member-link");
+  await settings.getByRole("button", { name: "Link DMs", exact: true }).click();
+  await expect(settings.getByTestId("messaging-link-code")).toContainText("ABCD-2345");
+  expect(installs).toBe(1);
+  expect(codeRequests).toBe(1);
 });

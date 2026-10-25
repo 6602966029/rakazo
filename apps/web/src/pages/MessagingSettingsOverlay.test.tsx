@@ -65,7 +65,11 @@ vi.mock("@rakazo/ui-web", () => {
     DialogTitle: Pass,
     DropdownMenu: Pass,
     DropdownMenuContent: Pass,
-    DropdownMenuTrigger: Pass,
+    DropdownMenuTrigger: ({ children, disabled }: ComponentProps<"button">) => (
+      <button type="button" disabled={disabled}>
+        {children}
+      </button>
+    ),
     DropdownMenuItem: ({ children, onClick }: ComponentProps<"button">) => (
       <button type="button" onClick={onClick}>
         {children}
@@ -463,4 +467,34 @@ it("keeps DM linking available for each connected workspace", async () => {
   expect(
     [...container.querySelectorAll("button")].filter((button) => button.textContent === "Link DMs"),
   ).toHaveLength(2);
+});
+
+it("lets members link personal DMs without owning the workspace connection", async () => {
+  messaging.status.mockResolvedValue({ ...statusWith([]), providers: ["slack"] });
+  messaging.installations.list.mockResolvedValue({
+    available: true,
+    installations: [],
+    personalLinkAvailable: true,
+  } as never);
+  await renderOverlay();
+  await act(async () =>
+    [...container.querySelectorAll("button")]
+      .find((button) => button.textContent === "Link DMs")!
+      .click(),
+  );
+  expect(messaging.link.start).toHaveBeenCalledWith({ botId: "bot-1" });
+  expect(messaging.installations.start).not.toHaveBeenCalled();
+});
+
+it("keeps other apps usable and withholds Slack when its setup method cannot load", async () => {
+  messaging.status.mockResolvedValue({ ...statusWith([]), providers: ["slack", "telegram"] });
+  messaging.installations.list.mockRejectedValue(new Error("unavailable"));
+  await renderOverlay();
+  const buttons = [...container.querySelectorAll("button")];
+  expect(buttons.find((button) => button.textContent === "Connect a chat app")!.disabled).toBe(
+    false,
+  );
+  expect(buttons.some((button) => button.textContent === "Slack")).toBe(false);
+  await act(async () => telegramItem()!.click());
+  expect(messaging.link.start).toHaveBeenCalledWith({ botId: "bot-1" });
 });

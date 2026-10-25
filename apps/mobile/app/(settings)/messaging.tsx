@@ -296,6 +296,16 @@ export default function MessagingSettings() {
             </MenuPickerMenu>
           )
         ) : null}
+        {installations.personalLinkAvailable &&
+        !installations.installations.some((installation) => installation.provider === "slack") &&
+        status?.providers.includes("slack") ? (
+          <NativeActionButton
+            label={t("Link DMs")}
+            prominence="quiet"
+            disabled={busy || !botId}
+            onPress={() => startLink("slack")}
+          />
+        ) : null}
       </SettingsGroup>
       {link && Date.parse(link.expiresAt) > Date.now() ? (
         <Text selectable style={styles.code}>

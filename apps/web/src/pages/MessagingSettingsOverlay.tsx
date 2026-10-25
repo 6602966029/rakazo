@@ -179,8 +179,10 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
   }
 
   const connectOptions = messagingConnectOptions(
-    status?.providers ?? [],
-    installationStatus.available,
+    (status?.providers ?? []).filter(
+      (provider) => provider !== "slack" || installationsQuery.isSuccess,
+    ),
+    installationsQuery.isSuccess && installationStatus.available,
   );
   const slackOnly = connectOptions.length === 1 && connectOptions[0]?.method === "install";
   const invitedChannels = channels.filter((channel) => channel.status === "invited");
@@ -380,12 +382,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  disabled={
-                    !linkBotId ||
-                    !connectOptions.length ||
-                    installationsQuery.isPending ||
-                    installationsQuery.isError
-                  }
+                  disabled={!linkBotId || !connectOptions.length}
                   render={<Button variant="outline" />}
                 >
                   <Trans>Connect a chat app</Trans>
@@ -403,6 +400,20 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            {installationStatus.personalLinkAvailable &&
+            !installationStatus.installations.some(
+              (installation) => installation.provider === "slack",
+            ) &&
+            status?.providers.includes("slack") ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!linkBotId}
+                onClick={() => startLink("slack")}
+              >
+                <Trans>Link DMs</Trans>
+              </Button>
+            ) : null}
           </div>
           {linkCode ? (
             <p className="mt-3 text-[14px] text-foreground/75" data-testid="messaging-link-code">

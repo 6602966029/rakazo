@@ -295,3 +295,20 @@ it("links optional DMs to the selected personal bot even with another identity",
   expect(rpc).toHaveBeenCalledWith("messaging/link/start", { botId: "bot-1" });
   expect(container.textContent).toContain("ABCD-2345");
 });
+
+it("lets a workspace member link DMs without installing the app again", async () => {
+  responses["messaging/status"] = { enabled: true, providers: ["slack"], identities: [] };
+  responses["messaging/installations/list"] = {
+    available: true,
+    installations: [],
+    personalLinkAvailable: true,
+  };
+  await act(async () => root.render(<MessagingSettings />));
+  await act(async () =>
+    [...container.querySelectorAll("button")]
+      .find((button) => button.textContent === "Link DMs")!
+      .click(),
+  );
+  expect(rpc).toHaveBeenCalledWith("messaging/link/start", { botId: "bot-1" });
+  expect(rpc).not.toHaveBeenCalledWith("messaging/installations/start", expect.anything());
+});
