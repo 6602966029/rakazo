@@ -3216,10 +3216,6 @@ msgstr "Model kataloğu yükleniyor…"
 msgid "Loading preview…"
 msgstr "Önizleme yükleniyor…"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Loading rules…"
-msgstr "Kurallar yükleniyor…"
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Loading voice providers…"
 msgstr "Ses sağlayıcıları yükleniyor…"

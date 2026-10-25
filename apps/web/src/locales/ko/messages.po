@@ -3216,10 +3216,6 @@ msgstr "모델 목록을 불러오는 중…"
 msgid "Loading preview…"
 msgstr "미리보기를 불러오는 중…"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Loading rules…"
-msgstr "확인 규칙을 불러오는 중…"
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Loading voice providers…"
 msgstr "음성 서비스를 불러오는 중…"

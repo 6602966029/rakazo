@@ -3216,10 +3216,6 @@ msgstr "Chargement du catalogue de modèles…"
 msgid "Loading preview…"
 msgstr "Chargement de l'aperçu…"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Loading rules…"
-msgstr "Chargement des règles…"
-
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Loading voice providers…"
 msgstr "Chargement des fournisseurs vocaux…"
