@@ -295,6 +295,12 @@ describe("mobile monitoring", () => {
       attachScreenshot: false,
       attachViewHierarchy: false,
     });
+    const release = { name: "Release" };
+    const handlers = { name: "ReactNativeErrorHandlers" };
+    expect(options.integrations([release, handlers, { name: "DeviceContext" }])).toEqual([
+      release,
+      handlers,
+    ]);
     expect(sdk.setTag).toHaveBeenCalledWith("mobile.platform", "ios");
     expect(
       options.beforeSend({ extra: { secret: "private" }, user: { email: "private" } }),
