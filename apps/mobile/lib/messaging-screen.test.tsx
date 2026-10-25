@@ -20,8 +20,10 @@ vi.mock("./i18n", () => ({
       message.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? ""),
   }),
 }));
+const push = vi.fn();
 vi.mock("expo-router", () => ({
   useFocusEffect: (effect: () => void) => useEffect(effect, [effect]),
+  useRouter: () => ({ push }),
 }));
 vi.mock("../components/native-symbol", () => ({ NativeSymbol: () => null }));
 vi.mock("../components/native-action-button", () => ({
@@ -40,14 +42,23 @@ vi.mock("../components/settings-group", () => ({
     detail,
     value,
     trailing,
+    onPress,
   }: {
     title: string;
     detail?: string;
     value?: string;
     trailing?: ReactNode;
+    onPress?: () => void;
   }) => (
     <div data-row={title}>
-      {title} {detail} {value}
+      {onPress ? (
+        <button type="button" onClick={onPress}>
+          {title}
+        </button>
+      ) : (
+        title
+      )}{" "}
+      {detail} {value}
       {trailing}
     </div>
   ),
@@ -90,6 +101,11 @@ beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   Object.assign(responses, {
     "bots/list": [{ id: "bot-1", name: "Chief" }],
+    "spaces/list": {
+      current: {
+        externalConversations: [{ id: "room-1", provider: "slack", displayName: "#launch" }],
+      },
+    },
     "messaging/status": {
       enabled: true,
       providers: ["sendblue"],
@@ -230,4 +246,13 @@ it("falls back to the first bot when the selected one is archived elsewhere", as
   await act(async () => imessage?.click());
   expect(rpc).toHaveBeenCalledWith("messaging/link/start", { botId: "bot-1" });
   expect(rpc).not.toHaveBeenCalledWith("messaging/link/start", { botId: "bot-2" });
+});
+
+it("opens a team conversation's room settings", async () => {
+  await act(async () => root.render(<MessagingSettings />));
+  await press("#launch", "#launch");
+  expect(push).toHaveBeenCalledWith({
+    pathname: "/team-conversation",
+    params: { conversationId: "room-1" },
+  });
 });

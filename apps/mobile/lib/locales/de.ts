@@ -1027,4 +1027,25 @@ export const DE_MESSAGES: Record<string, string> = {
   "Send {code} to {address} from {app} within 10 minutes.":
     "Sende {code} innerhalb von 10 Minuten aus {app} an {address}.",
   "Slack workspace": "Slack-Workspace",
+  "Always act": "Immer handeln",
+  "Automated senders will appear after they post here.":
+    "Automatisierte Absender erscheinen, sobald sie hier posten.",
+  "Automated senders": "Automatisierte Absender",
+  "Could not save": "Speichern fehlgeschlagen",
+  "Engage when... Ignore...": "Reagieren, wenn … Ignorieren …",
+  Every: "Alle",
+  "External conversation": "Externe Unterhaltung",
+  "Group updates": "Updates bündeln",
+  Ignore: "Ignorieren",
+  Listen: "Zuhören",
+  Listening: "Zuhören",
+  "Mentions only": "Nur Erwähnungen",
+  "Room guidance": "Raumhinweise",
+  "Treat like a person": "Wie eine Person behandeln",
+  "Use default guidance": "Standardhinweise verwenden",
+  hours: "Stunden",
+  "{bot} default": "{bot}-Standard",
+  "{bot} will still respond to direct mentions.":
+    "{bot} antwortet weiterhin auf direkte Erwähnungen.",
+  "{sender} rollup hours": "{sender}: Bündelung in Stunden",
 };

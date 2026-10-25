@@ -1,12 +1,14 @@
 import type {
   Bot,
+  ExternalConversation,
   MessagingAgentConnection,
   MessagingChannelMembership,
   MessagingInstallationsStatus,
   MessagingStatus,
+  SpaceNavigation,
 } from "@rakazo/contracts";
 import { messagingProviderName } from "@rakazo/core";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { AppState, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import { MenuPicker, MenuPickerMenu } from "../../components/menu-picker";
@@ -24,6 +26,7 @@ const SLACK_WORKSPACE = "install:slack";
 
 export default function MessagingSettings() {
   const { t } = useI18n();
+  const router = useRouter();
   const styles = useThemedStyles(createStyles);
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBotId, setSelectedBotId] = useState("");
@@ -34,6 +37,7 @@ export default function MessagingSettings() {
   });
   const [channels, setChannels] = useState<MessagingChannelMembership[]>([]);
   const [connections, setConnections] = useState<MessagingAgentConnection[]>([]);
+  const [rooms, setRooms] = useState<ExternalConversation[]>([]);
   const [link, setLink] = useState<{
     code: string;
     expiresAt: string;
@@ -43,19 +47,21 @@ export default function MessagingSettings() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const refresh = useCallback(async () => {
-    const [nextBots, nextStatus, nextInstallations, nextChannels, nextConnections] =
+    const [nextBots, nextStatus, nextInstallations, nextChannels, nextConnections, navigation] =
       await Promise.all([
         rpc<Bot[]>("bots/list"),
         rpc<MessagingStatus>("messaging/status"),
         rpc<MessagingInstallationsStatus>("messaging/installations/list"),
         rpc<MessagingChannelMembership[]>("messaging/channels/list"),
         rpc<MessagingAgentConnection[]>("messaging/connections/list"),
+        rpc<SpaceNavigation>("spaces/list"),
       ]);
     setBots(nextBots);
     setStatus(nextStatus);
     setInstallations(nextInstallations);
     setChannels(nextChannels);
     setConnections(nextConnections);
+    setRooms(navigation.current.externalConversations);
   }, []);
   useFocusEffect(
     useCallback(() => {
@@ -295,6 +301,21 @@ export default function MessagingSettings() {
                     rpc("messaging/connections/revoke", { connectionId: connection.id }),
                   )
                 : undefined
+            }
+          />
+        ))}
+        {rooms.map((room) => (
+          <SettingsRow
+            key={room.id}
+            title={room.displayName || t("External conversation")}
+            detail={messagingProviderName(room.provider)}
+            chevron="right"
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({
+                pathname: "/team-conversation",
+                params: { conversationId: room.id },
+              })
             }
           />
         ))}
