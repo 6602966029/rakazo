@@ -35,6 +35,7 @@ import {
   homeStorageSweeper,
   InMemoryJobQueue,
   InstalledConnectorProvider,
+  installedMessaging,
   isComposioEnabled,
   isMessagingSurfaceEnabled,
   isPipedreamEnabled,
@@ -171,13 +172,26 @@ async function main() {
   // only ever sends outbound (messaging.deliver jobs). It must never poll
   // Telegram — that would steal the single getUpdates slot away from the
   // API process, which is the one with the inbound sink actually wired up.
-  const messagingPlatforms = messagingPlatformsFromEnv(messagingEnvFromProcess(process.env));
-  const messaging = isMessagingSurfaceEnabled(messagingPlatforms, {
+  const messagingPlatforms = messagingPlatformsFromEnv(messagingEnvFromProcess(process.env)).filter(
+    (platform) => platform.provider !== "slack" || !process.env.SLACK_CLIENT_ID,
+  );
+  const legacyMessaging = isMessagingSurfaceEnabled(messagingPlatforms, {
     deploymentModelConfigured,
     openSignup: process.env.MESSAGING_OPEN_SIGNUP === "true",
   })
     ? new ChatSdkMessagingSurface(messagingPlatforms)
     : undefined;
+  const { messaging } = installedMessaging(
+    prisma,
+    secrets,
+    {
+      slackClientId: process.env.SLACK_CLIENT_ID,
+      slackClientSecret: process.env.SLACK_CLIENT_SECRET,
+      slackSigningSecret: process.env.SLACK_SIGNING_SECRET,
+      apiUrl: process.env.API_URL,
+    },
+    legacyMessaging,
+  );
   const integrationSettings = new IntegrationProviderSettings(
     prisma,
     secrets,

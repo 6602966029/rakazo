@@ -30,7 +30,8 @@ function message(overrides: Partial<MessagingInboundMessage> = {}): MessagingInb
 
 describe("team chat startup helpers", () => {
   it("prefers TeamChat for configured workspace surfaces even before the bridge is ready", () => {
-    expect(prefersTeamChatSurface(message(), "bot-1")).toBe(true);
+    expect(prefersTeamChatSurface(message({ isDirect: false }), "bot-1")).toBe(true);
+    expect(prefersTeamChatSurface(message(), "bot-1")).toBe(false);
     expect(
       prefersTeamChatSurface(message({ provider: "sendblue", workspaceId: undefined }), "bot-1"),
     ).toBe(false);
@@ -192,4 +193,59 @@ describe("TeamChatBridge start cancellation", () => {
       vi.useRealTimers();
     }
   });
+});
+
+it("stops a disconnected installation's reconciliation timer and retains workspace filters", async () => {
+  vi.useFakeTimers();
+  let active = true;
+  const available = vi.fn(async () => active);
+  const onUnavailable = vi.fn();
+  const updateMany = vi.fn(async () => ({ count: 0 }));
+  const bridge = new TeamChatBridge({
+    prisma: {
+      bot: {
+        findFirst: vi.fn(async () => ({
+          id: "bot-a",
+          spaceId: "space-a",
+          userId: "owner-a",
+          name: "Team",
+          modelProvider: null,
+          modelId: null,
+        })),
+      },
+      externalMessage: { findMany: vi.fn(async () => []), updateMany },
+      run: { findMany: vi.fn(async () => []) },
+    } as unknown as PrismaClient,
+    events: { sendUserMessage: vi.fn() },
+    jobs: { enqueue: vi.fn() },
+    send: vi.fn(),
+    providerId: "slack",
+    botId: "bot-a",
+    workspaceId: "Ta",
+    conversationPrefix: "slack~install-a:",
+    isAvailable: available,
+    onUnavailable,
+  });
+  try {
+    await bridge.start();
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          externalConversation: expect.objectContaining({
+            workspaceId: "Ta",
+            conversationId: { startsWith: "slack~install-a:" },
+          }),
+        }),
+      }),
+    );
+    active = false;
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
+    const checks = available.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(available).toHaveBeenCalledTimes(checks);
+  } finally {
+    await bridge.stop();
+    vi.useRealTimers();
+  }
 });

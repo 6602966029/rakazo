@@ -7,6 +7,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const messaging = vi.hoisted(() => ({
   status: vi.fn(),
+  installations: {
+    list: vi.fn(async () => ({ available: false, installations: [] })),
+    start: vi.fn(),
+    remove: vi.fn(),
+  },
   channels: { list: vi.fn(async () => []), respond: vi.fn(), leave: vi.fn() },
   connections: { list: vi.fn(async () => []), respond: vi.fn(), revoke: vi.fn() },
   identities: { unlink: vi.fn() },

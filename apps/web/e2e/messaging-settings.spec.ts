@@ -15,6 +15,24 @@ test.afterEach(async ({ page }) => {
 test("messaging settings show linked chat apps, channels, connections, and team conversations", async ({
   page,
 }, testInfo) => {
+  await page.route("**/rpc/messaging/installations/list", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        json: {
+          available: true,
+          installations: [
+            {
+              id: "install-test",
+              provider: "slack",
+              workspaceName: "Example workspace",
+              botId: "bot-1",
+            },
+          ],
+        },
+      }),
+    }),
+  );
   await page.route("**/rpc/messaging/status", (route) =>
     route.fulfill({
       contentType: "application/json",
@@ -161,6 +179,11 @@ test("messaging settings show linked chat apps, channels, connections, and team 
   const messagingSettings = page.getByTestId("messaging-settings");
   await expect(messagingSettings).toBeVisible();
   await expect(
+    messagingSettings.getByRole("button", { name: "Connect Slack workspace" }),
+  ).toBeDisabled();
+  await expect(messagingSettings.getByText("Example workspace", { exact: false })).toBeVisible();
+  await captureScreenshot(page, testInfo, "messaging-slack-workspace");
+  await expect(
     messagingSettings.getByRole("heading", { name: "Team conversations" }),
   ).toBeVisible();
   await expect(messagingSettings.getByText("#launch")).toBeVisible();
@@ -190,7 +213,7 @@ test("messaging settings show linked chat apps, channels, connections, and team 
   await expect(page.getByText("→ Chief")).toBeVisible();
   await expect(page.getByText("Telegram (work) · 424242")).toBeVisible();
   await expect(page.getByText("→ Lead")).toBeVisible();
-  await expect(page.getByRole("button", { name: "연결 해제" })).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "연결 해제" })).toHaveCount(3);
   await expect(page.getByText("Family")).toBeVisible();
   await expect(page.getByText("Dana's Assistant")).toBeVisible();
   await expect(page.getByRole("button", { name: "승인" })).toHaveCount(2);

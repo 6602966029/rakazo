@@ -55,6 +55,8 @@ model User {
 
   @@unique([email])
   @@map("user")
+  messagingInstallations MessagingInstallation[]
+  messagingInstallSessions MessagingInstallSession[]
 }
 
 /// A row with no answers means the user skipped the survey.
@@ -301,6 +303,8 @@ model Space {
   @@index([organizationId, createdAt])
   @@index([createdByUserId])
   @@map("spaces")
+  messagingInstallations MessagingInstallation[]
+  messagingInstallSessions MessagingInstallSession[]
 }
 
 /// A space's data encryption key, wrapped by a master key. There is no foreign key:
@@ -549,6 +553,8 @@ model Bot {
   @@index([computerId])
   @@index([parentBotId])
   @@map("bots")
+  messagingInstallations MessagingInstallation[]
+  messagingInstallSessions MessagingInstallSession[]
 }
 
 model BotSection {
@@ -1708,4 +1714,37 @@ model SpaceModelRoleChoice {
   @@id([spaceId, userId, role, position])
   @@index([credentialId, userId])
   @@map("space_model_role_choices")
+}
+
+model MessagingInstallation {
+  id String @id @default(cuid())
+  provider String
+  workspaceId String
+  workspaceName String
+  spaceId String
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botId String
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+  ciphertext String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([provider, workspaceId])
+  @@index([spaceId, userId])
+  @@map("messaging_installations")
+}
+
+model MessagingInstallSession {
+  id String @id
+  provider String
+  spaceId String
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botId String
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  @@index([expiresAt])
+  @@map("messaging_install_sessions")
 }

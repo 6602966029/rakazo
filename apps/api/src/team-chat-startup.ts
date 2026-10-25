@@ -16,10 +16,11 @@ export const TEAMCHAT_AGENT_OWNERSHIP_REASON = "message_teamchat_agent";
 export const MESSAGE_ROUTING_RESERVATION_MS = 30 * 60_000;
 
 export function prefersTeamChatSurface(
-  event: Pick<MessagingInboundMessage, "provider" | "workspaceId">,
+  event: Pick<MessagingInboundMessage, "provider" | "workspaceId" | "isDirect">,
   teamChatBotId: string | undefined | null,
 ): boolean {
   return (
+    !event.isDirect &&
     Boolean(teamChatBotId) &&
     (event.provider === "slack" ||
       event.provider === "teamchat-emulator" ||

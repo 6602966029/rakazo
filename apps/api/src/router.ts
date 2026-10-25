@@ -34,6 +34,7 @@ import type {
   McpConnector,
   McpOAuthSummary,
   MemoryProviderResolver,
+  MessagingInstallations,
   PiOAuthLogins,
   ProviderCatalogCache,
   PushTokenStore,
@@ -718,6 +719,7 @@ export interface RouterDeps {
   artifacts: ArtifactStore;
   dataDir: string;
   /** Present when the external messaging surface is enabled. */
+  messagingInstallations?: MessagingInstallations;
   messaging?: { enabled: boolean; providers: string[]; openSignup: boolean };
   /** Present only when the deployment bills; self-hosted installs leave it unset. */
   billing?: BillingService;
@@ -6372,6 +6374,21 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     messaging: {
+      installations: {
+        list: authed.messaging.installations.list.handler(async ({ context }) => ({
+          available: Boolean(deps.messagingInstallations),
+          installations: (await deps.messagingInstallations?.list(context.actor)) ?? [],
+        })),
+        start: authed.messaging.installations.start.handler(async ({ context, input }) => {
+          if (!deps.messagingInstallations) throw new ORPCError("BAD_REQUEST");
+          return { url: await deps.messagingInstallations.start(context.actor, input.botId) };
+        }),
+        remove: authed.messaging.installations.remove.handler(async ({ context, input }) => {
+          if (!deps.messagingInstallations) throw new ORPCError("BAD_REQUEST");
+          await deps.messagingInstallations.remove(context.actor, input.id);
+          return { ok: true as const };
+        }),
+      },
       status: authed.messaging.status.handler(async ({ context }) => {
         const identities = await acrossChatIdentities(() =>
           deps.prisma.messagingIdentity.findMany({

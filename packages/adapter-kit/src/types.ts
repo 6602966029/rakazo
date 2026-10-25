@@ -834,6 +834,10 @@ export interface MessagingInboundMessage {
   mentionsBot?: boolean;
   /** Team-room workspace/team id when the platform reports one (Slack team_id, …). */
   workspaceId?: string;
+  /** Trusted installation owner, attached only after webhook verification. */
+  installationId?: string;
+  installationSpaceId?: string;
+  installationBotId?: string;
   /** Stable conversation key within the workspace (channel id, DM key, …). */
   conversationKey?: string;
   /** How this message should engage the team-chat bot. */

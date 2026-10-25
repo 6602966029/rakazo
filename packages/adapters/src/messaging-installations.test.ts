@@ -1,0 +1,184 @@
+import type { MessagingInstallProvider, SecretStore } from "@rakazo/adapter-kit";
+import type { Actor } from "@rakazo/contracts";
+import type { PrismaClient } from "@rakazo/db";
+import { expect, it, vi } from "vitest";
+import { MessagingInstallations } from "./messaging-installations.js";
+
+const actor: Actor = {
+  spaceId: "space-a",
+  userId: "user-a",
+  email: "fake@example.test",
+  isDeploymentOwner: false,
+};
+function fixture() {
+  let session: {
+    id: string;
+    provider: string;
+    botId: string;
+    spaceId: string;
+    userId: string;
+    expiresAt: Date;
+  } | null = null;
+  let installation: Record<string, unknown> | null = null;
+  const prisma = {
+    bot: { findFirst: vi.fn(async () => ({ id: "bot-a" })) },
+    spaceMember: { findFirst: vi.fn(async () => ({ id: "member-a" })) },
+    messagingInstallSession: {
+      create: vi.fn(async ({ data }) => {
+        session = data;
+        return data;
+      }),
+      findUnique: vi.fn(async ({ where }) => (session?.id === where.id ? session : null)),
+      deleteMany: vi.fn(async ({ where }) => {
+        if (where.id && session?.id === where.id) {
+          session = null;
+          return { count: 1 };
+        }
+        return { count: 0 };
+      }),
+    },
+    messagingInstallation: {
+      findUnique: vi.fn(async () => installation),
+      create: vi.fn(async ({ data }) => {
+        installation = data;
+        return data;
+      }),
+      updateMany: vi.fn(async ({ data }) => {
+        Object.assign(installation!, data);
+        return { count: 1 };
+      }),
+      findFirst: vi.fn(async ({ where }) =>
+        installation?.spaceId === where.spaceId && installation?.userId === where.userId
+          ? installation
+          : null,
+      ),
+      findMany: vi.fn(async () => []),
+      deleteMany: vi.fn(async () => {
+        installation = null;
+        return { count: 1 };
+      }),
+    },
+    messagingIdentity: { deleteMany: vi.fn(async () => ({ count: 1 })) },
+    $transaction: vi.fn(async (fn) => fn(prisma)),
+  };
+  const provider = {
+    provider: "slack",
+    authorizeUrl: (state: string) => `https://slack.com/install?state=${state}`,
+    exchange: vi.fn(async () => ({
+      workspaceId: "T1",
+      workspaceName: "Test workspace",
+      credential: "fake-token",
+    })),
+  } as unknown as MessagingInstallProvider;
+  const secrets = {
+    put: vi.fn(async () => ({ ciphertext: "sealed-token" })),
+    load: vi.fn(async () => "fake-token"),
+  } as unknown as SecretStore;
+  return {
+    manager: new MessagingInstallations(prisma as unknown as PrismaClient, secrets, provider),
+    prisma,
+    provider,
+    secrets,
+    setSession: (value: typeof session) => {
+      session = value;
+    },
+    getSession: () => session,
+    setInstallation: (value: typeof installation) => {
+      installation = value;
+    },
+    getInstallation: () => installation,
+  };
+}
+async function begin(f: ReturnType<typeof fixture>) {
+  return new URL(await f.manager.start(actor, "bot-a")).searchParams.get("state")!;
+}
+it("binds a hashed one-use state to the tenant and stores only the sealed credential", async () => {
+  const f = fixture();
+  const state = await begin(f);
+  expect(f.getSession()).toMatchObject({
+    spaceId: actor.spaceId,
+    userId: actor.userId,
+    botId: "bot-a",
+  });
+  expect(f.getSession()?.id).not.toBe(state);
+  await f.manager.complete(state, "code");
+  expect(f.getInstallation()).toMatchObject({
+    spaceId: "space-a",
+    userId: "user-a",
+    botId: "bot-a",
+    workspaceId: "T1",
+    ciphertext: "sealed-token",
+  });
+  expect(JSON.stringify(f.getInstallation())).not.toContain("fake-token");
+  await expect(f.manager.complete(state, "code")).rejects.toThrow("expired");
+  expect(f.provider.exchange).toHaveBeenCalledTimes(1);
+});
+it("rejects expired and forged state before contacting Slack", async () => {
+  const f = fixture();
+  const state = await begin(f);
+  await expect(f.manager.complete("forged", "code")).rejects.toThrow("Invalid");
+  f.setSession({ ...f.getSession()!, expiresAt: new Date(0) });
+  await expect(f.manager.complete(state, "code")).rejects.toThrow("expired");
+  expect(f.provider.exchange).not.toHaveBeenCalled();
+});
+it("does not let another Rakazo space claim an installed Slack workspace", async () => {
+  const f = fixture();
+  const state = await begin(f);
+  f.setInstallation({
+    id: "other",
+    spaceId: "space-b",
+    userId: "user-b",
+    botId: "bot-b",
+    ciphertext: "other-secret",
+  });
+  await expect(f.manager.complete(state, "code")).rejects.toThrow("already connected");
+  expect(f.secrets.put).not.toHaveBeenCalled();
+  expect(f.prisma.messagingInstallation.updateMany).not.toHaveBeenCalled();
+});
+it("rechecks membership and bot ownership after authorization", async () => {
+  const f = fixture();
+  const state = await begin(f);
+  f.prisma.spaceMember.findFirst.mockResolvedValueOnce(null as never);
+  await expect(f.manager.complete(state, "code")).rejects.toThrow("owner");
+  expect(f.provider.exchange).not.toHaveBeenCalled();
+});
+it("requires an owned, active bot before creating an install URL", async () => {
+  const f = fixture();
+  f.prisma.bot.findFirst.mockResolvedValueOnce(null as never);
+  await expect(f.manager.start(actor, "bot-b")).rejects.toThrow("Bot not found");
+  expect(f.prisma.messagingInstallSession.create).not.toHaveBeenCalled();
+});
+it("disconnects only an installation owned by the current space and user", async () => {
+  const f = fixture();
+  f.setInstallation({
+    id: "installation-a",
+    provider: "slack",
+    spaceId: "space-a",
+    userId: "user-a",
+  });
+  await f.manager.remove({ ...actor, spaceId: "space-b" }, "installation-a");
+  expect(f.prisma.messagingInstallation.deleteMany).not.toHaveBeenCalled();
+  await f.manager.remove(actor, "installation-a");
+  expect(f.prisma.messagingIdentity.deleteMany).toHaveBeenCalledWith({
+    where: {
+      spaceId: "space-a",
+      provider: "slack",
+      dmThreadId: { startsWith: "slack~installation-a:" },
+    },
+  });
+  expect(f.getInstallation()).toBeNull();
+});
+it("does not load credentials after the installation owner loses membership", async () => {
+  const f = fixture();
+  f.setInstallation({
+    id: "installation-a",
+    provider: "slack",
+    spaceId: "space-a",
+    userId: "user-a",
+    botId: "bot-a",
+    ciphertext: "sealed",
+  });
+  f.prisma.spaceMember.findFirst.mockResolvedValueOnce(null as never);
+  expect(await f.manager.getById("installation-a")).toBeNull();
+  expect(f.secrets.load).not.toHaveBeenCalled();
+});

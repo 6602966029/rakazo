@@ -4,6 +4,7 @@ import type {
   ExternalConversation,
   MessagingAgentConnection,
   MessagingChannelMembership,
+  MessagingInstallationsStatus,
   MessagingStatus,
 } from "@rakazo/contracts";
 import { isRetryableError } from "@rakazo/core";
@@ -27,6 +28,10 @@ const LINK_POLL_MS = 3_000;
 
 export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
   const { t } = useLingui();
+  const [installationStatus, setInstallationStatus] = useState<MessagingInstallationsStatus>({
+    available: false,
+    installations: [],
+  });
   const [status, setStatus] = useState<MessagingStatus | null>(null);
   const [channels, setChannels] = useState<MessagingChannelMembership[]>([]);
   const [connections, setConnections] = useState<MessagingAgentConnection[]>([]);
@@ -42,13 +47,16 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
-    const [nextStatus, nextChannels, nextConnections, nextBots, navigation] = await Promise.all([
-      rpc.messaging.status(),
-      rpc.messaging.channels.list(),
-      rpc.messaging.connections.list(),
-      rpc.bots.list(),
-      rpc.spaces.list(),
-    ]);
+    const [nextStatus, nextChannels, nextConnections, nextBots, navigation, installations] =
+      await Promise.all([
+        rpc.messaging.status(),
+        rpc.messaging.channels.list(),
+        rpc.messaging.connections.list(),
+        rpc.bots.list(),
+        rpc.spaces.list(),
+        rpc.messaging.installations.list(),
+      ]);
+    setInstallationStatus(installations);
     setStatus(nextStatus);
     setChannels(nextChannels);
     setConnections(nextConnections);
@@ -133,6 +141,14 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
       .filter(Boolean)
       .join(" · ");
   }
+
+  useEffect(() => {
+    const onFocus = () => {
+      void refresh().catch(() => setError(t`Couldn't load messaging settings`));
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   const linkCode = linkRequest?.code;
 
@@ -230,6 +246,52 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
               <Trans>Link a chat app</Trans>
             </Button>
           </div>
+          {installationStatus.available ? (
+            <div className="mt-3">
+              <Button
+                variant="outline"
+                disabled={!linkBotId}
+                onClick={() => {
+                  const popup = window.open("about:blank", "rakazo-slack-install");
+                  if (popup) popup.opener = null;
+                  void act(async () => {
+                    try {
+                      const { url } = await rpc.messaging.installations.start({ botId: linkBotId });
+                      if (popup) popup.location.href = url;
+                      else window.location.assign(url);
+                    } catch (error) {
+                      popup?.close();
+                      throw error;
+                    }
+                  });
+                }}
+              >
+                <Trans>Connect Slack workspace</Trans>
+              </Button>
+            </div>
+          ) : null}
+          {installationStatus.installations.length ? (
+            <ul className="mt-3 space-y-2">
+              {installationStatus.installations.map((installation) => (
+                <li key={installation.id} className="flex items-center justify-between gap-3">
+                  <span>
+                    {installation.workspaceName}
+                    {bots.some((bot) => bot.id === installation.botId)
+                      ? ` · ${bots.find((bot) => bot.id === installation.botId)?.name}`
+                      : ""}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    onClick={() =>
+                      void act(() => rpc.messaging.installations.remove({ id: installation.id }))
+                    }
+                  >
+                    <Trans>Disconnect</Trans>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {linkCode ? (
             <p className="mt-3 text-[14px] text-foreground/75" data-testid="messaging-link-code">
               <Trans>

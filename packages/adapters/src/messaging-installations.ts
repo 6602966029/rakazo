@@ -1,0 +1,224 @@
+import { randomBytes } from "node:crypto";
+import type {
+  MessagingInstallation,
+  MessagingInstallationStore,
+  MessagingInstallProvider,
+  SecretStore,
+} from "@rakazo/adapter-kit";
+import type { Actor, MessagingInstallationSummary } from "@rakazo/contracts";
+import type { PrismaClient } from "@rakazo/db";
+import { runAsSystem } from "@rakazo/db";
+import { credentialDigest } from "./credential-digest.js";
+
+/** OAuth state is short-lived, single-use and tied to a user, space and bot. */
+export class MessagingInstallations implements MessagingInstallationStore {
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly secrets: SecretStore,
+    readonly provider: MessagingInstallProvider,
+  ) {}
+
+  async start(actor: Actor, botId: string): Promise<string> {
+    const bot = await this.prisma.bot.findFirst({
+      where: { id: botId, spaceId: actor.spaceId, userId: actor.userId, archivedAt: null },
+      select: { id: true },
+    });
+    if (!bot) throw new Error("Bot not found");
+    const state = randomBytes(32).toString("base64url");
+    await this.prisma.messagingInstallSession.deleteMany({
+      where: { userId: actor.userId, expiresAt: { lt: new Date() } },
+    });
+    await this.prisma.messagingInstallSession.create({
+      data: {
+        id: credentialDigest(state),
+        provider: this.provider.provider,
+        spaceId: actor.spaceId,
+        userId: actor.userId,
+        botId,
+        expiresAt: new Date(Date.now() + 10 * 60_000),
+      },
+    });
+    return this.provider.authorizeUrl(state);
+  }
+
+  async complete(state: string, code: string): Promise<void> {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(state) || !code || code.length > 4096)
+      throw new Error("Invalid authorization");
+    await runAsSystem("complete messaging workspace installation", async () => {
+      const session = await this.prisma.messagingInstallSession.findUnique({
+        where: { id: credentialDigest(state) },
+      });
+      if (
+        !session ||
+        session.provider !== this.provider.provider ||
+        session.expiresAt <= new Date()
+      )
+        throw new Error("Authorization expired");
+      const claimed = await this.prisma.messagingInstallSession.deleteMany({
+        where: { id: session.id, expiresAt: { gt: new Date() } },
+      });
+      if (claimed.count !== 1) throw new Error("Authorization expired");
+      // Membership and bot ownership can change while Slack is authorizing.
+      const bot = await this.prisma.bot.findFirst({
+        where: {
+          id: session.botId,
+          spaceId: session.spaceId,
+          userId: session.userId,
+          archivedAt: null,
+        },
+      });
+      const member = await this.prisma.spaceMember.findFirst({
+        where: { spaceId: session.spaceId, userId: session.userId },
+      });
+      if (!bot || !member) throw new Error("Installation owner is no longer available");
+      const external = await this.provider.exchange(code);
+      const where = {
+        provider_workspaceId: { provider: session.provider, workspaceId: external.workspaceId },
+      };
+      const existing = await this.prisma.messagingInstallation.findUnique({ where });
+      if (
+        existing &&
+        (existing.spaceId !== session.spaceId ||
+          existing.userId !== session.userId ||
+          existing.botId !== session.botId)
+      ) {
+        throw new Error("Workspace is already connected");
+      }
+      const id = existing?.id ?? randomBytes(16).toString("hex");
+      const sealed = await this.secrets.put(
+        external.credential,
+        {
+          operationId: id,
+          traceId: id,
+          spaceId: session.spaceId,
+          userId: session.userId,
+          signal: AbortSignal.timeout(10_000),
+        },
+        { recordId: id },
+      );
+      if (existing) {
+        // Compare owner and previous ciphertext: disconnect/reinstall must not be undone.
+        const updated = await this.prisma.messagingInstallation.updateMany({
+          where: {
+            id,
+            spaceId: session.spaceId,
+            userId: session.userId,
+            botId: session.botId,
+            ciphertext: existing.ciphertext,
+          },
+          data: { ciphertext: sealed.ciphertext, workspaceName: external.workspaceName },
+        });
+        if (updated.count !== 1) throw new Error("Workspace connection changed; try again");
+      } else {
+        // The unique workspace key prevents concurrent installs claiming two tenants.
+        await this.prisma.messagingInstallation.create({
+          data: {
+            id,
+            provider: session.provider,
+            workspaceId: external.workspaceId,
+            workspaceName: external.workspaceName,
+            spaceId: session.spaceId,
+            userId: session.userId,
+            botId: session.botId,
+            ciphertext: sealed.ciphertext,
+          },
+        });
+      }
+    });
+  }
+
+  async list(actor: Actor): Promise<MessagingInstallationSummary[]> {
+    return this.prisma.messagingInstallation.findMany({
+      where: { provider: this.provider.provider, spaceId: actor.spaceId, userId: actor.userId },
+      select: { id: true, provider: true, workspaceName: true, botId: true },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async remove(actor: Actor, id: string): Promise<void> {
+    const installation = await this.prisma.messagingInstallation.findFirst({
+      where: { id, spaceId: actor.spaceId, userId: actor.userId },
+    });
+    if (installation) await this.removeOwned(installation);
+  }
+
+  async targets(): Promise<Array<{ id: string; botId: string; workspaceId: string }>> {
+    return runAsSystem("resume installed messaging conversations", () =>
+      this.prisma.messagingInstallation.findMany({
+        where: { provider: this.provider.provider, bot: { archivedAt: null } },
+        select: { id: true, botId: true, workspaceId: true },
+      }),
+    );
+  }
+
+  private async removeOwned(installation: {
+    id: string;
+    provider: string;
+    spaceId: string;
+    userId: string;
+  }) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.messagingIdentity.deleteMany({
+        where: {
+          spaceId: installation.spaceId,
+          provider: installation.provider,
+          dmThreadId: { startsWith: `${installation.provider}~${installation.id}:` },
+        },
+      });
+      await tx.messagingInstallation.deleteMany({
+        where: { id: installation.id, spaceId: installation.spaceId, userId: installation.userId },
+      });
+    });
+  }
+
+  async isActive(id: string): Promise<boolean> {
+    return runAsSystem("check messaging workspace membership", async () =>
+      Boolean(await this.activeRow({ id })),
+    );
+  }
+
+  get(provider: string, workspaceId: string) {
+    return this.load({ provider_workspaceId: { provider, workspaceId } });
+  }
+
+  async removeWorkspace(provider: string, workspaceId: string): Promise<void> {
+    await runAsSystem("remove uninstalled messaging workspace", async () => {
+      const installation = await this.prisma.messagingInstallation.findUnique({
+        where: { provider_workspaceId: { provider, workspaceId } },
+      });
+      if (installation) await this.removeOwned(installation);
+    });
+  }
+
+  getById(id: string) {
+    return this.load({ id });
+  }
+
+  private async load(
+    where: { id: string } | { provider_workspaceId: { provider: string; workspaceId: string } },
+  ): Promise<MessagingInstallation | null> {
+    return runAsSystem("resolve verified messaging installation", async () => {
+      const row = await this.activeRow(where);
+      if (!row) return null;
+      const { ciphertext, ...installation } = row;
+      return { ...installation, credential: await this.secrets.load(ciphertext, row.id) };
+    });
+  }
+  private async activeRow(
+    where: { id: string } | { provider_workspaceId: { provider: string; workspaceId: string } },
+  ) {
+    const row = await this.prisma.messagingInstallation.findUnique({ where });
+    if (!row) return null;
+    const [bot, member] = await Promise.all([
+      this.prisma.bot.findFirst({
+        where: { id: row.botId, spaceId: row.spaceId, userId: row.userId, archivedAt: null },
+        select: { id: true },
+      }),
+      this.prisma.spaceMember.findFirst({
+        where: { spaceId: row.spaceId, userId: row.userId },
+        select: { id: true },
+      }),
+    ]);
+    return bot && member ? row : null;
+  }
+}
