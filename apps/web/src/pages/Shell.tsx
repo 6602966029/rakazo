@@ -143,6 +143,7 @@ import {
   isProxiedScreenUrl,
   loadComputerScreen,
   probeScreen,
+  retryWhileComputerBusy,
   SCREEN_FRAME_LOAD_TIMEOUT_MS,
   screenFrameError,
   screenFrameMessage,
@@ -2795,11 +2796,13 @@ function SpaceShell() {
     takeControl,
     showProgress,
     force = false,
+    retryBusy = false,
   }: {
     botId: string;
     takeControl: boolean;
     showProgress: boolean;
     force?: boolean;
+    retryBusy?: boolean;
   }) {
     const epoch = ++computerBootEpoch.current;
     const stillThisBoot = () => computerBootEpoch.current === epoch;
@@ -2814,8 +2817,9 @@ function SpaceShell() {
     setComputerErrorFromScreen(false);
     try {
       if (needsBoot) {
+        const boot = () => rpc.computer.boot({ botId: targetBotId });
         const status = await bootComputerOnce(bootsInFlight.current, targetBotId, () =>
-          rpc.computer.boot({ botId: targetBotId }),
+          retryBusy ? retryWhileComputerBusy(boot) : boot(),
         );
         if (!stillThisBoot() || !stillThisBot()) return;
         if (status) {
@@ -2897,18 +2901,29 @@ function SpaceShell() {
   useEffect(() => () => cancelFocusPrompt(), []);
 
   useEffect(() => {
-    if (computer?.busyBotName) return;
-    setComputerError(null);
-    setComputerErrorFromScreen(false);
-    // Opening the computer while its bot was running was refused as busy; boot it now that the
-    // run let go, or the open window is left on a stopped computer with nothing to press.
+    if (!computer?.busyBotName) {
+      setComputerError(null);
+      setComputerErrorFromScreen(false);
+    }
+  }, [computer?.busyBotName]);
+
+  // Opening the computer while its bot was running was refused as busy; boot it once the run
+  // ends, or the open window is left on a stopped computer with nothing to press.
+  const computerBlockedByRun = computerTakeoverBlocked(computer, snapshot?.run?.status);
+  useEffect(() => {
+    if (computerBlockedByRun) return;
     const botId = computer?.botId;
     if (!botId || !computerOpenRef.current || computerBotIdRef.current !== botId) return;
+    if (activeBotId.current !== botId) return;
     if (computer.state !== "stopped" && computer.state !== "suspended") return;
-    void bootComputer({ botId, takeControl: false, showProgress: true, force: true }).catch(
-      () => undefined,
-    );
-  }, [computer?.busyBotName]);
+    void bootComputer({
+      botId,
+      takeControl: false,
+      showProgress: true,
+      force: true,
+      retryBusy: true,
+    }).catch(() => undefined);
+  }, [computerBlockedByRun]);
 
   useEffect(() => {
     if (panel !== "routine") {
