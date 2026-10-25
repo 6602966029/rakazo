@@ -215,7 +215,10 @@ describe("inline error card", () => {
 it.each([false, true])("keeps history fetch errors visible (provider failure: %s)", (failedRun) => {
   // Exercise the actual screen notice and pinned footer without its native dependencies.
   const testFileUrl = import.meta.url;
-  const source = readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8");
+  const source = readFileSync(
+    new URL("../components/thread/thread-screen.tsx", testFileUrl),
+    "utf8",
+  );
   const noticeStart = source.indexOf("  const visibleRunError =");
   const notice = source.slice(noticeStart, source.indexOf("  return (\n    <View", noticeStart));
   const footerStart = source.indexOf("{pinnedNewerCursor === null ? failedSendBubbles : null}");
@@ -257,8 +260,8 @@ it.each([false, true])("keeps history fetch errors visible (provider failure: %s
 it("keeps fetch failures outside both native scrolling lists", () => {
   const testFileUrl = import.meta.url;
   const source = ts.createSourceFile(
-    "thread.tsx",
-    readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8"),
+    "thread-screen.tsx",
+    readFileSync(new URL("../components/thread/thread-screen.tsx", testFileUrl), "utf8"),
     ts.ScriptTarget.Latest,
     true,
     ts.ScriptKind.TSX,

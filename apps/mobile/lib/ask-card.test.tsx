@@ -12,7 +12,15 @@ import { secretDestinationLabel } from "./secret-destination";
 // Render the screen's actual ask card without importing its native dependencies.
 // Keep Vitest's jsdom URL transform from replacing the file URL with self.location.
 const testFileUrl = import.meta.url;
-const source = readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8");
+const source = readFileSync(new URL("../components/thread/ask-block.tsx", testFileUrl), "utf8");
+const screenSource = readFileSync(
+  new URL("../components/thread/thread-screen.tsx", testFileUrl),
+  "utf8",
+);
+const rowSource = readFileSync(
+  new URL("../components/thread/message-row.tsx", testFileUrl),
+  "utf8",
+);
 const cardSource = source.slice(
   source.indexOf("function AskBlock({"),
   source.indexOf("const askInputStyles = StyleSheet.create("),
@@ -258,9 +266,9 @@ it("keeps a reopened sheet open when an earlier save completes", async () => {
 it("closes the current sheet and keeps the card saved when refresh fails", async () => {
   const refresh = vi.fn().mockRejectedValue(new Error("offline"));
   const rpc = vi.fn().mockResolvedValue(undefined);
-  const handler = source.slice(
-    source.indexOf("  const answerMessage = useCallback("),
-    source.indexOf("  const openBot = useCallback("),
+  const handler = screenSource.slice(
+    screenSource.indexOf("  const answerMessage = useCallback("),
+    screenSource.indexOf("  const openBot = useCallback("),
   );
   const handlerScope = {
     useCallback: <T,>(callback: T) => callback,
@@ -444,9 +452,9 @@ it("stretches secret inputs and equal actions, enabling Save only with input", a
 });
 
 it("fills the message column only for secret asks, including answered and login asks", async () => {
-  const helperSource = source.slice(
-    source.indexOf("function isWideAskBlock("),
-    source.indexOf("const MessageRow = memo("),
+  const helperSource = rowSource.slice(
+    rowSource.indexOf("function isWideAskBlock("),
+    rowSource.indexOf("export const MessageRow = memo("),
   );
   const isWideAskBlock = new Function(
     "isSecretAskBlock",
@@ -471,12 +479,12 @@ it("fills the message column only for secret asks, including answered and login 
 });
 
 it("uses the full column for wide asks and reserves only the visible avatar gutter", () => {
-  const rowSource = source.slice(source.indexOf("const MessageRow = memo("));
-  const wrapperSource = rowSource.slice(
-    rowSource.indexOf("width:\n"),
-    rowSource.indexOf("{isPeerReceiptBlocks(message.blocks)"),
+  const row = rowSource.slice(rowSource.indexOf("const MessageRow = memo("));
+  const wrapperSource = row.slice(
+    row.indexOf("width:\n"),
+    row.indexOf("{isPeerReceiptBlocks(message.blocks)"),
   );
-  const menuSource = rowSource.slice(rowSource.indexOf("<MessageContextMenu"));
+  const menuSource = row.slice(row.indexOf("<MessageContextMenu"));
   const widthExpression = menuSource
     .slice(
       menuSource.indexOf("maxWidth={") + "maxWidth={".length,

@@ -19,7 +19,7 @@ import { reconcileVisibleThreadSnapshot } from "./thread-snapshot";
 
 // Exercise the screen's handlers without importing its native dependencies.
 const testFileUrl = import.meta.url;
-const source = readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8");
+const source = readFileSync(new URL("../components/thread/thread-screen.tsx", testFileUrl), "utf8");
 const commitStart = source.indexOf("  function commitSnap(");
 const commitHandler = source.slice(commitStart, source.indexOf("  useEffect(() => {", commitStart));
 const jumpHandler = source.slice(

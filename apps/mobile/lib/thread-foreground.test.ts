@@ -3,7 +3,10 @@ import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 
 // Exercise the screen's subscription effects without loading native UI dependencies.
-const source = readFileSync(new URL("../app/thread.tsx", import.meta.url), "utf8");
+const source = readFileSync(
+  new URL("../components/thread/thread-screen.tsx", import.meta.url),
+  "utf8",
+);
 const start = source.indexOf("  useEffect(() => {\n    liveCursor.current = null;");
 const effects = ts.transpileModule(
   source.slice(start, source.indexOf("  useEffect(() => () => pendingSave", start)),

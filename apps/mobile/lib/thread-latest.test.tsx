@@ -17,7 +17,7 @@ import { ThreadScrollBehavior } from "./thread-scroll";
 // Exercise the screen's actual handler without importing its native dependencies.
 // Keep Vitest's jsdom URL transform from replacing the file URL with self.location.
 const testFileUrl = import.meta.url;
-const source = readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8");
+const source = readFileSync(new URL("../components/thread/thread-screen.tsx", testFileUrl), "utf8");
 const handler = source.slice(
   source.indexOf("  function showLatest() {"),
   source.indexOf("  async function loadOlderMessages() {"),

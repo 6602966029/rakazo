@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 
-const thread = readFileSync(new URL("../app/thread.tsx", import.meta.url), "utf8");
+const thread = readFileSync(new URL("./thread-read.ts", import.meta.url), "utf8");
 const slice = (start: string, end: string) => {
   const from = thread.indexOf(start);
   expect(from).toBeGreaterThan(-1);

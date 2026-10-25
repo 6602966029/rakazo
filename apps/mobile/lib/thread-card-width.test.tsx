@@ -88,11 +88,20 @@ import { withUserBubble } from "./user-bubble";
 
 // Render the screen's actual message bubble without importing its native dependencies.
 const testFileUrl = import.meta.url;
-const source = readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8");
-const bubbleSource = source.slice(
+const source = readFileSync(
+  new URL("../components/thread/message-bubble.tsx", testFileUrl),
+  "utf8",
+);
+const specialSource = readFileSync(
+  new URL("../components/thread/special-message-card.tsx", testFileUrl),
+  "utf8",
+);
+const bubbleSource = `${source.slice(
   source.indexOf("const MessageBubble = memo(function MessageBubble("),
   source.indexOf("function AgentEventLabel({"),
-);
+)}\n${specialSource
+  .slice(specialSource.indexOf("function isSpecialMessageBlock("))
+  .replace(/^export /gm, "")}`;
 const scope = {
   messagePresentationSegments,
   memberName: () => undefined,

@@ -3,7 +3,10 @@ import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 
 // Exercise the screen's actual answer handler without importing its native dependencies.
-const source = readFileSync(new URL("../app/thread.tsx", import.meta.url), "utf8");
+const source = readFileSync(
+  new URL("../components/thread/thread-screen.tsx", import.meta.url),
+  "utf8",
+);
 const handler = source.slice(
   source.indexOf("  const answerMessage = useCallback("),
   source.indexOf("  const openBot = useCallback("),

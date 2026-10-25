@@ -8,15 +8,19 @@ import { expect, it } from "vitest";
 import { messagePresentationSegments } from "./message-presentation";
 import { withUserBubble } from "./user-bubble";
 
-const source = readFileSync(new URL("../app/thread.tsx", import.meta.url), "utf8");
-const helpers = source.slice(
-  source.indexOf("function memberName("),
-  source.indexOf("type MessageActionProps"),
-);
-const cards = source.slice(
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const textSource = read("./thread-message-text.ts");
+const helpers = textSource
+  .slice(textSource.indexOf("function memberName("))
+  .replace(/^export /gm, "");
+const source = read("../components/thread/message-bubble.tsx");
+const specialSource = read("../components/thread/special-message-card.tsx");
+const cards = `${source.slice(
   source.indexOf("const MessageBubble = memo(function MessageBubble("),
   source.indexOf("function AgentEventLabel("),
-);
+)}\n${specialSource
+  .slice(specialSource.indexOf("function isSpecialMessageBlock("))
+  .replace(/^export /gm, "")}`;
 const scope = {
   React,
   useState,

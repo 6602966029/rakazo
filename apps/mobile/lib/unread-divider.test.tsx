@@ -86,10 +86,10 @@ describe("UnreadDivider", () => {
 
 // Exercise the screen's visit transitions without loading native UI dependencies.
 const testFileUrl = import.meta.url;
-const source = readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8");
+const source = readFileSync(new URL("./thread-read.ts", testFileUrl), "utf8");
 const visitTransition = source.slice(
   source.indexOf("  const threadKey = groupId ?? botId;"),
-  source.indexOf("  const [threadScrollState, setThreadScrollState]"),
+  source.indexOf('  // After "Mark as unread"'),
 );
 
 it("starts a fresh read visit when a retained thread regains focus", () => {

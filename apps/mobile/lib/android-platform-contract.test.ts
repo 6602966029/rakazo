@@ -15,7 +15,9 @@ describe("Android mobile platform contract", () => {
     const module = readFileSync(resolve(nativeRoot, "RakazoNotificationsModule.kt"), "utf8");
     const allowlist = readFileSync(resolve(nativeRoot, "EndpointAllowlist.kt"), "utf8");
     const live = readFileSync(resolve(mobileRoot, "lib/live-notifications.ts"), "utf8");
-    const thread = readFileSync(resolve(mobileRoot, "app/thread.tsx"), "utf8");
+    const thread = ["app/thread.tsx", "components/thread/thread-screen.tsx"]
+      .map((file) => readFileSync(resolve(mobileRoot, file), "utf8"))
+      .join("\n");
     expect(service).toContain("android.requestPromotedOngoing");
     expect(service).toContain("liveStatusIcon(primary, avatarStyle)");
     expect(service).toContain('rpc(endpoint, token, spaceId, "me"');

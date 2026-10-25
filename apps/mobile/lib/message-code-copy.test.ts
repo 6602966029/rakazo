@@ -3,7 +3,10 @@ import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 
 // Exercise MessageRow's actual menu without loading the screen's native dependencies.
-const source = readFileSync(new URL("../app/thread.tsx", import.meta.url), "utf8");
+const source = readFileSync(
+  new URL("../components/thread/message-row.tsx", import.meta.url),
+  "utf8",
+);
 const start = source.indexOf("    const messageText = selectableMobileMessageText(message);");
 const end = source.indexOf("\n  }, [", start);
 const menuSource = ts.transpileModule(source.slice(start, end), {

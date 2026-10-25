@@ -301,7 +301,10 @@ describe("archived count", () => {
 });
 
 describe("thread menu archive notifications", () => {
-  const thread = readFileSync(new URL("../app/thread.tsx", testFileUrl), "utf8");
+  const thread = readFileSync(
+    new URL("../components/thread/thread-header.tsx", testFileUrl),
+    "utf8",
+  );
   const actionsSource = thread.slice(
     thread.indexOf("  const botActions = ["),
     thread.indexOf("  function showBotActions()"),
