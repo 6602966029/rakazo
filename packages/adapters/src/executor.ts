@@ -6,6 +6,7 @@ import type {
   AgentModelOAuthCredential,
   AgentRunRequest,
   AgentRuntime,
+  AgentRuntimeEvent,
   AgentToolCompletion,
   AgentToolExecutionObserver,
   ArtifactStore,
@@ -128,7 +129,6 @@ import {
   createThreadMessageInTransaction,
   dropRunTurnCheckpoint,
   effectiveMemoryScope,
-  findDefaultModelCredential,
   InstructionConflictError,
   InvalidSpaceNameError,
   isTooManyDatabaseConnections,
@@ -197,6 +197,7 @@ import {
   settleUncertainEffect,
   uncertainEffectResult,
 } from "./approval-effect.js";
+import type { AutoReviewChecker } from "./auto-review.js";
 import {
   autoReviewTimeoutMs,
   deploymentAutoReviewDefault,
@@ -205,6 +206,7 @@ import {
   resolveAutoReviewChecker,
   resolveAutoReviewProviderKind,
 } from "./auto-review.js";
+import { reviewWithBackups } from "./auto-review-backups.js";
 import { createAutoReviewProvider } from "./auto-review-factory.js";
 import { attachedImageArtifactIds, resolveUpdateBotAvatar } from "./bot-avatar.js";
 import { loadBotMessageContext, messageBot, returnBotMessageOutcome } from "./bot-messages.js";
@@ -282,6 +284,8 @@ import { connectApp } from "./connect-app.js";
 import { connectedContext, selectRunConnections } from "./connection-context.js";
 import { redactConnectorPayload, sanitizeConnectorError } from "./connector-safety.js";
 import { formatCurrentTimeInstruction } from "./current-time.js";
+import { DecisionAutoReviewProvider } from "./decision-auto-review.js";
+import { decisionModel } from "./decision-models.js";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import type { FleetPrepareDeps, FleetRun } from "./fleet-tools.js";
 import {
@@ -308,6 +312,7 @@ import {
   selectCompactedHistory,
   shouldEnqueueCompaction,
 } from "./history-compaction.js";
+import { HttpDecisionProvider } from "./http-decisions.js";
 import {
   assertConnectorToolArgs,
   CATALOG_EXECUTE,
@@ -327,6 +332,12 @@ import {
   HostedModelCreditsRequiredError,
   hostedModelCreditObserver,
 } from "./model-credit-observer.js";
+import type { EffectiveModelRole } from "./model-roles.js";
+import {
+  effectiveModelRole,
+  resolveMemberMainModel,
+  selectConfiguredModel,
+} from "./model-roles.js";
 import {
   enabledOpenAiCompatibleModelIds,
   findConnectedModelCredential,
@@ -334,7 +345,6 @@ import {
   pinnedModelCredentialError,
   routineRunModelPin,
   runModelChoice,
-  selectConfiguredModel,
   UnavailableModelForAuthError,
   validateConnectedModelChoice,
   validateModelAuthAvailability,
@@ -3099,6 +3109,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
     modelId: string,
     registerSecrets?: (values: string[]) => void,
     requireStoredSecret = false,
+    /** A fallback's own effort from its role list. */
+    thinkingLevel?: string | null,
   ): Promise<AgentRunRequest["model"]> => {
     const hostedProvider = (await modelCreditBillingEnabled(deps))
       ? resolveDeploymentModel().provider
@@ -3151,9 +3163,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
       acceptsImages: resolved.acceptsImages,
       maxImagesPerPrompt: resolved.maxImagesPerPrompt,
       thinkingLevel:
-        ((credential?.defaultModel === modelId
-          ? credential?.thinkingLevel
-          : null) as AgentRunRequest["model"]["thinkingLevel"]) ??
+        ((thinkingLevel !== undefined
+          ? thinkingLevel
+          : credential?.defaultModel === modelId
+            ? credential?.thinkingLevel
+            : null) as AgentRunRequest["model"]["thinkingLevel"]) ??
         resolved.thinkingLevel ??
         null,
       oauth: resolved.oauth
@@ -3184,7 +3198,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           })
         : null;
       const hasOverride = Boolean(override?.modelProvider && override.modelId);
-      const [overrideCredential, defaultCredential, settings] = await Promise.all([
+      const [overrideCredential, main, settings] = await Promise.all([
         hasOverride
           ? findConnectedModelCredential(
               deps.prisma,
@@ -3194,7 +3208,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               override!.modelId,
             )
           : Promise.resolve(null),
-        findDefaultModelCredential(deps.prisma, scope),
+        resolveMemberMainModel(deps, scope),
         deps.prisma.deploymentSettings.findUnique({
           where: { id: "default" },
         }),
@@ -3202,12 +3216,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
       const selected = selectConfiguredModel({
         override,
         overrideCredential,
-        defaultCredential,
-        settings,
+        main,
         hostedProvider: (await modelCreditBillingEnabled(deps))
           ? resolveDeploymentModel().provider
           : undefined,
-        deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
+        defaults: {
+          settings,
+          deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
+        },
       });
       const { credential, thinkingLevel } = selected;
       let { provider, id } = selected;
@@ -3837,7 +3853,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           peerMessage,
           task,
           storedConnections,
-          defaultCredential,
+          main,
           settings,
           configuredMemory,
           savedSkills,
@@ -3867,7 +3883,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               status: true,
             },
           }),
-          findDefaultModelCredential(deps.prisma, run),
+          resolveMemberMainModel(deps, run),
           deps.prisma.deploymentSettings.findUnique({
             where: { id: "default" },
           }),
@@ -4110,12 +4126,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const selected = selectConfiguredModel({
           override: modelChoice,
           overrideCredential,
-          defaultCredential,
-          settings,
+          main,
           hostedProvider: (await modelCreditBillingEnabled(deps))
             ? resolveDeploymentModel().provider
             : undefined,
-          deployment: runDeployment,
+          defaults: { settings, deployment: runDeployment },
         });
         const { credential, thinkingLevel } = selected;
         const runModelProvider = selected.provider ?? runtimeFallback?.provider;
@@ -4372,6 +4387,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
             .then((rules) => rules as ActionApprovalRule[]);
           return approvalRulesPromise;
         };
+        let approvalModelPromise: Promise<EffectiveModelRole> | undefined;
+        const loadApprovalModel = () =>
+          (approvalModelPromise ??= effectiveModelRole(
+            deps.prisma,
+            { userId: run.userId, spaceId: run.spaceId },
+            "approval",
+            {},
+          ));
         let autoReviewPreferencePromise:
           | Promise<{ enabled: boolean; skipApprovals: boolean }>
           | undefined;
@@ -5201,10 +5224,27 @@ export function createRunExecutor(deps: ExecutorDeps) {
             : await loadAutoReviewPreference();
           const autoReviewPref = preference.enabled && !preference.skipApprovals;
           const injectedReview = requiresMandatoryApproval ? undefined : deps.autoReview;
-          const checker = requiresMandatoryApproval ? undefined : resolveAutoReviewChecker();
+          const reviewSettings =
+            requiresMandatoryApproval || !autoReviewPref || injectedReview
+              ? null
+              : await loadApprovalModel();
+          const memberChecker = reviewSettings?.primarySource === "member";
+          const checker = requiresMandatoryApproval
+            ? undefined
+            : reviewSettings
+              ? reviewSettings.primary
+                ? {
+                    provider: reviewSettings.primary.provider,
+                    model: reviewSettings.primary.modelId,
+                    thinkingLevel: reviewSettings.primary.thinkingLevel,
+                  }
+                : null
+              : resolveAutoReviewChecker();
           const checkerConfigured =
             autoReviewPref &&
             (Boolean(injectedReview) ||
+              memberChecker ||
+              Boolean(reviewSettings?.backups.length) ||
               (checker
                 ? isAutoReviewCheckerConfigured({}) ||
                   Boolean(
@@ -5273,7 +5313,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 );
 
           const runAutoReview = async () => {
-            if (!injectedReview && !checker) return;
+            if (!injectedReview && !checker && !reviewSettings?.backups.length) return;
             try {
               const botDescription = redactSecrets(
                 `${bot.name}: ${bot.title}\n${bot.description}`,
@@ -5307,76 +5347,121 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 userId: run.userId,
                 botId: bot.id,
                 runId,
-                signal: AbortSignal.any([
-                  context.signal,
-                  AbortSignal.timeout(autoReviewTimeoutMs()),
-                ]),
+                signal: context.signal,
               };
-              let provider = injectedReview;
-              if (!provider) {
-                const kind = resolveAutoReviewProviderKind();
+              const checkerProvider = async (
+                checker: AutoReviewChecker,
+              ): Promise<AutoReviewProvider> => {
+                if (injectedReview) return injectedReview;
+                const kind =
+                  memberChecker || (checker.provider !== "jev" && checker.provider !== "scripted")
+                    ? "llm"
+                    : resolveAutoReviewProviderKind();
                 if (kind === "jev" || kind === "scripted") {
-                  provider = createAutoReviewProvider(kind);
-                } else {
-                  const reviewCredential = await findConnectedModelCredential(
-                    deps.prisma,
-                    deps.secretStore,
-                    { userId: run.userId, spaceId: run.spaceId },
-                    checker!.provider,
-                    checker!.model,
-                  );
-                  const judgeKey = await resolveModelKey(
-                    deps,
-                    run.userId,
-                    run.spaceId,
-                    reviewCredential,
-                    checker!.provider,
-                    checker!.model,
-                    (values) => runSecrets.push(...values),
-                  );
-                  provider = createAutoReviewProvider("llm", {
-                    llm: {
-                      onUsage: (event) =>
-                        recordUsage(deps.prisma, event, {
-                          spaceId: run.spaceId,
-                          userId: run.userId,
-                          botId: bot.id,
-                          parentRunId: runId,
-                          runId,
-                          operationId: `auto-review:${runId}`,
-                          operationKind: "setup",
-                        }),
-                      runtime: deps.runtime,
-                      checker: checker!,
-                      apiKey: judgeKey.oauth ? undefined : judgeKey.apiKey,
-                      callObserver: judgeKey.callObserver,
-                      accountId: judgeKey.accountId,
-                      gatewayId: judgeKey.gatewayId,
-                      baseUrl: judgeKey.baseUrl,
-                      headers: judgeKey.headers,
-                      allowPrivateEndpoint: judgeKey.allowPrivateEndpoint,
-                      cacheCapabilities: judgeKey.cacheCapabilities,
-                      contextWindow: judgeKey.contextWindow,
-                      maxTokens: judgeKey.maxTokens,
-                      reasoning: judgeKey.reasoning,
-                      oauth: judgeKey.oauth
-                        ? {
-                            credential: judgeKey.oauth,
-                            persist: judgeKey.persistOAuth,
-                            retire: judgeKey.retireOAuth,
-                          }
-                        : undefined,
-                      runId,
-                      spaceId: run.spaceId,
-                      userId: run.userId,
-                      botId: bot.id,
-                      threadId: thread.id,
-                      timeoutMs: autoReviewTimeoutMs(),
-                    },
-                  });
+                  return createAutoReviewProvider(kind);
                 }
-              }
-              const judge = await provider.review(reviewRequest, reviewContext);
+                const reviewCredential = await findConnectedModelCredential(
+                  deps.prisma,
+                  deps.secretStore,
+                  { userId: run.userId, spaceId: run.spaceId },
+                  checker.provider,
+                  checker.model,
+                );
+                if (
+                  (memberChecker ||
+                    reviewSettings?.backups.some(
+                      (choice) =>
+                        choice.provider === checker.provider && choice.modelId === checker.model,
+                    )) &&
+                  !reviewCredential &&
+                  !(await hasHostedModelCredits(
+                    deps.prisma,
+                    { userId: run.userId, spaceId: run.spaceId },
+                    checker.provider,
+                  ))
+                ) {
+                  throw new Error("Selected checker connection is unavailable");
+                }
+                const judgeKey = await resolveModelKey(
+                  deps,
+                  run.userId,
+                  run.spaceId,
+                  reviewCredential,
+                  checker.provider,
+                  checker.model,
+                  (values) => runSecrets.push(...values),
+                );
+                const onUsage = (event: Extract<AgentRuntimeEvent, { type: "usage" }>) =>
+                  recordUsage(deps.prisma, event, {
+                    spaceId: run.spaceId,
+                    userId: run.userId,
+                    botId: bot.id,
+                    parentRunId: runId,
+                    runId,
+                    operationId: `auto-review:${runId}`,
+                    operationKind: "setup",
+                  });
+                return decisionModel(checker.provider, checker.model)
+                  ? new DecisionAutoReviewProvider({
+                      provider: new HttpDecisionProvider("openrouter", {
+                        apiKey: judgeKey.apiKey ?? "",
+                        callObserver: judgeKey.callObserver,
+                        onUsage,
+                      }),
+                      providerId: checker.provider,
+                      model: checker.model,
+                    })
+                  : createAutoReviewProvider("llm", {
+                      llm: {
+                        onUsage,
+                        runtime: deps.runtime,
+                        checker,
+                        apiKey: judgeKey.oauth ? undefined : judgeKey.apiKey,
+                        callObserver: judgeKey.callObserver,
+                        accountId: judgeKey.accountId,
+                        gatewayId: judgeKey.gatewayId,
+                        baseUrl: judgeKey.baseUrl,
+                        headers: judgeKey.headers,
+                        allowPrivateEndpoint: judgeKey.allowPrivateEndpoint,
+                        cacheCapabilities: judgeKey.cacheCapabilities,
+                        contextWindow: judgeKey.contextWindow,
+                        maxTokens: judgeKey.maxTokens,
+                        reasoning: judgeKey.reasoning,
+                        oauth: judgeKey.oauth
+                          ? {
+                              credential: judgeKey.oauth,
+                              persist: judgeKey.persistOAuth,
+                              retire: judgeKey.retireOAuth,
+                            }
+                          : undefined,
+                        runId,
+                        spaceId: run.spaceId,
+                        userId: run.userId,
+                        botId: bot.id,
+                        threadId: thread.id,
+                        timeoutMs: autoReviewTimeoutMs(),
+                      },
+                    });
+              };
+              const judge = await reviewWithBackups(
+                [
+                  ...(checker
+                    ? [checker]
+                    : injectedReview
+                      ? [{ provider: "injected", model: "injected" }]
+                      : []),
+                  ...(reviewSettings?.backups.map((choice) => ({
+                    provider: choice.provider,
+                    model: choice.modelId,
+                    thinkingLevel: choice.thinkingLevel,
+                  })) ?? []),
+                ],
+                async (checker) => {
+                  const provider = await checkerProvider(checker);
+                  return provider.review(reviewRequest, reviewContext);
+                },
+                context.signal,
+              );
               if (context.signal.aborted) return;
               reviewReason = judge.reason;
               gateDecision = applyJudgeDecision({
@@ -7875,14 +7960,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
           return;
         }
 
-        let fallbackModels: { provider: string; modelId: string }[] = [];
+        let fallbackModels: Array<{
+          provider: string;
+          modelId: string;
+          thinkingLevel?: string | null;
+        }> = [];
         if (!scripted) {
           try {
-            fallbackModels = await deps.prisma.spaceBackupModel.findMany({
-              where: { userId: run.userId, spaceId: run.spaceId },
-              orderBy: { position: "asc" },
-              select: { provider: true, modelId: true },
-            });
+            fallbackModels = (
+              await effectiveModelRole(deps.prisma, run, "main", {
+                settings,
+                deployment: runDeployment,
+              })
+            ).backups;
           } catch (error) {
             getLogger().warn("Backup models could not be loaded", { runId, error });
           }
@@ -7994,6 +8084,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
                       modelId,
                       (values) => runSecrets.push(...values),
                       true,
+                      fallbackModels.find(
+                        (candidate) =>
+                          candidate.provider === provider && candidate.modelId === modelId,
+                      )?.thinkingLevel ?? null,
                     );
                   }
                 : undefined,
@@ -9135,16 +9229,21 @@ function fleetPrepareDeps(
           provider,
         ),
       defaultModel: async () => {
-        const [defaultCredential, settings] = await Promise.all([
-          findDefaultModelCredential(deps.prisma, scope),
+        const [main, settings] = await Promise.all([
+          resolveMemberMainModel(deps, scope),
           deps.prisma.deploymentSettings.findUnique({ where: { id: "default" } }),
         ]);
         const selected = selectConfiguredModel({
           override: null,
           overrideCredential: null,
-          defaultCredential,
-          settings,
-          deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
+          main,
+          hostedProvider: (await modelCreditBillingEnabled(deps))
+            ? resolveDeploymentModel().provider
+            : undefined,
+          defaults: {
+            settings,
+            deployment: deps.deploymentModelConfigured ? resolveDeploymentModel() : null,
+          },
         });
         return { provider: selected.provider ?? null, model: selected.id ?? null };
       },
@@ -10332,12 +10431,10 @@ async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMateria
   const [deps, userId, spaceId, , provider] = args;
   const billingEnabled = await modelCreditBillingEnabled(deps);
   const scope = { userId, spaceId };
-  if (
-    billingEnabled &&
-    !args[7]?.requireStoredSecret &&
-    (await hasHostedModelCredits(deps.prisma, scope, provider))
-  ) {
+  if (billingEnabled && (await hasHostedModelCredits(deps.prisma, scope, provider))) {
     args[3] = null;
+    // Funded managed backups use deployment credentials just like the primary.
+    args[7] = { ...args[7], requireStoredSecret: false };
   }
   const credential = args[3];
   const material = await resolveModelKeyMaterial(...args);
@@ -10359,7 +10456,7 @@ async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMateria
   }
   const callObserver =
     !credential && billingEnabled ? await hostedModelCreditObserver(deps.prisma, scope) : undefined;
-  return { ...material, callObserver };
+  return { ...material, apiKey: material.apiKey ?? runtimeKey, callObserver };
 }
 
 async function resolveModelKeyMaterial(
