@@ -17,6 +17,7 @@ import {
   renewSpaceDeletionClaim,
   runAsSystem,
   runAsTenant,
+  setSpaceSettingOverride,
 } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { createApp } from "../../../apps/api/src/app.ts";
@@ -795,7 +796,9 @@ describeWithDatabase("API authorization and resource isolation", () => {
 
     await rpc(app, member, "approvalRules/remove", { id: ownerRule.id });
     expect(
-      await asSystem(handles.prisma).actionApprovalRule.findUnique({ where: { id: ownerRule.id } }),
+      await asSystem(handles.prisma).userActionApprovalRule.findUnique({
+        where: { id: ownerRule.id },
+      }),
     ).not.toBeNull();
   });
 
@@ -1017,7 +1020,12 @@ describeWithDatabase("API authorization and resource isolation", () => {
     ).resolves.toMatchObject({
       primary: { provider: "copy-provider", modelId: "copy/model", credentialId: model.id },
     });
-    expect(voicePreference).toMatchObject({ voiceId: voice.voiceId, isDefault: true });
+    // The new Space follows the account's voice instead of copying it.
+    expect(voicePreference).toBeNull();
+    await expect(rpc(app, cookie, "voice/status", undefined, created.id)).resolves.toMatchObject({
+      voiceId: voice.voiceId,
+    });
+    await setSpaceSettingOverride(db, { spaceId: created.id, userId: actor.userId }, "voice", true);
     await rpc(
       app,
       cookie,
@@ -1026,16 +1034,13 @@ describeWithDatabase("API authorization and resource isolation", () => {
       created.id,
     );
     await expect(
-      db.spaceVoicePreference.findUniqueOrThrow({
-        where: {
-          spaceId_userId_credentialId: {
-            spaceId: actor.spaceId,
-            userId: actor.userId,
-            credentialId: voice.id,
-          },
-        },
+      db.userVoicePreference.findUniqueOrThrow({
+        where: { userId_credentialId: { userId: actor.userId, credentialId: voice.id } },
       }),
     ).resolves.toMatchObject({ voiceId: voice.voiceId, isDefault: true });
+    await expect(rpc(app, cookie, "voice/status")).resolves.toMatchObject({
+      voiceId: voice.voiceId,
+    });
     await expect(
       db.spaceVoicePreference.findUniqueOrThrow({
         where: {

@@ -130,10 +130,12 @@ import {
   createThreadMessageInTransaction,
   dropRunTurnCheckpoint,
   effectiveMemoryScope,
+  findAutoReviewPreference,
   InstructionConflictError,
   InvalidSpaceNameError,
   isPartialReplyClientNonce,
   isTooManyDatabaseConnections,
+  listApprovalRules,
   loadRunHistoryMessages,
   loadRunTurnCheckpoint,
   parseComputerMode,
@@ -4388,12 +4390,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
         );
         let approvalRulesPromise: Promise<ActionApprovalRule[]> | undefined;
         const loadApprovalRules = () => {
-          approvalRulesPromise ??= deps.prisma.actionApprovalRule
-            .findMany({
-              where: { spaceId: run.spaceId, createdByUserId: run.userId },
-              select: { effect: true, matchKind: true, matchValue: true },
-            })
-            .then((rules) => rules as ActionApprovalRule[]);
+          approvalRulesPromise ??= listApprovalRules(deps.prisma, {
+            userId: run.userId,
+            spaceId: run.spaceId,
+          }).then((rules) => rules as ActionApprovalRule[]);
           return approvalRulesPromise;
         };
         let approvalModelPromise: Promise<EffectiveModelRole> | undefined;
@@ -4408,20 +4408,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
           | Promise<{ enabled: boolean; skipApprovals: boolean }>
           | undefined;
         const loadAutoReviewPreference = () => {
-          autoReviewPreferencePromise ??= deps.prisma.actionAutoReviewPreference
-            .findUnique({
-              where: {
-                spaceId_userId: {
-                  spaceId: run.spaceId,
-                  userId: run.userId,
-                },
-              },
-              select: { enabled: true, skipApprovals: true },
-            })
-            .then((row) => ({
-              enabled: row?.enabled ?? deploymentAutoReviewDefault(),
-              skipApprovals: row?.skipApprovals ?? false,
-            }));
+          autoReviewPreferencePromise ??= findAutoReviewPreference(deps.prisma, {
+            userId: run.userId,
+            spaceId: run.spaceId,
+          }).then((row) => ({
+            enabled: row?.enabled ?? deploymentAutoReviewDefault(),
+            skipApprovals: row?.skipApprovals ?? false,
+          }));
           return autoReviewPreferencePromise;
         };
         // Outbound destinations this run may reach without asking. See outboundSiteGate and

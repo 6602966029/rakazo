@@ -215,8 +215,9 @@ async function runWithModel(
     agentSkill: { findMany: vi.fn(async () => []) },
     scratchpadItem: { findMany: vi.fn(async () => []) },
     externalEffect: { findMany: vi.fn(async () => []) },
-    actionApprovalRule: { findMany: vi.fn(async () => []) },
-    actionAutoReviewPreference: { findUnique: vi.fn(async () => null) },
+    spaceSettingOverride: { findUnique: async () => null },
+    userActionApprovalRule: { findMany: vi.fn(async () => []) },
+    userActionAutoReviewPreference: { findUnique: vi.fn(async () => null) },
     artifact: {
       findMany: vi.fn(async () => [
         { id: "art-1", storageKey: "shot.png", size: 4, mimeType: "image/png", name: "shot.png" },

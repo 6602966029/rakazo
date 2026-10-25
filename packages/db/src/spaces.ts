@@ -72,7 +72,6 @@ type SpaceClient = Pick<
   | "spaceMember"
   | "spaceModelPreference"
   | "spaceModelRoleChoice"
-  | "spaceVoicePreference"
   | "memoryDocument"
   | "notificationPreference"
   | "bot"
@@ -135,14 +134,11 @@ async function copyProviderPreferences(
   prisma: SpaceClient,
   input: { sourceSpaceId: string; targetSpaceId: string; userId: string; createdAt: Date },
 ): Promise<void> {
-  const [modelPreferences, modelRoleChoices, voicePreferences] = await Promise.all([
+  const [modelPreferences, modelRoleChoices] = await Promise.all([
     prisma.spaceModelPreference.findMany({
       where: { spaceId: input.sourceSpaceId, userId: input.userId },
     }),
     prisma.spaceModelRoleChoice.findMany({
-      where: { spaceId: input.sourceSpaceId, userId: input.userId },
-    }),
-    prisma.spaceVoicePreference.findMany({
       where: { spaceId: input.sourceSpaceId, userId: input.userId },
     }),
   ]);
@@ -162,20 +158,6 @@ async function copyProviderPreferences(
     modelRoleChoices.length
       ? prisma.spaceModelRoleChoice.createMany({
           data: modelRoleChoices.map((choice) => ({ ...choice, spaceId: input.targetSpaceId })),
-        })
-      : Promise.resolve(),
-    voicePreferences.length
-      ? prisma.spaceVoicePreference.createMany({
-          data: voicePreferences.map((preference) => ({
-            spaceId: input.targetSpaceId,
-            userId: input.userId,
-            credentialId: preference.credentialId,
-            voiceId: preference.voiceId,
-            speechModel: preference.speechModel,
-            isDefault: preference.isDefault,
-            createdAt: input.createdAt,
-            updatedAt: input.createdAt,
-          })),
         })
       : Promise.resolve(),
   ]);

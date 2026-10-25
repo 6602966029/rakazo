@@ -232,8 +232,9 @@ function fixture(runId = "run-1") {
         },
       ),
     },
-    actionApprovalRule: { findMany: vi.fn(async () => []) },
-    actionAutoReviewPreference: { findUnique: vi.fn(async () => ({ enabled: false })) },
+    spaceSettingOverride: { findUnique: async () => null },
+    userActionApprovalRule: { findMany: vi.fn(async () => []) },
+    userActionAutoReviewPreference: { findUnique: vi.fn(async () => ({ enabled: false })) },
     externalEffect,
   };
   const pauseRunForInput = vi.fn(async () => {
