@@ -97,6 +97,11 @@ function setup(
           ? [credential]
           : [],
       ),
+      findFirst: vi.fn(async ({ where }: { where: { id?: string; userId: string } }) =>
+        !options.credits && where.userId === owner.userId && where.id === credential.id
+          ? { ...credential, preferences: [] }
+          : null,
+      ),
     },
     spaceModelPreference: {
       findMany: vi.fn().mockResolvedValue(
@@ -377,6 +382,17 @@ describe("model backup settings API", () => {
 });
 
 describe("role-based model settings API", () => {
+  it("accepts a decision model pinned to the provider's only connection", async () => {
+    const { call } = setup();
+    const primary = {
+      provider: "openrouter",
+      modelId: "typesafe/jev-1.14",
+      credentialId: "credential-one",
+    };
+    const { response } = await call("models/setRole", { role: "approval", primary });
+    expect(response.status).toBe(200);
+    expect((await response.json()).json.primary).toMatchObject(primary);
+  });
   it("stores approval choices independently of main backups using the existing connection", async () => {
     const { call, rows, prisma } = setup();
     const primary = { provider: "openrouter", modelId: "typesafe/jev-1.14" };

@@ -1171,8 +1171,14 @@ export function createRouter(deps: RouterDeps) {
     return Promise.all(
       catalog.map(async (entry) => {
         const owners = byProvider.get(canonicalPiProviderId(entry.provider)) ?? [];
-        // Funded models run on the deployment's key, whichever connection is chosen.
-        if (owners.length < 2 || entry.placeholder || ("managed" in entry && entry.managed))
+        // Funded models run on the deployment's key, whichever connection is chosen, and
+        // decision models run through the provider's decisions API on any of its keys.
+        if (
+          owners.length < 2 ||
+          entry.placeholder ||
+          entry.protocol === "decisions" ||
+          ("managed" in entry && entry.managed)
+        )
           return entry;
         const serving: string[] = [];
         for (const owner of owners)
@@ -1212,18 +1218,13 @@ export function createRouter(deps: RouterDeps) {
       credentials.push(credential);
       if (!credential && (choice.credentialId || !(entry && "managed" in entry && entry.managed)))
         throw new ORPCError("BAD_REQUEST", { message: "Connect that model provider first" });
-      // Another account of the provider listing the model does not make it run on this one.
+      // Another account of the provider listing the model does not make it run on this one;
+      // the catalog names the connections that can, as the picker shows.
       if (
         credential &&
         choice.credentialId &&
-        choice.provider !== OPENAI_COMPATIBLE_PROVIDER_ID &&
-        !(await connectionServesModel(
-          servingDeps,
-          actor.userId,
-          credential,
-          choice.provider,
-          choice.modelId,
-        ))
+        entry?.credentialIds &&
+        !entry.credentialIds.includes(choice.credentialId)
       )
         throw new ORPCError("BAD_REQUEST", {
           message: "That model is not available for this connection",
