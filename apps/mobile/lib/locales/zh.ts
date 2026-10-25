@@ -976,11 +976,17 @@ export const ZH_MESSAGES: Record<string, string> = {
   "How big is your team?": "你的团队有多大？",
   "How did you hear about us?": "你是如何知道我们的？",
   "Welcome to Rakazo": "欢迎使用 Rakazo",
-  "Choose a bot…": "选择 Bot…",
-  "Connect Slack workspace": "连接 Slack 工作区",
-  "Link a chat app": "关联聊天应用",
   Messaging: "消息",
-  "Send {code} to the chat app in a direct message within 10 minutes.":
-    "请在 10 分钟内通过私信向聊天应用发送 {code}。",
   Unlink: "取消关联",
+  "Connect a chat app": "连接聊天应用",
+  Conversations: "对话",
+  Decline: "拒绝",
+  Leave: "离开",
+  Pending: "待处理",
+  Requests: "请求",
+  Revoke: "撤销",
+  "Send {code} from {app} within 10 minutes.": "请在 10 分钟内从 {app} 发送 {code}。",
+  "Send {code} to {address} from {app} within 10 minutes.":
+    "请在 10 分钟内从 {app} 向 {address} 发送 {code}。",
+  "Slack workspace": "Slack 工作区",
 };

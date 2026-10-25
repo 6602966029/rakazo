@@ -364,3 +364,19 @@ it("keeps a removed Slack workspace gone when an older read lands after it", asy
   await act(async () => vi.advanceTimersByTimeAsync(20));
   expect(container.textContent).not.toContain("Acme HQ");
 });
+
+it("says which line to send the code to when the app has one", async () => {
+  messaging.status.mockResolvedValue({
+    ...statusWith([]),
+    providers: ["sendblue"],
+    addresses: { sendblue: "+15550001111" },
+  });
+  await renderOverlay();
+  const item = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "iMessage",
+  );
+  await act(async () => item?.click());
+  expect(container.querySelector('[data-testid="messaging-link-code"]')?.textContent).toContain(
+    "+15550001111",
+  );
+});

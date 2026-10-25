@@ -40,6 +40,7 @@ test("messaging settings show linked chat apps, channels, connections, and team 
         json: {
           enabled: true,
           providers: ["sendblue", "slack", "whatsapp", "telegram", "telegram-work", "lark"],
+          addresses: { sendblue: "+15550001111" },
           openSignup: false,
           identities: [
             {
@@ -211,6 +212,7 @@ test("messaging settings show linked chat apps, channels, connections, and team 
   await page.getByRole("button", { name: "채팅 앱 연결" }).click();
   await page.getByRole("menuitem", { name: "iMessage", exact: true }).click();
   await expect(page.getByTestId("messaging-link-code")).toContainText("ABCD-2345");
+  await expect(page.getByTestId("messaging-link-code")).toContainText("+15550001111");
   await captureScreenshot(page, testInfo, "messaging-settings-ko");
 
   await page.getByRole("button", { name: "메시징 설정 닫기" }).click();

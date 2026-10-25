@@ -194,6 +194,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
 
   const linkCode = linkRequest?.code;
   const linkApp = linkRequest ? providerLabel(linkRequest.provider) : "";
+  const linkAddress = linkRequest ? status?.addresses?.[linkRequest.provider] : undefined;
 
   function startLink(provider: string) {
     void act(async () => {
@@ -377,10 +378,18 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
           </div>
           {linkCode ? (
             <p className="mt-3 text-[14px] text-foreground/75" data-testid="messaging-link-code">
-              <Trans>
-                Send <span className="font-mono text-foreground">{linkCode}</span> from {linkApp}{" "}
-                within 10 minutes.
-              </Trans>
+              {linkAddress ? (
+                <Trans>
+                  Send <span className="font-mono text-foreground">{linkCode}</span> to{" "}
+                  <span className="text-foreground">{linkAddress}</span> from {linkApp} within 10
+                  minutes.
+                </Trans>
+              ) : (
+                <Trans>
+                  Send <span className="font-mono text-foreground">{linkCode}</span> from {linkApp}{" "}
+                  within 10 minutes.
+                </Trans>
+              )}
             </p>
           ) : null}
         </section>
