@@ -35,7 +35,8 @@ test("approval models reuse connections and persist independent fallbacks", asyn
   await openUserSettings(page, "models");
 
   const approval = page.getByTestId("model-role-approval");
-  await expect(approval.getByTestId("model-role-default")).toContainText("Deployment default");
+  // The empty first row names the deployment's own approval model.
+  await expect(approval.getByTestId("model-role-default")).toContainText("OpenRouter");
   await approval.getByRole("button", { name: "Change Approval model", exact: true }).click();
   await pickModel(page, "Jev 1.14", "Jev 1.14");
   await expect(approval.getByTestId("model-role-row-1")).toContainText("Jev 1.14");

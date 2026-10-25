@@ -35,13 +35,21 @@ export function modelRoleChoiceKey(
 export function connectionDisplayName(
   credential: Pick<ModelCredential, "provider" | "label" | "baseUrl">,
   providerName: string,
+  /** Other names a default label may carry, such as the catalog's "Anthropic" for "Claude subscription". */
+  defaultNames: readonly string[] = [],
 ): string {
   const provider =
     credential.provider === OPENAI_COMPATIBLE_PROVIDER_ID
       ? compatibleConnectionName(credential.baseUrl, providerName)
       : providerName;
   const label = credential.label.trim();
-  if (!label || label === credential.provider || label === providerName) return provider;
+  if (
+    !label ||
+    label === credential.provider ||
+    label === providerName ||
+    defaultNames.includes(label)
+  )
+    return provider;
   if (label.toLowerCase().startsWith(providerName.toLowerCase())) return label;
   return `${provider} · ${label}`;
 }

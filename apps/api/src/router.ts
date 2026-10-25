@@ -1128,9 +1128,8 @@ export function createRouter(deps: RouterDeps) {
       role === "main"
         ? {
             settings: await deps.prisma.deploymentSettings.findUnique({ where: { id: "default" } }),
-            deployment: deps.env.deploymentModelConfigured
-              ? { provider: deps.env.defaultProvider, model: deps.env.defaultModel }
-              : null,
+            // Matches modelSetup, which runs this model when the member chose none.
+            deployment: { provider: deps.env.defaultProvider, model: deps.env.defaultModel },
           }
         : { env: process.env };
     return { ...settings, deploymentPrimary: deploymentModelRole(role, defaults).primary };

@@ -113,11 +113,14 @@ export function ModelSettingsOverlay({
         ]
       : []),
   ];
-  const connectionName = (entry: ModelCredential) =>
-    connectionDisplayName(
+  const connectionName = (entry: ModelCredential) => {
+    const group = groups.find((item) => item.id === entry.provider);
+    return connectionDisplayName(
       entry,
-      groups.find((group) => group.id === entry.provider)?.name ?? entry.provider,
+      group?.name ?? entry.provider,
+      group?.entries[0]?.providerName ? [group.entries[0].providerName] : [],
     );
+  };
   const providerLabel = (id: string) =>
     compatibleConnectionName(
       credentialByProvider.get(id)?.baseUrl,

@@ -262,6 +262,7 @@ export function useModelSettings(onClose: () => void) {
     ? connectionDisplayName(
         credential,
         groups.find((group) => group.id === provider)?.name ?? provider,
+        modelsForProvider[0]?.providerName ? [modelsForProvider[0].providerName] : [],
       )
     : selectedProviderName;
   const disconnectName = selectedConnectionName;

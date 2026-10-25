@@ -68,6 +68,15 @@ const choices: ModelBackupChoice[] = [
 ];
 
 describe("connected backup model choices", () => {
+  it("treats the catalog's provider name as a default label", () => {
+    const credential = { provider: "anthropic", label: "Anthropic", baseUrl: undefined };
+    expect(connectionDisplayName(credential, "Claude subscription", ["Anthropic"])).toBe(
+      "Claude subscription",
+    );
+    expect(connectionDisplayName({ ...credential, label: "Work" }, "Claude subscription")).toBe(
+      "Claude subscription · Work",
+    );
+  });
   it("offers only non-placeholder catalog models for connected providers", () => {
     expect(connectedBackupOptions(catalog, credentials)).toEqual([
       {
