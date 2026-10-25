@@ -8,8 +8,10 @@
 //
 // The database is `.env`'s DATABASE_URL when it accepts a connection. Otherwise a local
 // Postgres container (`rakazo-dev-postgres`) is started and reused by every checkout.
-// Setting WEB_PORT or API_PORT, in the shell or `.env`, turns off port selection.
+// Setting WEB_PORT or API_PORT, in the shell or `.env`, turns off port selection. A relative
+// DATA_DIR resolves in the main checkout, so every checkout reads and writes the same files.
 import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import net from "node:net";
@@ -173,18 +175,21 @@ function branchOnlyMigrations() {
         .map((entry) => path.basename(entry)),
     );
   } catch {
-    return [];
+    // Without main to compare against, any migration may be unmerged.
+    throw new Error("Could not read origin/main. Run `git fetch origin main` and try again.");
   }
   return local.filter((name) => !onMain.has(name));
 }
 
 function branchSlug() {
   const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: root });
-  return branch
+  const readable = branch
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
     .slice(0, 40);
+  // Distinct branches can clean up to the same name; the hash keeps their databases apart.
+  return `${readable}_${createHash("sha256").update(branch).digest("hex").slice(0, 8)}`;
 }
 
 async function branchDatabase(shared) {
@@ -241,6 +246,15 @@ if (pending.length) {
 }
 env.DATABASE_URL = database.url;
 env.DATABASE_MIGRATION_URL = database.migrationUrl;
+// Checkouts that share a database also share its job queue, so any checkout's worker may write a
+// file another checkout's API reads. A relative DATA_DIR resolves in the main checkout for all.
+const dataDir = setting("DATA_DIR") || "./data";
+if (!path.isAbsolute(dataDir)) {
+  const mainCheckout = path.dirname(
+    path.resolve(root, run("git", ["rev-parse", "--git-common-dir"], { cwd: root })),
+  );
+  env.DATA_DIR = path.resolve(mainCheckout, dataDir);
+}
 
 generateClientIfStale(env);
 execFileSync("pnpm", ["db:migrate"], { cwd: root, env, stdio: "inherit" });
