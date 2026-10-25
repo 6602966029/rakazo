@@ -2460,6 +2460,10 @@ msgstr "매"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "{intervalAmountSelect} {intervalUnitSelect}마다"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "이 공간의 모든 봇이 이 메모를 읽고 최신 상태로 유지합니다."
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -4588,8 +4592,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "공유 문서"
+msgid "Shared memory"
+msgstr "공유 기억"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

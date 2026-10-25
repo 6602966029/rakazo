@@ -2460,6 +2460,10 @@ msgstr "每"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "每 {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "此空间中的所有机器人都会读取并更新这些笔记。"
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -4588,8 +4592,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "共享文档"
+msgid "Shared memory"
+msgstr "共享记忆"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

@@ -2460,6 +2460,10 @@ msgstr "間隔"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "{intervalAmountSelect}{intervalUnitSelect}ごと"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "このスペースのすべてのボットがこのメモを読み、最新の状態に保ちます。"
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -4588,8 +4592,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr "{GROUP_MEMBER_MIN}〜{GROUP_MEMBER_MAX}個のボットとの共有チャットです。全員が同じスレッドで返信します。"
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "共有ドキュメント"
+msgid "Shared memory"
+msgstr "共有メモリ"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

@@ -2460,6 +2460,10 @@ msgstr "Elke"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "elke {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "Alle bots in deze space lezen deze notities en houden ze bij."
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -4588,8 +4592,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr "Gedeelde chat met {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. Ze antwoorden allemaal in dezelfde thread."
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "Gedeelde documenten"
+msgid "Shared memory"
+msgstr "Gedeeld geheugen"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

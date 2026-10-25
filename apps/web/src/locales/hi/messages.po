@@ -2460,6 +2460,10 @@ msgstr "हर"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "हर {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "इस स्पेस के सभी बॉट ये नोट्स पढ़ते हैं और इन्हें अपडेट रखते हैं।"
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -4588,8 +4592,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "साझा दस्तावेज़"
+msgid "Shared memory"
+msgstr "साझा मेमोरी"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
