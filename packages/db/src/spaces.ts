@@ -68,14 +68,7 @@ export const SPACE_DELETION_CLAIM_TIMEOUT_MS = 5 * 60_000;
 
 type SpaceClient = Pick<
   PrismaClient,
-  | "space"
-  | "spaceMember"
-  | "spaceModelPreference"
-  | "spaceModelRoleChoice"
-  | "memoryDocument"
-  | "notificationPreference"
-  | "bot"
-  | "chatGroup"
+  "space" | "spaceMember" | "memoryDocument" | "notificationPreference" | "bot" | "chatGroup"
 >;
 
 interface CreateSpaceInput {
@@ -130,39 +123,6 @@ async function createSpaceDefaults(
   });
 }
 
-async function copyProviderPreferences(
-  prisma: SpaceClient,
-  input: { sourceSpaceId: string; targetSpaceId: string; userId: string; createdAt: Date },
-): Promise<void> {
-  const [modelPreferences, modelRoleChoices] = await Promise.all([
-    prisma.spaceModelPreference.findMany({
-      where: { spaceId: input.sourceSpaceId, userId: input.userId },
-    }),
-    prisma.spaceModelRoleChoice.findMany({
-      where: { spaceId: input.sourceSpaceId, userId: input.userId },
-    }),
-  ]);
-  await Promise.all([
-    modelPreferences.length
-      ? prisma.spaceModelPreference.createMany({
-          data: modelPreferences.map((preference) => ({
-            spaceId: input.targetSpaceId,
-            userId: input.userId,
-            credentialId: preference.credentialId,
-            modelId: preference.modelId,
-            createdAt: input.createdAt,
-            updatedAt: input.createdAt,
-          })),
-        })
-      : Promise.resolve(),
-    modelRoleChoices.length
-      ? prisma.spaceModelRoleChoice.createMany({
-          data: modelRoleChoices.map((choice) => ({ ...choice, spaceId: input.targetSpaceId })),
-        })
-      : Promise.resolve(),
-  ]);
-}
-
 function normalizeSpaceName(name: string): string {
   const trimmed = name.trim();
   if (!displayName(trimmed, "") || trimmed.length > 60) throw new InvalidSpaceNameError();
@@ -215,12 +175,6 @@ export async function createSpaceForMember(
           spaceId,
           userId: input.userId,
           memoryContent: "# Space memory\n\n",
-        });
-        await copyProviderPreferences(tx, {
-          sourceSpaceId: input.currentSpaceId,
-          targetSpaceId: spaceId,
-          userId: input.userId,
-          createdAt,
         });
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },

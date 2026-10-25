@@ -30,8 +30,6 @@ function oauthPrisma() {
     ],
     preferences: [
       {
-        id: "pref-codex",
-        spaceId: SCOPE.spaceId,
         userId: SCOPE.userId,
         credentialId: "cred-codex",
         modelId: MODEL_ID,
@@ -60,7 +58,11 @@ function oauthPrisma() {
       ),
       delete: vi.fn(async (args: { where: { id: string } }) => {
         const index = state.credentials.findIndex((row) => row.id === args.where.id);
-        return index >= 0 ? state.credentials.splice(index, 1)[0] : null;
+        if (index < 0) return null;
+        const [removed] = state.credentials.splice(index, 1);
+        // The foreign key removes the connection's own model with it.
+        state.preferences = state.preferences.filter((row) => row.credentialId !== removed!.id);
+        return removed;
       }),
       count: vi.fn(
         async (args: { where: { secretId: string; id?: { not: string } } }) =>
@@ -71,16 +73,6 @@ function oauthPrisma() {
     },
     userVoiceCredential: {
       count: vi.fn(async () => 0),
-    },
-    spaceModelPreference: {
-      deleteMany: vi.fn(async (args: { where: { userId: string; credentialId: string } }) => {
-        const before = state.preferences.length;
-        state.preferences = state.preferences.filter(
-          (row) =>
-            !(row.userId === args.where.userId && row.credentialId === args.where.credentialId),
-        );
-        return { count: before - state.preferences.length };
-      }),
     },
     secret: {
       findFirst: vi.fn(
@@ -100,7 +92,7 @@ function oauthPrisma() {
       findMany: vi.fn(async () => [...state.credentials]),
       findFirst: vi.fn(async () => state.credentials[0] ?? null),
     },
-    spaceModelPreference: {
+    userModelPreference: {
       findMany: vi.fn(async () =>
         state.preferences.map((preference) => ({
           ...preference,

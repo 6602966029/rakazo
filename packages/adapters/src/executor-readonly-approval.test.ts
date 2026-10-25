@@ -298,7 +298,7 @@ function fixture({
     },
     task: { findUniqueOrThrow: vi.fn(async () => ({ id: run.taskId, prompt: taskPrompt })) },
     connection: { findMany: vi.fn(async () => []) },
-    spaceModelPreference: { findFirst: vi.fn(async () => null) },
+    userModelPreference: { findFirst: vi.fn(async () => null) },
     userModelCredential: {
       findFirst: vi.fn(async () =>
         approvalRole && checkerConnected
@@ -314,7 +314,7 @@ function fixture({
           : null,
       ),
     },
-    spaceModelRoleChoice: {
+    userModelRoleChoice: {
       findMany: vi.fn(async () =>
         approvalRole
           ? [
