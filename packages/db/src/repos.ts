@@ -542,9 +542,7 @@ export function createRepos(
         }
       }
       const settings = await prisma.deploymentSettings.findUnique({ where: { id: "default" } });
-      const configuredKind = process.env.SANDBOX_PROVIDER?.trim() || "docker";
-      // Box was renamed to Boat; deployments with the old setting still get a valid kind.
-      const envKind = configuredKind === "box" ? "boat" : configuredKind;
+      const envKind = process.env.SANDBOX_PROVIDER ?? "docker";
       const kind =
         envKind === "docker" && settings?.computerHost === "this-mac" ? "desktop" : envKind;
       const insertBot = () =>
