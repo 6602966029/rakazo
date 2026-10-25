@@ -3929,10 +3929,6 @@ msgstr "プルリクエスト"
 msgid "Queued"
 msgstr "待機中"
 
-#: src/pages/shell/quote-selection-button.tsx
-msgid "Quote"
-msgstr "引用"
-
 #: src/components/ModelCredits.tsx
 msgid "Rakazo credits"
 msgstr "Rakazoクレジット"
@@ -4175,6 +4171,7 @@ msgid "Replace value"
 msgstr "値を置き換え"
 
 #: src/pages/shell/message-hover-actions.tsx
+#: src/pages/shell/quote-selection-button.tsx
 msgid "Reply"
 msgstr "返信"
 
