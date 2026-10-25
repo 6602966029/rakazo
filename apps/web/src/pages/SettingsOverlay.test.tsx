@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -73,6 +74,8 @@ const { memoryConfigs, providerConfig, updaterStatus } = vi.hoisted(() => ({
 }));
 vi.mock("../lib/rpc", () => ({
   rpc: { updater: { status: updaterStatus } },
+  createSpaceRpc: () => ({ memory: { providerConfig: () => providerConfig("") } }),
+  selectedSpaceId: () => null,
   rpcForSpace: (spaceId: string) => ({
     memory: { providerConfig: () => providerConfig(spaceId) },
   }),
@@ -100,21 +103,24 @@ async function render(props: Partial<React.ComponentProps<typeof SettingsOverlay
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const rerender = async (next: Partial<React.ComponentProps<typeof SettingsOverlay>>) => {
     await act(async () => {
       root.render(
-        <SettingsOverlay
-          name="Jamie"
-          onUsageOpen={() => undefined}
-          timezone={null}
-          onTimezoneChange={async () => undefined}
-          memoryConfig={null}
-          onMemoryConfigChange={() => undefined}
-          onClose={() => undefined}
-          section="general"
-          onSectionChange={() => undefined}
-          {...next}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <SettingsOverlay
+            name="Jamie"
+            onUsageOpen={() => undefined}
+            timezone={null}
+            onTimezoneChange={async () => undefined}
+            memoryConfig={null}
+            onMemoryConfigChange={() => undefined}
+            onClose={() => undefined}
+            section="general"
+            onSectionChange={() => undefined}
+            {...next}
+          />
+        </QueryClientProvider>,
       );
     });
   };
@@ -255,7 +261,7 @@ it("withholds memory connection controls after a failed load and retries the edi
     onMemoryConfigChange,
   });
   try {
-    expect(container.textContent).toContain("Memory service unavailable");
+    await vi.waitFor(() => expect(container.textContent).toContain("Memory service unavailable"));
     expect(memoryConfigs).not.toContain(null);
     const rendersBeforeRetry = memoryConfigs.length;
     const retry = [...container.querySelectorAll("button")].find(
@@ -263,13 +269,15 @@ it("withholds memory connection controls after a failed load and retries the edi
     );
     expect(retry).toBeDefined();
     await act(async () => retry?.click());
-    expect(container.textContent).not.toContain("Memory service unavailable");
+    await vi.waitFor(() =>
+      expect(container.textContent).not.toContain("Memory service unavailable"),
+    );
     expect(memoryConfigs.length).toBeGreaterThan(rendersBeforeRetry);
     expect(memoryConfigs.at(-1)).toBeUndefined();
     expect(providerConfig.mock.calls.map(([spaceId]) => spaceId)).toEqual(["space-b", "space-b"]);
     const config = { provider: "mem0", defaultMemoryScope: "shared" };
     await act(async () => resolveRetry(config));
-    expect(memoryConfigs.at(-1)).toBe(config);
+    await vi.waitFor(() => expect(memoryConfigs.at(-1)).toBe(config));
     expect(container.textContent).not.toContain("Retry");
     expect(onMemoryConfigChange).not.toHaveBeenCalled();
   } finally {

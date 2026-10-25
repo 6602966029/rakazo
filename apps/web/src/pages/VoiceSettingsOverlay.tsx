@@ -18,9 +18,11 @@ import {
   NativeSelectOption,
   Spinner,
 } from "@rakazo/ui-web";
+import { useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { importChunk } from "../lib/preload-recovery";
+import { useSpaceQueries } from "../lib/query";
 import { useBoundSpaceId, useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
 
@@ -36,6 +38,21 @@ export function VoiceSettingsOverlay({
 }) {
   const rpc = useSpaceRpc();
   const spaceId = useBoundSpaceId();
+  const queries = useSpaceQueries();
+  const queryClient = useQueryClient();
+  // A revisit opens with what this space showed last time and refreshes it in the background.
+  const [cached] = useState(() => {
+    const catalog = queryClient.getQueryData(queries.voice.catalog.queryKey());
+    const credentials = queryClient.getQueryData(queries.voice.credentials.queryKey());
+    const status = queryClient.getQueryData(queries.voice.status.queryKey());
+    if (!catalog || !credentials || !status) return null;
+    const provider = selectedProvider(catalog, [status.provider]);
+    const credential = credentials.find((entry) => entry.provider === provider);
+    const voices = credential
+      ? (queryClient.getQueryData(queries.voice.voices.queryKey({ input: { provider } })) ?? [])
+      : [];
+    return { catalog, credentials, status, provider, credential, voices };
+  });
   const { t } = useLingui();
   const apiKeyId = useId();
   const voiceSelectId = useId();
@@ -44,20 +61,22 @@ export function VoiceSettingsOverlay({
   const ttsModelId = useId();
   const sttModelId = useId();
   const providerSelectId = useId();
-  const [catalog, setCatalog] = useState<VoiceCatalogEntry[]>([]);
-  const [credentials, setCredentials] = useState<VoiceCredential[]>([]);
-  const [status, setStatus] = useState<VoiceStatus | null>(null);
-  const [voices, setVoices] = useState<VoiceInfo[]>([]);
-  const [provider, setProvider] = useState("");
+  const [catalog, setCatalog] = useState<VoiceCatalogEntry[]>(cached?.catalog ?? []);
+  const [credentials, setCredentials] = useState<VoiceCredential[]>(cached?.credentials ?? []);
+  const [status, setStatus] = useState<VoiceStatus | null>(cached?.status ?? null);
+  const [voices, setVoices] = useState<VoiceInfo[]>(cached?.voices ?? []);
+  const [provider, setProvider] = useState(cached?.provider ?? "");
   const [apiKey, setApiKey] = useState("");
-  const [voiceId, setVoiceId] = useState("");
-  const [speechModel, setSpeechModel] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
-  const [ttsModel, setTtsModel] = useState("");
-  const [sttModel, setSttModel] = useState("");
+  const [voiceId, setVoiceId] = useState(
+    cached?.credential?.voiceId || (cached?.credential ? (cached.voices[0]?.id ?? "") : ""),
+  );
+  const [speechModel, setSpeechModel] = useState(cached?.credential?.speechModel ?? "");
+  const [baseUrl, setBaseUrl] = useState(cached?.credential?.endpoint ?? "");
+  const [ttsModel, setTtsModel] = useState(cached?.credential?.ttsModel ?? "");
+  const [sttModel, setSttModel] = useState(cached?.credential?.sttModel ?? "");
   const speechModelSave = useRef<string | null>(null);
   const voicesRequest = useRef(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
   const [pending, setPending] = useState<"connect" | "disconnect" | "voice" | "test" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -73,47 +92,55 @@ export function VoiceSettingsOverlay({
     onBusyChange?.(next !== null);
   }
 
-  /** Fill the form from the provider's saved credential; voices load without blocking the form. */
-  function showProvider(nextProvider: string, nextCredentials: VoiceCredential[]) {
+  /**
+   * Fill the form from the provider's saved credential; voices load without blocking the form.
+   * A background refresh of the provider already on screen keeps what is being typed.
+   */
+  function showProvider(
+    nextProvider: string,
+    nextCredentials: VoiceCredential[],
+    keepForm = false,
+  ) {
     const request = ++voicesRequest.current;
-    setProvider(nextProvider);
     const cred = nextCredentials.find((entry) => entry.provider === nextProvider);
     const activeVoice = cred?.voiceId ?? "";
-    setVoiceId(activeVoice);
-    setSpeechModel(cred?.speechModel ?? "");
-    setBaseUrl(cred?.endpoint ?? "");
-    setTtsModel(cred?.ttsModel ?? "");
-    setSttModel(cred?.sttModel ?? "");
-    setVoices([]);
+    if (!keepForm) {
+      setProvider(nextProvider);
+      setVoiceId(activeVoice);
+      setSpeechModel(cred?.speechModel ?? "");
+      setBaseUrl(cred?.endpoint ?? "");
+      setTtsModel(cred?.ttsModel ?? "");
+      setSttModel(cred?.sttModel ?? "");
+      setVoices([]);
+    }
     if (!cred) return Promise.resolve();
-    return rpc.voice.voices({ provider: nextProvider }).then(
-      (listed) => {
-        if (request !== voicesRequest.current) return;
-        setVoices(listed);
-        if (!activeVoice && listed[0]) setVoiceId(listed[0].id);
-      },
-      (err: unknown) => {
-        if (request === voicesRequest.current) throw err;
-      },
-    );
+    return queryClient
+      .fetchQuery(
+        queries.voice.voices.queryOptions({ input: { provider: nextProvider }, staleTime: 0 }),
+      )
+      .then(
+        (listed) => {
+          if (request !== voicesRequest.current) return;
+          setVoices(listed);
+          if (!keepForm && !activeVoice && listed[0]) setVoiceId(listed[0].id);
+        },
+        (err: unknown) => {
+          if (request === voicesRequest.current) throw err;
+        },
+      );
   }
 
-  async function refresh(nextProvider?: string) {
+  async function refresh(nextProvider?: string, keepForm = false) {
     const [nextCatalog, nextCredentials, nextStatus] = await Promise.all([
-      rpc.voice.catalog(),
-      rpc.voice.credentials(),
-      rpc.voice.status(),
+      queryClient.fetchQuery(queries.voice.catalog.queryOptions({ staleTime: 0 })),
+      queryClient.fetchQuery(queries.voice.credentials.queryOptions({ staleTime: 0 })),
+      queryClient.fetchQuery(queries.voice.status.queryOptions({ staleTime: 0 })),
     ]);
-    const selected =
-      [nextProvider, provider, nextStatus.provider].find((id) =>
-        nextCatalog.some((entry) => entry.id === id),
-      ) ??
-      nextCatalog[0]?.id ??
-      "";
+    const selected = selectedProvider(nextCatalog, [nextProvider, provider, nextStatus.provider]);
     setCatalog(nextCatalog);
     setCredentials(nextCredentials);
     setStatus(nextStatus);
-    await showProvider(selected, nextCredentials);
+    await showProvider(selected, nextCredentials, keepForm && selected === provider);
   }
 
   function chooseProvider(nextProvider: string) {
@@ -126,7 +153,7 @@ export function VoiceSettingsOverlay({
   }
 
   useEffect(() => {
-    void refresh()
+    void refresh(undefined, Boolean(cached))
       .catch((err: unknown) => setError(errorText(err, t`Could not load voice settings`)))
       .finally(() => setLoading(false));
   }, []);
@@ -216,7 +243,12 @@ export function VoiceSettingsOverlay({
     try {
       const saved = await rpc.voice.setSpeechModel({ provider: selected.id, speechModel: next });
       setSpeechModel(saved.speechModel);
-      setCredentials((current) => current.map((entry) => (entry.id === saved.id ? saved : entry)));
+      const update = (current: VoiceCredential[]) =>
+        current.map((entry) => (entry.id === saved.id ? saved : entry));
+      setCredentials(update);
+      queryClient.setQueryData(queries.voice.credentials.queryKey(), (current) =>
+        current ? update(current) : current,
+      );
     } catch (err) {
       setError(errorText(err, t`Could not save that speech model`));
     } finally {
@@ -265,7 +297,7 @@ export function VoiceSettingsOverlay({
 
       <div className="rk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
         <div className="max-w-xl">
-          {loading ? (
+          {loading && !catalog.length ? (
             <p className="text-sm text-muted-foreground">
               <Spinner aria-label={t`Loading voice providers…`} />
             </p>
@@ -500,4 +532,11 @@ export function VoiceSettingsOverlay({
       </DialogContent>
     </Dialog>
   );
+}
+
+function selectedProvider(
+  catalog: VoiceCatalogEntry[],
+  preferred: Array<string | null | undefined>,
+): string {
+  return preferred.find((id) => catalog.some((entry) => entry.id === id)) ?? catalog[0]?.id ?? "";
 }

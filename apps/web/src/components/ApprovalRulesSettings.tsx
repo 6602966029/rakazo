@@ -2,7 +2,9 @@ import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { ActionApprovalRule, ActionAutoReviewSettings } from "@rakazo/contracts";
 import { Button, Label, Spinner, Switch } from "@rakazo/ui-web";
-import { useEffect, useId, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useId, useState } from "react";
+import { useSpaceQueries } from "../lib/query";
 import { useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
 
@@ -30,33 +32,29 @@ export function ApprovalRulesSettings() {
   const { t } = useLingui();
   const autoReviewId = useId();
   const skipApprovalsId = useId();
-  const [rules, setRules] = useState<ActionApprovalRule[]>([]);
-  const [autoReview, setAutoReview] = useState<ActionAutoReviewSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queries = useSpaceQueries();
+  const queryClient = useQueryClient();
+  const rulesQuery = useQuery(queries.approvalRules.list.queryOptions());
+  const autoReviewQuery = useQuery(queries.autoReview.get.queryOptions());
+  const rules = rulesQuery.data ?? [];
+  const autoReview = autoReviewQuery.data ?? null;
+  const loading = rulesQuery.isPending || autoReviewQuery.isPending;
+  const loadFailed = rulesQuery.error ?? autoReviewQuery.error;
   const [savingPreset, setSavingPreset] = useState<"email" | "purchase" | null>(null);
   const [savingAutoReview, setSavingAutoReview] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setError] = useState<string | null>(null);
+  const error =
+    actionError ?? (loadFailed ? errorText(loadFailed, t`Could not load approval rules`) : null);
 
-  async function refresh() {
-    setLoading(true);
-    setError(null);
-    try {
-      const [nextRules, nextAutoReview] = await Promise.all([
-        rpc.approvalRules.list(),
-        rpc.autoReview.get(),
-      ]);
-      setRules(nextRules);
-      setAutoReview(nextAutoReview);
-    } catch (err) {
-      setError(errorText(err, t`Could not load approval rules`));
-    } finally {
-      setLoading(false);
-    }
+  function setRules(update: (current: ActionApprovalRule[]) => ActionApprovalRule[]) {
+    queryClient.setQueryData(queries.approvalRules.list.queryKey(), (current) =>
+      update(current ?? []),
+    );
   }
 
-  useEffect(() => {
-    void refresh();
-  }, []);
+  function setAutoReview(next: ActionAutoReviewSettings) {
+    queryClient.setQueryData(queries.autoReview.get.queryKey(), next);
+  }
 
   async function setPreset(matchValue: "email" | "purchase") {
     if (loading || savingPreset) return;

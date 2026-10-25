@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -18,7 +19,12 @@ const voice = vi.hoisted(() => ({
 
 const { speak } = vi.hoisted(() => ({ speak: vi.fn(async () => undefined) }));
 vi.mock("../lib/tts.js", () => ({ speaker: { speak, state: {} } }));
-vi.mock("../lib/rpc", () => ({ rpc: { voice }, rpcForSpace: () => ({ voice }) }));
+vi.mock("../lib/rpc", () => ({
+  rpc: { voice },
+  rpcForSpace: () => ({ voice }),
+  createSpaceRpc: () => ({ voice }),
+  selectedSpaceId: () => null,
+}));
 vi.mock("@lingui/react/macro", () => {
   const t = (parts: TemplateStringsArray) => parts.join("");
   return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
@@ -48,6 +54,11 @@ vi.mock("@rakazo/ui-web", () => {
 
 import { SpaceRpcProvider } from "../lib/space-rpc";
 import { VoiceSettingsOverlay } from "./VoiceSettingsOverlay";
+
+function withQueries(ui: ReactNode, client = new QueryClient()) {
+  client.setDefaultOptions({ queries: { retry: false } });
+  return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
+}
 
 const fish = {
   id: "cred-fish",
@@ -91,7 +102,7 @@ it("selects an available provider when the saved self-hosted provider is hidden"
   const root = createRoot(container);
   try {
     await act(async () => {
-      root.render(<VoiceSettingsOverlay embedded onClose={() => undefined} />);
+      root.render(withQueries(<VoiceSettingsOverlay embedded onClose={() => undefined} />));
     });
     expect(container.textContent).toContain("ElevenLabs");
     expect(container.textContent).not.toContain("Server URL");
@@ -146,7 +157,7 @@ it("saves a Fish speech model on the existing provider pane", async () => {
   };
   try {
     await act(async () => {
-      root.render(<VoiceSettingsOverlay embedded onClose={() => undefined} />);
+      root.render(withQueries(<VoiceSettingsOverlay embedded onClose={() => undefined} />));
     });
     await act(async () => {
       await Promise.resolve();
@@ -240,7 +251,7 @@ it("connects a self-hosted speech server by URL without a key", async () => {
     [...container.querySelectorAll("button")].find((entry) => entry.textContent === "Connect");
   try {
     await act(async () => {
-      root.render(<VoiceSettingsOverlay embedded onClose={() => undefined} />);
+      root.render(withQueries(<VoiceSettingsOverlay embedded onClose={() => undefined} />));
     });
     await act(async () => {
       await Promise.resolve();
@@ -307,7 +318,7 @@ it.each([
     const root = createRoot(container);
     try {
       await act(async () => {
-        root.render(<VoiceSettingsOverlay embedded onClose={() => undefined} />);
+        root.render(withQueries(<VoiceSettingsOverlay embedded onClose={() => undefined} />));
       });
       expect(labelledInput(container, "Server URL").value).toBe(saved.endpoint);
       expect(labelledInput(container, "Speech model").value).toBe(saved.ttsModel);
@@ -359,7 +370,11 @@ it.each([null, "space-edited"])("plays a sample for the bound space %s", async (
   try {
     await act(async () => {
       const panel = <VoiceSettingsOverlay embedded onClose={() => undefined} />;
-      root.render(spaceId ? <SpaceRpcProvider spaceId={spaceId}>{panel}</SpaceRpcProvider> : panel);
+      root.render(
+        withQueries(
+          spaceId ? <SpaceRpcProvider spaceId={spaceId}>{panel}</SpaceRpcProvider> : panel,
+        ),
+      );
     });
     await act(async () => {
       [...container.querySelectorAll("button")]
@@ -374,6 +389,52 @@ it.each([null, "space-edited"])("plays a sample for the bound space %s", async (
     );
   } finally {
     await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("reopens with the cached providers and refreshes them in the background", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  voice.catalog
+    .mockReset()
+    .mockResolvedValue([
+      { id: "elevenlabs", name: "ElevenLabs", description: "", transcribe: true },
+    ]);
+  voice.credentials.mockReset().mockResolvedValue([eleven]);
+  voice.status.mockReset().mockResolvedValue({ ready: true, provider: "elevenlabs" });
+  voice.voices.mockReset().mockResolvedValue([{ id: "rachel", label: "Rachel" }]);
+  const client = new QueryClient();
+  const container = document.createElement("div");
+  document.body.append(container);
+  const mount = async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(withQueries(<VoiceSettingsOverlay embedded onClose={() => undefined} />, client));
+    });
+    return root;
+  };
+  try {
+    const first = await mount();
+    await vi.waitFor(() => expect(container.textContent).toContain("Rachel"));
+    await act(async () => first.unmount());
+
+    let releaseCatalog: () => void = () => undefined;
+    voice.catalog.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseCatalog = () =>
+            resolve([{ id: "elevenlabs", name: "ElevenLabs", description: "", transcribe: true }]);
+        }),
+    );
+    const second = await mount();
+    expect(container.querySelector('[aria-label="Loading voice providers…"]')).toBeNull();
+    expect(container.textContent).toContain("ElevenLabs");
+    expect(container.textContent).toContain("Rachel");
+    expect(voice.catalog).toHaveBeenCalledTimes(2);
+    await act(async () => releaseCatalog());
+    await act(async () => second.unmount());
+  } finally {
     container.remove();
     vi.unstubAllGlobals();
   }
