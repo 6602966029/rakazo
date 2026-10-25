@@ -1444,6 +1444,10 @@ msgstr "Executor verbinden"
 msgid "Connect MCP server “{name}”"
 msgstr "MCP-Server „{name}“ verbinden"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "Erinnerungsanbieter verbinden"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -2458,6 +2462,10 @@ msgstr "Alle"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "alle {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "Alle Bots in diesem Space lesen diese Notizen und halten sie aktuell."
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -2952,6 +2960,10 @@ msgstr ""
 msgid "Leave"
 msgstr ""
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "Bots können Fakten nach Bedeutung speichern und abrufen, zusätzlich zu MEMORY.md."
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "Hell"
@@ -3038,10 +3050,6 @@ msgstr "Stimmanbieter werden geladen…"
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
 msgstr "Wird geladen…"
-
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "Lokal"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -4493,6 +4501,10 @@ msgstr "Sicherheit"
 msgid "Select a bot"
 msgstr "Bot auswählen"
 
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "Selbst gehostet"
+
 #: src/pages/shell/composer.tsx
 msgid "Send"
 msgstr "Senden"
@@ -4588,8 +4600,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "Geteilte Dokumente"
+msgid "Shared memory"
+msgstr "Gemeinsame Erinnerungen"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

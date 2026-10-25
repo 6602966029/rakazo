@@ -1444,6 +1444,10 @@ msgstr "Connecter l'exécuteur"
 msgid "Connect MCP server “{name}”"
 msgstr "Connecter le serveur MCP « {name} »"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "Connecter un fournisseur de mémoire"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -2458,6 +2462,10 @@ msgstr "Chaque"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "tous les {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "Tous les bots de cet espace lisent ces notes et les tiennent à jour."
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -2952,6 +2960,10 @@ msgstr "Plus tard"
 msgid "Leave"
 msgstr "Quitter"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "Permet aux bots d’enregistrer et de retrouver des faits par leur sens, en plus de MEMORY.md."
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "Clair"
@@ -3038,10 +3050,6 @@ msgstr "Chargement des fournisseurs vocaux…"
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
 msgstr "Chargement…"
-
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "Local"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -4493,6 +4501,10 @@ msgstr "Sécurité"
 msgid "Select a bot"
 msgstr "Sélectionnez un bot"
 
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "Auto-hébergé"
+
 #: src/pages/shell/composer.tsx
 msgid "Send"
 msgstr "Envoyer"
@@ -4588,8 +4600,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr "Conversation partagée avec {GROUP_MEMBER_MIN} à {GROUP_MEMBER_MAX} bots. Ils répondent tous dans le même fil."
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "Documents partagés"
+msgid "Shared memory"
+msgstr "Mémoire partagée"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

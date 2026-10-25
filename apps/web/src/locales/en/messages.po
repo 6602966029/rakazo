@@ -1444,6 +1444,10 @@ msgstr "Connect Executor"
 msgid "Connect MCP server “{name}”"
 msgstr "Connect MCP server “{name}”"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "Connect memory provider"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr "Connect my own"
@@ -2458,6 +2462,10 @@ msgstr "Every"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "every {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "Every bot in this space reads these notes and keeps them up to date."
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -2952,6 +2960,10 @@ msgstr "Later"
 msgid "Leave"
 msgstr "Leave"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "Light"
@@ -3038,10 +3050,6 @@ msgstr "Loading voice providers…"
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
 msgstr "Loading…"
-
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "Local"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -4493,6 +4501,10 @@ msgstr "Security"
 msgid "Select a bot"
 msgstr "Select a bot"
 
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "Self-hosted"
+
 #: src/pages/shell/composer.tsx
 msgid "Send"
 msgstr "Send"
@@ -4588,8 +4600,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "Shared documents"
+msgid "Shared memory"
+msgstr "Shared memory"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

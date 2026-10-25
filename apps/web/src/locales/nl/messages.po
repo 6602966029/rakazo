@@ -1444,6 +1444,10 @@ msgstr "Executor koppelen"
 msgid "Connect MCP server “{name}”"
 msgstr "MCP-server “{name}” koppelen"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "Geheugenaanbieder koppelen"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -2458,6 +2462,10 @@ msgstr "Elke"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "elke {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "Alle bots in deze space lezen deze notities en houden ze bij."
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -2952,6 +2960,10 @@ msgstr "Later"
 msgid "Leave"
 msgstr "Verlaten"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "Laat bots feiten op betekenis opslaan en terugvinden, naast MEMORY.md."
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "Licht"
@@ -3038,10 +3050,6 @@ msgstr "Spraakanbieders laden…"
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
 msgstr "Bezig met laden…"
-
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "Lokaal"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -4493,6 +4501,10 @@ msgstr "Beveiliging"
 msgid "Select a bot"
 msgstr "Selecteer een bot"
 
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "Zelf gehost"
+
 #: src/pages/shell/composer.tsx
 msgid "Send"
 msgstr "Verzenden"
@@ -4588,8 +4600,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr "Gedeelde chat met {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. Ze antwoorden allemaal in dezelfde thread."
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "Gedeelde documenten"
+msgid "Shared memory"
+msgstr "Gedeeld geheugen"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
