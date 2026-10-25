@@ -304,8 +304,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Connect MCP server {name}": "连接 MCP 服务器 {name}",
   "Connect Treg": "连接 Treg",
   Connected: "已连接",
-  "Connected. Its tools are available from your next message.":
-    "已连接。从你的下一条消息起即可使用它的工具。",
+  "Connected.": "已连接。",
   Copy: "复制",
   More: "更多",
   "Could not add source": "无法添加来源",
@@ -711,7 +710,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Found {count} model.": "找到 {count} 个模型。",
   "Found {count} models.": "找到 {count} 个模型。",
   "http://127.0.0.1:8000/v1": "http://127.0.0.1:8000/v1",
-  "http://localhost:53692/callback?code=…": "http://localhost:53692/callback?code=…",
   "https://example.com/mcp": "https://example.com/mcp",
   "https://example.com/openapi.json": "https://example.com/openapi.json",
   "https://executor.example/mcp": "https://executor.example/mcp",
@@ -754,8 +752,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "No custom sources installed.": "尚未安装自定义来源。",
   "Removing…": "正在移除…",
   "Skill {name}": "技能 {name}",
-  "The final page may not load. Paste its URL or code here.":
-    "最后一页可能无法加载。请将其 URL 或代码粘贴到这里。",
+  "Then paste the code here.": "然后在此粘贴代码。",
   "Chat Settings": "聊天设置",
   "Settings: General": "设置：常规",
   "Settings: Usage": "设置：用量",

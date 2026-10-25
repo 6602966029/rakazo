@@ -469,8 +469,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Verwendet die eigenen {source}-Zugangsdaten dieses Servers für den Zugriff auf {provider}.",
   "Connect API key": "API-Schlüssel verbinden",
   "Connect MCP server {name}": "MCP-Server „{name}“ verbinden",
-  "Connected. Its tools are available from your next message.":
-    "Verbunden. Seine Tools sind ab deiner nächsten Nachricht verfügbar.",
+  "Connected.": "Verbunden.",
   "Context limit": "Kontextlimit",
   "Could not connect this provider": "Anbieter konnte nicht verbunden werden",
   "Could not finish sign-in": "Anmeldung konnte nicht abgeschlossen werden",
@@ -513,15 +512,13 @@ export const DE_MESSAGES: Record<string, string> = {
   Submit: "Absenden",
   "Supports images": "Unterstützt Bilder",
   "Supports thinking": "Unterstützt Denkmodus",
-  "The final page may not load. Paste its URL or code here.":
-    "Die letzte Seite lädt womöglich nicht. Füge ihre URL oder ihren Code hier ein.",
+  "Then paste the code here.": "Füge dann den Code hier ein.",
   "This subscription sign-in is not available in Rakazo yet. Use a deployment credential or choose another provider.":
     "Diese Abonnementanmeldung ist in Rakazo noch nicht verfügbar. Verwende Zugangsdaten der Bereitstellung oder wähle einen anderen Anbieter.",
   "Use a found model": "Gefundenes Modell verwenden",
   "Waiting for sign-in…": "Warten auf Anmeldung…",
   "exact-model-id": "exact-model-id",
   "http://127.0.0.1:8000/v1": "http://127.0.0.1:8000/v1",
-  "http://localhost:53692/callback?code=…": "http://localhost:53692/callback?code=…",
   "sk-…": "sk-…",
   // app/(settings)/integrations.tsx
   "1 tool": "1 Tool",

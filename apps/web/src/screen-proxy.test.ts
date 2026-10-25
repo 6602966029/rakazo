@@ -1,5 +1,11 @@
+import { sealScreenCapability } from "@rakazo/core/node/screen-capability";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveNovncTarget, safeProxyHeaders, watchScreenAuthorization } from "./screen-proxy.js";
+import {
+  novncRequestPath,
+  resolveNovncTarget,
+  safeProxyHeaders,
+  watchScreenAuthorization,
+} from "./screen-proxy.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -19,6 +25,31 @@ describe("screen proxy", () => {
         { cookie: "provider_auth=fake-token" },
       ),
     ).toEqual({ upgrade: "websocket", cookie: "provider_auth=fake-token" });
+  });
+
+  it("routes the socket stock noVNC opens from a capability's path", () => {
+    const screen = new URL(
+      sealScreenCapability(
+        "https://screen.example/vnc.html?path=websockify%3Ftoken%3Dfake-socket",
+        "fake-secret",
+        "https://app.example",
+        {
+          botId: "bot-1",
+          computerId: "computer-1",
+          botGeneration: 1,
+          computerGeneration: 1,
+          controlLeaseId: null,
+        },
+      ),
+    );
+    // noVNC 1.3 (Debian's package) joins host, "/" and the path setting.
+    const socketPath = `/${screen.searchParams.get("path")}`;
+    expect(socketPath.startsWith("//")).toBe(true);
+    expect(novncRequestPath(socketPath)).toBe(screen.pathname.replace("/vnc.html", "/websockify"));
+    expect(novncRequestPath("/novnc/session/view/token/vnc.html")).toBe(
+      "/novnc/session/view/token/vnc.html",
+    );
+    expect(novncRequestPath("/rpc/computer.boot")).toBeNull();
   });
 
   it("rejects legacy URLs without contacting the API", async () => {

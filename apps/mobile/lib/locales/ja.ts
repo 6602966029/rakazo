@@ -442,8 +442,7 @@ export const JA_MESSAGES: Record<string, string> = {
     "このサーバー自身の{source}認証情報を使って{provider}にアクセスします。",
   "Connect API key": "APIキーを接続",
   "Connect MCP server {name}": "MCPサーバー{name}を接続",
-  "Connected. Its tools are available from your next message.":
-    "接続しました。次のメッセージからツールを使えます。",
+  "Connected.": "接続しました。",
   "Context limit": "コンテキスト上限",
   "Could not connect this provider": "このプロバイダーに接続できませんでした",
   "Could not finish sign-in": "ログインを完了できませんでした",
@@ -486,15 +485,13 @@ export const JA_MESSAGES: Record<string, string> = {
   Submit: "送信",
   "Supports images": "画像に対応",
   "Supports thinking": "思考に対応",
-  "The final page may not load. Paste its URL or code here.":
-    "最後のページが読み込まれない場合があります。そのURLまたはコードをここに貼り付けてください。",
+  "Then paste the code here.": "その後、ここにコードを貼り付けてください。",
   "This subscription sign-in is not available in Rakazo yet. Use a deployment credential or choose another provider.":
     "このサブスクリプションでのログインはRakazoではまだ利用できません。デプロイの認証情報を使うか、別のプロバイダーを選択してください。",
   "Use a found model": "見つかったモデルを使用",
   "Waiting for sign-in…": "ログインを待っています…",
   "exact-model-id": "exact-model-id",
   "http://127.0.0.1:8000/v1": "http://127.0.0.1:8000/v1",
-  "http://localhost:53692/callback?code=…": "http://localhost:53692/callback?code=…",
   "sk-…": "sk-…",
   "1 tool": "1個のツール",
   "Account label": "アカウントのラベル",
