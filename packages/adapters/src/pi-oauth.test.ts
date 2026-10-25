@@ -2109,6 +2109,7 @@ describe("PiOAuthLogins hand-off between API processes", () => {
     spaceId: string;
     userId: string;
     provider: string;
+    scope: string;
     ciphertext: string;
     createdAt: Date;
   };
@@ -2117,8 +2118,10 @@ describe("PiOAuthLogins hand-off between API processes", () => {
 
   function handoffStore() {
     const rows = new Map<string, Row>();
+    let clock = Date.now();
     const matches = (row: Row, where: Where) =>
       (where.id === undefined || row.id === where.id) &&
+      (where.scope === undefined || row.scope === where.scope) &&
       (where.spaceId === undefined || row.spaceId === where.spaceId) &&
       (where.userId === undefined || row.userId === where.userId) &&
       (where.provider === undefined || row.provider === where.provider) &&
@@ -2127,7 +2130,8 @@ describe("PiOAuthLogins hand-off between API processes", () => {
     const prisma = {
       modelOAuthSession: {
         create: vi.fn(async ({ data }: { data: Omit<Row, "createdAt"> }) => {
-          const row = { ...data, createdAt: new Date() };
+          clock += 1;
+          const row = { ...data, createdAt: new Date(clock) };
           rows.set(row.id, row);
           return row;
         }),
@@ -2287,6 +2291,22 @@ describe("PiOAuthLogins hand-off between API processes", () => {
     await expect(after.logins.submit(newer.loginId, member, "new-code")).resolves.toEqual({
       ok: true,
     });
+  });
+
+  it("keeps a sign-in for another connection when a new one starts", async () => {
+    const { rows, store } = handoffStore();
+    const renewing = await apiProcess(store).logins.begin({
+      ...member,
+      provider: "anthropic",
+      credentialId: "connection-a",
+    });
+    const adding = await apiProcess(store).logins.begin({
+      ...member,
+      provider: "anthropic",
+      credentialId: null,
+    });
+    expect(rows.has(renewing.loginId)).toBe(true);
+    expect(rows.has(adding.loginId)).toBe(true);
   });
 
   it("keeps device-code sign-ins in memory", async () => {

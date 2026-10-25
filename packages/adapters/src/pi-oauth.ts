@@ -1129,13 +1129,6 @@ export class PiOAuthLogins {
           where: { createdAt: { lt: new Date(Date.now() - PASTED_CODE_TTL_SECONDS * 1000) } },
         }),
       );
-      // This sign-in replaces any the member left open elsewhere for the provider, so an
-      // older code cannot come back and retire it.
-      await runAsTenant(actor, () =>
-        handoff.prisma.modelOAuthSession.deleteMany({
-          where: { ...actor, provider: input.provider },
-        }),
-      );
       const sealed = await handoff.secrets.put(
         JSON.stringify(stored),
         {
@@ -1146,11 +1139,24 @@ export class PiOAuthLogins {
         },
         { recordId: loginId, ephemeral: true },
       );
-      await runAsTenant(actor, () =>
-        handoff.prisma.modelOAuthSession.create({
-          data: { id: loginId, ...actor, provider: input.provider, ciphertext: sealed.ciphertext },
-        }),
-      );
+      const scope = oauthScopeKey(input.userId, input.spaceId, input.provider, input.credentialId);
+      await runAsTenant(actor, async () => {
+        const created = await handoff.prisma.modelOAuthSession.create({
+          data: {
+            id: loginId,
+            ...actor,
+            provider: input.provider,
+            scope,
+            ciphertext: sealed.ciphertext,
+          },
+          select: { createdAt: true },
+        });
+        // This sign-in replaces older ones for the same connection left open elsewhere, so
+        // an older code cannot come back and retire it. A newer one is never touched.
+        await handoff.prisma.modelOAuthSession.deleteMany({
+          where: { ...actor, scope, createdAt: { lt: created.createdAt } },
+        });
+      });
     } catch (error) {
       // This process can still finish the sign-in; only another process could not.
       getLogger().error("model sign-in hand-off failed", error);

@@ -4,6 +4,7 @@ CREATE TABLE "model_oauth_sessions" (
     "spaceId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "provider" TEXT NOT NULL,
+    "scope" TEXT NOT NULL,
     "ciphertext" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -11,6 +12,7 @@ CREATE TABLE "model_oauth_sessions" (
 );
 
 CREATE INDEX "model_oauth_sessions_userId_provider_idx" ON "model_oauth_sessions"("userId", "provider");
+CREATE INDEX "model_oauth_sessions_scope_idx" ON "model_oauth_sessions"("scope");
 CREATE INDEX "model_oauth_sessions_createdAt_idx" ON "model_oauth_sessions"("createdAt");
 
 ALTER TABLE "model_oauth_sessions" ADD CONSTRAINT "model_oauth_sessions_spaceId_fkey" FOREIGN KEY ("spaceId") REFERENCES "spaces"("id") ON DELETE CASCADE ON UPDATE CASCADE;

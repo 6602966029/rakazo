@@ -1385,10 +1385,13 @@ model ModelOAuthSession {
   space      Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   userId     String
   provider   String
+  /// The connection it signs in to; a newer sign-in for the same one replaces it.
+  scope      String
   ciphertext String
   createdAt  DateTime @default(now())
 
   @@index([userId, provider])
+  @@index([scope])
   @@index([createdAt])
   @@map("model_oauth_sessions")
 }
