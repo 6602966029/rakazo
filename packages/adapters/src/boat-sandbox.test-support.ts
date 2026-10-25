@@ -499,7 +499,7 @@ export class FakeBoatApi implements BoatSandboxSdk {
       });
     }
     // The whole-workspace listing goes to a file the adapter then downloads.
-    const listingFile = command.match(/^listing=(.*)$/m)?.[1];
+    const listingFile = command.match(/^exec 3> (.*) \|\| exit 2$/m)?.[1];
     if (listingFile !== undefined) {
       const records = [...box.files].map(([filePath, file]) => listing(filePath, "file", file));
       box.files.set(String(parse(listingFile)[0]), {

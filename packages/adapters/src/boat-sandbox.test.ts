@@ -1024,13 +1024,13 @@ describe("BoatSandboxProvider", () => {
     const listing = command.mock.calls
       .map(([request]) => ("commandRequest" in request ? request.commandRequest.command : ""))
       .map((wrapped) => String(parse(wrapped).at(-1)))
-      .find((script) => script.includes("listing="));
+      .find((script) => script.includes("exec 3> "));
     expect(listing).toContain("-printf");
     expect(listing).not.toContain("while");
     expect(listing).toContain("-name 'Code Cache'");
     expect(listing).toContain("-prune");
-    // A walk that skipped an entry that vanished or could not be read still lists the rest.
-    expect(listing).toContain("|| [ $? -eq 1 ]");
+    // Only an entry that vanished mid-walk is tolerated; other find errors fail the listing.
+    expect(listing).toContain("grep -qv 'No such file or directory$'");
   });
 
   it.each([
@@ -1070,7 +1070,7 @@ describe("BoatSandboxProvider", () => {
       this: FakeBoatApi,
       request,
     ) {
-      if (!request.commandRequest.command.includes("listing=")) return run.call(this, request);
+      if (!request.commandRequest.command.includes("exec 3> ")) return run.call(this, request);
       return {
         ok: true,
         type: "command.finished",

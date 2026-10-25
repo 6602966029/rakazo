@@ -1182,7 +1182,9 @@ function commandFailure(result: BoatCommandResult): string {
 
 /** How a listing command ended. Its output is file names, never an error message. */
 function commandStatus(result: BoatCommandResult): string {
-  return result.timedOut ? "timed out" : `exit ${result.exitCode}`;
+  if (result.timedOut) return "timed out";
+  if (result.exitCode === BOAT_LISTING_UNREADABLE) return "an entry could not be read";
+  return `exit ${result.exitCode}`;
 }
 
 /** Each step of bringing back a sandbox that stopped answering; none is a failure by itself. */
@@ -1425,17 +1427,39 @@ function sourceEnvironmentCommand(envFile: string, argv: string): string {
 /**
  * One NUL-terminated record per entry, so any file name survives: type, size, mode, path. A
  * single `find` walks the tree; a subprocess per entry made a large workspace outlast the
- * listing timeout. `find` exits 1 when an entry vanished or could not be read mid-walk, which
- * leaves the rest of the listing intact.
+ * listing timeout.
  */
 const BOAT_LISTING_FORMAT = "%y\\t%s\\t%m\\t%p\\0";
+/** Exit status of a listing that met an entry it could not read. */
+const BOAT_LISTING_UNREADABLE = 3;
 
+/**
+ * Runs `find` with its records on fd 3 and its errors captured. It exits 1 for any error, but
+ * an entry that vanished mid-walk leaves the rest of the listing intact. Anything else, such
+ * as an unreadable entry or a listing it could not finish writing, fails the listing.
+ */
+function boatListingWalk(findArguments: string): string {
+  return [
+    `errors=$(find ${findArguments} -printf '${BOAT_LISTING_FORMAT}' 2>&1 >&3 3>&-)`,
+    "status=$?",
+    'if [ "$status" -eq 1 ]; then',
+    `  if ! printf '%s\\n' "$errors" | grep -qv 'No such file or directory$'; then status=0;`,
+    `  elif printf '%s\\n' "$errors" | grep -q 'Permission denied$'; then status=${BOAT_LISTING_UNREADABLE}; fi`,
+    "fi",
+    'exit "$status"',
+  ].join("\n");
+}
+
+/** Lists a directory's files and folders, following links as the file browser shows them. */
 function listBoatFilesCommand(directory: string): string {
   return [
     "set -o pipefail",
     `directory=${shellQuote(directory)}`,
     'test -d "$directory" || exit 2',
-    `{ find "$directory" -mindepth 1 -maxdepth 1 \\( -type f -o -type d \\) -printf '${BOAT_LISTING_FORMAT}' 2>/dev/null || [ $? -eq 1 ]; } | base64 -w0`,
+    "{",
+    "exec 3>&1",
+    boatListingWalk('-L "$directory" -mindepth 1 -maxdepth 1 \\( -type f -o -type d \\)'),
+    "} | base64 -w0",
   ].join("\n");
 }
 
@@ -1447,9 +1471,10 @@ function listBoatWorkspaceFilesCommand(listingFile: string): string {
   return [
     // Listings an interrupted export left behind.
     `find /tmp -maxdepth 1 -name '${path.basename(BOAT_LISTING_PREFIX)}*' -mmin +10 -delete 2>/dev/null`,
-    `listing=${shellQuote(listingFile)}`,
-    ': > "$listing" || exit 2',
-    `find ${shellQuote(BOAT_WORKSPACE)} -mindepth 1 \\( -type d -path ${shellQuote(`${BOAT_BROWSER_PROFILES}/*`)} \\( ${skipped} \\) -prune \\) -o -type f -printf '${BOAT_LISTING_FORMAT}' > "$listing" 2>/dev/null || [ $? -eq 1 ]`,
+    `exec 3> ${shellQuote(listingFile)} || exit 2`,
+    boatListingWalk(
+      `${shellQuote(BOAT_WORKSPACE)} -mindepth 1 \\( -type d -path ${shellQuote(`${BOAT_BROWSER_PROFILES}/*`)} \\( ${skipped} \\) -prune \\) -o -type f`,
+    ),
   ].join("\n");
 }
 
