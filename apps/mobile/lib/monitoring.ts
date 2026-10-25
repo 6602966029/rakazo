@@ -9,7 +9,13 @@ import {
 } from "@rakazo/logging/monitoring";
 import type * as NativeSentry from "@sentry/react-native";
 import type { StartupErrorStorage } from "./startup-error";
-import { clearStartupError, readStartupError, saveStartupError } from "./startup-error";
+import {
+  clearStartupError,
+  markExpoErrorReported,
+  readStartupError,
+  saveStartupError,
+  startExpoErrorWindow,
+} from "./startup-error";
 
 const errors = createClientErrorReporter();
 let sdk: typeof NativeSentry | undefined;
@@ -85,6 +91,7 @@ export function configureMobileMonitoring(
   headers: Record<string, string>,
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
+  startExpoErrorWindow(startupStorage, base);
   const key = JSON.stringify([base, headers]);
   if (key === connectionKey && (configured || configuring)) return configuring ?? Promise.resolve();
   // The first anonymous request can be upgraded to this server's saved session. Session
@@ -224,9 +231,10 @@ export function configureMobileMonitoring(
       }
       if (reportingReady) reportingReady();
       else if (pendingStartupError) void flushStartupError();
-      if (channel === "diagnostic") {
+      const expoErrorWindow = startExpoErrorWindow(startupStorage, base);
+      if (channel === "diagnostic" && expoErrorWindow) {
         // Expo records the original recovery error even when no JS handler can report it.
-        void updates
+        await updates
           .readLogEntriesAsync(3_600_000)
           .then((entries) => {
             if (current !== generation) return;
@@ -234,7 +242,9 @@ export function configureMobileMonitoring(
               .filter(
                 (entry) =>
                   entry.code === "JSRuntimeError" &&
-                  (entry.level === "error" || entry.level === "fatal"),
+                  (entry.level === "error" || entry.level === "fatal") &&
+                  entry.timestamp >= expoErrorWindow.since &&
+                  entry.timestamp > expoErrorWindow.reportedThrough,
               )
               .sort((a, b) => a.timestamp - b.timestamp)
               .at(-1);
@@ -252,7 +262,9 @@ export function configureMobileMonitoring(
                 },
               },
             });
-            return Sentry.flush();
+            return Sentry.flush().then((sent) => {
+              if (sent) markExpoErrorReported(latest.timestamp, startupStorage, base);
+            });
           })
           .catch(() => undefined);
       }
@@ -273,6 +285,7 @@ export function installMobileEarlyErrorReporting(storage: StartupErrorStorage): 
   if (earlyHandlerInstalled) return;
   earlyHandlerInstalled = true;
   startupStorage = storage;
+  startExpoErrorWindow(storage);
   pendingStartupError = readStartupError(storage);
   startupFromPreviousLaunch = pendingStartupError !== undefined;
   const target = globalThis as typeof globalThis & {

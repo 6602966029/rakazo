@@ -8,6 +8,63 @@ export interface StartupErrorStorage {
 
 const KEY = "rakazo.startup-error";
 const MAX_LENGTH = 8_192;
+const EXPO_LOG_KEY = "rakazo.expo-error-window";
+
+type ExpoErrorWindow = { server: string; since: number; reportedThrough: number };
+
+function readExpoErrorWindow(storage: StartupErrorStorage): ExpoErrorWindow | undefined {
+  const raw = storage.getItem(EXPO_LOG_KEY);
+  if (!raw || raw.length > 1_024) return;
+  const value = JSON.parse(raw) as Partial<ExpoErrorWindow> | null;
+  if (
+    value &&
+    typeof value.server === "string" &&
+    typeof value.since === "number" &&
+    Number.isFinite(value.since) &&
+    typeof value.reportedThrough === "number" &&
+    Number.isFinite(value.reportedThrough)
+  )
+    return value as ExpoErrorWindow;
+}
+
+/** Only errors recorded after a known server boundary can be replayed safely. */
+export function startExpoErrorWindow(
+  storage?: StartupErrorStorage,
+  base?: string,
+): ExpoErrorWindow | undefined {
+  if (!storage) return;
+  try {
+    const server = base ? new URL(base).origin : selectedServer(storage);
+    let existing: ExpoErrorWindow | undefined;
+    try {
+      existing = readExpoErrorWindow(storage);
+    } catch {
+      // A malformed checkpoint starts a new window; older logs have no established owner.
+    }
+    if (existing?.server === server) return existing;
+    const window = { server, since: Date.now(), reportedThrough: 0 };
+    storage.setItem(EXPO_LOG_KEY, JSON.stringify(window));
+    return window;
+  } catch {
+    return;
+  }
+}
+
+export function markExpoErrorReported(
+  timestamp: number,
+  storage: StartupErrorStorage | undefined,
+  base: string,
+): void {
+  if (!storage) return;
+  try {
+    const window = readExpoErrorWindow(storage);
+    if (!window || window.server !== new URL(base).origin) return;
+    window.reportedThrough = Math.max(window.reportedThrough, timestamp);
+    storage.setItem(EXPO_LOG_KEY, JSON.stringify(window));
+  } catch {
+    // A failed checkpoint leaves the report eligible for retry.
+  }
+}
 
 function selectedServer(storage: StartupErrorStorage): string {
   return new URL(storage.getItem(API_BASE_STORAGE_KEY) || DEFAULT_API).origin;

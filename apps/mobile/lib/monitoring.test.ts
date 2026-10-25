@@ -325,7 +325,19 @@ describe("mobile monitoring", () => {
       { code: "UpdateServerUnreachable", level: "error", timestamp: 3, message: "offline" },
     ]);
     const monitor = await import("./monitoring");
-    await monitor.configureMobileMonitoring(
+    storage.set("rakazo.api_base", "https://app.example.com");
+    storage.set(
+      "rakazo.expo-error-window",
+      JSON.stringify({ server: "https://app.example.com", since: 1, reportedThrough: 0 }),
+    );
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    let finishFlush!: (sent: boolean) => void;
+    sdk.flush.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishFlush = resolve;
+      }),
+    );
+    const anonymous = monitor.configureMobileMonitoring(
       "https://app.example.com",
       {},
       response({ dsn: "https://key@errors.example.com/8" }),
@@ -350,6 +362,53 @@ describe("mobile monitoring", () => {
       ),
     );
     expect(updates.readLogEntriesAsync).toHaveBeenCalledWith(3_600_000);
+    const authenticated = monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      { Authorization: "Bearer example" },
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    finishFlush(true);
+    await Promise.all([anonymous, authenticated]);
+    expect(sdk.captureException).toHaveBeenCalledTimes(1);
+    sdk.captureException.mockClear();
+    vi.resetModules();
+    const restarted = await import("./monitoring");
+    restarted.installMobileEarlyErrorReporting(secureStorage);
+    await restarted.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(sdk.captureException).not.toHaveBeenCalled();
+  });
+
+  it("does not recover unowned Expo errors or send the previous server's logs to a new server", async () => {
+    updates.channel = "diagnostic";
+    updates.readLogEntriesAsync.mockResolvedValue([
+      {
+        code: "JSRuntimeError",
+        level: "error",
+        timestamp: Date.now() - 100,
+        message: "old server failure",
+      },
+    ]);
+    const monitor = await import("./monitoring");
+    storage.set("rakazo.api_base", "https://first.example.com");
+    monitor.installMobileEarlyErrorReporting(secureStorage);
+    await monitor.configureMobileMonitoring(
+      "https://first.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(sdk.captureException).not.toHaveBeenCalled();
+    storage.set("rakazo.api_base", "https://second.example.com");
+    monitor.resetMobileMonitoring();
+    await monitor.configureMobileMonitoring(
+      "https://second.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(sdk.captureException).not.toHaveBeenCalled();
   });
 
   it("stays optional, reports caught startup errors, and strips private data", async () => {
