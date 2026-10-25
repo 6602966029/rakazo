@@ -601,8 +601,18 @@ function restoreAppWindowAfterSetup() {
   mainWindow.focus();
 }
 
+let menuUpdateCheck: Promise<void> | null = null;
+
 /** Works before sign-in, unlike the settings section, and answers with native alerts. */
-async function checkForUpdatesFromMenu() {
+function checkForUpdatesFromMenu() {
+  // One request at a time, so repeated clicks cannot stack alerts.
+  menuUpdateCheck ??= runMenuUpdateCheck().finally(() => {
+    menuUpdateCheck = null;
+  });
+  return menuUpdateCheck;
+}
+
+async function runMenuUpdateCheck() {
   let state = await desktopUpdater.check(true);
   // A found update starts downloading on its own; wait for it so the answer can be "restart".
   if (state.phase === "available" || state.phase === "downloading") {
@@ -620,15 +630,24 @@ async function checkForUpdatesFromMenu() {
       cancelId: 1,
       noLink: true,
     });
-    if (response === 0) await installUpdate();
-  } else if (state.phase === "idle") {
-    await alert({ message: "Rakazo is up to date.", detail: `Version ${state.currentVersion}` });
+    if (response !== 0) return;
+    const result = await installUpdate();
+    if (result.message) {
+      await alert({
+        type: "warning",
+        message: "Could not install the update.",
+        detail: result.message,
+      });
+    }
   } else if (state.message) {
+    // Offline and other failed checks settle back to idle with a message.
     await alert({
       type: "warning",
       message: "Could not check for updates.",
       detail: state.message,
     });
+  } else if (state.phase === "idle") {
+    await alert({ message: "Rakazo is up to date.", detail: `Version ${state.currentVersion}` });
   }
 }
 
