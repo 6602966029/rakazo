@@ -61,6 +61,46 @@ describe("switching spaces in place", () => {
   });
 });
 
+describe("revisiting a space", () => {
+  it("opens with the cached bootstrap and still refreshes it", async () => {
+    vi.stubGlobal("window", { location: { pathname: "/sign-in" } });
+    const cached = { me: { ticketBoardEnabled: true, maxUploadSizeBytes: 4321 } } as Awaited<
+      ReturnType<typeof rpc.bootstrap>
+    >;
+    const fresh = { me: { ticketBoardEnabled: false } } as Awaited<
+      ReturnType<typeof rpc.bootstrap>
+    >;
+    vi.mocked(rpc.bootstrap).mockReset().mockResolvedValue(fresh);
+    const { getMaxUploadSizeBytes, peekBootstrapSeed, primeSpaceBootstrap, takeInitialBootstrap } =
+      await import("./bootstrap");
+    void primeSpaceBootstrap("space-b", "bot-b", cached);
+    vi.mocked(selectedSpaceId).mockReturnValue("space-b");
+    expect(peekBootstrapSeed("bot-b")).toBe(cached);
+    expect(peekBootstrapSeed("bot-c")).toBeUndefined();
+    const taken = takeInitialBootstrap("bot-b");
+    expect(getMaxUploadSizeBytes()).toBe(4321);
+    await expect(taken).resolves.toBe(fresh);
+    expect(rpc.bootstrap).toHaveBeenCalledWith(
+      { botId: "bot-b" },
+      { context: { spaceId: "space-b" } },
+    );
+    expect(peekBootstrapSeed("bot-b")).toBeUndefined();
+  });
+
+  it("never seeds a shell for another space", async () => {
+    vi.stubGlobal("window", { location: { pathname: "/sign-in" } });
+    vi.mocked(rpc.bootstrap)
+      .mockReset()
+      .mockResolvedValue({ me: { ticketBoardEnabled: false } } as Awaited<
+        ReturnType<typeof rpc.bootstrap>
+      >);
+    const { peekBootstrapSeed, primeSpaceBootstrap } = await import("./bootstrap");
+    void primeSpaceBootstrap("space-b", "bot-b", {} as Awaited<ReturnType<typeof rpc.bootstrap>>);
+    vi.mocked(selectedSpaceId).mockReturnValue("space-c");
+    expect(peekBootstrapSeed("bot-b")).toBeUndefined();
+  });
+});
+
 describe("primed space isolation", () => {
   it("applies capabilities only when the selected shell takes the bootstrap", async () => {
     vi.stubGlobal("window", { location: { pathname: "/sign-in" } });
