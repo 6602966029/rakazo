@@ -13,7 +13,8 @@ test("changing language updates settings overflow without resizing", async ({ pa
   await signup(page, `settings-language-${stamp}@rakazo.test`, "password12", "Settings");
   await completeOnboarding(page);
   const settings = await openUserSettings(page);
-  await page.setViewportSize({ width: 740, height: 700 });
+  // English labels fit at this width and longer German ones overflow.
+  await page.setViewportSize({ width: 800, height: 700 });
   const nav = settings.getByTestId("settings-nav");
   const next = settings.getByRole("button", { name: "Next settings sections" });
   await expect.poll(() => nav.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
