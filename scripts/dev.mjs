@@ -377,26 +377,23 @@ const mainCheckout = path.dirname(
 );
 const sharedDataDir = path.resolve(mainCheckout, setting("DATA_DIR") || "./data");
 
-let database = { ...(await sharedDatabase()), dataDir: sharedDataDir };
+const shared = { ...(await sharedDatabase()), dataDir: sharedDataDir };
+let database = shared;
 const onMain = mainMigrations();
 const pending = branchOnlyMigrations(onMain);
-await pruneBranchDatabases(
-  database,
-  sharedDataDir,
-  onMain,
-  pending.length ? currentBranch() : null,
-);
+await pruneBranchDatabases(shared, sharedDataDir, onMain, pending.length ? currentBranch() : null);
 if (pending.length) {
   log(`This branch adds ${pending.length} migration(s), so it gets its own database`);
-  database = await branchDatabase(database, sharedDataDir);
+  database = await branchDatabase(shared, sharedDataDir);
 }
 env.DATABASE_URL = database.url;
 env.DATABASE_MIGRATION_URL = database.migrationUrl;
 env.DATA_DIR = database.dataDir;
 
 generateClientIfStale(env);
-// Checkouts starting together would otherwise grant the runtime role at the same moment and fail.
-const migrationLock = new Client({ connectionString: database.migrationUrl });
+// Checkouts starting together would otherwise grant the server-wide runtime role at the same
+// moment and fail. Advisory locks are per database, so every checkout locks the shared one.
+const migrationLock = new Client({ connectionString: shared.migrationUrl });
 await migrationLock.connect();
 try {
   await migrationLock.query("SELECT pg_advisory_lock(hashtext('rakazo dev migrate'))");
