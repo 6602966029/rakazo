@@ -138,6 +138,20 @@ describePostgres("messaging workspace installation (PostgreSQL)", () => {
         await runAsTenant(memberActor, () => manager.canLinkPersonalMessages(memberActor)),
       ).toBe(true);
       expect(await runAsTenant(memberActor, () => manager.list(memberActor))).toEqual([]);
+      const ownerMembership = await asSystem(prisma).spaceMember.findUniqueOrThrow({
+        where: { spaceId_userId: { spaceId: space.id, userId: actors[0]!.userId } },
+      });
+      await asSystem(prisma).spaceMember.delete({ where: { id: ownerMembership.id } });
+      try {
+        expect(
+          await runAsTenant(memberActor, () => manager.canLinkPersonalMessages(memberActor)),
+        ).toBe(false);
+      } finally {
+        await asSystem(prisma).spaceMember.create({ data: ownerMembership });
+      }
+      expect(
+        await runAsTenant(memberActor, () => manager.canLinkPersonalMessages(memberActor)),
+      ).toBe(true);
       await asSystem(prisma).spaceMember.delete({ where: { id: membershipId } });
       expect(await manager.canLinkPersonalMessages(memberActor)).toBe(false);
     } finally {
