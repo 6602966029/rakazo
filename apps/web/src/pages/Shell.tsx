@@ -23,7 +23,7 @@ import type {
   VoiceStatus,
 } from "@rakazo/contracts";
 import { ATTACHMENT_MAX_COUNT, attachmentMaxBytes, attachmentSizeLabel } from "@rakazo/contracts";
-import type { ComposerMention, ReadBoundary } from "@rakazo/core";
+import type { AgentImportReader, ComposerMention, ReadBoundary } from "@rakazo/core";
 import {
   accountDisplay,
   answerableAskMessageIds,
@@ -104,7 +104,6 @@ import { SidebarFooter } from "../components/SidebarFooter";
 import type { ActivityListFilters } from "../lib/activity-list-filters";
 import { emptyActivityFilters } from "../lib/activity-list-filters";
 import { readActivityMode, writeActivityMode } from "../lib/activity-mode";
-import type { DroppedAgent } from "../lib/agent-drop";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { authClient } from "../lib/auth";
 import { autoReadStillWanted } from "../lib/auto-read";
@@ -427,7 +426,9 @@ function SpaceShell() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [modelFocusRequest, setModelFocusRequest] = useState(0);
   const [panel, setPanelState] = useState<Panel>(null);
-  const [droppedAgent, setDroppedAgent] = useState<DroppedAgent | null>(null);
+  const [droppedAgent, setDroppedAgent] = useState<AgentImportReader | null>(null);
+  // Back returns to the New bot dialog only when the import was opened from it.
+  const [importFromDialog, setImportFromDialog] = useState(false);
   const [restoredPanelKey, setRestoredPanelKey] = useState<string | null>(null);
   const panelStorageKeyRef = useRef<string | null>(null);
   const observedPanelKey = useRef<string | null>(null);
@@ -3740,6 +3741,7 @@ function SpaceShell() {
               onOpenComputer={onOpenComputer}
               onOpenImport={() => {
                 setDroppedAgent(null);
+                setImportFromDialog(false);
                 setPanel("import-agent");
               }}
               onOpenImportSetup={(target) => {
@@ -3770,6 +3772,7 @@ function SpaceShell() {
               enterToSend={enterToSend}
               onImportAgent={(agent) => {
                 setDroppedAgent(agent);
+                setImportFromDialog(false);
                 setPanel("import-agent");
               }}
               activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
@@ -3960,7 +3963,7 @@ function SpaceShell() {
                 onBack={() => {
                   setDroppedAgent(null);
                   setPanel(null);
-                  setCreateBotOpen(true);
+                  if (importFromDialog) setCreateBotOpen(true);
                 }}
                 onCancel={() => {
                   setDroppedAgent(null);
@@ -4184,6 +4187,7 @@ function SpaceShell() {
             onImport={() => {
               setCreateBotOpen(false);
               setDroppedAgent(null);
+              setImportFromDialog(true);
               setPanel("import-agent");
             }}
           />
