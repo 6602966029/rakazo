@@ -2423,6 +2423,87 @@ describe("connections.begin", () => {
       json: { connectionId: "conn-old" },
     });
   });
+
+  it("cancels the remote authorization when its result cannot be saved before the slot frees", async () => {
+    vi.useFakeTimers();
+    let releaseSlot = () => {};
+    let holder: Promise<void> = Promise.resolve();
+    const begin = vi.fn(async () => {
+      // Another provider call takes the slot while this one talks to the provider.
+      holder = runProviderTransaction(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseSlot = resolve;
+          }),
+        120_000,
+      );
+      return { state: "request-1", authorizationUrl: "https://provider.test/authorize" };
+    });
+    const cancelAuthorizationRequest = vi.fn(async () => undefined);
+    const rootUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(undefined),
+      connection: {
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue({ id: "conn-1", status: "pending" }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma = {
+      connection: { updateMany: rootUpdateMany },
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx)),
+    } as unknown as PrismaClient;
+    const handler = new RPCHandler(
+      createRouter({
+        prisma,
+        connectors: { managed: vi.fn(() => ({ begin, cancelAuthorizationRequest })) },
+        env: {
+          defaultProvider: "fake",
+          defaultModel: "fake-model",
+          webOrigin: "http://127.0.0.1:5173",
+          screenProxySecret: "fake-test-secret",
+          sandboxProvider: "fake",
+        },
+        dataDir: "/tmp/rakazo-router-test",
+      } as unknown as RouterDeps),
+    );
+    try {
+      const handled = handler.handle(
+        new Request("http://127.0.0.1/rpc/connections/begin", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            json: { connectorId: "composio", provider: "gmail", displayName: "Gmail" },
+          }),
+        }),
+        {
+          prefix: "/rpc",
+          context: {
+            actor: {
+              spaceId: "workspace-1",
+              userId: "user-1",
+              email: "user@rakazo.test",
+              isDeploymentOwner: true,
+            },
+          },
+        },
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      const { response } = await handled;
+
+      expect(response.status).not.toBe(200);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(tx.connection.updateMany).not.toHaveBeenCalled();
+      expect(cancelAuthorizationRequest).toHaveBeenCalledWith("request-1", expect.anything());
+      expect(rootUpdateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: "error" } }),
+      );
+    } finally {
+      releaseSlot();
+      await holder;
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("connections.complete", () => {

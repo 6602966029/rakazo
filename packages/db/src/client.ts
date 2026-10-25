@@ -80,6 +80,7 @@ export function createDb(
   });
   keyPool.on("error", () => undefined);
   installDbContext(keyPool);
+  installSaturationReport(keyPool, keyPool.options.application_name);
   const end = pool.end.bind(pool) as () => Promise<void>;
   pool.end = (async () => {
     await keyPool.end().catch(() => undefined);

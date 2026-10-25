@@ -5663,6 +5663,7 @@ export function createRouter(deps: RouterDeps) {
           );
           // Re-take the provider lock and only advance still-pending rows so a
           // concurrent revoke cannot be overwritten back to pending/connected.
+          let busy = false;
           const applied = await providerLockTransaction(deps.prisma, async (tx) => {
             await lockProviderConnectionScope(tx, context.actor, input.connectorId, input.provider);
             const updated = await tx.connection.updateMany({
@@ -5679,6 +5680,10 @@ export function createRouter(deps: RouterDeps) {
               },
             });
             return updated.count > 0;
+          }).catch((error: unknown) => {
+            if (!(error instanceof ProviderTransactionBusyError)) throw error;
+            busy = true;
+            return false;
           });
           if (applied && !auth.authorizationUrl) {
             await recordSecurityEvent(
@@ -5686,7 +5691,8 @@ export function createRouter(deps: RouterDeps) {
             );
           }
           if (!applied) {
-            // Revoke won the race. Clean up without a provider-wide slug delete.
+            // Revoke won the race, or the result could not be saved in time. Clean up the
+            // remote authorization without a provider-wide slug delete.
             const state = auth.state?.trim();
             const adapterContext = connectionContext(
               context.actor,
@@ -5787,6 +5793,7 @@ export function createRouter(deps: RouterDeps) {
                 }).catch(() => undefined);
               }
             }
+            if (busy) throw new ProviderTransactionBusyError();
             throw new IsolationError();
           }
           return { connectionId: row.id, authorizationUrl: auth.authorizationUrl };
@@ -5801,6 +5808,7 @@ export function createRouter(deps: RouterDeps) {
             },
             data: { status: "error" },
           });
+          if (error instanceof ProviderTransactionBusyError) throw error;
           throw new ORPCError("BAD_REQUEST", { message: sanitizeComposioError(error) });
         }
       }),
