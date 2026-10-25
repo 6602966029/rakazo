@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -23,12 +24,16 @@ const messaging = vi.hoisted(() => ({
   },
 }));
 
+const api = vi.hoisted(() => ({
+  messaging,
+  bots: { list: vi.fn(async () => [{ id: "bot-1", name: "Chief" }]) },
+  spaces: { list: vi.fn(async () => ({ current: { externalConversations: [] } })) },
+}));
 vi.mock("../lib/rpc", () => ({
-  rpc: {
-    messaging,
-    bots: { list: vi.fn(async () => [{ id: "bot-1", name: "Chief" }]) },
-    spaces: { list: vi.fn(async () => ({ current: { externalConversations: [] } })) },
-  },
+  rpc: api,
+  rpcForSpace: () => api,
+  createSpaceRpc: () => api,
+  selectedSpaceId: () => null,
 }));
 vi.mock("./ExternalConversationSettings", () => ({ ExternalConversationSettings: () => null }));
 vi.mock("@lingui/react/macro", () => {
@@ -95,6 +100,19 @@ function pendingStatus() {
 
 let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
+let client: QueryClient;
+
+async function renderOverlay() {
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <MessagingSettingsOverlay onClose={() => undefined} />
+      </QueryClientProvider>,
+    ),
+  );
+  // Let query results reach the screen.
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+}
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -102,6 +120,7 @@ beforeEach(() => {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 
 afterEach(() => {
@@ -121,7 +140,7 @@ function telegramItem() {
 }
 
 async function startLink() {
-  await act(async () => root.render(<MessagingSettingsOverlay onClose={() => undefined} />));
+  await renderOverlay();
   await act(async () => telegramItem()?.click());
   expect(container.querySelector('[data-testid="messaging-link-code"]')).not.toBeNull();
 }
@@ -249,8 +268,99 @@ it("ignores a pending response after expiry", async () => {
 it("offers personal Slack linking alongside a workspace install", async () => {
   messaging.status.mockResolvedValue({ ...statusWith([]), providers: ["slack"] });
   messaging.installations.list.mockResolvedValueOnce({ available: true, installations: [] });
-  await act(async () => root.render(<MessagingSettingsOverlay onClose={() => undefined} />));
+  await renderOverlay();
   const items = [...container.querySelectorAll("button")].map((button) => button.textContent);
   expect(items).toContain("Slack");
   expect(items).toContain("Slack workspace");
+});
+
+async function reopen() {
+  act(() => root.unmount());
+  await client.invalidateQueries();
+  root = createRoot(container);
+}
+
+it("reopens with cached chat apps and refreshes them in the background", async () => {
+  messaging.status.mockResolvedValue(statusWith([identity]));
+  await renderOverlay();
+  expect(container.textContent).toContain("424242");
+  await reopen();
+
+  const pending = pendingStatus();
+  messaging.status.mockReturnValueOnce(pending.promise);
+  await renderOverlay();
+  // Painted from the cache while the refresh is still out.
+  expect(container.textContent).toContain("424242");
+  await act(async () => pending.resolve(statusWith([])));
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+  expect(container.textContent).not.toContain("424242");
+});
+
+it("says when reopening could not refresh, while still showing cached chat apps", async () => {
+  messaging.status.mockResolvedValue(statusWith([identity]));
+  await renderOverlay();
+  await reopen();
+
+  messaging.status.mockRejectedValue(new Error("offline"));
+  await renderOverlay();
+  expect(container.textContent).toContain("Couldn't load messaging settings");
+  expect(container.textContent).toContain("424242");
+});
+
+it("keeps an unlink when an older status read lands after it", async () => {
+  messaging.status.mockResolvedValue(statusWith([identity]));
+  await renderOverlay();
+  await reopen();
+
+  const older = pendingStatus();
+  messaging.status.mockReturnValueOnce(older.promise).mockResolvedValue(statusWith([]));
+  messaging.identities.unlink.mockResolvedValue({ ok: true });
+  await renderOverlay();
+  const unlink = [...container.querySelectorAll("button")].find((button) =>
+    button.textContent?.includes("Unlink"),
+  );
+  await act(async () => unlink?.click());
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+  expect(container.textContent).not.toContain("424242");
+  // The read sent before the unlink still reports the identity; it must not come back.
+  await act(async () => older.resolve(statusWith([identity])));
+  await act(async () => vi.advanceTimersByTimeAsync(20));
+  expect(container.textContent).not.toContain("424242");
+});
+
+it("keeps a removed Slack workspace gone when an older read lands after it", async () => {
+  const workspace = {
+    available: true,
+    installations: [
+      {
+        id: "inst-1",
+        provider: "slack",
+        workspaceName: "Acme HQ",
+        botId: "bot-1",
+        botName: "Chief",
+      },
+    ],
+  };
+  messaging.status.mockResolvedValue(statusWith([]));
+  messaging.installations.list.mockResolvedValue(workspace as never);
+  await renderOverlay();
+  expect(container.textContent).toContain("Acme HQ");
+  await reopen();
+
+  let answerOlder!: (value: typeof workspace) => void;
+  messaging.installations.list
+    .mockReturnValueOnce(new Promise((done) => (answerOlder = done)) as never)
+    .mockResolvedValue({ available: true, installations: [] });
+  messaging.installations.remove.mockResolvedValue({ ok: true });
+  await renderOverlay();
+  const remove = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Disconnect",
+  );
+  if (!remove) throw new Error("Missing remove button");
+  await act(async () => remove.click());
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+  expect(container.textContent).not.toContain("Acme HQ");
+  await act(async () => answerOlder(workspace));
+  await act(async () => vi.advanceTimersByTimeAsync(20));
+  expect(container.textContent).not.toContain("Acme HQ");
 });
