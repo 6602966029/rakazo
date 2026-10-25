@@ -417,7 +417,10 @@ import {
   createScheduleFromTool,
   filterBuiltinToolsForRun,
   filterBuiltinToolsForThread,
+  isScheduleValueProvided,
   listSchedulesFromTool,
+  SCHEDULE_TOOL_NAMES,
+  updateScheduleFromTool,
 } from "./schedule-tools.js";
 import { loadAgentScratchpadContext } from "./scratchpad-context.js";
 import {
@@ -5189,7 +5192,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // site this run was not given needs a person: a reviewer would judge it on this run's
           // context, and passing it would trust the site for every later run.
           const scheduleNamesNewSite =
-            name === "schedule_create" &&
+            (name === "schedule_create" || (name === "schedule_update" && args.prompt)) &&
             (await isRunTainted()) &&
             (await routineNamesNewSite(String(args.prompt ?? "")));
           const requiresApprovalByDefault =
@@ -6630,10 +6633,38 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 runAt: args.runAt,
                 delayMinutes: args.delayMinutes,
                 delaySeconds: args.delaySeconds,
+                startAt: args.startAt,
                 watch: args.watch,
               }),
             });
             return finish(created);
+          }
+          if (name === "schedule_update") {
+            return finish(
+              await updateScheduleFromTool(deps, {
+                spaceId: run.spaceId,
+                botId: bot.id,
+                userId: run.userId,
+                threadId: thread.id,
+                ...(thread.groupId ? { scopeThreadId: thread.id } : {}),
+                routineId: String(args.routineId ?? ""),
+                name: isScheduleValueProvided(args.name) ? String(args.name) : undefined,
+                prompt: isScheduleValueProvided(args.prompt) ? String(args.prompt) : undefined,
+                active: typeof args.active === "boolean" ? args.active : undefined,
+                timezone: isScheduleValueProvided(args.timezone)
+                  ? String(args.timezone)
+                  : undefined,
+                schedule: compactScheduleInput({
+                  cron: args.cron,
+                  every: args.every,
+                  unit: args.unit,
+                  runAt: args.runAt,
+                  delayMinutes: args.delayMinutes,
+                  delaySeconds: args.delaySeconds,
+                  startAt: args.startAt,
+                }),
+              }),
+            );
           }
           if (name === "call_user") {
             if (
@@ -9580,9 +9611,7 @@ function scratchpadClause(disabled?: ReadonlySet<string>): string | undefined {
     builtinOffered(disabled, name),
   );
   if (pads.length === 0) return undefined;
-  const schedules = ["schedule_create", "schedule_list", "schedule_cancel"].some((name) =>
-    builtinOffered(disabled, name),
-  );
+  const schedules = [...SCHEDULE_TOOL_NAMES].some((name) => builtinOffered(disabled, name));
   if (pads.length === 3 && schedules) {
     return "Use scratchpad_add / scratchpad_update / scratchpad_complete for open work that should outlive this turn (not reminders — those are schedule_*).";
   }
