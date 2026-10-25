@@ -173,8 +173,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Already have an account?": "Heb je al een account?",
   "Back to sign in": "Terug naar aanmelden",
   "Check your email": "Controleer je e-mail",
-  "Use password": "Wachtwoord gebruiken",
-  "Use email code": "E-mailcode gebruiken",
   "Invalid code": "Ongeldige code",
   "Request a new code": "Vraag een nieuwe code aan",
   "Checking…": "Bezig met controleren…",
