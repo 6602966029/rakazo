@@ -33,6 +33,7 @@ interface ComputerRow {
   homeStorageId: string | null;
   homeStorageKey: string | null;
   homeStorageRevision: string | null;
+  updatedAt: Date;
 }
 
 /** The slice of `prisma.computer` the records use, over an array of rows. */
@@ -40,6 +41,8 @@ function fakeComputers(rows: ComputerRow[]) {
   const matches = (row: ComputerRow, where: Record<string, unknown>) =>
     Object.entries(where).every(([field, value]) => {
       const actual = row[field as keyof ComputerRow];
+      if (value instanceof Date)
+        return actual instanceof Date && actual.getTime() === value.getTime();
       if (value && typeof value === "object" && "in" in value)
         return (value.in as unknown[]).includes(actual);
       return actual === value;
@@ -75,7 +78,8 @@ function fakeComputers(rows: ComputerRow[]) {
         data: Partial<ComputerRow>;
       }) => {
         const updated = rows.filter((row) => matches(row, where));
-        for (const row of updated) Object.assign(row, data);
+        // Like Prisma's @updatedAt: bumped on every write that doesn't set it.
+        for (const row of updated) Object.assign(row, { updatedAt: new Date() }, data);
         return { count: updated.length };
       },
     },
@@ -107,6 +111,7 @@ async function setup(homeKeys = ["bot-1"]) {
     homeStorageId: null,
     homeStorageKey: null,
     homeStorageRevision: null,
+    updatedAt: new Date(0),
   }));
   const storage = new MemoryObjectStorage();
   const records = new PrismaAgentHomeRecords(fakeComputers(rows), memoryRing());
@@ -159,6 +164,18 @@ describe("ObjectAgentHomeStore", () => {
     expect(object!.bytes.includes(Buffer.from("todo.txt"))).toBe(false);
     expect(rows[0]!.homeStorageRevision).toBe(revision);
     expect(rows[0]!.homeStorageKey).toMatch(/^rkz1:/);
+  });
+
+  it("saves without moving the computer's updatedAt, which lifecycle claims fence on", async () => {
+    const { store, rows } = await setup();
+    const claimedAt = new Date("2026-01-01T00:00:00Z");
+    rows[0]!.updatedAt = claimedAt;
+
+    await store.commit("bot-1", await staged({ "a.txt": "one" }), context);
+    await store.commit("bot-1", await staged({ "a.txt": "two" }), context);
+
+    expect(rows[0]!.homeStorageRevision).not.toBeNull();
+    expect(rows[0]!.updatedAt.getTime()).toBe(claimedAt.getTime());
   });
 
   it("restores a home on a host whose cache is empty", async () => {
