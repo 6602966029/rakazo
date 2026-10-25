@@ -139,11 +139,24 @@ export function configureMobileMonitoring(
     try {
       const Sentry = await import("@sentry/react-native");
       const { Platform } = await import("react-native");
+      const updates = await import("expo-updates");
+      const { channel } = updates;
+      // Isolate native SDK initialization on diagnostic builds while retaining JS reports.
+      const application = channel === "diagnostic" ? await import("expo-application") : undefined;
       if (current !== generation) return;
       const userId = isMonitoringUserId(config.userId) ? config.userId : undefined;
       Sentry.init({
         dsn: nativeMonitoringDsn(base, config.dsn, "mobile"),
         environment: config.environment ?? undefined,
+        enableNative: channel !== "diagnostic",
+        ...(application?.applicationId &&
+        application.nativeApplicationVersion &&
+        application.nativeBuildVersion
+          ? {
+              release: `${application.applicationId}@${application.nativeApplicationVersion}+${application.nativeBuildVersion}`,
+              dist: application.nativeBuildVersion,
+            }
+          : {}),
         // Keep the native binary release for symbolication, distinct from the server release.
         sendDefaultPii: false,
         enableLogs: false,
@@ -171,7 +184,11 @@ export function configureMobileMonitoring(
           ),
         beforeBreadcrumb: () => null,
         beforeSend: (event, hint) => {
-          if (current !== generation || isAbandonedRequest(hint?.originalException)) return null;
+          if (
+            current !== generation ||
+            (event.level !== "fatal" && isAbandonedRequest(hint?.originalException))
+          )
+            return null;
           if (Platform.OS === "ios" || Platform.OS === "android")
             event.tags = { ...event.tags, "mobile.platform": Platform.OS };
           return sanitizeMonitoringEvent(
@@ -207,6 +224,38 @@ export function configureMobileMonitoring(
       }
       if (reportingReady) reportingReady();
       else if (pendingStartupError) void flushStartupError();
+      if (channel === "diagnostic") {
+        // Expo records the original recovery error even when no JS handler can report it.
+        void updates
+          .readLogEntriesAsync(3_600_000)
+          .then((entries) => {
+            if (current !== generation) return;
+            const latest = entries
+              .filter(
+                (entry) =>
+                  entry.code === "JSRuntimeError" &&
+                  (entry.level === "error" || entry.level === "fatal"),
+              )
+              .sort((a, b) => a.timestamp - b.timestamp)
+              .at(-1);
+            if (!latest) return;
+            const error = new Error(latest.message.slice(0, 8_192));
+            error.name = "ExpoStartupError";
+            Sentry.captureException(error, {
+              mechanism: { handled: false, type: "expo.error_recovery" },
+              captureContext: {
+                level: "fatal",
+                tags: {
+                  operation: "mobile.startup",
+                  surface: "mobile",
+                  "startup.previous_launch": "true",
+                },
+              },
+            });
+            return Sentry.flush();
+          })
+          .catch(() => undefined);
+      }
     } catch {
       // Retain the bounded startup queue; foreground/reconnect retries configuration.
     }

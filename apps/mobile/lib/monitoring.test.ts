@@ -8,6 +8,18 @@ const sdk = vi.hoisted(() => ({
   setUser: vi.fn(),
   setTag: vi.fn(),
 }));
+const updates = vi.hoisted(() => ({
+  channel: "production",
+  readLogEntriesAsync: vi.fn(
+    async () => [] as Array<{ code: string; level: string; timestamp: number; message: string }>,
+  ),
+}));
+vi.mock("expo-updates", () => updates);
+vi.mock("expo-application", () => ({
+  applicationId: "com.example.app",
+  nativeApplicationVersion: "1.2.3",
+  nativeBuildVersion: "4",
+}));
 const storage = vi.hoisted(() => new Map<string, string>());
 const secureStorage = {
   getItem: (key: string) => storage.get(key) ?? null,
@@ -25,6 +37,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   storage.clear();
   sdk.flush.mockResolvedValue(true);
+  updates.channel = "production";
+  updates.readLogEntriesAsync.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -276,6 +290,68 @@ describe("mobile monitoring", () => {
     );
   });
 
+  it("isolates native initialization on the diagnostic channel and retains explicit binary identity", async () => {
+    updates.channel = "diagnostic";
+    const monitor = await import("./monitoring");
+    await monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(sdk.init).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enableNative: false,
+        release: "com.example.app@1.2.3+4",
+        dist: "4",
+      }),
+    );
+    const error = new Error("chat failed");
+    monitor.reportMobileError(error, "react.render");
+    expect(sdk.captureException).toHaveBeenCalledWith(error, {
+      tags: { operation: "react.render", surface: "mobile" },
+    });
+  });
+
+  it("recovers Expo's latest persisted runtime error on the diagnostic channel", async () => {
+    updates.channel = "diagnostic";
+    updates.readLogEntriesAsync.mockResolvedValue([
+      { code: "JSRuntimeError", level: "error", timestamp: 1, message: "older runtime failure" },
+      {
+        code: "JSRuntimeError",
+        level: "error",
+        timestamp: 2,
+        message: "original recovery exception",
+      },
+      { code: "UpdateServerUnreachable", level: "error", timestamp: 3, message: "offline" },
+    ]);
+    const monitor = await import("./monitoring");
+    await monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    await vi.waitFor(() =>
+      expect(sdk.captureException).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "ExpoStartupError",
+          message: "original recovery exception",
+        }),
+        {
+          mechanism: { handled: false, type: "expo.error_recovery" },
+          captureContext: {
+            level: "fatal",
+            tags: {
+              operation: "mobile.startup",
+              surface: "mobile",
+              "startup.previous_launch": "true",
+            },
+          },
+        },
+      ),
+    );
+    expect(updates.readLogEntriesAsync).toHaveBeenCalledWith(3_600_000);
+  });
+
   it("stays optional, reports caught startup errors, and strips private data", async () => {
     const monitor = await import("./monitoring");
     const error = new Error("startup");
@@ -289,8 +365,10 @@ describe("mobile monitoring", () => {
       tags: { operation: "react.render", surface: "mobile" },
     });
     const options = sdk.init.mock.calls[0]![0];
+    expect(updates.readLogEntriesAsync).not.toHaveBeenCalled();
     expect(options).toMatchObject({
       sendDefaultPii: false,
+      enableNative: true,
       enableLogs: false,
       attachScreenshot: false,
       attachViewHierarchy: false,
@@ -427,6 +505,11 @@ describe("mobile monitoring", () => {
     const { beforeSend } = sdk.init.mock.calls[0]![0];
     const timeout = Object.assign(new Error("signal timed out"), { name: "TimeoutError" });
     expect(beforeSend({}, { originalException: timeout })).toBeNull();
+    expect(beforeSend({ level: "fatal" }, { originalException: timeout })).toEqual({
+      level: "fatal",
+      user: { ip_address: null },
+      tags: { "mobile.platform": "ios" },
+    });
     expect(beforeSend({}, { originalException: bug })).toEqual({
       user: { ip_address: null },
       tags: { "mobile.platform": "ios" },
