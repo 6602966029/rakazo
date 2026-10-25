@@ -39,6 +39,8 @@ export type Flow<World = unknown> = {
   setup(computer: FlowComputer): Promise<World>;
   /** Who the simulated person is and what they want; hidden from the bot. */
   persona(world: World): string;
+  /** The person's IANA timezone, adopted on first sign-in as the web app does. */
+  timezone: string;
   /** Facts that change while the flow runs, such as a code texted to the person's phone. */
   liveFacts?(computer: FlowComputer, world: World): Promise<string | undefined>;
   /** Routine wakes to force after the conversation, standing in for real time passing. */

@@ -264,6 +264,7 @@ export async function runFlow<World>(
     });
     if (!signup.ok) throw new Error(`Signup failed (${signup.status})`);
     cookie = sessionCookieHeader(signup);
+    await rpc("preferences/adoptTimezone", { timezone: flow.timezone });
     // A fresh bot exactly as a new user would create it: no test instructions.
     const bot = await rpc<{ id: string }>("bots/create", { name: "Errands" });
     botId = bot.id;

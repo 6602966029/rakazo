@@ -111,6 +111,7 @@ export const weeklyShopping: Flow<World> = {
   purpose:
     "Set up a weekly grocery order on a store that needs login and a texted code, handle out-of-stock items and confirm the first order. The routine then fires again the same week, which must not order twice.",
   routineWakes: 1,
+  timezone: "America/New_York",
 
   async setup(computer) {
     const seed = randomInt(1, 10_000);
@@ -156,7 +157,7 @@ export const weeklyShopping: Flow<World> = {
     const swaps = Object.entries(SWAPS)
       .map(([sku, swap]) => `- if ${sku.replace(/-/g, " ")} is out: ${swap.say}`)
       .join("\n");
-    return `You are Sam Rivera. You want this assistant to take over your weekly grocery shop on Freshcart, your online grocery store, at ${URL}.
+    return `You are Sam Rivera, living in New York. You want this assistant to take over your weekly grocery shop on Freshcart, your online grocery store, at ${URL}.
 
 What you want:
 - Every week, on Monday mornings, it orders your usual list for delivery in the earliest available morning slot (9–11 am), whatever day that falls on.
