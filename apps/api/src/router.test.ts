@@ -4816,6 +4816,20 @@ describe("bot intro run", () => {
     );
   });
 
+  it("leaves a placeholder account name out of the intro", async () => {
+    const { create, deps } = introDeps();
+    vi.mocked(deps.prisma.user.findUnique).mockResolvedValue({
+      name: "__PrbLMrkR__",
+    } as never);
+
+    await enqueueBotIntroRun(deps, actor, bot);
+
+    const [taskCall] = create.mock.calls as Array<[{ data: { prompt?: string } }]>;
+    expect(taskCall?.[0].data.prompt).toBe(
+      botIntroPrompt({ userName: "", spaceName: null, disabledBuiltinTools: [] }),
+    );
+  });
+
   it("does nothing when the bot has no thread", async () => {
     const { create, enqueue, deps } = introDeps();
 

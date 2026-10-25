@@ -176,7 +176,7 @@ export async function enqueueBotIntroRun(deps: RouterDeps, actor: Actor, bot: Bo
     }),
   ]);
   const prompt = botIntroPrompt({
-    userName: user?.name.trim() ?? "",
+    userName: displayName(user?.name, ""),
     spaceName: space && !space.isDefault ? space.name.trim() || null : null,
     disabledBuiltinTools: bot.disabledBuiltinTools ?? [],
   });
