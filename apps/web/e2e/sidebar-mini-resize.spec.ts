@@ -51,6 +51,17 @@ test("sidebar rail keeps chats interactive and remembers a dragged width", async
   await expect(page).toHaveURL(new RegExp(`/app/${bot.id}$`));
   await expect(row).toHaveAttribute("aria-current", "page");
   await expect(sidebar.locator("[data-roster-preview]")).toHaveCount(0);
+  await page.mouse.move(700, 450);
+  await row.hover();
+  const tooltip = page.locator('[data-slot="tooltip-content"]').filter({ hasText: "Research" });
+  await expect(tooltip).toBeVisible();
+  await expect
+    .poll(async () => {
+      const label = await tooltip.boundingBox();
+      const icon = await row.boundingBox();
+      return label && icon ? label.x >= icon.x + icon.width : false;
+    })
+    .toBe(true);
   await captureScreenshot(page, testInfo, "sidebar-mini-avatar-rail");
   await page.getByTestId("user-menu-trigger").click();
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
