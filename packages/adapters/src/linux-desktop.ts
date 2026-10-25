@@ -358,8 +358,6 @@ const FIND_MISSING_DESKTOP_TOOLS = [
   'for pair in python3:python3 flock:util-linux Xvfb:xvfb xdpyinfo:x11-utils x11vnc:x11vnc fluxbox:fluxbox xdotool:xdotool wmctrl:wmctrl scrot:scrot xterm:xterm; do command -v "${pair%%:*}" >/dev/null 2>&1 || missing="$missing ${pair#*:}"; done',
   'if ! command -v websockify >/dev/null 2>&1 && [ ! -x /opt/noVNC/utils/websockify/run ]; then missing="$missing websockify"; fi',
   'if [ ! -d /usr/share/novnc ] && [ ! -d /opt/noVNC ]; then missing="$missing novnc"; fi',
-  // Bots read pages visually; without a color emoji font every emoji is an empty box.
-  'if [ ! -e /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf ]; then missing="$missing fonts-noto-color-emoji"; fi',
 ];
 
 /**
@@ -393,6 +391,11 @@ export const PREPARE_LINUX_DESKTOP = [
   "    $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --fix-broken --no-remove",
   "    $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-remove $missing",
   "  fi",
+  "fi",
+  // Bots read pages visually; without a color emoji font every emoji is an empty box. The
+  // desktop works without it, so an image whose package manager is broken still runs.
+  "if [ ! -e /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf ]; then",
+  '  { $root apt-get update -qq && $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-noto-color-emoji; } || echo "could not install the emoji font" >&2',
   "fi",
   `policy=${shellQuote(BROWSER_POLICY)}`,
   `for dir in ${BROWSER_POLICY_DIRS.join(" ")}; do`,
