@@ -24,19 +24,31 @@ type MockClient = {
   userModelRoleChoice?: unknown;
   spaceModelRoleChoice?: unknown;
   spaceSettingOverride?: unknown;
-  $transaction?: ((...args: unknown[]) => Promise<unknown>) & { mainRole?: true };
+  $transaction?: ((...args: unknown[]) => Promise<unknown>) & { modelRoles?: true };
 };
 
+/** One account main-model row, as `withModelRoles` seeds it. */
+export function mainRole(
+  scope: { userId: string; spaceId?: string },
+  provider: string,
+  modelId: string,
+  thinkingLevel: string | null = null,
+): RoleRow {
+  return { userId: scope.userId, role: "main", position: 0, provider, modelId, thinkingLevel };
+}
+
 /**
- * Mocked clients written for the previous storage describe the main model as a default
- * preference. This gives them the account's role table seeded from that preference until a
- * test writes rows, and Spaces that follow the account unless the test says otherwise.
+ * Gives a mocked client an in-memory account role table seeded with `rows`, and Spaces that
+ * follow the account unless the test says otherwise. A test's own role table keeps answering
+ * its pin lookups; role lists come from memory. Without seeded rows, a mocked preference
+ * marked `isDefault` stands in for the main model.
  */
-export function withMainRole<T>(prisma: T): T {
+export function withModelRoles<T>(prisma: T, rows: RoleRow[] = []): T {
   const client = prisma as MockClient | null;
   if (!client || typeof client !== "object") return prisma;
   const written = new Map<string, RoleRow[]>();
   const key = (where: RoleWhere) => JSON.stringify([where.userId, where.role]);
+  for (const row of rows) written.set(key(row), [...(written.get(key(row)) ?? []), row]);
   const preferences = client.userModelPreference;
   const fromPreference = async (where: RoleWhere): Promise<RoleRow[]> => {
     if (where.role !== "main" || !where.userId || !preferences) return [];
@@ -54,20 +66,12 @@ export function withMainRole<T>(prisma: T): T {
         )?.find((row) => row.isDefault);
     const preference = found as Preference | null | undefined;
     const modelId = usableModelId(preference?.modelId);
-    return preference?.credential && preference.isDefault !== false && modelId
-      ? [
-          {
-            ...scope,
-            role: "main",
-            position: 0,
-            provider: preference.credential.provider,
-            modelId,
-            thinkingLevel: preference.thinkingLevel ?? null,
-          },
-        ]
+    return preference?.credential && preference.isDefault && modelId
+      ? [mainRole(scope, preference.credential.provider, modelId, preference.thinkingLevel ?? null)]
       : [];
   };
   const roleTable = {
+    modelRoles: true as const,
     findMany: vi.fn(async ({ where }: { where: RoleWhere }) =>
       written.has(key(where)) ? written.get(key(where))! : fromPreference(where),
     ),
@@ -81,16 +85,15 @@ export function withMainRole<T>(prisma: T): T {
     }),
   };
   const augment = (target: MockClient) => {
-    // A test's own role table answers its pin lookups; one role's list comes from memory.
     const own = target.userModelRoleChoice as
-      | { findMany?: (args: { where: RoleWhere }) => Promise<unknown> }
+      | { findMany?: (args: { where: RoleWhere }) => Promise<unknown>; modelRoles?: true }
       | undefined;
     target.userModelRoleChoice =
-      own && own !== roleTable && !(own as { mainRole?: true }).mainRole
+      own && !own.modelRoles
         ? {
             ...roleTable,
             ...own,
-            mainRole: true,
+            modelRoles: true,
             findMany: vi.fn((args: { where: RoleWhere }) =>
               args.where.role || !own.findMany ? roleTable.findMany(args) : own.findMany(args),
             ),
@@ -108,7 +111,7 @@ export function withMainRole<T>(prisma: T): T {
   };
   augment(client);
   const transaction = client.$transaction;
-  if (typeof transaction === "function" && !transaction.mainRole) {
+  if (typeof transaction === "function" && !transaction.modelRoles) {
     client.$transaction = Object.assign(
       vi.fn((work: unknown, ...rest: unknown[]) =>
         transaction(
@@ -118,7 +121,7 @@ export function withMainRole<T>(prisma: T): T {
           ...rest,
         ),
       ),
-      { mainRole: true as const },
+      { modelRoles: true as const },
     );
   }
   return prisma;

@@ -125,7 +125,6 @@ function setup(
               {
                 modelId: options.compatible.defaultModel,
                 thinkingLevel: null,
-                isDefault: true,
                 updatedAt: new Date(0),
                 credential,
               },
@@ -656,7 +655,6 @@ describe("role-based model settings API", () => {
       {
         modelId: "model-a",
         thinkingLevel: null,
-        isDefault: true,
         updatedAt: new Date(0),
         credential: connectionA,
       },

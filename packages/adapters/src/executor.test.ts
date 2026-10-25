@@ -37,11 +37,11 @@ import { UnavailableModelForAuthError, validateConnectedModelChoice } from "./mo
 import { PRIVATE_MODEL_ENDPOINT_MESSAGE } from "./openai-compatible-url.js";
 import { RetiredModelCredentialError, serializeModelSecret } from "./pi-oauth.js";
 import { modelsForRequest } from "./pi-runtime.js";
-import { withMainRole } from "./testing/model-roles.js";
+import { mainRole, withModelRoles } from "./testing/model-roles.js";
 import { parseUpdateBotPatch } from "./update-bot-patch.js";
 
 const createRunExecutor = (deps: Parameters<typeof createExecutor>[0]) =>
-  createExecutor({ ...deps, prisma: withMainRole(deps.prisma) });
+  createExecutor({ ...deps, prisma: withModelRoles(deps.prisma) });
 
 describe("bot tool permissions", () => {
   it("never lets self-edit change disabled tools alongside an allowed field", () => {
@@ -994,17 +994,14 @@ function modelPreference({
   provider,
   secretId,
   modelId,
-  isDefault,
 }: {
   provider: string;
   secretId: string;
   modelId: string;
-  isDefault: boolean;
 }) {
   const now = new Date("2026-08-30T00:00:00.000Z");
   return {
     id: `preference-${provider}`,
-    isDefault,
     modelId,
     credential: {
       id: `credential-${provider}`,
@@ -1016,6 +1013,11 @@ function modelPreference({
       updatedAt: now,
     },
   };
+}
+
+/** Seeds user-1's main model in ws-1. */
+function withSpaceMain(prisma: unknown, provider: string, modelId: string) {
+  withModelRoles(prisma, [mainRole({ userId: "user-1" }, provider, modelId)]);
 }
 
 const COMPATIBLE_PROVIDER = "openai-compatible";
@@ -1030,7 +1032,7 @@ function compatibleSecret(enabledModelIds?: string[]) {
   });
 }
 
-// One compatible connection whose own model is `modelId`.
+// One compatible connection whose own model is `modelId`, which also runs as the main model.
 function compatiblePrismaParts(modelId: string, plaintext: string) {
   const findFirst = vi.fn(
     async (args: {
@@ -1043,26 +1045,25 @@ function compatiblePrismaParts(modelId: string, plaintext: string) {
     }) => {
       if (!args.where.userId) return null;
       if (args.where.modelId && args.where.modelId !== modelId) return null;
-      if (args.where.credential?.provider !== COMPATIBLE_PROVIDER && !args.where.isDefault) {
-        return null;
-      }
-      return modelPreference({
-        provider: COMPATIBLE_PROVIDER,
-        secretId: "secret-compat",
-        modelId,
-        isDefault: true,
-      });
+      if (args.where.credential?.provider !== COMPATIBLE_PROVIDER) return null;
+      return modelPreference({ provider: COMPATIBLE_PROVIDER, secretId: "secret-compat", modelId });
     },
   );
-  return {
-    userModelPreference: { findFirst },
-    userModelCredential: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) },
-    deploymentSettings: { findUnique: vi.fn(async () => null) },
-    secret: {
-      findFirst: vi.fn(async () => ({ id: "secret-compat", ciphertext: plaintext })),
-      findUnique: vi.fn(async () => null),
+  return withModelRoles(
+    {
+      userModelPreference: { findFirst },
+      userModelCredential: {
+        findMany: vi.fn(async () => []),
+        findFirst: vi.fn(async () => null),
+      },
+      deploymentSettings: { findUnique: vi.fn(async () => null) },
+      secret: {
+        findFirst: vi.fn(async () => ({ id: "secret-compat", ciphertext: plaintext })),
+        findUnique: vi.fn(async () => null),
+      },
     },
-  };
+    [mainRole({ userId: "user-1" }, COMPATIBLE_PROVIDER, modelId)],
+  );
 }
 
 function compatibleExecutor(
@@ -2845,7 +2846,6 @@ description: Prepare standup notes
                   provider: "openrouter",
                   secretId: "fixture-secret",
                   modelId: "openai/gpt-6-luna",
-                  isDefault: true,
                 })
               : null,
           ),
@@ -2877,6 +2877,7 @@ description: Prepare standup notes
         agentSkill: { findMany: vi.fn(async () => []) },
         scratchpadItem: { findMany: vi.fn(async () => []) },
       } as unknown as PrismaClient;
+      if (stored) withSpaceMain(prisma, "openrouter", "openai/gpt-6-luna");
       const executor = createRunExecutor({
         prisma,
         billingEnabled: false,
@@ -2977,7 +2978,6 @@ description: Prepare standup notes
                 provider: "openrouter",
                 secretId: "secret-or",
                 modelId: "deepseek/deepseek-v4-flash-0731",
-                isDefault: true,
               })
             : null,
         ),
@@ -2990,6 +2990,7 @@ description: Prepare standup notes
       agentSkill: { findMany: vi.fn(async () => []) },
       scratchpadItem: { findMany: vi.fn(async () => []) },
     } as unknown as PrismaClient;
+    withSpaceMain(prisma, "openrouter", "deepseek/deepseek-v4-flash-0731");
     const executor = createRunExecutor({
       prisma,
       runtime: {
@@ -3015,27 +3016,23 @@ description: Prepare standup notes
   });
 
   it("resolves a per-bot model override with that provider’s credential", async () => {
-    const findFirst = vi.fn(
-      async (args: { where: { credential?: { provider?: string }; isDefault?: boolean } }) => {
-        if (args.where.credential?.provider === "xai") {
-          return modelPreference({
-            provider: "xai",
-            secretId: "secret-xai",
-            modelId: "grok-4.6",
-            isDefault: false,
-          });
-        }
-        if (args.where.isDefault) {
-          return modelPreference({
-            provider: "openrouter",
-            secretId: "secret-or",
-            modelId: "deepseek/deepseek-v4-flash-0731",
-            isDefault: true,
-          });
-        }
-        return null;
-      },
-    );
+    const findFirst = vi.fn(async (args: { where: { credential?: { provider?: string } } }) => {
+      if (args.where.credential?.provider === "xai") {
+        return modelPreference({
+          provider: "xai",
+          secretId: "secret-xai",
+          modelId: "grok-4.6",
+        });
+      }
+      if (args.where.credential?.provider === "openrouter") {
+        return modelPreference({
+          provider: "openrouter",
+          secretId: "secret-or",
+          modelId: "deepseek/deepseek-v4-flash-0731",
+        });
+      }
+      return null;
+    });
     const prisma = {
       bot: {
         findFirst: vi.fn(async () => ({
@@ -3052,6 +3049,7 @@ description: Prepare standup notes
         findUnique: vi.fn(async () => null),
       },
     } as unknown as PrismaClient;
+    withSpaceMain(prisma, "openrouter", "deepseek/deepseek-v4-flash-0731");
     const executor = createRunExecutor({
       prisma,
       secretStore: { load: vi.fn(async () => "fixture-model-key"), put: vi.fn() },
@@ -3080,7 +3078,6 @@ description: Prepare standup notes
       provider: "xai",
       secretId: "secret-xai",
       modelId: "grok-4.6",
-      isDefault: false,
     });
     const findFirst = vi.fn(
       async (args: { where: { credential?: { provider?: string }; modelId?: string } }) => {
@@ -3126,7 +3123,6 @@ description: Prepare standup notes
       provider: "openai-compatible",
       secretId: "secret-compat",
       modelId: "newest-model",
-      isDefault: true,
     });
     const findFirst = vi.fn(
       async (args: {
@@ -3189,7 +3185,6 @@ description: Prepare standup notes
           provider: COMPATIBLE_PROVIDER,
           secretId: "preferred",
           modelId: "space-model",
-          isDefault: true,
         }),
         updatedAt: new Date("2026-08-30"),
         thinkingLevel: null,
@@ -3467,7 +3462,6 @@ description: Prepare standup notes
             provider,
             secretId: "secret-codex",
             modelId,
-            isDefault: true,
           }),
         ),
       },
@@ -3512,7 +3506,6 @@ description: Prepare standup notes
             provider,
             secretId: "secret-codex",
             modelId,
-            isDefault: true,
           }),
         ),
       },
@@ -3576,7 +3569,6 @@ description: Prepare standup notes
             provider,
             secretId: "secret-codex",
             modelId,
-            isDefault: true,
           }),
         ),
       },
@@ -3610,7 +3602,6 @@ description: Prepare standup notes
         provider,
         secretId: "secret-scripted",
         modelId: "scripted",
-        isDefault: true,
       }),
     );
     const prisma = {
@@ -3645,19 +3636,16 @@ description: Prepare standup notes
 
   it("keeps image support for a separately enabled bot model override", async () => {
     const provider = "openai-compatible";
-    const findFirst = vi.fn(
-      async (args: { where: { credential?: { provider?: string }; isDefault?: boolean } }) => {
-        if (args.where.credential?.provider === provider || args.where.isDefault) {
-          return modelPreference({
-            provider,
-            secretId: "secret-openai-compatible",
-            modelId: "space-model",
-            isDefault: Boolean(args.where.isDefault),
-          });
-        }
-        return null;
-      },
-    );
+    const findFirst = vi.fn(async (args: { where: { credential?: { provider?: string } } }) => {
+      if (args.where.credential?.provider === provider) {
+        return modelPreference({
+          provider,
+          secretId: "secret-openai-compatible",
+          modelId: "space-model",
+        });
+      }
+      return null;
+    });
     const plaintext = serializeModelSecret({
       kind: "openai_compatible",
       baseUrl: "http://127.0.0.1:8000/v1",
@@ -3712,20 +3700,16 @@ description: Prepare standup notes
   });
 
   it("falls back to the Space default when the override provider has no credential", async () => {
-    const findFirst = vi.fn(
-      async (args: { where: { credential?: { provider?: string }; isDefault?: boolean } }) => {
-        if (args.where.credential?.provider === "xai") return null;
-        if (args.where.isDefault || args.where.credential?.provider === "openrouter") {
-          return modelPreference({
-            provider: "openrouter",
-            secretId: "secret-or",
-            modelId: "deepseek/deepseek-v4-flash-0731",
-            isDefault: true,
-          });
-        }
-        return null;
-      },
-    );
+    const findFirst = vi.fn(async (args: { where: { credential?: { provider?: string } } }) => {
+      if (args.where.credential?.provider === "openrouter") {
+        return modelPreference({
+          provider: "openrouter",
+          secretId: "secret-or",
+          modelId: "deepseek/deepseek-v4-flash-0731",
+        });
+      }
+      return null;
+    });
     const prisma = {
       bot: {
         findFirst: vi.fn(async () => ({
@@ -3739,6 +3723,7 @@ description: Prepare standup notes
       deploymentSettings: { findUnique: vi.fn(async () => null) },
       secret: { findFirst: vi.fn(async () => null), findUnique: vi.fn(async () => null) },
     } as unknown as PrismaClient;
+    withSpaceMain(prisma, "openrouter", "deepseek/deepseek-v4-flash-0731");
     const executor = createRunExecutor({
       prisma,
       secretStore: { load: vi.fn(), put: vi.fn() },
@@ -3761,11 +3746,6 @@ description: Prepare standup notes
     expect(findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ credential: { provider: "xai" } }),
-      }),
-    );
-    expect(findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ isDefault: true }),
       }),
     );
   });
@@ -3834,7 +3814,6 @@ description: Prepare standup notes
         provider: "openrouter",
         secretId: "secret-or",
         modelId: "deepseek/deepseek-v4-flash-0731",
-        isDefault: true,
       });
     });
     const prisma = {
@@ -3853,6 +3832,7 @@ description: Prepare standup notes
         findUnique: vi.fn(async () => null),
       },
     } as unknown as PrismaClient;
+    withSpaceMain(prisma, "openrouter", "deepseek/deepseek-v4-flash-0731");
     const executor = createRunExecutor({
       prisma,
       secretStore: { load: vi.fn(async () => "fixture-model-key"), put: vi.fn() },
