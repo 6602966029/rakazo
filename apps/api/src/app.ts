@@ -1018,7 +1018,10 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       });
       return bridge;
     };
-    const installedBridges = new Map<string, Promise<TeamChatBridge>>();
+    const installedBridges = new Map<
+      string,
+      { bridge: TeamChatBridge; pending: Promise<TeamChatBridge> }
+    >();
     const installedRetries = new TeamChatStartupRetries((error) =>
       getLogger().error("installed team chat restore failed; retrying", error),
     );
@@ -1037,23 +1040,22 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       );
     };
     const installedBridge = (installation: { id: string; botId: string; workspaceId: string }) => {
-      let pending = installedBridges.get(installation.id);
-      if (!pending) {
-        const bridge = makeTeamChatBridge(installation.botId, installation);
-        pending = bridge
-          .start()
-          .then(() => {
-            installedRetries.succeeded(installation.id);
-            return bridge;
-          })
-          .catch(async (error) => {
-            installedBridges.delete(installation.id);
-            await bridge.stop();
-            retryInstalledBridge(installation);
-            throw error;
-          });
-        installedBridges.set(installation.id, pending);
-      }
+      const existing = installedBridges.get(installation.id);
+      if (existing) return existing.pending;
+      const bridge = makeTeamChatBridge(installation.botId, installation);
+      const pending = bridge
+        .start()
+        .then(() => {
+          installedRetries.succeeded(installation.id);
+          return bridge;
+        })
+        .catch(async (error) => {
+          installedBridges.delete(installation.id);
+          await bridge.stop();
+          retryInstalledBridge(installation);
+          throw error;
+        });
+      installedBridges.set(installation.id, { bridge, pending });
       return pending;
     };
     if (messagingInstallations) {
@@ -1069,11 +1071,18 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     }
     stopInstalledBridges = async () => {
       installedRetries.stop();
+      // Stop first so an in-flight start() is cancelled, then bound the wait
+      // as the static bridge does.
       await Promise.all(
-        [...installedBridges.values()].map(async (pending) => {
-          const bridge = await pending.catch(() => undefined);
-          await bridge?.stop();
-        }),
+        [...installedBridges.values()].map(({ bridge, pending }) =>
+          settleWithTimeout(
+            bridge
+              .stop()
+              .catch(() => undefined)
+              .then(() => pending.catch(() => undefined)),
+            TEAM_CHAT_STARTUP_SHUTDOWN_MS,
+          ),
+        ),
       );
     };
     if (env.teamChatBotId) {
