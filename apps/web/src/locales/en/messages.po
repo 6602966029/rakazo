@@ -1462,6 +1462,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Confirm the URL is reachable from this browser session, then test again."
 
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Confirmations"
 msgstr "Confirmations"
 
@@ -2182,6 +2183,14 @@ msgstr "Custom header"
 #: src/pages/shell/dialogs.tsx
 msgid "Customer support"
 msgstr "Customer support"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize"
+msgstr "Customize"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize {label}"
+msgstr "Customize {label}"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Customize bot avatar"
@@ -3492,6 +3501,7 @@ msgstr "Model options"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Models"
 msgstr "Models"
 
@@ -4504,6 +4514,7 @@ msgstr "Restoring your workspace"
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "Retry"
 
@@ -5613,6 +5624,14 @@ msgstr "Use Connect to verify the key."
 msgid "Use default guidance"
 msgstr "Use default guidance"
 
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults"
+msgstr "Use defaults"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults for {label}"
+msgstr "Use defaults for {label}"
+
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr "Use my subscription or API key"
@@ -5682,6 +5701,7 @@ msgstr "View chat"
 
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "Voice"
@@ -5849,6 +5869,10 @@ msgstr "You have control"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Your Anthropic"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Your defaults"
+msgstr "Your defaults"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

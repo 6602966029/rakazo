@@ -59,7 +59,7 @@ async function render() {
   await act(async () => {
     root.render(
       <QueryClientProvider client={client}>
-        <ApprovalRulesSettings />
+        <ApprovalRulesSettings scope="account" />
       </QueryClientProvider>,
     );
   });
@@ -88,6 +88,7 @@ it("turns an ask-before preset on and off as a switch", async () => {
     await act(async () => toggle()?.click());
     await vi.waitFor(() => expect(toggle()?.getAttribute("aria-checked")).toBe("true"));
     expect(rpcMock.approvalRules.set).toHaveBeenCalledWith({
+      scope: "account",
       effect: "require_approval",
       matchKind: "category",
       matchValue: "email",
@@ -97,7 +98,7 @@ it("turns an ask-before preset on and off as a switch", async () => {
 
     await act(async () => toggle()?.click());
     await vi.waitFor(() => expect(toggle()?.getAttribute("aria-checked")).toBe("false"));
-    expect(rpcMock.approvalRules.remove).toHaveBeenCalledWith({ id: "rule-1" });
+    expect(rpcMock.approvalRules.remove).toHaveBeenCalledWith({ scope: "account", id: "rule-1" });
     await act(async () => root.unmount());
   } finally {
     container.remove();
@@ -118,7 +119,7 @@ it("keeps a saved toggle when the revisit's older background read lands after it
     await act(async () => {
       root.render(
         <QueryClientProvider client={client}>
-          <ApprovalRulesSettings />
+          <ApprovalRulesSettings scope="account" />
         </QueryClientProvider>,
       );
     });
@@ -149,6 +150,65 @@ it("keeps a saved toggle when the revisit's older background read lands after it
     expect(toggle()?.getAttribute("aria-checked")).toBe("true");
     await act(async () => second.unmount());
   } finally {
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("reads and writes a Space's own confirmations apart from the account's", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const rule = {
+    id: "rule-1",
+    // Not a preset, so it lists as its own removable rule.
+    effect: "always_allow",
+    matchKind: "tool",
+    matchValue: "send_email",
+  };
+  rpcMock.approvalRules.list
+    .mockReset()
+    .mockImplementation(async ({ scope }: { scope: string }) => (scope === "space" ? [rule] : []));
+  rpcMock.approvalRules.remove.mockReset().mockResolvedValue({ ok: true });
+  rpcMock.autoReview.get.mockReset().mockResolvedValue(settings);
+  rpcMock.autoReview.set.mockReset().mockResolvedValue({ ...settings, enabled: true });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const render = (scope: "account" | "space") =>
+    act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <ApprovalRulesSettings scope={scope} />
+        </QueryClientProvider>,
+      );
+    });
+  const remove = () =>
+    [...container.querySelectorAll("button")].find((button) => button.textContent === "Remove");
+  try {
+    await render("space");
+    await vi.waitFor(() => expect(remove()).toBeDefined());
+    expect(rpcMock.autoReview.get).toHaveBeenCalledWith({ scope: "space" }, expect.anything());
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[data-testid="auto-review-toggle"]')?.click(),
+    );
+    expect(rpcMock.autoReview.set).toHaveBeenLastCalledWith({ enabled: true, scope: "space" });
+    await act(async () => remove()?.click());
+    expect(rpcMock.approvalRules.remove).toHaveBeenLastCalledWith({
+      scope: "space",
+      id: "rule-1",
+    });
+
+    await render("account");
+    await vi.waitFor(() =>
+      expect(rpcMock.approvalRules.list).toHaveBeenCalledWith(
+        { scope: "account" },
+        expect.anything(),
+      ),
+    );
+    await vi.waitFor(() => expect(container.querySelector('[role="status"]')).toBeNull());
+    expect(remove()).toBeUndefined();
+  } finally {
+    await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
   }

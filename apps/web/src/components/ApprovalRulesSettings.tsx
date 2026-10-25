@@ -1,6 +1,10 @@
 import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { ActionApprovalRule, ActionAutoReviewSettings } from "@rakazo/contracts";
+import type {
+  ActionApprovalRule,
+  ActionAutoReviewSettings,
+  SettingsScope,
+} from "@rakazo/contracts";
 import { Button, Label, Switch } from "@rakazo/ui-web";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
@@ -30,7 +34,8 @@ function describeRule(rule: ActionApprovalRule): string {
   return t`Allow ${rule.matchValue} without asking`;
 }
 
-export function ApprovalRulesSettings() {
+/** Confirmations for the account, or for the bound Space when it overrides them. */
+export function ApprovalRulesSettings({ scope }: { scope: SettingsScope }) {
   const rpc = useSpaceRpc();
   const { t } = useLingui();
   const autoReviewId = useId();
@@ -39,8 +44,9 @@ export function ApprovalRulesSettings() {
   const purchasePresetId = useId();
   const queries = useSpaceQueries();
   const queryClient = useQueryClient();
-  const rulesQuery = useQuery(queries.approvalRules.list.queryOptions());
-  const autoReviewQuery = useQuery(queries.autoReview.get.queryOptions());
+  const input = { scope };
+  const rulesQuery = useQuery(queries.approvalRules.list.queryOptions({ input }));
+  const autoReviewQuery = useQuery(queries.autoReview.get.queryOptions({ input }));
   const rules = rulesQuery.data ?? [];
   const autoReview = autoReviewQuery.data ?? null;
   const loading = rulesQuery.isPending || autoReviewQuery.isPending;
@@ -62,13 +68,13 @@ export function ApprovalRulesSettings() {
   );
 
   function setRules(update: (current: ActionApprovalRule[]) => ActionApprovalRule[]) {
-    return writeSaved(queryClient, queries.approvalRules.list.queryKey(), (current) =>
+    return writeSaved(queryClient, queries.approvalRules.list.queryKey({ input }), (current) =>
       update(current ?? []),
     );
   }
 
   function setAutoReview(next: ActionAutoReviewSettings) {
-    return writeSaved(queryClient, queries.autoReview.get.queryKey(), () => next);
+    return writeSaved(queryClient, queries.autoReview.get.queryKey({ input }), () => next);
   }
 
   async function setPreset(preset: Preset, on: boolean) {
@@ -79,10 +85,11 @@ export function ApprovalRulesSettings() {
     setError(null);
     try {
       if (existing) {
-        await rpc.approvalRules.remove({ id: existing.id });
+        await rpc.approvalRules.remove({ scope, id: existing.id });
         await setRules((current) => current.filter((rule) => rule.id !== existing.id));
       } else {
         const saved = await rpc.approvalRules.set({
+          scope,
           effect: "require_approval",
           matchKind: "category",
           matchValue: preset,
@@ -99,19 +106,19 @@ export function ApprovalRulesSettings() {
   async function removeRule(id: string) {
     setError(null);
     try {
-      await rpc.approvalRules.remove({ id });
+      await rpc.approvalRules.remove({ scope, id });
       await setRules((current) => current.filter((rule) => rule.id !== id));
     } catch (err) {
       setError(errorText(err, t`Could not remove rule`));
     }
   }
 
-  async function saveAutoReview(input: { enabled?: boolean; skipApprovals?: boolean }) {
+  async function saveAutoReview(change: { enabled?: boolean; skipApprovals?: boolean }) {
     if (loading || savingAutoReview) return;
     setSavingAutoReview(true);
     setError(null);
     try {
-      await setAutoReview(await rpc.autoReview.set(input));
+      await setAutoReview(await rpc.autoReview.set({ ...change, scope }));
     } catch (err) {
       setError(errorText(err, t`Could not save Auto Review`));
     } finally {

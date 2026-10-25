@@ -609,6 +609,10 @@ export const ZH_MESSAGES: Record<string, string> = {
   Skip: "跳过",
   Space: "空间",
   "Space actions for {name}": "{name} 的空间操作",
+  // app/(settings)/space.tsx
+  Customize: "自定义",
+  "Customize {setting}": "自定义{setting}",
+  Confirmations: "确认",
   "This removes the space for everyone.": "这将为所有人删除此空间。",
   "Delete {name} and its bot?": "要删除 {name} 及其机器人吗？",
   "Delete {name} and its {count} bots?": "要删除 {name} 及其 {count} 个机器人吗？",

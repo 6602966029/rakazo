@@ -8,7 +8,7 @@ import {
   signup,
 } from "./helpers";
 
-test("actions run by default while optional confirmations live in space settings", async ({
+test("actions run by default while optional confirmations live in settings", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();

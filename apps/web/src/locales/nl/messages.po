@@ -1462,6 +1462,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Bevestig dat de URL vanuit deze browsersessie bereikbaar is en test daarna opnieuw."
 
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Confirmations"
 msgstr "Bevestigingen"
 
@@ -2182,6 +2183,14 @@ msgstr "Aangepaste header"
 #: src/pages/shell/dialogs.tsx
 msgid "Customer support"
 msgstr "Klantenservice"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize"
+msgstr "Aanpassen"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize {label}"
+msgstr "{label} aanpassen"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Customize bot avatar"
@@ -3492,6 +3501,7 @@ msgstr "Modelopties"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Models"
 msgstr "Modellen"
 
@@ -4504,6 +4514,7 @@ msgstr "Je werkruimte herstellen"
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "Opnieuw proberen"
 
@@ -5613,6 +5624,14 @@ msgstr "Gebruik Verbinden om de sleutel te verifiëren."
 msgid "Use default guidance"
 msgstr "Standaardrichtlijnen gebruiken"
 
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults"
+msgstr "Standaardinstellingen gebruiken"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults for {label}"
+msgstr "Standaardinstellingen gebruiken voor {label}"
+
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
@@ -5682,6 +5701,7 @@ msgstr "Chat bekijken"
 
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "Stem"
@@ -5849,6 +5869,10 @@ msgstr "Jij hebt de controle"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Jouw Anthropic"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Your defaults"
+msgstr "Jouw standaardinstellingen"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

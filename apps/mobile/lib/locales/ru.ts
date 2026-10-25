@@ -641,6 +641,10 @@ export const RU_MESSAGES: Record<string, string> = {
   Skip: "Пропустить",
   Space: "Пространство",
   "Space actions for {name}": "Действия пространства {name}",
+  // app/(settings)/space.tsx
+  Customize: "Настроить",
+  "Customize {setting}": "Настроить: {setting}",
+  Confirmations: "Подтверждения",
   "Space created": "Пространство создано",
   "Read replies aloud": "Читать ответы вслух",
   "Speak + transcribe": "Озвучить и расшифровать",

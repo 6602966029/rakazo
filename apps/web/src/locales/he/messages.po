@@ -715,7 +715,7 @@ msgstr "תשובה"
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
 msgid "Answer"
-msgstr ""
+msgstr "תשובה"
 
 #: src/components/AskCard.tsx
 msgid "Answered"
@@ -1462,6 +1462,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "יש לוודא שאפשר להגיע לכתובת ה-URL מסשן הדפדפן הזה, ואז לבדוק שוב."
 
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Confirmations"
 msgstr ""
 
@@ -2182,6 +2183,14 @@ msgstr "כותרת מותאמת אישית"
 #: src/pages/shell/dialogs.tsx
 msgid "Customer support"
 msgstr "תמיכת לקוחות"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize"
+msgstr "התאמה אישית"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize {label}"
+msgstr "התאמה אישית של {label}"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Customize bot avatar"
@@ -3492,6 +3501,7 @@ msgstr "אפשרויות מודל"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Models"
 msgstr "מודלים"
 
@@ -4504,6 +4514,7 @@ msgstr "משחזר את סביבת העבודה"
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "לנסות שוב"
 
@@ -5613,6 +5624,14 @@ msgstr "יש ללחוץ על חיבור כדי לאמת את המפתח."
 msgid "Use default guidance"
 msgstr "שימוש בהנחיות ברירת המחדל"
 
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults"
+msgstr "שימוש בברירות המחדל"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults for {label}"
+msgstr "שימוש בברירות המחדל עבור {label}"
+
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
@@ -5682,6 +5701,7 @@ msgstr "צפייה בצ׳אט"
 
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "קול"
@@ -5849,6 +5869,10 @@ msgstr "השליטה אצלך"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Anthropic"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Your defaults"
+msgstr "ברירות המחדל שלך"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"
