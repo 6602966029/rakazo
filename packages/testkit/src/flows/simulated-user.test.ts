@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseMove, type Situation } from "./simulated-user.js";
+import type { Situation } from "./simulated-user.js";
+import { parseMove } from "./simulated-user.js";
 
 const chat: Situation = { kind: "chat" };
 const approval: Situation = {

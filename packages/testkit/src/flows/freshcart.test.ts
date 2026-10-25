@@ -1,4 +1,5 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";

@@ -14,17 +14,14 @@ import type {
 import type { MessageBlock } from "@rakazo/contracts";
 import { WORKING_RUN_STATUSES } from "@rakazo/core";
 import type { createDb } from "@rakazo/db";
-import { createEvalJudge, type Judgment } from "../evals/judge.js";
+import type { Judgment } from "../evals/judge.js";
+import { createEvalJudge } from "../evals/judge.js";
 import { sessionCookieHeader } from "../index.js";
 import { asSystem } from "../system-db.js";
 import type { Criterion, Flow, FlowComputer, FlowEvidence, TranscriptEntry } from "./flow.js";
 import { check } from "./flow.js";
-import {
-  createSimulatedUser,
-  type PendingAsk,
-  type Situation,
-  type UserMove,
-} from "./simulated-user.js";
+import type { PendingAsk, Situation, UserMove } from "./simulated-user.js";
+import { createSimulatedUser } from "./simulated-user.js";
 
 export type FlowApp = {
   app: { request: (input: string, init?: RequestInit) => Promise<Response> | Response };
