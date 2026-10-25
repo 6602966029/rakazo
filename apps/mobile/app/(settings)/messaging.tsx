@@ -97,7 +97,8 @@ export default function MessagingSettings() {
     }
   }
 
-  const botId = selectedBotId || bots[0]?.id || "";
+  // A selection archived elsewhere drops out of the list; fall back to the first bot.
+  const botId = bots.find((bot) => bot.id === selectedBotId)?.id ?? bots[0]?.id ?? "";
   const botName = (id: string) => bots.find((bot) => bot.id === id)?.name;
   // Only meaningful once a second chat app is linked: the same group can then
   // hold two of the caller's memberships, one per agent.
