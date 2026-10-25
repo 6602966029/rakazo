@@ -7,7 +7,7 @@ import type {
   MessagingStatus,
   SpaceNavigation,
 } from "@rakazo/contracts";
-import { messagingProviderName } from "@rakazo/core";
+import { messagingConnectOptions, messagingProviderName } from "@rakazo/core";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { AppState, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -78,7 +78,11 @@ export default function MessagingSettings() {
 
   useEffect(() => {
     if (!link) return;
-    if (status?.identities.some((identity) => identity.botId === link.botId)) {
+    if (
+      status?.identities.some(
+        (identity) => identity.provider === link.provider && identity.botId === link.botId,
+      )
+    ) {
       setLink(null);
       return;
     }
@@ -125,15 +129,15 @@ export default function MessagingSettings() {
     (connection) =>
       connection.status === "approved" || (connection.status === "pending" && !connection.incoming),
   );
-  // Every app links personal DMs with a code sent from the chat app; Slack can
-  // also be installed workspace-wide when this server supports it.
-  const connectChoices = [
-    ...(status?.enabled ? status.providers : []).map((provider) => ({
-      key: provider,
-      label: messagingProviderName(provider),
-    })),
-    ...(installations.available ? [{ key: SLACK_WORKSPACE, label: t("Slack workspace") }] : []),
-  ];
+  const connectOptions = messagingConnectOptions(
+    status?.enabled ? status.providers : [],
+    installations.available,
+  );
+  const connectChoices = connectOptions.map(({ provider, method }) => ({
+    key: method === "install" ? SLACK_WORKSPACE : provider,
+    label: messagingProviderName(provider),
+  }));
+  const slackOnly = connectOptions.length === 1 && connectOptions[0]?.method === "install";
   const linkAddress = link ? status?.addresses?.[link.provider] : undefined;
 
   function connect(key: string) {
@@ -144,11 +148,15 @@ export default function MessagingSettings() {
       });
       return;
     }
+    startLink(key);
+  }
+
+  function startLink(provider: string) {
     void act(async () => {
       const issued = await rpc<{ code: string; expiresAt: string }>("messaging/link/start", {
         botId,
       });
-      setLink({ ...issued, botId, provider: key });
+      setLink({ ...issued, botId, provider });
     });
   }
 
@@ -218,11 +226,26 @@ export default function MessagingSettings() {
             detail={[installation.workspaceName, botName(installation.botId)]
               .filter(Boolean)
               .join(", ")}
-            trailing={textAction(
-              t("Disconnect"),
-              () => rpc("messaging/installations/remove", { id: installation.id }),
-              "destructive",
-            )}
+            trailing={
+              <View style={styles.actions}>
+                {status?.providers.includes(installation.provider) ? (
+                  <NativeActionButton
+                    label={t("Link DMs")}
+                    prominence="quiet"
+                    size="compact"
+                    fill={false}
+                    variant="text"
+                    disabled={busy || !botId}
+                    onPress={() => startLink(installation.provider)}
+                  />
+                ) : null}
+                {textAction(
+                  t("Disconnect"),
+                  () => rpc("messaging/installations/remove", { id: installation.id }),
+                  "destructive",
+                )}
+              </View>
+            }
           />
         ))}
       </SettingsGroup>
@@ -239,30 +262,39 @@ export default function MessagingSettings() {
           />
         ) : null}
         {botId && connectChoices.length ? (
-          <MenuPickerMenu
-            label={t("Connect a chat app")}
-            choices={connectChoices}
-            value=""
-            disabled={busy}
-            onChange={connect}
-          >
-            <View>
-              <SettingsRow
-                accessibilityLabel={t("Connect a chat app")}
-                accessibilityRole="button"
-                accessible
-                title={t("Connect a chat app")}
-                trailing={
-                  <NativeSymbol
-                    android="chevron-expand"
-                    color={native.tertiaryLabel}
-                    ios="chevron.up.chevron.down"
-                    size={13}
-                  />
-                }
-              />
-            </View>
-          </MenuPickerMenu>
+          slackOnly ? (
+            <NativeActionButton
+              label={t("Connect Slack")}
+              prominence="quiet"
+              disabled={busy}
+              onPress={() => connect(SLACK_WORKSPACE)}
+            />
+          ) : (
+            <MenuPickerMenu
+              label={t("Connect a chat app")}
+              choices={connectChoices}
+              value=""
+              disabled={busy}
+              onChange={connect}
+            >
+              <View>
+                <SettingsRow
+                  accessibilityLabel={t("Connect a chat app")}
+                  accessibilityRole="button"
+                  accessible
+                  title={t("Connect a chat app")}
+                  trailing={
+                    <NativeSymbol
+                      android="chevron-expand"
+                      color={native.tertiaryLabel}
+                      ios="chevron.up.chevron.down"
+                      size={13}
+                    />
+                  }
+                />
+              </View>
+            </MenuPickerMenu>
+          )
         ) : null}
       </SettingsGroup>
       {link && Date.parse(link.expiresAt) > Date.now() ? (
