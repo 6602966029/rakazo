@@ -90,6 +90,10 @@ async function main() {
       COMPOSIO_API_KEY: "",
       CLOUD_AGENT_PROVIDER: "",
       EMAIL_PROVIDER: "none",
+      // Billing would require a funded credits account; flows pay the model directly.
+      STRIPE_SECRET_KEY: "",
+      STRIPE_WEBHOOK_SECRET: "",
+      STRIPE_PRICE_ID: "",
     });
     for (const args of [
       ["--filter", "@rakazo/db", "generate"],

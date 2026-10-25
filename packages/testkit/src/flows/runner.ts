@@ -18,6 +18,7 @@ import { createEvalJudge, type Judgment } from "../evals/judge.js";
 import { sessionCookieHeader } from "../index.js";
 import { asSystem } from "../system-db.js";
 import type { Criterion, Flow, FlowComputer, FlowEvidence, TranscriptEntry } from "./flow.js";
+import { check } from "./flow.js";
 import {
   createSimulatedUser,
   type PendingAsk,
@@ -187,7 +188,17 @@ export async function runFlow<World>(
           block.kind === "text"
             ? [block.text ?? ""]
             : block.kind === "ask"
-              ? [`[card] ${block.text}`]
+              ? [
+                  [
+                    `[card] ${block.text}`,
+                    block.detail,
+                    block.actions?.length
+                      ? `(buttons: ${block.actions.map((action) => action.label).join(", ")})`
+                      : undefined,
+                  ]
+                    .filter(Boolean)
+                    .join("\n"),
+                ]
               : block.kind === "computer"
                 ? [`[screen] ${block.text}`]
                 : [],
@@ -207,14 +218,19 @@ export async function runFlow<World>(
     return pending;
   };
 
+  /** Checked before every paid step, the bot's or the harness's. */
+  const withinLimits = async () => {
+    if (Date.now() > deadline) throw new FlowStop("deadline");
+    if ((await botCost()) + harnessCostUsd > options.spendCapUsd) {
+      await rpc("threads/stop", { botId }).catch(() => undefined);
+      throw new FlowStop("spend-cap");
+    }
+  };
+
   /** Waits until the bot stops working: idle, waiting on a card, or asking for the screen. */
   const settle = async (wake?: number): Promise<Settled> => {
     for (;;) {
-      if (Date.now() > deadline) throw new FlowStop("deadline");
-      if ((await botCost()) + harnessCostUsd > options.spendCapUsd) {
-        await rpc("threads/stop", { botId }).catch(() => undefined);
-        throw new FlowStop("spend-cap");
-      }
+      await withinLimits();
       const runs = await prisma.run.findMany({
         where: {
           botId,
@@ -318,6 +334,7 @@ export async function runFlow<World>(
       await rpc("computer/takeover", { botId });
       const steps: string[] = [];
       for (let step = 0; step < MAX_SCREEN_STEPS; step += 1) {
+        await withinLimits();
         const frame = await handles.sandbox.observe(ref, context);
         await record(frame);
         const situation: Situation = {
@@ -405,7 +422,7 @@ export async function runFlow<World>(
             move.kind === "say"
               ? move.text
               : move.kind === "choose"
-                ? `[pressed ${move.actionId}]`
+                ? `[pressed ${state.kind === "ask" ? (state.ask.actions?.find((action) => action.id === move.actionId)?.label ?? move.actionId) : move.actionId}]`
                 : "[filled secret]",
           ...(wake ? { wake } : {}),
         });
@@ -488,12 +505,34 @@ export async function runFlow<World>(
       observations,
       endedBy,
     };
-    result.criteria = flow.grade(evidence);
+    const wakesRan = Object.keys(observations).filter((key) => key.startsWith("wake-")).length;
+    const failedRuns = result.runs.filter((run) => run.status === "failed");
+    result.criteria = [
+      ...flow.grade(evidence),
+      ...(flow.routineWakes
+        ? [
+            check(
+              "requested-wakes-ran",
+              wakesRan === flow.routineWakes,
+              `${wakesRan} of ${flow.routineWakes}`,
+            ),
+          ]
+        : []),
+      check(
+        "runs-succeeded",
+        failedRuns.length === 0,
+        failedRuns.map((run) => run.error ?? run.trigger).join("; "),
+      ),
+    ];
     const deterministicPass = result.criteria.every((criterion) => criterion.pass);
     if (flow.judge) {
       const judge = createEvalJudge(handles.runtime, options.judgeModel, onUsage);
       // A judge failure is an unqualified result, never a pass.
-      result.judgment = await judge(flow.judge(evidence), abort.signal).catch((error: unknown) => ({
+      // The judge runs after the flow's deadline checks, so it gets its own bound.
+      result.judgment = await judge(
+        flow.judge(evidence),
+        AbortSignal.timeout(JUDGE_TIMEOUT_MS),
+      ).catch((error: unknown) => ({
         pass: false,
         reason: `Judge unavailable: ${error instanceof Error ? error.message : String(error)}`,
       }));
@@ -521,6 +560,7 @@ export async function runFlow<World>(
 
 const MAX_SCREEN_STEPS = 30;
 const FRAME_INTERVAL_MS = 2_500;
+const JUDGE_TIMEOUT_MS = 180_000;
 
 function describeMove(move: UserMove) {
   if (move.kind === "say") return move.text.replace(/\n/g, " ");

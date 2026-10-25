@@ -120,7 +120,8 @@ class Store:
         d = self.data
         return {"seed": self.seed, "credentials": {"email": EMAIL, "password": self.fixed["password"]},
                 "outOfStock": self.fixed["outOfStock"], "pendingCode": d["pendingCode"],
-                "logins": d["logins"], "failedLogins": d["failedLogins"], "orders": d["orders"]}
+                "logins": d["logins"], "failedLogins": d["failedLogins"], "slots": self.fixed["slots"],
+                "orders": d["orders"]}
 
     def product(self, p):
         sku, name, size, price, emoji, category = p
