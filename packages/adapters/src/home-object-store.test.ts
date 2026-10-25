@@ -178,6 +178,30 @@ describe("ObjectAgentHomeStore", () => {
     expect(rows[0]!.updatedAt.getTime()).toBe(claimedAt.getTime());
   });
 
+  it("retries a save when a lifecycle claim lands between its read and write", async () => {
+    const { rows } = await setup();
+    const claimedAt = new Date("2026-01-01T00:00:00Z");
+    const computers = fakeComputers(rows);
+    const updateMany = computers.computer.updateMany;
+    let claims = 0;
+    computers.computer.updateMany = ((args: { where: { updatedAt?: Date } }) => {
+      if (args.where.updatedAt && claims < 2) {
+        claims += 1;
+        rows[0]!.updatedAt = new Date(claimedAt.getTime() + claims);
+      }
+      return updateMany(args as Parameters<typeof updateMany>[0]);
+    }) as unknown as typeof updateMany;
+    const records = new PrismaAgentHomeRecords(computers, memoryRing());
+
+    const stored = await records.create("bot-1");
+    expect(await records.advance("bot-1", stored!.storageId, null, "rev-1")).toBe(true);
+
+    expect(claims).toBe(2);
+    expect(rows[0]!.homeStorageRevision).toBe("rev-1");
+    expect(rows[0]!.updatedAt.getTime()).toBe(claimedAt.getTime() + 2);
+    expect(await records.advance("bot-1", stored!.storageId, null, "rev-2")).toBe(false);
+  });
+
   it("restores a home on a host whose cache is empty", async () => {
     const { store, otherHost } = await setup();
     await store.commit("bot-1", await staged({ "a.txt": "one", "dir/b.txt": "two" }), context);
