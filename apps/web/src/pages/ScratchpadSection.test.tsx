@@ -166,11 +166,8 @@ it("reopens on the cached list and refreshes it in the background", async () => 
     await mount(root, "bot-fixture");
     expect(host.textContent).toContain("Cached task");
     expect(rpcMock.scratchpad.list).toHaveBeenCalledTimes(2);
-    await act(async () => {
-      resolveRead([workItem("b", "Fresh task")]);
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    expect(host.textContent).toContain("Fresh task");
+    await act(async () => resolveRead([workItem("b", "Fresh task")]));
+    await vi.waitFor(() => expect(host.textContent).toContain("Fresh task"));
     expect(host.textContent).not.toContain("Cached task");
   } finally {
     await act(async () => root.unmount());
