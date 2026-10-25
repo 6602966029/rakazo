@@ -14,6 +14,8 @@ import {
   findDefaultVoiceCredential,
   findModelCredential,
   findModelCredentialById,
+  listVoicePreferences,
+  voicePreferenceTarget,
 } from "@rakazo/db";
 import type { RouterDeps } from "./router.js";
 import { resolveThreadTarget } from "./thread-target.js";
@@ -85,10 +87,9 @@ export async function aiConsentStatus(
           ? findDefaultVoiceCredential(deps.prisma, actor).then((credential) =>
               credential ? [{ credential }] : [],
             )
-          : deps.prisma.spaceVoicePreference.findMany({
-              where: { userId: actor.userId, spaceId: actor.spaceId },
-              include: { credential: true },
-            })
+          : voicePreferenceTarget(deps.prisma, actor).then((target) =>
+              listVoicePreferences(deps.prisma, target),
+            )
         : [],
       uses.includes("memory")
         ? deps.prisma.spaceMemoryConfig.findUnique({ where: { spaceId: actor.spaceId } })

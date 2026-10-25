@@ -169,6 +169,7 @@ import type {
   ModelRoleView,
   ProductEvent,
   Routine,
+  SettingsScope,
   SpaceNavigation,
   ThinkingLevel,
 } from "@rakazo/contracts";
@@ -235,6 +236,7 @@ import {
   defaultModelCredentialCandidates,
   deleteUnreferencedCredentialSecret,
   ensureBoard,
+  findAutoReviewPreference,
   findDefaultVoiceCredential,
   findModelCredential,
   findModelCredentialById,
@@ -247,8 +249,10 @@ import {
   InvalidSpaceNameError,
   IsolationError,
   issueMessagingLinkCode,
+  listApprovalRules,
   listBoards,
   listTicketComments,
+  listVoicePreferences,
   lockOwnedGroup,
   modelCredentialProviderFilter,
   newestModelCredentialOrder,
@@ -256,6 +260,7 @@ import {
   Prisma,
   parseComputerMode,
   recordSecurityEvent,
+  removeApprovalRule,
   renameSpaceForMember,
   restoreBotUnderComputerQuota,
   runAsSystem,
@@ -265,13 +270,16 @@ import {
   SpaceDeletionInProgressError,
   SpaceLimitError,
   SpaceNotFoundError,
+  saveApprovalRule,
+  saveAutoReviewPreference,
   saveSpaceModelPreference,
-  selectSpaceVoicePreference,
+  selectVoicePreference,
   toBoardDto,
   toTicketCommentDto,
   toTicketDto,
   touchGroupUpdatedAt,
   updateModelRole,
+  voicePreferenceTarget,
   writeModelRole,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -6616,82 +6624,32 @@ export function createRouter(deps: RouterDeps) {
       }),
     },
     approvalRules: {
-      list: authed.approvalRules.list.handler(async ({ context }) => {
-        const rows = await deps.prisma.actionApprovalRule.findMany({
-          where: {
-            spaceId: context.actor.spaceId,
-            createdByUserId: context.actor.userId,
-          },
-          orderBy: { createdAt: "asc" },
-        });
-        return rows.map((row) => ({
-          id: row.id,
-          effect: row.effect as "always_allow" | "require_approval",
-          matchKind: row.matchKind as ActionApprovalRule["matchKind"],
-          matchValue: row.matchValue,
-          createdAt: row.createdAt.toISOString(),
-        }));
+      list: authed.approvalRules.list.handler(async ({ context, input }) => {
+        const rows = await listApprovalRules(deps.prisma, context.actor, input?.scope);
+        return rows.map(approvalRuleDto);
       }),
       set: authed.approvalRules.set.handler(async ({ context, input }) => {
-        const row = await deps.prisma.actionApprovalRule.upsert({
-          where: {
-            spaceId_createdByUserId_effect_matchKind_matchValue: {
-              spaceId: context.actor.spaceId,
-              createdByUserId: context.actor.userId,
-              effect: input.effect,
-              matchKind: input.matchKind,
-              matchValue: input.matchValue,
-            },
-          },
-          create: {
-            spaceId: context.actor.spaceId,
-            createdByUserId: context.actor.userId,
-            effect: input.effect,
-            matchKind: input.matchKind,
-            matchValue: input.matchValue,
-          },
-          update: {},
-        });
-        return {
-          id: row.id,
-          effect: row.effect as "always_allow" | "require_approval",
-          matchKind: row.matchKind as ActionApprovalRule["matchKind"],
-          matchValue: row.matchValue,
-          createdAt: row.createdAt.toISOString(),
-        };
+        const { scope, ...rule } = input;
+        return approvalRuleDto(await saveApprovalRule(deps.prisma, context.actor, rule, scope));
       }),
       remove: authed.approvalRules.remove.handler(async ({ context, input }) => {
-        await deps.prisma.actionApprovalRule.deleteMany({
-          where: {
-            id: input.id,
-            spaceId: context.actor.spaceId,
-            createdByUserId: context.actor.userId,
-          },
-        });
+        await removeApprovalRule(deps.prisma, context.actor, input.id, input.scope);
         return { ok: true as const };
       }),
     },
     autoReview: {
-      get: authed.autoReview.get.handler(async ({ context }) => {
-        return loadAutoReviewSettings(deps, context.actor);
+      get: authed.autoReview.get.handler(async ({ context, input }) => {
+        return loadAutoReviewSettings(deps, context.actor, input?.scope);
       }),
       set: authed.autoReview.set.handler(async ({ context, input }) => {
-        await deps.prisma.actionAutoReviewPreference.upsert({
-          where: {
-            spaceId_userId: {
-              spaceId: context.actor.spaceId,
-              userId: context.actor.userId,
-            },
-          },
-          create: {
-            spaceId: context.actor.spaceId,
-            userId: context.actor.userId,
-            enabled: input.enabled ?? deploymentAutoReviewDefault(process.env),
-            skipApprovals: input.skipApprovals ?? false,
-          },
-          update: { enabled: input.enabled, skipApprovals: input.skipApprovals },
-        });
-        return loadAutoReviewSettings(deps, context.actor);
+        await saveAutoReviewPreference(
+          deps.prisma,
+          context.actor,
+          { enabled: input.enabled, skipApprovals: input.skipApprovals },
+          { enabled: deploymentAutoReviewDefault(process.env), skipApprovals: false },
+          input.scope,
+        );
+        return loadAutoReviewSettings(deps, context.actor, input.scope);
       }),
     },
     artifacts: {
@@ -6951,23 +6909,22 @@ export function createRouter(deps: RouterDeps) {
       catalog: authed.voice.catalog.handler(async () =>
         listVoiceCatalog({ allowPrivateEndpoint: deps.env?.mcpAllowPrivateEndpoint }),
       ),
-      status: authed.voice.status.handler(async ({ context }) => {
-        const cred = await findDefaultVoiceCredential(deps.prisma, context.actor);
+      status: authed.voice.status.handler(async ({ context, input }) => {
+        const cred = await findDefaultVoiceCredential(deps.prisma, context.actor, input?.scope);
         return toVoiceStatus(cred);
       }),
-      credentials: authed.voice.credentials.handler(async ({ context }) => {
-        const rows = await deps.prisma.userVoiceCredential.findMany({
-          where: { userId: context.actor.userId },
-          include: {
-            preferences: {
-              where: { userId: context.actor.userId, spaceId: context.actor.spaceId },
-            },
-          },
-          orderBy: newestVoiceCredentialOrder,
-        });
+      credentials: authed.voice.credentials.handler(async ({ context, input }) => {
+        const target = await voicePreferenceTarget(deps.prisma, context.actor, input?.scope);
+        const [rows, preferences] = await Promise.all([
+          deps.prisma.userVoiceCredential.findMany({
+            where: { userId: context.actor.userId },
+            orderBy: newestVoiceCredentialOrder,
+          }),
+          listVoicePreferences(deps.prisma, target),
+        ]);
         return Promise.all(
           rows.map(async (row) => {
-            const preference = row.preferences[0];
+            const preference = preferences.find((saved) => saved.credentialId === row.id);
             return toVoiceCredential({
               ...row,
               isDefault: preference?.isDefault ?? false,
@@ -6987,6 +6944,7 @@ export function createRouter(deps: RouterDeps) {
           baseUrl: input.baseUrl,
           ttsModel: input.ttsModel,
           sttModel: input.sttModel,
+          scope: input.scope,
           signal: context.signal,
         }),
       ),
@@ -6997,27 +6955,18 @@ export function createRouter(deps: RouterDeps) {
         const cred = await withSerializableRetry(() =>
           deps.prisma.$transaction(
             async (tx) => {
+              const target = await voicePreferenceTarget(tx, context.actor, input.scope);
               const found = input.provider
                 ? await tx.userVoiceCredential.findFirst({
                     where: { userId: context.actor.userId, provider: input.provider },
                     orderBy: newestVoiceCredentialOrder,
                   })
-                : (
-                    await tx.spaceVoicePreference.findFirst({
-                      where: {
-                        userId: context.actor.userId,
-                        spaceId: context.actor.spaceId,
-                        isDefault: true,
-                      },
-                      include: { credential: true },
-                      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-                    })
-                  )?.credential;
+                : await findDefaultVoiceCredential(tx, context.actor, target.scope);
               if (!found) {
                 throw new ORPCError("BAD_REQUEST", { message: "Connect a voice provider first." });
               }
               // Picking a voice also makes its provider the one speak/transcribe use.
-              await selectSpaceVoicePreference(tx, context.actor, found.id, input.voiceId);
+              await selectVoicePreference(tx, target, found.id, input.voiceId);
               return { ...found, voiceId: input.voiceId, isDefault: true };
             },
             { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -7201,13 +7150,26 @@ function partitionBySpace<T extends { spaceId: string }>(rows: T[]): Map<string,
   return partitioned;
 }
 
-async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor) {
+function approvalRuleDto(row: {
+  id: string;
+  effect: string;
+  matchKind: string;
+  matchValue: string;
+  createdAt: Date;
+}): ActionApprovalRule {
+  return {
+    id: row.id,
+    effect: row.effect as ActionApprovalRule["effect"],
+    matchKind: row.matchKind as ActionApprovalRule["matchKind"],
+    matchValue: row.matchValue,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor, scope?: SettingsScope) {
   const [role, preference] = await Promise.all([
     effectiveModelRole(deps.prisma, actor, "approval", { env: process.env }),
-    deps.prisma.actionAutoReviewPreference.findUnique({
-      where: { spaceId_userId: { spaceId: actor.spaceId, userId: actor.userId } },
-      select: { enabled: true, skipApprovals: true },
-    }),
+    findAutoReviewPreference(deps.prisma, actor, scope),
   ]);
   const settings = {
     enabled: preference?.enabled ?? deploymentAutoReviewDefault(process.env),
