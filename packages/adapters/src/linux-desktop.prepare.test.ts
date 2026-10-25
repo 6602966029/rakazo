@@ -33,6 +33,7 @@ describe("provider desktop preparation", () => {
       const fakes: Record<string, string> = {
         id: "#!/bin/sh\necho 1000\n",
         sudo: '#!/bin/sh\n[ "$1" = -n ] && shift\nexec "$@"\n',
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: shell parameter expansion
         env: '#!/bin/sh\nwhile [ "${1#*=}" != "$1" ]; do shift; done\nexec "$@"\n',
         // A broken package manager: installs fail, as on images with unmet dependencies.
         "apt-get": `#!/bin/sh\necho "$*" >> ${JSON.stringify(calls)}\ncase "$*" in *fonts-noto-color-emoji*) exit 100;; esac\n`,
