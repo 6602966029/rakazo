@@ -21,7 +21,7 @@ import { asSystem } from "../system-db.js";
 import type { Criterion, Flow, FlowComputer, FlowEvidence, TranscriptEntry } from "./flow.js";
 import { check } from "./flow.js";
 import type { PendingAsk, Situation, UserMove } from "./simulated-user.js";
-import { createSimulatedUser } from "./simulated-user.js";
+import { createSimulatedUser, screenStepLog } from "./simulated-user.js";
 
 export type FlowApp = {
   app: { request: (input: string, init?: RequestInit) => Promise<Response> | Response };
@@ -330,17 +330,18 @@ export async function runFlow<World>(
     /** The person takes the screen through the product's takeover path, acts, and hands it back. */
     const takeOver = async (wake?: number) => {
       await rpc("computer/takeover", { botId });
-      const steps: string[] = [];
+      const log = screenStepLog();
       for (let step = 0; step < MAX_SCREEN_STEPS; step += 1) {
         await withinLimits();
         const frame = await handles.sandbox.observe(ref, context);
         await record(frame);
+        log.saw(frame.image);
         const situation: Situation = {
           kind: "screen",
           image: { name: "screen.png", mimeType: frame.mimeType, data: frame.image },
           width: frame.width,
           height: frame.height,
-          steps,
+          steps: log.steps,
         };
         const move = await user(transcript, situation, abort.signal);
         options.log(`user at screen: ${describeMove(move)}`);
@@ -349,7 +350,7 @@ export async function runFlow<World>(
           transcript.push({
             from: "user",
             at: new Date().toISOString(),
-            text: `[took the screen: ${steps.join("; ")}]`,
+            text: `[took the screen: ${log.steps.join("; ")}]`,
             ...(wake ? { wake } : {}),
           });
           return;
@@ -369,7 +370,7 @@ export async function runFlow<World>(
           });
         else if (move.kind === "key")
           await rpc("computer/input", { botId, kind: "key", payload: { key: move.key } });
-        steps.push(describeMove(move));
+        log.did(describeMove(move));
         await new Promise((resolve) => setTimeout(resolve, 1_000));
       }
       await rpc("computer/release", { botId, reason: "skipped" }).catch(() => undefined);
