@@ -8,7 +8,8 @@ async function captureSidebarSearchSelected(
   name: string,
 ) {
   const aside = page.locator("aside").first();
-  await aside.getByTestId("sidebar-search-trigger").click();
+  const trigger = aside.getByTestId("sidebar-search-trigger");
+  if ((await trigger.getAttribute("aria-pressed")) !== "true") await trigger.click();
   const search = aside.getByTestId("sidebar-search");
   const selected = aside.getByRole("button", { name: /^Chief/ }).first();
   await expect(search).toBeVisible();

@@ -14,6 +14,7 @@ export function SidebarHeader({
   mini = false,
   activityMode,
   toggleActivityMode,
+  searchOpen = false,
   onSearch,
   setBotsSidebarCollapsedPref,
   bots,
@@ -27,6 +28,7 @@ export function SidebarHeader({
   mini?: boolean;
   activityMode: boolean;
   toggleActivityMode: () => void;
+  searchOpen?: boolean;
   onSearch?: () => void;
   setBotsSidebarCollapsedPref: (collapsed: boolean) => void;
   bots: Bot[];
@@ -62,6 +64,7 @@ export function SidebarHeader({
               variant="ghost"
               size="icon-sm"
               aria-label={t`Search`}
+              aria-pressed={searchOpen}
               data-testid="sidebar-search-trigger"
               onClick={onSearch}
               className="app-no-drag flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground/70 hover:text-foreground/75"

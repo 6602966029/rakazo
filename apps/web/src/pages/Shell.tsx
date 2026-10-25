@@ -1828,6 +1828,7 @@ function SpaceShell() {
 
   async function jumpToSearchHit(hit: SearchHit) {
     setQuery("");
+    setSearchOpen(false);
     setSearchHits([]);
     const params = new URLSearchParams();
     if (hit.messageId) params.set("m", hit.messageId);
@@ -3185,10 +3186,16 @@ function SpaceShell() {
             if (miniSidebar) setBotsSidebarCollapsedPref(false);
             toggleActivityMode();
           }}
+          searchOpen={searchOpen && !miniSidebar}
           onSearch={
             activityMode && !miniSidebar
               ? undefined
               : () => {
+                  if (searchOpen && !miniSidebar) {
+                    setQuery("");
+                    setSearchOpen(false);
+                    return;
+                  }
                   if (miniSidebar) setBotsSidebarCollapsedPref(false);
                   setSearchOpen(true);
                   requestAnimationFrame(() =>
@@ -3229,9 +3236,6 @@ function SpaceShell() {
                 }
                 setQuery("");
                 setSearchOpen(false);
-              }}
-              onBlur={() => {
-                if (!query) setSearchOpen(false);
               }}
               placeholder={activityMode ? t`Search runs` : t`Search`}
               aria-label={activityMode ? t`Search runs` : t`Search`}
