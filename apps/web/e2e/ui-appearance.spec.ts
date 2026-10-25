@@ -8,6 +8,8 @@ async function captureSidebarSearchSelected(
   name: string,
 ) {
   const aside = page.locator("aside").first();
+  const trigger = aside.getByTestId("sidebar-search-trigger");
+  if ((await trigger.getAttribute("aria-pressed")) !== "true") await trigger.click();
   const search = aside.getByTestId("sidebar-search");
   const selected = aside.getByRole("button", { name: /^Chief/ }).first();
   await expect(search).toBeVisible();
@@ -104,6 +106,7 @@ test("sidebar footer opens integrations and the account menu", async ({ page }, 
   await completeOnboarding(page);
   const footer = page.getByTestId("sidebar-footer");
   await expect(footer).toBeVisible();
+  await page.getByTestId("sidebar-search-trigger").click();
   const searchBox = await page.getByTestId("sidebar-search").boundingBox();
   const avatarBox = await page.getByTestId("user-menu-trigger").boundingBox();
   const pillBox = await footer
