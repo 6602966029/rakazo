@@ -1009,7 +1009,13 @@ describeWithDatabase("API authorization and resource isolation", () => {
       }),
     ]);
 
-    expect(modelPreference).toMatchObject({ modelId: "copy/model", isDefault: true });
+    expect(modelPreference).toMatchObject({ modelId: "copy/model" });
+    // The new Space starts on the member's main model.
+    await expect(
+      rpc<ModelRoleSettings>(app, cookie, "models/role", { role: "main" }, created.id),
+    ).resolves.toMatchObject({
+      primary: { provider: "copy-provider", modelId: "copy/model", credentialId: model.id },
+    });
     expect(voicePreference).toMatchObject({ voiceId: voice.voiceId, isDefault: true });
     await rpc(
       app,
@@ -1053,11 +1059,14 @@ describeWithDatabase("API authorization and resource isolation", () => {
     const actor = await rpc<Actor>(app, cookie, "me");
     const support = await rpc<Space>(app, cookie, "spaces/create", { name: "Support models" });
     const expectSpaceModelDefault = async (spaceId: string, provider: string, modelId: string) => {
-      const preference = await db.spaceModelPreference.findFirst({
-        where: { userId: actor.userId, spaceId, isDefault: true },
-        include: { credential: true },
-      });
-      expect(preference).toMatchObject({ modelId, credential: { provider } });
+      const main = await rpc<ModelRoleSettings>(
+        app,
+        cookie,
+        "models/role",
+        { role: "main" },
+        spaceId,
+      );
+      expect(main.primary).toMatchObject({ provider, modelId });
     };
 
     const connectedA = await rpc<ModelCredential>(app, cookie, "models/connect", {
@@ -1737,7 +1746,6 @@ describeWithDatabase("API authorization and resource isolation", () => {
         userId: actor.userId,
         credentialId: older.id,
         modelId: "older/model",
-        isDefault: true,
       },
     });
 
@@ -1749,11 +1757,9 @@ describeWithDatabase("API authorization and resource isolation", () => {
     const preferences = await db.spaceModelPreference.findMany({
       where: { userId: actor.userId, spaceId: actor.spaceId },
     });
-    expect(preferences.filter((row) => row.isDefault).map((row) => row.credentialId)).toEqual([
-      older.id,
-    ]);
+    const main = await rpc<ModelRoleSettings>(app, cookie, "models/role", { role: "main" });
+    expect(main.primary).toMatchObject({ modelId: "newer/selected", credentialId: older.id });
     expect(preferences.find((row) => row.credentialId === older.id)).toMatchObject({
-      isDefault: true,
       modelId: "newer/selected",
     });
     expect(preferences.find((row) => row.credentialId === newer.id)).toBeUndefined();
@@ -1978,6 +1984,10 @@ async function expectForbidden(app: App, cookie: string, procedure: string, body
 interface Actor {
   userId: string;
   spaceId: string;
+}
+
+interface ModelRoleSettings {
+  primary: { provider: string; modelId: string; credentialId?: string } | null;
 }
 
 interface ModelCredential {
