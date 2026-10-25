@@ -332,7 +332,6 @@ model SpaceMember {
   modelPreferences SpaceModelPreference[]
   voicePreferences SpaceVoicePreference[]
   aiDataConsents AiDataConsent[]
-  backupModels SpaceBackupModel[]
   modelRoleChoices SpaceModelRoleChoice[]
 
   @@unique([spaceId, userId])
@@ -438,28 +437,13 @@ model SpaceModelPreference {
   credential   UserModelCredential @relation(fields: [credentialId, userId], references: [id, userId], onDelete: Cascade)
   modelId      String?
   thinkingLevel String?
-  isDefault    Boolean             @default(false)
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
   @@unique([spaceId, userId, credentialId])
-  @@index([spaceId, userId, isDefault, updatedAt])
   @@index([credentialId])
-  // Partial unique index space_model_preferences_default_key is created in SQL.
+  // The unused legacy isDefault column and its indexes stay in the table until the next release.
   @@map("space_model_preferences")
-}
-
-model SpaceBackupModel {
-  spaceId     String
-  userId      String
-  spaceMember SpaceMember @relation(fields: [spaceId, userId], references: [spaceId, userId], onDelete: Cascade)
-  provider    String
-  modelId     String
-  position    Int
-
-  @@id([spaceId, userId, position])
-  @@unique([spaceId, userId, provider, modelId])
-  @@map("space_backup_models")
 }
 
 model SpaceVoicePreference {
