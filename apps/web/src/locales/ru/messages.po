@@ -3550,6 +3550,10 @@ msgstr "Требуется ваше участие"
 msgid "Needs: {names}"
 msgstr "Нужно: {names}"
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Never ask"
+msgstr "Не спрашивать"
+
 #: src/pages/shell/chat-context.tsx
 msgid "New"
 msgstr "Новые"
@@ -5773,10 +5777,6 @@ msgstr ""
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Yesterday"
 msgstr "Вчера"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "YOLO"
-msgstr "YOLO"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx

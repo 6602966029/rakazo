@@ -1,6 +1,6 @@
 export const ZH_MESSAGES: Record<string, string> = {
   Approvals: "审批",
-  YOLO: "YOLO",
+  "Never ask": "从不询问",
   Auto: "自动",
   Ask: "询问",
   Block: "阻止",

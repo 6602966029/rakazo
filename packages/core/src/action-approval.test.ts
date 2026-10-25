@@ -364,8 +364,8 @@ describe("planActionGate", () => {
       ...overrides,
     });
 
-  it("runs an unlisted change in YOLO, judges it in Auto and asks in Ask", () => {
-    expect(gate("yolo")).toBe("allow");
+  it("runs an unlisted change in Never ask, judges it in Auto and asks in Ask", () => {
+    expect(gate("never")).toBe("allow");
     expect(gate("auto")).toBe("judge");
     expect(gate("ask")).toBe("ask");
   });
@@ -375,13 +375,13 @@ describe("planActionGate", () => {
   });
 
   it("runs an allowlisted change in every mode without judging", () => {
-    for (const mode of ["yolo", "auto", "ask"] as const) {
+    for (const mode of ["never", "auto", "ask"] as const) {
       expect(gate(mode, { resolved: allowed })).toBe("allow");
     }
   });
 
   it("refuses a blocked action in every mode, even one a person must approve", () => {
-    for (const mode of ["yolo", "auto", "ask"] as const) {
+    for (const mode of ["never", "auto", "ask"] as const) {
       expect(gate(mode, { resolved: blocked })).toBe("deny");
       expect(gate(mode, { resolved: blocked, mandatory: true })).toBe("deny");
       expect(gate(mode, { resolved: blocked, consequential: false })).toBe("deny");
@@ -389,13 +389,13 @@ describe("planActionGate", () => {
   });
 
   it("runs reads in every mode", () => {
-    for (const mode of ["yolo", "auto", "ask"] as const) {
+    for (const mode of ["never", "auto", "ask"] as const) {
       expect(gate(mode, { consequential: false })).toBe("allow");
     }
   });
 
-  it("keeps an older ask rule asking, except in YOLO, which never waits", () => {
-    expect(gate("yolo", { resolved: asked })).toBe("allow");
+  it("keeps an older ask rule asking, except in Never ask, which never waits", () => {
+    expect(gate("never", { resolved: asked })).toBe("allow");
     expect(gate("auto", { resolved: asked })).toBe("ask");
     expect(gate("ask", { resolved: asked })).toBe("ask");
   });
@@ -405,9 +405,9 @@ describe("planActionGate", () => {
     expect(gate("ask", { mandatory: true, resolved: allowed })).toBe("ask");
   });
 
-  it("in YOLO runs it for the owner's own run and refuses it when outside text could steer it", () => {
-    expect(gate("yolo", { mandatory: true, steerable: false })).toBe("allow");
-    expect(gate("yolo", { mandatory: true, steerable: true })).toBe("deny");
+  it("in Never ask runs it for the owner's own run and refuses it when outside text could steer it", () => {
+    expect(gate("never", { mandatory: true, steerable: false })).toBe("allow");
+    expect(gate("never", { mandatory: true, steerable: true })).toBe("deny");
   });
 
   it("only lets the approval model check a read outside content may have chosen", () => {
@@ -415,23 +415,23 @@ describe("planActionGate", () => {
     expect(gate("auto", read)).toBe("judge");
     expect(gate("auto", { ...read, checkerConfigured: false })).toBe("allow");
     expect(gate("ask", read)).toBe("allow");
-    expect(gate("yolo", read)).toBe("allow");
+    expect(gate("never", read)).toBe("allow");
   });
 
   it("judges a new site in Auto even with a rule for the whole tool, and asks in Ask", () => {
     expect(gate("auto", { resolved: allowed, newDestination: true })).toBe("judge");
     expect(gate("auto", { newDestination: true, checkerConfigured: false })).toBe("ask");
     expect(gate("ask", { resolved: allowed, newDestination: true })).toBe("ask");
-    expect(gate("yolo", { newDestination: true })).toBe("allow");
+    expect(gate("never", { newDestination: true })).toBe("allow");
   });
 });
 
 describe("approval modes from stored preferences", () => {
   it("maps both ways", () => {
-    for (const mode of ["yolo", "auto", "ask"] as const) {
+    for (const mode of ["never", "auto", "ask"] as const) {
       expect(approvalModeFromPreference(approvalPreferenceFromMode(mode))).toBe(mode);
     }
-    expect(approvalModeFromPreference({ enabled: true, skipApprovals: true })).toBe("yolo");
+    expect(approvalModeFromPreference({ enabled: true, skipApprovals: true })).toBe("never");
     expect(approvalModeFromPreference({ enabled: false, skipApprovals: false })).toBe("ask");
   });
 });

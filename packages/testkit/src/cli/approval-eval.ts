@@ -79,7 +79,7 @@ export async function runApprovalSuite(
     scoring:
       "Agreement is over every result. False-ask rate is over expected-pass results and false-pass rate over expected-ask results. Reviewer errors are unqualified, never passes.",
     limitations: [
-      "Each case is a single reviewer call with no matching rules; executor routing, rule matching and YOLO/Ask modes are outside the fixture.",
+      "Each case is a single reviewer call with no matching rules; executor routing, rule matching and Never ask/Ask modes are outside the fixture.",
       "Spend reservations are a guard, not a billing guarantee.",
     ],
     cases: selected.map((c) => c.id),

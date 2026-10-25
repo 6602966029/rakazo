@@ -1,6 +1,6 @@
 export const RU_MESSAGES: Record<string, string> = {
   Approvals: "Одобрения",
-  YOLO: "YOLO",
+  "Never ask": "Не спрашивать",
   Auto: "Авто",
   Ask: "Спрашивать",
   Block: "Блокировать",

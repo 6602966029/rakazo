@@ -93,17 +93,17 @@ it("sets the mode, and lists Auto only when an approval model is there", async (
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   rpcMock.approvalRules.list.mockResolvedValue([]);
   rpcMock.autoReview.get.mockResolvedValue({ ...settings, checkerAvailable: false });
-  rpcMock.autoReview.set.mockResolvedValue({ ...settings, mode: "yolo", skipApprovals: true });
+  rpcMock.autoReview.set.mockResolvedValue({ ...settings, mode: "never", skipApprovals: true });
   const { container, root } = await render();
   try {
     await vi.waitFor(() =>
       expect(button(container, "Ask")?.getAttribute("aria-pressed")).toBe("true"),
     );
     expect(button(container, "Auto")).toBeUndefined();
-    await act(async () => button(container, "YOLO")?.click());
-    expect(rpcMock.autoReview.set).toHaveBeenLastCalledWith({ scope: "account", mode: "yolo" });
+    await act(async () => button(container, "Never ask")?.click());
+    expect(rpcMock.autoReview.set).toHaveBeenLastCalledWith({ scope: "account", mode: "never" });
     await vi.waitFor(() =>
-      expect(button(container, "YOLO")?.getAttribute("aria-pressed")).toBe("true"),
+      expect(button(container, "Never ask")?.getAttribute("aria-pressed")).toBe("true"),
     );
     // No rules yet, so the rule list stays out of the way.
     expect(container.querySelector('[data-testid="approval-rules"]')).toBeNull();
@@ -181,7 +181,7 @@ it("keeps a saved mode when the revisit's older background read lands after it",
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   rpcMock.approvalRules.list.mockResolvedValue([]);
   rpcMock.autoReview.get.mockResolvedValueOnce(settings);
-  rpcMock.autoReview.set.mockResolvedValue({ ...settings, mode: "yolo", skipApprovals: true });
+  rpcMock.autoReview.set.mockResolvedValue({ ...settings, mode: "never", skipApprovals: true });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement("div");
   document.body.append(container);
@@ -196,7 +196,7 @@ it("keeps a saved mode when the revisit's older background read lands after it",
     });
     return root;
   };
-  const yolo = () => button(container, "YOLO");
+  const neverAsk = () => button(container, "Never ask");
   try {
     const first = await mount();
     await vi.waitFor(() =>
@@ -214,12 +214,12 @@ it("keeps a saved mode when the revisit's older background read lands after it",
     const second = await mount();
     // Cached, so the mode can change while the refresh is out.
     expect(rpcMock.autoReview.get).toHaveBeenCalledTimes(2);
-    await act(async () => yolo()?.click());
-    await vi.waitFor(() => expect(yolo()?.getAttribute("aria-pressed")).toBe("true"));
+    await act(async () => neverAsk()?.click());
+    await vi.waitFor(() => expect(neverAsk()?.getAttribute("aria-pressed")).toBe("true"));
     await act(async () => resolveRead(settings));
     // Query updates reach components on a timer; let any late write land.
     await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
-    expect(yolo()?.getAttribute("aria-pressed")).toBe("true");
+    expect(neverAsk()?.getAttribute("aria-pressed")).toBe("true");
     await act(async () => second.unmount());
   } finally {
     container.remove();

@@ -54,7 +54,7 @@ describeJourneys("required product journeys", () => {
 
   /** Runs every action without a card, for journeys about something other than approvals. */
   async function runWithoutAsking(cookie: string) {
-    await rpc(app, cookie, "autoReview/set", { mode: "yolo" });
+    await rpc(app, cookie, "autoReview/set", { mode: "never" });
   }
 
   async function sendAndWait(app: App, cookie: string, botId: string, text: string) {
@@ -2838,7 +2838,7 @@ describeJourneys("required product journeys", () => {
       matchKind: "tool",
       matchValue: "destination.write",
     });
-    for (const mode of ["ask", "yolo"]) {
+    for (const mode of ["ask", "never"]) {
       await rpc(app, cookie, "autoReview/set", { mode });
       const blocked = await sendAndWait(
         app,

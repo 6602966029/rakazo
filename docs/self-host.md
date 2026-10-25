@@ -40,7 +40,7 @@ IRSA or EC2 instance role, opt in with `PI_DEFAULT_CREDENTIALS=host` and set
 `PI_DEFAULT_PROVIDER=amazon-bedrock`, `PI_DEFAULT_MODEL` and `AWS_REGION`. With an instance
 role, keep [restricted computer egress](#restricted-computer-egress) on so bot computers
 cannot read the role's credentials from the metadata endpoint.
-Approvals have three modes in **Settings → Approvals**: YOLO runs every action, Auto lets an
+Approvals have three modes in **Settings → Approvals**: Never ask runs every action, Auto lets an
 approval model pass actions that fit the request, and Ask asks before any change. A space starts
 in Ask, or in Auto when `RAKAZO_AUTO_REVIEW=1` is set and an approval model is available. Each
 person can allow or block single tools and sites in every mode, and a space can customize its

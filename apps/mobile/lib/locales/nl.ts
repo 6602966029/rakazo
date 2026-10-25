@@ -1,6 +1,6 @@
 export const NL_MESSAGES: Record<string, string> = {
   Approvals: "Goedkeuringen",
-  YOLO: "YOLO",
+  "Never ask": "Nooit vragen",
   Auto: "Auto",
   Ask: "Vragen",
   Block: "Blokkeren",

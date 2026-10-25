@@ -3550,6 +3550,10 @@ msgstr "対応が必要"
 msgid "Needs: {names}"
 msgstr "必要: {names}"
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Never ask"
+msgstr "確認しない"
+
 #: src/pages/shell/chat-context.tsx
 msgid "New"
 msgstr "新規"
@@ -5773,10 +5777,6 @@ msgstr "年"
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Yesterday"
 msgstr "昨日"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "YOLO"
-msgstr "YOLO"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx

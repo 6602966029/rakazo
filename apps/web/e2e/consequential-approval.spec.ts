@@ -91,15 +91,15 @@ test("Ask mode asks before a change, and approvals settings shape what asks", as
     "aria-pressed",
     "true",
   );
-  await mode.getByRole("button", { name: "YOLO", exact: true }).click();
-  await expect(mode.getByRole("button", { name: "YOLO", exact: true })).toHaveAttribute(
+  await mode.getByRole("button", { name: "Never ask", exact: true }).click();
+  await expect(mode.getByRole("button", { name: "Never ask", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  await captureScreenshot(page, testInfo, "52b-approvals-yolo-with-block");
+  await captureScreenshot(page, testInfo, "52b-approvals-never-ask-with-block");
   await settings.getByRole("button", { name: "Close user settings" }).click();
 
-  // A blocked tool is refused without a card, even in YOLO.
+  // A blocked tool is refused without a card, even in Never ask.
   await sendDestinationWrite(page, "write this to the destination crm while it is blocked");
   await waitForRunIdle(page);
   await expectComposerReady(page);

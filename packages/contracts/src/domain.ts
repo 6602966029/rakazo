@@ -747,7 +747,7 @@ export const ActionApprovalRuleSchema = z.object({
 export type ActionApprovalRule = z.infer<typeof ActionApprovalRuleSchema>;
 
 /** How much a space asks before acting; see VISION.md. */
-export const ApprovalModeSchema = z.enum(["yolo", "auto", "ask"]);
+export const ApprovalModeSchema = z.enum(["never", "auto", "ask"]);
 export type ApprovalMode = z.infer<typeof ApprovalModeSchema>;
 
 export const ActionAutoReviewSettingsSchema = z.object({

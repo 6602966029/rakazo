@@ -906,7 +906,7 @@ describe("connector read-only metadata and approval enforcement", () => {
       expect(reviewMock).not.toHaveBeenCalled();
     });
 
-    it("runs past an older ask rule in YOLO, which never waits", async () => {
+    it("runs past an older ask rule in Never ask, which never waits", async () => {
       const f = fixture({
         catalog,
         name: "demo_send_message",
@@ -918,7 +918,7 @@ describe("connector read-only metadata and approval enforcement", () => {
       expect(f.pauseRunForInput).not.toHaveBeenCalled();
     });
 
-    it("refuses a webhook-triggered write in YOLO instead of asking", async () => {
+    it("refuses a webhook-triggered write in Never ask instead of asking", async () => {
       const f = fixture({
         catalog,
         name: "demo_send_message",
@@ -931,7 +931,7 @@ describe("connector read-only metadata and approval enforcement", () => {
       expect(JSON.stringify(f.results[0])).toContain("never asks");
     });
 
-    it("refuses a blocked tool in YOLO without asking or running it", async () => {
+    it("refuses a blocked tool in Never ask without asking or running it", async () => {
       const f = fixture({
         catalog,
         name: "demo_send_message",
@@ -1099,7 +1099,7 @@ describe("Composio batches", () => {
     expect(f.pauseRunForInput).toHaveBeenCalledOnce();
   });
 
-  it("refuses the whole batch when one action is blocked, even in YOLO", async () => {
+  it("refuses the whole batch when one action is blocked, even in Never ask", async () => {
     const f = batchFixture({
       skipApprovals: true,
       rules: [{ effect: "deny", matchKind: "tool", matchValue: "hubspot_delete_contact" }],
@@ -1219,7 +1219,7 @@ describe("self instruction proposals", () => {
     expect(f.instructionState.instructionHistory).toHaveLength(1);
     expect(f.effects[0]?.status).toBe("completed");
   });
-  it("is refused in YOLO once outside content entered the run", async () => {
+  it("is refused in Never ask once outside content entered the run", async () => {
     const f = fixture({ name: "propose_instructions_update", builtin: true, skipApprovals: true });
     f.claimedOutsideSteering(true);
     f.setCalls([{ args, executionId: "call-1" }]);

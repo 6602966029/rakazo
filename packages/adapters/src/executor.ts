@@ -5314,7 +5314,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             mode,
             mandatory: requiresMandatoryApproval,
             steerable:
-              requiresMandatoryApproval && mode === "yolo"
+              requiresMandatoryApproval && mode === "never"
                 ? !ownerStartedRun || (await isRunTainted())
                 : undefined,
             consequential: requiresApprovalByDefault,

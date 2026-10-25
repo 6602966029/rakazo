@@ -177,18 +177,18 @@ afterEach(() => {
 
 it("offers Auto only once an approval model can decide, and saves the chosen mode", async () => {
   await render();
-  expect(modes()).toEqual(["YOLO", "Ask*"]);
+  expect(modes()).toEqual(["Never ask", "Ask*"]);
   expect(rows()).toEqual([]);
 
   await act(async () => (container.querySelector('[role="radio"]') as HTMLElement).click());
-  expect(state.rpc).toHaveBeenCalledWith("autoReview/set", { scope: "account", mode: "yolo" });
-  expect(modes()).toEqual(["YOLO*", "Ask"]);
+  expect(state.rpc).toHaveBeenCalledWith("autoReview/set", { scope: "account", mode: "never" });
+  expect(modes()).toEqual(["Never ask*", "Ask"]);
 
   act(() => root.unmount());
   root = createRoot(container);
   state.settings = { ...state.settings, mode: "auto" };
   await render();
-  expect(modes()).toEqual(["YOLO", "Auto*", "Ask"]);
+  expect(modes()).toEqual(["Never ask", "Auto*", "Ask"]);
   expect(container.querySelector("small")?.textContent).toBe(
     "Add a model in Settings to use this.",
   );
@@ -207,7 +207,7 @@ it("switches and removes rules, keeping legacy category rules removable only", a
     }),
   ];
   await render();
-  expect(modes()).toEqual(["YOLO", "Auto", "Ask*"]);
+  expect(modes()).toEqual(["Never ask", "Auto", "Ask*"]);
   expect(rows()).toEqual(["Send email: Allow", "example.com: Ask", "email: Ask"]);
   expect(menuButton("Send email", "Allow")?.getAttribute("aria-pressed")).toBe("true");
   expect(menuButton("email", "Allow")).toBeUndefined();
@@ -249,9 +249,9 @@ it("keeps a saved mode when a read that started before the save lands after it",
   holdReads();
   await render();
   await act(async () => resolveRead(stale));
-  expect(modes()).toEqual(["YOLO", "Ask*"]);
+  expect(modes()).toEqual(["Never ask", "Ask*"]);
 
-  // Coming back starts a refresh; the owner picks YOLO before it lands with the old mode.
+  // Coming back starts a refresh; the owner picks Never ask before it lands with the old mode.
   holdReads();
   act(() => root.unmount());
   root = createRoot(container);

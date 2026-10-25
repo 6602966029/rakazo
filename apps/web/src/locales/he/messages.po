@@ -3550,6 +3550,10 @@ msgstr "נדרשת פעולה"
 msgid "Needs: {names}"
 msgstr "דורש: {names}"
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Never ask"
+msgstr "לא לשאול אף פעם"
+
 #: src/pages/shell/chat-context.tsx
 msgid "New"
 msgstr ""
@@ -5773,10 +5777,6 @@ msgstr "שנה"
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Yesterday"
 msgstr "אתמול"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "YOLO"
-msgstr "YOLO"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx

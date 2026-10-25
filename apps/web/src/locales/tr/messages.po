@@ -3550,6 +3550,10 @@ msgstr ""
 msgid "Needs: {names}"
 msgstr "Gerekenler: {names}"
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Never ask"
+msgstr "Asla sorma"
+
 #: src/pages/shell/chat-context.tsx
 msgid "New"
 msgstr ""
@@ -5773,10 +5777,6 @@ msgstr ""
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Yesterday"
 msgstr "Dün"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "YOLO"
-msgstr "YOLO"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx

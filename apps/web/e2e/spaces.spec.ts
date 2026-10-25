@@ -253,17 +253,17 @@ test("a space's menu opens its settings in place, and settings can switch space"
 
   await overrides.getByRole("button", { name: "Customize Approvals" }).click();
   const approvals = overrides.getByTestId("space-setting-confirmations");
-  const spaceYolo = approvals.getByRole("button", { name: "YOLO", exact: true });
-  await expect(spaceYolo).toHaveAttribute("aria-pressed", "false");
-  await spaceYolo.click();
-  await expect(spaceYolo).toHaveAttribute("aria-pressed", "true");
+  const spaceNeverAsk = approvals.getByRole("button", { name: "Never ask", exact: true });
+  await expect(spaceNeverAsk).toHaveAttribute("aria-pressed", "false");
+  await spaceNeverAsk.click();
+  await expect(spaceNeverAsk).toHaveAttribute("aria-pressed", "true");
   await expect(overrides.getByText("Your defaults", { exact: true })).toHaveCount(2);
   await captureScreenshot(page, testInfo, "space-settings-customized-confirmations");
 
   // The account's own approvals stay as they were.
   await settings.getByTestId("settings-nav-confirmations").click();
   await expect(settings.getByTestId("settings-space")).toHaveCount(0);
-  await expect(settings.getByRole("button", { name: "YOLO", exact: true })).toHaveAttribute(
+  await expect(settings.getByRole("button", { name: "Never ask", exact: true })).toHaveAttribute(
     "aria-pressed",
     "false",
   );

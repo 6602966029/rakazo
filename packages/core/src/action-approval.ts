@@ -431,17 +431,17 @@ export function resolveActionApprovalForTools(input: {
 }
 
 /**
- * How much a space asks before acting. `yolo` never waits, `auto` lets the approval model pass what
+ * How much a space asks before acting. `never` runs everything without waiting, `auto` lets the approval model pass what
  * fits the owner's request, and `ask` asks before anything that changes something.
  */
-export type ApprovalMode = "yolo" | "auto" | "ask";
+export type ApprovalMode = "never" | "auto" | "ask";
 
-/** The mode a stored preference means. Skipping approvals is YOLO, an enabled review is Auto. */
+/** The mode a stored preference means. Skipping approvals is Never ask, an enabled review is Auto. */
 export function approvalModeFromPreference(preference: {
   enabled: boolean;
   skipApprovals: boolean;
 }): ApprovalMode {
-  if (preference.skipApprovals) return "yolo";
+  if (preference.skipApprovals) return "never";
   return preference.enabled ? "auto" : "ask";
 }
 
@@ -449,16 +449,16 @@ export function approvalPreferenceFromMode(mode: ApprovalMode): {
   enabled: boolean;
   skipApprovals: boolean;
 } {
-  return { enabled: mode === "auto", skipApprovals: mode === "yolo" };
+  return { enabled: mode === "auto", skipApprovals: mode === "never" };
 }
 
 export type AutoReviewJudgeDecision = "pass" | "ask" | "error";
 
 /**
  * The gate after rule resolution. A block refuses in every mode. An approval a person must give
- * asks, except in YOLO, which never waits: there it runs when the owner started the run and no
+ * asks, except in Never ask, which never waits: there it runs when the owner started the run and no
  * outside content entered it, and is refused otherwise, since outside text could have asked for
- * it. Otherwise YOLO runs, an ask rule asks, and anything that would ask goes to the approval
+ * it. Otherwise Never ask runs it, an ask rule asks, and anything that would ask goes to the approval
  * model in Auto, falling back to asking when no model is set up.
  */
 export function planActionGate(input: {
@@ -480,10 +480,10 @@ export function planActionGate(input: {
 }): "ask" | "allow" | "judge" | "deny" {
   if (input.resolved.decision === "deny") return "deny";
   if (input.mandatory) {
-    if (input.mode !== "yolo") return "ask";
+    if (input.mode !== "never") return "ask";
     return input.steerable ? "deny" : "allow";
   }
-  if (input.mode === "yolo") return "allow";
+  if (input.mode === "never") return "allow";
   if (input.resolved.decision === "ask") return "ask";
   const review = input.mode === "auto" && input.checkerConfigured ? "judge" : "ask";
   // A rule for the whole tool is not a choice of sites, so it never allows a new one; only a site

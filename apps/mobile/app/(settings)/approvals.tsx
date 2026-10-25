@@ -106,7 +106,7 @@ export default function Approvals() {
     effect === "always_allow" ? t("Allow") : effect === "deny" ? t("Block") : t("Ask");
 
   const modes: { value: ApprovalMode; label: string }[] = [
-    { value: "yolo", label: t("YOLO") },
+    { value: "never", label: t("Never ask") },
     ...(settings?.checkerAvailable || settings?.mode === "auto"
       ? [{ value: "auto" as const, label: t("Auto") }]
       : []),

@@ -35,7 +35,7 @@ export function ApprovalRulesSettings({ scope }: { scope: SettingsScope }) {
   const error =
     actionError ?? (loadFailed ? errorText(loadFailed, t`Could not load approval rules`) : null);
   const modes: Array<{ mode: ApprovalMode; label: string }> = [
-    { mode: "yolo", label: t`YOLO` },
+    { mode: "never", label: t`Never ask` },
     // Auto needs an approval model; it stays listed while chosen so the choice is visible.
     ...(autoReview?.checkerAvailable || autoReview?.mode === "auto"
       ? [{ mode: "auto" as const, label: t`Auto` }]

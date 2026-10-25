@@ -3550,6 +3550,10 @@ msgstr ""
 msgid "Needs: {names}"
 msgstr "ज़रूरी: {names}"
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Never ask"
+msgstr "कभी न पूछें"
+
 #: src/pages/shell/chat-context.tsx
 msgid "New"
 msgstr ""
@@ -5773,10 +5777,6 @@ msgstr ""
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Yesterday"
 msgstr "कल"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "YOLO"
-msgstr "YOLO"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx
