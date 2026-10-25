@@ -51,6 +51,21 @@ export async function settingsTarget(
 }
 
 /**
+ * Locks the member's place in the Space for the rest of the caller's transaction. Starting or
+ * ending an override takes it, and so does every settings write before it picks a copy, so a
+ * write never lands in the copy an override change just replaced.
+ */
+export async function lockSpaceSettings(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  scope: Scope,
+): Promise<void> {
+  const members = await tx.$queryRaw<Array<{ locked: number }>>`
+    SELECT 1 AS locked FROM "space_members" WHERE "spaceId" = ${scope.spaceId} AND "userId" = ${scope.userId} FOR UPDATE
+  `;
+  if (members.length !== 1) throw new Error("Space membership not found");
+}
+
+/**
  * Starts or ends a Space's override. Starting copies the account's settings so the Space
  * begins where the member already is; ending drops the Space's copy so nothing stale stays.
  */
@@ -63,11 +78,7 @@ export async function setSpaceSettingOverride(
   return withTransactionRetry(() =>
     prisma.$transaction(
       async (tx) => {
-        // Saves that pick a copy take this lock too, so none lands between the check and the copy.
-        const members = await tx.$queryRaw<Array<{ locked: number }>>`
-          SELECT 1 AS locked FROM "space_members" WHERE "spaceId" = ${scope.spaceId} AND "userId" = ${scope.userId} FOR UPDATE
-        `;
-        if (members.length !== 1) throw new Error("Space membership not found");
+        await lockSpaceSettings(tx, scope);
         const key = {
           spaceId_userId_setting: { spaceId: scope.spaceId, userId: scope.userId, setting },
         };

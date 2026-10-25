@@ -346,6 +346,7 @@ describe("updateVoiceSpeechModel", () => {
       },
       userVoicePreference: table(),
       spaceVoicePreference: table(),
+      $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]),
       $transaction: vi.fn(),
     };
     prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => unknown) =>
@@ -805,6 +806,7 @@ describe("persistVoiceCredential", () => {
             findUnique: vi.fn().mockResolvedValue(savedPreference),
             updateMany: vi.fn().mockResolvedValue({ count: 1 }),
           },
+          $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]),
         };
         const deps = {
           env: { mcpAllowPrivateEndpoint: true },

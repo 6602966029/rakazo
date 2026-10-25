@@ -12,7 +12,7 @@ import {
 } from "@rakazo/contracts";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
-import { settingsTarget } from "./space-settings.js";
+import { lockSpaceSettings, settingsTarget } from "./space-settings.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
 type Scope = { userId: string; spaceId: string };
@@ -141,12 +141,7 @@ export async function updateModelRole(
   return withTransactionRetry(() =>
     prisma.$transaction(
       async (tx) => {
-        // The membership lock orders this save against the Space starting or ending its
-        // override, which takes the same lock, so the copy chosen here is the one written.
-        const members = await tx.$queryRaw<Array<{ locked: number }>>`
-          SELECT 1 AS locked FROM "space_members" WHERE "spaceId" = ${target.spaceId} AND "userId" = ${target.userId} FOR UPDATE
-        `;
-        if (members.length !== 1) throw new Error("Space membership not found");
+        await lockSpaceSettings(tx, target);
         const resolved = await modelRoleTarget(
           tx,
           { userId: target.userId, spaceId: target.spaceId },

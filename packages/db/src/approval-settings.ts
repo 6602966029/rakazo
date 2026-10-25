@@ -1,9 +1,11 @@
 import type { SettingsScope } from "@rakazo/contracts";
 import type { PrismaClient } from "./client.js";
 import { Prisma } from "./client.js";
-import { settingsTarget } from "./space-settings.js";
+import { lockSpaceSettings, settingsTarget } from "./space-settings.js";
 
 type Scope = { userId: string; spaceId: string };
+/** A write runs in a transaction: it locks the member's settings before picking a copy. */
+type ConfirmationsTx = ConfirmationsClient & Pick<Prisma.TransactionClient, "$queryRaw">;
 type ConfirmationsClient = Pick<
   PrismaClient,
   | "spaceSettingOverride"
@@ -44,11 +46,12 @@ export async function listApprovalRules(
  * concurrent opposite saves from both landing. Runs inside the caller's transaction.
  */
 export async function saveApprovalRule(
-  tx: ConfirmationsClient & Pick<Prisma.TransactionClient, "$queryRaw">,
+  tx: ConfirmationsTx,
   scope: Scope,
   rule: ApprovalRuleInput,
   requested?: SettingsScope,
 ) {
+  await lockSpaceSettings(tx, scope);
   const account = (await confirmationsTarget(tx, scope, requested)) === "account";
   const owner = account ? `account:${scope.userId}` : `${scope.spaceId}:${scope.userId}`;
   const value = rule.matchValue.toLowerCase();
@@ -91,11 +94,12 @@ export async function saveApprovalRule(
 }
 
 export async function removeApprovalRule(
-  prisma: ConfirmationsClient,
+  prisma: ConfirmationsTx,
   scope: Scope,
   id: string,
   requested?: SettingsScope,
 ) {
+  await lockSpaceSettings(prisma, scope);
   if ((await confirmationsTarget(prisma, scope, requested)) === "account") {
     await prisma.userActionApprovalRule.deleteMany({ where: { id, userId: scope.userId } });
   } else {
@@ -125,7 +129,7 @@ export async function findAutoReviewPreference(
 
 /** Updates the given fields; a first save fills the rest from `defaults`. */
 export async function saveAutoReviewPreference(
-  prisma: ConfirmationsClient,
+  prisma: ConfirmationsTx,
   scope: Scope,
   update: Partial<AutoReviewPreference>,
   defaults: AutoReviewPreference,
@@ -135,6 +139,7 @@ export async function saveAutoReviewPreference(
     enabled: update.enabled ?? defaults.enabled,
     skipApprovals: update.skipApprovals ?? defaults.skipApprovals,
   };
+  await lockSpaceSettings(prisma, scope);
   if ((await confirmationsTarget(prisma, scope, requested)) === "account") {
     await prisma.userActionAutoReviewPreference.upsert({
       where: { userId: scope.userId },

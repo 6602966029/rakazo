@@ -261,6 +261,7 @@ import {
   listTicketComments,
   listVoicePreferences,
   lockOwnedGroup,
+  lockSpaceSettings,
   modelCredentialProviderFilter,
   modelRoleTarget,
   newestModelCredentialOrder,
@@ -6816,7 +6817,9 @@ export function createRouter(deps: RouterDeps) {
         );
       }),
       remove: authed.approvalRules.remove.handler(async ({ context, input }) => {
-        await removeApprovalRule(deps.prisma, context.actor, input.id, input.scope);
+        await deps.prisma.$transaction((tx) =>
+          removeApprovalRule(tx, context.actor, input.id, input.scope),
+        );
         return { ok: true as const };
       }),
     },
@@ -6825,12 +6828,14 @@ export function createRouter(deps: RouterDeps) {
         return loadAutoReviewSettings(deps, context.actor, input?.scope);
       }),
       set: authed.autoReview.set.handler(async ({ context, input }) => {
-        await saveAutoReviewPreference(
-          deps.prisma,
-          context.actor,
-          { enabled: input.enabled, skipApprovals: input.skipApprovals },
-          { enabled: deploymentAutoReviewDefault(process.env), skipApprovals: false },
-          input.scope,
+        await deps.prisma.$transaction((tx) =>
+          saveAutoReviewPreference(
+            tx,
+            context.actor,
+            { enabled: input.enabled, skipApprovals: input.skipApprovals },
+            { enabled: deploymentAutoReviewDefault(process.env), skipApprovals: false },
+            input.scope,
+          ),
         );
         return loadAutoReviewSettings(deps, context.actor, input.scope);
       }),
@@ -7138,6 +7143,7 @@ export function createRouter(deps: RouterDeps) {
         const cred = await withSerializableRetry(() =>
           deps.prisma.$transaction(
             async (tx) => {
+              await lockSpaceSettings(tx, context.actor);
               const target = await voicePreferenceTarget(tx, context.actor, input.scope);
               const found = input.provider
                 ? await tx.userVoiceCredential.findFirst({

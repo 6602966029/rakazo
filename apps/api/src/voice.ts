@@ -29,6 +29,7 @@ import {
   findVoiceCredential,
   findVoicePreference,
   IsolationError,
+  lockSpaceSettings,
   newestVoiceCredentialOrder,
   Prisma,
   type PrismaClient,
@@ -326,6 +327,7 @@ export async function persistVoiceCredential(
               where: { id: existing.id },
               data: { secretId: secret.id },
             });
+        await lockSpaceSettings(tx, actor);
         const target = await voicePreferenceTarget(tx, actor, input.scope);
         const previousPreference = existing
           ? await findVoicePreference(tx, target, existing.id)
@@ -443,6 +445,7 @@ export async function updateVoiceSpeechModel(
         if (!found) {
           throw new ORPCError("BAD_REQUEST", { message: "Connect a voice provider first." });
         }
+        await lockSpaceSettings(tx, actor);
         const target = await voicePreferenceTarget(tx, actor, input.scope);
         const preference = await findVoicePreference(tx, target, found.id);
         // Remember the model without taking the default. Another provider may already be

@@ -30,7 +30,7 @@ function confirmationsClient({ overridden = false } = {}) {
   const prisma = {
     ...tables,
     spaceSettingOverride,
-    $queryRaw: vi.fn().mockResolvedValue([]),
+    $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]),
   } as unknown as PrismaClient;
   return { prisma, ...tables, spaceSettingOverride };
 }
