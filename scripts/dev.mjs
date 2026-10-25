@@ -9,10 +9,19 @@
 // The database is `.env`'s DATABASE_URL when it accepts a connection. Otherwise a local
 // Postgres container (`rakazo-dev-postgres`) is started and reused by every checkout.
 // Setting WEB_PORT or API_PORT, in the shell or `.env`, turns off port selection. A relative
-// DATA_DIR resolves in the main checkout, so every checkout reads and writes the same files.
+// DATA_DIR resolves in the main checkout, so checkouts sharing the database share its files.
+// Branch databases, and their copied files, are dropped once the branch is deleted or merged.
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  constants,
+  cpSync,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import net from "node:net";
 import path from "node:path";
@@ -161,40 +170,59 @@ async function sharedDatabase() {
   return startManagedPostgres();
 }
 
-/** Migrations in this checkout that origin/main does not have. */
-function branchOnlyMigrations() {
-  const dir = path.join(dbPackage, "prisma/migrations");
-  const local = readdirSync(dir).filter((name) => statSync(path.join(dir, name)).isDirectory());
-  let onMain;
+function migrationNames(ref) {
+  return new Set(
+    run("git", ["ls-tree", "--name-only", ref, "packages/db/prisma/migrations/"], { cwd: root })
+      .split("\n")
+      .filter(Boolean)
+      .map((entry) => path.basename(entry)),
+  );
+}
+
+function mainMigrations() {
   try {
-    onMain = new Set(
-      run("git", ["ls-tree", "--name-only", "origin/main", "packages/db/prisma/migrations/"], {
-        cwd: root,
-      })
-        .split("\n")
-        .map((entry) => path.basename(entry)),
-    );
+    return migrationNames("origin/main");
   } catch {
     // Without main to compare against, any migration may be unmerged.
     throw new Error("Could not read origin/main. Run `git fetch origin main` and try again.");
   }
+}
+
+/** Migrations in this checkout that origin/main does not have. */
+function branchOnlyMigrations(onMain) {
+  const dir = path.join(dbPackage, "prisma/migrations");
+  const local = readdirSync(dir).filter((name) => statSync(path.join(dir, name)).isDirectory());
   return local.filter((name) => !onMain.has(name));
 }
 
-function branchSlug() {
-  const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: root });
+const BRANCH_DATABASE_COMMENT = "rakazo dev branch: ";
+
+function currentBranch() {
+  return run("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: root });
+}
+
+/** `<shared>_<branch>_<hash>`, within Postgres's 63-byte limit on names. */
+function branchDatabaseName(sharedName, branch) {
+  // Distinct branches can clean up to the same name; the hash keeps their databases apart.
+  const hash = createHash("sha256").update(branch).digest("hex").slice(0, 8);
   const readable = branch
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 40);
-  // Distinct branches can clean up to the same name; the hash keeps their databases apart.
-  return `${readable}_${createHash("sha256").update(branch).digest("hex").slice(0, 8)}`;
+    .replace(/^_+|_+$/g, "");
+  const prefix = `${sharedName}_${readable}`.slice(0, 63 - hash.length - 1).replace(/_+$/, "");
+  return `${prefix}_${hash}`;
 }
 
-async function branchDatabase(shared) {
+/** A branch database's files, kept apart so deleting one never removes a file main still uses. */
+function branchDataDir(sharedDataDir, name) {
+  return path.join(path.dirname(sharedDataDir), ".rakazo-dev-branches", name, "data");
+}
+
+async function branchDatabase(shared, sharedDataDir) {
   const sharedName = new URL(shared.migrationUrl).pathname.slice(1);
-  const name = `${sharedName}_${branchSlug()}`;
+  const branch = currentBranch();
+  const name = branchDatabaseName(sharedName, branch);
+  const dataDir = branchDataDir(sharedDataDir, name);
   const owner = new Client({ connectionString: shared.migrationUrl });
   await owner.connect();
   try {
@@ -203,11 +231,18 @@ async function branchDatabase(shared) {
       try {
         // A copy keeps your accounts and bots; it needs no open connections to the source.
         await owner.query(`CREATE DATABASE "${name}" TEMPLATE "${sharedName}"`);
-        log(`Copied the shared database to ${name}`);
+        if (existsSync(sharedDataDir)) {
+          // Copy-on-write where the filesystem supports it, so this is cheap even for large homes.
+          cpSync(sharedDataDir, dataDir, { recursive: true, mode: constants.COPYFILE_FICLONE });
+        }
+        log(`Copied the shared database and files to ${name}`);
       } catch {
         await owner.query(`CREATE DATABASE "${name}"`);
         log(`Created an empty ${name} (the shared one was in use, so it could not be copied)`);
       }
+      await owner.query(
+        `COMMENT ON DATABASE "${name}" IS ${owner.escapeLiteral(BRANCH_DATABASE_COMMENT + branch)}`,
+      );
     }
   } finally {
     await owner.end();
@@ -215,7 +250,43 @@ async function branchDatabase(shared) {
   return {
     url: withDatabase(shared.url, name),
     migrationUrl: withDatabase(shared.migrationUrl, name),
+    dataDir,
   };
+}
+
+/**
+ * Drop branch databases nothing needs anymore: the branch was deleted, or main now has all of its
+ * migrations (a merged branch). A database another checkout still has open is left for next time.
+ */
+async function pruneBranchDatabases(shared, sharedDataDir, onMain) {
+  const owner = new Client({ connectionString: shared.migrationUrl });
+  await owner.connect();
+  try {
+    const { rows } = await owner.query(
+      `SELECT d.datname AS name, substr(c.description, $2) AS branch
+         FROM pg_database d JOIN pg_shdescription c ON c.objoid = d.oid
+        WHERE c.description LIKE $1 || '%'`,
+      [BRANCH_DATABASE_COMMENT, BRANCH_DATABASE_COMMENT.length + 1],
+    );
+    for (const { name, branch } of rows) {
+      let unmerged;
+      try {
+        unmerged = [...migrationNames(`refs/heads/${branch}`)].some((m) => !onMain.has(m));
+      } catch {
+        unmerged = false;
+      }
+      if (unmerged) continue;
+      try {
+        await owner.query(`DROP DATABASE "${name}"`);
+        rmSync(path.dirname(branchDataDir(sharedDataDir, name)), { recursive: true, force: true });
+        log(`Removed ${name}; ${branch} no longer needs its own database`);
+      } catch {
+        // Still in use by a running checkout.
+      }
+    }
+  } finally {
+    await owner.end();
+  }
 }
 
 function generateClientIfStale(env) {
@@ -238,23 +309,24 @@ if (!setting("WEB_PORT") && !setting("API_PORT")) {
   Object.assign(env, portEnv(ports));
 }
 
-let database = await sharedDatabase();
-const pending = branchOnlyMigrations();
+// Checkouts that share a database also share its job queue, so any checkout's worker may write a
+// file another checkout's API reads. A relative DATA_DIR resolves in the main checkout for all.
+const mainCheckout = path.dirname(
+  path.resolve(root, run("git", ["rev-parse", "--git-common-dir"], { cwd: root })),
+);
+const sharedDataDir = path.resolve(mainCheckout, setting("DATA_DIR") || "./data");
+
+let database = { ...(await sharedDatabase()), dataDir: sharedDataDir };
+const onMain = mainMigrations();
+await pruneBranchDatabases(database, sharedDataDir, onMain);
+const pending = branchOnlyMigrations(onMain);
 if (pending.length) {
   log(`This branch adds ${pending.length} migration(s), so it gets its own database`);
-  database = await branchDatabase(database);
+  database = await branchDatabase(database, sharedDataDir);
 }
 env.DATABASE_URL = database.url;
 env.DATABASE_MIGRATION_URL = database.migrationUrl;
-// Checkouts that share a database also share its job queue, so any checkout's worker may write a
-// file another checkout's API reads. A relative DATA_DIR resolves in the main checkout for all.
-const dataDir = setting("DATA_DIR") || "./data";
-if (!path.isAbsolute(dataDir)) {
-  const mainCheckout = path.dirname(
-    path.resolve(root, run("git", ["rev-parse", "--git-common-dir"], { cwd: root })),
-  );
-  env.DATA_DIR = path.resolve(mainCheckout, dataDir);
-}
+env.DATA_DIR = database.dataDir;
 
 generateClientIfStale(env);
 execFileSync("pnpm", ["db:migrate"], { cwd: root, env, stdio: "inherit" });
