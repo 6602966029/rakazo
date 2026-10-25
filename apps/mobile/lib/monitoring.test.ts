@@ -31,6 +31,9 @@ describe("mobile monitoring", () => {
       tags: { operation: "react.render", surface: "mobile" },
     });
     const options = sdk.init.mock.calls[0]![0];
+    expect(options.integrations([{ name: "Release" }, { name: "Replay" }])).toEqual([
+      { name: "Release" },
+    ]);
     expect(options).toMatchObject({
       sendDefaultPii: false,
       enableLogs: false,

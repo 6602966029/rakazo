@@ -98,7 +98,7 @@ export function configureMobileMonitoring(
               "Dedupe",
               "NativeLinkedErrors",
               "EventFilters",
-              "NativeRelease",
+              "Release",
               "ReactNativeInfo",
               "RewriteFrames",
               "DebugMeta",
