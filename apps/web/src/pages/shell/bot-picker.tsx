@@ -59,7 +59,7 @@ export function BotCreatePicker({
             className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground"
           />
         </label>
-        <CommandList className="max-h-72 p-1">
+        <CommandList className="max-h-none overflow-visible p-1">
           <CommandEmpty>
             <Trans>No bots match</Trans>
           </CommandEmpty>
@@ -71,32 +71,21 @@ export function BotCreatePicker({
                 onSelect={() => onCreateBot()}
                 className="gap-2"
               >
-                <Plus size={16} strokeWidth={1.8} aria-hidden="true" />
+                <span className="flex size-[22px] shrink-0 items-center justify-center">
+                  <Plus size={16} strokeWidth={1.8} aria-hidden="true" />
+                </span>
                 <Trans>Create new Bot</Trans>
               </CommandItem>
             ) : null}
-            {matched.map((bot) => (
-              <CommandItem
-                key={bot.id}
-                value={bot.id}
-                data-testid={`picker-bot-${bot.id}`}
-                onSelect={() => onOpenBot(bot.id)}
-                className="gap-2"
-              >
-                <BotAvatar color={bot.color} identity={bot.id} size={22} status={bot.status} />
-                <span className="min-w-0 flex-1 truncate">{bot.name}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup>
             <CommandItem
               value="create-group"
               data-testid="create-new-group"
               onSelect={() => onCreateGroup()}
               className="gap-2"
             >
-              <Users size={16} strokeWidth={1.8} aria-hidden="true" />
+              <span className="flex size-[22px] shrink-0 items-center justify-center">
+                <Users size={16} strokeWidth={1.8} aria-hidden="true" />
+              </span>
               <span className="min-w-0 flex-1 truncate">
                 <Trans>Create new Group</Trans>
               </span>
@@ -125,7 +114,9 @@ export function BotCreatePicker({
               onSelect={() => onCreateSpace()}
               className="gap-2"
             >
-              <Lock size={14} strokeWidth={1.8} aria-hidden="true" />
+              <span className="flex size-[22px] shrink-0 items-center justify-center">
+                <Lock size={16} strokeWidth={1.8} aria-hidden="true" />
+              </span>
               <span className="min-w-0 flex-1 truncate">
                 <Trans>Create new Space</Trans>
               </span>
@@ -148,6 +139,21 @@ export function BotCreatePicker({
                 </button>
               </IconTooltip>
             </CommandItem>
+          </CommandGroup>
+          <CommandSeparator />
+          <CommandGroup className="max-h-60 overflow-y-auto">
+            {matched.map((bot) => (
+              <CommandItem
+                key={bot.id}
+                value={bot.id}
+                data-testid={`picker-bot-${bot.id}`}
+                onSelect={() => onOpenBot(bot.id)}
+                className="gap-2"
+              >
+                <BotAvatar color={bot.color} identity={bot.id} size={22} status={bot.status} />
+                <span className="min-w-0 flex-1 truncate">{bot.name}</span>
+              </CommandItem>
+            ))}
           </CommandGroup>
         </CommandList>
       </Command>
