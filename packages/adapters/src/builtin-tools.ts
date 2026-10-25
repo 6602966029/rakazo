@@ -86,7 +86,7 @@ const scheduleCreateProperties = {
   prompt: {
     type: "string",
     description:
-      'Concrete steps for when the schedule fires: what to use, what to extract, and how to report. Name the connected plugin tools to call when one covers the data (e.g. GITHUB_LIST_RELEASES for owner/repo), preferring them over the computer browser or web search; for a website without one, describe the pages and actions to take in the computer\'s browser. This prompt is all a future run knows: state the user\'s full standing request, and write anything decided only for this time as a rule ("if cheddar is out of stock, skip it", not "omit cheddar").',
+      'Concrete steps for when the schedule fires: what to use, what to extract, and how to report. Name the connected plugin tools to call when one covers the data (e.g. GITHUB_LIST_RELEASES for owner/repo), preferring them over the computer browser or web search; for a website without one, describe the pages and actions to take in the computer\'s browser. This prompt is all a future run knows: state the user\'s full standing request, and keep each standing item and write anything decided only for this time as a rule ("2 oat milk, or 2 almond milk if oat milk is out of stock", not "2 almond milk"; "cheddar, skipped if out of stock", not "omit cheddar").',
   },
   timezone: { type: "string", description: "IANA timezone (default: the user's timezone)." },
 };
