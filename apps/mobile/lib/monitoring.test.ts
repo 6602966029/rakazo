@@ -15,11 +15,6 @@ const updates = vi.hoisted(() => ({
   ),
 }));
 vi.mock("expo-updates", () => updates);
-vi.mock("expo-application", () => ({
-  applicationId: "com.example.app",
-  nativeApplicationVersion: "1.2.3",
-  nativeBuildVersion: "4",
-}));
 const storage = vi.hoisted(() => new Map<string, string>());
 const secureStorage = {
   getItem: (key: string) => storage.get(key) ?? null,
@@ -28,7 +23,12 @@ const secureStorage = {
   },
 };
 vi.mock("@sentry/react-native", () => sdk);
-vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
+vi.mock("react-native", () => ({
+  Platform: { OS: "ios" },
+  get PushNotificationIOS() {
+    throw new Error("optional native module is unavailable");
+  },
+}));
 const response = (body: unknown) =>
   vi.fn(async () => new Response(JSON.stringify(body))) as unknown as typeof fetch;
 
@@ -290,28 +290,6 @@ describe("mobile monitoring", () => {
     );
   });
 
-  it("isolates native initialization on the diagnostic channel and retains explicit binary identity", async () => {
-    updates.channel = "diagnostic";
-    const monitor = await import("./monitoring");
-    await monitor.configureMobileMonitoring(
-      "https://app.example.com",
-      {},
-      response({ dsn: "https://key@errors.example.com/8" }),
-    );
-    expect(sdk.init).toHaveBeenCalledWith(
-      expect.objectContaining({
-        enableNative: false,
-        release: "com.example.app@1.2.3+4",
-        dist: "4",
-      }),
-    );
-    const error = new Error("chat failed");
-    monitor.reportMobileError(error, "react.render");
-    expect(sdk.captureException).toHaveBeenCalledWith(error, {
-      tags: { operation: "react.render", surface: "mobile" },
-    });
-  });
-
   it("recovers Expo's latest persisted runtime error on the diagnostic channel", async () => {
     updates.channel = "diagnostic";
     updates.readLogEntriesAsync.mockResolvedValue([
@@ -478,7 +456,6 @@ describe("mobile monitoring", () => {
     expect(updates.readLogEntriesAsync).not.toHaveBeenCalled();
     expect(options).toMatchObject({
       sendDefaultPii: false,
-      enableNative: true,
       enableLogs: false,
       attachScreenshot: false,
       attachViewHierarchy: false,

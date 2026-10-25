@@ -148,25 +148,14 @@ export function configureMobileMonitoring(
     }
     try {
       const Sentry = await import("@sentry/react-native");
-      const { Platform } = await import("react-native");
+      const { Platform } = await import("./monitoring-platform");
       const updates = await import("expo-updates");
       const { channel } = updates;
-      // Isolate native SDK initialization on diagnostic builds while retaining JS reports.
-      const application = channel === "diagnostic" ? await import("expo-application") : undefined;
       if (current !== generation) return;
       const userId = isMonitoringUserId(config.userId) ? config.userId : undefined;
       Sentry.init({
         dsn: nativeMonitoringDsn(base, config.dsn, "mobile"),
         environment: config.environment ?? undefined,
-        enableNative: channel !== "diagnostic",
-        ...(application?.applicationId &&
-        application.nativeApplicationVersion &&
-        application.nativeBuildVersion
-          ? {
-              release: `${application.applicationId}@${application.nativeApplicationVersion}+${application.nativeBuildVersion}`,
-              dist: application.nativeBuildVersion,
-            }
-          : {}),
         // Keep the native binary release for symbolication, distinct from the server release.
         sendDefaultPii: false,
         enableLogs: false,
