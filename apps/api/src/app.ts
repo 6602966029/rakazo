@@ -390,7 +390,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       : undefined);
   const { messaging, installations: messagingInstallations } = messagingOverride
     ? { messaging: messagingOverride, installations: undefined }
-    : installedMessaging(prisma, secrets, env, legacyMessaging);
+    : installedMessaging(prisma, secrets, env, legacyMessaging, jobs);
   const configuredEmail = emailOverride ?? configuredEmailProvider(env);
   const localEmailEmulator =
     !configuredEmail && env.emailEmulator
@@ -1023,8 +1023,9 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     }) => {
       installedRetries.schedule(installation.id, () =>
         runAsSystem("retry installed team chat", async () => {
-          if (messagingStopped || !(await messagingInstallations?.isActive(installation.id)))
-            return;
+          if (messagingStopped) return;
+          const active = await messagingInstallations?.isActive(installation.id);
+          if (!active || messagingStopped) return;
           await installedBridge(installation);
         }),
       );

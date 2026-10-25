@@ -181,17 +181,6 @@ async function main() {
   })
     ? new ChatSdkMessagingSurface(messagingPlatforms)
     : undefined;
-  const { messaging } = installedMessaging(
-    prisma,
-    secrets,
-    {
-      slackClientId: process.env.SLACK_CLIENT_ID,
-      slackClientSecret: process.env.SLACK_CLIENT_SECRET,
-      slackSigningSecret: process.env.SLACK_SIGNING_SECRET,
-      apiUrl: process.env.API_URL,
-    },
-    legacyMessaging,
-  );
   const integrationSettings = new IntegrationProviderSettings(
     prisma,
     secrets,
@@ -215,6 +204,18 @@ async function main() {
   const inMemoryJobs = process.env.WAKEUP_DRIVER === "memory" ? new InMemoryJobQueue() : undefined;
   const jobs: JobPublisher =
     inMemoryJobs ?? new RunJobPublisher(prisma, realtime, new GraphileJobPublisher(pool, prisma));
+  const { messaging } = installedMessaging(
+    prisma,
+    secrets,
+    {
+      slackClientId: process.env.SLACK_CLIENT_ID,
+      slackClientSecret: process.env.SLACK_CLIENT_SECRET,
+      slackSigningSecret: process.env.SLACK_SIGNING_SECRET,
+      apiUrl: process.env.API_URL,
+    },
+    legacyMessaging,
+    jobs,
+  );
   const ticketChanges = createTicketChangeNotifier({
     boardEvents,
     jobs,

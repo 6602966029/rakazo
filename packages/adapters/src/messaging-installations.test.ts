@@ -75,8 +75,15 @@ function fixture() {
     load: vi.fn(async () => "fake-token"),
     delete: vi.fn(async () => undefined),
   } as unknown as SecretStore;
+  const cleanupJobs = { enqueue: vi.fn(async () => undefined) };
   return {
-    manager: new MessagingInstallations(prisma as unknown as PrismaClient, secrets, provider),
+    cleanupJobs,
+    manager: new MessagingInstallations(
+      prisma as unknown as PrismaClient,
+      secrets,
+      provider,
+      cleanupJobs,
+    ),
     prisma,
     provider,
     secrets,
@@ -235,4 +242,32 @@ it("disconnects installations and deletes their secret references before destroy
     where: { botId: "bot-a", spaceId: actor.spaceId, userId: actor.userId },
   });
   expect(f.secrets.delete).toHaveBeenCalledWith("remote-reference", "install-a");
+});
+
+it("keeps a completed reconnect successful when external cleanup needs a retry", async () => {
+  const f = fixture();
+  await f.manager.complete(await begin(f), "code");
+  const id = f.getInstallation()!.id as string;
+  vi.mocked(f.secrets.put).mockResolvedValueOnce({ id, ref: "new-ref", ciphertext: "new-ref" });
+  vi.mocked(f.secrets.delete).mockRejectedValueOnce(new Error("secret store unavailable"));
+  await expect(f.manager.complete(await begin(f), "code")).resolves.toBeUndefined();
+  expect(f.getInstallation()?.ciphertext).toBe("new-ref");
+  expect(f.cleanupJobs.enqueue).toHaveBeenCalledWith(
+    expect.objectContaining({
+      name: "messaging.credential-cleanup",
+      payload: { installationId: id, ref: "sealed-token" },
+    }),
+  );
+});
+
+it("keeps a completed disconnect successful when external cleanup needs a retry", async () => {
+  const f = fixture();
+  await f.manager.complete(await begin(f), "code");
+  const id = f.getInstallation()!.id as string;
+  vi.mocked(f.secrets.delete).mockRejectedValueOnce(new Error("secret store unavailable"));
+  await expect(f.manager.remove(actor, id)).resolves.toBeUndefined();
+  expect(f.getInstallation()).toBeNull();
+  expect(f.cleanupJobs.enqueue).toHaveBeenCalledWith(
+    expect.objectContaining({ payload: { installationId: id, ref: "sealed-token" } }),
+  );
 });

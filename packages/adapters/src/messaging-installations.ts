@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type {
+  JobPublisher,
   MessagingInstallation,
   MessagingInstallationStore,
   MessagingInstallProvider,
@@ -17,6 +18,7 @@ export class MessagingInstallations implements MessagingInstallationStore {
     private readonly prisma: PrismaClient,
     private readonly secrets: SecretStore,
     readonly provider: MessagingInstallProvider,
+    private readonly cleanupJobs?: Pick<JobPublisher, "enqueue">,
   ) {}
 
   async start(actor: Actor, botId: string): Promise<string> {
@@ -135,14 +137,14 @@ export class MessagingInstallations implements MessagingInstallationStore {
             select: { ciphertext: true },
           });
           if (current?.ciphertext !== sealed.ciphertext)
-            await this.secrets.delete(sealed.ciphertext, id);
+            await this.cleanupCredential(sealed.ciphertext, id);
         } catch {
           getLogger().warn("unused messaging credential cleanup failed");
         }
         throw error;
       }
       if (previousCiphertext && previousCiphertext !== sealed.ciphertext)
-        await this.secrets.delete(previousCiphertext, id);
+        await this.cleanupCredential(previousCiphertext, id);
     });
   }
 
@@ -205,7 +207,7 @@ export class MessagingInstallations implements MessagingInstallationStore {
       if (result.count !== 1) throw new Error("Workspace connection changed; try again");
       return true;
     });
-    if (removed) await this.secrets.delete(installation.ciphertext, installation.id);
+    if (removed) await this.cleanupCredential(installation.ciphertext, installation.id);
   }
 
   async isActive(id: string): Promise<boolean> {
@@ -241,6 +243,24 @@ export class MessagingInstallations implements MessagingInstallationStore {
       return { ...installation, credential: await this.secrets.load(ciphertext, row.id) };
     });
   }
+  private async cleanupCredential(ref: string, installationId: string): Promise<void> {
+    try {
+      await this.secrets.delete(ref, installationId);
+    } catch {
+      getLogger().warn("messaging credential cleanup failed; queuing retry");
+      try {
+        await this.cleanupJobs?.enqueue({
+          name: "messaging.credential-cleanup",
+          payload: { installationId, ref },
+          replaceKey: `messaging.credential-cleanup:${credentialDigest(ref)}`,
+          maxAttempts: 20,
+        });
+      } catch {
+        getLogger().warn("messaging credential cleanup retry could not be queued");
+      }
+    }
+  }
+
   private async activeRow(
     where: { id: string } | { provider_workspaceId: { provider: string; workspaceId: string } },
   ) {

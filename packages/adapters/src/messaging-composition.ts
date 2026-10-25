@@ -1,4 +1,4 @@
-import type { MessagingSurface, SecretStore } from "@rakazo/adapter-kit";
+import type { JobPublisher, MessagingSurface, SecretStore } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { InstalledMessagingSurface } from "./installed-messaging-surface.js";
 import { MessagingInstallations } from "./messaging-installations.js";
@@ -14,6 +14,7 @@ export function installedMessaging(
     apiUrl?: string;
   },
   fallback?: MessagingSurface,
+  cleanupJobs?: Pick<JobPublisher, "enqueue">,
 ): { messaging: MessagingSurface | undefined; installations: MessagingInstallations | undefined } {
   if (
     (config.slackClientId || config.slackClientSecret) &&
@@ -38,7 +39,7 @@ export function installedMessaging(
     signingSecret: config.slackSigningSecret,
     redirectUri: new URL("/api/v1/messaging/install/slack/callback", config.apiUrl).toString(),
   });
-  const installations = new MessagingInstallations(prisma, secrets, provider);
+  const installations = new MessagingInstallations(prisma, secrets, provider, cleanupJobs);
   return {
     messaging: new InstalledMessagingSurface(installations, provider, fallback),
     installations,
