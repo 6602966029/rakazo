@@ -11,11 +11,11 @@ const store: World["store"] = {
   logins: 1,
   failedLogins: 0,
   slots: [
-    { id: "slot-1", label: "Mon 26 Oct, 9–11 am", full: true },
-    { id: "slot-2", label: "Mon 26 Oct, 6–8 pm", full: false },
-    { id: "slot-3", label: "Tue 27 Oct, 9–11 am", full: false },
-    { id: "slot-4", label: "Tue 27 Oct, 6–8 pm", full: false },
-    { id: "slot-5", label: "Wed 28 Oct, 12–2 pm", full: false },
+    { id: "slot-1", label: "Mon 26 Oct, 9–11 am", date: "2026-10-26", full: true },
+    { id: "slot-2", label: "Mon 26 Oct, 6–8 pm", date: "2026-10-26", full: false },
+    { id: "slot-3", label: "Tue 27 Oct, 9–11 am", date: "2026-10-27", full: false },
+    { id: "slot-4", label: "Tue 27 Oct, 6–8 pm", date: "2026-10-27", full: false },
+    { id: "slot-5", label: "Wed 28 Oct, 12–2 pm", date: "2026-10-28", full: false },
   ],
   orders: [],
 };
@@ -41,14 +41,26 @@ const order = (slotId: string) => ({
   total: 1000,
 });
 
-function evidence(slotId: string, cron: string): FlowEvidence<World> {
+function evidence(slotId: string, cron: string, firstRun?: string): FlowEvidence<World> {
   const placed = { ...store, orders: [order(slotId)] };
   return {
     world: { seed: 1, adminToken: "token", store, expected },
     transcript: [],
-    routines: [{ name: "Groceries", prompt: "Order the list", crons: [cron], active: true }],
+    routines: [
+      {
+        name: "Groceries",
+        prompt: "Order the list",
+        crons: [cron],
+        active: true,
+        timezone: "America/New_York",
+        nextRunAt: firstRun ?? null,
+      },
+    ],
     toolNames: [],
-    observations: { conversation: placed, "wake-1": placed },
+    // A first run planned after the delivery is not woken early; one due tomorrow is.
+    observations: firstRun
+      ? { conversation: placed, "before-wake-1": { nextRunAt: firstRun } }
+      : { conversation: placed, "wake-1": placed },
     endedBy: "user-done",
   };
 }
@@ -76,5 +88,12 @@ describe("weekly shopping grading", () => {
   it("fails a later or evening slot and a wrong schedule", () => {
     expect(failing(evidence("slot-2", "0 7 * * 1"))).toEqual(["first-week-earliest-morning-slot"]);
     expect(failing(evidence("slot-3", "0 9 * * 1-5"))).toEqual(["weekly-routine"]);
+  });
+
+  it("accepts a first routine run started after the delivery it just ordered", () => {
+    expect(failing(evidence("slot-3", "0 7 * * 1", "2026-11-02T12:00:00.000Z"))).toEqual([]);
+    expect(failing(evidence("slot-3", "0 7 * * 1", "2026-10-27T11:00:00.000Z"))).toEqual([
+      "first-run-after-delivery",
+    ]);
   });
 });

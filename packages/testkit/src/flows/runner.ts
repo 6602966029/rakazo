@@ -108,6 +108,8 @@ export async function runFlow<World>(
   let cookie = "";
   let world: World | undefined;
   let endedBy: FlowEvidence<unknown>["endedBy"] = "user-done";
+  let wakesRan = 0;
+  let wakesNotDue = 0;
   let computer: FlowComputer | undefined;
   let recorder: NodeJS.Timeout | undefined;
   let recording: Promise<void> | undefined;
@@ -441,6 +443,20 @@ export async function runFlow<World>(
           orderBy: { createdAt: "asc" },
         });
         if (!routine) break;
+        observations[`before-wake-${wake}`] = {
+          nextRunAt: routine.nextRunAt?.toISOString() ?? null,
+          crons: routine.crons,
+          timezone: routine.timezone,
+        };
+        if (
+          !routine.nextRunAt ||
+          routine.nextRunAt.getTime() >
+            Date.now() + (flow.wakeHorizonMs ?? Number.POSITIVE_INFINITY)
+        ) {
+          options.log(`routine "${routine.name}" is not due soon; not waking it early`);
+          wakesNotDue += 1;
+          break;
+        }
         options.log(`waking routine "${routine.name}" (${wake})`);
         // Stand in for the calendar passing, not for the bot's work.
         const scheduledFor = new Date(Date.now() - 1_000);
@@ -459,6 +475,7 @@ export async function runFlow<World>(
         }
         await converse(wake);
         observations[`wake-${wake}`] = await flow.observe(computer, world);
+        wakesRan += 1;
       }
     } catch (error) {
       if (!(error instanceof FlowStop)) throw error;
@@ -495,6 +512,8 @@ export async function runFlow<World>(
       prompt: routine.prompt,
       crons: routine.crons,
       active: routine.active,
+      timezone: routine.timezone,
+      nextRunAt: routine.nextRunAt?.toISOString() ?? null,
     }));
     const evidence: FlowEvidence<World> = {
       world,
@@ -504,7 +523,6 @@ export async function runFlow<World>(
       observations,
       endedBy,
     };
-    const wakesRan = Object.keys(observations).filter((key) => key.startsWith("wake-")).length;
     const failedRuns = result.runs.filter((run) => run.status === "failed");
     result.criteria = [
       ...flow.grade(evidence),
@@ -512,8 +530,8 @@ export async function runFlow<World>(
         ? [
             check(
               "requested-wakes-ran",
-              wakesRan === flow.routineWakes,
-              `${wakesRan} of ${flow.routineWakes}`,
+              wakesRan + wakesNotDue === flow.routineWakes,
+              `${wakesRan} ran, ${wakesNotDue} not due, of ${flow.routineWakes}`,
             ),
           ]
         : []),
