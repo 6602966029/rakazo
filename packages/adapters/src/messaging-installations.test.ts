@@ -218,3 +218,21 @@ it("does not delete a credential when a write committed before a transport error
   await expect(f.manager.complete(state, "code")).rejects.toThrow("response lost");
   expect(f.secrets.delete).not.toHaveBeenCalled();
 });
+
+it("disconnects installations and deletes their secret references before destroying a bot", async () => {
+  const f = fixture();
+  f.setInstallation({
+    id: "install-a",
+    provider: "slack",
+    spaceId: actor.spaceId,
+    userId: actor.userId,
+    botId: "bot-a",
+    ciphertext: "remote-reference",
+  });
+  f.prisma.messagingInstallation.findMany.mockResolvedValueOnce([f.getInstallation()] as never);
+  await f.manager.removeForBot({ id: "bot-a", spaceId: actor.spaceId, userId: actor.userId });
+  expect(f.prisma.messagingInstallation.findMany).toHaveBeenCalledWith({
+    where: { botId: "bot-a", spaceId: actor.spaceId, userId: actor.userId },
+  });
+  expect(f.secrets.delete).toHaveBeenCalledWith("remote-reference", "install-a");
+});

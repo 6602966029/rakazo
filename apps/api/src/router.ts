@@ -2526,6 +2526,7 @@ export function createRouter(deps: RouterDeps) {
             jobs: deps.jobs,
             artifacts: deps.artifacts,
             dataDir: deps.dataDir,
+            messagingInstallations: deps.messagingInstallations,
           },
           bot,
           {

@@ -161,6 +161,15 @@ export class MessagingInstallations implements MessagingInstallationStore {
     if (installation) await this.removeOwned(installation);
   }
 
+  async removeForBot(bot: { id: string; spaceId: string; userId: string }): Promise<void> {
+    await runAsSystem("disconnect deleted bot messaging installations", async () => {
+      const installations = await this.prisma.messagingInstallation.findMany({
+        where: { botId: bot.id, spaceId: bot.spaceId, userId: bot.userId },
+      });
+      for (const installation of installations) await this.removeOwned(installation);
+    });
+  }
+
   async targets(): Promise<Array<{ id: string; botId: string; workspaceId: string }>> {
     return runAsSystem("resume installed messaging conversations", () =>
       this.prisma.messagingInstallation.findMany({
