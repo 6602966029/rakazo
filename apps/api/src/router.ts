@@ -6471,6 +6471,13 @@ export function createRouter(deps: RouterDeps) {
             }),
           );
           if (!identity) throw new ORPCError("NOT_FOUND");
+          // A workspace install delivers DMs only into its own space, so moving
+          // the link elsewhere would silently drop them.
+          if (identity.installationId && identity.spaceId !== context.actor.spaceId) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Pick a bot in the space this Slack workspace is connected to.",
+            });
+          }
           const bot = await deps.prisma.bot.findFirst({
             where: {
               id: input.botId,

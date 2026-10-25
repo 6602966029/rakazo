@@ -24,6 +24,7 @@ it("builds a workspace OAuth request with state and the configured callback", ()
   expect(url.searchParams.get("state")).toBe("nonce");
   expect(url.searchParams.get("redirect_uri")).toBe(config.redirectUri);
   expect(url.searchParams.get("scope")).toContain("reactions:write");
+  expect(url.searchParams.get("scope")).toContain("files:write");
 });
 it("verifies Slack signatures, body and replay window before exposing routing metadata", async () => {
   const provider = new SlackInstallProvider(config);

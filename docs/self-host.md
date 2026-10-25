@@ -971,7 +971,7 @@ settings so other workspaces can install it. Enable Slack Events API delivery to
 `https://app.example.com/api/v1/messaging/webhook/slack`, with `app_mention`,
 `message.im`, `message.channels`, `message.groups`, `message.mpim`, and
 `app_uninstalled`. Enable the app's Messages tab. The install flow requests the
-message/history, channel/user lookup, file-read, and reaction-write scopes it uses;
+message/history, channel/user lookup, file read and write, and reaction-write scopes it uses;
 reinstall the Slack app after changing scopes. Socket Mode is not used.
 
 In Messaging settings, choose the bot for shared channel conversations and select

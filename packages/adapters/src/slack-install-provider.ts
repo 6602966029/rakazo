@@ -22,6 +22,7 @@ const SCOPES = [
   "users:read",
   "reactions:write",
   "files:read",
+  "files:write",
 ];
 
 export class SlackInstallProvider implements MessagingInstallProvider {
