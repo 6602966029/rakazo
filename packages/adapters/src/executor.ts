@@ -394,6 +394,7 @@ import {
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { assertSafeRemoteUrl } from "./remote-mcp.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
+import { backOffRoutineAfterAccountError, clearRoutineBackoff } from "./routine-backoff.js";
 import { findPendingRoutineTick, routineTimerNonce } from "./routine-coalescing.js";
 import { lateRoutineRunInstruction } from "./routine-lateness.js";
 import { routineTaskInstructions, tickRoutineWatch } from "./routine-watch.js";
@@ -8528,6 +8529,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 });
                 if (!stopped) return;
                 stopHeartbeatAfterCompletion();
+                if (run.trigger === "routine" && run.routineId) {
+                  await clearRoutineBackoff(deps, run.routineId);
+                }
                 if (stopped.continuationRunId) {
                   await deps.jobs
                     .enqueue(runContinueJob(stopped.continuationRunId))
@@ -8800,6 +8804,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           });
           if (!completed) return;
           stopHeartbeatAfterCompletion();
+          if (run.trigger === "routine" && run.routineId) {
+            await clearRoutineBackoff(deps, run.routineId);
+          }
           if (screenRelease) screenRelease.keepWarm = true;
           if (completed.continuationRunId) {
             await deps.jobs
@@ -8940,6 +8947,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
               "status",
               { forceUnread: true },
             ).catch((returnError) => getLogger().error("bot message failure return", returnError));
+          }
+          if (run.trigger === "routine" && run.routineId && error instanceof ModelAccountError) {
+            await backOffRoutineAfterAccountError(deps, run.routineId);
           }
           const retrying =
             !failed.continuationRunId && (await scheduleRoutineRetry(deps, run, error));

@@ -1,0 +1,138 @@
+import type { PrismaClient } from "@rakazo/db";
+import { describe, expect, it, vi } from "vitest";
+import {
+  backOffRoutineAfterAccountError,
+  clearRoutineBackoff,
+  routineAccountBackoffMs,
+} from "./routine-backoff.js";
+
+const NOW = new Date("2026-03-02T09:00:30.000Z");
+const MINUTE = 60_000;
+
+interface Row {
+  active: boolean;
+  crons: string[];
+  timezone: string;
+  watch: unknown;
+  nextRunAt: Date | null;
+  accountFailures: number;
+}
+
+type Where = { id: string; active?: boolean; nextRunAt?: Date; accountFailures?: { gt: number } };
+type Data = { accountFailures?: number | { increment: number }; nextRunAt?: Date };
+
+function fakeRoutine(overrides: Partial<Row> = {}) {
+  const row: Row = {
+    active: true,
+    crons: ["*/1 * * * *"],
+    timezone: "UTC",
+    watch: null,
+    nextRunAt: new Date("2026-03-02T09:01:00.000Z"),
+    accountFailures: 0,
+    ...overrides,
+  };
+  const matches = (where: Where) =>
+    where.id === "routine-1" &&
+    (where.active === undefined || row.active === where.active) &&
+    (where.nextRunAt === undefined || row.nextRunAt?.getTime() === where.nextRunAt.getTime()) &&
+    (where.accountFailures === undefined || row.accountFailures > where.accountFailures.gt);
+  const prisma = {
+    routine: {
+      updateMany: vi.fn(async ({ where, data }: { where: Where; data: Data }) => {
+        if (!matches(where)) return { count: 0 };
+        if (typeof data.accountFailures === "object") {
+          row.accountFailures += data.accountFailures.increment;
+        } else if (data.accountFailures !== undefined) {
+          row.accountFailures = data.accountFailures;
+        }
+        if (data.nextRunAt) row.nextRunAt = data.nextRunAt;
+        return { count: 1 };
+      }),
+      findUnique: vi.fn(async () => ({ ...row })),
+    },
+  };
+  const enqueue = vi.fn(async () => undefined);
+  const jobs = { enqueue, cancel: vi.fn(), close: vi.fn() };
+  const deps = { prisma: prisma as unknown as PrismaClient, jobs };
+  return { row, deps, enqueue };
+}
+
+describe("routineAccountBackoffMs", () => {
+  it("doubles from five minutes and stops at a day", () => {
+    expect([1, 2, 3, 4].map(routineAccountBackoffMs)).toEqual([
+      5 * MINUTE,
+      10 * MINUTE,
+      20 * MINUTE,
+      40 * MINUTE,
+    ]);
+    expect(routineAccountBackoffMs(12)).toBe(24 * 60 * MINUTE);
+  });
+});
+
+describe("backOffRoutineAfterAccountError", () => {
+  it("moves a frequent routine's next run past the gap, on its cadence", async () => {
+    const { row, deps, enqueue } = fakeRoutine({ accountFailures: 2 });
+
+    await backOffRoutineAfterAccountError(deps, "routine-1", NOW);
+
+    expect(row.accountFailures).toBe(3);
+    // 20 minutes after 09:00:30, the next whole minute.
+    const resume = new Date("2026-03-02T09:21:00.000Z");
+    expect(row.nextRunAt).toEqual(resume);
+    expect(enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "routine.wakeup", availableAt: resume }),
+    );
+  });
+
+  it("leaves a routine whose next run is already past the gap", async () => {
+    const tomorrow = new Date("2026-03-03T09:00:00.000Z");
+    const { row, deps, enqueue } = fakeRoutine({ crons: ["0 9 * * *"], nextRunAt: tomorrow });
+
+    await backOffRoutineAfterAccountError(deps, "routine-1", NOW);
+
+    expect(row.accountFailures).toBe(1);
+    expect(row.nextRunAt).toEqual(tomorrow);
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("delays a change trigger's next check by the gap", async () => {
+    const { row, deps } = fakeRoutine({ crons: [], watch: { kind: "files" } });
+
+    await backOffRoutineAfterAccountError(deps, "routine-1", NOW);
+
+    expect(row.nextRunAt).toEqual(new Date(NOW.getTime() + 5 * MINUTE));
+  });
+
+  it("does not schedule a paused routine", async () => {
+    const { row, deps, enqueue } = fakeRoutine({ active: false });
+
+    await backOffRoutineAfterAccountError(deps, "routine-1", NOW);
+
+    expect(row.nextRunAt).toEqual(new Date("2026-03-02T09:01:00.000Z"));
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe("clearRoutineBackoff", () => {
+  it("resets the count and brings a held schedule back to its cadence", async () => {
+    const { row, deps, enqueue } = fakeRoutine({
+      accountFailures: 9,
+      nextRunAt: new Date("2026-03-02T15:00:00.000Z"),
+    });
+
+    await clearRoutineBackoff(deps, "routine-1", NOW);
+
+    expect(row.accountFailures).toBe(0);
+    expect(row.nextRunAt).toEqual(new Date("2026-03-02T09:01:00.000Z"));
+    expect(enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing for a routine that was not backed off", async () => {
+    const { deps, enqueue } = fakeRoutine();
+
+    await clearRoutineBackoff(deps, "routine-1", NOW);
+
+    expect(deps.prisma.routine.findUnique).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+});

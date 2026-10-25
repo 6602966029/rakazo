@@ -79,6 +79,7 @@ async function failRun(scenario: Scenario) {
       }),
     },
     routine: {
+      updateMany: vi.fn(async () => ({ count: 0 })),
       findUnique: vi.fn(async () => ({
         notify: scenario.routineNotify ?? true,
         nextRunAt:
@@ -294,6 +295,25 @@ describe("retrying a routine run after a transient model failure", () => {
     const { retries } = await failRun({ error: overloaded(), trigger: "user" });
 
     expect(retries).toEqual([]);
+  });
+});
+
+describe("backing off a routine after an account failure", () => {
+  const counted = { where: { id: "routine-1" }, data: { accountFailures: { increment: 1 } } };
+
+  it("counts a rejected key against the routine", async () => {
+    const { prisma } = await failRun({ error: new ModelAccountError("401 Invalid API key") });
+
+    expect(prisma.routine.updateMany).toHaveBeenCalledWith(counted);
+  });
+
+  it.each([
+    ["a transient failure", { error: overloaded() }],
+    ["a chat run", { error: new ModelAccountError("401 Invalid API key"), trigger: "user" }],
+  ] satisfies Array<[string, Scenario]>)("does not count %s", async (_label, scenario) => {
+    const { prisma } = await failRun(scenario);
+
+    expect(prisma.routine.updateMany).not.toHaveBeenCalledWith(counted);
   });
 });
 
