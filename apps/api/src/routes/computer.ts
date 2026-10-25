@@ -799,7 +799,7 @@ async function leaseHeldByFinishedRun(
   input: { computerId: string; botId: string },
 ): Promise<boolean> {
   const lease = await prisma.computerExecutionLease.findUnique({
-    where: { computerId_botId: input },
+    where: { computerId_botId: { computerId: input.computerId, botId: input.botId } },
     select: { runId: true, expiresAt: true },
   });
   if (!lease || lease.expiresAt.getTime() <= Date.now()) return false;

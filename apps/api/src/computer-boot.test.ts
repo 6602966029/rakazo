@@ -87,6 +87,11 @@ describe("computer boot", () => {
 
     await boot(prisma);
 
+    expect(prisma.computerExecutionLease.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { computerId_botId: { computerId: "computer-1", botId: "bot-1" } },
+      }),
+    );
     expect(lifecycle.acquireComputerExecutionLease).toHaveBeenCalledTimes(2);
     expect(lifecycle.provisionComputer).toHaveBeenCalledOnce();
   });
