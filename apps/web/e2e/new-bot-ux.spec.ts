@@ -279,6 +279,13 @@ test("creation actions stay visible above a long bot list", async ({ page }, tes
   await expect(group).toBeInViewport();
   await expect(space).toBeInViewport();
   await captureScreenshot(page, testInfo, "create-menu-long-roster");
+  await page.setViewportSize({ width: 900, height: 360 });
+  const lastBot = picker.locator('[data-testid^="picker-bot-"]').last();
+  await lastBot.scrollIntoViewIfNeeded();
+  await expect(lastBot).toBeInViewport({ ratio: 1 });
+  await expect(group).toBeInViewport({ ratio: 1 });
+  await expect(space).toBeInViewport({ ratio: 1 });
+  await captureScreenshot(page, testInfo, "create-menu-short-window");
   await group.click();
   await expect(page.getByTestId("side-panel")).toHaveAttribute("data-panel", "create-group");
 });

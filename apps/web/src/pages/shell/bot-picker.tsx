@@ -46,8 +46,11 @@ export function BotCreatePicker({
 
   return (
     <div data-testid="bot-create-picker" className="w-[min(320px,calc(100vw-2rem))]">
-      <Command shouldFilter={false} className="rounded-none border-0 bg-transparent p-0">
-        <label className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <Command
+        shouldFilter={false}
+        className="h-auto max-h-(--available-height) rounded-none border-0 bg-transparent p-0"
+      >
+        <label className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
           <span className="shrink-0 text-[13px] text-muted-foreground">
             <Trans>To:</Trans>
           </span>
@@ -59,11 +62,11 @@ export function BotCreatePicker({
             className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground"
           />
         </label>
-        <CommandList className="max-h-none overflow-visible p-1">
+        <CommandList className="flex min-h-0 max-h-none flex-col overflow-hidden p-1 [&>[cmdk-list-sizer]]:flex [&>[cmdk-list-sizer]]:min-h-0 [&>[cmdk-list-sizer]]:flex-col">
           <CommandEmpty>
             <Trans>No bots match</Trans>
           </CommandEmpty>
-          <CommandGroup>
+          <CommandGroup className="shrink-0">
             {showCreate ? (
               <CommandItem
                 value="create-new-bot"
@@ -140,8 +143,8 @@ export function BotCreatePicker({
               </IconTooltip>
             </CommandItem>
           </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup className="max-h-60 overflow-y-auto">
+          <CommandSeparator className="shrink-0" />
+          <CommandGroup className="min-h-0 max-h-60 overflow-y-auto">
             {matched.map((bot) => (
               <CommandItem
                 key={bot.id}
