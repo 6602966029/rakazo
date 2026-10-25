@@ -419,7 +419,7 @@ export async function provisionComputer(
     // or lost at the provider without us.
     await recordComputerRunStart(
       deps.prisma,
-      { ...existing, kind: ref.kind },
+      { ...existing, kind: ref.kind, providerRef: ref.providerRef },
       runningSince,
       existing.state === "running" ? "gone" : "reconciled",
     );
@@ -762,7 +762,12 @@ export function computerSupportsUpdate(kind: string): boolean {
 /** Kinds whose provider opens a user terminal through the shared Linux screen gateway. */
 export function computerSupportsTerminal(kind: string): boolean {
   return (
-    kind === "docker" || kind === "e2b" || kind === "daytona" || kind === "boat" || kind === "fake"
+    kind === "docker" ||
+    kind === "e2b" ||
+    kind === "daytona" ||
+    kind === "boat" ||
+    kind === "kubernetes" ||
+    kind === "fake"
   );
 }
 

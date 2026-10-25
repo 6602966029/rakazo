@@ -1552,9 +1552,26 @@ describe("Team Computer wake", () => {
           spaceId: "workspace-1",
           userId: "user-1",
           kind: "e2b",
+          providerRef: "sandbox-1",
           startedAt,
         },
       ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("records the sandbox the provider returned, not the one the computer had before", async () => {
+    const harness = wakeHarness(
+      "stopped",
+      undefined,
+      { id: "sandbox-2", providerRef: "sandbox-2" },
+      { runningSince: null, userId: "user-1" },
+    );
+
+    await boot(harness);
+
+    expect(vi.mocked(harness.prisma.computerRun.createMany)).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ providerRef: "sandbox-2" })],
       skipDuplicates: true,
     });
   });

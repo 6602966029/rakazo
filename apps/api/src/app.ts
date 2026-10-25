@@ -34,6 +34,7 @@ import {
   createBackgroundJobHandlers,
   createCloudAgentConnection,
   createConnectorStack,
+  createIdleComputerSweeper,
   createJobReconciler,
   createMessagingContextLoader,
   createMessagingTeamChatHistory,
@@ -353,7 +354,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     env.mcpAllowPrivateEndpoint,
   );
   const memoryProviders = new SpaceMemoryProviderResolver(prisma, secrets);
-  const oauthLogins = new PiOAuthLogins();
+  const oauthLogins = new PiOAuthLogins(undefined, { prisma, secrets });
   const home = createAgentHomeStore(env.dataDir, prisma);
   const artifacts = createArtifactStore(env.dataDir, prisma);
   const memory = new MarkdownMemoryStore(prisma);
@@ -619,6 +620,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           prisma,
           securityEventRetentionDays(),
         ),
+        reconcileIdleComputers: createIdleComputerSweeper({ prisma, jobs }),
       })
     : undefined;
   reconciler?.start();

@@ -51,7 +51,7 @@ msgid "{0} (over {1})"
 msgstr "{0} ({1} से अधिक)"
 
 #. placeholder {0}: preset.n
-#: src/pages/RoutineSchedule.tsx
+#: src/lib/cron.ts
 msgid "{0} {unitLabel}"
 msgstr "{0} {unitLabel}"
 
@@ -126,6 +126,10 @@ msgstr "{botName} का कंप्यूटर"
 msgid "{commandVariable} is reserved and cannot be used as a command variable. Choose another name."
 msgstr "{commandVariable} आरक्षित है और कमांड वेरिएबल के रूप में इस्तेमाल नहीं हो सकता। दूसरा नाम चुनें।"
 
+#: src/components/markdown-copy.tsx
+msgid "{count, plural, one {# row} other {# rows}}"
+msgstr "{count, plural, one {# पंक्ति} other {# पंक्तियाँ}}"
+
 #: src/lib/billing.ts
 msgid "{count} days"
 msgstr ""
@@ -146,6 +150,18 @@ msgstr ""
 msgid "{days}d ago"
 msgstr "{days} दिन पहले"
 
+#: src/components/markdown-copy.tsx
+msgid "{from}–{to} of {total} rows"
+msgstr "{total} पंक्तियों में से {from}–{to}"
+
+#: src/lib/cron.ts
+msgid "{fromName} to {toName}"
+msgstr "{fromName} से {toName}"
+
+#: src/components/markdown-copy.tsx
+msgid "{header}, column {index}"
+msgstr "{header}, स्तंभ {index}"
+
 #: src/components/ToolActivityDisclosure.tsx
 msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
 msgstr ""
@@ -153,6 +169,10 @@ msgstr ""
 #: src/lib/relative-time.ts
 msgid "{hours}h ago"
 msgstr "{hours} घंटे पहले"
+
+#: src/components/markdown-copy.tsx
+msgid "{label}, empty"
+msgstr "{label}, खाली"
 
 #: src/lib/relative-time.ts
 msgid "{minutes}m ago"
@@ -782,7 +802,7 @@ msgid "Ask"
 msgstr "पूछें"
 
 #. placeholder {0}: preset.time
-#: src/pages/RoutineSchedule.tsx
+#: src/lib/cron.ts
 msgid "at {0}"
 msgstr "{0} बजे"
 
@@ -1283,6 +1303,10 @@ msgstr "पैनल बंद करें"
 msgid "Close preview"
 msgstr "प्रीव्यू बंद करें"
 
+#: src/components/markdown-copy.tsx
+msgid "Close table"
+msgstr "तालिका बंद करें"
+
 #: src/pages/SettingsOverlay.tsx
 msgid "Close user settings"
 msgstr "उपयोगकर्ता सेटिंग्स बंद करें"
@@ -1321,6 +1345,10 @@ msgstr "रंग"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Color {color}"
 msgstr "रंग {color}"
+
+#: src/components/markdown-copy.tsx
+msgid "column {index}"
+msgstr "स्तंभ {index}"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Comfortable"
@@ -1550,11 +1578,12 @@ msgid "Conversations"
 msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
+#: src/components/markdown-copy.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
-msgstr ""
+msgstr "कॉपी किया गया"
 
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
@@ -1566,9 +1595,21 @@ msgstr "कॉपी करें"
 msgid "Copy .env example"
 msgstr ""
 
+#: src/components/markdown-copy.tsx
+msgid "Copy code"
+msgstr "कोड कॉपी करें"
+
+#: src/components/markdown-copy.tsx
+msgid "Copy diagram source"
+msgstr "डायग्राम स्रोत कॉपी करें"
+
 #: src/pages/shell/agent-import.tsx
 msgid "Copy prompt"
 msgstr "प्रॉम्प्ट कॉपी करें"
+
+#: src/components/markdown-copy.tsx
+msgid "Copy rows"
+msgstr "पंक्तियाँ कॉपी करें"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Cost"
@@ -1964,6 +2005,10 @@ msgstr "OAuth शुरू नहीं हो सका"
 msgid "Could not start teaching"
 msgstr ""
 
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Could not stop computer"
+msgstr ""
+
 #: src/components/AskCard.tsx
 msgid "Could not submit this answer"
 msgstr "यह उत्तर सबमिट नहीं किया जा सका"
@@ -2097,7 +2142,7 @@ msgstr "क्रेडेंशियल: {names}"
 msgid "Credit amount"
 msgstr ""
 
-#: src/pages/RoutineSchedule.tsx
+#: src/lib/cron.ts
 msgid "Cron"
 msgstr "Cron"
 
@@ -2135,7 +2180,7 @@ msgid "Dark"
 msgstr "डार्क"
 
 #: src/lib/billing.ts
-#: src/pages/RoutineSchedule.tsx
+#: src/lib/cron.ts
 msgid "day"
 msgstr "दिन"
 
@@ -2143,7 +2188,7 @@ msgstr "दिन"
 msgid "Day-to-day work"
 msgstr ""
 
-#: src/pages/RoutineSchedule.tsx
+#: src/lib/cron.ts
 msgid "days"
 msgstr "दिन"
 
@@ -2384,6 +2429,10 @@ msgstr "{0} डाउनलोड करें"
 msgid "Download {name}"
 msgstr "{name} डाउनलोड करें"
 
+#: src/components/markdown-copy.tsx
+msgid "Download CSV"
+msgstr "CSV डाउनलोड करें"
+
 #: src/components/DesktopUpdates.tsx
 msgid "Downloading…"
 msgstr ""
@@ -2504,10 +2553,21 @@ msgstr ""
 msgid "Error details"
 msgstr "त्रुटि का विवरण"
 
+#: src/lib/cron.ts
 #: src/pages/ExternalConversationSettings.tsx
-#: src/pages/RoutineSchedule.tsx
 msgid "Every"
 msgstr "हर"
+
+#. placeholder {0}: names[0] ?? ""
+#: src/lib/cron.ts
+msgid "Every {0}"
+msgstr "हर {0}"
+
+#. placeholder {0}: names.slice(0, -1).join(", ")
+#. placeholder {1}: names.at(-1) ?? ""
+#: src/lib/cron.ts
+msgid "Every {0} and {1}"
+msgstr "हर {0} और {1}"
 
 #: src/pages/RoutineSchedule.tsx
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
@@ -2517,17 +2577,24 @@ msgstr "हर {intervalAmountSelect} {intervalUnitSelect}"
 msgid "Every bot in this space reads these notes and keeps them up to date."
 msgstr "इस स्पेस के सभी बॉट ये नोट्स पढ़ते हैं और इन्हें अपडेट रखते हैं।"
 
+#: src/lib/cron.ts
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
 msgstr "हर दिन"
 
+#: src/lib/cron.ts
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every hour"
 msgstr "हर घंटे"
 
-#: src/pages/RoutineSchedule.tsx
+#. placeholder {0}: String(minute).padStart(2, "0")
+#: src/lib/cron.ts
+msgid "Every hour at :{0}"
+msgstr "हर घंटे :{0} मिनट पर"
+
+#: src/lib/cron.ts
 msgid "Every Monday"
 msgstr "हर सोमवार"
 
@@ -2557,6 +2624,10 @@ msgstr ""
 #: src/pages/shell/message-view.tsx
 msgid "Expand {label}"
 msgstr "{label} विस्तृत करें"
+
+#: src/components/markdown-copy.tsx
+msgid "Expand table"
+msgstr "तालिका बड़ी करें"
 
 #: src/components/CloudAgentCard.tsx
 msgid "expired"
@@ -2684,6 +2755,10 @@ msgstr "पासवर्ड भूल गए?"
 msgid "Free"
 msgstr ""
 
+#: src/lib/cron.ts
+msgid "Friday"
+msgstr "शुक्रवार"
+
 #: src/pages/ActivityList.tsx
 msgid "From"
 msgstr ""
@@ -2803,12 +2878,12 @@ msgstr "बोलने के लिए दबाए रखें"
 msgid "Hold to talk, release to send"
 msgstr "बोलने के लिए दबाए रखें, भेजने के लिए छोड़ें"
 
-#: src/pages/RoutineSchedule.tsx
+#: src/lib/cron.ts
 msgid "hour"
 msgstr "घंटा"
 
+#: src/lib/cron.ts
 #: src/pages/ExternalConversationSettings.tsx
-#: src/pages/RoutineSchedule.tsx
 msgid "hours"
 msgstr "घंटे"
 
@@ -3225,6 +3300,10 @@ msgstr "अपठित चिह्नित करें"
 msgid "Mark as Unread"
 msgstr "अपठित चिह्नित करें"
 
+#: src/components/markdown-copy.tsx
+msgid "Markdown table"
+msgstr "Markdown तालिका"
+
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Max"
@@ -3383,12 +3462,12 @@ msgstr ""
 msgid "Minimize call"
 msgstr "कॉल छोटी करें"
 
-#: src/pages/RoutineSchedule.tsx
+#: src/lib/cron.ts
 msgid "minute"
 msgstr "मिनट"
 
+#: src/lib/cron.ts
 #: src/pages/RoutineEditor.tsx
-#: src/pages/RoutineSchedule.tsx
 msgid "minutes"
 msgstr "मिनट"
 
@@ -3447,11 +3526,15 @@ msgstr "सर्वर से मॉडल"
 msgid "Models list OK. {modelCount, plural, one {# model} other {# models}} available. Chat was not tested."
 msgstr "मॉडल सूची ठीक है। {modelCount, plural, one {# मॉडल} other {# मॉडल}} उपलब्ध है। चैट का परीक्षण नहीं हुआ।"
 
+#: src/lib/cron.ts
+msgid "Monday"
+msgstr "सोमवार"
+
 #: src/lib/billing.ts
 msgid "month"
 msgstr ""
 
-#: src/pages/RoutineSchedule.tsx
+#: src/lib/cron.ts
 msgid "Monthly"
 msgstr "मासिक"
 
@@ -3606,6 +3689,10 @@ msgstr ""
 msgid "New ticket"
 msgstr ""
 
+#: src/components/markdown-copy.tsx
+msgid "Next page"
+msgstr "अगला पृष्ठ"
+
 #: src/pages/SettingsOverlay.tsx
 msgid "Next settings sections"
 msgstr ""
@@ -3690,6 +3777,10 @@ msgstr ""
 #: src/pages/SpaceSearch.tsx
 msgid "No results"
 msgstr "कोई परिणाम नहीं"
+
+#: src/components/markdown-copy.tsx
+msgid "No rows"
+msgstr "कोई पंक्ति नहीं"
 
 #: src/pages/ActivityList.tsx
 msgid "No runs match these filters."
@@ -3804,10 +3895,18 @@ msgstr ""
 msgid "On a schedule"
 msgstr ""
 
+#: src/lib/cron.ts
+msgid "on day {day} at {time}"
+msgstr "{day} तारीख को {time} पर"
+
 #. placeholder {0}: preset.time
-#: src/pages/RoutineSchedule.tsx
+#: src/lib/cron.ts
 msgid "on the 1st at {0}"
 msgstr "1 तारीख को {0} बजे"
+
+#: src/lib/cron.ts
+msgid "One-time"
+msgstr "एक बार"
 
 #: src/components/ModelCredits.tsx
 msgid "One-time purchase. Credits do not expire."
@@ -3914,6 +4013,10 @@ msgstr "आउटपुट"
 #: src/pages/Board.tsx
 msgid "Owner"
 msgstr "मालिक"
+
+#: src/components/markdown-copy.tsx
+msgid "Page {page} of {count}"
+msgstr "पृष्ठ {page} / {count}"
 
 #: src/pages/RoutineEditor.tsx
 msgid "PagerDuty incident"
@@ -4067,6 +4170,10 @@ msgstr "{0} का प्रीव्यू"
 #: src/pages/Artifacts.tsx
 msgid "Preview isn't available for this file type — download it to view it."
 msgstr ""
+
+#: src/components/markdown-copy.tsx
+msgid "Previous page"
+msgstr "पिछला पृष्ठ"
 
 #: src/pages/SettingsOverlay.tsx
 msgid "Previous settings sections"
@@ -4510,6 +4617,10 @@ msgstr "रूटीन्स"
 msgid "Routines that run while you're away"
 msgstr ""
 
+#: src/components/markdown-copy.tsx
+msgid "Row"
+msgstr "पंक्ति"
+
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
 msgstr ""
@@ -4544,6 +4655,10 @@ msgstr "रन"
 #: src/pages/RoutineEditor.tsx
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr ""
+
+#: src/lib/cron.ts
+msgid "Saturday"
+msgstr "शनिवार"
 
 #: src/components/AskCard.tsx
 #: src/components/PasskeySettings.tsx
@@ -4946,6 +5061,22 @@ msgstr "अभी इसी नाम से कुछ जोड़ा गया
 msgid "Something you chose cannot work here. Untick it and try again."
 msgstr "आपका चुना हुआ कुछ यहाँ काम नहीं कर सकता। उसे अनचेक करके दोबारा कोशिश करें।"
 
+#: src/components/markdown-copy.tsx
+msgid "Sort by {column}"
+msgstr "{column} के अनुसार क्रमबद्ध करें"
+
+#: src/components/markdown-copy.tsx
+msgid "Sort cleared"
+msgstr "क्रम हटाया गया"
+
+#: src/components/markdown-copy.tsx
+msgid "Sorted by {column}, ascending"
+msgstr "{column} के अनुसार क्रमबद्ध, आरोही"
+
+#: src/components/markdown-copy.tsx
+msgid "Sorted by {column}, descending"
+msgstr "{column} के अनुसार क्रमबद्ध, अवरोही"
+
 #: src/lib/identity-display.ts
 #: src/pages/SettingsOverlay.tsx
 msgid "Space"
@@ -5018,6 +5149,10 @@ msgstr "चरण"
 msgid "Stop"
 msgstr "रोकें"
 
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Stop computer"
+msgstr ""
+
 #: src/pages/shell/message-view.tsx
 msgid "Stop speaking"
 msgstr "बोलना रोकें"
@@ -5030,6 +5165,10 @@ msgstr "सिखाना रोकें"
 #: src/lib/browser-notifications.ts
 msgid "Stopped."
 msgstr "रोक दिया गया।"
+
+#: src/components/ComputerMaintenanceActions.tsx
+msgid "Stopping…"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Stored encrypted"
@@ -5057,6 +5196,10 @@ msgstr ""
 msgid "Subscription required"
 msgstr ""
 
+#: src/lib/cron.ts
+msgid "Sunday"
+msgstr "रविवार"
+
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
 msgid "Supports images"
@@ -5082,6 +5225,10 @@ msgstr "बदला जा रहा है…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "System"
 msgstr "सिस्टम"
+
+#: src/components/markdown-copy.tsx
+msgid "Table"
+msgstr "तालिका"
 
 #: src/pages/shell/computer-overlay.tsx
 msgid "Take control"
@@ -5303,6 +5450,10 @@ msgstr "यह सब्सक्रिप्शन साइन-इन अभ�
 msgid "This week"
 msgstr ""
 
+#: src/lib/cron.ts
+msgid "Thursday"
+msgstr "गुरुवार"
+
 #: src/pages/RoutineSchedule.tsx
 msgid "Time of day"
 msgstr "दिन का समय"
@@ -5411,6 +5562,10 @@ msgstr "फिर से कोशिश करें"
 #: src/lib/model-connection-preflight.ts
 msgid "Try the test again."
 msgstr "परीक्षण फिर से आज़माएँ।"
+
+#: src/lib/cron.ts
+msgid "Tuesday"
+msgstr "मंगलवार"
 
 #: src/pages/shell/bot-credentials.tsx
 msgid "Type"
@@ -5668,14 +5823,23 @@ msgstr ""
 msgid "Website login"
 msgstr ""
 
+#: src/lib/cron.ts
+msgid "Wednesday"
+msgstr "बुधवार"
+
 #: src/lib/billing.ts
 msgid "week"
 msgstr ""
 
+#: src/lib/cron.ts
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Weekdays"
 msgstr "कार्यदिवस"
+
+#: src/lib/cron.ts
+msgid "Weekends"
+msgstr "सप्ताहांत"
 
 #: src/components/SignupSurvey.tsx
 msgid "Welcome to Rakazo"

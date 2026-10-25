@@ -16,6 +16,8 @@ import {
   createBackgroundJobHandlers,
   createCloudAgentConnection,
   createConnectorStack,
+  createDeadJobPruner,
+  createIdleComputerSweeper,
   createJobReconciler,
   createMessagingContextLoader,
   createModelCreditReconciler,
@@ -330,6 +332,8 @@ async function main() {
       securityEventRetentionDays(),
     ),
     reconcileHomeStorage: homeStorageSweeper(home),
+    reconcileIdleComputers: createIdleComputerSweeper({ prisma, jobs }),
+    reconcileDeadJobs: inMemoryJobs ? undefined : createDeadJobPruner(pool),
   });
   let stopHealth: (() => Promise<void>) | undefined;
   const shutdown = new AbortController();

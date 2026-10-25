@@ -12,6 +12,7 @@ vi.mock("@lingui/react/macro", () => {
   return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
 });
 vi.mock("@rakazo/ui-web", () => ({
+  cn: (...values: unknown[]) => values.filter(Boolean).join(" "),
   Button: ({
     variant: _variant,
     size: _size,
