@@ -1597,10 +1597,6 @@ msgstr "Doorgaan met {0}"
 msgid "Continue with credits"
 msgstr ""
 
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "Doorgaan met e-mail"
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Conversations"
 msgstr ""
@@ -5632,17 +5628,9 @@ msgstr "Standaardinstellingen gebruiken"
 msgid "Use defaults for {label}"
 msgstr "Standaardinstellingen gebruiken voor {label}"
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "E-mailcode gebruiken"
-
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "Wachtwoord gebruiken"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

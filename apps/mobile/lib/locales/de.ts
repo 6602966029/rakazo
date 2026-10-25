@@ -179,8 +179,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Already have an account?": "Du hast bereits ein Konto?",
   "Back to sign in": "Zurück zur Anmeldung",
   "Check your email": "Prüfe deine E-Mails",
-  "Use password": "Passwort verwenden",
-  "Use email code": "E-Mail-Code verwenden",
   "Invalid code": "Ungültiger Code",
   "Request a new code": "Fordere einen neuen Code an",
   "Checking…": "Wird geprüft…",

@@ -715,7 +715,7 @@ msgstr "回答"
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
 msgid "Answer"
-msgstr ""
+msgstr "回答"
 
 #: src/components/AskCard.tsx
 msgid "Answered"
@@ -1596,10 +1596,6 @@ msgstr "通过 {0} 继续"
 #: src/components/ModelCredits.tsx
 msgid "Continue with credits"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "使用邮箱继续"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Conversations"
@@ -5632,17 +5628,9 @@ msgstr "使用默认设置"
 msgid "Use defaults for {label}"
 msgstr "{label}使用默认设置"
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "使用邮箱验证码"
-
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "使用密码"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

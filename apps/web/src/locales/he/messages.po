@@ -715,7 +715,7 @@ msgstr "תשובה"
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
 msgid "Answer"
-msgstr ""
+msgstr "תשובה"
 
 #: src/components/AskCard.tsx
 msgid "Answered"
@@ -1596,10 +1596,6 @@ msgstr "המשך עם {0}"
 #: src/components/ModelCredits.tsx
 msgid "Continue with credits"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "המשך עם אימייל"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Conversations"
@@ -5632,17 +5628,9 @@ msgstr "שימוש בברירות המחדל"
 msgid "Use defaults for {label}"
 msgstr "שימוש בברירות המחדל עבור {label}"
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "שימוש בקוד מהאימייל"
-
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "שימוש בסיסמה"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

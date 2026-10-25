@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import type { AgentSkillCatalogEntry, ThreadMessage } from "@rakazo/contracts";
 import { ATTACHMENT_ALLOWED_MIME_TYPES } from "@rakazo/contracts";
-import type { ComposerMention, SlashActionId } from "@rakazo/core";
+import type { AgentImportReader, ComposerMention, SlashActionId } from "@rakazo/core";
 import {
   clampMentionHighlightIndex,
   mentionChipKey,
@@ -20,7 +20,6 @@ import {
   HoldToTalkStrip,
   useHoldToTalk,
 } from "../../components/composer/HoldToTalk";
-import type { DroppedAgent } from "../../lib/agent-drop";
 import { captureDrop, droppedAgent, mightBeAgent } from "../../lib/agent-drop";
 import type { ArtifactTarget } from "../../lib/artifact-open";
 import { useCallSession } from "../../lib/call-session";
@@ -111,7 +110,7 @@ export const Composer = memo(function Composer({
   draftKey: string;
   enterToSend: boolean;
   /** When set, a dropped OpenClaw or Hermes folder or backup offers Import or Attach. */
-  onImportAgent?: (agent: DroppedAgent) => void;
+  onImportAgent?: (agent: AgentImportReader) => void;
 }) {
   const { t } = useLingui();
   const [draft, setDraft] = useState(() => readComposerDraft(draftKey));
@@ -141,7 +140,7 @@ export const Composer = memo(function Composer({
   const [selectedMentions, setSelectedMentions] = useState<ComposerMention[]>([]);
   const editRevision = useRef(0);
   const [agentDrop, setAgentDrop] = useState<{
-    agent: DroppedAgent;
+    agent: AgentImportReader;
     files: readonly File[];
   } | null>(null);
   useEffect(

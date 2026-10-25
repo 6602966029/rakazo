@@ -715,7 +715,7 @@ msgstr "Resposta"
 #: src/components/call/IncomingCall.tsx
 msgctxt "incoming call"
 msgid "Answer"
-msgstr ""
+msgstr "Resposta"
 
 #: src/components/AskCard.tsx
 msgid "Answered"
@@ -1596,10 +1596,6 @@ msgstr "Continuar com {0}"
 #: src/components/ModelCredits.tsx
 msgid "Continue with credits"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "Continuar com e-mail"
 
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Conversations"
@@ -5632,17 +5628,9 @@ msgstr "Usar seus padrões"
 msgid "Use defaults for {label}"
 msgstr "Usar seus padrões em {label}"
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "Usar código por e-mail"
-
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "Usar senha"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

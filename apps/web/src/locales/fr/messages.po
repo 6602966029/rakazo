@@ -1597,10 +1597,6 @@ msgstr "Continuer avec {0}"
 msgid "Continue with credits"
 msgstr ""
 
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "Continuer avec l'e-mail"
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Conversations"
 msgstr ""
@@ -5632,17 +5628,9 @@ msgstr "Utiliser vos paramètres par défaut"
 msgid "Use defaults for {label}"
 msgstr "Utiliser vos paramètres par défaut pour {label}"
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "Utiliser un code par e-mail"
-
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "Utiliser un mot de passe"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

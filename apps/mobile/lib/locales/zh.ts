@@ -261,8 +261,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   Checking: "检查中",
   "Checking…": "正在检查…",
   "Check your email": "请查看邮箱",
-  "Use password": "使用密码",
-  "Use email code": "使用邮箱验证码",
   "Invalid code": "验证码无效",
   "Request a new code": "请重新获取验证码",
   Clear: "清除",

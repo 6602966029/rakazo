@@ -455,7 +455,6 @@ model SpaceModelPreference {
 
   @@unique([spaceId, userId, credentialId])
   @@index([credentialId])
-  // The unused legacy isDefault column and its indexes stay in the table until the next release.
   @@map("space_model_preferences")
 }
 
