@@ -921,7 +921,12 @@ test("an agent dropped into a chat is offered for import, never uploaded first",
   await expect(picker.getByRole("option", { name: chief!.name })).toHaveCount(1);
   await destination.getByRole("button", { name: "New bot" }).click();
   await captureScreenshot(page, testInfo, "agent-import-drop-preview");
-  await page.getByRole("button", { name: "Cancel new bot" }).click();
+  // Back leaves the preview, then closes the panel: a drop never came from the New bot dialog.
+  const importPanel = page.getByTestId("agent-import");
+  await importPanel.getByRole("button", { name: "Back", exact: true }).click();
+  await importPanel.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(importPanel).toHaveCount(0);
+  await expect(page.getByTestId("create-bot-dialog")).toHaveCount(0);
 
   // A backup can still be attached as a file, as before.
   const backup = Buffer.from(

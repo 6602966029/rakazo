@@ -125,6 +125,8 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "Ticket",
   "TicketComment",
   "MessagingIdentity",
+  "MessagingInstallation",
+  "MessagingInstallSession",
   "MessagingOutbound",
   "ExternalConversation",
   "ExternalMessage",
@@ -133,6 +135,12 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "ScratchpadItem",
   "ActionApprovalRule",
   "SpaceModelRoleChoice",
+  "SpaceSettingOverride",
+  "UserModelRoleChoice",
+  "UserModelPreference",
+  "UserVoicePreference",
+  "UserActionApprovalRule",
+  "UserActionAutoReviewPreference",
   "SecurityEvent",
 ]);
 

@@ -164,8 +164,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Already have an account?": "すでにアカウントをお持ちですか？",
   "Back to sign in": "ログインに戻る",
   "Check your email": "メールを確認してください",
-  "Use password": "パスワードを使用",
-  "Use email code": "メールのコードを使用",
   "Invalid code": "無効なコード",
   "Request a new code": "新しいコードをリクエスト",
   "Checking…": "確認中…",
@@ -213,6 +211,10 @@ export const JA_MESSAGES: Record<string, string> = {
   "Search conversations, files, and routines": "会話、ファイル、ルーティンを検索",
   "Searching…": "検索中…",
   "Space actions for {name}": "{name}のスペース操作",
+  // app/(settings)/space.tsx
+  Customize: "カスタマイズ",
+  "Customize {setting}": "{setting}をカスタマイズ",
+  Confirmations: "確認",
   "Tap + to create a bot": "+をタップしてボットを作成",
   "This removes the space for everyone.": "このスペースを全員に対して削除します。",
   "Delete {name} and its bot?": "{name} とそのボットを削除しますか？",
@@ -1006,4 +1008,17 @@ export const JA_MESSAGES: Record<string, string> = {
   "Connect apps": "アプリを接続",
   "Bring your own key. ElevenLabs, OpenAI, Cartesia, and Fish Audio all plug into the same speak buttons.":
     "ご自身のキーを使用できます。ElevenLabs、OpenAI、Cartesia、Fish Audioはすべて同じ読み上げボタンで使えます。",
+  Messaging: "メッセージ",
+  Unlink: "連携解除",
+  "Connect a chat app": "チャットアプリを接続",
+  Conversations: "会話",
+  Decline: "拒否",
+  Leave: "退出",
+  Pending: "保留中",
+  Requests: "リクエスト",
+  Revoke: "取り消す",
+  "Send {code} from {app} within 10 minutes.": "10分以内に{app}から{code}を送信してください。",
+  "Send {code} to {address} from {app} within 10 minutes.":
+    "10分以内に{app}から{address}へ{code}を送信してください。",
+  "Slack workspace": "Slackワークスペース",
 };

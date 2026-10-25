@@ -1,6 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   AgentSkillCatalogEntry,
+  AppBootstrap,
   Bot,
   BotSection,
   ComputerReleaseReason,
@@ -22,7 +23,7 @@ import type {
   VoiceStatus,
 } from "@rakazo/contracts";
 import { ATTACHMENT_MAX_COUNT, attachmentMaxBytes, attachmentSizeLabel } from "@rakazo/contracts";
-import type { ComposerMention, ReadBoundary } from "@rakazo/core";
+import type { AgentImportReader, ComposerMention, ReadBoundary } from "@rakazo/core";
 import {
   accountDisplay,
   answerableAskMessageIds,
@@ -103,7 +104,6 @@ import { SidebarFooter } from "../components/SidebarFooter";
 import type { ActivityListFilters } from "../lib/activity-list-filters";
 import { emptyActivityFilters } from "../lib/activity-list-filters";
 import { readActivityMode, writeActivityMode } from "../lib/activity-mode";
-import type { DroppedAgent } from "../lib/agent-drop";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { authClient } from "../lib/auth";
 import { autoReadStillWanted } from "../lib/auto-read";
@@ -159,7 +159,17 @@ import {
 import { markAfterPaint, markOnce } from "../lib/performance";
 import { usePreloadRecoveryState } from "../lib/preload-recovery";
 import { canPrepareImage, prepareImage } from "../lib/prepare-image";
-import { fetchFresh, queryClient, spaceQueries, spaceSeedKey, writeSaved } from "../lib/query";
+import type { ChatTarget } from "../lib/query";
+import {
+  fetchFresh,
+  lastChatKey,
+  lastChatOf,
+  queryClient,
+  seedOnLeave,
+  spaceQueries,
+  spaceSeedKey,
+  writeSaved,
+} from "../lib/query";
 import { getResponseStreamingEnabled, subscribeResponseStreaming } from "../lib/response-streaming";
 import type { Panel, RightPanelState } from "../lib/right-panel-state";
 import {
@@ -227,7 +237,7 @@ import {
 } from "./shell/dialogs";
 import type { RosterDropTarget } from "./shell/roster-drop";
 import { resolveRosterDrop } from "./shell/roster-drop";
-import { SidebarHeader } from "./shell/sidebar-header";
+import { SidebarHeader, useCreateMenu } from "./shell/sidebar-header";
 import { BotsSidebarLayout } from "./shell/sidebar-layout";
 import { SidebarRoster } from "./shell/sidebar-roster";
 import { commitSpaceRename, countUnreadChats, sidebarGroupsForSpaces } from "./shell/space-sidebar";
@@ -281,6 +291,7 @@ const THREAD_SNAPSHOT_TIMEOUT_MS = 2_000;
 /** Bound Settings leave so a hung voice status refresh cannot block dismissal. */
 const VOICE_STATUS_REFRESH_TIMEOUT_MS = 10_000;
 const NO_AGENT_SKILLS: AgentSkillCatalogEntry[] = [];
+const NO_PROVIDERS: string[] = [];
 const MOBILE_SIDEBAR_SWIPE_EDGE_PX = 32;
 const MOBILE_SIDEBAR_SWIPE_DISTANCE_PX = 56;
 function threadSnapshotSignal(parent: AbortSignal): AbortSignal {
@@ -306,8 +317,18 @@ function SpaceShell() {
   const { botId, groupId } = useParams();
   const [shellSpaceId] = useState(selectedSpaceId);
   const [rpc] = useState(() => createSpaceRpc(shellSpaceId));
-  // A revisited space opens with what it showed last time while its fresh bootstrap loads.
-  const [seed] = useState(() => peekBootstrapSeed(botId));
+  const session = authClient.useSession();
+  const userId = session.data?.user.id;
+  const [createMenuOpen, setCreateMenuOpen] = useCreateMenu();
+  // A revisited space, or the shell reopened from another page, starts from what it showed
+  // last time while its fresh bootstrap loads.
+  const [{ seed, startChat }] = useState(() => {
+    const primed = peekBootstrapSeed(botId);
+    if (primed) return { seed: primed, startChat: undefined };
+    const cached = queryClient.getQueryData(spaceSeedKey(userId ?? null, shellSpaceId));
+    const lastChat = queryClient.getQueryData(lastChatKey(userId ?? null, shellSpaceId));
+    return { seed: cached, startChat: botId || groupId ? undefined : lastChatOf(cached, lastChat) };
+  });
   const routerNavigate = useNavigate();
   const navigateRef = useRef(routerNavigate);
   navigateRef.current = routerNavigate;
@@ -341,8 +362,6 @@ function SpaceShell() {
       ),
     [navigate],
   );
-  const session = authClient.useSession();
-  const userId = session.data?.user.id;
   const queries = spaceQueries(userId ?? null, shellSpaceId);
   const [groups, setGroups] = useState<Group[]>(seed?.groups ?? []);
   const [bots, setBots] = useState<Bot[]>(seed?.bots ?? []);
@@ -407,7 +426,9 @@ function SpaceShell() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [modelFocusRequest, setModelFocusRequest] = useState(0);
   const [panel, setPanelState] = useState<Panel>(null);
-  const [droppedAgent, setDroppedAgent] = useState<DroppedAgent | null>(null);
+  const [droppedAgent, setDroppedAgent] = useState<AgentImportReader | null>(null);
+  // Back returns to the New bot dialog only when the import was opened from it.
+  const [importFromDialog, setImportFromDialog] = useState(false);
   const [restoredPanelKey, setRestoredPanelKey] = useState<string | null>(null);
   const panelStorageKeyRef = useRef<string | null>(null);
   const observedPanelKey = useRef<string | null>(null);
@@ -513,8 +534,12 @@ function SpaceShell() {
   function setOverlay(next: ShellOverlay) {
     navigate({ search: searchString(withShellOverlay(searchParams, next)) }, { replace: true });
   }
-  const [messagingSurfaceEnabled, setMessagingSurfaceEnabled] = useState(false);
-  const [messagingProviders, setMessagingProviders] = useState<string[]>([]);
+  const messagingStatus = useQuery({
+    ...queries.messaging.status.queryOptions(),
+    enabled: Boolean(session.data?.user),
+  }).data;
+  const messagingSurfaceEnabled = messagingStatus?.enabled ?? false;
+  const messagingProviders = messagingStatus?.providers ?? NO_PROVIDERS;
   const memoryConfigQuery = useQuery(queries.memory.providerConfig.queryOptions());
   // Undefined while it first loads; null when the space has none or it could not be read.
   const memoryProviderConfig: SpaceMemoryConfig | null | undefined =
@@ -735,29 +760,11 @@ function SpaceShell() {
       viewport.removeEventListener("scroll", sync);
     };
   }, [computerOpen]);
-  useEffect(() => {
-    if (!session.data?.user) return;
-    let cancelled = false;
-    void rpc.messaging
-      .status()
-      .then((status) => {
-        if (!cancelled) {
-          setMessagingSurfaceEnabled(status.enabled);
-          setMessagingProviders(status.providers);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [session.data?.user]);
-  const [usage, setUsage] = useState<UsageSummary | null>(null);
-  const refreshUsage = useCallback(() => {
-    void rpc.usage
-      .summary()
-      .then(setUsage)
-      .catch(() => undefined);
-  }, []);
+  // Read when Usage opens; a reopened Usage shows the last summary while it refreshes.
+  const usageQuery = useQuery({ ...queries.usage.summary.queryOptions(), enabled: false });
+  const usage: UsageSummary | null = usageQuery.data ?? null;
+  const refetchUsage = usageQuery.refetch;
+  const refreshUsage = useCallback(() => void refetchUsage(), [refetchUsage]);
   const autoBooted = useRef<string | null>(null);
   const bootstrappedThread = useRef<ThreadSnapshot | null>(null);
   const expandedHistoryThread = useRef<string | null>(null);
@@ -802,7 +809,12 @@ function SpaceShell() {
   const autoSpokenBotId = useRef<string | null>(null);
 
   const inGroup = Boolean(groupId);
-  const active = inGroup ? undefined : (bots.find((b) => b.id === botId) ?? bots[0]);
+  // Until the route names the chat reopened from cache, that chat stands in for it.
+  const routeChat = botId || groupId ? undefined : startChat;
+  const active =
+    inGroup || routeChat?.groupId
+      ? undefined
+      : (bots.find((b) => b.id === (botId ?? routeChat?.botId)) ?? bots[0]);
   const userBubble = useMemo(
     () => (active ? chatUserBubbleColors(active.color, active.id) : undefined),
     [active?.color, active?.id],
@@ -823,14 +835,27 @@ function SpaceShell() {
     () => attachmentsForThread(pendingAttachments, inGroup ? groupId : active?.id),
     [active?.id, groupId, inGroup, pendingAttachments],
   );
-  const activeRoutines = !inGroup && routinesBotId === active?.id ? routines : [];
+  // Until this visit's read lands, a bot shows the routines and skills it had last time.
+  const activeRoutines =
+    inGroup || !active
+      ? []
+      : routinesBotId === active.id
+        ? routines
+        : (queryClient.getQueryData(
+            queries.routines.list.queryKey({ input: { botId: active.id } }),
+          ) ?? []);
   const panelTarget = inGroup ? activeGroup?.id : active?.id;
   const panelStorageKey =
     userId && bootstrapMe?.spaceId && panelTarget
       ? rightPanelStorageKey(userId, bootstrapMe.spaceId, inGroup ? "group" : "bot", panelTarget)
       : null;
   panelStorageKeyRef.current = panelStorageKey;
-  const activeTaughtSkills = taughtSkillsBotId === active?.id ? taughtSkills : [];
+  const activeTaughtSkills = !active
+    ? []
+    : taughtSkillsBotId === active.id
+      ? taughtSkills
+      : (queryClient.getQueryData(queries.skills.list.queryKey({ input: { botId: active.id } })) ??
+        []);
   const recordingSkill = activeTaughtSkills.find((skill) => skill.status === "recording") ?? null;
   const routeBotId = useRef<string | undefined>(botId);
   routeBotId.current = botId;
@@ -1146,7 +1171,9 @@ function SpaceShell() {
       fetchFresh(queryClient, queries.routines.list.queryOptions({ input: { botId: id } })).catch(
         () => null,
       ),
-      rpc.skills.list({ botId: id }).catch(() => null),
+      fetchFresh(queryClient, queries.skills.list.queryOptions({ input: { botId: id } })).catch(
+        () => null,
+      ),
       refreshComputerScreen(id).catch(() => null),
     ]).then(([routines, skills]) => {
       if (
@@ -1231,13 +1258,54 @@ function SpaceShell() {
     }
   }
 
+  function saveSeed(bootstrap: AppBootstrap, chat?: ChatTarget) {
+    // With no space chosen the server picks one, so a shell reopened that way looks there too.
+    for (const spaceId of shellSpaceId ? [bootstrap.me.spaceId] : [bootstrap.me.spaceId, null]) {
+      queryClient.setQueryData(spaceSeedKey(userId ?? null, spaceId), bootstrap);
+      if (chat) queryClient.setQueryData(lastChatKey(userId ?? null, spaceId), chat);
+    }
+  }
+  const seedStateRef = useRef<
+    | (Omit<AppBootstrap, "thread" | "routines" | "me"> & {
+        me?: Me | null;
+        chat: ChatTarget | undefined;
+      })
+    | null
+  >(null);
+  seedStateRef.current = {
+    chat: groupId ? { groupId } : active ? { botId: active.id } : undefined,
+    me: bootstrapMe,
+    bots,
+    groups,
+    botSections,
+    archivedBots,
+    archivedGroups,
+    spaces,
+  };
+  useLayoutEffect(() => {
+    if (routeChat) {
+      redirectKeepingOverlay(
+        routeChat.groupId ? `/app/g/${routeChat.groupId}` : `/app/${routeChat.botId}`,
+      );
+    }
+    // Leaving for another page or space keeps the sidebar and open chat to reopen with.
+    return () => {
+      const state = seedStateRef.current;
+      if (!state?.me) return;
+      const { me, chat, ...lists } = state;
+      const previous = queryClient.getQueryData(spaceSeedKey(userId ?? null, me.spaceId));
+      if (!previous) return;
+      saveSeed(seedOnLeave(previous, { ...lists, me }, chat, snapshotRef.current), chat);
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const appliedAtStart = botsRefreshApplied.current;
-    void takeInitialBootstrap(botId)
+    void takeInitialBootstrap(botId ?? startChat?.botId)
       .then((bootstrap) => {
         // Kept for the space it belongs to, so switching back to it can paint at once.
-        queryClient.setQueryData(spaceSeedKey(userId ?? null, bootstrap.me.spaceId), bootstrap);
+        saveSeed(bootstrap);
         if (cancelled) return;
         const groupList = bootstrap.groups;
         setBootstrapMe(bootstrap.me);
@@ -1280,6 +1348,15 @@ function SpaceShell() {
           markOnce("rk:renderer:thread-response");
         }
         if (!applyBotLists) return;
+        // A shell that reopened from cache is already on a chat; it moves only if that chat is gone.
+        if (
+          seed &&
+          (routeGroupId.current
+            ? groupList.some((group) => group.id === routeGroupId.current)
+            : bootstrap.bots.some((bot) => bot.id === routeBotId.current))
+        ) {
+          return;
+        }
         if (
           bootstrap.bots.length === 0 &&
           bootstrap.archivedBots.length === 0 &&
@@ -1906,8 +1983,10 @@ function SpaceShell() {
     if (threadTarget.botId) {
       commitComputer(snap.computer ?? null);
       // Don't block parent-scroll on routines metadata; a list failure must not abort the jump.
-      void rpc.routines
-        .list({ botId: threadTarget.botId })
+      void fetchFresh(
+        queryClient,
+        queries.routines.list.queryOptions({ input: { botId: threadTarget.botId } }),
+      )
         .then((routines) => {
           if (epoch !== historyEpoch.current || jumpId !== jumpGeneration.current) return;
           if (activeBotId.current !== threadTarget.botId) return;
@@ -2577,7 +2656,10 @@ function SpaceShell() {
     const id = activeBotId.current;
     if (!id) return;
     await refreshThreadRef.current(id);
-    const skills = await rpc.skills.list({ botId: id });
+    const skills = await fetchFresh(
+      queryClient,
+      queries.skills.list.queryOptions({ input: { botId: id } }),
+    );
     if (activeBotId.current !== id) return;
     setTaughtSkills(skills);
     setTaughtSkillsBotId(id);
@@ -3265,6 +3347,8 @@ function SpaceShell() {
       >
         <SidebarHeader
           mini={miniSidebar}
+          createMenuOpen={createMenuOpen}
+          setCreateMenuOpen={setCreateMenuOpen}
           activityMode={activityMode}
           toggleActivityMode={() => {
             if (miniSidebar) setBotsSidebarCollapsedPref(false);
@@ -3657,6 +3741,7 @@ function SpaceShell() {
               onOpenComputer={onOpenComputer}
               onOpenImport={() => {
                 setDroppedAgent(null);
+                setImportFromDialog(false);
                 setPanel("import-agent");
               }}
               onOpenImportSetup={(target) => {
@@ -3687,6 +3772,7 @@ function SpaceShell() {
               enterToSend={enterToSend}
               onImportAgent={(agent) => {
                 setDroppedAgent(agent);
+                setImportFromDialog(false);
                 setPanel("import-agent");
               }}
               activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
@@ -3877,7 +3963,7 @@ function SpaceShell() {
                 onBack={() => {
                   setDroppedAgent(null);
                   setPanel(null);
-                  setCreateBotOpen(true);
+                  if (importFromDialog) setCreateBotOpen(true);
                 }}
                 onCancel={() => {
                   setDroppedAgent(null);
@@ -4101,6 +4187,7 @@ function SpaceShell() {
             onImport={() => {
               setCreateBotOpen(false);
               setDroppedAgent(null);
+              setImportFromDialog(true);
               setPanel("import-agent");
             }}
           />

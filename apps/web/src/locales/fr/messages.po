@@ -589,10 +589,6 @@ msgstr "Avancé..."
 msgid "Agent computer"
 msgstr "Ordinateur de l'agent"
 
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Agent connections"
-msgstr "Connexions d'agent"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Agents:"
 msgstr "Agents :"
@@ -963,6 +959,7 @@ msgstr "bot"
 
 #: src/lib/identity-display.ts
 #: src/pages/IntegrationSetup.tsx
+#: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -990,10 +987,6 @@ msgstr "Écran du bot"
 #: src/pages/shell/computer-panel.tsx
 msgid "Bot screen preview"
 msgstr "Aperçu de l'écran du bot"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Bot to link"
-msgstr "Bot à connecter"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Bot's model"
@@ -1134,17 +1127,9 @@ msgstr "Changer le mot de passe"
 msgid "Changing…"
 msgstr "Modification en cours…"
 
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Channels"
-msgstr "Canaux"
-
 #: src/pages/shell/message-cards.tsx
 msgid "Chart failed to render: {error}"
 msgstr "Le graphique n'a pas pu s'afficher : {error}"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Chat apps"
-msgstr "Applications de discussion"
 
 #: src/pages/shell/composer-mentions.tsx
 msgid "Chat Settings"
@@ -1225,10 +1210,6 @@ msgstr "Choisir un bot"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
 msgstr "Choisissez une forme, une couleur de bot, ou téléchargez une image"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Choose a bot…"
-msgstr "Choisissez un bot…"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Choose a model"
@@ -1474,6 +1455,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Confirmez que l'URL est accessible depuis cette session du navigateur, puis testez à nouveau."
 
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Confirmations"
 msgstr ""
 
@@ -1489,6 +1471,10 @@ msgstr "Connecter"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Connect {selectedProviderName}"
 msgstr "Connecter {selectedProviderName}"
+
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Connect a chat app"
+msgstr ""
 
 #: src/pages/Onboarding.tsx
 msgid "Connect a model"
@@ -1604,9 +1590,9 @@ msgstr "Continuer avec {0}"
 msgid "Continue with credits"
 msgstr ""
 
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "Continuer avec l'e-mail"
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Conversations"
+msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -2191,6 +2177,14 @@ msgstr ""
 msgid "Customer support"
 msgstr "Support client"
 
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize"
+msgstr "Personnaliser"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize {label}"
+msgstr "Personnaliser {label}"
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Customize bot avatar"
 msgstr "Personnaliser l'avatar du bot"
@@ -2351,6 +2345,7 @@ msgstr "Supprimer l’enregistrement"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -3148,10 +3143,6 @@ msgstr "Clair"
 msgid "Linear issue"
 msgstr "Incident Linear"
 
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Link a chat app"
-msgstr "Connecter une application de discussion"
-
 #: src/components/AccountAccess.tsx
 msgid "Link SSO"
 msgstr "Associer SSO"
@@ -3209,10 +3200,6 @@ msgstr "Chargement du catalogue de modèles…"
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"
 msgstr "Chargement de l'aperçu…"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Loading rules…"
-msgstr "Chargement des règles…"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Loading voice providers…"
@@ -3508,6 +3495,7 @@ msgstr "Options du modèle"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Models"
 msgstr "Modèles"
 
@@ -3672,10 +3660,6 @@ msgstr ""
 msgid "Next settings sections"
 msgstr ""
 
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "No agent connections yet."
-msgstr "Aucune connexion d'agent pour le moment."
-
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "Aucune application ne correspond à votre recherche."
@@ -3700,14 +3684,6 @@ msgstr "Aucun bot"
 #: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
 msgstr "Aucun bot ne correspond"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "No chat apps linked yet."
-msgstr "Aucune application de discussion connectée pour le moment."
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "No group chats yet."
-msgstr "Aucune conversation de groupe pour le moment."
 
 #: src/components/AskCard.tsx
 msgid "No longer active"
@@ -3776,10 +3752,6 @@ msgstr "Aucune exécution pour le moment"
 #: src/pages/KnowledgeSection.tsx
 msgid "No skills yet"
 msgstr "Aucune compétence pour le moment"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "No team conversations yet."
-msgstr "Aucune conversation d'équipe pour le moment."
 
 #: src/pages/Board.tsx
 msgid "No tickets yet"
@@ -4065,6 +4037,10 @@ msgstr "Collez votre clé API, puis testez à nouveau."
 #: src/pages/shell/import-status.ts
 msgid "Paused"
 msgstr "En pause"
+
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Pending"
+msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
@@ -4456,6 +4432,10 @@ msgstr ""
 msgid "Request a new code"
 msgstr "Demandez un nouveau code"
 
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Requests"
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "Research & writing"
 msgstr "Recherche et rédaction"
@@ -4528,6 +4508,7 @@ msgstr "Restauration de votre espace de travail"
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "Réessayer"
 
@@ -4771,8 +4752,12 @@ msgid "Send"
 msgstr "Envoyer"
 
 #: src/pages/MessagingSettingsOverlay.tsx
-msgid "Send <0>{linkCode}</0> to the line from your chat app within 10 minutes. You'll get a confirmation reply once linked."
-msgstr "Envoyez <0>{linkCode}</0> au numéro depuis votre application de discussion dans les 10 minutes. Vous recevrez une réponse de confirmation une fois connecté."
+msgid "Send <0>{linkCode}</0> from {linkApp} within 10 minutes."
+msgstr ""
+
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Send <0>{linkCode}</0> to <1>{linkAddress}</1> from {linkApp} within 10 minutes."
+msgstr ""
 
 #: src/components/AskCard.tsx
 msgid "Send answer"
@@ -4993,6 +4978,10 @@ msgstr "Message Slack"
 msgid "Slack not enabled"
 msgstr "Slack non activé"
 
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Slack workspace"
+msgstr ""
+
 #: src/components/composer/HoldToTalk.tsx
 msgid "Slide up to lock"
 msgstr "Glisser vers le haut pour verrouiller"
@@ -5170,10 +5159,6 @@ msgstr "Équipe"
 #: src/pages/shell/computer-view.tsx
 msgid "Team Computer"
 msgstr "Ordinateur d'équipe"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Team conversations"
-msgstr "Conversations d'équipe"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Teams message"
@@ -5631,17 +5616,17 @@ msgstr "Utilisez Connecter pour vérifier la clé."
 msgid "Use default guidance"
 msgstr "Utiliser les instructions par défaut"
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "Utiliser un code par e-mail"
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults"
+msgstr "Utiliser vos paramètres par défaut"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults for {label}"
+msgstr "Utiliser vos paramètres par défaut pour {label}"
 
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "Utiliser un mot de passe"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
@@ -5708,6 +5693,7 @@ msgstr "Voir la conversation"
 
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "Voix"
@@ -5876,6 +5862,10 @@ msgstr "Vous avez le contrôle"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "Votre Anthropic"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Your defaults"
+msgstr "Vos paramètres par défaut"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"

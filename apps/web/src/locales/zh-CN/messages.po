@@ -589,10 +589,6 @@ msgstr "高级..."
 msgid "Agent computer"
 msgstr "Agent 电脑"
 
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Agent connections"
-msgstr "Agent 连接"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Agents:"
 msgstr "Agent："
@@ -963,6 +959,7 @@ msgstr "Bot"
 
 #: src/lib/identity-display.ts
 #: src/pages/IntegrationSetup.tsx
+#: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -990,10 +987,6 @@ msgstr "Bot 屏幕"
 #: src/pages/shell/computer-panel.tsx
 msgid "Bot screen preview"
 msgstr "Bot 屏幕预览"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Bot to link"
-msgstr "要关联的 Bot"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Bot's model"
@@ -1134,17 +1127,9 @@ msgstr "修改密码"
 msgid "Changing…"
 msgstr "正在修改…"
 
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Channels"
-msgstr "频道"
-
 #: src/pages/shell/message-cards.tsx
 msgid "Chart failed to render: {error}"
 msgstr "图表渲染失败：{error}"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Chat apps"
-msgstr "聊天应用"
 
 #: src/pages/shell/composer-mentions.tsx
 msgid "Chat Settings"
@@ -1225,10 +1210,6 @@ msgstr "选择机器人"
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
 msgstr "选择机器人形状和颜色，或上传图片"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Choose a bot…"
-msgstr "选择 Bot…"
 
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Choose a model"
@@ -1474,6 +1455,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "请确认此浏览器会话可以访问该 URL，然后重新测试。"
 
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Confirmations"
 msgstr ""
 
@@ -1489,6 +1471,10 @@ msgstr "连接"
 #: src/pages/ModelSettingsOverlay.tsx
 msgid "Connect {selectedProviderName}"
 msgstr "连接 {selectedProviderName}"
+
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Connect a chat app"
+msgstr ""
 
 #: src/pages/Onboarding.tsx
 msgid "Connect a model"
@@ -1604,9 +1590,9 @@ msgstr "通过 {0} 继续"
 msgid "Continue with credits"
 msgstr ""
 
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "使用邮箱继续"
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Conversations"
+msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -2191,6 +2177,14 @@ msgstr ""
 msgid "Customer support"
 msgstr "客户支持"
 
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize"
+msgstr "自定义"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Customize {label}"
+msgstr "自定义{label}"
+
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Customize bot avatar"
 msgstr "自定义机器人头像"
@@ -2351,6 +2345,7 @@ msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -3148,10 +3143,6 @@ msgstr "浅色"
 msgid "Linear issue"
 msgstr "Linear 工单"
 
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Link a chat app"
-msgstr "关联聊天应用"
-
 #: src/components/AccountAccess.tsx
 msgid "Link SSO"
 msgstr "关联 SSO"
@@ -3209,10 +3200,6 @@ msgstr "正在加载模型目录…"
 #: src/components/ArtifactFileCard.tsx
 msgid "Loading preview…"
 msgstr "正在加载预览…"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Loading rules…"
-msgstr "正在加载规则…"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Loading voice providers…"
@@ -3508,6 +3495,7 @@ msgstr "模型选项"
 
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Models"
 msgstr "模型"
 
@@ -3672,10 +3660,6 @@ msgstr ""
 msgid "Next settings sections"
 msgstr ""
 
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "No agent connections yet."
-msgstr "还没有 Agent 连接。"
-
 #: src/pages/PluginsOverlay.tsx
 msgid "No apps match your search."
 msgstr "没有匹配的应用。"
@@ -3700,14 +3684,6 @@ msgstr ""
 #: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
 msgstr ""
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "No chat apps linked yet."
-msgstr "还没有关联聊天应用。"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "No group chats yet."
-msgstr "还没有群聊。"
 
 #: src/components/AskCard.tsx
 msgid "No longer active"
@@ -3776,10 +3752,6 @@ msgstr "还没有运行记录"
 #: src/pages/KnowledgeSection.tsx
 msgid "No skills yet"
 msgstr "暂无技能"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "No team conversations yet."
-msgstr ""
 
 #: src/pages/Board.tsx
 msgid "No tickets yet"
@@ -4065,6 +4037,10 @@ msgstr "请粘贴你的 API 密钥，然后重新测试。"
 #: src/pages/shell/import-status.ts
 msgid "Paused"
 msgstr "已暂停"
+
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Pending"
+msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Permissions"
@@ -4456,6 +4432,10 @@ msgstr ""
 msgid "Request a new code"
 msgstr "请重新获取验证码"
 
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Requests"
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "Research & writing"
 msgstr "调研和写作"
@@ -4528,6 +4508,7 @@ msgstr ""
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "重试"
 
@@ -4771,8 +4752,12 @@ msgid "Send"
 msgstr "发送"
 
 #: src/pages/MessagingSettingsOverlay.tsx
-msgid "Send <0>{linkCode}</0> to the line from your chat app within 10 minutes. You'll get a confirmation reply once linked."
-msgstr "请在 10 分钟内从聊天应用向该线路发送 <0>{linkCode}</0>。关联成功后你会收到确认回复。"
+msgid "Send <0>{linkCode}</0> from {linkApp} within 10 minutes."
+msgstr ""
+
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Send <0>{linkCode}</0> to <1>{linkAddress}</1> from {linkApp} within 10 minutes."
+msgstr ""
 
 #: src/components/AskCard.tsx
 msgid "Send answer"
@@ -4993,6 +4978,10 @@ msgstr "Slack 消息"
 msgid "Slack not enabled"
 msgstr ""
 
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Slack workspace"
+msgstr ""
+
 #: src/components/composer/HoldToTalk.tsx
 msgid "Slide up to lock"
 msgstr ""
@@ -5170,10 +5159,6 @@ msgstr "团队"
 #: src/pages/shell/computer-view.tsx
 msgid "Team Computer"
 msgstr "团队电脑"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Team conversations"
-msgstr ""
 
 #: src/pages/RoutineEditor.tsx
 msgid "Teams message"
@@ -5631,17 +5616,17 @@ msgstr "请使用“连接”验证密钥。"
 msgid "Use default guidance"
 msgstr ""
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "使用邮箱验证码"
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults"
+msgstr "使用默认设置"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Use defaults for {label}"
+msgstr "{label}使用默认设置"
 
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "使用密码"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
@@ -5708,6 +5693,7 @@ msgstr "查看聊天"
 
 #: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/SpaceSettingOverrides.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Voice"
 msgstr "语音"
@@ -5876,6 +5862,10 @@ msgstr "你已接管"
 #: src/lib/run-error.ts
 msgid "Your Anthropic"
 msgstr "你的 Anthropic"
+
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Your defaults"
+msgstr "你的默认设置"
 
 #: src/pages/Auth.tsx
 msgid "Your email address"
