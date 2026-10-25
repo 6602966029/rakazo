@@ -57,7 +57,7 @@ Moves:
 {"kind":"type","text":"..."}      type text into the focused field
 {"kind":"key","key":"Return"}     press a key (xdotool names: Return, Tab, BackSpace, Escape)
 {"kind":"release"}                give the screen back to the assistant
-If a step left the screen unchanged or repeats your previous step, it is not working: do something different (type into a field you already clicked, close a pop-up, press Escape, click elsewhere) instead of repeating it.`;
+If a step left the screen unchanged, or you clicked the same spot again, check whether it did anything before repeating it; if not, do something different (type into a field you already clicked, close a pop-up, press Escape, click elsewhere).`;
 
 const MOVE_ATTEMPTS = 3;
 
@@ -205,6 +205,7 @@ export function parseMove(text: string, situation: Situation): UserMove {
 export function screenStepLog() {
   const steps: string[] = [];
   let previous: Uint8Array | undefined;
+  let lastClick: { x: number; y: number } | undefined;
   return {
     steps,
     /** The frame seen before the next step. */
@@ -213,9 +214,11 @@ export function screenStepLog() {
         steps[steps.length - 1] += " (nothing on screen changed)";
       previous = frame;
     },
-    did(step: string) {
-      const last = steps.at(-1);
-      steps.push(last?.startsWith(step) ? `${step} (same as your previous step)` : step);
+    /** `click` is the exact position, so a repeated click is told apart from a nearby one. */
+    did(step: string, click?: { x: number; y: number }) {
+      const repeat = click && lastClick && click.x === lastClick.x && click.y === lastClick.y;
+      lastClick = click;
+      steps.push(repeat ? `${step} (same click as your previous step)` : step);
     },
   };
 }
