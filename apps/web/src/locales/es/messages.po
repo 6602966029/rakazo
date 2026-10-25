@@ -324,7 +324,7 @@ msgstr "{title}, {label}"
 #: src/components/ToolActivityDisclosure.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "{toolCount, plural, one {# tool} other {# tools}}"
-msgstr ""
+msgstr "{toolCount, plural, one {# herramienta} other {# herramientas}}"
 
 #. placeholder {0}: mention.name
 #: src/pages/shell/composer.tsx
