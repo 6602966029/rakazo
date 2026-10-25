@@ -2897,10 +2897,17 @@ function SpaceShell() {
   useEffect(() => () => cancelFocusPrompt(), []);
 
   useEffect(() => {
-    if (!computer?.busyBotName) {
-      setComputerError(null);
-      setComputerErrorFromScreen(false);
-    }
+    if (computer?.busyBotName) return;
+    setComputerError(null);
+    setComputerErrorFromScreen(false);
+    // Opening the computer while its bot was running was refused as busy; boot it now that the
+    // run let go, or the open window is left on a stopped computer with nothing to press.
+    const botId = computer?.botId;
+    if (!botId || !computerOpenRef.current || computerBotIdRef.current !== botId) return;
+    if (computer.state !== "stopped" && computer.state !== "suspended") return;
+    void bootComputer({ botId, takeControl: false, showProgress: true, force: true }).catch(
+      () => undefined,
+    );
   }, [computer?.busyBotName]);
 
   useEffect(() => {
@@ -4338,6 +4345,7 @@ function SpaceShell() {
           onStopRun={() => void stopRun()}
           onRelease={releaseComputer}
           onTakeControl={() => void openComputer(computerBot.id, true)}
+          onStart={() => void openComputer(computerBot.id)}
           onRefreshTeaching={refreshActiveTeaching}
           onRefreshComputer={async () => {
             await refreshComputerFor(computerBot.id);

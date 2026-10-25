@@ -1408,6 +1408,7 @@ msgstr "Computer is asleep"
 msgid "Computer is asleep. Open it to wake."
 msgstr "Computer is asleep. Open it to wake."
 
+#: src/pages/shell/computer-overlay.tsx
 #: src/pages/shell/computer-view.tsx
 msgid "Computer is stopped"
 msgstr "Computer is stopped"
@@ -5020,6 +5021,10 @@ msgstr "Speech model"
 #: src/lib/user-error.ts
 msgid "SSO is temporarily unavailable. Try again."
 msgstr "SSO is temporarily unavailable. Try again."
+
+#: src/pages/shell/computer-overlay.tsx
+msgid "Start"
+msgstr "Start"
 
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"
