@@ -193,6 +193,7 @@ export function McpServersOverlay({
 
   function resetForm() {
     setEditing(null);
+    setTransport("streamable_http");
     setName("");
     setEndpoint("");
     setSecret("");
@@ -494,7 +495,7 @@ export function McpServersOverlay({
                   <TabsList className="w-full">
                     <TabsTrigger value="streamable_http">HTTP</TabsTrigger>
                     <TabsTrigger value="sse">SSE</TabsTrigger>
-                    {stdioEnabled || transport === "stdio" ? (
+                    {stdioEnabled || editing?.transport === "stdio" ? (
                       <TabsTrigger value="stdio">STDIO</TabsTrigger>
                     ) : null}
                   </TabsList>

@@ -107,12 +107,25 @@ function server(id: string, status = "unknown") {
 }
 
 it("offers stdio only where the deployment runs it, and still shows existing stdio servers", async () => {
-  mocks.list.mockReset().mockResolvedValue([server("files")]);
+  mocks.list
+    .mockReset()
+    .mockResolvedValue([
+      { ...server("files"), args: [], envKeys: [], fileKeys: [], headerKeys: [] },
+    ]);
   const host = document.createElement("div");
   const root = createRoot(host);
   try {
     await act(async () => root.render(overlay(undefined, false)));
     await vi.waitFor(() => expect(host.textContent).toContain("files"));
+    expect(host.textContent).not.toContain("STDIO");
+
+    // Editing an existing stdio server keeps its tab until the edit ends.
+    await act(async () => root.render(overlay("files", false)));
+    await vi.waitFor(() => expect(host.textContent).toContain("STDIO"));
+    const cancel = Array.from(host.querySelectorAll("button")).find(
+      (item) => item.textContent === "Cancel",
+    );
+    await act(async () => cancel?.click());
     expect(host.textContent).not.toContain("STDIO");
 
     await act(async () => root.render(overlay()));
