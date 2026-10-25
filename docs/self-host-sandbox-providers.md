@@ -97,7 +97,8 @@ counted) and ends when it stops. `endReason` says how: `stopped`, `idle`, `activ
 `replaced` (update, recovery, or reset), `gone` (the provider had already stopped or lost
 the sandbox), `deleted`, or `reconciled` (the end was never seen; the worker found the
 computer no longer running). For `gone` and `reconciled`, `endedAt` is when Rakazo
-noticed, so the true end may be earlier. An open run whose computer still reads as running
+noticed, so the true end may be earlier. The worker also opens the run of a running
+computer whose start was not recorded. An open run whose computer still reads as running
 is a computer that may be left on. Deleting a user or space keeps their runs with
 `userId` and `spaceId` cleared. This-Mac computers are not recorded.
 

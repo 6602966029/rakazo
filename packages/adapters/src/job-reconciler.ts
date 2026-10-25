@@ -3,7 +3,7 @@ import { messagingDeliverJob, routineWakeupJob, runContinueJob } from "@rakazo/a
 import type { MessageBlock } from "@rakazo/contracts";
 import { stuckWorkStatusMessages } from "@rakazo/core";
 import type { Pool, PrismaClient, ThreadEvents } from "@rakazo/db";
-import { closeStaleComputerRuns } from "@rakazo/db";
+import { reconcileComputerRuns } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { PoolClient } from "pg";
 import { returnBotMessageOutcome } from "./bot-messages.js";
@@ -139,7 +139,7 @@ export function createJobReconciler(
       const auxiliary = await Promise.allSettled(
         [
           () => reconcileCallRequests(deps),
-          () => closeStaleComputerRuns(deps.prisma),
+          () => reconcileComputerRuns(deps.prisma),
           deps.reconcileCloudAgents,
           deps.reconcileModelCredits,
           deps.reconcileComputerUpdates,

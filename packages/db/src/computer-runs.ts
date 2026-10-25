@@ -60,21 +60,30 @@ export async function recordComputerRunStart(
   }
 }
 
-/** Closes the computer's open run, if any. Never fails the transition that calls it. */
+/**
+ * Closes the run of the stretch that began at `runningSince`, read before the stop. A restart
+ * that lands before this write opens a run with a newer start, which stays open. Without a
+ * start (deletion, or a row an older release activated) it closes every open run. Never fails
+ * the transition that calls it.
+ */
 export async function recordComputerRunEnd(
   prisma: RunsClient,
-  computerId: string,
+  computer: { id: string; runningSince?: Date | null },
   reason: ComputerRunEnd,
-  endedAt = new Date(),
 ): Promise<void> {
+  const endedAt = new Date();
   try {
     await prisma.computerRun.updateMany({
-      where: { computerId, endedAt: null, startedAt: { lte: endedAt } },
+      where: {
+        computerId: computer.id,
+        endedAt: null,
+        startedAt: computer.runningSince ?? { lte: endedAt },
+      },
       data: { endedAt, endReason: reason },
     });
   } catch (error) {
     getLogger().error("computer.run_record_failed", error, {
-      "computer.id": computerId,
+      "computer.id": computer.id,
       transition: "end",
       reason,
     });
@@ -82,15 +91,16 @@ export async function recordComputerRunEnd(
 }
 
 /**
- * Closes open runs the lifecycle did not close: the computer row is gone, it is no longer
- * running, or a newer stretch has begun. Covers a crash or deploy between the provider stop and
- * the usage write, a failed usage write, and paths that stop a computer without recording it.
+ * Repairs what the lifecycle did not record. Closes open runs whose computer row is gone, is no
+ * longer running, or has begun a newer stretch, and opens the run of a running computer that
+ * has none. Covers a crash or deploy between a provider call and its usage write, a failed
+ * usage write, and paths that stop a computer without recording it.
  */
-export async function closeStaleComputerRuns(
+export async function reconcileComputerRuns(
   prisma: Pick<PrismaClient, "$executeRaw">,
   now = new Date(),
-): Promise<number> {
-  return prisma.$executeRaw`
+): Promise<void> {
+  await prisma.$executeRaw`
     UPDATE "computer_runs" AS r
     SET "endedAt" = GREATEST(${now}::timestamp(3), r."startedAt"),
         "endReason" = CASE WHEN c."id" IS NULL THEN 'deleted' ELSE 'reconciled' END
@@ -103,4 +113,18 @@ export async function closeStaleComputerRuns(
         OR c."state" NOT IN ('running', 'booting', 'suspending')
         OR c."runningSince" IS DISTINCT FROM o."startedAt"
       )`;
+  // A booting computer may still carry the start of its previous stretch, so only rows that
+  // finished starting count. Host computers are never recorded (see recordComputerRunStart).
+  await prisma.$executeRaw`
+    INSERT INTO "computer_runs" ("id", "computerId", "spaceId", "userId", "kind", "startedAt")
+    SELECT gen_random_uuid()::text, c."id", c."spaceId", c."userId", c."kind", c."runningSince"
+    FROM "computers" AS c
+    WHERE c."state" IN ('running', 'suspending')
+      AND c."runningSince" IS NOT NULL
+      AND c."kind" <> 'desktop'
+      AND NOT EXISTS (
+        SELECT 1 FROM "computer_runs" AS r
+        WHERE r."computerId" = c."id" AND r."startedAt" = c."runningSince"
+      )
+    ON CONFLICT ("computerId", "startedAt") DO NOTHING`;
 }

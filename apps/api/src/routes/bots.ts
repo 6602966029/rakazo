@@ -451,7 +451,7 @@ export function botsRoutes(ctx: RouterContext) {
                 executionLeaseExpiresAt: null,
               },
             });
-            await recordComputerRunEnd(deps.prisma, bot.computer.id, "stopped");
+            await recordComputerRunEnd(deps.prisma, bot.computer, "stopped");
           }
           return await repos.setBotComputer(context.actor, bot.id, input.mode);
         } catch (error) {

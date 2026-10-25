@@ -437,7 +437,7 @@ export async function sleepComputerIfIdle(
           controlRunId: null,
         },
       });
-      if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computerId, "gone");
+      if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computer, "gone");
       return;
     }
     await deps.prisma.computer.updateMany({
@@ -522,7 +522,7 @@ export async function sleepComputerIfIdle(
     getLogger().warn("computer.suspend_superseded", { "computer.id": computerId });
     return;
   }
-  await recordComputerRunEnd(deps.prisma, computerId, limitReached ? "active_limit" : "idle");
+  await recordComputerRunEnd(deps.prisma, computer, limitReached ? "active_limit" : "idle");
   getLogger().info("computer.suspended", {
     "computer.id": computerId,
     provider: computer.kind,

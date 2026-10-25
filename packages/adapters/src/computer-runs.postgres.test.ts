@@ -6,8 +6,9 @@ import type { AdapterContext, JobPublisher } from "@rakazo/adapter-kit";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   asSystem,
-  closeStaleComputerRuns,
   createDb,
+  reconcileComputerRuns,
+  recordComputerRunEnd,
   recordComputerRunStart,
   runAsSystem,
   runAsTenant,
@@ -154,7 +155,7 @@ describePostgres("computer runs (PostgreSQL)", () => {
     await system.computer.delete({ where: { id: deleted.id } });
     await system.computer.update({ where: { id: stopped.id }, data: { state: "stopped" } });
 
-    await runAsSystem("reconciler", () => closeStaleComputerRuns(db.prisma));
+    await runAsSystem("reconciler", () => reconcileComputerRuns(db.prisma));
 
     expect(await deleted.runs()).toEqual([
       expect.objectContaining({ endedAt: expect.any(Date), endReason: "deleted" }),
@@ -173,7 +174,7 @@ describePostgres("computer runs (PostgreSQL)", () => {
       data: { computerId: o.id, spaceId: o.id, userId: o.id, kind: "fake", startedAt: stale },
     });
 
-    await runAsSystem("reconciler", () => closeStaleComputerRuns(db.prisma));
+    await runAsSystem("reconciler", () => reconcileComputerRuns(db.prisma));
 
     expect(
       (await o.runs()).map((run) => [run.startedAt.getTime() === stale.getTime(), run.endReason]),
@@ -181,6 +182,40 @@ describePostgres("computer runs (PostgreSQL)", () => {
       [true, "reconciled"],
       [false, null],
     ]);
+  });
+
+  it("opens the run of a running computer whose start was never recorded", async () => {
+    const o = await owner();
+    await o.start();
+    const { runningSince } = await system.computer.findUniqueOrThrow({ where: { id: o.id } });
+    // A crash between activating the computer and writing its run.
+    await system.computerRun.deleteMany({ where: { computerId: o.id } });
+
+    await runAsSystem("reconciler", () => reconcileComputerRuns(db.prisma));
+    await runAsSystem("reconciler", () => reconcileComputerRuns(db.prisma));
+
+    expect(await o.runs()).toEqual([
+      expect.objectContaining({
+        userId: o.id,
+        kind: "fake",
+        startedAt: runningSince,
+        endedAt: null,
+      }),
+    ]);
+  });
+
+  it("does not let a late stop close the run of a restart that beat it", async () => {
+    const o = await owner();
+    await o.start();
+    const before = await system.computer.findUniqueOrThrow({ where: { id: o.id } });
+    // Suspend without its usage write, then restart before that write lands.
+    await system.computer.update({ where: { id: o.id }, data: { state: "suspended" } });
+    await o.start();
+
+    await runAsSystem("idle job", () => recordComputerRunEnd(db.prisma, before, "idle"));
+
+    // The restart already closed the earlier run; the new one stays open.
+    expect((await o.runs()).map((run) => run.endReason)).toEqual(["reconciled", null]);
   });
 
   it("keeps the run time but not who it belonged to when the account and space are deleted", async () => {

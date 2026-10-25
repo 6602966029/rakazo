@@ -159,7 +159,7 @@ export async function deleteSpaceWithContent(
         },
         data: { state: "stopped", providerRef: null },
       });
-      await recordComputerRunEnd(deps.prisma, computer.id, "deleted");
+      await recordComputerRunEnd(deps.prisma, computer, "deleted");
     }
     await assertClaim();
     claimActive = false;

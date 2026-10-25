@@ -373,7 +373,7 @@ export async function archiveBot(
       },
       data: { state: "stopped" },
     });
-    await recordComputerRunEnd(deps.prisma, currentDedicated.id, "stopped");
+    await recordComputerRunEnd(deps.prisma, currentDedicated, "stopped");
   }
 }
 
@@ -513,7 +513,7 @@ export async function destroyBot(
     }),
   );
   if (dedicated) {
-    await recordComputerRunEnd(deps.prisma, dedicated.id, "deleted");
+    await recordComputerRunEnd(deps.prisma, { id: dedicated.id }, "deleted");
     await removeAgentHome(deps.home, dedicated.homeKey, deps.dataDir).catch(() => undefined);
   }
   await removeTeamBrowserProfile(deps, bot.id, sharedComputer, context);

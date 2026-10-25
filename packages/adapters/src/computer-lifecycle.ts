@@ -1026,7 +1026,7 @@ export async function replaceComputer(
       },
     });
     if (stopped.count !== 1) throw new ComputerBusyError();
-    await recordComputerRunEnd(deps.prisma, computerId, "replaced");
+    await recordComputerRunEnd(deps.prisma, existing, "replaced");
     return provisionComputer(deps, computerId, context, controlHolder, onProgress);
   } catch (error) {
     await deps.prisma.computer

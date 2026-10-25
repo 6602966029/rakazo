@@ -147,7 +147,13 @@ export async function clearInactiveUserComputerControl(
  * unless clearGoneRef: false (mid-replacement still names that ref for activation CAS). */
 export async function revokeScreenControl(
   deps: { prisma: PrismaClient; sandbox: SandboxProvider | undefined },
-  computer: { id: string; homeKey: string; kind: string; providerRef: string | null },
+  computer: {
+    id: string;
+    homeKey: string;
+    kind: string;
+    providerRef: string | null;
+    runningSince?: Date | null;
+  },
   context: AdapterContext,
   leaseId: string | undefined,
   opts?: { clearGoneRef?: boolean },
@@ -170,7 +176,7 @@ export async function revokeScreenControl(
       },
       data: { state: "stopped", providerRef: null },
     });
-    if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computer.id, "gone");
+    if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computer, "gone");
   }
 }
 

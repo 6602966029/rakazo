@@ -189,7 +189,7 @@ export function computerRoutes(ctx: RouterContext) {
               controlRunId: null,
             },
           });
-          await recordComputerRunEnd(deps.prisma, bot.computer.id, end);
+          await recordComputerRunEnd(deps.prisma, bot.computer, end);
         } catch (error) {
           await deps.prisma.computer
             .updateMany({
@@ -1080,7 +1080,7 @@ async function computerScreenContext(
  */
 async function clearGoneSandbox(
   deps: RouterDeps,
-  computer: { id: string; providerRef: string | null },
+  computer: { id: string; providerRef: string | null; runningSince?: Date | null },
   error: unknown,
 ): Promise<null> {
   if (!isSandboxGoneError(error)) throw error;
@@ -1089,7 +1089,7 @@ async function clearGoneSandbox(
     where: { id: computer.id, providerRef: computer.providerRef },
     data: { state: "stopped", providerRef: null },
   });
-  if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computer.id, "gone");
+  if (cleared.count === 1) await recordComputerRunEnd(deps.prisma, computer, "gone");
   return null;
 }
 

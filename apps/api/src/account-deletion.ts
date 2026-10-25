@@ -89,7 +89,7 @@ export async function deleteAccountContent(deps: SpaceDeletionDeps, userId: stri
       }
       if (computer.providerRef) {
         await deps.sandbox.destroy(toComputerRef(computer), context(computer.spaceId));
-        await recordComputerRunEnd(deps.prisma, computer.id, "deleted");
+        await recordComputerRunEnd(deps.prisma, computer, "deleted");
       }
       await removeAgentHome(deps.home, computer.homeKey, deps.dataDir);
       // The row holds the stored home's key, so the stored copy is unreadable from here on.
