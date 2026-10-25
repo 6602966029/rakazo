@@ -13,6 +13,7 @@ import {
   findModelCredentialById,
   newestVoiceCredentialOrder,
   Prisma,
+  saveApprovalRule,
   selectSpaceVoicePreference,
 } from "@rakazo/db";
 import { aiConsentStatus, allowAiConsent } from "../ai-consent.js";
@@ -148,25 +149,15 @@ export function accountRoutes(ctx: RouterContext) {
         }));
       }),
       set: authed.approvalRules.set.handler(async ({ context, input }) => {
-        const row = await deps.prisma.actionApprovalRule.upsert({
-          where: {
-            spaceId_createdByUserId_effect_matchKind_matchValue: {
-              spaceId: context.actor.spaceId,
-              createdByUserId: context.actor.userId,
-              effect: input.effect,
-              matchKind: input.matchKind,
-              matchValue: input.matchValue,
-            },
-          },
-          create: {
+        const row = await deps.prisma.$transaction((tx) =>
+          saveApprovalRule(tx, {
             spaceId: context.actor.spaceId,
             createdByUserId: context.actor.userId,
             effect: input.effect,
             matchKind: input.matchKind,
             matchValue: input.matchValue,
-          },
-          update: {},
-        });
+          }),
+        );
         return {
           id: row.id,
           effect: row.effect as "always_allow" | "require_approval",
