@@ -331,9 +331,7 @@ describe("queueMcpConnectedRun", () => {
   };
   const input = { botId: "bot", serverId: "srv-a", threadId: "thread" };
 
-  function connectedFixture(
-    state: { thread?: boolean; busy?: boolean; archived?: boolean } = {},
-  ) {
+  function connectedFixture(state: { thread?: boolean; busy?: boolean; archived?: boolean } = {}) {
     const tx = {
       bot: { findFirst: vi.fn(async () => (state.archived ? null : { id: "bot" })) },
       thread: { findFirst: vi.fn(async () => (state.thread === false ? null : { id: "thread" })) },
