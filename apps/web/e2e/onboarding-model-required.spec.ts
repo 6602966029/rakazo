@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { signup } from "./helpers";
 
+test.afterEach(async ({ page }) => {
+  // Finish intercepted responses before the browser context is disposed.
+  await page.unrouteAll({ behavior: "wait" });
+});
+
 test("onboarding cannot continue with an empty or failed model catalog", async ({ page }) => {
   let unavailable: "empty" | "failed" = "empty";
   await page.route("**/rpc/me", async (route) => {
