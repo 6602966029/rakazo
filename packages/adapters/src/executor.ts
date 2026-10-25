@@ -9725,7 +9725,7 @@ export function userTurnInstructions(parts: {
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "add_mcp_server",
-      "When the user asks you to add or connect an MCP server (and gives you its details), use add_mcp_server. It posts an approval card; end with one short sentence asking the user to approve it. You will be told when they connect it.",
+      "When the user asks you to add or connect an MCP server (and gives you its details), use add_mcp_server. When add_mcp_server posts an approval card, end with one short sentence asking the user to approve it. You will be told when they connect it.",
     ),
     "Never print API keys, access tokens, or secret values. Prefer tools over claiming you already did the work.",
     "Treat pagination cursors as opaque: copy the returned continuation value exactly, never calculate or guess it. When the tool reports no next page, stop; if a cursor is rejected, recheck the last successful result before retrying.",

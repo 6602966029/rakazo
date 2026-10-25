@@ -275,8 +275,8 @@ function mcpConnectedPrompt(name: string): string {
 
 /** Approving a card in a chat is the user's turn: queue a hidden-prompt run (like
     a call's hang-up) so the bot carries on with the server's tools instead of
-    waiting for another message. Skipped while the bot is busy in that chat or
-    no longer in it. Returns the run to enqueue. */
+    waiting for another message. Skipped while the bot is busy in that chat, no
+    longer in it, or archived along with the chat. Returns the run to enqueue. */
 export async function queueMcpConnectedRun(
   tx: Prisma.TransactionClient,
   actor: Actor,
@@ -287,12 +287,19 @@ export async function queueMcpConnectedRun(
       id: input.threadId,
       spaceId: actor.spaceId,
       userId: actor.userId,
-      OR: [{ botId: input.botId }, { group: { members: { some: { botId: input.botId } } } }],
+      OR: [
+        { botId: input.botId },
+        { group: { archivedAt: null, members: { some: { botId: input.botId } } } },
+      ],
     },
     select: { id: true },
   });
   if (!thread) return null;
-  const [busy, server] = await Promise.all([
+  const [bot, busy, server] = await Promise.all([
+    tx.bot.findFirst({
+      where: { id: input.botId, spaceId: actor.spaceId, userId: actor.userId, archivedAt: null },
+      select: { id: true },
+    }),
     tx.run.findFirst({
       where: {
         threadId: thread.id,
@@ -306,7 +313,7 @@ export async function queueMcpConnectedRun(
       select: { name: true },
     }),
   ]);
-  if (busy || !server) return null;
+  if (!bot || busy || !server) return null;
   const task = await tx.task.create({
     data: {
       spaceId: actor.spaceId,

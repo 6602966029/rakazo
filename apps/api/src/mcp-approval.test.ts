@@ -331,8 +331,11 @@ describe("queueMcpConnectedRun", () => {
   };
   const input = { botId: "bot", serverId: "srv-a", threadId: "thread" };
 
-  function connectedFixture(state: { thread?: boolean; busy?: boolean } = {}) {
+  function connectedFixture(
+    state: { thread?: boolean; busy?: boolean; archived?: boolean } = {},
+  ) {
     const tx = {
+      bot: { findFirst: vi.fn(async () => (state.archived ? null : { id: "bot" })) },
       thread: { findFirst: vi.fn(async () => (state.thread === false ? null : { id: "thread" })) },
       run: {
         findFirst: vi.fn(async () => (state.busy ? { id: "active" } : null)),
@@ -364,6 +367,16 @@ describe("queueMcpConnectedRun", () => {
     const tx = connectedFixture({ busy: true });
     await expect(queueMcpConnectedRun(tx, actor, input)).resolves.toBeNull();
     expect(tx.run.create).not.toHaveBeenCalled();
+  });
+
+  it("does not restart an archived bot", async () => {
+    const tx = connectedFixture({ archived: true });
+    await expect(queueMcpConnectedRun(tx, actor, input)).resolves.toBeNull();
+    expect(tx.bot.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "bot", archivedAt: null }),
+      select: { id: true },
+    });
+    expect(tx.task.create).not.toHaveBeenCalled();
   });
 
   it("does not queue in a chat the bot is not part of", async () => {
