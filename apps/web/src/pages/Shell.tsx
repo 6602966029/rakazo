@@ -2056,6 +2056,27 @@ function SpaceShell() {
     },
     enabled: initialBotsLoaded,
   });
+  // Apps can change in the integrations overlay; leaving it refreshes what the composer offers.
+  const integrationsOpen = overlay?.kind === "integrations";
+  const wasIntegrationsOpen = useRef(integrationsOpen);
+  useEffect(() => {
+    if (wasIntegrationsOpen.current && !integrationsOpen) {
+      void queryClient.invalidateQueries({ queryKey: queries.connections.key() });
+    }
+    wasIntegrationsOpen.current = integrationsOpen;
+  }, [integrationsOpen, queries]);
+  // A changed roster refreshes connection data too, as it did before it was cached.
+  const mentionBotsKey = useMemo(
+    () => bots.map((bot) => `${bot.id}:${bot.name}`).join(","),
+    [bots],
+  );
+  const connectionsRoster = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialBotsLoaded) return;
+    const previous = connectionsRoster.current;
+    connectionsRoster.current = mentionBotsKey;
+    if (previous !== null && previous !== mentionBotsKey) void composerConnections.refetch();
+  }, [initialBotsLoaded, mentionBotsKey]);
   const [footerLogos, setFooterLogos] = useState(() =>
     connectedAppMarksOf(composerConnections.data),
   );
