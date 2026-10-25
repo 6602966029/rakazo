@@ -1653,24 +1653,39 @@ export function createRouter(deps: RouterDeps) {
         return Promise.all(
           rows.map(async (row) => {
             const preference = row.preferences[0];
-            // The connection running the main model shows that model, as apps read it.
-            const selected =
-              main?.credential && main.credential.id === row.id
-                ? {
-                    ...row,
-                    isDefault: true,
-                    defaultModel: main.modelId,
-                    thinkingLevel: main.thinkingLevel ?? null,
-                  }
-                : {
-                    ...row,
-                    defaultModel: preference?.modelId ?? null,
-                    thinkingLevel: preference?.thinkingLevel ?? null,
-                  };
-            const dto = (plaintext?: string) => ({
-              ...modelCredentialDto(selected, plaintext),
-              ...(preference ? { preferenceRank: preferenceRanks.get(preference.id) } : {}),
-            });
+            const own = {
+              ...row,
+              defaultModel: preference?.modelId ?? null,
+              thinkingLevel: preference?.thinkingLevel ?? null,
+            };
+            const runsMain = main?.credential && main.credential.id === row.id;
+            const dto = (plaintext?: string) => {
+              const listed = modelCredentialDto(own, plaintext);
+              // The connection running the main model shows that model, as apps read it,
+              // while its own model stays enabled.
+              const shown = runsMain
+                ? modelCredentialDto(
+                    {
+                      ...row,
+                      isDefault: true,
+                      defaultModel: main.modelId,
+                      thinkingLevel: main.thinkingLevel ?? null,
+                    },
+                    plaintext,
+                  )
+                : listed;
+              return {
+                ...shown,
+                ...(shown.enabledModelIds
+                  ? {
+                      enabledModelIds: [
+                        ...new Set([...shown.enabledModelIds, ...(listed.enabledModelIds ?? [])]),
+                      ],
+                    }
+                  : {}),
+                ...(preference ? { preferenceRank: preferenceRanks.get(preference.id) } : {}),
+              };
+            };
             const ciphertext = ciphertextById.get(row.secretId);
             if (!ciphertext) return dto();
             try {
@@ -1968,14 +1983,13 @@ export function createRouter(deps: RouterDeps) {
       setDefault: authed.models.setDefault.handler(async ({ context, input }) => {
         const modelId = usableModelId(input.modelId);
         if (!modelId) throw new ORPCError("BAD_REQUEST", { message: "Choose a model" });
-        // An omitted level keeps the one this model already has in the main list.
-        const savedThinking = async (client: Pick<PrismaClient, "spaceModelRoleChoice">) => {
+        // An omitted level keeps the one this model already has in the main list: on the
+        // chosen connection first, then on another, as writeModelRole does.
+        const savedChoices = async (client: Pick<PrismaClient, "spaceModelRoleChoice">) => {
           const main = await getModelRole(client, context.actor, "main");
           const key = backupChoiceKey({ provider: input.provider, modelId });
-          return (
-            [...(main.primary ? [main.primary] : []), ...main.backups].find(
-              (choice) => backupChoiceKey(choice) === key,
-            )?.thinkingLevel ?? null
+          return [...(main.primary ? [main.primary] : []), ...main.backups].filter(
+            (choice) => backupChoiceKey(choice) === key,
           );
         };
         const loadSpaceModelState = async (
@@ -2038,7 +2052,7 @@ export function createRouter(deps: RouterDeps) {
           );
           const needsThinking =
             input.thinkingLevel === undefined
-              ? Boolean(await savedThinking(deps.prisma))
+              ? (await savedChoices(deps.prisma)).some((choice) => Boolean(choice.thinkingLevel))
               : Boolean(input.thinkingLevel);
           const compatible = input.provider === OPENAI_COMPATIBLE_PROVIDER_ID;
           // Compatible defaults always load the secret so the transaction rechecks it.
@@ -2112,8 +2126,12 @@ export function createRouter(deps: RouterDeps) {
                   message: authFailure ?? UNAVAILABLE_MODEL_FOR_AUTH_MESSAGE,
                 });
               }
+              const saved = input.thinkingLevel === undefined ? await savedChoices(tx) : [];
               let thinkingLevel: string | null =
-                input.thinkingLevel === undefined ? await savedThinking(tx) : input.thinkingLevel;
+                input.thinkingLevel === undefined
+                  ? ((saved.find((choice) => choice.credentialId === credentialId) ?? saved[0])
+                      ?.thinkingLevel ?? null)
+                  : input.thinkingLevel;
               if (thinkingLevel) {
                 if (!needsThinking) {
                   throw new ORPCError("CONFLICT", { message: "Model preferences changed; retry." });

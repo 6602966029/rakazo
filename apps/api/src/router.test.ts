@@ -192,6 +192,73 @@ describe("account preferences", () => {
     ]);
   });
 
+  it("keeps a compatible connection's own model enabled while it shows the main model", async () => {
+    const { deps, actor } = preferencesDeps("robot");
+    const row = {
+      id: "compatible",
+      userId: actor.userId,
+      provider: "openai-compatible",
+      label: "Local",
+      secretId: "secret-compatible",
+      supportsImages: false,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      // Its own model is outside the stored list, which enables only the main model.
+      preferences: [
+        {
+          id: "pref",
+          modelId: "own-a",
+          thinkingLevel: null,
+          isDefault: false,
+          updatedAt: new Date(0),
+        },
+      ],
+    };
+    Object.assign(deps.prisma, {
+      userModelCredential: {
+        findMany: vi.fn(async () => [row]),
+        findFirst: vi.fn(async () => row),
+      },
+      secret: {
+        findMany: vi.fn(async () => [{ id: row.secretId, ciphertext: "fake-ciphertext" }]),
+      },
+    });
+    deps.secrets = {
+      load: vi.fn(async () =>
+        serializeModelSecret({
+          kind: "openai_compatible",
+          baseUrl: "http://127.0.0.1:11434/v1",
+          enabledModelIds: ["main-b"],
+        }),
+      ),
+    } as never;
+    // preferencesDeps already gave these deps their role table.
+    const client = createRouterClient(createRouterWith(deps), { context: { actor } as never });
+    await (
+      deps.prisma.spaceModelRoleChoice as unknown as {
+        createMany: (args: { data: unknown[] }) => Promise<unknown>;
+      }
+    ).createMany({
+      data: [
+        {
+          userId: actor.userId,
+          spaceId: actor.spaceId,
+          role: "main",
+          position: 0,
+          provider: "openai-compatible",
+          modelId: "main-b",
+          thinkingLevel: null,
+          credentialId: row.id,
+        },
+      ],
+    });
+
+    const [credential] = await client.models.credentials();
+
+    expect(credential).toMatchObject({ isDefault: true, modelId: "main-b" });
+    expect(credential?.enabledModelIds).toEqual(["main-b", "own-a"]);
+  });
+
   it("keeps an unconfigured catalog offline unless explicitly requested", async () => {
     const { actor, deps } = preferencesDeps("robot");
     const fetch = vi.fn().mockResolvedValue(
@@ -5368,6 +5435,85 @@ describe("model set default auth", () => {
         update: { modelId: spark, thinkingLevel: null },
       }),
     );
+  });
+
+  it("keeps the effort the main list has for the model on the chosen connection", async () => {
+    const at = new Date("2026-01-01T00:00:00.000Z");
+    const connection = (id: string) => ({
+      id,
+      userId: actor.userId,
+      provider: "openai-codex",
+      label: id,
+      secretId: `secret-${id}`,
+      createdAt: at,
+      updatedAt: at,
+    });
+    const [work, personal] = [connection("cred-work"), connection("cred-personal")];
+    const tx = {
+      userModelCredential: { findMany: vi.fn().mockResolvedValue([work, personal]) },
+      spaceModelPreference: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([
+            { id: "pref-personal", modelId: luna, updatedAt: at, credential: personal },
+          ]),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+        upsert: vi.fn(async () => ({ id: "pref-personal" })),
+      },
+      secret: {
+        findFirst: vi.fn(async (args: { where: { id?: string } }) =>
+          args.where.id ? { id: args.where.id, ciphertext: `cipher-${args.where.id}` } : null,
+        ),
+      },
+    };
+    const prisma = {
+      ...tx,
+      $transaction: vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
+    };
+    const handler = new RPCHandler(
+      createRouter({
+        prisma,
+        secrets: { load: vi.fn(() => apiKey) },
+        env: {
+          defaultProvider: "fake",
+          defaultModel: "fake-model",
+          webOrigin: "http://127.0.0.1:5173",
+          screenProxySecret: "fake-test-secret",
+          sandboxProvider: "fake",
+        },
+      } as unknown as RouterDeps),
+    );
+    const roles = (
+      prisma as unknown as {
+        spaceModelRoleChoice: {
+          createMany: (args: { data: unknown[] }) => Promise<unknown>;
+          findMany: (args: { where: Record<string, string> }) => Promise<unknown[]>;
+        };
+      }
+    ).spaceModelRoleChoice;
+    const row = (position: number, credentialId: string, thinkingLevel: string) => ({
+      userId: actor.userId,
+      spaceId: actor.spaceId,
+      role: "main",
+      position,
+      provider: "openai-codex",
+      modelId: luna,
+      thinkingLevel,
+      credentialId,
+    });
+    // The same model runs first on another connection with a different effort.
+    await roles.createMany({ data: [row(0, work.id, "low"), row(1, personal.id, "high")] });
+
+    const response = await call(handler, "models/setDefault", {
+      provider: "openai-codex",
+      modelId: luna,
+    });
+
+    expect(response.status).toBe(200);
+    const main = await roles.findMany({
+      where: { userId: actor.userId, spaceId: actor.spaceId, role: "main" },
+    });
+    expect(main[0]).toMatchObject({ credentialId: personal.id, thinkingLevel: "high" });
   });
 
   it("does not rewrite a Spark API-key preference when another Codex model becomes the default", async () => {
