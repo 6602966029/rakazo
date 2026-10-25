@@ -3929,10 +3929,6 @@ msgstr "Pull request"
 msgid "Queued"
 msgstr "Queued"
 
-#: src/pages/shell/quote-selection-button.tsx
-msgid "Quote"
-msgstr "Quote"
-
 #: src/components/ModelCredits.tsx
 msgid "Rakazo credits"
 msgstr "Rakazo credits"
@@ -4175,6 +4171,7 @@ msgid "Replace value"
 msgstr "Replace value"
 
 #: src/pages/shell/message-hover-actions.tsx
+#: src/pages/shell/quote-selection-button.tsx
 msgid "Reply"
 msgstr "Reply"
 
