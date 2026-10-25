@@ -4,7 +4,9 @@ import { readBodyCapped, withAbort } from "./web-ssrf.js";
 
 const AUTHORIZE_URL = "https://claude.ai/oauth/authorize";
 const TOKEN_URL = "https://platform.claude.com/v1/oauth/token";
-const REDIRECT_URI = "http://localhost:53692/callback";
+// Anthropic's hosted callback shows the code to copy; a loopback redirect would land the
+// user on an unreachable localhost page, since nothing listens there on a hosted server.
+const REDIRECT_URI = "https://platform.claude.com/oauth/code/callback";
 const SCOPES =
   "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload";
 export const MAX_ANTHROPIC_TOKEN_RESPONSE_BYTES = 64 * 1024;
@@ -40,12 +42,11 @@ export function createManualAnthropicOAuthLogin(options: ManualAnthropicOAuthOpt
     interaction.notify({
       type: "auth_url",
       url: authorizeUrl.toString(),
-      instructions: "Complete login in your browser, then paste the final redirect URL or code.",
+      instructions: "Complete login in your browser, then paste the code it shows.",
     });
     const input = await interaction.prompt({
       type: "manual_code",
-      message: "Paste the authorization code or final redirect URL:",
-      placeholder: REDIRECT_URI,
+      message: "Paste the authorization code:",
       signal,
     });
     const authorization = parseAuthorizationInput(input);

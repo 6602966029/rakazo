@@ -741,7 +741,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Found {count} model.": "Найдена {count} модель.",
   "Found {count} models.": "Найдено моделей: {count}.",
   "http://127.0.0.1:8000/v1": "http://127.0.0.1:8000/v1",
-  "http://localhost:53692/callback?code=…": "http://localhost:53692/callback?code=…",
   "https://example.com/mcp": "https://example.com/mcp",
   "https://example.com/openapi.json": "https://example.com/openapi.json",
   "https://executor.example/mcp": "https://executor.example/mcp",
@@ -787,8 +786,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "No custom sources installed.": "Никакие пользовательские источники не установлены.",
   "Removing…": "Удаление…",
   "Skill {name}": "Навык {name}",
-  "The final page may not load. Paste its URL or code here.":
-    "Последняя страница может не загрузиться. Вставьте сюда его URL-адрес или код.",
+  "Then paste the code here.": "Затем вставьте код сюда.",
   "Chat Settings": "Настройки чата",
   "Settings: General": "Настройки: Общие",
   "Settings: Usage": "Настройки: Использование",

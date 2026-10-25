@@ -850,8 +850,8 @@ msgstr "האימות נכשל."
 
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
-msgid "Authorization code or callback URL"
-msgstr "קוד הרשאה או URL להחזרה (callback)"
+msgid "Authorization code"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Authorization parameters (optional)"
@@ -2695,12 +2695,6 @@ msgstr "מחפש…"
 msgid "Finish setting up"
 msgstr "סיום ההגדרה"
 
-#. placeholder {0}: new URL(oauth.verificationUri).hostname
-#: src/pages/model-settings/connection-controls.tsx
-#: src/pages/Onboarding.tsx
-msgid "Finish signing in at <0>{0}</0>. The final page may not load; paste its URL or code here."
-msgstr "יש להשלים את ההתחברות ב-<0>{0}</0>. ייתכן שהדף האחרון לא ייטען; אפשר להדביק כאן את ה-URL או את הקוד שלו."
-
 #: src/lib/model-connection-preflight.ts
 msgid "Finish subscription sign-in, then test again."
 msgstr "יש להשלים את ההתחברות למנוי ולבדוק שוב."
@@ -3870,12 +3864,6 @@ msgstr "פתיחת {name}"
 msgid "Open <0>{0}</0> and enter this code:"
 msgstr "יש לפתוח את <0>{0}</0> ולהזין את הקוד הזה:"
 
-#. placeholder {0}: new URL(oauth.verificationUri).hostname
-#: src/pages/model-settings/connection-controls.tsx
-#: src/pages/Onboarding.tsx
-msgid "Open <0>{0}</0> to finish signing in."
-msgstr "יש לפתוח את <0>{0}</0> כדי להשלים את ההתחברות."
-
 #: src/pages/Shell.tsx
 msgid "Open call"
 msgstr ""
@@ -4152,6 +4140,7 @@ msgid "Queued"
 msgstr "בתור"
 
 #: src/components/ModelCredits.tsx
+#: src/pages/Onboarding.tsx
 msgid "Rakazo credits"
 msgstr ""
 
@@ -4899,6 +4888,12 @@ msgstr "התחברות"
 msgid "Sign in again"
 msgstr "התחברות מחדש"
 
+#. placeholder {0}: new URL(oauth.verificationUri).hostname
+#: src/pages/model-settings/connection-controls.tsx
+#: src/pages/Onboarding.tsx
+msgid "Sign in at <0>{0}</0>, then paste the code here."
+msgstr ""
+
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"
 msgstr "התחברות ל-Rakazo"
@@ -5614,7 +5609,6 @@ msgid "Use Protected input for passwords."
 msgstr "לסיסמאות יש להשתמש בקלט מוגן."
 
 #: src/components/ModelCredits.tsx
-#: src/pages/Onboarding.tsx
 msgid "Use Rakazo credits"
 msgstr ""
 

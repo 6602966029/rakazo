@@ -34,7 +34,7 @@ describe("manual Anthropic OAuth", () => {
       code: "code-one",
       state: "verifier-1",
       code_verifier: "verifier-1",
-      redirect_uri: "http://localhost:53692/callback",
+      redirect_uri: "https://platform.claude.com/oauth/code/callback",
     });
   });
 
@@ -49,7 +49,9 @@ describe("manual Anthropic OAuth", () => {
     });
 
     await expect(
-      login(interactionFor("http://localhost:53692/callback?code=x&state=wrong-state")),
+      login(
+        interactionFor("https://platform.claude.com/oauth/code/callback?code=x&state=wrong-state"),
+      ),
     ).rejects.toThrow(/state mismatch/i);
     expect(requested).toBe(false);
   });

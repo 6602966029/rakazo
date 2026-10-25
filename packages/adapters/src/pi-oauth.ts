@@ -46,7 +46,7 @@ export const SUBSCRIPTION_SIGN_IN_PROVIDERS: Record<
 > = {
   [CHATGPT_OAUTH_PROVIDER]: {
     mode: "device-code",
-    loginLabel: "Sign in with ChatGPT Plus/Pro",
+    loginLabel: "Sign in with ChatGPT",
     hint: "ChatGPT Plus/Pro",
     billing:
       "Sign in with ChatGPT Plus or Pro. Uses your OpenAI subscription. Rakazo does not pay.",
@@ -65,7 +65,7 @@ export const SUBSCRIPTION_SIGN_IN_PROVIDERS: Record<
   },
   [ANTHROPIC_OAUTH_PROVIDER]: {
     mode: "auth-url",
-    loginLabel: "Sign in with Claude Pro/Max",
+    loginLabel: "Sign in with Claude",
     hint: "Claude Pro/Max / key",
     // Button + "Or paste an API key" already explain the choices; no extra paragraph.
     billing: "",
