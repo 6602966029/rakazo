@@ -304,6 +304,19 @@ describe("explicit group destinations", () => {
     expect(h.runCreate).not.toHaveBeenCalled();
   });
 
+  it("does not start group work after the source run stops", async () => {
+    const h = privateTurn();
+    h.tx.run.findFirst.mockResolvedValue(null as never);
+    await expect(
+      handoffToGroupBot(h.deps as never, run, "group-1", {
+        bot_id: "bot-b",
+        message: "Continue",
+      }),
+    ).resolves.toMatchObject({ error: "source run is no longer active" });
+    expect(h.messageCreate).not.toHaveBeenCalled();
+    expect(h.runCreate).not.toHaveBeenCalled();
+  });
+
   it("replays an explicit destination without creating another message or run", async () => {
     const h = privateTurn();
     h.tx.message.findUnique.mockResolvedValue({

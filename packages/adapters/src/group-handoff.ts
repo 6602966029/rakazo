@@ -45,37 +45,39 @@ export async function handoffToGroupBot(
         return { error: "group is no longer available" } as const;
       throw error;
     }
-    const [group, activeSource] = await Promise.all([
-      tx.chatGroup.findFirst({
-        where: { id: groupId, spaceId: run.spaceId, userId: run.userId, archivedAt: null },
-        include: {
-          thread: { select: { id: true } },
-          members: {
-            where: { bot: { archivedAt: null } },
-            include: { bot: { select: { id: true, name: true } } },
-            orderBy: { createdAt: "asc" },
-          },
+    const group = await tx.chatGroup.findFirst({
+      where: { id: groupId, spaceId: run.spaceId, userId: run.userId, archivedAt: null },
+      include: {
+        thread: { select: { id: true } },
+        members: {
+          where: { bot: { archivedAt: null } },
+          include: { bot: { select: { id: true, name: true } } },
+          orderBy: { createdAt: "asc" },
         },
-      }),
-      tx.run.findFirst({
-        where: {
-          id: run.id,
-          spaceId: run.spaceId,
-          threadId: run.threadId,
-          botId: run.botId,
-          userId: run.userId,
-          status: "running",
-        },
-        select: {
-          id: true,
-          thread: { select: { groupId: true } },
-          sourceMessage: { select: { blocks: true } },
-        },
-      }),
-    ]);
+      },
+    });
     if (!group?.thread) return { error: "group is no longer available" } as const;
-    if (!activeSource) return { error: "source run is no longer active" } as const;
     const targetThreadId = group.thread.id;
+    // Match message_bot's lock order and serialize source cancellation/clearing with delivery.
+    for (const threadId of [...new Set([run.threadId, targetThreadId])].sort()) {
+      await tx.$queryRaw`SELECT id FROM threads WHERE id = ${threadId} FOR UPDATE`;
+    }
+    const activeSource = await tx.run.findFirst({
+      where: {
+        id: run.id,
+        spaceId: run.spaceId,
+        threadId: run.threadId,
+        botId: run.botId,
+        userId: run.userId,
+        status: "running",
+      },
+      select: {
+        id: true,
+        thread: { select: { groupId: true } },
+        sourceMessage: { select: { blocks: true } },
+      },
+    });
+    if (!activeSource) return { error: "source run is no longer active" } as const;
     const inGroup = targetThreadId === run.threadId;
     if (!inGroup && activeSource.thread.groupId) {
       return { error: "group handoffs must stay in the current group" } as const;
