@@ -49,7 +49,8 @@ describePostgres("model roles (PostgreSQL)", () => {
   const otherSpaceId = `model-roles-other-space-${suffix}`;
   const anthropic = `model-roles-anthropic-${suffix}`;
   const compatible = `model-roles-compatible-${suffix}`;
-  const scope = { userId, spaceId };
+  // A Space's own copy; see the account test below for the member's defaults.
+  const scope = { userId, spaceId, scope: "space" as const };
   let prisma: PrismaClient;
   let close: () => Promise<void>;
 
@@ -116,6 +117,7 @@ describePostgres("model roles (PostgreSQL)", () => {
 
   beforeEach(async () => {
     await prisma.spaceModelRoleChoice.deleteMany({ where: { userId } });
+    await prisma.userModelRoleChoice.deleteMany({ where: { userId } });
     await prisma.spaceModelPreference.deleteMany({ where: { userId } });
     await prisma.spaceBackupModel.deleteMany({ where: { userId } });
   });
@@ -213,6 +215,28 @@ describePostgres("model roles (PostgreSQL)", () => {
       { position: 1, provider: "azure", modelId: "gpt-5", thinkingLevel: null },
     ]);
     expect(await legacy()).toEqual(before);
+  });
+
+  it("keeps the account's models apart from a Space's own copy", async () => {
+    const account = { userId, spaceId, scope: "account" as const };
+    await updateModelRole(prisma, account, "main", {
+      primary: { provider: "azure", modelId: "gpt-5", thinkingLevel: "high" },
+    });
+    await updateModelRole(prisma, scope, "main", {
+      primary: { provider: "openai-compatible", modelId: "llama" },
+    });
+
+    await expect(getModelRole(prisma, account, "main")).resolves.toEqual({
+      primary: { provider: "azure", modelId: "gpt-5", thinkingLevel: "high" },
+      backups: [],
+    });
+    await expect(
+      getModelRole(prisma, { ...account, spaceId: otherSpaceId }, "main"),
+    ).resolves.toMatchObject({ primary: { modelId: "gpt-5" } });
+    await expect(getModelRole(prisma, scope, "main")).resolves.toMatchObject({
+      primary: { modelId: "llama" },
+    });
+    expect(await mainRows(otherSpaceId)).toEqual([]);
   });
 
   it("keeps a model's effort when the list is reordered", async () => {

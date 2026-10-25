@@ -54,7 +54,8 @@ type RoleRow = {
 };
 function roleClient(rows: RoleRow[]) {
   return {
-    spaceModelRoleChoice: {
+    spaceSettingOverride: { findUnique: vi.fn(async () => null) },
+    userModelRoleChoice: {
       findMany: vi.fn(async ({ where }: { where: { role: string } }) =>
         rows.filter((row) => row.role === where.role),
       ),
@@ -253,6 +254,30 @@ describe("model roles", () => {
     });
   });
 
+  it("follows the account's list unless the Space keeps its own", async () => {
+    const account = { role: "main", position: 0, provider: "a", modelId: "account" };
+    const own = { role: "main", position: 0, provider: "b", modelId: "space-own" };
+    const client = (overridden: boolean) =>
+      ({
+        spaceSettingOverride: {
+          findUnique: vi.fn(async () => (overridden ? { setting: "models" } : null)),
+        },
+        userModelRoleChoice: { findMany: vi.fn(async () => [{ ...account, userId: "user-1" }]) },
+        spaceModelRoleChoice: {
+          findMany: vi.fn(async ({ where }: { where: { spaceId: string } }) =>
+            where.spaceId === scope.spaceId ? [{ ...own, ...scope }] : [],
+          ),
+        },
+      }) as unknown as PrismaClient;
+
+    await expect(
+      effectiveModelRole(client(false), scope, "main", deploymentDefaults),
+    ).resolves.toMatchObject({ primary: { modelId: "account" }, primarySource: "member" });
+    await expect(
+      effectiveModelRole(client(true), scope, "main", deploymentDefaults),
+    ).resolves.toMatchObject({ primary: { modelId: "space-own" }, primarySource: "member" });
+  });
+
   it("keeps the member's fallbacks behind the deployment's model", async () => {
     const prisma = roleClient([
       { role: "main", position: 1, provider: "b", modelId: "n", thinkingLevel: null },
@@ -300,7 +325,7 @@ describe("model roles", () => {
           thinkingLevel: null,
         },
       ]),
-      spaceModelPreference: { findMany: vi.fn(async () => preferences) },
+      userModelPreference: { findMany: vi.fn(async () => preferences) },
       userModelCredential: { findMany: vi.fn(async () => [connectionA, connectionB]) },
       secret: {
         findFirst: vi.fn(async ({ where }: { where: { id: string } }) => ({

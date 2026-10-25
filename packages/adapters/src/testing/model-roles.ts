@@ -2,7 +2,6 @@ import { usableModelId } from "@rakazo/contracts";
 import { vi } from "vitest";
 
 type RoleRow = {
-  spaceId: string;
   userId: string;
   role: string;
   position: number;
@@ -10,7 +9,7 @@ type RoleRow = {
   modelId: string;
   thinkingLevel: string | null;
 };
-type RoleWhere = { userId?: string; spaceId?: string; role?: string };
+type RoleWhere = { userId?: string; role?: string };
 type Preference = {
   isDefault?: boolean;
   modelId?: string | null;
@@ -18,32 +17,35 @@ type Preference = {
   credential?: { provider: string };
 };
 type MockClient = {
-  spaceModelPreference?: {
+  userModelPreference?: {
     findFirst?: (args: unknown) => Promise<unknown>;
     findMany?: (args: unknown) => Promise<unknown>;
   };
+  userModelRoleChoice?: unknown;
   spaceModelRoleChoice?: unknown;
+  spaceSettingOverride?: unknown;
   $transaction?: ((...args: unknown[]) => Promise<unknown>) & { mainRole?: true };
 };
 
 /**
  * Mocked clients written for the previous storage describe the main model as a default
- * preference. This gives them a role table seeded from that preference until a test writes rows.
+ * preference. This gives them the account's role table seeded from that preference until a
+ * test writes rows, and Spaces that follow the account unless the test says otherwise.
  */
 export function withMainRole<T>(prisma: T): T {
   const client = prisma as MockClient | null;
   if (!client || typeof client !== "object") return prisma;
   const written = new Map<string, RoleRow[]>();
-  const key = (where: RoleWhere) => JSON.stringify([where.spaceId, where.userId, where.role]);
-  const preferences = client.spaceModelPreference;
+  const key = (where: RoleWhere) => JSON.stringify([where.userId, where.role]);
+  const preferences = client.userModelPreference;
   const fromPreference = async (where: RoleWhere): Promise<RoleRow[]> => {
-    if (where.role !== "main" || !where.spaceId || !where.userId || !preferences) return [];
-    const scope = { spaceId: where.spaceId, userId: where.userId };
+    if (where.role !== "main" || !where.userId || !preferences) return [];
+    const scope = { userId: where.userId };
     const found = preferences.findFirst
       ? await preferences.findFirst({
           where: { ...scope, isDefault: true },
           include: { credential: true },
-          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+          orderBy: [{ updatedAt: "desc" }, { credentialId: "desc" }],
         })
       : (
           (await preferences.findMany?.({ where: scope, include: { credential: true } })) as
@@ -80,10 +82,10 @@ export function withMainRole<T>(prisma: T): T {
   };
   const augment = (target: MockClient) => {
     // A test's own role table answers its pin lookups; one role's list comes from memory.
-    const own = target.spaceModelRoleChoice as
+    const own = target.userModelRoleChoice as
       | { findMany?: (args: { where: RoleWhere }) => Promise<unknown> }
       | undefined;
-    target.spaceModelRoleChoice =
+    target.userModelRoleChoice =
       own && own !== roleTable && !(own as { mainRole?: true }).mainRole
         ? {
             ...roleTable,
@@ -94,6 +96,14 @@ export function withMainRole<T>(prisma: T): T {
             ),
           }
         : (own ?? roleTable);
+    target.spaceSettingOverride ??= {
+      findUnique: vi.fn(async () => null),
+      findMany: vi.fn(async () => []),
+    };
+    target.spaceModelRoleChoice ??= {
+      findMany: vi.fn(async () => []),
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+    };
     return target;
   };
   augment(client);

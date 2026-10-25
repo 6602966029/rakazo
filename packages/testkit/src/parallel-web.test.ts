@@ -72,8 +72,9 @@ function executorFixture(
       }),
     },
     connection: { findMany: async () => [] },
-    spaceModelPreference: { findFirst: async () => null },
-    spaceModelRoleChoice: { findMany: async () => [] },
+    userModelPreference: { findFirst: async () => null },
+    spaceSettingOverride: { findUnique: vi.fn(async () => null) },
+    userModelRoleChoice: { findMany: async () => [] },
     userModelCredential: { findFirst: async () => null },
     deploymentSettings: {
       findUnique: async () => ({ defaultModelProvider: "scripted", defaultModelId: "scripted" }),

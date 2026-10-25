@@ -14,7 +14,9 @@ function setup() {
   const deps = {
     env: { agentRuntime: "scripted" },
     prisma: {
-      spaceModelPreference: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) },
+      userModelPreference: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) },
+      spaceSettingOverride: { findUnique: vi.fn(async () => null) },
+      userModelRoleChoice: { findMany: vi.fn(async () => []) },
       spaceModelRoleChoice: { findMany: vi.fn(async () => []) },
       userModelCredential: { findMany: vi.fn(async () => []) },
       secret: { findMany: vi.fn(async () => []) },
@@ -43,7 +45,7 @@ describe("consent grants", () => {
       spaceId: actor.spaceId,
       provider: { describe: () => ({ id: "cursor", capabilities: { offline: false } }) },
     } as RouterDeps["cloudAgent"];
-    vi.mocked(deps.prisma.spaceModelPreference.findMany).mockResolvedValue([
+    vi.mocked(deps.prisma.userModelPreference.findMany).mockResolvedValue([
       {
         modelId: "helper-model",
         isDefault: false,
@@ -82,7 +84,7 @@ describe("consent grants", () => {
   it("includes every purpose's selected models in the provider-sharing disclosure until each is allowed", async () => {
     const { deps, actor } = setup();
     deps.env.agentRuntime = "pi";
-    vi.mocked(deps.prisma.spaceModelRoleChoice.findMany).mockResolvedValue([
+    vi.mocked(deps.prisma.userModelRoleChoice.findMany).mockResolvedValue([
       {
         role: "main",
         position: 1,
@@ -115,10 +117,25 @@ describe("consent grants", () => {
         }),
       ]),
     );
-    expect(deps.prisma.spaceModelRoleChoice.findMany).toHaveBeenCalledWith({
-      where: { userId: actor.userId, spaceId: actor.spaceId },
-      orderBy: [{ role: "asc" }, { position: "asc" }],
-    });
+    expect(deps.prisma.userModelRoleChoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: actor.userId },
+        orderBy: [{ role: "asc" }, { position: "asc" }],
+      }),
+    );
+    expect(deps.prisma.spaceModelRoleChoice.findMany).not.toHaveBeenCalled();
+  });
+  it("discloses a Space's own models instead of the account's when it overrides them", async () => {
+    const { deps, actor } = setup();
+    deps.env.agentRuntime = "pi";
+    vi.mocked(deps.prisma.spaceSettingOverride.findUnique).mockResolvedValue({
+      setting: "models",
+    } as never);
+    await aiConsentStatus(deps, actor, { uses: ["model"] });
+    expect(deps.prisma.spaceModelRoleChoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: actor.userId, spaceId: actor.spaceId } }),
+    );
+    expect(deps.prisma.userModelRoleChoice.findMany).not.toHaveBeenCalled();
   });
   it("discloses only the selected voice provider before a voice action", async () => {
     const { deps, actor } = setup();

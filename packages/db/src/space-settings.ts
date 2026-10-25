@@ -44,7 +44,7 @@ export async function settingsTarget(
 ): Promise<SettingsScope> {
   if (requested) return requested;
   const row = await prisma.spaceSettingOverride.findUnique({
-    where: { spaceId_userId_setting: { ...scope, setting } },
+    where: { spaceId_userId_setting: { spaceId: scope.spaceId, userId: scope.userId, setting } },
     select: { setting: true },
   });
   return row ? "space" : "account";
@@ -63,13 +63,17 @@ export async function setSpaceSettingOverride(
   return withTransactionRetry(() =>
     prisma.$transaction(
       async (tx) => {
-        const key = { spaceId_userId_setting: { ...scope, setting } };
+        const key = {
+          spaceId_userId_setting: { spaceId: scope.spaceId, userId: scope.userId, setting },
+        };
         const existing = await tx.spaceSettingOverride.findUnique({ where: key });
         if (enabled === Boolean(existing)) return spaceSettingOverrides(tx, scope);
         await clearSpaceCopy(tx, scope, setting);
         if (enabled) {
           await copyAccountIntoSpace(tx, scope, setting);
-          await tx.spaceSettingOverride.create({ data: { ...scope, setting } });
+          await tx.spaceSettingOverride.create({
+            data: { spaceId: scope.spaceId, userId: scope.userId, setting },
+          });
         } else {
           await tx.spaceSettingOverride.delete({ where: key });
         }

@@ -14,6 +14,8 @@ import {
   findDefaultVoiceCredential,
   findModelCredential,
   findModelCredentialById,
+  listModelRoleChoices,
+  modelRoleTarget,
 } from "@rakazo/db";
 import type { RouterDeps } from "./router.js";
 import { resolveThreadTarget } from "./thread-target.js";
@@ -36,16 +38,15 @@ export async function aiConsentStatus(
   const [preferences, roleChoices, main, bots, routines, voices, memory, settings, consents] =
     await Promise.all([
       modelsEnabled
-        ? deps.prisma.spaceModelPreference.findMany({
-            where: { userId: actor.userId, spaceId: actor.spaceId },
+        ? deps.prisma.userModelPreference.findMany({
+            where: { userId: actor.userId },
             include: { credential: true },
           })
         : [],
       modelsEnabled
-        ? deps.prisma.spaceModelRoleChoice.findMany({
-            where: { userId: actor.userId, spaceId: actor.spaceId },
-            orderBy: [{ role: "asc" }, { position: "asc" }],
-          })
+        ? modelRoleTarget(deps.prisma, actor).then((roles) =>
+            listModelRoleChoices(deps.prisma, roles),
+          )
         : [],
       modelsEnabled
         ? resolveMemberMainModel({ prisma: deps.prisma, secretStore: deps.secrets }, actor)
