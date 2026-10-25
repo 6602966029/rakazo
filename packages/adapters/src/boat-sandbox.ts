@@ -1435,15 +1435,19 @@ const BOAT_LISTING_UNREADABLE = 3;
 
 /**
  * Runs `find` with its records on fd 3 and its errors captured. It exits 1 for any error, but
- * an entry that vanished mid-walk leaves the rest of the listing intact. Anything else, such
- * as an unreadable entry or a listing it could not finish writing, fails the listing.
+ * an entry that vanished mid-walk leaves the rest of the listing intact, as do the `skippable`
+ * errors a caller names. Anything else, such as an unreadable entry or a listing it could not
+ * finish writing, fails the listing.
  */
-function boatListingWalk(findArguments: string): string {
+function boatListingWalk(findArguments: string, skippable: string[] = []): string {
+  const tolerated = ["No such file or directory", ...skippable]
+    .map((error) => `-e ${shellQuote(`${error}$`)}`)
+    .join(" ");
   return [
     `errors=$(find ${findArguments} -printf '${BOAT_LISTING_FORMAT}' 2>&1 >&3 3>&-)`,
     "status=$?",
     'if [ "$status" -eq 1 ]; then',
-    `  if ! printf '%s\\n' "$errors" | grep -qv 'No such file or directory$'; then status=0;`,
+    `  if ! printf '%s\\n' "$errors" | grep -qv ${tolerated}; then status=0;`,
     `  elif printf '%s\\n' "$errors" | grep -q 'Permission denied$'; then status=${BOAT_LISTING_UNREADABLE}; fi`,
     "fi",
     'exit "$status"',
@@ -1458,7 +1462,10 @@ function listBoatFilesCommand(directory: string): string {
     'test -d "$directory" || exit 2',
     "{",
     "exec 3>&1",
-    boatListingWalk('-L "$directory" -mindepth 1 -maxdepth 1 \\( -type f -o -type d \\)'),
+    // A link that loops is left out, like a broken one.
+    boatListingWalk('-L "$directory" -mindepth 1 -maxdepth 1 \\( -type f -o -type d \\)', [
+      "Too many levels of symbolic links",
+    ]),
     "} | base64 -w0",
   ].join("\n");
 }

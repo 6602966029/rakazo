@@ -1030,7 +1030,7 @@ describe("BoatSandboxProvider", () => {
     expect(listing).toContain("-name 'Code Cache'");
     expect(listing).toContain("-prune");
     // Only an entry that vanished mid-walk is tolerated; other find errors fail the listing.
-    expect(listing).toContain("grep -qv 'No such file or directory$'");
+    expect(listing).toContain("grep -qv -e 'No such file or directory$'");
   });
 
   it.each([
