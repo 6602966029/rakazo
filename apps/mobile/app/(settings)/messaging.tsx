@@ -43,6 +43,7 @@ export default function MessagingSettings() {
     expiresAt: string;
     botId: string;
     provider: string;
+    knownIdentityBots: Record<string, string>;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -80,7 +81,10 @@ export default function MessagingSettings() {
     if (!link) return;
     if (
       status?.identities.some(
-        (identity) => identity.provider === link.provider && identity.botId === link.botId,
+        (identity) =>
+          identity.provider === link.provider &&
+          identity.botId === link.botId &&
+          link.knownIdentityBots[identity.id] !== identity.botId,
       )
     ) {
       setLink(null);
@@ -156,7 +160,14 @@ export default function MessagingSettings() {
       const issued = await rpc<{ code: string; expiresAt: string }>("messaging/link/start", {
         botId,
       });
-      setLink({ ...issued, botId, provider });
+      setLink({
+        ...issued,
+        botId,
+        provider,
+        knownIdentityBots: Object.fromEntries(
+          status?.identities.map((identity) => [identity.id, identity.botId]) ?? [],
+        ),
+      });
     });
   }
 

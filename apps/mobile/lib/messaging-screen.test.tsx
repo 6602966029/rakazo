@@ -312,3 +312,31 @@ it("lets a workspace member link DMs without installing the app again", async ()
   expect(rpc).toHaveBeenCalledWith("messaging/link/start", { botId: "bot-1" });
   expect(rpc).not.toHaveBeenCalledWith("messaging/installations/start", expect.anything());
 });
+
+it("keeps a new DM code visible when Slack is already linked in another workspace", async () => {
+  responses["messaging/status"] = {
+    enabled: true,
+    providers: ["slack"],
+    identities: [
+      {
+        id: "mi-existing",
+        provider: "slack",
+        botId: "bot-1",
+        botName: "Chief",
+        address: "T-OTHER:U1",
+      },
+    ],
+  };
+  responses["messaging/installations/list"] = {
+    available: true,
+    installations: [],
+    personalLinkAvailable: true,
+  };
+  await act(async () => root.render(<MessagingSettings />));
+  await act(async () =>
+    [...container.querySelectorAll("button")]
+      .find((button) => button.textContent === "Link DMs")!
+      .click(),
+  );
+  expect(container.textContent).toContain("ABCD-2345");
+});
