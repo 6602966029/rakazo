@@ -303,8 +303,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Connect MCP server {name}": "连接 MCP 服务器 {name}",
   "Connect Treg": "连接 Treg",
   Connected: "已连接",
-  "Connected. Its tools are available from your next message.":
-    "已连接。从你的下一条消息起即可使用它的工具。",
+  "Connected.": "已连接。",
   Copy: "复制",
   More: "更多",
   "Could not add source": "无法添加来源",

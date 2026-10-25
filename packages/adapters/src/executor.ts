@@ -6848,11 +6848,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return finish({
               ok: true,
               server_id: serverRow.id,
-              assigned_to_self: false,
               next_step: parsed.assignToSelf
-                ? oauthLikely
-                  ? "An approval card was posted. The user must authorize and approve it before its tools become available."
-                  : "An approval card was posted. The user must approve it before its tools become available."
+                ? `An approval card is in the chat. End your turn with one short sentence asking the user to ${oauthLikely ? "authorize" : "approve"} it there; the card already shows the server's details. You will be told when they connect it.`
                 : "The server was registered without assigning it to this bot.",
             });
           }
@@ -9728,7 +9725,7 @@ export function userTurnInstructions(parts: {
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "add_mcp_server",
-      "When the user asks you to add or connect an MCP server (and gives you its details), use add_mcp_server. If it uses browser sign-in, an approval card appears in the chat — tell the user to click Authorize on it.",
+      "When the user asks you to add or connect an MCP server (and gives you its details), use add_mcp_server. It posts an approval card; end with one short sentence asking the user to approve it. You will be told when they connect it.",
     ),
     "Never print API keys, access tokens, or secret values. Prefer tools over claiming you already did the work.",
     "Treat pagination cursors as opaque: copy the returned continuation value exactly, never calculate or guess it. When the tool reports no next page, stop; if a cursor is rejected, recheck the last successful result before retrying.",

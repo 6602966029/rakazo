@@ -327,8 +327,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Connect MCP server {name}": "Подключение MCP-сервера {name}",
   "Connect Treg": "Подключить Treg",
   Connected: "Подключено",
-  "Connected. Its tools are available from your next message.":
-    "Подключено. Его инструменты доступны со следующего сообщения.",
+  "Connected.": "Подключено.",
   Copy: "Копировать",
   More: "Ещё",
   "Could not add source": "Не удалось добавить источник",

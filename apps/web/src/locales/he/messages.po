@@ -1536,10 +1536,6 @@ msgstr "מחובר"
 msgid "Connected {0}."
 msgstr "{0} מחובר."
 
-#: src/pages/shell/message-cards.tsx
-msgid "Connected. Its tools are available from your next message."
-msgstr "מחובר. הכלים שלו יהיו זמינים החל מההודעה הבאה."
-
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
