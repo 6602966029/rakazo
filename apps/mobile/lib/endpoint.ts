@@ -1,4 +1,4 @@
-import { readBoundedJsonResponse } from "@rakazo/core";
+import { cancelResponseBody, readBoundedJsonResponse, withAbort } from "@rakazo/core";
 import { t } from "./i18n";
 import { DEFAULT_API, LOCAL_API } from "./server-config";
 
@@ -75,6 +75,7 @@ export async function probeApiBase(
         signal: controller.signal,
       }),
       controller.signal,
+      "Request timed out",
     );
     if (!res.ok) {
       cancelResponseBody(res);
@@ -100,32 +101,6 @@ export async function probeApiBase(
   } finally {
     clearTimeout(timer);
   }
-}
-
-function cancelResponseBody(response: Response): void {
-  try {
-    void Promise.resolve(response.body?.cancel()).catch(() => undefined);
-  } catch {
-    // Probe cleanup is best-effort and must not delay the fallback result.
-  }
-}
-
-function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(signal.reason ?? new Error("Request timed out"));
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(signal.reason ?? new Error("Request timed out"));
-    signal.addEventListener("abort", onAbort, { once: true });
-    promise.then(
-      (value) => {
-        signal.removeEventListener("abort", onAbort);
-        resolve(value);
-      },
-      (error: unknown) => {
-        signal.removeEventListener("abort", onAbort);
-        reject(error);
-      },
-    );
-  });
 }
 
 function originOnly(value: string) {
