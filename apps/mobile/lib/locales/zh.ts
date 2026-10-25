@@ -1012,4 +1012,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "{bot} default": "{bot} 默认",
   "{bot} will still respond to direct mentions.": "{bot} 仍会回应直接提及。",
   "{sender} rollup hours": "{sender} 合并间隔（小时）",
+  "Connect Slack": "连接 Slack",
+  "Link DMs": "关联私信",
 };

@@ -1463,6 +1463,10 @@ msgstr "Connect my own"
 msgid "Connect OAuth"
 msgstr "Connect OAuth"
 
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Connect Slack"
+msgstr "Connect Slack"
+
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."
 msgstr "Connect this model's provider first."
@@ -3065,6 +3069,10 @@ msgstr "Light"
 #: src/pages/RoutineEditor.tsx
 msgid "Linear issue"
 msgstr "Linear issue"
+
+#: src/pages/MessagingSettingsOverlay.tsx
+msgid "Link DMs"
+msgstr "Link DMs"
 
 #: src/components/AccountAccess.tsx
 msgid "Link SSO"
@@ -4916,10 +4924,6 @@ msgstr "Slack message"
 #: src/pages/RoutineEditor.tsx
 msgid "Slack not enabled"
 msgstr "Slack not enabled"
-
-#: src/pages/MessagingSettingsOverlay.tsx
-msgid "Slack workspace"
-msgstr "Slack workspace"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Slide up to lock"

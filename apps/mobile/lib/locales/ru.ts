@@ -1051,4 +1051,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "{bot} will still respond to direct mentions.":
     "{bot} по-прежнему отвечает на прямые упоминания.",
   "{sender} rollup hours": "{sender}: интервал группировки в часах",
+  "Connect Slack": "Подключить Slack",
+  "Link DMs": "Привязать ЛС",
 };

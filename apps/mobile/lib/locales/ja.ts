@@ -1043,4 +1043,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "{bot} default": "{bot}のデフォルト",
   "{bot} will still respond to direct mentions.": "{bot}は直接のメンションには引き続き応答します。",
   "{sender} rollup hours": "{sender}のまとめ間隔（時間）",
+  "Connect Slack": "Slackを接続",
+  "Link DMs": "DMを連携",
 };
