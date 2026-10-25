@@ -30,16 +30,18 @@ describe("provider desktop preparation", () => {
     const bin = mkdtempSync(path.join(tmpdir(), "rakazo-prepare-"));
     try {
       const calls = path.join(bin, "calls");
-      // No novnc directory exists on test hosts, so setup always needs apt.
-      writeFileSync(path.join(bin, "sudo"), '#!/bin/sh\n[ "$1" = -n ] && shift\nexec "$@"\n');
-      writeFileSync(
-        path.join(bin, "apt-get"),
-        `#!/bin/sh\necho "$*" >> ${JSON.stringify(calls)}\n[ "$1" != update ]\n`,
-      );
-      chmodSync(path.join(bin, "sudo"), 0o755);
-      chmodSync(path.join(bin, "apt-get"), 0o755);
-      const result = spawnSync("sh", ["-c", PREPARE_LINUX_DESKTOP], {
-        env: { PATH: `${bin}:/usr/bin:/bin` },
+      // PATH holds only these fakes, so every desktop tool is missing and nothing runs as root.
+      const fakes = {
+        id: "#!/bin/sh\necho 1000\n",
+        sudo: '#!/bin/sh\n[ "$1" = -n ] && shift\nexec "$@"\n',
+        "apt-get": `#!/bin/sh\necho "$*" >> ${JSON.stringify(calls)}\n[ "$1" != update ]\n`,
+      };
+      for (const [name, script] of Object.entries(fakes)) {
+        writeFileSync(path.join(bin, name), script);
+        chmodSync(path.join(bin, name), 0o755);
+      }
+      const result = spawnSync("/bin/sh", ["-c", PREPARE_LINUX_DESKTOP], {
+        env: { PATH: bin },
         encoding: "utf8",
       });
       expect(result.status).not.toBe(0);
