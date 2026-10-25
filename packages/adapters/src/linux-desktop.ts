@@ -205,12 +205,22 @@ export class LinuxDesktop {
 
   async releaseScreen(computer: ComputerRef, context: AdapterContext) {
     const env = await this.host.environment(computer);
+    const key = screenSessionKey(context);
+    if (context.keepScreenWarm && !context.cancelRunWork && !context.signal.aborted) {
+      // Revoke the run's control and keep the display and browser for this bot's next run.
+      // A stale fence (75) is already someone else's screen. If revocation is uncertain,
+      // fall through to full teardown rather than retaining control.
+      const control = await this.host
+        .run(computer, desktopControlCommand(key, context.screenLeaseId, env, false), context)
+        .catch(() => undefined);
+      if (control?.code === 0 || control?.code === 75) return;
+    }
     // A stale release is a successful no-op. A failed stop must retain the slot
     // for retry. Once the browser has stopped, a later slot-cleanup error must
     // not look like Chromium is still running.
     const result = await this.host.run(
       computer,
-      releaseDesktopCommand(screenSessionKey(context), context.screenLeaseId, env),
+      releaseDesktopCommand(key, context.screenLeaseId, env),
       context,
     );
     if (result.stdout.includes("RAKAZO_DESKTOP_RELEASED=")) {
