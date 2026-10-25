@@ -85,10 +85,10 @@ export async function aiConsentStatus(
         : [],
       uses.includes("voice")
         ? query.uses
-          ? findDefaultVoiceCredential(deps.prisma, actor).then((credential) =>
-              credential ? [{ credential }] : [],
+          ? findDefaultVoiceCredential(deps.prisma, actor, query.settingsScope).then(
+              (credential) => (credential ? [{ credential }] : []),
             )
-          : voicePreferenceTarget(deps.prisma, actor).then((target) =>
+          : voicePreferenceTarget(deps.prisma, actor, query.settingsScope).then((target) =>
               listVoicePreferences(deps.prisma, target),
             )
         : [],

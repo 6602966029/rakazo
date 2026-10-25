@@ -225,3 +225,22 @@ it("discloses the Space's own voices where it overrides voice", async () => {
   expect(status.recipients.map((recipient) => recipient.name)).toEqual(["ElevenLabs"]);
   expect(deps.prisma.userVoicePreference.findMany).not.toHaveBeenCalled();
 });
+
+it("asks about the account's voice provider when a voice action names the account copy", async () => {
+  const { deps, actor } = setup();
+  Object.assign(deps.prisma, {
+    spaceVoicePreference: {
+      findFirst: vi.fn(async () => ({ credential: { provider: "elevenlabs" }, voiceId: "space" })),
+    },
+  });
+  vi.mocked(deps.prisma.spaceSettingOverride.findUnique).mockResolvedValue({
+    setting: "voice",
+  } as never);
+  const applied = await aiConsentStatus(deps, actor, { uses: ["voice"] });
+  expect(applied.recipients.map((recipient) => recipient.name)).toEqual(["ElevenLabs"]);
+  const account = await aiConsentStatus(deps, actor, {
+    uses: ["voice"],
+    settingsScope: "account",
+  });
+  expect(account.recipients.map((recipient) => recipient.name)).toEqual(["OpenAI"]);
+});
