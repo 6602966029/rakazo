@@ -1,4 +1,10 @@
 export const NL_MESSAGES: Record<string, string> = {
+  Approvals: "Goedkeuringen",
+  YOLO: "YOLO",
+  Auto: "Auto",
+  Ask: "Vragen",
+  Block: "Blokkeren",
+  "Add a model in Settings to use this.": "Voeg een model toe in Instellingen om dit te gebruiken.",
   "Approval model": "Goedkeuringsmodel",
   "Main model": "Hoofdmodel",
   "Add fallback": "Back-upmodel toevoegen",
@@ -225,7 +231,6 @@ export const NL_MESSAGES: Record<string, string> = {
   // app/(settings)/space.tsx
   Customize: "Aanpassen",
   "Customize {setting}": "{setting} aanpassen",
-  Confirmations: "Bevestigingen",
   "Tap + to create a bot": "Tik op + om een bot te maken",
   "This removes the space for everyone.": "Hiermee wordt de space voor iedereen verwijderd.",
   "Delete {name} and its bot?": "{name} en de bijbehorende bot verwijderen?",
@@ -640,7 +645,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Scheduled tasks": "Geplande taken",
   "Sign out": "Uitloggen",
   "Stream replies": "Antwoorden streamen",
-  "Run actions without asking": "Acties uitvoeren zonder te vragen",
   "Load web images automatically": "Webafbeeldingen automatisch laden",
   System: "Systeem",
   "This permanently deletes your account, bots, conversations, memories, files, and saved connections. This cannot be undone.":

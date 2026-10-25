@@ -598,36 +598,17 @@ msgstr "Alle statussen"
 msgid "All time"
 msgstr "Alle tijd"
 
-#. placeholder {0}: rule.matchValue
 #: src/components/ApprovalRulesSettings.tsx
-msgid "Allow {0} actions without asking"
-msgstr "{0}-acties toestaan zonder te vragen"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow {0} connector without asking"
-msgstr "{0}-connector toestaan zonder te vragen"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow {0} without asking"
-msgstr "{0} toestaan zonder te vragen"
+msgid "Allow"
+msgstr "Toestaan"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Allow cross-space bot communication"
 msgstr "Communicatie tussen bots in verschillende ruimtes toestaan"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow email actions without asking"
-msgstr "E-mailacties toestaan zonder te vragen"
-
 #: src/components/AskCard.tsx
 msgid "Allow once"
 msgstr "Een keer toestaan"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow purchase actions without asking"
-msgstr "Aankoopacties toestaan zonder te vragen"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Allow writing"
@@ -761,6 +742,11 @@ msgstr "Goedkeuringsgrenzen"
 msgid "Approval model"
 msgstr "Goedkeuringsmodel"
 
+#: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Approvals"
+msgstr "Goedkeuringen"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -791,36 +777,9 @@ msgstr "Argumenten"
 msgid "Artifacts"
 msgstr "Artefacten"
 
-#. placeholder {0}: rule.matchValue
 #: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before {0}"
-msgstr "Vragen voor {0}"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before {0} actions"
-msgstr "Vragen voor {0}-acties"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before {0} connector"
-msgstr "Vragen voor {0}-connector"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before email actions"
-msgstr "Vragen voor e-mailacties"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before purchase actions"
-msgstr "Vragen voor aankoopacties"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before purchases"
-msgstr "Vragen voor aankopen"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before sending external email"
-msgstr "Vragen voor het versturen van externe e-mail"
+msgid "Ask"
+msgstr "Vragen"
 
 #. placeholder {0}: preset.time
 #: src/pages/RoutineSchedule.tsx
@@ -872,6 +831,10 @@ msgstr "Autoriseren"
 #: src/pages/shell/message-cards.tsx
 msgid "Authorize this server so agents can use its tools. A popup opens."
 msgstr "Autoriseer deze server zodat agents zijn tools kunnen gebruiken. Er wordt een pop-up geopend."
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Auto"
+msgstr "Auto"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Automated senders"
@@ -930,6 +893,10 @@ msgstr "Bearer-token"
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr "Facturatie"
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Block"
+msgstr "Blokkeren"
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -1445,11 +1412,6 @@ msgstr "Wachtwoord bevestigen"
 #: src/lib/model-connection-preflight.ts
 msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Bevestig dat de URL vanuit deze browsersessie bereikbaar is en test daarna opnieuw."
-
-#: src/pages/SettingsOverlay.tsx
-#: src/pages/SpaceSettingOverrides.tsx
-msgid "Confirmations"
-msgstr "Bevestigingen"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
@@ -2718,10 +2680,6 @@ msgstr "Voltooid."
 msgid "Finishing MCP connection…"
 msgstr "MCP-verbinding afronden…"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Flag unexpected actions"
-msgstr "Onverwachte acties markeren"
-
 #: src/pages/Auth.tsx
 msgid "Forgot password?"
 msgstr "Wachtwoord vergeten?"
@@ -3438,6 +3396,10 @@ msgstr "minuten"
 #: src/components/call/VoiceChatCard.tsx
 msgid "Missed call"
 msgstr "Gemist gesprek"
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Mode"
+msgstr "Modus"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
@@ -4549,10 +4511,6 @@ msgstr "Routines"
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
 msgstr "Routines die draaien terwijl je weg bent"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Run actions without asking"
-msgstr "Acties uitvoeren zonder te vragen"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
@@ -5815,6 +5773,10 @@ msgstr "jaar"
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Yesterday"
 msgstr "Gisteren"
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "YOLO"
+msgstr "YOLO"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx

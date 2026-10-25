@@ -1,4 +1,10 @@
 export const RU_MESSAGES: Record<string, string> = {
+  Approvals: "Одобрения",
+  YOLO: "YOLO",
+  Auto: "Авто",
+  Ask: "Спрашивать",
+  Block: "Блокировать",
+  "Add a model in Settings to use this.": "Добавьте модель в настройках, чтобы использовать это.",
   "Approval model": "Модель проверки действий",
   "Main model": "Основная модель",
   "Add fallback": "Добавить резервную модель",
@@ -596,7 +602,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Resetting…": "Сброс…",
   Restore: "Восстановить",
   "Stream replies": "Потоковые ответы",
-  "Run actions without asking": "Выполнять действия без подтверждения",
   "Load web images automatically": "Автоматически загружать изображения из интернета",
   "Restore the last saved workspace. Unsaved work on the computer is lost.":
     "Восстановить последнее сохранённое рабочее пространство. Несохранённые данные на компьютере будут потеряны.",
@@ -645,7 +650,6 @@ export const RU_MESSAGES: Record<string, string> = {
   // app/(settings)/space.tsx
   Customize: "Настроить",
   "Customize {setting}": "Настроить: {setting}",
-  Confirmations: "Подтверждения",
   "Space created": "Пространство создано",
   "Read replies aloud": "Читать ответы вслух",
   "Speak + transcribe": "Озвучить и расшифровать",

@@ -1,4 +1,10 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  Approvals: "审批",
+  YOLO: "YOLO",
+  Auto: "自动",
+  Ask: "询问",
+  Block: "阻止",
+  "Add a model in Settings to use this.": "请在设置中添加模型后再使用。",
   "Approval model": "审批模型",
   "Main model": "主模型",
   "Add fallback": "添加备用模型",
@@ -564,7 +570,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Resetting…": "正在重置…",
   Restore: "恢复",
   "Stream replies": "流式回复",
-  "Run actions without asking": "无需询问直接执行操作",
   "Load web images automatically": "自动加载网络图片",
   "Restore the last saved workspace. Unsaved work on the computer is lost.":
     "恢复上次保存的工作区。电脑上未保存的工作将会丢失。",
@@ -613,7 +618,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   // app/(settings)/space.tsx
   Customize: "自定义",
   "Customize {setting}": "自定义{setting}",
-  Confirmations: "确认",
   "This removes the space for everyone.": "这将为所有人删除此空间。",
   "Delete {name} and its bot?": "要删除 {name} 及其机器人吗？",
   "Delete {name} and its {count} bots?": "要删除 {name} 及其 {count} 个机器人吗？",

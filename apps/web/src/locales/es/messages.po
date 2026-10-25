@@ -598,36 +598,17 @@ msgstr ""
 msgid "All time"
 msgstr ""
 
-#. placeholder {0}: rule.matchValue
 #: src/components/ApprovalRulesSettings.tsx
-msgid "Allow {0} actions without asking"
-msgstr "Permitir acciones de {0} sin preguntar"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow {0} connector without asking"
-msgstr "Permitir el conector {0} sin preguntar"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow {0} without asking"
-msgstr "Permitir {0} sin preguntar"
+msgid "Allow"
+msgstr "Permitir"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Allow cross-space bot communication"
 msgstr ""
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow email actions without asking"
-msgstr "Permitir acciones de correo sin preguntar"
-
 #: src/components/AskCard.tsx
 msgid "Allow once"
 msgstr "Permitir una vez"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow purchase actions without asking"
-msgstr "Permitir acciones de compra sin preguntar"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Allow writing"
@@ -761,6 +742,11 @@ msgstr "Límites de aprobación"
 msgid "Approval model"
 msgstr "Modelo de aprobación"
 
+#: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Approvals"
+msgstr "Aprobaciones"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -791,36 +777,9 @@ msgstr "Argumentos"
 msgid "Artifacts"
 msgstr "Artefactos"
 
-#. placeholder {0}: rule.matchValue
 #: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before {0}"
-msgstr "Preguntar antes de {0}"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before {0} actions"
-msgstr "Preguntar antes de acciones de {0}"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before {0} connector"
-msgstr "Preguntar antes del conector {0}"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before email actions"
-msgstr "Preguntar antes de acciones de correo"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before purchase actions"
-msgstr "Preguntar antes de acciones de compra"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before purchases"
-msgstr "Preguntar antes de compras"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before sending external email"
-msgstr "Preguntar antes de enviar correo externo"
+msgid "Ask"
+msgstr "Preguntar"
 
 #. placeholder {0}: preset.time
 #: src/pages/RoutineSchedule.tsx
@@ -872,6 +831,10 @@ msgstr "Autorizar"
 #: src/pages/shell/message-cards.tsx
 msgid "Authorize this server so agents can use its tools. A popup opens."
 msgstr "Autoriza este servidor para que tus agentes usen sus herramientas. Se abre una ventana emergente."
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Auto"
+msgstr "Auto"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Automated senders"
@@ -930,6 +893,10 @@ msgstr "Token Bearer"
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr ""
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Block"
+msgstr "Bloquear"
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -1445,11 +1412,6 @@ msgstr "Confirmar contraseña"
 #: src/lib/model-connection-preflight.ts
 msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Confirma que la URL es accesible desde esta sesión del navegador y vuelve a probar."
-
-#: src/pages/SettingsOverlay.tsx
-#: src/pages/SpaceSettingOverrides.tsx
-msgid "Confirmations"
-msgstr ""
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
@@ -2718,10 +2680,6 @@ msgstr "Terminado."
 msgid "Finishing MCP connection…"
 msgstr "Finalizando conexión MCP…"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Flag unexpected actions"
-msgstr "Marcar acciones inesperadas"
-
 #: src/pages/Auth.tsx
 msgid "Forgot password?"
 msgstr "¿Olvidaste la contraseña?"
@@ -3438,6 +3396,10 @@ msgstr "minutos"
 #: src/components/call/VoiceChatCard.tsx
 msgid "Missed call"
 msgstr "Llamada perdida"
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Mode"
+msgstr "Modo"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
@@ -4549,10 +4511,6 @@ msgstr "Rutinas"
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
 msgstr ""
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Run actions without asking"
-msgstr "Ejecutar acciones sin preguntar"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"
@@ -5815,6 +5773,10 @@ msgstr ""
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Yesterday"
 msgstr "Ayer"
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "YOLO"
+msgstr "YOLO"
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Shell.tsx
