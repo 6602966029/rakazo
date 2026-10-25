@@ -337,6 +337,11 @@ jobs:
       - name: Publish production update
         if: steps.ota.outputs.publish == 'true'
         working-directory: apps/mobile
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
         run: |
           set -euo pipefail
           head="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
@@ -352,7 +357,19 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          eas update --platform all --channel production --environment production --message "$GITHUB_SHA" --non-interactive
+          if [[ -n "$SENTRY_AUTH_TOKEN" && ( -z "$SENTRY_ORG" || -z "$SENTRY_PROJECT" ) ]]; then
+            echo "Sentry uploads require SENTRY_ORG and SENTRY_PROJECT." >&2
+            exit 1
+          fi
+          eas update --platform all --channel production --environment production --clear-cache --upload-source-maps --message "$GITHUB_SHA" --non-interactive
+          if [[ -n "$SENTRY_AUTH_TOKEN" ]]; then
+            # The SDK uploader only warns when there are no source maps; fail instead.
+            if [[ -z "$(find dist -type f -name '*.map' -print -quit)" ]]; then
+              echo "The mobile export has no source maps to upload." >&2
+              exit 1
+            fi
+            SENTRY_URL="${SENTRY_URL:-https://sentry.io/}" pnpm exec sentry-expo-upload-sourcemaps dist
+          fi
 
   deploy-production:
     if: >-
