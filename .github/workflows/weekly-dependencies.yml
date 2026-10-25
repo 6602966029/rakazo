@@ -59,6 +59,7 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           control="$RUNNER_TEMP/dependency-updater-control"
           install -d -m 700 "$control"
+          install -d -m 700 "$RUNNER_TEMP/dependency-update"
           install -m 500 .github/scripts/codex-subscription-auth.py "$control/auth.py"
           sudo install -d -o codex-updater -g codex-updater -m 700 /home/codex-updater/.codex
           sudo chown -R codex-updater:codex-updater "$GITHUB_WORKSPACE"
@@ -113,7 +114,6 @@ jobs:
           UPDATE_BASE: ${{ steps.base.outputs.sha }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/dependency-update"
           # Git in this checkout also runs as the agent user: its config is untrusted.
           sudo -n -H -u codex-updater env UPDATE_BASE="$UPDATE_BASE" \
             bash -e -o pipefail -c 'git add -N .; git diff --no-ext-diff --binary "$UPDATE_BASE"' \
@@ -127,7 +127,9 @@ jobs:
         if: steps.patch.outputs.changed == 'true'
         with:
           name: weekly-dependency-update
-          path: ${{ runner.temp }}/dependency-update/
+          path: |
+            ${{ runner.temp }}/dependency-update/update.patch
+            ${{ runner.temp }}/dependency-update/pr.md
           retention-days: 1
           if-no-files-found: error
       - name: Remove login cache
