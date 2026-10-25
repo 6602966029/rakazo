@@ -188,14 +188,44 @@ function mainMigrations() {
   }
 }
 
-/** Migrations in this checkout that origin/main does not have. */
-function branchOnlyMigrations(onMain) {
-  const dir = path.join(dbPackage, "prisma/migrations");
-  const local = readdirSync(dir).filter((name) => statSync(path.join(dir, name)).isDirectory());
-  return local.filter((name) => !onMain.has(name));
+/** Migration folders in a checkout's working tree, committed or not. */
+function checkoutMigrations(checkout) {
+  const dir = path.join(checkout, "packages/db/prisma/migrations");
+  if (!existsSync(dir)) return new Set();
+  return new Set(readdirSync(dir).filter((name) => statSync(path.join(dir, name)).isDirectory()));
 }
 
+/** Migrations in this checkout that origin/main does not have. */
+function branchOnlyMigrations(onMain) {
+  return [...checkoutMigrations(root)].filter((name) => !onMain.has(name));
+}
+
+/** A branch's migrations: its worktree's files when it is checked out, else its commits. */
+function branchMigrations(branch) {
+  const worktrees = run("git", ["worktree", "list", "--porcelain"], { cwd: root }).split("\n\n");
+  for (const entry of worktrees) {
+    const lines = entry.split("\n");
+    if (lines.includes(`branch refs/heads/${branch}`)) {
+      return checkoutMigrations(lines[0].replace(/^worktree /, ""));
+    }
+  }
+  try {
+    return migrationNames(`refs/heads/${branch}`);
+  } catch {
+    return new Set(); // Deleted.
+  }
+}
+
+// Marks a finished branch database and records which repository and branch own it.
 const BRANCH_DATABASE_COMMENT = "rakazo dev branch: ";
+
+function branchDatabaseComment(branch) {
+  return BRANCH_DATABASE_COMMENT + JSON.stringify({ repo: repositoryId(), branch });
+}
+
+function repositoryId() {
+  return path.resolve(root, run("git", ["rev-parse", "--git-common-dir"], { cwd: root }));
+}
 
 function currentBranch() {
   return run("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: root });
@@ -226,27 +256,48 @@ async function branchDatabase(shared, sharedDataDir) {
   const owner = new Client({ connectionString: shared.migrationUrl });
   await owner.connect();
   try {
-    const exists = await owner.query("SELECT 1 FROM pg_database WHERE datname = $1", [name]);
-    if (!exists.rowCount) {
-      try {
-        // A copy keeps your accounts and bots; it needs no open connections to the source.
-        await owner.query(`CREATE DATABASE "${name}" TEMPLATE "${sharedName}"`);
-        if (existsSync(sharedDataDir)) {
-          // Copy-on-write where the filesystem supports it, so this is cheap even for large homes.
-          cpSync(sharedDataDir, dataDir, { recursive: true, mode: constants.COPYFILE_FICLONE });
-        }
-        log(`Copied the shared database and files to ${name}`);
-      } catch {
-        await owner.query(`CREATE DATABASE "${name}"`);
-        log(`Created an empty ${name} (the shared one was in use, so it could not be copied)`);
-      }
-      await owner.query(
-        `COMMENT ON DATABASE "${name}" IS ${owner.escapeLiteral(BRANCH_DATABASE_COMMENT + branch)}`,
-      );
+    const existing = await owner.query(
+      `SELECT shobj_description(oid, 'pg_database') AS comment FROM pg_database WHERE datname = $1`,
+      [name],
+    );
+    if (existing.rowCount && existing.rows[0].comment)
+      return branchConnection(shared, name, dataDir);
+    // No comment means an earlier start stopped partway; begin again.
+    if (existing.rowCount) await owner.query(`DROP DATABASE "${name}"`);
+    rmSync(path.dirname(dataDir), { recursive: true, force: true });
+    let copied = true;
+    try {
+      // A copy keeps your accounts and bots; it needs no open connections to the source.
+      await owner.query(`CREATE DATABASE "${name}" TEMPLATE "${sharedName}"`);
+    } catch {
+      copied = false;
+      await owner.query(`CREATE DATABASE "${name}"`);
     }
+    try {
+      if (copied && existsSync(sharedDataDir)) {
+        // Copy-on-write where the filesystem supports it, so this is cheap even for large homes.
+        cpSync(sharedDataDir, dataDir, { recursive: true, mode: constants.COPYFILE_FICLONE });
+      }
+    } catch (error) {
+      await owner.query(`DROP DATABASE "${name}"`);
+      rmSync(path.dirname(dataDir), { recursive: true, force: true });
+      throw new Error(`Could not copy ${sharedDataDir} for ${name}`, { cause: error });
+    }
+    await owner.query(
+      `COMMENT ON DATABASE "${name}" IS ${owner.escapeLiteral(branchDatabaseComment(branch))}`,
+    );
+    log(
+      copied
+        ? `Copied the shared database and files to ${name}`
+        : `Created an empty ${name} (the shared one was in use, so it could not be copied)`,
+    );
   } finally {
     await owner.end();
   }
+  return branchConnection(shared, name, dataDir);
+}
+
+function branchConnection(shared, name, dataDir) {
   return {
     url: withDatabase(shared.url, name),
     migrationUrl: withDatabase(shared.migrationUrl, name),
@@ -255,31 +306,39 @@ async function branchDatabase(shared, sharedDataDir) {
 }
 
 /**
- * Drop branch databases nothing needs anymore: the branch was deleted, or main now has all of its
- * migrations (a merged branch). A database another checkout still has open is left for next time.
+ * Drop this repository's branch databases that nothing needs anymore: the branch was deleted, or
+ * main now has all of its migrations, counting uncommitted ones in a branch's worktree. `keep`, the
+ * branch about to start, and any database another checkout still has open are left alone.
  */
-async function pruneBranchDatabases(shared, sharedDataDir, onMain) {
+async function pruneBranchDatabases(shared, sharedDataDir, onMain, keep) {
   const owner = new Client({ connectionString: shared.migrationUrl });
   await owner.connect();
   try {
     const { rows } = await owner.query(
-      `SELECT d.datname AS name, substr(c.description, $2) AS branch
+      `SELECT d.datname AS name, substr(c.description, $2) AS owner
          FROM pg_database d JOIN pg_shdescription c ON c.objoid = d.oid
         WHERE c.description LIKE $1 || '%'`,
       [BRANCH_DATABASE_COMMENT, BRANCH_DATABASE_COMMENT.length + 1],
     );
-    for (const { name, branch } of rows) {
-      let unmerged;
+    const repo = repositoryId();
+    for (const row of rows) {
+      let branch;
       try {
-        unmerged = [...migrationNames(`refs/heads/${branch}`)].some((m) => !onMain.has(m));
+        const parsed = JSON.parse(row.owner);
+        if (parsed.repo !== repo) continue;
+        branch = parsed.branch;
       } catch {
-        unmerged = false;
+        continue;
       }
-      if (unmerged) continue;
+      if (branch === keep) continue;
+      if ([...branchMigrations(branch)].some((name) => !onMain.has(name))) continue;
       try {
-        await owner.query(`DROP DATABASE "${name}"`);
-        rmSync(path.dirname(branchDataDir(sharedDataDir, name)), { recursive: true, force: true });
-        log(`Removed ${name}; ${branch} no longer needs its own database`);
+        await owner.query(`DROP DATABASE "${row.name}"`);
+        rmSync(path.dirname(branchDataDir(sharedDataDir, row.name)), {
+          recursive: true,
+          force: true,
+        });
+        log(`Removed ${row.name}; ${branch} no longer needs its own database`);
       } catch {
         // Still in use by a running checkout.
       }
@@ -318,8 +377,13 @@ const sharedDataDir = path.resolve(mainCheckout, setting("DATA_DIR") || "./data"
 
 let database = { ...(await sharedDatabase()), dataDir: sharedDataDir };
 const onMain = mainMigrations();
-await pruneBranchDatabases(database, sharedDataDir, onMain);
 const pending = branchOnlyMigrations(onMain);
+await pruneBranchDatabases(
+  database,
+  sharedDataDir,
+  onMain,
+  pending.length ? currentBranch() : null,
+);
 if (pending.length) {
   log(`This branch adds ${pending.length} migration(s), so it gets its own database`);
   database = await branchDatabase(database, sharedDataDir);
