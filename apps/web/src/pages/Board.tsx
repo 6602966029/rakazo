@@ -243,11 +243,16 @@ function TicketDialog({
     setError("");
     try {
       const row = await rpc.tickets.comment({ ticketId: ticket.id, body });
-      await writeSaved(queryClient, commentsOptions.queryKey, (previous) => [
-        ...(previous ?? []),
-        row,
-      ]);
+      const options = queries.tickets.comments.queryOptions({ input: { ticketId: ticket.id } });
+      // A list already on screen shows the comment at once, unless a read already brought it.
+      if (queryClient.getQueryData(options.queryKey)) {
+        await writeSaved(queryClient, options.queryKey, (previous = []) =>
+          previous.some((item) => item.id === row.id) ? previous : [...previous, row],
+        );
+      }
       setBody("");
+      // Saving cancelled any read in flight, so the whole list is read again after the post.
+      void fetchFresh(queryClient, options).catch(() => undefined);
     } catch (cause) {
       setError(errorText(cause));
     } finally {
