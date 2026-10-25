@@ -30,8 +30,6 @@ import type {
   TicketChangeNotifier,
 } from "@rakazo/adapters";
 import {
-  commentTicket,
-  createTicket,
   persistPreparedSecret,
   pickReusableConnection,
   planLiveConnectionSync,
@@ -41,40 +39,21 @@ import {
   recordMcpServerHealth,
   resolveBotWorkspacePath,
   sanitizeComposioError,
-  updateTicket,
   verifyMcpInstall,
 } from "@rakazo/adapters";
 import type { Auth } from "@rakazo/auth";
-import type { Actor, BoardEvent, ExportManifest } from "@rakazo/contracts";
-import { attachmentMaxBytes, parseTicketRef, signupSurveyAsksTeamSize } from "@rakazo/contracts";
-import {
-  AttachmentValidationError,
-  containsSecret,
-  displayName,
-  escapeSearchWildcards,
-} from "@rakazo/core";
-import type {
-  BoardEvents,
-  Board as BoardRow,
-  Prisma,
-  PrismaClient,
-  ThreadEvents,
-} from "@rakazo/db";
+import type { Actor, ExportManifest } from "@rakazo/contracts";
+import { attachmentMaxBytes, signupSurveyAsksTeamSize } from "@rakazo/contracts";
+import { AttachmentValidationError, containsSecret, displayName } from "@rakazo/core";
+import type { BoardEvents, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   crossSpaceCommunicationAllowed,
-  ensureBoard,
-  findTicket,
   formatMessagingLinkCode,
   IsolationError,
   issueMessagingLinkCode,
-  listBoards,
-  listTicketComments,
   parseComputerMode,
   recordSecurityEvent,
   runAsSystem,
-  toBoardDto,
-  toTicketCommentDto,
-  toTicketDto,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import {
@@ -107,18 +86,14 @@ import {
   startOnboarding,
 } from "./onboarding.js";
 import { accountRoutes } from "./routes/account.js";
+import { boardsRoutes } from "./routes/boards.js";
 import { botsRoutes } from "./routes/bots.js";
 import { computerRoutes } from "./routes/computer.js";
 import { createRouterContext } from "./routes/context.js";
 import { memoryRoutes } from "./routes/memory.js";
 import { modelsRoutes } from "./routes/models.js";
 import { routinesRoutes } from "./routes/routines.js";
-import {
-  computerContext,
-  HEARTBEAT_MS,
-  isUniqueViolation,
-  SESSION_RECHECK_MS,
-} from "./routes/shared.js";
+import { computerContext, isUniqueViolation } from "./routes/shared.js";
 import { spacesRoutes } from "./routes/spaces.js";
 import { threadsRoutes } from "./routes/threads.js";
 import { listSpaceRuns } from "./runs.js";
@@ -362,18 +337,6 @@ export interface RouterDeps {
   };
 }
 
-async function resolveSpaceBoard(
-  prisma: PrismaClient,
-  spaceId: string,
-  boardId?: string,
-): Promise<BoardRow> {
-  const board = await ensureBoard(prisma, spaceId);
-  if (boardId === undefined || boardId === board.id) return board;
-  const found = await prisma.board.findFirst({ where: { id: boardId, spaceId } });
-  if (!found) throw new ORPCError("BAD_REQUEST", { message: "Unknown board." });
-  return found;
-}
-
 export function createRouter(deps: RouterDeps) {
   const ctx = createRouterContext(deps);
   const {
@@ -391,8 +354,6 @@ export function createRouter(deps: RouterDeps) {
     favicons,
     groupRepos,
     authed,
-    boardEnabled,
-    ticketDeps,
   } = ctx;
 
   return os.router({
@@ -404,165 +365,7 @@ export function createRouter(deps: RouterDeps) {
     ...computerRoutes(ctx),
     ...memoryRoutes(ctx),
     ...routinesRoutes(ctx),
-    boards: {
-      list: boardEnabled.boards.list.handler(async ({ context }) => {
-        await ensureBoard(deps.prisma, context.actor.spaceId);
-        const rows = await listBoards(deps.prisma, context.actor.spaceId);
-        return rows.map(toBoardDto);
-      }),
-      get: boardEnabled.boards.get.handler(async ({ context }) => {
-        const board = await ensureBoard(deps.prisma, context.actor.spaceId);
-        return toBoardDto(board);
-      }),
-      rename: boardEnabled.boards.rename.handler(async ({ context, input }) => {
-        const board = await ensureBoard(deps.prisma, context.actor.spaceId);
-        const nextPrefix = input.ticketPrefix?.toUpperCase();
-        if (nextPrefix !== undefined && nextPrefix !== board.ticketPrefix) {
-          const tickets = await deps.prisma.ticket.count({
-            where: { boardId: board.id, spaceId: context.actor.spaceId },
-          });
-          if (tickets > 0) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "Cannot change the ticket prefix once tickets exist.",
-            });
-          }
-        }
-        const row = await deps.prisma.board.update({
-          where: { id: board.id },
-          data: {
-            ...(input.name !== undefined ? { name: input.name } : {}),
-            ...(nextPrefix !== undefined ? { ticketPrefix: nextPrefix } : {}),
-          },
-        });
-        return toBoardDto(row);
-      }),
-      subscribe: boardEnabled.boards.subscribe.handler(async function* ({ context }) {
-        const spaceId = context.actor.spaceId;
-        const follow = deps.boardEvents.follow(spaceId, context.signal);
-        // Board signals are transient, so a heartbeat stands in for liveness and
-        // gives the client a periodic catch-up reload if a push was missed.
-        let pending: Promise<IteratorResult<BoardEvent>> | undefined;
-        let authorizedAt = Date.now();
-        const assertStillAuthorized = async () => {
-          if (!context.stillAuthorized || Date.now() - authorizedAt < SESSION_RECHECK_MS) return;
-          if (!(await context.stillAuthorized())) throw new ORPCError("UNAUTHORIZED");
-          authorizedAt = Date.now();
-        };
-        try {
-          while (!context.signal?.aborted) {
-            pending ??= follow.next();
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const next = await Promise.race([
-              pending,
-              new Promise<"silent">((resolve) => {
-                timer = setTimeout(() => resolve("silent"), HEARTBEAT_MS);
-              }),
-            ]).finally(() => clearTimeout(timer));
-            await assertStillAuthorized();
-            if (next === "silent") {
-              yield { spaceId, createdAt: new Date().toISOString() };
-              continue;
-            }
-            pending = undefined;
-            if (next.done) return;
-            yield next.value;
-          }
-        } finally {
-          void follow.return(undefined).catch(() => {});
-        }
-      }),
-    },
-    tickets: {
-      list: boardEnabled.tickets.list.handler(async ({ context, input }) => {
-        const board = await resolveSpaceBoard(deps.prisma, context.actor.spaceId, input.boardId);
-        const q = input.q?.trim();
-        // The database side has to match the text the user typed: a `%` or `_`
-        // would otherwise widen the match, and a `\` would swallow the
-        // character after it.
-        const likeQ = q ? escapeSearchWildcards(q) : q;
-        const where: Prisma.TicketWhereInput = {
-          spaceId: context.actor.spaceId,
-          boardId: board.id,
-          ...(input.status ? { status: input.status } : {}),
-          ...(input.assigneeBotId ? { assigneeBotId: input.assigneeBotId } : {}),
-          ...(q
-            ? {
-                OR: [
-                  { title: { contains: likeQ, mode: "insensitive" } },
-                  { description: { contains: likeQ, mode: "insensitive" } },
-                ],
-              }
-            : {}),
-        };
-        const rows = await deps.prisma.ticket.findMany({
-          where,
-          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-        });
-        return { tickets: rows.map((row) => toTicketDto(row, board.ticketPrefix)) };
-      }),
-      get: boardEnabled.tickets.get.handler(async ({ context, input }) => {
-        const board = await ensureBoard(deps.prisma, context.actor.spaceId);
-        const row = await findTicket(deps.prisma, context.actor.spaceId, board, input);
-        if (!row) {
-          if (input.ref && !parseTicketRef(input.ref, board.ticketPrefix)) {
-            throw new ORPCError("BAD_REQUEST", { message: "Invalid ticket reference." });
-          }
-          throw new IsolationError();
-        }
-        return toTicketDto(row, board.ticketPrefix);
-      }),
-      create: boardEnabled.tickets.create.handler(async ({ context, input }) => {
-        await resolveSpaceBoard(deps.prisma, context.actor.spaceId, input.boardId);
-        await repos.getBot(context.actor, input.assigneeBotId);
-        const result = await createTicket(ticketDeps, {
-          ...input,
-          spaceId: context.actor.spaceId,
-          userId: context.actor.userId,
-          ownerBotId: input.assigneeBotId,
-        });
-        if ("error" in result) throw new ORPCError("BAD_REQUEST", { message: result.error });
-        return result.ticket;
-      }),
-      update: boardEnabled.tickets.update.handler(async ({ context, input }) => {
-        if (input.assigneeBotId) await repos.getBot(context.actor, input.assigneeBotId);
-        const result = await updateTicket(ticketDeps, {
-          ...input,
-          spaceId: context.actor.spaceId,
-          userId: context.actor.userId,
-          ownerBotId: input.assigneeBotId,
-        });
-        if ("error" in result) throw new ORPCError("BAD_REQUEST", { message: result.error });
-        return result.ticket;
-      }),
-      move: boardEnabled.tickets.move.handler(async ({ context, input }) => {
-        const result = await updateTicket(ticketDeps, {
-          ...input,
-          spaceId: context.actor.spaceId,
-          userId: context.actor.userId,
-        });
-        if ("error" in result) throw new ORPCError("BAD_REQUEST", { message: result.error });
-        return result.ticket;
-      }),
-      comment: boardEnabled.tickets.comment.handler(async ({ context, input }) => {
-        const result = await commentTicket(ticketDeps, {
-          id: input.ticketId,
-          body: input.body,
-          spaceId: context.actor.spaceId,
-          userId: context.actor.userId,
-        });
-        if ("error" in result) throw new ORPCError("BAD_REQUEST", { message: result.error });
-        return result.comment;
-      }),
-      comments: boardEnabled.tickets.comments.handler(async ({ context, input }) => {
-        const board = await ensureBoard(deps.prisma, context.actor.spaceId);
-        const ticket = await deps.prisma.ticket.findFirst({
-          where: { id: input.ticketId, spaceId: context.actor.spaceId, boardId: board.id },
-        });
-        if (!ticket) throw new IsolationError();
-        const rows = await listTicketComments(deps.prisma, context.actor.spaceId, ticket.id);
-        return rows.map(toTicketCommentDto);
-      }),
-    },
+    ...boardsRoutes(ctx),
     capabilities: {
       list: authed.capabilities.list.handler(async ({ context }) => {
         const rows = await deps.prisma.capabilityInstall.findMany({
