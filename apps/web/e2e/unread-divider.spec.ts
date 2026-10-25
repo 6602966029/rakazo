@@ -182,6 +182,19 @@ test("marking a message unread brings the chat back with New above the reply fro
   await captureScreenshot(page, testInfo, "message-marked-unread-menu");
   await page.keyboard.press("Escape");
 
+  // Reading another chat from the sidebar must not restore the completed action here.
+  const otherRow = page.locator(`[data-roster-bot-id="${otherId}"]`);
+  await otherRow.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Mark as Unread", exact: true }).click();
+  await expect(otherRow).toHaveAttribute("data-roster-unread", "true");
+  await otherRow.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Mark as Read", exact: true }).click();
+  await expect(otherRow).not.toHaveAttribute("data-roster-unread", "true");
+  await firstReply.hover();
+  await firstReply.getByRole("button", { name: "More" }).click();
+  await expect(page.getByRole("menuitem")).toHaveText(["Reply", "Copy"]);
+  await page.keyboard.press("Escape");
+
   await page.goto(`/app/${otherId}`);
   await expect(page.getByPlaceholder("Message Elsewhere")).toBeVisible();
   await page.goto(`/app/${chiefId}`);

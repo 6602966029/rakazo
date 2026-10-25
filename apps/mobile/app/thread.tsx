@@ -1473,7 +1473,11 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         messageId: message.id,
       }),
     )
-      .then(() => setMarkedUnread({ visit, messageId: message.id }))
+      .then(() => {
+        if (readVisit.current.visit === visit) {
+          setMarkedUnread({ visit, messageId: message.id });
+        }
+      })
       .catch((err) => {
         if (heldUnread.current === visit) heldUnread.current = null;
         Alert.alert(t("Could not update chat"), errorText(err, t("Try again.")));

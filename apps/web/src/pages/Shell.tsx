@@ -859,7 +859,7 @@ function SpaceShell() {
     async (id: string, stillWanted?: () => boolean) => {
       if (!stillWanted) {
         manuallyUnread.current.delete(id);
-        setMarkedUnread(null);
+        if (readVisit.current.chat === `bot:${id}`) setMarkedUnread(null);
       }
       const answer = await readInOrder(`bot:${id}`, () =>
         !stillWanted || stillWanted() ? rpc.threads.markRead({ botId: id }) : Promise.resolve(null),
@@ -883,7 +883,7 @@ function SpaceShell() {
         manuallyUnread.current.delete(id);
         throw err;
       }
-      if (messageId) setMarkedUnread({ visit, messageId });
+      if (messageId && readVisit.current.visit === visit) setMarkedUnread({ visit, messageId });
       updateBotUnread(id, true);
     },
     [readInOrder, updateBotUnread],
@@ -3017,7 +3017,7 @@ function SpaceShell() {
           if (unread) manuallyUnread.current.add(groupId);
           else {
             manuallyUnread.current.delete(groupId);
-            setMarkedUnread(null);
+            if (readVisit.current.chat === `group:${groupId}`) setMarkedUnread(null);
           }
           const request = readInOrder(`group:${groupId}`, () =>
             unread ? rpc.threads.markUnread({ groupId }) : rpc.threads.markRead({ groupId }),
@@ -3548,7 +3548,9 @@ function SpaceShell() {
                     rpc.threads.markUnread({ groupId, messageId: message.id }),
                   )
                     .then(() => {
-                      setMarkedUnread({ visit, messageId: message.id });
+                      if (readVisit.current.visit === visit) {
+                        setMarkedUnread({ visit, messageId: message.id });
+                      }
                       setGroups((current) =>
                         current.map((group) =>
                           group.id === groupId ? { ...group, unread: true } : group,
