@@ -1198,6 +1198,8 @@ describeWithDatabase("API authorization and resource isolation", () => {
       hasContent: true,
       canDelete: true,
       canRename: true,
+      // The archived bot goes too, so the confirmation counts it.
+      botCount: 3,
     });
     expect(listed.spaces.find((space) => space.id === actor.spaceId)?.canDelete).toBe(false);
     await expect(
@@ -1340,6 +1342,63 @@ describeWithDatabase("API authorization and resource isolation", () => {
     await expect(
       db.spaceMember.count({ where: { userId: memberActor.userId, spaceId: shared.id } }),
     ).resolves.toBe(0);
+  });
+
+  it("keeps a bot's sandbox handle when its teardown fails, and finishes on retry", async () => {
+    const cookie = await signup(app, `space-strict-${stamp}@rakazo.test`, "Strict Teardown");
+    const actor = await rpc<Actor>(app, cookie, "me");
+    const space = await rpc<Space>(app, cookie, "spaces/create", { name: "Strict" });
+    const bot = await rpc<Bot>(app, cookie, "bots/create", botInput("Sandboxed"), space.id);
+    const providerRef = `space-strict-provider-${stamp}`;
+    await db.computer.upsert({
+      where: { scopeKey: `bot:${bot.id}` },
+      create: {
+        spaceId: space.id,
+        userId: actor.userId,
+        scopeKey: `bot:${bot.id}`,
+        homeKey: bot.id,
+        kind: "fake",
+        providerRef,
+      },
+      update: { providerRef },
+    });
+    const destroy = vi
+      .spyOn(handles.sandbox, "destroy")
+      .mockRejectedValueOnce(new Error("provider unavailable"));
+    try {
+      const failed = await raw(app, cookie, "spaces/remove", { spaceId: space.id });
+      expect(failed.status).toBe(500);
+      expect(destroy).toHaveBeenCalledWith(
+        expect.objectContaining({ providerRef }),
+        expect.anything(),
+      );
+      await expect(db.bot.findUnique({ where: { id: bot.id } })).resolves.not.toBeNull();
+      await expect(
+        db.computer.findUnique({
+          where: { scopeKey: `bot:${bot.id}` },
+          select: { providerRef: true },
+        }),
+      ).resolves.toEqual({ providerRef });
+      const lifecycle = await db.space.findUniqueOrThrow({
+        where: { id: space.id },
+        select: { deletionClaimId: true },
+      });
+      // Teardown may have reached the provider, so the space stays claimed.
+      expect(lifecycle.deletionClaimId).toBeTruthy();
+    } finally {
+      destroy.mockRestore();
+    }
+
+    await db.space.update({
+      where: { id: space.id },
+      data: { deletingAt: new Date(Date.now() - 6 * 60_000) },
+    });
+    const retried = await rpc<{ ok: true; activeSpaceId: string }>(app, cookie, "spaces/remove", {
+      spaceId: space.id,
+    });
+    expect(retried).toEqual({ ok: true, activeSpaceId: actor.spaceId });
+    await expect(db.space.findUnique({ where: { id: space.id } })).resolves.toBeNull();
+    await expect(db.computer.count({ where: { scopeKey: `bot:${bot.id}` } })).resolves.toBe(0);
   });
 
   it("resumes a stale space deletion and rejects one still in progress", async () => {

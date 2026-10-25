@@ -1384,6 +1384,7 @@ export function createRouter(deps: RouterDeps) {
             hasContent: false,
             canRename: true,
             canDelete: true,
+            botCount: 0,
             bots: [],
             groups: [],
             externalConversations: [],
@@ -7099,10 +7100,10 @@ async function memberSpaceNavigation(
     // Active-only navigation lists miss archived content in other spaces; count any
     // bot/group in the actor's spaces (including another member's) so a shared
     // non-empty space cannot look empty for onboarding redirects.
-    deps.prisma.bot.findMany({
+    deps.prisma.bot.groupBy({
+      by: ["spaceId"],
       where: { spaceId: { in: spaceIds } },
-      select: { spaceId: true },
-      distinct: ["spaceId"],
+      _count: { _all: true },
     }),
     deps.prisma.chatGroup.findMany({
       where: { spaceId: { in: spaceIds } },
@@ -7110,6 +7111,7 @@ async function memberSpaceNavigation(
       distinct: ["spaceId"],
     }),
   ]);
+  const botCounts = new Map(contentBots.map((row) => [row.spaceId, row._count._all]));
   const spacesWithContent = new Set([
     ...contentBots.map((row) => row.spaceId),
     ...contentGroups.map((row) => row.spaceId),
@@ -7143,6 +7145,7 @@ async function memberSpaceNavigation(
         name: membership.space.name,
         isDefault: membership.space.isDefault,
         hasContent: spacesWithContent.has(membership.spaceId),
+        botCount: botCounts.get(membership.spaceId) ?? 0,
         canRename: membership.role === "owner" && membership.space.deletingAt === null,
         canDelete:
           membership.role === "owner" &&

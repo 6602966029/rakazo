@@ -53,7 +53,7 @@ async function render(props: Partial<Props>) {
   await act(async () => {
     root.render(
       <SpaceSettingsPanel
-        space={{ id: "space-a", name: "Support", canRename: true, canDelete: true, bots: [] }}
+        space={{ id: "space-a", name: "Support", canRename: true, canDelete: true, botCount: 0 }}
         onRename={async () => undefined}
         onDelete={async () => undefined}
         {...props}
@@ -151,7 +151,7 @@ describe("SpaceSettingsPanel", () => {
         name: "Support",
         canRename: true,
         canDelete: true,
-        bots: [{}, {}],
+        botCount: 2,
       },
       onDelete,
     });

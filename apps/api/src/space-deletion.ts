@@ -126,7 +126,11 @@ export async function deleteSpaceWithContent(
     for (const bot of await listClaimedSpaceBots(deps.prisma, claimedInput)) {
       try {
         await teardown(
-          () => destroyBot(deps, bot, context(bot.id), { deleteMemories: true }),
+          () =>
+            destroyBot(deps, bot, context(bot.id), {
+              deleteMemories: true,
+              strictTeardown: true,
+            }),
           "Space bot teardown timed out",
         );
       } catch (error) {

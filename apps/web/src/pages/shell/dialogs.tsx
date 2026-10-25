@@ -426,7 +426,8 @@ export type SettingsSpace = {
   name: string;
   canRename?: boolean;
   canDelete?: boolean;
-  bots?: readonly unknown[];
+  /** Every bot deleting the space removes, from the server. */
+  botCount?: number;
 };
 /** Names what goes with the space: its bots, and with them their chats and groups. */
 export function DeleteSpaceDialog({
@@ -438,7 +439,7 @@ export function DeleteSpaceDialog({
   onCancel: () => void;
   onConfirm: () => Promise<void>;
 }) {
-  const botCount = space.bots?.length ?? 0;
+  const botCount = space.botCount ?? 0;
   const name = space.name;
   return (
     <DeleteItemDialog
