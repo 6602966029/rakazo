@@ -230,6 +230,7 @@ const subscriptionMe: Me = {
   computerHost: "docker",
   canChooseHostComputer: true,
   sandboxProvider: "docker",
+  mcpStdioEnabled: false,
   avatarStyle: "organic",
   billingEnabled: false,
 };

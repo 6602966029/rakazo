@@ -24,6 +24,7 @@ import { buildMcpUpdateMaterial } from "../mcp-material.js";
 import {
   assertMcpOAuthTemplates,
   assertMcpRemoteEndpoint,
+  assertMcpStdioCommand,
   MCP_OAUTH_PENDING_MESSAGE,
   mayUsePrivateEndpoint,
   mcpAssignmentDto,
@@ -334,6 +335,7 @@ export function mcpRoutes(ctx: RouterContext) {
               await assertMcpRemoteEndpoint(nextEndpoint, deps);
             }
             if (config.transport === "stdio") {
+              assertMcpStdioCommand(config.command, deps);
               await assertMcpRemoteEndpoint(config.oauthClient?.authorizationServer, deps);
             }
             const endpointChanged = existing.endpoint !== nextEndpoint;

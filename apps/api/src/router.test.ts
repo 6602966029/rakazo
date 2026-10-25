@@ -1376,6 +1376,8 @@ describe("MCP pre-registered OAuth client", () => {
         screenProxySecret: "fake-test-secret",
         sandboxProvider: "fake",
         mcpAllowPrivateEndpoint: isDeploymentOwner,
+        mcpStdioEnabled: true,
+        mcpStdioAllowedCommands: ["npx"],
       },
       dataDir: "/tmp/rakazo-router-test",
     } as unknown as RouterDeps;
@@ -1962,6 +1964,8 @@ describe("MCP server health", () => {
         webOrigin: "http://127.0.0.1:5173",
         screenProxySecret: "fake-test-secret",
         sandboxProvider: "fake",
+        mcpStdioEnabled: true,
+        mcpStdioAllowedCommands: ["npx"],
       },
       dataDir: "/tmp/rakazo-router-test",
     } as unknown as RouterDeps;
@@ -2007,6 +2011,39 @@ describe("MCP server health", () => {
   } as const;
 
   const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it.each([
+    [{ mcpStdioEnabled: false }, "Stdio MCP servers aren't available here"],
+    [{ mcpStdioAllowedCommands: [] }, "Stdio MCP servers aren't available here"],
+    [{ mcpStdioAllowedCommands: ["uvx"] }, "This stdio command isn't allowed here"],
+  ])("refuses a stdio server this deployment can't run (%o)", async (env, message) => {
+    const h = harness();
+    Object.assign(h.deps.env, env);
+
+    await expect(h.client.mcp.servers.create(stdioInput)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message,
+    });
+    await expect(
+      h.client.mcp.servers.update({
+        id: "server-1",
+        config: { ...stdioInput, enabled: true, description: "", env: {} },
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message });
+    expect(h.deps.prisma.mcpServer.create).not.toHaveBeenCalled();
+    expect(h.deps.prisma.mcpServer.update).not.toHaveBeenCalled();
+    expect(h.probe).not.toHaveBeenCalled();
+  });
+
+  it("reports stdio support with the account", async () => {
+    const h = harness();
+    (h.deps.prisma as unknown as Record<string, unknown>).user = {
+      findUniqueOrThrow: vi.fn(async () => ({ email: "owner@rakazo.test", name: "Owner" })),
+    };
+    expect((await h.client.me()).mcpStdioEnabled).toBe(true);
+    Object.assign(h.deps.env, { mcpStdioEnabled: false });
+    expect((await h.client.me()).mcpStdioEnabled).toBe(false);
+  });
 
   it("lists servers with their health", async () => {
     const h = harness({

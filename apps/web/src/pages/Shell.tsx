@@ -4332,7 +4332,11 @@ function SpaceShell() {
           />
         ) : null}
         {overlay?.kind === "mcp" ? (
-          <McpServersOverlay editServerId={overlay.serverId} onClose={() => setOverlay(null)} />
+          <McpServersOverlay
+            editServerId={overlay.serverId}
+            stdioEnabled={bootstrapMe?.mcpStdioEnabled === true}
+            onClose={() => setOverlay(null)}
+          />
         ) : null}
         {overlay?.kind === "messaging" ? (
           <MessagingSettingsOverlay onClose={() => setOverlay(null)} />

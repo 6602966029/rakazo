@@ -145,15 +145,18 @@ async function main() {
   });
   const allowPrivateEndpoint = process.env.MCP_ALLOW_PRIVATE_ENDPOINT === "true";
   const mcpOAuth = new McpOAuthBroker(prisma, secrets, {}, allowPrivateEndpoint);
+  const mcpStdio = {
+    stdioEnabled: process.env.MCP_STDIO_ENABLED === "true",
+    allowedCommands: (process.env.MCP_STDIO_ALLOWED_COMMANDS ?? "")
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean),
+  };
   const mcp = new McpConnector(
     prisma,
     secrets,
     {
-      stdioEnabled: process.env.MCP_STDIO_ENABLED === "true",
-      allowedCommands: (process.env.MCP_STDIO_ALLOWED_COMMANDS ?? "")
-        .split(",")
-        .map((v) => v.trim())
-        .filter(Boolean),
+      ...mcpStdio,
       ...mcpStdioOptionsFromEnv(process.env),
       events,
       allowPrivateEndpoint,
@@ -265,6 +268,7 @@ async function main() {
     ].filter(Boolean),
     secretStore: secrets,
     mcpAllowPrivateEndpoint: process.env.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
+    mcpStdio,
     deploymentModelKey,
     deploymentModelConfigured,
     dataDir,
