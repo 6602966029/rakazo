@@ -6786,7 +6786,9 @@ export function createRouter(deps: RouterDeps) {
       }),
       set: authed.approvalRules.set.handler(async ({ context, input }) => {
         const { scope, ...rule } = input;
-        return approvalRuleDto(await saveApprovalRule(deps.prisma, context.actor, rule, scope));
+        return approvalRuleDto(
+          await deps.prisma.$transaction((tx) => saveApprovalRule(tx, context.actor, rule, scope)),
+        );
       }),
       remove: authed.approvalRules.remove.handler(async ({ context, input }) => {
         await removeApprovalRule(deps.prisma, context.actor, input.id, input.scope);

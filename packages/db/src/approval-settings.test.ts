@@ -27,7 +27,11 @@ function confirmationsClient({ overridden = false } = {}) {
   const spaceSettingOverride = {
     findUnique: vi.fn().mockResolvedValue(overridden ? { setting: "confirmations" } : null),
   };
-  const prisma = { ...tables, spaceSettingOverride } as unknown as PrismaClient;
+  const prisma = {
+    ...tables,
+    spaceSettingOverride,
+    $queryRaw: vi.fn().mockResolvedValue([]),
+  } as unknown as PrismaClient;
   return { prisma, ...tables, spaceSettingOverride };
 }
 

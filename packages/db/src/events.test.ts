@@ -2244,9 +2244,18 @@ describe("answerRunInput", () => {
             .mockResolvedValue(spaceOverridesConfirmations ? { setting: "confirmations" } : null),
         },
         actionApprovalRule: {
+          findMany: vi.fn().mockResolvedValue([
+            { id: "rule-0", matchValue: matchValue.toUpperCase() },
+            { id: "rule-other", matchValue: `${matchValue}.other` },
+          ]),
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
           upsert: vi.fn().mockResolvedValue({ id: "rule-1" }),
         },
         userActionApprovalRule: {
+          findMany: vi
+            .fn()
+            .mockResolvedValue([{ id: "account-rule-0", matchValue: matchValue.toUpperCase() }]),
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
           upsert: vi.fn().mockResolvedValue({ id: "rule-1" }),
         },
         thread: { update: vi.fn().mockResolvedValue({ nextEventSeq: 10 }) },
@@ -2294,6 +2303,10 @@ describe("answerRunInput", () => {
       const rule = { effect: "always_allow", matchKind, matchValue };
       if (spaceOverridesConfirmations) {
         const row = { spaceId: "workspace-1", createdByUserId: "user-1", ...rule };
+        // The opposite rule on the same match goes, ignoring case.
+        expect(tx.actionApprovalRule.deleteMany).toHaveBeenCalledWith({
+          where: { id: { in: ["rule-0"] } },
+        });
         expect(tx.actionApprovalRule.upsert).toHaveBeenCalledWith({
           where: { spaceId_createdByUserId_effect_matchKind_matchValue: row },
           create: row,
@@ -2302,6 +2315,9 @@ describe("answerRunInput", () => {
         expect(tx.userActionApprovalRule.upsert).not.toHaveBeenCalled();
       } else {
         const row = { userId: "user-1", ...rule };
+        expect(tx.userActionApprovalRule.deleteMany).toHaveBeenCalledWith({
+          where: { id: { in: ["account-rule-0"] } },
+        });
         expect(tx.userActionApprovalRule.upsert).toHaveBeenCalledWith({
           where: { userId_effect_matchKind_matchValue: row },
           create: row,
