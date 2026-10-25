@@ -111,6 +111,7 @@ import {
   truncatedPlainText,
   truncatePlainText,
   unattendedTriggerToolRequiresApproval,
+  userRunError,
   userTurnMessageForRun,
 } from "@rakazo/core";
 import { normalizedHttpUrl, sitesInText, urlSite } from "@rakazo/core/egress";
@@ -131,6 +132,7 @@ import {
   effectiveMemoryScope,
   InstructionConflictError,
   InvalidSpaceNameError,
+  isPartialReplyClientNonce,
   isTooManyDatabaseConnections,
   loadRunHistoryMessages,
   loadRunTurnCheckpoint,
@@ -208,6 +210,7 @@ import {
 } from "./auto-review.js";
 import { reviewWithBackups } from "./auto-review-backups.js";
 import { createAutoReviewProvider } from "./auto-review-factory.js";
+import { PARTIAL_REPLY_NOTE } from "./automated-messages.js";
 import { attachedImageArtifactIds, resolveUpdateBotAvatar } from "./bot-avatar.js";
 import { loadBotMessageContext, messageBot, returnBotMessageOutcome } from "./bot-messages.js";
 import {
@@ -4004,7 +4007,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 | "user"
                 | "assistant"
                 | "system",
-              content: messageToAgentHistoryText(m),
+              content: isPartialReplyClientNonce(m.clientNonce)
+                ? `${messageToAgentHistoryText(m)}\n\n${PARTIAL_REPLY_NOTE}`
+                : messageToAgentHistoryText(m),
             })),
             summary: thread.historyCompactionSummary,
             historyCompactedUpToSeq: thread.historyCompactedUpToSeq,
@@ -8775,10 +8780,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (!terminalCheckpointComplete) {
             await workspaceCheckpoint.flush().catch(() => undefined);
           }
-          const message = redactSecrets(
-            error instanceof Error ? error.message : String(error),
-            runSecrets,
-          );
+          const message = redactSecrets(userRunError(error), runSecrets);
+          // Reply text the user watched stream in since the last saved message stays in the
+          // thread, above the error, instead of vanishing with the live row.
+          recordExplicitNoResponse(assistantTurnText);
+          const partialText =
+            scripted || handedOff || explicitNoResponse || !runPromotesMidTurnNarration(run.trigger)
+              ? ""
+              : redactSecrets(
+                  extractNarrationText(messageSegments, currentTextSegment).text,
+                  runSecrets,
+                ).trim();
+          const partialReply =
+            partialText && !containsSecret(partialText, runSecrets)
+              ? [{ kind: "text" as const, text: partialText }]
+              : [];
           await settleRunningHelpers();
           const failed = await deps.events.finalizeRun({
             spaceId: run.spaceId,
@@ -8791,6 +8807,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             leaseFence: fence,
             outcome: "failed",
             error: message,
+            ...(partialReply.length > 0 ? { partialReply } : {}),
           });
           if (!failed) return;
           if (
@@ -8848,10 +8865,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
       } catch (setupError) {
         const computerBusy = setupError instanceof ComputerBusyError;
         const retryForever = computerBusy || isTooManyDatabaseConnections(setupError);
-        const setupMessage = redactSecrets(
-          setupError instanceof Error ? setupError.message : String(setupError),
-          runSecrets,
-        );
+        const setupMessage = redactSecrets(userRunError(setupError), runSecrets);
         const reportedSetupError = sanitizedError(setupError, (text) =>
           redactSecrets(text, runSecrets),
         );
