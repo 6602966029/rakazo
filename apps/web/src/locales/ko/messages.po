@@ -181,6 +181,7 @@ msgstr "{name} 실패"
 msgid "{name} finished"
 msgstr "{name} 완료"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "{name} 옵션"
@@ -529,6 +530,10 @@ msgstr "OpenAPI 추가"
 #: src/components/PasskeySettings.tsx
 msgid "Add passkey"
 msgstr "패스키 추가"
+
+#: src/pages/model-settings/providers-section.tsx
+msgid "Add provider"
+msgstr "서비스 추가"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -1030,6 +1035,7 @@ msgstr "이미지를 읽을 수 없음"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -1826,6 +1832,7 @@ msgstr "확인 규칙을 삭제하지 못했습니다."
 msgid "Could not remove the credential"
 msgstr ""
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not rename connection"
 msgstr ""
@@ -2237,6 +2244,7 @@ msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2250,10 +2258,9 @@ msgstr ""
 msgid "Disconnect Self-hosted"
 msgstr ""
 
-#. placeholder {0}: selected.providerName ?? selected.provider
 #: src/pages/model-settings/use-model-settings.ts
-msgid "Disconnected {0}."
-msgstr ""
+msgid "Disconnected {disconnectName}."
+msgstr "{disconnectName} 연결을 해제했습니다."
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -2355,6 +2362,7 @@ msgstr "각 이름은 한 번만 사용할 수 있습니다."
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "편집"
 
@@ -3368,6 +3376,7 @@ msgstr ""
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3530,6 +3539,7 @@ msgstr "나열된 모델이 없습니다."
 msgid "No remote MCP servers found"
 msgstr ""
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SpaceSearch.tsx
 msgid "No results"
@@ -3913,6 +3923,10 @@ msgstr ""
 msgid "Provider"
 msgstr "서비스"
 
+#: src/pages/model-settings/providers-section.tsx
+msgid "Providers"
+msgstr "서비스"
+
 #: src/components/CloudAgentCard.tsx
 msgid "Pull request"
 msgstr "풀 리퀘스트"
@@ -4132,6 +4146,7 @@ msgid "Removing…"
 msgstr "삭제 중…"
 
 #: src/components/PasskeySettings.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "이름 변경"
 
@@ -4158,6 +4173,7 @@ msgstr "다시 열기"
 msgid "Replace API key"
 msgstr "API 키 교체"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "키 교체"
@@ -4357,6 +4373,7 @@ msgstr ""
 #: src/pages/GroupPanel.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -4406,6 +4423,7 @@ msgstr ""
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4426,6 +4444,7 @@ msgid "Scopes (optional)"
 msgstr "범위 (선택 사항)"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -4640,6 +4659,7 @@ msgstr "로그인"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "다시 로그인"
 

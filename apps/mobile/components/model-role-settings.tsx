@@ -1,10 +1,10 @@
 import type { MenuAction } from "@expo/ui/community/menu";
 import { MenuView } from "@expo/ui/community/menu";
 import type {
-  ModelBackupChoice,
   ModelCatalogEntry,
   ModelCredential,
   ModelRole,
+  ModelRoleChoice,
   ModelRoleSettings as Settings,
   ThinkingLevel,
 } from "@rakazo/contracts";
@@ -12,7 +12,9 @@ import {
   backupChoiceKey,
   canonicalPiProviderId,
   connectedBackupOptions,
+  connectionDisplayName,
   MAX_MODEL_BACKUPS,
+  modelRoleChoiceKey,
   OPENAI_COMPATIBLE_PROVIDER_ID,
 } from "@rakazo/contracts";
 import { createModelRoleSettings } from "@rakazo/core";
@@ -33,21 +35,22 @@ export type ConnectableProvider = { id: string; name: string; baseUrl?: string }
 export type ModelConnectIntent = {
   /** Only the main model's empty first slot takes the new connection's model on connect. */
   makeDefault: boolean;
-  /** Returns the picker to continue in, narrowed to the newly connected provider. */
-  onConnected: (choice: ModelBackupChoice) => Promise<Href | undefined>;
+  /** Returns the picker to continue in, narrowed to the new connection. */
+  onConnected: (choice: ModelRoleChoice) => Promise<Href | undefined>;
 };
 
 /** A row index, the empty first slot, or a new fallback at the end. */
 type Slot = number | "empty" | "add";
 
-const sameChoice = (left: ModelBackupChoice, right: ModelBackupChoice) =>
-  backupChoiceKey(left) === backupChoiceKey(right);
+/** The same model on another connection is another row. */
+const sameChoice = (left: ModelRoleChoice, right: ModelRoleChoice) =>
+  modelRoleChoiceKey(left) === modelRoleChoiceKey(right);
 
 const connectKey = (provider: ConnectableProvider) =>
   `connect:${provider.id}:${provider.baseUrl ?? ""}`;
 
 /** Sends the first slot only when it changes. */
-function listPatch(current: Settings, list: ModelBackupChoice[]): Partial<Settings> {
+function listPatch(current: Settings, list: ModelRoleChoice[]): Partial<Settings> {
   if (!current.primary) return { backups: list };
   const primary = list[0] ?? null;
   return primary && sameChoice(primary, current.primary)
@@ -84,7 +87,8 @@ export function ModelRoleSettings({
   pickerRoute: (request: ModelPickerRequest) => Href;
   /** Registers a connect flow and returns the screen that runs it. */
   connectRoute: (provider: ConnectableProvider, intent: ModelConnectIntent) => Href;
-  onManage: (provider: string) => void;
+  /** Opens one connection's screen. */
+  onManage: (credential: ModelCredential) => void;
   /** The main model's first slot is the space default, which other settings read. */
   onChanged?: () => void;
 }) {
@@ -126,23 +130,36 @@ export function ModelRoleSettings({
   const backups = settings?.backups ?? [];
   const rows = primary ? [primary, ...backups] : backups;
   const busy = state.busy || state.stale || !settings;
-  const entryFor = (choice: ModelBackupChoice) =>
+  const entryFor = (choice: ModelRoleChoice) =>
     state.catalog.find(
       (entry) =>
         canonicalPiProviderId(entry.provider) === canonicalPiProviderId(choice.provider) &&
         entry.id === choice.modelId,
     );
-  const connected = new Set(credentials.map((entry) => canonicalPiProviderId(entry.provider)));
   const options = connectedBackupOptions(state.catalog, credentials);
-  const optionFor = (choice: ModelBackupChoice) =>
-    options.find((option) => sameChoice(option, choice));
-  const modelLabel = (choice: ModelBackupChoice) =>
+  const optionFor = (choice: ModelRoleChoice) =>
+    options.find((option) => backupChoiceKey(option) === backupChoiceKey(choice));
+  const modelLabel = (choice: ModelRoleChoice) =>
     entryFor(choice)?.label ?? optionFor(choice)?.label ?? choice.modelId;
-  const providerName = (choice: ModelBackupChoice) =>
+  const providerName = (choice: ModelRoleChoice) =>
     entryFor(choice)?.providerName ??
     optionFor(choice)?.providerName ??
     providers.find((provider) => provider.id === choice.provider)?.name ??
     choice.provider;
+  /** The row's own connection, or the provider's newest for rows that name none. */
+  const connectionFor = (choice: ModelRoleChoice) =>
+    choice.credentialId
+      ? credentials.find((entry) => entry.id === choice.credentialId)
+      : credentials.find(
+          (entry) =>
+            canonicalPiProviderId(entry.provider) === canonicalPiProviderId(choice.provider),
+        );
+  const connectionName = (choice: ModelRoleChoice) => {
+    const connection = choice.credentialId ? connectionFor(choice) : undefined;
+    return connection
+      ? connectionDisplayName(connection, providerName(choice))
+      : providerName(choice);
+  };
   const isPrimarySlot = (slot: Slot) => slot === "empty" || (slot === 0 && primary !== null);
 
   // Compatible endpoints keep their effort with the connection.
@@ -161,14 +178,14 @@ export function ModelRoleSettings({
     });
     if (role === "main" && primaryChanged) onChanged?.();
   }
-  const setPrimary = (choice: ModelBackupChoice | null) =>
+  const setPrimary = (choice: ModelRoleChoice | null) =>
     save((current) => ({
       primary: choice,
       backups: choice
         ? current.backups.filter((item) => !sameChoice(item, choice))
         : current.backups,
     }));
-  const place = (slot: number | "add", choice: ModelBackupChoice) =>
+  const place = (slot: number | "add", choice: ModelRoleChoice) =>
     save((current) => {
       const list = current.primary ? [current.primary, ...current.backups] : current.backups;
       if (slot === "add")
@@ -181,8 +198,8 @@ export function ModelRoleSettings({
       );
     });
   // The first entry becomes the primary; with none, the deployment's default runs.
-  const commit = (next: ModelBackupChoice[]) => save((current) => listPatch(current, next));
-  const fill = (slot: Slot, choice: ModelBackupChoice) =>
+  const commit = (next: ModelRoleChoice[]) => save((current) => listPatch(current, next));
+  const fill = (slot: Slot, choice: ModelRoleChoice) =>
     slot === "empty" || isPrimarySlot(slot) ? setPrimary(choice) : place(slot, choice);
 
   const setThinking = (level: ThinkingLevel | null) =>
@@ -190,40 +207,61 @@ export function ModelRoleSettings({
       primary: current.primary && { ...current.primary, thinkingLevel: level },
     }));
 
-  /** After a connection, the same slot's picker shows only that provider's models. */
+  /** After a connection, the same slot's picker shows only that connection's models. */
   type Narrowed = {
-    provider: string;
+    choice: ModelRoleChoice;
     credentials: ModelCredential[];
     /** Loaded after the connection, so account-specific models it unlocks are listed. */
     catalog: ModelCatalogEntry[];
-    selected?: ModelBackupChoice;
+    selected: boolean;
   };
 
   function pickerRequest(slot: Slot, narrowed?: Narrowed): ModelPickerRequest {
     const primarySlot = isPrimarySlot(slot);
     const all = narrowed ? connectedBackupOptions(narrowed.catalog, narrowed.credentials) : options;
     const pool = all.filter(
-      (option) =>
-        !narrowed ||
-        canonicalPiProviderId(option.provider) === canonicalPiProviderId(narrowed.provider),
+      (option) => !narrowed || option.credentialId === narrowed.choice.credentialId,
     );
-    const current = narrowed?.selected ?? (typeof slot === "number" ? rows[slot] : undefined);
-    const taken = new Set(rows.map(backupChoiceKey));
+    const current = narrowed
+      ? narrowed.selected
+        ? narrowed.choice
+        : undefined
+      : typeof slot === "number"
+        ? rows[slot]
+        : undefined;
+    // A row that names no connection runs on its provider's, so its model is taken too.
+    const taken = new Set(
+      rows.map((row) => (row.credentialId ? modelRoleChoiceKey(row) : backupChoiceKey(row))),
+    );
     const offerDefault = primarySlot && role !== "main" && !narrowed;
+    // A row that names no connection is checked on its provider's first connection.
+    const currentKey = current
+      ? modelRoleChoiceKey(
+          current.credentialId
+            ? current
+            : (pool.find((option) => backupChoiceKey(option) === backupChoiceKey(current)) ??
+                current),
+        )
+      : undefined;
+    const picks = new Map(pool.map((option) => [modelRoleChoiceKey(option), option]));
     return {
       title: slot === "add" ? t("Add fallback") : title,
-      selectedKey: current ? backupChoiceKey(current) : offerDefault ? "default" : "",
+      selectedKey: currentKey ?? (offerDefault ? "default" : ""),
       choices: [
         ...(offerDefault
           ? [{ key: "default", label: defaultLabel, modelLabel: defaultLabel }]
           : []),
         ...pool
-          .filter((option) => slot !== "add" || !taken.has(backupChoiceKey(option)))
+          .filter(
+            (option) =>
+              slot !== "add" ||
+              !(taken.has(modelRoleChoiceKey(option)) || taken.has(backupChoiceKey(option))),
+          )
           .map((option) => ({
-            key: backupChoiceKey(option),
-            label: `${option.providerName} · ${option.label}`,
+            key: modelRoleChoiceKey(option),
+            label: `${option.connectionName} · ${option.label}`,
             modelLabel: option.label,
-            providerLabel: option.providerName,
+            providerLabel: option.connectionName,
             provider: option.provider,
             modelId: option.modelId,
           })),
@@ -248,10 +286,10 @@ export function ModelRoleSettings({
               controller.load(),
             ]);
             const next = pickerRequest(slot, {
-              provider: connected.provider,
+              choice: connected,
               credentials: fresh,
               catalog: controller.snapshot().catalog,
-              selected: makeDefault ? connected : undefined,
+              selected: makeDefault,
             });
             return next.choices.length ? pickerRoute(next) : undefined;
           },
@@ -262,8 +300,13 @@ export function ModelRoleSettings({
           void setPrimary(null);
           return;
         }
-        if (!choice.provider || !choice.modelId) return;
-        const picked = { provider: choice.provider, modelId: choice.modelId };
+        const option = picks.get(choice.key);
+        if (!option) return;
+        const picked: ModelRoleChoice = {
+          provider: option.provider,
+          modelId: option.modelId,
+          ...(option.credentialId ? { credentialId: option.credentialId } : {}),
+        };
         if (!current || !sameChoice(current, picked)) void fill(slot, picked);
       },
     };
@@ -286,7 +329,8 @@ export function ModelRoleSettings({
       next.splice(target, 0, ...next.splice(index, 1));
       void commit(next);
     } else if (id === "manage") {
-      onManage(choice.provider);
+      const connection = connectionFor(choice);
+      if (connection) onManage(connection);
     } else if (id === "remove") {
       void commit(rows.filter((_, item) => item !== index));
     }
@@ -332,8 +376,13 @@ export function ModelRoleSettings({
           ...thinkingMenu,
           ...(index > 0 ? [{ id: "moveUp", title: t("Move up") }] : []),
           ...(index < rows.length - 1 ? [{ id: "moveDown", title: t("Move down") }] : []),
-          ...(connected.has(canonicalPiProviderId(choice.provider))
-            ? [{ id: "manage", title: t("Manage {provider}", { provider: providerName(choice) }) }]
+          ...(connectionFor(choice)
+            ? [
+                {
+                  id: "manage",
+                  title: t("Manage {provider}", { provider: connectionName(choice) }),
+                },
+              ]
             : []),
           { id: "remove", title: t("Remove"), attributes: { destructive: true } },
         ];
@@ -348,14 +397,14 @@ export function ModelRoleSettings({
               : [{ name: action.id ?? action.title, label: action.title }],
         );
         const detail = [
-          providerName(choice),
+          connectionName(choice),
           ...(showThinking && thinking
             ? [t("Thinking: {level}", { level: thinkingLevelLabel(thinking, t) })]
             : []),
         ].join(" · ");
         return (
           <RowMenu
-            key={backupChoiceKey(choice)}
+            key={modelRoleChoiceKey(choice)}
             title={name}
             actions={actions}
             onAction={(id) => act(index, id)}
@@ -399,7 +448,7 @@ export function ModelRoleSettings({
 }
 
 /** A long-press native menu around a full-width row. */
-function RowMenu({
+export function RowMenu({
   title,
   actions,
   onAction,

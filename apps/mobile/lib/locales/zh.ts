@@ -3,6 +3,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Main model": "主模型",
   "Add fallback": "添加备用模型",
   "Manage {provider}": "管理 {provider}",
+  "Add provider": "添加提供商",
   "Choose a model": "选择模型",
   "Use 80 characters or fewer": "请使用不超过 80 个字符",
   "Could not update name": "无法更新姓名",

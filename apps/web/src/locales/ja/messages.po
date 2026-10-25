@@ -181,6 +181,7 @@ msgstr "{name}が失敗しました"
 msgid "{name} finished"
 msgstr "{name}が完了しました"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "{name} のオプション"
@@ -529,6 +530,10 @@ msgstr "OpenAPIを追加"
 #: src/components/PasskeySettings.tsx
 msgid "Add passkey"
 msgstr "パスキーを追加"
+
+#: src/pages/model-settings/providers-section.tsx
+msgid "Add provider"
+msgstr "プロバイダーを追加"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -1030,6 +1035,7 @@ msgstr "画像を読み取れません"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -1826,6 +1832,7 @@ msgstr "ルールを削除できませんでした"
 msgid "Could not remove the credential"
 msgstr "認証情報を削除できませんでした"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not rename connection"
 msgstr "接続の名前を変更できませんでした"
@@ -2237,6 +2244,7 @@ msgstr "録音を破棄"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2250,10 +2258,9 @@ msgstr "{disconnectName}を切断しますか？"
 msgid "Disconnect Self-hosted"
 msgstr ""
 
-#. placeholder {0}: selected.providerName ?? selected.provider
 #: src/pages/model-settings/use-model-settings.ts
-msgid "Disconnected {0}."
-msgstr "{0}を切断しました。"
+msgid "Disconnected {disconnectName}."
+msgstr "{disconnectName}を切断しました。"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -2355,6 +2362,7 @@ msgstr "各名前は一度だけ使用できます。"
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "編集"
 
@@ -3368,6 +3376,7 @@ msgstr "ミュート中"
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3530,6 +3539,7 @@ msgstr "モデルが一覧にありません。"
 msgid "No remote MCP servers found"
 msgstr "リモートMCPサーバーが見つかりません"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SpaceSearch.tsx
 msgid "No results"
@@ -3913,6 +3923,10 @@ msgstr "保護された入力"
 msgid "Provider"
 msgstr "プロバイダー"
 
+#: src/pages/model-settings/providers-section.tsx
+msgid "Providers"
+msgstr "プロバイダー"
+
 #: src/components/CloudAgentCard.tsx
 msgid "Pull request"
 msgstr "プルリクエスト"
@@ -4132,6 +4146,7 @@ msgid "Removing…"
 msgstr "削除中…"
 
 #: src/components/PasskeySettings.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "名前を変更"
 
@@ -4158,6 +4173,7 @@ msgstr "再度開く"
 msgid "Replace API key"
 msgstr "APIキーを置き換え"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "キーを置き換え"
@@ -4357,6 +4373,7 @@ msgstr "このボットがこのプロバイダーから検証済みのメッセ
 #: src/pages/GroupPanel.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -4406,6 +4423,7 @@ msgstr "保存中..."
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4426,6 +4444,7 @@ msgid "Scopes (optional)"
 msgstr "スコープ（任意）"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -4640,6 +4659,7 @@ msgstr "ログイン"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "再度ログイン"
 

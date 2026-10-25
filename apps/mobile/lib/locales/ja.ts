@@ -3,6 +3,7 @@ export const JA_MESSAGES: Record<string, string> = {
   "Main model": "メインモデル",
   "Add fallback": "バックアップモデルを追加",
   "Manage {provider}": "{provider} を管理",
+  "Add provider": "プロバイダーを追加",
   "Choose a model": "モデルを選択",
   "The model returned an unusable response. Try again.":
     "モデルが利用できない応答を返しました。もう一度お試しください。",

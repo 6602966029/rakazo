@@ -74,4 +74,36 @@ test("approval models reuse connections and persist independent fallbacks", asyn
   await expect(page.getByTestId("model-role-main").getByTestId("model-role-row-2")).toContainText(
     fallback.label,
   );
+
+  // A second key for the same provider is its own connection, listed under Providers.
+  await rpc(page, "models/connect", {
+    provider: "openrouter",
+    apiKey: "fake-role-api-key-2",
+    modelId: main.id,
+    credentialId: null,
+    makeDefault: false,
+    label: "OpenRouter",
+  });
+  await page.reload();
+  const providers = page.getByTestId("model-providers");
+  await expect(providers.getByText("OpenRouter 2", { exact: true })).toBeVisible();
+  await providers.getByRole("button", { name: "OpenRouter 2 options", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+  const rename = page
+    .getByRole("dialog")
+    .filter({ has: page.getByRole("heading", { name: "Rename", exact: true }) });
+  await rename.getByRole("textbox").fill("Work");
+  await rename.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(providers.getByText("OpenRouter · Work", { exact: true })).toBeVisible();
+  // Its models are offered as a group of their own.
+  await page
+    .getByTestId("model-role-main")
+    .getByRole("button", { name: "Add fallback", exact: true })
+    .click();
+  await expect(
+    page.getByRole("listbox", { name: "Model options" }).getByText("OpenRouter · Work"),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await providers.scrollIntoViewIfNeeded();
+  await captureScreenshot(page, testInfo, "model-settings-providers");
 });

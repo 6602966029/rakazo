@@ -53,6 +53,8 @@ const jev = { provider: "openrouter", modelId: "typesafe/jev-1.14" };
 const chat = { provider: "openrouter", modelId: "chat" };
 const mini = { provider: "openrouter", modelId: "mini" };
 const deepseek = { id: "deepseek", name: "DeepSeek" };
+/** A pick from a connection runs on that connection. */
+const pin = <T extends object>(choice: T) => ({ ...choice, credentialId: "key" });
 const onConnect = vi.fn();
 const onManage = vi.fn();
 let container: HTMLDivElement;
@@ -142,7 +144,7 @@ describe("shared role editor", () => {
       expect.objectContaining({
         role: "approval",
         expectedUserId: "user",
-        primary: jev,
+        primary: pin(jev),
         backups: [],
       }),
       { context: { spaceId: "space" } },
@@ -156,11 +158,11 @@ describe("shared role editor", () => {
     await render();
     await pick("Add fallback", "Chat");
     await pick("Add fallback", "Jev 1.14");
-    expect(saved.backups).toEqual([chat, jev]);
+    expect(saved.backups).toEqual([pin(chat), pin(jev)]);
     await menu("Jev 1.14", "Move up");
-    expect(saved.backups).toEqual([jev, chat]);
+    expect(saved.backups).toEqual([pin(jev), pin(chat)]);
     await menu("Chat", "Remove");
-    expect(saved).toEqual({ primary: null, backups: [jev] });
+    expect(saved).toEqual({ primary: null, backups: [pin(jev)] });
     expect(api.setRole).toHaveBeenLastCalledWith(
       expect.objectContaining({ role: "main" }),
       expect.anything(),
@@ -215,7 +217,7 @@ describe("shared role editor", () => {
     api.role.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          finish = () => resolve({ primary: mini, backups: [chat, jev] });
+          finish = () => resolve({ primary: pin(mini), backups: [chat, jev] });
         }),
     );
     await render({ credentials: [...credentials] });
@@ -237,7 +239,7 @@ describe("shared role editor", () => {
     saved = { primary: chat, backups: [jev] };
     await render();
     await pick("Change Jev 1.14", "Mini");
-    expect(saved).toEqual({ primary: chat, backups: [mini] });
+    expect(saved).toEqual({ primary: chat, backups: [pin(mini)] });
   });
   it("hands a not-connected provider to the connect flow and reopens its models once connected", async () => {
     saved = { primary: chat, backups: [] };
@@ -310,7 +312,7 @@ describe("shared role editor", () => {
     await render({ thinking: true });
     expect(container.textContent).toContain("Thinking: High");
     await menu("Chat", "Manage OpenRouter");
-    expect(onManage).toHaveBeenCalledWith("openrouter");
+    expect(onManage).toHaveBeenCalledWith("openrouter", "key");
     await click(trigger("Jev 1.14 options"));
     expect(
       [...document.querySelectorAll('[role="menuitem"]')].map((entry) => entry.textContent),
@@ -390,4 +392,34 @@ it("names rows and menus by their connection", async () => {
   expect(
     [...document.querySelectorAll('[role="menuitem"]')].map((entry) => entry.textContent),
   ).toContain("Manage Claude subscription");
+});
+
+it("groups models by connection and runs the same model on either account", async () => {
+  const work = {
+    id: "work",
+    provider: "openrouter",
+    label: "Work",
+    isDefault: false,
+    hasKey: true,
+  };
+  saved = { primary: pin(chat), backups: [] };
+  await render({ credentials: [...credentials, work] });
+  expect(rows()).toEqual(["Chat· OpenRouter"]);
+  await click(trigger("Add fallback"));
+  expect(
+    [...document.querySelectorAll("[cmdk-group-heading]")].map((entry) => entry.textContent),
+  ).toEqual(["OpenRouter", "OpenRouter · Work"]);
+  const workChat = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+    (entry) =>
+      optionName(entry) === "Chat" &&
+      entry.closest("[cmdk-group]")?.textContent?.startsWith("OpenRouter · Work"),
+  );
+  await click(workChat);
+  expect(saved).toEqual({
+    primary: pin(chat),
+    backups: [{ ...chat, credentialId: "work" }],
+  });
+  expect(rows()).toEqual(["Chat· OpenRouter", "Chat· OpenRouter · Work"]);
+  await menu("Chat", "Manage OpenRouter");
+  expect(onManage).toHaveBeenLastCalledWith("openrouter", "key");
 });

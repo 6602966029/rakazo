@@ -181,6 +181,7 @@ msgstr "{name} is mislukt"
 msgid "{name} finished"
 msgstr "{name} is klaar"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "Opties voor {name}"
@@ -529,6 +530,10 @@ msgstr "OpenAPI toevoegen"
 #: src/components/PasskeySettings.tsx
 msgid "Add passkey"
 msgstr "Passkey toevoegen"
+
+#: src/pages/model-settings/providers-section.tsx
+msgid "Add provider"
+msgstr "Aanbieder toevoegen"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -1030,6 +1035,7 @@ msgstr "Kan afbeeldingen niet lezen"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -1826,6 +1832,7 @@ msgstr "Regel verwijderen mislukt"
 msgid "Could not remove the credential"
 msgstr "De gegevens verwijderen mislukt"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not rename connection"
 msgstr "Verbinding hernoemen mislukt"
@@ -2237,6 +2244,7 @@ msgstr "Opname weggooien"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2250,10 +2258,9 @@ msgstr "{disconnectName} loskoppelen?"
 msgid "Disconnect Self-hosted"
 msgstr ""
 
-#. placeholder {0}: selected.providerName ?? selected.provider
 #: src/pages/model-settings/use-model-settings.ts
-msgid "Disconnected {0}."
-msgstr "{0} losgekoppeld."
+msgid "Disconnected {disconnectName}."
+msgstr "{disconnectName} losgekoppeld."
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -2355,6 +2362,7 @@ msgstr "Elke naam kan maar één keer worden gebruikt."
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "Bewerken"
 
@@ -3368,6 +3376,7 @@ msgstr "Gedempt"
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3530,6 +3539,7 @@ msgstr "Geen modellen vermeld."
 msgid "No remote MCP servers found"
 msgstr "Geen externe MCP-servers gevonden"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SpaceSearch.tsx
 msgid "No results"
@@ -3913,6 +3923,10 @@ msgstr "Beveiligde invoer"
 msgid "Provider"
 msgstr "Aanbieder"
 
+#: src/pages/model-settings/providers-section.tsx
+msgid "Providers"
+msgstr "Aanbieders"
+
 #: src/components/CloudAgentCard.tsx
 msgid "Pull request"
 msgstr "Pull request"
@@ -4132,6 +4146,7 @@ msgid "Removing…"
 msgstr "Bezig met verwijderen…"
 
 #: src/components/PasskeySettings.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "Naam wijzigen"
 
@@ -4158,6 +4173,7 @@ msgstr "Heropenen"
 msgid "Replace API key"
 msgstr "API-sleutel vervangen"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "Sleutel vervangen"
@@ -4357,6 +4373,7 @@ msgstr "Draait wanneer deze bot een geverifieerd bericht van deze aanbieder ontv
 #: src/pages/GroupPanel.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -4406,6 +4423,7 @@ msgstr "Bezig met opslaan..."
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4426,6 +4444,7 @@ msgid "Scopes (optional)"
 msgstr "Scopes (optioneel)"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -4640,6 +4659,7 @@ msgstr "Aanmelden"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "Opnieuw aanmelden"
 

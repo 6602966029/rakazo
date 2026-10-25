@@ -7,7 +7,7 @@ import {
   usableModelId,
 } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
-import { chooseModelCredential, findModelCredential } from "@rakazo/db";
+import { chooseModelCredential, findModelCredential, findModelCredentialById } from "@rakazo/db";
 import { resolveDeploymentModel } from "./deployment-model.js";
 import { modelCredentialDto } from "./model-connect.js";
 import type { ModelCredentialAuthKind } from "./pi-catalog-availability.js";
@@ -416,6 +416,8 @@ async function loadModelSecret(
 }
 
 export type ConnectedModelResolution = {
+  /** The connection a role row is pinned to; nothing else may serve it. */
+  credentialId?: string | null;
   hostedProvider?: string;
   codexCatalog?: CodexLiveCatalog;
   /** Preview a connection save using the same runtime selection. */
@@ -431,6 +433,8 @@ export async function findConnectedModelCredential(
   modelId?: string | null,
   resolution: ConnectedModelResolution = {},
 ): Promise<ModelCredential> {
+  if (resolution.credentialId)
+    return findModelCredentialById(prisma, actor, resolution.credentialId, provider);
   let selected = await findModelCredential(prisma, actor, provider, modelId);
   const replacement = resolution.replacement;
   if (
@@ -719,6 +723,7 @@ export async function validateConnectedModelChoice(
       userId: actor.userId,
       modelId,
       credential: { userId: actor.userId, provider },
+      ...(resolution.credentialId ? { credentialId: resolution.credentialId } : {}),
     },
     select: { id: true },
   });

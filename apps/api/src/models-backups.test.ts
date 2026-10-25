@@ -429,6 +429,51 @@ describe("role-based model settings API", () => {
     const read = await call("models/role", { role: "approval" });
     expect((await read.response.json()).json).toEqual({ primary: null, backups: [] });
   });
+  it("lists the same model on two connections, each validated on its own", async () => {
+    const { call, prisma, roles } = setup();
+    const connections = ["credential-personal", "credential-work"];
+    const findFirst = vi.fn(async ({ where }: { where: { id: string; userId: string } }) =>
+      connections.includes(where.id) && where.userId === owner.userId
+        ? {
+            id: where.id,
+            userId: owner.userId,
+            provider: "openrouter",
+            label: where.id,
+            secretId: `${where.id}-secret`,
+            createdAt: new Date(0),
+            updatedAt: new Date(0),
+            preferences: [],
+          }
+        : null,
+    );
+    Object.assign(prisma.userModelCredential, { findFirst });
+    const model = { provider: availableModel.provider, modelId: availableModel.id };
+    const primary = { ...model, credentialId: "credential-personal" };
+    const backup = { ...model, credentialId: "credential-work" };
+
+    const { response } = await call("models/setRole", {
+      role: "main",
+      primary,
+      backups: [backup],
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).json).toEqual({ primary, backups: [backup] });
+    expect(roles().map((row) => [row.position, row.credentialId])).toEqual([
+      [0, "credential-personal"],
+      [1, "credential-work"],
+    ]);
+    for (const id of connections)
+      expect(findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id }) }),
+      );
+
+    // A row may only run on a connection the member still has.
+    const gone = await call("models/setRole", {
+      role: "main",
+      primary: { ...model, credentialId: "credential-removed" },
+    });
+    expect(gone.response.status).toBe(400);
+  });
   it("keeps the main model's effort when a list save repeats its primary", async () => {
     const { call, prisma, roles } = setup();
     const [thinking, other] = listPiCatalog().filter(

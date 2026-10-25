@@ -181,6 +181,7 @@ msgstr "{name} failed"
 msgid "{name} finished"
 msgstr "{name} finished"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "{name} options"
@@ -529,6 +530,10 @@ msgstr "Add OpenAPI"
 #: src/components/PasskeySettings.tsx
 msgid "Add passkey"
 msgstr "Add passkey"
+
+#: src/pages/model-settings/providers-section.tsx
+msgid "Add provider"
+msgstr "Add provider"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -1030,6 +1035,7 @@ msgstr "Can't read images"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -1826,6 +1832,7 @@ msgstr "Could not remove rule"
 msgid "Could not remove the credential"
 msgstr "Could not remove the credential"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not rename connection"
 msgstr "Could not rename connection"
@@ -2237,6 +2244,7 @@ msgstr "Discard recording"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2250,10 +2258,9 @@ msgstr "Disconnect {disconnectName}?"
 msgid "Disconnect Self-hosted"
 msgstr "Disconnect Self-hosted"
 
-#. placeholder {0}: selected.providerName ?? selected.provider
 #: src/pages/model-settings/use-model-settings.ts
-msgid "Disconnected {0}."
-msgstr "Disconnected {0}."
+msgid "Disconnected {disconnectName}."
+msgstr "Disconnected {disconnectName}."
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -2355,6 +2362,7 @@ msgstr "Each name can be used once."
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "Edit"
 
@@ -3368,6 +3376,7 @@ msgstr "Muted"
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3530,6 +3539,7 @@ msgstr "No models listed."
 msgid "No remote MCP servers found"
 msgstr "No remote MCP servers found"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SpaceSearch.tsx
 msgid "No results"
@@ -3913,6 +3923,10 @@ msgstr "Protected input"
 msgid "Provider"
 msgstr "Provider"
 
+#: src/pages/model-settings/providers-section.tsx
+msgid "Providers"
+msgstr "Providers"
+
 #: src/components/CloudAgentCard.tsx
 msgid "Pull request"
 msgstr "Pull request"
@@ -4132,6 +4146,7 @@ msgid "Removing…"
 msgstr "Removing…"
 
 #: src/components/PasskeySettings.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "Rename"
 
@@ -4158,6 +4173,7 @@ msgstr "Reopen"
 msgid "Replace API key"
 msgstr "Replace API key"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "Replace key"
@@ -4357,6 +4373,7 @@ msgstr "Runs when this bot receives a verified message from this provider."
 #: src/pages/GroupPanel.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -4406,6 +4423,7 @@ msgstr "Saving..."
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4426,6 +4444,7 @@ msgid "Scopes (optional)"
 msgstr "Scopes (optional)"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -4640,6 +4659,7 @@ msgstr "Sign in"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "Sign in again"
 

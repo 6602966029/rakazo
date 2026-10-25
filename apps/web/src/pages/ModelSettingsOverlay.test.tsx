@@ -19,6 +19,7 @@ const models = vi.hoisted(() => ({
   credentials: vi.fn(),
   connect: vi.fn(),
   disconnect: vi.fn(),
+  rename: vi.fn(),
   setDefault: vi.fn(),
   probeOpenAiCompatible: vi.fn(),
   beginOAuth: vi.fn(),
@@ -379,7 +380,10 @@ it("shows a stored BYOK key when provider settings reopen", async () => {
     await click(buttons(view.container, "Disconnect")[0]);
     const confirm = buttons(view.container, "Disconnect");
     await click(confirm[confirm.length - 1]);
-    expect(models.disconnect).toHaveBeenCalledWith({ provider: "deepseek" });
+    expect(models.disconnect).toHaveBeenCalledWith({
+      provider: "deepseek",
+      credentialId: "cred-deepseek",
+    });
     expect(view.container.querySelector("#model-api-key")).toBeNull();
 
     await pick("Change Main model", "DeepSeek");
@@ -498,7 +502,9 @@ it("connects a provider from Add fallback without replacing the main model, then
       expect.objectContaining({
         role: "main",
         primary: { provider: "deepseek", modelId: "deepseek-chat" },
-        backups: [{ provider: "openrouter", modelId: openrouterEntry.id }],
+        backups: [
+          { provider: "openrouter", modelId: openrouterEntry.id, credentialId: "cred-openrouter" },
+        ],
       }),
       expect.anything(),
     );
@@ -769,7 +775,11 @@ it("offers a saved compatible model in the main picker and uses it", async () =>
     expect(models.setRole).toHaveBeenCalledWith(
       expect.objectContaining({
         role: "main",
-        primary: { provider: "openai-compatible", modelId: "model-b" },
+        primary: {
+          provider: "openai-compatible",
+          modelId: "model-b",
+          credentialId: "cred-compatible",
+        },
         backups: [],
       }),
       expect.anything(),
@@ -1008,6 +1018,7 @@ it("offers a saved Ollama connection's models without the Ollama preset", async 
   models.credentials.mockResolvedValue([
     {
       id: "fixture",
+      label: "OpenAI-compatible",
       provider: "openai-compatible",
       modelId: "fixture-model",
       baseUrl: "https://ollama.com/",
@@ -1028,6 +1039,7 @@ it("keeps the Ollama preset to connect beside a saved local connection", async (
   models.credentials.mockResolvedValue([
     {
       id: "fixture",
+      label: "OpenAI-compatible",
       provider: "openai-compatible",
       modelId: "fixture-model",
       baseUrl: "http://127.0.0.1:8000/v1",
@@ -1071,6 +1083,7 @@ it.each(["https://ollama.com", "https://ollama.com/v1/"])(
     models.credentials.mockResolvedValue([
       {
         id: "fixture",
+        label: "OpenAI-compatible",
         provider: "openai-compatible",
         modelId: "fixture-model",
         baseUrl: "https://ollama.com/v1",
@@ -1110,7 +1123,15 @@ it.each([undefined, "api_key", "oauth"])(
     ]);
     models.credentials.mockResolvedValue(
       authKind
-        ? [{ id: "fixture", provider: "openai-codex", modelId: "fixture-model", authKind }]
+        ? [
+            {
+              id: "fixture",
+              label: "ChatGPT",
+              provider: "openai-codex",
+              modelId: "fixture-model",
+              authKind,
+            },
+          ]
         : [],
     );
     const view = await renderSettings();
@@ -1140,6 +1161,7 @@ it("folds the key form behind Or paste an API key once a subscription is signed 
   models.credentials.mockResolvedValue([
     {
       id: "fixture",
+      label: "Anthropic",
       provider: "anthropic",
       modelId: "claude-fixture",
       hasKey: false,
@@ -1154,6 +1176,107 @@ it("folds the key form behind Or paste an API key once a subscription is signed 
     expect(keyField(view.container)).toBeTruthy();
     expect(buttons(view.container, "Connect API key")).toHaveLength(1);
     expect(view.container.textContent).not.toContain("Replace API key");
+  } finally {
+    await view.unmount();
+  }
+});
+
+function providersSection() {
+  const found = document.querySelector('[data-testid="model-providers"]');
+  if (!found) throw new Error("Missing Providers section");
+  return found as HTMLElement;
+}
+
+async function providerMenu(name: string, item: string) {
+  await click(providersSection().querySelector(`button[aria-label="${name} options"]`));
+  await click(
+    [...document.querySelectorAll('[role="menuitem"]')].find((entry) => entry.textContent === item),
+  );
+}
+
+const workCredential = {
+  ...deepseekCredential,
+  id: "cred-deepseek-work",
+  label: "Work",
+  isDefault: false,
+};
+
+it("lists every connection under Providers and adds another for a connected provider", async () => {
+  models.credentials.mockResolvedValue([deepseekCredential, workCredential]);
+  const view = await renderSettings();
+  try {
+    expect(
+      [...providersSection().querySelectorAll('[data-testid^="model-provider-"]')].map(
+        (row) => row.textContent,
+      ),
+    ).toEqual(["DeepSeek", "DeepSeek · Work"]);
+    await click(buttons(providersSection() as HTMLElement, "Add provider")[0]);
+    expect(pickerOptions()).toContain("DeepSeek");
+    await choose("DeepSeek");
+    expect(titles(view.container)).toEqual(["Connect DeepSeek"]);
+    expect(keyField(view.container).placeholder).toBe("sk-…");
+    await typeInto(keyField(view.container), "sk-fixture-personal");
+    await click(buttons(view.container, "Connect API key")[0]);
+    expect(models.connect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "deepseek",
+        apiKey: "sk-fixture-personal",
+        credentialId: null,
+        makeDefault: false,
+      }),
+    );
+    expect(models.setRole).not.toHaveBeenCalled();
+    expect(titles(view.container)).toEqual([]);
+  } finally {
+    await view.unmount();
+  }
+});
+
+it("replaces one connection's key and disconnects only that connection", async () => {
+  models.credentials.mockResolvedValue([deepseekCredential, workCredential]);
+  const view = await renderSettings();
+  try {
+    await providerMenu("DeepSeek · Work", "Replace key");
+    expect(titles(view.container)).toEqual(["DeepSeek · Work"]);
+    await typeInto(keyField(view.container), "sk-fixture-rotated");
+    await click(buttons(view.container, "Replace API key")[0]);
+    expect(models.connect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "deepseek",
+        apiKey: "sk-fixture-rotated",
+        credentialId: "cred-deepseek-work",
+      }),
+    );
+
+    await providerMenu("DeepSeek · Work", "Disconnect");
+    const confirm = buttons(view.container, "Disconnect");
+    await click(confirm[confirm.length - 1]);
+    expect(models.disconnect).toHaveBeenCalledWith({
+      provider: "deepseek",
+      credentialId: "cred-deepseek-work",
+    });
+  } finally {
+    await view.unmount();
+  }
+});
+
+it("renames a connection", async () => {
+  models.rename.mockResolvedValue({ ok: true });
+  models.credentials.mockResolvedValue([deepseekCredential, workCredential]);
+  const view = await renderSettings();
+  try {
+    await providerMenu("DeepSeek · Work", "Rename");
+    const input = view.container.querySelector<HTMLInputElement>("input[maxlength]");
+    if (!input) throw new Error("Missing name field");
+    expect(input.value).toBe("Work");
+    await typeInto(input, "Client work");
+    await act(async () => {
+      input.form?.requestSubmit();
+    });
+    expect(models.rename).toHaveBeenCalledWith({
+      credentialId: "cred-deepseek-work",
+      label: "Client work",
+    });
   } finally {
     await view.unmount();
   }

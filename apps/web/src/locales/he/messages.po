@@ -181,6 +181,7 @@ msgstr "{name} נכשל"
 msgid "{name} finished"
 msgstr "{name} סיים"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelRoleSettings.tsx
 msgid "{name} options"
 msgstr "אפשרויות {name}"
@@ -529,6 +530,10 @@ msgstr "הוספת OpenAPI"
 #: src/components/PasskeySettings.tsx
 msgid "Add passkey"
 msgstr "הוספת מפתח גישה"
+
+#: src/pages/model-settings/providers-section.tsx
+msgid "Add provider"
+msgstr "הוספת ספק"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Add remote MCP server"
@@ -1030,6 +1035,7 @@ msgstr "לא ניתן לקרוא תמונות"
 #: src/pages/Artifacts.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/space-bots-model.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
@@ -1826,6 +1832,7 @@ msgstr "לא ניתן להסיר את הכלל"
 msgid "Could not remove the credential"
 msgstr "לא ניתן להסיר את פרטי הגישה"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Could not rename connection"
 msgstr "לא ניתן לשנות את שם החיבור"
@@ -2237,6 +2244,7 @@ msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Disconnect"
@@ -2250,10 +2258,9 @@ msgstr "לנתק את {disconnectName}?"
 msgid "Disconnect Self-hosted"
 msgstr ""
 
-#. placeholder {0}: selected.providerName ?? selected.provider
 #: src/pages/model-settings/use-model-settings.ts
-msgid "Disconnected {0}."
-msgstr "{0} נותק."
+msgid "Disconnected {disconnectName}."
+msgstr "{disconnectName} נותק."
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -2355,6 +2362,7 @@ msgstr "ניתן להשתמש בכל שם פעם אחת בלבד."
 
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Edit"
 msgstr "עריכה"
 
@@ -3368,6 +3376,7 @@ msgstr ""
 #: src/pages/Auth.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3530,6 +3539,7 @@ msgstr "לא נמצאו מודלים ברשימה."
 msgid "No remote MCP servers found"
 msgstr "לא נמצאו שרתי MCP מרוחקים"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/SpaceSearch.tsx
 msgid "No results"
@@ -3913,6 +3923,10 @@ msgstr "קלט מוגן"
 msgid "Provider"
 msgstr "ספק"
 
+#: src/pages/model-settings/providers-section.tsx
+msgid "Providers"
+msgstr "ספקים"
+
 #: src/components/CloudAgentCard.tsx
 msgid "Pull request"
 msgstr "Pull request"
@@ -4132,6 +4146,7 @@ msgid "Removing…"
 msgstr "מסיר…"
 
 #: src/components/PasskeySettings.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Rename"
 msgstr "שינוי שם"
 
@@ -4158,6 +4173,7 @@ msgstr "פתיחה מחדש"
 msgid "Replace API key"
 msgstr "החלפת מפתח API"
 
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "החלפת מפתח"
@@ -4357,6 +4373,7 @@ msgstr "רץ כשהבוט הזה מקבל הודעה מאומתת מהספק ה�
 #: src/pages/GroupPanel.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -4406,6 +4423,7 @@ msgstr "שומר..."
 #: src/components/teach/SkillDraftCard.tsx
 #: src/pages/GroupPanel.tsx
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -4426,6 +4444,7 @@ msgid "Scopes (optional)"
 msgstr "היקפים (אופציונלי)"
 
 #: src/pages/model-settings/model-picker.tsx
+#: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/Shell.tsx
@@ -4640,6 +4659,7 @@ msgstr "התחברות"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "התחברות מחדש"
 

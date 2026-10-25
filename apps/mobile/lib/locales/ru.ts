@@ -3,6 +3,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Main model": "Основная модель",
   "Add fallback": "Добавить резервную модель",
   "Manage {provider}": "Управление: {provider}",
+  "Add provider": "Добавить провайдера",
   "Choose a model": "Выберите модель",
   "Use 80 characters or fewer": "Не более 80 символов",
   "Could not update name": "Не удалось обновить имя",

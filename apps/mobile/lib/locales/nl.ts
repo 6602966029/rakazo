@@ -3,6 +3,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Main model": "Hoofdmodel",
   "Add fallback": "Back-upmodel toevoegen",
   "Manage {provider}": "{provider} beheren",
+  "Add provider": "Aanbieder toevoegen",
   "Choose a model": "Kies een model",
   "Use 80 characters or fewer": "Gebruik maximaal 80 tekens",
   "Could not update name": "Naam kon niet worden bijgewerkt",

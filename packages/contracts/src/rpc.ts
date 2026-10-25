@@ -70,6 +70,8 @@ import {
   ModelBackupListSchema,
   ModelCatalogEntrySchema,
   ModelConnectInputSchema,
+  ModelConnectionLabelSchema,
+  ModelConnectionTargetSchema,
   ModelCredentialSchema,
   ModelCreditAmountSchema,
   ModelOAuthBeginSchema,
@@ -302,6 +304,8 @@ export const appContract = {
         z.object({
           provider: z.string(),
           label: z.string().optional(),
+          /** Signs an existing connection in again; null adds another, as connect does. */
+          credentialId: ModelConnectionTargetSchema,
           modelId: z.string().optional(),
           thinkingLevel: ThinkingLevelSchema.nullable().optional(),
           makeDefault: z.boolean().optional(),
@@ -333,8 +337,12 @@ export const appContract = {
         }),
       )
       .output(z.object({ ok: z.literal(true) })),
+    rename: oc
+      .input(z.object({ credentialId: Id, label: ModelConnectionLabelSchema }))
+      .output(z.object({ ok: z.literal(true) })),
+    /** Removes one connection, or every connection of the provider when older apps omit it. */
     disconnect: oc
-      .input(z.object({ provider: z.string().trim().min(1) }))
+      .input(z.object({ provider: z.string().trim().min(1), credentialId: Id.optional() }))
       .output(z.object({ ok: z.literal(true) })),
   },
   bots: {

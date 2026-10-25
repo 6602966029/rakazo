@@ -406,6 +406,7 @@ model UserModelCredential {
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
   preferences SpaceModelPreference[]
+  roleChoices SpaceModelRoleChoice[]
 
   @@unique([id, userId])
   @@index([userId, provider, updatedAt])
@@ -1702,8 +1703,13 @@ model SpaceModelRoleChoice {
   provider      String
   modelId       String
   thinkingLevel String?
+  /// The connection this row runs on; null resolves by provider and model.
+  credentialId  String?
+  credential    UserModelCredential? @relation(fields: [credentialId, userId], references: [id, userId], onDelete: Cascade)
 
   @@id([spaceId, userId, role, position])
-  @@unique([spaceId, userId, role, provider, modelId])
+  // Unique index space_model_role_choices_model_connection_key is created in SQL with
+  // NULLS NOT DISTINCT: each model once per connection in a list.
+  @@index([credentialId, userId])
   @@map("space_model_role_choices")
 }

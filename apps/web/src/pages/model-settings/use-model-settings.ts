@@ -4,6 +4,7 @@ import {
   CLOUDFLARE_AI_GATEWAY_PROVIDER_ID,
   cloudflareModelRouting,
   compatibleConnectionName,
+  connectionDisplayName,
   DEFAULT_MODEL_CONTEXT_WINDOW,
   DEFAULT_MODEL_MAX_TOKENS,
   isCloudflareModelProvider,
@@ -55,7 +56,11 @@ function connectionMaxTokensField(providerId: string, stored: number | undefined
 export type ModelConnectIntent = {
   /** False keeps the current main model; the connection is for a fallback or another role. */
   makeDefault: boolean;
-  onConnected?: (choice: { provider: string; modelId: string }) => void | Promise<void>;
+  onConnected?: (choice: {
+    provider: string;
+    modelId: string;
+    credentialId?: string;
+  }) => void | Promise<void>;
 };
 
 export function useModelSettings(onClose: () => void) {
@@ -71,6 +76,13 @@ export function useModelSettings(onClose: () => void) {
   const [credentials, setCredentials] = useState<ModelCredential[]>([]);
   const [me, setMe] = useState<Me | null>(null);
   const [provider, setProvider] = useState("");
+  // The connection the dialog edits; null connects a new one.
+  const [credentialId, setCredentialIdState] = useState<string | null>(null);
+  const credentialIdRef = useRef(credentialId);
+  const setCredentialId = (next: string | null) => {
+    credentialIdRef.current = next;
+    setCredentialIdState(next);
+  };
   const [modelId, setModelId] = useState("");
   const modelIdRef = useRef(modelId);
   modelIdRef.current = modelId;
@@ -118,11 +130,13 @@ export function useModelSettings(onClose: () => void) {
   } = useModelOAuthSignIn({
     onClearError: () => setError(null),
     onError: setError,
-    onFinished: async () => {
+    onFinished: async (_controller, credentialId) => {
+      // A new account's later saves update it rather than adding another.
+      setCredentialId(credentialId);
       await refresh();
       const started = oauthChoiceRef.current;
       oauthChoiceRef.current = null;
-      if (started) await started.intent?.onConnected?.(started.choice);
+      if (started) await started.intent?.onConnected?.({ ...started.choice, credentialId });
     },
   });
 
@@ -134,12 +148,16 @@ export function useModelSettings(onClose: () => void) {
       rpc.models.credentials(),
       rpc.me(),
     ]);
-    if (refreshRevision !== refreshRevisionRef.current) return;
+    if (refreshRevision !== refreshRevisionRef.current) return undefined;
     const nextProvider =
       provider && nextCatalog.some((entry) => entry.provider === provider)
         ? provider
         : (nextMe.defaultProvider ?? nextCatalog[0]?.provider ?? "");
-    const nextCredential = nextCredentials.find((entry) => entry.provider === nextProvider);
+    const nextCredential = credentialIdRef.current
+      ? nextCredentials.find((entry) => entry.id === credentialIdRef.current)
+      : undefined;
+    // A connection removed elsewhere leaves the dialog connecting a new one.
+    if (credentialIdRef.current && !nextCredential) setCredentialId(null);
     const nextModel =
       nextProvider === OPENAI_COMPATIBLE_PROVIDER_ID
         ? (nextCredential?.modelId ??
@@ -191,6 +209,7 @@ export function useModelSettings(onClose: () => void) {
       setAccountId(nextCredential?.accountId ?? "");
       setGatewayId(nextCredential?.gatewayId ?? "");
     }
+    return nextCredentials;
   }
 
   useEffect(() => {
@@ -234,14 +253,22 @@ export function useModelSettings(onClose: () => void) {
     baseUrl,
     groups.find((group) => group.id === provider)?.name ?? provider,
   );
-  const disconnectName = selectedProviderName;
+  const credential = credentialId
+    ? credentials.find((entry) => entry.id === credentialId)
+    : undefined;
+  const selectedConnectionName = credential
+    ? connectionDisplayName(
+        credential,
+        groups.find((group) => group.id === provider)?.name ?? provider,
+      )
+    : selectedProviderName;
+  const disconnectName = selectedConnectionName;
   const hostCredentialSource = me?.hostCredentialSource ?? "";
   const isOpenAiCompatible = provider === OPENAI_COMPATIBLE_PROVIDER_ID;
   const isCloudflareGateway = provider === CLOUDFLARE_AI_GATEWAY_PROVIDER_ID;
   const isCloudflare = isCloudflareModelProvider(provider);
   const cloudflareRoutingReady =
     !isCloudflare || cloudflareModelRouting({ provider, accountId, gatewayId }) !== undefined;
-  const credential = credentials.find((entry) => entry.provider === provider);
   const currentEntry = catalog.find(
     (entry) => entry.provider === me?.defaultProvider && entry.id === me?.defaultModel,
   );
@@ -327,13 +354,18 @@ export function useModelSettings(onClose: () => void) {
     );
   }
 
-  function chooseProvider(nextProvider: string, presetBaseUrl?: string) {
+  /** Opens a connection (by id) or a new one (null) for the provider. */
+  function chooseProvider(
+    nextProvider: string,
+    presetBaseUrl?: string,
+    targetCredentialId: string | null = null,
+  ) {
     cancelOAuthAttempt();
     selectionRevisionRef.current += 1;
-    const nextCredential = credentials.find(
-      (entry) =>
-        entry.provider === nextProvider && (!presetBaseUrl || entry.baseUrl === presetBaseUrl),
-    );
+    const nextCredential = targetCredentialId
+      ? credentials.find((entry) => entry.id === targetCredentialId)
+      : undefined;
+    setCredentialId(nextCredential?.id ?? null);
     const nextModelId =
       nextProvider === OPENAI_COMPATIBLE_PROVIDER_ID
         ? (nextCredential?.modelId ?? "")
@@ -538,7 +570,7 @@ export function useModelSettings(onClose: () => void) {
     setNotice(null);
     setPending(settingsOnly ? "settings" : "connect");
     try {
-      await rpc.models.connect(
+      const saved = await rpc.models.connect(
         isOpenAiCompatible
           ? {
               provider: selected.provider,
@@ -556,6 +588,7 @@ export function useModelSettings(onClose: () => void) {
               ...(intent ? { makeDefault: intent.makeDefault } : {}),
               apiKey: apiKey.trim() || undefined,
               label: selected.providerName ?? selected.provider,
+              credentialId: credential?.id ?? null,
             }
           : {
               provider: selected.provider,
@@ -571,14 +604,18 @@ export function useModelSettings(onClose: () => void) {
               ...(intent ? { makeDefault: intent.makeDefault } : {}),
               maxTokens: parsedMaxTokens ?? null,
               label: selected.providerName ?? selected.provider,
+              credentialId: credential?.id ?? null,
             },
       );
+      // Saving again edits the connection just made instead of adding another.
+      if (saved?.id) setCredentialId(saved.id);
       if (!settingsOnly) setApiKey("");
       await refresh();
       if (!settingsOnly)
         await intent?.onConnected?.({
           provider: selected.provider,
           modelId: activeModelId,
+          credentialId: saved?.id,
         });
       // A fresh connection speaks for itself through the Active model row.
       if (isOpenAiCompatible || savingLimitOnly) setNotice(t`Saved.`);
@@ -596,11 +633,12 @@ export function useModelSettings(onClose: () => void) {
     setNotice(null);
     setPending("disconnect");
     try {
-      await rpc.models.disconnect({ provider: selected.provider });
+      await rpc.models.disconnect({ provider: selected.provider, credentialId: credential.id });
+      setCredentialId(null);
       setApiKey("");
       setThinkingLevel(null);
       await refresh();
-      setNotice(t`Disconnected ${selected.providerName ?? selected.provider}.`);
+      setNotice(t`Disconnected ${disconnectName}.`);
     } catch (err) {
       setError(errorText(err, t`Could not disconnect this provider`));
     } finally {
@@ -623,6 +661,7 @@ export function useModelSettings(onClose: () => void) {
     };
     void startSubscriptionSignIn({
       provider: selected.provider,
+      credentialId: credential?.id ?? null,
       modelId: selected.id,
       ...(intent ? { makeDefault: intent.makeDefault } : {}),
       thinkingLevel: clampCatalogThinkingLevel(
@@ -698,6 +737,7 @@ export function useModelSettings(onClose: () => void) {
     provider,
     reasoning,
     selected,
+    selectedConnectionName,
     selectedProviderName,
     selectionRevisionRef,
     setAccountId,
