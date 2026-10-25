@@ -16,9 +16,13 @@ vi.mock("./session", () => ({
   subscribeSessionGeneration: () => () => undefined,
 }));
 
-const app = (file: string) =>
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), `../app/${file}`), "utf8");
-const thread = app("thread.tsx");
+const source = (file: string) =>
+  readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), `../components/thread/${file}`),
+    "utf8",
+  );
+const screen = source("thread-screen.tsx");
+const header = source("thread-header.tsx");
 
 const members = [
   { botId: "bot-2", name: "Scout", color: "#3B82F6::shape_1" },
@@ -97,9 +101,9 @@ it("keeps seating a just-created group through an inbox refresh that predates it
 });
 
 it("publishes the members the chat loads to its title", () => {
-  expect(thread).toMatch(
+  expect(screen).toMatch(
     /const groupMembers = groupId\s+\? \(snap\?\.members \?\? mentionGroups\.find\(\(group\) => group\.id === groupId\)\?\.members\)/,
   );
-  const publish = thread.slice(thread.indexOf("publishChatTitle(route.key, {"));
+  const publish = header.slice(header.indexOf("publishChatTitle(route.key, {"));
   expect(publish.slice(0, publish.indexOf("});"))).toContain("members: groupMembers,");
 });
