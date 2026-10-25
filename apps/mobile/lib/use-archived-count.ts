@@ -1,6 +1,10 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { archivedChatCounts, loadArchivedChats, onArchivedChatsChanged } from "./archived-chats";
+import {
+  archivedChatCounts,
+  loadAllArchivedChats as loadArchivedChats,
+  onArchivedChatsChanged,
+} from "./archived-chats";
 
 /** How many chats this space has archived, for the row at the end of the inbox. */
 export function useArchivedCount(spaceId: string | undefined, hasSession: boolean) {
