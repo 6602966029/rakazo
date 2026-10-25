@@ -160,6 +160,7 @@ function fixture(runId = "run-1") {
         return { count: 1 };
       }),
     },
+    chatGroup: { findMany: vi.fn(async () => []) },
     bot: {
       findUniqueOrThrow: vi.fn(async () => ({
         id: run.botId,

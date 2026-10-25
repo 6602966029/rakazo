@@ -307,7 +307,7 @@ import {
   updateChildBot,
   updateFleetGroup,
 } from "./fleet-tools.js";
-import { handoffToGroupBot, loadGroupContext } from "./group-handoff.js";
+import { handoffToGroupBot, loadBotGroupDirectory, loadGroupContext } from "./group-handoff.js";
 import {
   COMPACTION_BATCH_SIZE,
   formatCompactedSummary,
@@ -7703,16 +7703,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
             return finish(result);
           }
           if (name === "handoff_to_bot") {
-            if (!thread.groupId)
-              return finish({
-                error: "handoff_to_bot is only for group chats",
-              });
-            const result = await handoffToGroupBot(deps, run, thread.groupId, {
+            const groupId = args.group_id ? String(args.group_id).trim() : thread.groupId;
+            if (!groupId) return finish({ error: "group_id is required outside a group chat" });
+            const result = await handoffToGroupBot(deps, run, groupId, {
               bot_id: args.bot_id ? String(args.bot_id) : undefined,
               confirm_name: args.confirm_name ? String(args.confirm_name) : undefined,
-              message: String(args.message ?? ""),
+              message: redactSecrets(String(args.message ?? ""), runSecrets),
+              deliveryKey: effectKey,
             });
-            if ("ok" in result && result.ok) handedOff = true;
+            if ("ok" in result && result.ok && thread.groupId) handedOff = true;
             return finish(result);
           }
           if (name === "archive_bot" || name === "delete_bot") {
@@ -7990,34 +7989,25 @@ export function createRunExecutor(deps: ExecutorDeps) {
           : history;
         const runtimeHistory = [...historicalContext, ...historyWithImages];
         // Without a roster a bot only knows the bots it spawned itself.
-        const botDirectory = thread.groupId
-          ? undefined
-          : renderBotDirectory(
-              (
-                await deps.prisma.bot.findMany({
-                  where: {
-                    spaceId: run.spaceId,
-                    userId: run.userId,
-                    archivedAt: null,
-                    id: { not: bot.id },
-                    thread: { isNot: null },
-                  },
-                  select: {
-                    id: true,
-                    name: true,
-                    title: true,
-                    description: true,
-                  },
-                  orderBy: { createdAt: "asc" },
-                  take: BOT_DIRECTORY_LIMIT,
-                })
-              ).map((peer) => ({
-                id: peer.id,
-                name: peer.name,
-                title: peer.title,
-                description: peer.description,
-              })),
-            );
+        const [teammates, groupDirectory] = await Promise.all([
+          thread.groupId
+            ? []
+            : deps.prisma.bot.findMany({
+                where: {
+                  spaceId: run.spaceId,
+                  userId: run.userId,
+                  archivedAt: null,
+                  id: { not: bot.id },
+                  thread: { isNot: null },
+                },
+                select: { id: true, name: true, title: true, description: true },
+                orderBy: { createdAt: "asc" },
+                take: BOT_DIRECTORY_LIMIT,
+              }),
+          !thread.groupId ? loadBotGroupDirectory(deps.prisma, run) : undefined,
+        ]);
+        const botDirectory =
+          [renderBotDirectory(teammates), groupDirectory].filter(Boolean).join("\n\n") || undefined;
 
         if (heldForTakeover) {
           const releasedCheckpoint = takeoverCheckpointOf(

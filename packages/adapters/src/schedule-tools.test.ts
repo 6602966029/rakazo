@@ -216,6 +216,7 @@ describe("filterBuiltinToolsForThread", () => {
       "remember",
     ]);
     expect(filterBuiltinToolsForThread(tools, null).map((tool) => tool.name)).toEqual([
+      "handoff_to_bot",
       "message_bot",
       "schedule_create",
       "schedule_list",

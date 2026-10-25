@@ -1445,10 +1445,15 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "handoff_to_bot",
     description:
-      "In a group chat only: transfer a genuinely distinct next stage to another current member. Appends a visible handoff and starts that bot asynchronously. Do not hand a stage back merely to report or repeat the same work; post results in the shared thread.",
+      "Transfer a genuinely distinct next stage to another current group member. In a group, stay in that group. Outside a group, supply group_id from your groups list to coordinate there. Appends a visible handoff and starts that bot asynchronously. Do not hand a stage back merely to report or repeat the same work; post results in the shared thread.",
     inputSchema: {
       type: "object",
       properties: {
+        group_id: {
+          type: "string",
+          description:
+            "Explicit destination from your groups list; required outside a group, omitted in a group.",
+        },
         bot_id: { type: "string", description: "Target member bot id." },
         confirm_name: {
           type: "string",
