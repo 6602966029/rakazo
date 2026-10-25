@@ -205,7 +205,7 @@ test("folds a peer run's reply under its marker and keeps its ask inline", async
   await expect(collapse).toHaveAttribute("aria-expanded", "true");
   await expect(reply).toBeInViewport();
   await captureScreenshot(page, testInfo, "peer-reply-search-jump");
-  await search.fill("");
+  await expect(search).toHaveCount(0);
   await collapse.click();
   await expect(reply).toHaveCount(0);
 
