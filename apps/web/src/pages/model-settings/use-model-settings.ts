@@ -116,6 +116,7 @@ export function useModelSettings(onClose: () => void) {
   const preflightRevisionRef = useRef(0);
   const refreshRevisionRef = useRef(0);
   const selectionRevisionRef = useRef(0);
+  const formRevisionRef = useRef(0);
   const selectedLabelRef = useRef<string | undefined>(undefined);
 
   const {
@@ -362,6 +363,7 @@ export function useModelSettings(onClose: () => void) {
     targetCredentialId: string | null = null,
   ) {
     cancelOAuthAttempt();
+    formRevisionRef.current += 1;
     selectionRevisionRef.current += 1;
     const nextCredential = targetCredentialId
       ? credentials.find((entry) => entry.id === targetCredentialId)
@@ -570,9 +572,10 @@ export function useModelSettings(onClose: () => void) {
     setError(null);
     setNotice(null);
     setPending(settingsOnly ? "settings" : "connect");
-    // Another connection opened while this saves keeps its own form.
-    const selection = selectionRevisionRef.current;
-    const stillSelected = () => selection === selectionRevisionRef.current;
+    // Opening another connection while this saves leaves that form alone; field edits
+    // in this form still adopt the connection the save creates.
+    const form = formRevisionRef.current;
+    const stillSelected = () => form === formRevisionRef.current;
     try {
       const saved = await rpc.models.connect(
         isOpenAiCompatible
