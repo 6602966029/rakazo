@@ -46,7 +46,7 @@ export function RoleModelPicker({
   label: string;
   options: RoleModelOption[];
   providers: ConnectableProvider[];
-  /** Clears the slot back to the deployment's own choice. */
+  /** The deployment's model, offered to clear the slot back to it. */
   defaultOption?: string;
   disabled?: boolean;
   onPick: (option: RoleModelOption | null) => void;
@@ -158,7 +158,10 @@ export function RoleModelPicker({
                     close();
                   }}
                 >
-                  {defaultOption}
+                  <span className="min-w-0 truncate">{defaultOption}</span>
+                  <CommandShortcut className="text-[13px] tracking-normal">
+                    <Trans>Default</Trans>
+                  </CommandShortcut>
                 </CommandItem>
               </CommandGroup>
             ) : null}

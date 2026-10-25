@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { i18n } from "@lingui/core";
-import type { ModelCatalogEntry, ModelRoleSettings as Settings } from "@rakazo/contracts";
+import type { ModelCatalogEntry, ModelRoleView as Settings } from "@rakazo/contracts";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** Provider rows end with their "Connect" action; models show their name alone. */
-const optionName = (entry: Element) => entry.textContent?.replace(/Connect$/, "");
+const optionName = (entry: Element) => entry.textContent?.replace(/(Connect|Default)$/, "");
 const api = vi.hoisted(() => ({ role: vi.fn(), forRole: vi.fn(), setRole: vi.fn() }));
 vi.mock("../lib/localized-provider-hint", () => ({
   providerDisplayName: (provider: string, name: string, auth?: string) =>
@@ -202,11 +202,14 @@ describe("shared role editor", () => {
       expect.anything(),
     );
   });
-  it("resets the approval model to the deployment default and keeps its fallbacks", async () => {
-    saved = { primary: jev, backups: [mini] };
+  it("names the deployment's model and resets to it, keeping the fallbacks", async () => {
+    saved = { primary: jev, backups: [mini], deploymentPrimary: chat };
     await render({ modelRole: "approval", title: "Approval model" });
-    await pick("Change Jev 1.14", "Deployment default");
-    expect(saved).toEqual({ primary: null, backups: [mini] });
+    await pick("Change Jev 1.14", "Chat");
+    expect(saved).toMatchObject({ primary: null, backups: [mini] });
+    expect(container.querySelector('[data-testid="model-role-default"]')?.textContent).toBe(
+      "1Chat· OpenRouter",
+    );
   });
   it("leaves a model where the loaded list has it when it is picked again", async () => {
     saved = { primary: chat, backups: [jev] };

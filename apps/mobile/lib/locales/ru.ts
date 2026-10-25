@@ -433,7 +433,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Delete…": "Удалить…",
   Denied: "Запрещено",
   Deny: "Запретить",
-  "Deployment default": "Развертывание по умолчанию",
   Description: "Описание",
   "Don’t have an account?": "Нет аккаунта?",
   Done: "Готово",

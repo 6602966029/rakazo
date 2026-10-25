@@ -212,9 +212,7 @@ export default function Models() {
               spaceId={me.spaceId}
               modelRole="main"
               title={t("Main model")}
-              defaultLabel={
-                me.hostCredentialProvider ? t("Deployment default") : t("Choose a model")
-              }
+              defaultLabel={t("Choose a model")}
               onChanged={() => void load()}
             />
             <ModelRoleSettings
@@ -223,7 +221,7 @@ export default function Models() {
               spaceId={me.spaceId}
               modelRole="approval"
               title={t("Approval model")}
-              defaultLabel={t("Deployment default")}
+              defaultLabel={t("Choose a model")}
             />
             <ModelProviders
               catalog={catalog}

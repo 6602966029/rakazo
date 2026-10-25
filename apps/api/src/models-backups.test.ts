@@ -82,6 +82,7 @@ function setup(
     spaceBackupModel,
   };
   const prisma = {
+    deploymentSettings: { findUnique: vi.fn(async () => null) },
     space: {
       findFirst: vi.fn(async () => ({ organization: { modelCredits: { mode: "credits" } } })),
     },
@@ -427,7 +428,7 @@ describe("role-based model settings API", () => {
     });
     expect(missing.response.status).toBe(400);
     const read = await call("models/role", { role: "approval" });
-    expect((await read.response.json()).json).toEqual({ primary: null, backups: [] });
+    expect((await read.response.json()).json).toMatchObject({ primary: null, backups: [] });
   });
   it("lists the same model on two connections, each validated on its own", async () => {
     const { call, prisma, roles } = setup();
@@ -457,7 +458,7 @@ describe("role-based model settings API", () => {
       backups: [backup],
     });
     expect(response.status).toBe(200);
-    expect((await response.json()).json).toEqual({ primary, backups: [backup] });
+    expect((await response.json()).json).toMatchObject({ primary, backups: [backup] });
     expect(roles().map((row) => [row.position, row.credentialId])).toEqual([
       [0, "credential-personal"],
       [1, "credential-work"],

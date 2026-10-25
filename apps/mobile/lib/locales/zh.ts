@@ -407,7 +407,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Delete…": "删除…",
   Denied: "已拒绝",
   Deny: "拒绝",
-  "Deployment default": "部署默认",
   Description: "描述",
   "Don’t have an account?": "还没有账户？",
   Done: "完成",

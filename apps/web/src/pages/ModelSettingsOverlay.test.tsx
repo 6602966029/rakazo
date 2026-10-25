@@ -446,7 +446,7 @@ it("labels the empty main slot by what runs there", async () => {
     );
     expect(
       section("approval").querySelector('[data-testid="model-role-default"]')?.textContent,
-    ).toBe("1Deployment default");
+    ).toBe("1Choose a model");
   } finally {
     await view.unmount();
   }

@@ -57,7 +57,6 @@ export function ModelSettingsOverlay({
     credential,
     credentialByProvider,
     credentials,
-    currentEntry,
     disconnectCredential,
     disconnectName,
     error,
@@ -299,11 +298,7 @@ export function ModelSettingsOverlay({
                 spaceId={me.spaceId}
                 credentials={credentials}
                 title={t`Main model`}
-                defaultLabel={
-                  me.needsModel
-                    ? t`Choose a model`
-                    : (currentEntry?.label ?? me.defaultModel ?? t`Deployment default`)
-                }
+                defaultLabel={t`Choose a model`}
                 providers={providers}
                 providerLabel={providerLabel}
                 onConnect={(next, intent) => openConnection(next, intent, null, "main")}
@@ -325,7 +320,7 @@ export function ModelSettingsOverlay({
                 credentials={credentials}
                 modelRole="approval"
                 title={t`Approval model`}
-                defaultLabel={t`Deployment default`}
+                defaultLabel={t`Choose a model`}
                 providers={providers}
                 providerLabel={providerLabel}
                 onConnect={(next, intent) => openConnection(next, intent, null, "approval")}

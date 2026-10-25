@@ -114,7 +114,7 @@ import {
   IntegrationSetupStateSchema,
 } from "./integration-settings.js";
 import { ModelHeadersSchema } from "./model-headers.js";
-import { ModelRoleSchema, ModelRoleSettingsSchema, ModelRoleUpdateSchema } from "./model-roles.js";
+import { ModelRoleSchema, ModelRoleUpdateSchema, ModelRoleViewSchema } from "./model-roles.js";
 import { MessageReactionSchema } from "./reactions.js";
 import { RoutineWatchSchema } from "./routine-watch.js";
 import { RoutineHistorySchema, RoutineRunCursorSchema, RunsListOutputSchema } from "./runs.js";
@@ -272,10 +272,10 @@ export const appContract = {
       .output(z.array(ModelCatalogEntrySchema)),
     role: oc
       .input(z.object({ role: ModelRoleSchema, expectedUserId: Id.optional() }))
-      .output(ModelRoleSettingsSchema),
+      .output(ModelRoleViewSchema),
     setRole: oc
       .input(ModelRoleUpdateSchema.extend({ role: ModelRoleSchema, expectedUserId: Id.optional() }))
-      .output(ModelRoleSettingsSchema),
+      .output(ModelRoleViewSchema),
     list: oc.output(z.array(ModelCatalogEntrySchema)),
     credentials: oc.output(z.array(ModelCredentialSchema)),
     backups: oc.output(z.array(ModelBackupChoiceSchema)),

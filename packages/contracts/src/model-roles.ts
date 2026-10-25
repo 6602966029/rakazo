@@ -18,6 +18,11 @@ export const ModelRoleSettingsSchema = z.object({
 });
 export type ModelRoleSettings = z.infer<typeof ModelRoleSettingsSchema>;
 export const ModelRoleUpdateSchema = ModelRoleSettingsSchema.partial();
+/** A member's choices plus what the deployment runs when they chose no model. */
+export const ModelRoleViewSchema = ModelRoleSettingsSchema.extend({
+  deploymentPrimary: ModelRoleChoiceSchema.nullable().optional(),
+});
+export type ModelRoleView = z.infer<typeof ModelRoleViewSchema>;
 
 export function modelSupportsRole(entry: ModelCatalogEntry, role: ModelRole): boolean {
   return role === "approval" || entry.protocol !== "decisions";

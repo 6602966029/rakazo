@@ -158,6 +158,9 @@ export function ModelRoleSettings({
     (choice.credentialId &&
       options.find((option) => option.credentialId === choice.credentialId)?.providerName) ||
     providerLabel(choice.provider);
+  // What runs when the member chose no first model; named in the empty row and offered to
+  // return to from the picker.
+  const deployment = settings?.deploymentPrimary ?? null;
   const modelLabel = (choice: ModelBackupChoice) => entryFor(choice)?.label ?? choice.modelId;
   const busy = state.busy || state.stale || !settings;
   // Picks build their change from the settings loaded when they save, so a reload in flight
@@ -244,10 +247,12 @@ export function ModelRoleSettings({
           <li className={`${rowClass} ps-8`} data-testid="model-role-default">
             {number(0)}
             <RoleModelPicker
-              trigger={pickerTrigger(defaultLabel)}
+              trigger={pickerTrigger(
+                deployment ? modelLabel(deployment) : defaultLabel,
+                deployment ? providerName(deployment) : undefined,
+              )}
               label={t`Change ${title}`}
               options={options}
-              defaultOption={role === "main" ? undefined : defaultLabel}
               providers={providers}
               disabled={pickerLocked}
               onPick={(option) => (option ? void setPrimary(choiceOf(option)) : null)}
@@ -291,7 +296,9 @@ export function ModelRoleSettings({
                 trigger={pickerTrigger(name, providerName(choice))}
                 label={t`Change ${name}`}
                 options={options}
-                defaultOption={isPrimary && role !== "main" ? defaultLabel : undefined}
+                defaultOption={
+                  isPrimary && role !== "main" && deployment ? modelLabel(deployment) : undefined
+                }
                 providers={providers}
                 disabled={pickerLocked}
                 onPick={(option) =>

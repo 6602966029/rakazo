@@ -146,6 +146,9 @@ export function ModelRoleSettings({
     optionFor(choice)?.providerName ??
     providers.find((provider) => provider.id === choice.provider)?.name ??
     choice.provider;
+  // What runs when the member chose no first model; named in the empty row.
+  const deployment = state.settings?.deploymentPrimary ?? null;
+  const deploymentName = deployment ? modelLabel(deployment) : null;
   /** The row's own connection, or the provider's newest for rows that name none. */
   const connectionFor = (choice: ModelRoleChoice) =>
     choice.credentialId
@@ -233,7 +236,7 @@ export function ModelRoleSettings({
     const taken = new Set(
       rows.map((row) => (row.credentialId ? modelRoleChoiceKey(row) : backupChoiceKey(row))),
     );
-    const offerDefault = primarySlot && role !== "main" && !narrowed;
+    const offerDefault = primarySlot && role !== "main" && !narrowed && deployment !== null;
     // A row that names no connection is checked on its provider's first connection.
     const currentKey = current
       ? modelRoleChoiceKey(
@@ -249,7 +252,13 @@ export function ModelRoleSettings({
       selectedKey: currentKey ?? (offerDefault ? "default" : ""),
       choices: [
         ...(offerDefault
-          ? [{ key: "default", label: defaultLabel, modelLabel: defaultLabel }]
+          ? [
+              {
+                key: "default",
+                label: deploymentName ?? defaultLabel,
+                modelLabel: deploymentName ?? defaultLabel,
+              },
+            ]
           : []),
         ...pool
           .filter(
@@ -349,7 +358,8 @@ export function ModelRoleSettings({
         <SettingsRow
           key="empty"
           leading={number(0)}
-          title={defaultLabel}
+          title={deploymentName ?? defaultLabel}
+          detail={deployment ? providerName(deployment) : undefined}
           disabled={busy}
           onPress={() => pick("empty")}
         />

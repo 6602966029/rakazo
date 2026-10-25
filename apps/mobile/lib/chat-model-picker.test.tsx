@@ -68,6 +68,8 @@ const mocks = vi.hoisted(() => ({
   >(),
 }));
 
+/** The deployment's approval model, shown when the member chose none. */
+const APPROVAL_DEFAULT = { provider: "openrouter", modelId: "vendor/model-1" };
 const CREDENTIAL_ID = "credential-fixture";
 const WORK_CREDENTIAL_ID = "credential-work";
 
@@ -126,7 +128,11 @@ vi.mock("./api", () => ({
     if (procedure === "bots/update") return mocks.update(input);
     if (procedure === "models/role") {
       const main = (input as { role: string }).role === "main";
-      return { primary: main ? mocks.primary : null, backups: main ? await mocks.backups : [] };
+      return {
+        primary: main ? mocks.primary : null,
+        backups: main ? await mocks.backups : [],
+        deploymentPrimary: main ? null : APPROVAL_DEFAULT,
+      };
     }
     if (procedure === "models/forRole") return mocks.catalogEmpty ? [] : catalog;
     if (procedure === "models/setRole") {
@@ -137,7 +143,11 @@ vi.mock("./api", () => ({
         backups: { provider: string; modelId: string }[];
       }>;
       if (patch.role !== "main")
-        return { primary: patch.primary ?? null, backups: patch.backups ?? [] };
+        return {
+          primary: patch.primary ?? null,
+          backups: patch.backups ?? [],
+          deploymentPrimary: APPROVAL_DEFAULT,
+        };
       // The main list persists like the server so a reload after a promotion keeps it.
       if (patch.primary !== undefined) mocks.primary = patch.primary;
       if (patch.backups) mocks.backups = patch.backups;
@@ -1031,7 +1041,7 @@ describe("model role lists", () => {
     ]);
     const approval = [...section("Approval model").querySelectorAll("button")];
     expect(approval.map((button) => button.textContent)).toEqual([
-      "1Deployment default",
+      "1Model 1OpenRouter",
       "Add fallback",
     ]);
   });
@@ -1223,11 +1233,11 @@ describe("model role lists", () => {
     expect(roleSaves()).toEqual([]);
   });
 
-  it("sets the approval model and clears it back to the deployment default", async () => {
+  it("names the approval model's deployment default, sets one, and clears back to it", async () => {
     await renderModels();
-    act(() => rowButton("Approval model", "Deployment default").click());
+    act(() => rowButton("Approval model", "Model 1").click());
     expect(mocks.setOptions).toHaveBeenCalledWith({ title: "Approval model" });
-    expect(pickerRows()[0]?.textContent).toBe("Deployment default");
+    expect(pickerRows()[0]?.textContent).toBe("Model 1");
     expect(pickerRows()[0]?.getAttribute("aria-selected")).toBe("true");
     searchModels("vendor/model-2");
     await act(async () => pickerRows()[0]!.click());

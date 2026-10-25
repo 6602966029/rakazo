@@ -454,7 +454,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Could not reach this model server": "Deze modelserver is niet bereikbaar",
   "Could not start sign-in": "Aanmelden starten mislukt",
   Default: "Standaard",
-  "Deployment default": "Standaard van de implementatie",
   "Enter a whole number from 1 to 1000 for the image limit.":
     "Voer een geheel getal van 1 tot 1000 in voor de afbeeldingslimiet.",
   "Enter a whole number from 1 to {max} for maximum output tokens.":

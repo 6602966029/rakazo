@@ -1222,6 +1222,7 @@ msgstr "비우는 중…"
 #: src/components/ErrorBoundary.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/MessagingSettingsOverlay.tsx
+#: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/PeerMessagesOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -2116,6 +2117,7 @@ msgid "Decline"
 msgstr "거절"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
+#: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
@@ -2205,10 +2207,6 @@ msgstr "거부됨"
 #: src/components/AskCard.tsx
 msgid "Deny"
 msgstr "거부"
-
-#: src/pages/ModelSettingsOverlay.tsx
-msgid "Deployment default"
-msgstr "서버 기본값"
 
 #: src/pages/Board.tsx
 #: src/pages/shell/bot-panel.tsx

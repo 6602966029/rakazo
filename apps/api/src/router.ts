@@ -164,6 +164,8 @@ import type {
   ModelCatalogEntry,
   ModelRole,
   ModelRoleChoice,
+  ModelRoleSettings,
+  ModelRoleView,
   ProductEvent,
   Routine,
   SpaceNavigation,
@@ -1116,6 +1118,22 @@ export function createRouter(deps: RouterDeps) {
     );
   };
 
+  // Shown where a member chose no model, so the list names what actually runs.
+  const withDeploymentDefault = async (
+    role: ModelRole,
+    settings: ModelRoleSettings,
+  ): Promise<ModelRoleView> => {
+    const defaults =
+      role === "main"
+        ? {
+            settings: await deps.prisma.deploymentSettings.findUnique({ where: { id: "default" } }),
+            deployment: deps.env.deploymentModelConfigured
+              ? { provider: deps.env.defaultProvider, model: deps.env.defaultModel }
+              : null,
+          }
+        : { env: process.env };
+    return { ...settings, deploymentPrimary: deploymentModelRole(role, defaults).primary };
+  };
   const modelRoleCatalog = async (actor: Actor, role: ModelRole): Promise<ModelCatalogEntry[]> => {
     const catalog = await chatCatalog(actor);
     const decisions = role === "approval" ? decisionModelCatalog() : [];
@@ -1605,7 +1623,10 @@ export function createRouter(deps: RouterDeps) {
       role: authed.models.role.handler(async ({ context, input }) => {
         if (input.expectedUserId && input.expectedUserId !== context.actor.userId)
           throw new ORPCError("FORBIDDEN");
-        return getModelRole(deps.prisma, context.actor, input.role);
+        return withDeploymentDefault(
+          input.role,
+          await getModelRole(deps.prisma, context.actor, input.role),
+        );
       }),
       setRole: authed.models.setRole.handler(async ({ context, input }) => {
         if (input.expectedUserId && input.expectedUserId !== context.actor.userId)
@@ -1630,12 +1651,15 @@ export function createRouter(deps: RouterDeps) {
             await assertCompatibleDefaultChange(deps, context.actor, primary.modelId, thinking);
           }
         }
-        return updateModelRole(
-          deps.prisma,
-          context.actor,
+        return withDeploymentDefault(
           role,
-          { primary, backups },
-          { primaryCredentialId: primary ? credentials[0]?.id : null },
+          await updateModelRole(
+            deps.prisma,
+            context.actor,
+            role,
+            { primary, backups },
+            { primaryCredentialId: primary ? credentials[0]?.id : null },
+          ),
         );
       }),
       backups: authed.models.backups.handler(async ({ context }) =>
