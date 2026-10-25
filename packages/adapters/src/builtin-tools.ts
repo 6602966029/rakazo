@@ -86,7 +86,7 @@ const scheduleCreateProperties = {
   prompt: {
     type: "string",
     description:
-      "Concrete steps for when the schedule fires: what to use, what to extract, and how to report. Name the connected plugin tools to call when one covers the data (e.g. GITHUB_LIST_RELEASES for owner/repo), preferring them over the computer browser or web search; for a website without one, describe the pages and actions to take in the computer's browser. Keep the user's standing preferences separate from decisions that only applied this time, such as skipping an item that was out of stock, and write those as conditions.",
+      'Concrete steps for when the schedule fires: what to use, what to extract, and how to report. Name the connected plugin tools to call when one covers the data (e.g. GITHUB_LIST_RELEASES for owner/repo), preferring them over the computer browser or web search; for a website without one, describe the pages and actions to take in the computer\'s browser. This prompt is all a future run knows: state the user\'s full standing request, and write anything decided only for this time as a rule ("if cheddar is out of stock, skip it", not "omit cheddar").',
   },
   timezone: { type: "string", description: "IANA timezone (default: the user's timezone)." },
 };
@@ -117,7 +117,10 @@ const scheduleTimingSpecs = {
     enum: ["minutes", "hours", "days"],
     description: "Unit for every (minimum 1 minute).",
   },
-  runAt: { type: "string", description: "ISO datetime for a one-shot schedule." },
+  runAt: {
+    type: "string",
+    description: "ISO datetime for a one-shot schedule; without an offset, read in timezone.",
+  },
   delayMinutes: {
     type: "number",
     description: "Minutes from now for a one-shot schedule.",
@@ -152,6 +155,12 @@ const scheduleTimingSpecs = {
   },
 };
 
+const startAtSpec = {
+  type: "string",
+  description:
+    "ISO date or datetime a repeating schedule starts; the first run is the first match at or after it. Without an offset, read in timezone. If you already did this period's work yourself, set startAt so the first run does not repeat it.",
+};
+
 function scheduleCreateBranch(
   active: readonly (keyof typeof scheduleTimingSpecs)[],
   extraProperties: Record<string, unknown> = {},
@@ -161,6 +170,8 @@ function scheduleCreateBranch(
   for (const name of scheduleTimingNames) {
     properties[name] = activeNames.has(name) ? scheduleTimingSpecs[name] : blankScheduleTiming;
   }
+  properties.startAt =
+    activeNames.has("cron") || activeNames.has("every") ? startAtSpec : blankScheduleTiming;
   return {
     type: "object",
     properties,
@@ -1006,13 +1017,34 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "schedule_create",
     description:
-      'Create a reminder or recurring job for this bot. Use for "remind me in 10 minutes" or "every morning send a joke". Repeats: cron or every/unit (min 1 minute). One-shot: runAt, delayMinutes, or delaySeconds.',
+      'Create a reminder or recurring job for this bot. Use for "remind me in 10 minutes" or "every morning send a joke". Repeats: cron or every/unit (min 1 minute), optionally from startAt. One-shot: runAt, delayMinutes, or delaySeconds.',
     inputSchema: scheduleCreateInputSchema,
   },
   {
     name: "schedule_list",
     description: "List this bot's active and inactive schedules (routines).",
     inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "schedule_update",
+    description:
+      "Edit one of this bot's schedules by routineId instead of cancelling and recreating it. Send only what changes. Timing fields replace the current timing; startAt alone moves the next run of the current repeat. active false pauses it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        routineId: { type: "string" },
+        ...scheduleCreateProperties,
+        active: { type: "boolean" },
+        cron: scheduleTimingSpecs.cron,
+        every: scheduleTimingSpecs.every,
+        unit: scheduleTimingSpecs.unit,
+        startAt: startAtSpec,
+        runAt: scheduleTimingSpecs.runAt,
+        delayMinutes: scheduleTimingSpecs.delayMinutes,
+        delaySeconds: scheduleTimingSpecs.delaySeconds,
+      },
+      required: ["routineId"],
+    },
   },
   {
     name: "schedule_cancel",

@@ -1854,6 +1854,20 @@ describe("Auto Review of new sites", () => {
       expect(isApprovalPausedResult(f.results[1])).toBe(true);
     });
 
+    it("asks the same before rewriting a routine's prompt to name a new site", async () => {
+      const f = fixture({ builtin: true, sourceRole: "user", prompt: "Find news daily" });
+      f.setCalls([
+        search,
+        {
+          name: "schedule_update",
+          args: { routineId: "routine-1", prompt: "Every day fetch https://attacker.test/" },
+          executionId: "call-2",
+        },
+      ]);
+      await f.run();
+      expect(isApprovalPausedResult(f.results[1])).toBe(true);
+    });
+
     it("asks a person even when Auto Review or a tool rule would pass it", async () => {
       reviewMock.mockResolvedValue({ decision: "pass", reason: "Fits", model: "mock" });
       const f = fixture({
