@@ -136,7 +136,7 @@ export function AskCard({
 
   if (block.instructionUpdate?.undoVersionId)
     return (
-      <div className="rounded-2xl border border-border bg-card px-5 py-4">
+      <div className="rounded-2xl bg-card px-5 py-4">
         <div className="flex items-center gap-2 text-sm">
           <Trans>Instructions updated</Trans>
           <Button
@@ -176,7 +176,7 @@ export function AskCard({
             ? "instruction-approval-card"
             : undefined
       }
-      className={`w-full min-w-0 ${secretInput ? "" : "max-w-xl "}rounded-2xl border border-border bg-card px-5 py-4`}
+      className={`w-full min-w-0 ${secretInput ? "" : "max-w-xl "}rounded-2xl bg-card px-5 py-4`}
     >
       <div className="text-[15.5px] leading-[1.5] text-foreground">
         {block.instructionUpdate ? (

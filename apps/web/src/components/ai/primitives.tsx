@@ -127,7 +127,7 @@ export function BuiCard({ className, ...props }: React.ComponentPropsWithoutRef<
   return (
     <div
       {...props}
-      className={cn("rounded-2xl border border-border bg-card shadow-sm", className)}
+      className={cn("rounded-2xl bg-card", className)}
     />
   );
 }
