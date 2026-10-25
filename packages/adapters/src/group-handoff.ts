@@ -1,6 +1,14 @@
 import { runContinueJob } from "@rakazo/adapter-kit";
 import { MessageBlock } from "@rakazo/contracts";
-import { botMessageHopExhausted, nextBotMessageHop, renderGroupMembersContext } from "@rakazo/core";
+import {
+  BOT_MESSAGE_MAX_LENGTH,
+  botMessageContext,
+  botMessageHopExhausted,
+  nextBotMessageHop,
+  renderBotGroupDirectory,
+  renderGroupMembersContext,
+  resolveBotAddress,
+} from "@rakazo/core";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
@@ -24,6 +32,10 @@ export async function handoffToGroupBot(
   groupId: string,
   input: { bot_id?: string; confirm_name?: string; message: string },
 ) {
+  const text = input.message.trim();
+  if (!text || text.length > BOT_MESSAGE_MAX_LENGTH) {
+    return { error: `message must contain 1 to ${BOT_MESSAGE_MAX_LENGTH} characters` } as const;
+  }
   const deliveryKey = `group-handoff:${run.id}`;
   const committed = await deps.prisma.$transaction(async (tx) => {
     try {
@@ -35,8 +47,9 @@ export async function handoffToGroupBot(
     }
     const [group, activeSource] = await Promise.all([
       tx.chatGroup.findFirst({
-        where: { id: groupId, archivedAt: null, thread: { id: run.threadId } },
+        where: { id: groupId, spaceId: run.spaceId, userId: run.userId, archivedAt: null },
         include: {
+          thread: { select: { id: true } },
           members: {
             where: { bot: { archivedAt: null } },
             include: { bot: { select: { id: true, name: true } } },
@@ -53,17 +66,28 @@ export async function handoffToGroupBot(
           userId: run.userId,
           status: "running",
         },
-        select: { id: true, sourceMessage: { select: { blocks: true } } },
+        select: {
+          id: true,
+          thread: { select: { groupId: true } },
+          sourceMessage: { select: { blocks: true } },
+        },
       }),
     ]);
-    if (!group || !activeSource) return { error: "source run is no longer active" } as const;
+    if (!group?.thread) return { error: "group is no longer available" } as const;
+    if (!activeSource) return { error: "source run is no longer active" } as const;
+    const targetThreadId = group.thread.id;
+    const inGroup = targetThreadId === run.threadId;
+    if (!inGroup && activeSource.thread.groupId) {
+      return { error: "group handoffs must stay in the current group" } as const;
+    }
     if (!group.members.some((member) => member.bot.id === run.botId)) {
       return { error: "source bot is no longer a group member" } as const;
     }
 
     const existing = await tx.message.findUnique({
-      where: { threadId_clientNonce: { threadId: run.threadId, clientNonce: deliveryKey } },
+      where: { threadId_clientNonce: { threadId: targetThreadId, clientNonce: deliveryKey } },
       select: {
+        id: true,
         sourceRuns: {
           orderBy: { createdAt: "asc" },
           take: 1,
@@ -74,24 +98,36 @@ export async function handoffToGroupBot(
     if (existing) {
       const nextRun = existing.sourceRuns[0];
       const event = await tx.event.findFirst({
-        where: { threadId: run.threadId, runId: run.id, type: "group.handoff" },
+        where: {
+          threadId: targetThreadId,
+          type: "group.handoff",
+          payload: { path: ["messageId"], equals: existing.id },
+        },
         orderBy: { seq: "desc" },
         select: { seq: true },
       });
       if (!nextRun || !event) return { error: "recorded handoff is incomplete" } as const;
-      return { ok: true, botId: nextRun.botId, runId: nextRun.id, eventSeq: event.seq } as const;
+      return {
+        ok: true,
+        botId: nextRun.botId,
+        runId: nextRun.id,
+        eventSeq: event.seq,
+        threadId: targetThreadId,
+        inGroup,
+        groupName: group.name,
+      } as const;
     }
 
-    let targetId = input.bot_id?.trim();
-    if (!targetId && input.confirm_name?.trim()) {
-      const name = input.confirm_name.trim().toLowerCase();
-      targetId = group.members.find((member) => member.bot.name.toLowerCase() === name)?.bot.id;
-    }
-    if (!targetId) return { error: "handoff target bot is required" } as const;
+    const target = resolveBotAddress(
+      group.members.map((member) => member.bot),
+      {
+        botId: input.bot_id,
+        name: input.confirm_name,
+      },
+    );
+    if (!target) return { error: "handoff target is not a group member" } as const;
+    const targetId = target.id;
     if (targetId === run.botId) return { error: "cannot hand off to yourself" } as const;
-    if (!group.members.some((member) => member.bot.id === targetId)) {
-      return { error: "handoff target is not a group member" } as const;
-    }
 
     let sourceBlocks: MessageBlock[] = [];
     if (activeSource.sourceMessage) {
@@ -110,7 +146,7 @@ export async function handoffToGroupBot(
           "do not hand this stage back to its sender; post the result in the shared thread instead",
       } as const;
     }
-    const hop = nextBotMessageHop(sourceHandoff?.hop);
+    const hop = nextBotMessageHop(sourceHandoff?.hop ?? botMessageContext(sourceBlocks)?.hop);
     if (botMessageHopExhausted(hop)) {
       return {
         error:
@@ -122,24 +158,24 @@ export async function handoffToGroupBot(
       kind: "handoff",
       fromBotId: run.botId,
       toBotId: targetId,
-      text: input.message,
+      text,
       hop,
     };
     const message = await createThreadMessageInTransaction(tx, {
-      threadId: run.threadId,
+      threadId: targetThreadId,
       role: "bot",
       blocks: [handoffBlock],
       botId: run.botId,
-      runId: run.id,
+      runId: inGroup ? run.id : undefined,
       clientNonce: deliveryKey,
     });
     const task = await tx.task.create({
       data: {
         spaceId: run.spaceId,
         botId: targetId,
-        threadId: run.threadId,
+        threadId: targetThreadId,
         userId: run.userId,
-        prompt: input.message,
+        prompt: text,
         status: "queued",
       },
     });
@@ -147,7 +183,7 @@ export async function handoffToGroupBot(
       data: {
         spaceId: run.spaceId,
         botId: targetId,
-        threadId: run.threadId,
+        threadId: targetThreadId,
         taskId: task.id,
         userId: run.userId,
         status: "queued",
@@ -157,22 +193,30 @@ export async function handoffToGroupBot(
     });
     const event = await appendEventInTransaction(tx, {
       spaceId: run.spaceId,
-      threadId: run.threadId,
+      threadId: targetThreadId,
       botId: run.botId,
       type: "group.handoff",
-      runId: run.id,
+      runId: inGroup ? run.id : undefined,
       payload: {
         messageId: message.id,
         fromBotId: run.botId,
         toBotId: targetId,
-        text: input.message,
+        text,
       },
     });
     await touchGroupUpdatedAt(tx, groupId);
-    return { ok: true, botId: targetId, runId: nextRun.id, eventSeq: event.seq } as const;
+    return {
+      ok: true,
+      botId: targetId,
+      runId: nextRun.id,
+      eventSeq: event.seq,
+      threadId: targetThreadId,
+      inGroup,
+      groupName: group.name,
+    } as const;
   });
   if ("error" in committed) return committed;
-  await deps.events.notify(run.threadId, committed.eventSeq).catch((error) => {
+  await deps.events.notify(committed.threadId, committed.eventSeq).catch((error) => {
     getLogger().error("group handoff realtime notification", error);
   });
   await deps.jobs.enqueue(runContinueJob(committed.runId)).catch((error) => {
@@ -183,7 +227,11 @@ export async function handoffToGroupBot(
     ok: true,
     botId: committed.botId,
     runId: committed.runId,
-    note: "Handoff recorded. End this turn without narrating it; the next bot owns the next stage.",
+    groupId,
+    groupName: committed.groupName,
+    note: committed.inGroup
+      ? "Handoff recorded. End this turn without narrating it; the next bot owns the next stage."
+      : "Handoff recorded in the selected group. The next bot will reply there. Continue any independent work.",
   };
 }
 
@@ -209,5 +257,39 @@ export async function loadGroupContext(
     group.name,
     group.members.map((member) => member.bot),
     self,
+  );
+}
+
+/** Only the current bot's active groups in the same owner/space are discoverable. */
+export async function loadBotGroupDirectory(
+  prisma: PrismaClient,
+  actor: { botId: string; userId: string; spaceId: string },
+): Promise<string | undefined> {
+  const groups = await prisma.chatGroup.findMany({
+    where: {
+      userId: actor.userId,
+      spaceId: actor.spaceId,
+      archivedAt: null,
+      members: { some: { botId: actor.botId, bot: { archivedAt: null } } },
+      thread: { isNot: null },
+    },
+    select: {
+      id: true,
+      name: true,
+      members: {
+        where: { bot: { archivedAt: null } },
+        select: { bot: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 40,
+  });
+  return renderBotGroupDirectory(
+    groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      members: group.members.map((member) => member.bot),
+    })),
   );
 }

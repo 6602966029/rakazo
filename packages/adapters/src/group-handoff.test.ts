@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
-import { handoffToGroupBot } from "./group-handoff.js";
+import { handoffToGroupBot, loadBotGroupDirectory } from "./group-handoff.js";
 
 const run = {
   id: "run-a",
@@ -12,15 +12,17 @@ const run = {
 
 function harness(
   sourceBlocks: unknown,
-  existing?: { sourceRuns: { id: string; botId: string }[] },
+  existing?: { id?: string; sourceRuns: { id: string; botId: string }[] },
 ) {
   const runCreate = vi.fn(async () => ({ id: "run-b" }));
   const messageCreate = vi.fn(async () => ({ id: "message-1" }));
   const tx = {
-    $queryRaw: vi.fn(async () => [{ id: "group-1" }]),
+    $queryRaw: vi.fn(async (..._args: unknown[]) => [{ id: "group-1" }]),
     chatGroup: {
       findFirst: vi.fn(async () => ({
         id: "group-1",
+        name: "Project",
+        thread: { id: run.threadId },
         members: ["bot-a", "bot-b", "bot-c"].map((id) => ({
           bot: { id, name: id.toUpperCase() },
         })),
@@ -30,7 +32,9 @@ function harness(
     run: {
       findFirst: vi.fn(async () => ({
         id: run.id,
-        sourceMessage: { blocks: sourceBlocks },
+        trigger: "user",
+        thread: { groupId: "group-1" as string | null },
+        sourceMessage: { blocks: sourceBlocks, role: "user" },
       })),
       findUnique: vi.fn(async () => ({ status: "running" })),
       create: runCreate,
@@ -61,6 +65,7 @@ function harness(
     },
     messageCreate,
     runCreate,
+    tx,
   };
 }
 
@@ -154,4 +159,227 @@ describe("group handoff ownership", () => {
     ).resolves.toEqual({ error: "cannot verify the group handoff chain" });
     expect(runCreate).not.toHaveBeenCalled();
   });
+});
+
+describe("explicit group destinations", () => {
+  function privateTurn() {
+    const h = harness([{ kind: "text", text: "Private request" }]);
+    h.tx.chatGroup.findFirst.mockResolvedValue({
+      id: "group-1",
+      name: "Project",
+      thread: { id: "group-thread" },
+      members: ["bot-a", "bot-b"].map((id) => ({ bot: { id, name: id } })),
+    });
+    h.tx.run.findFirst.mockResolvedValue({
+      id: run.id,
+      trigger: "user",
+      thread: { groupId: null },
+      sourceMessage: { blocks: [{ kind: "text", text: "Private request" }], role: "user" },
+    });
+    return h;
+  }
+
+  it("posts only the supplied task in the selected group and queues its next stage there", async () => {
+    const h = privateTurn();
+    const result = await handoffToGroupBot(h.deps as never, run, "group-1", {
+      bot_id: "bot-b",
+      message: "  Review the public plan  ",
+    });
+    expect(result).toMatchObject({ ok: true, groupId: "group-1" });
+    expect(h.messageCreate).toHaveBeenCalledTimes(1);
+    expect(h.messageCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          threadId: "group-thread",
+          runId: undefined,
+          blocks: [
+            {
+              kind: "handoff",
+              fromBotId: "bot-a",
+              toBotId: "bot-b",
+              text: "Review the public plan",
+              hop: 1,
+            },
+          ],
+        }),
+      }),
+    );
+    expect(h.runCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          threadId: "group-thread",
+          botId: "bot-b",
+          trigger: "follow_up",
+          sourceMessageId: "message-1",
+        }),
+      }),
+    );
+    expect(h.tx.task.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          threadId: "group-thread",
+          prompt: "Review the public plan",
+        }),
+      }),
+    );
+    expect(h.tx.event.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          threadId: "group-thread",
+          runId: undefined,
+          type: "group.handoff",
+        }),
+      }),
+    );
+    expect(h.deps.events.notify).toHaveBeenCalledWith("group-thread", 1);
+    expect(h.deps.jobs.enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("cannot redirect an existing group's stage to another group", async () => {
+    const h = privateTurn();
+    h.tx.run.findFirst.mockResolvedValue({
+      id: run.id,
+      trigger: "user",
+      thread: { groupId: "other-group" },
+      sourceMessage: { blocks: [], role: "user" },
+    });
+    await expect(
+      handoffToGroupBot(h.deps as never, run, "group-1", {
+        bot_id: "bot-b",
+        message: "Continue",
+      }),
+    ).resolves.toMatchObject({ error: "group handoffs must stay in the current group" });
+    expect(h.messageCreate).not.toHaveBeenCalled();
+  });
+
+  it.each(["bot_message", "routine", "webhook", "follow_up"])(
+    "lets a bot coordinate in its group from a %s run",
+    async (trigger) => {
+      const h = privateTurn();
+      h.tx.run.findFirst.mockResolvedValue({
+        id: run.id,
+        trigger,
+        thread: { groupId: null },
+        sourceMessage: { blocks: [], role: "bot" },
+      });
+      await expect(
+        handoffToGroupBot(h.deps as never, run, "group-1", {
+          bot_id: "bot-b",
+          message: "Continue",
+        }),
+      ).resolves.toMatchObject({ ok: true });
+      expect(h.runCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ threadId: "group-thread", trigger: "follow_up" }),
+        }),
+      );
+    },
+  );
+
+  it("keeps the chain limit when a direct conversation continues in a group", async () => {
+    const h = privateTurn();
+    h.tx.run.findFirst.mockResolvedValue({
+      id: run.id,
+      trigger: "bot_message",
+      thread: { groupId: null },
+      sourceMessage: {
+        role: "user",
+        blocks: [
+          {
+            kind: "bot_message_received",
+            fromBotId: "bot-c",
+            fromBotName: "Planner",
+            text: "Continue",
+            hop: 6,
+          },
+        ],
+      },
+    });
+    await expect(
+      handoffToGroupBot(h.deps as never, run, "group-1", {
+        bot_id: "bot-b",
+        message: "Continue",
+      }),
+    ).resolves.toHaveProperty("error");
+    expect(h.runCreate).not.toHaveBeenCalled();
+  });
+
+  it("replays an explicit destination without creating another message or run", async () => {
+    const h = privateTurn();
+    h.tx.message.findUnique.mockResolvedValue({
+      id: "message-1",
+      sourceRuns: [{ id: "run-b", botId: "bot-b" }],
+    });
+    await expect(
+      handoffToGroupBot(h.deps as never, run, "group-1", {
+        bot_id: "bot-b",
+        message: "Continue",
+      }),
+    ).resolves.toMatchObject({ ok: true, runId: "run-b" });
+    expect(h.messageCreate).not.toHaveBeenCalled();
+    expect(h.runCreate).not.toHaveBeenCalled();
+    expect(h.deps.events.notify).toHaveBeenCalledWith("group-thread", 1);
+  });
+
+  it("rejects unavailable, unowned, or cross-space groups", async () => {
+    const h = privateTurn();
+    h.tx.$queryRaw.mockResolvedValue([]);
+    await expect(
+      handoffToGroupBot(h.deps as never, run, "group-1", {
+        bot_id: "bot-b",
+        message: "Continue",
+      }),
+    ).resolves.toMatchObject({ error: "group is no longer available" });
+    expect(h.messageCreate).not.toHaveBeenCalled();
+    expect(h.tx.$queryRaw.mock.calls[0]?.slice(1)).toEqual(["group-1", run.spaceId, run.userId]);
+  });
+
+  it("requires both bots to be active members of the destination", async () => {
+    for (const memberIds of [["bot-b"], ["bot-a"]]) {
+      const h = privateTurn();
+      h.tx.chatGroup.findFirst.mockResolvedValue({
+        id: "group-1",
+        name: "Project",
+        thread: { id: "group-thread" },
+        members: memberIds.map((id) => ({ bot: { id, name: id } })),
+      });
+      await expect(
+        handoffToGroupBot(h.deps as never, run, "group-1", {
+          bot_id: "bot-b",
+          message: "Continue",
+        }),
+      ).resolves.toHaveProperty("error");
+      expect(h.runCreate).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([
+    { label: "empty", message: "" },
+    { label: "blank", message: " " },
+    { label: "oversized", message: "x".repeat(8001) },
+  ])("rejects $label tasks", async ({ message }) => {
+    const h = privateTurn();
+    await expect(
+      handoffToGroupBot(h.deps as never, run, "group-1", { bot_id: "bot-b", message }),
+    ).resolves.toHaveProperty("error");
+    expect(h.runCreate).not.toHaveBeenCalled();
+  });
+});
+
+it("discovers only active groups the bot belongs to under the same owner and space", async () => {
+  const findMany = vi.fn(async () => []);
+  await expect(
+    loadBotGroupDirectory({ chatGroup: { findMany } } as unknown as PrismaClient, run),
+  ).resolves.toBeUndefined();
+  expect(findMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: {
+        spaceId: run.spaceId,
+        userId: run.userId,
+        archivedAt: null,
+        members: { some: { botId: run.botId, bot: { archivedAt: null } } },
+        thread: { isNot: null },
+      },
+    }),
+  );
 });
