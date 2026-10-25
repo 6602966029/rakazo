@@ -104,3 +104,19 @@ export async function modelSetup(deps: RouterDeps, actor: Actor) {
     needsModel: deps.env.agentRuntime !== "scripted" && !main && !hasDeployment,
   };
 }
+
+export const THREAD_MESSAGE_PAGE_SIZE = 100;
+
+/** Silence longer than this on a thread stream is indistinguishable from a dead socket. */
+export const HEARTBEAT_MS = 20_000;
+
+/** A thread stream re-checks its session at least this often while it delivers. */
+export const SESSION_RECHECK_MS = 10_000;
+
+export function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
+
+export function isRecordNotFound(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2025");
+}
