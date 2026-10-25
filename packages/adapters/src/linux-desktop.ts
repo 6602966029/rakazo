@@ -375,7 +375,9 @@ export const PREPARE_LINUX_DESKTOP = [
   ...FIND_MISSING_DESKTOP_TOOLS,
   'if [ "$(id -u)" -eq 0 ]; then root=""; else root="sudo -n"; fi',
   'if [ -n "$missing" ]; then',
-  "  $root apt-get update -qq && $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $missing",
+  // Separate commands: set -e ignores a failure on the left of &&.
+  "  $root apt-get update -qq",
+  "  $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $missing",
   "fi",
   `policy=${shellQuote(BROWSER_POLICY)}`,
   `for dir in ${BROWSER_POLICY_DIRS.join(" ")}; do`,
