@@ -18,7 +18,7 @@ describe("autoReadStillWanted", () => {
 });
 
 describe("queued automatic reads", () => {
-  const shell = readFileSync(new URL("../pages/Shell.tsx", import.meta.url), "utf8");
+  const shell = readFileSync(new URL("../pages/shell/use-chat-read.ts", import.meta.url), "utf8");
   const slice = (start: string, end: string) => {
     const from = shell.indexOf(start);
     expect(from).toBeGreaterThan(-1);
@@ -28,7 +28,7 @@ describe("queued automatic reads", () => {
   it("check visit, visibility and focus the same way for bot and group chats", () => {
     const bot = slice(
       "const markBotReadIfVisible = useCallback(",
-      "const deliverBrowserNotification",
+      "const markGroupReadIfVisible = useCallback(",
     );
     const group = slice("readVisibleGroups.current.add(groupId);", ".then((answer)");
     expect(bot).toContain("autoReadStillWanted(readVisit.current.visit, visit)");
@@ -38,12 +38,12 @@ describe("queued automatic reads", () => {
   it("leaves a group the user marked unread alone until they open it again, like a bot", () => {
     // The automatic group read, which a new bot reply triggers, checks the hold first.
     const guard = slice(
-      "const markVisibleGroupRead = () => {",
+      "const markGroupReadIfVisible = useCallback(",
       "readVisibleGroups.current.add(groupId);",
     );
     expect(guard).toContain("manuallyUnread.current.has(groupId)");
     // Marking a message unread in an open group sets that hold.
-    const fromMessage = slice("onMarkUnread={(message) => {", "} else if (active) {");
+    const fromMessage = slice("function markGroupUnreadFrom(", "function toggleGroupUnread(");
     expect(fromMessage).toContain("manuallyUnread.current.add(groupId)");
     // Opening the group clears it, so the next visit reads as usual.
     const open = slice("if (!groupId || !activeGroup) return;", "const markVisibleGroupRead");
@@ -56,11 +56,11 @@ describe("queued automatic reads", () => {
       "// A bot the user marked unread by hand",
     );
     expect(markBot).toContain("readInOrder(`bot:");
-    const fromMessage = slice("onMarkUnread={(message) => {", "} else if (active) {");
+    const fromMessage = slice("function markGroupUnreadFrom(", "function toggleGroupUnread(");
     expect(fromMessage).toContain("readInOrder(`group:");
     const bot = slice(
       "const markBotReadIfVisible = useCallback(",
-      "const deliverBrowserNotification",
+      "const markGroupReadIfVisible = useCallback(",
     );
     expect(bot).toContain("!manuallyUnread.current.has(id) && autoReadStillWanted(");
     const group = slice("readVisibleGroups.current.add(groupId);", ".then((answer)");
@@ -81,7 +81,7 @@ describe("queued automatic reads", () => {
   });
 
   it("drops a group's hold when its chat-list Mark as Unread fails", () => {
-    const toggle = slice("onToggleUnread={() => {", "onMoveToSection=");
+    const toggle = slice("function toggleGroupUnread(", "const markedUnreadMessageId");
     const failure = toggle.slice(toggle.indexOf(".catch("));
     expect(failure).toContain("if (unread) manuallyUnread.current.delete(groupId);");
   });
