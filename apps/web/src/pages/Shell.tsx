@@ -232,7 +232,6 @@ import {
   DeleteSpaceDialog,
   NewBotSectionDialog,
   NewSpaceDialog,
-  PickerInfoDialog,
   RenameBotSectionDialog,
 } from "./shell/dialogs";
 import type { RosterDropTarget } from "./shell/roster-drop";
@@ -581,7 +580,6 @@ function SpaceShell() {
   const miniSidebar = botsSidebarCollapsed && !isMobileSidebar;
   const [newSpaceOpen, setNewSpaceOpen] = useState(false);
   const [createBotOpen, setCreateBotOpen] = useState(false);
-  const [pickerInfoTopic, setPickerInfoTopic] = useState<"group" | "space" | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useEffect(() => {
@@ -3380,7 +3378,6 @@ function SpaceShell() {
           navigate={navigate}
           setNewSpaceOpen={setNewSpaceOpen}
           setCreateBotOpen={setCreateBotOpen}
-          setPickerInfoTopic={setPickerInfoTopic}
         />
         {miniSidebar || !(activityMode || searchOpen || query) ? null : (
           <InputGroup
@@ -3658,7 +3655,7 @@ function SpaceShell() {
             <div className="grid flex-1 place-items-center">
               <Button onClick={() => setCreateBotOpen(true)}>
                 <Plus size={16} aria-hidden="true" />
-                <Trans>Create new Bot</Trans>
+                <Trans>New bot</Trans>
               </Button>
             </div>
           ) : (
@@ -4207,10 +4204,6 @@ function SpaceShell() {
               window.location.assign("/onboarding");
             }}
           />
-        ) : null}
-
-        {pickerInfoTopic ? (
-          <PickerInfoDialog topic={pickerInfoTopic} onClose={() => setPickerInfoTopic(null)} />
         ) : null}
 
         {clearTarget ? (

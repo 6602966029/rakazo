@@ -64,7 +64,7 @@ describe("account preferences", () => {
         updateMany,
         findUniqueOrThrow: vi.fn().mockResolvedValue(user),
       },
-      spaceModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
+      userModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
       deploymentSettings: { findUnique: vi.fn().mockResolvedValue(null) },
     } as unknown as PrismaClient;
     const deps = {
@@ -118,7 +118,7 @@ describe("account preferences", () => {
     const { deps, actor } = preferencesDeps("robot");
     Object.assign(deps.prisma, {
       userModelCredential: {
-        findMany: vi.fn(async () => [{ secretId: "secret", preferences: [] }]),
+        findMany: vi.fn(async () => [{ secretId: "secret", userPreferences: [] }]),
       },
       secret: { findMany: vi.fn(async () => [{ id: "secret", ciphertext: "ref" }]) },
     });
@@ -145,7 +145,7 @@ describe("account preferences", () => {
       supportsImages: false,
       createdAt: new Date(0),
       updatedAt: new Date(0),
-      preferences: [{ id: `pref-${id}`, modelId, thinkingLevel: null, updatedAt: new Date(0) }],
+      userPreferences: [{ credentialId: id, modelId, thinkingLevel: null, updatedAt: new Date(0) }],
     });
     const rows = [connection("first", "own-first"), connection("second", "own-second")];
     Object.assign(deps.prisma, {
@@ -160,7 +160,7 @@ describe("account preferences", () => {
     // preferencesDeps already gave these deps their role table.
     const client = createRouterClient(createRouterWith(deps), { context: { actor } as never });
     await (
-      deps.prisma.spaceModelRoleChoice as unknown as {
+      deps.prisma.userModelRoleChoice as unknown as {
         createMany: (args: { data: unknown[] }) => Promise<unknown>;
       }
     ).createMany({
@@ -198,9 +198,9 @@ describe("account preferences", () => {
       createdAt: new Date(0),
       updatedAt: new Date(0),
       // Its own model is outside the stored list, which enables only the main model.
-      preferences: [
+      userPreferences: [
         {
-          id: "pref",
+          credentialId: "compatible",
           modelId: "own-a",
           thinkingLevel: null,
           updatedAt: new Date(0),
@@ -228,7 +228,7 @@ describe("account preferences", () => {
     // preferencesDeps already gave these deps their role table.
     const client = createRouterClient(createRouterWith(deps), { context: { actor } as never });
     await (
-      deps.prisma.spaceModelRoleChoice as unknown as {
+      deps.prisma.userModelRoleChoice as unknown as {
         createMany: (args: { data: unknown[] }) => Promise<unknown>;
       }
     ).createMany({
@@ -426,7 +426,7 @@ describe("billing", () => {
         }),
       },
       signupSurvey: { upsert: upsertSignupSurvey },
-      spaceModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
+      userModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
       deploymentSettings: { findUnique: vi.fn().mockResolvedValue(null) },
     } as unknown as PrismaClient;
     const deps = {
@@ -569,7 +569,7 @@ describe("model setup gate", () => {
           avatarStyle: "robot",
         }),
       },
-      spaceModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
+      userModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
       deploymentSettings: {
         findUnique: vi
           .fn()
@@ -3030,7 +3030,7 @@ describe("updater owner gate", () => {
           avatarStyle: "robot",
         }),
       },
-      spaceModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
+      userModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
       deploymentSettings: { findUnique: vi.fn().mockResolvedValue(null) },
     } as unknown as PrismaClient;
     const deps = {
@@ -3683,7 +3683,7 @@ describe("OpenAI-compatible model probes", () => {
     );
     const deps = {
       prisma: {
-        spaceModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
+        userModelPreference: { findFirst: vi.fn().mockResolvedValue(null) },
         userModelCredential: { findFirst: findCredential, findMany: findCredentials },
         secret: { findMany: findSecret },
       },
@@ -3970,7 +3970,7 @@ describe("model credential persistence", () => {
         updatedAt: new Date(0),
       })),
     };
-    const spaceModelPreference = {
+    const userModelPreference = {
       findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       upsert,
@@ -3978,12 +3978,12 @@ describe("model credential persistence", () => {
     const tx = {
       userModelCredential,
       secret: { create: vi.fn().mockResolvedValue({}) },
-      spaceModelPreference,
+      userModelPreference,
     };
     const deps = {
       prisma: {
         userModelCredential,
-        spaceModelPreference,
+        userModelPreference,
         deploymentSettings: { findUnique: vi.fn().mockResolvedValue(null) },
         $transaction: vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
       },
@@ -4136,7 +4136,7 @@ describe("model credential persistence", () => {
         withModelRoles({
           userModelCredential: deps.prisma.userModelCredential,
           userVoiceCredential: { count: vi.fn().mockResolvedValue(0) },
-          spaceModelPreference: deps.prisma.spaceModelPreference,
+          userModelPreference: deps.prisma.userModelPreference,
           secret: {
             create: vi.fn().mockResolvedValue({ id: "new-secret" }),
             deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -4168,18 +4168,17 @@ describe("model credential persistence", () => {
 
   it("keeps another connection as the space default when makeDefault is false", async () => {
     const { upsert, deps, handler } = persistDeps();
-    const preferences = deps.prisma.spaceModelPreference as unknown as {
+    const preferences = deps.prisma.userModelPreference as unknown as {
+      findFirst: ReturnType<typeof vi.fn>;
       updateMany: ReturnType<typeof vi.fn>;
     };
     // Another connection runs the main model.
     await (
-      deps.prisma.spaceModelRoleChoice as unknown as {
+      deps.prisma.userModelRoleChoice as unknown as {
         createMany: (args: { data: unknown[] }) => Promise<unknown>;
       }
     ).createMany({
-      data: [
-        mainRole({ spaceId: actor.spaceId, userId: actor.userId }, "other-provider", "other-model"),
-      ],
+      data: [mainRole({ userId: actor.userId }, "other-provider", "other-model")],
     });
 
     const response = await call(handler, "models/connect", {
@@ -4254,7 +4253,7 @@ describe("model credential persistence", () => {
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({ create: expect.objectContaining({ modelId: "only-model" }) }),
     );
-    const roles = deps.prisma.spaceModelRoleChoice as unknown as {
+    const roles = deps.prisma.userModelRoleChoice as unknown as {
       createMany: ReturnType<typeof vi.fn>;
     };
     expect(roles.createMany).not.toHaveBeenCalled();
@@ -4271,7 +4270,7 @@ describe("model credential persistence", () => {
     });
 
     expect(response.status).toBe(200);
-    const roles = deps.prisma.spaceModelRoleChoice as unknown as {
+    const roles = deps.prisma.userModelRoleChoice as unknown as {
       createMany: ReturnType<typeof vi.fn>;
     };
     expect(roles.createMany).toHaveBeenCalledWith({
@@ -4511,7 +4510,7 @@ describe("model credential persistence", () => {
         withModelRoles({
           userModelCredential: credentials,
           userVoiceCredential: { count: vi.fn().mockResolvedValue(0) },
-          spaceModelPreference: deps.prisma.spaceModelPreference,
+          userModelPreference: deps.prisma.userModelPreference,
           secret: {
             create: vi.fn().mockResolvedValue({ id: "new-secret" }),
             deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -4652,8 +4651,8 @@ describe("model disconnect", () => {
     const connections = [connection("personal"), connection("work")];
     const tx = {
       $queryRaw: vi.fn(async () => [{ bypass: null }]),
+      userModelRoleChoice: { deleteMany: vi.fn(async () => ({ count: 1 })) },
       spaceModelRoleChoice: { deleteMany: vi.fn(async () => ({ count: 1 })) },
-      spaceModelPreference: { deleteMany: vi.fn(async () => ({ count: 1 })) },
       userModelCredential: {
         findMany: vi.fn(async () => connections),
         deleteMany: vi.fn(async () => ({ count: 1 })),
@@ -4699,13 +4698,16 @@ describe("model disconnect", () => {
       provider: "openai-codex",
       credentialId: "work",
     });
-    expect(tx.spaceModelRoleChoice.deleteMany).toHaveBeenCalledWith({
+    const workRows = {
       where: {
         userId: actor.userId,
         provider: "openai-codex",
         OR: [{ credentialId: { in: ["work"] } }],
       },
-    });
+    };
+    // The account's models and every Space's own lose the connection.
+    expect(tx.userModelRoleChoice.deleteMany).toHaveBeenCalledWith(workRows);
+    expect(tx.spaceModelRoleChoice.deleteMany).toHaveBeenCalledWith(workRows);
     expect(tx.userModelCredential.deleteMany).toHaveBeenCalledWith({
       where: { userId: actor.userId, id: { in: ["work"] } },
     });
@@ -4717,13 +4719,15 @@ describe("model disconnect", () => {
   it("removes every connection of the provider for an app that names none", async () => {
     const { tx, call } = disconnectDeps();
     expect((await call({ provider: "openai-codex" })).status).toBe(200);
-    expect(tx.spaceModelRoleChoice.deleteMany).toHaveBeenCalledWith({
+    const providerRows = {
       where: {
         userId: actor.userId,
         provider: "openai-codex",
         OR: [{ credentialId: { in: ["personal", "work"] } }, { credentialId: null }],
       },
-    });
+    };
+    expect(tx.userModelRoleChoice.deleteMany).toHaveBeenCalledWith(providerRows);
+    expect(tx.spaceModelRoleChoice.deleteMany).toHaveBeenCalledWith(providerRows);
     expect(tx.userModelCredential.deleteMany).toHaveBeenCalledWith({
       where: { userId: actor.userId, id: { in: ["personal", "work"] } },
     });
@@ -4760,11 +4764,11 @@ describe("bot intro run", () => {
     const preference = hasCredential
       ? { modelId: "model-1", credential: { id: "cred-1", provider: "test" } }
       : null;
-    const spaceModelPreference = { findFirst: vi.fn().mockResolvedValue(preference) };
+    const userModelPreference = { findFirst: vi.fn().mockResolvedValue(preference) };
     const deps = {
       prisma: {
         $transaction: vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
-        spaceModelPreference,
+        userModelPreference,
         deploymentSettings: { findUnique: vi.fn().mockResolvedValue(null) },
         user: { findUnique: vi.fn().mockResolvedValue({ name: "Ada Lovelace" }) },
         space: {
@@ -4776,7 +4780,7 @@ describe("bot intro run", () => {
     } as unknown as RouterDeps;
     withModelRoles(
       deps.prisma,
-      hasCredential ? [mainRole({ spaceId: "space-1", userId: "user-1" }, "test", "model-1")] : [],
+      hasCredential ? [mainRole({ userId: "user-1" }, "test", "model-1")] : [],
     );
     return { create, enqueue, deps };
   }
@@ -4896,7 +4900,7 @@ describe("codex catalog auth", () => {
           { provider: "openai-codex", secretId: "secret-oauth" },
         ]),
       },
-      spaceModelPreference: {
+      userModelPreference: {
         findMany: vi
           .fn()
           .mockResolvedValue([
@@ -4921,7 +4925,7 @@ describe("codex catalog auth", () => {
     return { load, prisma, handler: new RPCHandler(createRouter(deps)) };
   }
 
-  it("hides Codex Spark for the space's ChatGPT credential when a newer key exists", async () => {
+  it("hides Codex Spark for the preferred ChatGPT credential when a newer key exists", async () => {
     const { load, prisma, handler } = catalogDeps();
 
     const response = await call(handler, "models/list", null);
@@ -4936,9 +4940,9 @@ describe("codex catalog auth", () => {
     expect(body.json.some((entry) => entry.provider === "openai-codex" && entry.id === luna)).toBe(
       true,
     );
-    expect(prisma.spaceModelPreference.findMany).toHaveBeenCalledWith(
+    expect(prisma.userModelPreference.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: actor.userId, spaceId: actor.spaceId },
+        where: { userId: actor.userId },
       }),
     );
     expect(load).toHaveBeenCalledWith("cipher-oauth", "secret-oauth");
@@ -5012,7 +5016,7 @@ describe("codex live catalog", () => {
     const prisma = opts.disconnected
       ? {
           userModelCredential: { findMany: vi.fn().mockResolvedValue([]) },
-          spaceModelPreference: { findMany: vi.fn().mockResolvedValue([]) },
+          userModelPreference: { findMany: vi.fn().mockResolvedValue([]) },
           secret: { findMany: vi.fn().mockResolvedValue([]) },
         }
       : opts.apiKeyOnly
@@ -5022,7 +5026,7 @@ describe("codex live catalog", () => {
                 .fn()
                 .mockResolvedValue([{ provider: "openai-codex", secretId: "secret-api" }]),
             },
-            spaceModelPreference: { findMany: vi.fn().mockResolvedValue([]) },
+            userModelPreference: { findMany: vi.fn().mockResolvedValue([]) },
             secret: {
               findMany: vi.fn().mockResolvedValue([{ id: "secret-api", ciphertext: "cipher-api" }]),
             },
@@ -5034,7 +5038,7 @@ describe("codex live catalog", () => {
                 { provider: "openai-codex", secretId: "secret-oauth" },
               ]),
             },
-            spaceModelPreference: {
+            userModelPreference: {
               findMany: vi
                 .fn()
                 .mockResolvedValue([
@@ -5145,7 +5149,7 @@ describe("codex live catalog", () => {
     const credentialB = { ...credentialA, id: "cred-b", secretId: "secret-b" };
     const prisma = {
       userModelCredential: { findMany: vi.fn().mockResolvedValue([credentialA, credentialB]) },
-      spaceModelPreference: {
+      userModelPreference: {
         findMany: vi.fn().mockResolvedValue([
           {
             id: "pref-luna",
@@ -5216,7 +5220,7 @@ describe("codex live catalog", () => {
           .fn()
           .mockResolvedValue([{ provider: "openai-codex", secretId: "secret-oauth" }]),
       },
-      spaceModelPreference: { findMany: vi.fn().mockResolvedValue([]) },
+      userModelPreference: { findMany: vi.fn().mockResolvedValue([]) },
       secret: {
         findMany: vi.fn().mockResolvedValue([{ id: "secret-oauth", ciphertext: "cipher-oauth" }]),
       },
@@ -5271,7 +5275,7 @@ describe("codex live catalog", () => {
     const upsert = vi.fn(async () => ({ id: "pref-spark" }));
     const tx = {
       userModelCredential: { findMany: vi.fn().mockResolvedValue([oauthCredential]) },
-      spaceModelPreference: {
+      userModelPreference: {
         findMany: vi.fn().mockResolvedValue([]),
         updateMany: vi.fn(async () => ({ count: 0 })),
         upsert,
@@ -5304,8 +5308,7 @@ describe("codex live catalog", () => {
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          spaceId_userId_credentialId: {
-            spaceId: actor.spaceId,
+          userId_credentialId: {
             userId: actor.userId,
             credentialId: "cred-oauth",
           },
@@ -5327,7 +5330,7 @@ describe("codex live catalog", () => {
     };
     const tx = {
       userModelCredential: { findMany: vi.fn().mockResolvedValue([oauthCredential]) },
-      spaceModelPreference: {
+      userModelPreference: {
         findMany: vi.fn().mockResolvedValue([]),
         updateMany: vi.fn(async () => ({ count: 0 })),
         upsert: vi.fn(async () => ({ id: "pref-spark" })),
@@ -5380,7 +5383,7 @@ describe("codex live catalog", () => {
       const upsert = vi.fn(async () => ({ id: "pref-spark" }));
       const tx = {
         userModelCredential: { findMany: vi.fn().mockResolvedValue([oauthCredential]) },
-        spaceModelPreference: {
+        userModelPreference: {
           findMany: vi.fn().mockResolvedValue([]),
           updateMany: vi.fn(async () => ({ count: 0 })),
           upsert,
@@ -5411,7 +5414,7 @@ describe("codex live catalog", () => {
       const prisma = {
         $transaction: transaction,
         userModelCredential: tx.userModelCredential,
-        spaceModelPreference: { findMany: tx.spaceModelPreference.findMany },
+        userModelPreference: { findMany: tx.userModelPreference.findMany },
         secret: tx.secret,
       };
       const read = vi.fn(
@@ -5527,7 +5530,7 @@ describe("model set default auth", () => {
       userModelCredential: {
         findMany: vi.fn().mockResolvedValue([oauthCredential, apiCredential]),
       },
-      spaceModelPreference: {
+      userModelPreference: {
         findMany: vi.fn().mockResolvedValue([
           {
             id: "pref-spark",
@@ -5582,8 +5585,7 @@ describe("model set default auth", () => {
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          spaceId_userId_credentialId: {
-            spaceId: actor.spaceId,
+          userId_credentialId: {
             userId: actor.userId,
             credentialId: "cred-api",
           },
@@ -5607,7 +5609,7 @@ describe("model set default auth", () => {
     const [work, personal] = [connection("cred-work"), connection("cred-personal")];
     const tx = {
       userModelCredential: { findMany: vi.fn().mockResolvedValue([work, personal]) },
-      spaceModelPreference: {
+      userModelPreference: {
         findMany: vi
           .fn()
           .mockResolvedValue([
@@ -5641,12 +5643,12 @@ describe("model set default auth", () => {
     );
     const roles = (
       prisma as unknown as {
-        spaceModelRoleChoice: {
+        userModelRoleChoice: {
           createMany: (args: { data: unknown[] }) => Promise<unknown>;
           findMany: (args: { where: Record<string, string> }) => Promise<unknown[]>;
         };
       }
-    ).spaceModelRoleChoice;
+    ).userModelRoleChoice;
     const row = (position: number, credentialId: string, thinkingLevel: string) => ({
       userId: actor.userId,
       spaceId: actor.spaceId,
@@ -5706,7 +5708,7 @@ describe("model set default auth", () => {
       userModelCredential: {
         findMany: vi.fn().mockResolvedValue([oauthCredential, apiCredential]),
       },
-      spaceModelPreference: {
+      userModelPreference: {
         findMany: vi.fn().mockResolvedValue([
           {
             id: "pref-spark",
@@ -5750,8 +5752,7 @@ describe("model set default auth", () => {
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          spaceId_userId_credentialId: {
-            spaceId: actor.spaceId,
+          userId_credentialId: {
             userId: actor.userId,
             credentialId: "cred-oauth",
           },
@@ -5789,7 +5790,7 @@ describe("model set default auth", () => {
       userModelCredential: {
         findMany: vi.fn().mockResolvedValue([oauthCredential, apiCredential]),
       },
-      spaceModelPreference: {
+      userModelPreference: {
         findMany: vi.fn().mockResolvedValue([
           {
             id: "pref-spark",
@@ -5841,8 +5842,7 @@ describe("model set default auth", () => {
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          spaceId_userId_credentialId: {
-            spaceId: actor.spaceId,
+          userId_credentialId: {
             userId: actor.userId,
             credentialId: "cred-api",
           },
@@ -5966,7 +5966,7 @@ describe("bot model auth on save", () => {
         findMany: vi.fn(async () => [{ ...bot, name: "Ada renamed" }]),
         update: botUpdate,
       },
-      spaceModelPreference: { findFirst: preferenceFindFirst },
+      userModelPreference: { findFirst: preferenceFindFirst },
       userModelCredential: { findFirst: vi.fn(async () => null) },
       secret: { findFirst: secretFindFirst },
       $transaction: vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
@@ -6283,7 +6283,7 @@ describe("routine live Codex model validation", () => {
           prisma: {
             bot: { findFirst: vi.fn(async () => ({ id: "bot-1", computer: null })) },
             routine: { findFirst: vi.fn(async () => row), create: save, update: save },
-            spaceModelPreference: { findMany: vi.fn(async () => []) },
+            userModelPreference: { findMany: vi.fn(async () => []) },
             userModelCredential: {
               findMany: vi.fn(async () => [
                 {
@@ -6401,7 +6401,7 @@ describe("routines.update", () => {
     const enqueue = vi.fn(async () => undefined);
     const prisma = {
       secret: { findFirst: vi.fn(async () => null) },
-      spaceModelPreference: {
+      userModelPreference: {
         findMany: vi.fn(async () => []),
         findFirst: vi.fn(async () => ({ id: "preference-1" })),
       },
@@ -6670,9 +6670,11 @@ describe("openai-compatible enabled models", () => {
           matching(options.routines, where),
         ),
       },
-      spaceModelRoleChoice: {
+      // The account's models; no Space overrides them.
+      userModelRoleChoice: {
         findMany: vi.fn(async ({ where }: { where: PinWhere }) => matching(roleChoices, where)),
       },
+      spaceModelRoleChoice: { findMany: vi.fn(async () => []) },
     };
   }
 
@@ -6711,20 +6713,13 @@ describe("openai-compatible enabled models", () => {
     };
   }
 
-  function preferenceStore(
-    state: { credential: Record<string, unknown>; preference: Record<string, unknown> },
-    otherSpaceDefaults: Record<string, string> = {},
-  ) {
+  function preferenceStore(state: {
+    credential: Record<string, unknown>;
+    preference: Record<string, unknown>;
+  }) {
     const withCredential = () => ({ ...state.preference, credential: state.credential });
-    const elsewhere = Object.entries(otherSpaceDefaults).map(([spaceId, modelId]) => ({
-      ...state.preference,
-      id: `pref-${spaceId}`,
-      spaceId,
-      modelId,
-      credential: state.credential,
-    }));
     type PreferenceWhere = {
-      spaceId?: string;
+      isDefault?: boolean;
       modelId?: string;
       credential?: { provider?: string };
     };
@@ -6732,9 +6727,7 @@ describe("openai-compatible enabled models", () => {
       findMany: vi.fn(async ({ where }: { where: PreferenceWhere }) =>
         where.credential?.provider && where.credential.provider !== compatible
           ? []
-          : [withCredential(), ...elsewhere].filter(
-              (row) => where.spaceId === undefined || row.spaceId === where.spaceId,
-            ),
+          : [withCredential()],
       ),
       findFirst: vi.fn(async ({ where }: { where: PreferenceWhere }) => {
         const preference = withCredential();
@@ -6757,8 +6750,6 @@ describe("openai-compatible enabled models", () => {
     thinkingLevel?: string;
     /** Another provider runs the main model, so the compatible default is not it. */
     mainElsewhere?: boolean;
-    /** The actor's compatible default in other spaces, by space id. */
-    otherSpaceDefaults?: Record<string, string>;
     botModelId?: string;
     bots?: Pin[];
     routines?: Pin[];
@@ -6778,8 +6769,6 @@ describe("openai-compatible enabled models", () => {
         updatedAt: new Date(0),
       } as Record<string, unknown>,
       preference: {
-        id: "pref-compat",
-        spaceId: actor.spaceId,
         userId: actor.userId,
         credentialId: "cred-compat",
         modelId: options.defaultModel,
@@ -6813,7 +6802,7 @@ describe("openai-compatible enabled models", () => {
           ),
         ),
       },
-      spaceModelPreference: preferenceStore(state, options.otherSpaceDefaults),
+      userModelPreference: preferenceStore(state),
       userModelCredential: {
         findMany: vi.fn(async ({ where }: { where: { provider?: string } }) =>
           where.provider === compatible
@@ -6868,13 +6857,12 @@ describe("openai-compatible enabled models", () => {
         return { id: "secret-new", ciphertext: "cipher-new" };
       }),
     };
-    const mains = Object.entries({
-      ...options.otherSpaceDefaults,
-      ...(options.mainElsewhere ? {} : { [actor.spaceId]: options.defaultModel }),
-    }).map(([spaceId, modelId]) =>
-      mainRole({ spaceId, userId: actor.userId }, compatible, modelId, options.thinkingLevel),
+    withModelRoles(
+      prisma,
+      options.mainElsewhere
+        ? []
+        : [mainRole(actor, compatible, options.defaultModel, options.thinkingLevel)],
     );
-    withModelRoles(prisma, mains);
     const handler = new RPCHandler(
       createRouter({
         prisma,
@@ -7020,7 +7008,6 @@ describe("openai-compatible enabled models", () => {
     const { call, secrets } = fixture({
       plaintext: secretText(["m-a", "m-b"]),
       defaultModel: "m-a",
-      otherSpaceDefaults: { "space-2": "m-a" },
       bots: [{ name: "Elsewhere", modelId: "m-b", spaceId: "space-2" }],
     });
 
@@ -7033,25 +7020,6 @@ describe("openai-compatible enabled models", () => {
 
     expect(result).toEqual({ status: 400, message: refusal("Elsewhere") });
     expect(secrets.put).not.toHaveBeenCalled();
-  });
-
-  it("keeps a pin in another space on that space's own default", async () => {
-    const { call } = fixture({
-      plaintext: secretText(["m-a", "m-b"]),
-      defaultModel: "m-a",
-      otherSpaceDefaults: { "space-2": "m-b" },
-      bots: [{ name: "Elsewhere", modelId: "m-b", spaceId: "space-2" }],
-      routines: [{ name: "Elsewhere digest", modelId: "m-b", spaceId: "space-2" }],
-    });
-
-    const result = await call("models/connect", {
-      provider: compatible,
-      baseUrl,
-      modelId: "m-a",
-      enabledModelIds: ["m-a"],
-    });
-
-    expect(result.status).toBe(200);
   });
 
   it("keeps a thinking level on a newly enabled default judged by the saved secret", async () => {
@@ -7072,7 +7040,7 @@ describe("openai-compatible enabled models", () => {
     });
 
     expect(result.status).toBe(200);
-    expect(prisma.spaceModelPreference.upsert).toHaveBeenCalledWith(
+    expect(prisma.userModelPreference.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({ modelId: "m-z", thinkingLevel: "high" }),
       }),
@@ -7183,11 +7151,10 @@ describe("openai-compatible enabled models", () => {
           })
         ).status,
       ).toBe(200);
-      expect(prisma.spaceModelPreference.upsert).toHaveBeenCalledWith(
+      expect(prisma.userModelPreference.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            spaceId_userId_credentialId: {
-              spaceId: actor.spaceId,
+            userId_credentialId: {
               userId: actor.userId,
               credentialId: "cred-alternate",
             },
@@ -7231,7 +7198,7 @@ describe("openai-compatible enabled models", () => {
     const result = await call("models/setDefault", { provider: compatible, modelId: "m-z" });
 
     expect(result).toEqual({ status: 400, message: "Unknown model for that provider" });
-    expect(prisma.spaceModelPreference.upsert).not.toHaveBeenCalled();
+    expect(prisma.userModelPreference.upsert).not.toHaveBeenCalled();
   });
 
   it("switches A to B to A within the list while a bot pins B", async () => {
@@ -7255,10 +7222,6 @@ describe("openai-compatible enabled models", () => {
   it.each([
     ["a same-space bot on another non-default id", { name: "Ada", modelId: "m-z" }],
     ["a bot in another space", { name: "Elsewhere", modelId: "m-w", spaceId: "space-2" }],
-    [
-      "another space's bot on the outgoing default",
-      { name: "Far", modelId: "m-a", spaceId: "space-2" },
-    ],
   ])("lets setDefault on a legacy secret ignore %s", async (_case, bot) => {
     const { call, state } = fixture({
       plaintext: secretText(),
@@ -7270,6 +7233,20 @@ describe("openai-compatible enabled models", () => {
 
     expect(result.status).toBe(200);
     expect(state.preference.modelId).toBe("m-x");
+  });
+
+  it("refuses setDefault on a legacy secret while another space's bot runs the outgoing default", async () => {
+    // The connection's own model is the account's, so every Space loses the outgoing one.
+    const { call, state } = fixture({
+      plaintext: secretText(),
+      defaultModel: "m-a",
+      bots: [{ name: "Far", modelId: "m-a", spaceId: "space-2" }],
+    });
+
+    const result = await call("models/setDefault", { provider: compatible, modelId: "m-x" });
+
+    expect(result).toEqual({ status: 400, message: refusal("Far") });
+    expect(state.preference.modelId).toBe("m-a");
   });
 
   it("skips the pin check when the outgoing default stays in the stored list", async () => {
@@ -7295,7 +7272,7 @@ describe("openai-compatible enabled models", () => {
     const result = await call("models/setDefault", { provider: compatible, modelId: "m-b" });
 
     expect(result).toEqual({ status: 400, message: refusal("Ada") });
-    expect(prisma.spaceModelPreference.upsert).not.toHaveBeenCalled();
+    expect(prisma.userModelPreference.upsert).not.toHaveBeenCalled();
   });
 
   it("refuses setDefault away from a union-only default that a bot pins", async () => {
@@ -7355,7 +7332,7 @@ describe("openai-compatible enabled models", () => {
         ).resolves.toMatchObject({ id: "cred-alternate" });
       }
       expect(state.preference).toMatchObject({ modelId: "X" });
-      expect(prisma.spaceModelPreference.upsert).not.toHaveBeenCalled();
+      expect(prisma.userModelPreference.upsert).not.toHaveBeenCalled();
     };
     for (const [botId, modelId] of [
       ["bot-1", "Y"],
@@ -8362,12 +8339,13 @@ describe("API-key live model catalog", () => {
       };
       const prisma = {
         userModelCredential: { findMany: vi.fn(async () => [credential]) },
-        spaceModelPreference: { findMany: vi.fn(async () => []) },
+        userModelPreference: { findMany: vi.fn(async () => []) },
         secret: {
           findMany: vi.fn(async () => [{ id: "secret-test", ciphertext: "fake-ciphertext" }]),
         },
         bot: { findMany: vi.fn(async () => [{ modelProvider: "openai", modelId: saved }]) },
         routine: { findMany: vi.fn(async () => []) },
+        userModelRoleChoice: { findMany: vi.fn(async () => []) },
         spaceModelRoleChoice: { findMany: vi.fn(async () => []) },
         deploymentSettings: { findFirst: vi.fn(async () => null) },
       };

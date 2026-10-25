@@ -522,7 +522,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Needs takeover": "Ожидает передачи управления",
   "New password": "Новый пароль",
   "New bot": "Новый бот",
-  "New group": "Новая группа",
+  "New group chat": "Новый групповой чат",
   "New section": "Новый раздел",
   "Rename section": "Переименовать раздел",
   "Section actions for {name}": "Действия с разделом {name}",
@@ -531,7 +531,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Its bots and groups are kept and leave the section.":
     "Боты и группы из него сохранятся и выйдут из раздела.",
   "Save section name": "Сохранить название раздела",
-  "New space": "Новое пространство",
+  "New private space": "Новое личное пространство",
   "No apps match your search.": "Нет приложений, соответствующих вашему запросу.",
   "No tools available.": "Нет доступных инструментов.",
   "No matching bots": "Нет подходящих ботов",
@@ -641,6 +641,10 @@ export const RU_MESSAGES: Record<string, string> = {
   Skip: "Пропустить",
   Space: "Пространство",
   "Space actions for {name}": "Действия пространства {name}",
+  // app/(settings)/space.tsx
+  Customize: "Настроить",
+  "Customize {setting}": "Настроить: {setting}",
+  Confirmations: "Подтверждения",
   "Space created": "Пространство создано",
   "Read replies aloud": "Читать ответы вслух",
   "Speak + transcribe": "Озвучить и расшифровать",

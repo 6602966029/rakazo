@@ -802,9 +802,10 @@ test("a key connected in another space can replace server credentials for the sa
   const otherSpace = await rpc<{ id: string }>(page, "spaces/create", { name: "Other space" });
   const provider = "amazon-bedrock";
   const modelId = "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
+  // Main models are account-wide, so only the connection is made there.
   const connected = await page.request.post("/rpc/models/connect", {
     headers: { "x-rakazo-space-id": otherSpace.id },
-    data: { json: { provider, modelId, apiKey: "fake-bedrock-key" } },
+    data: { json: { provider, modelId, apiKey: "fake-bedrock-key", makeDefault: false } },
   });
   expect(connected.ok()).toBe(true);
   await page.route("**/rpc/me", async (route) => {
