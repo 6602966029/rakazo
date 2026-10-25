@@ -132,7 +132,7 @@ export default function SignIn() {
 
   const codeFlow = Boolean(reset?.passwordAuth && reset.emailCode && mode !== "forgot");
   // A blank password asks for an emailed code, so code-only accounts need no toggle.
-  const usingCode = codeFlow && !password;
+  const usingCode = codeFlow && (codeSent || !password);
   const codeStep = codeFlow && codeSent;
 
   async function submit(enteredCode = code) {

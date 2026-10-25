@@ -319,6 +319,22 @@ it("signs in with a typed password and emails a code when it is blank", async ()
   expect(sendSignInCode).not.toHaveBeenCalled();
 });
 
+it("verifies the code even if a password was typed while it was sent", async () => {
+  vi.mocked(passwordResetCapabilities).mockResolvedValue({ ...capabilities, emailCode: true });
+  let sent!: () => void;
+  vi.mocked(sendSignInCode).mockReturnValue(new Promise<void>((resolve) => (sent = resolve)));
+  vi.mocked(signInWithCode).mockResolvedValue();
+  vi.mocked(rpc).mockResolvedValue({ needsSetup: false });
+  await render();
+  await type(input("Email")!, "ada@example.test");
+  await press("Continue");
+  await type(input("Password")!, "example-password");
+  await act(async () => sent());
+  await type(input("Code")!, "123456");
+  expect(signInWithCode).toHaveBeenCalledWith("ada@example.test", "123456", undefined);
+  expect(signIn).not.toHaveBeenCalled();
+});
+
 it("keeps the password form without code sign-in", async () => {
   await render();
   expect(host.querySelector('input[type="password"]')).not.toBeNull();
