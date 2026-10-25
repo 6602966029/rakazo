@@ -34,8 +34,33 @@ describe("manual Anthropic OAuth", () => {
       code: "code-one",
       state: "verifier-1",
       code_verifier: "verifier-1",
-      redirect_uri: "https://platform.claude.com/oauth/code/callback",
+      redirect_uri: "http://localhost:53692/callback",
     });
+  });
+
+  it("sends clients without a loopback listener to Anthropic's code page", async () => {
+    const requests: RequestInit[] = [];
+    let authorizeUrl = "";
+    const login = createManualAnthropicOAuthLogin({
+      fetch: (async (_input: string | URL | Request, init?: RequestInit) => {
+        requests.push(init ?? {});
+        return Response.json({ access_token: "a", refresh_token: "r", expires_in: 3600 });
+      }) as typeof fetch,
+      createVerifier: () => "verifier",
+      codePage: true,
+    });
+    const interaction = interactionFor("code#verifier");
+    const notify = interaction.notify;
+    interaction.notify = (event) => {
+      if (event.type === "auth_url") authorizeUrl = event.url;
+      notify(event);
+    };
+
+    await login(interaction);
+
+    const redirect = "https://platform.claude.com/oauth/code/callback";
+    expect(new URL(authorizeUrl).searchParams.get("redirect_uri")).toBe(redirect);
+    expect(JSON.parse(String(requests[0]?.body))).toMatchObject({ redirect_uri: redirect });
   });
 
   it("rejects a pasted callback with the wrong OAuth state before exchange", async () => {
@@ -49,9 +74,7 @@ describe("manual Anthropic OAuth", () => {
     });
 
     await expect(
-      login(
-        interactionFor("https://platform.claude.com/oauth/code/callback?code=x&state=wrong-state"),
-      ),
+      login(interactionFor("http://localhost:53692/callback?code=x&state=wrong-state")),
     ).rejects.toThrow(/state mismatch/i);
     expect(requested).toBe(false);
   });

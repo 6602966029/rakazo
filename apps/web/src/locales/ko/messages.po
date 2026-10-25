@@ -851,7 +851,7 @@ msgstr "인증에 실패했습니다."
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "Authorization code"
-msgstr ""
+msgstr "인증 코드"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Authorization parameters (optional)"
@@ -4892,7 +4892,7 @@ msgstr "다시 로그인"
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "Sign in at <0>{0}</0>, then paste the code here."
-msgstr ""
+msgstr "<0>{0}</0>에서 로그인한 다음 코드를 여기에 붙여넣으세요."
 
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"

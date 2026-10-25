@@ -569,6 +569,7 @@ export default function ModelConnection() {
           scope: target.scope,
           label: selected.providerName ?? selected.provider,
           credentialId: credentialIdRef.current,
+          codePage: true,
         },
         { signal: controller.signal },
       );

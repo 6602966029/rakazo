@@ -4,9 +4,10 @@ import { readBodyCapped, withAbort } from "./web-ssrf.js";
 
 const AUTHORIZE_URL = "https://claude.ai/oauth/authorize";
 const TOKEN_URL = "https://platform.claude.com/v1/oauth/token";
-// Anthropic's hosted callback shows the code to copy; a loopback redirect would land the
-// user on an unreachable localhost page, since nothing listens there on a hosted server.
-const REDIRECT_URI = "https://platform.claude.com/oauth/code/callback";
+/** Desktop listens here and receives the code itself. */
+const LOOPBACK_REDIRECT_URI = "http://localhost:53692/callback";
+/** Anthropic's page that shows the code to copy, for clients with no loopback listener. */
+const CODE_PAGE_REDIRECT_URI = "https://platform.claude.com/oauth/code/callback";
 const SCOPES =
   "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload";
 export const MAX_ANTHROPIC_TOKEN_RESPONSE_BYTES = 64 * 1024;
@@ -17,11 +18,13 @@ const CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 type ManualAnthropicOAuthOptions = {
   fetch?: typeof fetch;
   createVerifier?: () => string;
+  codePage?: boolean;
 };
 
 export function createManualAnthropicOAuthLogin(options: ManualAnthropicOAuthOptions = {}) {
   const request = options.fetch ?? fetch;
   const createVerifier = options.createVerifier ?? (() => randomBytes(32).toString("base64url"));
+  const redirectUri = options.codePage ? CODE_PAGE_REDIRECT_URI : LOOPBACK_REDIRECT_URI;
 
   return async (interaction: AuthInteraction): Promise<OAuthCredential> => {
     const signal = interaction.signal ?? new AbortController().signal;
@@ -32,7 +35,7 @@ export function createManualAnthropicOAuthLogin(options: ManualAnthropicOAuthOpt
       code: "true",
       client_id: CLIENT_ID,
       response_type: "code",
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: redirectUri,
       scope: SCOPES,
       code_challenge: challenge,
       code_challenge_method: "S256",
@@ -67,7 +70,7 @@ export function createManualAnthropicOAuthLogin(options: ManualAnthropicOAuthOpt
         client_id: CLIENT_ID,
         code: authorization.code,
         state: authorization.state ?? verifier,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: redirectUri,
         code_verifier: verifier,
       }),
       signal: requestSignal,

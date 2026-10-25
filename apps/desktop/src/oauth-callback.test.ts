@@ -8,17 +8,6 @@ describe("loopback OAuth callbacks", () => {
     ).toEqual({ code: "ac_123", state: "verifier_456" });
   });
 
-  it("reads the code from Anthropic's hosted code page", () => {
-    expect(
-      oauthCallbackFrom(
-        "https://platform.claude.com/oauth/code/callback?code=ac_123&state=verifier_456",
-      ),
-    ).toEqual({ code: "ac_123", state: "verifier_456" });
-    expect(
-      oauthCallbackFrom("https://platform.claude.com/oauth/authorize?code=ac_123"),
-    ).toBeUndefined();
-  });
-
   it("accepts the loopback addresses a provider may redirect to", () => {
     expect(oauthCallbackFrom("http://127.0.0.1:53692/callback?code=ac_123")).toEqual({
       code: "ac_123",

@@ -851,7 +851,7 @@ msgstr "Échec de l'authentification."
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "Authorization code"
-msgstr ""
+msgstr "Code d'autorisation"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Authorization parameters (optional)"
@@ -4892,7 +4892,7 @@ msgstr "Se reconnecter"
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "Sign in at <0>{0}</0>, then paste the code here."
-msgstr ""
+msgstr "Connectez-vous sur <0>{0}</0>, puis collez le code ici."
 
 #: src/pages/Auth.tsx
 msgid "Sign in to Rakazo"
