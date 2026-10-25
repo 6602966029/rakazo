@@ -1,7 +1,7 @@
 import type { JobPublisher } from "@rakazo/adapter-kit";
 import { routineWakeupJob } from "@rakazo/adapter-kit";
-import { nextRoutineRunDateAcross } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+import { nextCronDateAcross, nextRoutineRunDateAcross } from "@rakazo/core";
+import type { Prisma, PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 
 /** The first account-error failure holds the routine this long; each further one doubles it. */
@@ -12,6 +12,15 @@ interface RoutineBackoffDeps {
   prisma: PrismaClient;
   jobs: JobPublisher;
 }
+
+type RoutineSchedule = {
+  active: boolean;
+  crons: string[];
+  timezone: string;
+  watch: unknown;
+  nextRunAt: Date | null;
+  accountFailures: number;
+};
 
 export function routineAccountBackoffMs(failures: number): number {
   return Math.min(
@@ -30,72 +39,77 @@ export async function backOffRoutineAfterAccountError(
   routineId: string,
   now = new Date(),
 ): Promise<void> {
-  try {
-    const counted = await deps.prisma.routine.updateMany({
-      where: { id: routineId },
-      data: { accountFailures: { increment: 1 } },
-    });
-    if (counted.count !== 1) return;
-    const routine = await deps.prisma.routine.findUnique({
-      where: { id: routineId },
-      select: {
-        active: true,
-        crons: true,
-        timezone: true,
-        watch: true,
-        nextRunAt: true,
-        accountFailures: true,
-      },
-    });
-    if (!routine?.active || !routine.nextRunAt) return;
-    const resumeAt = new Date(now.getTime() + routineAccountBackoffMs(routine.accountFailures));
-    if (routine.nextRunAt >= resumeAt) return;
+  await updateSchedule(deps, routineId, "routine.backoff", (routine) => {
+    const accountFailures = routine.accountFailures + 1;
+    if (!routine.active || !routine.nextRunAt) return { accountFailures };
+    const resumeAt = new Date(now.getTime() + routineAccountBackoffMs(accountFailures));
+    if (routine.nextRunAt >= resumeAt) return { accountFailures };
     // A timer routine keeps its cadence after the gap; a change trigger just checks again then.
     const nextRunAt =
       (routine.watch == null
         ? nextRoutineRunDateAcross(routine.crons, routine.nextRunAt, resumeAt, routine.timezone)
         : null) ?? resumeAt;
-    await reschedule(deps, routineId, routine.nextRunAt, nextRunAt);
-  } catch (error) {
-    getLogger().error("routine.backoff", error);
-  }
+    return { accountFailures, nextRunAt };
+  });
 }
 
-/** A run of the routine got through, so its schedule returns to normal. */
+/**
+ * A run of the routine got through, so its schedule returns to normal: a held timer routine
+ * takes its next occurrence the way turning it back on would.
+ */
 export async function clearRoutineBackoff(
   deps: RoutineBackoffDeps,
   routineId: string,
   now = new Date(),
 ): Promise<void> {
-  try {
-    const cleared = await deps.prisma.routine.updateMany({
-      where: { id: routineId, accountFailures: { gt: 0 } },
-      data: { accountFailures: 0 },
-    });
-    if (cleared.count !== 1) return;
-    const routine = await deps.prisma.routine.findUnique({
-      where: { id: routineId },
-      select: { active: true, crons: true, timezone: true, watch: true, nextRunAt: true },
-    });
-    if (!routine?.active || !routine.nextRunAt || routine.watch != null) return;
-    const nextRunAt = nextRoutineRunDateAcross(routine.crons, now, now, routine.timezone);
-    if (!nextRunAt || nextRunAt >= routine.nextRunAt) return;
-    await reschedule(deps, routineId, routine.nextRunAt, nextRunAt);
-  } catch (error) {
-    getLogger().error("routine.backoff_clear", error);
-  }
+  // Most completions have nothing to clear; skip the locked write for them.
+  const held = await deps.prisma.routine.count({
+    where: { id: routineId, accountFailures: { gt: 0 } },
+  });
+  if (held === 0) return;
+  await updateSchedule(deps, routineId, "routine.backoff_clear", (routine) => {
+    if (routine.accountFailures === 0) return null;
+    if (!routine.active || !routine.nextRunAt || routine.watch != null) {
+      return { accountFailures: 0 };
+    }
+    const nextRunAt = nextCronDateAcross(routine.crons, now, routine.timezone);
+    return nextRunAt && nextRunAt < routine.nextRunAt
+      ? { accountFailures: 0, nextRunAt }
+      : { accountFailures: 0 };
+  });
 }
 
-async function reschedule(
+/**
+ * Reads and writes the routine under its row lock, so a success and a failure of overlapping
+ * runs cannot interleave and undo each other's schedule.
+ */
+async function updateSchedule(
   deps: RoutineBackoffDeps,
   routineId: string,
-  from: Date,
-  nextRunAt: Date,
+  logMessage: string,
+  change: (routine: RoutineSchedule) => { accountFailures: number; nextRunAt?: Date } | null,
 ): Promise<void> {
-  // Only the schedule that was read moves; a concurrent edit or wakeup keeps its own.
-  const moved = await deps.prisma.routine.updateMany({
-    where: { id: routineId, active: true, nextRunAt: from },
-    data: { nextRunAt },
-  });
-  if (moved.count === 1) await deps.jobs.enqueue(routineWakeupJob(routineId, nextRunAt));
+  try {
+    const nextRunAt = await deps.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.$queryRaw`SELECT id FROM routines WHERE id = ${routineId} FOR UPDATE`;
+      const routine = await tx.routine.findUnique({
+        where: { id: routineId },
+        select: {
+          active: true,
+          crons: true,
+          timezone: true,
+          watch: true,
+          nextRunAt: true,
+          accountFailures: true,
+        },
+      });
+      const data = routine ? change(routine) : null;
+      if (!data) return null;
+      await tx.routine.update({ where: { id: routineId }, data });
+      return data.nextRunAt ?? null;
+    });
+    if (nextRunAt) await deps.jobs.enqueue(routineWakeupJob(routineId, nextRunAt));
+  } catch (error) {
+    getLogger().error(logMessage, error);
+  }
 }

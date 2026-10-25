@@ -79,7 +79,6 @@ async function failRun(scenario: Scenario) {
       }),
     },
     routine: {
-      updateMany: vi.fn(async () => ({ count: 0 })),
       findUnique: vi.fn(async () => ({
         notify: scenario.routineNotify ?? true,
         nextRunAt:
@@ -152,6 +151,7 @@ async function failRun(scenario: Scenario) {
     scratchpadItem: { findMany: vi.fn(async () => []) },
     externalEffect: { findMany: vi.fn(async () => []) },
     artifact: { findMany: vi.fn(async () => []) },
+    $transaction: vi.fn(async () => null),
   };
   const finalizeRun = vi.fn(async () => ({ continuationRunId: null }));
   const enqueue = vi.fn(async (job: { name: string }) => {
@@ -299,12 +299,10 @@ describe("retrying a routine run after a transient model failure", () => {
 });
 
 describe("backing off a routine after an account failure", () => {
-  const counted = { where: { id: "routine-1" }, data: { accountFailures: { increment: 1 } } };
-
   it("counts a rejected key against the routine", async () => {
     const { prisma } = await failRun({ error: new ModelAccountError("401 Invalid API key") });
 
-    expect(prisma.routine.updateMany).toHaveBeenCalledWith(counted);
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -313,7 +311,7 @@ describe("backing off a routine after an account failure", () => {
   ] satisfies Array<[string, Scenario]>)("does not count %s", async (_label, scenario) => {
     const { prisma } = await failRun(scenario);
 
-    expect(prisma.routine.updateMany).not.toHaveBeenCalledWith(counted);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
 

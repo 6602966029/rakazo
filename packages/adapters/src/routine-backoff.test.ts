@@ -18,9 +18,6 @@ interface Row {
   accountFailures: number;
 }
 
-type Where = { id: string; active?: boolean; nextRunAt?: Date; accountFailures?: { gt: number } };
-type Data = { accountFailures?: number | { increment: number }; nextRunAt?: Date };
-
 function fakeRoutine(overrides: Partial<Row> = {}) {
   const row: Row = {
     active: true,
@@ -31,30 +28,22 @@ function fakeRoutine(overrides: Partial<Row> = {}) {
     accountFailures: 0,
     ...overrides,
   };
-  const matches = (where: Where) =>
-    where.id === "routine-1" &&
-    (where.active === undefined || row.active === where.active) &&
-    (where.nextRunAt === undefined || row.nextRunAt?.getTime() === where.nextRunAt.getTime()) &&
-    (where.accountFailures === undefined || row.accountFailures > where.accountFailures.gt);
+  const routine = {
+    count: vi.fn(async () => (row.accountFailures > 0 ? 1 : 0)),
+    findUnique: vi.fn(async () => ({ ...row })),
+    update: vi.fn(async ({ data }: { data: Partial<Row> }) => Object.assign(row, data)),
+  };
+  const lock = vi.fn(async () => []);
   const prisma = {
-    routine: {
-      updateMany: vi.fn(async ({ where, data }: { where: Where; data: Data }) => {
-        if (!matches(where)) return { count: 0 };
-        if (typeof data.accountFailures === "object") {
-          row.accountFailures += data.accountFailures.increment;
-        } else if (data.accountFailures !== undefined) {
-          row.accountFailures = data.accountFailures;
-        }
-        if (data.nextRunAt) row.nextRunAt = data.nextRunAt;
-        return { count: 1 };
-      }),
-      findUnique: vi.fn(async () => ({ ...row })),
-    },
+    routine,
+    $transaction: vi.fn(async (work: (tx: unknown) => Promise<unknown>) =>
+      work({ routine, $queryRaw: lock }),
+    ),
   };
   const enqueue = vi.fn(async () => undefined);
   const jobs = { enqueue, cancel: vi.fn(), close: vi.fn() };
   const deps = { prisma: prisma as unknown as PrismaClient, jobs };
-  return { row, deps, enqueue };
+  return { row, deps, enqueue, lock };
 }
 
 describe("routineAccountBackoffMs", () => {
@@ -71,10 +60,11 @@ describe("routineAccountBackoffMs", () => {
 
 describe("backOffRoutineAfterAccountError", () => {
   it("moves a frequent routine's next run past the gap, on its cadence", async () => {
-    const { row, deps, enqueue } = fakeRoutine({ accountFailures: 2 });
+    const { row, deps, enqueue, lock } = fakeRoutine({ accountFailures: 2 });
 
     await backOffRoutineAfterAccountError(deps, "routine-1", NOW);
 
+    expect(lock).toHaveBeenCalledOnce();
     expect(row.accountFailures).toBe(3);
     // 20 minutes after 09:00:30, the next whole minute.
     const resume = new Date("2026-03-02T09:21:00.000Z");
@@ -127,12 +117,24 @@ describe("clearRoutineBackoff", () => {
     expect(enqueue).toHaveBeenCalledTimes(1);
   });
 
+  it("restarts an uneven interval where turning the routine back on would", async () => {
+    const { row, deps } = fakeRoutine({
+      crons: ["*/7 * * * *"],
+      accountFailures: 4,
+      nextRunAt: new Date("2026-03-02T10:03:00.000Z"),
+    });
+
+    await clearRoutineBackoff(deps, "routine-1", NOW);
+
+    expect(row.nextRunAt).toEqual(new Date("2026-03-02T09:07:00.000Z"));
+  });
+
   it("does nothing for a routine that was not backed off", async () => {
     const { deps, enqueue } = fakeRoutine();
 
     await clearRoutineBackoff(deps, "routine-1", NOW);
 
-    expect(deps.prisma.routine.findUnique).not.toHaveBeenCalled();
+    expect(deps.prisma.$transaction).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });
 });
