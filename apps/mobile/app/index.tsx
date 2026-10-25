@@ -771,9 +771,14 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         spaceActionRef.current.recoveryId
       )
         return;
+      const bots = space.bots.length;
       Alert.alert(
-        t("Delete {name}?", { name: space.name }),
-        t("This removes the empty space for everyone."),
+        bots === 0
+          ? t("Delete {name}?", { name: space.name })
+          : bots === 1
+            ? t("Delete {name} and its bot?", { name: space.name })
+            : t("Delete {name} and its {count} bots?", { name: space.name, count: bots }),
+        t("This removes the space for everyone."),
         [
           { text: t("Cancel"), style: "cancel" },
           {

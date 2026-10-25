@@ -303,12 +303,16 @@ describe("spaceInboxItems", () => {
     expect(canDeleteInboxSpace(space({ canDelete }))).toBe(false);
   });
 
-  it("offers deletion for an explicitly authorized empty non-default space", () => {
+  it("offers deletion for an explicitly authorized non-default space", () => {
     expect(canDeleteInboxSpace(space())).toBe(true);
   });
 
-  it("hides deletion while a space still has content", () => {
-    expect(canDeleteInboxSpace(space({ hasContent: true }))).toBe(false);
+  it("offers deletion for a space that still has bots, which go with it", () => {
+    expect(canDeleteInboxSpace(space({ hasContent: true, bots: [bot] }))).toBe(true);
+  });
+
+  it("never offers deletion for the default space", () => {
+    expect(canDeleteInboxSpace(space({ isDefault: true }))).toBe(false);
   });
 });
 

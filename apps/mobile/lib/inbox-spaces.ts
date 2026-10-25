@@ -28,10 +28,8 @@ export type InboxSpaceItem =
       count?: number;
     };
 
-export function canDeleteInboxSpace(
-  space: Pick<InboxSpace, "isDefault" | "hasContent" | "canDelete">,
-) {
-  return !space.isDefault && !space.hasContent && space.canDelete === true;
+export function canDeleteInboxSpace(space: Pick<InboxSpace, "isDefault" | "canDelete">) {
+  return !space.isDefault && space.canDelete === true;
 }
 
 /** Only headings with no chats under them, counting chats in collapsed sections. */
