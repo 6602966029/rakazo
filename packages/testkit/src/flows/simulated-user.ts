@@ -196,3 +196,24 @@ export function parseMove(text: string, situation: Situation): UserMove {
   }
   throw new Error(`Simulated user returned an invalid move: ${json.slice(0, 200)}`);
 }
+
+/**
+ * What the person did while holding the screen, as they would remember it. A step that left
+ * the screen unchanged is marked so: without that, the model repeats dead clicks.
+ */
+export function screenStepLog() {
+  const steps: string[] = [];
+  let previous: Uint8Array | undefined;
+  return {
+    steps,
+    /** The frame seen before the next step. */
+    saw(frame: Uint8Array) {
+      if (previous && steps.length && Buffer.from(frame).equals(Buffer.from(previous)))
+        steps[steps.length - 1] += " (nothing on screen changed)";
+      previous = frame;
+    },
+    did(step: string) {
+      steps.push(step);
+    },
+  };
+}
