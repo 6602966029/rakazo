@@ -25,6 +25,7 @@ let configured = false;
 let closing: Promise<unknown> = Promise.resolve();
 let configuring: Promise<void> | undefined;
 let configRequest: AbortController | undefined;
+let replayRequest: AbortController | undefined;
 let reportingReady: (() => void) | undefined;
 let earlyHandlerInstalled = false;
 let handlingEarlyFatal = false;
@@ -75,6 +76,7 @@ export function reportMobileError(
 export function resetMobileMonitoring(): void {
   generation += 1;
   configRequest?.abort();
+  replayRequest?.abort();
   pendingStartupError = undefined;
   clearStartupError(startupStorage);
   connectionKey = undefined;
@@ -106,6 +108,7 @@ export function configureMobileMonitoring(
     clearStartupError(startupStorage);
   }
   configRequest?.abort();
+  replayRequest?.abort();
   connectionKey = key;
   configured = false;
   const current = ++generation;
@@ -233,11 +236,19 @@ export function configureMobileMonitoring(
       else if (pendingStartupError) void flushStartupError();
       const expoErrorWindow = startExpoErrorWindow(startupStorage, base);
       if (channel === "diagnostic" && expoErrorWindow) {
+        const replay = new AbortController();
+        replayRequest = replay;
+        let interrupt!: () => void;
+        const interrupted = new Promise<void>((resolve) => {
+          interrupt = resolve;
+        });
+        replay.signal.addEventListener("abort", interrupt, { once: true });
+        const timeout = setTimeout(() => replay.abort(), 2_000);
         // Expo records the original recovery error even when no JS handler can report it.
-        await updates
+        const recovery = updates
           .readLogEntriesAsync(3_600_000)
           .then((entries) => {
-            if (current !== generation) return;
+            if (current !== generation || replay.signal.aborted) return;
             const latest = entries
               .filter(
                 (entry) =>
@@ -263,10 +274,18 @@ export function configureMobileMonitoring(
               },
             });
             return Sentry.flush().then((sent) => {
-              if (sent) markExpoErrorReported(latest.timestamp, startupStorage, base);
+              if (sent && !replay.signal.aborted)
+                markExpoErrorReported(latest.timestamp, startupStorage, base);
             });
           })
           .catch(() => undefined);
+        try {
+          await Promise.race([recovery, interrupted]);
+        } finally {
+          clearTimeout(timeout);
+          replay.signal.removeEventListener("abort", interrupt);
+          if (replayRequest === replay) replayRequest = undefined;
+        }
       }
     } catch {
       // Retain the bounded startup queue; foreground/reconnect retries configuration.

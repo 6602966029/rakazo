@@ -331,13 +331,7 @@ describe("mobile monitoring", () => {
       JSON.stringify({ server: "https://app.example.com", since: 1, reportedThrough: 0 }),
     );
     monitor.installMobileEarlyErrorReporting(secureStorage);
-    let finishFlush!: (sent: boolean) => void;
-    sdk.flush.mockReturnValueOnce(
-      new Promise<boolean>((resolve) => {
-        finishFlush = resolve;
-      }),
-    );
-    const anonymous = monitor.configureMobileMonitoring(
+    await monitor.configureMobileMonitoring(
       "https://app.example.com",
       {},
       response({ dsn: "https://key@errors.example.com/8" }),
@@ -362,13 +356,11 @@ describe("mobile monitoring", () => {
       ),
     );
     expect(updates.readLogEntriesAsync).toHaveBeenCalledWith(3_600_000);
-    const authenticated = monitor.configureMobileMonitoring(
+    await monitor.configureMobileMonitoring(
       "https://app.example.com",
       { Authorization: "Bearer example" },
       response({ dsn: "https://key@errors.example.com/8" }),
     );
-    finishFlush(true);
-    await Promise.all([anonymous, authenticated]);
     expect(sdk.captureException).toHaveBeenCalledTimes(1);
     sdk.captureException.mockClear();
     vi.resetModules();
@@ -381,6 +373,65 @@ describe("mobile monitoring", () => {
     );
     expect(sdk.captureException).not.toHaveBeenCalled();
   });
+
+  it.each(["read", "flush"])(
+    "bounds diagnostic replay during a stuck %s and allows configuration to be replaced",
+    async (step) => {
+      vi.useFakeTimers();
+      updates.channel = "diagnostic";
+      const entries = [
+        {
+          code: "JSRuntimeError",
+          level: "error",
+          timestamp: Date.now(),
+          message: "recoverable error",
+        },
+      ];
+      updates.readLogEntriesAsync.mockResolvedValue(entries);
+      if (step === "read") updates.readLogEntriesAsync.mockReturnValueOnce(new Promise(() => {}));
+      else sdk.flush.mockReturnValueOnce(new Promise(() => {}));
+      storage.set("rakazo.api_base", "https://app.example.com");
+      const monitor = await import("./monitoring");
+      monitor.installMobileEarlyErrorReporting(secureStorage);
+      const first = monitor.configureMobileMonitoring(
+        "https://app.example.com",
+        {},
+        response({ dsn: "https://key@errors.example.com/8" }),
+      );
+      await vi.waitFor(() => expect(updates.readLogEntriesAsync).toHaveBeenCalled());
+      await vi.advanceTimersByTimeAsync(2_000);
+      await first;
+      await monitor.configureMobileMonitoring(
+        "https://app.example.com",
+        { Authorization: "Bearer example" },
+        response({ dsn: "https://key@errors.example.com/8" }),
+      );
+      expect(sdk.captureException).toHaveBeenLastCalledWith(
+        expect.objectContaining({ message: "recoverable error" }),
+        expect.anything(),
+      );
+      // A second hanging read must be interrupted immediately by a server change, without
+      // waiting for either its native promise or the two-second timeout.
+      updates.readLogEntriesAsync.mockReturnValueOnce(new Promise(() => {}));
+      const stuck = monitor.configureMobileMonitoring(
+        "https://app.example.com",
+        { Authorization: "Bearer changed" },
+        response({ dsn: "https://key@errors.example.com/8" }),
+      );
+      await vi.waitFor(() => expect(updates.readLogEntriesAsync).toHaveBeenCalledTimes(3));
+      const replacement = monitor.configureMobileMonitoring(
+        "https://second.example.com",
+        {},
+        response({ dsn: "https://key@errors.example.com/8" }),
+      );
+      await Promise.all([stuck, replacement]);
+      monitor.reportMobileError(new Error("current server"), "react.render");
+      expect(sdk.captureException).toHaveBeenLastCalledWith(
+        expect.objectContaining({ message: "current server" }),
+        expect.anything(),
+      );
+    },
+  );
 
   it("does not recover unowned Expo errors or send the previous server's logs to a new server", async () => {
     updates.channel = "diagnostic";
