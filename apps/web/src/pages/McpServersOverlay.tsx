@@ -133,8 +133,10 @@ export function McpServersOverlay({
       bots.map((bot) => [bot.id, assignments.filter((assignment) => assignment.botId === bot.id)]),
     ) as Record<string, BotMcpServer[]>;
   }, [bots, assignmentsQuery.data]);
+  // replace() overwrites a bot's whole list, so changes wait for a read of every assignment.
+  const assignmentsReady = assignmentsQuery.isSuccess && !assignmentsQuery.isFetching;
   const loadFailed =
-    serversQuery.isLoadingError || botsQuery.isLoadingError || assignmentsQuery.isLoadingError;
+    serversQuery.isLoadingError || botsQuery.isLoadingError || assignmentsQuery.isError;
   const shownError = error ?? (loadFailed ? t`Could not load MCP servers` : null);
 
   /** Reads everything again with requests sent after a change. */
@@ -225,6 +227,7 @@ export function McpServersOverlay({
 
   async function saveServer() {
     if (transport === "stdio" && duplicateNames.size > 0) return;
+    if (!editing && selectedBotIds.length > 0 && !assignmentsReady) return;
     setError(null);
     if (!name.trim()) {
       setError(t`Add a server name.`);
@@ -361,6 +364,7 @@ export function McpServersOverlay({
   }
 
   async function toggleAssignment(server: McpServer, botId: string) {
+    if (!assignmentsReady) return;
     setError(null);
     const current = botAssignments[botId] ?? [];
     const assigned = current.some((entry) => entry.serverId === server.id);
@@ -765,6 +769,7 @@ export function McpServersOverlay({
                             variant={selected ? "default" : "outline"}
                             size="xs"
                             aria-pressed={selected}
+                            disabled={!assignmentsReady}
                             onClick={() => toggleBot(bot.id)}
                           >
                             {selected ? <Check aria-hidden="true" /> : null}
@@ -779,7 +784,11 @@ export function McpServersOverlay({
               <Button
                 type="button"
                 className="mt-5 w-full"
-                disabled={saving || (transport === "stdio" && duplicateNames.size > 0)}
+                disabled={
+                  saving ||
+                  (transport === "stdio" && duplicateNames.size > 0) ||
+                  (!editing && selectedBotIds.length > 0 && !assignmentsReady)
+                }
                 onClick={() => void saveServer()}
               >
                 {editing ? (
@@ -857,6 +866,7 @@ export function McpServersOverlay({
                                 variant={assigned ? "default" : "outline"}
                                 size="xs"
                                 aria-pressed={assigned}
+                                disabled={!assignmentsReady}
                                 onClick={() => void toggleAssignment(server, bot.id)}
                               >
                                 {assigned ? <Check aria-hidden="true" /> : null}

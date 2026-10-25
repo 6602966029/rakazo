@@ -8,9 +8,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { McpServersOverlay } from "./McpServersOverlay";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), test: vi.fn(), update: vi.fn() }));
+const access = vi.hoisted(() => ({ all: vi.fn(), replace: vi.fn(), bots: vi.fn() }));
 const api = vi.hoisted(() => ({
-  mcp: { servers: mocks, assignments: { all: async () => [] } },
-  bots: { list: async () => [] },
+  mcp: { servers: mocks, assignments: { all: access.all, replace: access.replace } },
+  bots: { list: access.bots },
 }));
 vi.mock("../lib/rpc", () => ({
   rpc: api,
@@ -77,6 +78,9 @@ vi.mock("@rakazo/ui-web", async () => {
 let client: QueryClient;
 beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  access.all.mockReset().mockResolvedValue([]);
+  access.replace.mockReset().mockResolvedValue([]);
+  access.bots.mockReset().mockResolvedValue([]);
 });
 
 function overlay(editServerId?: string) {
@@ -311,5 +315,62 @@ it("keeps a test result when an older list read lands after it", async () => {
     expect(cached[0]?.[0]?.health.status).toBe("ok");
   } finally {
     await act(async () => second.unmount());
+  }
+});
+
+it.each([
+  ["still loading", () => new Promise(() => undefined)],
+  ["failed", () => Promise.reject(new Error("offline"))],
+])("keeps agent access unchangeable while assignments are %s", async (state, read) => {
+  mocks.list.mockReset().mockResolvedValue([server("docs")]);
+  access.bots.mockResolvedValue([{ id: "bot_1", name: "Ada" }]);
+  access.all.mockImplementation(read);
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(overlay()));
+    const agentButtons = () =>
+      Array.from(host.querySelectorAll("button")).filter((button) => button.textContent === "Ada");
+    // One in the add form and one on the server's card.
+    await vi.waitFor(() => expect(agentButtons()).toHaveLength(2));
+    for (const button of agentButtons()) {
+      expect(button.disabled).toBe(true);
+      await act(async () => button.click());
+    }
+    expect(access.replace).not.toHaveBeenCalled();
+    if (state === "failed") {
+      await vi.waitFor(() => expect(host.textContent).toContain("Could not load MCP servers"));
+    }
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+it("lets agent access change once assignments have loaded", async () => {
+  mocks.list.mockReset().mockResolvedValue([server("docs")]);
+  access.bots.mockResolvedValue([{ id: "bot_1", name: "Ada" }]);
+  access.all.mockResolvedValue([
+    { botId: "bot_1", serverId: "other", allowAllTools: true, allowedTools: [] },
+  ]);
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(overlay()));
+    const cardButton = () =>
+      Array.from(host.querySelectorAll("button")).filter(
+        (button) => button.textContent === "Ada",
+      )[1];
+    await vi.waitFor(() => expect(cardButton()?.disabled).toBe(false));
+    await act(async () => cardButton()!.click());
+    // The bot keeps the assignment it already had.
+    expect(access.replace).toHaveBeenCalledWith({
+      botId: "bot_1",
+      assignments: [
+        { botId: "bot_1", serverId: "other", allowAllTools: true, allowedTools: [] },
+        { serverId: "docs", allowAllTools: true, allowedTools: [] },
+      ],
+    });
+  } finally {
+    await act(async () => root.unmount());
   }
 });
