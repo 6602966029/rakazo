@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/client";
 import { errorText } from "./user-error";
 
 export interface ComputerScreenResult {
@@ -73,25 +72,6 @@ export async function bootComputerOnce<T>(
     return await boot();
   } finally {
     if (inFlight.get(botId) === token) inFlight.delete(botId);
-  }
-}
-
-/**
- * A run's computer lease is let go in its executor's finally, a moment after the run ends, so a
- * boot sent as the run finishes can still be refused as busy. Retry those refusals briefly.
- */
-export async function retryWhileComputerBusy<T>(
-  boot: () => Promise<T>,
-  { attempts = 5, delayMs = 1_000 }: { attempts?: number; delayMs?: number } = {},
-): Promise<T> {
-  for (let attempt = 1; ; attempt += 1) {
-    try {
-      return await boot();
-    } catch (error) {
-      const busy = error instanceof ORPCError && error.code === "CONFLICT";
-      if (!busy || attempt >= attempts) throw error;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
   }
 }
 

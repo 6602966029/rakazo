@@ -143,7 +143,6 @@ import {
   isProxiedScreenUrl,
   loadComputerScreen,
   probeScreen,
-  retryWhileComputerBusy,
   SCREEN_FRAME_LOAD_TIMEOUT_MS,
   screenFrameError,
   screenFrameMessage,
@@ -2796,13 +2795,11 @@ function SpaceShell() {
     takeControl,
     showProgress,
     force = false,
-    retryBusy = false,
   }: {
     botId: string;
     takeControl: boolean;
     showProgress: boolean;
     force?: boolean;
-    retryBusy?: boolean;
   }) {
     const epoch = ++computerBootEpoch.current;
     const stillThisBoot = () => computerBootEpoch.current === epoch;
@@ -2817,9 +2814,8 @@ function SpaceShell() {
     setComputerErrorFromScreen(false);
     try {
       if (needsBoot) {
-        const boot = () => rpc.computer.boot({ botId: targetBotId });
         const status = await bootComputerOnce(bootsInFlight.current, targetBotId, () =>
-          retryBusy ? retryWhileComputerBusy(boot) : boot(),
+          rpc.computer.boot({ botId: targetBotId }),
         );
         if (!stillThisBoot() || !stillThisBot()) return;
         if (status) {
@@ -2921,7 +2917,6 @@ function SpaceShell() {
       takeControl: false,
       showProgress: true,
       force: true,
-      retryBusy: true,
     }).catch(() => undefined);
   }, [computerBlockedByRun]);
 

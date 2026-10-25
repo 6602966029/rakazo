@@ -1,4 +1,3 @@
-import { ORPCError } from "@orpc/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   bootComputerOnce,
@@ -6,7 +5,6 @@ import {
   isProxiedScreenUrl,
   loadComputerScreen,
   probeScreen,
-  retryWhileComputerBusy,
   screenFrameError,
   screenFrameMessage,
   screenFrameStarted,
@@ -141,26 +139,6 @@ function pendingBoot() {
   });
   return { promise, resolve, reject };
 }
-
-describe("computer boot after a run", () => {
-  it("retries while the finished run still holds the computer", async () => {
-    const boot = vi
-      .fn()
-      .mockRejectedValueOnce(new ORPCError("CONFLICT", { message: "Computer is busy" }))
-      .mockResolvedValueOnce("running");
-    await expect(retryWhileComputerBusy(boot, { delayMs: 0 })).resolves.toBe("running");
-    expect(boot).toHaveBeenCalledTimes(2);
-  });
-
-  it("gives up after its attempts and does not retry other failures", async () => {
-    const busy = vi.fn().mockRejectedValue(new ORPCError("CONFLICT", { message: "busy" }));
-    await expect(retryWhileComputerBusy(busy, { attempts: 3, delayMs: 0 })).rejects.toThrow("busy");
-    expect(busy).toHaveBeenCalledTimes(3);
-    const failed = vi.fn().mockRejectedValue(new Error("Sandbox failed"));
-    await expect(retryWhileComputerBusy(failed, { delayMs: 0 })).rejects.toThrow("Sandbox failed");
-    expect(failed).toHaveBeenCalledOnce();
-  });
-});
 
 describe("computer boot ownership", () => {
   it("starts B independently and refuses a second A after switching A to B to A", async () => {
