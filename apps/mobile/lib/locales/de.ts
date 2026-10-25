@@ -469,8 +469,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Verwendet die eigenen {source}-Zugangsdaten dieses Servers für den Zugriff auf {provider}.",
   "Connect API key": "API-Schlüssel verbinden",
   "Connect MCP server {name}": "MCP-Server „{name}“ verbinden",
-  "Connected. Its tools are available from your next message.":
-    "Verbunden. Seine Tools sind ab deiner nächsten Nachricht verfügbar.",
+  "Connected.": "Verbunden.",
   "Context limit": "Kontextlimit",
   "Could not connect this provider": "Anbieter konnte nicht verbunden werden",
   "Could not finish sign-in": "Anmeldung konnte nicht abgeschlossen werden",

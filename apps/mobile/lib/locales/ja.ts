@@ -442,8 +442,7 @@ export const JA_MESSAGES: Record<string, string> = {
     "このサーバー自身の{source}認証情報を使って{provider}にアクセスします。",
   "Connect API key": "APIキーを接続",
   "Connect MCP server {name}": "MCPサーバー{name}を接続",
-  "Connected. Its tools are available from your next message.":
-    "接続しました。次のメッセージからツールを使えます。",
+  "Connected.": "接続しました。",
   "Context limit": "コンテキスト上限",
   "Could not connect this provider": "このプロバイダーに接続できませんでした",
   "Could not finish sign-in": "ログインを完了できませんでした",

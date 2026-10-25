@@ -450,8 +450,7 @@ export const NL_MESSAGES: Record<string, string> = {
     "Gebruikt de eigen {source}-gegevens van deze server om toegang te krijgen tot {provider}.",
   "Connect API key": "API-sleutel koppelen",
   "Connect MCP server {name}": "MCP-server {name} koppelen",
-  "Connected. Its tools are available from your next message.":
-    "Gekoppeld. Zijn tools zijn beschikbaar vanaf je volgende bericht.",
+  "Connected.": "Gekoppeld.",
   "Context limit": "Contextlimiet",
   "Could not connect this provider": "Deze aanbieder koppelen mislukt",
   "Could not finish sign-in": "Aanmelden afronden mislukt",

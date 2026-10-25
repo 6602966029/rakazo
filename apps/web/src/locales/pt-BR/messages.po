@@ -1522,10 +1522,6 @@ msgstr "Conectado"
 msgid "Connected {0}."
 msgstr "Conectado {0}."
 
-#: src/pages/shell/message-cards.tsx
-msgid "Connected. Its tools are available from your next message."
-msgstr "Conectado. Suas ferramentas estão disponíveis na sua próxima mensagem."
-
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
