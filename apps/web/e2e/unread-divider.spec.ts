@@ -185,13 +185,18 @@ test("marking a message unread brings the chat back with New above the reply fro
   expect(transcriptBounds).not.toBeNull();
   expect(composerBounds).not.toBeNull();
   expect(transcriptBounds!.y + transcriptBounds!.height - composerBounds!.y).toBe(28);
-  const cornerInTranscript = await page.evaluate(
-    ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('[data-testid="transcript"]')),
-    { x: composerBounds!.x + 8, y: composerBounds!.y + 3 },
-  );
-  expect(cornerInTranscript).toBe(true);
   await captureScreenshot(page, testInfo, "message-marked-unread-menu");
   await page.keyboard.press("Escape");
+  // The menu's modal backdrop intentionally intercepts hits until it finishes closing.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        ({ x, y }) =>
+          Boolean(document.elementFromPoint(x, y)?.closest('[data-testid="transcript"]')),
+        { x: composerBounds!.x + 8, y: composerBounds!.y + 3 },
+      ),
+    )
+    .toBe(true);
 
   // Reading another chat from the sidebar must not restore the completed action here.
   const otherRow = page.locator(`[data-roster-bot-id="${otherId}"]`);
