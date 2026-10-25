@@ -43,7 +43,7 @@ import {
   runModelConnectionPreflight,
   unavailableSelectedModel,
 } from "../../lib/model-connection-preflight";
-import { useSpaceQueries } from "../../lib/query";
+import { fetchFresh, useSpaceQueries } from "../../lib/query";
 import { useSpaceRpc } from "../../lib/space-rpc";
 import { useModelOAuthSignIn } from "../../lib/use-model-oauth-signin";
 import { errorText } from "../../lib/user-error";
@@ -163,14 +163,23 @@ export function useModelSettings(onClose: () => void) {
     },
   });
 
-  /** `keepForm` reloads the lists without resetting the open connection's fields. */
-  async function refresh({ keepForm = false }: { keepForm?: boolean } = {}) {
+  /**
+   * `keepForm` reloads the lists without resetting the open connection's fields. Every refresh but
+   * the one on open follows a change, so by default it never reuses a read sent before that change.
+   */
+  async function refresh({
+    keepForm = false,
+    reuse = false,
+  }: {
+    keepForm?: boolean;
+    reuse?: boolean;
+  } = {}) {
     const refreshRevision = ++refreshRevisionRef.current;
     const selectionRevision = keepForm ? -1 : selectionRevisionRef.current;
     const [nextCatalog, nextCredentials, nextMe] = await Promise.all([
-      queryClient.fetchQuery({ ...catalogQuery, staleTime: 0 }),
-      queryClient.fetchQuery({ ...credentialsQuery, staleTime: 0 }),
-      queryClient.fetchQuery({ ...meQuery, staleTime: 0 }),
+      fetchFresh(queryClient, catalogQuery, { reuse }),
+      fetchFresh(queryClient, credentialsQuery, { reuse }),
+      fetchFresh(queryClient, meQuery, { reuse }),
     ]);
     if (refreshRevision !== refreshRevisionRef.current) return undefined;
     applyLoaded(nextCatalog, nextCredentials, nextMe, selectionRevision);
@@ -251,7 +260,7 @@ export function useModelSettings(onClose: () => void) {
     if (cachedCatalog && cachedCredentials && cachedMe) {
       applyLoaded(cachedCatalog, cachedCredentials, cachedMe, selectionRevisionRef.current);
     }
-    void refresh()
+    void refresh({ reuse: true })
       .catch((err: unknown) => setError(errorText(err, t`Could not load model settings`)))
       .finally(() => setLoading(false));
     return () => {

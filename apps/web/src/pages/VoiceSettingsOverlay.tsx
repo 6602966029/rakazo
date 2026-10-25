@@ -22,7 +22,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { importChunk } from "../lib/preload-recovery";
-import { useSpaceQueries } from "../lib/query";
+import { fetchFresh, useSpaceQueries } from "../lib/query";
 import { useBoundSpaceId, useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
 
@@ -138,11 +138,12 @@ export function VoiceSettingsOverlay({
       );
   }
 
-  async function refresh(nextProvider?: string, keepForm = false) {
+  /** After a change (every call but the one on open) it never reuses a read sent before it. */
+  async function refresh(nextProvider?: string, { keepForm = false, reuse = false } = {}) {
     const [nextCatalog, nextCredentials, nextStatus] = await Promise.all([
-      queryClient.fetchQuery(queries.voice.catalog.queryOptions({ staleTime: 0 })),
-      queryClient.fetchQuery(queries.voice.credentials.queryOptions({ staleTime: 0 })),
-      queryClient.fetchQuery(queries.voice.status.queryOptions({ staleTime: 0 })),
+      fetchFresh(queryClient, queries.voice.catalog.queryOptions(), { reuse }),
+      fetchFresh(queryClient, queries.voice.credentials.queryOptions(), { reuse }),
+      fetchFresh(queryClient, queries.voice.status.queryOptions(), { reuse }),
     ]);
     const current = providerRef.current;
     const selected = selectedProvider(nextCatalog, [nextProvider, current, nextStatus.provider]);
@@ -162,7 +163,7 @@ export function VoiceSettingsOverlay({
   }
 
   useEffect(() => {
-    void refresh(undefined, Boolean(cached))
+    void refresh(undefined, { keepForm: Boolean(cached), reuse: true })
       .catch((err: unknown) => setError(errorText(err, t`Could not load voice settings`)))
       .finally(() => setLoading(false));
   }, []);

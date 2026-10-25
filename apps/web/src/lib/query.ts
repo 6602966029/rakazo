@@ -1,7 +1,7 @@
 import type { RouterUtils } from "@orpc/tanstack-query";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { isRetryableError } from "@rakazo/core";
-import type { DataTag, QueryKey } from "@tanstack/react-query";
+import type { DataTag, QueryFunction, QueryKey } from "@tanstack/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { createContext, useContext } from "react";
 import type { RpcClient } from "./rpc";
@@ -88,4 +88,18 @@ export async function writeSaved<T, E>(
 ): Promise<void> {
   await client.cancelQueries({ queryKey, exact: true });
   client.setQueryData(queryKey, update);
+}
+
+/**
+ * Reads data again. After a change, a read already in flight started before it, so that read is
+ * cancelled rather than reused and the answer comes from a request sent afterwards. `reuse` is
+ * for a screen opening, where sharing an in-flight read is fine.
+ */
+export async function fetchFresh<T, E>(
+  client: QueryClient,
+  options: { queryKey: DataTag<QueryKey, T, E>; queryFn: QueryFunction<T> },
+  { reuse = false } = {},
+): Promise<T> {
+  if (!reuse) await client.cancelQueries({ queryKey: options.queryKey, exact: true });
+  return client.fetchQuery({ ...options, staleTime: 0 });
 }

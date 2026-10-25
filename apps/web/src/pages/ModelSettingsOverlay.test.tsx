@@ -1354,3 +1354,36 @@ it("renames a connection", async () => {
     await view.unmount();
   }
 });
+
+it("shows what a disconnect left, not a read sent before it", async () => {
+  models.credentials.mockResolvedValue([deepseekCredential, workCredential]);
+  const queryClient = testQueryClient();
+  const first = await renderSettings(true, queryClient);
+  await first.unmount();
+
+  // The revisit's background read still lists Work when the disconnect lands.
+  let releaseStale: () => void = () => undefined;
+  models.credentials
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseStale = () => resolve([deepseekCredential, workCredential]);
+        }),
+    )
+    .mockResolvedValue([deepseekCredential]);
+  const providerNames = () =>
+    [...providersSection().querySelectorAll("button")].map((entry) => entry.textContent);
+  const view = await renderSettings(true, queryClient);
+  try {
+    expect(providerNames()).toContain("DeepSeek · Work");
+    await openProvider("DeepSeek · Work");
+    await click(buttons(view.container, "Disconnect")[0]);
+    const confirm = buttons(view.container, "Disconnect");
+    await click(confirm[confirm.length - 1]);
+    await act(async () => releaseStale());
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(providerNames()).not.toContain("DeepSeek · Work");
+  } finally {
+    await view.unmount();
+  }
+});

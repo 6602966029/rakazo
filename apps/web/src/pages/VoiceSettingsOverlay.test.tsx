@@ -496,3 +496,57 @@ it("keeps the provider picked during a background refresh and only its voices", 
     vi.unstubAllGlobals();
   }
 });
+
+it("shows what a disconnect left, not a read sent before it", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  voice.catalog
+    .mockReset()
+    .mockResolvedValue([
+      { id: "elevenlabs", name: "ElevenLabs", description: "", transcribe: true },
+    ]);
+  voice.credentials.mockReset().mockResolvedValue([eleven]);
+  voice.status.mockReset().mockResolvedValue({ ready: true, provider: "elevenlabs" });
+  voice.voices.mockReset().mockResolvedValue([{ id: "rachel", label: "Rachel" }]);
+  voice.disconnect.mockReset().mockResolvedValue(undefined);
+  const client = new QueryClient();
+  const container = document.createElement("div");
+  document.body.append(container);
+  const mount = async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(withQueries(<VoiceSettingsOverlay embedded onClose={() => undefined} />, client));
+    });
+    return root;
+  };
+  try {
+    const first = await mount();
+    await vi.waitFor(() => expect(container.textContent).toContain("Rachel"));
+    await act(async () => first.unmount());
+
+    // The revisit's background read still says connected when the disconnect lands.
+    let releaseStale: () => void = () => undefined;
+    voice.credentials
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (releaseStale = () => resolve([eleven]))),
+      )
+      .mockResolvedValue([]);
+    const second = await mount();
+    const disconnect = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Disconnect",
+    );
+    if (!disconnect) throw new Error("Missing disconnect button");
+    await act(async () => disconnect.click());
+    await act(async () => releaseStale());
+    await vi.waitFor(() =>
+      expect(container.querySelector('input[placeholder="Paste your API key"]')).not.toBeNull(),
+    );
+    expect(voice.credentials).toHaveBeenCalledTimes(3);
+    expect([...container.querySelectorAll("button")].map((b) => b.textContent)).not.toContain(
+      "Disconnect",
+    );
+    await act(async () => second.unmount());
+  } finally {
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});
