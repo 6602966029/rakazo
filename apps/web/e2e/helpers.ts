@@ -321,6 +321,25 @@ export async function chooseOption(trigger: Locator, option: string | { index: n
   ).click();
 }
 
+/**
+ * Clicks a button and waits for the RPC it sends to succeed, so what the test reads next
+ * reflects it. The wait starts before the click, so a fast reply is never missed.
+ */
+export async function clickAndWaitForRpc(page: Page, button: Locator, path: string) {
+  const [reply] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === `/rpc/${path}` &&
+        response.request().method() === "POST",
+    ),
+    button.click(),
+  ]);
+  expect(reply.status()).toBe(200);
+  // The whole reply has arrived, not just its headers.
+  const failure = await reply.finished();
+  if (failure) throw new Error(`/rpc/${path} reply did not finish: ${failure.message}`);
+}
+
 /** Presents a deployment default the offline E2E server cannot run, as host credentials would. */
 export async function presentMainDeploymentDefault(page: Page, provider: string, modelId: string) {
   await page.route("**/rpc/models/role", async (route) => {

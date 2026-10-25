@@ -103,6 +103,7 @@ import { SidebarFooter } from "../components/SidebarFooter";
 import type { ActivityListFilters } from "../lib/activity-list-filters";
 import { emptyActivityFilters } from "../lib/activity-list-filters";
 import { readActivityMode, writeActivityMode } from "../lib/activity-mode";
+import type { DroppedAgent } from "../lib/agent-drop";
 import type { ArtifactTarget } from "../lib/artifact-open";
 import { authClient } from "../lib/auth";
 import { autoReadStillWanted } from "../lib/auto-read";
@@ -203,6 +204,7 @@ import { HostComputerPrompt } from "./HostComputerPrompt";
 import { ResizableSidePanel } from "./ResizableSidePanel";
 import { RoutineEditor } from "./RoutineEditor";
 import { SpaceSearchResults } from "./SpaceSearch";
+import { AgentImportForm } from "./shell/agent-import";
 import { ArchivedChats } from "./shell/archived-chats";
 import { BotSettings } from "./shell/bot-panel";
 import type { PendingAttachment } from "./shell/chat-shared";
@@ -405,6 +407,7 @@ function SpaceShell() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [modelFocusRequest, setModelFocusRequest] = useState(0);
   const [panel, setPanelState] = useState<Panel>(null);
+  const [droppedAgent, setDroppedAgent] = useState<DroppedAgent | null>(null);
   const [restoredPanelKey, setRestoredPanelKey] = useState<string | null>(null);
   const panelStorageKeyRef = useRef<string | null>(null);
   const observedPanelKey = useRef<string | null>(null);
@@ -2274,7 +2277,7 @@ function SpaceShell() {
     [t],
   );
   const onAttachmentPick = useCallback(
-    (files: FileList | null) => {
+    (files: FileList | readonly File[] | null) => {
       const threadKey = activeGroupId.current ?? activeBotId.current;
       if (!threadKey || !files?.length) return false;
       const existing = attachmentsForThread(pendingAttachments, threadKey);
@@ -2560,6 +2563,13 @@ function SpaceShell() {
     if (!id) return;
     await refreshThreadRef.current(id);
   }, []);
+  // An import's setup checklist re-checks on each thread refresh, so refresh once setup closes.
+  const importSetupOpen = useRef(false);
+  useEffect(() => {
+    if (!importSetupOpen.current || overlay || searchParams.has("routine")) return;
+    importSetupOpen.current = false;
+    void refreshActiveThread();
+  }, [overlay, searchParams, refreshActiveThread]);
   // Teach chrome needs skills applied before this resolves — refreshThread only
   // kicks skills.list off in the background, so Stop teaching would never mount
   // if that background call failed or lagged behind local recovery.
@@ -2642,6 +2652,16 @@ function SpaceShell() {
       }
     }
     await refreshBots(true);
+  }
+
+  function openCreatedBot(bot: Bot) {
+    // A roster requested before creation may omit this bot and redirect its new chat.
+    botsRefreshEpoch.current += 1;
+    setBots((current) =>
+      current.some((item) => item.id === bot.id) ? current : [bot, ...current],
+    );
+    navigate(`/app/${bot.id}`);
+    setPanel(null);
   }
 
   async function createBot(input: CreateBotDialogInput) {
@@ -3635,6 +3655,21 @@ function SpaceShell() {
               speakingMessageId={speakingMessageId}
               onSpeak={speakMessage}
               onOpenComputer={onOpenComputer}
+              onOpenImport={() => {
+                setDroppedAgent(null);
+                setPanel("import-agent");
+              }}
+              onOpenImportSetup={(target) => {
+                importSetupOpen.current = true;
+                if (target.kind === "models") openSettings("models");
+                else if (target.kind === "mcp")
+                  setOverlay({ kind: "mcp", serverId: target.serverId });
+                else {
+                  const next = new URLSearchParams(searchParams);
+                  next.set("routine", target.routineId);
+                  setSearchParams(next);
+                }
+              }}
             />
           )}
         </div>
@@ -3650,6 +3685,10 @@ function SpaceShell() {
               key={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
               draftKey={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
               enterToSend={enterToSend}
+              onImportAgent={(agent) => {
+                setDroppedAgent(agent);
+                setPanel("import-agent");
+              }}
               activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
               running={composerRunning}
               disabled={Boolean(recordingSkill)}
@@ -3708,12 +3747,15 @@ function SpaceShell() {
       />
 
       <ResizableSidePanel
-        open={Boolean(panel && (active || activeGroup))}
+        open={Boolean(panel && (active || activeGroup || panel === "import-agent"))}
         panel={panel ?? "closed"}
       >
-        {panel && (active || activeGroup) ? (
+        {panel && (active || activeGroup || panel === "import-agent") ? (
           <div className="rk-scroll h-full w-full overflow-y-auto px-5 py-[17px]">
-            {panel !== "routine" && panel !== "create-group" && panel !== "group-settings" ? (
+            {panel !== "routine" &&
+            panel !== "create-group" &&
+            panel !== "group-settings" &&
+            panel !== "import-agent" ? (
               <div className="mb-4 flex items-center justify-between">
                 {!active && panel !== "settings" ? (
                   <span className="text-[13.5px] text-muted-foreground">
@@ -3828,6 +3870,28 @@ function SpaceShell() {
                 covered={computerOpen}
               />
             ) : null}
+            {panel === "import-agent" ? (
+              <AgentImportForm
+                bots={bots.filter((bot) => !bot.archivedAt)}
+                initialSource={droppedAgent ?? undefined}
+                onBack={() => {
+                  setDroppedAgent(null);
+                  setPanel(null);
+                  setCreateBotOpen(true);
+                }}
+                onCancel={() => {
+                  setDroppedAgent(null);
+                  setPanel(null);
+                }}
+                onCreated={(bot) => {
+                  setDroppedAgent(null);
+                  openCreatedBot(bot);
+                  // An import into an existing bot changes it and its chat.
+                  void refreshBots().catch(() => undefined);
+                  if (bot.id === active?.id) void refreshActiveThread();
+                }}
+              />
+            ) : null}
             {panel === "settings" && active ? (
               <BotSettings
                 key={active.id}
@@ -3863,6 +3927,12 @@ function SpaceShell() {
                   URL.revokeObjectURL(url);
                 }}
                 onClear={() => setClearTarget({ kind: "bot", chat: active })}
+                onUndoImport={() => {
+                  setPanel(null);
+                  void refreshBots(true);
+                  // An import into an existing bot is undone without removing the bot.
+                  void refreshActiveThread().catch(() => undefined);
+                }}
               />
             ) : null}
             {panel === "routine" && routineEditorProps ? (
@@ -4025,7 +4095,15 @@ function SpaceShell() {
         />
 
         {createBotOpen ? (
-          <CreateBotDialog onCancel={() => setCreateBotOpen(false)} onCreate={createBot} />
+          <CreateBotDialog
+            onCancel={() => setCreateBotOpen(false)}
+            onCreate={createBot}
+            onImport={() => {
+              setCreateBotOpen(false);
+              setDroppedAgent(null);
+              setPanel("import-agent");
+            }}
+          />
         ) : null}
 
         {newSpaceOpen ? (
@@ -4085,7 +4163,9 @@ function SpaceShell() {
             onOpenMcp={() => setOverlay({ kind: "mcp" })}
           />
         ) : null}
-        {overlay?.kind === "mcp" ? <McpServersOverlay onClose={() => setOverlay(null)} /> : null}
+        {overlay?.kind === "mcp" ? (
+          <McpServersOverlay editServerId={overlay.serverId} onClose={() => setOverlay(null)} />
+        ) : null}
         {overlay?.kind === "messaging" ? (
           <MessagingSettingsOverlay onClose={() => setOverlay(null)} />
         ) : null}
