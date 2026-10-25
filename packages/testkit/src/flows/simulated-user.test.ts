@@ -87,6 +87,8 @@ describe("simulated user moves", () => {
       "typed 3 characters",
       "pressed Return (nothing on screen changed)",
     ]);
+    log.did("pressed Return");
+    expect(log.steps.at(-1)).toBe("pressed Return (same as your previous step)");
     const next = screenStepLog();
     next.saw(b);
     expect(next.steps).toEqual([]);

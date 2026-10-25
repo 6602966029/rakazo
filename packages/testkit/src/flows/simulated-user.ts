@@ -57,7 +57,7 @@ Moves:
 {"kind":"type","text":"..."}      type text into the focused field
 {"kind":"key","key":"Return"}     press a key (xdotool names: Return, Tab, BackSpace, Escape)
 {"kind":"release"}                give the screen back to the assistant
-If a step left the screen unchanged, do something different (close a pop-up, press Escape, click elsewhere) instead of repeating it.`;
+If a step left the screen unchanged or repeats your previous step, it is not working: do something different (type into a field you already clicked, close a pop-up, press Escape, click elsewhere) instead of repeating it.`;
 
 const MOVE_ATTEMPTS = 3;
 
@@ -199,7 +199,8 @@ export function parseMove(text: string, situation: Situation): UserMove {
 
 /**
  * What the person did while holding the screen, as they would remember it. A step that left
- * the screen unchanged is marked so: without that, the model repeats dead clicks.
+ * the screen unchanged, or that repeats the previous one, is marked so: without that, the model
+ * repeats dead clicks. Pixels alone are not enough, since a clock or caret changes every frame.
  */
 export function screenStepLog() {
   const steps: string[] = [];
@@ -213,7 +214,8 @@ export function screenStepLog() {
       previous = frame;
     },
     did(step: string) {
-      steps.push(step);
+      const last = steps.at(-1);
+      steps.push(last?.startsWith(step) ? `${step} (same as your previous step)` : step);
     },
   };
 }
