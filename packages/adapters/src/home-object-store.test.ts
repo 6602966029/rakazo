@@ -406,6 +406,22 @@ describe("ObjectAgentHomeStore", () => {
     expect(await exported(await otherHost(), "team-1")).toEqual({});
   });
 
+  it("keeps the rest of a home never stored when its first save fails", async () => {
+    const { store, storage } = await setup(["team-1"]);
+    await mkdir(path.join(store.pathFor("team-1"), "bots/gone"), { recursive: true });
+    await mkdir(path.join(store.pathFor("team-1"), "bots/kept"), { recursive: true });
+    await writeFile(path.join(store.pathFor("team-1"), "bots/kept/work.txt"), "other bot");
+    storage.put = async () => {
+      throw new Error("bucket unavailable");
+    };
+
+    await expect(store.removeFolders("team-1", "bots", ["gone"])).rejects.toThrow(
+      "bucket unavailable",
+    );
+
+    await expect(readdir(path.join(store.pathFor("team-1"), "bots"))).resolves.toEqual(["kept"]);
+  });
+
   it("removes a deleted home's cache, previous copy and revision marker", async () => {
     const { root, store } = await setup(["team-1", "team-2"]);
     await store.commit("team-1", await staged({ "a.txt": "gone" }), context);

@@ -131,10 +131,12 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
   /** Removes the folders from the stored copy too, so no host or later boot gets them back. */
   override async removeFolders(botId: string, parent: string, names: readonly string[]) {
     await this.hydrate(botId);
+    const stored = Boolean((await this.records.load(botId))?.revision);
     if (!(await super.removeFolders(botId, parent, names))) return false;
-    // A cache that no longer matches its stored revision would hide the folders from a retry.
     await this.revise(botId).catch(async (error) => {
-      await this.remove(botId);
+      // A cache that no longer matches its stored revision would hide the folders from a retry,
+      // so it is downloaded again. A home never stored has no other copy and is already clean.
+      if (stored) await this.remove(botId);
       throw error;
     });
     return true;
