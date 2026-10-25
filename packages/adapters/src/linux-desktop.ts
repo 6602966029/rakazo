@@ -387,7 +387,12 @@ export const PREPARE_LINUX_DESKTOP = [
   'if [ -n "$missing" ]; then',
   // Separate commands: set -e ignores a failure on the left of &&.
   "  $root apt-get update -qq",
-  "  $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $missing",
+  "  if ! $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-remove $missing; then",
+  // Provider images can arrive with unrelated, unfinished package dependencies. Let APT
+  // solve those without specifying the desktop packages, and never remove existing tools.
+  "    $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --fix-broken --no-remove",
+  "    $root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-remove $missing",
+  "  fi",
   "fi",
   `policy=${shellQuote(BROWSER_POLICY)}`,
   `for dir in ${BROWSER_POLICY_DIRS.join(" ")}; do`,
