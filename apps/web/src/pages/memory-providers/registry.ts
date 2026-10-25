@@ -29,7 +29,9 @@ export const MEMORY_PROVIDER_SETTINGS: readonly MemoryProviderSettingsRegistrati
     description: "Add semantic recall alongside native MEMORY.md memory.",
     SettingsForm: SupermemorySettingsForm,
     connectedLabel: (config) =>
-      config.settings.mode === "cloud" ? "Supermemory Cloud" : `Local · ${config.settings.baseUrl}`,
+      config.settings.mode === "cloud"
+        ? "Supermemory Cloud"
+        : `Self-hosted · ${config.settings.baseUrl}`,
   },
   {
     id: "serenity",
@@ -50,7 +52,8 @@ export const MEMORY_PROVIDER_SETTINGS: readonly MemoryProviderSettingsRegistrati
     SettingsForm: HonchoSettingsForm,
     connectedLabel: (config) => {
       const { mode, baseUrl, workspaceId } = config.settings;
-      if (mode === "local") return [`Local · ${baseUrl}`, workspaceId].filter(Boolean).join(" · ");
+      if (mode === "local")
+        return [`Self-hosted · ${baseUrl}`, workspaceId].filter(Boolean).join(" · ");
       return workspaceId ? `Honcho · ${workspaceId}` : "Honcho Cloud";
     },
   },

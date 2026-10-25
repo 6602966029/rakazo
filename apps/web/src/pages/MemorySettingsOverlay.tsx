@@ -82,6 +82,7 @@ export function MemorySettingsOverlay({
     config?.defaultMemoryScope ?? "isolated",
   );
   const [pending, setPending] = useState<"connect" | "disconnect" | "scope" | null>(null);
+  const [addingProvider, setAddingProvider] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -132,6 +133,7 @@ export function MemorySettingsOverlay({
     markPending("disconnect");
     try {
       await rpc.memory.disconnectProvider();
+      setAddingProvider(false);
       onConfigChange(null);
     } catch (err) {
       setError(errorText(err, t`Could not disconnect memory provider`));
@@ -177,6 +179,8 @@ export function MemorySettingsOverlay({
         <div className="space-y-5">
           {error ? <p className="text-[13px] text-destructive">{error}</p> : null}
 
+          <SpaceMemorySection />
+
           {config === undefined ? (
             <p className="text-[13px] text-muted-foreground">
               <Spinner aria-label={t`Loading memory settings…`} />
@@ -215,6 +219,15 @@ export function MemorySettingsOverlay({
                 )}
               </Button>
             </section>
+          ) : !addingProvider ? (
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setAddingProvider(true)}
+              className="rounded-full"
+            >
+              <Trans>Connect memory provider</Trans>
+            </Button>
           ) : registration ? (
             <section className="rounded-xl border border-border px-4 py-4">
               <h3 id={providerSelectId} className="text-heading3 font-medium text-foreground">
@@ -254,7 +267,6 @@ export function MemorySettingsOverlay({
               <Trans>The selected memory provider is not available in this build.</Trans>
             </p>
           )}
-          <SpaceMemorySection />
         </div>
       </div>
     </>

@@ -1439,6 +1439,10 @@ msgstr "Connect Executor"
 msgid "Connect MCP server “{name}”"
 msgstr "Connect MCP server “{name}”"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "Connect memory provider"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr "Connect my own"
@@ -3037,10 +3041,6 @@ msgstr "Loading voice providers…"
 msgid "Loading…"
 msgstr "Loading…"
 
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "Local"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
 msgstr "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -4484,6 +4484,10 @@ msgstr "Security"
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "Select a bot"
+
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "Self-hosted"
 
 #: src/pages/shell/composer.tsx
 msgid "Send"

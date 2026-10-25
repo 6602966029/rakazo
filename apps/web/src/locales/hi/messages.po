@@ -1439,6 +1439,10 @@ msgstr "Executor कनेक्ट करें"
 msgid "Connect MCP server “{name}”"
 msgstr "MCP सर्वर “{name}” कनेक्ट करें"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "मेमोरी प्रोवाइडर कनेक्ट करें"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -3037,10 +3041,6 @@ msgstr "आवाज़ प्रोवाइडर्स लोड हो र�
 msgid "Loading…"
 msgstr "लोड हो रहा है…"
 
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "लोकल"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
 msgstr "स्थानीय पहुँच मिलने पर बॉट्स बिना पूछे कमांड चला सकते हैं। साझा या सार्वजनिक सर्वर पर इससे बचें।"
@@ -4484,6 +4484,10 @@ msgstr "सुरक्षा"
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "एक बॉट चुनें"
+
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "सेल्फ़-होस्टेड"
 
 #: src/pages/shell/composer.tsx
 msgid "Send"

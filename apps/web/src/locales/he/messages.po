@@ -1439,6 +1439,10 @@ msgstr "חיבור Executor"
 msgid "Connect MCP server “{name}”"
 msgstr "חיבור שרת MCP “{name}”"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "חיבור ספק זיכרון"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -3037,10 +3041,6 @@ msgstr "טוען ספקי קול…"
 msgid "Loading…"
 msgstr "טוען…"
 
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "מקומי"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
 msgstr "גישה מקומית מאפשרת לבוטים להריץ פקודות בלי לבקש אישור. לא מומלץ להפעיל אותה בשרתים משותפים או ציבוריים."
@@ -4484,6 +4484,10 @@ msgstr "אבטחה"
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "בחירת בוט"
+
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "באירוח עצמי"
 
 #: src/pages/shell/composer.tsx
 msgid "Send"

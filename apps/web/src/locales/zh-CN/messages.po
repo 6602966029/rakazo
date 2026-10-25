@@ -1439,6 +1439,10 @@ msgstr "连接 Executor"
 msgid "Connect MCP server “{name}”"
 msgstr "连接 MCP 服务器“{name}”"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "连接记忆提供方"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -3037,10 +3041,6 @@ msgstr "正在加载语音提供方…"
 msgid "Loading…"
 msgstr "加载中…"
 
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "本地"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
 msgstr "本地访问权限允许 Bot 无需询问就执行命令。请勿在共享或公开服务器上启用。"
@@ -4484,6 +4484,10 @@ msgstr "安全"
 #: src/pages/Shell.tsx
 msgid "Select a bot"
 msgstr "选择 Bot"
+
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "自托管"
 
 #: src/pages/shell/composer.tsx
 msgid "Send"
