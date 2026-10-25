@@ -1,5 +1,5 @@
 import type { DataTag, QueryFunction, QueryKey } from "@tanstack/react-query";
-import { QueryClient } from "@tanstack/react-query";
+import { hashKey, isCancelledError, QueryClient } from "@tanstack/react-query";
 import { captureApiRequestContext, currentApiBase, rpc, selectedSpaceId } from "./api";
 import { t } from "./i18n";
 import { currentSessionGeneration } from "./session";
@@ -70,10 +70,36 @@ export async function writeSaved<T>(
  * cancelled rather than reused and the answer comes from a request sent afterwards. `reuse` is
  * for a screen opening, where sharing an in-flight read is fine.
  */
+const freshAnswers = new Map<string, Promise<unknown>>();
+
 export async function fetchFresh<T>(
   options: { queryKey: DataTag<QueryKey, T, Error>; queryFn: QueryFunction<T> },
   { reuse = false } = {},
 ): Promise<T> {
-  if (!reuse) await queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
-  return queryClient.fetchQuery({ ...options, staleTime: 0 });
+  if (reuse) return queryClient.fetchQuery({ ...options, staleTime: 0 });
+  // Claimed before cancelling, so a refresh this one cancels can wait for its final answer.
+  const key = hashKey(options.queryKey);
+  let settle!: (answer: Promise<T>) => void;
+  const answer = new Promise<T>((resolve) => {
+    settle = resolve;
+  });
+  answer.catch(() => undefined);
+  freshAnswers.set(key, answer);
+  const run = (async () => {
+    try {
+      await queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
+      return await queryClient.fetchQuery({ ...options, staleTime: 0 });
+    } catch (error) {
+      const newer = freshAnswers.get(key);
+      // A newer refresh of the same data cancelled this one; its answer is newer still.
+      if (isCancelledError(error) && newer && newer !== answer) return newer as Promise<T>;
+      throw error;
+    }
+  })();
+  settle(run);
+  try {
+    return await run;
+  } finally {
+    if (freshAnswers.get(key) === answer) freshAnswers.delete(key);
+  }
 }
