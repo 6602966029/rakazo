@@ -19,7 +19,8 @@ import { LocalAgentHomeStore } from "./home.js";
 
 export const PORTABLE_TRANSFER_BATCH_BYTES = 8 * 1024 * 1024;
 
-const skippedBrowserProfileDirectories = new Set([
+/** Browser profile directories the browser rebuilds on its own; exports skip them. */
+export const SKIPPED_BROWSER_PROFILE_DIRECTORIES: ReadonlySet<string> = new Set([
   "Cache",
   "Code Cache",
   "CacheStorage",
@@ -70,7 +71,7 @@ export function shouldSkipPortableWorkspaceFile(relative: string) {
   const segments = relative.split("/");
   const name = segments.at(-1) ?? "";
   return (
-    segments.some((segment) => skippedBrowserProfileDirectories.has(segment)) ||
+    segments.some((segment) => SKIPPED_BROWSER_PROFILE_DIRECTORIES.has(segment)) ||
     skippedBrowserProfileFiles.has(name)
   );
 }
