@@ -1,4 +1,10 @@
 export const JA_MESSAGES: Record<string, string> = {
+  Approvals: "承認",
+  "Never ask": "確認しない",
+  Auto: "自動",
+  Ask: "確認",
+  Block: "ブロック",
+  "Add a model in Settings to use this.": "使用するには設定でモデルを追加してください。",
   "Approval model": "承認モデル",
   "Main model": "メインモデル",
   "Add fallback": "バックアップモデルを追加",
@@ -215,7 +221,6 @@ export const JA_MESSAGES: Record<string, string> = {
   // app/(settings)/space.tsx
   Customize: "カスタマイズ",
   "Customize {setting}": "{setting}をカスタマイズ",
-  Confirmations: "確認",
   "Tap + to create a bot": "+をタップしてボットを作成",
   "This removes the space for everyone.": "このスペースを全員に対して削除します。",
   "Delete {name} and its bot?": "{name} とそのボットを削除しますか？",
@@ -628,7 +633,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Scheduled tasks": "スケジュール済みのタスク",
   "Sign out": "ログアウト",
   "Stream replies": "返信をストリーミング",
-  "Run actions without asking": "確認せずにアクションを実行",
   "Load web images automatically": "Web画像を自動で読み込む",
   System: "システム",
   "This permanently deletes your account, bots, conversations, memories, files, and saved connections. This cannot be undone.":

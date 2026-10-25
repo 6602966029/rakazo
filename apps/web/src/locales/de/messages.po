@@ -598,36 +598,17 @@ msgstr ""
 msgid "All time"
 msgstr ""
 
-#. placeholder {0}: rule.matchValue
 #: src/components/ApprovalRulesSettings.tsx
-msgid "Allow {0} actions without asking"
-msgstr "{0}-Aktionen ohne Nachfrage erlauben"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow {0} connector without asking"
-msgstr "{0}-Connector ohne Nachfrage erlauben"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow {0} without asking"
-msgstr "{0} ohne Nachfrage erlauben"
+msgid "Allow"
+msgstr "Erlauben"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Allow cross-space bot communication"
 msgstr "Kommunikation zwischen Bots in verschiedenen Spaces erlauben"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow email actions without asking"
-msgstr "E-Mail-Aktionen ohne Nachfrage erlauben"
-
 #: src/components/AskCard.tsx
 msgid "Allow once"
 msgstr "Einmal erlauben"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Allow purchase actions without asking"
-msgstr "Kaufaktionen ohne Nachfrage erlauben"
 
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Allow writing"
@@ -761,6 +742,11 @@ msgstr "Bestätigungsgrenzen"
 msgid "Approval model"
 msgstr "Freigabemodell"
 
+#: src/pages/SettingsOverlay.tsx
+#: src/pages/SpaceSettingOverrides.tsx
+msgid "Approvals"
+msgstr "Freigaben"
+
 #: src/pages/MessagingSettingsOverlay.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
@@ -791,36 +777,9 @@ msgstr "Argumente"
 msgid "Artifacts"
 msgstr ""
 
-#. placeholder {0}: rule.matchValue
 #: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before {0}"
-msgstr "Vor {0} nachfragen"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before {0} actions"
-msgstr "Vor {0}-Aktionen nachfragen"
-
-#. placeholder {0}: rule.matchValue
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before {0} connector"
-msgstr "Vor {0}-Connector nachfragen"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before email actions"
-msgstr "Vor E-Mail-Aktionen nachfragen"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before purchase actions"
-msgstr "Vor Kaufaktionen nachfragen"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before purchases"
-msgstr "Vor Käufen nachfragen"
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Ask before sending external email"
-msgstr "Vor dem Senden externer E-Mails nachfragen"
+msgid "Ask"
+msgstr "Fragen"
 
 #. placeholder {0}: preset.time
 #: src/pages/RoutineSchedule.tsx
@@ -872,6 +831,10 @@ msgstr "Autorisieren"
 #: src/pages/shell/message-cards.tsx
 msgid "Authorize this server so agents can use its tools. A popup opens."
 msgstr "Autorisiere diesen Server, damit Agents seine Tools nutzen können. Ein Pop-up öffnet sich."
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Auto"
+msgstr "Auto"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Automated senders"
@@ -930,6 +893,10 @@ msgstr "Bearer-Token"
 #: src/pages/SettingsOverlay.tsx
 msgid "Billing"
 msgstr ""
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Block"
+msgstr "Blockieren"
 
 #: src/lib/ticket-status.ts
 msgid "Blocked"
@@ -1446,11 +1413,6 @@ msgstr "Passwort bestätigen"
 #: src/lib/model-connection-preflight.ts
 msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Prüfe, ob die URL aus dieser Browsersitzung erreichbar ist, und teste erneut."
-
-#: src/pages/SettingsOverlay.tsx
-#: src/pages/SpaceSettingOverrides.tsx
-msgid "Confirmations"
-msgstr ""
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
@@ -2709,10 +2671,6 @@ msgstr "Fertig."
 msgid "Finishing MCP connection…"
 msgstr "MCP-Verbindung wird abgeschlossen…"
 
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Flag unexpected actions"
-msgstr ""
-
 #: src/pages/Auth.tsx
 msgid "Forgot password?"
 msgstr "Passwort vergessen?"
@@ -3430,6 +3388,10 @@ msgstr "Minuten"
 msgid "Missed call"
 msgstr "Verpasster Anruf"
 
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Mode"
+msgstr "Modus"
+
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/model-settings/model-picker.tsx
@@ -3578,6 +3540,10 @@ msgstr ""
 #: src/pages/shell/import-status.ts
 msgid "Needs: {names}"
 msgstr "Benötigt: {names}"
+
+#: src/components/ApprovalRulesSettings.tsx
+msgid "Never ask"
+msgstr "Nie fragen"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New"
@@ -4535,10 +4501,6 @@ msgstr "Routinen"
 #: src/pages/Paywall.tsx
 msgid "Routines that run while you're away"
 msgstr ""
-
-#: src/components/ApprovalRulesSettings.tsx
-msgid "Run actions without asking"
-msgstr "Aktionen ohne Nachfrage ausführen"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Run at"

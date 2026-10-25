@@ -1,4 +1,11 @@
 export const DE_MESSAGES: Record<string, string> = {
+  Approvals: "Freigaben",
+  "Never ask": "Nie fragen",
+  Auto: "Auto",
+  Ask: "Fragen",
+  Block: "Blockieren",
+  "Add a model in Settings to use this.":
+    "Füge in den Einstellungen ein Modell hinzu, um dies zu nutzen.",
   "Approval model": "Freigabemodell",
   "Main model": "Hauptmodell",
   "Add fallback": "Backup-Modell hinzufügen",
@@ -233,7 +240,6 @@ export const DE_MESSAGES: Record<string, string> = {
   // app/(settings)/space.tsx
   Customize: "Anpassen",
   "Customize {setting}": "{setting} anpassen",
-  Confirmations: "Bestätigungen",
   "Tap + to create a bot": "Tippe auf +, um einen Bot zu erstellen",
   "This removes the space for everyone.": "Das entfernt den Space für alle.",
   "Delete {name} and its bot?": "{name} und seinen Bot löschen?",
@@ -656,7 +662,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Scheduled tasks": "Geplante Aufgaben",
   "Sign out": "Abmelden",
   "Stream replies": "Antworten streamen",
-  "Run actions without asking": "Aktionen ohne Nachfrage ausführen",
   "Load web images automatically": "Webbilder automatisch laden",
   System: "System",
   "This permanently deletes your account, bots, conversations, memories, files, and saved connections. This cannot be undone.":
