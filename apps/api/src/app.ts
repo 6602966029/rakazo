@@ -95,6 +95,7 @@ import {
   describeRowSecurity,
   IsolationError,
   installSecurityEventStore,
+  ProviderTransactionBusyError,
   parsePositiveInteger,
   provisionMessagingIdentity,
   pushSessionExpiresAt,
@@ -1270,6 +1271,11 @@ export function handleRpcError(error: unknown, path: readonly string[]): void {
     getLogger().warn(`rpc ${path.join("/")} computer unavailable`, {
       reason: error.cause instanceof Error ? error.cause.message : undefined,
     });
+    throw new ORPCError("SERVICE_UNAVAILABLE", { message: error.message, cause: error });
+  }
+  // A provider kept another transaction busy past the wait; nothing failed, so the caller retries.
+  if (error instanceof ProviderTransactionBusyError) {
+    getLogger().warn(`rpc ${path.join("/")} provider transaction busy`);
     throw new ORPCError("SERVICE_UNAVAILABLE", { message: error.message, cause: error });
   }
   if (error instanceof SandboxRateLimitError) {
