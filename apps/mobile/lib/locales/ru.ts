@@ -284,8 +284,6 @@ export const RU_MESSAGES: Record<string, string> = {
   Checking: "Проверка",
   "Checking…": "Проверка…",
   "Check your email": "Проверьте свою электронную почту",
-  "Use password": "Войти с паролем",
-  "Use email code": "Войти по коду из письма",
   "Invalid code": "Неверный код",
   "Request a new code": "Запросите новый код",
   Clear: "Очистить",

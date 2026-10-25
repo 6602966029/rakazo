@@ -164,8 +164,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Already have an account?": "すでにアカウントをお持ちですか？",
   "Back to sign in": "ログインに戻る",
   "Check your email": "メールを確認してください",
-  "Use password": "パスワードを使用",
-  "Use email code": "メールのコードを使用",
   "Invalid code": "無効なコード",
   "Request a new code": "新しいコードをリクエスト",
   "Checking…": "確認中…",

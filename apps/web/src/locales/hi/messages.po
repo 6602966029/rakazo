@@ -1596,10 +1596,6 @@ msgstr "{0} के साथ जारी रखें"
 msgid "Continue with credits"
 msgstr ""
 
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "ईमेल से जारी रखें"
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Conversations"
 msgstr ""
@@ -5613,17 +5609,9 @@ msgstr "कुंजी जाँचने के लिए कनेक्ट �
 msgid "Use default guidance"
 msgstr ""
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "ईमेल कोड का उपयोग करें"
-
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "पासवर्ड का उपयोग करें"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

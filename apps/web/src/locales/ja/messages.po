@@ -1596,10 +1596,6 @@ msgstr "{0}で続行"
 msgid "Continue with credits"
 msgstr "クレジットで続行"
 
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "メールで続行"
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Conversations"
 msgstr ""
@@ -5613,17 +5609,9 @@ msgstr "「接続」でキーを確認してください。"
 msgid "Use default guidance"
 msgstr "デフォルトのガイダンスを使用"
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "メールのコードを使用"
-
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr "自分のサブスクリプションまたはAPIキーを使用"
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "パスワードを使用"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."

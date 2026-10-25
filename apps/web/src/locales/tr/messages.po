@@ -1596,10 +1596,6 @@ msgstr "{0} ile devam et"
 msgid "Continue with credits"
 msgstr ""
 
-#: src/pages/Auth.tsx
-msgid "Continue with email"
-msgstr "E-posta ile devam et"
-
 #: src/pages/MessagingSettingsOverlay.tsx
 msgid "Conversations"
 msgstr ""
@@ -5613,17 +5609,9 @@ msgstr "Anahtarı doğrulamak için Bağlan'ı kullan."
 msgid "Use default guidance"
 msgstr ""
 
-#: src/pages/Auth.tsx
-msgid "Use email code"
-msgstr "E-posta kodu kullan"
-
 #: src/components/ModelCredits.tsx
 msgid "Use my subscription or API key"
 msgstr ""
-
-#: src/pages/Auth.tsx
-msgid "Use password"
-msgstr "Parola kullan"
 
 #: src/components/teach/TeachRecordingChrome.tsx
 msgid "Use Protected input for passwords."
