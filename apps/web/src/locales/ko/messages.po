@@ -121,7 +121,7 @@ msgstr ""
 
 #: src/pages/shell/dialogs.tsx
 msgid "{botCount, plural, one {Delete {name} and its # bot?} other {Delete {name} and its # bots?}}"
-msgstr ""
+msgstr "{botCount, plural, other {{name}과(와) 봇 #개를 삭제할까요?}}"
 
 #: src/pages/shell/computer-view.tsx
 msgid "{botName}’s computer"
