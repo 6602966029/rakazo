@@ -1560,6 +1560,22 @@ describe("Team Computer wake", () => {
     });
   });
 
+  it("records the sandbox the provider returned, not the one the computer had before", async () => {
+    const harness = wakeHarness(
+      "stopped",
+      undefined,
+      { id: "sandbox-2", providerRef: "sandbox-2" },
+      { runningSince: null, userId: "user-1" },
+    );
+
+    await boot(harness);
+
+    expect(vi.mocked(harness.prisma.computerRun.createMany)).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ providerRef: "sandbox-2" })],
+      skipDuplicates: true,
+    });
+  });
+
   it("keeps the same run when reconnecting to a computer that stayed up", async () => {
     const runningSince = new Date("2024-01-01T00:00:00.000Z");
     const harness = wakeHarness("running", undefined, {}, { runningSince });
