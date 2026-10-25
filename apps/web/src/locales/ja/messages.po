@@ -1444,6 +1444,10 @@ msgstr "Executorを接続"
 msgid "Connect MCP server “{name}”"
 msgstr "MCPサーバー「{name}」を接続"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "メモリプロバイダーを接続"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr "自分のキーを接続"
@@ -2458,6 +2462,10 @@ msgstr "間隔"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "{intervalAmountSelect}{intervalUnitSelect}ごと"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "このスペースのすべてのボットがこのメモを読み、最新の状態に保ちます。"
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -2952,6 +2960,10 @@ msgstr "後で"
 msgid "Leave"
 msgstr "退出"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "MEMORY.md に加えて、ボットが意味に基づいて事実を保存・想起できるようにします。"
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "ライト"
@@ -3038,10 +3050,6 @@ msgstr "音声プロバイダーを読み込み中…"
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
 msgstr "読み込み中…"
-
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "ローカル"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -3929,10 +3937,6 @@ msgstr "プルリクエスト"
 msgid "Queued"
 msgstr "待機中"
 
-#: src/pages/shell/quote-selection-button.tsx
-msgid "Quote"
-msgstr "引用"
-
 #: src/components/ModelCredits.tsx
 msgid "Rakazo credits"
 msgstr "Rakazoクレジット"
@@ -4175,6 +4179,7 @@ msgid "Replace value"
 msgstr "値を置き換え"
 
 #: src/pages/shell/message-hover-actions.tsx
+#: src/pages/shell/quote-selection-button.tsx
 msgid "Reply"
 msgstr "返信"
 
@@ -4496,6 +4501,10 @@ msgstr "セキュリティ"
 msgid "Select a bot"
 msgstr "ボットを選択"
 
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "セルフホスト"
+
 #: src/pages/shell/composer.tsx
 msgid "Send"
 msgstr "送信"
@@ -4591,8 +4600,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr "{GROUP_MEMBER_MIN}〜{GROUP_MEMBER_MAX}個のボットとの共有チャットです。全員が同じスレッドで返信します。"
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "共有ドキュメント"
+msgid "Shared memory"
+msgstr "共有メモリ"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

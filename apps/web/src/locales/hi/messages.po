@@ -1444,6 +1444,10 @@ msgstr "Executor कनेक्ट करें"
 msgid "Connect MCP server “{name}”"
 msgstr "MCP सर्वर “{name}” कनेक्ट करें"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "मेमोरी प्रोवाइडर कनेक्ट करें"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -2458,6 +2462,10 @@ msgstr "हर"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "हर {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "इस स्पेस के सभी बॉट ये नोट्स पढ़ते हैं और इन्हें अपडेट रखते हैं।"
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -2952,6 +2960,10 @@ msgstr ""
 msgid "Leave"
 msgstr ""
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "बॉट्स को MEMORY.md के साथ-साथ अर्थ के आधार पर तथ्य सहेजने और याद करने देता है।"
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "लाइट"
@@ -3038,10 +3050,6 @@ msgstr "आवाज़ प्रोवाइडर्स लोड हो र�
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
 msgstr "लोड हो रहा है…"
-
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "लोकल"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -3929,10 +3937,6 @@ msgstr "पुल अनुरोध"
 msgid "Queued"
 msgstr "कतार में"
 
-#: src/pages/shell/quote-selection-button.tsx
-msgid "Quote"
-msgstr ""
-
 #: src/components/ModelCredits.tsx
 msgid "Rakazo credits"
 msgstr ""
@@ -4175,6 +4179,7 @@ msgid "Replace value"
 msgstr ""
 
 #: src/pages/shell/message-hover-actions.tsx
+#: src/pages/shell/quote-selection-button.tsx
 msgid "Reply"
 msgstr "उत्तर दें"
 
@@ -4496,6 +4501,10 @@ msgstr "सुरक्षा"
 msgid "Select a bot"
 msgstr "एक बॉट चुनें"
 
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "सेल्फ़-होस्टेड"
+
 #: src/pages/shell/composer.tsx
 msgid "Send"
 msgstr "भेजें"
@@ -4591,8 +4600,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "साझा दस्तावेज़"
+msgid "Shared memory"
+msgstr "साझा मेमोरी"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

@@ -1444,6 +1444,10 @@ msgstr "连接 Executor"
 msgid "Connect MCP server “{name}”"
 msgstr "连接 MCP 服务器“{name}”"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "连接记忆提供方"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -2458,6 +2462,10 @@ msgstr "每"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "每 {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "此空间中的所有机器人都会读取并更新这些笔记。"
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -2952,6 +2960,10 @@ msgstr ""
 msgid "Leave"
 msgstr "退出"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "让机器人在 MEMORY.md 之外，按语义保存和回忆事实。"
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "浅色"
@@ -3038,10 +3050,6 @@ msgstr "正在加载语音提供方…"
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
 msgstr "加载中…"
-
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "本地"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -3929,10 +3937,6 @@ msgstr "拉取请求"
 msgid "Queued"
 msgstr "排队中"
 
-#: src/pages/shell/quote-selection-button.tsx
-msgid "Quote"
-msgstr ""
-
 #: src/components/ModelCredits.tsx
 msgid "Rakazo credits"
 msgstr ""
@@ -4175,6 +4179,7 @@ msgid "Replace value"
 msgstr ""
 
 #: src/pages/shell/message-hover-actions.tsx
+#: src/pages/shell/quote-selection-button.tsx
 msgid "Reply"
 msgstr "回复"
 
@@ -4496,6 +4501,10 @@ msgstr "安全"
 msgid "Select a bot"
 msgstr "选择 Bot"
 
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "自托管"
+
 #: src/pages/shell/composer.tsx
 msgid "Send"
 msgstr "发送"
@@ -4591,8 +4600,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "共享文档"
+msgid "Shared memory"
+msgstr "共享记忆"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

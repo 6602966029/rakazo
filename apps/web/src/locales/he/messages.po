@@ -1444,6 +1444,10 @@ msgstr "חיבור Executor"
 msgid "Connect MCP server “{name}”"
 msgstr "חיבור שרת MCP “{name}”"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "חיבור ספק זיכרון"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -2458,6 +2462,10 @@ msgstr "כל"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "כל {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "כל הבוטים במרחב הזה קוראים את ההערות האלה ומעדכנים אותן."
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -2952,6 +2960,10 @@ msgstr "מאוחר יותר"
 msgid "Leave"
 msgstr "יציאה"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "מאפשר לבוטים לשמור ולשלוף עובדות לפי משמעות, לצד MEMORY.md."
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "בהיר"
@@ -3038,10 +3050,6 @@ msgstr "טוען ספקי קול…"
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
 msgstr "טוען…"
-
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "מקומי"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -3929,10 +3937,6 @@ msgstr "Pull request"
 msgid "Queued"
 msgstr "בתור"
 
-#: src/pages/shell/quote-selection-button.tsx
-msgid "Quote"
-msgstr "ציטוט"
-
 #: src/components/ModelCredits.tsx
 msgid "Rakazo credits"
 msgstr ""
@@ -4175,6 +4179,7 @@ msgid "Replace value"
 msgstr "החלפת ערך"
 
 #: src/pages/shell/message-hover-actions.tsx
+#: src/pages/shell/quote-selection-button.tsx
 msgid "Reply"
 msgstr "תשובה"
 
@@ -4496,6 +4501,10 @@ msgstr "אבטחה"
 msgid "Select a bot"
 msgstr "בחירת בוט"
 
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "באירוח עצמי"
+
 #: src/pages/shell/composer.tsx
 msgid "Send"
 msgstr "שליחה"
@@ -4591,8 +4600,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr "צ׳אט משותף עם {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} בוטים. כולם עונים באותו שרשור."
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "מסמכים משותפים"
+msgid "Shared memory"
+msgstr "זיכרון משותף"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

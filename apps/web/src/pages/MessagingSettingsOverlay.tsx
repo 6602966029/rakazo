@@ -202,7 +202,6 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                   </span>
                   <Button
                     variant="secondary"
-                    className="rounded-full"
                     onClick={() =>
                       void act(() => rpc.messaging.identities.unlink({ identityId: identity.id }))
                     }
@@ -234,7 +233,6 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
               ))}
             </NativeSelect>
             <Button
-              className="rounded-full"
               disabled={!linkBotId}
               onClick={() =>
                 void act(async () => {
@@ -327,7 +325,6 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                     {channel.status === "invited" ? (
                       <>
                         <Button
-                          className="rounded-full"
                           onClick={() =>
                             void act(() =>
                               rpc.messaging.channels.respond({
@@ -341,7 +338,6 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                         </Button>
                         <Button
                           variant="secondary"
-                          className="rounded-full"
                           onClick={() =>
                             void act(() =>
                               rpc.messaging.channels.respond({
@@ -358,7 +354,6 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                     {channel.status === "approved" ? (
                       <Button
                         variant="secondary"
-                        className="rounded-full"
                         onClick={() =>
                           void act(() => rpc.messaging.channels.leave({ membershipId: channel.id }))
                         }
@@ -400,7 +395,6 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                     {connection.status === "pending" && connection.incoming ? (
                       <>
                         <Button
-                          className="rounded-full"
                           onClick={() =>
                             void act(() =>
                               rpc.messaging.connections.respond({
@@ -414,7 +408,6 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                         </Button>
                         <Button
                           variant="secondary"
-                          className="rounded-full"
                           onClick={() =>
                             void act(() =>
                               rpc.messaging.connections.respond({
@@ -431,7 +424,6 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                     {connection.status === "approved" ? (
                       <Button
                         variant="secondary"
-                        className="rounded-full"
                         onClick={() =>
                           void act(() =>
                             rpc.messaging.connections.revoke({ connectionId: connection.id }),
@@ -472,7 +464,6 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
                       </span>
                       <Button
                         variant="secondary"
-                        className="rounded-full"
                         onClick={() => setSettingsConversationId(open ? null : conversation.id)}
                       >
                         {open ? <Trans>Close</Trans> : <Trans>Settings</Trans>}

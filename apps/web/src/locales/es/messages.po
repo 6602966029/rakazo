@@ -1444,6 +1444,10 @@ msgstr "Conectar Executor"
 msgid "Connect MCP server “{name}”"
 msgstr "Conectar servidor MCP “{name}”"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Connect memory provider"
+msgstr "Conectar proveedor de memoria"
+
 #: src/components/ModelCredits.tsx
 msgid "Connect my own"
 msgstr ""
@@ -2458,6 +2462,10 @@ msgstr "Cada"
 msgid "every {intervalAmountSelect} {intervalUnitSelect}"
 msgstr "cada {intervalAmountSelect} {intervalUnitSelect}"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Every bot in this space reads these notes and keeps them up to date."
+msgstr "Todos los bots de este espacio leen estas notas y las mantienen al día."
+
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 msgid "Every day"
@@ -2952,6 +2960,10 @@ msgstr ""
 msgid "Leave"
 msgstr "Salir"
 
+#: src/pages/MemorySettingsOverlay.tsx
+msgid "Lets bots save and recall facts by meaning, alongside MEMORY.md."
+msgstr "Permite a los bots guardar y recordar datos por significado, además de MEMORY.md."
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Light"
 msgstr "Claro"
@@ -3038,10 +3050,6 @@ msgstr "Cargando proveedores de voz…"
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
 msgstr "Cargando…"
-
-#: src/pages/memory-providers/ConnectionModeFields.tsx
-msgid "Local"
-msgstr "Local"
 
 #: src/pages/HostComputerPrompt.tsx
 msgid "Local access lets bots run commands without asking. Avoid it on shared or public servers."
@@ -3929,10 +3937,6 @@ msgstr "Solicitud de incorporación"
 msgid "Queued"
 msgstr "En cola"
 
-#: src/pages/shell/quote-selection-button.tsx
-msgid "Quote"
-msgstr ""
-
 #: src/components/ModelCredits.tsx
 msgid "Rakazo credits"
 msgstr ""
@@ -4175,6 +4179,7 @@ msgid "Replace value"
 msgstr ""
 
 #: src/pages/shell/message-hover-actions.tsx
+#: src/pages/shell/quote-selection-button.tsx
 msgid "Reply"
 msgstr "Responder"
 
@@ -4496,6 +4501,10 @@ msgstr "Seguridad"
 msgid "Select a bot"
 msgstr "Selecciona un bot"
 
+#: src/pages/memory-providers/ConnectionModeFields.tsx
+msgid "Self-hosted"
+msgstr "Autoalojado"
+
 #: src/pages/shell/composer.tsx
 msgid "Send"
 msgstr "Enviar"
@@ -4591,8 +4600,8 @@ msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all rep
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
-msgid "Shared documents"
-msgstr "Documentos compartidos"
+msgid "Shared memory"
+msgstr "Memoria compartida"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
