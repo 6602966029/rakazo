@@ -378,14 +378,6 @@ msgstr "एक सब्सक्रिप्शन क्रेडेंशि�
 msgid "About {label}"
 msgstr "{label} के बारे में"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "About groups"
-msgstr ""
-
-#: src/pages/shell/bot-picker.tsx
-msgid "About spaces"
-msgstr ""
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "एक्सेस टोकन (वैकल्पिक)"
@@ -2096,23 +2088,23 @@ msgstr "एक सेक्शन बनाएं और {0} को उसमे
 msgid "Create account"
 msgstr "खाता बनाएं"
 
+#: src/pages/Shell.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
+msgid "Create Bot"
+msgstr "बॉट बनाएँ"
+
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "समूह बनाएं"
 
-#: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create new Bot"
-msgstr "नया बॉट बनाएं"
+msgid "Create group chat"
+msgstr "ग्रुप चैट बनाएँ"
 
 #: src/pages/shell/bot-picker.tsx
-msgid "Create new Group"
-msgstr "नया समूह बनाएं"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Space"
-msgstr "नया स्पेस बनाएं"
+msgid "Create private space"
+msgstr "निजी स्पेस बनाएँ"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -2796,10 +2788,6 @@ msgstr "समूह सेटिंग्स"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Group updates"
-msgstr ""
-
-#: src/pages/shell/dialogs.tsx
-msgid "Groups"
 msgstr ""
 
 #: src/components/call/CallCard.tsx
@@ -4128,7 +4116,7 @@ msgstr ""
 msgid "Private"
 msgstr "निजी"
 
-#: src/pages/shell/dialogs.tsx
+#: src/pages/shell/bot-picker.tsx
 msgid "Private workspace with its own bots and groups."
 msgstr ""
 
@@ -4839,10 +4827,6 @@ msgstr ""
 msgid "Shared"
 msgstr "साझा"
 
-#: src/pages/shell/dialogs.tsx
-msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
-msgstr ""
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "साझा मेमोरी"
@@ -5005,10 +4989,6 @@ msgstr "कार्यस्थान"
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "स्पेस डिफ़ॉल्ट"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Spaces"
-msgstr ""
 
 #: src/pages/shell/message-view.tsx
 msgid "Speak"

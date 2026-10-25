@@ -378,14 +378,6 @@ msgstr "Un identifiant d'abonnement est stocké de façon sécurisée."
 msgid "About {label}"
 msgstr "À propos de {label}"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "About groups"
-msgstr "À propos des groupes"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "About spaces"
-msgstr "À propos des espaces"
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "Jeton d'accès (optionnel)"
@@ -2096,23 +2088,23 @@ msgstr "Créez une section et déplacez {0} dedans."
 msgid "Create account"
 msgstr "Créer un compte"
 
+#: src/pages/Shell.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
+msgid "Create Bot"
+msgstr "Créer un bot"
+
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "Créer un groupe"
 
-#: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create new Bot"
-msgstr "Créer un nouveau bot"
+msgid "Create group chat"
+msgstr "Créer une discussion de groupe"
 
 #: src/pages/shell/bot-picker.tsx
-msgid "Create new Group"
-msgstr "Créer un nouveau groupe"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Space"
-msgstr "Créer un nouvel espace"
+msgid "Create private space"
+msgstr "Créer un espace privé"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -2797,10 +2789,6 @@ msgstr "Paramètres du groupe"
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Group updates"
 msgstr "Mises à jour du groupe"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Groups"
-msgstr "Groupes"
 
 #: src/components/call/CallCard.tsx
 msgid "Hang up"
@@ -4128,7 +4116,7 @@ msgstr ""
 msgid "Private"
 msgstr "Privé"
 
-#: src/pages/shell/dialogs.tsx
+#: src/pages/shell/bot-picker.tsx
 msgid "Private workspace with its own bots and groups."
 msgstr "Espace de travail privé avec ses propres bots et groupes."
 
@@ -4839,10 +4827,6 @@ msgstr ""
 msgid "Shared"
 msgstr "Partagé"
 
-#: src/pages/shell/dialogs.tsx
-msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
-msgstr "Conversation partagée avec {GROUP_MEMBER_MIN} à {GROUP_MEMBER_MAX} bots. Ils répondent tous dans le même fil."
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "Mémoire partagée"
@@ -5005,10 +4989,6 @@ msgstr "Espace"
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Défaut de l'espace"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Spaces"
-msgstr "Espaces"
 
 #: src/pages/shell/message-view.tsx
 msgid "Speak"

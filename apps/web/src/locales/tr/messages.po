@@ -378,14 +378,6 @@ msgstr "Bir abonelik kimlik bilgisi güvenli şekilde saklanıyor."
 msgid "About {label}"
 msgstr "{label} hakkında"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "About groups"
-msgstr ""
-
-#: src/pages/shell/bot-picker.tsx
-msgid "About spaces"
-msgstr ""
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "Erişim token'ı (isteğe bağlı)"
@@ -2096,23 +2088,23 @@ msgstr "Bir bölüm oluştur ve {0} botunu içine taşı."
 msgid "Create account"
 msgstr "Hesap oluştur"
 
+#: src/pages/Shell.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
+msgid "Create Bot"
+msgstr "Bot oluştur"
+
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "Grup oluştur"
 
-#: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create new Bot"
-msgstr "Yeni bot oluştur"
+msgid "Create group chat"
+msgstr "Grup sohbeti oluştur"
 
 #: src/pages/shell/bot-picker.tsx
-msgid "Create new Group"
-msgstr "Yeni grup oluştur"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Space"
-msgstr "Yeni space oluştur"
+msgid "Create private space"
+msgstr "Özel alan oluştur"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -2796,10 +2788,6 @@ msgstr "Grup ayarları"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Group updates"
-msgstr ""
-
-#: src/pages/shell/dialogs.tsx
-msgid "Groups"
 msgstr ""
 
 #: src/components/call/CallCard.tsx
@@ -4128,7 +4116,7 @@ msgstr ""
 msgid "Private"
 msgstr "Özel"
 
-#: src/pages/shell/dialogs.tsx
+#: src/pages/shell/bot-picker.tsx
 msgid "Private workspace with its own bots and groups."
 msgstr ""
 
@@ -4839,10 +4827,6 @@ msgstr ""
 msgid "Shared"
 msgstr "Ortak"
 
-#: src/pages/shell/dialogs.tsx
-msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
-msgstr ""
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "Ortak hafıza"
@@ -5005,10 +4989,6 @@ msgstr "Alan"
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Alan varsayılanı"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Spaces"
-msgstr ""
 
 #: src/pages/shell/message-view.tsx
 msgid "Speak"

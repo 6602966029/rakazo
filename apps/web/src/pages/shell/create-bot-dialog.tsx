@@ -96,7 +96,7 @@ export function CreateBotDialog({
         >
           <DialogHeader>
             <DialogTitle className="text-center">
-              <Trans>Create new Bot</Trans>
+              <Trans>Create Bot</Trans>
             </DialogTitle>
           </DialogHeader>
           <div className="flex justify-center py-2">

@@ -378,14 +378,6 @@ msgstr "订阅凭据已安全存储。"
 msgid "About {label}"
 msgstr "关于{label}"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "About groups"
-msgstr ""
-
-#: src/pages/shell/bot-picker.tsx
-msgid "About spaces"
-msgstr ""
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "访问令牌（可选）"
@@ -2096,23 +2088,23 @@ msgstr "创建分组并把 {0} 移入。"
 msgid "Create account"
 msgstr "创建账户"
 
+#: src/pages/Shell.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
+msgid "Create Bot"
+msgstr "创建机器人"
+
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "创建群组"
 
-#: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create new Bot"
-msgstr "新建 Bot"
+msgid "Create group chat"
+msgstr "创建群聊"
 
 #: src/pages/shell/bot-picker.tsx
-msgid "Create new Group"
-msgstr "新建群组"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Space"
-msgstr "新建工作区"
+msgid "Create private space"
+msgstr "创建私人空间"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -2796,10 +2788,6 @@ msgstr "群组设置"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Group updates"
-msgstr ""
-
-#: src/pages/shell/dialogs.tsx
-msgid "Groups"
 msgstr ""
 
 #: src/components/call/CallCard.tsx
@@ -4128,7 +4116,7 @@ msgstr ""
 msgid "Private"
 msgstr "私有"
 
-#: src/pages/shell/dialogs.tsx
+#: src/pages/shell/bot-picker.tsx
 msgid "Private workspace with its own bots and groups."
 msgstr ""
 
@@ -4839,10 +4827,6 @@ msgstr ""
 msgid "Shared"
 msgstr "共享"
 
-#: src/pages/shell/dialogs.tsx
-msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
-msgstr ""
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "共享记忆"
@@ -5005,10 +4989,6 @@ msgstr "工作区"
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "工作区默认"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Spaces"
-msgstr ""
 
 #: src/pages/shell/message-view.tsx
 msgid "Speak"

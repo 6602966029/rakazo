@@ -378,14 +378,6 @@ msgstr "구독 인증 정보가 안전하게 저장되어 있습니다."
 msgid "About {label}"
 msgstr "{label} 정보"
 
-#: src/pages/shell/bot-picker.tsx
-msgid "About groups"
-msgstr ""
-
-#: src/pages/shell/bot-picker.tsx
-msgid "About spaces"
-msgstr ""
-
 #: src/pages/McpServersOverlay.tsx
 msgid "Access token (optional)"
 msgstr "액세스 토큰(선택 사항)"
@@ -2096,23 +2088,23 @@ msgstr "새 섹션을 만들고 {0}을 옮깁니다."
 msgid "Create account"
 msgstr "계정 만들기"
 
+#: src/pages/Shell.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
+msgid "Create Bot"
+msgstr "봇 만들기"
+
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "그룹 만들기"
 
-#: src/pages/Shell.tsx
 #: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create new Bot"
-msgstr "새 Bot 만들기"
+msgid "Create group chat"
+msgstr "그룹 채팅 만들기"
 
 #: src/pages/shell/bot-picker.tsx
-msgid "Create new Group"
-msgstr "새 그룹 만들기"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create new Space"
-msgstr "새 스페이스 만들기"
+msgid "Create private space"
+msgstr "비공개 스페이스 만들기"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -2796,10 +2788,6 @@ msgstr "그룹 설정"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Group updates"
-msgstr ""
-
-#: src/pages/shell/dialogs.tsx
-msgid "Groups"
 msgstr ""
 
 #: src/components/call/CallCard.tsx
@@ -4128,7 +4116,7 @@ msgstr ""
 msgid "Private"
 msgstr "Bot 전용"
 
-#: src/pages/shell/dialogs.tsx
+#: src/pages/shell/bot-picker.tsx
 msgid "Private workspace with its own bots and groups."
 msgstr ""
 
@@ -4839,10 +4827,6 @@ msgstr ""
 msgid "Shared"
 msgstr "함께 사용"
 
-#: src/pages/shell/dialogs.tsx
-msgid "Shared chat with {GROUP_MEMBER_MIN}-{GROUP_MEMBER_MAX} bots. They all reply in the same thread."
-msgstr ""
-
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "공유 기억"
@@ -5005,10 +4989,6 @@ msgstr "스페이스"
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "스페이스 기본값"
-
-#: src/pages/shell/dialogs.tsx
-msgid "Spaces"
-msgstr ""
 
 #: src/pages/shell/message-view.tsx
 msgid "Speak"
