@@ -54,19 +54,49 @@ export function spaceSeedKey(userId: string | null, spaceId: string | null) {
   return spaceQueries(userId, spaceId).bootstrap.queryKey({ input: {} });
 }
 
-/** The chat a cached space was showing, if it still lists it. */
+/** A bot chat or a group chat. */
+export type ChatTarget =
+  | { botId: string; groupId?: undefined }
+  | { groupId: string; botId?: undefined };
+
+/** Where a space keeps the chat it last had selected, apart from any snapshot that chat loaded. */
+export function lastChatKey(userId: string | null, spaceId: string | null) {
+  return [...spaceSeedKey(userId, spaceId), "last-chat"] as unknown as DataTag<
+    QueryKey,
+    ChatTarget
+  >;
+}
+
+/** The chat a cached space had selected, if the space still lists it. */
 export function lastChatOf(
   seed: AppBootstrap | undefined,
-): { botId?: string; groupId?: string } | undefined {
-  const thread = seed?.thread;
-  if (thread?.groupId) {
-    return seed?.groups.some((group) => group.id === thread.groupId)
-      ? { groupId: thread.groupId }
-      : undefined;
+  chat: ChatTarget | undefined,
+): ChatTarget | undefined {
+  if (!seed || !chat) return undefined;
+  if (chat.groupId) {
+    return seed.groups.some((group) => group.id === chat.groupId) ? chat : undefined;
   }
-  return thread?.botId && seed?.bots.some((bot) => bot.id === thread.botId)
-    ? { botId: thread.botId }
-    : undefined;
+  return seed.bots.some((bot) => bot.id === chat.botId) ? chat : undefined;
+}
+
+/**
+ * What a space reopens with after the shell leaves it: its latest lists, and the loaded snapshot
+ * only when it belongs to the selected chat. A chat picked just before leaving may still show the
+ * previous chat's snapshot while its own loads.
+ */
+export function seedOnLeave(
+  previous: AppBootstrap,
+  latest: Omit<AppBootstrap, "thread" | "routines">,
+  chat: ChatTarget | undefined,
+  snapshot: AppBootstrap["thread"],
+): AppBootstrap {
+  const selected =
+    snapshot &&
+    chat &&
+    (chat.groupId
+      ? snapshot.groupId === chat.groupId
+      : !snapshot.groupId && snapshot.botId === chat.botId);
+  return { ...previous, ...latest, thread: selected ? snapshot : previous.thread };
 }
 
 const QueryUserContext = createContext<string | null>(null);

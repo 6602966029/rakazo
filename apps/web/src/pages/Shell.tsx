@@ -160,10 +160,13 @@ import {
 import { markAfterPaint, markOnce } from "../lib/performance";
 import { usePreloadRecoveryState } from "../lib/preload-recovery";
 import { canPrepareImage, prepareImage } from "../lib/prepare-image";
+import type { ChatTarget } from "../lib/query";
 import {
   fetchFresh,
+  lastChatKey,
   lastChatOf,
   queryClient,
+  seedOnLeave,
   spaceQueries,
   spaceSeedKey,
   writeSaved,
@@ -323,7 +326,8 @@ function SpaceShell() {
     const primed = peekBootstrapSeed(botId);
     if (primed) return { seed: primed, startChat: undefined };
     const cached = queryClient.getQueryData(spaceSeedKey(userId ?? null, shellSpaceId));
-    return { seed: cached, startChat: botId || groupId ? undefined : lastChatOf(cached) };
+    const lastChat = queryClient.getQueryData(lastChatKey(userId ?? null, shellSpaceId));
+    return { seed: cached, startChat: botId || groupId ? undefined : lastChatOf(cached, lastChat) };
   });
   const routerNavigate = useNavigate();
   const navigateRef = useRef(routerNavigate);
@@ -1252,15 +1256,22 @@ function SpaceShell() {
     }
   }
 
-  function saveSeed(bootstrap: AppBootstrap) {
-    queryClient.setQueryData(spaceSeedKey(userId ?? null, bootstrap.me.spaceId), bootstrap);
-    // With no space chosen the server picks one, so a shell reopened that way looks here.
-    if (!shellSpaceId) queryClient.setQueryData(spaceSeedKey(userId ?? null, null), bootstrap);
+  function saveSeed(bootstrap: AppBootstrap, chat?: ChatTarget) {
+    // With no space chosen the server picks one, so a shell reopened that way looks there too.
+    for (const spaceId of shellSpaceId ? [bootstrap.me.spaceId] : [bootstrap.me.spaceId, null]) {
+      queryClient.setQueryData(spaceSeedKey(userId ?? null, spaceId), bootstrap);
+      if (chat) queryClient.setQueryData(lastChatKey(userId ?? null, spaceId), chat);
+    }
   }
   const seedStateRef = useRef<
-    (Omit<AppBootstrap, "thread" | "routines" | "me"> & { me?: Me | null }) | null
+    | (Omit<AppBootstrap, "thread" | "routines" | "me"> & {
+        me?: Me | null;
+        chat: ChatTarget | undefined;
+      })
+    | null
   >(null);
   seedStateRef.current = {
+    chat: groupId ? { groupId } : active ? { botId: active.id } : undefined,
     me: bootstrapMe,
     bots,
     groups,
@@ -1279,10 +1290,10 @@ function SpaceShell() {
     return () => {
       const state = seedStateRef.current;
       if (!state?.me) return;
-      const { me, ...lists } = state;
+      const { me, chat, ...lists } = state;
       const previous = queryClient.getQueryData(spaceSeedKey(userId ?? null, me.spaceId));
       if (!previous) return;
-      saveSeed({ ...previous, ...lists, me, thread: snapshotRef.current ?? previous.thread });
+      saveSeed(seedOnLeave(previous, { ...lists, me }, chat, snapshotRef.current), chat);
     };
   }, []);
 

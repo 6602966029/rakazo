@@ -11,7 +11,15 @@ vi.mock("./rpc", () => {
   };
 });
 
-import { lastChatOf, queryClient, setQueryUser, spaceQueries, spaceSeedKey } from "./query";
+import {
+  lastChatKey,
+  lastChatOf,
+  queryClient,
+  seedOnLeave,
+  setQueryUser,
+  spaceQueries,
+  spaceSeedKey,
+} from "./query";
 
 afterEach(() => {
   queryClient.clear();
@@ -61,7 +69,7 @@ describe("query scopes", () => {
   });
 });
 
-describe("lastChatOf", () => {
+describe("the chat a space reopens with", () => {
   const seed = (thread: { botId?: string; groupId?: string } | null) =>
     ({
       bots: [{ id: "bot-a" }],
@@ -69,17 +77,47 @@ describe("lastChatOf", () => {
       thread,
     }) as never;
 
-  it("reopens the bot or group chat a cached space was showing", () => {
-    expect(lastChatOf(seed({ botId: "bot-a" }))).toEqual({ botId: "bot-a" });
-    expect(lastChatOf(seed({ groupId: "group-a", botId: "bot-a" }))).toEqual({
-      groupId: "group-a",
-    });
+  it("reopens the bot or group chat a cached space had selected", () => {
+    expect(lastChatOf(seed(null), { botId: "bot-a" })).toEqual({ botId: "bot-a" });
+    expect(lastChatOf(seed(null), { groupId: "group-a" })).toEqual({ groupId: "group-a" });
   });
 
-  it("falls back when the cached chat is gone or there is no cache", () => {
-    expect(lastChatOf(seed({ botId: "bot-gone" }))).toBeUndefined();
-    expect(lastChatOf(seed({ groupId: "group-gone" }))).toBeUndefined();
-    expect(lastChatOf(seed(null))).toBeUndefined();
-    expect(lastChatOf(undefined)).toBeUndefined();
+  it("falls back when the selected chat is gone or nothing is cached", () => {
+    expect(lastChatOf(seed(null), { botId: "bot-gone" })).toBeUndefined();
+    expect(lastChatOf(seed(null), { groupId: "group-gone" })).toBeUndefined();
+    expect(lastChatOf(seed(null), undefined)).toBeUndefined();
+    expect(lastChatOf(undefined, { botId: "bot-a" })).toBeUndefined();
+  });
+
+  it("keeps a selected group that had not loaded yet over the previous bot's snapshot", () => {
+    const previous = seed({ botId: "bot-old" });
+    const botSnapshot = { botId: "bot-a", messages: [] } as never;
+    const left = seedOnLeave(previous, {} as never, { groupId: "group-a" }, botSnapshot);
+    expect(left.thread).toEqual({ botId: "bot-old" });
+    expect(lastChatOf(left, { groupId: "group-a" })).toEqual({ groupId: "group-a" });
+  });
+
+  it("keeps the selected chat's own snapshot", () => {
+    const groupSnapshot = { groupId: "group-a", botId: "bot-a", messages: [] } as never;
+    expect(seedOnLeave(seed(null), {} as never, { groupId: "group-a" }, groupSnapshot).thread).toBe(
+      groupSnapshot,
+    );
+    const botSnapshot = { botId: "bot-a", messages: [] } as never;
+    expect(seedOnLeave(seed(null), {} as never, { botId: "bot-a" }, botSnapshot).thread).toBe(
+      botSnapshot,
+    );
+    expect(seedOnLeave(seed(null), {} as never, { botId: "bot-a" }, groupSnapshot).thread).toBe(
+      null,
+    );
+  });
+
+  it("keeps each user's and space's last chat apart", () => {
+    const keys = [
+      lastChatKey("user-a", "space-a"),
+      lastChatKey("user-a", "space-b"),
+      lastChatKey("user-b", "space-a"),
+      spaceSeedKey("user-a", "space-a"),
+    ].map((key) => JSON.stringify(key));
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });
