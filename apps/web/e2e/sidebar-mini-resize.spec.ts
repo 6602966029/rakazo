@@ -51,6 +51,17 @@ test("sidebar rail keeps chats interactive and remembers a dragged width", async
   await expect(page).toHaveURL(new RegExp(`/app/${bot.id}$`));
   await expect(row).toHaveAttribute("aria-current", "page");
   await expect(sidebar.locator("[data-roster-preview]")).toHaveCount(0);
+  await page.mouse.move(700, 450);
+  await row.hover();
+  const tooltip = page.locator('[data-slot="tooltip-content"]').filter({ hasText: "Research" });
+  await expect(tooltip).toBeVisible();
+  await expect
+    .poll(async () => {
+      const label = await tooltip.boundingBox();
+      const icon = await row.boundingBox();
+      return label && icon ? label.x >= icon.x + icon.width : false;
+    })
+    .toBe(true);
   await captureScreenshot(page, testInfo, "sidebar-mini-avatar-rail");
   await page.getByTestId("user-menu-trigger").click();
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
@@ -82,7 +93,7 @@ test("sidebar rail keeps chats interactive and remembers a dragged width", async
   await expect(row.locator("[data-roster-bot-name]")).toBeVisible();
 });
 
-test("sidebar resize follows RTL and reduced motion", async ({ page }) => {
+test("sidebar resize follows RTL and reduced motion", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await signup(page, `sidebar-rtl-${Date.now()}@rakazo.test`, "password12", "Sidebar Sample");
   await completeOnboarding(page);
@@ -99,6 +110,18 @@ test("sidebar resize follows RTL and reduced motion", async ({ page }) => {
   await expect(sidebar).toHaveCSS("width", "348px");
   await handle.press("Home");
   await expect(sidebar).toHaveCSS("width", "72px");
+  const row = sidebar.locator("[data-roster-bot-id]").first();
+  await row.hover();
+  const tooltip = page.locator('[data-slot="tooltip-content"]');
+  await expect(tooltip).toBeVisible();
+  await expect
+    .poll(async () => {
+      const label = await tooltip.boundingBox();
+      const icon = await row.boundingBox();
+      return label && icon ? label.x + label.width <= icon.x : false;
+    })
+    .toBe(true);
+  await captureScreenshot(page, testInfo, "sidebar-mini-avatar-rail-rtl");
   await handle.press("ArrowLeft");
   await expect(sidebar).toHaveCSS("width", "240px");
   const box = (await sidebar.boundingBox())!;
