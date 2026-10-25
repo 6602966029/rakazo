@@ -238,7 +238,7 @@ import {
 } from "./shell/dialogs";
 import type { RosterDropTarget } from "./shell/roster-drop";
 import { resolveRosterDrop } from "./shell/roster-drop";
-import { SidebarHeader } from "./shell/sidebar-header";
+import { SidebarHeader, useCreateMenu } from "./shell/sidebar-header";
 import { BotsSidebarLayout } from "./shell/sidebar-layout";
 import { SidebarRoster } from "./shell/sidebar-roster";
 import { commitSpaceRename, countUnreadChats, sidebarGroupsForSpaces } from "./shell/space-sidebar";
@@ -320,6 +320,7 @@ function SpaceShell() {
   const [rpc] = useState(() => createSpaceRpc(shellSpaceId));
   const session = authClient.useSession();
   const userId = session.data?.user.id;
+  const [createMenuOpen, setCreateMenuOpen] = useCreateMenu();
   // A revisited space, or the shell reopened from another page, starts from what it showed
   // last time while its fresh bootstrap loads.
   const [{ seed, startChat }] = useState(() => {
@@ -3345,6 +3346,8 @@ function SpaceShell() {
       >
         <SidebarHeader
           mini={miniSidebar}
+          createMenuOpen={createMenuOpen}
+          setCreateMenuOpen={setCreateMenuOpen}
           activityMode={activityMode}
           toggleActivityMode={() => {
             if (miniSidebar) setBotsSidebarCollapsedPref(false);
