@@ -1,5 +1,10 @@
 import type { AgentRunRequest, SecretStore } from "@rakazo/adapter-kit";
-import type { ModelRole, ModelRoleChoice, ModelRoleSettings } from "@rakazo/contracts";
+import type {
+  ModelRole,
+  ModelRoleChoice,
+  ModelRoleSettings,
+  SettingsScope,
+} from "@rakazo/contracts";
 import { backupChoiceKey, usableModelId } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { appliedModelRole } from "@rakazo/db";
@@ -48,8 +53,9 @@ export async function effectiveModelRole(
   scope: { userId: string; spaceId: string },
   role: ModelRole,
   defaults: DeploymentModelDefaults,
+  requested?: SettingsScope,
 ): Promise<EffectiveModelRole> {
-  const own = await appliedModelRole(prisma, scope, role);
+  const own = await appliedModelRole(prisma, scope, role, requested);
   if (own.primary) return { ...own, primarySource: "member" };
   const deployment = deploymentModelRole(role, defaults);
   return {

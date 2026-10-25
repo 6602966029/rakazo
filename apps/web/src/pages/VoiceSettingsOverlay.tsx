@@ -299,7 +299,10 @@ export function VoiceSettingsOverlay({
     markPending("test");
     try {
       const { speaker } = await importChunk(() => import("../lib/tts.js"));
-      await speaker.speak(t`Hi, this is how I'll sound when I read replies out loud.`, { spaceId });
+      await speaker.speak(t`Hi, this is how I'll sound when I read replies out loud.`, {
+        spaceId,
+        scope,
+      });
       if (speaker.state.error) {
         setError(speaker.state.error);
         return;

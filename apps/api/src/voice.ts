@@ -21,6 +21,7 @@ import type {
   VoiceCredential,
   VoiceStatus,
 } from "@rakazo/contracts";
+import { SettingsScopeSchema } from "@rakazo/contracts";
 import { toUtterances } from "@rakazo/core";
 import {
   deleteUnreferencedCredentialSecret,
@@ -199,8 +200,12 @@ export function fishSpeechModelValue(speechModel: string): string | null {
   return trimmed;
 }
 
-export async function loadDefaultVoiceCredential(deps: VoiceDeps, actor: Actor) {
-  return loadVoiceCredential(deps, actor);
+export async function loadDefaultVoiceCredential(
+  deps: VoiceDeps,
+  actor: Actor,
+  scope?: SettingsScope,
+) {
+  return loadVoiceCredential(deps, actor, undefined, scope);
 }
 
 export async function loadVoiceCredential(
@@ -223,7 +228,7 @@ export async function loadVoiceCredential(
 export async function resolveVoiceTarget(
   deps: VoiceDeps,
   actor: Actor,
-  input: { botId?: string; voiceId?: string },
+  input: { botId?: string; voiceId?: string; scope?: SettingsScope },
 ) {
   let botVoiceId: string | null = null;
   if (input.botId) {
@@ -234,7 +239,7 @@ export async function resolveVoiceTarget(
     if (!bot) throw new IsolationError();
     botVoiceId = bot.voiceId;
   }
-  const loaded = await loadDefaultVoiceCredential(deps, actor);
+  const loaded = await loadDefaultVoiceCredential(deps, actor, input.scope);
   if (!loaded) throw new NoVoiceConfigured("key");
   const voiceId = input.voiceId || botVoiceId || loaded.cred.voiceId;
   if (!voiceId) throw new NoVoiceConfigured("voice");
@@ -461,7 +466,7 @@ export async function updateVoiceSpeechModel(
 export async function prepareVoice(
   deps: VoiceDeps,
   actor: Actor,
-  input: { text: string; voiceId?: string; botId?: string },
+  input: { text: string; voiceId?: string; botId?: string; scope?: SettingsScope },
 ) {
   try {
     await resolveVoiceTarget(deps, actor, input);
@@ -477,7 +482,13 @@ export async function prepareVoice(
 export async function synthesizeVoice(
   deps: VoiceDeps,
   actor: Actor,
-  input: { text: string; voiceId?: string; botId?: string; signal?: AbortSignal },
+  input: {
+    text: string;
+    voiceId?: string;
+    botId?: string;
+    scope?: SettingsScope;
+    signal?: AbortSignal;
+  },
 ) {
   const target = await resolveVoiceTarget(deps, actor, input);
   const text = input.text.trim();
@@ -543,6 +554,7 @@ export function mountVoiceHttpRoutes(
           text: String((body as { text?: unknown }).text ?? ""),
           voiceId: optionalString((body as { voiceId?: unknown }).voiceId),
           botId: optionalString((body as { botId?: unknown }).botId),
+          scope: SettingsScopeSchema.safeParse((body as { scope?: unknown }).scope).data,
           signal: AbortSignal.any(
             [c.req.raw.signal, AbortSignal.timeout(SPEAK_TIMEOUT_MS)].filter(
               Boolean,

@@ -7202,7 +7202,14 @@ function approvalRuleDto(row: {
 
 async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor, scope?: SettingsScope) {
   const [role, preference] = await Promise.all([
-    effectiveModelRole(deps.prisma, actor, "approval", { env: process.env }),
+    // The account page judges the account's approval model; a Space, the one that applies there.
+    effectiveModelRole(
+      deps.prisma,
+      actor,
+      "approval",
+      { env: process.env },
+      scope === "account" ? "account" : undefined,
+    ),
     findAutoReviewPreference(deps.prisma, actor, scope),
   ]);
   const settings = {

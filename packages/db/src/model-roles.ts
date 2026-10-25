@@ -85,13 +85,14 @@ export async function modelRoleTarget(
   };
 }
 
-/** The member's ordered models for a purpose as they apply in the Space. */
+/** The member's ordered models for a purpose as they apply in the Space, or in `requested`. */
 export async function appliedModelRole(
   prisma: RoleClient & Pick<PrismaClient, "spaceSettingOverride">,
   scope: Scope,
   role: ModelRole,
+  requested?: SettingsScope,
 ): Promise<ModelRoleSettings> {
-  return getModelRole(prisma, await modelRoleTarget(prisma, scope), role);
+  return getModelRole(prisma, await modelRoleTarget(prisma, scope, requested), role);
 }
 
 /** The member's own ordered models for a purpose; empty when the deployment's defaults apply. */

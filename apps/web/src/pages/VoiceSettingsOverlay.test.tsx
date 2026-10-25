@@ -394,7 +394,7 @@ it.each([null, "space-edited"])("plays a sample for the bound space %s", async (
     await vi.waitFor(() =>
       expect(speak).toHaveBeenCalledWith(
         "Hi, this is how I'll sound when I read replies out loud.",
-        { spaceId },
+        { spaceId, scope: "account" },
       ),
     );
   } finally {

@@ -1129,6 +1129,7 @@ export const appContract = {
           text: z.string().max(20000),
           voiceId: z.string().max(120).optional(),
           botId: Id.optional(),
+          scope: SettingsScopeSchema.optional(),
         }),
       )
       .output(z.object({ ready: z.boolean(), utterances: z.array(z.string()) })),

@@ -522,6 +522,43 @@ describe("synthesizeVoice", () => {
     expect(synthesize.mock.calls[0]?.[0]).toMatchObject({ model: undefined });
   });
 
+  it("speaks with the account voice when asked for it in a Space that overrides voice", async () => {
+    const synthesize = vi
+      .fn()
+      .mockResolvedValue({ bytes: new Uint8Array(), mimeType: "audio/mpeg" });
+    vi.spyOn(adapters, "createVoiceProvider").mockReturnValue({ synthesize } as never);
+    const preference = (voiceId: string) => ({
+      isDefault: true,
+      voiceId,
+      speechModel: null,
+      credential: {
+        id: "cred-1",
+        userId: actor.userId,
+        provider: "fish-audio",
+        secretId: "secret-1",
+        createdAt: new Date(0),
+        updatedAt: new Date(0),
+      },
+    });
+    const prisma = {
+      spaceSettingOverride: { findUnique: vi.fn().mockResolvedValue({ setting: "voice" }) },
+      userVoicePreference: { findFirst: vi.fn().mockResolvedValue(preference("account-voice")) },
+      spaceVoicePreference: { findFirst: vi.fn().mockResolvedValue(preference("space-voice")) },
+      secret: {
+        findFirst: vi.fn().mockResolvedValue({ id: "secret-1", ciphertext: "cipher" }),
+      },
+    };
+    const deps = {
+      prisma,
+      secrets: { load: vi.fn().mockReturnValue("fish-key"), put: vi.fn() },
+    } as unknown as VoiceDeps;
+
+    await synthesizeVoice(deps, actor, { text: "Hello", scope: "account" });
+    expect(synthesize.mock.calls[0]?.[0]).toMatchObject({ voiceId: "account-voice" });
+    await synthesizeVoice(deps, actor, { text: "Hello" });
+    expect(synthesize.mock.calls[1]?.[0]).toMatchObject({ voiceId: "space-voice" });
+  });
+
   it.each([
     ["VOICE_OUT_OF_CREDIT", 402],
     ["VOICE_KEY_REJECTED", 403],

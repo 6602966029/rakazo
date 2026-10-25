@@ -276,6 +276,10 @@ describe("model roles", () => {
     await expect(
       effectiveModelRole(client(true), scope, "main", deploymentDefaults),
     ).resolves.toMatchObject({ primary: { modelId: "space-own" }, primarySource: "member" });
+    // Asking for the account copy reads it even where the Space overrides.
+    await expect(
+      effectiveModelRole(client(true), scope, "main", deploymentDefaults, "account"),
+    ).resolves.toMatchObject({ primary: { modelId: "account" }, primarySource: "member" });
   });
 
   it("keeps the member's fallbacks behind the deployment's model", async () => {
