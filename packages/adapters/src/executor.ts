@@ -330,6 +330,8 @@ import {
   needsOAuthProbe,
   parseMcpServerToolArgs,
 } from "./mcp-server-tool.js";
+import type { McpStdioPolicy } from "./mcp-transport.js";
+import { mcpStdioRefusal } from "./mcp-transport.js";
 import { createMediaGenerationProvider } from "./media-generation-factory.js";
 import { generateMediaFromTool } from "./media-generation-tools.js";
 import { loadAgentMemoryContext } from "./memory-context.js";
@@ -2848,6 +2850,8 @@ export interface ExecutorDeps {
   secretHttp?: RemoteTransportDependencies;
   /** Allow RFC1918 / Docker-network MCP URLs when the operator enabled the escape. */
   mcpAllowPrivateEndpoint?: boolean;
+  /** Which stdio MCP servers this deployment runs; absent runs none. */
+  mcpStdio?: McpStdioPolicy;
   /** Remote cloud coding agents. Null/omit means tools stay uninjected. */
   cloudAgent?: CloudAgentConnection | null;
   /** Optional Auto Review verifier. When omitted, the factory selects from env (llm | jev | scripted). */
@@ -6831,6 +6835,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   "Invalid MCP server details. Required: name, transport (streamable_http|sse|stdio); endpoint for remote transports; command for stdio.",
               });
             }
+            const stdioRefusal =
+              parsed.transport === "stdio"
+                ? mcpStdioRefusal(parsed.command ?? "", deps.mcpStdio ?? {})
+                : undefined;
+            if (stdioRefusal) return finish({ error: stdioRefusal });
             if (parsed.endpoint) {
               try {
                 await assertSafeRemoteUrl(parsed.endpoint, deps.secretHttp?.resolveHostname, {

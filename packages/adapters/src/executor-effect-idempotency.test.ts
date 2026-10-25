@@ -826,3 +826,20 @@ describe("mutating tool effect idempotency keys", () => {
     expect(f.results[0]).toEqual({ ok: true, legacy: true });
   });
 });
+
+describe("add_mcp_server", () => {
+  it("refuses a stdio server this deployment can't run", async () => {
+    const f = fixture();
+    f.setCalls([
+      {
+        name: "add_mcp_server",
+        args: { name: "Files", transport: "stdio", command: "npx" },
+        executionId: "call_0",
+      },
+    ]);
+
+    await f.run();
+
+    expect(f.results[0]).toEqual({ error: "Stdio MCP servers aren't available here" });
+  });
+});
