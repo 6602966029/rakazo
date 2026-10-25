@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { notifyManager } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { act, createElement, useEffect } from "react";
 import type { Root } from "react-dom/client";
@@ -10,6 +11,7 @@ import Models from "../app/(settings)/models";
 import type { ModelConnectionRequest } from "./model-connection-request";
 import { modelConnectionRequest, openModelConnection } from "./model-connection-request";
 import { modelPickerRequest } from "./model-picker-selection";
+import { queryClient } from "./query";
 
 const savedEndpoint = "https://models.example.test/v1";
 const { push, back, params, rpcCalls, saved } = vi.hoisted(() => ({
@@ -17,9 +19,15 @@ const { push, back, params, rpcCalls, saved } = vi.hoisted(() => ({
   back: vi.fn(),
   params: {} as { requestId?: string; spaceId?: string },
   rpcCalls: [] as [string, unknown, { requestContext?: { headers: object } }?][],
-  saved: { baseUrl: "https://models.example.test/v1", hasKey: false },
+  saved: {
+    baseUrl: "https://models.example.test/v1",
+    hasKey: false,
+    label: "Fixture",
+    held: null as Promise<void> | null,
+  },
 }));
 
+vi.mock("./session", () => ({ currentSessionGeneration: () => 1 }));
 vi.mock("./side-insets", () => ({ useSideInsets: () => ({}) }));
 vi.mock("./api", () => ({
   currentApiBase: () => "https://app.example.test",
@@ -33,6 +41,7 @@ vi.mock("./api", () => ({
     options?: { requestContext?: { headers: object } },
   ) => {
     rpcCalls.push([procedure, input, options]);
+    if (saved.held) await saved.held;
     if (procedure === "me")
       return {
         userId: "user-fixture",
@@ -65,7 +74,7 @@ vi.mock("./api", () => ({
           baseUrl: saved.baseUrl,
           hasKey: saved.hasKey,
           headerNames: ["x-session"],
-          label: "Fixture",
+          label: saved.label,
         },
       ];
     return [];
@@ -117,7 +126,7 @@ vi.mock("react-native", () => {
   const view = ({ children }: { children?: ReactNode }) => createElement("div", {}, children);
   return {
     AccessibilityInfo: { announceForAccessibility: vi.fn() },
-    ActivityIndicator: () => null,
+    ActivityIndicator: () => createElement("span", {}, "Loading"),
     Alert: { alert: vi.fn() },
     Keyboard: { dismiss: vi.fn() },
     Platform: { OS: "ios" },
@@ -157,6 +166,9 @@ vi.mock("react-native-safe-area-context", () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => createElement("div", {}, children),
 }));
 
+// Cache updates reach the screen inside act instead of on a later timer.
+notifyManager.setScheduler((callback) => callback());
+
 let container: HTMLDivElement;
 let root: Root;
 
@@ -173,6 +185,7 @@ async function renderConnection(request: Partial<ModelConnectionRequest> = {}) {
 
 beforeEach(async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  queryClient.clear();
   rpcCalls.length = 0;
   delete params.spaceId;
   back.mockClear();
@@ -390,3 +403,30 @@ it.each(["https://ollama.com", "https://ollama.com/v1/"])(
     }
   },
 );
+
+it("paints a revisit from cache without a spinner and refreshes behind it", async () => {
+  await remount(async () => {
+    await act(async () => root.render(createElement(Models)));
+  });
+  expect(container.textContent).toContain("Fixture");
+  let release!: () => void;
+  saved.held = new Promise((resolve) => {
+    release = resolve;
+  });
+  saved.label = "Renamed fixture";
+  try {
+    rpcCalls.length = 0;
+    await remount(async () => {
+      await act(async () => root.render(createElement(Models)));
+    });
+    expect(container.textContent).not.toContain("Loading");
+    expect(container.textContent).not.toContain("Renamed fixture");
+    expect(rpcCalls.map(([procedure]) => procedure)).toContain("models/credentials");
+
+    await act(async () => release());
+    expect(container.textContent).toContain("Renamed fixture");
+  } finally {
+    saved.held = null;
+    saved.label = "Fixture";
+  }
+});

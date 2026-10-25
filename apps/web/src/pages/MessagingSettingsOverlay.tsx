@@ -1,12 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type {
-  Bot,
-  ExternalConversation,
-  MessagingAgentConnection,
-  MessagingChannelMembership,
-  MessagingInstallationsStatus,
-  MessagingStatus,
-} from "@rakazo/contracts";
+import type { MessagingChannelMembership, MessagingInstallationsStatus } from "@rakazo/contracts";
 import { isRetryableError } from "@rakazo/core";
 import {
   Button,
@@ -21,15 +14,18 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@rakazo/ui-web";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { providerLabel } from "../lib/messaging";
+import { fetchFresh, useSpaceQueries, writeSaved } from "../lib/query";
 import { rpc } from "../lib/rpc";
 import { ExternalConversationSettings } from "./ExternalConversationSettings";
 
 const LINK_POLL_MS = 3_000;
+const NO_INSTALLATIONS: MessagingInstallationsStatus = { available: false, installations: [] };
 
 function Row({ children, actions }: { children: ReactNode; actions: ReactNode }) {
   return (
@@ -46,15 +42,6 @@ function Meta({ children }: { children: ReactNode }) {
 
 export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
   const { t } = useLingui();
-  const [installationStatus, setInstallationStatus] = useState<MessagingInstallationsStatus>({
-    available: false,
-    installations: [],
-  });
-  const [status, setStatus] = useState<MessagingStatus | null>(null);
-  const [channels, setChannels] = useState<MessagingChannelMembership[]>([]);
-  const [connections, setConnections] = useState<MessagingAgentConnection[]>([]);
-  const [bots, setBots] = useState<Bot[]>([]);
-  const [externalConversations, setExternalConversations] = useState<ExternalConversation[]>([]);
   const [settingsConversationId, setSettingsConversationId] = useState<string | null>(null);
   const [selectedBotId, setSelectedBotId] = useState("");
   const [linkRequest, setLinkRequest] = useState<{
@@ -65,28 +52,48 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
-    const [nextStatus, nextChannels, nextConnections, nextBots, navigation, installations] =
-      await Promise.all([
-        rpc.messaging.status(),
-        rpc.messaging.channels.list(),
-        rpc.messaging.connections.list(),
-        rpc.bots.list(),
-        rpc.spaces.list(),
-        rpc.messaging.installations.list(),
-      ]);
-    setInstallationStatus(installations);
-    setStatus(nextStatus);
-    setChannels(nextChannels);
-    setConnections(nextConnections);
-    setBots(nextBots);
-    setExternalConversations(navigation.current.externalConversations);
-  }
+  const queries = useSpaceQueries();
+  const queryClient = useQueryClient();
+  const statusOptions = queries.messaging.status.queryOptions();
+  const channelsOptions = queries.messaging.channels.list.queryOptions();
+  const connectionsOptions = queries.messaging.connections.list.queryOptions();
+  const botsOptions = queries.bots.list.queryOptions();
+  const spacesOptions = queries.spaces.list.queryOptions();
+  const installationsOptions = queries.messaging.installations.list.queryOptions();
+  const statusQuery = useQuery(statusOptions);
+  const channelsQuery = useQuery(channelsOptions);
+  const connectionsQuery = useQuery(connectionsOptions);
+  const botsQuery = useQuery(botsOptions);
+  const spacesQuery = useQuery(spacesOptions);
+  const installationsQuery = useQuery(installationsOptions);
+  const status = statusQuery.data ?? null;
+  const channels = channelsQuery.data ?? [];
+  const connections = connectionsQuery.data ?? [];
+  const bots = botsQuery.data ?? [];
+  const externalConversations = spacesQuery.data?.current.externalConversations ?? [];
+  const installationStatus = installationsQuery.data ?? NO_INSTALLATIONS;
+  // A failed refresh is shown even over cached settings.
+  const loadFailed = [
+    statusQuery,
+    channelsQuery,
+    connectionsQuery,
+    botsQuery,
+    spacesQuery,
+    installationsQuery,
+  ].some((query) => query.isError);
+  const shownError = error ?? (loadFailed ? t`Couldn't load messaging settings` : null);
 
-  useEffect(() => {
-    void refresh().catch(() => setError(t`Couldn't load messaging settings`));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  /** Reads everything again with requests sent after a change. */
+  async function refresh() {
+    await Promise.all([
+      fetchFresh(queryClient, statusOptions),
+      fetchFresh(queryClient, channelsOptions),
+      fetchFresh(queryClient, connectionsOptions),
+      fetchFresh(queryClient, botsOptions),
+      fetchFresh(queryClient, spacesOptions),
+      fetchFresh(queryClient, installationsOptions),
+    ]);
+  }
 
   // Linking completes in the chat app: watch for a new or reassigned identity.
   useEffect(() => {
@@ -114,7 +121,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
         ) {
           active = false;
           window.clearTimeout(expire);
-          setStatus(next);
+          await writeSaved(queryClient, statusOptions.queryKey, () => next);
           setLinkRequest(null);
           await refresh();
         }
@@ -148,9 +155,8 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
   }
 
   useEffect(() => {
-    const onFocus = () => {
-      void refresh().catch(() => setError(t`Couldn't load messaging settings`));
-    };
+    // A failed read shows through the queries' error.
+    const onFocus = () => void refresh().catch(() => undefined);
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
@@ -246,7 +252,7 @@ export function MessagingSettingsOverlay({ onClose }: { onClose: () => void }) {
           </DialogClose>
         </div>
 
-        {error ? <p className="mt-4 text-[13px] text-destructive">{error}</p> : null}
+        {shownError ? <p className="mt-4 text-[13px] text-destructive">{shownError}</p> : null}
 
         {hasRequests ? (
           <section className="mt-6">
