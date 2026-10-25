@@ -3655,7 +3655,7 @@ function SpaceShell() {
             <div className="grid flex-1 place-items-center">
               <Button onClick={() => setCreateBotOpen(true)}>
                 <Plus size={16} aria-hidden="true" />
-                <Trans>Create Bot</Trans>
+                <Trans>New bot</Trans>
               </Button>
             </div>
           ) : (

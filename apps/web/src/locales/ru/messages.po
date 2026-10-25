@@ -2088,23 +2088,9 @@ msgstr "Создайте раздел и переместите в него {0}.
 msgid "Create account"
 msgstr "Зарегистрироваться"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create Bot"
-msgstr "Создать бота"
-
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "Создать группу"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create group chat"
-msgstr "Создать групповой чат"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create private space"
-msgstr "Создать личное пространство"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -3602,13 +3588,20 @@ msgstr "Нужно: {names}"
 msgid "New"
 msgstr "Новые"
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "Новый бот"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "Новая группа"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "Новый групповой чат"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3622,6 +3615,10 @@ msgstr "Новая задача"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "Новый пароль"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "Новое личное пространство"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx

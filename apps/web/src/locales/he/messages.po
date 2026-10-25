@@ -2088,23 +2088,9 @@ msgstr "יצירת קטע והעברת {0} אליו."
 msgid "Create account"
 msgstr "יצירת חשבון"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create Bot"
-msgstr "יצירת בוט"
-
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "יצירת קבוצה"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create group chat"
-msgstr "יצירת צ'אט קבוצתי"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create private space"
-msgstr "יצירת מרחב פרטי"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -3602,13 +3588,20 @@ msgstr "דורש: {names}"
 msgid "New"
 msgstr ""
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "בוט חדש"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "קבוצה חדשה"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "צ'אט קבוצתי חדש"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3622,6 +3615,10 @@ msgstr "פריט עבודה פתוחה חדש"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "סיסמה חדשה"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "מרחב פרטי חדש"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx

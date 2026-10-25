@@ -28,7 +28,7 @@ test("create opens dialog, then empty chat; picker lists bots; sidebar collapses
   await picker.getByPlaceholder("Search").focus();
   await page.keyboard.press("ArrowDown");
   await expect(picker.locator('[data-slot="command-item"][data-selected="true"]')).toContainText(
-    "Create group chat",
+    "New group chat",
   );
   await captureScreenshot(page, testInfo, "plus-picker-highlight");
 

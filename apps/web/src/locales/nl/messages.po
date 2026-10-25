@@ -2088,23 +2088,9 @@ msgstr "Maak een sectie aan en verplaats {0} erin."
 msgid "Create account"
 msgstr "Account aanmaken"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create Bot"
-msgstr "Bot maken"
-
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "Groep aanmaken"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create group chat"
-msgstr "Groepschat maken"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create private space"
-msgstr "Privéruimte maken"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -3602,13 +3588,20 @@ msgstr "Vereist: {names}"
 msgid "New"
 msgstr "Nieuw"
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "Nieuwe bot"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "Nieuwe groep"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "Nieuwe groepschat"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3622,6 +3615,10 @@ msgstr "Nieuw open werkpunt"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "Nieuw wachtwoord"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "Nieuwe privéruimte"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx

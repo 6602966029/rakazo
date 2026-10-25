@@ -2088,23 +2088,9 @@ msgstr "创建分组并把 {0} 移入。"
 msgid "Create account"
 msgstr "创建账户"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create Bot"
-msgstr "创建机器人"
-
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "创建群组"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create group chat"
-msgstr "创建群聊"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create private space"
-msgstr "创建私人空间"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -3602,13 +3588,20 @@ msgstr "需要：{names}"
 msgid "New"
 msgstr "新消息"
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "新建 Bot"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "新建群组"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "新建群聊"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3622,6 +3615,10 @@ msgstr "新的待办"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "新密码"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "新建私人空间"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx

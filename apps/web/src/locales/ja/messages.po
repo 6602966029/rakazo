@@ -2088,23 +2088,9 @@ msgstr "セクションを作成して{0}を移動します。"
 msgid "Create account"
 msgstr "アカウントを作成"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create Bot"
-msgstr "ボットを作成"
-
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "グループを作成"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create group chat"
-msgstr "グループチャットを作成"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create private space"
-msgstr "プライベートスペースを作成"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -3602,13 +3588,20 @@ msgstr "必要: {names}"
 msgid "New"
 msgstr "新規"
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "新しいボット"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "新しいグループ"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "新しいグループチャット"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3622,6 +3615,10 @@ msgstr "新しい未完了の作業"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "新しいパスワード"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "新しいプライベートスペース"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx

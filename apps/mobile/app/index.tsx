@@ -839,8 +839,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       undefined,
       [
         { text: t("New bot"), onPress: () => runCreateAction("bot") },
-        { text: t("New group"), onPress: () => runCreateAction("group") },
-        { text: t("New space"), onPress: () => runCreateAction("space") },
+        { text: t("New group chat"), onPress: () => runCreateAction("group") },
+        { text: t("New private space"), onPress: () => runCreateAction("space") },
       ],
       { cancelable: true },
     );
@@ -895,13 +895,13 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
               },
               {
                 type: "action" as const,
-                label: t("New group"),
+                label: t("New group chat"),
                 icon: { type: "sfSymbol" as const, name: "person.2" },
                 onPress: () => runCreateAction("group"),
               },
               {
                 type: "action" as const,
-                label: t("New space"),
+                label: t("New private space"),
                 icon: { type: "sfSymbol" as const, name: "square.grid.2x2" },
                 onPress: () => runCreateAction("space"),
               },
@@ -1417,8 +1417,8 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
               <MenuView
                 actions={[
                   { id: "bot", title: t("New bot"), image: "person.crop.circle.badge.plus" },
-                  { id: "group", title: t("New group"), image: "person.2" },
-                  { id: "space", title: t("New space"), image: "square.grid.2x2" },
+                  { id: "group", title: t("New group chat"), image: "person.2" },
+                  { id: "space", title: t("New private space"), image: "square.grid.2x2" },
                 ]}
                 colorScheme={appearance}
                 onPressAction={({ nativeEvent }) => {

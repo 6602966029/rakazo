@@ -2088,23 +2088,9 @@ msgstr "Créez une section et déplacez {0} dedans."
 msgid "Create account"
 msgstr "Créer un compte"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create Bot"
-msgstr "Créer un bot"
-
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "Créer un groupe"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create group chat"
-msgstr "Créer une discussion de groupe"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create private space"
-msgstr "Créer un espace privé"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -3602,13 +3588,20 @@ msgstr "Nécessite : {names}"
 msgid "New"
 msgstr ""
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "Nouveau bot"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "Nouveau groupe"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "Nouvelle discussion de groupe"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3622,6 +3615,10 @@ msgstr "Nouvel élément de travaux en cours"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "Nouveau mot de passe"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "Nouvel espace privé"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx

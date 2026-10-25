@@ -2088,23 +2088,9 @@ msgstr "एक सेक्शन बनाएं और {0} को उसमे
 msgid "Create account"
 msgstr "खाता बनाएं"
 
-#: src/pages/Shell.tsx
-#: src/pages/shell/bot-picker.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Create Bot"
-msgstr "बॉट बनाएँ"
-
 #: src/pages/GroupPanel.tsx
 msgid "Create group"
 msgstr "समूह बनाएं"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create group chat"
-msgstr "ग्रुप चैट बनाएँ"
-
-#: src/pages/shell/bot-picker.tsx
-msgid "Create private space"
-msgstr "निजी स्पेस बनाएँ"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Create Routine"
@@ -3602,13 +3588,20 @@ msgstr "ज़रूरी: {names}"
 msgid "New"
 msgstr ""
 
+#: src/pages/Shell.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/bot-picker.tsx
+#: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
 msgstr "नया बॉट"
 
 #: src/pages/GroupPanel.tsx
 msgid "New group"
 msgstr "नया समूह"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New group chat"
+msgstr "नई ग्रुप चैट"
 
 #: src/pages/shell/chat-context.tsx
 msgid "New messages"
@@ -3622,6 +3615,10 @@ msgstr "नया खुला-कार्य आइटम"
 #: src/pages/Auth.tsx
 msgid "New password"
 msgstr "नया पासवर्ड"
+
+#: src/pages/shell/bot-picker.tsx
+msgid "New private space"
+msgstr "नया निजी स्पेस"
 
 #: src/pages/BotContextMenu.tsx
 #: src/pages/shell/dialogs.tsx

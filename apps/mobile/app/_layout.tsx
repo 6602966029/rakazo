@@ -395,7 +395,7 @@ function LayoutContent() {
                     <Stack.Screen
                       name="new-group"
                       options={{
-                        title: t("New group"),
+                        title: t("New group chat"),
                         presentation: "modal",
                         gestureEnabled: true,
                       }}
@@ -403,7 +403,7 @@ function LayoutContent() {
                     <Stack.Screen
                       name="new-space"
                       options={{
-                        title: t("New space"),
+                        title: t("New private space"),
                         presentation: "modal",
                         gestureEnabled: true,
                         headerBackVisible: false,

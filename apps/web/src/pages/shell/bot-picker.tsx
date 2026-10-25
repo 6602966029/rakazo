@@ -37,8 +37,8 @@ export function BotCreatePicker({
   }, [bots, needle]);
   const showCreate =
     !needle ||
-    "create bot".includes(needle) ||
-    needle.split(/\s+/).every((part) => "create bot".includes(part));
+    "new bot".includes(needle) ||
+    needle.split(/\s+/).every((part) => "new bot".includes(part));
 
   return (
     <div data-testid="bot-create-picker" className="w-[min(320px,calc(100vw-2rem))]">
@@ -73,7 +73,7 @@ export function BotCreatePicker({
                 <span className="flex size-[22px] shrink-0 items-center justify-center">
                   <Plus size={16} strokeWidth={1.8} aria-hidden="true" />
                 </span>
-                <Trans>Create Bot</Trans>
+                <Trans>New bot</Trans>
               </CommandItem>
             ) : null}
             <CommandItem
@@ -85,7 +85,7 @@ export function BotCreatePicker({
               <span className="flex size-[22px] shrink-0 items-center justify-center">
                 <Users size={16} strokeWidth={1.8} aria-hidden="true" />
               </span>
-              <Trans>Create group chat</Trans>
+              <Trans>New group chat</Trans>
             </CommandItem>
             <CommandItem
               value="create-space"
@@ -97,7 +97,7 @@ export function BotCreatePicker({
                 <Lock size={16} strokeWidth={1.8} aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1 truncate">
-                <Trans>Create private space</Trans>
+                <Trans>New private space</Trans>
               </span>
               <PickerInfo
                 testId="picker-info-space"
