@@ -26,6 +26,48 @@ describe("provider desktop preparation", () => {
     execFileSync("sh", ["-n", "-c", PREPARE_LINUX_DESKTOP]);
   });
 
+  it("still prepares the desktop when only the emoji font cannot be installed", () => {
+    const bin = mkdtempSync(path.join(tmpdir(), "rakazo-prepare-"));
+    try {
+      const calls = path.join(bin, "calls");
+      const fakes: Record<string, string> = {
+        id: "#!/bin/sh\necho 1000\n",
+        sudo: '#!/bin/sh\n[ "$1" = -n ] && shift\nexec "$@"\n',
+        env: '#!/bin/sh\nwhile [ "${1#*=}" != "$1" ]; do shift; done\nexec "$@"\n',
+        // A broken package manager: installs fail, as on images with unmet dependencies.
+        "apt-get": `#!/bin/sh\necho "$*" >> ${JSON.stringify(calls)}\ncase "$*" in *fonts-noto-color-emoji*) exit 100;; esac\n`,
+      };
+      for (const tool of [
+        "python3",
+        "flock",
+        "Xvfb",
+        "xdpyinfo",
+        "x11vnc",
+        "fluxbox",
+        "xdotool",
+        "wmctrl",
+        "scrot",
+        "xterm",
+        "websockify",
+      ]) {
+        fakes[tool] = "#!/bin/sh\n";
+      }
+      for (const [name, script] of Object.entries(fakes)) {
+        writeFileSync(path.join(bin, name), script);
+        chmodSync(path.join(bin, name), 0o755);
+      }
+      const result = spawnSync("/bin/sh", ["-c", PREPARE_LINUX_DESKTOP], {
+        env: { PATH: bin },
+        encoding: "utf8",
+      });
+      expect(result.status).toBe(0);
+      expect(result.stderr).toContain("could not install the emoji font");
+      expect(readFileSync(calls, "utf8")).toContain("fonts-noto-color-emoji");
+    } finally {
+      rmSync(bin, { recursive: true, force: true });
+    }
+  });
+
   it("fails when the package index cannot be updated", () => {
     const bin = mkdtempSync(path.join(tmpdir(), "rakazo-prepare-"));
     try {
