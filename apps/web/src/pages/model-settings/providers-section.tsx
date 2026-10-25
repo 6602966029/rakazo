@@ -14,6 +14,7 @@ import {
   PopoverTrigger,
 } from "@rakazo/ui-web";
 import { ChevronRight, Plus } from "lucide-react";
+import type { ReactNode } from "react";
 import { useId, useRef, useState } from "react";
 import type { ModelCredential } from "../../lib/model-auth";
 import { useSpaceRpc } from "../../lib/space-rpc";
@@ -28,6 +29,8 @@ export function ProvidersSection({
   disabled,
   onAdd,
   onOpen,
+  panel,
+  panelAt,
 }: {
   credentials: ModelCredential[];
   /** Every provider that can be connected, connected ones included. */
@@ -37,6 +40,10 @@ export function ProvidersSection({
   disabled?: boolean;
   onAdd: (provider: ConnectableProvider) => void;
   onOpen: (credential: ModelCredential) => void;
+  /** The connection form, shown under the connection it belongs to or after the list. */
+  panel?: ReactNode;
+  /** The connection id the form belongs to, or "add" for a new one. */
+  panelAt?: string | null;
 }) {
   return (
     <section className="mb-8" data-testid="model-providers">
@@ -58,14 +65,19 @@ export function ProvidersSection({
                 <span className="min-w-0 flex-1 truncate text-[15px] text-foreground">
                   {nameOf(credential)}
                 </span>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <ChevronRight
+                  className={`size-4 shrink-0 text-muted-foreground transition-transform ${panelAt === credential.id ? "rotate-90" : ""}`}
+                  aria-hidden
+                />
               </button>
+              {panelAt === credential.id ? <div className="px-3 pb-3">{panel}</div> : null}
             </li>
           ))}
         <li>
           <AddProvider providers={providers} disabled={disabled} onPick={onAdd} />
         </li>
       </ul>
+      {panelAt === "add" ? panel : null}
     </section>
   );
 }

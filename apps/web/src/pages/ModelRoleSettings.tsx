@@ -29,6 +29,7 @@ import {
   Spinner,
 } from "@rakazo/ui-web";
 import { GripVertical, MoreHorizontal, Plus } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { thinkingLevelLabel } from "../lib/model-catalog";
 import { useSpaceRpc } from "../lib/space-rpc";
@@ -58,6 +59,8 @@ type Props = {
   /** Offer effort for the first row when its model can think. */
   thinking?: boolean;
   onChanged?: () => void;
+  /** The connection form, when it was opened from this list. */
+  panel?: ReactNode;
 };
 
 const sameChoice = (left: ModelRoleChoice, right: ModelRoleChoice) =>
@@ -83,6 +86,7 @@ export function ModelRoleSettings({
   onManage,
   thinking,
   onChanged,
+  panel,
 }: Props) {
   const rpc = useSpaceRpc();
   const { t } = useLingui();
@@ -404,6 +408,7 @@ export function ModelRoleSettings({
           </li>
         ) : null}
       </ol>
+      {panel}
       {state.busy && !settings ? (
         <Spinner className="mt-3" aria-label={t`Loading model catalog…`} />
       ) : null}
