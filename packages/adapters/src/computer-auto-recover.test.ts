@@ -162,6 +162,32 @@ describe("a computer whose system is damaged", () => {
     expect(api.state(first.id)).toBe("archived");
   });
 
+  it("is replaced by one new computer when the one it just created is damaged", async () => {
+    // The adapter binds the API when it is built, so the spy goes on the prototype first.
+    const create = FakeBoatApi.prototype.create;
+    let created = 0;
+    vi.spyOn(FakeBoatApi.prototype, "create").mockImplementation(async function (
+      this: FakeBoatApi,
+      request,
+    ) {
+      const response = await create.call(this, request);
+      // The first create is the fixture's own computer; the next is the one provisioning makes.
+      if (++created === 2) this.damage(response.sandbox.id);
+      return response;
+    });
+    const { api, deps, row, first } = await damagedComputer();
+    api.delete(first.id);
+    const destroy = vi.spyOn(deps.sandbox, "destroy");
+
+    const ref = await provisionComputer(deps, row.id, context);
+
+    expect(created).toBe(3);
+    expect(destroy).toHaveBeenCalledOnce();
+    expect(ref.fresh).toBe(true);
+    expect(row.providerRef).toBe(ref.providerRef);
+    expect(text(await deps.sandbox.readFile(ref, "saved.txt", context))).toBe("saved.txt");
+  });
+
   it("is left to Recover when it comes back damaged, without trying again", async () => {
     const sink = createTestSink();
     installLogger(createLogger({ service: "test", sinks: [sink] }));

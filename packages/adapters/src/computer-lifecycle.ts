@@ -366,7 +366,10 @@ export async function provisionComputer(
       // and starting again resumes it, or replaces it from the saved workspace when that is newer.
       log.warn("computer.auto_recover", { provider: ref.kind, step: "stop", error });
       try {
-        await deps.sandbox.stop(ref, context, { discardUnsaved: true });
+        // A computer this call just created holds nothing yet; make another rather than leave
+        // it behind while starting again would create a second one.
+        if (ref.fresh) await deps.sandbox.destroy(ref, context);
+        else await deps.sandbox.stop(ref, context, { discardUnsaved: true });
         ref = await provision();
         provisioned = ref;
         await deps.sandbox.prepare(ref, context);
