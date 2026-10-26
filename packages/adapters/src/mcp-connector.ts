@@ -18,7 +18,7 @@ import type {
 import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
 import type { McpOAuthEnvField } from "@rakazo/contracts";
 import {
-  isLocalMcpHost,
+  isLocalhostOrLoopbackIp,
   mcpOAuthEnvReferences,
   resolveMcpOAuthEnv,
   resolveMcpOAuthFileTemplate,
@@ -1120,7 +1120,8 @@ export class McpConnector implements ConnectorProvider {
       } else {
         if (!server.endpoint) throw new Error("MCP endpoint is required");
         const endpoint = new URL(server.endpoint);
-        const localHttp = endpoint.protocol === "http:" && isLocalMcpHost(endpoint.hostname);
+        const localHttp =
+          endpoint.protocol === "http:" && isLocalhostOrLoopbackIp(endpoint.hostname);
         const allowPrivateEndpoint = this.options.allowPrivateEndpoint === true;
         const authProvider =
           !localHttp && this.oauth

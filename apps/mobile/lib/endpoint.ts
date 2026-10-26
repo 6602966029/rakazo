@@ -1,3 +1,4 @@
+import { isPrivateNetworkHost } from "@rakazo/contracts";
 import { cancelResponseBody, readBoundedJsonResponse, withAbort } from "@rakazo/core";
 import { t } from "./i18n";
 import { DEFAULT_API, LOCAL_API } from "./server-config";
@@ -26,7 +27,7 @@ export function normalizeApiBase(input: string): EndpointResult {
     return { ok: false, error: t("Use an http or https URL") };
   }
   if (!parsed.hostname) return { ok: false, error: t("That URL is missing a host") };
-  if (parsed.protocol === "http:" && !isLanOrLocalHost(parsed.hostname)) {
+  if (parsed.protocol === "http:" && !isPrivateNetworkHost(parsed.hostname)) {
     return { ok: false, error: "Public servers need https://" };
   }
   const url = `${parsed.protocol}//${parsed.host}`;
@@ -49,7 +50,7 @@ export function usesCustomApiBase(url: string, fallback = defaultApiBase()) {
 export function apiBaseWarning(url: string): string | null {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === "http:" && !isLanOrLocalHost(parsed.hostname)) {
+    if (parsed.protocol === "http:" && !isPrivateNetworkHost(parsed.hostname)) {
       return t("Public servers need https://. HTTP only works on your local network.");
     }
   } catch {
@@ -106,15 +107,4 @@ export async function probeApiBase(
 function originOnly(value: string) {
   const parsed = normalizeApiBase(value);
   return parsed.ok ? parsed.url : null;
-}
-
-export function isLanOrLocalHost(hostname: string) {
-  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return true;
-  if (host.endsWith(".local")) return true;
-  if (/^10(?:\.\d{1,3}){3}$/.test(host)) return true;
-  if (/^192\.168(?:\.\d{1,3}){2}$/.test(host)) return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2}$/.test(host)) return true;
-  if (/^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])(?:\.\d{1,3}){2}$/.test(host)) return true;
-  return false;
 }
