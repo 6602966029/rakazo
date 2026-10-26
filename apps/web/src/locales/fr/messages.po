@@ -572,6 +572,10 @@ msgstr "Ajouter Treg"
 msgid "Add trigger"
 msgstr "Ajouter un déclencheur"
 
+#: src/pages/MessagingSettingsPanel.tsx
+msgid "Add workspace"
+msgstr "Ajouter un espace de travail"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Added"
 msgstr "Ajouté"
@@ -1114,6 +1118,10 @@ msgstr "Le graphique n'a pas pu s'afficher : {error}"
 msgid "Chat Settings"
 msgstr "Paramètres de discussion"
 
+#: src/pages/MessagingSettingsPanel.tsx
+msgid "Chat with your bot from Slack."
+msgstr "Discutez avec votre bot depuis Slack."
+
 #: src/lib/localized-provider-hint.ts
 msgid "ChatGPT subscription"
 msgstr ""
@@ -1442,6 +1450,7 @@ msgstr "Confirmez que l'URL est accessible depuis cette session du navigateur, p
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
@@ -1486,10 +1495,6 @@ msgstr ""
 #: src/pages/McpServersOverlay.tsx
 msgid "Connect OAuth"
 msgstr "Connecter OAuth"
-
-#: src/pages/MessagingSettingsPanel.tsx
-msgid "Connect Slack"
-msgstr "Connecter Slack"
 
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."

@@ -572,6 +572,10 @@ msgstr "הוספת Treg"
 msgid "Add trigger"
 msgstr "הוספת טריגר"
 
+#: src/pages/MessagingSettingsPanel.tsx
+msgid "Add workspace"
+msgstr "הוספת סביבת עבודה"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Added"
 msgstr "נוסף"
@@ -1114,6 +1118,10 @@ msgstr "לא ניתן להציג את התרשים: {error}"
 msgid "Chat Settings"
 msgstr "הגדרות צ׳אט"
 
+#: src/pages/MessagingSettingsPanel.tsx
+msgid "Chat with your bot from Slack."
+msgstr "שוחחו עם הבוט שלכם מ-Slack."
+
 #: src/lib/localized-provider-hint.ts
 msgid "ChatGPT subscription"
 msgstr ""
@@ -1442,6 +1450,7 @@ msgstr "יש לוודא שאפשר להגיע לכתובת ה-URL מסשן הד�
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
@@ -1486,10 +1495,6 @@ msgstr ""
 #: src/pages/McpServersOverlay.tsx
 msgid "Connect OAuth"
 msgstr "חיבור OAuth"
-
-#: src/pages/MessagingSettingsPanel.tsx
-msgid "Connect Slack"
-msgstr "חיבור Slack"
 
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."

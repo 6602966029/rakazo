@@ -572,6 +572,10 @@ msgstr "Tregを追加"
 msgid "Add trigger"
 msgstr "トリガーを追加"
 
+#: src/pages/MessagingSettingsPanel.tsx
+msgid "Add workspace"
+msgstr "ワークスペースを追加"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Added"
 msgstr "追加済み"
@@ -1114,6 +1118,10 @@ msgstr "チャートを表示できませんでした: {error}"
 msgid "Chat Settings"
 msgstr "チャット設定"
 
+#: src/pages/MessagingSettingsPanel.tsx
+msgid "Chat with your bot from Slack."
+msgstr "Slackからボットとチャットできます。"
+
 #: src/lib/localized-provider-hint.ts
 msgid "ChatGPT subscription"
 msgstr "ChatGPTサブスクリプション"
@@ -1442,6 +1450,7 @@ msgstr "このブラウザセッションからURLにアクセスできること
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
@@ -1486,10 +1495,6 @@ msgstr "自分のキーを接続"
 #: src/pages/McpServersOverlay.tsx
 msgid "Connect OAuth"
 msgstr "OAuthを接続"
-
-#: src/pages/MessagingSettingsPanel.tsx
-msgid "Connect Slack"
-msgstr "Slackを接続"
 
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."

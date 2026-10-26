@@ -572,6 +572,10 @@ msgstr "Treg जोड़ें"
 msgid "Add trigger"
 msgstr ""
 
+#: src/pages/MessagingSettingsPanel.tsx
+msgid "Add workspace"
+msgstr "वर्कस्पेस जोड़ें"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Added"
 msgstr ""
@@ -1114,6 +1118,10 @@ msgstr "चार्ट रेंडर नहीं हो सका: {error}"
 msgid "Chat Settings"
 msgstr "चैट सेटिंग्स"
 
+#: src/pages/MessagingSettingsPanel.tsx
+msgid "Chat with your bot from Slack."
+msgstr "Slack से अपने बॉट से चैट करें।"
+
 #: src/lib/localized-provider-hint.ts
 msgid "ChatGPT subscription"
 msgstr ""
@@ -1442,6 +1450,7 @@ msgstr "पुष्टि करें कि यह URL इस ब्राउ
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
+#: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/model-settings/role-model-picker.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Connect"
@@ -1486,10 +1495,6 @@ msgstr ""
 #: src/pages/McpServersOverlay.tsx
 msgid "Connect OAuth"
 msgstr "OAuth कनेक्ट करें"
-
-#: src/pages/MessagingSettingsPanel.tsx
-msgid "Connect Slack"
-msgstr "Slack कनेक्ट करें"
 
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."
