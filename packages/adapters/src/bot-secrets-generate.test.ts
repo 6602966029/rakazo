@@ -1,5 +1,5 @@
 import { GENERATED_SECRET_SYMBOLS, GeneratedSecretRules } from "@rakazo/contracts";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { generateBotSecret, loadBotCommandEnvironment, resolveLoginFill } from "./bot-secrets.js";
 import { fakeDatabase } from "./bot-secrets.test-support.js";
 import { generateSecretValue } from "./secret-generator.js";
@@ -186,9 +186,22 @@ describe("generate_secret", () => {
   it("saves neither when the command variable cannot be saved", async () => {
     const db = fakeDatabase();
     await generate(db, { name: "example_account_password", type: "command" });
-    expect(await generate(db, { ...signup, command: true })).toEqual({
-      result: { error: expect.stringContaining("already exported") },
-    });
+    const put = vi.spyOn(secretStore, "put");
+    const remove = vi.spyOn(secretStore, "delete");
+    try {
+      expect(await generate(db, { ...signup, command: true })).toEqual({
+        result: { error: expect.stringContaining("already exported") },
+      });
+      const prepared = await Promise.all(put.mock.results.map(({ value }) => value));
+      expect(prepared).toHaveLength(2);
+      // Both values prepared for the refused pair are deleted; the saved variable's is not.
+      expect(remove.mock.calls.map(([ref]) => ref).sort()).toEqual(
+        prepared.map(({ ciphertext }) => ciphertext).sort(),
+      );
+    } finally {
+      put.mockRestore();
+      remove.mockRestore();
+    }
     expect(db.rows().map((row) => row.name)).toEqual(["example_account_password"]);
     const taken = fakeDatabase();
     await generate(taken, { name: "example_account-password", type: "command" });
