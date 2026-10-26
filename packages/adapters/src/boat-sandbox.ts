@@ -6,8 +6,8 @@ import type {
   Command200Response,
   CommandResponse,
   FileUrlResponse,
-  NamedSnapshot,
   SandboxStateEnum,
+  SavedSnapshot,
 } from "@boatdev/sdk";
 import { BoatApi, Configuration } from "@boatdev/sdk";
 import type {
@@ -88,11 +88,11 @@ export type BoatSandboxSdk = Pick<
   | "createDownloadUrl"
   | "createUploadUrl"
   | "get"
-  | "getNamedSnapshot"
+  | "getSavedSnapshot"
   | "hostPort"
   | "recover"
   | "resume"
-  | "saveNamedSnapshot"
+  | "saveSavedSnapshot"
   | "stop"
   | "update"
   | "writeFile"
@@ -276,7 +276,7 @@ export class BoatSandboxProvider implements SandboxProvider {
   }
 
   /**
-   * Builds the named snapshot new computers start from, unless it is already ready: a fresh
+   * Builds the saved snapshot new computers start from, unless it is already ready: a fresh
    * sandbox with no account environment and no bot data, with the desktop tools installed
    * and checked. The build sandbox is deleted afterwards.
    */
@@ -302,8 +302,8 @@ export class BoatSandboxProvider implements SandboxProvider {
           });
         }
       }
-      await this.client.saveNamedSnapshot(
-        { namedSnapshotSaveRequest: { sandboxId: sandbox.id, name } },
+      await this.client.saveSavedSnapshot(
+        { savedSnapshotSaveRequest: { sandboxId: sandbox.id, name } },
         { signal },
       );
       const snapshot = await this.settledSnapshot(name, signal);
@@ -318,13 +318,13 @@ export class BoatSandboxProvider implements SandboxProvider {
     }
   }
 
-  /** The named snapshot once any save in progress has finished, or undefined when absent. */
+  /** The saved snapshot once any save in progress has finished, or undefined when absent. */
   private async settledSnapshot(
     name: string,
     signal: AbortSignal,
-  ): Promise<NamedSnapshot | undefined> {
+  ): Promise<SavedSnapshot | undefined> {
     while (true) {
-      const snapshot = await this.namedSnapshot(name, signal);
+      const snapshot = await this.savedSnapshot(name, signal);
       if (snapshot?.status !== "saving") return snapshot;
       await delay(2_000, undefined, { signal });
     }
@@ -337,9 +337,9 @@ export class BoatSandboxProvider implements SandboxProvider {
   private async computerSnapshot(signal: AbortSignal): Promise<string | undefined> {
     if (this.baseSnapshot === "ready") return BOAT_COMPUTER_SNAPSHOT;
     if (this.baseSnapshotBuild || Date.now() < this.baseSnapshotRetryAt) return undefined;
-    let snapshot: NamedSnapshot | undefined;
+    let snapshot: SavedSnapshot | undefined;
     try {
-      snapshot = await this.namedSnapshot(BOAT_COMPUTER_SNAPSHOT, signal);
+      snapshot = await this.savedSnapshot(BOAT_COMPUTER_SNAPSHOT, signal);
     } catch (error) {
       // A cancelled boot says nothing about the snapshot.
       if (signal.aborted) throw error;
@@ -396,13 +396,13 @@ export class BoatSandboxProvider implements SandboxProvider {
       });
   }
 
-  /** The named snapshot, or undefined when the account has none by that name. */
-  private async namedSnapshot(
+  /** The saved snapshot, or undefined when the account has none by that name. */
+  private async savedSnapshot(
     name: string,
     signal: AbortSignal,
-  ): Promise<NamedSnapshot | undefined> {
+  ): Promise<SavedSnapshot | undefined> {
     try {
-      return (await this.client.getNamedSnapshot({ name }, { signal })).snapshot;
+      return (await this.client.getSavedSnapshot({ name }, { signal })).snapshot;
     } catch (error) {
       if (error instanceof BoatApiError && error.response.status === 404) return undefined;
       throw error;
@@ -687,7 +687,29 @@ export class BoatSandboxProvider implements SandboxProvider {
     return this.desktops.releaseScreen(computer, context);
   }
 
-  async stop(computer: ComputerRef, context: AdapterContext): Promise<void> {
+  async isStopped(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
+    try {
+      const { sandbox } = await this.client.get(
+        { sandboxId: this.id(computer) },
+        { signal: context.signal },
+      );
+      return sandbox.state === "archived" && !sandbox.dataExpiredAt;
+    } catch (error) {
+      if (isSandboxGoneError(error)) return false;
+      throw error;
+    }
+  }
+
+  /**
+   * Boat saves the disk before it archives, and refuses the stop while that save keeps failing,
+   * leaving the sandbox running. With `discardUnsaved` such a stop is forced, which keeps Boat's
+   * last good snapshot.
+   */
+  async stop(
+    computer: ComputerRef,
+    context: AdapterContext,
+    options?: { discardUnsaved?: boolean },
+  ): Promise<void> {
     const id = this.id(computer);
     try {
       const { sandbox } = await this.client.get({ sandboxId: id }, { signal: context.signal });
@@ -696,7 +718,16 @@ export class BoatSandboxProvider implements SandboxProvider {
       if (sandbox.state !== "archived" && sandbox.state !== "archiving") {
         await this.client.stop({ sandboxId: id }, { signal: context.signal });
       }
-      await this.waitForState(id, new Set(["archived"]), context);
+      let forced = false;
+      await this.waitForState(id, new Set(["archived"]), context, async (current) => {
+        if (forced || !options?.discardUnsaved || current.stop?.status !== "failing") return;
+        logRecovery("force_stop", "stop_refused");
+        await this.client.stop(
+          { sandboxId: id, stopRequest: { force: true } },
+          { signal: context.signal },
+        );
+        forced = true;
+      });
     } catch (error) {
       if (!isSandboxGoneError(error)) throw error;
     } finally {
@@ -722,7 +753,8 @@ export class BoatSandboxProvider implements SandboxProvider {
    * if it still does not, force-stop it to its last good snapshot and resume that. It is gone
    * instead when it has no snapshot, or when the caller's saved workspace is at least as new,
    * since a replacement restores that save in full. The rollback happens only on `reconnect`,
-   * before anything runs on the sandbox; elsewhere it is reported unavailable until then.
+   * before anything runs on the sandbox; elsewhere it is reported unavailable until then. On
+   * `reconnect`, a stopped sandbox whose snapshot is older than the saved workspace is gone too.
    */
   private async ensureRunnable(
     id: string,
@@ -746,6 +778,13 @@ export class BoatSandboxProvider implements SandboxProvider {
       // `cancelled` is terminal, and a stopped sandbox whose data Boat deleted cannot resume.
       if (sandbox.state === "cancelled" || sandbox.dataExpiredAt) throw boatSandboxGone(id);
       if (sandbox.state === "archived" && !started) {
+        // A stop forced past a failing save, or one whose last save failed, keeps an older
+        // snapshot than the workspace the caller saved since; that save wins.
+        const snapshotAt = sandbox.snapshotCompletedAt;
+        if (reconnect?.savedAt && snapshotAt && reconnect.savedAt > snapshotAt) {
+          logRecovery("gone", "checkpoint_newer");
+          throw boatSandboxGone(id);
+        }
         await this.resume(id, signal);
         started = true;
       } else if (sandbox.state === "error" && !recovering) {
@@ -842,6 +881,7 @@ export class BoatSandboxProvider implements SandboxProvider {
     id: string,
     states: Set<BoatMachine["state"]>,
     context: AdapterContext,
+    onWait?: (sandbox: BoatMachine) => Promise<void>,
   ): Promise<BoatMachine> {
     const deadline = Date.now() + BOAT_READY_TIMEOUT_MS;
     while (true) {
@@ -849,6 +889,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       const response = await this.client.get({ sandboxId: id }, { signal: context.signal });
       if (states.has(response.sandbox.state)) return response.sandbox;
       if (response.sandbox.state === "error") throw new Error(`Boat ${id} entered the error state`);
+      await onWait?.(response.sandbox);
       if (Date.now() >= deadline)
         throw new Error(`Boat ${id} did not reach ${[...states].join("/")}`);
       await delay(1_000, undefined, { signal: context.signal });
@@ -1133,6 +1174,9 @@ export class BoatSandboxProvider implements SandboxProvider {
         ? commandResponse(response)
         : await this.pollCommand(id, response.processId, timeoutMs + 10_000, signal);
       if (result.exitCode !== 0 && systemDamaged(result.stderr)) {
+        // The next start checks it again rather than trust an earlier preparation.
+        this.prepared.delete(id);
+        await this.logDamaged(id);
         throw new SandboxDamagedError({ cause: new Error(commandFailure(result)) });
       }
       if (result.exitCode !== 124 || result.timedOut) return result;
@@ -1148,6 +1192,29 @@ export class BoatSandboxProvider implements SandboxProvider {
       }
       throw error;
     }
+  }
+
+  /**
+   * What Boat says about a machine that cannot start programs. A restore that never finished
+   * (`hydrated` false long after a start) or saves that keep failing point at Boat's storage.
+   */
+  private async logDamaged(id: string): Promise<void> {
+    const sandbox = await this.client
+      .get({ sandboxId: id }, { signal: AbortSignal.timeout(BOAT_GONE_CHECK_TIMEOUT_MS) })
+      .then(({ sandbox }) => sandbox)
+      .catch(() => undefined);
+    getLogger().warn("sandbox.damaged", {
+      provider: "boat",
+      ...(sandbox
+        ? {
+            state: sandbox.state,
+            hydrated: sandbox.hydrated,
+            lastSnapshotStatus: sandbox.lastSnapshotStatus ?? undefined,
+            stopStatus: sandbox.stop?.status,
+            health: sandbox.health,
+          }
+        : {}),
+    });
   }
 
   private async pollCommand(
@@ -1326,11 +1393,11 @@ function boatClient(api: BoatSandboxSdk, apiKey: string): BoatSandboxSdk {
     createDownloadUrl: sandboxCall(api.createDownloadUrl.bind(api), true),
     createUploadUrl: sandboxCall(api.createUploadUrl.bind(api), true),
     get: sandboxCall(api.get.bind(api), true),
-    getNamedSnapshot: wrapBoatCall(api.getNamedSnapshot.bind(api), apiKey, true),
+    getSavedSnapshot: wrapBoatCall(api.getSavedSnapshot.bind(api), apiKey, true),
     hostPort: sandboxCall(api.hostPort.bind(api), true),
     recover: startCall("recover", sandboxCall(api.recover.bind(api))),
     resume: startCall("resume", sandboxCall(api.resume.bind(api))),
-    saveNamedSnapshot: wrapBoatCall(api.saveNamedSnapshot.bind(api), apiKey),
+    saveSavedSnapshot: wrapBoatCall(api.saveSavedSnapshot.bind(api), apiKey),
     stop: sandboxCall(api.stop.bind(api)),
     update: sandboxCall(api.update.bind(api), true),
     writeFile: sandboxCall(api.writeFile.bind(api), true),
