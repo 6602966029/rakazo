@@ -21,7 +21,8 @@ export function NavLinkPage() {
   });
   if (desktop) return <Navigate to="/app" replace />;
   if (me.isPending) return <PageLoading />;
-  const link = me.data?.navLinks.find((candidate) => candidate.id === linkId);
+  // An API older than this field omits it, and replies are not parsed through MeSchema.
+  const link = me.data?.navLinks?.find((candidate) => candidate.id === linkId);
   if (!link) return <Navigate to="/app" replace />;
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden bg-background text-foreground">
