@@ -212,8 +212,8 @@ msgstr "{name} 已停止"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
-msgid "{provider} could not find the requested model."
-msgstr "{provider} 找不到請求的模型。"
+msgid "{provider} can't run this model."
+msgstr "{provider} 無法執行此模型。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -1200,6 +1200,7 @@ msgid "Choose a bot shape, color, or upload an image"
 msgstr "選擇機器人形狀和顏色，或上傳圖片"
 
 #: src/pages/ModelSettingsOverlay.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Choose a model"
 msgstr "選擇模型"
 
@@ -1466,8 +1467,14 @@ msgid "Connect a chat app"
 msgstr "連結聊天應用程式"
 
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Connect a model"
 msgstr "連線模型"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect a model in Settings before running bots."
+msgstr "執行機器人前，請先在設定中連接模型。"
 
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Connect API key"
@@ -1504,6 +1511,11 @@ msgstr "請先連結此模型的供應商。"
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Treg"
 msgstr "連線 Treg"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect your own API key in Models or choose Rakazo credits in Billing."
+msgstr "請在「模型」中連接你自己的 API 金鑰，或在「帳務」中選擇 Rakazo 點數。"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpOAuthCallback.tsx
@@ -4460,6 +4472,7 @@ msgstr "替換 API 金鑰"
 msgid "Replace its instructions"
 msgstr "取代其指示"
 
+#: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "替換金鑰"

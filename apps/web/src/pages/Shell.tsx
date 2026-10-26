@@ -2801,6 +2801,19 @@ function SpaceShell() {
     await refreshBots(true);
   }
 
+  function openChatSettings(kind: "bot" | "group", id: string) {
+    const destKey =
+      userId && bootstrapMe?.spaceId
+        ? rightPanelStorageKey(userId, bootstrapMe.spaceId, kind, id)
+        : null;
+    explicitPanelTarget.current = destKey;
+    pendingPanelRestore.current = null;
+    navigate(kind === "bot" ? `/app/${id}` : `/app/g/${id}`);
+    // Mark the destination key restored so we do not write settings onto the source chat.
+    setPanelState(kind === "bot" ? "settings" : "group-settings");
+    setRestoredPanelKey(destKey);
+  }
+
   function openCreatedBot(bot: Bot) {
     // A roster requested before creation may omit this bot and redirect its new chat.
     botsRefreshEpoch.current += 1;
@@ -3294,21 +3307,7 @@ function SpaceShell() {
         setBotMenu(null);
       }}
       onEdit={() => {
-        const destKey =
-          userId && bootstrapMe?.spaceId
-            ? rightPanelStorageKey(
-                userId,
-                bootstrapMe.spaceId,
-                contextBot ? "bot" : "group",
-                contextChat.id,
-              )
-            : null;
-        explicitPanelTarget.current = destKey;
-        pendingPanelRestore.current = null;
-        navigate(contextBot ? `/app/${contextBot.id}` : `/app/g/${contextGroup!.id}`);
-        // Mark the destination key restored so we do not write settings onto the source chat.
-        setPanelState(contextBot ? "settings" : "group-settings");
-        setRestoredPanelKey(destKey);
+        openChatSettings(contextBot ? "bot" : "group", contextChat.id);
         setBotMenu(null);
       }}
       onDuplicate={() => {
@@ -3863,11 +3862,18 @@ function SpaceShell() {
               attachmentNotice={attachmentNotice}
               sendError={sendError}
               onOpenModels={() => {
+                // A group's failed run belongs to one member; change that bot's model.
+                const failedBotId =
+                  inGroup && displayedRunError ? activeSnapshot?.run?.botId : null;
                 if (active && !inGroup) {
                   setPanel("settings");
                   setModelFocusRequest(Date.now());
+                } else if (failedBotId) {
+                  openChatSettings("bot", failedBotId);
+                  setModelFocusRequest(Date.now());
                 } else openSettings("models");
               }}
+              onOpenConnections={() => openSettings("models")}
               runError={displayedRunError}
               runErrorId={displayedRunErrorId}
               onRunErrorPresented={handleRunErrorPresented}

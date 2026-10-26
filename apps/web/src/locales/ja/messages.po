@@ -211,8 +211,8 @@ msgstr "{name}が停止しました"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
-msgid "{provider} could not find the requested model."
-msgstr "{provider}で指定されたモデルが見つかりませんでした。"
+msgid "{provider} can't run this model."
+msgstr "{provider}ではこのモデルを実行できません。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -1199,6 +1199,7 @@ msgid "Choose a bot shape, color, or upload an image"
 msgstr "ボットの形や色を選ぶか、画像をアップロード"
 
 #: src/pages/ModelSettingsOverlay.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Choose a model"
 msgstr "モデルを選択"
 
@@ -1465,8 +1466,14 @@ msgid "Connect a chat app"
 msgstr ""
 
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Connect a model"
 msgstr "モデルを接続"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect a model in Settings before running bots."
+msgstr "ボットを実行する前に、設定でモデルを接続してください。"
 
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Connect API key"
@@ -1503,6 +1510,11 @@ msgstr "先にこのモデルのプロバイダーを接続してください。
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Treg"
 msgstr "Tregを接続"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect your own API key in Models or choose Rakazo credits in Billing."
+msgstr "モデルで自分のAPIキーを接続するか、請求でRakazoクレジットを選択してください。"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpOAuthCallback.tsx
@@ -4459,6 +4471,7 @@ msgstr "APIキーを置き換え"
 msgid "Replace its instructions"
 msgstr "既存の指示を置き換える"
 
+#: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "キーを置き換え"

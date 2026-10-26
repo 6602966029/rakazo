@@ -240,6 +240,7 @@ import {
   getCachedResponseStreamingEnabled,
   subscribeResponseStreaming,
 } from "../lib/response-streaming";
+import { runErrorActionLabel } from "../lib/run-error-presentation";
 import type { SavedChatsScope } from "../lib/saved-chats";
 import {
   liveSavedChatsScope,
@@ -2107,6 +2108,17 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       params: { botId: snap?.run?.botId ?? botId ?? "", focus: "model" },
     });
   }
+  const runErrorLabel = normalizedRunError ? runErrorActionLabel(t, normalizedRunError) : null;
+  const runErrorAction = runErrorLabel
+    ? {
+        label: runErrorLabel,
+        // Without a bot to change, the model settings pick the default model instead.
+        onPress:
+          normalizedRunError?.recovery === "model" && (snap?.run?.botId ?? botId)
+            ? openErrorModel
+            : openErrorConnection,
+      }
+    : null;
   const separatorIds = useMemo(() => timeSeparatorIds(visibleMessages), [visibleMessages]);
   const unreadDividerId = useMemo(
     () =>
@@ -2622,10 +2634,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
       summary={visibleRunError?.summary ?? null}
       resetAt={visibleRunError?.resetAt}
       onDetails={() => setRunErrorDetailsOpen(true)}
-      onConnection={visibleRunError?.recovery === "connection" ? openErrorConnection : undefined}
-      onModel={
-        visibleRunError?.recovery && (snap?.run?.botId ?? botId) ? openErrorModel : undefined
-      }
+      action={visibleRunError ? runErrorAction : null}
     />
   );
 
@@ -3073,8 +3082,7 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         <RunErrorSheet
           details={runErrorDetailsOpen ? runError : null}
           onClose={() => setRunErrorDetailsOpen(false)}
-          onConnection={openErrorConnection}
-          onModel={(snap?.run?.botId ?? botId) ? openErrorModel : undefined}
+          action={runErrorAction}
         />
         {markdownPreview && artifactTarget ? (
           <MarkdownArtifactPreview

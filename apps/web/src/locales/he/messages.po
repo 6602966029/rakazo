@@ -211,8 +211,8 @@ msgstr "{name} נעצר"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
-msgid "{provider} could not find the requested model."
-msgstr "{provider} לא מצא את המודל המבוקש."
+msgid "{provider} can't run this model."
+msgstr "{provider} לא יכול להריץ את המודל הזה."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -1199,6 +1199,7 @@ msgid "Choose a bot shape, color, or upload an image"
 msgstr "בחירת צורה או צבע לבוט, או העלאת תמונה"
 
 #: src/pages/ModelSettingsOverlay.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Choose a model"
 msgstr "בחירת מודל"
 
@@ -1465,8 +1466,14 @@ msgid "Connect a chat app"
 msgstr ""
 
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Connect a model"
 msgstr "חיבור מודל"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect a model in Settings before running bots."
+msgstr "חבר מודל בהגדרות לפני הפעלת בוטים."
 
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Connect API key"
@@ -1503,6 +1510,11 @@ msgstr "יש לחבר קודם את הספק של המודל הזה."
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Treg"
 msgstr "חיבור Treg"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect your own API key in Models or choose Rakazo credits in Billing."
+msgstr "חבר מפתח API משלך במודלים או בחר בקרדיטים של Rakazo בחיוב."
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpOAuthCallback.tsx
@@ -4459,6 +4471,7 @@ msgstr "החלפת מפתח API"
 msgid "Replace its instructions"
 msgstr "החלפת ההוראות שלו"
 
+#: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "החלפת מפתח"

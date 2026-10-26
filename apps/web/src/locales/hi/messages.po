@@ -211,8 +211,8 @@ msgstr "{name} रोक दिया गया"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
-msgid "{provider} could not find the requested model."
-msgstr "{provider} को अनुरोधित मॉडल नहीं मिला।"
+msgid "{provider} can't run this model."
+msgstr "{provider} इस मॉडल को नहीं चला सकता।"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -1199,6 +1199,7 @@ msgid "Choose a bot shape, color, or upload an image"
 msgstr "बॉट का आकार और रंग चुनें, या छवि अपलोड करें"
 
 #: src/pages/ModelSettingsOverlay.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Choose a model"
 msgstr "मॉडल चुनें"
 
@@ -1465,8 +1466,14 @@ msgid "Connect a chat app"
 msgstr ""
 
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Connect a model"
 msgstr "एक मॉडल कनेक्ट करें"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect a model in Settings before running bots."
+msgstr "बॉट चलाने से पहले सेटिंग्स में एक मॉडल कनेक्ट करें।"
 
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Connect API key"
@@ -1503,6 +1510,11 @@ msgstr "पहले इस मॉडल का प्रदाता कने�
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Treg"
 msgstr "Treg कनेक्ट करें"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect your own API key in Models or choose Rakazo credits in Billing."
+msgstr "मॉडल्स में अपनी API कुंजी कनेक्ट करें या बिलिंग में Rakazo क्रेडिट चुनें।"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpOAuthCallback.tsx
@@ -4459,6 +4471,7 @@ msgstr "API कुंजी बदलें"
 msgid "Replace its instructions"
 msgstr "इसके निर्देश बदलें"
 
+#: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "कुंजी बदलें"
