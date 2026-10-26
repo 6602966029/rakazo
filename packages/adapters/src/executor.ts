@@ -57,6 +57,7 @@ import {
   isOwnerStartedRun,
   isTerminal,
   MISSING_MODEL_RUN_ERROR,
+  MODEL_ACCESS_REQUIRED_RUN_ERROR,
   messagingChannelId,
   messagingChannelPrivacyBlock,
   messagingDmSurfaceNote,
@@ -101,6 +102,7 @@ import {
   saveRunTurnCheckpoint,
   searchHistory,
   settleReleasedTakeoverCards,
+  spaceHasModelAccess,
   validateInstructionProposal,
   writeBotInstructions,
 } from "@rakazo/db";
@@ -1016,6 +1018,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
         }
         if (!runModelProvider || !runModelId) {
           await failRunBeforeModel(MISSING_MODEL_RUN_ERROR, true);
+          return;
+        }
+        if (
+          (await modelCreditBillingEnabled(deps)) &&
+          !(await spaceHasModelAccess(deps.prisma, run.spaceId))
+        ) {
+          await failRunBeforeModel(MODEL_ACCESS_REQUIRED_RUN_ERROR, true);
           return;
         }
         // An incompatible saved model is a configuration error. Record it on the run.

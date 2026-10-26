@@ -165,9 +165,10 @@ export class StripeBillingProvider implements BillingProvider {
     if (!creditAmount(String(input.amountCents))) throw new Error("Invalid credit amount");
     if (input.monthly) {
       await this.expireOpenCheckouts(input.customerId);
+      // Credits include the own-key plan, which sync ends once credits start.
       if (
-        (await this.listSubscriptions(input.customerId)).some((s) =>
-          holdsBillingSubscription(mapStripeSubscriptionStatus(s.status)),
+        (await this.listSubscriptions(input.customerId)).some(
+          (s) => !isByokPlan(s) && holdsBillingSubscription(mapStripeSubscriptionStatus(s.status)),
         )
       )
         throw new BillingCheckoutCompletedError();
@@ -181,7 +182,14 @@ export class StripeBillingProvider implements BillingProvider {
         adaptive_pricing: { enabled: false },
         line_items: [
           input.monthly
-            ? { quantity: 1, price: await this.monthlyCreditPrice(input.amountCents) }
+            ? {
+                quantity: 1,
+                price: await this.monthlyPrice(
+                  `rakazo_monthly_credits_${input.amountCents}`,
+                  input.amountCents,
+                  "Rakazo monthly model credits",
+                ),
+              }
             : {
                 quantity: 1,
                 price_data: {
@@ -216,15 +224,82 @@ export class StripeBillingProvider implements BillingProvider {
     if (amountCents === previousAmount) return;
     const upgrading = amountCents > previousAmount;
     await this.request("POST", `/v1/subscriptions/${encodeURIComponent(subscription.id)}`, {
-      items: [{ id: item.id, price: await this.monthlyCreditPrice(amountCents), quantity: 1 }],
+      items: [
+        {
+          id: item.id,
+          price: await this.monthlyPrice(
+            `rakazo_monthly_credits_${amountCents}`,
+            amountCents,
+            "Rakazo monthly model credits",
+          ),
+          quantity: 1,
+        },
+      ],
       metadata: { rakazo_credit_cents: String(amountCents) },
       proration_behavior: upgrading ? "always_invoice" : "none",
       payment_behavior: "error_if_incomplete",
     });
   }
 
-  private async monthlyCreditPrice(amountCents: number): Promise<string> {
-    const lookupKey = `rakazo_monthly_credits_${amountCents}`;
+  async createByokCheckout(input: Omit<BillingCreditCheckoutRequest, "monthly">) {
+    await this.expireOpenCheckouts(input.customerId);
+    if (
+      (await this.listSubscriptions(input.customerId)).some((s) =>
+        holdsBillingSubscription(mapStripeSubscriptionStatus(s.status)),
+      )
+    )
+      throw new BillingCheckoutCompletedError();
+    const metadata = { [BYOK_PLAN_METADATA]: "byok" };
+    const session = urlSchema.parse(
+      await this.request("POST", "/v1/checkout/sessions", {
+        customer: input.customerId,
+        mode: "subscription",
+        allowed_payment_method_types: ["card"],
+        adaptive_pricing: { enabled: false },
+        allow_promotion_codes: true,
+        line_items: [
+          {
+            quantity: 1,
+            price: await this.monthlyPrice(
+              `rakazo_byok_monthly_${input.amountCents}`,
+              input.amountCents,
+              "Rakazo own-key plan",
+            ),
+          },
+        ],
+        metadata,
+        subscription_data: { metadata, billing_mode: { type: "classic" } },
+        success_url: input.successUrl,
+        cancel_url: input.cancelUrl,
+      }),
+    );
+    return { url: session.url };
+  }
+
+  async endByokPlans(customerId: string) {
+    for (const subscription of await this.listLiveSubscriptions(customerId)) {
+      if (
+        !isByokPlan(subscription) ||
+        subscription.cancel_at_period_end ||
+        subscription.cancel_at != null ||
+        !holdsBillingSubscription(mapStripeSubscriptionStatus(subscription.status))
+      )
+        continue;
+      try {
+        await this.request("POST", `/v1/subscriptions/${encodeURIComponent(subscription.id)}`, {
+          cancel_at_period_end: true,
+        });
+      } catch (error) {
+        await this.rethrowUnlessEnded(error, customerId, subscription.id);
+      }
+    }
+  }
+
+  private async monthlyPrice(
+    lookupKey: string,
+    amountCents: number,
+    productName: string,
+  ): Promise<string> {
     const query = encodeStripeForm({
       active: true,
       lookup_keys: [lookupKey],
@@ -254,7 +329,7 @@ export class StripeBillingProvider implements BillingProvider {
         currency: "usd",
         unit_amount: amountCents,
         recurring: { interval: "month" },
-        product_data: { name: "Rakazo monthly model credits" },
+        product_data: { name: productName },
         lookup_key: lookupKey,
         transfer_lookup_key: true,
       }),
@@ -450,7 +525,11 @@ export class StripeBillingProvider implements BillingProvider {
     for (;;) {
       const chosen = pickStripeSubscription(await this.listLiveSubscriptions(customerId));
       if (!chosen || !holdsBillingSubscription(chosen.status)) return;
-      if (creditAmount(chosen.subscription.metadata?.rakazo_credit_cents)) return;
+      if (
+        creditAmount(chosen.subscription.metadata?.rakazo_credit_cents) ||
+        isByokPlan(chosen.subscription)
+      )
+        return;
       const item = chosen.subscription.items.data[0];
       if (!item || item.quantity === seats) return;
       try {
@@ -773,6 +852,12 @@ export function stripeBillingConfigFromEnv(env: {
     webhookSecret: values.STRIPE_WEBHOOK_SECRET!,
     ...(values.STRIPE_PRICE_ID ? { priceId: values.STRIPE_PRICE_ID } : {}),
   };
+}
+
+const BYOK_PLAN_METADATA = "rakazo_plan";
+
+function isByokPlan(subscription: StripeSubscription) {
+  return subscription.metadata?.[BYOK_PLAN_METADATA] === "byok";
 }
 
 function creditAmount(value: string | undefined): number | undefined {

@@ -438,10 +438,14 @@ is unreachable or takes longer than three seconds, the password is accepted and 
 ### Billing
 
 Billing stays off unless `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are both set (see
-`.env.example`). Enabling billing offers free use with a personal model connection or monthly
-model credits in USD: $10, $20, $50, $100, $200, or $500. One-time top-ups use the same amounts.
-Monthly credits expire at the end of their service period; one-time top-ups do not expire.
-The hosted computer is included in both paths.
+`.env.example`). Enabling billing offers a monthly own-key plan for a personal model connection or
+monthly model credits in USD: $10, $20, $50, $100, $200, or $500. One-time top-ups use the same
+amounts. Monthly credits expire at the end of their service period; one-time top-ups do not expire.
+The hosted computer is included in both paths, and monthly credits include the own-key plan.
+
+`BYOK_MONTHLY_PRICE_CENTS` in `@rakazo/contracts` sets the own-key plan's price; `null` makes it
+free and ends paid own-key subscriptions at their period end. Runs check access on the server, so a
+lapsed organization's bots and routines stop until it subscribes.
 
 Configure the managed default model through the existing model connection settings. The default
 OpenRouter model is Luna 6; customers can choose another available model, with its usage deducted

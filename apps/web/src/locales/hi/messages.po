@@ -356,6 +356,7 @@ msgid "@{0}"
 msgstr "@{0}"
 
 #. placeholder {0}: amount / 100
+#. placeholder {0}: status.byokPriceCents / 100
 #: src/components/ModelCredits.tsx
 msgid "${0} / month"
 msgstr ""
@@ -2766,6 +2767,10 @@ msgstr "पासवर्ड भूल गए?"
 #: src/pages/model-settings/model-picker.tsx
 msgid "Free"
 msgstr ""
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Free plan ends {day}"
+msgstr "मुफ़्त प्लान {day} को खत्म होगा"
 
 #: src/lib/cron.ts
 msgid "Friday"
@@ -5779,6 +5784,10 @@ msgstr "{selectedProviderName} तक पहुँचने के लिए इ
 #: src/components/ModelCredits.tsx
 msgid "Using your API key"
 msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Using your API key. Free plan ends {freeUntil}."
+msgstr "आपकी API कुंजी इस्तेमाल हो रही है। मुफ़्त प्लान {freeUntil} को खत्म होगा।"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx

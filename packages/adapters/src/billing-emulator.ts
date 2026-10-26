@@ -16,6 +16,7 @@ import {
 } from "./stripe-billing.js";
 
 const WEBHOOK_SECRET = "billing-emulator-webhook-secret";
+const BYOK_PRICE_ID = "price_byok_emulated";
 
 export interface BillingEmulatorOptions {
   namespace?: string;
@@ -31,6 +32,7 @@ export class BillingEmulator implements BillingProvider {
   readonly price: BillingPrice;
   readonly modelCredits: boolean;
   readonly creditCheckouts = new Map<string, BillingCreditCheckoutRequest>();
+  readonly byokCheckouts = new Map<string, Omit<BillingCreditCheckoutRequest, "monthly">>();
   readonly creditPurchases = new Map<string, BillingCreditPurchase[]>();
   readonly customers = new Map<string, { email: string; organizationId: string }>();
   readonly checkouts = new Map<string, BillingCheckoutRequest>();
@@ -83,11 +85,46 @@ export class BillingEmulator implements BillingProvider {
     this.requireCustomer(input.customerId);
     if (
       input.monthly &&
-      this.forCustomer(input.customerId).some((s) => holdsBillingSubscription(s.status))
+      this.forCustomer(input.customerId).some(
+        (s) => s.priceId !== BYOK_PRICE_ID && holdsBillingSubscription(s.status),
+      )
     )
       throw new BillingCheckoutCompletedError();
     this.creditCheckouts.set(input.customerId, input);
     return { url: `https://billing.emulator.invalid/credits/${input.customerId}` };
+  }
+
+  async createByokCheckout(input: Omit<BillingCreditCheckoutRequest, "monthly">) {
+    this.requireCustomer(input.customerId);
+    if (this.forCustomer(input.customerId).some((s) => holdsBillingSubscription(s.status)))
+      throw new BillingCheckoutCompletedError();
+    this.byokCheckouts.set(input.customerId, input);
+    return { url: `https://billing.emulator.invalid/byok/${input.customerId}` };
+  }
+
+  async endByokPlans(customerId: string) {
+    for (const subscription of this.forCustomer(customerId))
+      if (subscription.priceId === BYOK_PRICE_ID) subscription.cancelAtPeriodEnd = true;
+  }
+
+  /** Test helper: the customer pays for the own-key plan checkout they started. */
+  completeByokCheckout(customerId: string) {
+    if (!this.byokCheckouts.delete(customerId)) throw new Error("No own-key checkout");
+    const n = ++this.sequence;
+    this.subscriptions.push({
+      customerId,
+      created: Math.floor(this.now() / 1000) + n,
+      subscriptionId: `sub_byok_${n}`,
+      subscriptionItemId: `si_byok_${n}`,
+      priceId: BYOK_PRICE_ID,
+      status: "active",
+      seats: 1,
+      trialEndsAt: null,
+      currentPeriodEndsAt: new Date(this.now() + 30 * 86400000),
+      cancelAtPeriodEnd: false,
+      endedAt: null,
+    });
+    return `sub_byok_${n}`;
   }
 
   async listCreditPurchases(customerId: string) {
@@ -162,7 +199,8 @@ export class BillingEmulator implements BillingProvider {
 
   async updateSeats(customerId: string, seats: number) {
     const chosen = pickBillingSubscription(this.forCustomer(customerId));
-    if (chosen && holdsBillingSubscription(chosen.status)) chosen.seats = seats;
+    if (chosen && chosen.priceId !== BYOK_PRICE_ID && holdsBillingSubscription(chosen.status))
+      chosen.seats = seats;
   }
 
   async cancelCustomerSubscriptions(customerId: string) {
