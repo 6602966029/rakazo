@@ -28,8 +28,10 @@ test("an operator menu link opens its page sandboxed inside the app", async ({
   );
   await captureScreenshot(page, testInfo, "nav-link-page");
 
+  // /app reopens the last chat, so only check that the page was left.
   await page.getByRole("link", { name: "Back" }).click();
-  await expect(page).toHaveURL(/\/app$/);
+  await expect(frame).toBeHidden();
+  await expect(page).not.toHaveURL(/\/app\/x\//);
   await page.goto("/app/x/unknown");
-  await expect(page).toHaveURL(/\/app$/);
+  await expect(page).not.toHaveURL(/\/app\/x\//);
 });
