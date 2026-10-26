@@ -4758,6 +4758,10 @@ msgstr "排程例行任務"
 msgid "Scopes (optional)"
 msgstr "範圍（選填）"
 
+#: src/pages/shell/use-computer.tsx
+msgid "Screen not connected"
+msgstr "螢幕未連線"
+
 #: src/pages/model-settings/model-picker.tsx
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
@@ -5326,6 +5330,18 @@ msgstr "模型回傳了無法使用的回覆，請再試一次。"
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "供應商正在限制請求頻率。"
+
+#: src/lib/computer-screen.ts
+msgid "The screen connection closed."
+msgstr "螢幕連線已關閉。"
+
+#: src/lib/computer-screen.ts
+msgid "The screen did not respond."
+msgstr "螢幕沒有回應。"
+
+#: src/lib/computer-screen.ts
+msgid "The screen link expired."
+msgstr "螢幕連結已過期。"
 
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "The selected memory provider is not available in this build."

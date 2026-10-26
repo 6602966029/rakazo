@@ -4757,6 +4757,10 @@ msgstr ""
 msgid "Scopes (optional)"
 msgstr "범위 (선택 사항)"
 
+#: src/pages/shell/use-computer.tsx
+msgid "Screen not connected"
+msgstr "화면이 연결되지 않음"
+
 #: src/pages/model-settings/model-picker.tsx
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
@@ -5325,6 +5329,18 @@ msgstr "모델이 사용할 수 없는 응답을 반환했습니다. 다시 시�
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "서비스가 요청 속도를 제한하고 있습니다."
+
+#: src/lib/computer-screen.ts
+msgid "The screen connection closed."
+msgstr "화면 연결이 종료되었습니다."
+
+#: src/lib/computer-screen.ts
+msgid "The screen did not respond."
+msgstr "화면이 응답하지 않았습니다."
+
+#: src/lib/computer-screen.ts
+msgid "The screen link expired."
+msgstr "화면 링크가 만료되었습니다."
 
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "The selected memory provider is not available in this build."

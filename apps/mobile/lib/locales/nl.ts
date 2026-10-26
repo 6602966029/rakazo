@@ -1,4 +1,7 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "Could not connect to the computer screen": "Kan geen verbinding maken met het computerscherm",
+  "Retry screen": "Scherm opnieuw verbinden",
+  "The screen connection closed.": "De schermverbinding is gesloten.",
   Approvals: "Goedkeuringen",
   "Never ask": "Nooit vragen",
   Auto: "Auto",

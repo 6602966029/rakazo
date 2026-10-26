@@ -1,4 +1,7 @@
 export const RU_MESSAGES: Record<string, string> = {
+  "Could not connect to the computer screen": "Не удалось подключиться к экрану компьютера",
+  "Retry screen": "Повторить подключение экрана",
+  "The screen connection closed.": "Соединение с экраном закрыто.",
   Approvals: "Одобрения",
   "Never ask": "Не спрашивать",
   Auto: "Авто",

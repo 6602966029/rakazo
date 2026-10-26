@@ -4757,6 +4757,10 @@ msgstr ""
 msgid "Scopes (optional)"
 msgstr "Области доступа (необязательно)"
 
+#: src/pages/shell/use-computer.tsx
+msgid "Screen not connected"
+msgstr "Экран не подключён"
+
 #: src/pages/model-settings/model-picker.tsx
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
@@ -5325,6 +5329,18 @@ msgstr "Модель вернула непригодный ответ. Попр�
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "Поставщик ограничивает частоту запросов."
+
+#: src/lib/computer-screen.ts
+msgid "The screen connection closed."
+msgstr "Соединение с экраном закрыто."
+
+#: src/lib/computer-screen.ts
+msgid "The screen did not respond."
+msgstr "Экран не ответил."
+
+#: src/lib/computer-screen.ts
+msgid "The screen link expired."
+msgstr "Срок действия ссылки на экран истёк."
 
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "The selected memory provider is not available in this build."

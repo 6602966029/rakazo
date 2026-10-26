@@ -6,6 +6,7 @@ import type { ComputerExecutionLease } from "@rakazo/adapters";
 import {
   acquireComputerExecutionLease,
   applyTeachingDesktopInput,
+  COMPUTER_SCREEN_UNAVAILABLE,
   ComputerBusyError,
   checkpointAndStopComputer,
   clearInactiveUserComputerControl,
@@ -720,7 +721,7 @@ export function computerRoutes(ctx: RouterContext) {
           )
           .catch(async (error: unknown) => {
             if (isComputerScreenUnavailable(error)) {
-              throw new ORPCError("CONFLICT", { message: error.message });
+              throw new ORPCError("CONFLICT", { message: COMPUTER_SCREEN_UNAVAILABLE });
             }
             return clearGoneSandbox(deps, computer, error);
           });

@@ -1,4 +1,8 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Could not connect to the computer screen":
+    "Verbindung zum Computerbildschirm konnte nicht hergestellt werden",
+  "Retry screen": "Bildschirm erneut verbinden",
+  "The screen connection closed.": "Die Bildschirmverbindung wurde geschlossen.",
   Approvals: "Freigaben",
   "Never ask": "Nie fragen",
   Auto: "Auto",

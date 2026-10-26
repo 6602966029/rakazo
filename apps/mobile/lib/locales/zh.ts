@@ -1,4 +1,7 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Could not connect to the computer screen": "无法连接到计算机屏幕",
+  "Retry screen": "重试屏幕连接",
+  "The screen connection closed.": "屏幕连接已关闭。",
   Approvals: "审批",
   "Never ask": "从不询问",
   Auto: "自动",

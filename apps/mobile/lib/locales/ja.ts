@@ -1,4 +1,7 @@
 export const JA_MESSAGES: Record<string, string> = {
+  "Could not connect to the computer screen": "コンピューター画面に接続できませんでした",
+  "Retry screen": "画面を再接続",
+  "The screen connection closed.": "画面の接続が閉じられました。",
   Approvals: "承認",
   "Never ask": "確認しない",
   Auto: "自動",

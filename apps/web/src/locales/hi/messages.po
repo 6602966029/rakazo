@@ -4757,6 +4757,10 @@ msgstr ""
 msgid "Scopes (optional)"
 msgstr "स्कोप (वैकल्पिक)"
 
+#: src/pages/shell/use-computer.tsx
+msgid "Screen not connected"
+msgstr "स्क्रीन कनेक्ट नहीं है"
+
 #: src/pages/model-settings/model-picker.tsx
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
@@ -5325,6 +5329,18 @@ msgstr "मॉडल ने ऐसा जवाब दिया जिसका 
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "प्रोवाइडर अनुरोधों की दर सीमित कर रहा है।"
+
+#: src/lib/computer-screen.ts
+msgid "The screen connection closed."
+msgstr "स्क्रीन का कनेक्शन बंद हो गया।"
+
+#: src/lib/computer-screen.ts
+msgid "The screen did not respond."
+msgstr "स्क्रीन ने जवाब नहीं दिया।"
+
+#: src/lib/computer-screen.ts
+msgid "The screen link expired."
+msgstr "स्क्रीन लिंक की समय सीमा समाप्त हो गई।"
 
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "The selected memory provider is not available in this build."

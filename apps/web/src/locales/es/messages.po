@@ -4757,6 +4757,10 @@ msgstr ""
 msgid "Scopes (optional)"
 msgstr "Ámbitos (opcional)"
 
+#: src/pages/shell/use-computer.tsx
+msgid "Screen not connected"
+msgstr "Pantalla no conectada"
+
 #: src/pages/model-settings/model-picker.tsx
 #: src/pages/model-settings/providers-section.tsx
 #: src/pages/model-settings/role-model-picker.tsx
@@ -5325,6 +5329,18 @@ msgstr "El modelo devolvió una respuesta inutilizable. Inténtalo de nuevo."
 #: src/lib/model-connection-preflight.ts
 msgid "The provider is rate-limiting requests."
 msgstr "El proveedor está limitando la frecuencia de las solicitudes."
+
+#: src/lib/computer-screen.ts
+msgid "The screen connection closed."
+msgstr "La conexión con la pantalla se cerró."
+
+#: src/lib/computer-screen.ts
+msgid "The screen did not respond."
+msgstr "La pantalla no respondió."
+
+#: src/lib/computer-screen.ts
+msgid "The screen link expired."
+msgstr "El enlace de la pantalla caducó."
 
 #: src/pages/MemorySettingsOverlay.tsx
 msgid "The selected memory provider is not available in this build."
