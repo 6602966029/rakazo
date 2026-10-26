@@ -1,13 +1,18 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { RoutineHistory } from "@rakazo/contracts";
-import { isRetryableError, normalizeRunError } from "@rakazo/core";
+import {
+  isRetryableError,
+  mergeRoutineRunPages,
+  normalizeRunError,
+  routineRunAt,
+  routineRunDuration,
+} from "@rakazo/core";
 import { Button, Collapsible, CollapsibleContent, Spinner } from "@rakazo/ui-web";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { rpc } from "../lib/rpc";
 import { translateRunError } from "../lib/run-error";
-import { formatToolActivityDuration } from "../lib/tool-activity-view";
 import { statusLabel, statusTone } from "./ActivityList";
 
 export function RoutineRunHistory({ routineId }: { routineId: string }) {
@@ -141,15 +146,7 @@ export function RoutineRunHistory({ routineId }: { routineId: string }) {
       hasLoadedOlder.current = true;
       setHistory((current) =>
         current
-          ? {
-              runs: [
-                ...current.runs,
-                ...page.runs.filter(
-                  (run) => !current.runs.some((existing) => existing.id === run.id),
-                ),
-              ],
-              nextCursor: page.nextCursor,
-            }
+          ? { runs: mergeRoutineRunPages([current, page]), nextCursor: page.nextCursor }
           : current,
       );
       setFailed(false);
@@ -161,11 +158,8 @@ export function RoutineRunHistory({ routineId }: { routineId: string }) {
   }
 
   function renderRun(run: RoutineHistory["runs"][number]) {
-    const at = run.startedAt ?? run.createdAt;
-    const duration =
-      run.startedAt && run.completedAt
-        ? formatToolActivityDuration(Date.parse(run.completedAt) - Date.parse(run.startedAt))
-        : null;
+    const at = routineRunAt(run);
+    const duration = routineRunDuration(run);
     const chatTo = run.messageId
       ? run.groupId
         ? `/app/g/${encodeURIComponent(run.groupId)}?m=${encodeURIComponent(run.messageId)}`
