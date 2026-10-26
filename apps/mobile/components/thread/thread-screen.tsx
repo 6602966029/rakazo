@@ -5,6 +5,7 @@ import {
   appendNewerThreadPage,
   attachmentsForThread,
   buildComposerMentionOptions,
+  channelMessageSender,
   chatUserBubbleColors,
   dismissableAskMessageIds,
   forwardProbeAfterPage,
@@ -1808,7 +1809,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
           replyTarget={replyTarget}
           replyAuthor={
             replyTarget?.role === "user"
-              ? t("You")
+              ? (channelMessageSender(replyTarget.blocks) ?? t("You"))
               : (memberName(snap?.members, replyTarget?.botId) ?? displayName ?? t("Bot"))
           }
           replyQuote={replyQuote}

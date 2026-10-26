@@ -9,6 +9,7 @@ import type {
 import type { AgentImportReader } from "@rakazo/core";
 import {
   answerableAskMessageIds,
+  channelMessageSender,
   chatUserBubbleColors,
   dismissableAskMessageIds,
   foldPeerReplies,
@@ -539,7 +540,7 @@ function SpaceShell() {
 
   const replyTargetName = composer.replyTarget
     ? composer.replyTarget.role === "user"
-      ? t`You`
+      ? (channelMessageSender(composer.replyTarget.blocks) ?? t`You`)
       : (resolveTranscriptMemberName(composer.replyTarget.botId) ?? active?.name ?? t`Bot`)
     : undefined;
   useRightPanelRestore({
