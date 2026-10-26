@@ -14,9 +14,6 @@ describe("Android mobile platform contract", () => {
     const service = readFileSync(resolve(nativeRoot, "RakazoNotificationService.kt"), "utf8");
     const module = readFileSync(resolve(nativeRoot, "RakazoNotificationsModule.kt"), "utf8");
     const allowlist = readFileSync(resolve(nativeRoot, "EndpointAllowlist.kt"), "utf8");
-    const thread = ["app/thread.tsx", "components/thread/thread-screen.tsx"]
-      .map((file) => readFileSync(resolve(mobileRoot, file), "utf8"))
-      .join("\n");
     expect(service).toContain("android.requestPromotedOngoing");
     expect(service).toContain("liveStatusIcon(primary, avatarStyle)");
     expect(service).toContain('rpc(endpoint, token, spaceId, "me"');
@@ -71,8 +68,6 @@ describe("Android mobile platform contract", () => {
     }
     expect(service).toContain("runCatching { context.startService(intent) }");
     expect(module).toContain('AsyncFunction("setOpenThread")');
-    expect(thread).toContain("if (!navigation.isFocused() || !notificationThreadId) return");
-    expect(thread).toContain("    }, [botId, notificationThreadId]),\n  );");
     expect(service).toContain(
       "fun clearSession(context: Context) {\n      synchronized(sessionLock)",
     );

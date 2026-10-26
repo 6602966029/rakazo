@@ -1,30 +1,23 @@
 import type { AgentSkillCatalogEntry, MessageReaction } from "@rakazo/contracts";
 import type { SlashActionId, ThreadItem } from "@rakazo/core";
 import {
-  abortableDelay,
   answerableAskMessageIds,
   appendNewerThreadPage,
   attachmentsForThread,
   buildComposerMentionOptions,
   chatUserBubbleColors,
   dismissableAskMessageIds,
-  foldPeerReplies,
   forwardProbeAfterPage,
   groupVoiceChats,
   isRetryableError,
-  isRunTerminalEvent,
   isRunWaitingOnUser,
   isRunWorking,
-  jumpTargetId,
-  leaveThreadWindow,
   liveActivityLine,
   liveMessageComposing,
   memberName,
   newClientId,
-  openThreadWindow,
   reconcileThreadScrollState,
   resolveComposerSendPlan,
-  retryDelayMs,
   displayName as safeDisplayName,
   threadWindowMessages,
   timeSeparatorIds,
@@ -66,7 +59,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { readableGutters } from "../../lib/adaptive-layout";
 import type { MobileMessage, MobileSnapshot } from "../../lib/api";
 import {
-  applyMobileThreadEvent,
   currentApiBase,
   loadSessionToken,
   mergeMobileSnapshot,
@@ -74,7 +66,6 @@ import {
   prependMobileMessagePage,
   rpc,
   selectedSpaceId,
-  subscribeThread,
 } from "../../lib/api";
 import { useAppForeground } from "../../lib/app-foreground";
 import { mobileTokens } from "../../lib/appearance";
@@ -114,6 +105,7 @@ import {
 import { useInboxBot } from "../../lib/search-inbox";
 import { currentSessionGeneration } from "../../lib/session";
 import { useSplitView } from "../../lib/split-view";
+import { answerThreadMessage } from "../../lib/thread-answer";
 import { useThreadAttachments } from "../../lib/thread-attachments";
 import { useThreadBots } from "../../lib/thread-bots";
 import { threadHeaderClearance, threadHeaderFloats } from "../../lib/thread-edges";
@@ -121,6 +113,7 @@ import type { SendAttempt } from "../../lib/thread-feedback";
 import { subscribeDelivered, useThreadFeedback } from "../../lib/thread-feedback";
 import { ThreadJumpAnchor } from "../../lib/thread-jump";
 import { threadKeyboardOffset } from "../../lib/thread-keyboard-offset";
+import { useThreadLiveSubscription } from "../../lib/thread-live";
 import { useThreadMentionCatalog } from "../../lib/thread-mention-catalog";
 import { previewMessageText } from "../../lib/thread-message-text";
 import { useThreadRead } from "../../lib/thread-read";
@@ -131,10 +124,13 @@ import {
   latestThreadRowKey,
   ThreadScrollBehavior,
 } from "../../lib/thread-scroll";
-import { reconcileVisibleThreadSnapshot } from "../../lib/thread-snapshot";
+import { reconcileVisibleThreadSnapshot, threadGroupMembers } from "../../lib/thread-snapshot";
 import { useThreadTranscript } from "../../lib/thread-transcript";
 import { useAutoSpeakReply, useSpeakMessages, useThreadVoiceCall } from "../../lib/thread-voice";
+import type { PinnedThreadWindow, ThreadJump } from "../../lib/thread-window";
+import { applyThreadMessageJump, liveEndRunError, showLatestThread } from "../../lib/thread-window";
 import { prepareUnsentSends } from "../../lib/unsent-sends";
+import { useOpenNotificationThread } from "../../lib/use-open-notification-thread";
 import { errorText } from "../../lib/user-error";
 import { FailedSendBubble } from "../failed-send-bubble";
 import type { MarkdownArtifactPreviewTarget } from "../markdown-artifact-preview";
@@ -143,7 +139,7 @@ import { RunErrorSheet, useRunError } from "../run-error-sheet";
 import { SelectTextSheet } from "../select-text-sheet";
 import type { ThreadComposerHandle } from "../thread-composer";
 import { ThreadComposer } from "../thread-composer";
-import { ThreadErrorNotice } from "../thread-error-notice";
+import { ThreadErrorNotice, ThreadFetchErrorNotice } from "../thread-error-notice";
 import { createThreadHeaderStyles } from "../thread-header-styles";
 import { ThreadScrollSurface } from "../thread-scroll-surface";
 import { TimeSeparator } from "../time-separator";
@@ -226,18 +222,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   const historyEpoch = useRef(0);
   const jumpGeneration = useRef(0);
   const refreshGeneration = useRef(0);
-  const liveSubscribed = useRef(false);
-  const liveCursor = useRef<number | null>(null);
-  const liveSubscriptionGeneration = useRef(0);
-  const pinnedAroundRef = useRef<{
-    botId?: string;
-    groupId?: string;
-    messageId: string;
-    threadId: string;
-    newerCursor: number | null;
-    coveredThroughSeq?: number;
-    probeSeq?: number;
-  } | null>(null);
+  const pinnedAroundRef = useRef<PinnedThreadWindow | null>(null);
   const jumpScrollTarget = useRef<string | null>(null);
   const jumpAnchor = useRef(new ThreadJumpAnchor());
   const activeBotId = useRef(botId);
@@ -442,9 +427,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   const currentBotStatus = snap ? snap.run?.status : titleBot?.status;
   // The group's members in its order, once the chat or its group list has loaded them; the
   // title seats the inbox's copy until then.
-  const groupMembers = groupId
-    ? (snap?.members ?? mentionGroups.find((group) => group.id === groupId)?.members)
-    : undefined;
+  const groupMembers = threadGroupMembers(groupId, snap, mentionGroups);
   // Only reply text being written replaces the footer; earlier sentences above a tool call don't.
   const hasLiveProgress = visibleMessages.some(
     (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
@@ -596,66 +579,29 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
     return result.snapshot ?? undefined;
   }
 
-  async function applyMessageJump(target: { botId?: string; groupId?: string; messageId: string }) {
-    const threadTarget = target.groupId ? { groupId: target.groupId } : { botId: target.botId! };
-    const epoch = historyEpoch.current;
-    jumpGeneration.current += 1;
-    const jumpId = jumpGeneration.current;
-    const scope = await liveSavedChatsScope();
-    if (!scope || !isIntegrationsScopeCurrent(scope)) return;
-    const [snap, page] = await Promise.all([
-      rpc("threads/get", threadTarget),
-      rpc("threads/messages", {
-        ...threadTarget,
-        around: { messageId: target.messageId },
-      }),
-    ]);
-    // The epoch check drops a jump that raced a conversation clear (or a bot switch); the
-    // generation check drops an older same-thread jump that finished after a newer one.
-    if (
-      epoch !== historyEpoch.current ||
-      jumpId !== jumpGeneration.current ||
-      !isIntegrationsScopeCurrent(scope)
-    )
-      return;
-    if (target.groupId && activeGroupId.current !== target.groupId) return;
-    if (target.botId && activeBotId.current !== target.botId) return;
-    // A relay's dropped marker (e.g. a search hit) lands on its "Messaged X" receipt.
-    const messageId = jumpTargetId(
-      foldPeerReplies(page.messages, { includePeerReceipts: true }),
-      target.messageId,
-    );
-    const targetInPage = page.messages.some((message) => message.id === messageId);
-    const opened = targetInPage ? openThreadWindow(snap, page) : null;
-    expandedHistoryThread.current = targetInPage ? page.threadId : null;
-    pinnedAroundRef.current = opened
-      ? {
-          ...threadTarget,
-          messageId,
-          threadId: page.threadId,
-          newerCursor: opened.newerCursor,
-        }
-      : null;
-    jumpAnchor.current.begin(targetInPage ? messageId : null);
-    jumpScrollTarget.current = targetInPage ? messageId : null;
-    newerLoadFailed.current = false;
-    joinPinnedAfterLayout.current = null;
-    pinnedScrollMetrics.current = { offset: 0, viewport: 0, content: 0 };
-    // Publish the jump refs even when the opened snapshot is already visible.
-    setThreadScrollState(scrollBehavior.current.state());
-    snapshotOrigin.current = scope;
-    const next = opened?.snapshot ?? snap;
-    // A reply folded under its peer marker is only drawn once the marker is expanded.
-    const markerId = targetInPage
-      ? foldPeerReplies(next.messages, { includePeerReceipts: true }).markerOf.get(messageId)
-      : undefined;
-    if (markerId) {
-      setExpandedPeerMarkers((expanded) =>
-        expanded.has(markerId) ? expanded : new Set(expanded).add(markerId),
-      );
-    }
-    commitSnap(next);
-    setShowingSaved(false);
+  const threadJump: ThreadJump = {
+    pinnedAroundRef,
+    jumpScrollTarget,
+    jumpAnchor,
+    joinPinnedAfterLayout,
+    expandedHistoryThread,
+    scrollBehavior,
+    snapRef,
+    setThreadScrollState,
+    commitSnap,
+    historyEpoch,
+    jumpGeneration,
+    activeBotId,
+    activeGroupId,
+    newerLoadFailed,
+    pinnedScrollMetrics,
+    snapshotOrigin,
+    setExpandedPeerMarkers,
+    setShowingSaved,
+  };
+
+  function applyMessageJump(target: { botId?: string; groupId?: string; messageId: string }) {
+    return applyThreadMessageJump(threadJump, target);
   }
 
   async function loadNewerMessages() {
@@ -725,21 +671,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   }
 
   function showLatest() {
-    const pinned = pinnedAroundRef.current;
-    pinnedAroundRef.current = null;
-    joinPinnedAfterLayout.current = null;
-    jumpScrollTarget.current = null;
-    jumpAnchor.current.release();
-    expandedHistoryThread.current = null;
-    // The live list mounts at the latest message.
-    scrollBehavior.current.jumpToLatest();
-    // Clearing the pinned refs must render even when the snapshot and scroll flags are unchanged.
-    setThreadScrollState(scrollBehavior.current.state());
-    commitSnap(
-      snapRef.current && pinned
-        ? leaveThreadWindow(snapRef.current, pinned.newerCursor)
-        : snapRef.current,
-    );
+    showLatestThread(threadJump);
   }
 
   async function loadOlderMessages() {
@@ -802,144 +734,34 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
     }, [botId, readOnly, markReadIfVisible, refreshMentionBots]),
   );
 
-  // Kept apart from the effect above: its callbacks change with every streamed message, and
-  // each re-run would close and reopen the thread, restarting the Android notification poller.
-  useFocusEffect(
-    useCallback(() => {
-      if (AppState.currentState === "active" && notificationThreadId) {
-        void setOpenNotificationThread({
-          botId,
-          threadId: notificationThreadId,
-        }).catch(() => undefined);
-      }
-      return () => {
-        void setOpenNotificationThread(null).catch(() => undefined);
-      };
-    }, [botId, notificationThreadId]),
-  );
+  useOpenNotificationThread({
+    botId,
+    threadId: notificationThreadId,
+    navigation,
+    markReadIfVisible,
+  });
 
-  useEffect(() => {
-    const appState = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
-        if (!navigation.isFocused() || !notificationThreadId) return;
-        void setOpenNotificationThread({
-          botId,
-          threadId: notificationThreadId,
-        }).catch(() => undefined);
-        markReadIfVisible();
-        return;
-      }
-      void setOpenNotificationThread(null).catch(() => undefined);
-    });
-    return () => appState.remove();
-  }, [botId, markReadIfVisible, navigation, notificationThreadId]);
-
-  useEffect(() => {
-    liveCursor.current = null;
-  }, [botId, groupId, sessionEpoch]);
-
-  useEffect(() => {
-    // Resume the same chat from its applied cursor so pinned and expanded windows catch up.
-    if ((!botId && !groupId) || !foreground) return;
-    // Invalidate pending history loads while retaining pages already loaded for this chat.
-    historyEpoch.current += 1;
-    const abort = new AbortController();
-    const subscriptionGeneration = ++liveSubscriptionGeneration.current;
-    const sessionGeneration = currentSessionGeneration();
-    liveSubscribed.current = false;
-    showSavedThread(abort.signal);
-    void (async () => {
-      // Pending search jumps load the around-page separately; avoid replacing it with latest.
-      const next =
-        liveCursor.current !== null
-          ? null
-          : messageId
-            ? await rpc("threads/get", groupId ? { groupId } : { botId: botId! }).catch(
-                (err: unknown) => {
-                  setError(errorText(err));
-                  return null;
-                },
-              )
-            : await refresh().catch((err: unknown) => {
-                setError(errorText(err));
-                return null;
-              });
-      if (abort.signal.aborted || readOnly) return;
-      let cursor = liveCursor.current ?? next?.cursor ?? -1;
-      liveCursor.current = cursor;
-      let retryMs = 250;
-      while (!abort.signal.aborted && sessionGeneration === currentSessionGeneration()) {
-        let failure: unknown;
-        try {
-          liveSubscribed.current = true;
-          await subscribeThread(
-            groupId ? { groupId } : { botId: botId! },
-            cursor,
-            (event) => {
-              if (abort.signal.aborted || sessionGeneration !== currentSessionGeneration()) return;
-              cursor = Math.max(cursor, event.seq ?? -1);
-              retryMs = 250;
-              if (event.type === "thread.cleared") {
-                expandedHistoryThread.current = null;
-                pinnedAroundRef.current = null;
-                jumpScrollTarget.current = null;
-                jumpAnchor.current.release();
-                historyEpoch.current += 1;
-              }
-              const previous = snapRef.current;
-              const reduced = applyMobileThreadEvent(previous, event);
-              if (reduced !== previous) commitSnap(reduced);
-              liveCursor.current = cursor;
-              if (event.type === "bot.updated") {
-                void refreshMentionBots();
-              }
-              if (event.type === "thread.message.created" && event.payload?.role === "bot") {
-                readVisibleTarget.current = null;
-                markReadIfVisible();
-              }
-              if (isRunTerminalEvent(event)) {
-                void refreshMentionBots();
-              }
-              if (isRunTerminalEvent(event) || event.type === "run.waiting_input") {
-                // Reconcile run ownership for ask cards first seen through live events.
-                if (!jumpScrollTarget.current && !expandedHistoryThread.current) {
-                  void refresh().catch(() => undefined);
-                }
-              }
-            },
-            abort.signal,
-          );
-        } catch (error) {
-          // A full refresh reconciles visible state; the event cursor still resumes without gaps.
-          failure = error;
-        } finally {
-          if (liveSubscriptionGeneration.current === subscriptionGeneration) {
-            liveSubscribed.current = false;
-          }
-        }
-        // A 4xx other than 408/429 is the server's answer; reconnecting only polls it.
-        if (abort.signal.aborted || !isRetryableError(failure)) break;
-        let refreshFailure: unknown;
-        if (!jumpScrollTarget.current && !expandedHistoryThread.current) {
-          refreshFailure = await refresh().then(
-            () => undefined,
-            (error: unknown) => error,
-          );
-          if (!isRetryableError(refreshFailure)) break;
-        }
-        // Wait as long as either request was asked to (a 429's Retry-After).
-        const delay = Math.max(
-          retryDelayMs(failure, retryMs),
-          retryDelayMs(refreshFailure, retryMs),
-        );
-        await abortableDelay(delay, abort.signal);
-        retryMs = Math.min(retryMs * 2, 5_000);
-      }
-    })();
-    return () => {
-      abort.abort();
-    };
-  }, [botId, groupId, foreground, readOnly, markReadIfVisible, refreshMentionBots, sessionEpoch]);
+  const liveSubscribed = useThreadLiveSubscription({
+    botId,
+    groupId,
+    foreground,
+    readOnly,
+    sessionEpoch,
+    messageId,
+    historyEpoch,
+    expandedHistoryThread,
+    pinnedAroundRef,
+    jumpScrollTarget,
+    jumpAnchor,
+    snapRef,
+    readVisibleTarget,
+    showSavedThread,
+    refresh,
+    commitSnap,
+    setError,
+    refreshMentionBots,
+    markReadIfVisible,
+  });
 
   useEffect(() => () => pendingSave.current?.(), [botId, groupId]);
 
@@ -1203,22 +1025,22 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   }
 
   const answerMessage = useCallback(
-    async (message: MobileMessage, answer: string, username?: string, dismiss?: boolean) => {
-      const targetBotId = botId;
-      const targetGroupId = groupId;
-      if (readOnly || (!targetBotId && !targetGroupId) || !message.runId) return;
-      setReadBoundary({ visit: readVisit.current.visit, seq: null });
-      await rpc("threads/answer", {
-        ...(targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! }),
-        runId: message.runId,
-        messageId: message.id,
+    (message: MobileMessage, answer: string, username?: string, dismiss?: boolean) =>
+      answerThreadMessage(
+        {
+          botId,
+          groupId,
+          readOnly,
+          rpc,
+          isCurrentTarget,
+          refresh,
+          markRead: () => setReadBoundary({ visit: readVisit.current.visit, seq: null }),
+        },
+        message,
         answer,
-        ...(username ? { username } : {}),
-        ...(dismiss ? { dismiss: true as const } : {}),
-      });
-      // The answer is saved once the server accepts it; a failed refresh only delays the card.
-      if (isCurrentTarget(targetBotId, targetGroupId)) await refresh().catch(() => undefined);
-    },
+        username,
+        dismiss,
+      ),
     [botId, groupId, readOnly],
   );
 
@@ -1740,7 +1562,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   ));
 
   // Fetch failures stay visible at either paging edge; provider recovery belongs to the live end.
-  const visibleRunError = showPinnedPage && pinnedNewerCursor !== null ? null : normalizedRunError;
+  const visibleRunError = liveEndRunError(normalizedRunError, pinnedNewerCursor);
   const errorNotice = (
     <ThreadErrorNotice
       error={null}
@@ -1750,15 +1572,6 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
       action={visibleRunError ? runErrorAction : null}
     />
   );
-
-  const fetchErrorNotice = error ? (
-    <View style={{ paddingBottom: 24 }}>
-      <ThreadErrorNotice
-        error={showingSaved ? t("Couldn't refresh — showing the last loaded messages.") : error}
-        summary={null}
-      />
-    </View>
-  ) : null;
 
   return (
     <View ref={keyboardLayout.container} onLayout={keyboardLayout.onLayout} style={{ flex: 1 }}>
@@ -1987,7 +1800,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
             />
           ) : null}
         </View>
-        {fetchErrorNotice}
+        <ThreadFetchErrorNotice error={error} showingSaved={showingSaved} />
         {/* Shrinks (the suggestion lists scroll) so the input and Send stay above the keyboard. */}
         <ThreadComposerDock
           hidden={readOnly}

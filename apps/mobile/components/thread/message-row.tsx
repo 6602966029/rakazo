@@ -2,12 +2,7 @@ import { markdownCodeBlocks } from "@rakazo/chat-ui/native";
 import type { MessageReaction } from "@rakazo/contracts";
 import { canReactToThreadMessage, MESSAGE_REACTIONS } from "@rakazo/contracts";
 import type { ChildBotBlock } from "@rakazo/core";
-import {
-  canMarkMessageUnread,
-  isPeerReceiptBlocks,
-  isSecretAskBlock,
-  liveMessageComposing,
-} from "@rakazo/core";
+import { canMarkMessageUnread, isPeerReceiptBlocks, liveMessageComposing } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GestureResponderEvent, LayoutChangeEvent } from "react-native";
@@ -20,11 +15,8 @@ import { canDoubleTapReact } from "../../lib/double-tap";
 import { useI18n } from "../../lib/i18n";
 import { presentMessageActionSheet } from "../../lib/message-action-sheet";
 import { buildMessageContextMenu, messageMenuReaction } from "../../lib/message-context-menu";
-import {
-  isCenteredAgentEvent,
-  messageHasInlineControls,
-  quotableMessageSegments,
-} from "../../lib/message-presentation";
+import { messageHasInlineControls, quotableMessageSegments } from "../../lib/message-presentation";
+import { messageRowLayout } from "../../lib/message-row-layout";
 import { useMobileTokens, useResolvedAppearance } from "../../lib/native";
 import { selectableTextFromMarkdown } from "../../lib/selectable-text";
 import { ThreadReadOnlyContext } from "../../lib/thread-read-only";
@@ -104,15 +96,6 @@ type MessageRowProps = {
   enableJump: boolean;
   index: number;
 };
-
-function isWideAskBlock(blocks: MobileMessage["blocks"]) {
-  return blocks.some(isSecretAskBlock);
-}
-
-// Connect cards fill the bubble width instead of shrinking to their button.
-function hasAppConnectBlock(blocks: MobileMessage["blocks"]) {
-  return blocks.some((block) => block.kind === "app_connect");
-}
 
 export const MessageRow = memo(function MessageRow({
   message,
@@ -379,6 +362,7 @@ export const MessageRow = memo(function MessageRow({
     hasLike,
     optimisticLike,
   ]);
+  const layout = messageRowLayout(message.blocks, { activityBotId, inGroup, columnWidth });
   return (
     <View
       key={message.id}
@@ -415,18 +399,8 @@ export const MessageRow = memo(function MessageRow({
         ) : null}
         <View
           style={{
-            width:
-              isCenteredAgentEvent(message.blocks) || isWideAskBlock(message.blocks)
-                ? "100%"
-                : hasAppConnectBlock(message.blocks) && !activityBotId
-                  ? "90%"
-                  : undefined,
-            maxWidth:
-              isCenteredAgentEvent(message.blocks) || isWideAskBlock(message.blocks)
-                ? "100%"
-                : activityBotId
-                  ? undefined
-                  : "90%",
+            width: layout.width,
+            maxWidth: layout.maxWidth,
             flex: activityBotId ? 1 : undefined,
             flexShrink: 1,
           }}
@@ -444,16 +418,8 @@ export const MessageRow = memo(function MessageRow({
           )}
           <MessageContextMenu
             actions={menu}
-            fullWidth={isWideAskBlock(message.blocks) || hasAppConnectBlock(message.blocks)}
-            maxWidth={
-              isWideAskBlock(message.blocks)
-                ? columnWidth - 40 - (activityBotId ? (inGroup ? 28 : 36) : 0)
-                : isCenteredAgentEvent(message.blocks)
-                  ? columnWidth - 40
-                  : activityBotId
-                    ? columnWidth - 40 - (inGroup ? 28 : 36)
-                    : (columnWidth - 40) * 0.9
-            }
+            fullWidth={layout.menuFullWidth}
+            maxWidth={layout.menuMaxWidth}
             colorScheme={colorScheme}
             onAction={onMenuAction}
             onLongPress={actionProps.onLongPress}
