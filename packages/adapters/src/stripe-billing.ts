@@ -16,8 +16,6 @@ export const STRIPE_API_VERSION = "2026-09-30.endive";
 const WEBHOOK_TOLERANCE_SECONDS = 300;
 const MAX_RETRIES = 2;
 const MAX_RETRY_DELAY_MS = 5_000;
-/** Bounds how long a price archived in Stripe can keep being offered. */
-const PRICE_CACHE_MS = 60 * 60 * 1000;
 
 export interface StripeBillingConfig {
   secretKey: string;
@@ -95,7 +93,7 @@ export class StripeBillingProvider implements BillingProvider {
   private readonly apiBase: string;
   private readonly now: () => number;
   private readonly sleep: (ms: number) => Promise<void>;
-  private readonly monthlyPrices = new Map<string, { id: string; expiresAt: number }>();
+  private readonly monthlyPrices = new Map<string, string>();
 
   constructor(config: StripeBillingConfig) {
     this.config = config;
@@ -304,9 +302,9 @@ export class StripeBillingProvider implements BillingProvider {
     productName: string,
   ): Promise<string> {
     const cached = this.monthlyPrices.get(lookupKey);
-    if (cached && cached.expiresAt > this.now()) return cached.id;
+    if (cached) return cached;
     const id = await this.findOrCreateMonthlyPrice(lookupKey, amountCents, productName);
-    this.monthlyPrices.set(lookupKey, { id, expiresAt: this.now() + PRICE_CACHE_MS });
+    this.monthlyPrices.set(lookupKey, id);
     return id;
   }
 

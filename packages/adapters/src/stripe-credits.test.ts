@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { StripeBillingProvider } from "./stripe-billing.js";
 
-function fixture(routes: Record<string, unknown> = {}, now?: () => number) {
+function fixture(routes: Record<string, unknown> = {}) {
   const requests: Array<{ path: string; params: URLSearchParams }> = [];
   const provider = new StripeBillingProvider({
-    now,
     secretKey: "sk_test_fixture",
     webhookSecret: "whsec_fixture",
     priceId: "price_legacy",
@@ -66,9 +65,8 @@ describe("Stripe prepaid model credits", () => {
       "2000",
     );
   });
-  it("looks up a monthly price once an hour, not on every checkout", async () => {
-    let clock = 0;
-    const { provider, requests } = fixture({}, () => clock);
+  it("looks up a monthly price once, not on every checkout", async () => {
+    const { provider, requests } = fixture();
     const checkout = () =>
       provider.createByokCheckout({
         customerId: "cus_fixture",
@@ -82,9 +80,6 @@ describe("Stripe prepaid model credits", () => {
     await checkout();
     expect(priceRequests()).toBe(2);
     expect(requests.at(-1)!.params.get("line_items[0][price]")).toBe("price_credits");
-    clock += 60 * 60 * 1000;
-    await checkout();
-    expect(priceRequests()).toBe(4);
   });
   it("rejects invalid purchase amounts without contacting Stripe", async () => {
     const { provider, requests } = fixture();
