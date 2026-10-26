@@ -89,6 +89,7 @@ export interface UserDeviceSocket {
   on(event: "message", listener: (data: unknown) => void): unknown;
   on(event: "close", listener: () => void): unknown;
   on(event: "pong", listener: () => void): unknown;
+  on(event: "error", listener: (error: Error) => void): unknown;
 }
 
 interface AuthenticatedDevice {
@@ -193,6 +194,11 @@ export class UserDeviceHub {
       entry.alive = true;
     });
     socket.on("message", (data) => this.receive(entry, data));
+    // An oversized or malformed frame must close this device, never crash the process.
+    socket.on("error", (error) => {
+      getLogger().warn("user device socket error", { error });
+      socket.terminate();
+    });
     socket.on("close", () => {
       if (this.live.get(device.id) !== entry) return;
       this.drop(entry, DISCONNECTED_MESSAGE);
@@ -425,11 +431,12 @@ export class UserDevices implements UserDeviceGateway {
     userId: string,
     request: HostComputerRequest,
     signal: AbortSignal,
+    deviceId?: string,
   ): AsyncIterable<T> {
     const body = JSON.stringify(request);
     if (Buffer.byteLength(body) > HOST_COMPUTER_MAX_BYTES)
       throw new Error("Request to your computer is too large");
-    const route = await this.route(userId);
+    const route = await this.route(userId, deviceId);
     if (!route) throw new UserDeviceOfflineError();
     const deadline = AbortSignal.any([
       signal,
@@ -463,13 +470,14 @@ export class UserDevices implements UserDeviceGateway {
       .catch((error) => getLogger().warn("user device disconnect forward failed", { error }));
   }
 
-  private async route(userId: string) {
+  private async route(userId: string, deviceId?: string) {
     const now = this.deps.now?.() ?? new Date();
     const connection = await runAsSystem("find a user's connected device", () =>
       this.deps.prisma.userDeviceConnection.findFirst({
         where: {
           heartbeatAt: { gt: new Date(now.getTime() - STALE_AFTER_MS) },
           device: { userId, revokedAt: null },
+          ...(deviceId ? { deviceId } : {}),
         },
         orderBy: { connectedAt: "desc" },
         include: { device: { select: { name: true, platform: true } } },

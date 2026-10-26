@@ -32,10 +32,17 @@ function formatAnsweredState(
   if (!approval) return answer === "approved" ? t`Sent` : selectedAskActionLabel(answer, actions);
   if (outcome === "created") return t`Created`;
   if (outcome === "cancelled") return t`Cancelled`;
-  if (answer === "allow") return t`Allowed once`;
+  if (answer === "allow") return allowsChat(actions) ? t`Allowed for this chat` : t`Allowed once`;
   if (answer === "always") return t`Always allowed`;
   if (answer === "deny") return t`Denied`;
   return t`Answered: ${answer}`;
+}
+
+/** The server's label on the user's-computer approval, whose "allow" covers the rest of the chat. */
+const ALLOW_FOR_CHAT = "Allow for this chat";
+
+function allowsChat(actions: AskBlock["actions"]): boolean {
+  return actions?.some((action) => action.label === ALLOW_FOR_CHAT) ?? false;
 }
 
 function approvalActionLabel(
@@ -46,7 +53,7 @@ function approvalActionLabel(
 ): string {
   if (outcome === "created") return t`Create space`;
   if (outcome === "cancelled") return t`Cancel`;
-  if (id === "allow") return t`Allow once`;
+  if (id === "allow") return fallback === ALLOW_FOR_CHAT ? t`Allow for this chat` : t`Allow once`;
   if (id === "always") return site ? t`Always allow ${site}` : t`Always allow this tool`;
   if (id === "deny") return t`Deny`;
   return fallback;

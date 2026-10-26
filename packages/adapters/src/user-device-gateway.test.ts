@@ -334,6 +334,17 @@ describe("user device gateway in the holding process", () => {
     await vi.advanceTimersByTimeAsync(110);
     expect(socket.closed).toEqual({ code: undefined, reason: undefined });
   });
+
+  it("closes a socket that errors instead of crashing the process", async () => {
+    const db = fakePrisma();
+    db.deviceRows.set(device.id, { ...device, tokenHash: "x", revokedAt: null, lastSeenAt: null });
+    const hub = new UserDeviceHub({ prisma: db.prisma, address: "http://a" });
+    hubs.push(hub);
+    const socket = new FakeSocket();
+    await hub.attach(device, socket);
+    socket.emit("error", new RangeError("Max payload size exceeded"));
+    expect(socket.closed).toBeDefined();
+  });
 });
 
 describe("user device gateway from another process", () => {

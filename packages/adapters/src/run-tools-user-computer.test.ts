@@ -15,10 +15,17 @@ function setup(execute: (signal: AbortSignal) => AsyncIterable<unknown>, secrets
   const controller = new AbortController();
   const requests: HostComputerRequest[] = [];
   const signals: AbortSignal[] = [];
+  const deviceIds: (string | undefined)[] = [];
   const gateway: UserDeviceGateway = {
     connected: async () => ({ deviceId: "device-1", name: "Laptop", platform: "darwin" }),
-    async *request<T>(_userId: string, request: HostComputerRequest, signal: AbortSignal) {
+    async *request<T>(
+      _userId: string,
+      request: HostComputerRequest,
+      signal: AbortSignal,
+      deviceId?: string,
+    ) {
       requests.push(request);
+      deviceIds.push(deviceId);
       signals.push(signal);
       if (request.method === "provision") yield {} as T;
       else if (request.method === "environment") yield environment as T;
@@ -41,7 +48,7 @@ function setup(execute: (signal: AbortSignal) => AsyncIterable<unknown>, secrets
       observer: { onShellStillRunning },
       finish: async (result: unknown) => result,
     }) as unknown as ToolCall;
-  return { ctx, call, controller, requests, signals, onShellStillRunning };
+  return { ctx, call, controller, requests, signals, deviceIds, onShellStillRunning };
 }
 
 describe("userComputerOwner", () => {
@@ -78,7 +85,9 @@ describe("userComputerCwd", () => {
     expect(userComputerCwd(environment, "~")).toBe("/Users/fake");
     expect(userComputerCwd(environment, "~/code")).toBe("/Users/fake/code");
     expect(userComputerCwd(environment, "code")).toBe("/Users/fake/code");
-    expect(userComputerCwd(environment, "/tmp")).toBe("/tmp");
+    expect(userComputerCwd(environment, "/Users/fake/code")).toBe("/Users/fake/code");
+    expect(() => userComputerCwd(environment, "/tmp")).toThrow("inside the user's home folder");
+    expect(() => userComputerCwd(environment, "../other")).toThrow("inside the user's home folder");
     expect(
       userComputerCwd({ platform: "win32", home: "C:\\Users\\fake", shell: "pwsh" }, "code"),
     ).toBe("C:\\Users\\fake\\code");
@@ -87,7 +96,7 @@ describe("userComputerCwd", () => {
 
 describe("userComputerShell", () => {
   it("streams the command's redacted output from the user's shell", async () => {
-    const { ctx, call, requests } = setup(
+    const { ctx, call, requests, deviceIds } = setup(
       async function* () {
         yield { type: "stdout", data: "token=sk-fake-secret\n" };
         yield { type: "stderr", data: "warning\n" };
@@ -102,6 +111,7 @@ describe("userComputerShell", () => {
     };
     expect(result.stdout).not.toContain("sk-fake-secret");
     expect(result).toMatchObject({ stderr: "warning\n", code: 2 });
+    expect(deviceIds).toEqual(["device-1", "device-1", "device-1"]);
     expect(requests).toEqual([
       { method: "provision", botId: "bot-1", runId: "run-1" },
       { method: "environment", botId: "bot-1", runId: "run-1" },

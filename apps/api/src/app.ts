@@ -88,6 +88,7 @@ import {
   verifyModelServesAgents,
   withSecretPersistence,
 } from "@rakazo/adapters";
+import type { UserDeviceGateway } from "@rakazo/adapters/user-device-protocol";
 import { createAuth, isBlockedAuthPath, loopbackTwinOrigins } from "@rakazo/auth";
 import type { Actor, AuthCapabilities } from "@rakazo/contracts";
 import { isLocalhostOrLoopbackIp, SERVER_BUILD_HEADER } from "@rakazo/contracts";
@@ -226,6 +227,8 @@ type CreateAppOverrides = Partial<AppEnv> & {
   logger?: Logger;
   runtime?: AgentRuntime;
   contextStrategy?: AgentContextStrategy;
+  /** Test-only stand-in for desktops connected to this server. */
+  userDevices?: UserDeviceGateway;
 };
 
 async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
@@ -245,6 +248,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     logger: loggerOverride,
     runtime: runtimeOverride,
     contextStrategy,
+    userDevices: userDevicesOverride,
     ...envOverrides
   } = overrides;
   const env = { ...loadEnv(process.env), ...envOverrides };
@@ -598,7 +602,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     messaging: messaging ? createMessagingContextLoader(prisma) : undefined,
     web: createWebProvider(),
     cloudAgent,
-    userDevices,
+    userDevices: userDevicesOverride ?? userDevices,
     shutdownSignal: shutdown.signal,
   });
 

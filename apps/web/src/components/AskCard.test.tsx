@@ -277,6 +277,24 @@ it("sizes approval buttons like the other card buttons", async () => {
   }
 });
 
+it("says a user's-computer approval allows the rest of the chat", async () => {
+  const block: AskBlock = {
+    kind: "ask",
+    approvalEffectId: "effect-1",
+    text: "Run on your computer?",
+    status: "pending",
+    actions: [
+      { id: "allow", label: "Allow for this chat" },
+      { id: "deny", label: "Deny" },
+    ],
+  };
+  await render(block);
+  expect(button("Allow for this chat")).toBeTruthy();
+  expect(button("Allow once")).toBeUndefined();
+  await render({ ...block, status: "answered", answer: "allow" });
+  expect(container.textContent).toContain("Allowed for this chat");
+});
+
 it("gives onboarding choices the same lettered rows as questions", async () => {
   await act(async () =>
     root.render(

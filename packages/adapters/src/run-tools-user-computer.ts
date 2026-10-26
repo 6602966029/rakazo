@@ -56,7 +56,7 @@ export async function userComputerAllowedInChat(ctx: RunContext): Promise<boolea
   return Boolean(allowed);
 }
 
-/** The working directory on the user's computer: their home unless the call names another. */
+/** The working directory on the user's computer: their home or a folder inside it. */
 export function userComputerCwd(environment: HostComputerEnvironment, cwd: unknown): string {
   const paths = environment.platform === "win32" ? path.win32 : path.posix;
   const requested = typeof cwd === "string" ? cwd.trim() : "";
@@ -64,7 +64,11 @@ export function userComputerCwd(environment: HostComputerEnvironment, cwd: unkno
   const expanded = /^~[\\/]/.test(requested)
     ? paths.join(environment.home, requested.slice(2))
     : requested;
-  return paths.resolve(environment.home, expanded);
+  const resolved = paths.resolve(environment.home, expanded);
+  const relative = paths.relative(environment.home, resolved);
+  if (relative.startsWith("..") || paths.isAbsolute(relative))
+    throw new Error("cwd must be inside the user's home folder; cd elsewhere within the command");
+  return resolved;
 }
 
 async function lastValue<T>(values: AsyncIterable<T>): Promise<T> {
@@ -79,19 +83,24 @@ export async function userComputerShell(ctx: RunContext, call: ToolCall) {
   const owner = ctx.source.userComputerOwner;
   const devices = deps.userDevices;
   // Checked again at execution: the desktop can disconnect or be revoked after the offer.
-  if (!owner || !devices || !(await devices.connected(owner).catch(() => null))) {
+  const device = owner && devices ? await devices.connected(owner).catch(() => null) : null;
+  if (!owner || !devices || !device) {
     return call.finish({ error: USER_COMPUTER_UNAVAILABLE });
   }
+  const { deviceId } = device;
   const { signal } = ctx.context;
   const command = String(call.args.command ?? "");
   try {
     // The device only executes for a provisioned bot; provisioning is idempotent.
-    await lastValue(devices.request(owner, { method: "provision", botId: bot.id, runId }, signal));
+    await lastValue(
+      devices.request(owner, { method: "provision", botId: bot.id, runId }, signal, deviceId),
+    );
     const environment = await lastValue(
       devices.request<HostComputerEnvironment>(
         owner,
         { method: "environment", botId: bot.id, runId },
         signal,
+        deviceId,
       ),
     );
     const observed = await observeShellCommand(
@@ -108,6 +117,7 @@ export async function userComputerShell(ctx: RunContext, call: ToolCall) {
           },
         },
         signal,
+        deviceId,
       ),
       { secrets: ctx.secrets },
     );

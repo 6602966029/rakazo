@@ -53,6 +53,12 @@ export interface UserDeviceGateway {
   /**
    * Streams HostComputerFrame values for one request. Throws when the device is offline,
    * revoked, or disconnects mid-request; a command is never retried after a lost response.
+   * Pass `deviceId` to keep every request of one operation on the same computer.
    */
-  request<T>(userId: string, request: HostComputerRequest, signal: AbortSignal): AsyncIterable<T>;
+  request<T>(
+    userId: string,
+    request: HostComputerRequest,
+    signal: AbortSignal,
+    deviceId?: string,
+  ): AsyncIterable<T>;
 }
