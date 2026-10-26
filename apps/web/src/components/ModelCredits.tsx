@@ -24,8 +24,8 @@ import {
   SelectValue,
   Separator,
 } from "@rakazo/ui-web";
-import { Check, X } from "lucide-react";
-import { useState } from "react";
+import { Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { formatBillingDate } from "../lib/billing";
 import { rpc } from "../lib/rpc";
 import { useSignOut } from "../lib/sign-out";
@@ -73,7 +73,13 @@ export function CreditAmountSelect({
   );
 }
 
-export function CreditChoice({ status, onClose }: { status: BillingStatus; onClose?: () => void }) {
+export function CreditChoice({
+  status,
+  dismissible = false,
+}: {
+  status: BillingStatus;
+  dismissible?: boolean;
+}) {
   const { t } = useLingui();
   const features = [
     t`Bots and browser automation`,
@@ -87,21 +93,32 @@ export function CreditChoice({ status, onClose }: { status: BillingStatus; onClo
     () => window.location.assign("/sign-in"),
     () => setError(true),
   );
+  // A choice that answers after the plans were closed must not leave the app.
+  const closed = useRef(false);
+  useEffect(() => {
+    closed.current = false;
+    return () => {
+      closed.current = true;
+    };
+  }, []);
+  function go(url: string) {
+    if (!closed.current) window.location.assign(url);
+  }
   async function choose(ownKey: boolean) {
     setPending(true);
     setError(false);
     try {
       if (ownKey && status.byokFreeUntil) {
-        window.location.assign((await rpc.billing.checkout()).url);
+        go((await rpc.billing.checkout()).url);
       } else if (ownKey) {
         const { url } = await rpc.billing.selectFunding({ funding: "byok" });
-        window.location.assign(url ?? "/onboarding");
+        go(url ?? "/onboarding");
       } else {
         const { url } = await rpc.billing.purchaseCredits({
           amountCents: amount,
           monthly: true,
         });
-        window.location.assign(url);
+        go(url);
       }
     } catch {
       setError(true);
@@ -113,17 +130,7 @@ export function CreditChoice({ status, onClose }: { status: BillingStatus; onClo
       data-testid="billing-paywall"
       className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center gap-8 px-6 py-12"
     >
-      {onClose ? (
-        <Button
-          className="fixed top-4 right-6 text-muted-foreground"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t`Close`}
-          onClick={onClose}
-        >
-          <X />
-        </Button>
-      ) : (
+      {dismissible ? null : (
         <Button
           className="fixed top-4 right-6"
           variant="text"

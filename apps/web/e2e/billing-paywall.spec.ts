@@ -194,13 +194,34 @@ test("choose your own key or monthly credits, then add a one-time top-up", async
   await expect(page.getByText("Free plan ends Jan 15, 2030", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "sidebar-free-plan-ends");
   await page.getByRole("button", { name: "Upgrade", exact: true }).click();
-  const plans = page.getByTestId("billing-paywall");
+  const plans = page.getByRole("dialog", { name: "Choose how to use Rakazo" });
   await expect(plans.getByText("$10 / month", { exact: true })).toBeVisible();
   await expect(plans.getByRole("button", { name: "Subscribe", exact: true })).toBeVisible();
   await expect(plans.getByRole("button", { name: "Log out" })).toHaveCount(0);
+  await expect(page).toHaveURL(/[?&]plans/);
   await captureScreenshot(page, testInfo, "billing-upgrade-plans");
-  await plans.getByRole("button", { name: "Close" }).click();
+  await page.keyboard.press("Escape");
   await expect(plans).toHaveCount(0);
+  await expect(page).not.toHaveURL(/[?&]plans/);
+  await expect(page.getByText("Chief").first()).toBeVisible();
+
+  // The plan choice has its own link, and Subscribe pays for the plan instead of reopening setup.
+  await page.goto("/app?plans");
+  await expect(plans).toBeVisible();
+  let selectedFunding = false;
+  await page.route("**/rpc/billing/selectFunding", async (route) => {
+    selectedFunding = true;
+    await route.fulfill({ json: { json: { ok: true } } });
+  });
+  await page.route("**/rpc/billing/checkout", (route) =>
+    route.fulfill({ json: { json: { url: new URL("/app?paid", page.url()).href } } }),
+  );
+  await Promise.all([
+    page.waitForURL(/[?&]paid/),
+    plans.getByRole("button", { name: "Subscribe", exact: true }).click(),
+  ]);
+  expect(selectedFunding).toBe(false);
+  await page.unroute("**/rpc/billing/selectFunding");
   await expect(page.getByText("Chief").first()).toBeVisible();
   const freePlan = await openUserSettings(page, "billing");
   await expect(

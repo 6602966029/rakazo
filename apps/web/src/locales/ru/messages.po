@@ -1226,6 +1226,7 @@ msgid "Choose folder"
 msgstr "Выбрать папку"
 
 #: src/components/ModelCredits.tsx
+#: src/components/SubscriptionGate.tsx
 msgid "Choose how to use Rakazo"
 msgstr ""
 
@@ -1256,7 +1257,6 @@ msgid "Clearing…"
 msgstr "Очистка…"
 
 #: src/components/ErrorBoundary.tsx
-#: src/components/ModelCredits.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/ModelSettingsOverlay.tsx

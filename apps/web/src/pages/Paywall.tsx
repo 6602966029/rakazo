@@ -12,14 +12,14 @@ import { AuthFrame, submitClass } from "./Auth";
 
 export function PaywallPage({
   status,
-  onClose,
+  dismissible = false,
 }: {
   status: BillingStatus;
-  /** Set when the plans were opened from the app rather than required. */
-  onClose?: () => void;
+  /** Opened from the app rather than required, so it closes instead of logging out. */
+  dismissible?: boolean;
 }) {
   return status.funding !== undefined ? (
-    <CreditChoice status={status} onClose={onClose} />
+    <CreditChoice status={status} dismissible={dismissible} />
   ) : (
     <LegacyPaywallPage status={status} />
   );

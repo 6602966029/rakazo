@@ -1,6 +1,9 @@
+import { useLingui } from "@lingui/react/macro";
 import type { BillingStatus, Me } from "@rakazo/contracts";
+import { Dialog, DialogContent } from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { createContext, Suspense, useContext, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { fetchAuthCapabilities } from "../lib/auth-capabilities";
 import { peekInitialBootstrap } from "../lib/bootstrap";
 import { lazyComponent } from "../lib/preload-recovery";
@@ -51,7 +54,16 @@ export function SubscriptionGate({
   fallback: ReactNode;
 }) {
   const [state, setState] = useState<GateState>({ kind: "loading" });
-  const [plansOpen, setPlansOpen] = useState(false);
+  const { t } = useLingui();
+  // `?plans` links straight to the plan choice.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const plansOpen = searchParams.has("plans");
+  const setPlansOpen = (open: boolean) =>
+    setSearchParams((params) => {
+      if (open) params.set("plans", "");
+      else params.delete("plans");
+      return params;
+    });
 
   useEffect(() => {
     let active = true;
@@ -106,13 +118,18 @@ export function SubscriptionGate({
       value={{ status: state.status ?? null, showPlans: () => setPlansOpen(true) }}
     >
       {children}
-      {plansOpen && state.status ? (
+      {state.status ? (
         // Over the app rather than replacing it, so closing keeps its state.
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
-          <Suspense fallback={fallback}>
-            <PaywallPage status={state.status} onClose={() => setPlansOpen(false)} />
-          </Suspense>
-        </div>
+        <Dialog open={plansOpen} onOpenChange={setPlansOpen}>
+          <DialogContent
+            aria-label={t`Choose how to use Rakazo`}
+            className="inset-0 top-0 left-0 block h-dvh max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none bg-background p-0 ring-0 sm:max-w-none"
+          >
+            <Suspense fallback={fallback}>
+              <PaywallPage status={state.status} dismissible />
+            </Suspense>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </BillingContext.Provider>
   );
