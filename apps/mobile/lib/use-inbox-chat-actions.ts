@@ -286,6 +286,7 @@ export function useInboxChatActions({
     unreadOverrides,
     archiving,
     updateChat,
+    runRowAction,
     botAction,
     groupAction,
     createSection,
