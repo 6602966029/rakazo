@@ -153,6 +153,21 @@ export function issueScreenCapability(
   return sealed;
 }
 
+export function addScreenProxyCapability(
+  url: string,
+  secret: string,
+  origin: string,
+  scope: ScreenCapabilityScope,
+  now = Date.now(),
+  headers?: Record<string, string>,
+) {
+  // Local/desktop providers return non-http schemes (e.g. desktop://). Those never
+  // traverse the web proxy, so seal only http(s) upstream URLs.
+  const protocol = new URL(url).protocol;
+  if (protocol !== "http:" && protocol !== "https:") return url;
+  return issueScreenCapability(url, secret, origin, scope, now, headers);
+}
+
 function remoteScreenSealKey(
   url: string,
   secret: string,
