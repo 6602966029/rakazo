@@ -29,6 +29,7 @@ import type { ComponentType } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalRulesSettings } from "../components/ApprovalRulesSettings";
 import { computersAreUnavailable } from "../components/ComputersUnavailableHint";
+import { SETTINGS_CONTENT_WIDTH } from "../components/SettingsRows";
 import { desktopBridge } from "../lib/desktop";
 import { spaceQueries, useQueryUserId, writeSaved } from "../lib/query";
 import { SpaceRpcProvider } from "../lib/space-rpc";
@@ -374,69 +375,78 @@ export function SettingsOverlay({
                     : "rk-scroll overflow-y-auto overscroll-contain px-6 pb-6 pt-6 sm:px-8 sm:pb-8"
                 }`}
               >
-                {section === "general" ? (
-                  <GeneralSettingsPanels
-                    email={email}
-                    name={name}
-                    onNameSaved={onNameSaved}
-                    timezone={timezone}
-                    onTimezoneChange={onTimezoneChange}
-                  />
-                ) : null}
-                {section === "space" && space ? (
-                  <SpaceSettingsPanel
-                    key={space.id}
-                    space={space}
-                    onRename={(name) => onRenameSpace?.(space.id, name) ?? Promise.resolve()}
-                    onDelete={() => onDeleteSpace?.(space.id) ?? Promise.resolve()}
-                    onClose={requestClose}
-                    onBusyChange={setVoiceBusy}
-                  />
-                ) : null}
-                {section === "confirmations" ? <ApprovalRulesSettings scope="account" /> : null}
-                {section === "messaging" && messagingEnabled ? <MessagingSettingsPanel /> : null}
-                {section === "usage" ? (
-                  <UsageSettingsPanel usage={usage} panelRef={usageRef} />
-                ) : null}
-                {section === "computer" && showComputer ? (
-                  <ComputerSettingsPanel
-                    sandboxProvider={sandboxProvider}
-                    onSandboxProviderChange={(next) => {
-                      onSandboxProviderChange?.(next);
-                      holdComputerRecovery();
-                    }}
-                    onRecoveryDismissed={releaseComputerRecovery}
-                  />
-                ) : null}
-                {section === "billing" && billingEnabled ? <BillingSettingsPanel /> : null}
-                {section === "updates" && showUpdates ? <UpdatesSettingsPanel /> : null}
-                {section === "models" ? (
-                  <ModelSettingsOverlay embedded scope="account" onClose={requestClose} />
-                ) : null}
-                {section === "memory" && otherSpace && otherMemoryError ? (
-                  <div className="px-6 py-6 sm:px-8">
-                    <p className="mb-4 text-sm text-destructive">{otherMemoryError}</p>
-                    <Button variant="outline" onClick={() => void otherMemory.refetch()}>
-                      {t`Retry`}
-                    </Button>
-                  </div>
-                ) : section === "memory" ? (
-                  <MemorySettingsOverlay
-                    embedded
-                    onClose={requestClose}
-                    config={otherSpace ? otherMemoryConfig : memoryConfig}
-                    onConfigChange={otherSpace ? setOtherMemoryConfig : onMemoryConfigChange}
-                    onBusyChange={setMemoryBusy}
-                  />
-                ) : null}
-                {section === "voice" ? (
-                  <VoiceSettingsOverlay
-                    embedded
-                    scope="account"
-                    onClose={requestClose}
-                    onBusyChange={setVoiceBusy}
-                  />
-                ) : null}
+                {/* Memory scrolls its own body and applies the same width there; Usage's table needs the room. */}
+                <div
+                  className={
+                    section === "memory" || section === "usage"
+                      ? "contents"
+                      : SETTINGS_CONTENT_WIDTH
+                  }
+                >
+                  {section === "general" ? (
+                    <GeneralSettingsPanels
+                      email={email}
+                      name={name}
+                      onNameSaved={onNameSaved}
+                      timezone={timezone}
+                      onTimezoneChange={onTimezoneChange}
+                    />
+                  ) : null}
+                  {section === "space" && space ? (
+                    <SpaceSettingsPanel
+                      key={space.id}
+                      space={space}
+                      onRename={(name) => onRenameSpace?.(space.id, name) ?? Promise.resolve()}
+                      onDelete={() => onDeleteSpace?.(space.id) ?? Promise.resolve()}
+                      onClose={requestClose}
+                      onBusyChange={setVoiceBusy}
+                    />
+                  ) : null}
+                  {section === "confirmations" ? <ApprovalRulesSettings scope="account" /> : null}
+                  {section === "messaging" && messagingEnabled ? <MessagingSettingsPanel /> : null}
+                  {section === "usage" ? (
+                    <UsageSettingsPanel usage={usage} panelRef={usageRef} />
+                  ) : null}
+                  {section === "computer" && showComputer ? (
+                    <ComputerSettingsPanel
+                      sandboxProvider={sandboxProvider}
+                      onSandboxProviderChange={(next) => {
+                        onSandboxProviderChange?.(next);
+                        holdComputerRecovery();
+                      }}
+                      onRecoveryDismissed={releaseComputerRecovery}
+                    />
+                  ) : null}
+                  {section === "billing" && billingEnabled ? <BillingSettingsPanel /> : null}
+                  {section === "updates" && showUpdates ? <UpdatesSettingsPanel /> : null}
+                  {section === "models" ? (
+                    <ModelSettingsOverlay embedded scope="account" onClose={requestClose} />
+                  ) : null}
+                  {section === "memory" && otherSpace && otherMemoryError ? (
+                    <div className="px-6 py-6 sm:px-8">
+                      <p className="mb-4 text-sm text-destructive">{otherMemoryError}</p>
+                      <Button variant="outline" onClick={() => void otherMemory.refetch()}>
+                        {t`Retry`}
+                      </Button>
+                    </div>
+                  ) : section === "memory" ? (
+                    <MemorySettingsOverlay
+                      embedded
+                      onClose={requestClose}
+                      config={otherSpace ? otherMemoryConfig : memoryConfig}
+                      onConfigChange={otherSpace ? setOtherMemoryConfig : onMemoryConfigChange}
+                      onBusyChange={setMemoryBusy}
+                    />
+                  ) : null}
+                  {section === "voice" ? (
+                    <VoiceSettingsOverlay
+                      embedded
+                      scope="account"
+                      onClose={requestClose}
+                      onBusyChange={setVoiceBusy}
+                    />
+                  ) : null}
+                </div>
               </div>
             </SpaceRpcProvider>
           </div>
