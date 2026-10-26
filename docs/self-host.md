@@ -2053,6 +2053,10 @@ Until a platform's setting is set, the native app on that platform hides passkey
 server. Both files are served through the web origin, so a reverse proxy in front of the web container
 must pass `/.well-known/` through to it.
 
+## Spoken summaries
+
+Off by default. Set `VOICE_SUMMARY_MIN_CHARS` (for example `600`) to have a voice read a bot reply longer than that many characters as a short summary written by that bot's own model. Each summary is an extra model call billed to the bot. The chat keeps the full reply, and if the summary call fails the full reply is read.
+
 ## Upload size
 
 `MAX_UPLOAD_SIZE_MB` sets the per-file chat attachment and computer file transfer limit

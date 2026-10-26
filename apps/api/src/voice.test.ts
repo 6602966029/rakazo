@@ -13,6 +13,7 @@ import {
   MAX_TRANSCRIBE_REQUEST_BYTES,
   mountVoiceHttpRoutes,
   persistVoiceCredential,
+  prepareVoice,
   synthesizeVoice,
   toVoiceCredential,
   toVoiceStatus,
@@ -435,6 +436,65 @@ describe("updateVoiceSpeechModel", () => {
       updateVoiceSpeechModel(deps, actor, { provider: "elevenlabs", speechModel: "s1" }),
     ).rejects.toThrow("Speech model applies to Fish Audio.");
     expect(account.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("prepareVoice", () => {
+  const long = "The deploy finished and every check passed. ".repeat(20);
+
+  function depsWith(summarize?: ReturnType<typeof vi.fn>) {
+    const prisma = {
+      bot: { findFirst: vi.fn().mockResolvedValue({ voiceId: "voice-1" }) },
+      spaceSettingOverride: { findUnique: vi.fn().mockResolvedValue(null) },
+      userVoicePreference: {
+        findFirst: vi.fn().mockResolvedValue({
+          isDefault: true,
+          voiceId: "voice-1",
+          speechModel: "",
+          credential: {
+            id: "cred-1",
+            userId: actor.userId,
+            provider: "elevenlabs",
+            secretId: "secret-1",
+            createdAt: new Date(0),
+            updatedAt: new Date(0),
+          },
+        }),
+      },
+      secret: { findFirst: vi.fn().mockResolvedValue({ id: "secret-1", ciphertext: "c" }) },
+    };
+    return {
+      prisma,
+      secrets: { load: vi.fn().mockReturnValue("key"), put: vi.fn() },
+      speechSummary: summarize ? { summarize, minChars: 600 } : undefined,
+    } as unknown as VoiceDeps;
+  }
+
+  it("reads a long bot reply as the bot model's summary", async () => {
+    const summarize = vi.fn().mockResolvedValue("Deploy done. Next, the release notes.");
+    const result = await prepareVoice(depsWith(summarize), actor, { text: long, botId: "bot-1" });
+    expect(summarize).toHaveBeenCalledWith(actor, "bot-1", long, undefined);
+    expect(result).toEqual({
+      ready: true,
+      utterances: ["Deploy done.", "Next, the release notes."],
+    });
+  });
+
+  it("reads short replies, and replies when summarizing fails or is not enabled, in full", async () => {
+    const failing = vi.fn().mockResolvedValue(null);
+    const short = await prepareVoice(depsWith(failing), actor, { text: "Done.", botId: "bot-1" });
+    expect(short.utterances).toEqual(["Done."]);
+    expect(failing).not.toHaveBeenCalled();
+
+    const failed = await prepareVoice(depsWith(failing), actor, { text: long, botId: "bot-1" });
+    expect(failed.utterances.join(" ")).toContain("every check passed");
+
+    const unspeakable = vi.fn().mockResolvedValue("🎉");
+    const empty = await prepareVoice(depsWith(unspeakable), actor, { text: long, botId: "bot-1" });
+    expect(empty.utterances.join(" ")).toContain("every check passed");
+
+    const off = await prepareVoice(depsWith(), actor, { text: long, botId: "bot-1" });
+    expect(off.utterances.join(" ")).toContain("every check passed");
   });
 });
 
