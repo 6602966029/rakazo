@@ -37,6 +37,7 @@ import { parse } from "shell-quote";
 import { vi } from "vitest";
 import type { BoatSandboxSdk } from "./boat-sandbox.js";
 import { BOAT_COMPUTER_SNAPSHOT, BoatSandboxProvider } from "./boat-sandbox.js";
+import { shouldSkipPortableWorkspaceFile } from "./computer-workspace.js";
 import { desktopCommandResponder } from "./linux-desktop.test-support.js";
 import { workspaceArchive } from "./workspace-archive.test-support.js";
 
@@ -583,6 +584,8 @@ export class FakeBoatApi implements BoatSandboxSdk {
       const files = [...box.files]
         .filter(([filePath]) => filePath.startsWith(`${BOAT_WORKSPACE}/`))
         .map(([filePath, file]) => [filePath.slice(BOAT_WORKSPACE.length + 1), file] as const)
+        // The real walk leaves skipped browser state out before counting or archiving it.
+        .filter(([relative]) => !shouldSkipPortableWorkspaceFile(relative))
         .sort(([a], [b]) => a.localeCompare(b));
       const maxFiles = command.match(/wc -l < "\$archive\.sizes"\)" -gt (\d+) /)?.[1];
       const maxBytes = command.match(/ -gt (\d+) \]; then [^\n]*; exit 5; fi/)?.[1];
