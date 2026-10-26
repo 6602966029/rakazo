@@ -1031,6 +1031,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Free plan ends": "Бесплатный тариф до",
   Subscribe: "Оформить подписку",
   "Use my subscription or API key": "Использовать свою подписку или API-ключ",
+  "Start {days}-day free trial": "Начать бесплатный пробный период на {days} дн.",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Ежемесячные кредиты истекают при продлении. Разовые пополнения не сгорают.",
   "Use Rakazo credits": "Использовать кредиты Rakazo",

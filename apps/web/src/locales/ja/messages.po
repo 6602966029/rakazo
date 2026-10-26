@@ -5150,6 +5150,7 @@ msgstr "SSOは一時的に利用できません。もう一度お試しくださ
 msgid "Start"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"
 msgstr "{trialDays}日間の無料トライアルを開始"

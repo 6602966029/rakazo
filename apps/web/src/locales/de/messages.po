@@ -5150,9 +5150,10 @@ msgstr "SSO ist vorübergehend nicht verfügbar. Versuche es erneut."
 msgid "Start"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"
-msgstr ""
+msgstr "Kostenlose {trialDays}-Tage-Testphase starten"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Start recording"

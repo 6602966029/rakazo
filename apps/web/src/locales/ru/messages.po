@@ -5150,9 +5150,10 @@ msgstr "SSO временно недоступен. Попробуйте снов
 msgid "Start"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"
-msgstr ""
+msgstr "Начать бесплатный пробный период на {trialDays} дн."
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Start recording"

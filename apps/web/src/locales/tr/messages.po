@@ -5150,9 +5150,10 @@ msgstr "SSO geçici olarak kullanılamıyor. Yeniden deneyin."
 msgid "Start"
 msgstr ""
 
+#: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Start {trialDays}-day free trial"
-msgstr ""
+msgstr "{trialDays} günlük ücretsiz denemeyi başlat"
 
 #: src/components/teach/TeachComputerOverlay.tsx
 msgid "Start recording"

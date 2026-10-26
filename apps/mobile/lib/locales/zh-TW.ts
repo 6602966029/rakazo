@@ -982,6 +982,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Free plan ends": "免費方案結束於",
   Subscribe: "訂閱",
   "Use my subscription or API key": "使用我的訂閱或 API 金鑰",
+  "Start {days}-day free trial": "開始 {days} 天免費試用",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "每月額度在續訂時到期。單次加值額度不會過期。",
   "Use Rakazo credits": "使用 Rakazo 額度",
