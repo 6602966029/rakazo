@@ -18,6 +18,7 @@ import {
   CreditCard,
   Gauge,
   Lock,
+  MessageCircle,
   Monitor,
   Settings,
   ShieldCheck,
@@ -40,6 +41,7 @@ import {
 } from "./AccountSettingsOverlay";
 import { BillingSettingsPanel } from "./BillingSettingsPanel";
 import { MemorySettingsOverlay } from "./MemorySettingsOverlay";
+import { MessagingSettingsPanel } from "./MessagingSettingsPanel";
 import { ModelSettingsOverlay } from "./ModelSettingsOverlay";
 import { SpaceSettingsPanel } from "./SpaceSettingsPanel";
 import type { SettingsSpace } from "./shell/dialogs";
@@ -78,7 +80,6 @@ export function SettingsOverlay({
   sandboxProvider,
   onSandboxProviderChange,
   messagingEnabled = false,
-  onOpenMessaging,
   memoryConfig,
   onMemoryConfigChange,
   onClose,
@@ -105,7 +106,6 @@ export function SettingsOverlay({
   sandboxProvider?: string | null;
   onSandboxProviderChange?: (sandboxProvider: string) => void;
   messagingEnabled?: boolean;
-  onOpenMessaging?: () => void;
   memoryConfig: SpaceMemoryConfig | null | undefined;
   onMemoryConfigChange: (config: SpaceMemoryConfig | null) => void;
   onClose: () => void;
@@ -126,6 +126,7 @@ export function SettingsOverlay({
   const section =
     (requestedSection === "computer" && !showComputer) ||
     (requestedSection === "billing" && !billingEnabled) ||
+    (requestedSection === "messaging" && !messagingEnabled) ||
     (requestedSection === "updates" && !showUpdates)
       ? "general"
       : requestedSection;
@@ -179,6 +180,9 @@ export function SettingsOverlay({
     { id: "models", label: t`Models`, icon: Cpu },
     { id: "voice", label: t`Voice`, icon: Volume2 },
     { id: "confirmations", label: t`Approvals`, icon: ShieldCheck },
+    ...(messagingEnabled
+      ? [{ id: "messaging" as const, label: t`Messaging`, icon: MessageCircle }]
+      : []),
     { id: "space", label: t`Space`, icon: Lock },
     { id: "memory", label: t`Memory`, icon: Brain },
     { id: "usage", label: t`Usage`, icon: Gauge },
@@ -215,7 +219,7 @@ export function SettingsOverlay({
       nav.removeEventListener("scroll", measure);
       observer?.disconnect();
     };
-  }, [section, showComputer, billingEnabled, showUpdates, i18n.locale]);
+  }, [section, showComputer, billingEnabled, messagingEnabled, showUpdates, i18n.locale]);
 
   function scrollSections(direction: number) {
     const nav = navRef.current;
@@ -377,10 +381,6 @@ export function SettingsOverlay({
                     onNameSaved={onNameSaved}
                     timezone={timezone}
                     onTimezoneChange={onTimezoneChange}
-                    messagingEnabled={messagingEnabled}
-                    onOpenMessaging={
-                      onOpenMessaging ? () => leaveSettings(onOpenMessaging) : undefined
-                    }
                   />
                 ) : null}
                 {section === "space" && space ? (
@@ -394,6 +394,7 @@ export function SettingsOverlay({
                   />
                 ) : null}
                 {section === "confirmations" ? <ApprovalRulesSettings scope="account" /> : null}
+                {section === "messaging" && messagingEnabled ? <MessagingSettingsPanel /> : null}
                 {section === "usage" ? (
                   <UsageSettingsPanel usage={usage} panelRef={usageRef} />
                 ) : null}

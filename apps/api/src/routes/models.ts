@@ -297,19 +297,24 @@ export function modelsRoutes(ctx: RouterContext) {
         );
         const record = await firstModelConnectAnalytics(deps, context.actor, "oauth");
         record(input.provider, { name: "model_connect_started" });
-        return deps.oauthLogins.begin({
-          userId: context.actor.userId,
-          spaceId: context.actor.spaceId,
-          provider: input.provider,
-          credentialId: target?.id ?? null,
-          modelId: input.modelId,
-          thinkingLevel: input.thinkingLevel,
-          makeDefault: input.makeDefault,
-          settingsScope: input.scope,
-          label: input.label,
-          codePage: input.codePage,
-          signal: context.signal,
-        });
+        return deps.oauthLogins
+          .begin({
+            userId: context.actor.userId,
+            spaceId: context.actor.spaceId,
+            provider: input.provider,
+            credentialId: target?.id ?? null,
+            modelId: input.modelId,
+            thinkingLevel: input.thinkingLevel,
+            makeDefault: input.makeDefault,
+            settingsScope: input.scope,
+            label: input.label,
+            codePage: input.codePage,
+            signal: context.signal,
+          })
+          .catch((error: unknown) => {
+            record(input.provider, { name: "model_connect_failed", error });
+            throw error;
+          });
       }),
       submitOAuthCode: authed.models.submitOAuthCode.handler(async ({ context, input }) => {
         return deps.oauthLogins.submit(input.loginId, context.actor, input.code);
@@ -321,7 +326,8 @@ export function modelsRoutes(ctx: RouterContext) {
         });
         if (result.status === "error") {
           const record = await firstModelConnectAnalytics(deps, context.actor, "oauth");
-          record(undefined, { name: "model_connect_failed", error: new Error(result.error) });
+          record(result.provider, { name: "model_connect_failed", error: new Error(result.error) });
+          return { status: "error" as const, error: result.error };
         }
         return result.status === "connected" ? { status: "ready" as const } : result;
       }),

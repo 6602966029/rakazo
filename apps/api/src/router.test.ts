@@ -1376,6 +1376,8 @@ describe("MCP pre-registered OAuth client", () => {
         screenProxySecret: "fake-test-secret",
         sandboxProvider: "fake",
         mcpAllowPrivateEndpoint: isDeploymentOwner,
+        mcpStdioEnabled: true,
+        mcpStdioAllowedCommands: ["npx"],
       },
       dataDir: "/tmp/rakazo-router-test",
     } as unknown as RouterDeps;
@@ -1390,6 +1392,7 @@ describe("MCP pre-registered OAuth client", () => {
       material: () => JSON.parse(values.get("cipher-1")!),
       server: () => server,
       secrets,
+      prisma,
     };
   }
 
@@ -1413,6 +1416,25 @@ describe("MCP pre-registered OAuth client", () => {
     expect(server()?.secretId).toBe("secret-1");
     expect(material()).toMatchObject({
       oauthClient: { client_id: "client-1.apps.example.test", client_secret: "client-secret" },
+    });
+  });
+
+  it("reports a second server with the same name as a conflict", async () => {
+    const { client, prisma } = harness();
+    vi.mocked(prisma.mcpServer.create).mockRejectedValueOnce(
+      Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
+    );
+
+    await expect(
+      client.mcp.servers.create({
+        transport: "streamable_http",
+        slug: "gmail",
+        name: "Gmail",
+        endpoint: "http://localhost:3100/mcp",
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "An MCP server with that name already exists.",
     });
   });
 
@@ -1962,6 +1984,8 @@ describe("MCP server health", () => {
         webOrigin: "http://127.0.0.1:5173",
         screenProxySecret: "fake-test-secret",
         sandboxProvider: "fake",
+        mcpStdioEnabled: true,
+        mcpStdioAllowedCommands: ["npx"],
       },
       dataDir: "/tmp/rakazo-router-test",
     } as unknown as RouterDeps;
@@ -2007,6 +2031,39 @@ describe("MCP server health", () => {
   } as const;
 
   const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it.each([
+    [{ mcpStdioEnabled: false }, "Stdio MCP servers aren't available here"],
+    [{ mcpStdioAllowedCommands: [] }, "Stdio MCP servers aren't available here"],
+    [{ mcpStdioAllowedCommands: ["uvx"] }, "This stdio command isn't allowed here"],
+  ])("refuses a stdio server this deployment can't run (%o)", async (env, message) => {
+    const h = harness();
+    Object.assign(h.deps.env, env);
+
+    await expect(h.client.mcp.servers.create(stdioInput)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message,
+    });
+    await expect(
+      h.client.mcp.servers.update({
+        id: "server-1",
+        config: { ...stdioInput, enabled: true, description: "", env: {} },
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message });
+    expect(h.deps.prisma.mcpServer.create).not.toHaveBeenCalled();
+    expect(h.deps.prisma.mcpServer.update).not.toHaveBeenCalled();
+    expect(h.probe).not.toHaveBeenCalled();
+  });
+
+  it("reports stdio support with the account", async () => {
+    const h = harness();
+    (h.deps.prisma as unknown as Record<string, unknown>).user = {
+      findUniqueOrThrow: vi.fn(async () => ({ email: "owner@rakazo.test", name: "Owner" })),
+    };
+    expect((await h.client.me()).mcpStdioEnabled).toBe(true);
+    Object.assign(h.deps.env, { mcpStdioEnabled: false });
+    expect((await h.client.me()).mcpStdioEnabled).toBe(false);
+  });
 
   it("lists servers with their health", async () => {
     const h = harness({
