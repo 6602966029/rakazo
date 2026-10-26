@@ -177,6 +177,27 @@ it("loads older runs below the latest ones until there are none left", async () 
   }
 });
 
+it("says when older runs could not load and keeps what is shown", async () => {
+  const cursor = { id: "run-1", createdAt: run.createdAt };
+  routines.history.mockImplementation(async (input: { before?: unknown }) => {
+    if (input.before) throw new Error("offline");
+    return page([run], cursor);
+  });
+  const view = await mounted();
+  try {
+    await view.settled(() => expect(view.rows()).toHaveLength(1));
+    await act(async () => view.button("Load older runs")?.click());
+    await view.settled(() =>
+      expect(view.container.querySelector('[role="alert"]')?.textContent).toContain(
+        "Could not load run history",
+      ),
+    );
+    expect(view.rows()).toHaveLength(1);
+    expect(view.button("Load older runs")).toBeDefined();
+  } finally {
+    await view.close();
+  }
+});
 it("opens a group run in its group thread", async () => {
   routines.history.mockResolvedValue(page([{ ...run, groupId: "group-1" }]));
   const view = await mounted();

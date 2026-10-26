@@ -63,6 +63,9 @@ export function RoutineRunHistory({
             );
           })
         )}
+        {history.failed ? (
+          <SettingsRow key="failed" title={t("Could not load run history")} dimmed />
+        ) : null}
       </SettingsGroup>
       {history.hasOlder ? (
         <NativeActionButton

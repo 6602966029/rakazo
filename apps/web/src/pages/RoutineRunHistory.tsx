@@ -36,7 +36,7 @@ export function RoutineRunHistory({ routineId }: { routineId: string }) {
       <h3 className="text-[13px]">
         <Trans>Run history</Trans>
       </h3>
-      {history.isError && !history.isFetchNextPageError ? (
+      {history.isError ? (
         <p role="alert" className="mt-2 text-[13.5px] text-destructive">
           <Trans>Could not load run history</Trans>
         </p>

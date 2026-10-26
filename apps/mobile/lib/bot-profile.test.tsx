@@ -1108,6 +1108,30 @@ describe("routine detail", () => {
     expect(container.textContent).not.toContain("Load older runs");
   });
 
+  it("says when older runs could not load and keeps what is shown", async () => {
+    const run = {
+      id: "run-1",
+      botId: "bot-fixture",
+      groupId: null,
+      status: "completed",
+      error: null,
+      createdAt: "2026-01-02T12:00:00Z",
+      startedAt: null,
+      completedAt: null,
+      messageId: null,
+    };
+    const history = vi.fn(async (input: { before?: unknown }) => {
+      if (input.before) throw new Error("offline");
+      return { runs: [run], nextCursor: { id: "run-1", createdAt: run.createdAt } };
+    });
+    profileRpc(async () => [routine("r1", "Morning digest")], { history });
+    await render(createElement(RoutineDetail));
+    await act(async () => button("Load older runs").click());
+    expect(container.textContent).toContain("Could not load run history");
+    expect(container.textContent?.match(/Jan 2,/g)).toHaveLength(1);
+    expect(container.textContent).toContain("Load older runs");
+  });
+
   it("says when a routine has not run, and when its history could not load", async () => {
     await render(createElement(RoutineDetail));
     expect(container.textContent).toContain("No runs yet");
