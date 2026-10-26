@@ -2,10 +2,27 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { normalizeApiBase } from "./endpoint.js";
 
 const mobileRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("Android mobile platform contract", () => {
+  it("shares its notification endpoint cases with the app's server URL check", () => {
+    const cases: [string, boolean][] = JSON.parse(
+      readFileSync(
+        resolve(
+          mobileRoot,
+          "modules/rakazo-notifications/android/src/test/resources/endpoint-allowlist-cases.json",
+        ),
+        "utf8",
+      ),
+    );
+    expect(cases.length).toBeGreaterThan(0);
+    for (const [endpoint, allowed] of cases) {
+      expect({ endpoint, allowed: normalizeApiBase(endpoint).ok }).toEqual({ endpoint, allowed });
+    }
+  });
+
   it("requests live-update promotion and exposes its Android settings", () => {
     const nativeRoot = resolve(
       mobileRoot,
