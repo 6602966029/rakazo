@@ -192,6 +192,9 @@ lists every space key under `aws-kms:<key id>`. Keep `ENCRYPTION_KEY`: stored
 credentials still use it ([Infisical](./infisical-secrets.md) moves those out),
 and backups from before the rotation still unwrap with it.
 
+To replace the KMS key, point `AWS_KMS_KEY_ARN` at the new one, keep
+`kms:Decrypt` on the old key, and run `rotate` again.
+
 While KMS is unreachable, a process cannot read or write content in a space
 whose key it has not cached. Startup logs master keys it cannot unwrap.
 

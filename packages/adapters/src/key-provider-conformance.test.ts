@@ -9,6 +9,9 @@ import { AwsKmsKeyProvider, awsKmsConfigFromEnv } from "./aws-kms-key-provider.j
 import { contentKeyProviderFromEnv } from "./key-provider-factory.js";
 
 const KEY_ARN = "arn:aws:kms:eu-central-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab";
+const NEXT_KEY_ARN =
+  "arn:aws:kms:eu-central-1:111122223333:key/5678efgh-56ef-78gh-90ij-5678901234ef";
+const KEYS = [KEY_ARN, NEXT_KEY_ARN];
 const config = {
   keyArn: KEY_ARN,
   accessKeyId: "fake-access-key",
@@ -22,11 +25,11 @@ const kmsEnv = {
 
 /**
  * Just enough of the KMS JSON protocol to exercise the adapter offline: Encrypt and
- * Decrypt under one key, with the encryption context authenticated like KMS does.
- * Signatures are not checked.
+ * Decrypt under the keys in `KEYS`, with the encryption context authenticated and the
+ * key recorded in the ciphertext like KMS does. Signatures are not checked.
  */
 function fakeKms() {
-  const master = randomBytes(32);
+  const keys = KEYS.map(() => randomBytes(32));
   const state = { down: false, contexts: [] as Record<string, string>[] };
   const aad = (context: Record<string, string> = {}) =>
     Buffer.from(JSON.stringify(Object.entries(context).sort(([a], [b]) => a.localeCompare(b))));
@@ -40,31 +43,35 @@ function fakeKms() {
     };
     const fail = (type: string) => send(400, { __type: type, message: type });
     if (state.down) return send(500, { __type: "KMSInternalException", message: "down" });
-    if (input.KeyId !== KEY_ARN) return fail("NotFoundException");
     state.contexts.push(input.EncryptionContext);
     const action = req.headers["x-amz-target"];
     if (action === "TrentService.Encrypt") {
+      const index = KEYS.indexOf(input.KeyId);
+      if (index < 0) return fail("NotFoundException");
       const iv = randomBytes(12);
-      const cipher = createCipheriv("aes-256-gcm", master, iv);
+      const cipher = createCipheriv("aes-256-gcm", keys[index]!, iv);
       cipher.setAAD(aad(input.EncryptionContext));
       const body = Buffer.concat([
         cipher.update(Buffer.from(input.Plaintext, "base64")),
         cipher.final(),
       ]);
-      const blob = Buffer.concat([iv, body, cipher.getAuthTag()]);
-      return send(200, { CiphertextBlob: blob.toString("base64"), KeyId: KEY_ARN });
+      const blob = Buffer.concat([Buffer.from([index]), iv, body, cipher.getAuthTag()]);
+      return send(200, { CiphertextBlob: blob.toString("base64"), KeyId: input.KeyId });
     }
     if (action === "TrentService.Decrypt") {
       const blob = Buffer.from(input.CiphertextBlob, "base64");
+      const keyArn = KEYS[blob[0]!];
+      if (!keyArn) return fail("InvalidCiphertextException");
+      if (input.KeyId && input.KeyId !== keyArn) return fail("IncorrectKeyException");
       try {
-        const decipher = createDecipheriv("aes-256-gcm", master, blob.subarray(0, 12));
+        const decipher = createDecipheriv("aes-256-gcm", keys[blob[0]!]!, blob.subarray(1, 13));
         decipher.setAAD(aad(input.EncryptionContext));
         decipher.setAuthTag(blob.subarray(blob.length - 16));
         const plain = Buffer.concat([
-          decipher.update(blob.subarray(12, blob.length - 16)),
+          decipher.update(blob.subarray(13, blob.length - 16)),
           decipher.final(),
         ]);
-        return send(200, { Plaintext: plain.toString("base64"), KeyId: KEY_ARN });
+        return send(200, { Plaintext: plain.toString("base64"), KeyId: keyArn });
       } catch {
         return fail("InvalidCiphertextException");
       }
@@ -179,6 +186,23 @@ describe("moving space keys to a key manager", () => {
     const moved = await provider.wrap(await provider.unwrap(old, context), context);
     expect(moved.masterKeyId).toBe("aws-kms:1234abcd-12ab-34cd-56ef-1234567890ab");
     expect(Buffer.from(await provider.unwrap(moved, context))).toEqual(dataKey);
+  });
+
+  it("moves keys from a replaced KMS key to the new one", async () => {
+    const context = { spaceId: "space-a", version: 1 };
+    const dataKey = randomBytes(32);
+    const old = await aws().wrap(dataKey, context);
+    const next = new AwsKmsKeyProvider({ ...config, keyArn: NEXT_KEY_ARN }, client);
+    const moved = await next.wrap(await next.unwrap(old, context), context);
+    expect(moved.masterKeyId).toBe("aws-kms:5678efgh-56ef-78gh-90ij-5678901234ef");
+    expect(Buffer.from(await next.unwrap(moved, context))).toEqual(dataKey);
+    // A stored key naming one KMS key cannot be swapped for a wrap under another.
+    await expect(
+      next.unwrap({ ...old, masterKeyId: moved.masterKeyId }, context),
+    ).rejects.toThrow();
+    await expect(next.unwrap({ ...old, masterKeyId: "aws-kms:other" }, context)).rejects.toThrow(
+      "with a key other than aws-kms:other",
+    );
   });
 
   it("is selected by MASTER_KEY_PROVIDER, failing at startup on bad configuration", () => {

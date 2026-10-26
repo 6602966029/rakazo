@@ -8,6 +8,7 @@ export interface AwsKmsKeyProviderConfig {
   secretAccessKey: string;
 }
 
+const MASTER_KEY_PREFIX = "aws-kms:";
 const KEY_ARN = /^arn:aws[a-z-]*:kms:([a-z0-9-]+):\d{12}:key\/([A-Za-z0-9-]+)$/;
 
 /**
@@ -42,7 +43,7 @@ export class AwsKmsKeyProvider implements KeyProvider {
       throw new Error(
         "AWS_KMS_KEY_ARN must be a KMS key ARN (arn:aws:kms:<region>:<account>:key/<id>)",
       );
-    this.masterKeyId = `aws-kms:${keyId}`;
+    this.masterKeyId = `${MASTER_KEY_PREFIX}${keyId}`;
     this.client =
       client ??
       new KMSClient({
@@ -81,22 +82,30 @@ export class AwsKmsKeyProvider implements KeyProvider {
     };
   }
 
+  /**
+   * Keys wrapped by an earlier KMS key still unwrap, so `content-encryption rotate` can
+   * move them after AWS_KMS_KEY_ARN changes: KMS finds that key from the ciphertext,
+   * and the key it reports must be the one the stored key names.
+   */
   async unwrap(wrapped: WrappedDataKey, context: KeyWrapContext): Promise<Uint8Array> {
-    if (wrapped.masterKeyId !== this.masterKeyId)
+    if (!wrapped.masterKeyId.startsWith(MASTER_KEY_PREFIX))
       throw new Error(`Master key ${wrapped.masterKeyId} is not configured`);
-    const { Plaintext } = await this.client
+    const keyId = wrapped.masterKeyId.slice(MASTER_KEY_PREFIX.length);
+    const { KeyId, Plaintext } = await this.client
       .send(
         new DecryptCommand({
-          KeyId: this.config.keyArn,
+          KeyId: wrapped.masterKeyId === this.masterKeyId ? this.config.keyArn : undefined,
           CiphertextBlob: Buffer.from(wrapped.wrappedKey, "base64url"),
           EncryptionContext: encryptionContext(context),
         }),
       )
       .catch((error: unknown) => {
-        throw new Error(`Space key could not be unwrapped with master key ${this.masterKeyId}`, {
+        throw new Error(`Space key could not be unwrapped with master key ${wrapped.masterKeyId}`, {
           cause: error,
         });
       });
+    if (!KeyId?.endsWith(`:key/${keyId}`))
+      throw new Error(`AWS KMS unwrapped a space key with a key other than ${wrapped.masterKeyId}`);
     if (Plaintext?.length !== 32) throw new Error("AWS KMS returned a malformed space key");
     return Plaintext;
   }
