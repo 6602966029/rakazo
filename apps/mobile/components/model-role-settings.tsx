@@ -5,6 +5,8 @@ import type {
   ModelCredential,
   ModelRole,
   ModelRoleChoice,
+  RpcInput,
+  RpcPath,
   ModelRoleSettings as Settings,
   SettingsScope,
   ThinkingLevel,
@@ -24,6 +26,7 @@ import type { Href } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AccessibilityInfo, StyleSheet, Text, View } from "react-native";
+import type { RpcArgs } from "../lib/api";
 import { captureApiRequestContext, currentApiBase, rpc } from "../lib/api";
 import { mobileTokens } from "../lib/appearance";
 import { useI18n } from "../lib/i18n";
@@ -93,17 +96,16 @@ export function ModelRoleSettings({
   const apiBase = currentApiBase();
   const { controller, send } = useMemo(() => {
     const requestContext = captureApiRequestContext(spaceId);
-    const send = async <T,>(proc: string, input: object) =>
-      rpc<T>(proc, input, { requestContext: await requestContext });
-    const call = <T,>(proc: string, patch = {}) =>
-      send<T>(proc, { role, expectedUserId: userId, ...patch });
+    const send = async <P extends RpcPath>(proc: P, input: RpcInput<P>) =>
+      rpc(proc, ...([input, { requestContext: await requestContext }] as RpcArgs<P>));
+    const target = { role, expectedUserId: userId };
     return {
       send,
       controller: createModelRoleSettings(
         {
-          load: () => call<Settings>("models/role", { scope }),
-          catalog: () => call("models/forRole"),
-          save: (patch) => call<Settings>("models/setRole", { ...patch, scope }),
+          load: () => send("models/role", { ...target, scope }),
+          catalog: () => send("models/forRole", target),
+          save: (patch) => send("models/setRole", { ...target, ...patch, scope }),
         },
         JSON.stringify([apiBase, userId, spaceId, scope, role]),
       ),
@@ -286,10 +288,7 @@ export function ModelRoleSettings({
         return connectRoute(provider, {
           makeDefault,
           onConnected: async (connected) => {
-            const [fresh] = await Promise.all([
-              send<ModelCredential[]>("models/credentials", {}),
-              controller.load(),
-            ]);
+            const [fresh] = await Promise.all([send("models/credentials", {}), controller.load()]);
             const next = pickerRequest(slot, {
               choice: connected,
               credentials: fresh,

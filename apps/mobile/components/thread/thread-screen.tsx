@@ -64,7 +64,7 @@ import { KeyboardAvoidingView, KeyboardController } from "react-native-keyboard-
 import { useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { readableGutters } from "../../lib/adaptive-layout";
-import type { MobileMe, MobileMessage, MobileMessagePage, MobileSnapshot } from "../../lib/api";
+import type { MobileMessage, MobileSnapshot } from "../../lib/api";
 import {
   applyMobileThreadEvent,
   currentApiBase,
@@ -323,7 +323,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      void rpc<{ maxUploadSizeBytes?: number } & Partial<Pick<MobileMe, "needsModel">>>("me")
+      void rpc("me")
         .then((me) => {
           if (cancelled) return;
           setUploadConfig(me);
@@ -481,7 +481,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   });
 
   useEffect(() => {
-    void rpc<AgentSkillCatalogEntry[]>("agentSkills/list")
+    void rpc("agentSkills/list")
       .then(setAgentSkills)
       .catch(() => setAgentSkills([]));
   }, []);
@@ -548,7 +548,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
       selectionId: selectedSpaceId(),
     };
     const generation = ++refreshGeneration.current;
-    const next = await rpc<MobileSnapshot>(
+    const next = await rpc(
       "threads/get",
       targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! },
     );
@@ -604,8 +604,8 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
     const scope = await liveSavedChatsScope();
     if (!scope || !isIntegrationsScopeCurrent(scope)) return;
     const [snap, page] = await Promise.all([
-      rpc<MobileSnapshot>("threads/get", threadTarget),
-      rpc<MobileMessagePage>("threads/messages", {
+      rpc("threads/get", threadTarget),
+      rpc("threads/messages", {
         ...threadTarget,
         around: { messageId: target.messageId },
       }),
@@ -674,13 +674,10 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
     let visibleUnchanged = false;
     try {
       // Pages come back centered on the seq, so the one after the cursor overlaps what is loaded.
-      const page = await rpc<MobileMessagePage & { coveredThroughSeq?: number }>(
-        "threads/messages",
-        {
-          ...(groupId ? { groupId } : { botId: botId! }),
-          around: { seq: probe },
-        },
-      );
+      const page = await rpc("threads/messages", {
+        ...(groupId ? { groupId } : { botId: botId! }),
+        around: { seq: probe },
+      });
       if (epoch !== historyEpoch.current || pinnedAroundRef.current !== pinned || !snapRef.current)
         return;
       const visibleBefore = threadWindowMessages(
@@ -690,7 +687,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
       const reported = page.coveredThroughSeq ?? null;
       const carried =
         reported == null ? undefined : Math.max(pinned.coveredThroughSeq ?? reported, reported);
-      const next = appendNewerThreadPage(
+      const next = appendNewerThreadPage<MobileMessage, MobileSnapshot>(
         snapRef.current,
         pinned.newerCursor,
         page,
@@ -752,7 +749,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
     const epoch = historyEpoch.current;
     const pinned = pinnedAroundRef.current;
     try {
-      const page = await rpc<MobileMessagePage>("threads/messages", {
+      const page = await rpc("threads/messages", {
         ...(groupId ? { groupId } : { botId: botId! }),
         before: snap.olderCursor,
         includePeerReceipts: true,
@@ -857,13 +854,12 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
         liveCursor.current !== null
           ? null
           : messageId
-            ? await rpc<MobileSnapshot>(
-                "threads/get",
-                groupId ? { groupId } : { botId: botId! },
-              ).catch((err: unknown) => {
-                setError(errorText(err));
-                return null;
-              })
+            ? await rpc("threads/get", groupId ? { groupId } : { botId: botId! }).catch(
+                (err: unknown) => {
+                  setError(errorText(err));
+                  return null;
+                },
+              )
             : await refresh().catch((err: unknown) => {
                 setError(errorText(err));
                 return null;
@@ -1403,7 +1399,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
     const targetGroupId = groupId;
     if (!targetBotId && !targetGroupId) return false;
     try {
-      const result = await rpc<{ ok: true; runIds?: string[] }>("threads/react", {
+      const result = await rpc("threads/react", {
         ...(targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! }),
         messageId: message.id,
         reaction,

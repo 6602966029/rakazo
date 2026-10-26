@@ -1,5 +1,7 @@
+import type { RpcInput, RpcOutput, RpcPath } from "@rakazo/contracts";
 import type { DataTag, QueryFunction, QueryKey } from "@tanstack/react-query";
 import { QueryClient } from "@tanstack/react-query";
+import type { RpcArgs } from "./api";
 import { captureApiRequestContext, currentApiBase, rpc, selectedSpaceId } from "./api";
 import { t } from "./i18n";
 import { currentSessionGeneration } from "./session";
@@ -36,14 +38,15 @@ function scopeKey(spaceId?: string): string[] {
  * One rpc read in the current scope. Its answer is only cached under the scope it was sent in.
  * A `spaceId` sends it to that Space instead of the selected one.
  */
-export function rpcQuery<T>(proc: string, input?: object, spaceId?: string) {
+export function rpcQuery<P extends RpcPath>(proc: P, input?: RpcInput<P>, spaceId?: string) {
+  type T = RpcOutput<P>;
   const scope = scopeKey(spaceId);
   const queryKey = [...scope, proc, input ?? {}] as unknown as DataTag<QueryKey, T, Error>;
   const queryFn: QueryFunction<T> = async ({ signal }) => {
     if (scopeKey(spaceId).join("\n") !== scope.join("\n"))
       throw new Error(t("Something went wrong. Try again."));
     const requestContext = await captureApiRequestContext(spaceId);
-    const answer = await rpc<T>(proc, input, { signal, requestContext });
+    const answer = await rpc(proc, ...([input, { signal, requestContext }] as RpcArgs<P>));
     if (scopeKey(spaceId).join("\n") !== scope.join("\n"))
       throw new Error(t("Something went wrong. Try again."));
     return answer;

@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ModelProviders } from "../../components/model-providers";
 import type { ConnectableProvider, ModelConnectIntent } from "../../components/model-role-settings";
 import { ModelRoleSettings } from "../../components/model-role-settings";
-import type { MobileMe, MobileModel, MobileModelCredential } from "../../lib/api";
+import type { MobileModel, MobileModelCredential } from "../../lib/api";
 // Connections belong to the account, so renaming and removing them go to the selected Space.
 import { rpc } from "../../lib/api";
 import { mobileTokens } from "../../lib/appearance";
@@ -47,17 +47,14 @@ export default function Models() {
   const router = useRouter();
   const { t } = useI18n();
   const me =
-    useQuery({ ...rpcQuery<MobileMe>("me", undefined, spaceId), enabled: false }, queryClient)
-      .data ?? null;
+    useQuery({ ...rpcQuery("me", undefined, spaceId), enabled: false }, queryClient).data ?? null;
   const catalog =
-    useQuery(
-      { ...rpcQuery<MobileModel[]>("models/list", undefined, spaceId), enabled: false },
-      queryClient,
-    ).data ?? noModels;
+    useQuery({ ...rpcQuery("models/list", undefined, spaceId), enabled: false }, queryClient)
+      .data ?? noModels;
   const credentials =
     useQuery(
       {
-        ...rpcQuery<MobileModelCredential[]>("models/credentials", undefined, spaceId),
+        ...rpcQuery("models/credentials", undefined, spaceId),
         enabled: false,
       },
       queryClient,
@@ -81,17 +78,13 @@ export default function Models() {
     async (reuse = false) => {
       try {
         await Promise.all([
-          fetchFresh(queryClient, rpcQuery<MobileMe>("me", undefined, spaceId), { reuse }),
-          fetchFresh(queryClient, rpcQuery<MobileModel[]>("models/list", undefined, spaceId), {
+          fetchFresh(queryClient, rpcQuery("me", undefined, spaceId), { reuse }),
+          fetchFresh(queryClient, rpcQuery("models/list", undefined, spaceId), {
             reuse,
           }),
-          fetchFresh(
-            queryClient,
-            rpcQuery<MobileModelCredential[]>("models/credentials", undefined, spaceId),
-            {
-              reuse,
-            },
-          ),
+          fetchFresh(queryClient, rpcQuery("models/credentials", undefined, spaceId), {
+            reuse,
+          }),
         ]);
         setError(null);
       } catch (err) {

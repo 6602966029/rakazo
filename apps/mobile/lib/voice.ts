@@ -194,7 +194,7 @@ async function speakPrepared(text: string, opts: SpeechOptions, epoch: number): 
     }
     const requestContext = await captureApiRequestContext();
     if (!isCurrentSpeech(epoch)) return false;
-    const prepared = await rpc<{ ready: boolean; utterances: string[] }>(
+    const prepared = await rpc(
       "voice/prepare",
       { text, voiceId: opts.voiceId, botId: opts.botId, scope: opts.scope },
       { requestContext },

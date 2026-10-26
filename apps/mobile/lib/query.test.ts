@@ -52,7 +52,7 @@ describe("rpcQuery keys", () => {
   it("does not cache an answer under the space it was asked for after a switch", async () => {
     const answer = deferred<string>();
     scope.rpc.mockReturnValue(answer.promise);
-    const read = rpcQuery<string>("voice/status");
+    const read = rpcQuery("voice/status");
     const fetching = queryClient.fetchQuery(read);
     await vi.waitFor(() => expect(scope.rpc).toHaveBeenCalled());
     scope.spaceId = "space-b";

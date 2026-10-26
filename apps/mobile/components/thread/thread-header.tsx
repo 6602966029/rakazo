@@ -201,7 +201,7 @@ export function useThreadHeader({
     {
       text: t("Archive"),
       onPress: () =>
-        void rpc("bots/archive", { botId })
+        void rpc("bots/archive", { botId: botId ?? "" })
           .then(() => {
             removeFromSearchInbox(botId);
             notifyArchivedChatsChanged();

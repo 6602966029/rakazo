@@ -726,7 +726,7 @@ async function sendHeard(
   text: string,
   clientNonce: string,
 ): Promise<string | undefined> {
-  const sent = await rpc<{ runId?: string }>("threads/send", { botId, clientNonce, text });
+  const sent = await rpc("threads/send", { botId, clientNonce, text });
   return sent.runId;
 }
 
@@ -761,11 +761,7 @@ function watchReplies(
     while (!controller.signal.aborted) {
       try {
         if (!snapshot) {
-          snapshot = await rpc<MobileSnapshot>(
-            "threads/get",
-            { botId },
-            { signal: controller.signal },
-          );
+          snapshot = await rpc("threads/get", { botId }, { signal: controller.signal });
           lastSeen = latestSpokenCallReply(snapshot.messages, watchedCallId)?.id ?? null;
           cursor = snapshot.cursor ?? 0;
         }

@@ -1,4 +1,4 @@
-import type { SpaceBot, SpaceGroup } from "@rakazo/contracts";
+import type { RpcInput, RpcPath, SpaceBot, SpaceGroup } from "@rakazo/contracts";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
@@ -9,6 +9,7 @@ import type {
   MobileBotSection,
   MobileGroup,
   MobileSpace,
+  RpcArgs,
 } from "./api";
 import {
   captureApiRequestContext,
@@ -38,11 +39,15 @@ async function chatRequestContext(
   return { ...context, headers: { ...context.headers, "x-rakazo-space-id": spaceId } };
 }
 
-export async function chatRpc(spaceId: string | undefined, proc: string, body: unknown) {
+export async function chatRpc<P extends RpcPath>(
+  spaceId: string | undefined,
+  proc: P,
+  body: RpcInput<P>,
+) {
   const requestContext = await chatRequestContext(spaceId);
   return requestContext
-    ? rpc(proc, body, { requestContext, skipSpaceAuthRecovery: true })
-    : rpc(proc, body);
+    ? rpc(proc, ...([body, { requestContext, skipSpaceAuthRecovery: true }] as RpcArgs<P>))
+    : rpc(proc, ...([body] as RpcArgs<P>));
 }
 
 type ListUpdate<T> = Dispatch<SetStateAction<T[]>>;

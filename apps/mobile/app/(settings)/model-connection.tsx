@@ -187,9 +187,9 @@ export default function ModelConnection() {
       if (!request) throw new Error(t("Could not load model settings"));
       setError(null);
       const [nextMe, nextCatalog, nextCredentials] = await Promise.all([
-        rpc<MobileMe>("me"),
-        rpc<MobileModel[]>("models/list"),
-        rpc<MobileModelCredential[]>("models/credentials"),
+        rpc("me"),
+        rpc("models/list"),
+        rpc("models/credentials"),
       ]);
       const nextProvider = request.provider;
       const nextCredential = nextCredentials.find((entry) => entry.id === credentialIdRef.current);
@@ -303,7 +303,7 @@ export default function ModelConnection() {
       baseUrl,
       apiKey,
       request: (input) =>
-        rpc<{ models: string[] }>("models/probeOpenAiCompatible", {
+        rpc("models/probeOpenAiCompatible", {
           ...input,
           headers: modelHeadersInput(headerRows),
           credentialId: credential?.id,
@@ -406,7 +406,7 @@ export default function ModelConnection() {
     const { savingLimitOnly, activeModelId } = connect;
     setPending("connect");
     try {
-      const saved = await rpc<MobileModelCredential>("models/connect", connect.input);
+      const saved = await rpc("models/connect", connect.input);
       credentialIdRef.current = saved.id;
       setCredentialId(saved.id);
       if (!limitsOnly) setApiKey("");
@@ -425,11 +425,7 @@ export default function ModelConnection() {
   async function finishSubscriptionSignIn(loginId: string, controller: AbortController) {
     await waitForModelOAuth(loginId, controller.signal, rpc);
     if (controller.signal.aborted) return;
-    const saved = await rpc<MobileModelCredential>(
-      "models/finishOAuth",
-      { loginId },
-      { signal: controller.signal },
-    );
+    const saved = await rpc("models/finishOAuth", { loginId }, { signal: controller.signal });
     if (controller.signal.aborted) return;
     oauthLoginIdRef.current = null;
     credentialIdRef.current = saved.id;
@@ -465,7 +461,7 @@ export default function ModelConnection() {
     oauthAbortRef.current = controller;
     let waitingForCode = false;
     try {
-      const started = await rpc<ModelOAuthBegin>(
+      const started = await rpc(
         "models/beginOAuth",
         {
           provider: selected.provider,

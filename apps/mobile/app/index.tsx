@@ -54,14 +54,7 @@ import { useUnreadJumpPills } from "../components/unread-jump-overlay";
 import { fetchSpaceActivity } from "../lib/activity";
 import { loadActivityMode, saveActivityMode } from "../lib/activity-mode";
 import { readableGutters } from "../lib/adaptive-layout";
-import type {
-  MobileBot,
-  MobileBotSection,
-  MobileGroup,
-  MobileMe,
-  MobileSpace,
-  MobileSpaceNavigation,
-} from "../lib/api";
+import type { MobileBot, MobileBotSection, MobileGroup, MobileMe, MobileSpace } from "../lib/api";
 import {
   captureApiRequestContext,
   currentApiBase,
@@ -292,10 +285,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     setError(null);
     setInboxLoading(true);
     try {
-      const [navigation, nextMe] = await Promise.all([
-        rpc<MobileSpaceNavigation>("spaces/list"),
-        rpc<MobileMe>("me"),
-      ]);
+      const [navigation, nextMe] = await Promise.all([rpc("spaces/list"), rpc("me")]);
       if (
         requestId !== inboxRequestId.current ||
         generation !== currentSessionGeneration() ||
@@ -312,7 +302,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
       )
         return;
       if (nextMe.billingEnabled) {
-        void rpc<{ access: boolean; funding?: string | null }>("billing/status")
+        void rpc("billing/status")
           .then((billing) => {
             if (
               requestId === inboxRequestId.current &&
@@ -692,9 +682,9 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
     try {
       // Authoritative roster so a slow home fetch does not treat later bots as first.
       // A failed list is unknown — use the delayed path rather than assuming first.
-      const existing = await rpc<MobileBot[]>("bots/list").catch(() => null);
+      const existing = await rpc("bots/list").catch(() => null);
       const isFirstBot = existing !== null && existing.length === 0;
-      const bot = await rpc<MobileBot>("bots/create", {
+      const bot = await rpc("bots/create", {
         ...normalizeCreateBotProfile({ name: "New Bot", title: "", description: "" }),
         notifyOnFinish: true,
         computerMode: "team",
@@ -772,7 +762,7 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
         try {
           // Independent of inbox polling: only a newer organize press supersedes this request.
           const context = await captureApiRequestContext();
-          const navigation = await rpc<MobileSpaceNavigation>("spaces/list", undefined, {
+          const navigation = await rpc("spaces/list", undefined, {
             requestContext: {
               ...context,
               headers: { ...context.headers, "x-rakazo-space-id": spaceId },

@@ -104,7 +104,7 @@ export function useThreadMentionCatalog(owner: string, bots: readonly MentionBot
           const index = nextBot++;
           const bot = bots[index]!;
           try {
-            const rows = await rpc<Routine[]>("routines/list", { botId: bot.id }, options);
+            const rows = await rpc("routines/list", { botId: bot.id }, options);
             if (!isCurrent()) return;
             lists[index] = rows.map((routine) => ({ ...routine, botName: bot.name }));
           } catch {
@@ -117,11 +117,11 @@ export function useThreadMentionCatalog(owner: string, bots: readonly MentionBot
         Array.from({ length: Math.min(ROUTINE_REQUEST_CONCURRENCY, bots.length) }, loadRoutines),
       ).then(() => update({ routines: lists.flat() }));
       const connectors = Promise.all([
-        rpc<Connection[]>("connections/list", {}, options).catch(() => {
+        rpc("connections/list", {}, options).catch(() => {
           failed = true;
           return [] as Connection[];
         }),
-        rpc<ConnectionCatalogItem[]>("connections/catalog", {}, options).catch(() => {
+        rpc("connections/catalog", {}, options).catch(() => {
           failed = true;
           return [] as ConnectionCatalogItem[];
         }),

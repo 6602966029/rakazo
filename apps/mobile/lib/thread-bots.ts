@@ -35,7 +35,7 @@ export function useThreadBots({
     const generation = ++mentionBotsRefreshGeneration.current;
     const targetBotId = botId;
     try {
-      const bots = await rpc<MobileBot[]>("bots/list");
+      const bots = await rpc("bots/list");
       // Apply any successful response that is still the newest applied so far.
       // A later failed refresh must not discard an earlier success.
       if (generation < mentionBotsAppliedGeneration.current) return;
@@ -62,7 +62,7 @@ export function useThreadBots({
   }, [botId, groupId, router]);
 
   useEffect(() => {
-    void rpc<MobileGroup[]>("groups/list")
+    void rpc("groups/list")
       .then(setMentionGroups)
       .catch(() => setMentionGroups([]));
   }, [refreshMentionBots]);

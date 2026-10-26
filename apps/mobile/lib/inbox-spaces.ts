@@ -162,7 +162,7 @@ export async function removeInboxSpace(
   spaceId: string,
   refresh: () => Promise<void>,
 ): Promise<string | null> {
-  const response = await rpc<{ ok: true; activeSpaceId: string }>("spaces/remove", { spaceId });
+  const response = await rpc("spaces/remove", { spaceId });
   if (selectedSpaceId() === spaceId) {
     if (await selectSpace(response.activeSpaceId).catch(() => false)) {
       await refresh();

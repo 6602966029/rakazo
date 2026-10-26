@@ -3,7 +3,7 @@ import { useNavigation, useRouter } from "expo-router";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Alert, AppState } from "react-native";
-import type { MobileBot, MobileMe, MobileMessage, MobileSnapshot } from "./api";
+import type { MobileBot, MobileMessage, MobileSnapshot } from "./api";
 import { blockText, rpc } from "./api";
 import { nextAutoSpeakAction } from "./auto-speak";
 import { findSwitchTarget, ringOnArrival, takeRingOnArrival } from "./bot-switch";
@@ -197,7 +197,7 @@ export function useThreadVoiceCall({
     const targetBotId = botId;
     if (!targetBotId || voiceCallStarting.current) return;
     voiceCallStarting.current = true;
-    const loadVoiceStatus = () => rpc<{ ready: boolean; transcribe: boolean }>("voice/status");
+    const loadVoiceStatus = () => rpc("voice/status");
     try {
       const [plan, callerName] = await Promise.all([
         resolveVoiceCallPlan({
@@ -205,7 +205,7 @@ export function useThreadVoiceCall({
           dictationAvailable,
           loadVoiceStatus,
         }),
-        loadCallCallerName(() => rpc<MobileMe>("me")),
+        loadCallCallerName(() => rpc("me")),
       ]);
       if (activeBotId.current !== targetBotId) return;
       if (plan.kind === "settings") {

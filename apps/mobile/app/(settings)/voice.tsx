@@ -1,3 +1,4 @@
+import type { VoiceCatalogEntry, VoiceCredential, VoiceInfo, VoiceStatus } from "@rakazo/contracts";
 import {
   DEFAULT_COMPATIBLE_STT_MODEL,
   DEFAULT_COMPATIBLE_TTS_MODEL,
@@ -38,28 +39,6 @@ import { useSideInsets } from "../../lib/side-insets";
 import { errorText } from "../../lib/user-error";
 import { speakText } from "../../lib/voice";
 
-type VoiceCatalogEntry = {
-  id: string;
-  name: string;
-  description: string;
-  transcribe: boolean;
-};
-type VoiceCredential = {
-  id: string;
-  provider: string;
-  voiceId: string;
-  speechModel?: string;
-  endpoint?: string;
-  ttsModel?: string;
-  sttModel?: string;
-};
-type VoiceStatus = {
-  configured: boolean;
-  ready: boolean;
-  provider: string | null;
-  voiceId: string;
-};
-type VoiceInfo = { id: string; label: string; description?: string };
 type VoiceField = "voiceId" | "speechModel" | "baseUrl" | "ttsModel" | "sttModel";
 
 /** A Space's override is read from that Space even when another one is selected. */
@@ -69,13 +48,13 @@ const voiceReads = (target: SettingsTarget) => {
   const input = { scope: target.scope };
   const spaceId = targetSpace(target);
   return {
-    catalog: rpcQuery<VoiceCatalogEntry[]>("voice/catalog", undefined, spaceId),
-    credentials: rpcQuery<VoiceCredential[]>("voice/credentials", input, spaceId),
-    status: rpcQuery<VoiceStatus>("voice/status", input, spaceId),
+    catalog: rpcQuery("voice/catalog", undefined, spaceId),
+    credentials: rpcQuery("voice/credentials", input, spaceId),
+    status: rpcQuery("voice/status", input, spaceId),
   };
 };
 const voicesRead = (target: SettingsTarget, provider: string) =>
-  rpcQuery<VoiceInfo[]>("voice/voices", { provider, scope: target.scope }, targetSpace(target));
+  rpcQuery("voice/voices", { provider, scope: target.scope }, targetSpace(target));
 
 function pickProvider(catalog: VoiceCatalogEntry[], status: VoiceStatus, preferred?: string) {
   return (
@@ -303,7 +282,7 @@ export default function VoiceSettings() {
       const cred = credentials.find((entry) => entry.provider === nextProvider);
       if (cred?.voiceId && status?.provider !== nextProvider) {
         try {
-          const saved = await rpc<VoiceStatus>("voice/setVoice", {
+          const saved = await rpc("voice/setVoice", {
             voiceId: cred.voiceId,
             provider: nextProvider,
             scope,
@@ -395,7 +374,7 @@ export default function VoiceSettings() {
     setPending("speech");
     setError(null);
     try {
-      const saved = await rpc<VoiceCredential>("voice/setSpeechModel", {
+      const saved = await rpc("voice/setSpeechModel", {
         provider: selected.id,
         scope,
         speechModel: next,

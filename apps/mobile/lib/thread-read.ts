@@ -98,10 +98,7 @@ export function useThreadRead({
       heldUnread.current !== visit &&
       AppState.currentState === "active" &&
       navigation.isFocused()
-        ? rpc<{ unreadAfterSeq?: number | null }>(
-            "threads/markRead",
-            groupId ? { groupId } : { botId: botId! },
-          )
+        ? rpc("threads/markRead", groupId ? { groupId } : { botId: botId! })
         : Promise.resolve(null),
     )
       .then((answer) => {
