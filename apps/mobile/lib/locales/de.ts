@@ -1060,7 +1060,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "{bot} will still respond to direct mentions.":
     "{bot} antwortet weiterhin auf direkte Erwähnungen.",
   "{sender} rollup hours": "{sender}: Bündelung in Stunden",
-  "Connect Slack": "Slack verbinden",
+  "Chat with your bot from Slack.": "Chatte über Slack mit deinem Bot.",
   "Link DMs": "DMs verknüpfen",
   "One-time": "Einmalig",
   "Every hour": "Jede Stunde",

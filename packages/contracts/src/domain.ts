@@ -1048,6 +1048,7 @@ export const MessagingInstallationSummarySchema = z.object({
   provider: z.string(),
   workspaceName: z.string(),
   botId: Id,
+  botName: z.string().optional(),
 });
 export type MessagingInstallationSummary = z.infer<typeof MessagingInstallationSummarySchema>;
 export const MessagingInstallationsStatusSchema = z.object({
