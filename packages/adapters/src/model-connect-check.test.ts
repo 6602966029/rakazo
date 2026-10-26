@@ -49,6 +49,8 @@ describe("connect-time model check", () => {
     expect(fetchImpl).toHaveBeenCalledOnce();
     expect(requestBody(fetchImpl)).toMatchObject({
       model: "openai/gpt-oss-120b",
+      // Small output ceiling: providers reserve credit against it.
+      max_completion_tokens: 1024,
       tools: [expect.objectContaining({ function: expect.objectContaining({ name: "noop" }) })],
     });
   });

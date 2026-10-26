@@ -9,6 +9,12 @@ import { reliableModelStream, resolveRuntimeModel } from "./pi-runtime.js";
 /** Long enough for a cold provider to answer headers, short enough to keep Connect snappy. */
 export const MODEL_CONNECT_CHECK_TIMEOUT_MS = 15_000;
 
+/**
+ * The check stops at the first accepted response, but providers reserve credit against the
+ * requested output ceiling, so keep it small: a key funded for real runs must pass.
+ */
+const MODEL_CONNECT_CHECK_MAX_TOKENS = 1024;
+
 /** One turn shaped like an agent's: a system prompt, a user message, and a tool. */
 const CHECK_CONTEXT: Context = {
   systemPrompt: "Reply with OK.",
@@ -28,7 +34,7 @@ const BLOCKING_KINDS = new Set(["auth", "access", "model", "key", "credit", "spe
  * connect with the reason runs would show. Anything inconclusive passes.
  */
 export async function verifyModelServesAgents(
-  config: Pick<AgentRunModel, "provider" | "id" | "apiKey" | "accountId" | "gatewayId">,
+  config: Pick<AgentRunModel, "provider" | "id" | "apiKey" | "accountId" | "gatewayId" | "maxTokens">,
   options: { fetch?: typeof globalThis.fetch; signal?: AbortSignal } = {},
 ): Promise<void> {
   const { models, model, apiKey } = resolveRuntimeModel(config);
@@ -49,10 +55,11 @@ export async function verifyModelServesAgents(
         apiKey,
         signal,
         maxRetries: 0,
+        maxTokens: MODEL_CONNECT_CHECK_MAX_TOKENS,
         ...(options.fetch ? { fetch: options.fetch } : {}),
       }) ?? {},
     ),
-    undefined,
+    config.maxTokens,
   );
   // Providers emit `start` only after a successful HTTP response.
   for await (const event of stream) {
