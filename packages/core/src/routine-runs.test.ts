@@ -6,7 +6,6 @@ import {
   mergeRoutineRunPages,
   routineHistoryPage,
   routineRunAt,
-  routineRunDuration,
 } from "./routine-runs.js";
 
 const run: RoutineRun = {
@@ -50,12 +49,6 @@ describe("routine runs", () => {
   it("dates a run by its start, else by when it was queued", () => {
     expect(routineRunAt(run)).toBe(run.startedAt);
     expect(routineRunAt({ ...run, startedAt: null })).toBe(run.createdAt);
-  });
-
-  it("only times a run that started and finished", () => {
-    expect(routineRunDuration(run)).toBe("1m 22s");
-    expect(routineRunDuration({ ...run, completedAt: null })).toBeNull();
-    expect(routineRunDuration({ ...run, startedAt: null })).toBeNull();
   });
 
   it("joins pages in order and shows a run that moved pages once", () => {

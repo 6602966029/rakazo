@@ -101,7 +101,8 @@ it("shows loading, then the latest runs as rows that open their chat", async () 
     await act(async () => finish(page([run, { ...run, id: "silent", messageId: null }])));
     await view.settled(() => expect(view.rows()).toHaveLength(2));
     expect(routines.history.mock.calls[0]?.[0]).toEqual({ routineId: "routine-1", limit: 5 });
-    expect(view.container.textContent).toContain("1m 22s");
+    expect(view.container.textContent).not.toContain("1m 22s");
+    expect(view.container.textContent).not.toContain("Done");
     expect(view.container.textContent).not.toContain("View chat");
     const links = view.container.querySelectorAll("a");
     expect(links).toHaveLength(1);

@@ -1,5 +1,5 @@
 import type { RoutineRun } from "@rakazo/contracts";
-import { formatRoutineRunAt, routineRunDuration } from "@rakazo/core";
+import { formatRoutineRunAt } from "@rakazo/core";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator } from "react-native";
@@ -97,8 +97,8 @@ function RunRow({
     <SettingsRow
       accessibilityRole={onPress ? "button" : undefined}
       title={title}
-      detail={failure?.summary ?? routineRunDuration(run) ?? undefined}
-      value={activityStatusLabel(run.status)}
+      detail={failure?.summary}
+      value={run.status === "completed" ? undefined : activityStatusLabel(run.status)}
       chevron={onPress ? "right" : undefined}
       onPress={onPress}
     />

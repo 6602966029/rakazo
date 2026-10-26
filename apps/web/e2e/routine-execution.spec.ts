@@ -146,7 +146,7 @@ test("routine test-run completes and survives reload", async ({ page }, testInfo
   await page.getByRole("button", { name: /Daily verification/ }).click();
   const history = page.getByTestId("routine-run-history");
   await expect(history.getByTestId("routine-run-row")).toHaveCount(1);
-  await expect(history.getByText("Done", { exact: true })).toBeVisible();
+  await expect(history.getByText("Running", { exact: true })).toHaveCount(0);
   await expect(history.getByText("No runs yet")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "36-routine-run-history");
   await history.getByTestId("routine-run-row").getByRole("link").click();
@@ -194,9 +194,9 @@ test("an unchanged routine completes without adding a chat reply", async ({ page
   await expect(transcript.getByText("Checking for changes.", { exact: false })).toHaveCount(0);
   await page.getByRole("button", { name: "Agent computer", exact: true }).click();
   await page.getByRole("button", { name: /Quiet release check/ }).click();
-  await expect(
-    page.getByTestId("routine-run-history").getByText("Done", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByTestId("routine-run-history").getByTestId("routine-run-row")).toHaveCount(
+    1,
+  );
   await captureScreenshot(page, testInfo, "routine-unchanged-silent");
 
   // A sixth run puts the first one past the latest five.
