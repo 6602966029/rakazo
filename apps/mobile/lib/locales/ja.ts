@@ -977,6 +977,7 @@ export const JA_MESSAGES: Record<string, string> = {
   "Free plan ends": "無料プランの終了日",
   Subscribe: "登録する",
   "Use my subscription or API key": "自分のサブスクリプションまたはAPIキーを使用",
+  "Start {days}-day free trial": "{days}日間の無料トライアルを開始",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "月間クレジットは更新時に失効します。追加購入分は失効しません。",
   "Use Rakazo credits": "Rakazoクレジットを使用",

@@ -988,6 +988,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Free plan ends": "Gratis abonnement eindigt",
   Subscribe: "Abonneren",
   "Use my subscription or API key": "Mijn abonnement of API-sleutel gebruiken",
+  "Start {days}-day free trial": "Start een gratis proefperiode van {days} dagen",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Maandelijks tegoed vervalt bij verlenging. Los gekocht tegoed verloopt niet.",
   "Use Rakazo credits": "Rakazo-tegoed gebruiken",
