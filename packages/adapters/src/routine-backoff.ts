@@ -1,6 +1,7 @@
 import type { JobPublisher } from "@rakazo/adapter-kit";
-import { routineWakeupJob } from "@rakazo/adapter-kit";
-import { nextCronDateAcross, nextRoutineRunDateAcross } from "@rakazo/core";
+import { ModelAccountError, routineWakeupJob } from "@rakazo/adapter-kit";
+import type { RunErrorKind } from "@rakazo/core";
+import { nextCronDateAcross, nextRoutineRunDateAcross, normalizeRunError } from "@rakazo/core";
 import type { Prisma, PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 
@@ -22,6 +23,34 @@ type RoutineSchedule = {
   accountFailures: number;
 };
 
+/**
+ * A rejected key, a model the account may not use or no longer has, or a balance or plan that
+ * has run out.
+ */
+const ACCOUNT_REFUSAL_KINDS = new Set<RunErrorKind>([
+  "auth",
+  "access",
+  "key",
+  "credit",
+  "spending",
+  "model",
+]);
+
+/**
+ * Whether the provider refused the account in a way that stays refused until the user acts.
+ * Rate limits, timeouts, unusable output and limits that reset on a date do not count.
+ */
+export function isModelAccountRefusal(error: unknown): boolean {
+  if (!(error instanceof ModelAccountError)) return false;
+  const { kind, period, resetAt } = normalizeRunError(error.message);
+  return (
+    kind !== undefined &&
+    ACCOUNT_REFUSAL_KINDS.has(kind) &&
+    (period === undefined || period === "none") &&
+    resetAt === undefined
+  );
+}
+
 export function routineAccountBackoffMs(failures: number): number {
   return Math.min(
     ROUTINE_ACCOUNT_BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1),
@@ -30,8 +59,8 @@ export function routineAccountBackoffMs(failures: number): number {
 }
 
 /**
- * A rejected key, exhausted credits or a retired model fails every run the same way until the
- * user fixes their provider account, so a frequent routine would keep firing against it. Push
+ * A missing or refused model connection of the user's own fails every run the same way until
+ * the user fixes it, so a frequent routine would keep firing against it. Push
  * its next run out by a gap that doubles with each such failure in a row.
  */
 export async function backOffRoutineAfterAccountError(

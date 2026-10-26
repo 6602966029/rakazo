@@ -1,8 +1,10 @@
+import { ModelAccountError, ModelOutputError, TransientModelError } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   backOffRoutineAfterAccountError,
   clearRoutineBackoff,
+  isModelAccountRefusal,
   routineAccountBackoffMs,
 } from "./routine-backoff.js";
 
@@ -45,6 +47,34 @@ function fakeRoutine(overrides: Partial<Row> = {}) {
   const deps = { prisma: prisma as unknown as PrismaClient, jobs };
   return { row, deps, enqueue, lock };
 }
+
+describe("isModelAccountRefusal", () => {
+  it.each([
+    [
+      "a rejected key",
+      'OpenAI API error (401): {"error":{"message":"Incorrect API key provided"}}',
+    ],
+    [
+      "a forbidden key",
+      '403: {"error":{"message":"Invalid API key","type":"authentication_error"}}',
+    ],
+    ["payment required", '402: {"error":{"message":"Insufficient credits. Add more credits."}}'],
+    ["an exhausted balance", "Your credit balance is too low to access the API."],
+    ["a model the provider no longer serves", "404: model not found"],
+  ])("counts %s", (_label, message) => {
+    expect(isModelAccountRefusal(new ModelAccountError(message))).toBe(true);
+  });
+
+  it.each([
+    ["a rate limit", new ModelAccountError('429: {"error":{"message":"Rate limit reached"}}')],
+    ["a daily limit that resets", new ModelAccountError("Key hit its daily limit.")],
+    ["a timeout", new TransientModelError("Request timed out")],
+    ["an output limit", new ModelOutputError("The model hit its output limit")],
+    ["a plain server error", new Error("401 Unauthorized")],
+  ])("does not count %s", (_label, error) => {
+    expect(isModelAccountRefusal(error)).toBe(false);
+  });
+});
 
 describe("routineAccountBackoffMs", () => {
   it("doubles from five minutes and stops at a day", () => {
