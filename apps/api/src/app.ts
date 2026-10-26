@@ -30,6 +30,7 @@ import {
   ChatSdkMessagingSurface,
   CodexCatalogCache,
   ComposioConnector,
+  contentKeyProviderFromEnv,
   createAgentHomeStore,
   createArtifactStore,
   createBackgroundJobHandlers,
@@ -248,6 +249,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     : createDb(env.databaseUrl, {
         poolMax: parsePositiveInteger(process.env.DB_POOL_MAX, 4),
         applicationName: "rakazo-api",
+        keyProvider: contentKeyProviderFromEnv(),
         encryptContent: env.contentEncryption,
       });
   let { prisma } = created;
