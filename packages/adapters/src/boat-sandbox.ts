@@ -42,6 +42,7 @@ import { normalizeWorkspacePath, shellQuote, workspacePath } from "./computer-su
 import {
   PORTABLE_TRANSFER_BATCH_BYTES,
   SKIPPED_BROWSER_PROFILE_DIRECTORIES,
+  SKIPPED_BROWSER_PROFILE_FILES,
   shouldSkipPortableWorkspaceFile,
 } from "./computer-workspace.js";
 import { LinuxDesktop, PREPARE_LINUX_DESKTOP, VERIFY_LINUX_DESKTOP } from "./linux-desktop.js";
@@ -1610,9 +1611,9 @@ export function archiveBoatWorkspaceCommand(
   options: { limits?: WorkspaceExportLimits; workspace?: string } = {},
 ): string {
   const { limits, workspace = BOAT_WORKSPACE } = options;
-  const skipped = [...SKIPPED_BROWSER_PROFILE_DIRECTORIES]
-    .map((name) => `-name ${shellQuote(name)}`)
-    .join(" -o ");
+  const names = (set: ReadonlySet<string>) =>
+    [...set].map((name) => `-name ${shellQuote(name)}`).join(" -o ");
+  const profiles = shellQuote(`./${path.posix.relative(BOAT_WORKSPACE, BOAT_BROWSER_PROFILES)}/*`);
   const tolerated = BOAT_ARCHIVE_TOLERATED_ERRORS.map(
     (error) => `-e ${shellQuote(`${error}$`)}`,
   ).join(" ");
@@ -1626,7 +1627,8 @@ export function archiveBoatWorkspaceCommand(
     // Names start with `./`, so tar never reads one as an option.
     "(",
     boatListingWalk(
-      `. -mindepth 1 \\( -type d -path ${shellQuote(`./${path.posix.relative(BOAT_WORKSPACE, BOAT_BROWSER_PROFILES)}/*`)} \\( ${skipped} \\) -prune \\) -o -type f -fprintf "$archive.sizes" '%s\\n'`,
+      // Skipped browser state is neither counted toward the limits nor read.
+      `. -mindepth 1 \\( -type d -path ${profiles} \\( ${names(SKIPPED_BROWSER_PROFILE_DIRECTORIES)} \\) -prune \\) -o \\( -type f -path ${profiles} \\( ${names(SKIPPED_BROWSER_PROFILE_FILES)} \\) \\) -o -type f -fprintf "$archive.sizes" '%s\\n'`,
       [],
       "%p\\0",
     ),

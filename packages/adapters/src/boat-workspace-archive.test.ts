@@ -73,6 +73,9 @@ describe.skipIf(!gnuTools)("Boat workspace archive script", () => {
     await put(".browser-profiles/chrome/Default/Cache/data_0", "cache");
     await put(".browser-profiles/chrome/Default/Code Cache/js", "cache");
     await put(".browser-profiles/chrome/Default/Cookies", "cookies");
+    // Transient browser files are skipped before tar, even ones it could not read.
+    await put(".browser-profiles/chrome/DevToolsActivePort", "port", 0o000);
+    await put(".browser-profiles/chrome/BrowserMetrics-spare.pma", "metrics");
     await mkdir(path.join(home, "empty-dir"));
     await link(path.join(home, "notes.txt"), path.join(home, "hard-link.txt"));
     await symlink("/etc/passwd", path.join(home, "escape"));
@@ -126,6 +129,7 @@ describe.skipIf(!gnuTools)("Boat workspace archive script", () => {
     await put("a.txt", "0123456789");
     await put("b.txt", "0123456789");
     await put(".browser-profiles/chrome/Default/Cache/data_0", "not counted");
+    await put(".browser-profiles/chrome/SingletonLock", "not counted either");
 
     const within = { maxFiles: 2, maxBytes: 20 };
     expect(archiveScript(home, archive, { limits: within }).status).toBe(0);

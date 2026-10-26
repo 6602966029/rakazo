@@ -69,7 +69,8 @@ export const SKIPPED_BROWSER_PROFILE_DIRECTORIES: ReadonlySet<string> = new Set(
   "WidevineCdm",
   "ZxcvbnData",
 ]);
-const skippedBrowserProfileFiles = new Set([
+/** Browser profile files that are transient locks and metrics; exports skip them. */
+export const SKIPPED_BROWSER_PROFILE_FILES: ReadonlySet<string> = new Set([
   "BrowserMetrics",
   "BrowserMetrics-spare.pma",
   "DevToolsActivePort",
@@ -87,7 +88,7 @@ export function shouldSkipPortableWorkspaceFile(relative: string) {
   const name = segments.at(-1) ?? "";
   return (
     segments.some((segment) => SKIPPED_BROWSER_PROFILE_DIRECTORIES.has(segment)) ||
-    skippedBrowserProfileFiles.has(name)
+    SKIPPED_BROWSER_PROFILE_FILES.has(name)
   );
 }
 
