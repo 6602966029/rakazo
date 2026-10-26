@@ -763,6 +763,26 @@ Browsers report what the policy blocks to `/api/csp-report`. The API writes one 
 warning per violation, with the directive, the blocked origin and the page path, so search your logs
 for it to find the origins to add.
 
+### Menu links
+
+`RAKAZO_NAV_LINKS` adds items to the account menu that open a page from the same domain inside the
+web app, such as an internal tool your reverse proxy serves next to Rakazo. Set it on the API:
+
+```bash
+RAKAZO_NAV_LINKS='[{"id":"clients","label":"Clients","path":"/ext/clients/"}]'
+```
+
+Each `id` is lowercase letters, digits and dashes, and becomes `/app/x/<id>`. `path` must start with a
+single `/` and must not be under `/app`, `/api`, `/rpc`, `/novnc` or `/health`. Route it before the
+catch-all in your proxy, for example `handle /ext/* { reverse_proxy office:8080 }` in
+`Caddyfile.prod`. A malformed value stops the API from starting.
+
+Pages open sandboxed with an opaque origin, so they cannot read Rakazo's pages or act with the
+signed-in user's session; that also blocks their own cookies and storage. Add `"trusted": true` to a
+link only for a service you control: a trusted page runs with the signed-in user's access, like a
+script allowed by `RAKAZO_CSP_SCRIPT_SRC`. The page must allow framing by the app
+(`frame-ancestors 'self'`). Links appear in the web app only; the desktop and mobile apps hide them.
+
 ### Security events
 
 The API and worker append a row to `security_events` and write a `security.event` log line for:

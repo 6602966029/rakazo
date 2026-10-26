@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { Bot } from "@rakazo/contracts";
+import type { Bot, NavLink } from "@rakazo/contracts";
 import { accountDisplay } from "@rakazo/core";
 import {
   Button,
@@ -50,6 +50,7 @@ export function ShellSidebar({
   footerLogos,
   user,
   ticketBoardEnabled,
+  navLinks,
   openSettings,
   openIntegrations,
 }: {
@@ -73,6 +74,7 @@ export function ShellSidebar({
   footerLogos: Array<{ name: string; logo?: string | null }>;
   user: User | undefined;
   ticketBoardEnabled: boolean;
+  navLinks: NavLink[];
   openSettings: (section: SettingsSection) => void;
   openIntegrations: () => void;
 }) {
@@ -245,6 +247,7 @@ export function ShellSidebar({
           logos={footerLogos}
           user={user}
           ticketBoardEnabled={ticketBoardEnabled}
+          navLinks={navLinks}
           closeMobileSidebar={() => setMobileOpen(false)}
           navigate={navigate}
           openSettings={openSettings}
@@ -260,6 +263,7 @@ function ShellSidebarFooter({
   logos,
   user,
   ticketBoardEnabled,
+  navLinks,
   closeMobileSidebar,
   navigate,
   openSettings,
@@ -269,6 +273,7 @@ function ShellSidebarFooter({
   logos: Array<{ name: string; logo?: string | null }>;
   user: User | undefined;
   ticketBoardEnabled: boolean;
+  navLinks: NavLink[];
   closeMobileSidebar: () => void;
   navigate: (path: string) => void;
   openSettings: (section: SettingsSection) => void;
@@ -329,6 +334,12 @@ function ShellSidebarFooter({
               }
             : undefined
         }
+        links={navLinks}
+        onLink={(link) => {
+          setMenuOpen(false);
+          closeMobileSidebar();
+          navigate(`/app/x/${link.id}`);
+        }}
         onArtifacts={() => {
           setMenuOpen(false);
           closeMobileSidebar();

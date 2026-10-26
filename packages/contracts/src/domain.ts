@@ -18,6 +18,7 @@ import {
   parseMcpOAuthAuthorizationParams,
 } from "./mcp.js";
 import { ModelHeadersSchema } from "./model-headers.js";
+import { NavLinkSchema } from "./nav-links.js";
 import { RoutineWatchSchema, RoutineWatchStateSchema } from "./routine-watch.js";
 import { RunTriggerSchema } from "./runs.js";
 import { SettingsScopeSchema } from "./settings-scope.js";
@@ -1591,6 +1592,8 @@ export const MeSchema = z.object({
   maxUploadSizeBytes: z.number().int().positive().optional(),
   ticketBoardEnabled: z.boolean(),
   phoneCallsEnabled: z.boolean().default(false),
+  /** Operator-configured menu links. Absent from older servers. */
+  navLinks: z.array(NavLinkSchema).default([]),
   userId: Id,
   email: z.string().email(),
   name: z.string(),
