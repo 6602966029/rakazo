@@ -209,4 +209,31 @@ test("an unchanged routine completes without adding a chat reply", async ({ page
     page.getByTestId("routine-run-history").getByText("Done", { exact: true }),
   ).toBeVisible();
   await captureScreenshot(page, testInfo, "routine-unchanged-silent");
+
+  const second = await rpc<{ runId: string }>(page, "routines/testRun", {
+    routineId: routine.id,
+  });
+  await expect
+    .poll(async () => {
+      const history = await rpc<{ runs: Array<{ id: string; status: string }> }>(
+        page,
+        "routines/history",
+        { routineId: routine.id },
+      );
+      return history.runs.find((run) => run.id === second.runId)?.status;
+    })
+    .toBe("completed");
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: /Quiet release check/ }).click();
+  const history = page.getByTestId("routine-run-history");
+  await expect(history.getByTestId("routine-run-row")).toHaveCount(1);
+  await expect(history.getByRole("button", { name: "Load older runs" })).toBeVisible();
+  await captureScreenshot(page, testInfo, "routine-run-history-older-runs");
+  await history.getByRole("button", { name: "Load older runs" }).click();
+  await expect(history.getByRole("button", { name: "Run history" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await expect(history.getByTestId("routine-run-row")).toHaveCount(2);
+  await captureScreenshot(page, testInfo, "routine-run-history-expanded");
 });
