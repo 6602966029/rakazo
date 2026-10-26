@@ -1065,7 +1065,7 @@ describe("routine detail", () => {
     expect(container.textContent).toContain("summary: 504: timed out");
     expect(container.textContent).not.toContain("Load older runs");
     const rows = [...container.querySelectorAll("button")].filter((node) =>
-      node.textContent?.includes("Jan 2, 2026"),
+      node.textContent?.includes("Jan 2,"),
     );
     expect(rows).toHaveLength(3);
     rows[0]!.click();
@@ -1103,8 +1103,8 @@ describe("routine detail", () => {
     profileRpc(async () => [routine("r1", "Morning digest")], { history });
     await render(createElement(RoutineDetail));
     await act(async () => button("Load older runs").click());
-    expect(history).toHaveBeenLastCalledWith({ routineId: "r1", before: cursor });
-    expect(container.textContent?.match(/Jan 2, 2026/g)).toHaveLength(2);
+    expect(history).toHaveBeenLastCalledWith({ routineId: "r1", before: cursor, limit: 20 });
+    expect(container.textContent?.match(/Jan 2,/g)).toHaveLength(2);
     expect(container.textContent).not.toContain("Load older runs");
   });
 

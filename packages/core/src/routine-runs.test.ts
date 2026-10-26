@@ -2,7 +2,9 @@ import type { RoutineRun } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
 import {
   formatCompactDuration,
+  formatRoutineRunAt,
   mergeRoutineRunPages,
+  routineHistoryPage,
   routineRunAt,
   routineRunDuration,
 } from "./routine-runs.js";
@@ -65,5 +67,29 @@ describe("routine runs", () => {
         { runs: [older, oldest], nextCursor: null },
       ]).map((item) => item.id),
     ).toEqual(["run-1", "run-2", "run-3"]);
+  });
+});
+
+describe("formatRoutineRunAt", () => {
+  it("leaves out the year only within the current one", () => {
+    const local = { ...run, startedAt: "2026-01-02T12:00:00" };
+    expect(formatRoutineRunAt(local, "en-US", new Date("2026-06-01T00:00:00"))).toBe(
+      "Jan 2, 12:00 PM",
+    );
+    expect(formatRoutineRunAt(local, "en-US", new Date("2027-06-01T00:00:00"))).toBe(
+      "Jan 2, 2026, 12:00 PM",
+    );
+  });
+});
+
+describe("routineHistoryPage", () => {
+  it("asks for a short first page, then fuller older pages", () => {
+    const cursor = { id: "run-1", createdAt: run.createdAt };
+    expect(routineHistoryPage("routine-1", null)).toEqual({ routineId: "routine-1", limit: 5 });
+    expect(routineHistoryPage("routine-1", cursor)).toEqual({
+      routineId: "routine-1",
+      before: cursor,
+      limit: 20,
+    });
   });
 });

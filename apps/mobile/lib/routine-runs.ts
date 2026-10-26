@@ -1,5 +1,5 @@
 import type { RoutineHistory, RoutineRun, RoutineRunCursor } from "@rakazo/contracts";
-import { mergeRoutineRunPages } from "@rakazo/core";
+import { mergeRoutineRunPages, routineHistoryPage } from "@rakazo/core";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
@@ -14,10 +14,9 @@ export function useRoutineRuns(routineId: string) {
     {
       queryKey: rpcQuery("routines/history", { routineId }).queryKey,
       queryFn: (context) =>
-        rpcQuery("routines/history", {
-          routineId,
-          ...(context.pageParam ? { before: context.pageParam } : {}),
-        }).queryFn(context as never) as Promise<RoutineHistory>,
+        rpcQuery("routines/history", routineHistoryPage(routineId, context.pageParam)).queryFn(
+          context as never,
+        ) as Promise<RoutineHistory>,
       initialPageParam: null as RoutineRunCursor | null,
       getNextPageParam: (page: RoutineHistory) => page.nextCursor,
       // The screen reads on focus and on a timer below.

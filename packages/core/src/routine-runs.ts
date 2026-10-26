@@ -1,4 +1,5 @@
-import type { RoutineHistory, RoutineRun } from "@rakazo/contracts";
+import type { RoutineHistory, RoutineRun, RoutineRunCursor } from "@rakazo/contracts";
+import { ROUTINE_HISTORY_FIRST_PAGE_SIZE, ROUTINE_HISTORY_PAGE_SIZE } from "@rakazo/contracts";
 
 /**
  * Compact human duration, e.g. "850ms", "4.2s", "1m 05s".
@@ -22,6 +23,25 @@ export function formatCompactDuration(durationMs: number | null | undefined): st
 /** When a run is shown as having happened: when it started, else when it was queued. */
 export function routineRunAt(run: RoutineRun): string {
   return run.startedAt ?? run.createdAt;
+}
+
+/** When a run happened, e.g. "Oct 25, 9:00 AM"; the year only shows outside the current one. */
+export function formatRoutineRunAt(run: RoutineRun, locale: string, now = new Date()): string {
+  const at = new Date(routineRunAt(run));
+  return at.toLocaleString(locale, {
+    month: "short",
+    day: "numeric",
+    ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/** The history request for one page: a short first page, then fuller older pages. */
+export function routineHistoryPage(routineId: string, before: RoutineRunCursor | null) {
+  return before
+    ? { routineId, before, limit: ROUTINE_HISTORY_PAGE_SIZE }
+    : { routineId, limit: ROUTINE_HISTORY_FIRST_PAGE_SIZE };
 }
 
 /** How long a finished run took, or null while it has not both started and finished. */

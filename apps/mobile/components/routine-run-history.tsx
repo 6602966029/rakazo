@@ -1,5 +1,5 @@
 import type { RoutineRun } from "@rakazo/contracts";
-import { routineRunAt, routineRunDuration } from "@rakazo/core";
+import { formatRoutineRunAt, routineRunDuration } from "@rakazo/core";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator } from "react-native";
@@ -89,13 +89,7 @@ function RunRow({
 }) {
   const { locale } = useI18n();
   const failure = useRunError(error);
-  const title = new Date(routineRunAt(run)).toLocaleString(dateLocaleForUi(locale), {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const title = formatRoutineRunAt(run, dateLocaleForUi(locale));
   return (
     <SettingsRow
       accessibilityRole={onPress ? "button" : undefined}
