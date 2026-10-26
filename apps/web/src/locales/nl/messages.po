@@ -1226,6 +1226,7 @@ msgid "Choose folder"
 msgstr "Map kiezen"
 
 #: src/components/ModelCredits.tsx
+#: src/components/SubscriptionGate.tsx
 msgid "Choose how to use Rakazo"
 msgstr ""
 
@@ -5692,6 +5693,10 @@ msgstr "Teamcomputer bijwerken"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Updating…"
 msgstr "Bezig met bijwerken…"
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Upgrade"
+msgstr "Upgraden"
 
 #: src/components/ModelCredits.tsx
 msgid "Upgrade now"

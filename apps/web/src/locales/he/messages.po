@@ -1226,6 +1226,7 @@ msgid "Choose folder"
 msgstr "בחירת תיקייה"
 
 #: src/components/ModelCredits.tsx
+#: src/components/SubscriptionGate.tsx
 msgid "Choose how to use Rakazo"
 msgstr ""
 
@@ -5692,6 +5693,10 @@ msgstr "מעדכן את מחשב הצוות"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Updating…"
 msgstr "מעדכן…"
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Upgrade"
+msgstr "שדרוג"
 
 #: src/components/ModelCredits.tsx
 msgid "Upgrade now"

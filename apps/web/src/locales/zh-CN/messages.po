@@ -1226,6 +1226,7 @@ msgid "Choose folder"
 msgstr "选择文件夹"
 
 #: src/components/ModelCredits.tsx
+#: src/components/SubscriptionGate.tsx
 msgid "Choose how to use Rakazo"
 msgstr ""
 
@@ -5208,7 +5209,7 @@ msgstr "提交"
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Subscribe"
-msgstr ""
+msgstr "订阅"
 
 #. placeholder {0}: status.byokPriceCents / 100
 #: src/components/ModelCredits.tsx
@@ -5692,6 +5693,10 @@ msgstr ""
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Updating…"
 msgstr "正在更新…"
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Upgrade"
+msgstr "升级"
 
 #: src/components/ModelCredits.tsx
 msgid "Upgrade now"

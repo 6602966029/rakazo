@@ -25,7 +25,7 @@ import {
   Separator,
 } from "@rakazo/ui-web";
 import { Check } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatBillingDate } from "../lib/billing";
 import { rpc } from "../lib/rpc";
 import { useSignOut } from "../lib/sign-out";
@@ -73,7 +73,13 @@ export function CreditAmountSelect({
   );
 }
 
-export function CreditChoice({ status }: { status: BillingStatus }) {
+export function CreditChoice({
+  status,
+  dismissible = false,
+}: {
+  status: BillingStatus;
+  dismissible?: boolean;
+}) {
   const { t } = useLingui();
   const features = [
     t`Bots and browser automation`,
@@ -87,19 +93,32 @@ export function CreditChoice({ status }: { status: BillingStatus }) {
     () => window.location.assign("/sign-in"),
     () => setError(true),
   );
+  // A choice that answers after the plans were closed must not leave the app.
+  const closed = useRef(false);
+  useEffect(() => {
+    closed.current = false;
+    return () => {
+      closed.current = true;
+    };
+  }, []);
+  function go(url: string) {
+    if (!closed.current) window.location.assign(url);
+  }
   async function choose(ownKey: boolean) {
     setPending(true);
     setError(false);
     try {
-      if (ownKey) {
+      if (ownKey && status.byokFreeUntil) {
+        go((await rpc.billing.checkout()).url);
+      } else if (ownKey) {
         const { url } = await rpc.billing.selectFunding({ funding: "byok" });
-        window.location.assign(url ?? "/onboarding");
+        go(url ?? "/onboarding");
       } else {
         const { url } = await rpc.billing.purchaseCredits({
           amountCents: amount,
           monthly: true,
         });
-        window.location.assign(url);
+        go(url);
       }
     } catch {
       setError(true);
@@ -111,14 +130,16 @@ export function CreditChoice({ status }: { status: BillingStatus }) {
       data-testid="billing-paywall"
       className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center gap-8 px-6 py-12"
     >
-      <Button
-        className="fixed top-4 right-6"
-        variant="text"
-        disabled={pending || signingOut}
-        onClick={() => void logOut()}
-      >
-        <Trans>Log out</Trans>
-      </Button>
+      {dismissible ? null : (
+        <Button
+          className="fixed top-4 right-6"
+          variant="text"
+          disabled={pending || signingOut}
+          onClick={() => void logOut()}
+        >
+          <Trans>Log out</Trans>
+        </Button>
+      )}
       <h1 className="text-heading1 font-medium">
         <Trans>Choose how to use Rakazo</Trans>
       </h1>
@@ -156,7 +177,7 @@ export function CreditChoice({ status }: { status: BillingStatus }) {
               disabled={pending || !status.canManage}
               onClick={() => void choose(true)}
             >
-              <Trans>Connect my own</Trans>
+              {status.byokFreeUntil ? <Trans>Subscribe</Trans> : <Trans>Connect my own</Trans>}
             </Button>
           </CardFooter>
         </Card>

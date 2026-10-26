@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { PasskeyOffer } from "../../components/PasskeyOffer";
 import { SidebarFooter } from "../../components/SidebarFooter";
-import { useBillingStatus } from "../../components/SubscriptionGate";
+import { useBilling } from "../../components/SubscriptionGate";
 import { formatBillingDate } from "../../lib/billing";
 import type { BotsSidebarDensity } from "../../lib/bots-sidebar-density-pref";
 import type { Panel } from "../../lib/right-panel-state";
@@ -275,7 +275,7 @@ function ShellSidebarFooter({
   openIntegrations: () => void;
 }) {
   const { t, i18n } = useLingui();
-  const billing = useBillingStatus();
+  const { status: billing, showPlans } = useBilling();
   const freeUntil =
     billing?.funding === "byok" &&
     billing.byokFreeUntil &&
@@ -293,14 +293,16 @@ function ShellSidebarFooter({
   return (
     <>
       {freeUntil && !mini ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mx-2.5 justify-start text-muted-foreground"
-          onClick={() => openSettings("billing")}
-        >
-          <Trans>Free plan ends {day}</Trans>
-        </Button>
+        <div className="mx-2.5 flex items-center justify-between gap-2 ps-2.5 text-sm text-muted-foreground">
+          <span className="min-w-0 truncate">
+            <Trans>Free plan ends {day}</Trans>
+          </span>
+          {billing?.canManage ? (
+            <Button variant="outline" size="sm" onClick={showPlans}>
+              <Trans>Upgrade</Trans>
+            </Button>
+          ) : null}
+        </div>
       ) : null}
       <SidebarFooter
         mini={mini}

@@ -1227,6 +1227,7 @@ msgid "Choose folder"
 msgstr "選擇資料夾"
 
 #: src/components/ModelCredits.tsx
+#: src/components/SubscriptionGate.tsx
 msgid "Choose how to use Rakazo"
 msgstr "選擇 Rakazo 的使用方式"
 
@@ -5693,6 +5694,10 @@ msgstr "正在更新團隊電腦"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Updating…"
 msgstr "正在更新…"
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Upgrade"
+msgstr "升級"
 
 #: src/components/ModelCredits.tsx
 msgid "Upgrade now"
