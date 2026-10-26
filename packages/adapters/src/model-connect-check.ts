@@ -34,7 +34,10 @@ const BLOCKING_KINDS = new Set(["auth", "access", "model", "key", "credit", "spe
  * connect with the reason runs would show. Anything inconclusive passes.
  */
 export async function verifyModelServesAgents(
-  config: Pick<AgentRunModel, "provider" | "id" | "apiKey" | "accountId" | "gatewayId" | "maxTokens">,
+  config: Pick<
+    AgentRunModel,
+    "provider" | "id" | "apiKey" | "accountId" | "gatewayId" | "maxTokens"
+  >,
   options: { fetch?: typeof globalThis.fetch; signal?: AbortSignal } = {},
 ): Promise<void> {
   const { models, model, apiKey } = resolveRuntimeModel(config);
