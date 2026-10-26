@@ -696,8 +696,8 @@ async function hasActiveBackgroundWork(
     try {
       return (await sandbox.inspectBackgroundWork(computer, computerId, context)) !== "idle";
     } catch (error) {
-      // A gone sandbox runs nothing; the checkpoint below then stops the computer.
-      return !isSandboxGoneError(error);
+      // A gone or damaged sandbox runs nothing; the checkpoint below then stops the computer.
+      return !isSandboxGoneError(error) && !isSandboxDamagedError(error);
     }
   }
   let exitCode: number | undefined;
@@ -715,7 +715,7 @@ async function hasActiveBackgroundWork(
       if (event.type === "exit") exitCode = event.code;
     }
   } catch (error) {
-    return !isSandboxGoneError(error);
+    return !isSandboxGoneError(error) && !isSandboxDamagedError(error);
   }
   // Only the probe's explicit idle result permits suspension; unsupported or failed probes retry.
   return exitCode !== 1 || stdout.trim() !== BACKGROUND_WORK_IDLE_SENTINEL;

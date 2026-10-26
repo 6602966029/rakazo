@@ -331,7 +331,8 @@ describe("sandbox idle", () => {
   it("stops a computer whose system cannot start programs without a checkpoint", async () => {
     const sink = createTestSink();
     installLogger(createLogger({ service: "test", sinks: [sink] }));
-    const harness = idleHarness({ exportError: new SandboxDamagedError() });
+    const damaged = new SandboxDamagedError();
+    const harness = idleHarness({ probeError: damaged, exportError: damaged });
 
     await expect(sleepComputerIfIdle(harness.deps, harness.computer.id)).resolves.toBeUndefined();
 

@@ -54,6 +54,13 @@ describe("logger", () => {
     });
   });
 
+  it("serializes an error bound on a child logger", () => {
+    const sink = createTestSink();
+    const logger = createLogger({ service: "rakazo-api", sinks: [sink] });
+    logger.child({ error: new TypeError("bound failure") }).warn("child");
+    expect(sink.events[0]?.error).toMatchObject({ name: "TypeError", message: "bound failure" });
+  });
+
   it("keeps the configured service name when bindings try to overwrite it", () => {
     const sink = createTestSink();
     const logger = createLogger({ service: "rakazo-api", sinks: [sink] });
