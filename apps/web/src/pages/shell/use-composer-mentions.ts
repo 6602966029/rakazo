@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import type { Bot, Connection, ConnectionCatalogItem, Group, Routine } from "@rakazo/contracts";
-import { buildComposerMentionOptions } from "@rakazo/core";
+import { buildComposerMentionOptions, mentionConnectorsFrom } from "@rakazo/core";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { connectedAppMarks } from "../../lib/connected-apps";
@@ -91,37 +91,7 @@ export function useComposerMentions({
   }, [composerConnections.data]);
   const mentionConnectors = useMemo(() => {
     const { catalog, connections } = composerConnections.data ?? {};
-    if (bots.length === 0) return [];
-    const connected = connections?.filter((row) => row.status === "connected") ?? [];
-    const options: Array<{
-      id: string;
-      name: string;
-      authStatus: "connected" | "needs_auth";
-      connectionId?: string;
-    }> = connected.map((row) => ({
-      id: row.id,
-      name: row.displayName,
-      authStatus: "connected" as const,
-      connectionId: row.id,
-    }));
-    for (const item of catalog ?? []) {
-      if (item.connected || item.noAuth) continue;
-      if (
-        connected.some(
-          (row) =>
-            row.provider.toLowerCase() === item.slug.toLowerCase() ||
-            row.displayName.toLowerCase() === item.name.toLowerCase(),
-        )
-      ) {
-        continue;
-      }
-      options.push({
-        id: `catalog:${item.connectorId}:${item.slug}`,
-        name: item.name,
-        authStatus: "needs_auth",
-      });
-    }
-    return options;
+    return bots.length === 0 ? [] : mentionConnectorsFrom(connections ?? [], catalog ?? []);
   }, [bots.length, composerConnections.data]);
   const composerMentionTargets = useMemo(
     () =>

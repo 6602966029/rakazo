@@ -12,12 +12,12 @@ import type { ComposerMention } from "@rakazo/core";
 import {
   attachmentsForThread,
   inferAttachmentMimeType,
+  newClientId,
   resolveComposerSendPlan,
 } from "@rakazo/core";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestBrowserNotificationPermission } from "../../lib/browser-notifications";
-import { newClientId } from "../../lib/client-id";
 import { setComposerUnsavedWork } from "../../lib/composer-draft";
 import { scheduleFocusPrompt } from "../../lib/focus-prompt";
 import {

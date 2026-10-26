@@ -1,4 +1,4 @@
-import { resolvePersonaColorDef } from "@rakazo/core";
+import { memberName, resolvePersonaColorDef } from "@rakazo/core";
 import { useNavigation, useRouter } from "expo-router";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
@@ -11,7 +11,7 @@ import { setCallProviderTranscribe, startCall } from "./call-session";
 import { loadDeviceVoiceEnabled } from "./device-voice";
 import { available as dictationAvailable } from "./dictation";
 import { useI18n } from "./i18n";
-import { memberName, speakerColorFor } from "./thread-message-text";
+import { speakerColorFor } from "./thread-message-text";
 import { errorText } from "./user-error";
 import { speakQueue, speakText } from "./voice";
 import {

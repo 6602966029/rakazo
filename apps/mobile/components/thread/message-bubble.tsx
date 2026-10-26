@@ -2,7 +2,12 @@ import { ChatMarkdown, withBlockMentions } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
 import { isAttachmentAudioMimeType } from "@rakazo/contracts";
 import type { ChildBotBlock } from "@rakazo/core";
-import { formatFileSize, isApprovalAskBlock, selectedAskActionLabel } from "@rakazo/core";
+import {
+  formatFileSize,
+  isApprovalAskBlock,
+  memberName,
+  selectedAskActionLabel,
+} from "@rakazo/core";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import type { ComponentProps } from "react";
 import { memo, useState } from "react";
@@ -19,7 +24,7 @@ import { isInlineImageMimeType } from "../../lib/inline-image";
 import { messagePresentationSegments } from "../../lib/message-presentation";
 import { useResolvedAppearance } from "../../lib/native";
 import { peerChipPress } from "../../lib/peer-chip";
-import { memberName, speakerColorFor } from "../../lib/thread-message-text";
+import { speakerColorFor } from "../../lib/thread-message-text";
 import type { UserBubble } from "../../lib/user-bubble";
 import { withUserBubble } from "../../lib/user-bubble";
 import { errorText } from "../../lib/user-error";

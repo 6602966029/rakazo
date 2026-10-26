@@ -1,4 +1,6 @@
 import type { Connection, ConnectionCatalogItem, Routine } from "@rakazo/contracts";
+import type { MentionPickerConnector } from "@rakazo/core";
+import { mentionConnectorsFrom } from "@rakazo/core";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { captureApiRequestContext, currentApiBase, rpc, selectedSpaceId } from "./api";
 import { currentSessionGeneration, subscribeSessionGeneration } from "./session";
@@ -6,12 +8,7 @@ import { currentSessionGeneration, subscribeSessionGeneration } from "./session"
 type MentionBot = { id: string; name: string };
 type MentionCatalog = {
   routines: Array<Routine & { botName: string }>;
-  connectors: Array<{
-    id: string;
-    name: string;
-    authStatus: "connected" | "needs_auth";
-    connectionId?: string;
-  }>;
+  connectors: MentionPickerConnector[];
 };
 type MentionCatalogState = MentionCatalog & { scope: string; activation: symbol | null };
 
@@ -130,30 +127,7 @@ export function useThreadMentionCatalog(owner: string, bots: readonly MentionBot
         }),
       ]).then(([connections, catalog]) => {
         if (!isCurrent()) return;
-        const connected = connections.filter((row) => row.status === "connected");
-        const connectors: MentionCatalog["connectors"] = connected.map((row) => ({
-          id: row.id,
-          name: row.displayName,
-          authStatus: "connected",
-          connectionId: row.id,
-        }));
-        for (const item of catalog) {
-          if (item.connected || item.noAuth) continue;
-          if (
-            connected.some(
-              (row) =>
-                row.provider.toLowerCase() === item.slug.toLowerCase() ||
-                row.displayName.toLowerCase() === item.name.toLowerCase(),
-            )
-          )
-            continue;
-          connectors.push({
-            id: `catalog:${item.connectorId}:${item.slug}`,
-            name: item.name,
-            authStatus: "needs_auth",
-          });
-        }
-        update({ connectors });
+        update({ connectors: mentionConnectorsFrom(connections, catalog) });
       });
       await Promise.all([routines, connectors]);
       if (failed) allowRetry();

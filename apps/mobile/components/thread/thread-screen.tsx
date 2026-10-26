@@ -19,6 +19,8 @@ import {
   leaveThreadWindow,
   liveActivityLine,
   liveMessageComposing,
+  memberName,
+  newClientId,
   openThreadWindow,
   reconcileThreadScrollState,
   resolveComposerSendPlan,
@@ -120,7 +122,7 @@ import { subscribeDelivered, useThreadFeedback } from "../../lib/thread-feedback
 import { ThreadJumpAnchor } from "../../lib/thread-jump";
 import { threadKeyboardOffset } from "../../lib/thread-keyboard-offset";
 import { useThreadMentionCatalog } from "../../lib/thread-mention-catalog";
-import { memberName, previewMessageText } from "../../lib/thread-message-text";
+import { previewMessageText } from "../../lib/thread-message-text";
 import { useThreadRead } from "../../lib/thread-read";
 import type { ThreadScrollAction, ThreadScrollState } from "../../lib/thread-scroll";
 import {
@@ -153,14 +155,6 @@ import { QuoteSheet } from "./quote-sheet";
 import { ThreadComposerDock } from "./thread-composer-dock";
 import { BotActionsModal, useThreadHeader } from "./thread-header";
 import { JumpToLatestButton, LoadEarlierButton, ThreadWorkingFooter } from "./thread-list-controls";
-
-function newClientNonce(): string {
-  const webCrypto = globalThis.crypto;
-  if (webCrypto && typeof webCrypto.randomUUID === "function") {
-    return webCrypto.randomUUID();
-  }
-  return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function isActiveStatus(status: string | undefined): boolean {
   return isRunWorking(status) || isRunWaitingOnUser(status);
@@ -381,7 +375,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
         : undefined,
     [snap, threadKey],
   );
-  const feedback = useThreadFeedback(threadKey, newClientNonce, echoed);
+  const feedback = useThreadFeedback(threadKey, newClientId, echoed);
   const { error, setError } = feedback;
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [runErrorDetailsOpen, setRunErrorDetailsOpen] = useState(false);
@@ -1413,7 +1407,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
         ...(targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! }),
         messageId: message.id,
         reaction,
-        clientNonce: newClientNonce(),
+        clientNonce: newClientId(),
       });
       if (result.runIds?.length && isCurrentTarget(targetBotId, targetGroupId)) {
         // The reaction is saved; a failed refresh is caught up by live events.

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { resolvePersonaColorDef, shouldShowBotSenderName } from "@rakazo/core";
+import { memberName, resolvePersonaColorDef, shouldShowBotSenderName } from "@rakazo/core";
 import { botColors, darkTokens, fontWeight, typeScale } from "@rakazo/ui-tokens";
 import React, { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -11,7 +11,7 @@ import { withUserBubble } from "./user-bubble";
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const textSource = read("./thread-message-text.ts");
 const helpers = textSource
-  .slice(textSource.indexOf("function memberName("))
+  .slice(textSource.indexOf("function speakerColorFor("))
   .replace(/^export /gm, "");
 const source = read("../components/thread/message-bubble.tsx");
 const specialSource = read("../components/thread/special-message-card.tsx");
@@ -38,6 +38,7 @@ const scope = {
   mobileTokens: () => darkTokens,
   withUserBubble,
   useI18n: () => ({ t: (text: string) => text }),
+  memberName,
   resolvePersonaColorDef,
   messagePresentationSegments,
   blockText: () => "Hello",
