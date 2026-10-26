@@ -1,7 +1,12 @@
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
-import type { PortableFile, StreamedPortableFile } from "@rakazo/adapter-kit";
+import type {
+  PortableFile,
+  StreamedPortableFile,
+  WorkspaceExportLimits,
+} from "@rakazo/adapter-kit";
+import { WorkspaceTooLargeError } from "@rakazo/adapter-kit";
 import { normalizeWorkspacePath } from "./computer-support.js";
 
 const BLOCK = 512;
@@ -9,22 +14,39 @@ const BLOCK = 512;
 const MAX_PAX_HEADER_BYTES = 1024 * 1024;
 /** Larger files are streamed to the caller instead of held in memory. */
 const MAX_HELD_FILE_BYTES = 5 * 1024 * 1024;
+/** tar pads its end to a whole record (10 KiB by default); more after it is not padding. */
+const MAX_TRAILING_BYTES = 1024 * 1024;
+/** Header bytes allowed per file on top of its contents: its header and a long-path header. */
+const HEADER_BYTES_PER_FILE = 16 * 1024;
+
+/**
+ * The most a workspace within `limits` can decompress to, so nothing in the archive, not even
+ * entries the reader skips, can make it decompress more than the save allows.
+ */
+function decompressedBudget(limits: WorkspaceExportLimits): number {
+  return limits.maxBytes + (limits.maxFiles + 1) * HEADER_BYTES_PER_FILE + MAX_TRAILING_BYTES;
+}
 
 /**
  * Reads the regular files of a gzipped POSIX (pax or ustar) tar stream, one at a time, with their
- * executable bit; a file over 5 MiB comes as a stream to read before the next. The archive comes from a computer the user controls, so nothing in it is
- * trusted: headers must checksum, every path stays relative to the workspace, links and other
- * special entries are never followed, and an archive that ends before its end marker or whose
- * gzip stream is cut short fails instead of yielding a partial workspace.
+ * executable bit; a file over 5 MiB comes as a stream to read before the next. The archive comes
+ * from a computer the user controls, so nothing in it is trusted: headers must checksum, every
+ * path stays relative to the workspace, links and other special entries are never followed, it
+ * never decompresses past what `limits` allow, and an archive that ends before its end marker or
+ * whose gzip stream is cut short fails instead of yielding a partial workspace.
  */
 export async function* readWorkspaceArchive(
   gzipped: AsyncIterable<Uint8Array>,
+  limits?: WorkspaceExportLimits,
 ): AsyncGenerator<PortableFile | StreamedPortableFile> {
   const gunzip = createGunzip();
   const piping = pipeline(Readable.from(gzipped, { objectMode: false }), gunzip);
   // A failure also ends the gunzip stream with that error, which the reader reports.
   piping.catch(() => undefined);
-  const reader = new ByteReader(gunzip[Symbol.asyncIterator]());
+  const reader = new ByteReader(
+    gunzip[Symbol.asyncIterator](),
+    limits ? decompressedBudget(limits) : Number.POSITIVE_INFINITY,
+  );
   try {
     yield* readTar(reader);
   } finally {
@@ -38,7 +60,6 @@ async function* readTar(reader: ByteReader): AsyncGenerator<PortableFile | Strea
     const block = await reader.read(BLOCK, true);
     if (!block) throw new Error("Workspace archive ended early");
     if (block.every((byte) => byte === 0)) {
-      // Reading to the end lets gunzip check the stream's length and checksum.
       await reader.drain();
       return;
     }
@@ -206,8 +227,12 @@ class EntryBody implements AsyncIterable<Uint8Array> {
 /** Exact-length reads over a byte stream, failing when it ends mid-read. */
 class ByteReader {
   private current: Buffer = Buffer.alloc(0);
+  private total = 0;
 
-  constructor(private readonly source: AsyncIterator<Buffer>) {}
+  constructor(
+    private readonly source: AsyncIterator<Buffer>,
+    private readonly budget: number,
+  ) {}
 
   async read(size: number): Promise<Uint8Array>;
   async read(size: number, endOk: true): Promise<Uint8Array | undefined>;
@@ -252,15 +277,24 @@ class ByteReader {
     }
   }
 
+  /** Reads the rest so gunzip checks the stream's length and checksum; only padding may remain. */
   async drain(): Promise<void> {
+    let trailing = this.current.length;
     this.current = Buffer.alloc(0);
-    while (await this.fill()) this.current = Buffer.alloc(0);
+    while (await this.fill()) {
+      trailing += this.current.length;
+      if (trailing > MAX_TRAILING_BYTES)
+        throw new Error("Workspace archive has data after its end");
+      this.current = Buffer.alloc(0);
+    }
   }
 
   private async fill(): Promise<boolean> {
     while (!this.current.length) {
       const next = await this.source.next();
       if (next.done) return false;
+      this.total += next.value.length;
+      if (this.total > this.budget) throw new WorkspaceTooLargeError("bytes");
       this.current = next.value;
     }
     return true;

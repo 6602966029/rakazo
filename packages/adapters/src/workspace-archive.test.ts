@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 import type { PortableFile } from "@rakazo/adapter-kit";
+import { WorkspaceTooLargeError } from "@rakazo/adapter-kit";
 import { afterEach, describe, expect, it } from "vitest";
 import { readWorkspaceArchive } from "./workspace-archive.js";
 import type { TarEntry } from "./workspace-archive.test-support.js";
@@ -223,6 +224,30 @@ describe("readWorkspaceArchive", () => {
       ]),
     );
     expect(Buffer.from(extended[0]!.content).toString()).toBe("12345");
+  });
+
+  it("refuses data hidden after the end marker", async () => {
+    const tar = tarBytes([{ name: "./a", content: Buffer.from("a") }]);
+    const bytes = gzipSync(Buffer.concat([tar, Buffer.alloc(2 * 1024 * 1024)]));
+    await expect(read(bytes)).rejects.toThrow("data after its end");
+  });
+
+  it("never decompresses past the save limits, even for entries it skips", async () => {
+    const limits = { maxBytes: 1024, maxFiles: 1 };
+    const within = archive([{ name: "./a", content: Buffer.alloc(1024, 1) }]);
+    const files = [];
+    for await (const file of readWorkspaceArchive(chunks(within), limits)) files.push(file);
+    expect(files).toHaveLength(1);
+
+    const skipped = archive([
+      { name: "./link", type: "2", content: Buffer.alloc(4 * 1024 * 1024) },
+    ]);
+    const error = await (async () => {
+      for await (const _file of readWorkspaceArchive(chunks(skipped), limits)) {
+        // Nothing is a file.
+      }
+    })().catch((failure: unknown) => failure);
+    expect(error).toEqual(new WorkspaceTooLargeError("bytes"));
   });
 
   it("stops reading the download when the caller stops early", async () => {

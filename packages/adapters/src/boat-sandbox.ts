@@ -633,7 +633,7 @@ export class BoatSandboxProvider implements SandboxProvider {
         BOAT_ARCHIVE_TRANSFER_TIMEOUT_MS,
       );
       if (!response.body) throw new Error("Boat returned an empty workspace archive");
-      for await (const file of readWorkspaceArchive(response.body)) {
+      for await (const file of readWorkspaceArchive(response.body, limits)) {
         if (!shouldSkipPortableWorkspaceFile(file.path)) yield file;
       }
     } finally {
