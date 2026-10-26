@@ -86,6 +86,7 @@ describe("userComputerCwd", () => {
     expect(userComputerCwd(environment, "~/code")).toBe("/Users/fake/code");
     expect(userComputerCwd(environment, "code")).toBe("/Users/fake/code");
     expect(userComputerCwd(environment, "/Users/fake/code")).toBe("/Users/fake/code");
+    expect(userComputerCwd(environment, "..cache")).toBe("/Users/fake/..cache");
     expect(() => userComputerCwd(environment, "/tmp")).toThrow("inside the user's home folder");
     expect(() => userComputerCwd(environment, "../other")).toThrow("inside the user's home folder");
     expect(

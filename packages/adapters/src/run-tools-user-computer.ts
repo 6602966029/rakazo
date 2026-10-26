@@ -66,7 +66,7 @@ export function userComputerCwd(environment: HostComputerEnvironment, cwd: unkno
     : requested;
   const resolved = paths.resolve(environment.home, expanded);
   const relative = paths.relative(environment.home, resolved);
-  if (relative.startsWith("..") || paths.isAbsolute(relative))
+  if (relative === ".." || relative.startsWith(`..${paths.sep}`) || paths.isAbsolute(relative))
     throw new Error("cwd must be inside the user's home folder; cd elsewhere within the command");
   return resolved;
 }
