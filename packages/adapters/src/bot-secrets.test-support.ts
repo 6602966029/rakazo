@@ -56,7 +56,13 @@ export function fakeDatabase() {
     integrationProviderConfig: { count: vi.fn(async () => 0) },
     $queryRaw: vi.fn(async () => []),
   };
-  client.$transaction = async (fn: (tx: unknown) => Promise<unknown>) => fn(client);
+  // One transaction at a time, as the bot row lock serializes them in Postgres.
+  let queue: Promise<unknown> = Promise.resolve();
+  client.$transaction = (fn: (tx: unknown) => Promise<unknown>) => {
+    const next = queue.then(() => fn(client));
+    queue = next.catch(() => undefined);
+    return next;
+  };
   return {
     rows: () => rows,
     prisma: client as unknown as PrismaClient,

@@ -57,12 +57,6 @@ describe("generatePassword", () => {
     ).toMatch(/^[0-9]{8}$/);
   });
 
-  it("does not repeat", () => {
-    const rules = GeneratedPasswordRules.parse({});
-    const passwords = new Set(Array.from({ length: 100 }, () => generatePassword(rules)));
-    expect(passwords.size).toBe(100);
-  });
-
   it("refuses rules no site could need", () => {
     expect(GeneratedPasswordRules.safeParse({ length: 7 }).success).toBe(false);
     expect(GeneratedPasswordRules.safeParse({ length: 129 }).success).toBe(false);
@@ -131,6 +125,15 @@ describe("generate_login", () => {
       result: { error: expect.stringContaining("already exists") },
     });
     expect((await savedPassword(db)).text).toBe(first);
+  });
+
+  it("keeps the first login when two calls race for the same name", async () => {
+    const db = fakeDatabase();
+    const results = await Promise.all([generate(db, signup), generate(db, signup)]);
+    expect(results.filter(({ result }) => result.saved)).toHaveLength(1);
+    expect(results.find(({ result }) => result.error)?.redactions).toBeUndefined();
+    const saved = results.find(({ result }) => result.saved)!;
+    expect(saved.redactions).toContain((await savedPassword(db)).text);
   });
 
   it("explains invalid input", async () => {

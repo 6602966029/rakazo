@@ -31,6 +31,7 @@ function scopeFields({ userId, spaceId, botId }: BotSecretScope): BotSecretScope
 
 const metadata = { name: true, origin: true, auth: true } as const;
 
+const SECRET_ALREADY_SAVED = "A credential with this name is already saved";
 const UNUSABLE_CREDENTIAL = "Credential cannot be used with this authentication method";
 
 /** `encodeURIComponent` throws on an unpaired surrogate. */
@@ -392,6 +393,8 @@ export async function prepareBotSecret(input: {
   scope: BotSecretScope;
   destination: BotSecretDestination;
   plaintext: string;
+  /** Refuse instead of replacing a credential saved under this name, even by a concurrent call. */
+  createOnly?: boolean;
 }) {
   const { prisma, secretStore, scope, plaintext } = input;
   if (!plaintext || plaintext.length > 16_384) throw new Error("Invalid credential length");
@@ -408,6 +411,7 @@ export async function prepareBotSecret(input: {
     where: { ...scopeFields(scope), name: destination.name },
   });
   function validate(row: typeof existing, count: number) {
+    if (row && input.createOnly) throw new Error(SECRET_ALREADY_SAVED);
     if (row && !sameSecretDestination(normalizeSecretDestination(row), destination))
       throw new Error("Remove the existing credential before changing its destination");
     if (!row && count >= 100) throw new Error("Credential limit reached");
@@ -507,6 +511,7 @@ export async function generateBotLogin(input: {
       scope: input.scope,
       destination,
       plaintext: encodeLoginSecret({ username, password }),
+      createOnly: true,
     });
     return {
       result: { saved: true, ...destination },
