@@ -5211,6 +5211,11 @@ msgstr "提交"
 msgid "Subscribe"
 msgstr "訂閱"
 
+#. placeholder {0}: status.byokPriceCents / 100
+#: src/components/ModelCredits.tsx
+msgid "Subscribe for ${0} / month"
+msgstr "以每月 ${0} 訂閱"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr "需要訂閱"

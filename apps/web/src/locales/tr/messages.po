@@ -5210,6 +5210,11 @@ msgstr "Gönder"
 msgid "Subscribe"
 msgstr ""
 
+#. placeholder {0}: status.byokPriceCents / 100
+#: src/components/ModelCredits.tsx
+msgid "Subscribe for ${0} / month"
+msgstr "Aylık ${0} ile abone ol"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr ""

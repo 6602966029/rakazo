@@ -199,7 +199,9 @@ test("choose your own key or monthly credits, then add a one-time top-up", async
   await expect(
     freePlan.getByText("Using your API key. Free plan ends Jan 15, 2030.", { exact: true }),
   ).toBeVisible();
-  await expect(freePlan.getByRole("button", { name: "Subscribe", exact: true })).toBeVisible();
+  await expect(
+    freePlan.getByRole("button", { name: "Subscribe for $10 / month", exact: true }),
+  ).toBeVisible();
   await captureScreenshot(page, testInfo, "billing-free-plan-ends");
   await page.keyboard.press("Escape");
 

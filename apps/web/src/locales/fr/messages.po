@@ -5210,6 +5210,11 @@ msgstr "Soumettre"
 msgid "Subscribe"
 msgstr ""
 
+#. placeholder {0}: status.byokPriceCents / 100
+#: src/components/ModelCredits.tsx
+msgid "Subscribe for ${0} / month"
+msgstr "S’abonner pour ${0} / mois"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr ""

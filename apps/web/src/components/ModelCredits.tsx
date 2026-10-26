@@ -276,7 +276,7 @@ export function ModelCreditsSettings({
         </p>
         {status.canManage ? (
           <div className="mt-5 flex flex-wrap gap-3">
-            {freeUntil ? (
+            {freeUntil && status.byokPriceCents ? (
               <Button
                 disabled={pending}
                 onClick={() =>
@@ -286,7 +286,7 @@ export function ModelCreditsSettings({
                   })
                 }
               >
-                <Trans>Subscribe</Trans>
+                <Trans>Subscribe for ${status.byokPriceCents / 100} / month</Trans>
               </Button>
             ) : null}
             <Button

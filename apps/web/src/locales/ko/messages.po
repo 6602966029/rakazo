@@ -5210,6 +5210,11 @@ msgstr "확인"
 msgid "Subscribe"
 msgstr ""
 
+#. placeholder {0}: status.byokPriceCents / 100
+#: src/components/ModelCredits.tsx
+msgid "Subscribe for ${0} / month"
+msgstr "월 ${0}에 구독"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr ""

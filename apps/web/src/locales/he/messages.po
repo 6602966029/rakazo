@@ -5210,6 +5210,11 @@ msgstr "שליחה"
 msgid "Subscribe"
 msgstr "הרשמה למנוי"
 
+#. placeholder {0}: status.byokPriceCents / 100
+#: src/components/ModelCredits.tsx
+msgid "Subscribe for ${0} / month"
+msgstr "הרשמה במחיר ${0} לחודש"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr "נדרש מנוי"

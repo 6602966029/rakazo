@@ -5210,6 +5210,11 @@ msgstr "सबमिट करें"
 msgid "Subscribe"
 msgstr ""
 
+#. placeholder {0}: status.byokPriceCents / 100
+#: src/components/ModelCredits.tsx
+msgid "Subscribe for ${0} / month"
+msgstr "${0} / माह पर सदस्यता लें"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr ""
