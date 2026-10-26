@@ -1972,6 +1972,7 @@ msgstr "ルーティンを保存できませんでした"
 msgid "Could not save rule"
 msgstr "ルールを保存できませんでした"
 
+#: src/components/teach/SkillDraftCard.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not save skill"
 msgstr "スキルを保存できませんでした"
