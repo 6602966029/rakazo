@@ -50,7 +50,7 @@ describe("lingui catalogs", () => {
       "{provider} is rate limiting requests. Try again shortly.",
       "{summary} Resets {date}.",
       "{provider} rejected the API key. Check your connection settings.",
-      "{provider} could not find the requested model.",
+      "{provider} can't run this model.",
       "{provider} took too long to respond. Try again.",
       "{provider} is overloaded right now. Try again in a moment.",
       "{provider} couldn't be reached. Check that it's running.",

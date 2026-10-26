@@ -60,9 +60,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   Limit: "限额",
   "Provider message": "提供商消息",
   Status: "状态",
-  "Set your own key": "设置自己的密钥",
-  "Add your own key or pick another model.": "添加自己的密钥或选择其他模型。",
-  "Choose another model to keep chatting.": "选择其他模型以继续聊天。",
   "Resets {date}.": "将于 {date} 重置。",
 
   "Model provider": "模型提供商",
@@ -94,7 +91,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "{summary} Resets {date}.": "{summary} 将于{date}重置。",
   "{provider} rejected the API key. Check your connection settings.":
     "{provider}拒绝了 API 密钥。请检查连接设置。",
-  "{provider} could not find the requested model.": "{provider}找不到请求的模型。",
+  "{provider} can't run this model.": "{provider}无法运行此模型。",
   "{provider} denied access to this model.": "{provider}拒绝了对此模型的访问。",
   "The model returned an unusable response. Try again.": "模型返回了无法使用的回复。请重试。",
   "This model's context window is too small. Choose another model.":

@@ -211,8 +211,8 @@ msgstr "{name} 중지됨"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
-msgid "{provider} could not find the requested model."
-msgstr "{provider}에서 요청한 모델을 찾을 수 없습니다."
+msgid "{provider} can't run this model."
+msgstr "{provider}에서 이 모델을 실행할 수 없습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -1191,6 +1191,7 @@ msgid "Choose a bot shape, color, or upload an image"
 msgstr "봇 모양과 색을 고르거나 이미지를 업로드하세요"
 
 #: src/pages/ModelSettingsOverlay.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Choose a model"
 msgstr "모델 선택"
 
@@ -1456,6 +1457,7 @@ msgid "Connect a chat app"
 msgstr "채팅 앱 연결"
 
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Connect a model"
 msgstr "AI 모델 연결"
 
@@ -4454,6 +4456,7 @@ msgstr "API 키 교체"
 msgid "Replace its instructions"
 msgstr "지침 바꾸기"
 
+#: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "키 교체"

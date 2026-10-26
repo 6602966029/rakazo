@@ -61,9 +61,6 @@ export const RU_MESSAGES: Record<string, string> = {
   Limit: "Лимит",
   "Provider message": "Сообщение провайдера",
   Status: "Статус",
-  "Set your own key": "Добавить свой ключ",
-  "Add your own key or pick another model.": "Добавьте свой ключ или выберите другую модель.",
-  "Choose another model to keep chatting.": "Выберите другую модель, чтобы продолжить общение.",
   "Resets {date}.": "Сброс {date}.",
 
   "Model provider": "Провайдер модели",
@@ -98,7 +95,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "{summary} Resets {date}.": "{summary} Сброс: {date}.",
   "{provider} rejected the API key. Check your connection settings.":
     "{provider} отклонил API-ключ. Проверьте настройки подключения.",
-  "{provider} could not find the requested model.": "{provider} не смог найти запрошенную модель.",
+  "{provider} can't run this model.": "{provider} не может запустить эту модель.",
   "{provider} denied access to this model.": "{provider} отказал в доступе к этой модели.",
   "The model returned an unusable response. Try again.":
     "Модель вернула непригодный ответ. Попробуйте ещё раз.",

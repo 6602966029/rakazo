@@ -159,7 +159,7 @@ describe("mobile i18n", () => {
       "{provider} is rate limiting requests. Try again shortly.",
       "{summary} Resets {date}.",
       "{provider} rejected the API key. Check your connection settings.",
-      "{provider} could not find the requested model.",
+      "{provider} can't run this model.",
       "{provider} denied access to this model.",
       "The model returned an unusable response. Try again.",
       "This model's context window is too small. Choose another model.",

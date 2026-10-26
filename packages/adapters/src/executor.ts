@@ -91,6 +91,7 @@ import {
   isOneShotRoutineCrons,
   isOwnerStartedRun,
   isTerminal,
+  MISSING_MODEL_RUN_ERROR,
   messagingChannelId,
   messagingChannelPrivacyBlock,
   messagingDmSurfaceNote,
@@ -2808,7 +2809,6 @@ const BOT_DIRECTORY_LIMIT = 40;
 const ROUTINE_RETRY_DELAY_MS = 12 * 60_000;
 /** The retry is skipped when the routine's next occurrence is this close; that run covers it. */
 const ROUTINE_RETRY_NEXT_RUN_WINDOW_MS = 30 * 60_000;
-const MISSING_MODEL_MESSAGE = "Connect a model in Settings before running bots.";
 
 function runtimeFallbackModel(runtime: AgentRuntime) {
   return runtime.describe().capabilities.scripted ? { provider: "scripted", id: "scripted" } : null;
@@ -3282,7 +3282,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         provider ??= runtimeFallback?.provider;
         id ??= runtimeFallback?.id ?? null;
       }
-      if (!provider || !id) throw new Error(MISSING_MODEL_MESSAGE);
+      if (!provider || !id) throw new Error(MISSING_MODEL_RUN_ERROR);
       // The key is resolved for the provider that won above, not before it is known.
       const resolved = await resolveModelKey(
         deps,
@@ -4212,7 +4212,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           return;
         }
         if (!runModelProvider || !runModelId) {
-          await failRunBeforeModel(MISSING_MODEL_MESSAGE, true);
+          await failRunBeforeModel(MISSING_MODEL_RUN_ERROR, true);
           return;
         }
         // An incompatible saved model is a configuration error. Record it on the run.
@@ -10593,7 +10593,7 @@ async function resolveModelKey(...args: Parameters<typeof resolveModelKeyMateria
       ? process.env.OPENROUTER_API_KEY
       : undefined;
   if (!material.apiKey?.trim() && !runtimeKey?.trim() && !keyless) {
-    throw new UnavailableModelForAuthError(MISSING_MODEL_MESSAGE);
+    throw new UnavailableModelForAuthError(MISSING_MODEL_RUN_ERROR);
   }
   const callObserver =
     !credential && billingEnabled ? await hostedModelCreditObserver(deps.prisma, scope) : undefined;

@@ -54,6 +54,7 @@ export const Composer = memo(function Composer({
   attachmentNotice,
   sendError,
   onOpenModels,
+  onOpenConnections,
   runError,
   runErrorId,
   onRunErrorPresented,
@@ -85,6 +86,7 @@ export const Composer = memo(function Composer({
   attachmentNotice: string | null;
   sendError: string | null;
   onOpenModels: () => void;
+  onOpenConnections: () => void;
   runError: string | null;
   runErrorId: string | null;
   onRunErrorPresented: (runId: string) => void;
@@ -519,6 +521,7 @@ export const Composer = memo(function Composer({
         runErrorId={runErrorId}
         onRunErrorPresented={onRunErrorPresented}
         onOpenModels={onOpenModels}
+        onOpenConnections={onOpenConnections}
         onDismissError={onDismissError}
         textareaRef={textareaRef}
       />

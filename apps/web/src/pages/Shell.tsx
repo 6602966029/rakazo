@@ -3868,6 +3868,7 @@ function SpaceShell() {
                   setModelFocusRequest(Date.now());
                 } else openSettings("models");
               }}
+              onOpenConnections={() => openSettings("models")}
               runError={displayedRunError}
               runErrorId={displayedRunErrorId}
               onRunErrorPresented={handleRunErrorPresented}

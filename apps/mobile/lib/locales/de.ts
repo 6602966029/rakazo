@@ -63,10 +63,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Limit: "Limit",
   "Provider message": "Anbieternachricht",
   Status: "Status",
-  "Set your own key": "Eigenen Schlüssel hinterlegen",
-  "Add your own key or pick another model.":
-    "Füge deinen eigenen Schlüssel hinzu oder wähle ein anderes Modell.",
-  "Choose another model to keep chatting.": "Wähle ein anderes Modell, um weiterzuchatten.",
   "Resets {date}.": "Wird am {date} zurückgesetzt.",
 
   "Model provider": "Modellanbieter",
@@ -104,8 +100,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "{summary} Resets {date}.": "{summary} Zurücksetzung am {date}.",
   "{provider} rejected the API key. Check your connection settings.":
     "{provider} hat den API-Schlüssel abgelehnt. Prüfe deine Verbindungseinstellungen.",
-  "{provider} could not find the requested model.":
-    "{provider} konnte das angeforderte Modell nicht finden.",
+  "{provider} can't run this model.": "{provider} kann dieses Modell nicht ausführen.",
   "{provider} denied access to this model.":
     "{provider} hat den Zugriff auf dieses Modell verweigert.",
   "The model returned an unusable response. Try again.":

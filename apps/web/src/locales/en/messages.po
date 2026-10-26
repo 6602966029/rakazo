@@ -211,8 +211,8 @@ msgstr "{name} stopped"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
-msgid "{provider} could not find the requested model."
-msgstr "{provider} could not find the requested model."
+msgid "{provider} can't run this model."
+msgstr "{provider} can't run this model."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -1191,6 +1191,7 @@ msgid "Choose a bot shape, color, or upload an image"
 msgstr "Choose a bot shape, color, or upload an image"
 
 #: src/pages/ModelSettingsOverlay.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Choose a model"
 msgstr "Choose a model"
 
@@ -1456,6 +1457,7 @@ msgid "Connect a chat app"
 msgstr "Connect a chat app"
 
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Connect a model"
 msgstr "Connect a model"
 
@@ -4454,6 +4456,7 @@ msgstr "Replace API key"
 msgid "Replace its instructions"
 msgstr "Replace its instructions"
 
+#: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "Replace key"

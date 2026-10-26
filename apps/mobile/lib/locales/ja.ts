@@ -64,10 +64,6 @@ export const JA_MESSAGES: Record<string, string> = {
   Limit: "上限",
   "Provider message": "プロバイダーからのメッセージ",
   Status: "ステータス",
-  "Set your own key": "自分のキーを設定",
-  "Add your own key or pick another model.":
-    "自分のキーを追加するか、別のモデルを選択してください。",
-  "Choose another model to keep chatting.": "チャットを続けるには別のモデルを選択してください。",
   "Resets {date}.": "{date}にリセットされます。",
   "Model provider": "モデルプロバイダー",
   "Change model": "モデルを変更",
@@ -101,8 +97,7 @@ export const JA_MESSAGES: Record<string, string> = {
   "{summary} Resets {date}.": "{summary} {date}にリセットされます。",
   "{provider} rejected the API key. Check your connection settings.":
     "{provider}がAPIキーを拒否しました。接続設定を確認してください。",
-  "{provider} could not find the requested model.":
-    "{provider}でリクエストされたモデルが見つかりませんでした。",
+  "{provider} can't run this model.": "{provider}ではこのモデルを実行できません。",
   "{provider} took too long to respond. Try again.":
     "{provider}の応答に時間がかかりすぎました。もう一度お試しください。",
   "{provider} is overloaded right now. Try again in a moment.":

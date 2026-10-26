@@ -211,8 +211,8 @@ msgstr "{name}: остановлено"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
-msgid "{provider} could not find the requested model."
-msgstr "{provider} не смог найти запрошенную модель."
+msgid "{provider} can't run this model."
+msgstr "{provider} не может запустить эту модель."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -1191,6 +1191,7 @@ msgid "Choose a bot shape, color, or upload an image"
 msgstr "Выберите форму и цвет бота или загрузите изображение"
 
 #: src/pages/ModelSettingsOverlay.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Choose a model"
 msgstr "Выберите модель"
 
@@ -1456,6 +1457,7 @@ msgid "Connect a chat app"
 msgstr ""
 
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Connect a model"
 msgstr "Подключить модель"
 
@@ -4454,6 +4456,7 @@ msgstr "Заменить ключ API"
 msgid "Replace its instructions"
 msgstr "Заменить инструкции"
 
+#: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "Заменить ключ"

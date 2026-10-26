@@ -212,8 +212,8 @@ msgstr "{name} 已停止"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
-msgid "{provider} could not find the requested model."
-msgstr "{provider} 找不到請求的模型。"
+msgid "{provider} can't run this model."
+msgstr "{provider} 無法執行此模型。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -1192,6 +1192,7 @@ msgid "Choose a bot shape, color, or upload an image"
 msgstr "選擇機器人形狀和顏色，或上傳圖片"
 
 #: src/pages/ModelSettingsOverlay.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Choose a model"
 msgstr "選擇模型"
 
@@ -1457,6 +1458,7 @@ msgid "Connect a chat app"
 msgstr "連結聊天應用程式"
 
 #: src/pages/Onboarding.tsx
+#: src/pages/shell/composer-error.tsx
 msgid "Connect a model"
 msgstr "連線模型"
 
@@ -4455,6 +4457,7 @@ msgstr "替換 API 金鑰"
 msgid "Replace its instructions"
 msgstr "取代其指示"
 
+#: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Replace key"
 msgstr "替換金鑰"

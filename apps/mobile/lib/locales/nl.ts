@@ -61,9 +61,6 @@ export const NL_MESSAGES: Record<string, string> = {
   Limit: "Limiet",
   "Provider message": "Bericht van aanbieder",
   Status: "Status",
-  "Set your own key": "Eigen sleutel instellen",
-  "Add your own key or pick another model.": "Voeg je eigen sleutel toe of kies een ander model.",
-  "Choose another model to keep chatting.": "Kies een ander model om verder te chatten.",
   "Resets {date}.": "Wordt gereset op {date}.",
 
   "Model provider": "Modelprovider",
@@ -98,8 +95,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "{summary} Resets {date}.": "{summary} Wordt gereset op {date}.",
   "{provider} rejected the API key. Check your connection settings.":
     "{provider} heeft de API-sleutel geweigerd. Controleer je verbindingsinstellingen.",
-  "{provider} could not find the requested model.":
-    "{provider} kon het gevraagde model niet vinden.",
+  "{provider} can't run this model.": "{provider} kan dit model niet uitvoeren.",
   "{provider} denied access to this model.": "{provider} heeft toegang tot dit model geweigerd.",
   "The model returned an unusable response. Try again.":
     "Het model gaf een onbruikbaar antwoord. Probeer het opnieuw.",

@@ -36,10 +36,10 @@ export const translateRunError: RunErrorTranslator = (message, values) => {
         message: "{provider} rejected the API key. Check your connection settings.",
         values,
       });
-    case "{provider} could not find the requested model.":
+    case "{provider} can't run this model.":
       return i18n._({
-        id: "{provider} could not find the requested model.",
-        message: "{provider} could not find the requested model.",
+        id: "{provider} can't run this model.",
+        message: "{provider} can't run this model.",
         values,
       });
     case "{provider} denied access to this model.":
