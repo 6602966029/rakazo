@@ -11,9 +11,13 @@ import { contentKeyProviderFromEnv } from "./key-provider-factory.js";
 const KEY_ARN = "arn:aws:kms:eu-central-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab";
 const config = {
   keyArn: KEY_ARN,
-  region: "eu-central-1",
   accessKeyId: "fake-access-key",
   secretAccessKey: "fake-secret-key",
+};
+const kmsEnv = {
+  AWS_KMS_KEY_ARN: KEY_ARN,
+  AWS_KMS_ACCESS_KEY_ID: "fake-access-key",
+  AWS_KMS_SECRET_ACCESS_KEY: "fake-secret-key",
 };
 
 /**
@@ -75,7 +79,7 @@ let client: KMSClient;
 beforeAll(async () => {
   await new Promise<void>((resolve) => kms.server.listen(0, "127.0.0.1", resolve));
   client = new KMSClient({
-    region: config.region,
+    region: "eu-central-1",
     endpoint: `http://127.0.0.1:${(kms.server.address() as AddressInfo).port}`,
     credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
     maxAttempts: 1,
@@ -153,22 +157,13 @@ describe("AWS KMS key provider", () => {
     }
   });
 
-  it("reads its configuration from the environment", () => {
-    const env = {
-      AWS_KMS_KEY_ARN: KEY_ARN,
-      AWS_KMS_ACCESS_KEY_ID: "fake-access-key",
-      AWS_KMS_SECRET_ACCESS_KEY: "fake-secret-key",
-    };
-    expect(awsKmsConfigFromEnv(env)).toEqual(config);
-    expect(() =>
-      awsKmsConfigFromEnv({
-        ...env,
-        AWS_KMS_KEY_ARN: "arn:aws:kms:eu-central-1:111122223333:alias/rakazo",
-      }),
-    ).toThrow("AWS_KMS_KEY_ARN");
-    expect(() => awsKmsConfigFromEnv({ ...env, AWS_KMS_SECRET_ACCESS_KEY: "" })).toThrow(
+  it("reads its configuration from the environment and needs a key ARN", () => {
+    expect(awsKmsConfigFromEnv(kmsEnv)).toEqual(config);
+    expect(() => awsKmsConfigFromEnv({ ...kmsEnv, AWS_KMS_SECRET_ACCESS_KEY: "" })).toThrow(
       "AWS_KMS_SECRET_ACCESS_KEY",
     );
+    const alias = "arn:aws:kms:eu-central-1:111122223333:alias/rakazo";
+    expect(() => new AwsKmsKeyProvider({ ...config, keyArn: alias })).toThrow("AWS_KMS_KEY_ARN");
   });
 });
 
@@ -192,14 +187,15 @@ describe("moving space keys to a key manager", () => {
     expect(() => contentKeyProviderFromEnv({ MASTER_KEY_PROVIDER: "vault" })).toThrow(
       "Unsupported MASTER_KEY_PROVIDER",
     );
-    expect(() => contentKeyProviderFromEnv({ MASTER_KEY_PROVIDER: "aws-kms" })).toThrow(
-      "AWS_KMS_KEY_ARN",
-    );
+    expect(() =>
+      contentKeyProviderFromEnv({ MASTER_KEY_PROVIDER: "aws-kms", AWS_KMS_KEY_ARN: "" }),
+    ).toThrow("AWS_KMS_");
+    expect(() =>
+      contentKeyProviderFromEnv({ ...kmsEnv, MASTER_KEY_PROVIDER: "aws-kms", AWS_KMS_KEY_ARN: "" }),
+    ).toThrow("AWS_KMS_KEY_ARN");
     const provider = contentKeyProviderFromEnv({
+      ...kmsEnv,
       MASTER_KEY_PROVIDER: "aws-kms",
-      AWS_KMS_KEY_ARN: KEY_ARN,
-      AWS_KMS_ACCESS_KEY_ID: "fake-access-key",
-      AWS_KMS_SECRET_ACCESS_KEY: "fake-secret-key",
       ENCRYPTION_KEY: "fake-encryption-key-for-tests-0000000000000000000000000000",
     });
     expect(provider?.activeKeyId()).toBe("aws-kms:1234abcd-12ab-34cd-56ef-1234567890ab");
