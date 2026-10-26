@@ -233,6 +233,57 @@ export function decodeLoginSecret(plaintext: string): LoginSecretValue {
   return LoginSecretValue.parse(JSON.parse(plaintext));
 }
 
+export const GENERATED_SECRET_SYMBOLS = "!@#$%^&*-_=+?";
+
+/** Character rules for a password or other value the backend generates and saves for a bot. */
+export const GeneratedSecretRules = z
+  .object({
+    length: z.number().int().min(8).max(128).default(20),
+    lowercase: z.boolean().default(true),
+    uppercase: z.boolean().default(true),
+    digits: z.boolean().default(true),
+    symbols: z.boolean().default(true),
+    // Printable ASCII punctuation only, for sites and tools that accept just a few symbols.
+    allowedSymbols: z
+      .string()
+      .regex(/^[!-/:-@[-`{-~]{1,32}$/, "Use only punctuation characters")
+      .optional(),
+  })
+  .refine(
+    (rules) => rules.lowercase || rules.uppercase || rules.digits || rules.symbols,
+    "Allow at least one kind of character",
+  );
+export type GeneratedSecretRules = z.infer<typeof GeneratedSecretRules>;
+
+/** A login is saved for one site with its username; a command variable reaches shell commands. */
+export const GenerateSecretInput = z
+  .object({
+    name: BotSecretName,
+    type: z.enum(["login", "command"]),
+    origin: z.string().min(1).max(2048).optional(),
+    username: LoginSecretValue.shape.username.optional(),
+    rules: GeneratedSecretRules.optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (input.type === "command") {
+      if (input.origin !== undefined || input.username !== undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["type"],
+          message: "A command variable has no site or username",
+        });
+      }
+      return;
+    }
+    if (input.origin === undefined) {
+      ctx.addIssue({ code: "custom", path: ["origin"], message: "A login needs its site" });
+    }
+    if (input.username === undefined) {
+      ctx.addIssue({ code: "custom", path: ["username"], message: "A login needs a username" });
+    }
+  });
+export type GenerateSecretInput = z.infer<typeof GenerateSecretInput>;
+
 /** Written atomically with the protected value, distinct from action approval. */
 export function botSecretSubmissionSchema(options?: { allowPrivateHttpOrigin?: boolean }) {
   return z.object({ credentialSaved: botSecretDestinationSchema(options) });

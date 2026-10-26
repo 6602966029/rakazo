@@ -8,6 +8,9 @@ import {
   commandVariableName,
   commandVariableProblem,
   decodeLoginSecret,
+  encodeLoginSecret,
+  GeneratedSecretRules,
+  GenerateSecretInput,
   isPrivateNetworkHost,
   SecretHttpRequest,
 } from "@rakazo/contracts";
@@ -17,6 +20,7 @@ import { getLogger } from "@rakazo/logging";
 import { combineSignals, redactConnectorPayload } from "./connector-safety.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { createPrivateNetworkFetch, createSafeRemoteFetch } from "./remote-mcp.js";
+import { generateSecretValue } from "./secret-generator.js";
 import { persistPreparedSecret } from "./secret-persistence.js";
 import { readBodyCapped, withAbort } from "./web-ssrf.js";
 
@@ -27,6 +31,7 @@ function scopeFields({ userId, spaceId, botId }: BotSecretScope): BotSecretScope
 
 const metadata = { name: true, origin: true, auth: true } as const;
 
+const SECRET_ALREADY_SAVED = "A credential with this name is already saved";
 const UNUSABLE_CREDENTIAL = "Credential cannot be used with this authentication method";
 
 /** `encodeURIComponent` throws on an unpaired surrogate. */
@@ -388,6 +393,8 @@ export async function prepareBotSecret(input: {
   scope: BotSecretScope;
   destination: BotSecretDestination;
   plaintext: string;
+  /** Refuse instead of replacing a credential saved under this name, even by a concurrent call. */
+  createOnly?: boolean;
 }) {
   const { prisma, secretStore, scope, plaintext } = input;
   if (!plaintext || plaintext.length > 16_384) throw new Error("Invalid credential length");
@@ -404,6 +411,7 @@ export async function prepareBotSecret(input: {
     where: { ...scopeFields(scope), name: destination.name },
   });
   function validate(row: typeof existing, count: number) {
+    if (row && input.createOnly) throw new Error(SECRET_ALREADY_SAVED);
     if (row && !sameSecretDestination(normalizeSecretDestination(row), destination))
       throw new Error("Remove the existing credential before changing its destination");
     if (!row && count >= 100) throw new Error("Credential limit reached");
@@ -458,6 +466,64 @@ export async function storeBotSecret(input: Parameters<typeof prepareBotSecret>[
       }),
     );
   });
+}
+
+/**
+ * Generate a random value and save it as a new login (with its username, for one site) or a
+ * command variable. Only its redaction forms are returned, for the run to hide; the model sees
+ * the saved name, never the value. An existing credential is never overwritten: a site or
+ * service may already use its value.
+ */
+export async function generateBotSecret(input: {
+  prisma: PrismaClient;
+  secretStore: SecretStore;
+  scope: BotSecretScope;
+  args: unknown;
+}): Promise<{ result: Record<string, unknown>; redactions?: string[] }> {
+  const parsed = GenerateSecretInput.safeParse(input.args);
+  if (!parsed.success) {
+    const detail = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "input"}: ${issue.message}`)
+      .join("; ");
+    return { result: { error: `Invalid secret — ${detail}` } };
+  }
+  const { name, type, origin, username } = parsed.data;
+  // The same normalization as request_secret, so a sign-up page URL saves its origin.
+  const { destination, error } = resolveRequestSecretDestination({
+    credential: { name, origin, auth: { type } },
+  });
+  if (!destination) return { result: { error } };
+  const existing = await findBotSecret(input.prisma, input.scope, name);
+  if (existing) {
+    return {
+      result: sameSecretDestination(existing, destination)
+        ? {
+            error:
+              type === "login"
+                ? "A login with this name is already saved for this site; fill it with browser_act fill_secret. Use another name for a different account."
+                : "A command variable with this name is already saved; use it as it is, or use another name.",
+            ...botSecretToolView(existing),
+          }
+        : { error: "A credential with this name already exists. Use another name." },
+    };
+  }
+  const value = generateSecretValue(parsed.data.rules ?? GeneratedSecretRules.parse({}));
+  try {
+    await storeBotSecret({
+      prisma: input.prisma,
+      secretStore: input.secretStore,
+      scope: input.scope,
+      destination,
+      plaintext: username ? encodeLoginSecret({ username, password: value }) : value,
+      createOnly: true,
+    });
+    return {
+      result: { saved: true, ...botSecretToolView(destination) },
+      redactions: passwordRedactionForms(value),
+    };
+  } catch (error) {
+    return { result: { error: error instanceof Error ? error.message : "Secret was not saved." } };
+  }
 }
 
 export async function listBotSecrets(prisma: PrismaClient, scope: BotSecretScope) {
