@@ -18,11 +18,10 @@ import {
 } from "@rakazo/contracts";
 import { Agent } from "undici";
 import { combineSignals } from "./connector-safety.js";
+import type { ResolvedAddress, ResolveHostname } from "./network-address.js";
 import {
   createAddressCheckedLookup,
   egressRefused,
-  type ResolvedAddress,
-  type ResolveHostname,
   withPinnedDnsLookup,
 } from "./network-address.js";
 import { dispatcherFetch, fetchPairedWithDispatcher } from "./undici-fetch.js";

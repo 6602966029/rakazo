@@ -8,12 +8,8 @@ import {
 } from "@rakazo/contracts";
 import { readBoundedResponseBytes } from "@rakazo/core";
 import { Agent } from "undici";
-import {
-  createAddressCheckedLookup,
-  egressRefused,
-  type ResolvedAddress,
-  type ResolveHostname,
-} from "./network-address.js";
+import type { ResolvedAddress, ResolveHostname } from "./network-address.js";
+import { createAddressCheckedLookup, egressRefused } from "./network-address.js";
 import { fetchPairedWithDispatcher } from "./undici-fetch.js";
 
 const DEFAULT_TIMEOUT_MS = 15_000;

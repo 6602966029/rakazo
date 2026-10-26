@@ -1,12 +1,7 @@
 import { lookup } from "node:dns/promises";
 import type { LookupFunction } from "node:net";
-import {
-  createProvider,
-  type Model,
-  type MutableModels,
-  type Provider,
-  type ProviderStreams,
-} from "@earendil-works/pi-ai";
+import type { Model, MutableModels, Provider, ProviderStreams } from "@earendil-works/pi-ai";
+import { createProvider } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import {
   DEFAULT_MODEL_CONTEXT_WINDOW,
@@ -20,7 +15,8 @@ import {
 } from "@rakazo/contracts";
 import { Agent } from "undici";
 import { declaredVisionModelIds, inputModalities } from "./model-modalities.js";
-import { createAddressCheckedLookup, type ResolveHostname } from "./network-address.js";
+import type { ResolveHostname } from "./network-address.js";
+import { createAddressCheckedLookup } from "./network-address.js";
 import type { OpenAiCompatibleUrlPolicy } from "./openai-compatible-url.js";
 import {
   assertAllowedOpenAiCompatibleRequestUrl,
