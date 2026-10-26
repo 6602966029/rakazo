@@ -165,13 +165,21 @@ export function extractRoutineSkillMentions(prompt: string, knownNames?: string[
       .map((name) => name.trim())
       .filter(Boolean)
       .sort((a, b) => b.length - a.length);
+    if (sorted.length === 0) return [];
+    // Match each mention once so a longer name does not also select its prefix.
+    // Each capture identifies its catalog name without changing regex case matching.
+    const alternatives = sorted.map((name) => `(${escapeRegExp(name)})`).join("|");
+    const re = new RegExp(`(?:^|[\\s(,])@(?:${alternatives})(?=[\\s,.)]|$)`, "gi");
+    const mentionedIndices = new Set(
+      [...prompt.matchAll(re)].map((match) =>
+        match.slice(1).findIndex((capture) => capture !== undefined),
+      ),
+    );
     const found: string[] = [];
     const seen = new Set<string>();
-    for (const name of sorted) {
-      const re = new RegExp(`(?:^|[\\s(,])@${escapeRegExp(name)}(?=[\\s,.)]|$)`, "gi");
-      if (!re.test(prompt)) continue;
+    for (const [index, name] of sorted.entries()) {
       const key = name.toLowerCase();
-      if (seen.has(key)) continue;
+      if (!mentionedIndices.has(index) || seen.has(key)) continue;
       seen.add(key);
       found.push(name);
     }
