@@ -1,11 +1,12 @@
 import type { Bot, Me, Space, SpaceMemoryConfig, UsageSummary } from "@rakazo/contracts";
+import { writeSaved } from "@rakazo/core/query";
 import { useQuery } from "@tanstack/react-query";
 import type { RefObject } from "react";
 import { useCallback } from "react";
 import { lazyOverlay } from "../../components/ErrorBoundary";
 import type { connectedAppMarks } from "../../lib/connected-apps";
 import type { SpaceQueries } from "../../lib/query";
-import { queryClient, writeSaved } from "../../lib/query";
+import { queryClient } from "../../lib/query";
 import type { createSpaceRpc } from "../../lib/rpc";
 import type { ShellOverlay } from "../shell-overlay";
 import { FALLBACK_BOT_COLOR } from "./chat-shared";

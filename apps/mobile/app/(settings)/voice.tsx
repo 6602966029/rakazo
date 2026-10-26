@@ -3,6 +3,7 @@ import {
   DEFAULT_COMPATIBLE_TTS_MODEL,
   OPENAI_COMPATIBLE_PROVIDER_ID,
 } from "@rakazo/contracts";
+import { fetchFresh, writeSaved } from "@rakazo/core/query";
 import { isCancelledError } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -30,7 +31,7 @@ import {
 import { loadDeviceVoiceEnabled, saveDeviceVoiceEnabled } from "../../lib/device-voice";
 import { useI18n } from "../../lib/i18n";
 import { native, useThemedStyles } from "../../lib/native";
-import { fetchFresh, queryClient, rpcQuery, writeSaved } from "../../lib/query";
+import { queryClient, rpcQuery } from "../../lib/query";
 import type { SettingsTarget } from "../../lib/settings-target";
 import { settingsRpc, settingsTarget } from "../../lib/settings-target";
 import { useSideInsets } from "../../lib/side-insets";
@@ -154,9 +155,9 @@ export default function VoiceSettings() {
       const reads = voiceReads(target);
       const reuse = { reuse: opening };
       const [nextCatalog, nextCredentials, nextStatus] = await Promise.all([
-        fetchFresh(reads.catalog, reuse),
-        fetchFresh(reads.credentials, reuse),
-        fetchFresh(reads.status, reuse),
+        fetchFresh(queryClient, reads.catalog, reuse),
+        fetchFresh(queryClient, reads.credentials, reuse),
+        fetchFresh(queryClient, reads.status, reuse),
       ]);
       if (revision !== loadRevision.current) return;
       const selected = pickProvider(nextCatalog, nextStatus, nextProvider);
@@ -174,7 +175,7 @@ export default function VoiceSettings() {
       ];
       for (const [field, set, value] of fields) if (!edited.current.has(field)) set(value ?? "");
       if (cred) {
-        const nextVoices = await fetchFresh(voicesRead(target, selected), reuse);
+        const nextVoices = await fetchFresh(queryClient, voicesRead(target, selected), reuse);
         if (revision === loadRevision.current) setVoices(nextVoices);
       } else {
         setVoices([]);
@@ -308,7 +309,7 @@ export default function VoiceSettings() {
             scope,
           });
           setStatus(saved);
-          await writeSaved(voiceReads(target).status.queryKey, () => saved);
+          await writeSaved(queryClient, voiceReads(target).status.queryKey, () => saved);
         } catch (err) {
           setProvider(previousProvider);
           if (wasDeviceVoice && !(await saveDeviceVoice(true))) return;
@@ -406,7 +407,7 @@ export default function VoiceSettings() {
       edited.current.delete("speechModel");
       setSpeechModel(saved.speechModel ?? "");
       setCredentials(merge);
-      await writeSaved(voiceReads(target).credentials.queryKey, merge);
+      await writeSaved(queryClient, voiceReads(target).credentials.queryKey, merge);
       void load(selected.id, true).catch(() => undefined);
     } catch (err) {
       setError(errorText(err, t("Could not save that speech model")));

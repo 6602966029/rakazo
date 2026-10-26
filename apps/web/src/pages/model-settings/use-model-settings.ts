@@ -30,6 +30,7 @@ import {
   popularModelProvidersFirst,
   savedCompatibleModelIds,
 } from "@rakazo/core";
+import { fetchFresh } from "@rakazo/core/query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useCopyText } from "../../lib/copy-text";
@@ -43,7 +44,7 @@ import {
   runModelConnectionPreflight,
   unavailableSelectedModel,
 } from "../../lib/model-connection-preflight";
-import { fetchFresh, useSpaceQueries } from "../../lib/query";
+import { useSpaceQueries } from "../../lib/query";
 import { useSpaceRpc } from "../../lib/space-rpc";
 import { useModelOAuthSignIn } from "../../lib/use-model-oauth-signin";
 import { errorText } from "../../lib/user-error";

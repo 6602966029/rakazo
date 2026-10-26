@@ -7,11 +7,12 @@ import type {
   ThreadSnapshot,
 } from "@rakazo/contracts";
 import { anySignal, isRunTerminalEvent, runThreadSubscription } from "@rakazo/core";
+import { fetchFresh } from "@rakazo/core/query";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { markOnce } from "../../lib/performance";
 import type { SpaceQueries } from "../../lib/query";
-import { fetchFresh, queryClient } from "../../lib/query";
+import { queryClient } from "../../lib/query";
 import type { createSpaceRpc } from "../../lib/rpc";
 import {
   isComputerStatusEvent,

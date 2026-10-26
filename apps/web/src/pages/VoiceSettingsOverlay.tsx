@@ -11,6 +11,7 @@ import {
   DEFAULT_COMPATIBLE_TTS_MODEL,
   OPENAI_COMPATIBLE_PROVIDER_ID,
 } from "@rakazo/contracts";
+import { fetchFresh } from "@rakazo/core/query";
 import {
   Button,
   Dialog,
@@ -28,7 +29,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { importChunk } from "../lib/preload-recovery";
-import { fetchFresh, useSpaceQueries } from "../lib/query";
+import { useSpaceQueries } from "../lib/query";
 import { useBoundSpaceId, useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
 

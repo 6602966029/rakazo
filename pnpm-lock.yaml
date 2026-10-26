@@ -864,6 +864,9 @@ importers:
       '@rakazo/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@tanstack/query-core':
+        specifier: 5.104.5
+        version: 5.104.5
       croner:
         specifier: 10.0.1
         version: 10.0.1
