@@ -32,6 +32,8 @@ describe("toolRequiresApproval", () => {
     expect(toolRequiresApproval("forget_secret", false)).toBe(true);
     expect(toolRequiresApproval("forget_memory", false)).toBe(true);
     expect(toolRequiresApproval("list_secrets", false)).toBe(false);
+    // A random password saved for one site exposes nothing, and never replaces a saved login.
+    expect(toolRequiresApproval("generate_login", false)).toBe(false);
     expect(toolRequiresApproval("delete_bot", false)).toBe(true);
     expect(toolRequiresApproval("archive_bot", false)).toBe(true);
     expect(toolRequiresApproval("cloud_agent_launch", false)).toBe(true);

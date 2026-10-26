@@ -5,6 +5,7 @@ import {
   BotSecretName,
   botSecretDestinationSchema,
   FLEET_TOOL_NAMES,
+  GenerateLoginInput,
   SecretAskPurpose,
   SecretHttpRequest,
   TICKET_COMMENT_MAX_LENGTH,
@@ -513,6 +514,12 @@ export const builtinAgentTools: ConnectorTool[] = [
     get inputSchema() {
       return secretAskToolSurface().inputSchema;
     },
+  },
+  {
+    name: "generate_login",
+    description:
+      "Create a random password for a new account on a website and save it with the username as a login for this bot and user. Use it when signing up, then type both into the signup form with browser_act fill_secret; you never see the password. Set password rules only when the site requires them. An existing login is never replaced.",
+    inputSchema: z.toJSONSchema(GenerateLoginInput, { io: "input" }),
   },
   {
     name: "list_secrets",

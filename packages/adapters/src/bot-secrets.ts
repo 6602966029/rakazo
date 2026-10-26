@@ -8,6 +8,9 @@ import {
   commandVariableName,
   commandVariableProblem,
   decodeLoginSecret,
+  encodeLoginSecret,
+  GeneratedPasswordRules,
+  GenerateLoginInput,
   isPrivateNetworkHost,
   SecretHttpRequest,
 } from "@rakazo/contracts";
@@ -15,6 +18,7 @@ import type { Prisma, PrismaClient } from "@rakazo/db";
 import { withTransactionRetry } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { combineSignals, redactConnectorPayload } from "./connector-safety.js";
+import { generatePassword } from "./password-generator.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { createPrivateNetworkFetch, createSafeRemoteFetch } from "./remote-mcp.js";
 import { persistPreparedSecret } from "./secret-persistence.js";
@@ -458,6 +462,59 @@ export async function storeBotSecret(input: Parameters<typeof prepareBotSecret>[
       }),
     );
   });
+}
+
+/**
+ * Generate a password for a new website account and save it with the username as a login. Only
+ * its redaction forms are returned, for the run to hide; the model sees the saved name, never the
+ * value. An existing login is never overwritten: the site may already use its password.
+ */
+export async function generateBotLogin(input: {
+  prisma: PrismaClient;
+  secretStore: SecretStore;
+  scope: BotSecretScope;
+  args: unknown;
+}): Promise<{ result: Record<string, unknown>; redactions?: string[] }> {
+  const parsed = GenerateLoginInput.safeParse(input.args);
+  if (!parsed.success) {
+    const detail = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "input"}: ${issue.message}`)
+      .join("; ");
+    return { result: { error: `Invalid login — ${detail}` } };
+  }
+  const { name, origin, username } = parsed.data;
+  // The same normalization as request_secret, so a sign-up page URL saves its origin.
+  const { destination, error } = resolveRequestSecretDestination({
+    credential: { name, origin, auth: { type: "login" } },
+  });
+  if (!destination) return { result: { error } };
+  const existing = await findBotSecret(input.prisma, input.scope, name);
+  if (existing) {
+    return {
+      result: sameSecretDestination(existing, destination)
+        ? {
+            error:
+              "A login with this name is already saved for this site; fill it with browser_act fill_secret. Use another name for a different account.",
+          }
+        : { error: "A credential with this name already exists. Use another name." },
+    };
+  }
+  const password = generatePassword(parsed.data.password ?? GeneratedPasswordRules.parse({}));
+  try {
+    await storeBotSecret({
+      prisma: input.prisma,
+      secretStore: input.secretStore,
+      scope: input.scope,
+      destination,
+      plaintext: encodeLoginSecret({ username, password }),
+    });
+    return {
+      result: { saved: true, ...destination },
+      redactions: passwordRedactionForms(password),
+    };
+  } catch (error) {
+    return { result: { error: error instanceof Error ? error.message : "Login was not saved." } };
+  }
 }
 
 export async function listBotSecrets(prisma: PrismaClient, scope: BotSecretScope) {

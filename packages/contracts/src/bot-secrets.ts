@@ -233,6 +233,36 @@ export function decodeLoginSecret(plaintext: string): LoginSecretValue {
   return LoginSecretValue.parse(JSON.parse(plaintext));
 }
 
+export const DEFAULT_PASSWORD_SYMBOLS = "!@#$%^&*-_=+?";
+
+/** Character rules for a password the backend generates for a new website account. */
+export const GeneratedPasswordRules = z
+  .object({
+    length: z.number().int().min(8).max(128).default(20),
+    lowercase: z.boolean().default(true),
+    uppercase: z.boolean().default(true),
+    digits: z.boolean().default(true),
+    symbols: z.boolean().default(true),
+    // Printable ASCII punctuation only, for sites that accept just a few symbols.
+    allowedSymbols: z
+      .string()
+      .regex(/^[!-/:-@[-`{-~]{1,32}$/, "Use only punctuation characters")
+      .optional(),
+  })
+  .refine(
+    (rules) => rules.lowercase || rules.uppercase || rules.digits || rules.symbols,
+    "Allow at least one kind of character",
+  );
+export type GeneratedPasswordRules = z.infer<typeof GeneratedPasswordRules>;
+
+export const GenerateLoginInput = z.object({
+  name: BotSecretName,
+  origin: z.string().min(1).max(2048),
+  username: LoginSecretValue.shape.username,
+  password: GeneratedPasswordRules.optional(),
+});
+export type GenerateLoginInput = z.infer<typeof GenerateLoginInput>;
+
 /** Written atomically with the protected value, distinct from action approval. */
 export function botSecretSubmissionSchema(options?: { allowPrivateHttpOrigin?: boolean }) {
   return z.object({ credentialSaved: botSecretDestinationSchema(options) });

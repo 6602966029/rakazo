@@ -184,6 +184,11 @@ function secretGuidance(disabled?: ReadonlySet<string>): string[] {
       `Use request_secret with a credential destination to save reusable API credentials, or with auth type login when the user wants a website login saved${fill}. When your shell commands need a secret value, use request_secret with auth type command; it is exported as the environment variable that request_secret and list_secrets report.`,
     );
   }
+  if (builtinOffered(disabled, "generate_login") && builtinOffered(disabled, "browser_act")) {
+    clauses.push(
+      "When signing up for a website, use generate_login to create and save the password instead of choosing one, then fill the form with browser_act fill_secret.",
+    );
+  }
   const uses: string[] = [];
   if (builtinOffered(disabled, "list_secrets")) uses.push("list_secrets to discover saved names");
   if (builtinOffered(disabled, "secret_request")) {
