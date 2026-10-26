@@ -155,6 +155,7 @@ import {
   selectBuiltinToolsForRun,
 } from "./run-tool-selection.js";
 import { applyTool } from "./run-tools.js";
+import type { UserComputerState } from "./run-tools-user-computer.js";
 import { USER_COMPUTER_SHELL_TOOL, userComputerOwner } from "./run-tools-user-computer.js";
 import { createRunTrustLoaders } from "./run-trust.js";
 import { completeRun, consumeRunEvents, failRun } from "./run-turn.js";
@@ -941,12 +942,18 @@ export function createRunExecutor(deps: ExecutorDeps) {
           runUserId: run.userId,
           botUserId: bot.userId,
         });
-        const userComputer = Boolean(
+        let userComputer: UserComputerState;
+        if (
           userComputerOwnerId &&
-            deps.userDevices &&
-            !disabledBuiltinTools.has(USER_COMPUTER_SHELL_TOOL) &&
-            (await deps.userDevices.connected(userComputerOwnerId).catch(() => null)),
-        );
+          deps.userDevices &&
+          !disabledBuiltinTools.has(USER_COMPUTER_SHELL_TOOL)
+        ) {
+          if (await deps.userDevices.connected(userComputerOwnerId).catch(() => null))
+            userComputer = "connected";
+          // A chat that used the computer earlier may continue from another device after it closed.
+          else if (await deps.userDevices.hasDevice(userComputerOwnerId).catch(() => false))
+            userComputer = "offline";
+        }
         const builtins = [
           ...selectBuiltinToolsForRun({
             ticketBoardEnabled: deps.ticketBoardEnabled,
@@ -966,7 +973,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             disabledBuiltinTools: bot.disabledBuiltinTools,
             fleetManagement: bot.fleetManagement,
             followUpFromUser: sourceMessage?.role === "user",
-            userComputer,
+            userComputer: userComputer === "connected",
           }),
           // Cross-owner agent connections only exist for chat-linked bots.
           ...(hasMessagingIdentity &&
@@ -1408,7 +1415,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 replyGuidance: runReplyGuidance(run.trigger),
                 disabledBuiltinTools,
                 offeredFleetTools: offeredFleetTools(builtins),
-                userComputerOffered: userComputer,
+                userComputer,
               })
                 .filter((instruction): instruction is string => Boolean(instruction))
                 .join("\n\n"),

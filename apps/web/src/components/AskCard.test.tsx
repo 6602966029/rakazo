@@ -288,7 +288,12 @@ it("says a user's-computer approval allows the rest of the chat", async () => {
       { id: "deny", label: "Deny" },
     ],
   };
-  await render(block);
+  await render({ ...block, detail: "hostname", detailFormat: "code" });
+  const detail = container.querySelector('[data-testid="ask-detail"]');
+  expect(detail?.textContent).toBe("hostname");
+  // The card is muted, so the command sits on the page background to read as a snippet.
+  expect(detail?.classList.contains("bg-background")).toBe(true);
+  expect(detail?.classList.contains("bg-muted")).toBe(false);
   expect(button("Allow for this chat")).toBeTruthy();
   expect(button("Allow once")).toBeUndefined();
   await render({ ...block, status: "answered", answer: "allow" });

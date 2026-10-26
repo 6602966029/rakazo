@@ -5,12 +5,12 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { USER_DEVICE_CONNECT_PATH } from "@rakazo/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WebSocket } from "ws";
 import { WebSocketServer } from "ws";
 import type { UserDeviceClient } from "./user-device-client.js";
 import { startUserDeviceClient, USER_DEVICE_MAX_MESSAGE_BYTES } from "./user-device-client.js";
-import { USER_DEVICE_CONNECT_PATH } from "./user-device-protocol.js";
 
 const token = "device-token";
 const nodeEnv: Record<string, string> = process.versions.electron
@@ -70,12 +70,13 @@ describe("user device client", () => {
     await rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
   });
 
-  function start() {
+  function start(authorize: () => Promise<boolean> = async () => true) {
     client = startUserDeviceClient({
       serverUrl,
       token,
       root,
       onRevoked: revoked,
+      authorize,
       retryMs: { min: 20, max: 40 },
     });
   }
@@ -163,6 +164,35 @@ describe("user device client", () => {
         (frame) => frame.id === "long" && ("done" in frame.frame || "error" in frame.frame),
       ),
     ).toBe(false);
+  });
+
+  it("asks before every request and refuses what this computer does not allow", async () => {
+    let answer: (allowed: boolean) => void = () => undefined;
+    const authorize = vi.fn(() => new Promise<boolean>((resolve) => (answer = resolve)));
+    start(authorize);
+    const ws = await connection();
+    const received = frames(ws);
+    ws.send(
+      JSON.stringify({ type: "request", id: "a", request: { method: "provision", botId: "bot" } }),
+    );
+    await until(() => authorize.mock.calls.length === 1);
+    expect(received).toEqual([]);
+    answer(false);
+    await until(() => received.length === 1);
+    expect(received[0]).toEqual({
+      type: "frame",
+      id: "a",
+      frame: { error: "Not allowed on this computer" },
+    });
+
+    ws.send(
+      JSON.stringify({ type: "request", id: "b", request: { method: "provision", botId: "bot" } }),
+    );
+    await until(() => authorize.mock.calls.length === 2);
+    ws.send(JSON.stringify({ type: "cancel", id: "b" }));
+    answer(true);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(received.filter((frame) => frame.id === "b")).toEqual([]);
   });
 
   it("ignores malformed messages and refuses oversized ones by reconnecting", async () => {

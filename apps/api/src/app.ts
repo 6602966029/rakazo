@@ -24,6 +24,7 @@ import type {
   ComposioProvider,
   ConnectorRegistry,
   RemoteConnectorDependencies,
+  UserDeviceGateway,
 } from "@rakazo/adapters";
 import {
   applyMessagingOutboundStatus,
@@ -88,7 +89,6 @@ import {
   verifyModelServesAgents,
   withSecretPersistence,
 } from "@rakazo/adapters";
-import type { UserDeviceGateway } from "@rakazo/adapters/user-device-protocol";
 import { createAuth, isBlockedAuthPath, loopbackTwinOrigins } from "@rakazo/auth";
 import type { Actor, AuthCapabilities } from "@rakazo/contracts";
 import { isLocalhostOrLoopbackIp, SERVER_BUILD_HEADER } from "@rakazo/contracts";

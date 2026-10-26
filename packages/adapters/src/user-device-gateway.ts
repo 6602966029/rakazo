@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 import type { IncomingMessage } from "node:http";
 import { networkInterfaces } from "node:os";
 import type { Duplex } from "node:stream";
+import { USER_DEVICE_CONNECT_PATH } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { runAsSystem } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -14,7 +15,7 @@ import {
   hostComputerRequest,
 } from "./host-computer-protocol.js";
 import type { UserDevice, UserDeviceGateway } from "./user-device-protocol.js";
-import { USER_DEVICE_CONNECT_PATH, userDeviceClientMessage } from "./user-device-protocol.js";
+import { userDeviceClientMessage } from "./user-device-protocol.js";
 
 /** Internal API endpoints other processes forward to. Not under /api, so the public proxy never routes them. */
 export const USER_DEVICE_FORWARD_PATH = "/internal/user-devices/request";
@@ -27,7 +28,6 @@ export const USER_DEVICE_LIMIT = 10;
 const PING_INTERVAL_MS = 25_000;
 /** A connection row older than this has lost its holding process. */
 const STALE_AFTER_MS = 3 * PING_INTERVAL_MS;
-/** A frame message carries one HostComputerFrame plus its envelope. */
 const MAX_MESSAGE_BYTES = HOST_COMPUTER_MAX_BYTES + 64 * 1024;
 
 export class UserDeviceOfflineError extends Error {
@@ -45,7 +45,6 @@ export function hashUserDeviceToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-/** The device token from `Authorization: Bearer <64 hex>`, or null. */
 export function userDeviceBearer(header: string | null | undefined): string | null {
   const match = /^Bearer ([a-f0-9]{64})$/.exec(header ?? "");
   return match?.[1] ?? null;
@@ -136,7 +135,6 @@ export class UserDeviceHub {
     this.timer.unref();
   }
 
-  /** The device for a bearer token, or null when unknown or revoked. */
   async authenticate(header: string | null | undefined): Promise<AuthenticatedDevice | null> {
     const token = userDeviceBearer(header);
     if (!token) return null;
@@ -296,18 +294,15 @@ export class UserDeviceHub {
   }
 
   /** Closes this process's socket for a device and fails its in-flight requests. */
-  disconnect(deviceId: string, reason: "revoked" | "replaced" = "revoked"): boolean {
+  disconnect(deviceId: string): void {
     const entry = this.live.get(deviceId);
-    if (!entry) return false;
-    if (reason === "revoked") {
-      try {
-        entry.socket.send(JSON.stringify({ type: "revoked" }));
-      } catch {
-        // Closing anyway.
-      }
+    if (!entry) return;
+    try {
+      entry.socket.send(JSON.stringify({ type: "revoked" }));
+    } catch {
+      // Closing anyway.
     }
     this.drop(entry, REVOKED_MESSAGE, [4001, "Revoked"]);
-    return true;
   }
 
   async close(): Promise<void> {
@@ -413,7 +408,6 @@ export class UserDevices implements UserDeviceGateway {
       /** Present in API processes, which hold device sockets. */
       hub?: UserDeviceHub;
       fetch?: typeof fetch;
-      now?: () => Date;
     },
   ) {
     this.fetch = deps.fetch ?? fetch;
@@ -422,6 +416,16 @@ export class UserDevices implements UserDeviceGateway {
   async connected(userId: string): Promise<UserDevice | null> {
     const route = await this.route(userId);
     return route && { deviceId: route.deviceId, name: route.name, platform: route.platform };
+  }
+
+  async hasDevice(userId: string): Promise<boolean> {
+    const device = await runAsSystem("find a user's paired device", () =>
+      this.deps.prisma.userDevice.findFirst({
+        where: { userId, revokedAt: null },
+        select: { id: true },
+      }),
+    );
+    return Boolean(device);
   }
 
   async *request<T>(
@@ -468,11 +472,10 @@ export class UserDevices implements UserDeviceGateway {
   }
 
   private async route(userId: string, deviceId?: string) {
-    const now = this.deps.now?.() ?? new Date();
     const connection = await runAsSystem("find a user's connected device", () =>
       this.deps.prisma.userDeviceConnection.findFirst({
         where: {
-          heartbeatAt: { gt: new Date(now.getTime() - STALE_AFTER_MS) },
+          heartbeatAt: { gt: new Date(Date.now() - STALE_AFTER_MS) },
           device: { userId, revokedAt: null },
           ...(deviceId ? { deviceId } : {}),
         },

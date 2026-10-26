@@ -5,9 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DeviceTokenCipher } from "./user-device.js";
 import {
   createUserDeviceAccess,
-  deleteDeviceToken,
-  readDeviceToken,
-  saveDeviceToken,
+  deletePairedDevice,
+  readDeviceConsent,
+  readPairedDevice,
+  saveDeviceConsent,
+  savePairedDevice,
 } from "./user-device.js";
 
 const origin = "https://rakazo.example.com";
@@ -30,29 +32,33 @@ afterEach(async () => {
 
 describe("device token storage", () => {
   it("keeps one encrypted, owner-only token per server origin", async () => {
-    await saveDeviceToken(userData, origin, "secret-token", cipher);
-    await saveDeviceToken(userData, other, "other-token", cipher);
-    expect(await readDeviceToken(userData, origin, cipher)).toBe("secret-token");
-    expect(await readDeviceToken(userData, other, cipher)).toBe("other-token");
+    await savePairedDevice(userData, origin, { token: "secret-token", deviceId: "d1" }, cipher);
+    await savePairedDevice(userData, other, { token: "other-token", deviceId: null }, cipher);
+    expect(await readPairedDevice(userData, origin, cipher)).toEqual({
+      token: "secret-token",
+      deviceId: "d1",
+    });
+    expect((await readPairedDevice(userData, other, cipher))?.token).toBe("other-token");
     const dir = path.join(userData, "devices");
     for (const name of await readdir(dir)) {
       const file = path.join(dir, name);
       expect(await readFile(file, "utf8")).not.toContain("secret-token");
       if (process.platform !== "win32") expect((await stat(file)).mode & 0o077).toBe(0);
     }
-    await deleteDeviceToken(userData, origin);
-    expect(await readDeviceToken(userData, origin, cipher)).toBeNull();
-    expect(await readDeviceToken(userData, other, cipher)).toBe("other-token");
+    await deletePairedDevice(userData, origin);
+    expect(await readPairedDevice(userData, origin, cipher)).toBeNull();
+    expect((await readPairedDevice(userData, other, cipher))?.token).toBe("other-token");
   });
 
   it("refuses to store a token without secure storage and ignores undecryptable ones", async () => {
+    const device = { token: "t", deviceId: null };
     await expect(
-      saveDeviceToken(userData, origin, "t", { ...cipher, available: async () => false }),
+      savePairedDevice(userData, origin, device, { ...cipher, available: async () => false }),
     ).rejects.toThrow();
-    expect(await readDeviceToken(userData, origin, cipher)).toBeNull();
-    await saveDeviceToken(userData, origin, "t", cipher);
+    expect(await readPairedDevice(userData, origin, cipher)).toBeNull();
+    await savePairedDevice(userData, origin, device, cipher);
     expect(
-      await readDeviceToken(userData, origin, {
+      await readPairedDevice(userData, origin, {
         ...cipher,
         decrypt: async () => {
           throw new Error("locked");
@@ -60,12 +66,26 @@ describe("device token storage", () => {
       }),
     ).toBeNull();
   });
+
+  it("keeps this computer's consent per server origin", async () => {
+    expect(await readDeviceConsent(userData, origin)).toBeNull();
+    await saveDeviceConsent(userData, origin, "allowed");
+    await saveDeviceConsent(userData, other, "declined");
+    expect(await readDeviceConsent(userData, origin)).toBe("allowed");
+    expect(await readDeviceConsent(userData, other)).toBe("declined");
+  });
 });
 
 describe("remote computer access", () => {
   function setup(overrides: Partial<Parameters<typeof createUserDeviceAccess>[0]> = {}) {
     const requests: { url: string; init: RequestInit }[] = [];
-    const clients: { origin: string; token: string; closed: boolean; revoke: () => void }[] = [];
+    const clients: {
+      origin: string;
+      token: string;
+      closed: boolean;
+      revoke: () => void;
+      authorize: () => Promise<boolean>;
+    }[] = [];
     const access = createUserDeviceAccess({
       userDataDir: userData,
       cipher,
@@ -77,8 +97,14 @@ describe("remote computer access", () => {
           return Response.json({ deviceId: "device-1", token: "device-token" });
         return new Response(null, { status: 204 });
       },
-      connect: (serverOrigin, token, onRevoked) => {
-        const client = { origin: serverOrigin, token, closed: false, revoke: onRevoked };
+      connect: (serverOrigin, token, events) => {
+        const client = {
+          origin: serverOrigin,
+          token,
+          closed: false,
+          revoke: events.onRevoked,
+          authorize: events.authorize,
+        };
         clients.push(client);
         return {
           close: () => {
@@ -86,20 +112,16 @@ describe("remote computer access", () => {
           },
         };
       },
-      onChange: () => undefined,
       ...overrides,
     });
     return { access, requests, clients };
   }
 
-  it("pairs with the window session only after the native prompt allows it, then connects", async () => {
+  it("pairs with the window session on its own and connects without granting anything", async () => {
     const confirm = vi.fn(async () => true);
     const { access, requests, clients } = setup({ confirm });
     await access.select(origin);
-    expect(access.isAllowed()).toBe(false);
-    expect(clients).toEqual([]);
-    expect(await access.request()).toBe("allowed");
-    expect(confirm).toHaveBeenCalledWith("rakazo.example.com");
+    await access.pair();
     expect(requests).toHaveLength(1);
     expect(requests[0]!.url).toBe(`${origin}/api/devices/pair`);
     expect(requests[0]!.init).toMatchObject({ method: "POST", credentials: "include" });
@@ -108,90 +130,134 @@ describe("remote computer access", () => {
       platform: "darwin",
     });
     expect(clients).toMatchObject([{ origin, token: "device-token", closed: false }]);
-    expect(access.isAllowed()).toBe(true);
-    expect(await readDeviceToken(userData, origin, cipher)).toBe("device-token");
-  });
-
-  it("does nothing when the prompt is cancelled or the server changes behind it", async () => {
-    const { access, requests } = setup({ confirm: async () => false });
-    await access.select(origin);
-    expect(await access.request()).toBe("cancelled");
-    let switchDuringPrompt: (() => Promise<void>) | undefined;
-    const second = setup({
-      confirm: async () => {
-        await switchDuringPrompt?.();
-        return true;
-      },
-    });
-    await second.access.select(origin);
-    switchDuringPrompt = () => second.access.select(other);
-    expect(await second.access.request()).toBe("cancelled");
-    expect([...requests, ...second.requests]).toEqual([]);
-    expect(await readDeviceToken(userData, origin, cipher)).toBeNull();
-  });
-
-  it("reports a signed-out session and never prompts without secure storage", async () => {
-    const signedOut = setup({ fetch: async () => new Response(null, { status: 401 }) });
-    await signedOut.access.select(origin);
-    expect(await signedOut.access.request()).toBe("signed-out");
-    expect(signedOut.clients).toEqual([]);
-    const confirm = vi.fn(async () => true);
-    const noStorage = setup({ confirm, cipher: { ...cipher, available: async () => false } });
-    await noStorage.access.select(origin);
-    expect(await noStorage.access.request()).toBe("failed");
+    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: false });
+    expect(access.state(other)).toBeNull();
     expect(confirm).not.toHaveBeenCalled();
+    expect(await readPairedDevice(userData, origin, cipher)).toEqual({
+      token: "device-token",
+      deviceId: "device-1",
+    });
+  });
+
+  it("asks once on the first request, keeps the answer, and lets waiting requests share it", async () => {
+    let answer: (allowed: boolean) => void = () => undefined;
+    const confirm = vi.fn(() => new Promise<boolean>((resolve) => (answer = resolve)));
+    const { access, clients } = setup({ confirm });
+    await access.select(origin);
+    await access.pair();
+    const first = clients[0]!.authorize();
+    const second = clients[0]!.authorize();
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+    expect(confirm).toHaveBeenCalledWith("rakazo.example.com");
+    answer(true);
+    expect(await Promise.all([first, second])).toEqual([true, true]);
+    expect(await clients[0]!.authorize()).toBe(true);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(access.state(origin)?.allowed).toBe(true);
+    expect(await readDeviceConsent(userData, origin)).toBe("allowed");
+
+    const relaunched = setup({ confirm });
+    await relaunched.access.select(origin);
+    expect(await relaunched.clients[0]!.authorize()).toBe(true);
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses every request after Cancel without asking again, until turned back on", async () => {
+    const confirm = vi.fn(async () => false);
+    const { access, clients } = setup({ confirm });
+    await access.select(origin);
+    await access.pair();
+    expect(await clients[0]!.authorize()).toBe(false);
+    expect(await clients[0]!.authorize()).toBe(false);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(await readDeviceConsent(userData, origin)).toBe("declined");
+
+    confirm.mockResolvedValue(true);
+    await access.setAllowed(origin, true);
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(await clients[0]!.authorize()).toBe(true);
+    await access.setAllowed(origin, false);
+    expect(await clients[0]!.authorize()).toBe(false);
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: false });
+  });
+
+  it("ignores a page asking for a server it no longer shows", async () => {
+    const confirm = vi.fn(async () => true);
+    const { access } = setup({ confirm });
+    await access.select(origin);
+    await access.setAllowed(other, true);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(await readDeviceConsent(userData, other)).toBeNull();
+  });
+
+  it("retries a signed-out pairing on the next page load but not a refused one", async () => {
+    let status = 401;
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/api/devices/pair") && status === 200
+        ? Response.json({ deviceId: "device-1", token: "device-token" })
+        : new Response(null, { status }),
+    );
+    const { access, clients } = setup({ fetch });
+    await access.select(origin);
+    await access.pair();
+    expect(clients).toEqual([]);
+    status = 200;
+    await access.pair();
+    expect(clients).toHaveLength(1);
+
+    const refused = setup({ fetch });
+    status = 404;
+    await refused.access.select(other);
+    await refused.access.pair();
+    await refused.access.pair();
+    expect(fetch.mock.calls.filter(([url]) => url.startsWith(other))).toHaveLength(1);
+  });
+
+  it("never pairs without secure storage", async () => {
+    const { access, requests } = setup({ cipher: { ...cipher, available: async () => false } });
+    await access.select(origin);
+    await access.pair();
+    expect(requests).toEqual([]);
   });
 
   it("reconnects on launch, disconnects when switching servers, and stops on close", async () => {
-    await saveDeviceToken(userData, origin, "saved-token", cipher);
-    const { access, clients } = setup();
+    await savePairedDevice(userData, origin, { token: "saved-token", deviceId: "d1" }, cipher);
+    await saveDeviceConsent(userData, other, "declined");
+    const { access, clients, requests } = setup();
     await access.select(origin);
     expect(clients).toMatchObject([{ origin, token: "saved-token", closed: false }]);
     await access.select(other);
+    await access.pair();
     expect(clients[0]!.closed).toBe(true);
-    expect(access.isAllowed()).toBe(false);
     expect(clients).toHaveLength(1);
+    expect(requests).toEqual([]);
     await access.select(origin);
     expect(clients).toHaveLength(2);
     access.close();
     expect(clients[1]!.closed).toBe(true);
   });
 
-  it("revokes on the server and always forgets the token locally", async () => {
-    await saveDeviceToken(userData, origin, "saved-token", cipher);
-    const { access, requests, clients } = setup({
-      fetch: async (url, init) => {
-        requests.push({ url, init });
-        throw new Error("offline");
-      },
-    });
-    await access.select(origin);
-    await access.revoke();
-    expect(clients[0]!.closed).toBe(true);
-    expect(access.isAllowed()).toBe(false);
-    expect(await readDeviceToken(userData, origin, cipher)).toBeNull();
-    expect(requests).toMatchObject([
-      {
-        url: `${origin}/api/devices/self`,
-        init: {
-          method: "DELETE",
-          credentials: "omit",
-          headers: { authorization: "Bearer saved-token" },
-        },
-      },
-    ]);
-  });
-
-  it("forgets a token the server revoked", async () => {
-    await saveDeviceToken(userData, origin, "saved-token", cipher);
-    const onChange = vi.fn();
-    const { access, clients } = setup({ onChange });
+  it("forgets a revoked token and stays unpaired until turned back on", async () => {
+    await savePairedDevice(userData, origin, { token: "saved-token", deviceId: "d1" }, cipher);
+    await saveDeviceConsent(userData, origin, "allowed");
+    const confirm = vi.fn(async () => true);
+    const { access, clients, requests } = setup({ confirm });
     await access.select(origin);
     clients[0]!.revoke();
-    expect(access.isAllowed()).toBe(false);
-    expect(onChange).toHaveBeenCalled();
     await vi.waitFor(async () =>
-      expect(await readDeviceToken(userData, origin, cipher)).toBeNull(),
+      expect(await readPairedDevice(userData, origin, cipher)).toBeNull(),
     );
+    await vi.waitFor(async () =>
+      expect(await readDeviceConsent(userData, origin)).toBe("declined"),
+    );
+    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false });
+    await access.pair();
+    expect(requests).toEqual([]);
+
+    await access.setAllowed(origin, true);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: true });
+    expect(clients.at(-1)).toMatchObject({ token: "device-token", closed: false });
   });
 });

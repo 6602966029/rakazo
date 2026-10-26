@@ -1,6 +1,7 @@
 import { EventEmitter, once } from "node:events";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { USER_DEVICE_CONNECT_PATH } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
@@ -19,7 +20,6 @@ import {
   userDeviceInternalAddress,
   validUserDeviceForwardSecret,
 } from "./user-device-gateway.js";
-import { USER_DEVICE_CONNECT_PATH } from "./user-device-protocol.js";
 
 interface DeviceRow {
   id: string;
@@ -58,6 +58,8 @@ function fakePrisma() {
         ids(where)
           .map((id) => devices.get(id))
           .filter((row) => row?.revokedAt),
+      findFirst: async ({ where }: { where: { userId: string; revokedAt: null } }) =>
+        [...devices.values()].find((row) => row.userId === where.userId && !row.revokedAt) ?? null,
     },
     userDeviceConnection: {
       upsert: async ({ where, create }: { where: { deviceId: string }; create: ConnectionRow }) =>
@@ -250,6 +252,8 @@ describe("user device gateway in the holding process", () => {
     await hub.attach(device, new FakeSocket());
     connections.get(device.id)!.heartbeatAt = new Date(Date.now() - 10 * 60_000);
     await expect(devices.connected("user-1")).resolves.toBeNull();
+    await expect(devices.hasDevice("user-1")).resolves.toBe(true);
+    await expect(devices.hasDevice("user-2")).resolves.toBe(false);
   });
 
   it("fails an in-flight request when the device disconnects and never resends it", async () => {

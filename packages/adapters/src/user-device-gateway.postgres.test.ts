@@ -81,6 +81,7 @@ describePostgres("user devices (PostgreSQL)", () => {
       hub,
     });
     await expect(gateway.connected(userId)).resolves.toMatchObject({ deviceId: device.id });
+    await expect(gateway.hasDevice(userId)).resolves.toBe(true);
     const values: unknown[] = [];
     for await (const value of gateway.request(
       userId,
@@ -92,6 +93,7 @@ describePostgres("user devices (PostgreSQL)", () => {
 
     await prisma.userDevice.update({ where: { id: device.id }, data: { revokedAt: new Date() } });
     await expect(gateway.connected(userId)).resolves.toBeNull();
+    await expect(gateway.hasDevice(userId)).resolves.toBe(false);
     await expect(hub.authenticate(`Bearer ${token}`)).resolves.toBeNull();
   });
 

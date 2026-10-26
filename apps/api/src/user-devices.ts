@@ -8,13 +8,13 @@ import {
   userDeviceForwardBody,
   validUserDeviceForwardSecret,
 } from "@rakazo/adapters";
-import type { UserDevicePairResponse } from "@rakazo/adapters/user-device-protocol";
+import type { UserDeviceList, UserDevicePairResponse } from "@rakazo/contracts";
 import {
   USER_DEVICE_CONNECT_PATH,
   USER_DEVICE_PAIR_PATH,
   USER_DEVICE_PATH,
   userDevicePairRequest,
-} from "@rakazo/adapters/user-device-protocol";
+} from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { recordSecurityEvent, runAsSystem } from "@rakazo/db";
 import type { Hono } from "hono";
@@ -27,15 +27,11 @@ export interface UserDeviceRouteDeps {
   hub: UserDeviceHub;
   devices: UserDevices;
   forwardSecret: string;
-  /** The signed-in user of a request, or null. */
   sessionUserId: (request: Request) => Promise<string | null>;
   trustedOrigin: (origin: string) => boolean;
 }
 
-/**
- * Pairing, listing and revoking a user's own computers, plus the internal endpoints other
- * processes forward device requests through. The socket itself is upgraded by the hub.
- */
+/** The device socket itself is upgraded by the hub before Hono sees it. */
 export function mountUserDeviceRoutes(app: Hono, deps: UserDeviceRouteDeps) {
   const { prisma } = deps;
   app.use(`${USER_DEVICE_PATH}/*`, async (c, next) => {
@@ -87,7 +83,7 @@ export function mountUserDeviceRoutes(app: Hono, deps: UserDeviceRouteDeps) {
         prisma.userDevice.findMany({
           where: { userId, revokedAt: null },
           orderBy: { createdAt: "desc" },
-          select: { id: true, name: true, platform: true, createdAt: true, lastSeenAt: true },
+          select: { id: true, name: true },
         }),
       ),
       deps.devices.connected(userId),
@@ -96,15 +92,11 @@ export function mountUserDeviceRoutes(app: Hono, deps: UserDeviceRouteDeps) {
       devices: devices.map((device) => ({
         deviceId: device.id,
         name: device.name,
-        platform: device.platform,
-        createdAt: device.createdAt.toISOString(),
-        lastSeenAt: device.lastSeenAt?.toISOString() ?? null,
         connected: connected?.deviceId === device.id,
       })),
-    });
+    } satisfies UserDeviceList);
   });
 
-  // A plain request to the socket path: the hub upgrades real connections before Hono sees them.
   app.get(USER_DEVICE_CONNECT_PATH, (c) => c.json({ error: "Upgrade required" }, 426));
 
   const revoke = async (deviceId: string, userId: string, by: "owner" | "device") => {

@@ -1,25 +1,25 @@
+import { USER_DEVICE_CONNECT_PATH } from "@rakazo/contracts";
 import WebSocket from "ws";
 import type { HostComputerFrame } from "./host-computer-protocol.js";
 import { HOST_COMPUTER_MAX_BYTES } from "./host-computer-protocol.js";
 import type { HostComputerCall } from "./host-computer-runner.js";
 import { createHostComputerRunner } from "./host-computer-runner.js";
 import type { UserDeviceClientMessage } from "./user-device-protocol.js";
-import { USER_DEVICE_CONNECT_PATH, userDeviceServerMessage } from "./user-device-protocol.js";
+import { userDeviceServerMessage } from "./user-device-protocol.js";
 
 /** One frame or request plus its small envelope, in either direction. */
 export const USER_DEVICE_MAX_MESSAGE_BYTES = HOST_COMPUTER_MAX_BYTES + 4096;
 const PING_INTERVAL_MS = 30_000;
+const BUSY_MESSAGE = "Local computer is busy. Try again shortly.";
 
 export interface UserDeviceClientOptions {
-  /** Origin of the Rakazo server; the socket goes to its connect path. */
   serverUrl: string;
   token: string;
-  /** Workspace root for bot computers on this device. */
   root: string;
   /** The server revoked the device or rejected its token. The client has already stopped. */
   onRevoked: () => void;
-  onConnectedChange?: (connected: boolean) => void;
-  /** Reconnect backoff bounds. */
+  /** Whether this computer lets the server's bots run anything. Asked before every request. */
+  authorize: () => Promise<boolean>;
   retryMs?: { min: number; max: number };
 }
 
@@ -75,6 +75,7 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
       string,
       { call: HostComputerCall; cancelled: boolean; settled: boolean }
     >();
+    const authorizing = new Set<string>();
     let alive = true;
     let openedAt = 0;
     let ping: NodeJS.Timeout | undefined;
@@ -86,7 +87,6 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
     });
     ws.on("open", () => {
       openedAt = Date.now();
-      options.onConnectedChange?.(true);
       // A silent network drop otherwise leaves the device looking connected for hours.
       ping = setInterval(() => {
         if (!alive) {
@@ -110,10 +110,7 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
       for (const { call } of calls.values()) call.abort();
       calls.clear();
       if (socket === ws) socket = undefined;
-      if (openedAt) {
-        options.onConnectedChange?.(false);
-        if (Date.now() - openedAt >= PING_INTERVAL_MS) attempt = 0;
-      }
+      if (openedAt && Date.now() - openedAt >= PING_INTERVAL_MS) attempt = 0;
       scheduleReconnect();
     });
     ws.on("message", (data, isBinary) => {
@@ -132,6 +129,7 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
         return;
       }
       if (message.type === "cancel") {
+        authorizing.delete(message.id);
         const entry = calls.get(message.id);
         if (entry) {
           entry.cancelled = true;
@@ -139,7 +137,7 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
         }
         return;
       }
-      if (calls.has(message.id)) return;
+      if (calls.has(message.id) || authorizing.has(message.id)) return;
       void handle(message.id, message.request);
     });
 
@@ -162,11 +160,16 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
     }
 
     async function handle(id: string, request: unknown) {
+      authorizing.add(id);
+      const allowed = await options.authorize().catch(() => false);
+      if (!authorizing.delete(id) || socket !== ws) return;
+      if (!allowed) {
+        await send(id, { error: "Not allowed on this computer" }).catch(() => undefined);
+        return;
+      }
       const call = runner.begin();
       if (!call) {
-        await send(id, { error: "Local computer is busy. Try again shortly." }).catch(
-          () => undefined,
-        );
+        await send(id, { error: BUSY_MESSAGE }).catch(() => undefined);
         return;
       }
       const entry = { call, cancelled: false, settled: false };
@@ -176,14 +179,11 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
           open() {},
           write: (frame) => (call.signal.aborted ? undefined : send(id, frame)),
         });
-        const refusal =
-          outcome === "invalid"
-            ? "Local computer request is invalid"
-            : outcome === "busy"
-              ? "Local computer is busy. Try again shortly."
-              : outcome === "disabled" || (call.signal.aborted && !entry.cancelled)
-                ? "Local computer operation stopped"
-                : undefined;
+        let refusal: string | undefined;
+        if (outcome === "invalid") refusal = "Local computer request is invalid";
+        else if (outcome === "busy") refusal = BUSY_MESSAGE;
+        else if (outcome === "disabled" || call.signal.aborted)
+          refusal = "Local computer operation stopped";
         if (refusal && !entry.cancelled && !entry.settled) await send(id, { error: refusal });
       } catch {
         /* The connection closed; the server fails the request. */

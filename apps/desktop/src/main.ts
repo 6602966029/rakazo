@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { startUserDeviceClient } from "@rakazo/adapters/user-device-client";
-import type { DesktopReachability, DesktopSetup } from "@rakazo/contracts";
+import type { DesktopReachability, DesktopSetup, RakazoDesktopDevice } from "@rakazo/contracts";
 import type { Session } from "electron";
 import {
   app,
@@ -312,6 +312,12 @@ function createWindow(url: string, partition: string | null) {
     if (external !== null) void shell.openExternal(external);
     return { action: "deny" };
   });
+  // Signing in lands on a new page; pair then instead of waiting for the next launch.
+  const pairAfterNavigation = () => {
+    if (mainWindow === win) void userDevices?.pair();
+  };
+  win.webContents.on("did-navigate", pairAfterNavigation);
+  win.webContents.on("did-navigate-in-page", pairAfterNavigation);
   win.webContents.on("will-navigate", (event, navigationUrl) => {
     if (targetOrigin !== null && safeOrigin(navigationUrl) === targetOrigin) return;
     event.preventDefault();
@@ -674,21 +680,18 @@ async function installUpdate() {
 }
 
 function installApplicationMenu() {
-  const remote = remoteServerOrigin() !== null;
   const computerAccess: Electron.MenuItemConstructorOptions = {
     label: "Computer Access…",
-    visible: currentSetup?.mode === "new" || (remote && userDevices?.isAllowed() === false),
-    click: () => {
-      if (remote) void requestRemoteComputerAccess();
-      else mainWindow?.webContents.send("desktop.computer.configure");
-    },
+    visible: currentSetup?.mode === "new",
+    click: () => mainWindow?.webContents.send("desktop.computer.configure"),
   };
   const revokeComputerAccess: Electron.MenuItemConstructorOptions = {
     label: "Revoke Local Computer Access",
-    visible: remote ? userDevices?.isAllowed() === true : hostComputer?.isEnabled() === true,
+    visible: remoteServerOrigin() === null && hostComputer?.isEnabled() === true,
     click: () => {
-      void (remote ? userDevices?.revoke() : hostComputer?.revoke())
-        ?.finally(() => installApplicationMenu())
+      void hostComputer
+        ?.revoke()
+        .finally(() => installApplicationMenu())
         .catch(() => undefined);
     },
   };
@@ -977,35 +980,29 @@ function remoteServerOrigin() {
 }
 
 /** The trust boundary: only a click on Allow here lets bots use this computer. */
-async function confirmComputerAccess(where: string) {
-  if (mainWindow === null || mainWindow.isDestroyed()) return false;
-  const result = await dialog.showMessageBox(mainWindow, {
+async function confirmComputerAccess(where: string, revokeWhere: string) {
+  const options: Electron.MessageBoxOptions = {
     type: "warning",
     title: "Allow local computer access?",
     message: "Allow bots to use this computer?",
-    detail: `Bots on ${where} can run commands, read and change files, and launch apps with your account’s permissions. You can revoke access from the app menu.`,
+    detail: `Bots on ${where} can run commands, read and change files, and launch apps with your account’s permissions. You can revoke access ${revokeWhere}.`,
     buttons: ["Cancel", "Allow"],
     defaultId: 0,
     cancelId: 0,
     noLink: true,
-  });
+  };
+  const win = mainWindow !== null && !mainWindow.isDestroyed() ? mainWindow : null;
+  const result = await (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options));
   return result.response === 1;
 }
 
-async function requestRemoteComputerAccess() {
-  const origin = remoteServerOrigin();
-  if (!userDevices || origin === null) return;
-  const result = await userDevices.request();
-  installApplicationMenu();
-  if (result !== "signed-out" && result !== "failed") return;
-  const options: Electron.MessageBoxOptions = {
-    type: "warning",
-    message: "Could not allow computer access.",
-    detail:
-      result === "signed-out" ? `Sign in to ${new URL(origin).host} and try again.` : undefined,
-  };
-  if (mainWindow && !mainWindow.isDestroyed()) await dialog.showMessageBox(mainWindow, options);
-  else await dialog.showMessageBox(options);
+/** A bot asks while the person may be elsewhere, so bring the prompt to them. */
+function confirmRemoteComputerAccess(host: string) {
+  if (mainWindow !== null && !mainWindow.isDestroyed()) {
+    if (!mainWindow.isVisible()) mainWindow.show();
+    else if (!mainWindow.isFocused()) app.dock?.bounce("informational");
+  }
+  return confirmComputerAccess(host, "in Settings");
 }
 
 function deviceTokenCipher() {
@@ -1155,21 +1152,20 @@ app.whenReady().then(async () => {
       platform:
         process.platform === "win32" || process.platform === "linux" ? process.platform : "darwin",
     }),
-    confirm: (host) => confirmComputerAccess(host),
+    confirm: (host) => confirmRemoteComputerAccess(host),
     // The app window's session carries the sign-in for that server; the token never reaches it.
     fetch: (url, init) =>
       (mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents.session : net).fetch(url, {
         ...init,
         bypassCustomProtocolHandlers: true,
       }),
-    connect: (origin, token, onRevoked) =>
+    connect: (origin, token, events) =>
       startUserDeviceClient({
         serverUrl: origin,
         token,
         root: path.join(userDataDir, "computers"),
-        onRevoked,
+        ...events,
       }),
-    onChange: () => installApplicationMenu(),
   });
   localStack = new LocalStackController({
     hostComputer: hostComputer?.connection,
@@ -1306,7 +1302,7 @@ app.whenReady().then(async () => {
         await persistHostChoice("this-mac");
         return true;
       }
-      const allowed = await confirmComputerAccess("this local instance");
+      const allowed = await confirmComputerAccess("this local instance", "from the app menu");
       if (!allowed || !isManagedComputerRequest(event)) return false;
       hostComputer.activate(true);
       await hostComputer.grant();
@@ -1331,6 +1327,27 @@ app.whenReady().then(async () => {
         installApplicationMenu();
       }
     }
+  });
+  /** The remote server's own page in the app window, never a frame or another window. */
+  const remoteDeviceOrigin = (event: Electron.IpcMainInvokeEvent) => {
+    const origin = remoteServerOrigin();
+    return fromMainWindow(event) &&
+      event.senderFrame === event.sender.mainFrame &&
+      origin !== null &&
+      safeOrigin(event.senderFrame.url) === origin
+      ? origin
+      : null;
+  };
+  const deviceState = async (origin: string | null): Promise<RakazoDesktopDevice | null> => {
+    const state = origin === null ? null : userDevices?.state(origin);
+    return state ? { ...state, name: await deviceName() } : null;
+  };
+  ipcMain.handle("desktop.device.state", (event) => deviceState(remoteDeviceOrigin(event)));
+  ipcMain.handle("desktop.device.setAllowed", async (event, allowed: unknown) => {
+    const origin = remoteDeviceOrigin(event);
+    if (origin === null || typeof allowed !== "boolean") return null;
+    await userDevices?.setAllowed(origin, allowed);
+    return deviceState(remoteDeviceOrigin(event));
   });
   ipcMain.handle(
     "desktop.badge.set",

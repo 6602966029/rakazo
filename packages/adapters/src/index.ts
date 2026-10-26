@@ -165,6 +165,7 @@ export * from "./ticket-tools.js";
 export { dispatcherFetch } from "./undici-fetch.js";
 export * from "./user-device-emulator.js";
 export * from "./user-device-gateway.js";
+export * from "./user-device-protocol.js";
 export * from "./voice-factory.js";
 export * from "./wakeup.js";
 export * from "./web-limits.js";

@@ -13,6 +13,9 @@ import {
 
 export const USER_COMPUTER_SHELL_TOOL = "user_computer_shell";
 
+/** Whether the run's owner has their desktop connected, or paired but offline. */
+export type UserComputerState = "connected" | "offline" | undefined;
+
 const USER_COMPUTER_UNAVAILABLE =
   "The user's computer is not connected. Ask them to open the Rakazo desktop app.";
 
@@ -33,11 +36,16 @@ export function userComputerOwner(input: {
 }
 
 /**
- * "Allow for this chat". This tool never runs without asking first unless this check passes (see
- * gateToolCall), so an effect of it past "intended" in a run the owner started in this chat traces
- * back to their approval here. Clearing the chat detaches those runs' messages, so it asks again.
+ * The user's own computer always asks a person first, in every approval mode and whatever the
+ * rules allow, until they choose "Allow for this chat"; a block still refuses it. Any effect of
+ * this tool past "intended" in a run the owner started in this chat traces back to that approval.
+ * Clearing the chat detaches those runs' messages, so it asks again.
  */
-export async function userComputerAllowedInChat(ctx: RunContext): Promise<boolean> {
+export async function userComputerGate(
+  ctx: RunContext,
+  blocked: boolean,
+): Promise<"deny" | "allow" | "ask"> {
+  if (blocked) return "deny";
   const { deps, run, bot, thread } = ctx;
   const allowed = await deps.prisma.externalEffect.findFirst({
     where: {
@@ -53,7 +61,7 @@ export async function userComputerAllowedInChat(ctx: RunContext): Promise<boolea
     },
     select: { id: true },
   });
-  return Boolean(allowed);
+  return allowed ? "allow" : "ask";
 }
 
 /** The working directory on the user's computer: their home or a folder inside it. */

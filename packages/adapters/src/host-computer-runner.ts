@@ -215,10 +215,8 @@ export function createHostComputerRunner(options: { root: string }) {
   };
 }
 
-export type HostComputerRunner = ReturnType<typeof createHostComputerRunner>;
-
 /** Only messages that reveal nothing beyond the caller's own request leave this computer. */
-export function hostComputerErrorMessage(error: unknown) {
+function hostComputerErrorMessage(error: unknown) {
   if (
     error instanceof Error &&
     (error.message === "Path escapes the computer workspace" ||

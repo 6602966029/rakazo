@@ -266,10 +266,11 @@ export function AskCard({
       ) : null}
       {block.detail && !secretInput ? (
         <pre
+          data-testid="ask-detail"
           className={
             block.detailFormat === "text"
               ? "mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words font-sans text-[15.5px] leading-[1.5] text-foreground"
-              : "mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-muted px-3.5 py-3 font-mono text-[12.5px] leading-[1.7] text-muted-foreground"
+              : "mt-2.5 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-background px-3 py-2 font-mono text-[13px] leading-[1.6] text-foreground"
           }
         >
           {block.detail}

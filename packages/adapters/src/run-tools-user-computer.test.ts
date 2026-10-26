@@ -18,6 +18,7 @@ function setup(execute: (signal: AbortSignal) => AsyncIterable<unknown>, secrets
   const deviceIds: (string | undefined)[] = [];
   const gateway: UserDeviceGateway = {
     connected: async () => ({ deviceId: "device-1", name: "Laptop", platform: "darwin" }),
+    hasDevice: async () => true,
     async *request<T>(
       _userId: string,
       request: HostComputerRequest,

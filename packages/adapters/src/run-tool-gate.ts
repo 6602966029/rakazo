@@ -60,7 +60,7 @@ import { resolveCompletedSecretLeftover } from "./run-secret.js";
 import type { ToolRequest } from "./run-tool-request.js";
 import { BUILTIN_AGENT_TOOL_NAMES, READ_ONLY_AGENT_TOOLS } from "./run-tool-selection.js";
 import { callMediaTool } from "./run-tools-files.js";
-import { USER_COMPUTER_SHELL_TOOL, userComputerAllowedInChat } from "./run-tools-user-computer.js";
+import { USER_COMPUTER_SHELL_TOOL, userComputerGate } from "./run-tools-user-computer.js";
 import { connectorTrustKeys } from "./run-trust.js";
 import { commandWatchFromTool } from "./schedule-tools.js";
 
@@ -264,15 +264,9 @@ export async function gateToolCall(
             ),
           )
         : false));
-  // The user's own computer always asks a person first, in every approval mode and whatever
-  // the rules allow, until they allow it for this chat. A block still refuses it.
   const plan =
     name === USER_COMPUTER_SHELL_TOOL
-      ? approvalResolved.decision === "deny"
-        ? "deny"
-        : (await userComputerAllowedInChat(ctx))
-          ? "allow"
-          : "ask"
+      ? await userComputerGate(ctx, approvalResolved.decision === "deny")
       : planActionGate({
           resolved: approvalResolved,
           mode,
