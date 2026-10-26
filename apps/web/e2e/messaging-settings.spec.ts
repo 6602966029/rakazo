@@ -211,7 +211,7 @@ test("messaging settings show linked chat apps, channels, connections, and team 
   await captureScreenshot(page, testInfo, "messaging-settings-ko");
 });
 
-test("Slack setup has one Connect Slack action that opens workspace authorization", async ({
+test("Slack setup has one Connect action that opens workspace authorization", async ({
   page,
 }, testInfo) => {
   const fixture = (json: unknown) => ({
@@ -259,7 +259,8 @@ test("Slack setup has one Connect Slack action that opens workspace authorizatio
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByTestId("settings-nav-messaging").click();
   const settings = page.getByTestId("messaging-settings");
-  const connect = settings.getByRole("button", { name: "Connect Slack", exact: true });
+  await expect(settings.getByText("Chat with your bot from Slack.")).toBeVisible();
+  const connect = settings.getByRole("button", { name: "Connect", exact: true });
   await expect(connect).toBeEnabled();
   await expect(
     settings.getByRole("button", { name: "Connect a chat app", exact: true }),
