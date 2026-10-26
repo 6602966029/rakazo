@@ -159,7 +159,7 @@ export function CreditChoice({
               )}
             </p>
             <p className="text-sm text-muted-foreground">
-              <Trans>ChatGPT, Claude, or any model provider.</Trans>
+              <Trans>Works with your ChatGPT or Claude plan.</Trans>
             </p>
             <ul className="space-y-3 text-sm">
               {features.map((feature) => (
@@ -175,9 +175,10 @@ export function CreditChoice({
               className="w-full bg-background dark:bg-transparent"
               variant="outline"
               disabled={pending || !status.canManage}
+              aria-label={status.byokPriceCents ? t`Subscribe with your own AI` : undefined}
               onClick={() => void choose(true)}
             >
-              {status.byokFreeUntil ? <Trans>Subscribe</Trans> : <Trans>Connect my own</Trans>}
+              {status.byokPriceCents ? <Trans>Subscribe</Trans> : <Trans>Connect my own</Trans>}
             </Button>
           </CardFooter>
         </Card>
@@ -190,7 +191,7 @@ export function CreditChoice({
           <CardContent className="flex flex-1 flex-col gap-4">
             <CreditAmountSelect monthly value={amount} onChange={setAmount} />
             <p className="text-sm text-muted-foreground">
-              <Trans>${amount / 100} in monthly model credits. No API key needed.</Trans>
+              <Trans>All ${amount / 100} goes to model usage.</Trans>
             </p>
             <ul className="space-y-3 text-sm">
               {features.map((feature) => (
@@ -214,9 +215,10 @@ export function CreditChoice({
             <Button
               className="w-full"
               disabled={pending || !status.canManage || !status.creditPurchasesEnabled}
+              aria-label={t`Subscribe to Rakazo credits`}
               onClick={() => void choose(false)}
             >
-              <Trans>Continue with credits</Trans>
+              <Trans>Subscribe</Trans>
             </Button>
           </CardFooter>
         </Card>

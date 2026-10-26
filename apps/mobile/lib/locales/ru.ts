@@ -1022,10 +1022,10 @@ export const RU_MESSAGES: Record<string, string> = {
   "Add credits": "Пополнить кредиты",
   "Manage billing": "Управление оплатой",
   "Your subscription or API key": "Ваша подписка или API-ключ",
-  "Free. ChatGPT, Claude, or any model provider.":
-    "Бесплатно. ChatGPT, Claude или любой провайдер моделей.",
-  "{price} / month. ChatGPT, Claude, or any model provider.":
-    "{price} в месяц. ChatGPT, Claude или любой провайдер моделей.",
+  "Free. Works with your ChatGPT or Claude plan.":
+    "Бесплатно. Работает с вашей подпиской ChatGPT или Claude.",
+  "{price} / month. Works with your ChatGPT or Claude plan.":
+    "{price} в месяц. Работает с вашей подпиской ChatGPT или Claude.",
   "Free plan ends": "Бесплатный тариф до",
   Subscribe: "Оформить подписку",
   "Use my subscription or API key": "Использовать свою подписку или API-ключ",

@@ -361,11 +361,6 @@ msgstr "@{0}"
 msgid "${0} / month"
 msgstr ""
 
-#. placeholder {0}: amount / 100
-#: src/components/ModelCredits.tsx
-msgid "${0} in monthly model credits. No API key needed."
-msgstr ""
-
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr "什么都做一点"
@@ -609,6 +604,11 @@ msgstr "Agent 电脑"
 #: src/pages/McpServersOverlay.tsx
 msgid "Agents:"
 msgstr "Agent："
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "All ${0} goes to model usage."
+msgstr "全部 ${0} 都用于模型用量。"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1123,10 +1123,6 @@ msgstr "在 Slack 中与你的机器人聊天。"
 msgid "ChatGPT subscription"
 msgstr ""
 
-#: src/components/ModelCredits.tsx
-msgid "ChatGPT, Claude, or any model provider."
-msgstr ""
-
 #: src/lib/identity-display.ts
 msgid "Chats"
 msgstr "聊天"
@@ -1579,10 +1575,6 @@ msgstr ""
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "通过 {0} 继续"
-
-#: src/components/ModelCredits.tsx
-msgid "Continue with credits"
-msgstr ""
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Conversations"
@@ -5229,6 +5221,14 @@ msgstr "订阅"
 msgid "Subscribe for ${0} / month"
 msgstr "以每月 ${0} 订阅"
 
+#: src/components/ModelCredits.tsx
+msgid "Subscribe to Rakazo credits"
+msgstr "订阅 Rakazo 额度"
+
+#: src/components/ModelCredits.tsx
+msgid "Subscribe with your own AI"
+msgstr "使用自己的 AI 订阅"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr ""
@@ -5997,6 +5997,10 @@ msgstr "工作指令"
 #: src/pages/shell/transcript.tsx
 msgid "Working…"
 msgstr "处理中…"
+
+#: src/components/ModelCredits.tsx
+msgid "Works with your ChatGPT or Claude plan."
+msgstr "可使用你的 ChatGPT 或 Claude 套餐。"
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "Workspace"

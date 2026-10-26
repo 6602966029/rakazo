@@ -361,11 +361,6 @@ msgstr "@{0}"
 msgid "${0} / month"
 msgstr ""
 
-#. placeholder {0}: amount / 100
-#: src/components/ModelCredits.tsx
-msgid "${0} in monthly model credits. No API key needed."
-msgstr ""
-
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr ""
@@ -609,6 +604,11 @@ msgstr "Agent 컴퓨터"
 #: src/pages/McpServersOverlay.tsx
 msgid "Agents:"
 msgstr "사용 Bot:"
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "All ${0} goes to model usage."
+msgstr "${0} 전액이 모델 사용에 쓰입니다."
 
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1123,10 +1123,6 @@ msgstr "Slack에서 봇과 채팅하세요."
 msgid "ChatGPT subscription"
 msgstr ""
 
-#: src/components/ModelCredits.tsx
-msgid "ChatGPT, Claude, or any model provider."
-msgstr ""
-
 #: src/lib/identity-display.ts
 msgid "Chats"
 msgstr "채팅"
@@ -1579,10 +1575,6 @@ msgstr ""
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "{0}(으)로 계속"
-
-#: src/components/ModelCredits.tsx
-msgid "Continue with credits"
-msgstr ""
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Conversations"
@@ -5229,6 +5221,14 @@ msgstr "구독"
 msgid "Subscribe for ${0} / month"
 msgstr "월 ${0}에 구독"
 
+#: src/components/ModelCredits.tsx
+msgid "Subscribe to Rakazo credits"
+msgstr "Rakazo 크레딧 구독"
+
+#: src/components/ModelCredits.tsx
+msgid "Subscribe with your own AI"
+msgstr "내 AI로 구독"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr ""
@@ -5997,6 +5997,10 @@ msgstr "작업 지침"
 #: src/pages/shell/transcript.tsx
 msgid "Working…"
 msgstr "처리 중…"
+
+#: src/components/ModelCredits.tsx
+msgid "Works with your ChatGPT or Claude plan."
+msgstr "ChatGPT 또는 Claude 요금제로 사용할 수 있습니다."
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "Workspace"
