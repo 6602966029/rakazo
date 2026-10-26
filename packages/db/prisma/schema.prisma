@@ -58,6 +58,7 @@ model User {
   pushToken                   PushToken?
   signupSurvey                SignupSurvey?
   computerRuns                ComputerRun[]
+  devices                     UserDevice[]
 
   @@unique([email])
   @@map("user")
@@ -106,6 +107,40 @@ model PushToken {
   updatedAt DateTime @updatedAt
 
   @@map("push_tokens")
+}
+
+/// A user's own computer, connected outbound from the desktop app so their runs can use it.
+/// Like sessions, read only as system and always filtered by owner: the device token has no Space.
+model UserDevice {
+  id          String                 @id @default(cuid())
+  userId      String
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  platform    String
+  /// sha256 of the device token; the token itself is shown once and never stored.
+  tokenHash   String                 @unique
+  createdAt   DateTime               @default(now())
+  lastSeenAt  DateTime?
+  revokedAt   DateTime?
+  connections UserDeviceConnection[]
+
+  @@index([userId, revokedAt])
+  @@map("user_devices")
+}
+
+/// The API process holding a device's live socket, so other processes can forward to it.
+model UserDeviceConnection {
+  /// One live connection per device; a newer socket replaces the row.
+  deviceId     String     @id
+  device       UserDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  connectionId String     @unique
+  /// Internal base URL of the holding API process.
+  address      String
+  connectedAt  DateTime   @default(now())
+  heartbeatAt  DateTime   @default(now())
+
+  @@index([heartbeatAt])
+  @@map("user_device_connections")
 }
 
 model Account {
