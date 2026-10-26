@@ -130,8 +130,12 @@ export function createBillingService(deps: {
       hasBillingAccess(live.status) &&
       live.subscriptionId !== previous.subscriptionId
     )
+      // Only while this snapshot is still the stored one: a newer sync's write wins.
       await prisma.modelCreditAccount.updateMany({
-        where: { organizationId: previous.organizationId },
+        where: {
+          organizationId: previous.organizationId,
+          organization: { billing: { subscriptionId: live.subscriptionId } },
+        },
         data: { mode: "byok", pendingCreditCheckout: false },
       });
     // Monthly credits include the own-key plan, even when they will not renew, and a free plan
