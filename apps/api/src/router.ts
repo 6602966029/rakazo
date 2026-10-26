@@ -23,6 +23,7 @@ import type {
   PushTokenStore,
   RemoteConnectorDependencies,
   TicketChangeNotifier,
+  verifyModelServesAgents,
 } from "@rakazo/adapters";
 import type { Auth } from "@rakazo/auth";
 import type { BoardEvents, PrismaClient, ThreadEvents } from "@rakazo/db";
@@ -68,6 +69,8 @@ export interface RouterDeps {
   providerCatalog?: ProviderCatalogCache;
   /** HTTP transport for model connection checks and catalog probes. */
   modelConnectionFetch?: typeof fetch;
+  /** One real request proving a newly keyed model can serve agents; absent skips it. */
+  modelConnectionCheck?: typeof verifyModelServesAgents;
   /** Site icons for links; defaults to the per-process cache that fetches them. */
   favicons?: FaviconResolver;
   /**

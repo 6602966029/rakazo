@@ -80,6 +80,7 @@ import {
   sandboxProviderOptionsFromEnv,
   stripeBillingConfigFromEnv,
   toTeamChatInbound,
+  verifyModelServesAgents,
   withSecretPersistence,
 } from "@rakazo/adapters";
 import { createAuth, isBlockedAuthPath, loopbackTwinOrigins } from "@rakazo/auth";
@@ -649,6 +650,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     connectors: stack.connector,
     remoteConnectors,
     modelConnectionFetch,
+    // The scripted runtime never calls a provider, so neither does its connect.
+    modelConnectionCheck: env.agentRuntime === "pi" ? verifyModelServesAgents : undefined,
     artifacts,
     dataDir: env.dataDir,
     billing,
