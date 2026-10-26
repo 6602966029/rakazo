@@ -11,7 +11,7 @@ import {
 } from "@rakazo/core";
 import { Button, Input, Textarea } from "@rakazo/ui-web";
 import { Check } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { rpc } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
 import { BuiCard } from "./ai/primitives";
@@ -79,6 +79,8 @@ export function AskCard({
   const [acceptedAnswer, setAcceptedAnswer] = useState<string>();
   const [undone, setUndone] = useState(false);
   const [username, setUsername] = useState("");
+  const [secretField, setSecretField] = useState<HTMLInputElement | null>(null);
+  const [pastedLines, setPastedLines] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const submitting = pendingAction !== null;
@@ -120,6 +122,29 @@ export function AskCard({
   const ownerOnly = secretInput && Boolean(block.credential) && !canDismiss;
   const loginInput = secretInput && block.credential?.auth.type === "login";
   const secretLabel = loginInput ? t`Password` : secretFieldLabel(block.purpose);
+  const commandInput = secretInput && block.credential?.auth.type === "command";
+
+  // A password field can't hold line breaks, so it would flatten a multi-line command variable
+  // such as an SSH private key. That text is kept as is and the field turns read-only, so what
+  // is saved is exactly what was pasted; Clear makes it editable again.
+  useEffect(() => {
+    if (!commandInput || !secretField) return;
+    const field = secretField;
+    const keepLineBreaks = (event: InputEvent) => {
+      const text = (event.data ?? event.dataTransfer?.getData("text/plain") ?? "").replace(
+        /\r\n?/g,
+        "\n",
+      );
+      if (field.readOnly || !event.cancelable || !text.trim().includes("\n")) return;
+      event.preventDefault();
+      const start = field.selectionStart ?? field.value.length;
+      const end = field.selectionEnd ?? start;
+      setAnswer(field.value.slice(0, start) + text + field.value.slice(end));
+      setPastedLines(true);
+    };
+    field.addEventListener("beforeinput", keepLineBreaks);
+    return () => field.removeEventListener("beforeinput", keepLineBreaks);
+  }, [commandInput, secretField]);
 
   async function submitAnswer(value: string) {
     if (submitting) return;
@@ -132,6 +157,7 @@ export function AskCard({
     if (secretInput) {
       setAnswer("");
       setUsername("");
+      setPastedLines(false);
     }
     try {
       await onAnswer(submitValue, submitUsername);
@@ -154,6 +180,7 @@ export function AskCard({
     setError(null);
     setAnswer("");
     setUsername("");
+    setPastedLines(false);
     try {
       await onDismiss();
       setDismissed(true);
@@ -357,16 +384,33 @@ export function AskCard({
             />
           ) : null}
           <Input
+            ref={setSecretField}
             className="w-full"
             aria-label={secretLabel}
             type="password"
             autoComplete="off"
             spellCheck={false}
             disabled={submitting}
-            value={answer}
+            readOnly={pastedLines}
+            value={pastedLines ? answer.replaceAll("\n", " ") : answer}
             onChange={(event) => setAnswer(event.target.value)}
             placeholder={secretLabel}
           />
+          {pastedLines ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              disabled={submitting}
+              onClick={() => {
+                setAnswer("");
+                setPastedLines(false);
+                secretField?.focus();
+              }}
+            >
+              <Trans>Clear</Trans>
+            </Button>
+          ) : null}
           <div className="flex gap-2">
             <Button
               type="submit"

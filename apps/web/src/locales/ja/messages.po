@@ -1230,6 +1230,7 @@ msgstr "Rakazoの使い方を選択"
 msgid "Claude subscription"
 msgstr "Claudeサブスクリプション"
 
+#: src/components/AskCard.tsx
 #: src/pages/shell/dialogs.tsx
 msgid "Clear"
 msgstr "クリア"
