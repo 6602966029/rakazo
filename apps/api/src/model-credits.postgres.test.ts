@@ -73,14 +73,14 @@ dbTests("model credit billing service", () => {
     });
     await expect(service.status(actor)).resolves.toMatchObject({
       access: false,
-      funding: "byok",
+      funding: null,
       byokPriceCents: 1000,
       byokFreeUntil: null,
     });
   });
   it("does not grant credits for checkout creation, grants a paid monthly invoice once", async () => {
     await service.purchaseCredits(actor, { amountCents: 1000, monthly: true });
-    await expect(service.status(actor)).resolves.toMatchObject({ funding: "byok", balanceUsd: 0 });
+    await expect(service.status(actor)).resolves.toMatchObject({ funding: null, balanceUsd: 0 });
     const customer = (await billingAccountForOrganization(prisma, organizationId))!.customerId;
     provider.completeCreditCheckout(customer);
     await service.sync(customer);

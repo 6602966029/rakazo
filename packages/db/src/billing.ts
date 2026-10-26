@@ -11,8 +11,8 @@ export function hasBillingAccess(status: string | null): boolean {
 }
 
 /**
- * Whether a model-credit organization can run bots. Any live subscription grants it. Credits fund
- * their own runs; the own-key plan needs a subscription unless it is free or still in its free period.
+ * Whether a model-credit organization can run bots. Any live subscription grants it, as does a
+ * credit balance outside own-key mode. Otherwise only a free own-key plan or free period does.
  */
 export function hasModelAccess(
   credits: { mode: string | null; balanceMicros: bigint; byokFreeUntil: Date | null },
@@ -22,7 +22,8 @@ export function hasModelAccess(
   if (hasBillingAccess(subscriptionStatus)) return true;
   if (credits.mode === "byok")
     return BYOK_MONTHLY_PRICE_CENTS === null || byokFreeUntil(credits, now) !== null;
-  return credits.mode === "credits" || credits.balanceMicros > 0n;
+  if (credits.balanceMicros > 0n) return true;
+  return BYOK_MONTHLY_PRICE_CENTS === null && credits.mode === "credits";
 }
 
 /** The free period's end while it is still running. */

@@ -185,7 +185,7 @@ export function createBillingService(deps: {
         provider.createByokCheckout!({
           customerId,
           amountCents,
-          successUrl: `${deps.webOrigin}${BILLING_RETURN_PATH}`,
+          successUrl: `${deps.webOrigin}${BILLING_RETURN_PATH}?funding=byok`,
           cancelUrl: appUrl,
         }),
       );
@@ -211,15 +211,19 @@ export function createBillingService(deps: {
         throw new ORPCError("CONFLICT", {
           message: "Cancel monthly credits in Billing before switching to your API key.",
         });
-      const updated = await prisma.modelCreditAccount.update({
+      // An unpaid own-key choice keeps the current funding until checkout completes.
+      if (
+        funding === "byok" &&
+        !hasModelAccess({ ...account, mode: "byok" }, subscription?.status ?? null)
+      )
+        return { ok: true, ...(await byokCheckout(actor, organizationId)) };
+      await prisma.modelCreditAccount.update({
         where: { organizationId },
         data: {
           mode: funding === "byok" ? "byok" : account.balanceMicros > 0n ? "credits" : null,
           pendingCreditCheckout: false,
         },
       });
-      if (funding === "byok" && !hasModelAccess(updated, subscription?.status ?? null))
-        return { ok: true, ...(await byokCheckout(actor, organizationId)) };
       return { ok: true };
     },
 

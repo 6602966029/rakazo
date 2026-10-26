@@ -276,7 +276,12 @@ function ShellSidebarFooter({
 }) {
   const { t, i18n } = useLingui();
   const billing = useBillingStatus();
-  const freeUntil = billing?.funding === "byok" ? billing.byokFreeUntil : null;
+  const freeUntil =
+    billing?.funding === "byok" &&
+    billing.byokFreeUntil &&
+    new Date(billing.byokFreeUntil) > new Date()
+      ? billing.byokFreeUntil
+      : null;
   const [menuOpen, setMenuOpen] = useState(false);
   const [logOutError, setLogOutError] = useState<string | null>(null);
   const { signingOut, logOut } = useSignOut(() => {

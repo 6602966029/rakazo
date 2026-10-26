@@ -65,10 +65,11 @@ export function SubscriptionGate({
     };
   }, []);
 
-  const paywalled = state.kind === "paywall";
+  const billed = state.kind !== "loading" && state.status !== undefined;
   useEffect(() => {
-    if (!paywalled) return;
-    // Checkout can finish in another window (the system browser on desktop).
+    if (!billed) return;
+    // Checkout can finish in another window (the system browser on desktop), and a free period
+    // can end while the app is open.
     let active = true;
     const recheck = () => {
       if (document.visibilityState === "hidden") return;
@@ -86,7 +87,7 @@ export function SubscriptionGate({
       window.removeEventListener("focus", recheck);
       document.removeEventListener("visibilitychange", recheck);
     };
-  }, [paywalled]);
+  }, [billed]);
 
   if (state.kind === "loading") return fallback;
   if (state.kind === "paywall") {
