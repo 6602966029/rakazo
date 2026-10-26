@@ -70,10 +70,13 @@ export function messagingRoutes(ctx: RouterContext) {
           if (!bot) throw new ORPCError("NOT_FOUND");
           // One chat identity per bot: delivery mirrors a bot's replies to
           // exactly one conversation.
-          const linked = await deps.prisma.messagingIdentity.findUnique({
-            where: { botId: bot.id },
-            select: { id: true },
-          });
+          // The bot may live in another space, so look across them.
+          const linked = await acrossChatIdentities(() =>
+            deps.prisma.messagingIdentity.findUnique({
+              where: { botId: bot.id },
+              select: { id: true },
+            }),
+          );
           if (linked) {
             throw new ORPCError("BAD_REQUEST", {
               message: "That bot is already linked to a chat app; unlink it first.",

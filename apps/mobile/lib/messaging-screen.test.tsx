@@ -341,3 +341,28 @@ it("keeps a new DM code visible when Slack is already linked in another workspac
   );
   expect(container.textContent).toContain("ABCD-2345");
 });
+
+it("lets a member choose which bot their DMs link to in a teammate's workspace", async () => {
+  responses["bots/list"] = [
+    { id: "bot-1", name: "Chief" },
+    { id: "bot-2", name: "Lead" },
+  ];
+  responses["messaging/status"] = { enabled: true, providers: ["slack"], identities: [] };
+  responses["messaging/installations/list"] = {
+    available: true,
+    installations: [],
+    personalLinkAvailable: true,
+  };
+  await act(async () => root.render(<MessagingSettings />));
+  await act(async () =>
+    [...container.querySelectorAll("button")]
+      .find((candidate) => candidate.textContent === "Lead")!
+      .click(),
+  );
+  await act(async () =>
+    [...container.querySelectorAll("button")]
+      .find((candidate) => candidate.textContent === "Link DMs")!
+      .click(),
+  );
+  expect(rpc).toHaveBeenCalledWith("messaging/link/start", { botId: "bot-2" });
+});

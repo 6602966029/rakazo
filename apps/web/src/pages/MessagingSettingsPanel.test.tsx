@@ -499,3 +499,28 @@ it("keeps other apps usable and withholds Slack when its setup method cannot loa
   await act(async () => telegramItem()!.click());
   expect(messaging.link.start).toHaveBeenCalledWith({ botId: "bot-1" });
 });
+
+it("lets a member choose which bot their DMs link to in a teammate's workspace", async () => {
+  messaging.status.mockResolvedValue({ ...statusWith([]), providers: ["slack"] });
+  messaging.installations.list.mockResolvedValue({
+    available: true,
+    installations: [],
+    personalLinkAvailable: true,
+  } as never);
+  api.bots.list.mockResolvedValueOnce([
+    { id: "bot-1", name: "Chief" },
+    { id: "bot-2", name: "Team" },
+  ]);
+  await renderOverlay();
+  const select = container.querySelector("select")!;
+  await act(async () => {
+    select.value = "bot-2";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await act(async () =>
+    [...container.querySelectorAll("button")]
+      .find((button) => button.textContent === "Link DMs")!
+      .click(),
+  );
+  expect(messaging.link.start).toHaveBeenCalledWith({ botId: "bot-2" });
+});

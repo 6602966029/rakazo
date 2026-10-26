@@ -143,6 +143,11 @@ export default function MessagingSettings() {
   const slackInstallations = installations.installations.filter(
     (installation) => installation.provider === "slack",
   );
+  // A teammate's workspace: DMs link to a bot of the member's own choosing.
+  const memberLink =
+    slackInstallations.length === 0 &&
+    Boolean(installations.personalLinkAvailable) &&
+    Boolean(status?.providers.includes("slack"));
   const linkAddress = link ? status?.addresses?.[link.provider] : undefined;
 
   function installSlack() {
@@ -214,7 +219,7 @@ export default function MessagingSettings() {
           />
         ))}
       </SettingsGroup>
-      {slackInstall ? (
+      {slackInstall || slackInstallations.length ? (
         <SettingsGroup>
           {slackInstallations.length === 0 ? (
             <SettingsRow
@@ -222,7 +227,7 @@ export default function MessagingSettings() {
               detail={t("Chat with your bot from Slack.")}
               trailing={
                 <View style={styles.actions}>
-                  {installations.personalLinkAvailable && status?.providers.includes("slack") ? (
+                  {memberLink ? (
                     <NativeActionButton
                       label={t("Link DMs")}
                       prominence="quiet"
@@ -279,6 +284,14 @@ export default function MessagingSettings() {
               />
             ))
           )}
+          {slackInstall && slackInstallations.length ? (
+            <SettingsRow
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={installSlack}
+              title={t("Add workspace")}
+            />
+          ) : null}
         </SettingsGroup>
       ) : null}
       <SettingsGroup>
@@ -296,7 +309,7 @@ export default function MessagingSettings() {
         ))}
       </SettingsGroup>
       <SettingsGroup>
-        {bots.length > 1 && connectChoices.length ? (
+        {bots.length > 1 && (connectChoices.length || memberLink) ? (
           <MenuPicker
             label={t("Bot")}
             choices={bots.map((bot) => ({ key: bot.id, label: bot.name }))}

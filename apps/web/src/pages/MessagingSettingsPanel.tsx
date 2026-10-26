@@ -11,7 +11,7 @@ import {
   NativeSelectOption,
 } from "@rakazo/ui-web";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
@@ -186,6 +186,11 @@ export function MessagingSettingsPanel() {
   const slackInstallations = installationStatus.installations.filter(
     (installation) => installation.provider === "slack",
   );
+  // A teammate's workspace: DMs link to a bot of the member's own choosing.
+  const memberLink =
+    slackInstallations.length === 0 &&
+    Boolean(installationStatus.personalLinkAvailable) &&
+    Boolean(status?.providers.includes("slack"));
   const invitedChannels = channels.filter((channel) => channel.status === "invited");
   const incomingConnections = connections.filter(
     (connection) => connection.status === "pending" && connection.incoming,
@@ -224,6 +229,24 @@ export function MessagingSettingsPanel() {
       }
     });
   }
+
+  const botPicker =
+    bots.length > 1 ? (
+      <NativeSelect
+        aria-label={t`Bot`}
+        value={linkBotId}
+        onChange={(event) => {
+          setSelectedBotId(event.target.value);
+          setLinkRequest(null);
+        }}
+      >
+        {bots.map((bot) => (
+          <NativeSelectOption key={bot.id} value={bot.id}>
+            {bot.name}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    ) : null;
 
   const respondButtons = (respond: (accept: boolean) => Promise<unknown>) => (
     <>
@@ -273,7 +296,8 @@ export function MessagingSettingsPanel() {
         </section>
       ) : null}
 
-      {slackInstall ? (
+      {/* Saved workspaces stay listed even when a refresh fails. */}
+      {slackInstall || slackInstallations.length ? (
         <SettingsGroup data-testid="messaging-slack">
           {slackInstallations.length === 0 ? (
             <SettingsRow
@@ -287,8 +311,8 @@ export function MessagingSettingsPanel() {
               }
               control={
                 <>
-                  {installationStatus.personalLinkAvailable &&
-                  status?.providers.includes("slack") ? (
+                  {memberLink ? botPicker : null}
+                  {memberLink ? (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -346,6 +370,16 @@ export function MessagingSettingsPanel() {
               />
             ))
           )}
+          {slackInstall && slackInstallations.length ? (
+            <button
+              type="button"
+              onClick={installSlack}
+              className="flex w-full items-center gap-2 rounded-b-xl px-4 py-3 text-start text-[14px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <PlusIcon className="size-4" aria-hidden />
+              <Trans>Add workspace</Trans>
+            </button>
+          ) : null}
         </SettingsGroup>
       ) : null}
 
@@ -377,22 +411,7 @@ export function MessagingSettingsPanel() {
         ) : null}
         {linkOptions.length ? (
           <div className="flex flex-wrap items-center gap-2">
-            {bots.length > 1 ? (
-              <NativeSelect
-                aria-label={t`Bot`}
-                value={linkBotId}
-                onChange={(event) => {
-                  setSelectedBotId(event.target.value);
-                  setLinkRequest(null);
-                }}
-              >
-                {bots.map((bot) => (
-                  <NativeSelectOption key={bot.id} value={bot.id}>
-                    {bot.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            ) : null}
+            {memberLink ? null : botPicker}
             <DropdownMenu>
               <DropdownMenuTrigger disabled={!linkBotId} render={<Button variant="outline" />}>
                 <Trans>Connect a chat app</Trans>
