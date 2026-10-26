@@ -145,9 +145,7 @@ export default function MessagingSettings() {
   );
   // A teammate's workspace: DMs link to a bot of the member's own choosing.
   const memberLink =
-    slackInstallations.length === 0 &&
-    Boolean(installations.personalLinkAvailable) &&
-    Boolean(status?.providers.includes("slack"));
+    Boolean(installations.personalLinkAvailable) && Boolean(status?.providers.includes("slack"));
   const linkAddress = link ? status?.addresses?.[link.provider] : undefined;
 
   function installSlack() {
@@ -186,6 +184,17 @@ export default function MessagingSettings() {
       variant={prominence === "primary" ? undefined : "text"}
       disabled={busy}
       onPress={() => void act(onPress)}
+    />
+  );
+  const memberLinkButton = (
+    <NativeActionButton
+      label={t("Link DMs")}
+      prominence="quiet"
+      size="compact"
+      fill={false}
+      variant="text"
+      disabled={busy || !botId}
+      onPress={() => startLink("slack")}
     />
   );
   const respond = (onRespond: (accept: boolean) => Promise<unknown>) => (
@@ -227,17 +236,7 @@ export default function MessagingSettings() {
               detail={t("Chat with your bot from Slack.")}
               trailing={
                 <View style={styles.actions}>
-                  {memberLink ? (
-                    <NativeActionButton
-                      label={t("Link DMs")}
-                      prominence="quiet"
-                      size="compact"
-                      fill={false}
-                      variant="text"
-                      disabled={busy || !botId}
-                      onPress={() => startLink("slack")}
-                    />
-                  ) : null}
+                  {memberLink ? memberLinkButton : null}
                   <NativeActionButton
                     label={t("Connect")}
                     prominence="quiet"
@@ -284,6 +283,9 @@ export default function MessagingSettings() {
               />
             ))
           )}
+          {memberLink && slackInstallations.length ? (
+            <SettingsRow title={messagingProviderName("slack")} trailing={memberLinkButton} />
+          ) : null}
           {slackInstall && slackInstallations.length ? (
             <SettingsRow
               accessibilityRole="button"

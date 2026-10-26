@@ -1053,7 +1053,7 @@ export const MessagingInstallationSummarySchema = z.object({
 export type MessagingInstallationSummary = z.infer<typeof MessagingInstallationSummarySchema>;
 export const MessagingInstallationsStatusSchema = z.object({
   available: z.boolean(),
-  /** A workspace in this space accepts personal links, including for non-owner members. */
+  /** A teammate's workspace in this space accepts the user's personal DM link. */
   personalLinkAvailable: z.boolean().optional(),
   installations: z.array(MessagingInstallationSummarySchema),
 });

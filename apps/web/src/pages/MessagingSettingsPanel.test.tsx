@@ -524,3 +524,27 @@ it("lets a member choose which bot their DMs link to in a teammate's workspace",
   );
   expect(messaging.link.start).toHaveBeenCalledWith({ botId: "bot-2" });
 });
+
+it("keeps a teammate's DM link next to the user's own workspace elsewhere", async () => {
+  messaging.status.mockResolvedValue({ ...statusWith([]), providers: ["slack"] });
+  messaging.installations.list.mockResolvedValue({
+    available: true,
+    installations: [
+      {
+        id: "install-1",
+        provider: "slack",
+        workspaceName: "Home",
+        botId: "bot-2",
+        botName: "Team",
+      },
+    ],
+    personalLinkAvailable: true,
+  } as never);
+  await renderOverlay();
+  const links = [...container.querySelectorAll("button")].filter(
+    (button) => button.textContent === "Link DMs",
+  );
+  expect(links).toHaveLength(2);
+  await act(async () => links[1]!.click());
+  expect(messaging.link.start).toHaveBeenCalledWith({ botId: "bot-1" });
+});

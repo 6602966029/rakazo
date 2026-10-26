@@ -188,7 +188,6 @@ export function MessagingSettingsPanel() {
   );
   // A teammate's workspace: DMs link to a bot of the member's own choosing.
   const memberLink =
-    slackInstallations.length === 0 &&
     Boolean(installationStatus.personalLinkAvailable) &&
     Boolean(status?.providers.includes("slack"));
   const invitedChannels = channels.filter((channel) => channel.status === "invited");
@@ -247,6 +246,20 @@ export function MessagingSettingsPanel() {
         ))}
       </NativeSelect>
     ) : null;
+
+  const memberLinkControls = (
+    <>
+      {botPicker}
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={!linkBotId}
+        onClick={() => startLink("slack", linkBotId)}
+      >
+        <Trans>Link DMs</Trans>
+      </Button>
+    </>
+  );
 
   const respondButtons = (respond: (accept: boolean) => Promise<unknown>) => (
     <>
@@ -311,17 +324,7 @@ export function MessagingSettingsPanel() {
               }
               control={
                 <>
-                  {memberLink ? botPicker : null}
-                  {memberLink ? (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={!linkBotId}
-                      onClick={() => startLink("slack", linkBotId)}
-                    >
-                      <Trans>Link DMs</Trans>
-                    </Button>
-                  ) : null}
+                  {memberLink ? memberLinkControls : null}
                   <Button size="sm" variant="outline" onClick={installSlack}>
                     <Trans>Connect</Trans>
                   </Button>
@@ -370,6 +373,9 @@ export function MessagingSettingsPanel() {
               />
             ))
           )}
+          {memberLink && slackInstallations.length ? (
+            <SettingsRow label={<p>{providerLabel("slack")}</p>} control={memberLinkControls} />
+          ) : null}
           {slackInstall && slackInstallations.length ? (
             <button
               type="button"

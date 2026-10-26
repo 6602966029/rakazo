@@ -186,12 +186,14 @@ export class MessagingInstallations implements MessagingInstallationStore {
     return rows.map(({ bot, ...row }) => ({ ...row, botName: bot.name }));
   }
 
+  /** A teammate's workspace in this space accepts the user's DM link; their own rows link directly. */
   async canLinkPersonalMessages(actor: Actor): Promise<boolean> {
     return runAsSystem("check space messaging link availability", async () => {
       const candidates = await this.prisma.messagingInstallation.findMany({
         where: {
           provider: this.provider.provider,
           spaceId: actor.spaceId,
+          userId: { not: actor.userId },
           space: { memberships: { some: { userId: actor.userId } } },
         },
         select: { id: true },
