@@ -1,7 +1,7 @@
 import type { ThreadScrollState } from "@rakazo/core";
 import { foldPeerReplies, jumpTargetId, leaveThreadWindow, openThreadWindow } from "@rakazo/core";
 import type { Dispatch, RefObject, SetStateAction } from "react";
-import type { MobileMessagePage, MobileSnapshot } from "./api";
+import type { MobileSnapshot } from "./api";
 import { rpc } from "./api";
 import { isIntegrationsScopeCurrent } from "./integrations-cache";
 import type { SavedChatsScope } from "./saved-chats";
