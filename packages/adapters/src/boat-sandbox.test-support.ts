@@ -13,13 +13,10 @@ import type {
   CreateUploadUrlRequest,
   FileUrlResponse,
   FileWriteResponse,
-  GetNamedSnapshotRequest,
   GetRequest,
+  GetSavedSnapshotRequest,
   HostPortOperationRequest,
   HostPortResponse,
-  NamedSnapshot,
-  NamedSnapshotInfoResponse,
-  NamedSnapshotSavingResponse,
   Recover200Response,
   RecoverRequest,
   ResumeOperationRequest,
@@ -27,7 +24,10 @@ import type {
   SandboxActionResponse,
   SandboxInfoResponse,
   SandboxStateEnum,
-  SaveNamedSnapshotRequest,
+  SavedSnapshot,
+  SavedSnapshotInfoResponse,
+  SavedSnapshotSavingResponse,
+  SaveSavedSnapshotRequest,
   StopOperationRequest,
   UpdateRequest,
   WriteFileRequest,
@@ -55,6 +55,8 @@ interface FakeSandbox {
   /** The disk as of Boat's last good snapshot. */
   snapshot: Map<string, { content: Uint8Array; executable: boolean }>;
   recovery: BoatRecovery;
+  /** Set while Boat's storage under the sandbox is broken; whether a resume mends it. */
+  damaged?: "resume_heals" | "persists";
 }
 
 /** Boat's artifact route refuses larger files; download URLs have no size limit. */
@@ -86,8 +88,8 @@ export class FakeBoatApi implements BoatSandboxSdk {
   private rejectAll?: { status: number; code: string; message: string };
   /** Every create request, in order. */
   readonly creates: CreateSandboxRequest[] = [];
-  /** Named snapshots; the current computer snapshot is ready unless a test removes it. */
-  readonly namedSnapshots = new Map<string, NamedSnapshot>([
+  /** Saved snapshots; the current computer snapshot is ready unless a test removes it. */
+  readonly savedSnapshots = new Map<string, SavedSnapshot>([
     [
       BOAT_COMPUTER_SNAPSHOT,
       {
@@ -116,6 +118,18 @@ export class FakeBoatApi implements BoatSandboxSdk {
     const box = this.require(id);
     box.sandbox.state = "error";
     box.recovery = recovery;
+  }
+
+  /**
+   * Boat's restore layer broke under a running sandbox: programs no longer start, the restore
+   * never finishes, and every save fails, so a plain stop is refused. A forced stop keeps the
+   * last good snapshot; resuming that heals the sandbox unless the damage `persists`.
+   */
+  damage(id: string, damaged: "resume_heals" | "persists" = "resume_heals"): void {
+    const box = this.require(id);
+    box.damaged = damaged;
+    box.sandbox.hydrated = false;
+    box.sandbox.lastSnapshotStatus = "failed";
   }
 
   /** Boat reports a cancelled sandbox once, then answers 404. */
@@ -147,7 +161,7 @@ export class FakeBoatApi implements BoatSandboxSdk {
   async create(request: CreateRequest = {}): Promise<CreateSandboxResponse> {
     this.start();
     const from = request.createSandboxRequest?.from;
-    if (from && this.namedSnapshots.get(from)?.status !== "ready") {
+    if (from && this.savedSnapshots.get(from)?.status !== "ready") {
       throw boatError(404, "snapshot_not_found", "Snapshot not found");
     }
     this.creates.push({ ...request.createSandboxRequest });
@@ -186,30 +200,30 @@ export class FakeBoatApi implements BoatSandboxSdk {
   }
 
   /** A save settles to `ready` by the next read. */
-  async getNamedSnapshot({ name }: GetNamedSnapshotRequest): Promise<NamedSnapshotInfoResponse> {
+  async getSavedSnapshot({ name }: GetSavedSnapshotRequest): Promise<SavedSnapshotInfoResponse> {
     this.check();
-    const snapshot = this.namedSnapshots.get(name);
+    const snapshot = this.savedSnapshots.get(name);
     if (!snapshot) throw boatError(404, "snapshot_not_found", "Snapshot not found");
-    const response = { ok: true, type: "snapshot.named.info" as const, snapshot: { ...snapshot } };
+    const response = { ok: true, type: "snapshot.saved.info" as const, snapshot: { ...snapshot } };
     if (snapshot.status === "saving") snapshot.status = "ready";
     return response;
   }
 
-  async saveNamedSnapshot({
-    namedSnapshotSaveRequest,
-  }: SaveNamedSnapshotRequest): Promise<NamedSnapshotSavingResponse> {
-    const { sandboxId, name } = namedSnapshotSaveRequest;
+  async saveSavedSnapshot({
+    savedSnapshotSaveRequest,
+  }: SaveSavedSnapshotRequest): Promise<SavedSnapshotSavingResponse> {
+    const { sandboxId, name } = savedSnapshotSaveRequest;
     this.runnable(sandboxId);
-    const snapshot: NamedSnapshot = {
+    const snapshot: SavedSnapshot = {
       name,
       status: "saving",
       sourceSandboxId: sandboxId,
       createdAt: new Date(),
     };
-    this.namedSnapshots.set(name, snapshot);
+    this.savedSnapshots.set(name, snapshot);
     return {
       ok: true,
-      type: "snapshot.named.saving",
+      type: "snapshot.saved.saving",
       status: "saving",
       snapshot: { ...snapshot },
     };
@@ -223,6 +237,11 @@ export class FakeBoatApi implements BoatSandboxSdk {
     if (box.sandbox.state === "archived" || box.sandbox.state === "error") {
       this.start();
       box.sandbox.state = "ready";
+      if (box.damaged === "resume_heals") {
+        box.damaged = undefined;
+        box.sandbox.hydrated = true;
+        box.sandbox.lastSnapshotStatus = "completed";
+      }
     }
     return this.action(box);
   }
@@ -253,10 +272,33 @@ export class FakeBoatApi implements BoatSandboxSdk {
     this.snapshotDisk(this.require(id));
   }
 
-  /** A stop saves the disk first; a forced one keeps only the last good snapshot. */
+  /**
+   * A stop saves the disk first, and is refused while saves fail; a forced one keeps only the
+   * last good snapshot.
+   */
   async stop({ sandboxId, stopRequest }: StopOperationRequest): Promise<SandboxActionResponse> {
     const box = this.require(sandboxId);
+    const at = new Date();
+    if (box.damaged && !stopRequest?.force) {
+      box.sandbox.stop = {
+        id: "stop_fake",
+        status: "failing",
+        requestedAt: at,
+        lastAttemptAt: at,
+        error: "Refusing archive/stop: no successful snapshot in the last 30 minutes",
+        endedAt: null,
+      };
+      return this.action(box);
+    }
     box.sandbox.state = "archived";
+    box.sandbox.stop = {
+      id: "stop_fake",
+      status: "completed",
+      requestedAt: null,
+      lastAttemptAt: at,
+      error: null,
+      endedAt: at,
+    };
     if (!stopRequest?.force) this.snapshotDisk(box);
     else box.files = new Map(box.snapshot);
     return this.action(box);
@@ -372,7 +414,11 @@ export class FakeBoatApi implements BoatSandboxSdk {
     sandboxId,
     commandRequest,
   }: CommandOperationRequest): Promise<Command200Response> {
-    const result = this.shell(this.runnable(sandboxId), commandRequest.command);
+    const box = this.runnable(sandboxId);
+    // Boat's runner cannot start `systemd-run`, so the command never starts.
+    const result = box.damaged
+      ? finished({ exitCode: 1, stderr: 'Executable not found in $PATH: "systemd-run"\n' })
+      : this.shell(box, commandRequest.command);
     if (!commandRequest.detached) return result;
     const processId = this.detached.size + 1;
     this.detached.set(processId, result);

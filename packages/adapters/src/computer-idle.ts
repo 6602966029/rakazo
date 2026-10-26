@@ -372,6 +372,9 @@ export async function sleepComputerIfIdle(
       : takeoverGraceEndsAt(deps.prisma, computerId);
   const runHeld = Boolean(await runHolds());
   const takeoverHeldUntil = runHeld ? null : await graceEndsAt();
+  if (!runHeld && !takeoverHeldUntil && (await suspendStoppedComputer(deps, computer, ref, ctx))) {
+    return;
+  }
   if (runHeld || takeoverHeldUntil || (await backgroundHolds())) {
     // Recheck when the takeover grace ends so the computer sleeps on time.
     scheduleComputerSleep(deps.jobs, computerId, takeoverHeldUntil ?? undefined);
@@ -409,6 +412,7 @@ export async function sleepComputerIfIdle(
     updatedAt: checkpointedAt,
   };
 
+  let damaged = false;
   try {
     const revision = await checkpointComputerWorkspace(
       deps.home,
@@ -453,6 +457,7 @@ export async function sleepComputerIfIdle(
     if (isSandboxDamagedError(error)) {
       // Nothing on it can run, so no checkpoint can be taken, now or later. Stop it anyway with
       // its disk kept, rather than resume and fail on it every idle window; Recover rebuilds it.
+      damaged = true;
       getLogger().warn("computer.checkpoint_skipped", {
         "computer.id": computerId,
         provider: computer.kind,
@@ -507,7 +512,9 @@ export async function sleepComputerIfIdle(
   }
 
   try {
-    await deps.sandbox.stop(ref, ctx);
+    // Nothing on a damaged computer can be read, so a provider that cannot save it either stops
+    // it anyway, keeping its last good copy, rather than leave it running.
+    await deps.sandbox.stop(ref, ctx, damaged ? { discardUnsaved: true } : undefined);
   } catch (error) {
     await deps.prisma.computer.updateMany({
       where: suspensionClaim,
@@ -542,8 +549,95 @@ export async function sleepComputerIfIdle(
     reason: limitReached ? "active_limit" : "idle",
     activeMs: computer.runningSince ? Date.now() - computer.runningSince.getTime() : undefined,
   });
+  await announceSuspended(deps, computer);
+}
+
+/**
+ * A computer its provider already stopped needs no checkpoint when nothing could have changed its
+ * files since the last save: the provider keeps its disk, and the next start takes whichever of
+ * the two is newer. Starting it only to save it again costs a start, and a start is where a
+ * provider's restore can fail. Returns whether it was marked suspended.
+ */
+async function suspendStoppedComputer(
+  deps: { prisma: PrismaClient; sandbox: SandboxProvider; events: ThreadEvents },
+  computer: NonNullable<Awaited<ReturnType<typeof loadComputer>>>,
+  ref: ComputerRef,
+  ctx: AdapterContext,
+): Promise<boolean> {
+  const savedAt = computer.homeRevisionAt;
+  if (!deps.sandbox.isStopped || !savedAt) return false;
+  if (!(await deps.sandbox.isStopped(ref, ctx).catch(() => false))) return false;
+  if (await changedSinceSave(deps.prisma, computer, savedAt)) return false;
+  const suspended = await deps.prisma.computer.updateMany({
+    where: {
+      id: computer.id,
+      state: computer.state,
+      maintenanceId: null,
+      providerRef: computer.providerRef,
+      updatedAt: computer.updatedAt,
+      executionRunId: null,
+      executionLeases: { none: { expiresAt: { gt: new Date() } } },
+    },
+    data: {
+      state: "suspended",
+      runningSince: null,
+      controlHolder: "none",
+      controlLeaseId: null,
+      controlLeaseExpiresAt: null,
+      controlBotId: null,
+      controlRunId: null,
+    },
+  });
+  if (suspended.count !== 1) return false;
+  await recordComputerRunEnd(deps.prisma, computer, "gone");
+  getLogger().info("computer.suspended", {
+    "computer.id": computer.id,
+    provider: computer.kind,
+    reason: "provider_stopped",
+  });
+  await announceSuspended(deps, computer);
+  return true;
+}
+
+/**
+ * Whether a run or a user in control may have changed the computer's files since `savedAt`.
+ * Uploads and terminals need control; everything else happens in a run.
+ */
+async function changedSinceSave(
+  prisma: PrismaClient,
+  computer: { id: string; spaceId: string; controlHolder: string },
+  savedAt: Date,
+): Promise<boolean> {
+  if (computer.controlHolder === "user") return true;
+  const bots = await prisma.bot.findMany({
+    where: { computerId: computer.id },
+    select: { id: true },
+  });
+  const botIds = bots.map((bot) => bot.id);
+  const [run, takeover] = await Promise.all([
+    prisma.run.findFirst({
+      where: { botId: { in: botIds }, updatedAt: { gt: savedAt } },
+      select: { id: true },
+    }),
+    prisma.event.findFirst({
+      where: {
+        spaceId: computer.spaceId,
+        createdAt: { gt: savedAt },
+        type: "computer.takeover.granted",
+        botId: { in: botIds },
+      },
+      select: { id: true },
+    }),
+  ]);
+  return Boolean(run || takeover);
+}
+
+async function announceSuspended(
+  deps: { prisma: PrismaClient; events: ThreadEvents },
+  computer: { id: string; spaceId: string },
+): Promise<void> {
   const bots = await deps.prisma.bot.findMany({
-    where: { computerId },
+    where: { computerId: computer.id },
     select: { id: true, thread: { select: { id: true } } },
   });
   for (const bot of bots) {
@@ -652,6 +746,7 @@ function loadComputer(prisma: PrismaClient, computerId: string) {
       controlLeaseExpiresAt: true,
       controlBotId: true,
       runningSince: true,
+      homeRevisionAt: true,
       updatedAt: true,
     },
   });

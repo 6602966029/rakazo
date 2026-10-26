@@ -114,6 +114,10 @@ export class HostAwareSandbox implements SandboxProvider {
     return provider.isRunning?.(computer, context) ?? false;
   }
 
+  async isStopped(computer: ComputerRef, context: AdapterContext): Promise<boolean> {
+    return this.route(computer).isStopped?.(computer, context) ?? false;
+  }
+
   async environment(computer: ComputerRef, context: AdapterContext) {
     const provider = this.route(computer);
     return provider.environment?.(computer, context);
@@ -231,8 +235,8 @@ export class HostAwareSandbox implements SandboxProvider {
     );
   }
 
-  stop(computer: ComputerRef, context: AdapterContext) {
-    return this.route(computer).stop(computer, context);
+  stop(computer: ComputerRef, context: AdapterContext, options?: { discardUnsaved?: boolean }) {
+    return this.route(computer).stop(computer, context, options);
   }
 
   destroy(computer: ComputerRef, context: AdapterContext) {

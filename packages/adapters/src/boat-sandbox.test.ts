@@ -83,6 +83,12 @@ function workspaceReads(artifactRaw: { mock: { calls: [{ path: string }, ...unkn
     .filter((path) => path.startsWith("/home/user/rakazo-home/"));
 }
 
+async function drain(events: AsyncIterable<unknown>): Promise<void> {
+  for await (const _event of events) {
+    // Only the outcome matters.
+  }
+}
+
 function reconnect(provider: BoatSandboxProvider, computer: ComputerRef, savedAt?: Date) {
   return provider.provision(
     {
@@ -771,6 +777,129 @@ describe("BoatSandboxProvider", () => {
         for await (const event of run) events.push(event);
       })(),
     ).rejects.toBeInstanceOf(SandboxDamagedError);
+  });
+
+  it("says what Boat reports about a damaged machine and checks it again on the next prepare", async () => {
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "test", sinks: [sink] }));
+    try {
+      const command = vi.spyOn(FakeBoatApi.prototype, "command");
+      const { api, provider, computer } = await boat();
+      await provider.prepare(computer, context);
+      api.damage(computer.id);
+      command.mockClear();
+
+      await expect(drain(provider.execute(computer, { argv: ["ls"] }, context))).rejects.toThrow(
+        SandboxDamagedError,
+      );
+      await expect(provider.prepare(computer, context)).rejects.toThrow(SandboxDamagedError);
+
+      expect(command).toHaveBeenCalledTimes(2);
+      expect(sink.events).toContainEqual(
+        expect.objectContaining({
+          level: "warn",
+          message: "sandbox.damaged",
+          provider: "boat",
+          hydrated: false,
+          lastSnapshotStatus: "failed",
+        }),
+      );
+    } finally {
+      installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+    }
+  });
+
+  describe("a stop Boat refuses because its saves fail", () => {
+    it("waits on Boat's retries without forcing it unless asked", async () => {
+      const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
+      const { api, provider, computer } = await boat();
+      api.damage(computer.id);
+
+      await expect(provider.stop(computer, context)).rejects.toThrow("did not reach archived");
+
+      expect(stop).toHaveBeenCalledExactlyOnceWith(
+        { sandboxId: computer.id },
+        { signal: context.signal },
+      );
+      expect(api.state(computer.id)).toBe("ready");
+    });
+
+    it("forces it to Boat's last good snapshot when the caller may discard unsaved work", async () => {
+      const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
+      const { api, provider, computer } = await boat();
+      const file = (path: string) => ({ path, content: Uint8Array.of(1) });
+      await provider.writeFile(computer, file("saved.txt"), context);
+      api.saveSnapshot(computer.id);
+      await provider.writeFile(computer, file("unsaved.txt"), context);
+      api.damage(computer.id);
+
+      await provider.stop(computer, context, { discardUnsaved: true });
+
+      expect(stop).toHaveBeenLastCalledWith(
+        { sandboxId: computer.id, stopRequest: { force: true } },
+        { signal: context.signal },
+      );
+      expect(api.state(computer.id)).toBe("archived");
+      expect([...api.files(computer.id).keys()]).toEqual([expect.stringMatching(/\/saved\.txt$/)]);
+    });
+
+    it("never forces a stop Boat completes", async () => {
+      const stop = vi.spyOn(FakeBoatApi.prototype, "stop");
+      const { api, provider, computer } = await boat();
+
+      await provider.stop(computer, context, { discardUnsaved: true });
+
+      expect(stop).toHaveBeenCalledExactlyOnceWith(
+        { sandboxId: computer.id },
+        { signal: context.signal },
+      );
+      expect(api.state(computer.id)).toBe("archived");
+    });
+  });
+
+  describe("a sandbox Boat already stopped", () => {
+    it("is reported stopped without being started", async () => {
+      const resume = vi.spyOn(FakeBoatApi.prototype, "resume");
+      const { api, provider, computer } = await boat();
+      expect(await provider.isStopped(computer, context)).toBe(false);
+      await provider.stop(computer, context);
+
+      expect(await provider.isStopped(computer, context)).toBe(true);
+      api.expire(computer.id);
+      expect(await provider.isStopped(computer, context)).toBe(false);
+      api.delete(computer.id);
+      expect(await provider.isStopped(computer, context)).toBe(false);
+      expect(resume).not.toHaveBeenCalled();
+    });
+
+    it("resumes when its snapshot is newer than the caller's save", async () => {
+      const { api, provider, computer } = await boat();
+      const savedAt = new Date();
+      vi.setSystemTime(Date.now() + 60_000);
+      await provider.stop(computer, context);
+
+      const ref = await reconnect(provider, computer, savedAt);
+
+      expect(ref).toMatchObject({ providerRef: computer.providerRef, fresh: false, started: true });
+      expect(api.state(computer.id)).toBe("ready");
+    });
+
+    it("is gone when the caller saved after its last good snapshot", async () => {
+      const resume = vi.spyOn(FakeBoatApi.prototype, "resume");
+      const { api, provider, computer } = await boat();
+      api.saveSnapshot(computer.id);
+      api.damage(computer.id);
+      await provider.stop(computer, context, { discardUnsaved: true });
+      vi.setSystemTime(Date.now() + 60_000);
+
+      const ref = await reconnect(provider, computer, new Date());
+
+      expect(ref).toMatchObject({ fresh: true });
+      expect(ref.providerRef).not.toBe(computer.providerRef);
+      expect(resume).not.toHaveBeenCalled();
+      // Boat's older copy stays stopped rather than deleted.
+      expect(api.state(computer.id)).toBe("archived");
+    });
   });
 
   it("leaves a command's own failure to start a program to the command", async () => {
@@ -1573,14 +1702,14 @@ describe("Boat computer snapshot", () => {
     installLogger(createLogger({ service: "test", sinks: [sink] }));
     try {
       const api = new FakeBoatApi();
-      api.namedSnapshots.clear();
+      api.savedSnapshots.clear();
       const remove = vi.spyOn(api, "deleteSandbox");
       const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
 
       const first = await provision(provider);
       const second = await provision(provider);
       await vi.waitFor(() =>
-        expect(api.namedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.status).toBe("ready"),
+        expect(api.savedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.status).toBe("ready"),
       );
       await vi.waitFor(() => expect(remove).toHaveBeenCalledOnce());
       const third = await provision(provider);
@@ -1593,7 +1722,7 @@ describe("Boat computer snapshot", () => {
       ]);
       const builds = api.creates.filter((request) => !request.env?.RAKAZO_BOT_ID);
       expect(builds).toEqual([{ ttlSeconds: 1800, noEnv: true }]);
-      const buildId = api.namedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.sourceSandboxId;
+      const buildId = api.savedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.sourceSandboxId;
       expect([first.id, second.id, third.id]).not.toContain(buildId);
       expect(remove).toHaveBeenCalledWith(buildId);
       expect(api.state(buildId!)).toBeUndefined();
@@ -1612,7 +1741,7 @@ describe("Boat computer snapshot", () => {
     const create = vi.spyOn(api, "create");
     const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
     await provision(provider);
-    api.namedSnapshots.clear();
+    api.savedSnapshots.clear();
     create.mockClear();
     const build = vi.spyOn(provider, "buildComputerSnapshot");
 
@@ -1630,13 +1759,13 @@ describe("Boat computer snapshot", () => {
     expect(computer.id).toBe("bx_fake2");
     expect(build).toHaveBeenCalledOnce();
     await vi.waitFor(() =>
-      expect(api.namedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.status).toBe("ready"),
+      expect(api.savedSnapshots.get(BOAT_COMPUTER_SNAPSHOT)?.status).toBe("ready"),
     );
   });
 
   it("builds from a clean sandbox, checks the desktop, and skips a ready snapshot", async () => {
     const api = new FakeBoatApi();
-    api.namedSnapshots.clear();
+    api.savedSnapshots.clear();
     const command = vi.spyOn(api, "command");
     const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
 
@@ -1659,7 +1788,7 @@ describe("Boat computer snapshot", () => {
 
   it("waits for a save already in progress instead of building again", async () => {
     const api = new FakeBoatApi();
-    api.namedSnapshots.set(BOAT_COMPUTER_SNAPSHOT, {
+    api.savedSnapshots.set(BOAT_COMPUTER_SNAPSHOT, {
       name: BOAT_COMPUTER_SNAPSHOT,
       status: "saving",
       sourceSandboxId: "bx_other",
@@ -1676,7 +1805,7 @@ describe("Boat computer snapshot", () => {
 
   it("keeps using the snapshot after a boot is cancelled during its lookup", async () => {
     const api = new FakeBoatApi();
-    const lookup = vi.spyOn(api, "getNamedSnapshot");
+    const lookup = vi.spyOn(api, "getSavedSnapshot");
     const provider = new BoatSandboxProvider({ apiKey: "test-key" }, api);
     const cancelled = new AbortController();
     lookup.mockImplementationOnce(async () => {
@@ -1697,7 +1826,7 @@ describe("Boat computer snapshot", () => {
 
   it("does not save a snapshot whose desktop check fails", async () => {
     const api = new FakeBoatApi();
-    api.namedSnapshots.clear();
+    api.savedSnapshots.clear();
     const run = api.command.bind(api);
     vi.spyOn(api, "command").mockImplementation(async (request) =>
       request.commandRequest.command.includes("xdpyinfo -display :99")
@@ -1718,7 +1847,7 @@ describe("Boat computer snapshot", () => {
     await expect(provider.buildComputerSnapshot()).rejects.toMatchObject({
       cause: { message: "exit 1: Xvfb did not start" },
     });
-    expect(api.namedSnapshots.size).toBe(0);
+    expect(api.savedSnapshots.size).toBe(0);
     expect(remove).toHaveBeenCalledWith("bx_fake1");
   });
 });
