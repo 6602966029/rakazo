@@ -780,6 +780,19 @@ describe("redactSecrets", () => {
       "[redacted][redacted][redacted][redacted]",
     );
   });
+
+  it("hides each line of a multi-line value when output splits or rejoins its lines", () => {
+    const key =
+      "-----BEGIN FAKE KEY-----\r\nAAAAfakeLineOne\nBBBBfakeLineTwo\n}\n-----END FAKE KEY-----\n";
+    expect(redactSecrets(`key: ${key}`, [key])).toBe("key: [redacted]");
+    // An unquoted `echo $KEY` joins the lines with spaces.
+    expect(
+      redactSecrets("-----BEGIN FAKE KEY----- AAAAfakeLineOne BBBBfakeLineTwo } -----END", [key]),
+    ).toBe("[redacted] [redacted] [redacted] } -----END");
+    expect(redactSecrets("tail: BBBBfakeLineTwo", [key])).toBe("tail: [redacted]");
+    expect(containsSecret({ out: "AAAAfakeLineOne" }, [key])).toBe(true);
+    expect(containsSecret({ out: "}" }, [key])).toBe(false);
+  });
 });
 
 describe("createStreamingRedactor", () => {
@@ -815,6 +828,12 @@ describe("createStreamingRedactor", () => {
     expect(outputs[0]).toBe("[redacted]");
     expect(outputs.slice(1).every((output) => output === "")).toBe(true);
     expect(redactor.push(" done") + redactor.finish()).toBe(" done");
+  });
+
+  it("hides a line of a multi-line value split across chunks", () => {
+    const redactor = createStreamingRedactor(["header\nAAAAfakeLineOne\n"]);
+    const output = [redactor.push("x AAAAfake"), redactor.push("LineOne y"), redactor.finish()];
+    expect(output.join("")).toBe("x [redacted] y");
   });
 
   it("does not delay chunks when there are no known secrets", () => {
