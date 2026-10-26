@@ -371,11 +371,6 @@ msgstr "@{0}"
 msgid "${0} / month"
 msgstr ""
 
-#. placeholder {0}: amount / 100
-#: src/components/ModelCredits.tsx
-msgid "${0} in monthly model credits. No API key needed."
-msgstr ""
-
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr "קצת מהכול"
@@ -619,6 +614,11 @@ msgstr "מחשב הסוכן"
 #: src/pages/McpServersOverlay.tsx
 msgid "Agents:"
 msgstr "סוכנים:"
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "All ${0} goes to model usage."
+msgstr "כל ${0} הולכים לשימוש במודלים."
 
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1133,10 +1133,6 @@ msgstr "שוחחו עם הבוט שלכם מ-Slack."
 msgid "ChatGPT subscription"
 msgstr ""
 
-#: src/components/ModelCredits.tsx
-msgid "ChatGPT, Claude, or any model provider."
-msgstr ""
-
 #: src/lib/identity-display.ts
 msgid "Chats"
 msgstr "צ׳אטים"
@@ -1590,10 +1586,6 @@ msgstr ""
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "המשך עם {0}"
-
-#: src/components/ModelCredits.tsx
-msgid "Continue with credits"
-msgstr ""
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Conversations"
@@ -5241,6 +5233,14 @@ msgstr "הרשמה למנוי"
 msgid "Subscribe for ${0} / month"
 msgstr "הרשמה במחיר ${0} לחודש"
 
+#: src/components/ModelCredits.tsx
+msgid "Subscribe to Rakazo credits"
+msgstr "הרשמה למנוי לקרדיטים של Rakazo"
+
+#: src/components/ModelCredits.tsx
+msgid "Subscribe with your own AI"
+msgstr "הרשמה למנוי עם ה-AI שלך"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr "נדרש מנוי"
@@ -5595,10 +5595,6 @@ msgstr "מקורות כלים"
 #: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "כלים"
-
-#: src/components/ModelCredits.tsx
-msgid "Top up anytime"
-msgstr ""
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
@@ -6009,6 +6005,10 @@ msgstr "הוראות עבודה"
 #: src/pages/shell/transcript.tsx
 msgid "Working…"
 msgstr "עובד…"
+
+#: src/components/ModelCredits.tsx
+msgid "Works with your ChatGPT or Claude plan."
+msgstr "עובד עם המינוי שלך ל-ChatGPT או ל-Claude."
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "Workspace"

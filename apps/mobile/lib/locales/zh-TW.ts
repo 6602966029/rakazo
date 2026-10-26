@@ -975,9 +975,9 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Add credits": "加值",
   "Manage billing": "管理帳務",
   "Your subscription or API key": "你的訂閱或 API 金鑰",
-  "Free. ChatGPT, Claude, or any model provider.": "免費。ChatGPT、Claude 或任意模型供應商。",
-  "{price} / month. ChatGPT, Claude, or any model provider.":
-    "每月 {price}。ChatGPT、Claude 或任意模型供應商。",
+  "Free. Works with your ChatGPT or Claude plan.": "免費。可使用你的 ChatGPT 或 Claude 方案。",
+  "{price} / month. Works with your ChatGPT or Claude plan.":
+    "每月 {price}。可使用你的 ChatGPT 或 Claude 方案。",
   "Free plan ends": "免費方案結束於",
   Subscribe: "訂閱",
   "Use my subscription or API key": "使用我的訂閱或 API 金鑰",

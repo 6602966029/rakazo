@@ -981,10 +981,10 @@ export const NL_MESSAGES: Record<string, string> = {
   "Add credits": "Tegoed toevoegen",
   "Manage billing": "Facturering beheren",
   "Your subscription or API key": "Je abonnement of API-sleutel",
-  "Free. ChatGPT, Claude, or any model provider.":
-    "Gratis. ChatGPT, Claude of elke modelaanbieder.",
-  "{price} / month. ChatGPT, Claude, or any model provider.":
-    "{price} per maand. ChatGPT, Claude of elke modelaanbieder.",
+  "Free. Works with your ChatGPT or Claude plan.":
+    "Gratis. Werkt met je ChatGPT- of Claude-abonnement.",
+  "{price} / month. Works with your ChatGPT or Claude plan.":
+    "{price} per maand. Werkt met je ChatGPT- of Claude-abonnement.",
   "Free plan ends": "Gratis abonnement eindigt",
   Subscribe: "Abonneren",
   "Use my subscription or API key": "Mijn abonnement of API-sleutel gebruiken",

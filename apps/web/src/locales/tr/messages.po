@@ -371,11 +371,6 @@ msgstr "@{0}"
 msgid "${0} / month"
 msgstr ""
 
-#. placeholder {0}: amount / 100
-#: src/components/ModelCredits.tsx
-msgid "${0} in monthly model credits. No API key needed."
-msgstr ""
-
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr ""
@@ -619,6 +614,11 @@ msgstr "Agent bilgisayarı"
 #: src/pages/McpServersOverlay.tsx
 msgid "Agents:"
 msgstr "Agent'lar:"
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "All ${0} goes to model usage."
+msgstr "${0} tutarın tamamı model kullanımına gider."
 
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1133,10 +1133,6 @@ msgstr "Slack üzerinden botunuzla sohbet edin."
 msgid "ChatGPT subscription"
 msgstr ""
 
-#: src/components/ModelCredits.tsx
-msgid "ChatGPT, Claude, or any model provider."
-msgstr ""
-
 #: src/lib/identity-display.ts
 msgid "Chats"
 msgstr "Sohbetler"
@@ -1590,10 +1586,6 @@ msgstr ""
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "{0} ile devam et"
-
-#: src/components/ModelCredits.tsx
-msgid "Continue with credits"
-msgstr ""
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Conversations"
@@ -5241,6 +5233,14 @@ msgstr "Abone ol"
 msgid "Subscribe for ${0} / month"
 msgstr "Aylık ${0} ile abone ol"
 
+#: src/components/ModelCredits.tsx
+msgid "Subscribe to Rakazo credits"
+msgstr "Rakazo kredilerine abone ol"
+
+#: src/components/ModelCredits.tsx
+msgid "Subscribe with your own AI"
+msgstr "Kendi yapay zekânla abone ol"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr ""
@@ -5594,10 +5594,6 @@ msgstr "Araç kaynakları"
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Tools"
-msgstr ""
-
-#: src/components/ModelCredits.tsx
-msgid "Top up anytime"
 msgstr ""
 
 #: src/components/composer/HoldToTalk.tsx
@@ -6009,6 +6005,10 @@ msgstr "Çalışma talimatları"
 #: src/pages/shell/transcript.tsx
 msgid "Working…"
 msgstr "Çalışıyor…"
+
+#: src/components/ModelCredits.tsx
+msgid "Works with your ChatGPT or Claude plan."
+msgstr "ChatGPT veya Claude aboneliğinle çalışır."
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "Workspace"

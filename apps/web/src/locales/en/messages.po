@@ -371,11 +371,6 @@ msgstr "@{0}"
 msgid "${0} / month"
 msgstr "${0} / month"
 
-#. placeholder {0}: amount / 100
-#: src/components/ModelCredits.tsx
-msgid "${0} in monthly model credits. No API key needed."
-msgstr "${0} in monthly model credits. No API key needed."
-
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr "A bit of everything"
@@ -619,6 +614,11 @@ msgstr "Agent computer"
 #: src/pages/McpServersOverlay.tsx
 msgid "Agents:"
 msgstr "Agents:"
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "All ${0} goes to model usage."
+msgstr "All ${0} goes to model usage."
 
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1133,10 +1133,6 @@ msgstr "Chat with your bot from Slack."
 msgid "ChatGPT subscription"
 msgstr "ChatGPT subscription"
 
-#: src/components/ModelCredits.tsx
-msgid "ChatGPT, Claude, or any model provider."
-msgstr "ChatGPT, Claude, or any model provider."
-
 #: src/lib/identity-display.ts
 msgid "Chats"
 msgstr "Chats"
@@ -1590,10 +1586,6 @@ msgstr "Continue to checkout"
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "Continue with {0}"
-
-#: src/components/ModelCredits.tsx
-msgid "Continue with credits"
-msgstr "Continue with credits"
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Conversations"
@@ -5241,6 +5233,14 @@ msgstr "Subscribe"
 msgid "Subscribe for ${0} / month"
 msgstr "Subscribe for ${0} / month"
 
+#: src/components/ModelCredits.tsx
+msgid "Subscribe to Rakazo credits"
+msgstr "Subscribe to Rakazo credits"
+
+#: src/components/ModelCredits.tsx
+msgid "Subscribe with your own AI"
+msgstr "Subscribe with your own AI"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr "Subscription required"
@@ -5595,10 +5595,6 @@ msgstr "Tool sources"
 #: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "Tools"
-
-#: src/components/ModelCredits.tsx
-msgid "Top up anytime"
-msgstr "Top up anytime"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
@@ -6009,6 +6005,10 @@ msgstr "Working instructions"
 #: src/pages/shell/transcript.tsx
 msgid "Working…"
 msgstr "Working…"
+
+#: src/components/ModelCredits.tsx
+msgid "Works with your ChatGPT or Claude plan."
+msgstr "Works with your ChatGPT or Claude plan."
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "Workspace"

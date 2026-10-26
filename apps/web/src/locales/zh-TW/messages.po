@@ -372,11 +372,6 @@ msgstr "@{0}"
 msgid "${0} / month"
 msgstr "每月 ${0}"
 
-#. placeholder {0}: amount / 100
-#: src/components/ModelCredits.tsx
-msgid "${0} in monthly model credits. No API key needed."
-msgstr "每月 ${0} 模型額度，無需 API 金鑰。"
-
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr "什麼都做一點"
@@ -620,6 +615,11 @@ msgstr "代理程式電腦"
 #: src/pages/McpServersOverlay.tsx
 msgid "Agents:"
 msgstr "代理程式："
+
+#. placeholder {0}: amount / 100
+#: src/components/ModelCredits.tsx
+msgid "All ${0} goes to model usage."
+msgstr "全部 ${0} 都用於模型用量。"
 
 #: src/pages/Artifacts.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1134,10 +1134,6 @@ msgstr "在 Slack 與你的機器人聊天。"
 msgid "ChatGPT subscription"
 msgstr "ChatGPT 訂閱"
 
-#: src/components/ModelCredits.tsx
-msgid "ChatGPT, Claude, or any model provider."
-msgstr "ChatGPT、Claude 或任何模型供應商。"
-
 #: src/lib/identity-display.ts
 msgid "Chats"
 msgstr "聊天"
@@ -1591,10 +1587,6 @@ msgstr "繼續結帳"
 #: src/pages/Auth.tsx
 msgid "Continue with {0}"
 msgstr "透過 {0} 繼續"
-
-#: src/components/ModelCredits.tsx
-msgid "Continue with credits"
-msgstr "使用額度繼續"
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Conversations"
@@ -5242,6 +5234,14 @@ msgstr "訂閱"
 msgid "Subscribe for ${0} / month"
 msgstr "以每月 ${0} 訂閱"
 
+#: src/components/ModelCredits.tsx
+msgid "Subscribe to Rakazo credits"
+msgstr "訂閱 Rakazo 額度"
+
+#: src/components/ModelCredits.tsx
+msgid "Subscribe with your own AI"
+msgstr "使用自己的 AI 訂閱"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr "需要訂閱"
@@ -5596,10 +5596,6 @@ msgstr "工具來源"
 #: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "工具"
-
-#: src/components/ModelCredits.tsx
-msgid "Top up anytime"
-msgstr "隨時加值"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
@@ -6010,6 +6006,10 @@ msgstr "工作指示"
 #: src/pages/shell/transcript.tsx
 msgid "Working…"
 msgstr "處理中…"
+
+#: src/components/ModelCredits.tsx
+msgid "Works with your ChatGPT or Claude plan."
+msgstr "可使用你的 ChatGPT 或 Claude 方案。"
 
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 msgid "Workspace"

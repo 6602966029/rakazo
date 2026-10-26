@@ -970,10 +970,10 @@ export const JA_MESSAGES: Record<string, string> = {
   "Add credits": "クレジットを追加",
   "Manage billing": "請求を管理",
   "Your subscription or API key": "ご自身のサブスクリプションまたはAPIキー",
-  "Free. ChatGPT, Claude, or any model provider.":
-    "無料。ChatGPT、Claude、または任意のモデルプロバイダー。",
-  "{price} / month. ChatGPT, Claude, or any model provider.":
-    "月額 {price}。ChatGPT、Claude、または任意のモデルプロバイダー。",
+  "Free. Works with your ChatGPT or Claude plan.":
+    "無料。ChatGPT または Claude のプランで使えます。",
+  "{price} / month. Works with your ChatGPT or Claude plan.":
+    "月額 {price}。ChatGPT または Claude のプランで使えます。",
   "Free plan ends": "無料プランの終了日",
   Subscribe: "登録する",
   "Use my subscription or API key": "自分のサブスクリプションまたはAPIキーを使用",

@@ -22,7 +22,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Separator,
 } from "@rakazo/ui-web";
 import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -159,7 +158,7 @@ export function CreditChoice({
               )}
             </p>
             <p className="text-sm text-muted-foreground">
-              <Trans>ChatGPT, Claude, or any model provider.</Trans>
+              <Trans>Works with your ChatGPT or Claude plan.</Trans>
             </p>
             <ul className="space-y-3 text-sm">
               {features.map((feature) => (
@@ -175,9 +174,10 @@ export function CreditChoice({
               className="w-full bg-background dark:bg-transparent"
               variant="outline"
               disabled={pending || !status.canManage}
+              aria-label={status.byokPriceCents ? t`Subscribe with your own AI` : undefined}
               onClick={() => void choose(true)}
             >
-              {status.byokFreeUntil ? <Trans>Subscribe</Trans> : <Trans>Connect my own</Trans>}
+              {status.byokPriceCents ? <Trans>Subscribe</Trans> : <Trans>Connect my own</Trans>}
             </Button>
           </CardFooter>
         </Card>
@@ -190,22 +190,13 @@ export function CreditChoice({
           <CardContent className="flex flex-1 flex-col gap-4">
             <CreditAmountSelect monthly value={amount} onChange={setAmount} />
             <p className="text-sm text-muted-foreground">
-              <Trans>${amount / 100} in monthly model credits. No API key needed.</Trans>
+              <Trans>All ${amount / 100} goes to model usage.</Trans>
             </p>
             <ul className="space-y-3 text-sm">
-              {features.map((feature) => (
+              {[...features, t`Models at provider cost`].map((feature) => (
                 <li key={feature} className="flex gap-2">
                   <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                   <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-            <Separator className="data-horizontal:w-8" />
-            <ul className="space-y-3 text-sm">
-              {[t`Models at provider cost`, t`Top up anytime`].map((benefit) => (
-                <li key={benefit} className="flex gap-2">
-                  <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <span>{benefit}</span>
                 </li>
               ))}
             </ul>
@@ -214,9 +205,10 @@ export function CreditChoice({
             <Button
               className="w-full"
               disabled={pending || !status.canManage || !status.creditPurchasesEnabled}
+              aria-label={t`Subscribe to Rakazo credits`}
               onClick={() => void choose(false)}
             >
-              <Trans>Continue with credits</Trans>
+              <Trans>Subscribe</Trans>
             </Button>
           </CardFooter>
         </Card>
