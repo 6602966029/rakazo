@@ -224,7 +224,7 @@ it("keeps an accepted question choice answered until the block updates", async (
   expect(container.textContent).not.toContain("Answered: Paris");
 });
 
-it("gives question options a fill and border", async () => {
+it("gives question options a borderless fill", async () => {
   await render({
     kind: "ask",
     text: "Which city?",
@@ -234,7 +234,7 @@ it("gives question options a fill and border", async () => {
   const option = button("Paris")!;
   expect(option.disabled).toBe(false);
   expect(option.classList.contains("bg-secondary")).toBe(true);
-  expect(option.classList.contains("border-input")).toBe(true);
+  expect(option.classList.contains("border-border")).toBe(false);
 });
 
 it("gives onboarding choices borderless rows and distinct interaction states", async () => {
