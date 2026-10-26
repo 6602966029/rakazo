@@ -600,15 +600,30 @@ describe("the local cache of object-backed homes", () => {
     expect(await store.readFile("bot-1", "notes/a.txt", context)).toBe("saved");
   });
 
-  it("removes a remote computer's copy once it is restored", async () => {
-    const { root, store } = await setup();
-    await store.commit("bot-1", await staged({ "a.txt": "stored" }), context);
-    const { sandbox, restored } = remoteSandbox(async function* () {});
+  it("never evicts a copy an export is still reading", async () => {
+    const { store } = await setup();
+    await store.commit("bot-1", await staged({ "a.txt": "one", "b.txt": "two" }), context);
+    const reading = store.exportHome("bot-1", context)[Symbol.asyncIterator]();
+    await reading.next();
 
-    await restoreComputerWorkspace(store, sandbox, "bot-1", boatComputer, context);
+    expect(await store.evictCache("bot-1")).toBe(false);
+    expect((await reading.next()).done).toBe(false);
+    await reading.return?.(undefined);
+    expect(await store.evictCache("bot-1")).toBe(true);
+  });
 
-    expect(restored).toEqual(["a.txt"]);
-    expect(await entries(path.join(root, "homes"))).toEqual([]);
+  it("moves a local save into place instead of copying it", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "rakazo-local-homes-"));
+    dirs.push(root);
+    const store = new LocalAgentHomeStore(root);
+    const { sandbox } = remoteSandbox(async function* () {
+      yield { path: "a.txt", content: Buffer.from("saved") };
+    });
+
+    await checkpointComputerWorkspace(store, sandbox, "bot-1", boatComputer, context);
+
+    expect(await store.readFile("bot-1", "a.txt", context)).toBe("saved");
+    expect(await entries(path.join(root, "staging"))).toEqual([]);
   });
 
   it("keeps the only copy of a home that was never stored", async () => {

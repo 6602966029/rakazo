@@ -1180,9 +1180,8 @@ objects within the hour, along with any revision an interrupted save left behind
 **The cache.** `DATA_DIR/homes` holds a copy of homes in use. A copy whose revision matches the
 bucket is downloaded again whenever it is missing, so you can remove it. Docker computers work
 directly in their copy until their next save, so only remove the copy of a Docker computer that
-is stopped. Remote computers save straight from their files to the bucket, and their copies are
-removed once restored or saved, and by the worker after an hour unread. Homes never saved to the
-bucket keep their only copy.
+is stopped. Remote computers save straight from their files to the bucket; the worker removes
+their copies after an hour unread. Homes never saved to the bucket keep their only copy.
 
 **Saving large homes.** A save streams files through `DATA_DIR/staging` on the data volume,
 so memory use does not grow with file or home size. A computer with more than 20 GiB or a

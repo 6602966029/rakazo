@@ -64,8 +64,15 @@ export class LocalAgentHomeStore implements AgentHomeStore {
   }
 
   async commit(botId: string, src: string, _context: AdapterContext): Promise<string> {
+    // Files staged on this volume by `createStaging` are moved into place, not copied, so a
+    // save never needs room for two copies.
+    const staged = path.dirname(path.resolve(src)) === path.resolve(this.root, "staging");
     return this.withBotWrite(botId, async () => {
-      await this.replaceHome(botId, (staging) => copyDir(src, staging));
+      await this.replaceHome(botId, async (staging) => {
+        if (!staged) return copyDir(src, staging);
+        await rm(staging, { recursive: true, force: true });
+        await rename(src, staging);
+      });
       return this.writeRevision(botId);
     });
   }

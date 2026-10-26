@@ -36,6 +36,8 @@ const SWEEP_INTERVAL_MS = 60 * 60_000;
 const CACHE_SWEEP_INTERVAL_MS = 10 * 60_000;
 /** A remote computer's cached copy nothing has read for this long is removed. */
 const IDLE_CACHE_MS = 60 * 60_000;
+/** An export in progress marks its copy as used this often. */
+const READER_HEARTBEAT_MS = 5 * 60_000;
 /** Revisions left by a crashed save are removed once they are clearly not in progress. */
 const STALE_REVISION_MS = 24 * 60 * 60_000;
 
@@ -73,11 +75,14 @@ export interface AgentHomeRecords {
  *
  * Docker computers keep mounting the cached directory (this extends `LocalAgentHomeStore`);
  * their checkpoints upload it. Remote computers' saves upload straight from their staged files,
- * and their cached copy is removed once restored or saved, or after an hour unread. Sandboxes
- * never see storage credentials or object URLs: files still reach them only through checkout
- * and workspace import.
+ * and their cached copy, used only to restore and read them, is removed after an hour unread.
+ * Sandboxes never see storage credentials or object URLs: files still reach them only through
+ * checkout and workspace import.
  */
 export class ObjectAgentHomeStore extends LocalAgentHomeStore {
+  /** Exports in progress per home, which eviction waits out. */
+  private readonly readers = new Map<string, number>();
+
   constructor(
     root: string,
     private readonly storage: ObjectStorage,
@@ -106,8 +111,19 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
     context: AdapterContext,
     options?: { directory?: string; skipHidden?: boolean },
   ): AsyncGenerator<PortableFile> {
-    await this.hydrate(botId);
-    yield* super.exportHome(botId, context, options);
+    this.readers.set(botId, (this.readers.get(botId) ?? 0) + 1);
+    // Keeps the copy recently used for other processes' idle eviction during a long export.
+    const timer = setInterval(() => void this.touchRevision(botId), READER_HEARTBEAT_MS);
+    timer.unref();
+    try {
+      await this.hydrate(botId);
+      yield* super.exportHome(botId, context, options);
+    } finally {
+      clearInterval(timer);
+      const left = (this.readers.get(botId) ?? 1) - 1;
+      if (left) this.readers.set(botId, left);
+      else this.readers.delete(botId);
+    }
   }
 
   override async readFile(
@@ -170,24 +186,23 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
 
   /**
    * Saves a remote computer's exported files from `src` without copying them into the cache.
-   * Docker computers save their mounted copy with `revise`, so no computer works in the cached
-   * copy this replaces, and it is removed rather than kept stale.
+   * A cached copy this makes stale is downloaded again when next read, and removed once idle.
    */
   override async commit(botId: string, src: string, _context: AdapterContext): Promise<string> {
-    return this.withBotWrite(botId, async () => {
-      const { revision } = await this.upload(botId, { source: src });
-      await this.removeCopy(botId);
-      return revision;
-    });
+    return this.withBotWrite(
+      botId,
+      async () => (await this.upload(botId, { source: src })).revision,
+    );
   }
 
   /**
-   * Removes this host's copy of a remote computer's home once the bucket holds it; it is
-   * downloaded again when next needed. A home never stored keeps its only copy. Never call it
-   * for a Docker computer, which works directly in the copy.
+   * Removes this host's copy of a remote computer's home once the bucket holds it and no export
+   * here is reading it; it is downloaded again when next needed. A home never stored keeps its
+   * only copy. Never call it for a Docker computer, which works directly in the copy.
    */
   async evictCache(botId: string): Promise<boolean> {
     return this.withBotWrite(botId, async () => {
+      if (this.readers.has(botId)) return false;
       if (!(await this.records.load(botId))?.revision) return false;
       await this.removeCopy(botId);
       return true;

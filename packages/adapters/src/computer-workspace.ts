@@ -19,7 +19,6 @@ import type { PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { normalizeWorkspacePath, teamBotWorkspaceDirectory } from "./computer-support.js";
 import { createStagingDirectory, LocalAgentHomeStore } from "./home.js";
-import { ObjectAgentHomeStore } from "./home-object-store.js";
 
 export const PORTABLE_TRANSFER_BATCH_BYTES = 8 * 1024 * 1024;
 
@@ -30,6 +29,8 @@ export const WORKSPACE_SAVE_LIMITS: WorkspaceExportLimits = {
 };
 /** Disk a save leaves free for everything else on the data volume. */
 const SAVE_DISK_RESERVE_BYTES = 2 * 1024 ** 3;
+/** How often, in bytes written, a save checks the volume's free space again. */
+const FREE_DISK_CHECK_BYTES = 256 * 1024 * 1024;
 
 /** Browser profile directories the browser rebuilds on its own; exports skip them. */
 export const SKIPPED_BROWSER_PROFILE_DIRECTORIES: ReadonlySet<string> = new Set([
@@ -113,8 +114,6 @@ export async function restoreComputerWorkspace(
 ): Promise<void> {
   if (await homeIsMounted(home, sandbox, computer, context)) return;
   await sandbox.importWorkspace(computer, home.exportHome(homeKey, context), context);
-  // The computer now holds the files and the bucket holds the home; this host needs no copy.
-  if (home instanceof ObjectAgentHomeStore) await home.evictCache(homeKey);
 }
 
 export async function ensureComputerWorkspaceLayout(
@@ -378,10 +377,15 @@ export async function checkpointComputerWorkspace(
       : await createStagingDirectory();
   try {
     const limits = await withinFreeDisk(saveLimits, staging.path);
-    const copied = { bytes: 0, files: 0 };
-    const count = (bytes: number) => {
+    const copied = { bytes: 0, files: 0, unchecked: 0 };
+    const count = async (bytes: number) => {
       copied.bytes += bytes;
+      copied.unchecked += bytes;
       if (copied.bytes > limits.maxBytes) throw new WorkspaceTooLargeError("bytes");
+      // Other saves share the volume, so the free space is checked again as files arrive.
+      if (copied.unchecked < FREE_DISK_CHECK_BYTES) return;
+      copied.unchecked = 0;
+      if ((await freeDisk(staging.path)) < 0) throw new WorkspaceTooLargeError("bytes");
     };
     for await (const file of sandbox.exportWorkspace(computer, context, limits)) {
       if (++copied.files > limits.maxFiles) throw new WorkspaceTooLargeError("files");
@@ -401,10 +405,15 @@ async function withinFreeDisk(
   limits: WorkspaceExportLimits,
   directory: string,
 ): Promise<WorkspaceExportLimits> {
-  const disk = await statfs(directory).catch(() => undefined);
-  if (!disk) return limits;
-  const free = Number(disk.bavail) * Number(disk.bsize) - SAVE_DISK_RESERVE_BYTES;
+  const free = await freeDisk(directory);
   return { ...limits, maxBytes: Math.max(0, Math.min(limits.maxBytes, free)) };
+}
+
+/** Bytes free on the volume beyond the reserve; unlimited where the platform cannot tell. */
+async function freeDisk(directory: string) {
+  const disk = await statfs(directory).catch(() => undefined);
+  if (!disk) return Number.POSITIVE_INFINITY;
+  return Number(disk.bavail) * Number(disk.bsize) - SAVE_DISK_RESERVE_BYTES;
 }
 
 /** Remote exports quiesce browsers, so a run must not checkpoint while peers are driving them. */
@@ -478,7 +487,7 @@ export async function checkpointAndRecordComputerWorkspace(
 async function writePortableFile(
   root: string,
   file: PortableFile | StreamedPortableFile,
-  count: (bytes: number) => void,
+  count: (bytes: number) => Promise<void>,
 ) {
   const relative = normalizeWorkspacePath(file.path);
   if (!relative) throw new Error("Workspace snapshots cannot contain an empty file path");
@@ -495,7 +504,7 @@ async function writePortableFile(
   );
   try {
     for await (const chunk of "body" in file ? file.body : [file.content]) {
-      count(chunk.byteLength);
+      await count(chunk.byteLength);
       for (let offset = 0; offset < chunk.byteLength; ) {
         const { bytesWritten } = await handle.write(chunk, offset, chunk.byteLength - offset);
         offset += bytesWritten;
