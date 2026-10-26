@@ -8,10 +8,11 @@ import type { ChatSettingsRoute } from "../lib/chat-settings-route";
 import { chatSettingsRoute } from "../lib/chat-settings-route";
 import { useI18n } from "../lib/i18n";
 import { useThemedStyles } from "../lib/native";
-import { useInboxBot } from "../lib/search-inbox";
-import { ChatTitleAvatar } from "./chat-title-avatar";
+import { useInboxBot, useInboxGroup } from "../lib/search-inbox";
+import { CHAT_TITLE_AVATAR_SIZE, ChatTitleAvatar } from "./chat-title-avatar";
 import { ChatTitleLabel } from "./chat-title-label";
 import { GlassSurface } from "./glass-surface";
+import { GroupSeats } from "./group-seats";
 import { createThreadHeaderStyles } from "./thread-header-styles";
 
 /** What an open chat shows in its title, once it has loaded its own data. */
@@ -74,6 +75,7 @@ export function ChatHeaderTitle({
   const styles = useThemedStyles(createThreadHeaderStyles);
   const published = useSyncExternalStore(subscribe, () => titles.get(routeKey));
   const inboxBot = useInboxBot(params.botId);
+  const inboxGroup = useInboxGroup(params.groupId);
   const inGroup = Boolean(params.groupId);
   const title: ChatTitle = published ?? {
     bot: inboxBot,
@@ -86,6 +88,8 @@ export function ChatHeaderTitle({
       readOnly: params.readOnly === "1",
     }),
   };
+  // A group seats its members from the inbox's copy until the chat has loaded its own.
+  const members = inGroup ? (title.members ?? inboxGroup?.members) : undefined;
   const label = safeDisplayName(title.name, inGroup ? t("Group") : t("Bot")) || t("Thread");
   const settings = title.settings;
   return (
@@ -101,6 +105,7 @@ export function ChatHeaderTitle({
         {!inGroup && params.botId ? (
           <ChatTitleAvatar bot={title.bot} status={title.status} composing={title.composing} />
         ) : null}
+        {members ? <GroupSeats members={members} size={CHAT_TITLE_AVATAR_SIZE} /> : null}
         <ChatTitleLabel label={label} placeholder={!title.name} style={styles.title} />
       </GlassSurface>
     </Pressable>

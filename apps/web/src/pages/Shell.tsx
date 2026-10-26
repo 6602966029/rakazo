@@ -32,6 +32,7 @@ import {
   buildComposerMentionOptions,
   chatUserBubbleColors,
   createChatQueues,
+  createScreenReconnects,
   dismissableAskMessageIds,
   foldPeerReplies,
   inferAttachmentMimeType,
@@ -43,9 +44,12 @@ import {
   reorderBotTo,
   resolveComposerSendPlan,
   runThreadSubscription,
+  SCREEN_RECONNECT_DELAY_MS,
+  screenProbeUrl,
   searchHitThreadTarget,
   settleReadBoundary,
   speechFromBlocks,
+  waitForScreenPage,
   withLiveStreamingProgress,
 } from "@rakazo/core";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
@@ -139,16 +143,19 @@ import {
 } from "../lib/composer-enter-to-send-pref";
 import {
   bootComputerOnce,
+  createScreenRefocus,
   embeddableScreenUrl,
   isProxiedScreenUrl,
   loadComputerScreen,
   probeScreen,
+  probeScreenStatus,
   SCREEN_FRAME_LOAD_TIMEOUT_MS,
   screenFrameError,
   screenFrameMessage,
   screenFrameStarted,
 } from "../lib/computer-screen";
 import { connectedAppMarks } from "../lib/connected-apps";
+import { cronLabels } from "../lib/cron";
 import { scheduleFocusPrompt } from "../lib/focus-prompt";
 import { localTimezone } from "../lib/local-timezone";
 import {
@@ -263,9 +270,6 @@ function readAloud(text: string, opts: { botId: string; messageId: string }) {
 const BotContextMenu = lazyOverlay(() =>
   import("./BotContextMenu").then((module) => module.BotContextMenu),
 );
-const MessagingSettingsOverlay = lazyOverlay(() =>
-  import("./MessagingSettingsOverlay").then((module) => module.MessagingSettingsOverlay),
-);
 const SettingsOverlay = lazyOverlay(() =>
   import("./SettingsOverlay").then((module) => module.SettingsOverlay),
 );
@@ -312,7 +316,7 @@ export function ShellPage() {
 }
 
 function SpaceShell() {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { botId, groupId } = useParams();
   const [shellSpaceId] = useState(selectedSpaceId);
   const [rpc] = useState(() => createSpaceRpc(shellSpaceId));
@@ -707,11 +711,23 @@ function SpaceShell() {
   const [screenFrame, setScreenFrame] = useState<HTMLIFrameElement | null>(null);
   const [screenLoadError, setScreenLoadError] = useState<string | null>(null);
   const screenFrameReported = useRef(false);
+  // A screen that drops after connecting loads again by itself now and then, through the proxy's
+  // full check, by remounting its frame.
+  // Each bot's screen has its own allowance.
+  const screenReconnects = useRef(createScreenReconnects());
+  const screenReconnect = () => screenReconnects.current.for(computerBotIdRef.current ?? "");
+  const [screenFrameKey, setScreenFrameKey] = useState(0);
+  // Typing goes back into a reconnected screen that had the keyboard when it dropped.
+  const screenRefocus = useRef(createScreenRefocus());
+  useEffect(() => {
+    screenRefocus.current.forget();
+  }, [screenUrl, computerOpen]);
   useEffect(() => {
     // Only a mounted frame resets the error: its own failure unmounts it, and Retry remounts it.
     if (!screenFrame) return;
     setScreenLoadError(null);
     screenFrameReported.current = false;
+    screenReconnect().loaded();
     const url = embeddableScreenUrl(screenUrl);
     if (!isProxiedScreenUrl(url)) return;
     let cancelled = false;
@@ -730,16 +746,60 @@ function SpaceShell() {
   useEffect(() => {
     if (!screenFrame) return;
     const fallback = t`Could not connect to the computer screen`;
+    let reconnect: ReturnType<typeof setTimeout> | undefined;
+    const stopped = new AbortController();
     const onMessage = (event: MessageEvent) => {
       if (event.source !== screenFrame.contentWindow) return;
       const message = screenFrameMessage(event.data);
       if (!message) return;
       if (screenFrameStarted(message)) screenFrameReported.current = true;
-      setScreenLoadError(screenFrameError(message, fallback));
+      if (
+        message.rakazoScreen === "connected" &&
+        screenRefocus.current.connected(document.activeElement, screenFrame, document.body)
+      ) {
+        screenFrame.focus();
+        screenFrame.contentWindow?.postMessage({ rakazoScreenFocus: true }, "*");
+      }
+      if (screenReconnect().report(message.rakazoScreen) === "reconnect") {
+        screenRefocus.current.dropped(document.activeElement === screenFrame);
+        clearTimeout(reconnect);
+        const url = embeddableScreenUrl(screenUrl);
+        reconnect = setTimeout(() => {
+          // Wait out an API that can't be reached, so the one reconnect isn't spent on it.
+          void waitForScreenPage(
+            async (signal) =>
+              isProxiedScreenUrl(url) ? probeScreenStatus(screenProbeUrl(url), fetch, signal) : 200,
+            { signal: stopped.signal },
+          ).then((outcome) => {
+            if (outcome === "cancelled") return;
+            if (outcome === "timeout") {
+              screenRefocus.current.forget();
+              setScreenLoadError(fallback);
+            }
+            // A refusal shows once the new frame's own check runs.
+            else setScreenFrameKey((key) => key + 1);
+          });
+        }, SCREEN_RECONNECT_DELAY_MS);
+        return;
+      }
+      const error = screenFrameError(message, fallback);
+      if (error) screenRefocus.current.forget();
+      setScreenLoadError(error);
+    };
+    // Moving to anything else in the app (the chat box, say) keeps the keyboard there.
+    const onFocusIn = (event: FocusEvent) => {
+      if (event.target !== screenFrame) screenRefocus.current.forget();
     };
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [screenFrame]);
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      // Closing the screen or a new screen URL (taking or releasing control) cancels a reconnect.
+      stopped.abort();
+      clearTimeout(reconnect);
+      window.removeEventListener("message", onMessage);
+      document.removeEventListener("focusin", onFocusIn);
+    };
+  }, [screenFrame, screenUrl]);
   useEffect(() => {
     if (!computerOpen) {
       setComputerViewport(null);
@@ -2228,8 +2288,9 @@ function SpaceShell() {
           botName: routine.botName,
         })),
         connectors: mentionConnectors,
+        cronLabels: cronLabels(i18n.locale),
       }),
-    [bots, groupId, groups, inGroup, mentionConnectors, mentionRoutines],
+    [bots, groupId, groups, i18n.locale, inGroup, mentionConnectors, mentionRoutines],
   );
   const shellReady =
     initialBotsLoaded &&
@@ -3913,6 +3974,7 @@ function SpaceShell() {
                 computer={computer}
                 computerOpen={computerOpen}
                 embeddedScreenUrl={embeddedScreenUrl}
+                screenFrameKey={screenFrameKey}
                 screenFrameRef={setScreenFrame}
                 computerScreenError={computerScreenError}
                 computerBooting={computerBooting}
@@ -4267,10 +4329,11 @@ function SpaceShell() {
           />
         ) : null}
         {overlay?.kind === "mcp" ? (
-          <McpServersOverlay editServerId={overlay.serverId} onClose={() => setOverlay(null)} />
-        ) : null}
-        {overlay?.kind === "messaging" ? (
-          <MessagingSettingsOverlay onClose={() => setOverlay(null)} />
+          <McpServersOverlay
+            editServerId={overlay.serverId}
+            stdioEnabled={bootstrapMe?.mcpStdioEnabled === true}
+            onClose={() => setOverlay(null)}
+          />
         ) : null}
       </Suspense>
 
@@ -4301,7 +4364,6 @@ function SpaceShell() {
               setBootstrapMe((prev) => (prev ? { ...prev, sandboxProvider } : prev))
             }
             messagingEnabled={messagingSurfaceEnabled}
-            onOpenMessaging={() => setOverlay({ kind: "messaging" })}
             timezone={bootstrapMe?.timezone ?? null}
             onTimezoneChange={async (timezone) => {
               const nextMe = await rpc.preferences.update({ timezone });
@@ -4354,6 +4416,7 @@ function SpaceShell() {
           runStatus={snapshot?.run?.status}
           sendError={sendError}
           embeddedScreenUrl={embeddedScreenUrl}
+          screenFrameKey={screenFrameKey}
           screenFrameRef={setScreenFrame}
           computerScreenError={computerScreenError}
           computerBooting={computerBooting}

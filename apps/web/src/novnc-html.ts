@@ -99,7 +99,27 @@ export function injectNovncStorageShim(html: string, { viewOnly = false } = {}) 
     try {
       window.parent.postMessage(detail ? { rakazoScreen, detail } : { rakazoScreen }, "*");
     } catch {}
+    // The mobile app's WebView hears only the state word: no URL and none of the page's text.
+    try {
+      window.ReactNativeWebView?.postMessage(JSON.stringify({ rakazoScreen }));
+    } catch {}
   };
+  // A reconnected screen takes the keyboard back when the app asks; nothing else is accepted.
+  window.addEventListener("message", (event) => {
+    const data = event.data;
+    if (
+      event.source !== window.parent ||
+      !data ||
+      typeof data !== "object" ||
+      Object.keys(data).length !== 1 ||
+      data.rakazoScreenFocus !== true
+    )
+      return;
+    const canvas = document.querySelector("#screen canvas, #noVNC_container canvas, canvas");
+    try {
+      canvas?.focus();
+    } catch {}
+  });
   let last = "";
   // Pages that never set noVNC's classes (older Rakazo embed images) still build their viewer
   // canvas, which is as far as they can be followed.

@@ -1,4 +1,4 @@
-import type { SpaceBot } from "@rakazo/contracts";
+import type { SpaceBot, SpaceGroup } from "@rakazo/contracts";
 import { useSyncExternalStore } from "react";
 import type { MobileBot, MobileGroup } from "./api";
 import { currentApiBase } from "./api";
@@ -134,6 +134,20 @@ export function useInboxBot(botId: string | undefined): MobileBot | SpaceBot | u
   for (const space of spaces) {
     const bot = space.bots.find((candidate) => candidate.id === botId);
     if (bot) return bot;
+  }
+  return undefined;
+}
+
+/**
+ * A group as the inbox last loaded it, for a group chat that opens before its own members
+ * arrive: its title can seat them on the first frame.
+ */
+export function useInboxGroup(groupId: string | undefined): MobileGroup | SpaceGroup | undefined {
+  const spaces = useSyncExternalStore(subscribeSearchInbox, getSearchInbox, getSearchInbox);
+  if (!groupId) return undefined;
+  for (const space of spaces) {
+    const group = space.groups.find((candidate) => candidate.id === groupId);
+    if (group) return group;
   }
   return undefined;
 }

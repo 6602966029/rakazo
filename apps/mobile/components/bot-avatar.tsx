@@ -18,6 +18,7 @@ import {
   SHIPPED_BOT_AVATAR_CENTER,
   SHIPPED_BOT_AVATAR_VIEWBOX,
 } from "@rakazo/core";
+import { botEyeColor } from "@rakazo/ui-tokens";
 import { memo } from "react";
 import { Image, Pressable, View } from "react-native";
 import Animated, {
@@ -362,8 +363,8 @@ function OrganicAvatar({
       <Svg width={size} height={size} viewBox="-60 -60 120 120">
         <Path d={organicAvatarPath(seed)} fill={color} />
         <G transform={`rotate(${(seed % 9) - 4})`}>
-          <AnimatedRect animatedProps={leftEyeProps} width={7} rx={3.5} fill="#101014" />
-          <AnimatedRect animatedProps={rightEyeProps} width={7} rx={3.5} fill="#101014" />
+          <AnimatedRect animatedProps={leftEyeProps} width={7} rx={3.5} fill={botEyeColor} />
+          <AnimatedRect animatedProps={rightEyeProps} width={7} rx={3.5} fill={botEyeColor} />
         </G>
       </Svg>
     </Animated.View>

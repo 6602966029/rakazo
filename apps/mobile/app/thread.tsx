@@ -191,6 +191,7 @@ import { retainUnchangedBotRoster } from "../lib/bot-roster";
 import { findSwitchTarget, ringOnArrival, takeRingOnArrival } from "../lib/bot-switch";
 import { setCallProviderTranscribe, startCall, useCallSession } from "../lib/call-session";
 import { chatSettingsRoute } from "../lib/chat-settings-route";
+import { cronLabels } from "../lib/cron";
 import { loadDeviceVoiceEnabled } from "../lib/device-voice";
 import { available as dictationAvailable } from "../lib/dictation";
 import { canDoubleTapReact } from "../lib/double-tap";
@@ -787,8 +788,9 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
           botName: routine.botName,
         })),
         connectors: mentionConnectors,
+        cronLabels: cronLabels(locale),
       }),
-    [groupId, inGroup, mentionBots, mentionConnectors, mentionGroups, mentionRoutines],
+    [groupId, inGroup, locale, mentionBots, mentionConnectors, mentionGroups, mentionRoutines],
   );
   const currentBot = botId ? mentionBots.find((bot) => bot.id === botId) : undefined;
   // Until the chat's own roster arrives, the bot as the inbox last loaded it.
@@ -801,6 +803,11 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
   const notificationThreadId = snap?.threadId ?? requestedThreadId ?? currentBot?.threadId;
   activeThreadId.current = notificationThreadId;
   const currentBotStatus = snap ? snap.run?.status : titleBot?.status;
+  // The group's members in its order, once the chat or its group list has loaded them; the
+  // title seats the inbox's copy until then.
+  const groupMembers = groupId
+    ? (snap?.members ?? mentionGroups.find((group) => group.id === groupId)?.members)
+    : undefined;
   // Only reply text being written replaces the footer; earlier sentences above a tool call don't.
   const hasLiveProgress = visibleMessages.some(
     (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
@@ -937,10 +944,21 @@ function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string
         status: currentBotStatus,
         composing: titleComposing,
         name: titleName,
+        members: groupMembers,
         // The title opens the chat's own settings: the group's in a group, the bot's otherwise.
         settings: chatSettingsRoute({ groupId, botId, readOnly }),
       }),
-    [route.key, botId, groupId, readOnly, titleBot, currentBotStatus, titleComposing, titleName],
+    [
+      route.key,
+      botId,
+      groupId,
+      readOnly,
+      titleBot,
+      currentBotStatus,
+      titleComposing,
+      titleName,
+      groupMembers,
+    ],
   );
 
   useLayoutEffect(() => {
