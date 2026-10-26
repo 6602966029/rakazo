@@ -684,6 +684,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       phoneCallsEnabled: env.phoneCallsEnabled,
       phoneCallRingSeconds: env.phoneCallRingSeconds,
       ticketBoardEnabled,
+      navLinks: env.navLinks,
       agentRuntime: env.agentRuntime,
       defaultProvider: env.defaultProvider,
       defaultModel: env.defaultModel,
