@@ -201,6 +201,32 @@ it("defaults to the latest run, expands all entries, and loads older pages", asy
     await view.close();
   }
 });
+it("offers older runs below the latest one while collapsed", async () => {
+  const older = { ...run, id: "older", messageId: "older-reply" };
+  api.history.mockResolvedValue(page([run, older]));
+  const view = await mounted();
+  const button = (name: string) =>
+    [...view.container.querySelectorAll("button")].find((b) => b.textContent === name);
+  try {
+    expect(view.container.querySelectorAll("li")).toHaveLength(1);
+    await act(async () => button("Load older runs")!.click());
+    expect(button("Run history")!.getAttribute("aria-expanded")).toBe("true");
+    expect(view.container.querySelectorAll("li")).toHaveLength(2);
+    expect(button("Load older runs")).toBeUndefined();
+    expect(api.history).toHaveBeenCalledTimes(1);
+  } finally {
+    await view.close();
+  }
+});
+it("hides Load older runs when the latest run is the only one", async () => {
+  api.history.mockResolvedValue(page([run]));
+  const view = await mounted();
+  try {
+    expect(view.container.textContent).not.toContain("Load older runs");
+  } finally {
+    await view.close();
+  }
+});
 it("ignores a collapse refresh after expanded browsing resumes", async () => {
   let finish!: (value: ReturnType<typeof page>) => void;
   const cursor = { id: run.id, createdAt: run.createdAt };

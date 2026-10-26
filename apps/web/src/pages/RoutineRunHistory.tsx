@@ -256,12 +256,12 @@ export function RoutineRunHistory({ routineId }: { routineId: string }) {
           </Collapsible>
         </div>
       ) : null}
-      {expanded && history?.nextCursor ? (
+      {history?.nextCursor || (!expanded && runs && runs.length > 1) ? (
         <Button
           size="xs"
           variant="ghost"
           disabled={loadingMore}
-          onClick={() => void loadMore()}
+          onClick={() => (expanded ? void loadMore() : toggleExpanded())}
           className="mt-2"
         >
           <Trans>Load older runs</Trans>
