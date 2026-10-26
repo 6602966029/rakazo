@@ -259,8 +259,10 @@ export function AskCard({
           {displayActions?.map((action) => (
             <Button
               key={action.id}
-              variant={approvalActions && action.id === "allow" ? "default" : "outline"}
-              className={`h-auto min-w-0 whitespace-normal px-3.5 py-3 text-start font-normal ${approvalActions ? "" : "w-full justify-start border-input bg-secondary"}`}
+              variant={
+                approvalActions ? (action.id === "allow" ? "default" : "outline") : "secondary"
+              }
+              className={`h-auto min-w-0 whitespace-normal px-3.5 py-3 text-start font-normal ${approvalActions ? "" : "w-full justify-start"}`}
               disabled={submitting}
               onClick={() =>
                 action.id === "edit" && block.instructionUpdate
