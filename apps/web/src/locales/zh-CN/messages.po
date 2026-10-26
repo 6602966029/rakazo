@@ -356,6 +356,7 @@ msgid "@{0}"
 msgstr "@{0}"
 
 #. placeholder {0}: amount / 100
+#. placeholder {0}: status.byokPriceCents / 100
 #: src/components/ModelCredits.tsx
 msgid "${0} / month"
 msgstr ""
@@ -2766,6 +2767,10 @@ msgstr "忘记密码？"
 #: src/pages/model-settings/model-picker.tsx
 msgid "Free"
 msgstr "免费"
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Free plan ends {day}"
+msgstr "免费方案将于 {day} 结束"
 
 #: src/lib/cron.ts
 msgid "Friday"
@@ -5205,6 +5210,11 @@ msgstr "提交"
 msgid "Subscribe"
 msgstr ""
 
+#. placeholder {0}: status.byokPriceCents / 100
+#: src/components/ModelCredits.tsx
+msgid "Subscribe for ${0} / month"
+msgstr "以每月 ${0} 订阅"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr ""
@@ -5779,6 +5789,10 @@ msgstr "使用此服务器自己的 {hostCredentialSource} 凭据访问 {selecte
 #: src/components/ModelCredits.tsx
 msgid "Using your API key"
 msgstr ""
+
+#: src/components/ModelCredits.tsx
+msgid "Using your API key. Free plan ends {freeUntil}."
+msgstr "正在使用你的 API 密钥。免费方案将于 {freeUntil} 结束。"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx

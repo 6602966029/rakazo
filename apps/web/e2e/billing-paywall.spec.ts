@@ -80,7 +80,7 @@ test("billing paywall holds the app until the subscription is active", async ({
   await captureScreenshot(page, testInfo, "settings-billing");
 });
 
-test("choose free API keys or monthly credits, then add a one-time top-up", async ({
+test("choose your own key or monthly credits, then add a one-time top-up", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
@@ -94,6 +94,7 @@ test("choose free API keys or monthly credits, then add a one-time top-up", asyn
   await page.route("**/rpc/bootstrap", (route) => enableBilling(route, "bootstrap"));
   let status = billingStatus({
     creditPurchasesEnabled: true,
+    byokPriceCents: 1000,
     funding: null,
     balanceUsd: 0,
     monthlyAmountCents: null,
@@ -103,6 +104,7 @@ test("choose free API keys or monthly credits, then add a one-time top-up", asyn
   await page.route("**/rpc/billing/status", (route) => route.fulfill({ json: { json: status } }));
   await page.reload();
   await expect(page.getByRole("heading", { name: "Choose how to use Rakazo" })).toBeVisible();
+  await expect(page.getByText("$10 / month", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect my own", exact: true })).toBeVisible();
   const planSelect = page.getByRole("combobox", { name: "Monthly credits" });
   await expect(planSelect).toHaveCSS("height", "48px");
@@ -177,6 +179,32 @@ test("choose free API keys or monthly credits, then add a one-time top-up", asyn
   });
   await page.getByRole("button", { name: "Connect my own", exact: true }).click();
   await expect(page.getByText("Chief").first()).toBeVisible();
+
+  // Own-key organizations from before the plan was paid see when their free period ends.
+  status = billingStatus({
+    access: true,
+    creditPurchasesEnabled: true,
+    byokPriceCents: 1000,
+    byokFreeUntil: "2030-01-15T12:00:00.000Z",
+    funding: "byok",
+    balanceUsd: 0,
+    monthlyAmountCents: null,
+  });
+  await page.reload();
+  const freePlanNotice = page.getByRole("button", { name: "Free plan ends Jan 15, 2030" });
+  await expect(freePlanNotice).toBeVisible();
+  await captureScreenshot(page, testInfo, "sidebar-free-plan-ends");
+  await freePlanNotice.click();
+  const freePlan = page.getByTestId("model-credits");
+  await expect(
+    freePlan.getByText("Using your API key. Free plan ends Jan 15, 2030.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    freePlan.getByRole("button", { name: "Subscribe for $10 / month", exact: true }),
+  ).toBeVisible();
+  await captureScreenshot(page, testInfo, "billing-free-plan-ends");
+  await page.keyboard.press("Escape");
+
   status = billingStatus({
     access: true,
     creditPurchasesEnabled: true,

@@ -26,6 +26,7 @@ import {
 } from "@rakazo/ui-web";
 import { Check } from "lucide-react";
 import { useState } from "react";
+import { formatBillingDate } from "../lib/billing";
 import { rpc } from "../lib/rpc";
 import { useSignOut } from "../lib/sign-out";
 
@@ -91,8 +92,8 @@ export function CreditChoice({ status }: { status: BillingStatus }) {
     setError(false);
     try {
       if (ownKey) {
-        await rpc.billing.selectFunding({ funding: "byok" });
-        window.location.assign("/onboarding");
+        const { url } = await rpc.billing.selectFunding({ funding: "byok" });
+        window.location.assign(url ?? "/onboarding");
       } else {
         const { url } = await rpc.billing.purchaseCredits({
           amountCents: amount,
@@ -130,7 +131,11 @@ export function CreditChoice({ status }: { status: BillingStatus }) {
           </CardHeader>
           <CardContent className="flex flex-1 flex-col gap-4">
             <p className="flex h-12 items-center text-3xl font-medium tracking-tight">
-              <Trans>Free</Trans>
+              {status.byokPriceCents ? (
+                t`$${status.byokPriceCents / 100} / month`
+              ) : (
+                <Trans>Free</Trans>
+              )}
             </p>
             <p className="text-sm text-muted-foreground">
               <Trans>ChatGPT, Claude, or any model provider.</Trans>
@@ -239,6 +244,9 @@ export function ModelCreditsSettings({
   }
   const recurring =
     status.monthlyAmountCents && !["canceled", "none", "incomplete"].includes(status.state);
+  const freeUntil = status.byokFreeUntil
+    ? formatBillingDate(status.byokFreeUntil, i18n.locale || "en")
+    : null;
   return (
     <div data-testid="model-credits" className="space-y-5">
       <div className="rounded-xl border border-border p-5">
@@ -258,20 +266,37 @@ export function ModelCreditsSettings({
         </div>
         <p className="mt-2 text-3xl font-medium tabular-nums">{balance}</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {status.funding === "byok" ? (
+          {status.funding === "byok" && freeUntil ? (
+            <Trans>Using your API key. Free plan ends {freeUntil}.</Trans>
+          ) : status.funding === "byok" ? (
             <Trans>Using your API key</Trans>
           ) : (
             <Trans>Monthly credits expire at renewal. Top-ups do not expire.</Trans>
           )}
         </p>
         {status.canManage ? (
-          <Button
-            className="mt-5"
-            disabled={!status.creditPurchasesEnabled}
-            onClick={() => setPurchaseOpen(true)}
-          >
-            <Trans>Add credits</Trans>
-          </Button>
+          <div className="mt-5 flex flex-wrap gap-3">
+            {freeUntil && status.byokPriceCents ? (
+              <Button
+                disabled={pending}
+                onClick={() =>
+                  void action(async () => {
+                    const { url } = await rpc.billing.checkout();
+                    window.location.assign(url);
+                  })
+                }
+              >
+                <Trans>Subscribe for ${status.byokPriceCents / 100} / month</Trans>
+              </Button>
+            ) : null}
+            <Button
+              variant={freeUntil ? "secondary" : "default"}
+              disabled={!status.creditPurchasesEnabled}
+              onClick={() => setPurchaseOpen(true)}
+            >
+              <Trans>Add credits</Trans>
+            </Button>
+          </div>
         ) : null}
       </div>
       {status.canManage ? (
@@ -353,8 +378,8 @@ export function ModelCreditsSettings({
           disabled={pending}
           onClick={() =>
             void action(async () => {
-              await rpc.billing.selectFunding({ funding: "byok" });
-              window.location.assign("/onboarding");
+              const { url } = await rpc.billing.selectFunding({ funding: "byok" });
+              window.location.assign(url ?? "/onboarding");
             })
           }
         >

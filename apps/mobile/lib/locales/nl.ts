@@ -962,6 +962,10 @@ export const NL_MESSAGES: Record<string, string> = {
   "Your subscription or API key": "Je abonnement of API-sleutel",
   "Free. ChatGPT, Claude, or any model provider.":
     "Gratis. ChatGPT, Claude of elke modelaanbieder.",
+  "{price} / month. ChatGPT, Claude, or any model provider.":
+    "{price} per maand. ChatGPT, Claude of elke modelaanbieder.",
+  "Free plan ends": "Gratis abonnement eindigt",
+  Subscribe: "Abonneren",
   "Use my subscription or API key": "Mijn abonnement of API-sleutel gebruiken",
   "Monthly credits expire at renewal. Top-ups do not expire.":
     "Maandelijks tegoed vervalt bij verlenging. Los gekocht tegoed verloopt niet.",

@@ -356,6 +356,7 @@ msgid "@{0}"
 msgstr "@{0}"
 
 #. placeholder {0}: amount / 100
+#. placeholder {0}: status.byokPriceCents / 100
 #: src/components/ModelCredits.tsx
 msgid "${0} / month"
 msgstr "${0} / month"
@@ -2766,6 +2767,10 @@ msgstr "Forgot password?"
 #: src/pages/model-settings/model-picker.tsx
 msgid "Free"
 msgstr "Free"
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Free plan ends {day}"
+msgstr "Free plan ends {day}"
 
 #: src/lib/cron.ts
 msgid "Friday"
@@ -5205,6 +5210,11 @@ msgstr "Submit"
 msgid "Subscribe"
 msgstr "Subscribe"
 
+#. placeholder {0}: status.byokPriceCents / 100
+#: src/components/ModelCredits.tsx
+msgid "Subscribe for ${0} / month"
+msgstr "Subscribe for ${0} / month"
+
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
 msgstr "Subscription required"
@@ -5779,6 +5789,10 @@ msgstr "Uses this server's own {hostCredentialSource} credentials to access {sel
 #: src/components/ModelCredits.tsx
 msgid "Using your API key"
 msgstr "Using your API key"
+
+#: src/components/ModelCredits.tsx
+msgid "Using your API key. Free plan ends {freeUntil}."
+msgstr "Using your API key. Free plan ends {freeUntil}."
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-credentials.tsx

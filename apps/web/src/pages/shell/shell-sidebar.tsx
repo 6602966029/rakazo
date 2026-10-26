@@ -1,7 +1,8 @@
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot } from "@rakazo/contracts";
 import { accountDisplay } from "@rakazo/core";
 import {
+  Button,
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
@@ -13,6 +14,8 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { PasskeyOffer } from "../../components/PasskeyOffer";
 import { SidebarFooter } from "../../components/SidebarFooter";
+import { useBillingStatus } from "../../components/SubscriptionGate";
+import { formatBillingDate } from "../../lib/billing";
 import type { BotsSidebarDensity } from "../../lib/bots-sidebar-density-pref";
 import type { Panel } from "../../lib/right-panel-state";
 import { clearSpaceSelection } from "../../lib/rpc";
@@ -271,7 +274,14 @@ function ShellSidebarFooter({
   openSettings: (section: SettingsSection) => void;
   openIntegrations: () => void;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
+  const billing = useBillingStatus();
+  const freeUntil =
+    billing?.funding === "byok" &&
+    billing.byokFreeUntil &&
+    new Date(billing.byokFreeUntil) > new Date()
+      ? billing.byokFreeUntil
+      : null;
   const [menuOpen, setMenuOpen] = useState(false);
   const [logOutError, setLogOutError] = useState<string | null>(null);
   const { signingOut, logOut } = useSignOut(() => {
@@ -279,51 +289,64 @@ function ShellSidebarFooter({
     navigate("/");
   }, setLogOutError);
   const { label: userName, initial: initials } = accountDisplay(user ?? {}, t`You`);
+  const day = freeUntil ? formatBillingDate(freeUntil, i18n.locale || "en") : "";
   return (
-    <SidebarFooter
-      mini={mini}
-      logos={logos}
-      name={userName}
-      initials={initials}
-      image={user?.image}
-      email={user?.email}
-      open={menuOpen}
-      onOpenChange={(open) => {
-        setMenuOpen(open);
-        if (!open) setLogOutError(null);
-      }}
-      onIntegrations={() => {
-        setMenuOpen(false);
-        openIntegrations();
-      }}
-      onBoard={
-        ticketBoardEnabled
-          ? () => {
-              setMenuOpen(false);
-              closeMobileSidebar();
-              navigate("/app/board");
-            }
-          : undefined
-      }
-      onArtifacts={() => {
-        setMenuOpen(false);
-        closeMobileSidebar();
-        navigate("/app/artifacts");
-      }}
-      onSettings={() => {
-        setMenuOpen(false);
-        openSettings("general");
-      }}
-      onUsage={() => {
-        setMenuOpen(false);
-        openSettings("usage");
-      }}
-      onLogOut={() => {
-        setLogOutError(null);
-        void logOut();
-      }}
-      signingOut={signingOut}
-      logOutError={logOutError}
-    />
+    <>
+      {freeUntil && !mini ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mx-2.5 justify-start text-muted-foreground"
+          onClick={() => openSettings("billing")}
+        >
+          <Trans>Free plan ends {day}</Trans>
+        </Button>
+      ) : null}
+      <SidebarFooter
+        mini={mini}
+        logos={logos}
+        name={userName}
+        initials={initials}
+        image={user?.image}
+        email={user?.email}
+        open={menuOpen}
+        onOpenChange={(open) => {
+          setMenuOpen(open);
+          if (!open) setLogOutError(null);
+        }}
+        onIntegrations={() => {
+          setMenuOpen(false);
+          openIntegrations();
+        }}
+        onBoard={
+          ticketBoardEnabled
+            ? () => {
+                setMenuOpen(false);
+                closeMobileSidebar();
+                navigate("/app/board");
+              }
+            : undefined
+        }
+        onArtifacts={() => {
+          setMenuOpen(false);
+          closeMobileSidebar();
+          navigate("/app/artifacts");
+        }}
+        onSettings={() => {
+          setMenuOpen(false);
+          openSettings("general");
+        }}
+        onUsage={() => {
+          setMenuOpen(false);
+          openSettings("usage");
+        }}
+        onLogOut={() => {
+          setLogOutError(null);
+          void logOut();
+        }}
+        signingOut={signingOut}
+        logOutError={logOutError}
+      />
+    </>
   );
 }

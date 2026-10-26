@@ -1,6 +1,6 @@
 import type { BillingStatus, Me } from "@rakazo/contracts";
 import type { ReactNode } from "react";
-import { Suspense, useEffect, useState } from "react";
+import { createContext, Suspense, useContext, useEffect, useState } from "react";
 import { fetchAuthCapabilities } from "../lib/auth-capabilities";
 import { peekInitialBootstrap } from "../lib/bootstrap";
 import { lazyComponent } from "../lib/preload-recovery";
@@ -12,8 +12,15 @@ const PaywallPage = lazyComponent(() =>
 
 type GateState =
   | { kind: "loading" }
-  | { kind: "open" }
+  | { kind: "open"; status?: BillingStatus }
   | { kind: "paywall"; status: BillingStatus };
+
+const BillingStatusContext = createContext<BillingStatus | null>(null);
+
+/** The billing status the gate opened with; `null` when the deployment does not bill. */
+export function useBillingStatus() {
+  return useContext(BillingStatusContext);
+}
 
 function loadMe(): Promise<Me> {
   const primed = peekInitialBootstrap();
@@ -25,7 +32,7 @@ function loadMe(): Promise<Me> {
 }
 
 function gateFor(status: BillingStatus): GateState {
-  return status.access ? { kind: "open" } : { kind: "paywall", status };
+  return { kind: status.access ? "open" : "paywall", status };
 }
 
 /**
@@ -58,10 +65,11 @@ export function SubscriptionGate({
     };
   }, []);
 
-  const paywalled = state.kind === "paywall";
+  const billed = state.kind !== "loading" && state.status !== undefined;
   useEffect(() => {
-    if (!paywalled) return;
-    // Checkout can finish in another window (the system browser on desktop).
+    if (!billed) return;
+    // Checkout can finish in another window (the system browser on desktop), and a free period
+    // can end while the app is open.
     let active = true;
     const recheck = () => {
       if (document.visibilityState === "hidden") return;
@@ -79,7 +87,7 @@ export function SubscriptionGate({
       window.removeEventListener("focus", recheck);
       document.removeEventListener("visibilitychange", recheck);
     };
-  }, [paywalled]);
+  }, [billed]);
 
   if (state.kind === "loading") return fallback;
   if (state.kind === "paywall") {
@@ -89,5 +97,9 @@ export function SubscriptionGate({
       </Suspense>
     );
   }
-  return children;
+  return (
+    <BillingStatusContext.Provider value={state.status ?? null}>
+      {children}
+    </BillingStatusContext.Provider>
+  );
 }
