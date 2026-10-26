@@ -1,6 +1,6 @@
 import type { JobPublisher } from "@rakazo/adapter-kit";
 import { ModelAccountError, routineWakeupJob } from "@rakazo/adapter-kit";
-import type { RunErrorKind } from "@rakazo/core";
+import type { RunErrorKind } from "@rakazo/contracts";
 import { nextCronDateAcross, nextRoutineRunDateAcross, normalizeRunError } from "@rakazo/core";
 import type { Prisma, PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
