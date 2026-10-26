@@ -12,6 +12,7 @@ import type {
   ScreenRequest,
   TerminalRequest,
   WorkspaceDirectoryRequest,
+  WorkspaceExportLimits,
 } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { cancelComputerRunWork } from "./computer-idle.js";
@@ -189,8 +190,8 @@ export class HostAwareSandbox implements SandboxProvider {
     return this.route(computer).writeFile(computer, file, context);
   }
 
-  exportWorkspace(computer: ComputerRef, context: AdapterContext) {
-    return this.route(computer).exportWorkspace(computer, context);
+  exportWorkspace(computer: ComputerRef, context: AdapterContext, limits?: WorkspaceExportLimits) {
+    return this.route(computer).exportWorkspace(computer, context, limits);
   }
 
   importWorkspace(

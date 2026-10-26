@@ -75,6 +75,7 @@ import type {
   SemanticMemorySaveRequest,
   SnapshotRef,
   SpeechClip,
+  StreamedPortableFile,
   TerminalRequest,
   TransactionalEmail,
   VoiceCapabilities,
@@ -89,6 +90,7 @@ import type {
   WebSearchHit,
   WebSearchRequest,
   WorkspaceDirectoryRequest,
+  WorkspaceExportLimits,
 } from "./types.js";
 
 export interface SandboxProvider {
@@ -197,7 +199,12 @@ export interface SandboxProvider {
     options?: { maxBytes?: number },
   ): Promise<Uint8Array>;
   writeFile(computer: ComputerRef, file: PortableFile, context: AdapterContext): Promise<void>;
-  exportWorkspace(computer: ComputerRef, context: AdapterContext): AsyncIterable<PortableFile>;
+  /** Large files may come as streams. A provider that lists first refuses `limits` up front. */
+  exportWorkspace(
+    computer: ComputerRef,
+    context: AdapterContext,
+    limits?: WorkspaceExportLimits,
+  ): AsyncIterable<PortableFile | StreamedPortableFile>;
   importWorkspace(
     computer: ComputerRef,
     files: AsyncIterable<PortableFile>,

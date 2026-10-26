@@ -28,3 +28,16 @@ export class SandboxUnavailableError extends Error {
     this.name = "SandboxUnavailableError";
   }
 }
+
+/** A computer's workspace is over the size or file count a save allows, so it is not saved. */
+export class WorkspaceTooLargeError extends Error {
+  readonly code = "WORKSPACE_TOO_LARGE";
+  constructor(readonly limit: "bytes" | "files") {
+    super(
+      limit === "bytes"
+        ? "The computer's files are too large to save"
+        : "The computer has too many files to save",
+    );
+    this.name = "WorkspaceTooLargeError";
+  }
+}

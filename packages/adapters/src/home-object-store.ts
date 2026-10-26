@@ -32,6 +32,10 @@ import { objectStorageConfigFromEnv, S3ObjectStorage } from "./s3-object-storage
 
 const HOMES_PREFIX = "homes/";
 const SWEEP_INTERVAL_MS = 60 * 60_000;
+/** Leftover staging and idle cached copies are cleared this often. */
+const CACHE_SWEEP_INTERVAL_MS = 10 * 60_000;
+/** A remote computer's cached copy nothing has read for this long is removed. */
+const IDLE_CACHE_MS = 60 * 60_000;
 /** Revisions left by a crashed save are removed once they are clearly not in progress. */
 const STALE_REVISION_MS = 24 * 60 * 60_000;
 
@@ -54,6 +58,8 @@ export interface AgentHomeRecords {
   advance(homeKey: string, storageId: string, from: string | null, to: string): Promise<boolean>;
   /** The current revision of each storage id that still belongs to a home. */
   revisions(storageIds: readonly string[]): Promise<Map<string, string | null>>;
+  /** The computer kind of each home that still has a computer. */
+  kinds(homeKeys: readonly string[]): Promise<Map<string, string>>;
 }
 
 /**
@@ -66,8 +72,10 @@ export interface AgentHomeRecords {
  * that was removed, or that another host replaced, is downloaded again.
  *
  * Docker computers keep mounting the cached directory (this extends `LocalAgentHomeStore`);
- * their checkpoints upload it. Sandboxes never see storage credentials or object URLs: files
- * still reach them only through checkout and workspace import.
+ * their checkpoints upload it. Remote computers' saves upload straight from their staged files,
+ * and their cached copy is removed once restored or saved, or after an hour unread. Sandboxes
+ * never see storage credentials or object URLs: files still reach them only through checkout
+ * and workspace import.
  */
 export class ObjectAgentHomeStore extends LocalAgentHomeStore {
   constructor(
@@ -160,9 +168,45 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
     });
   }
 
-  /** Called by `commit` with the bot's write lock held; the staged copy is authoritative. */
-  protected override async writeRevision(botId: string): Promise<string> {
-    return (await this.upload(botId)).revision;
+  /**
+   * Saves a remote computer's exported files from `src` without copying them into the cache.
+   * Docker computers save their mounted copy with `revise`, so no computer works in the cached
+   * copy this replaces, and it is removed rather than kept stale.
+   */
+  override async commit(botId: string, src: string, _context: AdapterContext): Promise<string> {
+    return this.withBotWrite(botId, async () => {
+      const { revision } = await this.upload(botId, { source: src });
+      await this.removeCopy(botId);
+      return revision;
+    });
+  }
+
+  /**
+   * Removes this host's copy of a remote computer's home once the bucket holds it; it is
+   * downloaded again when next needed. A home never stored keeps its only copy. Never call it
+   * for a Docker computer, which works directly in the copy.
+   */
+  async evictCache(botId: string): Promise<boolean> {
+    return this.withBotWrite(botId, async () => {
+      if (!(await this.records.load(botId))?.revision) return false;
+      await this.removeCopy(botId);
+      return true;
+    });
+  }
+
+  /** Evicts cached copies of remote computers' homes that nothing read in the last hour. */
+  async evictIdleCaches(now = Date.now()): Promise<number> {
+    const homes = await this.localHomes();
+    const kinds = await this.records.kinds(homes);
+    let evicted = 0;
+    for (const botId of homes) {
+      const kind = kinds.get(botId);
+      if (!kind || kind === "docker") continue;
+      const used = await this.revisionUsedAt(botId);
+      if (used === undefined || now - used < IDLE_CACHE_MS) continue;
+      if (await this.evictCache(botId)) evicted += 1;
+    }
+    return evicted;
   }
 
   /**
@@ -175,8 +219,10 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
       const stored = await this.records.load(botId);
       if (!stored?.revision) return;
       // A removed cache directory leaves its marker behind; only a present copy counts.
-      if ((await this.localRevision(botId)) === stored.revision && (await this.hasCache(botId)))
+      if ((await this.localRevision(botId)) === stored.revision && (await this.hasCache(botId))) {
+        await this.touchRevision(botId);
         return;
+      }
       const revision = stored.revision;
       await this.replaceHome(botId, (staging) =>
         unpackHome(this.download(stored, revision), staging, this.limits),
@@ -194,14 +240,14 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
   }
 
   /**
-   * Packs, seals and uploads the cached copy, then moves the home to it. `base` is the stored
-   * revision the copy was checked against (default: whatever is stored now); the move fails if
-   * the home has moved past it. With `verify`, the object is downloaded and checked before the
-   * home points at it.
+   * Packs, seals and uploads the cached copy, or `source` when given, then moves the home to
+   * it. `base` is the stored revision the copy was checked against (default: whatever is stored
+   * now); the move fails if the home has moved past it. With `verify`, the object is downloaded
+   * and checked before the home points at it.
    */
   private async upload(
     botId: string,
-    options: { base?: string | null; verify?: boolean } = {},
+    options: { base?: string | null; verify?: boolean; source?: string } = {},
   ): Promise<{ revision: string }> {
     const stored = await this.records.create(botId);
     if (!stored) throw new Error("Agent home has no computer");
@@ -209,7 +255,7 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
     const revision = newRevision();
     const key = objectKey(stored.storageId, revision);
     const digest = createHash("sha256");
-    const home = this.pathFor(botId);
+    const home = options.source ?? this.pathFor(botId);
     await mkdir(home, { recursive: true });
     await this.storage.put(
       key,
@@ -231,7 +277,8 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
       await discard();
       throw new Error("Agent home was saved elsewhere at the same time");
     }
-    await super.writeRevision(botId, revision);
+    // Only the cached copy is now at this revision; a staged source leaves the cache behind.
+    if (!options.source) await super.writeRevision(botId, revision);
     if (base)
       await this.storage
         .delete([objectKey(stored.storageId, base)])
@@ -423,6 +470,20 @@ export class PrismaAgentHomeRecords implements AgentHomeRecords {
     );
   }
 
+  async kinds(homeKeys: readonly string[]) {
+    const kinds = new Map<string, string>();
+    for (let start = 0; start < homeKeys.length; start += 1000) {
+      const rows = await runAsSystem("find which cached agent homes this host may remove", () =>
+        this.prisma.computer.findMany({
+          where: { homeKey: { in: homeKeys.slice(start, start + 1000) } },
+          select: { homeKey: true, kind: true },
+        }),
+      );
+      for (const row of rows) kinds.set(row.homeKey, row.kind);
+    }
+    return kinds;
+  }
+
   async revisions(storageIds: readonly string[]) {
     const current = new Map<string, string | null>();
     for (let start = 0; start < storageIds.length; start += 1000) {
@@ -479,14 +540,29 @@ export function createAgentHomeStore(
   );
 }
 
-/** Hourly object cleanup for the worker's reconciler, when homes are in object storage. */
+/**
+ * Home cleanup for the worker's reconciler: staging left by killed processes and idle cached
+ * copies every ten minutes, and unowned objects hourly when homes are in object storage.
+ */
 export function homeStorageSweeper(home: AgentHomeStore): (() => Promise<void>) | undefined {
-  if (!(home instanceof ObjectAgentHomeStore)) return undefined;
-  let lastRun: number | undefined;
+  if (!(home instanceof LocalAgentHomeStore)) return undefined;
+  let lastCache: number | undefined;
+  let lastObjects: number | undefined;
   return async () => {
     const now = Date.now();
-    if (lastRun !== undefined && now - lastRun < SWEEP_INTERVAL_MS) return;
-    lastRun = now;
+    if (lastCache === undefined || now - lastCache >= CACHE_SWEEP_INTERVAL_MS) {
+      lastCache = now;
+      const staging = await home.removeStaleStaging(now);
+      const cached = home instanceof ObjectAgentHomeStore ? await home.evictIdleCaches(now) : 0;
+      if (staging || cached)
+        getLogger().info("home.cache.swept", {
+          "home.staging.removed": staging,
+          "home.cache.evicted": cached,
+        });
+    }
+    if (!(home instanceof ObjectAgentHomeStore)) return;
+    if (lastObjects !== undefined && now - lastObjects < SWEEP_INTERVAL_MS) return;
+    lastObjects = now;
     const removed = await home.sweep(now);
     if (removed) getLogger().info("home.storage.swept", { "home.objects.removed": removed });
   };

@@ -1,5 +1,5 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { constants } from "node:fs";
+import { mkdir, open, rm, statfs } from "node:fs/promises";
 import path from "node:path";
 import type {
   AdapterContext,
@@ -7,17 +7,29 @@ import type {
   ComputerRef,
   PortableFile,
   SandboxProvider,
+  StreamedPortableFile,
   WorkspaceDirectoryRequest,
+  WorkspaceExportLimits,
 } from "@rakazo/adapter-kit";
+import { WorkspaceTooLargeError } from "@rakazo/adapter-kit";
 import type { ComputerMode } from "@rakazo/contracts";
 import { parseScreenLeaseId } from "@rakazo/core";
 import { browserProfilePathForScreen } from "@rakazo/core/node/desktop-runtime";
 import type { PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { normalizeWorkspacePath, teamBotWorkspaceDirectory } from "./computer-support.js";
-import { LocalAgentHomeStore } from "./home.js";
+import { createStagingDirectory, LocalAgentHomeStore } from "./home.js";
+import { ObjectAgentHomeStore } from "./home-object-store.js";
 
 export const PORTABLE_TRANSFER_BATCH_BYTES = 8 * 1024 * 1024;
+
+/** The most one save copies; a larger workspace keeps running unsaved. */
+export const WORKSPACE_SAVE_LIMITS: WorkspaceExportLimits = {
+  maxBytes: 20 * 1024 ** 3,
+  maxFiles: 1_000_000,
+};
+/** Disk a save leaves free for everything else on the data volume. */
+const SAVE_DISK_RESERVE_BYTES = 2 * 1024 ** 3;
 
 /** Browser profile directories the browser rebuilds on its own; exports skip them. */
 export const SKIPPED_BROWSER_PROFILE_DIRECTORIES: ReadonlySet<string> = new Set([
@@ -101,6 +113,8 @@ export async function restoreComputerWorkspace(
 ): Promise<void> {
   if (await homeIsMounted(home, sandbox, computer, context)) return;
   await sandbox.importWorkspace(computer, home.exportHome(homeKey, context), context);
+  // The computer now holds the files and the bucket holds the home; this host needs no copy.
+  if (home instanceof ObjectAgentHomeStore) await home.evictCache(homeKey);
 }
 
 export async function ensureComputerWorkspaceLayout(
@@ -349,6 +363,7 @@ export async function checkpointComputerWorkspace(
   context: AdapterContext,
   /** Read after the export, just before saving, so a deletion during the export still counts. */
   excludedFolders?: () => Promise<ReadonlySet<string> | undefined>,
+  saveLimits: WorkspaceExportLimits = WORKSPACE_SAVE_LIMITS,
 ): Promise<string> {
   if (
     home instanceof LocalAgentHomeStore &&
@@ -356,18 +371,40 @@ export async function checkpointComputerWorkspace(
   ) {
     return home.revise(homeKey);
   }
-  const staging = await mkdtemp(path.join(tmpdir(), "rakazo-workspace-"));
+  // On the data volume, never a container's own disk, and removed later if this process dies.
+  const staging =
+    home instanceof LocalAgentHomeStore
+      ? await home.createStaging()
+      : await createStagingDirectory();
   try {
-    for await (const file of sandbox.exportWorkspace(computer, context)) {
-      await writePortableFile(staging, file);
+    const limits = await withinFreeDisk(saveLimits, staging.path);
+    const copied = { bytes: 0, files: 0 };
+    const count = (bytes: number) => {
+      copied.bytes += bytes;
+      if (copied.bytes > limits.maxBytes) throw new WorkspaceTooLargeError("bytes");
+    };
+    for await (const file of sandbox.exportWorkspace(computer, context, limits)) {
+      if (++copied.files > limits.maxFiles) throw new WorkspaceTooLargeError("files");
+      await writePortableFile(staging.path, file, count);
     }
     for (const folder of (await excludedFolders?.()) ?? []) {
-      await rm(path.join(staging, folder), { recursive: true, force: true });
+      await rm(path.join(staging.path, folder), { recursive: true, force: true });
     }
-    return await home.commit(homeKey, staging, context);
+    return await home.commit(homeKey, staging.path, context);
   } finally {
-    await rm(staging, { recursive: true, force: true });
+    await staging.remove();
   }
+}
+
+/** The save limits, lowered to the disk space left on the volume that stages the files. */
+async function withinFreeDisk(
+  limits: WorkspaceExportLimits,
+  directory: string,
+): Promise<WorkspaceExportLimits> {
+  const disk = await statfs(directory).catch(() => undefined);
+  if (!disk) return limits;
+  const free = Number(disk.bavail) * Number(disk.bsize) - SAVE_DISK_RESERVE_BYTES;
+  return { ...limits, maxBytes: Math.max(0, Math.min(limits.maxBytes, free)) };
 }
 
 /** Remote exports quiesce browsers, so a run must not checkpoint while peers are driving them. */
@@ -437,7 +474,12 @@ export async function checkpointAndRecordComputerWorkspace(
   return revision;
 }
 
-async function writePortableFile(root: string, file: PortableFile) {
+/** Writes one exported file; a streamed one goes to disk chunk by chunk. */
+async function writePortableFile(
+  root: string,
+  file: PortableFile | StreamedPortableFile,
+  count: (bytes: number) => void,
+) {
   const relative = normalizeWorkspacePath(file.path);
   if (!relative) throw new Error("Workspace snapshots cannot contain an empty file path");
   const target = path.resolve(root, relative);
@@ -446,7 +488,22 @@ async function writePortableFile(root: string, file: PortableFile) {
     throw new Error("Workspace snapshot path escapes its staging directory");
   }
   await mkdir(path.dirname(target), { recursive: true });
-  await writeFile(target, file.content, { mode: file.executable ? 0o700 : 0o600 });
+  const handle = await open(
+    target,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0),
+    file.executable ? 0o700 : 0o600,
+  );
+  try {
+    for await (const chunk of "body" in file ? file.body : [file.content]) {
+      count(chunk.byteLength);
+      for (let offset = 0; offset < chunk.byteLength; ) {
+        const { bytesWritten } = await handle.write(chunk, offset, chunk.byteLength - offset);
+        offset += bytesWritten;
+      }
+    }
+  } finally {
+    await handle.close();
+  }
 }
 
 /** Route directory intents through native providers while preserving the Unix fallback. */
