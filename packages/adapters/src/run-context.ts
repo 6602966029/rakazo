@@ -23,6 +23,7 @@ import type { UnchangedVisualStreak } from "./computer-tools.js";
 import type { selectRunConnections } from "./connection-context.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import type { FleetRun } from "./fleet-tools.js";
+import { namedAgentTools } from "./pi-runtime-tools.js";
 import type { lazyRunComputer } from "./run-computer.js";
 import type { createRunWorkspaceCheckpoint } from "./run-lifecycle.js";
 import { publishMessage } from "./run-messages.js";
@@ -30,6 +31,7 @@ import { subagentMarksUnread } from "./run-notifications.js";
 import { secretPausedToolResult } from "./run-secret.js";
 import type { createRunTrustLoaders } from "./run-trust.js";
 import type { inferScript } from "./scripted-runtime.js";
+import { restoreTurnCheckpoint, unresolvedTurnCheckpointCalls } from "./turn-checkpoint.js";
 
 export type RunningHelper = Omit<Extract<MessageBlock, { kind: "subagent" }>, "kind">;
 
@@ -130,7 +132,10 @@ export interface ScreenState {
 export interface RunState {
   lease: RunLeaseState;
   computerUse: RunComputerUseState;
-  /** Runtime cleanup can queue terminal events after the consumer has exited; only helpers whose running state this attempt persisted. */
+  /**
+   * Helpers whose running state this attempt persisted. Runtime cleanup can queue their
+   * terminal events after the consumer exits, so the attempt settles them itself.
+   */
   runningHelpers: Map<string, RunningHelper>;
   reply: ReplyState;
   approval: ApprovalState;
@@ -334,5 +339,76 @@ export async function persistTurnCheckpoint(ctx: RunContext, executionId?: strin
     // Helper calls have no saved turn. An earlier pause's turn must not resume this one.
     await dropRunTurnCheckpoint(deps.prisma, run, workerId, fence);
     effects.storedTurnCheckpoint = false;
+  }
+}
+
+/**
+ * Reserve the effect occurrences a saved turn already assigned, so its pending call claims the
+ * same effect when it resumes. Returns undefined when the turn cannot resume with this run's
+ * tools or transcript format.
+ */
+export function restoreTurnCheckpointEffects(
+  ctx: RunContext,
+  turnCheckpoint: string,
+  model: { provider: string; id: string },
+): string | undefined {
+  const effects = ctx.state.effects;
+  try {
+    const saved = restoreTurnCheckpoint(turnCheckpoint, model);
+    const unresolved = new Set(unresolvedTurnCheckpointCalls(saved.messages));
+    const namedTools = namedAgentTools(ctx.tools.offered);
+    const available = new Set(namedTools.map((tool) => tool.name));
+    if (
+      saved.messages.some(
+        (message) =>
+          message.role === "assistant" &&
+          message.content.some(
+            (call) =>
+              call.type === "toolCall" &&
+              unresolved.has(call) &&
+              (saved.executionMode === "sequential" || call.id === saved.pendingToolCallId) &&
+              !available.has(call.name),
+          ),
+      )
+    ) {
+      return undefined;
+    }
+    if (saved.effectOccurrences) {
+      effects.occurrences.push(...saved.effectOccurrences);
+      const pendingExecutionId = JSON.stringify(["pi-tool", "main", saved.pendingToolCallId]);
+      // Provider IDs can repeat in later responses. Only the restored
+      // pending call may consume its saved assignment, exactly once.
+      effects.restoredPending = saved.effectOccurrences.findLast(
+        (entry) => entry.executionId === pendingExecutionId,
+      );
+      for (const { fingerprint, occurrence } of saved.effectOccurrences) {
+        effects.counts.set(
+          fingerprint,
+          Math.max(effects.counts.get(fingerprint) ?? 0, occurrence + 1),
+        );
+      }
+    } else {
+      // Older snapshots have no executor assignments. Retained completed
+      // calls still reserve their occurrences before pending calls run.
+      for (const message of saved.messages) {
+        if (message.role !== "assistant") continue;
+        for (const call of message.content) {
+          if (call.type !== "toolCall" || unresolved.has(call)) continue;
+          const tool = namedTools.find((tool) => tool.name === call.name)?.tool;
+          if (tool && tool.name !== "request_secret" && tool.name !== "connect_app")
+            nextMutatingEffectOccurrence(
+              ctx,
+              tool.name,
+              call.arguments,
+              JSON.stringify(["pi-tool", "main", call.id]),
+            );
+        }
+      }
+    }
+    return turnCheckpoint;
+  } catch {
+    // Incompatible transcripts use the existing canonical approval replay.
+    // Decryption happens earlier and must still fail closed.
+    return undefined;
   }
 }
