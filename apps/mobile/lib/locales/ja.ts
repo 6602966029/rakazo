@@ -21,6 +21,8 @@ export const JA_MESSAGES: Record<string, string> = {
   "Manage {provider}": "{provider} を管理",
   "Add provider": "プロバイダーを追加",
   "Choose a model": "モデルを選択",
+  "The model hit its output limit before finishing its reply.":
+    "モデルが返信を書き終える前に出力上限に達しました。",
   "The model returned an unusable response. Try again.":
     "モデルが利用できない応答を返しました。もう一度お試しください。",
   "This model's context window is too small. Choose another model.":

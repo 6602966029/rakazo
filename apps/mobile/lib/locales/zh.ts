@@ -103,6 +103,7 @@ export const ZH_MESSAGES: Record<string, string> = {
     "{provider}拒绝了 API 密钥。请检查连接设置。",
   "{provider} can't run this model.": "{provider}无法运行此模型。",
   "{provider} denied access to this model.": "{provider}拒绝了对此模型的访问。",
+  "The model hit its output limit before finishing its reply.": "模型在完成回复前达到了输出上限。",
   "The model returned an unusable response. Try again.": "模型返回了无法使用的回复。请重试。",
   "This model's context window is too small. Choose another model.":
     "此模型的上下文窗口太小。请选择其他模型。",

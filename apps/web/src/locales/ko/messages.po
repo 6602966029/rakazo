@@ -5343,6 +5343,11 @@ msgstr "연결 시간이 초과되었습니다."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "The model hit its output limit before finishing its reply."
+msgstr "모델이 답변을 끝내기 전에 출력 한도에 도달했습니다."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "The model provider returned an error."
 msgstr "모델 제공업체에서 오류를 반환했습니다."
 

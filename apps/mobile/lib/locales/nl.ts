@@ -110,6 +110,8 @@ export const NL_MESSAGES: Record<string, string> = {
     "{provider} heeft de API-sleutel geweigerd. Controleer je verbindingsinstellingen.",
   "{provider} can't run this model.": "{provider} kan dit model niet uitvoeren.",
   "{provider} denied access to this model.": "{provider} heeft toegang tot dit model geweigerd.",
+  "The model hit its output limit before finishing its reply.":
+    "Het model bereikte zijn uitvoerlimiet voordat het antwoord af was.",
   "The model returned an unusable response. Try again.":
     "Het model gaf een onbruikbaar antwoord. Probeer het opnieuw.",
   "This model's context window is too small. Choose another model.":

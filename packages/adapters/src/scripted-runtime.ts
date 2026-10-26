@@ -10,6 +10,7 @@ import {
   BOT_MESSAGE_WAKE_CUE,
   inferHandoffTargetName,
   MODEL_CONTEXT_TOO_SMALL_ERROR,
+  MODEL_OUTPUT_CUT_ERROR,
   modelFallbackFailure,
   STEERING_CONTINUATION_PROMPT,
 } from "@rakazo/core";
@@ -684,6 +685,7 @@ function shouldFail(prompt: string): boolean {
 function scriptedFailure(prompt: string): string {
   if (/\bfixed context\b/i.test(prompt)) return MODEL_CONTEXT_TOO_SMALL_ERROR;
   if (/\bunrun approval\b/i.test(prompt)) return APPROVED_ACTION_NOT_RUN_ERROR;
+  if (/\bcut reply\b/i.test(prompt)) return MODEL_OUTPUT_CUT_ERROR;
   if (/\bunreachable\b/i.test(prompt)) return "Connection error.";
   if (/\bout of credits\b/i.test(prompt)) {
     return '402: {"message":"You have no credits remaining. Add credits to continue."}';

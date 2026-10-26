@@ -5343,6 +5343,11 @@ msgstr "कनेक्शन का समय समाप्त हो गय�
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "The model hit its output limit before finishing its reply."
+msgstr "मॉडल अपना जवाब पूरा करने से पहले अपनी आउटपुट सीमा तक पहुँच गया।"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "The model provider returned an error."
 msgstr "मॉडल प्रदाता ने एक त्रुटि लौटाई।"
 

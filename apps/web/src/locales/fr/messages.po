@@ -5343,6 +5343,11 @@ msgstr "La connexion a expiré."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "The model hit its output limit before finishing its reply."
+msgstr "Le modèle a atteint sa limite de sortie avant de terminer sa réponse."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "The model provider returned an error."
 msgstr "Le fournisseur de modèles a renvoyé une erreur."
 

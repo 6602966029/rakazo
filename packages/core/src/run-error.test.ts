@@ -9,6 +9,7 @@ import {
   MISSING_TOOL_FINAL_RESPONSE_ERROR,
   MODEL_CONTEXT_TOO_SMALL_ERROR,
   MODEL_IMAGE_INPUT_ERROR,
+  MODEL_OUTPUT_CUT_ERROR,
   MODEL_OUTPUT_LIMIT_ERROR,
   MODEL_REQUIRED_SEND_ERROR,
   modelFallbackFailure,
@@ -331,6 +332,15 @@ describe("normalizeRunError", () => {
         summary: MODEL_CONTEXT_TOO_SMALL_ERROR,
         details: MODEL_CONTEXT_TOO_SMALL_ERROR,
         kind: "context",
+        recovery: "model",
+      });
+    });
+
+    it("says a reply was cut off at the output limit, with the model's fix", () => {
+      expect(normalizeRunError(MODEL_OUTPUT_CUT_ERROR)).toEqual({
+        summary: MODEL_OUTPUT_CUT_ERROR,
+        details: MODEL_OUTPUT_CUT_ERROR,
+        kind: "output",
         recovery: "model",
       });
     });

@@ -5343,6 +5343,11 @@ msgstr "连接超时。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "The model hit its output limit before finishing its reply."
+msgstr "模型在完成回复前达到了输出上限。"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "The model provider returned an error."
 msgstr "模型提供商返回了错误。"
 

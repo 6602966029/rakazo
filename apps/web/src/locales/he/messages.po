@@ -5343,6 +5343,11 @@ msgstr "תם הזמן הקצוב לחיבור."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "The model hit its output limit before finishing its reply."
+msgstr "המודל הגיע למגבלת הפלט שלו לפני שסיים את התשובה."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "The model provider returned an error."
 msgstr "ספק המודל החזיר שגיאה."
 

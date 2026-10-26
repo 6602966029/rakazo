@@ -5343,6 +5343,11 @@ msgstr "De verbinding is verlopen."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "The model hit its output limit before finishing its reply."
+msgstr "Het model bereikte zijn uitvoerlimiet voordat het antwoord af was."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "The model provider returned an error."
 msgstr "De modelaanbieder heeft een fout teruggegeven."
 

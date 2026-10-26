@@ -109,6 +109,8 @@ export const RU_MESSAGES: Record<string, string> = {
     "{provider} отклонил API-ключ. Проверьте настройки подключения.",
   "{provider} can't run this model.": "{provider} не может запустить эту модель.",
   "{provider} denied access to this model.": "{provider} отказал в доступе к этой модели.",
+  "The model hit its output limit before finishing its reply.":
+    "Модель достигла лимита вывода, не закончив ответ.",
   "The model returned an unusable response. Try again.":
     "Модель вернула непригодный ответ. Попробуйте ещё раз.",
   "This model's context window is too small. Choose another model.":

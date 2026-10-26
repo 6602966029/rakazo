@@ -117,6 +117,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "{provider} can't run this model.": "{provider} kann dieses Modell nicht ausführen.",
   "{provider} denied access to this model.":
     "{provider} hat den Zugriff auf dieses Modell verweigert.",
+  "The model hit its output limit before finishing its reply.":
+    "Das Modell hat sein Ausgabelimit erreicht, bevor es die Antwort fertig geschrieben hat.",
   "The model returned an unusable response. Try again.":
     "Das Modell hat eine unbrauchbare Antwort geliefert. Versuche es erneut.",
   "This model's context window is too small. Choose another model.":

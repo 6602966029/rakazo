@@ -12,6 +12,9 @@ export const APPROVED_ACTION_NOT_RUN_ERROR =
 /** The model ran out of output tokens before writing anything the run could use. */
 export const MODEL_OUTPUT_LIMIT_ERROR = "The model hit its output limit before writing a response.";
 
+/** The model ran out of output tokens partway through its reply, even after continuing it. */
+export const MODEL_OUTPUT_CUT_ERROR = "The model hit its output limit before finishing its reply.";
+
 /** The bot's instructions and tools alone do not fit the selected model's context window. */
 export const MODEL_CONTEXT_TOO_SMALL_ERROR =
   "This model's context window is too small. Choose another model.";
@@ -253,6 +256,14 @@ export function normalizeRunError(
       : MODEL_CONNECTION_RUN_ERRORS.has(trimmed)
         ? { summary: translate(trimmed), details, recovery: "connection" }
         : { summary: details, details };
+  }
+  if (trimmed === MODEL_OUTPUT_CUT_ERROR) {
+    return {
+      summary: translate(MODEL_OUTPUT_CUT_ERROR),
+      details,
+      recovery: "model",
+      kind: "output",
+    };
   }
   if (trimmed === MODEL_CONTEXT_TOO_SMALL_ERROR) {
     return {

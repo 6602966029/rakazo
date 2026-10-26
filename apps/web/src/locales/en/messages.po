@@ -5343,6 +5343,11 @@ msgstr "The connection timed out."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "The model hit its output limit before finishing its reply."
+msgstr "The model hit its output limit before finishing its reply."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "The model provider returned an error."
 msgstr "The model provider returned an error."
 

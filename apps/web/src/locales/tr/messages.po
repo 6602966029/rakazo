@@ -5343,6 +5343,11 @@ msgstr "Bağlantı zaman aşımına uğradı."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
+msgid "The model hit its output limit before finishing its reply."
+msgstr "Model, yanıtını bitirmeden çıktı sınırına ulaştı."
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
 msgid "The model provider returned an error."
 msgstr "Model sağlayıcısı bir hata döndürdü."
 
