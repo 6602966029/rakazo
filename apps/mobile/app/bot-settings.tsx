@@ -323,6 +323,7 @@ export default function BotSettingsScreen() {
     }
     if (choice !== voiceChoice.current) return;
     try {
+      // Native speech loads only when a voice is previewed, as in lib/voice.
       const Speech = await import("expo-speech");
       if (choice !== voiceChoice.current) return;
       await Speech.stop();

@@ -3,6 +3,7 @@ import type { ComputerMode } from "@rakazo/contracts";
 import { ATTACHMENT_MAX_BYTES } from "@rakazo/contracts";
 import { redactSecrets } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
+import { JSDOM } from "jsdom";
 import { displayBotWorkspacePath, resolveBotWorkspacePath } from "./computer-support.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import type { PlotSpec } from "./plot-tool.js";
@@ -141,8 +142,6 @@ export async function renderPlotFromTool(
     }
     checkingSpec = true;
     assertPlotDataWithinLimits(args.spec as PlotSpec, rows);
-    // jsdom and sharp load lazily so chart-free runs never pay for them.
-    const { JSDOM } = await import("jsdom");
     const svg = renderPlotSpecToSvg(args.spec as PlotSpec, rows, new JSDOM("").window.document);
     checkingSpec = false;
     const png = await plotSvgToPng(svg);

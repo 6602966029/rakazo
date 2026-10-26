@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
@@ -8,16 +9,10 @@ import {
 } from "@rakazo/contracts";
 import { Agent } from "undici";
 import { combineSignals } from "./connector-safety.js";
-import {
-  createAddressCheckedLookup,
-  type ResolvedAddress,
-  type ResolveHostname,
-} from "./network-address.js";
-import {
-  createSafeRemoteFetch,
-  type RemoteTransportDependencies,
-  type SafeRemoteFetch,
-} from "./remote-mcp.js";
+import type { ResolvedAddress, ResolveHostname } from "./network-address.js";
+import { createAddressCheckedLookup } from "./network-address.js";
+import type { RemoteTransportDependencies, SafeRemoteFetch } from "./remote-mcp.js";
+import { createSafeRemoteFetch } from "./remote-mcp.js";
 import { fetchPairedWithDispatcher } from "./undici-fetch.js";
 import { isBlockedHostname } from "./web-ssrf.js";
 
@@ -122,11 +117,7 @@ export async function classifySerenityEndpointTrust(
   if (serenityEndpointRequiresPrivateEndpoint(url.href)) return "private";
   const host = hostnameOf(url);
   const resolve =
-    resolveHostname ??
-    (async (hostname: string) => {
-      const { lookup } = await import("node:dns/promises");
-      return lookup(hostname, { all: true, verbatim: true });
-    });
+    resolveHostname ?? ((hostname: string) => lookup(hostname, { all: true, verbatim: true }));
   const addresses = await resolve(host);
   if (addresses.length === 0) {
     throw new Error("Serenity endpoint did not resolve to an address.");
@@ -232,10 +223,7 @@ function serenityFetchPath(
 }
 
 function defaultResolveHostname(): ResolveHostname {
-  return async (hostname: string) => {
-    const { lookup } = await import("node:dns/promises");
-    return lookup(hostname, { all: true, verbatim: true });
-  };
+  return (hostname: string) => lookup(hostname, { all: true, verbatim: true });
 }
 
 function assertPrivateLanAddresses(addresses: ResolvedAddress[]): void {

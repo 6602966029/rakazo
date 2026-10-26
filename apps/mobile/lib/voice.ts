@@ -8,6 +8,7 @@ import {
   VOICE_RESPONSE_TIMEOUT_MS,
   withAbort,
 } from "@rakazo/core";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { File, Paths } from "expo-file-system";
 import type * as ExpoSpeech from "expo-speech";
 import { Platform } from "react-native";
@@ -541,7 +542,6 @@ async function playWithHtmlAudio(
 
 async function playWithNativeAudio(bytes: Uint8Array, session?: HostedSession): Promise<void> {
   if (session?.isStopped) return;
-  const { createAudioPlayer, setAudioModeAsync } = await import("expo-audio");
   await setAudioModeAsync({
     playsInSilentMode: true,
     interruptionMode: "mixWithOthers",
