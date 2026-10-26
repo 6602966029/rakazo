@@ -237,7 +237,7 @@ export function MessagingSettingsPanel() {
   );
 
   return (
-    <div data-testid="messaging-settings" className="max-w-[560px] space-y-8">
+    <div data-testid="messaging-settings" className="space-y-8">
       {shownError ? <p className="text-[13px] text-destructive">{shownError}</p> : null}
 
       {hasRequests ? (
