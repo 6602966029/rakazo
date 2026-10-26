@@ -19,7 +19,7 @@ import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   withConnectionName,
 } from "@rakazo/contracts";
-import { createModelRoleSettings } from "@rakazo/core";
+import { createModelRoleSettings, modelRoleListPatch } from "@rakazo/core";
 import type { Href } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
@@ -50,15 +50,6 @@ const sameChoice = (left: ModelRoleChoice, right: ModelRoleChoice) =>
 
 const connectKey = (provider: ConnectableProvider) =>
   `connect:${provider.id}:${provider.baseUrl ?? ""}`;
-
-/** Sends the first slot only when it changes. */
-function listPatch(current: Settings, list: ModelRoleChoice[]): Partial<Settings> {
-  if (!current.primary) return { backups: list };
-  const primary = list[0] ?? null;
-  return primary && sameChoice(primary, current.primary)
-    ? { backups: list.slice(1) }
-    : { primary, backups: list.slice(1) };
-}
 
 /** One ordered list per model purpose: the first row runs, the rest take over in order. */
 export function ModelRoleSettings({
@@ -194,8 +185,11 @@ export function ModelRoleSettings({
     save((current) => {
       const list = current.primary ? [current.primary, ...current.backups] : current.backups;
       if (slot === "add")
-        return listPatch(current, [...list.filter((item) => !sameChoice(item, choice)), choice]);
-      return listPatch(
+        return modelRoleListPatch(current, [
+          ...list.filter((item) => !sameChoice(item, choice)),
+          choice,
+        ]);
+      return modelRoleListPatch(
         current,
         list
           .map((item, index) => (index === slot ? choice : item))
@@ -203,7 +197,7 @@ export function ModelRoleSettings({
       );
     });
   // The first entry becomes the primary; with none, the deployment's default runs.
-  const commit = (next: ModelRoleChoice[]) => save((current) => listPatch(current, next));
+  const commit = (next: ModelRoleChoice[]) => save((current) => modelRoleListPatch(current, next));
   const fill = (slot: Slot, choice: ModelRoleChoice) =>
     slot === "empty" || isPrimarySlot(slot) ? setPrimary(choice) : place(slot, choice);
 
