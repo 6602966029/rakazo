@@ -25,6 +25,7 @@ import {
   assertVolumeSubpathSupport,
   COMPUTER_GID,
   COMPUTER_IMAGE,
+  COMPUTER_IMAGE_CONTEXT_FILES,
   COMPUTER_UID,
   COMPUTER_USER,
   computerBridgeNameFor,
@@ -1168,22 +1169,7 @@ async function ensureComputerImage() {
       const stream = await docker.buildImage(
         {
           context: computerContext,
-          src: [
-            "Dockerfile",
-            "start.sh",
-            "user-env.sh",
-            "control.py",
-            "xcapture.c",
-            "rakazo-browser",
-            "rakazo-page-browser",
-            "rakazo-browser.desktop",
-            "embed.html",
-            "clipboard-bridge.js",
-            "mobile-keyboard.js",
-            "fluxbox.init",
-            "fluxbox.apps",
-            "fluxbox.menu",
-          ],
+          src: [...COMPUTER_IMAGE_CONTEXT_FILES],
         },
         { t: COMPUTER_IMAGE },
       );
