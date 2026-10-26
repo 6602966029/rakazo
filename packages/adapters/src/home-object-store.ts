@@ -102,8 +102,7 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
   }
 
   override async checkout(botId: string, dest: string, context: AdapterContext) {
-    await this.hydrate(botId);
-    return super.checkout(botId, dest, context);
+    return this.reading(botId, () => super.checkout(botId, dest, context));
   }
 
   override async *exportHome(
@@ -111,18 +110,12 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
     context: AdapterContext,
     options?: { directory?: string; skipHidden?: boolean },
   ): AsyncGenerator<PortableFile> {
-    this.readers.set(botId, (this.readers.get(botId) ?? 0) + 1);
-    // Keeps the copy recently used for other processes' idle eviction during a long export.
-    const timer = setInterval(() => void this.touchRevision(botId), READER_HEARTBEAT_MS);
-    timer.unref();
+    const done = this.startReading(botId);
     try {
       await this.hydrate(botId);
       yield* super.exportHome(botId, context, options);
     } finally {
-      clearInterval(timer);
-      const left = (this.readers.get(botId) ?? 1) - 1;
-      if (left) this.readers.set(botId, left);
-      else this.readers.delete(botId);
+      done();
     }
   }
 
@@ -132,13 +125,38 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
     context: AdapterContext,
     options?: { maxBytes?: number },
   ) {
-    await this.hydrate(botId);
-    return super.readFile(botId, filePath, context, options);
+    return this.reading(botId, () => super.readFile(botId, filePath, context, options));
   }
 
   override async list(botId: string, dirPath: string, context: AdapterContext) {
-    await this.hydrate(botId);
-    return super.list(botId, dirPath, context);
+    return this.reading(botId, () => super.list(botId, dirPath, context));
+  }
+
+  /** Hydrates, then reads the cached copy with eviction held off until the read ends. */
+  private async reading<T>(botId: string, read: () => Promise<T>): Promise<T> {
+    const done = this.startReading(botId);
+    try {
+      await this.hydrate(botId);
+      return await read();
+    } finally {
+      done();
+    }
+  }
+
+  /**
+   * Counts a read of the cached copy, which eviction here waits out. A long read also keeps the
+   * copy marked as used, so other processes' idle eviction leaves it alone.
+   */
+  private startReading(botId: string) {
+    this.readers.set(botId, (this.readers.get(botId) ?? 0) + 1);
+    const timer = setInterval(() => void this.touchRevision(botId), READER_HEARTBEAT_MS);
+    timer.unref();
+    return () => {
+      clearInterval(timer);
+      const left = (this.readers.get(botId) ?? 1) - 1;
+      if (left) this.readers.set(botId, left);
+      else this.readers.delete(botId);
+    };
   }
 
   override async writeFile(
@@ -200,9 +218,14 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
    * here is reading it; it is downloaded again when next needed. A home never stored keeps its
    * only copy. Never call it for a Docker computer, which works directly in the copy.
    */
-  async evictCache(botId: string): Promise<boolean> {
+  async evictCache(botId: string, { idleBefore }: { idleBefore?: number } = {}): Promise<boolean> {
     return this.withBotWrite(botId, async () => {
       if (this.readers.has(botId)) return false;
+      if (idleBefore !== undefined) {
+        // Checked under the lock: a read that started since the sweep looked keeps the copy.
+        const used = await this.revisionUsedAt(botId);
+        if (used === undefined || used > idleBefore) return false;
+      }
       if (!(await this.records.load(botId))?.revision) return false;
       await this.removeCopy(botId);
       return true;
@@ -217,9 +240,7 @@ export class ObjectAgentHomeStore extends LocalAgentHomeStore {
     for (const botId of homes) {
       const kind = kinds.get(botId);
       if (!kind || kind === "docker") continue;
-      const used = await this.revisionUsedAt(botId);
-      if (used === undefined || now - used < IDLE_CACHE_MS) continue;
-      if (await this.evictCache(botId)) evicted += 1;
+      if (await this.evictCache(botId, { idleBefore: now - IDLE_CACHE_MS })) evicted += 1;
     }
     return evicted;
   }

@@ -31,6 +31,8 @@ export const WORKSPACE_SAVE_LIMITS: WorkspaceExportLimits = {
 const SAVE_DISK_RESERVE_BYTES = 2 * 1024 ** 3;
 /** How often, in bytes written, a save checks the volume's free space again. */
 const FREE_DISK_CHECK_BYTES = 256 * 1024 * 1024;
+/** Disk a file costs beyond its contents, so many small files still trigger the check. */
+const FILE_DISK_OVERHEAD_BYTES = 4096;
 
 /** Browser profile directories the browser rebuilds on its own; exports skip them. */
 export const SKIPPED_BROWSER_PROFILE_DIRECTORIES: ReadonlySet<string> = new Set([
@@ -378,17 +380,22 @@ export async function checkpointComputerWorkspace(
   try {
     const limits = await withinFreeDisk(saveLimits, staging.path);
     const copied = { bytes: 0, files: 0, unchecked: 0 };
-    const count = async (bytes: number) => {
-      copied.bytes += bytes;
-      copied.unchecked += bytes;
-      if (copied.bytes > limits.maxBytes) throw new WorkspaceTooLargeError("bytes");
-      // Other saves share the volume, so the free space is checked again as files arrive.
+    // Other saves share the volume, so free space is checked again as the disk use grows.
+    const use = async (diskBytes: number) => {
+      copied.unchecked += diskBytes;
       if (copied.unchecked < FREE_DISK_CHECK_BYTES) return;
       copied.unchecked = 0;
       if ((await freeDisk(staging.path)) < 0) throw new WorkspaceTooLargeError("bytes");
     };
+    const count = async (bytes: number) => {
+      copied.bytes += bytes;
+      if (copied.bytes > limits.maxBytes) throw new WorkspaceTooLargeError("bytes");
+      await use(bytes);
+    };
     for await (const file of sandbox.exportWorkspace(computer, context, limits)) {
       if (++copied.files > limits.maxFiles) throw new WorkspaceTooLargeError("files");
+      // Even an empty file takes an inode and usually a block.
+      await use(FILE_DISK_OVERHEAD_BYTES);
       await writePortableFile(staging.path, file, count);
     }
     for (const folder of (await excludedFolders?.()) ?? []) {
