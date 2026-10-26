@@ -91,6 +91,10 @@ export const JA_MESSAGES: Record<string, string> = {
   "Your OpenAI": "お使いのOpenAI",
   "Your Anthropic": "お使いのAnthropic",
   "Your model provider": "お使いのモデルプロバイダー",
+  "Connect a model in Settings before running bots.":
+    "ボットを実行する前に、設定でモデルを接続してください。",
+  "Connect your own API key in Models or choose Rakazo credits in Billing.":
+    "モデルで自分のAPIキーを接続するか、請求でRakazoクレジットを選択してください。",
   "The model provider returned an error.": "モデルプロバイダーがエラーを返しました。",
   "{provider} is rate limiting requests. Try again shortly.":
     "{provider}がリクエストを制限しています。しばらくしてからもう一度お試しください。",

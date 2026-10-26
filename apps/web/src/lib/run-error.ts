@@ -12,6 +12,18 @@ export const translateRunError: RunErrorTranslator = (message, values) => {
       return i18n._({ id: "Your Anthropic", message: "Your Anthropic", values });
     case "Your model provider":
       return i18n._({ id: "Your model provider", message: "Your model provider", values });
+    case "Connect a model in Settings before running bots.":
+      return i18n._({
+        id: "Connect a model in Settings before running bots.",
+        message: "Connect a model in Settings before running bots.",
+        values,
+      });
+    case "Connect your own API key in Models or choose Rakazo credits in Billing.":
+      return i18n._({
+        id: "Connect your own API key in Models or choose Rakazo credits in Billing.",
+        message: "Connect your own API key in Models or choose Rakazo credits in Billing.",
+        values,
+      });
     case "The model provider returned an error.":
       return i18n._({
         id: "The model provider returned an error.",

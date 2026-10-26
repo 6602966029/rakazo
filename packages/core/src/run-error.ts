@@ -227,7 +227,7 @@ export function normalizeRunError(
     return MODEL_OUTPUT_RUN_ERRORS.has(trimmed)
       ? { summary: details, details, kind: "output" }
       : MODEL_CONNECTION_RUN_ERRORS.has(trimmed)
-        ? { summary: details, details, recovery: "connection" }
+        ? { summary: translate(trimmed), details, recovery: "connection" }
         : { summary: details, details };
   }
   if (trimmed === MODEL_CONTEXT_TOO_SMALL_ERROR) {

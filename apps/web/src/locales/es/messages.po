@@ -1461,6 +1461,11 @@ msgstr ""
 msgid "Connect a model"
 msgstr "Conectar un modelo"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect a model in Settings before running bots."
+msgstr "Conecta un modelo en Configuración antes de ejecutar bots."
+
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Connect API key"
 msgstr "Conectar clave de API"
@@ -1500,6 +1505,11 @@ msgstr "Conecta primero el proveedor de este modelo."
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Treg"
 msgstr "Conectar Treg"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect your own API key in Models or choose Rakazo credits in Billing."
+msgstr "Conecta tu propia clave de API en Modelos o elige créditos de Rakazo en Facturación."
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpOAuthCallback.tsx

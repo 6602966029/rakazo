@@ -89,6 +89,10 @@ export const RU_MESSAGES: Record<string, string> = {
   "Your OpenAI": "Ваш OpenAI",
   "Your Anthropic": "Ваш Anthropic",
   "Your model provider": "Ваш поставщик моделей",
+  "Connect a model in Settings before running bots.":
+    "Подключите модель в настройках, прежде чем запускать ботов.",
+  "Connect your own API key in Models or choose Rakazo credits in Billing.":
+    "Подключите свой API-ключ в разделе «Модели» или выберите кредиты Rakazo в разделе «Оплата».",
   "The model provider returned an error.": "Поставщик моделей вернул ошибку.",
   "{provider} is rate limiting requests. Try again shortly.":
     "{provider} ограничивает частоту запросов. Повторите попытку чуть позже.",

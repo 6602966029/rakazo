@@ -1461,6 +1461,11 @@ msgstr ""
 msgid "Connect a model"
 msgstr "连接模型"
 
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect a model in Settings before running bots."
+msgstr "运行机器人前，请先在设置中连接模型。"
+
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Connect API key"
 msgstr "连接 API 密钥"
@@ -1500,6 +1505,11 @@ msgstr "请先连接此模型的提供方。"
 #: src/pages/PluginsOverlay.tsx
 msgid "Connect Treg"
 msgstr "连接 Treg"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Connect your own API key in Models or choose Rakazo credits in Billing."
+msgstr "请在“模型”中连接你自己的 API 密钥，或在“账单”中选择 Rakazo 额度。"
 
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/pages/McpOAuthCallback.tsx
