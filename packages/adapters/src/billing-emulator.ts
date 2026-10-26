@@ -117,6 +117,7 @@ export class BillingEmulator implements BillingProvider {
       subscriptionId: `sub_byok_${n}`,
       subscriptionItemId: `si_byok_${n}`,
       priceId: BYOK_PRICE_ID,
+      byokPlan: true,
       status: "active",
       seats: 1,
       trialEndsAt: null,
@@ -168,7 +169,7 @@ export class BillingEmulator implements BillingProvider {
     if (checkout.monthly) {
       this.subscriptions.push({
         customerId,
-        created: this.now() / 1000,
+        created: Math.floor(this.now() / 1000) + this.sequence,
         subscriptionId: `sub_credit_${this.sequence}`,
         subscriptionItemId: `si_credit_${this.sequence}`,
         priceId: "price_credit_emulated",

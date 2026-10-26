@@ -1,5 +1,9 @@
 import { ORPCError } from "@orpc/server";
-import type { BillingPrice, BillingProvider } from "@rakazo/adapter-kit";
+import type {
+  BillingPrice,
+  BillingProvider,
+  BillingSubscriptionSnapshot,
+} from "@rakazo/adapter-kit";
 import { BillingCheckoutCompletedError, BillingCustomerNotFoundError } from "@rakazo/adapter-kit";
 import type { Actor, BillingStatus } from "@rakazo/contracts";
 import { BYOK_MONTHLY_PRICE_CENTS } from "@rakazo/contracts";
@@ -107,22 +111,38 @@ export function createBillingService(deps: {
         });
       }
     }
-    const written = await syncBillingSnapshot(prisma, customerId, () =>
-      provider.getCustomerSubscription(customerId),
-    );
-    if (!written)
+    const previous = await prisma.billingAccount.findUnique({ where: { customerId } });
+    // Assigned in the callback, which control-flow narrowing does not follow.
+    let snapshot = null as BillingSubscriptionSnapshot | null;
+    const written = await syncBillingSnapshot(prisma, customerId, async () => {
+      snapshot = await provider.getCustomerSubscription(customerId);
+      return snapshot;
+    });
+    if (!written || !previous) {
       getLogger().warn("billing sync for unknown customer", { "billing.customer_id": customerId });
-    else if (modelCredits && provider.endByokPlans) {
-      // Monthly credits include the own-key plan, and a free plan bills nothing.
-      const account = await prisma.billingAccount.findUnique({ where: { customerId } });
-      if (
-        account &&
-        hasBillingAccess(account.status) &&
-        !account.cancelAtPeriodEnd &&
-        (BYOK_MONTHLY_PRICE_CENTS === null || account.creditAmountCents)
-      )
-        await provider.endByokPlans(customerId);
+      return;
     }
+    const live = snapshot;
+    if (!modelCredits || !live) return;
+    // A newly paid own-key plan becomes the funding, wherever its checkout returned.
+    if (
+      live.byokPlan &&
+      hasBillingAccess(live.status) &&
+      live.subscriptionId !== previous.subscriptionId
+    )
+      await prisma.modelCreditAccount.updateMany({
+        where: { organizationId: previous.organizationId },
+        data: { mode: "byok", pendingCreditCheckout: false },
+      });
+    // Monthly credits include the own-key plan, even when they will not renew, and a free plan
+    // bills nothing.
+    if (
+      provider.endByokPlans &&
+      hasBillingAccess(live.status) &&
+      (live.creditAmountCents ||
+        (BYOK_MONTHLY_PRICE_CENTS === null && live.byokPlan && !live.cancelAtPeriodEnd))
+    )
+      await provider.endByokPlans(customerId);
   }
 
   async function newCustomer(actor: Actor, organizationId: string) {
@@ -185,7 +205,7 @@ export function createBillingService(deps: {
         provider.createByokCheckout!({
           customerId,
           amountCents,
-          successUrl: `${deps.webOrigin}${BILLING_RETURN_PATH}?funding=byok`,
+          successUrl: `${deps.webOrigin}${BILLING_RETURN_PATH}`,
           cancelUrl: appUrl,
         }),
       );

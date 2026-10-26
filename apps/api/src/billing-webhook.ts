@@ -40,12 +40,6 @@ export function mountBillingRoutes(
     if (!actor) return c.redirect(deps.webOrigin, 303);
     try {
       await deps.billing.syncForActor(actor);
-      // Switch to the own-key plan once it is paid; selecting it unpaid would open another checkout.
-      if (c.req.query("funding") === "byok") {
-        const status = await deps.billing.status(actor);
-        if (["trialing", "active", "past_due"].includes(status.state) && status.funding !== "byok")
-          await deps.billing.selectFunding(actor, "byok");
-      }
     } catch (error) {
       // The webhook still delivers the change; the app shows the paywall until it lands.
       getLogger().error("billing return sync failed", error);

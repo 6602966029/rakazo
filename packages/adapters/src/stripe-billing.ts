@@ -752,6 +752,7 @@ function toSnapshot(
     currentPeriodEndsAt: fromSeconds(item.current_period_end ?? subscription.current_period_end),
     cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end) || subscription.cancel_at != null,
     endedAt: fromSeconds(subscription.ended_at),
+    ...(isByokPlan(subscription) ? { byokPlan: true } : {}),
   };
 }
 

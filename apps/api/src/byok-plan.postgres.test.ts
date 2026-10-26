@@ -102,4 +102,34 @@ dbTests("own-key plan", () => {
       provider.subscriptions.find((subscription) => !subscription.creditAmountCents),
     ).toMatchObject({ status: "active", cancelAtPeriodEnd: true });
   });
+
+  it("switches to the plan when its payment syncs, without the checkout return", async () => {
+    const customer = (await billingAccountForOrganization(prisma, organizationId))!.customerId;
+    for (const subscription of provider.subscriptions) subscription.status = "canceled";
+    await service.sync(customer);
+    await expect(service.status(actor)).resolves.toMatchObject({
+      access: true,
+      funding: "credits",
+    });
+    await expect(service.selectFunding(actor, "byok")).resolves.toMatchObject({
+      url: expect.stringContaining("/byok/"),
+    });
+    await expect(service.status(actor)).resolves.toMatchObject({ funding: "credits" });
+    provider.completeByokCheckout(customer);
+    await service.sync(customer);
+    await expect(service.status(actor)).resolves.toMatchObject({ funding: "byok", access: true });
+  });
+
+  it("ends the plan when monthly credits start already set not to renew", async () => {
+    await service.purchaseCredits(actor, { amountCents: 2000, monthly: true });
+    const customer = (await billingAccountForOrganization(prisma, organizationId))!.customerId;
+    provider.completeCreditCheckout(customer);
+    provider.subscriptions.at(-1)!.cancelAtPeriodEnd = true;
+    await service.sync(customer);
+    expect(
+      provider.subscriptions.find(
+        (subscription) => subscription.byokPlan && subscription.status === "active",
+      ),
+    ).toMatchObject({ cancelAtPeriodEnd: true });
+  });
 });
