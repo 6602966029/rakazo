@@ -5584,10 +5584,6 @@ msgstr "टूल स्रोत"
 msgid "Tools"
 msgstr ""
 
-#: src/components/ModelCredits.tsx
-msgid "Top up anytime"
-msgstr ""
-
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
 msgstr "लिप्यंतरण हो रहा है…"

@@ -5584,10 +5584,6 @@ msgstr "מקורות כלים"
 msgid "Tools"
 msgstr "כלים"
 
-#: src/components/ModelCredits.tsx
-msgid "Top up anytime"
-msgstr ""
-
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
 msgstr ""

@@ -5584,10 +5584,6 @@ msgstr "ツールソース"
 msgid "Tools"
 msgstr "ツール"
 
-#: src/components/ModelCredits.tsx
-msgid "Top up anytime"
-msgstr "いつでもチャージ可能"
-
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
 msgstr "文字起こし中…"

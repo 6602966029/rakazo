@@ -5585,10 +5585,6 @@ msgstr "工具來源"
 msgid "Tools"
 msgstr "工具"
 
-#: src/components/ModelCredits.tsx
-msgid "Top up anytime"
-msgstr "隨時加值"
-
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
 msgstr "轉錄中…"

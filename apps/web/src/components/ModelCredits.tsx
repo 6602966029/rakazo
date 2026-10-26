@@ -22,7 +22,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Separator,
 } from "@rakazo/ui-web";
 import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -194,19 +193,10 @@ export function CreditChoice({
               <Trans>All ${amount / 100} goes to model usage.</Trans>
             </p>
             <ul className="space-y-3 text-sm">
-              {features.map((feature) => (
+              {[...features, t`Models at provider cost`].map((feature) => (
                 <li key={feature} className="flex gap-2">
                   <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                   <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-            <Separator className="data-horizontal:w-8" />
-            <ul className="space-y-3 text-sm">
-              {[t`Models at provider cost`, t`Top up anytime`].map((benefit) => (
-                <li key={benefit} className="flex gap-2">
-                  <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <span>{benefit}</span>
                 </li>
               ))}
             </ul>
