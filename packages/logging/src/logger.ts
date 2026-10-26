@@ -99,9 +99,11 @@ class LoggerImpl implements Logger {
       if (RESERVED.has(key) || value === undefined) continue;
       event[key] = value;
     }
-    if (error !== undefined) event.error = serializeError(error);
+    // `warn` and `info` take a failure as an `error` binding; it is serialized like `error()`'s.
+    const failure = error ?? bindings?.error;
+    if (failure !== undefined) event.error = serializeError(failure);
     if (level === "error" && merged["error.report"] !== false) {
-      markReportedError(error);
+      markReportedError(failure);
       enrichLogContext({ "error.reported": true });
     }
     for (const sink of this.sinks) {
