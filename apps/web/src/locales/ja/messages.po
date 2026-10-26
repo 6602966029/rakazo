@@ -5223,11 +5223,11 @@ msgstr "月額 ${0} で登録"
 
 #: src/components/ModelCredits.tsx
 msgid "Subscribe to Rakazo credits"
-msgstr "Rakazo クレジットに登録"
+msgstr "Rakazo クレジットに申し込む"
 
 #: src/components/ModelCredits.tsx
 msgid "Subscribe with your own AI"
-msgstr "自分の AI で登録"
+msgstr "自分の AI で申し込む"
 
 #: src/pages/Paywall.tsx
 msgid "Subscription required"

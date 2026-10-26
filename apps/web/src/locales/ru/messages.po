@@ -5223,11 +5223,11 @@ msgstr "Подписаться за ${0} / месяц"
 
 #: src/components/ModelCredits.tsx
 msgid "Subscribe to Rakazo credits"
-msgstr "Подписаться на кредиты Rakazo"
+msgstr "Оформить подписку на кредиты Rakazo"
 
 #: src/components/ModelCredits.tsx
 msgid "Subscribe with your own AI"
-msgstr "Подписаться со своим ИИ"
+msgstr "Оформить подписку со своим ИИ"
 
 #: src/pages/Paywall.tsx
 msgid "Subscription required"
