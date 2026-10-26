@@ -24,13 +24,16 @@ import type {
   SandboxProvider,
   ScreenRequest,
   ScreenSession,
+  StreamedPortableFile,
   TerminalRequest,
+  WorkspaceExportLimits,
 } from "@rakazo/adapter-kit";
 import {
   SandboxDamagedError,
   SandboxRateLimitError,
   SandboxUnavailableError,
   SandboxUnresponsiveError,
+  WorkspaceTooLargeError,
 } from "@rakazo/adapter-kit";
 import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
@@ -61,7 +64,7 @@ const BOAT_TTL_SECONDS = 2 * 60 * 60;
 const BOAT_DELETE_TIMEOUT_MS = 60_000;
 const BOAT_GONE_CHECK_TIMEOUT_MS = 10_000;
 const BOAT_EXPORT_CONCURRENCY = 16;
-/** Bounds how many exported bytes are held in memory at once; a larger file goes alone. */
+/** Bounds how many exported bytes are held in memory at once; larger files are streamed. */
 const BOAT_EXPORT_BATCH_BYTES = 64 * 1024 * 1024;
 const BOAT_INLINE_FILE_MAX_BYTES = 5 * 1024 * 1024;
 const BOAT_ARTIFACT_MAX_BYTES = 50 * 1024 * 1024;
@@ -596,19 +599,39 @@ export class BoatSandboxProvider implements SandboxProvider {
   async *exportWorkspace(
     computer: ComputerRef,
     context: AdapterContext,
-  ): AsyncIterable<PortableFile> {
+    limits?: WorkspaceExportLimits,
+  ): AsyncIterable<PortableFile | StreamedPortableFile> {
     const id = this.id(computer);
     await this.desktops.stopBrowsers(computer, context);
     const entries = await this.listWorkspaceFiles(id, context);
+    if (limits && entries.length > limits.maxFiles) throw new WorkspaceTooLargeError("files");
+    if (limits && entries.reduce((total, entry) => total + entry.size, 0) > limits.maxBytes)
+      throw new WorkspaceTooLargeError("bytes");
     for (const batch of exportBatches(entries)) {
+      const [first] = batch;
+      if (first && first.size > BOAT_INLINE_FILE_MAX_BYTES) {
+        yield {
+          path: first.path,
+          body: this.remoteFileChunks(
+            id,
+            workspacePath(BOAT_WORKSPACE, first.path),
+            context.signal,
+            undefined,
+            first.size,
+          ),
+          executable: first.executable,
+        };
+        continue;
+      }
       const files = await Promise.all(
         batch.map(async (entry) => ({
           path: entry.path,
+          // A small file that grew after the listing still cannot fill memory.
           content: await this.readRemoteFile(
             id,
             workspacePath(BOAT_WORKSPACE, entry.path),
             context.signal,
-            undefined,
+            BOAT_EXPORT_BATCH_BYTES,
             entry.size,
           ),
           executable: entry.executable,
@@ -922,7 +945,8 @@ export class BoatSandboxProvider implements SandboxProvider {
     try {
       response = await fetch(url, {
         method: "PUT",
-        body: Buffer.from(file.content),
+        // A view, not a copy: a large file is held in memory once.
+        body: file.content as Uint8Array<ArrayBuffer>,
         headers: { "Content-Type": "application/octet-stream" },
         credentials: "omit",
         redirect: "error",
@@ -966,15 +990,41 @@ export class BoatSandboxProvider implements SandboxProvider {
     maxBytes?: number,
     listedSize?: number,
   ): Promise<Uint8Array> {
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for await (const chunk of this.remoteFileChunks(id, filePath, signal, maxBytes, listedSize)) {
+      chunks.push(chunk);
+      size += chunk.byteLength;
+    }
+    const content = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      content.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return content;
+  }
+
+  /** Streams a file in the chunks it arrives in; stopping early cancels the download. */
+  private async *remoteFileChunks(
+    id: string,
+    filePath: string,
+    signal?: AbortSignal,
+    maxBytes?: number,
+    listedSize?: number,
+  ): AsyncGenerator<Uint8Array> {
     const response = await this.fileResponse(id, filePath, signal, maxBytes, listedSize);
     const reader = response.body?.getReader();
-    const chunks: Uint8Array[] = [];
+    let finished = false;
     let size = 0;
     try {
       if (maxBytes !== undefined && Number(response.headers.get("content-length")) > maxBytes) {
         throw new Error(`computer file exceeds ${maxBytes} bytes`);
       }
-      if (!reader) return new Uint8Array();
+      if (!reader) {
+        finished = true;
+        return;
+      }
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -982,19 +1032,11 @@ export class BoatSandboxProvider implements SandboxProvider {
         if (maxBytes !== undefined && size > maxBytes) {
           throw new Error(`computer file exceeds ${maxBytes} bytes`);
         }
-        chunks.push(value);
+        yield value;
       }
-      const content = new Uint8Array(size);
-      let offset = 0;
-      for (const chunk of chunks) {
-        content.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-      return content;
-    } catch (error) {
-      await reader?.cancel().catch(() => undefined);
-      throw error;
+      finished = true;
     } finally {
+      if (!finished) await reader?.cancel().catch(() => undefined);
       reader?.releaseLock();
     }
   }
@@ -1567,10 +1609,15 @@ function isArtifactTooLarge(error: unknown): boolean {
   );
 }
 
+/** Small files in batches read together; each file over the inline limit alone, streamed. */
 function* exportBatches(entries: readonly ComputerFileEntry[]): Generator<ComputerFileEntry[]> {
   let batch: ComputerFileEntry[] = [];
   let bytes = 0;
   for (const entry of entries) {
+    if (entry.size > BOAT_INLINE_FILE_MAX_BYTES) {
+      yield [entry];
+      continue;
+    }
     if (
       batch.length &&
       (batch.length >= BOAT_EXPORT_CONCURRENCY || bytes + entry.size > BOAT_EXPORT_BATCH_BYTES)

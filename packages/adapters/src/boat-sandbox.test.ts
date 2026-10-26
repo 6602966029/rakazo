@@ -1,12 +1,13 @@
 import type * as TimersPromises from "node:timers/promises";
 import type { FileUrlResponse, SandboxStateEnum } from "@boatdev/sdk";
 import { ResponseError } from "@boatdev/sdk";
-import type { ComputerRef } from "@rakazo/adapter-kit";
+import type { ComputerRef, PortableFile, StreamedPortableFile } from "@rakazo/adapter-kit";
 import {
   SandboxDamagedError,
   SandboxRateLimitError,
   SandboxUnavailableError,
   SandboxUnresponsiveError,
+  WorkspaceTooLargeError,
 } from "@rakazo/adapter-kit";
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { parse } from "shell-quote";
@@ -56,6 +57,26 @@ async function boat() {
 }
 
 /** Files an export read through the artifact route, without the workspace listing itself. */
+/** Every exported file with its bytes, reading streamed ones in order. */
+async function readExport(files: AsyncIterable<PortableFile | StreamedPortableFile>) {
+  const read: Array<PortableFile & { streamed?: boolean }> = [];
+  for await (const file of files) {
+    if (!("body" in file)) {
+      read.push(file);
+      continue;
+    }
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of file.body) chunks.push(chunk);
+    read.push({
+      path: file.path,
+      executable: file.executable,
+      content: Buffer.concat(chunks),
+      streamed: true,
+    });
+  }
+  return read;
+}
+
 function workspaceReads(artifactRaw: { mock: { calls: [{ path: string }, ...unknown[]][] } }) {
   return artifactRaw.mock.calls
     .map(([request]) => request.path)
@@ -180,7 +201,7 @@ describe("BoatSandboxProvider", () => {
       { path: "bin/tool", kind: "file", size: 3, executable: true },
     ]);
     const exported = [];
-    for await (const file of provider.exportWorkspace(computer, context)) exported.push(file);
+    exported.push(...(await readExport(provider.exportWorkspace(computer, context))));
     expect(exported).toEqual([
       { path: "bin/tool", content: Uint8Array.from([0, 255, 1]), executable: true },
     ]);
@@ -1002,7 +1023,7 @@ describe("BoatSandboxProvider", () => {
       .mockImplementation(async (url) => api.serveDownload(String(url)));
 
     const exported = [];
-    for await (const file of provider.exportWorkspace(computer, context)) exported.push(file);
+    exported.push(...(await readExport(provider.exportWorkspace(computer, context))));
 
     expect(exported.map((file) => file.path)).toEqual([
       ".browser-profiles/chrome/Default/History",
@@ -1032,7 +1053,7 @@ describe("BoatSandboxProvider", () => {
       .mockImplementation(async (url) => api.serveDownload(String(url)));
 
     const exported = [];
-    for await (const file of provider.exportWorkspace(computer, context)) exported.push(file);
+    exported.push(...(await readExport(provider.exportWorkspace(computer, context))));
 
     expect(Buffer.from(exported[0]!.content).toString()).toBe("slow but small");
     // The sandbox already had the request; resending it would only time out again.
@@ -1067,7 +1088,7 @@ describe("BoatSandboxProvider", () => {
     files.set("/home/user/rakazo-home/bin/tool", { content: Buffer.from("x"), executable: true });
 
     const exported = [];
-    for await (const file of provider.exportWorkspace(computer, context)) exported.push(file);
+    exported.push(...(await readExport(provider.exportWorkspace(computer, context))));
 
     expect(exported.map((file) => [file.path, file.executable])).toEqual([
       ["bin/tool", true],
@@ -1159,7 +1180,7 @@ describe("BoatSandboxProvider", () => {
       .mockImplementation(async (url) => api.serveDownload(String(url)));
 
     const exported = [];
-    for await (const file of provider.exportWorkspace(computer, context)) exported.push(file);
+    exported.push(...(await readExport(provider.exportWorkspace(computer, context))));
 
     expect(exported.map((file) => [file.path, file.executable])).toEqual([
       ["data/archive.bin", true],
@@ -1190,11 +1211,36 @@ describe("BoatSandboxProvider", () => {
       return api.serveDownload(String(url));
     });
 
-    let count = 0;
-    for await (const _file of provider.exportWorkspace(computer, context)) count++;
+    const exported = await readExport(provider.exportWorkspace(computer, context));
 
-    expect(count).toBe(3);
+    expect(exported.map((file) => [file.path, file.streamed])).toEqual([
+      ["a.bin", true],
+      ["b.bin", true],
+      ["c.bin", true],
+    ]);
     expect(peak).toBe(1);
+  });
+
+  it("refuses a workspace over the save limits from its listing, before reading any file", async () => {
+    const artifactRaw = vi.spyOn(FakeBoatApi.prototype, "artifactRaw");
+    const { api, provider, computer } = await boat();
+    const files = api.files(computer.id);
+    for (const name of ["a", "b", "c"]) {
+      files.set(`/home/user/rakazo-home/${name}.txt`, {
+        content: Buffer.alloc(10),
+        executable: false,
+      });
+    }
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(
+      readExport(provider.exportWorkspace(computer, context, { maxBytes: 29, maxFiles: 10 })),
+    ).rejects.toEqual(new WorkspaceTooLargeError("bytes"));
+    await expect(
+      readExport(provider.exportWorkspace(computer, context, { maxBytes: 100, maxFiles: 2 })),
+    ).rejects.toEqual(new WorkspaceTooLargeError("files"));
+    expect(workspaceReads(artifactRaw)).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("refuses a capped read of a file over the artifact limit without downloading it", async () => {
