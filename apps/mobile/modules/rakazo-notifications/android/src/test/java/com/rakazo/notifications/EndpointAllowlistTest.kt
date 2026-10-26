@@ -1,5 +1,6 @@
 package com.rakazo.notifications
 
+import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -7,18 +8,13 @@ import org.junit.Test
 class EndpointAllowlistTest {
   @Test
   fun `matches the shared JS endpoint cases`() {
-    val lines = requireNotNull(javaClass.getResource("/endpoint-allowlist-cases.json")).readText().lines()
-      .map { it.trim() }
-      .filter { it.isNotEmpty() && it != "[" && it != "]" }
-    assertTrue(lines.isNotEmpty())
-    for (line in lines) {
-      val match = requireNotNull(CASE.matchEntire(line)) { "Unreadable case: $line" }
-      val (endpoint, allowed) = match.destructured
-      assertEquals(endpoint, allowed.toBoolean(), isAllowedNotificationEndpoint(endpoint))
+    val cases =
+      JSONArray(requireNotNull(javaClass.getResource("/endpoint-allowlist-cases.json")).readText())
+    assertTrue(cases.length() > 0)
+    for (index in 0 until cases.length()) {
+      val case = cases.getJSONArray(index)
+      val endpoint = case.getString(0)
+      assertEquals(endpoint, case.getBoolean(1), isAllowedNotificationEndpoint(endpoint))
     }
-  }
-
-  private companion object {
-    val CASE = Regex("""\["([^"\\]*)", (true|false)],?""")
   }
 }
