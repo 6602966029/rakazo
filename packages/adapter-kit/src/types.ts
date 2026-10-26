@@ -162,7 +162,14 @@ export type ComputerInput =
 
 export type ComputerAction =
   | ComputerInput
-  | { kind: "scroll"; direction: "up" | "down"; amount?: number }
+  /** With x and y, the wheel turns there, so it scrolls what is under that point. */
+  | {
+      kind: "scroll";
+      direction: "up" | "down" | "left" | "right";
+      amount?: number;
+      x?: number;
+      y?: number;
+    }
   | { kind: "wait"; ms: number }
   | { kind: "open"; path: string }
   | { kind: "launch"; application: string; uri?: string }
