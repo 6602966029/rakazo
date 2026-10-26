@@ -22,6 +22,17 @@ test("gallery renders every chat scenario in both themes", async ({ page }, test
         await dark.click();
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.getByTestId("gallery-frame")).not.toBeEmpty();
+      if (label === "Rich content") {
+        // Both load after mount and fall back quietly, so wait for the real content.
+        await expect(page.locator("svg[class^='plot-']")).toBeVisible();
+        await expect
+          .poll(() =>
+            page
+              .locator('img[alt="whiteboard.svg"]')
+              .evaluate((image: HTMLImageElement) => image.naturalWidth),
+          )
+          .toBeGreaterThan(0);
+      }
       await captureScreenshot(
         page,
         testInfo,
@@ -30,8 +41,13 @@ test("gallery renders every chat scenario in both themes", async ({ page }, test
     }
   }
 
-  await nav.getByRole("button", { name: "Phone width" }).click();
   await nav.getByRole("button", { name: "Questions" }).click();
+  await nav.getByRole("button", { name: "Phone width" }).click();
+  const phone = page.frameLocator('iframe[title="Phone preview"]');
+  await expect(phone.getByText("Which city should I use?")).toBeVisible();
+  expect(
+    await phone.locator("main").evaluate((element) => element.getBoundingClientRect().width),
+  ).toBe(390);
   await captureScreenshot(page, testInfo, "gallery-questions-phone");
   expect(errors).toEqual([]);
 });

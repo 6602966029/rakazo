@@ -2,7 +2,7 @@ import { I18nProvider } from "@lingui/react";
 import type { MessageBlock, ThreadMessage } from "@rakazo/contracts";
 import { BOT_COLOR_LIST, instructionUpdateDiff } from "@rakazo/core";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
-import { Button, cn } from "@rakazo/ui-web";
+import { Button } from "@rakazo/ui-web";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -588,8 +588,11 @@ window.fetch = async (input, init) => {
 type Width = "desktop" | "phone";
 type View = { scenario: string; theme: ResolvedAppearance; width: Width; tools: boolean };
 
+const params = new URLSearchParams(location.search);
+/** The phone preview loads the page again in a 390px iframe, so breakpoints match a real phone. */
+const embedded = params.has("embed");
+
 function readView(): View {
-  const params = new URLSearchParams(location.search);
   return {
     scenario: params.get("scenario") ?? SCENARIOS[0]!.id,
     theme: params.get("theme") === "light" ? "light" : "dark",
@@ -598,25 +601,43 @@ function readView(): View {
   };
 }
 
-function Gallery() {
-  const [view, setView] = useState(readView);
+function viewQuery(view: View) {
+  return new URLSearchParams({
+    scenario: view.scenario,
+    theme: view.theme,
+    width: view.width,
+    tools: view.tools ? "on" : "off",
+  }).toString();
+}
+
+function ScenarioTranscript({ view }: { view: View }) {
   const scenario = SCENARIOS.find((item) => item.id === view.scenario) ?? SCENARIOS[0]!;
   const answerable = new Set(
     scenario.messages
       .filter((item) => !scenario.inactiveAsks?.includes(item.id))
       .map((item) => item.id),
   );
+  return (
+    <FixtureTranscript
+      key={scenario.id}
+      messages={scenario.messages}
+      running={scenario.running ?? false}
+      showToolActivity={view.tools}
+      answerableAskIds={answerable}
+      bots={scenario.bots}
+    />
+  );
+}
+
+function Gallery() {
+  const [view, setView] = useState(readView);
 
   useEffect(() => {
     applyResolvedAppearance(view.theme);
-    const params = new URLSearchParams({
-      scenario: view.scenario,
-      theme: view.theme,
-      width: view.width,
-      tools: view.tools ? "on" : "off",
-    });
-    history.replaceState(null, "", `?${params}`);
+    if (!embedded) history.replaceState(null, "", `?${viewQuery(view)}`);
   }, [view]);
+
+  if (embedded) return <ScenarioTranscript view={view} />;
 
   const update = (next: Partial<View>) => setView((current) => ({ ...current, ...next }));
   const toggle = (label: string, pressed: boolean, onClick: () => void) => (
@@ -636,9 +657,9 @@ function Gallery() {
         {SCENARIOS.map((item) => (
           <Button
             key={item.id}
-            variant={item.id === scenario.id ? "secondary" : "ghost"}
+            variant={item.id === view.scenario ? "secondary" : "ghost"}
             className="justify-start"
-            aria-current={item.id === scenario.id ? "page" : undefined}
+            aria-current={item.id === view.scenario ? "page" : undefined}
             onClick={() => update({ scenario: item.id })}
           >
             {item.label}
@@ -654,21 +675,19 @@ function Gallery() {
           {toggle("Tool activity", view.tools, () => update({ tools: !view.tools }))}
         </div>
       </nav>
-      <div
-        data-testid="gallery-frame"
-        className={cn(
-          "min-w-0 flex-1",
-          view.width === "phone" && "mx-auto max-w-[390px] border-x border-border",
+      <div data-testid="gallery-frame" className="flex min-w-0 flex-1 justify-center">
+        {view.width === "phone" ? (
+          <iframe
+            key={viewQuery(view)}
+            title="Phone preview"
+            src={`?${viewQuery(view)}&embed`}
+            className="box-content h-full w-[390px] border-x border-border"
+          />
+        ) : (
+          <div className="min-w-0 flex-1">
+            <ScenarioTranscript view={view} />
+          </div>
         )}
-      >
-        <FixtureTranscript
-          key={scenario.id}
-          messages={scenario.messages}
-          running={scenario.running ?? false}
-          showToolActivity={view.tools}
-          answerableAskIds={answerable}
-          bots={scenario.bots}
-        />
       </div>
     </div>
   );
