@@ -1,53 +1,54 @@
-import { DEFAULT_PASSWORD_SYMBOLS, GeneratedPasswordRules } from "@rakazo/contracts";
+import { GENERATED_SECRET_SYMBOLS, GeneratedSecretRules } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
-import { generateBotLogin, resolveLoginFill } from "./bot-secrets.js";
+import { generateBotSecret, loadBotCommandEnvironment, resolveLoginFill } from "./bot-secrets.js";
 import { fakeDatabase } from "./bot-secrets.test-support.js";
-import { generatePassword } from "./password-generator.js";
+import { generateSecretValue } from "./secret-generator.js";
 import { EncryptedSecretStore } from "./secrets.js";
 
 const scope = { userId: "user-1", spaceId: "space-1", botId: "bot-1" };
 const secretStore = new EncryptedSecretStore("test-only-encryption-key");
 const signup = {
   name: "example_account",
+  type: "login",
   origin: "https://www.example.test/signup?ref=1",
   username: "person@example.test",
 };
 
 function generate(db: ReturnType<typeof fakeDatabase>, args: Record<string, unknown>) {
-  return generateBotLogin({ prisma: db.prisma, secretStore, scope, args });
+  return generateBotSecret({ prisma: db.prisma, secretStore, scope, args });
 }
 
 function escaped(characters: string) {
   return characters.replace(/[\\\]^-]/g, "\\$&");
 }
 
-describe("generatePassword", () => {
+describe("generateSecretValue", () => {
   it("defaults to 20 characters with every kind of character", () => {
     for (let run = 0; run < 50; run++) {
-      const password = generatePassword(GeneratedPasswordRules.parse({}));
+      const password = generateSecretValue(GeneratedSecretRules.parse({}));
       expect(password).toHaveLength(20);
       expect(password).toMatch(/[a-z]/);
       expect(password).toMatch(/[A-Z]/);
       expect(password).toMatch(/[0-9]/);
-      expect(password).toMatch(new RegExp(`[${escaped(DEFAULT_PASSWORD_SYMBOLS)}]`));
+      expect(password).toMatch(new RegExp(`[${escaped(GENERATED_SECRET_SYMBOLS)}]`));
     }
   });
 
   it("uses only the allowed kinds, length, and symbols", () => {
-    const rules = GeneratedPasswordRules.parse({
+    const rules = GeneratedSecretRules.parse({
       length: 12,
       uppercase: false,
       allowedSymbols: "!_",
     });
     for (let run = 0; run < 50; run++) {
-      const password = generatePassword(rules);
+      const password = generateSecretValue(rules);
       expect(password).toMatch(/^[a-z0-9!_]{12}$/);
       expect(password).toMatch(/[!_]/);
       expect(password).toMatch(/[0-9]/);
     }
     expect(
-      generatePassword(
-        GeneratedPasswordRules.parse({
+      generateSecretValue(
+        GeneratedSecretRules.parse({
           length: 8,
           lowercase: false,
           uppercase: false,
@@ -58,12 +59,12 @@ describe("generatePassword", () => {
   });
 
   it("refuses rules no site could need", () => {
-    expect(GeneratedPasswordRules.safeParse({ length: 7 }).success).toBe(false);
-    expect(GeneratedPasswordRules.safeParse({ length: 129 }).success).toBe(false);
-    expect(GeneratedPasswordRules.safeParse({ allowedSymbols: "a!" }).success).toBe(false);
-    expect(GeneratedPasswordRules.safeParse({ allowedSymbols: " " }).success).toBe(false);
+    expect(GeneratedSecretRules.safeParse({ length: 7 }).success).toBe(false);
+    expect(GeneratedSecretRules.safeParse({ length: 129 }).success).toBe(false);
+    expect(GeneratedSecretRules.safeParse({ allowedSymbols: "a!" }).success).toBe(false);
+    expect(GeneratedSecretRules.safeParse({ allowedSymbols: " " }).success).toBe(false);
     expect(
-      GeneratedPasswordRules.safeParse({
+      GeneratedSecretRules.safeParse({
         lowercase: false,
         uppercase: false,
         digits: false,
@@ -73,7 +74,7 @@ describe("generatePassword", () => {
   });
 });
 
-describe("generate_login", () => {
+describe("generate_secret", () => {
   const savedPassword = async (db: ReturnType<typeof fakeDatabase>) => {
     const fill = await resolveLoginFill({
       prisma: db.prisma,
@@ -90,7 +91,7 @@ describe("generate_login", () => {
     const db = fakeDatabase();
     const { result, redactions } = await generate(db, {
       ...signup,
-      password: { length: 16, symbols: false },
+      rules: { length: 16, symbols: false },
     });
     expect(result).toEqual({
       saved: true,
@@ -119,7 +120,9 @@ describe("generate_login", () => {
     await generate(db, signup);
     const { text: first } = await savedPassword(db);
     expect(await generate(db, signup)).toEqual({
-      result: { error: expect.stringContaining("already saved for this site") },
+      result: expect.objectContaining({
+        error: expect.stringContaining("already saved for this site"),
+      }),
     });
     expect(await generate(db, { ...signup, origin: "https://other.example.test" })).toEqual({
       result: { error: expect.stringContaining("already exists") },
@@ -141,12 +144,45 @@ describe("generate_login", () => {
     expect(await generate(db, { ...signup, origin: "http://www.example.test" })).toEqual({
       result: { error: expect.stringMatching(/HTTPS origin/) },
     });
-    expect(await generate(db, { ...signup, password: { length: 4 } })).toEqual({
-      result: { error: expect.stringMatching(/^Invalid login — password\.length/) },
+    expect(await generate(db, { ...signup, rules: { length: 4 } })).toEqual({
+      result: { error: expect.stringMatching(/^Invalid secret — rules\.length/) },
     });
     expect(await generate(db, { ...signup, username: "" })).toEqual({
       result: { error: expect.stringMatching(/username/) },
     });
+    expect(await generate(db, { name: "account", type: "login", origin: signup.origin })).toEqual({
+      result: { error: expect.stringMatching(/username: A login needs a username/) },
+    });
+    expect(
+      await generate(db, { name: "db-password", type: "command", origin: signup.origin }),
+    ).toEqual({ result: { error: expect.stringMatching(/no site or username/) } });
+    expect(await generate(db, { name: "path", type: "command" })).toEqual({
+      result: { error: expect.stringMatching(/reserved/) },
+    });
     expect(db.rows()).toEqual([]);
+  });
+
+  it("saves a command variable for shell commands without returning it", async () => {
+    const db = fakeDatabase();
+    const { result, redactions } = await generate(db, {
+      name: "db-password",
+      type: "command",
+      rules: { length: 32, symbols: false },
+    });
+    expect(result).toEqual({
+      saved: true,
+      name: "db-password",
+      auth: { type: "command" },
+      variable: "DB_PASSWORD",
+    });
+    const { DB_PASSWORD } = await loadBotCommandEnvironment(db.prisma, secretStore, scope);
+    expect(DB_PASSWORD).toMatch(/^[a-zA-Z0-9]{32}$/);
+    expect(redactions).toContain(DB_PASSWORD);
+    expect(await generate(db, { name: "db-password", type: "command" })).toEqual({
+      result: expect.objectContaining({ error: expect.stringContaining("already saved") }),
+    });
+    expect(await loadBotCommandEnvironment(db.prisma, secretStore, scope)).toEqual({
+      DB_PASSWORD,
+    });
   });
 });

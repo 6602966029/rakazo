@@ -1,14 +1,14 @@
 import { randomInt } from "node:crypto";
-import type { GeneratedPasswordRules } from "@rakazo/contracts";
-import { DEFAULT_PASSWORD_SYMBOLS } from "@rakazo/contracts";
+import type { GeneratedSecretRules } from "@rakazo/contracts";
+import { GENERATED_SECRET_SYMBOLS } from "@rakazo/contracts";
 
-/** A random password with at least one character from every allowed kind. */
-export function generatePassword(rules: GeneratedPasswordRules): string {
+/** A random password or key with at least one character from every allowed kind. */
+export function generateSecretValue(rules: GeneratedSecretRules): string {
   const sets = [
     rules.lowercase && "abcdefghijklmnopqrstuvwxyz",
     rules.uppercase && "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     rules.digits && "0123456789",
-    rules.symbols && (rules.allowedSymbols ?? DEFAULT_PASSWORD_SYMBOLS),
+    rules.symbols && (rules.allowedSymbols ?? GENERATED_SECRET_SYMBOLS),
   ].filter((set): set is string => Boolean(set));
   const all = sets.join("");
   const characters = sets.map(pick);
