@@ -463,13 +463,13 @@ export function subagentBlockFromPayload(
   );
 }
 
-/** A line shorter than this, such as a lone brace, is too common to hide wherever it appears. */
-const MIN_SECRET_LINE_LENGTH = 8;
+/** Shorter lines, or lines with spaces such as a key's BEGIN header, also appear in ordinary text. */
+const MIN_SECRET_LINE_LENGTH = 16;
 
 /**
- * The values to hide for `secrets`: each value, and each line of a multi-line value such as a
- * private key, since output that prints only some lines or joins them with spaces (an unquoted
- * `echo $KEY`) never contains the whole value.
+ * The values to hide for `secrets`: each value, and each long unspaced line of a multi-line value
+ * such as a private key's body, since output that prints only some lines or joins them with
+ * spaces (an unquoted `echo $KEY`) never contains the whole value.
  */
 function protectedValues(secrets: Iterable<string>): string[] {
   const values = new Set<string>();
@@ -479,7 +479,7 @@ function protectedValues(secrets: Iterable<string>): string[] {
     if (!/[\r\n]/.test(secret)) continue;
     for (const line of secret.split(/\r\n?|\n/)) {
       const trimmed = line.trim();
-      if (trimmed.length >= MIN_SECRET_LINE_LENGTH) values.add(trimmed);
+      if (trimmed.length >= MIN_SECRET_LINE_LENGTH && !/\s/.test(trimmed)) values.add(trimmed);
     }
   }
   return [...values];

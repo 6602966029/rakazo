@@ -781,17 +781,21 @@ describe("redactSecrets", () => {
     );
   });
 
-  it("hides each line of a multi-line value when output splits or rejoins its lines", () => {
+  it("hides each body line of a multi-line value when output splits or rejoins its lines", () => {
     const key =
-      "-----BEGIN FAKE KEY-----\r\nAAAAfakeLineOne\nBBBBfakeLineTwo\n}\n-----END FAKE KEY-----\n";
+      "-----BEGIN FAKE KEY-----\r\nAAAAfakeKeyLineOne01\nBBBBfakeKeyLineTwo02\nshort\n-----END FAKE KEY-----\n";
     expect(redactSecrets(`key: ${key}`, [key])).toBe("key: [redacted]");
     // An unquoted `echo $KEY` joins the lines with spaces.
     expect(
-      redactSecrets("-----BEGIN FAKE KEY----- AAAAfakeLineOne BBBBfakeLineTwo } -----END", [key]),
-    ).toBe("[redacted] [redacted] [redacted] } -----END");
-    expect(redactSecrets("tail: BBBBfakeLineTwo", [key])).toBe("tail: [redacted]");
-    expect(containsSecret({ out: "AAAAfakeLineOne" }, [key])).toBe(true);
-    expect(containsSecret({ out: "}" }, [key])).toBe(false);
+      redactSecrets(
+        "-----BEGIN FAKE KEY----- AAAAfakeKeyLineOne01 BBBBfakeKeyLineTwo02 short -----END",
+        [key],
+      ),
+    ).toBe("-----BEGIN FAKE KEY----- [redacted] [redacted] short -----END");
+    expect(redactSecrets("tail: BBBBfakeKeyLineTwo02", [key])).toBe("tail: [redacted]");
+    expect(containsSecret({ out: "AAAAfakeKeyLineOne01" }, [key])).toBe(true);
+    // Short lines and spaced lines like the header also appear in ordinary text.
+    expect(containsSecret({ out: "short -----BEGIN FAKE KEY-----" }, [key])).toBe(false);
   });
 });
 
@@ -831,8 +835,12 @@ describe("createStreamingRedactor", () => {
   });
 
   it("hides a line of a multi-line value split across chunks", () => {
-    const redactor = createStreamingRedactor(["header\nAAAAfakeLineOne\n"]);
-    const output = [redactor.push("x AAAAfake"), redactor.push("LineOne y"), redactor.finish()];
+    const redactor = createStreamingRedactor(["header\nAAAAfakeKeyLineOne01\n"]);
+    const output = [
+      redactor.push("x AAAAfake"),
+      redactor.push("KeyLineOne01 y"),
+      redactor.finish(),
+    ];
     expect(output.join("")).toBe("x [redacted] y");
   });
 
