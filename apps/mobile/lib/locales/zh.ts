@@ -1,4 +1,10 @@
 export const ZH_MESSAGES: Record<string, string> = {
+  "Not sent. Tap for options": "未发送。轻点查看选项",
+  "Image input is not configured for this model.": "此模型尚未配置图片输入。",
+  "Send as file": "作为文件发送",
+  "The bot can use the file but won't see the picture.": "Bot 可以使用该文件，但看不到图片内容。",
+  "This model cannot read images. Choose a model that supports images.":
+    "此模型无法读取图片。请选择支持图片的模型。",
   "Could not connect to the computer screen": "无法连接到计算机屏幕",
   "Retry screen": "重试屏幕连接",
   "The screen connection closed.": "屏幕连接已关闭。",

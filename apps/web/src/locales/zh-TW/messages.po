@@ -1105,6 +1105,10 @@ msgstr "更改 {name}"
 msgid "Change {title}"
 msgstr "更改 {title}"
 
+#: src/pages/shell/composer-error.tsx
+msgid "Change model"
+msgstr "更換模型"
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Change password"
 msgstr "修改密碼"
@@ -2943,6 +2947,15 @@ msgstr "如果聽到了，說明語音已就緒。"
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Ignore"
 msgstr "忽略"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "Image input is not configured for this model."
+msgstr "此模型尚未設定圖片輸入。"
+
+#: src/lib/user-error.ts
+msgid "Image input is not configured for this model."
+msgstr "此模型尚未設定圖片輸入。"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Image upload area"
@@ -4844,6 +4857,10 @@ msgstr "請在 10 分鐘內從 {linkApp} 將 <0>{linkCode}</0> 傳送到 <1>{lin
 msgid "Send answer"
 msgstr "傳送回答"
 
+#: src/pages/shell/composer-error.tsx
+msgid "Send as file"
+msgstr "以檔案傳送"
+
 #: src/components/AccountAccess.tsx
 msgid "Send deletion code"
 msgstr "傳送刪除驗證碼"
@@ -5314,6 +5331,10 @@ msgstr "正在測試…"
 msgid "The bot and what its import added will be removed."
 msgstr "此機器人及其匯入新增的內容將被移除。"
 
+#: src/pages/shell/composer-error.tsx
+msgid "The bot can use the file but won't see the picture."
+msgstr "機器人可以使用這個檔案，但看不到圖片內容。"
+
 #: src/lib/model-connection-preflight.ts
 msgid "The connection timed out."
 msgstr "連線超時。"
@@ -5438,6 +5459,15 @@ msgstr "此匯入已使用過。請重新選擇檔案。"
 #: src/pages/HostComputerPrompt.tsx
 msgid "this Mac"
 msgstr "這臺 Mac"
+
+#. js-lingui-explicit-id
+#: src/lib/run-error.ts
+msgid "This model cannot read images. Choose a model that supports images."
+msgstr "此模型無法讀取圖片。請選擇支援圖片的模型。"
+
+#: src/lib/user-error.ts
+msgid "This model cannot read images. Choose a model that supports images."
+msgstr "此模型無法讀取圖片。請選擇支援圖片的模型。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts

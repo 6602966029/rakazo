@@ -1,4 +1,12 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "Not sent. Tap for options": "Nicht gesendet. Tippen für Optionen",
+  "Image input is not configured for this model.":
+    "Bildeingabe ist für dieses Modell nicht konfiguriert.",
+  "Send as file": "Als Datei senden",
+  "The bot can use the file but won't see the picture.":
+    "Der Bot kann die Datei nutzen, sieht das Bild aber nicht.",
+  "This model cannot read images. Choose a model that supports images.":
+    "Dieses Modell kann keine Bilder lesen. Wähle ein Modell, das Bilder unterstützt.",
   "Could not connect to the computer screen":
     "Verbindung zum Computerbildschirm konnte nicht hergestellt werden",
   "Retry screen": "Bildschirm erneut verbinden",

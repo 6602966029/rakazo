@@ -1,4 +1,12 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "Not sent. Tap for options": "Niet verzonden. Tik voor opties",
+  "Image input is not configured for this model.":
+    "Afbeeldingsinvoer is niet ingesteld voor dit model.",
+  "Send as file": "Als bestand verzenden",
+  "The bot can use the file but won't see the picture.":
+    "De bot kan het bestand gebruiken, maar ziet de afbeelding niet.",
+  "This model cannot read images. Choose a model that supports images.":
+    "Dit model kan geen afbeeldingen lezen. Kies een model dat afbeeldingen ondersteunt.",
   "Could not connect to the computer screen": "Kan geen verbinding maken met het computerscherm",
   "Retry screen": "Scherm opnieuw verbinden",
   "The screen connection closed.": "De schermverbinding is gesloten.",

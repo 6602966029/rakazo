@@ -97,6 +97,8 @@ export async function modelSetup(deps: RouterDeps, actor: Actor) {
         deployment: { provider: deps.env.defaultProvider, model: deps.env.defaultModel },
       }).primary,
     settings,
+    funding,
+    hasDeployment,
     needsModel: deps.env.agentRuntime !== "scripted" && !main && !hasDeployment,
   };
 }

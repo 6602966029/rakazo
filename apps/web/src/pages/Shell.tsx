@@ -922,6 +922,8 @@ function SpaceShell() {
               pendingAttachments={composer.activePendingAttachments}
               attachmentNotice={composer.attachmentNotice}
               sendError={sendError}
+              imageConfirmation={composer.imageConfirmation}
+              onDraftEdited={composer.clearImageConfirmation}
               onOpenModels={() => {
                 // A group's failed run belongs to one member; change that bot's model.
                 const failedBotId =

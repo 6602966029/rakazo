@@ -1,4 +1,11 @@
 export const JA_MESSAGES: Record<string, string> = {
+  "Not sent. Tap for options": "未送信。タップしてオプションを表示",
+  "Image input is not configured for this model.": "このモデルでは画像入力が設定されていません。",
+  "Send as file": "ファイルとして送信",
+  "The bot can use the file but won't see the picture.":
+    "ボットはファイルを利用できますが、画像の内容は見えません。",
+  "This model cannot read images. Choose a model that supports images.":
+    "このモデルは画像を読み取れません。画像に対応したモデルを選択してください。",
   "Could not connect to the computer screen": "コンピューター画面に接続できませんでした",
   "Retry screen": "画面を再接続",
   "The screen connection closed.": "画面の接続が閉じられました。",
