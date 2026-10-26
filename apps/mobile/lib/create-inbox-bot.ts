@@ -1,6 +1,5 @@
 import { normalizeCreateBotProfile } from "@rakazo/contracts";
 import type { Href } from "expo-router";
-import type { MobileBot } from "./api";
 import { rpc } from "./api";
 import { allowFocusPrompt, scheduleFocusPrompt } from "./focus-prompt";
 import { addToSearchInbox, searchInboxSession } from "./search-inbox";

@@ -1,11 +1,5 @@
 import type { SpaceBot, SpaceGroup } from "@rakazo/contracts";
-import type {
-  MobileBot,
-  MobileBotSection,
-  MobileGroup,
-  MobileSpace,
-  MobileSpaceNavigation,
-} from "./api";
+import type { MobileBot, MobileBotSection, MobileGroup, MobileSpace } from "./api";
 import { captureApiRequestContext, rpc } from "./api";
 
 export type OrganizeChat = MobileBot | MobileGroup | SpaceBot | SpaceGroup;
