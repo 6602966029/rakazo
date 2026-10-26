@@ -56,6 +56,11 @@ export function ComputerPanel({
   onEditRoutine,
   onStopRun,
 }: ComputerPanelProps) {
+  const canOpen = !computerScreenError && !showingRecoveryHint;
+  // The Open pill replaces the status text on hover; fade it so they never overlap.
+  const hideOnHover = canOpen
+    ? "transition-opacity group-hover:opacity-0 group-has-[:focus-visible]:opacity-0"
+    : "";
   return (
     <div>
       <div
@@ -65,11 +70,15 @@ export function ComputerPanel({
         }`}
       >
         {computerOpen ? (
-          <div className="grid h-full place-items-center text-sm text-muted-foreground/80 transition-opacity group-hover:opacity-0 group-has-[:focus-visible]:opacity-0">
+          <div
+            className={`grid h-full place-items-center text-sm text-muted-foreground/80 ${hideOnHover}`}
+          >
             <Trans>Open in full window</Trans>
           </div>
         ) : computer?.kind === "desktop" ? (
-          <DesktopKindEmptyState className="grid h-full place-items-center px-6 text-center text-sm text-muted-foreground/80 transition-opacity group-hover:opacity-0 group-has-[:focus-visible]:opacity-0" />
+          <DesktopKindEmptyState
+            className={`grid h-full place-items-center px-6 text-center text-sm text-muted-foreground/80 ${hideOnHover}`}
+          />
         ) : computer?.state === "running" && embeddedScreenUrl && !computerScreenError ? (
           <iframe
             key={screenFrameKey}
@@ -83,11 +92,7 @@ export function ComputerPanel({
           />
         ) : (
           <div
-            className={`grid h-full place-items-center px-6 text-center text-sm text-muted-foreground/80 ${
-              computerScreenError || showingRecoveryHint
-                ? ""
-                : "transition-opacity group-hover:opacity-0 group-has-[:focus-visible]:opacity-0"
-            }`}
+            className={`grid h-full place-items-center px-6 text-center text-sm text-muted-foreground/80 ${hideOnHover}`}
           >
             {computerScreenError ??
               (showComputerRecoveryHint ? (
@@ -107,7 +112,7 @@ export function ComputerPanel({
               ))}
           </div>
         )}
-        {!computerScreenError && !showingRecoveryHint ? (
+        {canOpen ? (
           <button
             type="button"
             data-testid="computer-preview-open"
