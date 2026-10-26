@@ -191,11 +191,18 @@ test("choose your own key or monthly credits, then add a one-time top-up", async
     monthlyAmountCents: null,
   });
   await page.reload();
-  const freePlanNotice = page.getByRole("button", { name: "Free plan ends Jan 15, 2030" });
-  await expect(freePlanNotice).toBeVisible();
+  await expect(page.getByText("Free plan ends Jan 15, 2030", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "sidebar-free-plan-ends");
-  await freePlanNotice.click();
-  const freePlan = page.getByTestId("model-credits");
+  await page.getByRole("button", { name: "Upgrade", exact: true }).click();
+  const plans = page.getByTestId("billing-paywall");
+  await expect(plans.getByText("$10 / month", { exact: true })).toBeVisible();
+  await expect(plans.getByRole("button", { name: "Subscribe", exact: true })).toBeVisible();
+  await expect(plans.getByRole("button", { name: "Log out" })).toHaveCount(0);
+  await captureScreenshot(page, testInfo, "billing-upgrade-plans");
+  await plans.getByRole("button", { name: "Close" }).click();
+  await expect(plans).toHaveCount(0);
+  await expect(page.getByText("Chief").first()).toBeVisible();
+  const freePlan = await openUserSettings(page, "billing");
   await expect(
     freePlan.getByText("Using your API key. Free plan ends Jan 15, 2030.", { exact: true }),
   ).toBeVisible();

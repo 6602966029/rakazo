@@ -24,7 +24,7 @@ import {
   SelectValue,
   Separator,
 } from "@rakazo/ui-web";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useState } from "react";
 import { formatBillingDate } from "../lib/billing";
 import { rpc } from "../lib/rpc";
@@ -73,7 +73,7 @@ export function CreditAmountSelect({
   );
 }
 
-export function CreditChoice({ status }: { status: BillingStatus }) {
+export function CreditChoice({ status, onClose }: { status: BillingStatus; onClose?: () => void }) {
   const { t } = useLingui();
   const features = [
     t`Bots and browser automation`,
@@ -91,7 +91,9 @@ export function CreditChoice({ status }: { status: BillingStatus }) {
     setPending(true);
     setError(false);
     try {
-      if (ownKey) {
+      if (ownKey && status.byokFreeUntil) {
+        window.location.assign((await rpc.billing.checkout()).url);
+      } else if (ownKey) {
         const { url } = await rpc.billing.selectFunding({ funding: "byok" });
         window.location.assign(url ?? "/onboarding");
       } else {
@@ -111,14 +113,26 @@ export function CreditChoice({ status }: { status: BillingStatus }) {
       data-testid="billing-paywall"
       className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center gap-8 px-6 py-12"
     >
-      <Button
-        className="fixed top-4 right-6"
-        variant="text"
-        disabled={pending || signingOut}
-        onClick={() => void logOut()}
-      >
-        <Trans>Log out</Trans>
-      </Button>
+      {onClose ? (
+        <Button
+          className="fixed top-4 right-6 text-muted-foreground"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t`Close`}
+          onClick={onClose}
+        >
+          <X />
+        </Button>
+      ) : (
+        <Button
+          className="fixed top-4 right-6"
+          variant="text"
+          disabled={pending || signingOut}
+          onClick={() => void logOut()}
+        >
+          <Trans>Log out</Trans>
+        </Button>
+      )}
       <h1 className="text-heading1 font-medium">
         <Trans>Choose how to use Rakazo</Trans>
       </h1>
@@ -156,7 +170,7 @@ export function CreditChoice({ status }: { status: BillingStatus }) {
               disabled={pending || !status.canManage}
               onClick={() => void choose(true)}
             >
-              <Trans>Connect my own</Trans>
+              {status.byokFreeUntil ? <Trans>Subscribe</Trans> : <Trans>Connect my own</Trans>}
             </Button>
           </CardFooter>
         </Card>

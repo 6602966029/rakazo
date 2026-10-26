@@ -1256,6 +1256,7 @@ msgid "Clearing…"
 msgstr "Clearing…"
 
 #: src/components/ErrorBoundary.tsx
+#: src/components/ModelCredits.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -5692,6 +5693,10 @@ msgstr "Updating Team Computer"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Updating…"
 msgstr "Updating…"
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Upgrade"
+msgstr "Upgrade"
 
 #: src/components/ModelCredits.tsx
 msgid "Upgrade now"

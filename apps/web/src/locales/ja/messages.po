@@ -1256,6 +1256,7 @@ msgid "Clearing…"
 msgstr "クリア中…"
 
 #: src/components/ErrorBoundary.tsx
+#: src/components/ModelCredits.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -5692,6 +5693,10 @@ msgstr "チームのコンピューターを更新中"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Updating…"
 msgstr "更新中…"
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Upgrade"
+msgstr "アップグレード"
 
 #: src/components/ModelCredits.tsx
 msgid "Upgrade now"

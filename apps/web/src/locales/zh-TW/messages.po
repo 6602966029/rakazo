@@ -1257,6 +1257,7 @@ msgid "Clearing…"
 msgstr "正在清空…"
 
 #: src/components/ErrorBoundary.tsx
+#: src/components/ModelCredits.tsx
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/ModelSettingsOverlay.tsx
@@ -5693,6 +5694,10 @@ msgstr "正在更新團隊電腦"
 #: src/components/ComputerMaintenanceActions.tsx
 msgid "Updating…"
 msgstr "正在更新…"
+
+#: src/pages/shell/shell-sidebar.tsx
+msgid "Upgrade"
+msgstr "升級"
 
 #: src/components/ModelCredits.tsx
 msgid "Upgrade now"
