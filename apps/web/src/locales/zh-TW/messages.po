@@ -1117,7 +1117,7 @@ msgstr "聊天設定"
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Chat with your bot from Slack."
-msgstr ""
+msgstr "在 Slack 與你的機器人聊天。"
 
 #: src/lib/localized-provider-hint.ts
 msgid "ChatGPT subscription"
