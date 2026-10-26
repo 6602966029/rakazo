@@ -11,16 +11,10 @@ import {
   newClientId,
   displayName as safeDisplayName,
 } from "@rakazo/core";
-import {
-  useFocusEffect,
-  useIsFocused,
-  useLocalSearchParams,
-  useNavigation,
-  useRouter,
-} from "expo-router";
+import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Platform, View } from "react-native";
+import { Platform, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { readableGutters } from "../../lib/adaptive-layout";
@@ -30,23 +24,16 @@ import { mobileTokens } from "../../lib/appearance";
 import type { MobileArtifactTarget } from "../../lib/artifact-open";
 import { useCallSession } from "../../lib/call-session";
 import { cronLabels } from "../../lib/cron";
-import { cancelFocusPrompt, focusPromptThreadActive } from "../../lib/focus-prompt";
 import { useI18n } from "../../lib/i18n";
 import { useKeyboardLayout } from "../../lib/keyboard-layout";
-import { saveLastBotId } from "../../lib/last-bot";
-import {
-  dismissThreadNotifications,
-  setOpenNotificationThread,
-} from "../../lib/live-notifications";
-import { openModelSettings } from "../../lib/model-settings";
 import { useThemedStyles } from "../../lib/native";
-import { runErrorActionLabel } from "../../lib/run-error-presentation";
 import { useInboxBot } from "../../lib/search-inbox";
 import { useSplitView } from "../../lib/split-view";
 import { useThreadAttachments } from "../../lib/thread-attachments";
 import { useThreadBots } from "../../lib/thread-bots";
 import { threadHeaderClearance, threadHeaderFloats } from "../../lib/thread-edges";
 import { useThreadFeedback } from "../../lib/thread-feedback";
+import { useThreadFocus } from "../../lib/thread-focus";
 import { useThreadSnapshot } from "../../lib/thread-history";
 import { threadKeyboardOffset } from "../../lib/thread-keyboard-offset";
 import { useThreadListScroll } from "../../lib/thread-list-scroll";
@@ -64,11 +51,10 @@ import { useThreadSync } from "../../lib/thread-sync";
 import { useThreadTranscript } from "../../lib/thread-transcript";
 import { useAutoSpeakReply, useSpeakMessages, useThreadVoiceCall } from "../../lib/thread-voice";
 import { liveEndRunError } from "../../lib/thread-window";
-import { useOpenNotificationThread } from "../../lib/use-open-notification-thread";
 import { FailedSendBubble } from "../failed-send-bubble";
 import type { MarkdownArtifactPreviewTarget } from "../markdown-artifact-preview";
 import { MarkdownArtifactPreview } from "../markdown-artifact-preview";
-import { RunErrorSheet, useRunError } from "../run-error-sheet";
+import { RunErrorSheet } from "../run-error-sheet";
 import { SelectTextSheet } from "../select-text-sheet";
 import { ThreadComposer } from "../thread-composer";
 import { ThreadErrorNotice, ThreadFetchErrorNotice } from "../thread-error-notice";
@@ -79,6 +65,7 @@ import { BotActionsModal, useThreadHeader } from "./thread-header";
 import { LoadEarlierButton, ThreadWorkingFooter } from "./thread-list-controls";
 import { ThreadMessageList } from "./thread-message-list";
 import { useLatestRowActions, useThreadRows } from "./thread-rows";
+import { useThreadRunError } from "./thread-run-error";
 
 function isActiveStatus(status: string | undefined): boolean {
   return isRunWorking(status) || isRunWaitingOnUser(status);
@@ -93,7 +80,6 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   const tokens = mobileTokens();
   const styles = useThemedStyles(createThreadHeaderStyles);
   const { t, locale } = useI18n();
-  const navigation = useNavigation();
   const focused = useIsFocused();
   const foreground = useAppForeground();
   const router = useRouter();
@@ -202,7 +188,6 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   );
   const feedback = useThreadFeedback(threadKey, newClientId, echoed);
   const { error, setError } = feedback;
-  const [runErrorDetailsOpen, setRunErrorDetailsOpen] = useState(false);
   const [selectableText, setSelectableText] = useState<string | null>(null);
   const [markdownPreview, setMarkdownPreview] = useState<MarkdownArtifactPreviewTarget | null>(
     null,
@@ -315,45 +300,13 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
     onCleared: history.clear,
   });
 
-  useEffect(() => {
-    if (!notificationThreadId || AppState.currentState !== "active" || !navigation.isFocused())
-      return;
-    void setOpenNotificationThread({ botId, threadId: notificationThreadId }).catch(
-      () => undefined,
-    );
-    void dismissThreadNotifications({ threadId: notificationThreadId }).catch(() => undefined);
-  }, [botId, navigation, notificationThreadId]);
-
-  // Cancel delayed setup only when leaving this bot's thread (unmount or botId
-  // change). Blur alone is not leave — settings/computer push must keep the timer.
-  useEffect(() => {
-    if (!botId) return;
-    return () => {
-      cancelFocusPrompt(botId);
-    };
-  }, [botId]);
-
-  // Covers returning from a pushed screen; the AppState listener covers returning from background.
-  useFocusEffect(
-    useCallback(() => {
-      if (botId && !readOnly) {
-        focusPromptThreadActive(botId);
-        void saveLastBotId(botId).catch(() => undefined);
-      } else {
-        // Group thread focus: prior bot screen may stay mounted, so clear any delayed setup.
-        cancelFocusPrompt();
-      }
-      void refreshMentionBots();
-      markReadIfVisible();
-      if (!readOnly) speakFinishedReplyRef.current();
-    }, [botId, readOnly, markReadIfVisible, refreshMentionBots]),
-  );
-
-  useOpenNotificationThread({
+  useThreadFocus({
     botId,
-    threadId: notificationThreadId,
-    navigation,
+    readOnly,
+    notificationThreadId,
+    refreshMentionBots,
     markReadIfVisible,
+    speakFinishedReplyRef,
   });
 
   const { isCurrentTarget, refresh, applyMessageJump, showLatest } = useThreadSync({
@@ -437,31 +390,8 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
     activeBotId,
   });
 
-  const runError = snap?.run?.status === "failed" ? (snap.run.error ?? null) : null;
-  const normalizedRunError = useRunError(runError, false);
-  const failedRunId = runError ? snap?.run?.id : null;
-  useEffect(() => setRunErrorDetailsOpen(false), [failedRunId]);
-  const runErrorLabel = normalizedRunError ? runErrorActionLabel(t, normalizedRunError) : null;
-  const runErrorBotId = snap?.run?.botId ?? botId;
-  const runErrorAction = runErrorLabel
-    ? {
-        label: runErrorLabel,
-        // Without a bot to change, the model settings pick the default model instead.
-        onPress:
-          normalizedRunError?.recovery === "model" && runErrorBotId
-            ? () => {
-                setRunErrorDetailsOpen(false);
-                router.push({
-                  pathname: "/bot-settings",
-                  params: { botId: runErrorBotId, focus: "model" },
-                });
-              }
-            : () => {
-                setRunErrorDetailsOpen(false);
-                openModelSettings();
-              },
-      }
-    : null;
+  const { runError, normalizedRunError, runErrorAction, detailsOpen, setDetailsOpen } =
+    useThreadRunError(snap?.run, botId);
 
   // Event actions read the latest committed screen state without invalidating settled rows.
   const rowActions = useLatestRowActions({
@@ -579,7 +509,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
       error={null}
       summary={visibleRunError?.summary ?? null}
       resetAt={visibleRunError?.resetAt}
-      onDetails={() => setRunErrorDetailsOpen(true)}
+      onDetails={() => setDetailsOpen(true)}
       action={visibleRunError ? runErrorAction : null}
     />
   );
@@ -672,8 +602,8 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
           <SelectTextSheet text={selectableText} onClose={() => setSelectableText(null)} />
         ) : null}
         <RunErrorSheet
-          details={runErrorDetailsOpen ? runError : null}
-          onClose={() => setRunErrorDetailsOpen(false)}
+          details={detailsOpen ? runError : null}
+          onClose={() => setDetailsOpen(false)}
           action={runErrorAction}
         />
         {markdownPreview && artifactTarget ? (
