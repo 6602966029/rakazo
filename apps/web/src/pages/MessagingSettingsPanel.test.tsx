@@ -80,7 +80,7 @@ vi.mock("@rakazo/ui-web", () => {
   };
 });
 
-import { MessagingSettingsOverlay } from "./MessagingSettingsOverlay";
+import { MessagingSettingsPanel } from "./MessagingSettingsPanel";
 
 const identity = {
   id: "mi-1",
@@ -110,7 +110,7 @@ async function renderOverlay() {
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <MessagingSettingsOverlay onClose={() => undefined} />
+        <MessagingSettingsPanel />
       </QueryClientProvider>,
     ),
   );
