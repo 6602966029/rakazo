@@ -3,7 +3,7 @@ import { createReadStream } from "node:fs";
 import { chmod, link, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { PortableFile } from "@rakazo/adapter-kit";
+import type { WorkspaceExportLimits } from "@rakazo/adapter-kit";
 import { afterEach, describe, expect, it } from "vitest";
 import { archiveBoatWorkspaceCommand } from "./boat-sandbox.js";
 import { readWorkspaceArchive } from "./workspace-archive.js";
@@ -37,25 +37,28 @@ async function workspace() {
 }
 
 /** Runs the export's archive script against `home`, with `tar` optionally wrapped. */
-function archiveScript(home: string, archive: string, tarWrapper?: string) {
+function archiveScript(
+  home: string,
+  archive: string,
+  options: { tarWrapper?: string; limits?: WorkspaceExportLimits } = {},
+) {
   const env = { ...process.env };
-  if (tarWrapper) env.PATH = `${tarWrapper}:${env.PATH}`;
-  return spawnSync("bash", ["-c", archiveBoatWorkspaceCommand(archive, home)], {
+  if (options.tarWrapper) env.PATH = `${options.tarWrapper}:${env.PATH}`;
+  const script = archiveBoatWorkspaceCommand(archive, { workspace: home, limits: options.limits });
+  return spawnSync("bash", ["-c", script], {
     encoding: "utf8",
     env,
   });
 }
 
 async function read(archive: string): Promise<[string, string, boolean][]> {
-  const files: PortableFile[] = [];
-  for await (const file of readWorkspaceArchive(createReadStream(archive))) files.push(file);
-  return files
-    .map((file): [string, string, boolean] => [
-      file.path,
-      Buffer.from(file.content).toString(),
-      file.executable ?? false,
-    ])
-    .sort(([a], [b]) => a.localeCompare(b));
+  const files: [string, string, boolean][] = [];
+  for await (const file of readWorkspaceArchive(createReadStream(archive))) {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of "body" in file ? file.body : [file.content]) chunks.push(chunk);
+    files.push([file.path, Buffer.concat(chunks).toString(), file.executable ?? false]);
+  }
+  return files.sort(([a], [b]) => a.localeCompare(b));
 }
 
 describe.skipIf(!gnuTools)("Boat workspace archive script", () => {
@@ -112,10 +115,24 @@ describe.skipIf(!gnuTools)("Boat workspace archive script", () => {
       { mode: 0o755 },
     );
 
-    const result = archiveScript(home, archive, wrapper);
+    const result = archiveScript(home, archive, { tarWrapper: wrapper });
 
     expect(result.status).toBe(0);
     expect(await read(archive)).toEqual([["kept.txt", "kept", false]]);
+  });
+
+  it("refuses a workspace over the export limits before archiving it", async () => {
+    const { dir, put, home, archive } = await workspace();
+    await put("a.txt", "0123456789");
+    await put("b.txt", "0123456789");
+    await put(".browser-profiles/chrome/Default/Cache/data_0", "not counted");
+
+    const within = { maxFiles: 2, maxBytes: 20 };
+    expect(archiveScript(home, archive, { limits: within }).status).toBe(0);
+    await rm(archive);
+    expect(archiveScript(home, archive, { limits: { ...within, maxFiles: 1 } }).status).toBe(4);
+    expect(archiveScript(home, archive, { limits: { ...within, maxBytes: 19 } }).status).toBe(5);
+    expect(execFileSync("ls", ["-A", dir], { encoding: "utf8" }).trim()).toBe("rakazo-home");
   });
 
   it.skipIf(root)("fails on a file it cannot read instead of leaving it out", async () => {

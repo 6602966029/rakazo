@@ -584,6 +584,13 @@ export class FakeBoatApi implements BoatSandboxSdk {
         .filter(([filePath]) => filePath.startsWith(`${BOAT_WORKSPACE}/`))
         .map(([filePath, file]) => [filePath.slice(BOAT_WORKSPACE.length + 1), file] as const)
         .sort(([a], [b]) => a.localeCompare(b));
+      const maxFiles = command.match(/wc -l < "\$archive\.sizes"\)" -gt (\d+) /)?.[1];
+      const maxBytes = command.match(/ -gt (\d+) \]; then [^\n]*; exit 5; fi/)?.[1];
+      if (maxFiles !== undefined && files.length > Number(maxFiles)) {
+        return finished({ exitCode: 4 });
+      }
+      const bytes = files.reduce((total, [, file]) => total + file.content.byteLength, 0);
+      if (maxBytes !== undefined && bytes > Number(maxBytes)) return finished({ exitCode: 5 });
       box.files.set(String(parse(archive)[0]), {
         content: workspaceArchive(files),
         executable: false,

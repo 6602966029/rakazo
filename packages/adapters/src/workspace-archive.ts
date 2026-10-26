@@ -1,23 +1,25 @@
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
-import type { PortableFile } from "@rakazo/adapter-kit";
+import type { PortableFile, StreamedPortableFile } from "@rakazo/adapter-kit";
 import { normalizeWorkspacePath } from "./computer-support.js";
 
 const BLOCK = 512;
 /** Extended headers carry a path and a size; anything near this size is not one tar wrote. */
 const MAX_PAX_HEADER_BYTES = 1024 * 1024;
+/** Larger files are streamed to the caller instead of held in memory. */
+const MAX_HELD_FILE_BYTES = 5 * 1024 * 1024;
 
 /**
  * Reads the regular files of a gzipped POSIX (pax or ustar) tar stream, one at a time, with their
- * executable bit. The archive comes from a computer the user controls, so nothing in it is
+ * executable bit; a file over 5 MiB comes as a stream to read before the next. The archive comes from a computer the user controls, so nothing in it is
  * trusted: headers must checksum, every path stays relative to the workspace, links and other
  * special entries are never followed, and an archive that ends before its end marker or whose
  * gzip stream is cut short fails instead of yielding a partial workspace.
  */
 export async function* readWorkspaceArchive(
   gzipped: AsyncIterable<Uint8Array>,
-): AsyncGenerator<PortableFile> {
+): AsyncGenerator<PortableFile | StreamedPortableFile> {
   const gunzip = createGunzip();
   const piping = pipeline(Readable.from(gzipped, { objectMode: false }), gunzip);
   // A failure also ends the gunzip stream with that error, which the reader reports.
@@ -30,7 +32,7 @@ export async function* readWorkspaceArchive(
   }
 }
 
-async function* readTar(reader: ByteReader): AsyncGenerator<PortableFile> {
+async function* readTar(reader: ByteReader): AsyncGenerator<PortableFile | StreamedPortableFile> {
   let extended: { path?: string; size?: number } = {};
   while (true) {
     const block = await reader.read(BLOCK, true);
@@ -56,10 +58,19 @@ async function* readTar(reader: ByteReader): AsyncGenerator<PortableFile> {
       case "0":
       case "7": {
         const path = archivePath(extended.path ?? header.name);
-        const content = await reader.read(size);
-        await reader.skip(padding);
+        const executable = (header.mode & 0o111) !== 0 ? { executable: true } : {};
         extended = {};
-        yield { path, content, ...((header.mode & 0o111) !== 0 ? { executable: true } : {}) };
+        if (size <= MAX_HELD_FILE_BYTES) {
+          const content = await reader.read(size);
+          await reader.skip(padding);
+          yield { path, content, ...executable };
+          continue;
+        }
+        const body = new EntryBody(reader, size);
+        yield { path, body, ...executable };
+        // Whatever the caller left unread is skipped, so the next header is read in place.
+        await body.close();
+        await reader.skip(padding);
         continue;
       }
       // tar is told to store hard links as files; a link entry would drop that file's content.
@@ -167,6 +178,31 @@ function archivePath(name: string): string {
   return relative;
 }
 
+/** One file's bytes straight from the archive, readable only until the export moves on. */
+class EntryBody implements AsyncIterable<Uint8Array> {
+  private closed = false;
+
+  constructor(
+    private readonly reader: ByteReader,
+    private remaining: number,
+  ) {}
+
+  async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
+    while (this.remaining > 0 || this.closed) {
+      if (this.closed) throw new Error("Workspace archive file was read after the next one");
+      const chunk = await this.reader.next(this.remaining);
+      this.remaining -= chunk.byteLength;
+      yield chunk;
+    }
+  }
+
+  async close(): Promise<void> {
+    this.closed = true;
+    await this.reader.skip(this.remaining);
+    this.remaining = 0;
+  }
+}
+
 /** Exact-length reads over a byte stream, failing when it ends mid-read. */
 class ByteReader {
   private current: Buffer = Buffer.alloc(0);
@@ -196,6 +232,14 @@ class ByteReader {
       offset += part.length;
     }
     return out;
+  }
+
+  /** Up to `max` bytes, as many as have arrived. */
+  async next(max: number): Promise<Uint8Array> {
+    if (!(await this.fill())) throw new Error("Workspace archive ended early");
+    const chunk = this.current.subarray(0, Math.min(max, this.current.length));
+    this.current = this.current.subarray(chunk.length);
+    return chunk;
   }
 
   async skip(size: number): Promise<void> {

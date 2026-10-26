@@ -21,9 +21,23 @@ async function* chunks(bytes: Uint8Array, size = 997): AsyncGenerator<Uint8Array
   }
 }
 
-async function read(gzipped: Uint8Array): Promise<PortableFile[]> {
-  const files: PortableFile[] = [];
-  for await (const file of readWorkspaceArchive(chunks(gzipped))) files.push(file);
+/** Every file with its bytes; a streamed one is read in full and marked. */
+async function read(gzipped: Uint8Array): Promise<Array<PortableFile & { streamed?: true }>> {
+  const files: Array<PortableFile & { streamed?: true }> = [];
+  for await (const file of readWorkspaceArchive(chunks(gzipped))) {
+    if (!("body" in file)) {
+      files.push(file);
+      continue;
+    }
+    const parts: Uint8Array[] = [];
+    for await (const part of file.body) parts.push(part);
+    files.push({
+      path: file.path,
+      content: Uint8Array.from(Buffer.concat(parts)),
+      ...(file.executable ? { executable: true } : {}),
+      streamed: true,
+    });
+  }
   return files;
 }
 
@@ -83,6 +97,41 @@ describe("readWorkspaceArchive", () => {
       [`${"x".repeat(150)}.txt`, 4, undefined],
     ]);
     expect(Buffer.from(exported[0]!.content).equals(content)).toBe(true);
+  });
+
+  it("streams files too large to hold, in order, and skips what the caller leaves unread", async () => {
+    const large = Buffer.alloc(6 * 1024 * 1024, 0x5a);
+    large[large.length - 1] = 1;
+    const bytes = archive([
+      { name: "./first.bin", content: large, mode: 0o755 },
+      { name: "./unread.bin", content: large },
+      { name: "./small.txt", content: Buffer.from("small") },
+    ]);
+
+    const exported = await read(bytes);
+    expect(exported.map((file) => [file.path, file.streamed, file.executable])).toEqual([
+      ["first.bin", true, true],
+      ["unread.bin", true, undefined],
+      ["small.txt", undefined, undefined],
+    ]);
+    expect(Buffer.from(exported[0]!.content).equals(large)).toBe(true);
+
+    const paths: string[] = [];
+    let late: AsyncIterable<Uint8Array> | undefined;
+    for await (const file of readWorkspaceArchive(chunks(bytes, 64 * 1024))) {
+      paths.push(file.path);
+      if ("body" in file) late ??= file.body;
+      else expect(Buffer.from(file.content).toString()).toBe("small");
+    }
+    expect(paths).toEqual(["first.bin", "unread.bin", "small.txt"]);
+    // A body read after the export moved on would be another file's bytes, so it refuses.
+    await expect(
+      (async () => {
+        for await (const _part of late!) {
+          // Nothing is read.
+        }
+      })(),
+    ).rejects.toThrow("read after the next one");
   });
 
   it("skips directories, symbolic links and devices without following them", async () => {

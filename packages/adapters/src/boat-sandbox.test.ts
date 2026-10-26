@@ -73,19 +73,30 @@ function scripts(command: { mock: { calls: [unknown, ...unknown[]][] } }): strin
     .map((wrapped) => String(parse(wrapped).at(-1)));
 }
 
-async function exportAll(
-  provider: BoatSandboxProvider,
-  computer: ComputerRef,
-  signal?: AbortSignal,
-) {
-  const exported = [];
-  for await (const file of provider.exportWorkspace(computer, {
-    ...context,
-    ...(signal ? { signal } : {}),
-  })) {
-    exported.push(file);
+/** Every exported file with its bytes, reading streamed ones in order. */
+async function readExport(files: AsyncIterable<PortableFile | StreamedPortableFile>) {
+  const read: Array<PortableFile & { streamed?: boolean }> = [];
+  for await (const file of files) {
+    if (!("body" in file)) {
+      read.push(file);
+      continue;
+    }
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of file.body) chunks.push(chunk);
+    read.push({
+      path: file.path,
+      executable: file.executable,
+      content: Buffer.concat(chunks),
+      streamed: true,
+    });
   }
-  return exported;
+  return read;
+}
+
+function exportAll(provider: BoatSandboxProvider, computer: ComputerRef, signal?: AbortSignal) {
+  return readExport(
+    provider.exportWorkspace(computer, { ...context, ...(signal ? { signal } : {}) }),
+  );
 }
 
 function archivesLeft(api: FakeBoatApi, computer: ComputerRef): string[] {
@@ -1193,6 +1204,10 @@ describe("BoatSandboxProvider", () => {
         .map(([path, content, executable]) => [path, digest(content), executable])
         .sort(([a], [b]) => String(a).localeCompare(String(b))),
     );
+    // Only the file too large to hold in memory comes as a stream.
+    expect(exported.filter((file) => file.streamed).map((file) => file.path)).toEqual([
+      "data/archive.bin",
+    ]);
     expect(artifactRaw).not.toHaveBeenCalled();
     expect(createDownloadUrl).toHaveBeenCalledOnce();
     expect(createDownloadUrl.mock.calls[0]?.[0].fileUrlRequest.path).toMatch(
@@ -1368,8 +1383,8 @@ describe("BoatSandboxProvider", () => {
     expect(archivesLeft(api, computer)).toEqual([]);
   });
 
-  it("refuses a workspace over the save limits from its listing, before reading any file", async () => {
-    const artifactRaw = vi.spyOn(FakeBoatApi.prototype, "artifactRaw");
+  it("refuses a workspace over the save limits from its listing, before archiving it", async () => {
+    const createDownloadUrl = vi.spyOn(FakeBoatApi.prototype, "createDownloadUrl");
     const { api, provider, computer } = await boat();
     const files = api.files(computer.id);
     for (const name of ["a", "b", "c"]) {
@@ -1386,8 +1401,9 @@ describe("BoatSandboxProvider", () => {
     await expect(
       readExport(provider.exportWorkspace(computer, context, { maxBytes: 100, maxFiles: 2 })),
     ).rejects.toEqual(new WorkspaceTooLargeError("files"));
-    expect(workspaceReads(artifactRaw)).toEqual([]);
+    expect(createDownloadUrl).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(archivesLeft(api, computer)).toEqual([]);
   });
 
   it("refuses a capped read of a file over the artifact limit without downloading it", async () => {

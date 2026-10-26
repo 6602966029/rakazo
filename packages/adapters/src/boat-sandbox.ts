@@ -611,11 +611,17 @@ export class BoatSandboxProvider implements SandboxProvider {
     try {
       const result = await this.runCommand(
         id,
-        archiveBoatWorkspaceCommand(archive),
+        archiveBoatWorkspaceCommand(archive, { limits }),
         undefined,
         BOAT_ARCHIVE_TIMEOUT_MS,
         context.signal,
       );
+      if (!result.timedOut && result.exitCode === BOAT_ARCHIVE_TOO_MANY_FILES) {
+        throw new WorkspaceTooLargeError("files");
+      }
+      if (!result.timedOut && result.exitCode === BOAT_ARCHIVE_TOO_MANY_BYTES) {
+        throw new WorkspaceTooLargeError("bytes");
+      }
       if (result.exitCode !== 0 || result.timedOut) {
         throw new Error(`could not archive Boat workspace (${commandStatus(result)})`);
       }
@@ -1588,19 +1594,29 @@ const BOAT_ARCHIVE_TOLERATED_ERRORS = [
   "Exiting with failure status due to previous errors",
 ];
 
+/** Exit statuses of an archive command that refused a workspace over the export's limits. */
+const BOAT_ARCHIVE_TOO_MANY_FILES = 4;
+const BOAT_ARCHIVE_TOO_MANY_BYTES = 5;
+
 /**
  * Writes every regular workspace file, without the browser caches exports skip, to one gzipped
- * pax tar at `archive`. The same walk as a listing chooses the files; tar stores hard links as
+ * pax tar at `archive`. The same walk as a listing chooses the files, and a workspace over
+ * `limits` is refused from that walk before anything is archived. tar stores hard links as
  * files and symbolic links are never selected. A file that vanished or changed mid-archive is
  * tolerated as the listing tolerates one that vanished mid-walk; any other error fails it.
  */
-export function archiveBoatWorkspaceCommand(archive: string, workspace = BOAT_WORKSPACE): string {
+export function archiveBoatWorkspaceCommand(
+  archive: string,
+  options: { limits?: WorkspaceExportLimits; workspace?: string } = {},
+): string {
+  const { limits, workspace = BOAT_WORKSPACE } = options;
   const skipped = [...SKIPPED_BROWSER_PROFILE_DIRECTORIES]
     .map((name) => `-name ${shellQuote(name)}`)
     .join(" -o ");
   const tolerated = BOAT_ARCHIVE_TOLERATED_ERRORS.map(
     (error) => `-e ${shellQuote(`${error}$`)}`,
   ).join(" ");
+  const cleanup = 'rm -f -- "$archive.list" "$archive.sizes" "$archive.errors"';
   return [
     `archive=${shellQuote(archive)}`,
     // Archives an interrupted export left behind.
@@ -1610,18 +1626,24 @@ export function archiveBoatWorkspaceCommand(archive: string, workspace = BOAT_WO
     // Names start with `./`, so tar never reads one as an option.
     "(",
     boatListingWalk(
-      `. -mindepth 1 \\( -type d -path ${shellQuote(`./${path.posix.relative(BOAT_WORKSPACE, BOAT_BROWSER_PROFILES)}/*`)} \\( ${skipped} \\) -prune \\) -o -type f`,
+      `. -mindepth 1 \\( -type d -path ${shellQuote(`./${path.posix.relative(BOAT_WORKSPACE, BOAT_BROWSER_PROFILES)}/*`)} \\( ${skipped} \\) -prune \\) -o -type f -fprintf "$archive.sizes" '%s\\n'`,
       [],
       "%p\\0",
     ),
-    ') || { status=$?; rm -f -- "$archive.list"; exit "$status"; }',
+    `) || { status=$?; ${cleanup}; exit "$status"; }`,
     "exec 3>&-",
+    ...(limits
+      ? [
+          `if [ "$(wc -l < "$archive.sizes")" -gt ${Math.floor(limits.maxFiles)} ]; then ${cleanup}; exit ${BOAT_ARCHIVE_TOO_MANY_FILES}; fi`,
+          `if [ "$(awk '{ total += $1 } END { printf "%.0f", total }' "$archive.sizes")" -gt ${Math.floor(limits.maxBytes)} ]; then ${cleanup}; exit ${BOAT_ARCHIVE_TOO_MANY_BYTES}; fi`,
+        ]
+      : []),
     'tar --create --format=pax --null --no-recursion --hard-dereference --files-from="$archive.list" --use-compress-program="gzip -1" --file="$archive" 2> "$archive.errors"',
     "status=$?",
     'if [ "$status" -eq 1 ]; then status=0;',
     `elif [ "$status" -eq 2 ] && ! grep -qv ${tolerated} "$archive.errors"; then status=0;`,
     `elif grep -q 'Permission denied$' "$archive.errors"; then status=${BOAT_LISTING_UNREADABLE}; fi`,
-    'rm -f -- "$archive.list" "$archive.errors"',
+    cleanup,
     'exit "$status"',
   ].join("\n");
 }
