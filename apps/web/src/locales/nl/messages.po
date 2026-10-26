@@ -572,6 +572,10 @@ msgstr "Treg toevoegen"
 msgid "Add trigger"
 msgstr "Trigger toevoegen"
 
+#: src/pages/MessagingSettingsPanel.tsx
+msgid "Add workspace"
+msgstr "Werkruimte toevoegen"
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Added"
 msgstr "Toegevoegd"
@@ -884,6 +888,7 @@ msgstr "Avatarstudio"
 #: src/pages/Board.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
+#: src/pages/SettingsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Back"
 msgstr "Terug"
@@ -1057,7 +1062,6 @@ msgstr "Kan afbeeldingen niet lezen"
 #: src/pages/shell/bot-credentials.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
-#: src/pages/SpaceSettingsPanel.tsx
 msgid "Cancel"
 msgstr "Annuleren"
 
@@ -2453,7 +2457,6 @@ msgstr "Elke naam kan maar één keer worden gebruikt."
 #: src/components/AskCard.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/SpaceSettingsPanel.tsx
 msgid "Edit"
 msgstr "Bewerken"
 
@@ -3255,11 +3258,14 @@ msgid "Main model"
 msgstr "Hoofdmodel"
 
 #: src/pages/BillingSettingsPanel.tsx
+#: src/pages/SettingsOverlay.tsx
 msgid "Manage"
 msgstr "Beheren"
 
+#. placeholder {0}: option.name
 #. placeholder {0}: providerName(choice)
 #: src/pages/ModelRoleSettings.tsx
+#: src/pages/SettingsOverlay.tsx
 msgid "Manage {0}"
 msgstr "{0} beheren"
 
@@ -4437,10 +4443,6 @@ msgstr "Naam wijzigen"
 msgid "Rename section"
 msgstr "Sectie hernoemen"
 
-#: src/pages/SpaceSettingsPanel.tsx
-msgid "Rename space"
-msgstr "Space hernoemen"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Renews {day}"
 msgstr "Wordt verlengd op {day}"
@@ -4558,7 +4560,6 @@ msgstr "Je werkruimte herstellen"
 #: src/pages/Auth.tsx
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
-#: src/pages/SettingsOverlay.tsx
 #: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "Opnieuw proberen"
@@ -4670,7 +4671,6 @@ msgstr "zaterdag"
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/bot-panel.tsx
 #: src/pages/shell/dialogs.tsx
-#: src/pages/SpaceSettingsPanel.tsx
 msgid "Save"
 msgstr "Opslaan"
 
@@ -5080,6 +5080,10 @@ msgstr "Space"
 #: src/pages/shell/bot-panel.tsx
 msgid "Space default"
 msgstr "Spacestandaard"
+
+#: src/pages/SettingsOverlay.tsx
+msgid "Spaces"
+msgstr "Spaces"
 
 #: src/pages/shell/message-view.tsx
 msgid "Speak"
