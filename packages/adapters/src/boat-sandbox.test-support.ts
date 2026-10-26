@@ -34,9 +34,11 @@ import type {
 } from "@boatdev/sdk";
 import { ResponseError } from "@boatdev/sdk";
 import { parse } from "shell-quote";
+import { vi } from "vitest";
 import type { BoatSandboxSdk } from "./boat-sandbox.js";
 import { BOAT_COMPUTER_SNAPSHOT, BoatSandboxProvider } from "./boat-sandbox.js";
 import { desktopCommandResponder } from "./linux-desktop.test-support.js";
+import { workspaceArchive } from "./workspace-archive.test-support.js";
 
 /** How a sandbox in the `error` state answers `POST /recover`, per the Boat API reference. */
 export type BoatRecovery =
@@ -57,6 +59,31 @@ interface FakeSandbox {
   recovery: BoatRecovery;
   /** Set while Boat's storage under the sandbox is broken; whether a resume mends it. */
   damaged?: "resume_heals" | "persists";
+}
+
+const BOAT_WORKSPACE = "/home/user/rakazo-home";
+
+/** Every fake's download URLs, so a test can serve them without holding the fake API. */
+const downloadServers = new Map<string, FakeBoatApi>();
+let downloadCount = 0;
+
+/** What a fake sandbox serves at `url`, or nothing when no fake handed that URL out. */
+export function serveFakeBoatDownload(url: string): Response | undefined {
+  return downloadServers.get(url)?.serveDownload(url);
+}
+
+/**
+ * Serves fake Boat download URLs through `fetch` until the returned restore runs, passing every
+ * other request on, for tests that drive a fake Boat provider beside real local servers.
+ */
+export function routeFakeBoatDownloads(): () => void {
+  const original = globalThis.fetch;
+  const spy = vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(
+      async (input, init) => serveFakeBoatDownload(String(input)) ?? original(input, init),
+    );
+  return () => spy.mockRestore();
 }
 
 /** Boat's artifact route refuses larger files; download URLs have no size limit. */
@@ -348,8 +375,9 @@ export class FakeBoatApi implements BoatSandboxSdk {
     fileUrlRequest,
   }: CreateDownloadUrlRequest): Promise<FileUrlResponse> {
     this.runnable(sandboxId);
-    const url = `https://downloads.on.boat.dev/file?token=fake-download-${this.downloads.size}`;
+    const url = `https://downloads.on.boat.dev/file?token=fake-download-${++downloadCount}`;
     this.downloads.set(url, { sandboxId, path: fileUrlRequest.path });
+    downloadServers.set(url, this);
     return {
       ok: true,
       type: "file.download_url",
@@ -544,12 +572,15 @@ export class FakeBoatApi implements BoatSandboxSdk {
         ).toString("base64"),
       });
     }
-    // The whole-workspace listing goes to a file the adapter then downloads.
-    const listingFile = command.match(/^exec 3> (.*) \|\| exit 2$/m)?.[1];
-    if (listingFile !== undefined) {
-      const records = [...box.files].map(([filePath, file]) => listing(filePath, "file", file));
-      box.files.set(String(parse(listingFile)[0]), {
-        content: Buffer.from(records.join("")),
+    // An export archives the workspace to a file the adapter then downloads.
+    const archive = command.match(/^archive=(.*)$/m)?.[1];
+    if (archive !== undefined) {
+      const files = [...box.files]
+        .filter(([filePath]) => filePath.startsWith(`${BOAT_WORKSPACE}/`))
+        .map(([filePath, file]) => [filePath.slice(BOAT_WORKSPACE.length + 1), file] as const)
+        .sort(([a], [b]) => a.localeCompare(b));
+      box.files.set(String(parse(archive)[0]), {
+        content: workspaceArchive(files),
         executable: false,
       });
       return finished({});

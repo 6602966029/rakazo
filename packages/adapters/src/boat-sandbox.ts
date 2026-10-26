@@ -49,23 +49,25 @@ import { sandboxCommandArgv } from "./sandbox-command-environment.js";
 import { isSandboxGoneError } from "./sandbox-errors.js";
 import { shellExportScript } from "./sandbox-shell-environment.js";
 import { withAbort } from "./web-ssrf.js";
+import { readWorkspaceArchive } from "./workspace-archive.js";
 
 const BOAT_API_BASE = "https://boat.dev/api/v1";
 const BOAT_WORKSPACE = "/home/user/rakazo-home";
 const BOAT_BROWSER_PROFILES = `${BOAT_WORKSPACE}/.browser-profiles`;
 /** Outside the workspace so checkpoints never carry it. Boat runs every command as `user`. */
 const BOAT_COMMAND_ENV = "/home/user/.rakazo-command-env";
-/** Workspace listings too large for command output; outside the workspace for the same reason. */
-const BOAT_LISTING_PREFIX = "/tmp/rakazo-workspace-listing-";
+/** Where an export archives the workspace; outside it for the same reason. */
+const BOAT_ARCHIVE_PREFIX = "/tmp/rakazo-workspace-archive-";
 const BOAT_READY_TIMEOUT_MS = 5 * 60_000;
 const BOAT_RECOVER_POLL_MAX_MS = 15_000;
 const BOAT_API_COMMAND_TIMEOUT_SECONDS = 600;
 const BOAT_TTL_SECONDS = 2 * 60 * 60;
 const BOAT_DELETE_TIMEOUT_MS = 60_000;
 const BOAT_GONE_CHECK_TIMEOUT_MS = 10_000;
-const BOAT_EXPORT_CONCURRENCY = 16;
-/** Bounds how many exported bytes are held in memory at once; larger files are streamed. */
-const BOAT_EXPORT_BATCH_BYTES = 64 * 1024 * 1024;
+/** Under Boat's 600-second wait, so archiving stays one request instead of status polls. */
+const BOAT_ARCHIVE_TIMEOUT_MS = 9 * 60_000;
+/** A whole workspace downloads as one archive, so it gets longer than a single file. */
+const BOAT_ARCHIVE_TRANSFER_TIMEOUT_MS = 30 * 60_000;
 const BOAT_INLINE_FILE_MAX_BYTES = 5 * 1024 * 1024;
 const BOAT_ARTIFACT_MAX_BYTES = 50 * 1024 * 1024;
 const BOAT_TRANSFER_TIMEOUT_MS = 5 * 60_000;
@@ -603,41 +605,32 @@ export class BoatSandboxProvider implements SandboxProvider {
   ): AsyncIterable<PortableFile | StreamedPortableFile> {
     const id = this.id(computer);
     await this.desktops.stopBrowsers(computer, context);
-    const entries = await this.listWorkspaceFiles(id, context);
-    if (limits && entries.length > limits.maxFiles) throw new WorkspaceTooLargeError("files");
-    if (limits && entries.reduce((total, entry) => total + entry.size, 0) > limits.maxBytes)
-      throw new WorkspaceTooLargeError("bytes");
-    for (const batch of exportBatches(entries)) {
-      const [first] = batch;
-      if (first && first.size > BOAT_INLINE_FILE_MAX_BYTES) {
-        yield {
-          path: first.path,
-          body: this.remoteFileChunks(
-            id,
-            workspacePath(BOAT_WORKSPACE, first.path),
-            context.signal,
-            undefined,
-            first.size,
-          ),
-          executable: first.executable,
-        };
-        continue;
-      }
-      const files = await Promise.all(
-        batch.map(async (entry) => ({
-          path: entry.path,
-          // A small file that grew after the listing still cannot fill memory.
-          content: await this.readRemoteFile(
-            id,
-            workspacePath(BOAT_WORKSPACE, entry.path),
-            context.signal,
-            BOAT_EXPORT_BATCH_BYTES,
-            entry.size,
-          ),
-          executable: entry.executable,
-        })),
+    // One archive, not a request per file: Boat rate limits every API call by IP, and a
+    // workspace can hold thousands of files.
+    const archive = `${BOAT_ARCHIVE_PREFIX}${randomUUID()}.tar.gz`;
+    try {
+      const result = await this.runCommand(
+        id,
+        archiveBoatWorkspaceCommand(archive),
+        undefined,
+        BOAT_ARCHIVE_TIMEOUT_MS,
+        context.signal,
       );
-      yield* files;
+      if (result.exitCode !== 0 || result.timedOut) {
+        throw new Error(`could not archive Boat workspace (${commandStatus(result)})`);
+      }
+      const response = await this.signedDownload(
+        id,
+        archive,
+        context.signal,
+        BOAT_ARCHIVE_TRANSFER_TIMEOUT_MS,
+      );
+      if (!response.body) throw new Error("Boat returned an empty workspace archive");
+      for await (const file of readWorkspaceArchive(response.body)) {
+        if (!shouldSkipPortableWorkspaceFile(file.path)) yield file;
+      }
+    } finally {
+      await this.rawCommand(id, `rm -f -- ${shellQuote(archive)}`, 10).catch(() => undefined);
     }
   }
 
@@ -1001,29 +994,6 @@ export class BoatSandboxProvider implements SandboxProvider {
     if (!response.ok) throw new Error(`Boat file upload failed (HTTP ${response.status})`);
   }
 
-  private async listWorkspaceFiles(
-    id: string,
-    context: AdapterContext,
-  ): Promise<ComputerFileEntry[]> {
-    // A whole workspace can list more than Boat keeps of a command's output, so the listing is
-    // written to a file and downloaded like any other.
-    const listingFile = `${BOAT_LISTING_PREFIX}${randomUUID()}`;
-    const result = await this.runCommand(
-      id,
-      listBoatWorkspaceFilesCommand(listingFile),
-      undefined,
-      60_000,
-      context.signal,
-    );
-    if (result.exitCode !== 0 || result.timedOut) {
-      throw new Error(`could not enumerate Boat workspace (${commandStatus(result)})`);
-    }
-    const listing = await this.readRemoteFile(id, listingFile, context.signal);
-    return parseBoatFileEntries(listing).filter(
-      (entry) => entry.kind === "file" && !shouldSkipPortableWorkspaceFile(entry.path),
-    );
-  }
-
   private async readRemoteFile(
     id: string,
     filePath: string,
@@ -1112,6 +1082,15 @@ export class BoatSandboxProvider implements SandboxProvider {
         } else if (!(error instanceof SandboxUnresponsiveError)) throw error;
       }
     }
+    return this.signedDownload(id, filePath, signal);
+  }
+
+  private async signedDownload(
+    id: string,
+    filePath: string,
+    signal: AbortSignal | undefined,
+    timeoutMs = BOAT_TRANSFER_TIMEOUT_MS,
+  ): Promise<Response> {
     signal?.throwIfAborted();
     const signed = await this.whenRunnable(id, signal, () =>
       this.client.createDownloadUrl(
@@ -1120,7 +1099,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       ),
     );
     const url = signedFileUrl(signed, "download", filePath);
-    const timeout = AbortSignal.timeout(BOAT_TRANSFER_TIMEOUT_MS);
+    const timeout = AbortSignal.timeout(timeoutMs);
     const downloadSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     let response: Response;
     try {
@@ -1565,12 +1544,16 @@ const BOAT_LISTING_UNREADABLE = 3;
  * errors a caller names. Anything else, such as an unreadable entry or a listing it could not
  * finish writing, fails the listing.
  */
-function boatListingWalk(findArguments: string, skippable: string[] = []): string {
+function boatListingWalk(
+  findArguments: string,
+  skippable: string[] = [],
+  format = BOAT_LISTING_FORMAT,
+): string {
   const tolerated = ["No such file or directory", ...skippable]
     .map((error) => `-e ${shellQuote(`${error}$`)}`)
     .join(" ");
   return [
-    `errors=$(find ${findArguments} -printf '${BOAT_LISTING_FORMAT}' 2>&1 >&3 3>&-)`,
+    `errors=$(find ${findArguments} -printf '${format}' 2>&1 >&3 3>&-)`,
     "status=$?",
     'if [ "$status" -eq 1 ]; then',
     `  if ! printf '%s\\n' "$errors" | grep -qv ${tolerated}; then status=0;`,
@@ -1596,18 +1579,50 @@ function listBoatFilesCommand(directory: string): string {
   ].join("\n");
 }
 
-/** Lists every workspace file into `listingFile`, without the browser caches exports skip. */
-function listBoatWorkspaceFilesCommand(listingFile: string): string {
+/** tar reports these for a file that vanished or changed while it was archived. */
+const BOAT_ARCHIVE_TOLERATED_ERRORS = [
+  "No such file or directory",
+  "File removed before we read it",
+  "file changed as we read it",
+  "padding with zeros",
+  "Exiting with failure status due to previous errors",
+];
+
+/**
+ * Writes every regular workspace file, without the browser caches exports skip, to one gzipped
+ * pax tar at `archive`. The same walk as a listing chooses the files; tar stores hard links as
+ * files and symbolic links are never selected. A file that vanished or changed mid-archive is
+ * tolerated as the listing tolerates one that vanished mid-walk; any other error fails it.
+ */
+function archiveBoatWorkspaceCommand(archive: string): string {
   const skipped = [...SKIPPED_BROWSER_PROFILE_DIRECTORIES]
     .map((name) => `-name ${shellQuote(name)}`)
     .join(" -o ");
+  const tolerated = BOAT_ARCHIVE_TOLERATED_ERRORS.map(
+    (error) => `-e ${shellQuote(`${error}$`)}`,
+  ).join(" ");
   return [
-    // Listings an interrupted export left behind.
-    `find /tmp -maxdepth 1 -name '${path.basename(BOAT_LISTING_PREFIX)}*' -mmin +10 -delete 2>/dev/null`,
-    `exec 3> ${shellQuote(listingFile)} || exit 2`,
+    `archive=${shellQuote(archive)}`,
+    // Archives an interrupted export left behind.
+    `find /tmp -maxdepth 1 -name '${path.basename(BOAT_ARCHIVE_PREFIX)}*' -mmin +60 -delete 2>/dev/null`,
+    `cd ${shellQuote(BOAT_WORKSPACE)} || exit 2`,
+    'exec 3> "$archive.list" || exit 2',
+    // Names start with `./`, so tar never reads one as an option.
+    "(",
     boatListingWalk(
-      `${shellQuote(BOAT_WORKSPACE)} -mindepth 1 \\( -type d -path ${shellQuote(`${BOAT_BROWSER_PROFILES}/*`)} \\( ${skipped} \\) -prune \\) -o -type f`,
+      `. -mindepth 1 \\( -type d -path ${shellQuote(`./${path.posix.relative(BOAT_WORKSPACE, BOAT_BROWSER_PROFILES)}/*`)} \\( ${skipped} \\) -prune \\) -o -type f`,
+      [],
+      "%p\\0",
     ),
+    ') || { status=$?; rm -f -- "$archive.list"; exit "$status"; }',
+    "exec 3>&-",
+    'tar --create --format=pax --null --no-recursion --hard-dereference --files-from="$archive.list" --use-compress-program="gzip -1" --file="$archive" 2> "$archive.errors"',
+    "status=$?",
+    'if [ "$status" -eq 1 ]; then status=0;',
+    `elif [ "$status" -eq 2 ] && ! grep -qv ${tolerated} "$archive.errors"; then status=0;`,
+    `elif grep -q 'Permission denied$' "$archive.errors"; then status=${BOAT_LISTING_UNREADABLE}; fi`,
+    'rm -f -- "$archive.list" "$archive.errors"',
+    'exit "$status"',
   ].join("\n");
 }
 
@@ -1674,29 +1689,6 @@ function isArtifactTooLarge(error: unknown): boolean {
     (error.response.status === 413 ||
       (error.response.status === 400 && error.code === "artifact_failed"))
   );
-}
-
-/** Small files in batches read together; each file over the inline limit alone, streamed. */
-function* exportBatches(entries: readonly ComputerFileEntry[]): Generator<ComputerFileEntry[]> {
-  let batch: ComputerFileEntry[] = [];
-  let bytes = 0;
-  for (const entry of entries) {
-    if (entry.size > BOAT_INLINE_FILE_MAX_BYTES) {
-      yield [entry];
-      continue;
-    }
-    if (
-      batch.length &&
-      (batch.length >= BOAT_EXPORT_CONCURRENCY || bytes + entry.size > BOAT_EXPORT_BATCH_BYTES)
-    ) {
-      yield batch;
-      batch = [];
-      bytes = 0;
-    }
-    batch.push(entry);
-    bytes += entry.size;
-  }
-  if (batch.length) yield batch;
 }
 
 function isAbortError(error: unknown): boolean {
