@@ -4,7 +4,6 @@ import type {
   AgentRunRequest,
   AgentToolExecutionObserver,
   AutoReviewRequest,
-  ComputerRef,
   ConnectorCall,
   ConnectorTool,
   SandboxProvider,
@@ -30,10 +29,7 @@ import {
   HistoryReadInputSchema,
   HistorySearchInputSchema,
 } from "@rakazo/contracts";
-import type { ToolCallStreak } from "@rakazo/core";
 import {
-  appendTextSegment,
-  appendToolCallSegment,
   applyJudgeDecision,
   approvalModeFromPreference,
   assertTransition,
@@ -45,7 +41,6 @@ import {
   containsSecret,
   createStreamingRedactor,
   displayName,
-  endsSentence,
   expandSkillReferencesInPrompt,
   formatSkillRunPrompt,
   formatSkillsCatalogInstruction,
@@ -81,7 +76,6 @@ import { normalizedHttpUrl, urlSite } from "@rakazo/core/egress";
 import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
 import {
   createSpaceForMember,
-  dropRunTurnCheckpoint,
   effectiveMemoryScope,
   InstructionConflictError,
   InvalidSpaceNameError,
@@ -98,7 +92,6 @@ import {
   runAsSystem,
   runSecretKind,
   SpaceLimitError,
-  saveRunTurnCheckpoint,
   searchHistory,
   settleReleasedTakeoverCards,
   validateInstructionProposal,
@@ -119,14 +112,11 @@ import {
 } from "./agent-environment.js";
 import type { FleetCardSummary } from "./approval-ask.js";
 import { buildApprovalAskBlock, MAX_FETCH_URL_LENGTH } from "./approval-ask.js";
-import type { ApprovalPausedToolResult } from "./approval-effect.js";
 import {
-  approvalPausedToolResult,
   approvalReplayPathError,
   approvalReplayResourceError,
   approvalRoutesMatch,
   approvedCatalogReplay,
-  approvedEffectOccurrence,
   approvedReplayArgs,
   boundDirectApprovalDetails,
   boundDirectApprovalRequest,
@@ -201,7 +191,6 @@ import {
   resolveBotWorkspacePath,
   teamBotWorkspaceDirectory,
 } from "./computer-support.js";
-import type { UnchangedVisualStreak } from "./computer-tools.js";
 import {
   advanceUnchangedVisualGuard,
   computerVisualActionKey,
@@ -289,6 +278,22 @@ import {
 import { lateRoutineRunInstruction } from "./routine-lateness.js";
 import { autoReviewCheckerProvider } from "./run-auto-review.js";
 import { lazyRunComputer } from "./run-computer.js";
+import type {
+  RunComputerUseState,
+  RunContext,
+  RunLeaseState,
+  RunningHelper,
+  RunState,
+} from "./run-context.js";
+import {
+  addRunSecrets,
+  isRunTainted,
+  nextMutatingEffectOccurrence,
+  pauseForApproval,
+  pauseForSecret,
+  persistTurnCheckpoint,
+  settleRunningHelpers,
+} from "./run-context.js";
 import {
   APPROVED_EFFECT_REPLAY_ORDER,
   approvalReplayEffectToolName,
@@ -343,6 +348,16 @@ import {
   subagentMarksUnread,
 } from "./run-notifications.js";
 import {
+  canPublishDurableNarration,
+  canPublishDurableProgress,
+  createReplyState,
+  flushPendingTools,
+  flushProgress,
+  publishMidTurnNarration,
+  recordExplicitNoResponse,
+  tryFlushPendingTools,
+} from "./run-progress.js";
+import {
   completionMessageSegments,
   DELEGATED_EMPTY_NOTICE,
   emptyDelegatedToolTurnShouldFail,
@@ -363,7 +378,6 @@ import {
   reconcileManagedConnection,
   resolveCompletedSecretLeftover,
   resolveMissingRunSecretAction,
-  secretPausedToolResult,
   tryCompleteConnectionWithCode,
 } from "./run-secret.js";
 import {
@@ -406,7 +420,7 @@ import {
   observeShellCommand,
   SHELL_STILL_RUNNING_NOTICE,
 } from "./shell-command-stream.js";
-import { isExactNoResponse, stripNoResponseReply, stripStrayNoResponse } from "./silent-reply.js";
+import { stripNoResponseReply, stripStrayNoResponse } from "./silent-reply.js";
 import {
   listAgentSkillRecords,
   skillCreateFromTool,
@@ -452,9 +466,7 @@ import {
   extractNarrationText,
   finalBlocksAfterMidTurnProgress,
   isProgressMessageTruncated,
-  isUserProgressClientNonce,
   messageUserMaxLength,
-  midTurnProgressBudgetAllows,
   userProgressClientNonce,
 } from "./user-progress.js";
 import { createWebProvider } from "./web-provider-factory.js";
@@ -613,71 +625,44 @@ export function createRunExecutor(deps: ExecutorDeps) {
         throw error;
       }
 
-      let leaseValid = true;
-      let runCompleted = false;
-      let lastLeaseCheckAt = 0;
-      let retainComputerLease = false;
-      let computerUseReason: "none" | "tool" | "takeover" | "script" = "none";
-      let computerUseTool: string | undefined;
-      let screenRelease:
-        | { computer: ComputerRef; context: AdapterContext; keepWarm: boolean }
-        | undefined;
-      let runAbortController: AbortController | null = null;
-      // Runtime cleanup can queue terminal events after the consumer has exited.
-      // Track only helpers whose running state this attempt actually persisted.
-      const runningHelpers = new Map<
-        string,
-        Omit<Extract<MessageBlock, { kind: "subagent" }>, "kind">
-      >();
-      const settleRunningHelpers = async () => {
-        for (const [agentId, block] of runningHelpers) {
-          try {
-            const stopped = {
-              ...block,
-              kind: "subagent",
-              status: "failed",
-              result: "stopped",
-            } as const;
-            await publishMessage(
-              deps,
-              run,
-              "bot",
-              [stopped],
-              subagentMarksUnread(run.trigger, "failed"),
-              undefined,
-              stopped,
-            );
-            runningHelpers.delete(agentId);
-          } catch (error) {
-            // Cleanup must not mask the run outcome or prevent other helpers settling.
-            getLogger().error("settle running helper", error);
-          }
-        }
+      const lease: RunLeaseState = {
+        valid: true,
+        completed: false,
+        lastCheckAt: 0,
+        retainComputer: false,
       };
+      const computerUse: RunComputerUseState = {
+        reason: "none",
+        tool: undefined,
+        screenRelease: undefined,
+      };
+      let runAbortController: AbortController | null = null;
+      const runningHelpers = new Map<string, RunningHelper>();
+      const settleHelpers = () => settleRunningHelpers(deps, run, runningHelpers);
 
       let detachShutdown: (() => void) | undefined;
       const heartbeat = setInterval(() => {
-        if (runCompleted) return;
+        if (lease.completed) return;
         void Promise.all([
           renewRunLease(deps, runId, workerId, fence),
           renewComputerExecutionLease(deps.prisma, computerLease),
         ])
           .then(([runRenewed, computerRenewed]) => {
-            if (runCompleted) return;
+            if (lease.completed) return;
             if (!runRenewed || !computerRenewed) {
-              leaseValid = false;
+              lease.valid = false;
               runAbortController?.abort();
             }
           })
           .catch(() => {
-            if (runCompleted) return;
-            leaseValid = false;
+            if (lease.completed) return;
+            lease.valid = false;
             runAbortController?.abort();
           });
       }, 60_000);
       heartbeat.unref?.();
       const stopHeartbeatAfterCompletion = () => {
-        runCompleted = true;
+        lease.completed = true;
         clearInterval(heartbeat);
       };
 
@@ -794,7 +779,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               )
             : null;
         runAbortController = new AbortController();
-        if (!leaseValid) runAbortController.abort();
+        if (!lease.valid) runAbortController.abort();
         if (deps.shutdownSignal?.aborted) runAbortController.abort(deps.shutdownSignal.reason);
         const onShutdown = () => runAbortController?.abort(deps.shutdownSignal?.reason);
         deps.shutdownSignal?.addEventListener("abort", onShutdown);
@@ -1066,7 +1051,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           async () => {
             getLogger().info("computer.requested");
             const computer = await provisionComputer(deps, storedComputer.id, context, "bot");
-            screenRelease = { computer, context, keepWarm: false };
+            computerUse.screenRelease = { computer, context, keepWarm: false };
             scheduleComputerSleep(deps.jobs, storedComputer.id);
             // Earlier attachments wait for the computer's first use; every start copies them
             // again, so they need no checkpoint, and each copy logs and skips its own failure.
@@ -1089,14 +1074,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
         let copyingTurnFiles = Promise.resolve();
         // Serialize copies before each tool, including attachments received while a boot is in flight.
         const getRunComputer = async (reason: "tool" | "takeover" | "script", tool?: string) => {
-          if (computerUseReason === "none") {
-            computerUseReason = reason;
-            computerUseTool = tool && BUILTIN_AGENT_TOOL_NAMES.has(tool) ? tool : undefined;
+          if (computerUse.reason === "none") {
+            computerUse.reason = reason;
+            computerUse.tool = tool && BUILTIN_AGENT_TOOL_NAMES.has(tool) ? tool : undefined;
           }
           return getLogger().withContext(
             {
-              reason: computerUseReason,
-              tool: computerUseTool,
+              reason: computerUse.reason,
+              tool: computerUse.tool,
               trigger: run.trigger,
               "run.id": runId,
               "computer.id": storedComputer.id,
@@ -1239,16 +1224,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const connectorTools = new Map(
           exposedConnectorTools.map((tool) => [tool.name, tool] as const),
         );
-        const {
-          loadApprovalRules,
-          loadApprovalModel,
-          loadAutoReviewPreference,
-          loadOwnerWords,
-          loadTrustedSites,
-          routineNamesNewSite,
-          loadTrustedConnectors,
-          receivedOutsideMessage,
-        } = createRunTrustLoaders(deps, {
+        const trustLoaders = createRunTrustLoaders(deps, {
           run,
           runId,
           botId: bot.id,
@@ -1258,11 +1234,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
           sourceMessage,
           connectedPlugins,
         });
+        const {
+          loadApprovalRules,
+          loadApprovalModel,
+          loadAutoReviewPreference,
+          loadOwnerWords,
+          loadTrustedSites,
+          routineNamesNewSite,
+          loadTrustedConnectors,
+          receivedOutsideMessage,
+        } = trustLoaders;
         // Outbound destinations this run may reach without asking. See outboundSiteGate and
         // connectorReadRequiresApproval; approvals from earlier attempts are read back from effects.
         const searchResultUrls = new Set<string>();
-        // Whether outside content has entered the run. A run someone else started begins tainted,
-        // and so does a later attempt, including one with restored untrusted tool results.
         let turnCheckpoint: string | undefined;
         let checkpointLoadError: Error | undefined;
         try {
@@ -1271,18 +1255,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           checkpointLoadError =
             error instanceof Error ? error : new Error("Unsupported turn checkpoint");
         }
-        let storedTurnCheckpoint = Boolean(turnCheckpoint);
-        let runTainted =
+        const storedTurnCheckpoint = Boolean(turnCheckpoint);
+        const initiallyTainted =
           !ownerStartedRun || Boolean(turnCheckpoint) || Boolean(checkpointLoadError);
-        let earlierAttemptPromise: Promise<boolean> | undefined;
-        const isRunTainted = async () => {
-          if (runTainted) return true;
-          earlierAttemptPromise ??= deps.prisma.attempt
-            .count({ where: { runId } })
-            .then((count) => count > 1);
-          if ((await earlierAttemptPromise) || (await receivedOutsideMessage())) runTainted = true;
-          return runTainted;
-        };
         // The creation intro only asks what the bot is for (see selectBuiltinToolsForRun),
         // so it gets no connector tools either.
         const tools =
@@ -1339,164 +1314,98 @@ export function createRunExecutor(deps: ExecutorDeps) {
             ? `Your Team Computer home is ${teamBotWorkspaceDirectory(bot.id)}. Relative file paths and shell working directories start there. Put intentionally shared work under shared/. Other bots' folders are visible under bots/; treat them as their working areas.`
             : "This entire computer workspace is your private home. Relative file paths and shell working directories start at its root.";
 
-        let assembled = "";
-        let currentTextSegment = "";
-        let messageSegments: MessageBlock[] = [];
-        // Terminal subagent rows are published as their own messages (not appended to
-        // messageSegments). Treat that like tool/step durable activity so we do not invent
-        // an empty-run "done." completion afterward.
-        let publishedTerminalSubagent = false;
-        // Durable chat messages posted mid-turn (message_user / promoted narration).
-        // Rehydrate from this run's prior progress rows so a resume after ask/takeover
-        // still knows progress was already published (skip hollow finals; status outcome).
-        let publishedMidTurnUserMessage = false;
-        // Some runs hold back pre-tool narration instead of posting it as chat.
-        // Keep the last segment in case the model supplies no final reply.
-        let discardedMidTurnNarration = false;
-        let lastDiscardedMidTurnNarration = "";
-        let explicitNoResponse = false;
-        let assistantTurnText = "";
-        const recordExplicitNoResponse = (text: string) => {
-          explicitNoResponse ||= isExactNoResponse(text) || /\bNO_RESPONSE\b/.test(text);
-        };
-        const midTurnUserTexts: string[] = [];
-        let midTurnProgressCount = 0;
-        const turnStartedAtMs = run.startedAt?.getTime() ?? Date.now();
-        // Durable interim messages only on genuinely long turns, capped per run.
-        const canPublishDurableProgress = () =>
-          midTurnProgressBudgetAllows(midTurnProgressCount, Date.now() - turnStartedAtMs);
-        const canPublishDurableNarration = () =>
-          runPromotesMidTurnNarration(run.trigger) && canPublishDurableProgress();
-        {
-          const priorProgress = await deps.prisma.message.findMany({
-            where: { runId: run.id, role: "bot" },
-            orderBy: { seq: "asc" },
-            select: { blocks: true, clientNonce: true },
-          });
-          for (const message of priorProgress) {
-            if (!isUserProgressClientNonce(message.clientNonce)) continue;
-            const blocks = Array.isArray(message.blocks) ? (message.blocks as MessageBlock[]) : [];
-            const text = blocks
-              .filter(
-                (block): block is Extract<MessageBlock, { kind: "text" }> => block.kind === "text",
-              )
-              .map((block) => block.text)
-              .join("")
-              .trim();
-            if (!text) continue;
-            midTurnUserTexts.push(text);
-            publishedMidTurnUserMessage = true;
-            midTurnProgressCount += 1;
-          }
-        }
-        // Tool calls that land mid-sentence wait here until the narration catches up to a
-        // sentence boundary, so the step chips never render in the middle of a clause.
-        let pendingToolNames: string[] = [];
-        const flushPendingTools = () => {
-          if (currentTextSegment) {
-            messageSegments = appendTextSegment(messageSegments, currentTextSegment);
-            currentTextSegment = "";
-          }
-          for (const name of pendingToolNames) {
-            messageSegments = appendToolCallSegment(messageSegments, name);
-          }
-          pendingToolNames = [];
-        };
-        const tryFlushPendingTools = () => {
-          if (pendingToolNames.length > 0 && endsSentence(currentTextSegment)) flushPendingTools();
-        };
-        let pendingProgress = "";
-        let lastProgressAt = 0;
-        let hasStreamedText = false;
-        // Set by a tool call or a new assistant message: the next text starts a new
-        // assistant turn and needs a break from the earlier text that stayed in this reply.
-        let assistantTurnBreakPending = false;
-        let toolCallStreak: ToolCallStreak = { key: undefined, count: 0 };
-        let lastComputerFrameId: string | undefined;
-        let unchangedVisualStreak: UnchangedVisualStreak = { count: 0 };
-        let terminalCheckpointComplete = false;
-        let approvalPausePending = false;
-        let approvalRequest: Promise<ApprovalPausedToolResult> | undefined;
-        const pendingTurnCheckpoints = new Map<string, () => string>();
-        const persistTurnCheckpoint = async (executionId?: string) => {
-          const capture = executionId ? pendingTurnCheckpoints.get(executionId) : undefined;
-          if (capture) {
-            const saved = JSON.parse(capture());
-            saved.effectOccurrences = effectOccurrences;
-            await saveRunTurnCheckpoint(deps.prisma, run, workerId, fence, JSON.stringify(saved));
-            storedTurnCheckpoint = true;
-          } else if (storedTurnCheckpoint) {
-            // Helper calls have no saved turn. An earlier pause's turn must not resume this one.
-            await dropRunTurnCheckpoint(deps.prisma, run, workerId, fence);
-            storedTurnCheckpoint = false;
-          }
-        };
-        let handedOff = false;
-        let progressRedactor = createStreamingRedactor(runSecrets);
+        const reply = await createReplyState(deps, run, runSecrets);
         const scripted = deps.runtime.describe().capabilities.scripted;
         const script = scripted ? inferScript(task.prompt, takeoverResume?.checkpoint) : undefined;
-        const flushProgress = async () => {
-          // Routines may finish silently. Do not leak narration or a partial silence
-          // sentinel before the final outcome is known.
-          if (
-            scripted ||
-            !pendingProgress ||
-            run.trigger === "routine" ||
-            isBackgroundRunTrigger(run.trigger)
-          )
-            return;
-          await deps.events.append({
-            spaceId: run.spaceId,
-            threadId: thread.id,
-            botId: bot.id,
-            type: "thread.progress",
-            runId,
-            // The first flush replaces the "working…" placeholder outright — a delta here
-            // would otherwise get appended straight onto it with no separator.
-            payload: hasStreamedText
-              ? { delta: pendingProgress, streaming: true }
-              : { text: pendingProgress, streaming: true },
-          });
-          hasStreamedText = true;
-          pendingProgress = "";
-          lastProgressAt = Date.now();
+        const state: RunState = {
+          lease,
+          computerUse,
+          runningHelpers,
+          reply,
+          approval: { pausePending: false, request: undefined, proposalInFlight: false },
+          effects: {
+            counts: new Map(),
+            occurrences: [],
+            restoredPending: undefined,
+            consumedIds: new Set(),
+            pendingTurnCheckpoints: new Map(),
+            storedTurnCheckpoint,
+          },
+          screen: { lastFrameId: undefined, unchangedVisualStreak: { count: 0 } },
+          toolCallStreak: { key: undefined, count: 0 },
+          tainted: initiallyTainted,
+          earlierAttempt: undefined,
+          handedOff: false,
+          terminalCheckpointComplete: false,
         };
-        const publishMidTurnNarration = async (beforeConnectCard = false) => {
-          const extracted = extractNarrationText(messageSegments, currentTextSegment);
-          const narration = clampUserProgressMessage(redactSecrets(extracted.text, runSecrets));
-          const canPublish =
-            canPublishDurableNarration() ||
-            (beforeConnectCard && runPromotesMidTurnNarration(run.trigger));
-          if (
-            narration &&
-            !canPublish &&
-            !allowSilentEmptyRun &&
-            runPromotesMidTurnNarration(run.trigger)
-          ) {
-            return;
-          }
-          messageSegments = extracted.remaining;
-          currentTextSegment = "";
-          if (!narration) return;
-          hasStreamedText = false;
-          pendingProgress = "";
-          if (!canPublish) {
-            assembled = "";
-            discardedMidTurnNarration = true;
-            lastDiscardedMidTurnNarration = narration;
-            return;
-          }
-          assembled = "";
-          await publishMessage(
-            deps,
-            run,
-            "bot",
-            [{ kind: "text", text: narration }],
-            undefined,
-            userProgressClientNonce(run.id, midTurnProgressCount++),
-          );
-          midTurnUserTexts.push(narration);
-          publishedMidTurnUserMessage = true;
+        const { approval, effects, screen } = state;
+        /** Fleet tools take every scope from the run, never from arguments. */
+        const fleetRun: FleetRun = {
+          spaceId: run.spaceId,
+          userId: run.userId,
+          botId: bot.id,
+          groupId: thread.groupId ?? null,
+          threadId: thread.id,
+          runId,
+        };
+
+        const ctx: RunContext = {
+          deps,
+          providers: { web, mediaGeneration, browser, cloudAgent },
+          run,
+          runId,
+          workerId,
+          fence,
+          attempt,
+          bot,
+          thread,
+          task,
+          context,
+          abortController: runAbortController,
+          fleetRun,
+          secrets: runSecrets,
+          agentEnvironment,
+          source: {
+            ownerStartedRun,
+            messagingChannelRun,
+            channelId,
+            historySearchBeforeSeq,
+            voiceCall,
+            callEndRun,
+            callClientNonce: callClientNonceForRun,
+            peerMessage,
+          },
+          computer: {
+            stored: storedComputer,
+            mode: computerMode,
+            lease: computerLease,
+            lazy: runComputer,
+            get: getRunComputer,
+            checkpoint: workspaceCheckpoint,
+            hostEnvironment,
+            graphical,
+            graphicalToolsAllowed,
+            pageBrowserAllowed,
+            acceptsImages,
+            heldForTakeover,
+          },
+          tools: {
+            offered: tools,
+            builtins,
+            connector: connectorTools,
+            disabled: disabledBuiltinTools,
+            connectedPlugins,
+            approvedReplays: approvedEffectReplays,
+          },
+          trust: { ...trustLoaders, searchResultUrls },
+          memory: { semantic: semanticMemory, scope: memoryScope },
+          scripted,
+          script,
+          allowSilentEmptyRun,
+          emptyResponseText,
+          state,
+          settleRunningHelpers: settleHelpers,
+          stopHeartbeatAfterCompletion,
         };
         const formatObservation = (
           observation: Awaited<ReturnType<SandboxProvider["observe"]>>,
@@ -1504,11 +1413,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
           visualActionKey?: string,
         ) => {
           const guard = advanceUnchangedVisualGuard(
-            unchangedVisualStreak,
+            screen.unchangedVisualStreak,
             observation.frameId,
             visualActionKey,
           );
-          unchangedVisualStreak = guard.streak;
+          screen.unchangedVisualStreak = guard.streak;
           // A browser window's title is the page title, which can echo a signed-in username.
           const activeWindow = observation.activeWindow;
           const result = observationToolResult(
@@ -1522,66 +1431,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 }
               : observation,
             note,
-            lastComputerFrameId,
+            screen.lastFrameId,
             visualActionKey ? { unchangedVisualCount: guard.streak.count } : undefined,
           );
-          lastComputerFrameId = observation.frameId;
+          screen.lastFrameId = observation.frameId;
           return result;
-        };
-
-        const pauseForApproval = () => {
-          approvalPausePending = true;
-          return approvalPausedToolResult();
-        };
-
-        const pauseForSecret = () => {
-          approvalPausePending = true;
-          return secretPausedToolResult();
-        };
-
-        const mutatingEffectOccurrences = new Map<string, number>();
-        const effectOccurrences: Array<{
-          executionId: string;
-          fingerprint: string;
-          occurrence: number;
-        }> = [];
-        let restoredPendingEffect: (typeof effectOccurrences)[number] | undefined;
-        const consumedEffectIds = new Set<string>();
-        const nextMutatingEffectOccurrence = (
-          toolName: string,
-          args: Record<string, unknown>,
-          executionId: string,
-          approvedKey?: string,
-        ) => {
-          const fingerprint = toolEffectIdempotencyKey(runId, toolName, args);
-          const approved = approvedKey
-            ? approvedEffectOccurrence(approvedKey, fingerprint)
-            : undefined;
-          const previous = restoredPendingEffect;
-          if (previous?.executionId === executionId) {
-            restoredPendingEffect = undefined;
-            if (previous.fingerprint === fingerprint && approved === undefined)
-              return previous.occurrence;
-          }
-          // An approved replay reuses the approved row's occurrence, so it claims that row
-          // even when this call would have counted differently.
-          const occurrence = approved ?? mutatingEffectOccurrences.get(fingerprint) ?? 0;
-          effectOccurrences.push({ executionId, fingerprint, occurrence });
-          mutatingEffectOccurrences.set(
-            fingerprint,
-            Math.max(mutatingEffectOccurrences.get(fingerprint) ?? 0, occurrence + 1),
-          );
-          return occurrence;
-        };
-
-        /** Fleet tools take every scope from the run, never from arguments. */
-        const fleetRun: FleetRun = {
-          spaceId: run.spaceId,
-          userId: run.userId,
-          botId: bot.id,
-          groupId: thread.groupId ?? null,
-          threadId: thread.id,
-          runId,
         };
 
         const dispatchTool = async (
@@ -1592,13 +1446,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
           observer?: AgentToolExecutionObserver,
         ) => {
           context.signal.throwIfAborted();
-          if (handedOff) {
+          if (state.handedOff) {
             return {
               error: "This stage was handed off. End the turn without more tool calls.",
             };
           }
-          if (name === "propose_instructions_update" && approvalPausePending)
-            return pauseForApproval();
+          if (name === "propose_instructions_update" && approval.pausePending)
+            return pauseForApproval(ctx);
           if (disabledBuiltinTools.has(name)) {
             return { error: "This tool is disabled for this bot." };
           }
@@ -1608,13 +1462,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (IMAGE_RETURNING_COMPUTER_TOOLS.has(name) && !acceptsImages) {
             return { error: MODEL_CANNOT_SEE_MESSAGE };
           }
-          const registerRunSecrets = (values: string[]) => {
-            const additions = values.filter((value) => !runSecrets.includes(value));
-            if (additions.length === 0) return;
-            pendingProgress += progressRedactor.finish();
-            runSecrets.push(...additions);
-            progressRedactor = createStreamingRedactor(runSecrets);
-          };
           let connectorCall: ConnectorCall = {
             tool: name,
             args,
@@ -1945,7 +1792,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               (toolName) => !connectorToolRequiresApproval(toolName, declaredReadOnlyFor(toolName)),
             ) &&
             connectorReadRequiresApproval({
-              tainted: await isRunTainted(),
+              tainted: await isRunTainted(ctx),
               connectorTrusted: await loadTrustedConnectors().then((trusted) =>
                 connectorTrusts.every((trust) => trusted.has(trust)),
               ),
@@ -1960,7 +1807,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // context, and passing it would trust the site for every later run.
           const scheduleNamesNewSite =
             (name === "schedule_create" || (name === "schedule_update" && Boolean(args.prompt))) &&
-            (await isRunTainted()) &&
+            (await isRunTainted(ctx)) &&
             (await routineNamesNewSite(String(args.prompt ?? "")));
           const requiresApprovalByDefault =
             commandWatch ||
@@ -2033,7 +1880,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             mandatory: requiresMandatoryApproval,
             steerable:
               requiresMandatoryApproval && mode === "never"
-                ? !ownerStartedRun || (await isRunTainted())
+                ? !ownerStartedRun || (await isRunTainted(ctx))
                 : undefined,
             consequential: requiresApprovalByDefault,
             reviewOnly: connectorReadGated,
@@ -2061,6 +1908,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             name === "request_secret" || name === "connect_app"
               ? 0
               : nextMutatingEffectOccurrence(
+                  ctx,
                   replayEffectToolName,
                   args,
                   executionId,
@@ -2088,7 +1936,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   effectKey,
                   effectRequest,
                   executionId,
-                  consumedEffectIds,
+                  effects.consumedIds,
                 );
 
           const runAutoReview = async () => {
@@ -2230,7 +2078,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           } else if (applied?.duplicate && plan === "ask") {
             gateDecision = "ask";
           }
-          if (context.signal.aborted) return pauseForApproval();
+          if (context.signal.aborted) return pauseForApproval(ctx);
           if (
             siteGate === "new" &&
             newSiteOutcome({ trigger: run.trigger, decision: gateDecision }) === "deny"
@@ -2351,11 +2199,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
           const showApprovalCard = async () => {
             if (!(await renewRunLease(deps, runId, workerId, fence))) {
               // Another worker owns the run now; exit without leaving a local pause card.
-              return pauseForApproval();
+              return pauseForApproval(ctx);
             }
             await workspaceCheckpoint.flush();
-            await persistTurnCheckpoint(executionId);
-            await settleRunningHelpers();
+            await persistTurnCheckpoint(ctx, executionId);
+            await settleHelpers();
             const paused = await deps.events.pauseRunForInput({
               spaceId: run.spaceId,
               threadId: run.threadId,
@@ -2392,15 +2240,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
               botId: bot.id,
               threadId: thread.id,
             });
-            return pauseForApproval();
+            return pauseForApproval(ctx);
           };
           const requestApproval = () => {
             // Parallel calls can need approval at once. Only the first saves the turn and shows
             // its card; the others wait for that pause. Otherwise a later call's save could make
             // the turn resume a call other than the one the user approved.
-            if (approvalRequest) return approvalRequest.then(() => pauseForApproval());
-            approvalRequest = showApprovalCard();
-            return approvalRequest;
+            if (approval.request) return approval.request.then(() => pauseForApproval(ctx));
+            approval.request = showApprovalCard();
+            return approval.request;
           };
 
           if (applied?.duplicate) {
@@ -2442,7 +2290,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   select: { status: true },
                 });
                 if (current?.status === "waiting_input") {
-                  return pauseForSecret();
+                  return pauseForSecret(ctx);
                 }
                 // An intended secret request resumes protected entry below, including
                 // recovery after action approval but before the card was committed.
@@ -2455,7 +2303,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   select: { status: true },
                 });
                 if (current?.status === "waiting_input") {
-                  return pauseForApproval();
+                  return pauseForApproval(ctx);
                 }
                 return requestApproval();
               }
@@ -2556,8 +2404,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
             }
             const actions = parseComputerActions(args.actions);
             const visualActionKey = computerVisualActionKey(actions);
-            if (unchangedVisualActionBlocked(unchangedVisualStreak, actions)) {
-              return finish(unchangedVisualLoopToolResult(unchangedVisualStreak));
+            if (unchangedVisualActionBlocked(screen.unchangedVisualStreak, actions)) {
+              return finish(unchangedVisualLoopToolResult(screen.unchangedVisualStreak));
             }
             workspaceCheckpoint.markDirty();
             return computerScreenToolResult(async () => {
@@ -2680,7 +2528,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               secretStore: deps.secretStore,
               scope: run,
               spaceEnvironment: agentEnvironment,
-              registerRedactions: registerRunSecrets,
+              registerRedactions: (values) => addRunSecrets(ctx, values),
             });
             workspaceCheckpoint.markDirty();
             const commandEvent = {
@@ -3013,13 +2861,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
                           field: step.field,
                         });
                         if ("error" in resolved) return resolved;
-                        registerRunSecrets(resolved.redactions);
+                        addRunSecrets(ctx, resolved.redactions);
                         return { text: resolved.text, origin: resolved.origin };
                       },
                     },
                   );
-              unchangedVisualStreak = unchangedVisualStreakAfterPageBrowser(
-                unchangedVisualStreak,
+              screen.unchangedVisualStreak = unchangedVisualStreakAfterPageBrowser(
+                screen.unchangedVisualStreak,
                 name,
                 result,
               );
@@ -3398,8 +3246,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
             );
           }
           if (name === "connect_app") {
-            await flushProgress();
-            await publishMidTurnNarration(true);
+            await flushProgress(ctx);
+            await publishMidTurnNarration(ctx, true);
             return finish(
               await connectApp(
                 deps,
@@ -3426,7 +3274,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 request: args,
                 signal: context.signal,
                 remote: deps.secretHttp,
-                registerRedactions: registerRunSecrets,
+                registerRedactions: (values) => addRunSecrets(ctx, values),
               });
               return finish(result);
             } catch {
@@ -3496,8 +3344,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               );
               runSecrets.push(plaintext);
               // Keep the tail the old redactor still holds; a fresh instance drops it.
-              pendingProgress += progressRedactor.finish();
-              progressRedactor = createStreamingRedactor(runSecrets);
+              reply.pendingProgress += reply.redactor.finish();
+              reply.redactor = createStreamingRedactor(runSecrets);
               const purpose = String(args.purpose ?? "otp");
               if (applied && !claimedEffect) {
                 if (applied.effect.status === "intended") {
@@ -3619,11 +3467,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
               return settleUncertainEffect(deps.prisma, recordedForAsk.effect.id, "request_secret");
             }
             if (!(await renewRunLease(deps, runId, workerId, fence))) {
-              return pauseForSecret();
+              return pauseForSecret(ctx);
             }
             await workspaceCheckpoint.flush();
-            await persistTurnCheckpoint(executionId);
-            await settleRunningHelpers();
+            await persistTurnCheckpoint(ctx, executionId);
+            await settleHelpers();
             const paused = await deps.events.pauseRunForInput({
               spaceId: run.spaceId,
               threadId: run.threadId,
@@ -3663,7 +3511,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               botId: bot.id,
               threadId: thread.id,
             });
-            return pauseForSecret();
+            return pauseForSecret(ctx);
           }
           if (name === "request_takeover") return { ok: true };
           if (name === "run_subagent") {
@@ -3824,9 +3672,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
             const text = clampUserProgressMessage(rawMessage, maxLength);
             if (!text) return finish({ error: "message is required" });
             const truncated = isProgressMessageTruncated(rawMessage, maxLength);
-            await flushProgress();
-            await publishMidTurnNarration();
-            if (!canPublishDurableProgress()) {
+            await flushProgress(ctx);
+            await publishMidTurnNarration(ctx);
+            if (!canPublishDurableProgress(reply)) {
               return finish({
                 ok: true,
                 note: "This update was not posted. The turn is still fresh, or the chat already has enough interim messages for this run. Do not send more progress updates — keep working and put everything in your final reply.",
@@ -3838,10 +3686,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
               "bot",
               [{ kind: "text", text }],
               true,
-              userProgressClientNonce(run.id, midTurnProgressCount++),
+              userProgressClientNonce(run.id, reply.midTurnProgressCount++),
             );
-            midTurnUserTexts.push(text);
-            publishedMidTurnUserMessage = true;
+            reply.midTurnUserTexts.push(text);
+            reply.publishedMidTurnUserMessage = true;
             return finish(
               truncated
                 ? {
@@ -3926,7 +3774,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               message: redactSecrets(String(args.message ?? ""), runSecrets),
               deliveryKey: effectKey,
             });
-            if ("ok" in result && result.ok && thread.groupId) handedOff = true;
+            if ("ok" in result && result.ok && thread.groupId) state.handedOff = true;
             return finish(result);
           }
           if (name === "archive_bot" || name === "delete_bot") {
@@ -4008,24 +3856,22 @@ export function createRunExecutor(deps: ExecutorDeps) {
           return finish({ error: `unknown tool ${name}` });
         };
 
-        // Runtimes may dispatch parallel calls; a run can open only one proposal at a time.
-        let instructionProposalInFlight = false;
         const dispatchOneTool = async (...params: Parameters<typeof dispatchTool>) => {
           if (params[0] !== "propose_instructions_update") return dispatchTool(...params);
-          if (instructionProposalInFlight)
+          if (approval.proposalInFlight)
             return { error: "This bot already has a pending instruction proposal." };
-          instructionProposalInFlight = true;
+          approval.proposalInFlight = true;
           try {
             return await dispatchTool(...params);
           } finally {
-            instructionProposalInFlight = false;
+            approval.proposalInFlight = false;
           }
         };
         const applyTool = async (...params: Parameters<typeof dispatchTool>) => {
           try {
             return await dispatchOneTool(...params);
           } finally {
-            if (toolResultTaintsRun(params[0])) runTainted = true;
+            if (toolResultTaintsRun(params[0])) state.tainted = true;
           }
         };
 
@@ -4089,7 +3935,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             ) {
               turnCheckpoint = undefined;
             } else if (saved.effectOccurrences) {
-              effectOccurrences.push(...saved.effectOccurrences);
+              effects.occurrences.push(...saved.effectOccurrences);
               const pendingExecutionId = JSON.stringify([
                 "pi-tool",
                 "main",
@@ -4097,13 +3943,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
               ]);
               // Provider IDs can repeat in later responses. Only the restored
               // pending call may consume its saved assignment, exactly once.
-              restoredPendingEffect = saved.effectOccurrences.findLast(
+              effects.restoredPending = saved.effectOccurrences.findLast(
                 (entry) => entry.executionId === pendingExecutionId,
               );
               for (const { fingerprint, occurrence } of saved.effectOccurrences) {
-                mutatingEffectOccurrences.set(
+                effects.counts.set(
                   fingerprint,
-                  Math.max(mutatingEffectOccurrences.get(fingerprint) ?? 0, occurrence + 1),
+                  Math.max(effects.counts.get(fingerprint) ?? 0, occurrence + 1),
                 );
               }
             } else {
@@ -4116,6 +3962,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                   const tool = namedTools.find((tool) => tool.name === call.name)?.tool;
                   if (tool && tool.name !== "request_secret" && tool.name !== "connect_app")
                     nextMutatingEffectOccurrence(
+                      ctx,
                       tool.name,
                       call.arguments,
                       JSON.stringify(["pi-tool", "main", call.id]),
@@ -4251,7 +4098,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             beforeModel,
             workerId,
             fence,
-            !leaseValid || Boolean(runAbortController?.signal.aborted),
+            !lease.valid || Boolean(runAbortController?.signal.aborted),
           )
         ) {
           return;
@@ -4422,7 +4269,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               resumeFromCheckpoint: takeoverResume?.checkpoint,
               turnCheckpoint,
               onCheckpoint: async (capture, executionId) => {
-                pendingTurnCheckpoints.set(executionId, capture);
+                effects.pendingTurnCheckpoints.set(executionId, capture);
               },
               resumeToolResult: {
                 content: [{ type: "text", text: takeoverResume?.promptNote ?? taskPrompt }],
@@ -4438,9 +4285,10 @@ export function createRunExecutor(deps: ExecutorDeps) {
                       runSecrets.push(...values),
                     ),
               onToolCompleted: (completion) => {
-                if (restoredPendingEffect?.executionId === completion.executionId)
-                  restoredPendingEffect = undefined;
-                if (!completion.paused) pendingTurnCheckpoints.delete(completion.executionId);
+                if (effects.restoredPending?.executionId === completion.executionId)
+                  effects.restoredPending = undefined;
+                if (!completion.paused)
+                  effects.pendingTurnCheckpoints.delete(completion.executionId);
                 return appendToolCompletionAudit(
                   deps,
                   {
@@ -4471,11 +4319,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
             context,
           );
           for await (const event of withRuntimeCleanup(runtimeEvents, runAbortController)) {
-            if (approvalPausePending) return;
-            if (!leaseValid) return;
+            if (approval.pausePending) return;
+            if (!lease.valid) return;
             const now = Date.now();
-            if (now - lastLeaseCheckAt >= 1_000) {
-              lastLeaseCheckAt = now;
+            if (now - lease.lastCheckAt >= 1_000) {
+              lease.lastCheckAt = now;
               const still = await deps.prisma.run.findUnique({
                 where: { id: runId },
                 select: { status: true, leaseOwner: true, leaseFence: true, checkpoint: true },
@@ -4486,13 +4334,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 still.leaseOwner !== workerId ||
                 still.leaseFence !== fence
               ) {
-                leaseValid = false;
+                lease.valid = false;
                 return;
               }
               const releasedHold = takeoverCheckpointOf(still.checkpoint);
               if (heldForTakeover && releasedHold) {
                 await requeueComputerRun(deps, runId, workerId, fence, releasedHold, false);
-                leaseValid = false;
+                lease.valid = false;
                 runAbortController?.abort();
                 return;
               }
@@ -4501,47 +4349,47 @@ export function createRunExecutor(deps: ExecutorDeps) {
             // Check complete assistant turns so split sentinel chunks are recognized
             // without treating a partial identifier (NO_RESPONSE_POLICY) as silence.
             if (event.type === "tool" || event.type === "takeover") {
-              recordExplicitNoResponse(assistantTurnText);
-              assistantTurnText = "";
+              recordExplicitNoResponse(reply, reply.assistantTurnText);
+              reply.assistantTurnText = "";
             }
             if (event.type === "text") {
-              assistantTurnText += event.text;
-              if (assistantTurnBreakPending && event.text) {
-                assistantTurnBreakPending = false;
-                const separator = assistantTurnSeparator(assembled, event.text);
+              reply.assistantTurnText += event.text;
+              if (reply.assistantTurnBreakPending && event.text) {
+                reply.assistantTurnBreakPending = false;
+                const separator = assistantTurnSeparator(reply.assembled, event.text);
                 if (separator) {
-                  assembled += separator;
-                  currentTextSegment += separator;
-                  pendingProgress += progressRedactor.push(separator);
+                  reply.assembled += separator;
+                  reply.currentTextSegment += separator;
+                  reply.pendingProgress += reply.redactor.push(separator);
                 }
               }
-              assembled += event.text;
-              currentTextSegment += event.text;
-              toolCallStreak = { key: undefined, count: 0 };
-              tryFlushPendingTools();
-              pendingProgress += progressRedactor.push(event.text);
+              reply.assembled += event.text;
+              reply.currentTextSegment += event.text;
+              state.toolCallStreak = { key: undefined, count: 0 };
+              tryFlushPendingTools(reply);
+              reply.pendingProgress += reply.redactor.push(event.text);
               const now = Date.now();
-              if (!scripted && pendingProgress && now - lastProgressAt >= 250) {
-                await flushProgress();
+              if (!scripted && reply.pendingProgress && now - reply.lastProgressAt >= 250) {
+                await flushProgress(ctx);
               }
             } else if (event.type === "turn") {
-              assistantTurnBreakPending = true;
+              reply.assistantTurnBreakPending = true;
             } else if (event.type === "progress") {
-              toolCallStreak = { key: undefined, count: 0 };
+              state.toolCallStreak = { key: undefined, count: 0 };
               if (run.trigger === "routine" || isBackgroundRunTrigger(run.trigger)) continue;
               // Flush batched text deltas first so an activity line cannot land
               // ahead of text the model streamed before the tool call.
-              if (pendingProgress) {
+              if (reply.pendingProgress) {
                 await deps.events.append({
                   spaceId: run.spaceId,
                   threadId: thread.id,
                   botId: bot.id,
                   type: "thread.progress",
                   runId,
-                  payload: { delta: pendingProgress, streaming: true },
+                  payload: { delta: reply.pendingProgress, streaming: true },
                 });
-                pendingProgress = "";
-                lastProgressAt = Date.now();
+                reply.pendingProgress = "";
+                reply.lastProgressAt = Date.now();
               }
               await deps.events.append({
                 spaceId: run.spaceId,
@@ -4565,8 +4413,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 label: redactSecrets(action.label, runSecrets),
               }));
               await workspaceCheckpoint.flush();
-              await persistTurnCheckpoint(event.executionId);
-              await settleRunningHelpers();
+              await persistTurnCheckpoint(ctx, event.executionId);
+              await settleHelpers();
               const paused = await deps.events.pauseRunForInput({
                 spaceId: run.spaceId,
                 threadId: run.threadId,
@@ -4608,27 +4456,29 @@ export function createRunExecutor(deps: ExecutorDeps) {
               const safeReason = redactSecrets(event.reason, runSecrets);
               // Publish pending narration as tagged mid-turn progress so reconciliation
               // does not treat pre-takeover text as the delegated final result.
-              await publishMidTurnNarration();
-              if (assembled.trim()) {
-                const narration = clampUserProgressMessage(redactSecrets(assembled, runSecrets));
-                if (narration && canPublishDurableNarration()) {
+              await publishMidTurnNarration(ctx);
+              if (reply.assembled.trim()) {
+                const narration = clampUserProgressMessage(
+                  redactSecrets(reply.assembled, runSecrets),
+                );
+                if (narration && canPublishDurableNarration(ctx)) {
                   await publishMessage(
                     deps,
                     run,
                     "bot",
                     [{ kind: "text", text: narration }],
                     undefined,
-                    userProgressClientNonce(run.id, midTurnProgressCount++),
+                    userProgressClientNonce(run.id, reply.midTurnProgressCount++),
                   );
-                  midTurnUserTexts.push(narration);
-                  publishedMidTurnUserMessage = true;
+                  reply.midTurnUserTexts.push(narration);
+                  reply.publishedMidTurnUserMessage = true;
                 } else if (narration) {
-                  discardedMidTurnNarration = true;
-                  lastDiscardedMidTurnNarration = narration;
+                  reply.discardedMidTurnNarration = true;
+                  reply.lastDiscardedMidTurnNarration = narration;
                 }
-                assembled = "";
-                hasStreamedText = false;
-                pendingProgress = "";
+                reply.assembled = "";
+                reply.hasStreamedText = false;
+                reply.pendingProgress = "";
               }
               // Give the user a full idle period to answer before the computer may suspend.
               scheduleComputerSleep(deps.jobs, storedComputer.id);
@@ -4643,8 +4493,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
               if (!(await holdComputerExecutionLeaseForTakeover(deps.prisma, computerLease))) {
                 throw new Error("Computer lease expired before takeover");
               }
-              await persistTurnCheckpoint(event.executionId);
-              await settleRunningHelpers();
+              await persistTurnCheckpoint(ctx, event.executionId);
+              await settleHelpers();
               const paused = await deps.events.pauseRunForTakeover({
                 spaceId: run.spaceId,
                 threadId: run.threadId,
@@ -4657,7 +4507,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 computerId: storedComputer.id,
               });
               if (!paused) return;
-              retainComputerLease = true;
+              lease.retainComputer = true;
               await notifyRun(deps, run, {
                 kind: "takeover",
                 title: `${displayName(bot.name, "Bot")} needs you on the screen`,
@@ -4669,13 +4519,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
             } else if (event.type === "tool") {
               // Preserve event ordering when the throttle still holds recent narration: the
               // client must see that text before the tool call it describes.
-              await flushProgress();
+              await flushProgress(ctx);
               // Promote streamed narration into a durable, replyable chat message before
               // tools continue, so long turns do not look stalled and stay replyable.
               if (event.name !== "message_user") {
-                await publishMidTurnNarration();
+                await publishMidTurnNarration(ctx);
               }
-              assistantTurnBreakPending = true;
+              reply.assistantTurnBreakPending = true;
               await deps.events.append({
                 spaceId: run.spaceId,
                 threadId: thread.id,
@@ -4684,24 +4534,33 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 runId,
                 payload: { name: event.name, executionId: event.executionId },
               });
-              pendingToolNames.push(event.name);
-              tryFlushPendingTools();
-              const loopGuard = advanceToolCallLoopGuard(toolCallStreak, event.name, event.args);
-              toolCallStreak = loopGuard.streak;
+              reply.pendingToolNames.push(event.name);
+              tryFlushPendingTools(reply);
+              const loopGuard = advanceToolCallLoopGuard(
+                state.toolCallStreak,
+                event.name,
+                event.args,
+              );
+              state.toolCallStreak = loopGuard.streak;
               if (loopGuard.stuck) {
                 approvedEffectReplays.assertDrained();
-                flushPendingTools();
+                flushPendingTools(reply);
                 if (!(await renewRunLease(deps, runId, workerId, fence))) return;
-                if (messageSegments.length > 0) {
-                  await publishMessage(deps, run, "bot", redactBlocks(messageSegments, runSecrets));
+                if (reply.messageSegments.length > 0) {
+                  await publishMessage(
+                    deps,
+                    run,
+                    "bot",
+                    redactBlocks(reply.messageSegments, runSecrets),
+                  );
                 }
                 await workspaceCheckpoint.flush();
-                terminalCheckpointComplete = true;
+                state.terminalCheckpointComplete = true;
                 const stuckText = loopGuardStopText(
                   humanizeToolName(event.name),
-                  toolCallStreak.count,
+                  state.toolCallStreak.count,
                 );
-                await settleRunningHelpers();
+                await settleHelpers();
                 const stopped = await deps.events.finalizeRun({
                   spaceId: run.spaceId,
                   threadId: thread.id,
@@ -4815,7 +4674,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 runningHelpers.delete(event.agentId);
               }
               if (event.status === "completed" || event.status === "failed") {
-                publishedTerminalSubagent ||= !subagentMarksUnread(
+                reply.publishedTerminalSubagent ||= !subagentMarksUnread(
                   run.trigger,
                   event.status,
                   peerMessage?.repliesToRequest === true,
@@ -4852,26 +4711,26 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 operationId: runId,
               });
             } else if (event.type === "done") {
-              recordExplicitNoResponse(event.text ?? "");
-              if (!assembled && event.text) {
-                if (publishedMidTurnUserMessage || discardedMidTurnNarration) {
+              recordExplicitNoResponse(reply, event.text ?? "");
+              if (!reply.assembled && event.text) {
+                if (reply.publishedMidTurnUserMessage || reply.discardedMidTurnNarration) {
                   // Mid-turn narration was already published or discarded (routines).
                   // Post-tool finals are streamed into assembled; do not restore
                   // cumulative done.text (clamp/redaction make substring stripping brittle).
                 } else {
-                  assembled = event.text;
-                  currentTextSegment += event.text;
+                  reply.assembled = event.text;
+                  reply.currentTextSegment += event.text;
                 }
               }
             }
           }
 
-          recordExplicitNoResponse(assistantTurnText);
+          recordExplicitNoResponse(reply, reply.assistantTurnText);
           runComputer.throwIfFailed();
-          if (approvalPausePending || !leaseValid) return;
+          if (approval.pausePending || !lease.valid) return;
           approvedEffectReplays.assertDrained();
-          pendingProgress += progressRedactor.finish();
-          await flushProgress();
+          reply.pendingProgress += reply.redactor.finish();
+          await flushProgress(ctx);
 
           for (const turn of script ?? []) {
             for (const file of turn.files ?? []) {
@@ -4909,29 +4768,29 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
 
           await workspaceCheckpoint.flush();
-          terminalCheckpointComplete = true;
+          state.terminalCheckpointComplete = true;
 
           // Preserve the last held-back preview as a normal final reply when the
           // model supplies none, unless it chose silence or already delivered that text.
           // Persisting peer results here also lets outcome delivery retry after completion.
-          recordExplicitNoResponse(lastDiscardedMidTurnNarration);
+          recordExplicitNoResponse(reply, reply.lastDiscardedMidTurnNarration);
           if (
             !isBackgroundRunTrigger(run.trigger) &&
-            !handedOff &&
-            !explicitNoResponse &&
-            !assembled.trim() &&
-            lastDiscardedMidTurnNarration &&
-            !midTurnUserTexts.includes(lastDiscardedMidTurnNarration)
+            !state.handedOff &&
+            !reply.explicitNoResponse &&
+            !reply.assembled.trim() &&
+            reply.lastDiscardedMidTurnNarration &&
+            !reply.midTurnUserTexts.includes(reply.lastDiscardedMidTurnNarration)
           ) {
-            assembled = lastDiscardedMidTurnNarration;
-            currentTextSegment = assembled;
+            reply.assembled = reply.lastDiscardedMidTurnNarration;
+            reply.currentTextSegment = reply.assembled;
           }
-          flushPendingTools();
+          flushPendingTools(reply);
           // Silent-allowed runs can choose an explicit NO_RESPONSE or finish empty.
           // Other runs still drop a stray sentinel at the edges of a real reply.
           const silentReply = allowSilentEmptyRun
-            ? stripNoResponseReply(assembled, messageSegments)
-            : stripStrayNoResponse(assembled, messageSegments);
+            ? stripNoResponseReply(reply.assembled, reply.messageSegments)
+            : stripStrayNoResponse(reply.assembled, reply.messageSegments);
           let completionBlocks = silentReply.blocks;
           if (!silentReply.assembled || isBackgroundRunTrigger(run.trigger)) {
             // Mid-turn progress already posted durable chat messages; skip the empty
@@ -4940,19 +4799,20 @@ export function createRunExecutor(deps: ExecutorDeps) {
             // only progress was posted, result when a final reply exists). Exact
             // NO_RESPONSE finals are treated as empty before this fallback runs.
             completionBlocks = completionMessageSegments(completionBlocks, {
-              allowSilentEmpty: allowSilentEmptyRun || publishedMidTurnUserMessage,
+              allowSilentEmpty: allowSilentEmptyRun || reply.publishedMidTurnUserMessage,
               emptyResponseText,
-              suppressOutput: handedOff || isBackgroundRunTrigger(run.trigger),
-              skipEmptyFallback: publishedTerminalSubagent || publishedMidTurnUserMessage,
+              suppressOutput: state.handedOff || isBackgroundRunTrigger(run.trigger),
+              skipEmptyFallback:
+                reply.publishedTerminalSubagent || reply.publishedMidTurnUserMessage,
             });
           }
-          const blocks = handedOff
+          const blocks = state.handedOff
             ? []
             : finalBlocksAfterMidTurnProgress(
                 redactBlocks(completionBlocks, runSecrets),
-                publishedMidTurnUserMessage || runAllowsSilentEmpty(run.trigger),
+                reply.publishedMidTurnUserMessage || runAllowsSilentEmpty(run.trigger),
               );
-          const text = handedOff
+          const text = state.handedOff
             ? ""
             : redactSecrets(completionNotificationBody(silentReply.assembled, blocks), runSecrets);
           if (containsSecret(text, runSecrets)) {
@@ -4962,7 +4822,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           // empty notice. That is a missed final answer or a swallowed provider
           // failure, not a successful delegated summary.
           if (
-            !handedOff &&
+            !state.handedOff &&
             !silentReply.assembled.trim() &&
             emptyDelegatedToolTurnShouldFail(completionBlocks)
           ) {
@@ -4971,9 +4831,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (!(await renewRunLease(deps, runId, workerId, fence))) return;
           const botMessageOutcome =
             run.trigger === "bot_message"
-              ? botMessageOutcomeFromMidTurn(text, midTurnUserTexts)
+              ? botMessageOutcomeFromMidTurn(text, reply.midTurnUserTexts)
               : null;
-          await settleRunningHelpers();
+          await settleHelpers();
           const completed = await deps.events.finalizeRun({
             spaceId: run.spaceId,
             threadId: thread.id,
@@ -4996,7 +4856,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           if (run.trigger === "routine" && run.routineId) {
             await clearRoutineBackoff(deps, run.routineId);
           }
-          if (screenRelease) screenRelease.keepWarm = true;
+          if (computerUse.screenRelease) computerUse.screenRelease.keepWarm = true;
           if (completed.continuationRunId) {
             await deps.jobs
               .enqueue(runContinueJob(completed.continuationRunId))
@@ -5064,25 +4924,28 @@ export function createRunExecutor(deps: ExecutorDeps) {
             if (!(computerError instanceof SandboxRateLimitError)) throw computerError;
             error = computerError;
           }
-          if (!terminalCheckpointComplete) {
+          if (!state.terminalCheckpointComplete) {
             await workspaceCheckpoint.flush().catch(() => undefined);
           }
           const message = redactSecrets(userRunError(error), runSecrets);
           // Reply text the user watched stream in since the last saved message stays in the
           // thread, above the error, instead of vanishing with the live row.
-          recordExplicitNoResponse(assistantTurnText);
+          recordExplicitNoResponse(reply, reply.assistantTurnText);
           const partialText =
-            scripted || handedOff || explicitNoResponse || !runPromotesMidTurnNarration(run.trigger)
+            scripted ||
+            state.handedOff ||
+            reply.explicitNoResponse ||
+            !runPromotesMidTurnNarration(run.trigger)
               ? ""
               : redactSecrets(
-                  extractNarrationText(messageSegments, currentTextSegment).text,
+                  extractNarrationText(reply.messageSegments, reply.currentTextSegment).text,
                   runSecrets,
                 ).trim();
           const partialReply =
             partialText && !containsSecret(partialText, runSecrets)
               ? [{ kind: "text" as const, text: partialText }]
               : [];
-          await settleRunningHelpers();
+          await settleHelpers();
           const failed = await deps.events.finalizeRun({
             spaceId: run.spaceId,
             threadId: thread.id,
@@ -5216,19 +5079,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
         getLogger().info("run.computer", {
           "run.id": runId,
           trigger: run.trigger,
-          reason: computerUseReason,
-          tool: computerUseTool,
-          ready: Boolean(screenRelease),
+          reason: computerUse.reason,
+          tool: computerUse.tool,
+          ready: Boolean(computerUse.screenRelease),
         });
         detachShutdown?.();
         clearInterval(heartbeat);
-        if (!retainComputerLease) {
-          if (screenRelease) {
-            const releaseContext = screenRelease.keepWarm
-              ? { ...screenRelease.context, keepScreenWarm: true }
-              : screenRelease.context;
+        if (!lease.retainComputer) {
+          if (computerUse.screenRelease) {
+            const releaseContext = computerUse.screenRelease.keepWarm
+              ? { ...computerUse.screenRelease.context, keepScreenWarm: true }
+              : computerUse.screenRelease.context;
             await deps.sandbox
-              .releaseScreen?.(screenRelease.computer, releaseContext)
+              .releaseScreen?.(computerUse.screenRelease.computer, releaseContext)
               .catch(() => undefined);
           }
           await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
@@ -5239,7 +5102,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             data: { status: "interrupted", finishedAt: new Date() },
           })
           .catch(() => undefined);
-        await settleRunningHelpers();
+        await settleHelpers();
       }
     },
   };
