@@ -67,9 +67,14 @@ const BOAT_WORKSPACE = "/home/user/rakazo-home";
 const downloadServers = new Map<string, FakeBoatApi>();
 let downloadCount = 0;
 
-/** What a fake sandbox serves at `url`, or nothing when no fake handed that URL out. */
+/**
+ * What a fake sandbox serves at `url`, or nothing when no fake handed that URL out. Each URL is
+ * served once, so finished tests do not keep their fakes and files alive.
+ */
 export function serveFakeBoatDownload(url: string): Response | undefined {
-  return downloadServers.get(url)?.serveDownload(url);
+  const server = downloadServers.get(url);
+  downloadServers.delete(url);
+  return server?.serveDownload(url);
 }
 
 /**

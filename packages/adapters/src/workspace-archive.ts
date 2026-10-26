@@ -176,21 +176,24 @@ class ByteReader {
   async read(size: number): Promise<Uint8Array>;
   async read(size: number, endOk: true): Promise<Uint8Array | undefined>;
   async read(size: number, endOk = false): Promise<Uint8Array | undefined> {
-    const out = new Uint8Array(size);
+    // Memory follows the bytes that arrived, never a size the header merely claims.
+    const parts: Buffer[] = [];
     let filled = 0;
     while (filled < size) {
       if (!(await this.fill())) {
         if (endOk && filled === 0) return undefined;
         throw new Error("Workspace archive ended early");
       }
-      const copied = this.current.copy(
-        out,
-        filled,
-        0,
-        Math.min(size - filled, this.current.length),
-      );
-      filled += copied;
-      this.current = this.current.subarray(copied);
+      const part = this.current.subarray(0, Math.min(size - filled, this.current.length));
+      parts.push(part);
+      filled += part.length;
+      this.current = this.current.subarray(part.length);
+    }
+    const out = new Uint8Array(size);
+    let offset = 0;
+    for (const part of parts) {
+      out.set(part, offset);
+      offset += part.length;
     }
     return out;
   }

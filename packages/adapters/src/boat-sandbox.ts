@@ -1594,7 +1594,7 @@ const BOAT_ARCHIVE_TOLERATED_ERRORS = [
  * files and symbolic links are never selected. A file that vanished or changed mid-archive is
  * tolerated as the listing tolerates one that vanished mid-walk; any other error fails it.
  */
-function archiveBoatWorkspaceCommand(archive: string): string {
+export function archiveBoatWorkspaceCommand(archive: string, workspace = BOAT_WORKSPACE): string {
   const skipped = [...SKIPPED_BROWSER_PROFILE_DIRECTORIES]
     .map((name) => `-name ${shellQuote(name)}`)
     .join(" -o ");
@@ -1605,7 +1605,7 @@ function archiveBoatWorkspaceCommand(archive: string): string {
     `archive=${shellQuote(archive)}`,
     // Archives an interrupted export left behind.
     `find /tmp -maxdepth 1 -name '${path.basename(BOAT_ARCHIVE_PREFIX)}*' -mmin +60 -delete 2>/dev/null`,
-    `cd ${shellQuote(BOAT_WORKSPACE)} || exit 2`,
+    `cd ${shellQuote(workspace)} || exit 2`,
     'exec 3> "$archive.list" || exit 2',
     // Names start with `./`, so tar never reads one as an option.
     "(",
