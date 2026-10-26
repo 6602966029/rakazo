@@ -1,6 +1,7 @@
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import type { ModelConnectInput, ModelCredential, ThinkingLevel } from "@rakazo/contracts";
 import {
+  assertHeaderSafeApiKey,
   OPENAI_COMPATIBLE_PROVIDER_ID as CONTRACT_OPENAI_COMPAT,
   canonicalPiProviderId,
   cloudflareModelConfigMessage,
@@ -76,6 +77,7 @@ export function buildModelConnectPlaintext(
   if (input.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
     const policy = { allowPrivate: options?.allowPrivateEndpoint };
     const prepared = prepareOpenAiCompatibleConnect(input, policy);
+    assertHeaderSafeApiKey(prepared.apiKey);
     const sameEndpoint =
       previous?.kind === "openai_compatible" && previous.baseUrl === prepared.baseUrl;
     const compatiblePrevious = sameEndpoint ? previous : undefined;
@@ -169,6 +171,7 @@ export function buildModelConnectPlaintext(
   const routing = cloudflareRoutingForConnect(input, previous);
   if (apiKey) {
     if (apiKey.length < 8) throw new Error("API key must contain at least 8 characters");
+    assertHeaderSafeApiKey(apiKey);
     return serializeModelSecret({
       kind: "api_key",
       key: apiKey,
