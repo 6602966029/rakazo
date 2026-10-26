@@ -265,7 +265,7 @@ export function AskCard({
               // Approvals match the other cards' buttons and wrap long site names; options are rows.
               className={
                 approvalActions
-                  ? "h-auto min-h-8 min-w-0 whitespace-normal py-1.5 text-start"
+                  ? "h-auto min-h-8 min-w-0 whitespace-normal py-1 text-start"
                   : "h-auto w-full min-w-0 justify-start whitespace-normal px-3.5 py-3 text-start font-normal"
               }
               disabled={submitting}
