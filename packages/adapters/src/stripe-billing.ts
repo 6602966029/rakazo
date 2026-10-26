@@ -93,6 +93,7 @@ export class StripeBillingProvider implements BillingProvider {
   private readonly apiBase: string;
   private readonly now: () => number;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly monthlyPrices = new Map<string, string>();
 
   constructor(config: StripeBillingConfig) {
     this.config = config;
@@ -296,6 +297,18 @@ export class StripeBillingProvider implements BillingProvider {
   }
 
   private async monthlyPrice(
+    lookupKey: string,
+    amountCents: number,
+    productName: string,
+  ): Promise<string> {
+    const cached = this.monthlyPrices.get(lookupKey);
+    if (cached) return cached;
+    const id = await this.findOrCreateMonthlyPrice(lookupKey, amountCents, productName);
+    this.monthlyPrices.set(lookupKey, id);
+    return id;
+  }
+
+  private async findOrCreateMonthlyPrice(
     lookupKey: string,
     amountCents: number,
     productName: string,
