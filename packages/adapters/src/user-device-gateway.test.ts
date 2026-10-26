@@ -96,7 +96,7 @@ function fakePrisma() {
         return { ...row, device: { name: device.name, platform: device.platform } };
       },
     },
-    $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
+    $transaction: (run: (tx: unknown) => Promise<unknown>) => run(prisma),
   };
   return { prisma: prisma as unknown as PrismaClient, deviceRows: devices, connections };
 }

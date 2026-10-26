@@ -64,7 +64,7 @@ function fakePrisma() {
     securityEvent: {
       create: async ({ data }: { data: (typeof events)[number] }) => events.push(data),
     },
-    $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
+    $transaction: (run: (tx: unknown) => Promise<unknown>) => run(prisma),
   };
   return { prisma: prisma as unknown as PrismaClient, rows, events };
 }

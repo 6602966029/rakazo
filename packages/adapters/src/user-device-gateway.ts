@@ -205,8 +205,8 @@ export class UserDeviceHub {
     });
     const now = new Date();
     await runAsSystem("record a user device connection", () =>
-      this.deps.prisma.$transaction([
-        this.deps.prisma.userDeviceConnection.upsert({
+      this.deps.prisma.$transaction(async (tx) => {
+        await tx.userDeviceConnection.upsert({
           where: { deviceId: device.id },
           create: {
             deviceId: device.id,
@@ -216,12 +216,9 @@ export class UserDeviceHub {
             heartbeatAt: now,
           },
           update: { connectionId, address: this.address, connectedAt: now, heartbeatAt: now },
-        }),
-        this.deps.prisma.userDevice.update({
-          where: { id: device.id },
-          data: { lastSeenAt: now },
-        }),
-      ]),
+        });
+        await tx.userDevice.update({ where: { id: device.id }, data: { lastSeenAt: now } });
+      }),
     );
     return connectionId;
   }
@@ -377,21 +374,21 @@ export class UserDeviceHub {
     if (!live.length) return;
     try {
       const now = new Date();
-      const [, , revoked] = await runAsSystem("refresh user device connections", () =>
-        this.deps.prisma.$transaction([
-          this.deps.prisma.userDeviceConnection.updateMany({
+      const revoked = await runAsSystem("refresh user device connections", () =>
+        this.deps.prisma.$transaction(async (tx) => {
+          await tx.userDeviceConnection.updateMany({
             where: { connectionId: { in: live.map((entry) => entry.connectionId) } },
             data: { heartbeatAt: now },
-          }),
-          this.deps.prisma.userDevice.updateMany({
+          });
+          await tx.userDevice.updateMany({
             where: { id: { in: live.map((entry) => entry.device.id) } },
             data: { lastSeenAt: now },
-          }),
-          this.deps.prisma.userDevice.findMany({
+          });
+          return tx.userDevice.findMany({
             where: { id: { in: live.map((entry) => entry.device.id) }, revokedAt: { not: null } },
             select: { id: true },
-          }),
-        ]),
+          });
+        }),
       );
       // A revoke whose direct disconnect did not reach this process still closes here.
       for (const device of revoked) this.disconnect(device.id);
