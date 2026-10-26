@@ -12,6 +12,7 @@ import {
   GeneratedSecretRules,
   GenerateSecretInput,
   isPrivateNetworkHost,
+  loginCommandName,
   SecretHttpRequest,
 } from "@rakazo/contracts";
 import type { Prisma, PrismaClient } from "@rakazo/db";
@@ -468,9 +469,30 @@ export async function storeBotSecret(input: Parameters<typeof prepareBotSecret>[
   });
 }
 
+/** Save a generated login and the command variable holding its password together, or neither. */
+async function storeLoginWithCommand(
+  login: Parameters<typeof prepareBotSecret>[0],
+  command: Parameters<typeof prepareBotSecret>[0],
+) {
+  const { prisma, secretStore } = login;
+  await withTransactionRetry(async () => {
+    const preparedLogin = await prepareBotSecret(login);
+    // Prepared inside, so a refused command variable still cleans up the login's stored value.
+    await persistPreparedSecret(prisma, secretStore, preparedLogin, async () => {
+      const preparedCommand = await prepareBotSecret(command);
+      await persistPreparedSecret(prisma, secretStore, preparedCommand, () =>
+        prisma.$transaction(async (tx) => {
+          await preparedLogin.store(tx);
+          await preparedCommand.store(tx);
+        }),
+      );
+    });
+  });
+}
+
 /**
  * Generate a random value and save it as a new login (with its username, for one site) or a
- * command variable. Only its redaction forms are returned, for the run to hide; the model sees
+ * command variable. A login can also save its password as a command variable, for a CLI. Only its redaction forms are returned, for the run to hide; the model sees
  * the saved name, never the value. An existing credential is never overwritten: a site or
  * service may already use its value.
  */
@@ -493,6 +515,9 @@ export async function generateBotSecret(input: {
     credential: { name, origin, auth: { type } },
   });
   if (!destination) return { result: { error } };
+  const command: BotSecretDestination | undefined = parsed.data.command
+    ? { name: loginCommandName(name), origin: "", auth: { type: "command" } }
+    : undefined;
   const existing = await findBotSecret(input.prisma, input.scope, name);
   if (existing) {
     return {
@@ -507,18 +532,34 @@ export async function generateBotSecret(input: {
         : { error: "A credential with this name already exists. Use another name." },
     };
   }
-  const value = generateSecretValue(parsed.data.rules ?? GeneratedSecretRules.parse({}));
-  try {
-    await storeBotSecret({
-      prisma: input.prisma,
-      secretStore: input.secretStore,
-      scope: input.scope,
-      destination,
-      plaintext: username ? encodeLoginSecret({ username, password: value }) : value,
-      createOnly: true,
-    });
+  if (command && (await findBotSecret(input.prisma, input.scope, command.name))) {
     return {
-      result: { saved: true, ...botSecretToolView(destination) },
+      result: {
+        error: `A credential named ${command.name} already exists. Use another name for the login.`,
+      },
+    };
+  }
+  const value = generateSecretValue(parsed.data.rules ?? GeneratedSecretRules.parse({}));
+  const save = {
+    prisma: input.prisma,
+    secretStore: input.secretStore,
+    scope: input.scope,
+    createOnly: true,
+  };
+  const plaintext = username ? encodeLoginSecret({ username, password: value }) : value;
+  try {
+    if (command) {
+      await storeLoginWithCommand(
+        { ...save, destination, plaintext },
+        { ...save, destination: command, plaintext: value },
+      );
+    } else await storeBotSecret({ ...save, destination, plaintext });
+    return {
+      result: {
+        saved: true,
+        ...botSecretToolView(destination),
+        ...(command ? { command: botSecretToolView(command) } : {}),
+      },
       redactions: passwordRedactionForms(value),
     };
   } catch (error) {

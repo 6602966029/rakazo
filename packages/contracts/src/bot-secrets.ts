@@ -262,10 +262,19 @@ export const GenerateSecretInput = z
     type: z.enum(["login", "command"]),
     origin: z.string().min(1).max(2048).optional(),
     username: LoginSecretValue.shape.username.optional(),
+    // A login's password also saved as the command variable `<name>-password`, for a CLI.
+    command: z.boolean().optional(),
     rules: GeneratedSecretRules.optional(),
   })
   .superRefine((input, ctx) => {
     if (input.type === "command") {
+      if (input.command !== undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["command"],
+          message: "Only a login can also be saved as a command variable",
+        });
+      }
       if (input.origin !== undefined || input.username !== undefined) {
         ctx.addIssue({
           code: "custom",
@@ -281,7 +290,19 @@ export const GenerateSecretInput = z
     if (input.username === undefined) {
       ctx.addIssue({ code: "custom", path: ["username"], message: "A login needs a username" });
     }
+    if (input.command && !BotSecretName.safeParse(loginCommandName(input.name)).success) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["name"],
+        message: "Use a name of at most 55 characters to also save a command variable",
+      });
+    }
   });
+
+/** The command variable a generated login's password is also saved as. */
+export function loginCommandName(loginName: string): string {
+  return `${loginName}-password`;
+}
 export type GenerateSecretInput = z.infer<typeof GenerateSecretInput>;
 
 /** Written atomically with the protected value, distinct from action approval. */

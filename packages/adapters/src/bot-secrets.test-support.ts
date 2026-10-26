@@ -56,10 +56,19 @@ export function fakeDatabase() {
     integrationProviderConfig: { count: vi.fn(async () => 0) },
     $queryRaw: vi.fn(async () => []),
   };
-  // One transaction at a time, as the bot row lock serializes them in Postgres.
+  // One transaction at a time, as the bot row lock serializes them in Postgres, and a failed
+  // one leaves the rows as they were.
   let queue: Promise<unknown> = Promise.resolve();
   client.$transaction = (fn: (tx: unknown) => Promise<unknown>) => {
-    const next = queue.then(() => fn(client));
+    const next = queue.then(async () => {
+      const before = rows.map((row) => ({ ...row }));
+      try {
+        return await fn(client);
+      } catch (error) {
+        rows = before;
+        throw error;
+      }
+    });
     queue = next.catch(() => undefined);
     return next;
   };
