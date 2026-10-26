@@ -78,22 +78,8 @@ export function mountUserDeviceRoutes(app: Hono, deps: UserDeviceRouteDeps) {
   app.get(USER_DEVICE_PATH, async (c) => {
     const userId = await deps.sessionUserId(c.req.raw);
     if (!userId) return c.json({ error: "Unauthorized" }, 401);
-    const [devices, connected] = await Promise.all([
-      runAsSystem("list a user's devices", () =>
-        prisma.userDevice.findMany({
-          where: { userId, revokedAt: null },
-          orderBy: { createdAt: "desc" },
-          select: { id: true, name: true },
-        }),
-      ),
-      deps.devices.connected(userId),
-    ]);
     return c.json({
-      devices: devices.map((device) => ({
-        deviceId: device.id,
-        name: device.name,
-        connected: connected?.deviceId === device.id,
-      })),
+      devices: await deps.devices.list(userId),
     } satisfies UserDeviceList);
   });
 

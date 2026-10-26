@@ -195,6 +195,66 @@ describe("user device client", () => {
     expect(received.filter((frame) => frame.id === "b")).toEqual([]);
   });
 
+  it("stops running commands and refuses waiting requests on cancelAll, and keeps serving", async () => {
+    let answer: (allowed: boolean) => void = () => undefined;
+    let ask = false;
+    start(() =>
+      ask ? new Promise<boolean>((resolve) => (answer = resolve)) : Promise.resolve(true),
+    );
+    const ws = await connection();
+    const received = frames(ws);
+    ws.send(
+      JSON.stringify({ type: "request", id: "p", request: { method: "provision", botId: "bot" } }),
+    );
+    await until(() => received.some((frame) => frame.id === "p" && "done" in frame.frame));
+    ws.send(
+      JSON.stringify({
+        type: "request",
+        id: "long",
+        request: {
+          method: "execute",
+          botId: "bot",
+          command: {
+            env: nodeEnv,
+            argv: [process.execPath, "-e", "console.log('started'); setInterval(() => {}, 1000)"],
+          },
+        },
+      }),
+    );
+    await until(() =>
+      received.some(
+        (frame) =>
+          frame.id === "long" && (frame.frame.value as { type?: string })?.type === "stdout",
+      ),
+    );
+    ask = true;
+    ws.send(
+      JSON.stringify({
+        type: "request",
+        id: "wait",
+        request: { method: "provision", botId: "bot" },
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    client!.cancelAll();
+    await until(() => received.some((frame) => frame.id === "long" && "error" in frame.frame));
+    await until(() => received.some((frame) => frame.id === "wait"));
+    expect(received.find((frame) => frame.id === "wait")?.frame).toEqual({
+      error: "Not allowed on this computer",
+    });
+    answer(true);
+    ask = false;
+    ws.send(
+      JSON.stringify({
+        type: "request",
+        id: "env",
+        request: { method: "environment", botId: "x" },
+      }),
+    );
+    await until(() => received.some((frame) => frame.id === "env" && "done" in frame.frame));
+    expect(received.filter((frame) => frame.id === "wait")).toHaveLength(1);
+  });
+
   it("ignores malformed messages and refuses oversized ones by reconnecting", async () => {
     start();
     const ws = await connection();

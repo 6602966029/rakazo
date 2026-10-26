@@ -116,3 +116,27 @@ it("reports a failed removal", async () => {
   );
   expect(host.querySelector('[role="alert"]')?.textContent).toBe("Could not remove");
 });
+
+it("shows every connected computer as connected", async () => {
+  vi.mocked(listUserDevices).mockResolvedValue([laptop, { ...desk, connected: true }]);
+  await act(async () => root.render(<ComputerDeviceSettings />));
+  expect(host.textContent).toContain("LaptopConnected");
+  expect(host.textContent).toContain("Desk PCConnected");
+});
+
+it("stays off and reports it when turning this computer on fails", async () => {
+  vi.mocked(listUserDevices).mockResolvedValue([]);
+  const device = {
+    state: vi.fn(async () => ({ deviceId: null, name: "Laptop", allowed: false })),
+    setAllowed: vi.fn(async () => {
+      throw new Error("Could not pair this computer");
+    }),
+  };
+  desktopWith(device);
+  await act(async () => root.render(<ComputerDeviceSettings />));
+  const toggle = host.querySelector<HTMLInputElement>('[data-testid="this-computer-toggle"]')!;
+  await act(async () => toggle.click());
+  expect(device.setAllowed).toHaveBeenCalledWith(true);
+  expect(toggle.checked).toBe(false);
+  expect(host.querySelector('[role="alert"]')?.textContent).toBe("Could not change");
+});

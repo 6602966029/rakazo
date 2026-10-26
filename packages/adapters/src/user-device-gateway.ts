@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 import type { IncomingMessage } from "node:http";
 import { networkInterfaces } from "node:os";
 import type { Duplex } from "node:stream";
+import type { UserDeviceSummary } from "@rakazo/contracts";
 import { USER_DEVICE_CONNECT_PATH } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { runAsSystem } from "@rakazo/db";
@@ -416,6 +417,29 @@ export class UserDevices implements UserDeviceGateway {
   async connected(userId: string): Promise<UserDevice | null> {
     const route = await this.route(userId);
     return route && { deviceId: route.deviceId, name: route.name, platform: route.platform };
+  }
+
+  /** The user's paired devices, newest first, each with its own live connection. */
+  async list(userId: string): Promise<UserDeviceSummary[]> {
+    const devices = await runAsSystem("list a user's devices", () =>
+      this.deps.prisma.userDevice.findMany({
+        where: { userId, revokedAt: null },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          connections: {
+            where: { heartbeatAt: { gt: new Date(Date.now() - STALE_AFTER_MS) } },
+            select: { deviceId: true },
+          },
+        },
+      }),
+    );
+    return devices.map((device) => ({
+      deviceId: device.id,
+      name: device.name,
+      connected: device.connections.length > 0,
+    }));
   }
 
   async hasDevice(userId: string): Promise<boolean> {

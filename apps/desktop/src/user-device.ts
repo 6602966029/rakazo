@@ -122,13 +122,15 @@ export function createUserDeviceAccess(deps: {
     origin: string,
     token: string,
     events: { onRevoked: () => void; authorize: () => Promise<boolean> },
-  ) => { close(): void };
+  ) => { close(): void; cancelAll(): void };
 }) {
   let current: string | null = null;
   let generation = 0;
-  let client: { origin: string; close(): void } | undefined;
+  let client: { origin: string; close(): void; cancelAll(): void } | undefined;
   const paired = new Map<string, string | null>();
   const consent = new Map<string, DeviceConsent | null>();
+  /** Bumped on every consent change, so a prompt answered after one is ignored. */
+  const changes = new Map<string, number>();
   const unavailable = new Set<string>();
   const prompts = new Map<string, Promise<boolean>>();
   const pairings = new Map<string, Promise<void>>();
@@ -140,7 +142,11 @@ export function createUserDeviceAccess(deps: {
 
   function start(origin: string, token: string) {
     disconnect();
-    const active = { origin, close: () => connection.close() };
+    const active = {
+      origin,
+      close: () => connection.close(),
+      cancelAll: () => connection.cancelAll(),
+    };
     const connection = deps.connect(origin, token, {
       // Revoked by the server or its token was rejected: stay unpaired until turned back on.
       onRevoked: () => {
@@ -156,17 +162,17 @@ export function createUserDeviceAccess(deps: {
 
   async function decide(origin: string, choice: DeviceConsent) {
     consent.set(origin, choice);
+    changes.set(origin, (changes.get(origin) ?? 0) + 1);
     await saveDeviceConsent(deps.userDataDir, origin, choice);
   }
 
   function ask(origin: string) {
     let prompt = prompts.get(origin);
     if (!prompt) {
-      prompt = (async () => {
-        const allowed = await deps.confirm(new URL(origin).host).catch(() => false);
-        await decide(origin, allowed ? "allowed" : "declined").catch(() => undefined);
-        return allowed;
-      })().finally(() => prompts.delete(origin));
+      prompt = deps
+        .confirm(new URL(origin).host)
+        .catch(() => false)
+        .finally(() => prompts.delete(origin));
       prompts.set(origin, prompt);
     }
     return prompt;
@@ -174,20 +180,23 @@ export function createUserDeviceAccess(deps: {
 
   async function authorize(origin: string) {
     const choice = consent.get(origin);
-    if (choice === "allowed") return true;
-    if (choice === "declined") return false;
-    return ask(origin);
+    if (choice) return choice === "allowed";
+    const seen = changes.get(origin);
+    const allowed = await ask(origin);
+    // Turned off, revoked, or already answered while the prompt was open.
+    if (changes.get(origin) !== seen) return consent.get(origin) === "allowed";
+    await decide(origin, allowed ? "allowed" : "declined").catch(() => undefined);
+    return allowed;
   }
 
   function pair() {
     const origin = current;
-    if (
-      origin === null ||
-      paired.has(origin) ||
-      unavailable.has(origin) ||
-      consent.get(origin) === "declined"
-    )
-      return Promise.resolve();
+    if (origin === null || consent.get(origin) === "declined") return Promise.resolve();
+    return pairOnce(origin);
+  }
+
+  function pairOnce(origin: string) {
+    if (paired.has(origin) || unavailable.has(origin)) return Promise.resolve();
     let pairing = pairings.get(origin);
     if (!pairing) {
       pairing = pairWith(origin).finally(() => pairings.delete(origin));
@@ -288,19 +297,27 @@ export function createUserDeviceAccess(deps: {
       if (origin !== current) return null;
       return {
         deviceId: paired.get(origin) ?? null,
-        allowed: consent.get(origin) === "allowed",
+        allowed: consent.get(origin) === "allowed" && paired.has(origin),
       };
     },
-    /** Turning it on asks with the native prompt; turning it off stops every request and prompt. */
+    /**
+     * Turning it on asks with the native prompt and keeps the answer only once this computer is
+     * paired; turning it off stops every running and waiting request.
+     */
     async setAllowed(origin: string, allowed: boolean) {
       if (origin !== current) return;
       if (!allowed) {
         await decide(origin, "declined");
+        if (client?.origin === origin) client.cancelAll();
         return;
       }
+      const seen = changes.get(origin);
       if (consent.get(origin) !== "allowed" && !(await ask(origin))) return;
+      if (changes.get(origin) !== seen && consent.get(origin) !== "allowed") return;
       unavailable.delete(origin);
-      await pair();
+      await pairOnce(origin);
+      if (!paired.has(origin)) throw new Error("Could not pair this computer");
+      await decide(origin, "allowed");
     },
     close() {
       ++generation;

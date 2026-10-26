@@ -83,6 +83,7 @@ describe("remote computer access", () => {
       origin: string;
       token: string;
       closed: boolean;
+      cancelled: number;
       revoke: () => void;
       authorize: () => Promise<boolean>;
     }[] = [];
@@ -102,6 +103,7 @@ describe("remote computer access", () => {
           origin: serverOrigin,
           token,
           closed: false,
+          cancelled: 0,
           revoke: events.onRevoked,
           authorize: events.authorize,
         };
@@ -109,6 +111,9 @@ describe("remote computer access", () => {
         return {
           close: () => {
             client.closed = true;
+          },
+          cancelAll: () => {
+            client.cancelled += 1;
           },
         };
       },
@@ -180,6 +185,58 @@ describe("remote computer access", () => {
     expect(await clients[0]!.authorize()).toBe(false);
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: false });
+  });
+
+  it("stops running and waiting work, but keeps the connection, when turned off", async () => {
+    await saveDeviceConsent(userData, origin, "allowed");
+    const { access, clients } = setup();
+    await access.select(origin);
+    await access.pair();
+    await access.setAllowed(origin, false);
+    expect(clients).toMatchObject([{ closed: false, cancelled: 1 }]);
+    expect(await clients[0]!.authorize()).toBe(false);
+  });
+
+  it("ignores a prompt answered after access was turned off or revoked", async () => {
+    let answer: (allowed: boolean) => void = () => undefined;
+    const confirm = vi.fn(() => new Promise<boolean>((resolve) => (answer = resolve)));
+    const { access, clients, requests } = setup({ confirm });
+    await access.select(origin);
+    await access.pair();
+    const waiting = clients[0]!.authorize();
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+    await access.setAllowed(origin, false);
+    answer(true);
+    expect(await waiting).toBe(false);
+    expect(await readDeviceConsent(userData, origin)).toBe("declined");
+
+    const turningOn = access.setAllowed(origin, true);
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalledTimes(2));
+    clients[0]!.revoke();
+    answer(true);
+    await turningOn;
+    expect(await readDeviceConsent(userData, origin)).toBe("declined");
+    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false });
+    expect(requests.filter(({ url }) => url.endsWith("/pair"))).toHaveLength(1);
+  });
+
+  it("fails turning on and stays off when pairing fails", async () => {
+    await saveDeviceConsent(userData, origin, "declined");
+    let status = 409;
+    const fetch = vi.fn(async () =>
+      status === 200
+        ? Response.json({ deviceId: "device-1", token: "device-token" })
+        : new Response(null, { status }),
+    );
+    const { access, clients } = setup({ fetch });
+    await access.select(origin);
+    await expect(access.setAllowed(origin, true)).rejects.toThrow();
+    expect(access.state(origin)).toEqual({ deviceId: null, allowed: false });
+    expect(await readDeviceConsent(userData, origin)).toBe("declined");
+    status = 200;
+    await access.setAllowed(origin, true);
+    expect(access.state(origin)).toEqual({ deviceId: "device-1", allowed: true });
+    expect(clients).toHaveLength(1);
   });
 
   it("ignores a page asking for a server it no longer shows", async () => {

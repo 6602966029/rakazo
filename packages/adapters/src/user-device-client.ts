@@ -11,6 +11,7 @@ import { userDeviceServerMessage } from "./user-device-protocol.js";
 export const USER_DEVICE_MAX_MESSAGE_BYTES = HOST_COMPUTER_MAX_BYTES + 4096;
 const PING_INTERVAL_MS = 30_000;
 const BUSY_MESSAGE = "Local computer is busy. Try again shortly.";
+const NOT_ALLOWED_MESSAGE = "Not allowed on this computer";
 
 export interface UserDeviceClientOptions {
   serverUrl: string;
@@ -25,7 +26,8 @@ export interface UserDeviceClientOptions {
 
 /**
  * Connects outbound to a Rakazo server so its bots can use this computer. The server never
- * connects in. Runs only while started; `close` stops every command and the connection.
+ * connects in. Runs only while started; `close` stops every command and the connection, and
+ * `cancelAll` stops every command and refuses requests still waiting on `authorize`.
  */
 export function startUserDeviceClient(options: UserDeviceClientOptions) {
   const retry = options.retryMs ?? { min: 1_000, max: 60_000 };
@@ -37,6 +39,7 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
   let attempt = 0;
   let socket: WebSocket | undefined;
   let reconnectTimer: NodeJS.Timeout | undefined;
+  let refuseWaiting: (() => void) | undefined;
 
   function stop() {
     if (stopped) return;
@@ -44,6 +47,13 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
     clearTimeout(reconnectTimer);
     runner.close();
     socket?.terminate();
+  }
+
+  function cancelAll() {
+    if (stopped) return;
+    refuseWaiting?.();
+    runner.setEnabled(false);
+    runner.setEnabled(true);
   }
 
   function revoked() {
@@ -79,6 +89,11 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
     let alive = true;
     let openedAt = 0;
     let ping: NodeJS.Timeout | undefined;
+    refuseWaiting = () => {
+      for (const id of authorizing)
+        void send(id, { error: NOT_ALLOWED_MESSAGE }).catch(() => undefined);
+      authorizing.clear();
+    };
 
     ws.on("unexpected-response", (request, response) => {
       request.destroy();
@@ -109,7 +124,10 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
       // A lost response is never retried, so in-flight work stops with the connection.
       for (const { call } of calls.values()) call.abort();
       calls.clear();
-      if (socket === ws) socket = undefined;
+      if (socket === ws) {
+        socket = undefined;
+        refuseWaiting = undefined;
+      }
       if (openedAt && Date.now() - openedAt >= PING_INTERVAL_MS) attempt = 0;
       scheduleReconnect();
     });
@@ -164,7 +182,7 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
       const allowed = await options.authorize().catch(() => false);
       if (!authorizing.delete(id) || socket !== ws) return;
       if (!allowed) {
-        await send(id, { error: "Not allowed on this computer" }).catch(() => undefined);
+        await send(id, { error: NOT_ALLOWED_MESSAGE }).catch(() => undefined);
         return;
       }
       const call = runner.begin();
@@ -195,7 +213,7 @@ export function startUserDeviceClient(options: UserDeviceClientOptions) {
   }
 
   connect();
-  return { close: stop };
+  return { close: stop, cancelAll };
 }
 
 export type UserDeviceClient = ReturnType<typeof startUserDeviceClient>;

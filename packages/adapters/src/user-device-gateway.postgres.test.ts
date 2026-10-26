@@ -82,6 +82,20 @@ describePostgres("user devices (PostgreSQL)", () => {
     });
     await expect(gateway.connected(userId)).resolves.toMatchObject({ deviceId: device.id });
     await expect(gateway.hasDevice(userId)).resolves.toBe(true);
+    await expect(gateway.list(userId)).resolves.toEqual([
+      { deviceId: device.id, name: "Laptop", connected: true },
+    ]);
+    await prisma.userDeviceConnection.update({
+      where: { deviceId: device.id },
+      data: { heartbeatAt: new Date(Date.now() - 10 * 60_000) },
+    });
+    await expect(gateway.list(userId)).resolves.toEqual([
+      { deviceId: device.id, name: "Laptop", connected: false },
+    ]);
+    await prisma.userDeviceConnection.update({
+      where: { deviceId: device.id },
+      data: { heartbeatAt: new Date() },
+    });
     const values: unknown[] = [];
     for await (const value of gateway.request(
       userId,

@@ -26,6 +26,7 @@ interface Row {
 
 function fakePrisma() {
   const rows: Row[] = [];
+  const connections = new Map<string, Date>();
   const events: Array<{ type: string; userId: string | null; metadata: object }> = [];
   const matches = (row: Row, where: Partial<Row>) =>
     Object.entries(where).every(([key, value]) => row[key as keyof Row] === value);
@@ -44,8 +45,24 @@ function fakePrisma() {
         rows.push(row);
         return { id: row.id };
       },
-      findMany: async ({ where }: { where: Partial<Row> }) =>
-        rows.filter((row) => matches(row, where)),
+      findMany: async ({
+        where,
+        select,
+      }: {
+        where: Partial<Row>;
+        select?: { connections?: { where: { heartbeatAt: { gt: Date } } } };
+      }) =>
+        rows
+          .filter((row) => matches(row, where))
+          .map((row) => {
+            const after = select?.connections?.where.heartbeatAt.gt;
+            const heartbeatAt = connections.get(row.id);
+            return {
+              ...row,
+              connections:
+                after && heartbeatAt && heartbeatAt > after ? [{ deviceId: row.id }] : [],
+            };
+          }),
       findUnique: async ({ where }: { where: { tokenHash: string } }) =>
         rows.find((row) => row.tokenHash === where.tokenHash) ?? null,
       update: async () => ({}),
@@ -56,7 +73,8 @@ function fakePrisma() {
       },
     },
     userDeviceConnection: {
-      upsert: async () => ({}),
+      upsert: async ({ create }: { create: { deviceId: string; heartbeatAt: Date } }) =>
+        connections.set(create.deviceId, create.heartbeatAt),
       deleteMany: async () => ({ count: 0 }),
       findFirst: async () => null,
       findUnique: async () => null,
@@ -66,7 +84,7 @@ function fakePrisma() {
     },
     $transaction: (run: (tx: unknown) => Promise<unknown>) => run(prisma),
   };
-  return { prisma: prisma as unknown as PrismaClient, rows, events };
+  return { prisma: prisma as unknown as PrismaClient, rows, events, connections };
 }
 
 class FakeSocket extends EventEmitter implements UserDeviceSocket {
@@ -171,6 +189,29 @@ describe("device pairing", () => {
       expect.objectContaining({ deviceId: "device-1", name: "Laptop", connected: false }),
     ]);
     expect(JSON.stringify(devices)).not.toContain("tokenHash");
+  });
+
+  it("shows each device's own live connection", async () => {
+    const { pair, app, hub, connections } = setup();
+    await pair("user-1");
+    await pair("user-1");
+    await pair("user-1");
+    for (const id of ["device-1", "device-2"])
+      await hub.attach(
+        { id, userId: "user-1", name: "Laptop", platform: "darwin" },
+        new FakeSocket(),
+      );
+    connections.set("device-2", new Date(Date.now() - 10 * 60_000));
+    const response = await app.request("/api/devices", { headers: { "x-test-user": "user-1" } });
+    const { devices } = await response.json();
+    expect(
+      Object.fromEntries(
+        devices.map((device: { deviceId: string; connected: boolean }) => [
+          device.deviceId,
+          device.connected,
+        ]),
+      ),
+    ).toEqual({ "device-1": true, "device-2": false, "device-3": false });
   });
 });
 
