@@ -34,7 +34,12 @@ import {
   TicketSchema,
   UpdateTicketInput,
 } from "./board.js";
-import { BotSecretMetadata, BotSecretPutInput, StoredBotSecretName } from "./bot-secrets.js";
+import {
+  BotSecretMetadata,
+  BotSecretPutInput,
+  StoredBotSecretName,
+  VaultPutInput,
+} from "./bot-secrets.js";
 import {
   ActionApprovalRuleSchema,
   ActionAutoReviewSettingsSchema,
@@ -1188,6 +1193,14 @@ export const appContract = {
     put: oc.input(AgentSecretInputSchema).output(AgentSecretSchema),
     remove: oc.input(z.object({ id: Id })).output(z.object({ ok: z.literal(true) })),
   },
+  vault: {
+    list: oc.input(settingsScopeInput.optional()).output(z.array(BotSecretMetadata)),
+    put: oc.input(VaultPutInput).output(BotSecretMetadata),
+    remove: oc
+      .input(settingsScopeInput.extend({ name: StoredBotSecretName }))
+      .output(z.object({ ok: z.literal(true) })),
+  },
+  /** The vault this Space uses, for apps that predate it. The bot only checks access. */
   botSecrets: {
     list: oc.input(z.object({ botId: Id })).output(z.array(BotSecretMetadata)),
     put: oc.input(BotSecretPutInput).output(BotSecretMetadata),

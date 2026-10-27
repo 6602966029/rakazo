@@ -5,7 +5,7 @@ import { fakeDatabase } from "./bot-secrets.test-support.js";
 import { generateSecretValue } from "./secret-generator.js";
 import { EncryptedSecretStore } from "./secrets.js";
 
-const scope = { userId: "user-1", spaceId: "space-1", botId: "bot-1" };
+const scope = { userId: "user-1", spaceId: "space-1" };
 const secretStore = new EncryptedSecretStore("test-only-encryption-key");
 const signup = {
   name: "example_account",

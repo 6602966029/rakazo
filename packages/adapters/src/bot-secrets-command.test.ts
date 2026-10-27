@@ -15,11 +15,11 @@ import {
   shellCommandEnvironment,
   storeBotSecret,
 } from "./bot-secrets.js";
-import { fakeDatabase } from "./bot-secrets.test-support.js";
+import { accountVault, fakeDatabase } from "./bot-secrets.test-support.js";
 import { DesktopSandboxProvider } from "./desktop-sandbox.js";
 import { EncryptedSecretStore } from "./secrets.js";
 
-const scope = { userId: "user-1", spaceId: "space-1", botId: "bot-1" };
+const scope = { userId: "user-1", spaceId: "space-1" };
 const secretStore = new EncryptedSecretStore("test-only-encryption-key");
 const command = { type: "command" } as const;
 
@@ -175,20 +175,20 @@ describe("list_secrets", () => {
   it("reports an invalid stored command name separately from a reserved one", async () => {
     const db = fakeDatabase();
     const longName = "a".repeat(65);
-    await db.prisma.botSecret.create({
+    await db.prisma.vaultCredential.create({
       data: {
         id: "long-name",
-        ...scope,
+        ...accountVault,
         name: longName,
         origin: "",
         auth: command,
         ciphertext: "unused",
       },
     });
-    await db.prisma.botSecret.create({
+    await db.prisma.vaultCredential.create({
       data: {
         id: "reserved-path",
-        ...scope,
+        ...accountVault,
         name: "path",
         origin: "",
         auth: command,
@@ -257,12 +257,10 @@ describe("shell command environment", () => {
     const db = fakeDatabase();
     await save(db, "good-token", "fake-good-token");
     const bad = "pre\uD800post";
-    await db.prisma.botSecret.create({
+    await db.prisma.vaultCredential.create({
       data: {
         id: "stored-bad",
-        userId: scope.userId,
-        spaceId: scope.spaceId,
-        botId: scope.botId,
+        ...accountVault,
         name: "bad-token",
         origin: "",
         auth: command,
@@ -420,14 +418,23 @@ describe("shell command environment", () => {
     expect((await runCommand()).env).toEqual({});
   });
 
-  it("exports only this bot's command variables", async () => {
+  it("exports the command variables of the vault this Space uses", async () => {
     const db = fakeDatabase();
     await save(db, "cli-token", "fake-cli-token-1");
     await save(db, "api", "fake-bearer-1", {
       origin: "https://api.example.test",
       auth: { type: "bearer" },
     });
-    await save(db, "other-bot-token", "fake-other-1", {}, { ...scope, botId: "bot-2" });
+    const otherSpace = { ...scope, spaceId: "space-2" };
+    // The account vault reaches every Space that has no vault of its own.
+    expect(await loadBotCommandEnvironment(db.prisma, secretStore, otherSpace)).toEqual({
+      CLI_TOKEN: "fake-cli-token-1",
+    });
+    db.useOwnVault("space-2");
+    await save(db, "private-token", "fake-private-1", {}, otherSpace);
+    expect(await loadBotCommandEnvironment(db.prisma, secretStore, otherSpace)).toEqual({
+      PRIVATE_TOKEN: "fake-private-1",
+    });
     expect(await loadBotCommandEnvironment(db.prisma, secretStore, scope)).toEqual({
       CLI_TOKEN: "fake-cli-token-1",
     });

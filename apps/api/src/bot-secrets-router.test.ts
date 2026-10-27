@@ -73,8 +73,10 @@ function botSecretDeps(seed: Row[] = []) {
         return bot ? { ...bot, thread: null, computer: null } : null;
       }),
     },
-    botSecret,
-    $queryRaw: vi.fn(async () => []),
+    vaultCredential: botSecret,
+    spaceSettingOverride: { findUnique: vi.fn(async () => null) },
+    // The member's settings lock always finds the membership row.
+    $queryRaw: vi.fn(async () => [{ locked: 1 }]),
     $transaction: vi.fn(),
   };
   prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
@@ -99,9 +101,9 @@ function botSecretDeps(seed: Row[] = []) {
     dataDir: "/tmp/rakazo-router-test",
   } as unknown as RouterDeps;
   const handler = new RPCHandler(createRouter(deps));
-  async function call(path: "list" | "put" | "remove", input: unknown) {
+  async function call(path: string, input: unknown) {
     const { response } = await handler.handle(
-      new Request(`http://127.0.0.1/rpc/botSecrets/${path}`, {
+      new Request(`http://127.0.0.1/rpc/${path.includes("/") ? path : `botSecrets/${path}`}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ json: input }),
@@ -151,7 +153,7 @@ describe("botSecrets router", () => {
     });
     expect((await call("put", putInput("https://api.example.test"))).status).toBe(200);
     expect(secrets.put).toHaveBeenCalledOnce();
-    expect(prisma.botSecret.create).toHaveBeenCalledOnce();
+    expect(prisma.vaultCredential.create).toHaveBeenCalledOnce();
   });
 
   it("rejects another user's bot and a missing bot before any secret access", async () => {
@@ -175,10 +177,10 @@ describe("botSecrets router", () => {
     );
     expect(secrets.put).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
-    expect(prisma.botSecret.findMany).not.toHaveBeenCalled();
-    expect(prisma.botSecret.create).not.toHaveBeenCalled();
-    expect(prisma.botSecret.update).not.toHaveBeenCalled();
-    expect(prisma.botSecret.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.vaultCredential.findMany).not.toHaveBeenCalled();
+    expect(prisma.vaultCredential.create).not.toHaveBeenCalled();
+    expect(prisma.vaultCredential.update).not.toHaveBeenCalled();
+    expect(prisma.vaultCredential.deleteMany).not.toHaveBeenCalled();
   });
 
   it("lists metadata only, selecting neither the ciphertext nor the row id", async () => {
@@ -187,8 +189,7 @@ describe("botSecrets router", () => {
       {
         id: "row-1",
         userId: "user-1",
-        spaceId: "space-1",
-        botId: "bot-1",
+        spaceId: null,
         name: "github",
         origin: "https://api.github.com",
         auth: { type: "basic", username: "octocat" },
@@ -199,7 +200,7 @@ describe("botSecrets router", () => {
     ]);
     const result = await call("list", { botId: "bot-1" });
     expect(result.status).toBe(200);
-    const select = prisma.botSecret.findMany.mock.calls[0]?.[0].select ?? {};
+    const select = prisma.vaultCredential.findMany.mock.calls[0]?.[0].select ?? {};
     expect(Object.keys(select).sort()).toEqual([
       "auth",
       "createdAt",
@@ -239,7 +240,7 @@ describe("botSecrets router", () => {
       expect.objectContaining({ recordId: expect.any(String) }),
     );
     expect(allowed.rows).toHaveLength(1);
-    expect(allowed.rows[0]).toMatchObject({ userId: "user-1", spaceId: "space-1", botId: "bot-1" });
+    expect(allowed.rows[0]).toMatchObject({ userId: "user-1", spaceId: null });
 
     vi.stubEnv("RAKAZO_SECRETS_ALLOW_PRIVATE_HTTP", "");
     const denied = botSecretDeps();
@@ -340,8 +341,7 @@ describe("botSecrets router", () => {
     const row = (name: string, auth: unknown) => ({
       id: `row-${name}`,
       userId: "user-1",
-      spaceId: "space-1",
-      botId: "bot-1",
+      spaceId: null,
       name,
       origin: "https://api.example.com",
       auth,
@@ -377,8 +377,7 @@ describe("botSecrets router", () => {
       {
         id: "row-lan",
         userId: "user-1",
-        spaceId: "space-1",
-        botId: "bot-1",
+        spaceId: null,
         name: "router",
         origin: "http://192.168.1.20:8080",
         auth: { type: "bearer" },
@@ -405,23 +404,23 @@ describe("botSecrets router", () => {
     const removed = await owned.call("remove", { botId: "bot-1", name: "Legacy Name" });
     expect(removed.status).toBe(200);
     expect(removed.body.json).toEqual({ ok: true });
-    expect(owned.prisma.botSecret.deleteMany).toHaveBeenCalledWith({
-      where: { userId: "user-1", spaceId: "space-1", botId: "bot-1", name: "Legacy Name" },
+    expect(owned.prisma.vaultCredential.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", spaceId: null, name: "Legacy Name" },
     });
 
     const foreign = botSecretDeps();
     const denied = await foreign.call("remove", { botId: "bot-other", name: "Legacy Name" });
     expect(denied.status).toBeGreaterThanOrEqual(400);
-    expect(foreign.prisma.botSecret.deleteMany).not.toHaveBeenCalled();
+    expect(foreign.prisma.vaultCredential.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("removes a credential by name within the owner's bot scope", async () => {
+  it("removes a credential by name from the vault the bot's Space uses", async () => {
     const { prisma, call } = botSecretDeps();
     const result = await call("remove", { botId: "bot-1", name: "router" });
     expect(result.status).toBe(200);
     expect(result.body.json).toEqual({ ok: true });
-    expect(prisma.botSecret.deleteMany).toHaveBeenCalledWith({
-      where: { userId: "user-1", spaceId: "space-1", botId: "bot-1", name: "router" },
+    expect(prisma.vaultCredential.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", spaceId: null, name: "router" },
     });
   });
   it("stores a command variable with no origin and lists it with its type", async () => {
@@ -467,5 +466,36 @@ describe("botSecrets router", () => {
     });
     expect(result.status).toBe(400);
     expect(secrets.put).not.toHaveBeenCalled();
+  });
+});
+
+describe("vault router", () => {
+  const destination = {
+    name: "portal",
+    origin: "https://portal.example.test",
+    auth: { type: "bearer" },
+  };
+
+  it("saves, lists and removes in the account vault by default", async () => {
+    const { rows, call } = botSecretDeps();
+    expect((await call("vault/put", { destination, value: FAKE_VALUE })).status).toBe(200);
+    expect(rows).toEqual([
+      expect.objectContaining({ userId: "user-1", spaceId: null, name: "portal" }),
+    ]);
+    const listed = await call("vault/list", {});
+    expect(listed.body.json).toEqual([expect.objectContaining({ name: "portal" })]);
+    expect(listed.text).not.toContain(FAKE_VALUE);
+    expect((await call("vault/remove", { name: "portal" })).status).toBe(200);
+    expect(rows).toEqual([]);
+  });
+
+  it("keeps a Space's own vault apart from the account vault", async () => {
+    const { rows, call } = botSecretDeps();
+    await call("vault/put", { scope: "space", destination, value: FAKE_VALUE });
+    expect(rows).toEqual([expect.objectContaining({ spaceId: "space-1", name: "portal" })]);
+    expect((await call("vault/list", { scope: "account" })).body.json).toEqual([]);
+    expect((await call("vault/list", { scope: "space" })).body.json).toEqual([
+      expect.objectContaining({ name: "portal" }),
+    ]);
   });
 });

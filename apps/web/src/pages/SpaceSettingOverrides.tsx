@@ -70,6 +70,7 @@ export function SpaceSettingOverrides({
         models: [queries.models.key(), queries.me.key()],
         voice: [queries.voice.key()],
         confirmations: [queries.approvalRules.key(), queries.autoReview.key()],
+        credentials: [queries.vault.key(), queries.botSecrets.key()],
       };
       for (const queryKey of affected[setting]) void queryClient.invalidateQueries({ queryKey });
     } catch (err) {

@@ -16,7 +16,13 @@ import {
   toComputerRef,
   validateBotModelChange,
 } from "@rakazo/adapters";
-import type { Actor, Bot, BotSecretMetadata } from "@rakazo/contracts";
+import type {
+  Actor,
+  Bot,
+  BotSecretMetadata,
+  SettingsScope,
+  VaultPutInput,
+} from "@rakazo/contracts";
 import { BotSecretAuth } from "@rakazo/contracts";
 import { ACTIVE_RUN_STATUSES, displayName } from "@rakazo/core";
 import type { Prisma } from "@rakazo/db";
@@ -90,8 +96,32 @@ function mapBotSecretStoreError(error: unknown): unknown {
   return error;
 }
 
-function botSecretScope(actor: Actor, botId: string) {
-  return { userId: actor.userId, spaceId: actor.spaceId, botId };
+function vaultScope(actor: Actor, vault?: SettingsScope) {
+  return { userId: actor.userId, spaceId: actor.spaceId, vault };
+}
+
+async function saveVaultCredential(
+  deps: RouterDeps,
+  scope: ReturnType<typeof vaultScope>,
+  input: Pick<VaultPutInput, "destination" | "value">,
+) {
+  // A pasted page URL is saved under its site. One with a username or password is left
+  // as typed, so the origin rule turns it down and the person can fix it.
+  const site = pageUrlOrigin(input.destination.origin, { allowUserinfo: false, maxLength: 2048 });
+  let row: Awaited<ReturnType<typeof getBotSecretMetadata>>;
+  try {
+    row = await storeBotSecret({
+      prisma: deps.prisma,
+      secretStore: deps.secrets,
+      scope,
+      destination: site ? { ...input.destination, origin: site } : input.destination,
+      plaintext: input.value,
+    });
+  } catch (error) {
+    throw mapBotSecretStoreError(error);
+  }
+  if (!row) throw new ORPCError("CONFLICT", { message: "Credential was not saved" });
+  return botSecretMetadataDto(row);
 }
 
 function botSecretMetadataDto(row: {
@@ -702,42 +732,35 @@ export function botsRoutes(ctx: RouterContext) {
         deleteAgentSecret({ prisma: deps.prisma, secrets: deps.secrets }, context.actor, input.id),
       ),
     },
-    botSecrets: {
-      list: authed.botSecrets.list.handler(async ({ context, input }) => {
-        const bot = await repos.getBot(context.actor, input.botId);
+    vault: {
+      list: authed.vault.list.handler(async ({ context, input }) => {
         const rows = await listBotSecretMetadata(
           deps.prisma,
-          botSecretScope(context.actor, bot.id),
+          vaultScope(context.actor, input?.scope),
         );
         return rows.map(botSecretMetadataDto);
       }),
+      put: authed.vault.put.handler(({ context, input }) =>
+        saveVaultCredential(deps, vaultScope(context.actor, input.scope), input),
+      ),
+      remove: authed.vault.remove.handler(async ({ context, input }) => {
+        await forgetBotSecret(deps.prisma, vaultScope(context.actor, input.scope), input.name);
+        return { ok: true as const };
+      }),
+    },
+    botSecrets: {
+      list: authed.botSecrets.list.handler(async ({ context, input }) => {
+        await repos.getBot(context.actor, input.botId);
+        const rows = await listBotSecretMetadata(deps.prisma, vaultScope(context.actor));
+        return rows.map(botSecretMetadataDto);
+      }),
       put: authed.botSecrets.put.handler(async ({ context, input }) => {
-        const bot = await repos.getBot(context.actor, input.botId);
-        const scope = botSecretScope(context.actor, bot.id);
-        // A pasted page URL is saved under its site. One with a username or password is left
-        // as typed, so the origin rule turns it down and the person can fix it.
-        const site = pageUrlOrigin(input.destination.origin, {
-          allowUserinfo: false,
-          maxLength: 2048,
-        });
-        let row: Awaited<ReturnType<typeof getBotSecretMetadata>>;
-        try {
-          row = await storeBotSecret({
-            prisma: deps.prisma,
-            secretStore: deps.secrets,
-            scope,
-            destination: site ? { ...input.destination, origin: site } : input.destination,
-            plaintext: input.value,
-          });
-        } catch (error) {
-          throw mapBotSecretStoreError(error);
-        }
-        if (!row) throw new ORPCError("CONFLICT", { message: "Credential was not saved" });
-        return botSecretMetadataDto(row);
+        await repos.getBot(context.actor, input.botId);
+        return saveVaultCredential(deps, vaultScope(context.actor), input);
       }),
       remove: authed.botSecrets.remove.handler(async ({ context, input }) => {
-        const bot = await repos.getBot(context.actor, input.botId);
-        await forgetBotSecret(deps.prisma, botSecretScope(context.actor, bot.id), input.name);
+        await repos.getBot(context.actor, input.botId);
+        await forgetBotSecret(deps.prisma, vaultScope(context.actor), input.name);
         return { ok: true as const };
       }),
     },
