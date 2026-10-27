@@ -226,7 +226,7 @@ describe("resolvePurchaseCardFill", () => {
       card: summary,
     });
     expect(await resolvePurchaseCardFill(env.deps, scope, "purchase-1", "expiry")).toEqual({
-      text: "0334",
+      text: "03/34",
       origin: "https://shop.example.test",
       redactions: [],
     });

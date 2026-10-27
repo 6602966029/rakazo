@@ -24,10 +24,11 @@ class CardBrowser:
     """A stand-in Chromium: a merchant page with one card frame in its own CDP session."""
 
     def __init__(self, frame_url="https://js.stripe.com/v3/elements-inner-card.html", main_found=0, frame_found=1,
-                 kept=None, owned=True, shown=True, top_origin=MERCHANT, on_focus=None, after_key=None):
+                 kept=None, owned=True, shown=True, top_origin=MERCHANT, on_focus=None, after_key=None,
+                 clears=True):
         self.frame_url, self.main_found, self.frame_found = frame_url, main_found, frame_found
         self.kept, self.owned, self.shown, self.top_origin = kept, owned, shown, top_origin
-        self.on_focus, self.after_key = on_focus, after_key
+        self.on_focus, self.after_key, self.clears = on_focus, after_key, clears
         self.typed, self.cleared, self.focused = "", False, False
         self.sent, self.evaluated = [], []
         self.client = helper.CdpClient("ws://127.0.0.1:9222/test")
@@ -47,8 +48,10 @@ class CardBrowser:
             if not self.owned:
                 raise RuntimeError("DOM.getFrameOwner failed: Frame with given id does not belong to target.")
             return {"backendNodeId": 7}
-        elif method == "DOM.getBoxModel" and not self.shown:
-            raise RuntimeError("DOM.getBoxModel failed: Could not compute box model.")
+        elif method == "DOM.resolveNode":
+            return {"object": {"objectId": "owner"}}
+        elif method == "Runtime.callFunctionOn":
+            return {"result": {"value": self.shown}}
         elif method == "Page.createIsolatedWorld":
             return {"executionContextId": 2}
         elif method == "Runtime.evaluate":
@@ -81,6 +84,8 @@ class CardBrowser:
             return kept == int(expression.split("(")[-1].rstrip(")"))
         if "emptyCard()" in expression:
             self.cleared = True
+            if self.clears:
+                self.typed, self.kept = "", None
             return None
         return True
 
@@ -393,7 +398,7 @@ class PageBrowserTest(unittest.TestCase):
         result = self.card_fill(browser)
         self.assertFalse(result["ok"])
         self.assertIn("payment frame changed", result["error"])
-        self.assertEqual(browser.typed, CARD_NUMBER[:4])
+        self.assertEqual([method for method, _, _ in browser.sent].count("Input.insertText"), 4)
         self.assertTrue(browser.cleared)
 
     def test_card_fill_clears_a_field_that_did_not_keep_every_digit(self):
@@ -405,6 +410,29 @@ class PageBrowserTest(unittest.TestCase):
                       [(method, params.get("key"), session) for method, params, session in browser.sent])
         self.assertTrue(browser.cleared)
         self.assertNotIn(CARD_NUMBER, str(result))
+
+    def test_card_fill_reports_a_field_it_could_not_confirm_empty_as_uncertain(self):
+        browser = CardBrowser(kept=12, clears=False)
+        result = self.card_fill(browser)
+        self.assertEqual(result["uncertain"], True)
+        self.assertFalse(result["ok"])
+        self.assertIn("could not be confirmed empty", result["error"])
+        self.assertNotIn(CARD_NUMBER, str(result))
+
+    def test_card_fill_clears_a_field_whose_page_left_after_the_last_key(self):
+        def leave_at_end(browser):
+            if len(browser.typed) == len(CARD_NUMBER):
+                browser.top_origin = "https://evil.example.test"
+
+        browser = CardBrowser(after_key=leave_at_end)
+        result = self.card_fill(browser)
+        self.assertEqual(result["error"], helper.NOT_ON_MERCHANT)
+        self.assertTrue(browser.cleared)
+
+    def test_card_fill_types_only_the_digits_of_an_expiry(self):
+        browser = CardBrowser()
+        self.assertEqual(self.card_fill(browser, "expiry", "03/34"), {"ok": True, "completed": 1})
+        self.assertEqual(browser.typed, "0334")
 
     def test_card_fill_counts_formatted_digits_as_kept(self):
         browser = CardBrowser()

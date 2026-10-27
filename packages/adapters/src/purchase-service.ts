@@ -288,10 +288,10 @@ export async function resolvePurchaseCardFill(
       return providerError(error);
     }
     if (!card) return { error: "The purchase is not approved. Check purchase_status." };
-    // Digits only: card fields add their own separator as they are typed.
+    // Typed fills keep only the digits; a field filled directly gets the slash it expects.
     const text =
       field === "expiry"
-        ? `${String(card.expMonth).padStart(2, "0")}${String(card.expYear % 100).padStart(2, "0")}`
+        ? `${String(card.expMonth).padStart(2, "0")}/${String(card.expYear % 100).padStart(2, "0")}`
         : (card.billingAddress?.postalCode?.trim() ?? "");
     if (!text) return { error: "This card has no billing postal code." };
     return { text, origin, redactions: [] };

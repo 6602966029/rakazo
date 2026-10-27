@@ -702,7 +702,7 @@ test("live page helper types a purchase's card into a payment provider's frame o
     const number = "4242424242424242";
     const filled = [
       await fill("number", number),
-      await fill("expiry", "1234"),
+      await fill("expiry", "12/34"),
       await fill("cvc", "123"),
     ];
     for (const result of filled) expect(result).toMatchObject({ ok: true, completed: 1 });

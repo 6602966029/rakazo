@@ -114,6 +114,10 @@ def payment_frame_origin(url: Any) -> bool:
     return f"{parts.scheme}://{parts.hostname}{f':{port}' if port else ''}" in PAYMENT_FRAME_ORIGINS
 
 
+class CardFieldUncertain(RuntimeError):
+    """Part of a card may still be in a field that could not be confirmed empty."""
+
+
 class Refused(RuntimeError):
     """The page helper declined an action before changing anything it does not report."""
 
@@ -1153,8 +1157,8 @@ def payment_frames(client: CdpClient, session_id: str) -> list[tuple[str, str, i
             if not payment_frame_origin(frame.get("url")):
                 continue
             owner = client.call("DOM.getFrameOwner", {"frameId": frame["id"]}, session_id=session_id)
-            # Fails for an owner that is not rendered, such as a hidden frame.
-            client.call("DOM.getBoxModel", {"backendNodeId": owner["backendNodeId"]}, session_id=session_id)
+            if not frame_owner_visible(client, session_id, owner["backendNodeId"]):
+                continue
             client.call("Page.enable", session_id=frame_session)
             world = world_in(client, frame_session, frame["id"])
             eval_json(client, frame_session, EVAL_HELPERS, context_id=world)
@@ -1162,6 +1166,26 @@ def payment_frames(client: CdpClient, session_id: str) -> list[tuple[str, str, i
         except Exception:  # noqa: BLE001
             continue
     return frames
+
+
+FRAME_OWNER_VISIBLE = """function () {
+  for (let el = this; el; el = el.parentElement) {
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility !== "visible" || Number(style.opacity) === 0) return false;
+  }
+  const box = this.getBoundingClientRect();
+  return box.width > 1 && box.height > 1;
+}"""
+
+
+def frame_owner_visible(client: CdpClient, session_id: str, backend_node_id: int) -> bool:
+    # Resolved in the helper's isolated world, so the page cannot fake the answer; an owner outside it fails.
+    node = client.call("DOM.resolveNode", {"backendNodeId": backend_node_id,
+                                           "executionContextId": client.context_id}, session_id=session_id)
+    result = client.call("Runtime.callFunctionOn", {"objectId": node["object"]["objectId"],
+                                                    "functionDeclaration": FRAME_OWNER_VISIBLE,
+                                                    "returnByValue": True}, session_id=session_id)
+    return result.get("result", {}).get("value") is True
 
 
 def card_frames_shown(client: CdpClient, session_id: str) -> bool:
@@ -1208,6 +1232,8 @@ def fill_card(client: CdpClient, session_id: str, step: dict[str, Any]) -> None:
     provider's, and the field focused, so a navigation between finding the field and typing refuses.
     """
     origin, text = step["origin"], step["text"]
+    if step["cardField"] == "expiry":
+        text = "".join(char for char in text if char.isalnum())
     if not origin.startswith("https://"):
         raise Refused("A card can only be filled on HTTPS. "
                       "Open the merchant's checkout with browser_navigate, then fill again.")
@@ -1243,26 +1269,34 @@ def fill_card(client: CdpClient, session_id: str, step: dict[str, Any]) -> None:
                                "Focus left the card field, so the card was not typed. Fill it again.")
         if reason:
             if index:
-                clear_card(client, field_session, run)
+                clear_or_uncertain(client, field_session, run, reason)
             raise Refused(reason)
         client.call("Input.insertText", {"text": char}, session_id=field_session)
     reason = stopped()
     if reason:
+        clear_or_uncertain(client, field_session, run, reason)
         raise Refused(reason)
     # Fields often move on to the next one by themselves once complete, so focus is not checked here.
     if run(f"window.__rakazoPageBrowser.cardTyped({sum(char.isalnum() for char in text)})") is not True:
-        clear_card(client, field_session, run)
-        raise Refused("This field didn't accept the card, so it was cleared.")
+        reason = "This field didn't accept the card, so it was cleared."
+        clear_or_uncertain(client, field_session, run, reason)
+        raise Refused(reason)
 
 
-def clear_card(client: CdpClient, session_id: str, run: Any) -> None:
-    """Best effort: keys erase what the field's own script kept, then its value is emptied directly."""
+def clear_or_uncertain(client: CdpClient, session_id: str, run: Any, reason: str) -> None:
+    if not clear_card(client, session_id, run):
+        raise CardFieldUncertain(f"{reason} The field could not be confirmed empty, so check it before continuing.")
+
+
+def clear_card(client: CdpClient, session_id: str, run: Any) -> bool:
+    """Keys erase what the field's own script kept, then its value is emptied directly; True once it is empty."""
     try:
         if run("window.__rakazoPageBrowser.focusCard()") is True:
             press_key(client, session_id, {"key": "Backspace", "code": "Backspace", "windowsVirtualKeyCode": 8})
         run("window.__rakazoPageBrowser.emptyCard()")
+        return run("window.__rakazoPageBrowser.cardTyped(0)") is True
     except Exception:  # noqa: BLE001
-        pass
+        return False
 
 
 def act(client: CdpClient, session_id: str, actions: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1364,6 +1398,8 @@ def act(client: CdpClient, session_id: str, actions: list[dict[str, Any]]) -> di
     except Refused as exc:
         # Settled, and fixable in the page browser: no desktop fallback.
         return {"ok": False, "completed": completed, "uncertain": False, "error": str(exc)}
+    except CardFieldUncertain as exc:
+        return {"ok": False, "completed": completed, "uncertain": True, "error": str(exc)}
     except Exception as exc:
         return {"ok": False, "completed": completed, "uncertain": uncertain,
                 "error": str(exc), "fallback": "computer_act"}
