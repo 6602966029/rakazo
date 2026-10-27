@@ -59,6 +59,7 @@ model User {
   pushToken                   PushToken?
   signupSurvey                SignupSurvey?
   computerRuns                ComputerRun[]
+  devices                     UserDevice[]
 
   @@unique([email])
   @@map("user")
@@ -107,6 +108,34 @@ model PushToken {
   updatedAt DateTime @updatedAt
 
   @@map("push_tokens")
+}
+
+model UserDevice {
+  id          String                 @id @default(cuid())
+  userId      String
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  platform    String
+  tokenHash   String                 @unique
+  createdAt   DateTime               @default(now())
+  lastSeenAt  DateTime?
+  revokedAt   DateTime?
+  connections UserDeviceConnection[]
+
+  @@index([userId, revokedAt])
+  @@map("user_devices")
+}
+
+model UserDeviceConnection {
+  deviceId     String     @id
+  device       UserDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  connectionId String     @unique
+  address      String
+  connectedAt  DateTime   @default(now())
+  heartbeatAt  DateTime   @default(now())
+
+  @@index([heartbeatAt])
+  @@map("user_device_connections")
 }
 
 model Account {
