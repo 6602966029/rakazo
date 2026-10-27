@@ -27,7 +27,7 @@ import {
   reduceComputerStatus,
   reduceThreadSnapshot,
 } from "../../lib/thread-events";
-import { transcriptCanSnapAfterFrame, transcriptIsNearEnd } from "../../lib/transcript-scroll";
+import { snapTranscriptToEndAfterFrame, transcriptIsNearEnd } from "../../lib/transcript-scroll";
 import type { useBrowserNotifications } from "./use-browser-notifications";
 import type { ComputerState } from "./use-computer";
 import type { ThreadState } from "./use-thread-state";
@@ -133,18 +133,6 @@ export function useThreadSync({
     return queries.threads.get.queryKey({ input: target });
   }
 
-  function snapTranscriptToEndAfterFrame() {
-    const queuedElement = messageScroll.current;
-    if (!queuedElement) return;
-    const queuedScrollTop = queuedElement.scrollTop;
-    window.requestAnimationFrame(() => {
-      const element = messageScroll.current;
-      if (transcriptCanSnapAfterFrame(element, queuedElement, queuedScrollTop)) {
-        queuedElement.scrollTop = queuedElement.scrollHeight;
-      }
-    });
-  }
-
   async function refreshGroupThread(id: string, signal?: AbortSignal) {
     const scrollElement = messageScroll.current;
     const stickToEnd = !scrollElement || transcriptIsNearEnd(scrollElement);
@@ -169,7 +157,7 @@ export function useThreadSync({
       (!scrollElement || transcriptIsNearEnd(scrollElement)) &&
       expandedHistoryThread.current !== snap.threadId
     ) {
-      snapTranscriptToEndAfterFrame();
+      snapTranscriptToEndAfterFrame(messageScroll);
     }
     return snap;
   }
@@ -205,7 +193,7 @@ export function useThreadSync({
       (!scrollElement || transcriptIsNearEnd(scrollElement)) &&
       expandedHistoryThread.current !== snap.threadId
     ) {
-      snapTranscriptToEndAfterFrame();
+      snapTranscriptToEndAfterFrame(messageScroll);
     }
     void Promise.all([
       // Runs after routine changes too, so an older read in flight is not reused.
