@@ -44,12 +44,15 @@ export function SpaceSettingOverrides({
   const [pending, setPending] = useState<SpaceSetting | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState<SpaceSetting | null>(null);
+  // A credential still saving would land in the vault a reset is deleting.
+  const [vaultBusy, setVaultBusy] = useState(false);
 
   const settings: {
     id: SpaceSetting;
     label: string;
     panel: () => ReactNode;
     resetConfirmation?: string;
+    busy?: boolean;
   }[] = [
     {
       id: "models",
@@ -76,7 +79,8 @@ export function SpaceSettingOverrides({
     {
       id: "credentials",
       label: t`Vault`,
-      panel: () => <VaultSettings scope="space" />,
+      panel: () => <VaultSettings scope="space" onBusyChange={setVaultBusy} />,
+      busy: vaultBusy,
       // Going back to the defaults deletes the Space's own credentials.
       resetConfirmation: t`Delete this Space's credentials?`,
     },
@@ -120,7 +124,7 @@ export function SpaceSettingOverrides({
   return (
     <div className="space-y-3">
       <SettingsGroup data-testid="space-setting-overrides">
-        {settings.map(({ id, label, panel, resetConfirmation }) => {
+        {settings.map(({ id, label, panel, resetConfirmation, busy }) => {
           const custom = customized.includes(id);
           return (
             <div key={id} data-testid={`space-setting-${id}`}>
@@ -139,7 +143,7 @@ export function SpaceSettingOverrides({
                     size="sm"
                     className="rounded-full"
                     aria-label={custom ? t`Use defaults for ${label}` : t`Customize ${label}`}
-                    disabled={pending !== null}
+                    disabled={pending !== null || busy}
                     onClick={() =>
                       custom && resetConfirmation
                         ? setConfirmingReset(id)

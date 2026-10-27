@@ -11,7 +11,7 @@ import { Button, Input, NativeSelect, NativeSelectOption } from "@rakazo/ui-web"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@rakazo/ui-web/components/ui/tooltip";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, RotateCcw, X } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useSpaceQueries } from "../lib/query";
 import { useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
@@ -33,7 +33,13 @@ function credentialDestination(name: string, origin: string, auth: ReadableCrede
 }
 
 /** The credentials in the account's vault, or in the bound Space's own once it customizes them. */
-export function VaultSettings({ scope }: { scope: SettingsScope }) {
+export function VaultSettings({
+  scope,
+  onBusyChange,
+}: {
+  scope: SettingsScope;
+  onBusyChange?: (busy: boolean) => void;
+}) {
   const { t } = useLingui();
   const ids = useId();
   const rpc = useSpaceRpc();
@@ -56,6 +62,11 @@ export function VaultSettings({ scope }: { scope: SettingsScope }) {
   // Protected fields: held only in component state and cleared on every submit or cancel.
   const [loginUsername, setLoginUsername] = useState("");
   const [value, setValue] = useState("");
+
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
+  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
   async function refresh() {
     try {

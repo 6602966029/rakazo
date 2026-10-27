@@ -90,9 +90,20 @@ vi.mock("../components/ApprovalRulesSettings", () => ({
   },
 }));
 vi.mock("../components/VaultSettings", () => ({
-  VaultSettings: ({ scope }: { scope: string }) => {
+  VaultSettings: ({
+    scope,
+    onBusyChange,
+  }: {
+    scope: string;
+    onBusyChange: (busy: boolean) => void;
+  }) => {
     panels.push(`credentials:${scope}`);
-    return <div data-testid="credentials-panel" />;
+    return (
+      <div data-testid="credentials-panel">
+        <button type="button" aria-label="Start saving" onClick={() => onBusyChange(true)} />
+        <button type="button" aria-label="Finish saving" onClick={() => onBusyChange(false)} />
+      </div>
+    );
   },
 }));
 
@@ -193,6 +204,12 @@ it("asks before going back to the defaults deletes the Space's own vault", async
   );
   expect(new Set(panels)).toEqual(new Set(["credentials:space"]));
   const dialog = () => container.querySelector('[data-testid="confirm-dialog"]');
+
+  // A credential still saving would land in the vault being deleted, so the reset waits for it.
+  await click("Start saving");
+  expect(button("Use defaults for Vault")?.disabled).toBe(true);
+  await click("Finish saving");
+  expect(button("Use defaults for Vault")?.disabled).toBe(false);
 
   await click("Use defaults for Vault");
   expect(spaceSettings.setOverride).not.toHaveBeenCalled();
