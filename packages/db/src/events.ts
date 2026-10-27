@@ -1431,12 +1431,9 @@ export async function finalizeComputerControlRelease(
     });
     if (!bot?.thread) return { threadId: null, seq: null, runId };
 
-    // The card lives on the run thread. A group run is not the bot's own thread.
-    // Computer row is already locked above. Lock the thread after that, before
-    // reading the card. Chat send (#1406) commits its thread lock in
-    // sendUserMessage / sendThreadMessage before it calls release, so it does
-    // not hold the thread while this transaction holds the computer. Keeping
-    // computer-then-thread matches that split and this function's existing order.
+    // The card lives on the run thread, which for a group run is not the bot's own thread.
+    // Lock it after the computer row: chat send releases its thread lock before it calls
+    // release, so computer-then-thread cannot deadlock against it.
     let runThreadId: string | null = null;
     if (input.runId) {
       const waiting = await tx.run.findUnique({

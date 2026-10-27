@@ -16,7 +16,6 @@ export const MODEL_CONNECT_CHECK_TIMEOUT_MS = 15_000;
  */
 const MODEL_CONNECT_CHECK_MAX_TOKENS = 1024;
 
-/** One turn shaped like an agent's: a system prompt, a user message, and a tool. */
 const CHECK_CONTEXT: Context = {
   systemPrompt: "Reply with OK.",
   messages: [{ role: "user", content: "OK?", timestamp: 0 }],

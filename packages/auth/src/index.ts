@@ -604,7 +604,6 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     encryptStoredOAuthTokens: async () => encryptStoredOAuthTokens(prisma, await tokenKey()),
     ssoAvailability: () => discovery?.availability(),
     passkeyRpId: relyingParty?.rpID ?? null,
-    /** Whether this session confirmed its identity within the last few minutes. */
     hasRecentIdentityConfirmation: async (session: { sessionId: string; userId: string }) =>
       hasRecentIdentityConfirmation((await auth.$context).internalAdapter, session),
     disposeOidcDiscovery: () => discovery?.dispose(),

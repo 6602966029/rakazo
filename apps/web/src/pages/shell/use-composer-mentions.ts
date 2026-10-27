@@ -84,7 +84,7 @@ export function useComposerMentions({
     }
     wasIntegrationsOpen.current = integrationsOpen;
   }, [integrationsOpen, queries]);
-  // A changed roster refreshes connection data too, as it did before it was cached.
+  // A changed roster refreshes connection data too.
   const mentionBotsKey = useMemo(
     () => bots.map((bot) => `${bot.id}:${bot.name}`).join(","),
     [bots],

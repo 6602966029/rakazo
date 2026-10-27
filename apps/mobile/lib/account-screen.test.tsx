@@ -239,7 +239,6 @@ it("offers no avatar style choice in account settings", async () => {
   root = createRoot(container);
   await act(async () => root?.render(<Account />));
 
-  // The screen rendered its neighbouring settings.
   expect(container.querySelector('[aria-label="Appearance"]')).not.toBeNull();
   expect(container.textContent).toContain("Language");
   expect(container.querySelector('[aria-label="Avatar style"]')).toBeNull();

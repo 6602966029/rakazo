@@ -69,11 +69,6 @@ export function assistantTurnSeparator(previous: string, next: string): string {
   return "\n\n";
 }
 
-/**
- * Pull narration text out of the in-progress turn segments so it can be posted
- * as a durable mid-turn message. Tool/step blocks stay for the final publish.
- */
-
 /** clientNonce prefix for mid-turn progress messages (reconciler uses this). */
 export const USER_PROGRESS_CLIENT_NONCE_PREFIX = "user-progress:";
 

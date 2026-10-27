@@ -177,10 +177,8 @@ async function main() {
   const pipedream = isPipedreamEnabled(pipedreamConfig)
     ? new PipedreamConnector(pipedreamConfig)
     : undefined;
-  // pollInboundMessages stays false (the default) here: this process
-  // only ever sends outbound (messaging.deliver jobs). It must never poll
-  // Telegram — that would steal the single getUpdates slot away from the
-  // API process, which is the one with the inbound sink actually wired up.
+  // Never poll inbound here: Telegram allows a single getUpdates consumer,
+  // and that is the API process, which owns the inbound sink.
   const messagingPlatforms = messagingPlatformsFromEnv(messagingEnvFromProcess(process.env)).filter(
     (platform) => platform.provider !== "slack" || !process.env.SLACK_CLIENT_ID,
   );

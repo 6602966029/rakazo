@@ -39,7 +39,6 @@ export type ScreenRelease = { computer: ComputerRef; context: AdapterContext; ke
 
 export type EffectOccurrence = { executionId: string; fingerprint: string; occurrence: number };
 
-/** Lease and computer bookkeeping the attempt's heartbeat and cleanup read. */
 export interface RunLeaseState {
   valid: boolean;
   /** The run reached a final state; the heartbeat stops renewing. */
@@ -56,7 +55,6 @@ export interface RunComputerUseState {
   screenRelease: ScreenRelease | undefined;
 }
 
-/** The reply being streamed and what this attempt already showed in the thread. */
 export interface ReplyState {
   assembled: string;
   currentTextSegment: string;
@@ -152,7 +150,6 @@ export interface RunState {
   terminalCheckpointComplete: boolean;
 }
 
-/** The computer this run may use and how. */
 export interface RunComputerContext {
   stored: Computer;
   mode: ComputerMode;
@@ -169,7 +166,6 @@ export interface RunComputerContext {
   heldForTakeover: boolean;
 }
 
-/** Facts about who started the run and where it replies. */
 export interface RunSource {
   ownerStartedRun: boolean;
   messagingChannelRun: boolean;

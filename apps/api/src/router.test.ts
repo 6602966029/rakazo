@@ -6519,7 +6519,6 @@ describe("routine live Codex model validation", () => {
 
 describe("routines.list", () => {
   it("marks routines another Space member created as not editable", async () => {
-    // Listing reads only the user and Space.
     const actor = { userId: "user-1", spaceId: "space-1" };
     const row = (id: string, userId: string) => ({
       id,

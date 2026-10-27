@@ -72,10 +72,8 @@ describe("computer screen readiness", () => {
   });
 
   it("does not treat an open TCP port as ready when nothing is serving HTTP on it yet", async () => {
-    // Regression test: a bare TCP accept (e.g. the Docker port mapping coming
-    // up before websockify inside the container does) must not be mistaken
-    // for the screen being ready — that gap is exactly what caused
-    // "socket hang up" in the browser.
+    // A bare TCP accept (the port mapping up before websockify) is not ready:
+    // that gap caused "socket hang up" in the browser.
     const server = net.createServer((socket) => socket.destroy());
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();

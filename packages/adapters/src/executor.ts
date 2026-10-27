@@ -869,9 +869,8 @@ export function createRunExecutor(deps: ExecutorDeps) {
           .join("\n\n");
         const graphical =
           computerKind !== "desktop" && deps.sandbox.describe().capabilities.graphical;
-        // Gate on the model this run will actually call — the pair written to the run row
-        // above. Deriving it a second time here dropped the deployment fallback, so a
-        // vision-capable default was gated as "scripted" and lost its screenshot tools.
+        // Gate on the pair written to the run row above; re-deriving it would drop the
+        // deployment fallback and gate a vision-capable default as text-only.
         const modelSeesImages = modelAcceptsImageInput(
           runModelProvider,
           runModelId,

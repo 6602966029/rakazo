@@ -75,12 +75,7 @@ export interface RouterDeps {
   modelConnectionCheck?: typeof verifyModelServesAgents;
   /** Site icons for links; defaults to the per-process cache that fetches them. */
   favicons?: FaviconResolver;
-  /**
-   * Detached refresh for a stored credential whose bearer expired — the live
-   * catalog path calls it instead of refreshing inline. Defaults to the
-   * runtime's locked `kickModelCredentialRefresh`; injectable for tests so a
-   * catalog read never reaches the real OAuth refresh endpoint.
-   */
+  /** Detached refresh for an expired bearer, so the live catalog never refreshes inline. */
   refreshExpiredModelCredential?: (
     scope: { userId: string; spaceId: string },
     secretId: string,
@@ -89,17 +84,12 @@ export interface RouterDeps {
   integrationSettings?: IntegrationProviderSettings;
   composio?: ComposioProvider;
   mcpOAuth?: McpOAuthBroker;
-  /**
-   * The API process's MCP connector, used to launch/list an MCP server once so its health
-   * is visible (`mcp.servers.test` and the probe after create/update/OAuth). Without it
-   * servers are simply never probed from here.
-   */
+  /** Probes MCP server health; without it servers are never probed from here. */
   mcp?: Pick<McpConnector, "probe">;
   connectors: ConnectorRegistry;
   remoteConnectors?: RemoteConnectorDependencies;
   artifacts: ArtifactStore;
   dataDir: string;
-  /** Present when the external messaging surface is enabled. */
   messagingInstallations?: MessagingInstallations;
   messaging?: {
     enabled: boolean;
@@ -131,7 +121,6 @@ export interface RouterDeps {
     integrationsCatalogUrl?: string;
     mcpAllowPrivateEndpoint?: boolean;
     desktopHostChoiceEnabled?: boolean;
-    /** Whether MCP stdio servers can run, and the commands they may launch. */
     mcpStdioEnabled?: boolean;
     mcpStdioAllowedCommands?: string[];
   };

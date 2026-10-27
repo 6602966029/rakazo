@@ -24,7 +24,6 @@ export function currentDbContext(): DbContext | undefined {
   return storage.getStore();
 }
 
-/** Run `fn` with row-level security scoped to one Space and user. */
 export function runAsTenant<T>(
   tenant: { spaceId: string; userId: string },
   fn: () => T | PromiseLike<T>,
@@ -94,7 +93,6 @@ function within<T>(context: DbContext, fn: () => T | PromiseLike<T>): Promise<T>
   return storage.run(context, async () => await fn());
 }
 
-/** Prisma models whose tables have row-level security enabled. */
 export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "BillingAuditEvent",
   "PushToken",

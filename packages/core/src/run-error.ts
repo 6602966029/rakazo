@@ -9,7 +9,6 @@ export const MISSING_TOOL_FINAL_RESPONSE_ERROR =
 export const APPROVED_ACTION_NOT_RUN_ERROR =
   "The model did not run the approved action. Try again.";
 
-/** The model ran out of output tokens before writing anything the run could use. */
 export const MODEL_OUTPUT_LIMIT_ERROR = "The model hit its output limit before writing a response.";
 
 /** The model ran out of output tokens partway through its reply, even after continuing it. */
@@ -19,7 +18,6 @@ export const MODEL_OUTPUT_CUT_ERROR = "The model hit its output limit before fin
 export const MODEL_CONTEXT_TOO_SMALL_ERROR =
   "This model's context window is too small. Choose another model.";
 
-/** A run that starts with no model the user can reach. */
 export const MISSING_MODEL_RUN_ERROR = "Connect a model in Settings before running bots.";
 
 /** A deployment model run while the organization has not chosen Rakazo credits. */

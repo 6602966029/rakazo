@@ -878,7 +878,6 @@ export interface MessagingInboundMessage {
   kind?: TeamChatMessageKind;
   /** Provider thread id for in-channel replies (Slack thread_ts); null for channel root. */
   replyThreadId?: string | null;
-  /** True when the sender is another bot/app. */
   senderIsBot?: boolean;
   /** Display names for room participants when the platform reports them. */
   participantNames?: string[];
@@ -1021,7 +1020,6 @@ export interface BrowserSnapshotResult {
 
 export type BrowserActKind = "click" | "fill" | "type" | "upload";
 
-/** Most files one upload step may attach. */
 export const MAX_BROWSER_UPLOAD_FILES = 10;
 
 export type BrowserActStep =
@@ -1067,7 +1065,6 @@ export type PageBrowserCommand =
 
 export type PageBrowserResult = Partial<BrowserSnapshotResult & BrowserActResult> & { ok: boolean };
 
-/** Vendor-neutral status for a remote cloud coding agent. */
 export type CloudAgentStatus = "running" | "finished" | "failed" | "cancelled" | "expired";
 
 export interface CloudAgentCapabilities {
@@ -1175,7 +1172,6 @@ export interface BillingPrice {
   intervalCount: number;
 }
 
-/** Full subscription state for one billing customer, re-fetched from the provider on every sync. */
 export interface BillingCreditPurchase {
   /** Stable provider payment identity, including any subsequent refund adjustment. */
   id: string;
@@ -1197,6 +1193,7 @@ export interface BillingByokCheckoutRequest extends Omit<BillingCreditCheckoutRe
   trialDays?: number;
 }
 
+/** Full subscription state for one billing customer, re-fetched from the provider on every sync. */
 export interface BillingSubscriptionSnapshot {
   creditAmountCents?: number;
   subscriptionId: string;

@@ -92,7 +92,6 @@ import { continueWithSso } from "../../lib/sso";
 import { UI_LOCALE_LABELS } from "../../lib/ui-locale";
 import { errorText } from "../../lib/user-error";
 
-/** Render account settings, including the entry point for voice configuration. */
 export default function Account() {
   const sideInsets = useSideInsets();
   const { t, locale } = useI18n();

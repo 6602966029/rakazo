@@ -321,8 +321,7 @@ describe("resolveRequestSecretDestination", () => {
   });
 
   it("accepts a valid credential object supplied beside connectionId", () => {
-    // The flattened tool schema allows both fields, and the executor used to
-    // reject that pair before it ever checked that the credential was valid.
+    // The flattened tool schema allows both fields.
     const resolved = resolveRequestSecretDestination({
       ...documented,
       connectionId: "conn_1",

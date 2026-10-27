@@ -227,7 +227,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Search conversations, files, and routines": "会話、ファイル、ルーティンを検索",
   "Searching…": "検索中…",
   "Space actions for {name}": "{name}のスペース操作",
-  // app/(settings)/space.tsx
   Customize: "カスタマイズ",
   "Customize {setting}": "{setting}をカスタマイズ",
   "Tap + to create a bot": "+をタップしてボットを作成",

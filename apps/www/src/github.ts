@@ -35,7 +35,6 @@ export async function githubStarsLabel(): Promise<string> {
   return formatStarCount(await githubStars);
 }
 
-/** Installer URLs from the latest desktop release; empty when GitHub is unavailable. */
 /** Desktop platforms to offer: macOS always, Windows and Linux once a release ships them. */
 export function availableDesktopPlatforms(downloads: DesktopDownloads) {
   return (["mac", "windows", "linux"] as const).filter(

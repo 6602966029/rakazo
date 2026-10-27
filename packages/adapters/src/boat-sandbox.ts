@@ -399,7 +399,6 @@ export class BoatSandboxProvider implements SandboxProvider {
       });
   }
 
-  /** The saved snapshot, or undefined when the account has none by that name. */
   private async savedSnapshot(
     name: string,
     signal: AbortSignal,

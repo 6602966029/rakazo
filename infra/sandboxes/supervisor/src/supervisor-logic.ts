@@ -688,11 +688,9 @@ function firstDockerFrameComplete(buffer: Buffer): boolean {
 }
 
 /**
- * Split a Docker exec stream into stdout and stderr. Without a TTY the stream is
- * multiplexed: each frame is an 8-byte header (type byte, 3 reserved bytes, big-endian
- * length) followed by the payload, and type 2 is stderr. A raw (TTY) stream has no
- * headers and is all stdout. Only demux when the buffer validates as a complete
- * multiplexed sequence; otherwise return the whole buffer as stdout.
+ * Split a Docker exec stream into stdout and stderr. Without a TTY each frame is an
+ * 8-byte header (type, 3 reserved bytes, big-endian length) plus payload; a raw (TTY)
+ * stream, or anything that does not validate, is all stdout.
  */
 export function demuxDockerStream(buffer: Buffer): { stdout: string; stderr: string } {
   if (!isCompleteDockerMultiplexedStream(buffer)) {
