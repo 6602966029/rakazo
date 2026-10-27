@@ -12,7 +12,14 @@ import { redactConnectorPayload } from "./connector-safety.js";
 
 const MAX_BROWSER_ACTIONS = 24;
 /** The action kinds `browser_act` takes, as its tool schema lists them. */
-export const BROWSER_ACT_KINDS = ["click", "fill", "type", "upload", "fill_secret"] as const;
+export const BROWSER_ACT_KINDS = [
+  "click",
+  "fill",
+  "type",
+  "upload",
+  "fill_secret",
+  "fill_card",
+] as const;
 const NAVIGATE_URL_REQUIRED = "An HTTP(S) URL without embedded credentials is required";
 
 /** Fills a saved website login by name; the model never supplies or sees the value. */
@@ -22,11 +29,22 @@ export type SecretFillStep = {
   secret: string;
   field: LoginField;
 };
-export type BrowserActInput = BrowserActStep | SecretFillStep;
+/** Types an approved purchase's card detail; the model never supplies or sees the value. */
+export type CardFillStep = {
+  kind: "fill_card";
+  ref: string;
+  purchase: string;
+  field: "number" | "cvc";
+};
+export type BrowserActInput = BrowserActStep | SecretFillStep | CardFillStep;
 /** desktopTools: the run also has computer_act, so a page-tool failure can fall back to it. */
 export type PageToolOptions = { desktopTools?: boolean };
 export type ResolveSecretFill = (
   step: SecretFillStep,
+) => Promise<{ text: string; origin: string } | { error: string }>;
+
+export type ResolveCardFill = (
+  step: CardFillStep,
 ) => Promise<{ text: string; origin: string } | { error: string }>;
 
 /**
@@ -91,6 +109,7 @@ export async function browserActFromTool(
   args: Record<string, unknown>,
   options: PageToolOptions & {
     resolveSecretFill?: ResolveSecretFill;
+    resolveCardFill?: ResolveCardFill;
     redactions?: () => string[];
     /** Maps a bot-facing workspace path to its path in the computer's home. */
     resolveUploadPath?: (path: string) => string;
@@ -100,7 +119,8 @@ export async function browserActFromTool(
 ) {
   try {
     const actions: BrowserActStep[] = [];
-    // Resolve every saved login before acting, so a missing one cannot leave a half-filled form.
+    // Resolve every saved login and card before acting, so a missing one cannot leave a
+    // half-filled form.
     for (const step of parseBrowserActions(args.actions)) {
       if (step.kind === "upload") {
         const resolve = options.resolveUploadPath ?? ((path: string) => path);
@@ -118,23 +138,36 @@ export async function browserActFromTool(
         });
         continue;
       }
-      if (step.kind !== "fill_secret") {
+      if (step.kind !== "fill_secret" && step.kind !== "fill_card") {
         actions.push(step);
         continue;
       }
-      let resolved: Awaited<ReturnType<ResolveSecretFill>>;
+      const card = step.kind === "fill_card";
+      let resolved: { text: string; origin: string } | { error: string };
       try {
-        resolved = options.resolveSecretFill
-          ? await options.resolveSecretFill(step)
-          : { error: "Saved logins are unavailable here." };
+        resolved = card
+          ? options.resolveCardFill
+            ? await options.resolveCardFill(step)
+            : { error: "Card fills are unavailable here." }
+          : options.resolveSecretFill
+            ? await options.resolveSecretFill(step)
+            : { error: "Saved logins are unavailable here." };
       } catch (error) {
         context.signal.throwIfAborted();
-        // A stored login that can't be read may quote its own text in the error, so neither the
-        // bot nor the log gets the message: only that it failed, and how.
-        getLogger().warn("saved login could not be loaded for a fill", {
-          errorName: error instanceof Error ? error.name : typeof error,
-        });
-        return { ...refusedInput("This saved login could not be loaded."), completed: 0 };
+        // A stored login or card that can't be read may quote its own text in the error, so
+        // neither the bot nor the log gets the message: only that it failed, and how.
+        getLogger().warn(
+          card
+            ? "purchase card could not be loaded for a fill"
+            : "saved login could not be loaded for a fill",
+          { errorName: error instanceof Error ? error.name : typeof error },
+        );
+        return {
+          ...refusedInput(
+            card ? "This card could not be loaded." : "This saved login could not be loaded.",
+          ),
+          completed: 0,
+        };
       }
       if ("error" in resolved) return { ...refusedInput(resolved.error), completed: 0 };
       actions.push({
@@ -142,7 +175,7 @@ export async function browserActFromTool(
         ref: step.ref,
         text: resolved.text,
         origin: resolved.origin,
-        field: step.field,
+        field: card ? "card" : step.field,
       });
     }
     const result = await browser.act(computer, { actions, signal: context.signal }, context);
@@ -178,7 +211,7 @@ export function parseBrowserActions(value: unknown): BrowserActInput[] {
       throw new BrowserToolInputError(`browser_act action ${index} must be an object`);
     }
     const action = raw as Record<string, unknown>;
-    const kind = String(action.kind ?? "") as BrowserActKind | "fill_secret";
+    const kind = String(action.kind ?? "") as BrowserActKind | "fill_secret" | "fill_card";
     if (!(BROWSER_ACT_KINDS as readonly string[]).includes(kind)) {
       throw new BrowserToolInputError(
         `browser_act action ${index} needs kind: ${BROWSER_ACT_KINDS.join(", ")}`,
@@ -215,6 +248,18 @@ export function parseBrowserActions(value: unknown): BrowserActInput[] {
         );
       }
       return { kind, ref, secret, field };
+    }
+    if (kind === "fill_card") {
+      const purchase = String(action.purchase ?? "").trim();
+      const field = action.field;
+      if (!purchase)
+        throw new BrowserToolInputError(
+          "browser_act fill_card needs purchase: the id of an approved purchase",
+        );
+      if (field !== "number" && field !== "cvc") {
+        throw new BrowserToolInputError('browser_act fill_card needs field: "number" or "cvc"');
+      }
+      return { kind, ref, purchase, field };
     }
     if (kind === "fill" || kind === "type") {
       if (typeof action.text !== "string") {

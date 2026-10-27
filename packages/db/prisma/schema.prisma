@@ -40,6 +40,7 @@ model User {
   invitations                 Invitation[]
   modelCredentials            UserModelCredential[]
   voiceCredentials            UserVoiceCredential[]
+  paymentWallet               PaymentWallet?
   secrets                     Secret[]
   mcpServers                  McpServer[]
   botSections                 BotSection[]
@@ -324,6 +325,7 @@ model Space {
   mcpServers                  McpServer[]
   mcpOAuthSessions            McpOAuthSession[]
   modelOAuthSessions          ModelOAuthSession[]
+  purchases                   Purchase[]
   botMcpServers              BotMcpServer[]
   messagingIdentities         MessagingIdentity[]
   actionApprovalRules         ActionApprovalRule[]
@@ -886,6 +888,54 @@ model CloudAgent {
   @@index([providerKey, nextPollAt])
   @@index([spaceId, userId, id])
   @@map("cloud_agents")
+}
+
+model PaymentWallet {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   String
+  status     String
+  ciphertext String
+  verificationUrl String?
+  userCode   String?
+  expiresAt  DateTime?
+  nextPollAt DateTime?
+  pollIntervalMs Int?
+  refreshAt  DateTime?
+  connectedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("payment_wallets")
+}
+
+model Purchase {
+  id           String    @id @default(uuid())
+  operationKey String    @unique
+  spaceId      String
+  space        Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId       String
+  botId        String
+  threadId     String
+  threadGeneration Int
+  provider     String
+  remoteId     String
+  merchantName String
+  merchantUrl  String
+  amount       Int
+  currency     String
+  status       String
+  approvalUrl  String?
+  nextPollAt   DateTime?
+  wokenStatus  String?
+  cardCiphertext String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([nextPollAt])
+  @@index([spaceId, userId, createdAt])
+  @@map("purchases")
 }
 
 model ExternalEffect {

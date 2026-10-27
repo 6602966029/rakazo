@@ -1099,4 +1099,8 @@ export const NL_MESSAGES: Record<string, string> = {
   "Copy username": "Gebruikersnaam kopiëren",
   "Copy password": "Wachtwoord kopiëren",
   "Could not show the credential": "De gegevens tonen mislukt",
+  Wallet: "Wallet",
+  "Connect {name}": "{name} verbinden",
+  "Could not load wallet": "Kan wallet niet laden",
+  "Could not update wallet": "Kan wallet niet bijwerken",
 };

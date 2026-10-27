@@ -1115,4 +1115,8 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Copy username": "複製使用者名稱",
   "Copy password": "複製密碼",
   "Could not show the credential": "無法顯示憑證",
+  Wallet: "錢包",
+  "Connect {name}": "連結 {name}",
+  "Could not load wallet": "無法載入錢包",
+  "Could not update wallet": "無法更新錢包",
 };

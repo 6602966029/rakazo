@@ -25,11 +25,15 @@ const INTERACTIVE_SELECTOR = [
 ].join(",");
 
 const REOPEN_SAVED_SITE = "Open the saved site with browser_navigate, then fill again.";
+const REOPEN_MERCHANT_SITE = "Open the merchant's checkout with browser_navigate, then fill again.";
 
 /** Saved usernames are typed only into these input types. Textareas stay out: a username is an input. */
 const USERNAME_INPUT_TYPES = new Set(["text", "email", "tel"]);
 
-/** A saved-login fill declined before the page changed; reported as settled, not uncertain. */
+/** Card details are typed only into these; the CVC field is often a password input. */
+const CARD_INPUT_TYPES = new Set(["text", "tel", "password"]);
+
+/** A saved-login or card fill declined before the page changed; reported as settled, not uncertain. */
 class FillRefused extends Error {}
 
 type DomWindow = JSDOM["window"];
@@ -39,7 +43,7 @@ type DomElement = InstanceType<DomWindow["Element"]>;
 export class PageBrowserSession {
   private dom: JSDOM;
   private refs = new Map<string, DomElement>();
-  /** Fields holding a saved login; snapshots never report their values. */
+  /** Fields holding a saved login or card detail; snapshots never report their values. */
   private loginFilled = new WeakSet<DomElement>();
   private nextRef = 1;
 
@@ -163,26 +167,36 @@ export class PageBrowserSession {
       return;
     }
     if (action.kind === "fill" || action.kind === "type") {
-      if (action.origin) {
+      const card = action.field === "card";
+      if (action.origin || card) {
         const page = new URL(this.url);
+        const notHttps = card
+          ? `A card can only be filled on HTTPS. ${REOPEN_MERCHANT_SITE}`
+          : `Website logins can only be filled on HTTPS. ${REOPEN_SAVED_SITE}`;
         let saved: URL;
         try {
-          saved = new URL(action.origin);
+          saved = new URL(action.origin ?? "");
         } catch {
-          throw new FillRefused(`Website logins can only be filled on HTTPS. ${REOPEN_SAVED_SITE}`);
+          throw new FillRefused(notHttps);
         }
         // Private-LAN HTTP never qualifies, even when the page origin matches.
         if (saved.protocol !== "https:" || page.protocol !== "https:") {
-          throw new FillRefused(`Website logins can only be filled on HTTPS. ${REOPEN_SAVED_SITE}`);
+          throw new FillRefused(notHttps);
         }
         if (page.origin !== saved.origin) {
           throw new FillRefused(
-            `The page is not on the site this login was saved for. ${REOPEN_SAVED_SITE}`,
+            card
+              ? `The page is not on the merchant's site for this purchase. ${REOPEN_MERCHANT_SITE}`
+              : `The page is not on the site this login was saved for. ${REOPEN_SAVED_SITE}`,
           );
         }
         const inputType = el instanceof win.HTMLInputElement ? el.type : "";
-        // A password goes only into a password field, which never displays it.
-        if (action.field !== "username" && inputType !== "password") {
+        if (card) {
+          if (!CARD_INPUT_TYPES.has(inputType)) {
+            throw new FillRefused("A card can only be typed into a card field.");
+          }
+        } else if (action.field !== "username" && inputType !== "password") {
+          // A password goes only into a password field, which never displays it.
           throw new FillRefused("A saved password can only be typed into a password field.");
         }
         if (action.field === "username" && !USERNAME_INPUT_TYPES.has(inputType)) {
@@ -198,6 +212,15 @@ export class PageBrowserSession {
         if (action.origin) this.loginFilled.add(el);
         else this.loginFilled.delete(el);
         el.value = text;
+        // A partly accepted login or card is not left on the page, as in the live helper.
+        if (action.origin && el.value !== text) {
+          el.value = "";
+          throw new FillRefused(
+            card
+              ? "This field didn't accept the card, so it was cleared."
+              : "This field didn't accept the saved login, so it was cleared.",
+          );
+        }
         el.dispatchEvent(new win.Event("input", { bubbles: true }));
         el.dispatchEvent(new win.Event("change", { bubbles: true }));
         return;

@@ -1620,6 +1620,8 @@ export const MeSchema = z.object({
   billingEnabled: z.boolean(),
   /** True until a user of a billing deployment answers or skips the signup survey. Absent from older servers. */
   needsSignupSurvey: z.boolean().optional(),
+  /** The wallet bots can spend from, when this deployment offers one. Absent from older servers. */
+  paymentWalletProvider: z.object({ id: z.string(), name: z.string() }).nullable().optional(),
 });
 export type Me = z.infer<typeof MeSchema>;
 

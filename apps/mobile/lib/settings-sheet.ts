@@ -22,6 +22,7 @@ const settingsScreens = new Set([
   "team-conversation",
   "vault",
   "voice",
+  "wallet",
 ]);
 
 /** Registers the open settings sheet's close action; the returned function unregisters it. */

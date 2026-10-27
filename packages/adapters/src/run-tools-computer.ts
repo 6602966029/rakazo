@@ -34,6 +34,7 @@ import {
   protectedComputerLifecycleRefusal,
 } from "./desktop-command-guard.js";
 import { nativeShellCommandArgv } from "./native-shell.js";
+import { resolvePurchaseCardFill } from "./purchase-service.js";
 import type { RunContext } from "./run-context.js";
 import { addRunSecrets } from "./run-context.js";
 import { builtinOffered } from "./run-instructions.js";
@@ -178,6 +179,19 @@ export async function pageBrowserTool(ctx: RunContext, call: ToolCall) {
                 name: step.secret,
                 field: step.field,
               });
+              if ("error" in resolved) return resolved;
+              addRunSecrets(ctx, resolved.redactions);
+              return { text: resolved.text, origin: resolved.origin };
+            },
+            resolveCardFill: async (step) => {
+              const paymentWallet = deps.paymentWallet;
+              if (!paymentWallet) return { error: "Card fills are unavailable here." };
+              const resolved = await resolvePurchaseCardFill(
+                { prisma: deps.prisma, secretStore: deps.secretStore, paymentWallet },
+                run,
+                step.purchase,
+                step.field,
+              );
               if ("error" in resolved) return resolved;
               addRunSecrets(ctx, resolved.redactions);
               return { text: resolved.text, origin: resolved.origin };

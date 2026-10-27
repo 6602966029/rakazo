@@ -719,6 +719,7 @@ export interface BackgroundJobPayloads {
   "messaging.credential-cleanup": { installationId: string; ref: string };
   /** Reconcile durable remote-agent intent; scope is loaded from the database. */
   "cloud_agent.poll": { agentId: string };
+  "purchase.poll": { purchaseId: string };
   /** Read an Expo push receipt; the token is identified by its digest, never stored. */
   "push.receipt": { userId: string; ticketId: string; tokenDigest: string };
 }
@@ -1032,8 +1033,11 @@ export type BrowserActStep =
       text: string;
       /** Refuse the step unless the page is on this origin when it is applied. */
       origin?: string;
-      /** Which part of a saved login `text` is; a password is typed only into a password field. */
-      field?: "username" | "password";
+      /**
+       * What `text` is: part of a saved login (a password is typed only into a password field) or
+       * an approved purchase's card detail. A card fill always carries `origin`.
+       */
+      field?: "username" | "password" | "card";
     };
 
 export interface BrowserActRequest {

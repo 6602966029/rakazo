@@ -116,19 +116,23 @@ it.each(["http", "https"])(
   },
 );
 
-it("rejects a saved-login fill that does not say which field it is", async () => {
+it.each([
+  [
+    "a saved-login fill that does not say which field it is",
+    { kind: "fill", ref: "e1", text: "fake-password-1", origin: "https://login.example.test" },
+  ],
+  [
+    "a card fill without the merchant's origin",
+    { kind: "fill", ref: "e1", text: "4242424242424242", field: "card" },
+  ],
+])("rejects %s", async (_, action) => {
   const response = await supervisorApp.request("/computers/computer-login/browser", {
     method: "POST",
     headers: {
       authorization: `Bearer ${resolveSupervisorToken(process.env)}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({
-      command: "act",
-      actions: [
-        { kind: "fill", ref: "e1", text: "fake-password-1", origin: "https://login.example.test" },
-      ],
-    }),
+    body: JSON.stringify({ command: "act", actions: [action] }),
   });
   expect(response.status).toBeGreaterThanOrEqual(400);
   expect(mock.exec).not.toHaveBeenCalled();
@@ -171,16 +175,14 @@ it("closes helper stdin when the request is cancelled", async () => {
   expect(stream.destroyed).toBe(true);
 });
 
-it("sends a saved-login fill only over stdin, never in the helper's arguments", async () => {
-  const actions = [
-    {
-      kind: "fill",
-      ref: "e1",
-      text: "fake-password-1",
-      origin: "https://login.example.test",
-      field: "password",
-    },
-  ];
+it.each([
+  [
+    "saved-login",
+    { text: "fake-password-1", origin: "https://login.example.test", field: "password" },
+  ],
+  ["card", { text: "4242424242424242", origin: "https://shop.example.test", field: "card" }],
+])("sends a %s fill only over stdin, never in the helper's arguments", async (_, fill) => {
+  const actions = [{ kind: "fill", ref: "e1", ...fill }];
   const response = await supervisorApp.request("/computers/computer-login/browser", {
     method: "POST",
     headers: {
@@ -197,7 +199,7 @@ it("sends a saved-login fill only over stdin, never in the helper's arguments", 
   const helperCall = mock.exec.mock.calls.find(([options]) =>
     options.Cmd.includes("/usr/local/bin/rakazo-page-browser"),
   )!;
-  expect(JSON.stringify(helperCall[0].Cmd)).not.toContain("fake-password-1");
+  expect(JSON.stringify(helperCall[0].Cmd)).not.toContain(fill.text);
   expect(helperCall[0].Env).toContain("RAKAZO_BROWSER_ARGS_STDIN=1");
   expect(mock.stdin.join("")).toBe(`${JSON.stringify({ command: "act", actions })}\n`);
 });

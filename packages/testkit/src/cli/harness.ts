@@ -74,6 +74,8 @@ async function main() {
     if (!integration) {
       process.env.TICKET_BOARD_ENABLED = "true";
       process.env.PHONE_CALLS_ENABLED = "true";
+      // The offline wallet, so Settings shows Wallet and sign-in completes without a provider.
+      process.env.PAYMENT_WALLET_PROVIDER = "emulator";
       process.env.RAKAZO_NAV_LINKS = JSON.stringify([
         { id: "clients", label: "Clients", path: "/ext/clients/" },
       ]);

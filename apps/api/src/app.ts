@@ -43,6 +43,7 @@ import {
   createMessagingTeamChatHistory,
   createMessagingTeamChatSender,
   createModelCreditReconciler,
+  createPaymentWalletProvider,
   createProductAnalytics,
   createRunExecutor,
   createRunSandbox,
@@ -75,6 +76,7 @@ import {
   RunJobPublisher,
   reconcileCloudAgents,
   reconcileComputerUpdates,
+  reconcilePurchases,
   removePiUserSessions,
   resolveDeploymentModel,
   ScriptedAgentRuntime,
@@ -539,6 +541,10 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     CURSOR_API_KEY: env.cursorApiKey,
     CLOUD_AGENT_SPACE_ID: env.cloudAgentSpaceId,
   });
+  const paymentWallet = await createPaymentWalletProvider({
+    PAYMENT_WALLET_PROVIDER: env.paymentWalletProvider,
+    PAYMENT_WALLET_CLIENT_ID: env.paymentWalletClientId,
+  });
   const shutdown = new AbortController();
   // One cache serves models.list, selection validation, and run-time model
   // resolution alike, so a list call warms the run path in this process.
@@ -600,6 +606,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     web: createWebProvider(),
     cloudAgent,
     userDevices: userDevicesOverride ?? userDevices,
+    paymentWallet,
     shutdownSignal: shutdown.signal,
   });
 
@@ -620,6 +627,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     deploymentModelConfigured: env.deploymentModelConfigured,
     messaging,
     cloudAgent,
+    paymentWallet,
   });
   if (inMemoryJobs) {
     await inMemoryJobs.start(jobHandlers);
@@ -635,6 +643,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           lookup: deploymentModelUsageLookup(),
         }),
         reconcileCloudAgents: () => reconcileCloudAgents({ prisma, jobs, cloudAgent }),
+        reconcilePurchases: () => reconcilePurchases({ prisma, jobs, paymentWallet }),
         reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),
         reconcileSecurityEventRetention: createSecurityEventPruner(
           prisma,
@@ -659,6 +668,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           },
     analytics,
     cloudAgent,
+    paymentWallet,
     codexCatalog,
     prisma,
     pushTokens,

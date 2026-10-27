@@ -1095,4 +1095,8 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Copy username": "复制用户名",
   "Copy password": "复制密码",
   "Could not show the credential": "无法显示凭据",
+  Wallet: "钱包",
+  "Connect {name}": "连接 {name}",
+  "Could not load wallet": "无法加载钱包",
+  "Could not update wallet": "无法更新钱包",
 };

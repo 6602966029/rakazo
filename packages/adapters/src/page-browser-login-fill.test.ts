@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { JSDOM } from "jsdom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { resolveRequestSecretDestination } from "./bot-secrets.js";
 
 /** The live page helper's isolated-world script, executed here rather than reimplemented. */
@@ -198,6 +198,95 @@ describe("live page helper saved-login fill", () => {
     const email = refFor("Email", browser.snapshot().elements);
     expect(() => browser.fill(email, "fake-user", origin)).toThrow(/HTTPS/);
     expect(fieldValue(domWindow, "Email")).toBe("");
+  });
+});
+
+describe("live page helper card fill", () => {
+  const html = `
+    <input aria-label="Card number" />
+    <input aria-label="Phone" type="tel" />
+    <input aria-label="Security code" type="password" />
+    <input aria-label="Email" type="email" />
+    <input aria-label="Query" type="search" />
+    <input aria-label="Pin" type="number" />
+    <textarea aria-label="Notes"></textarea>
+    <select aria-label="Country"><option>US</option></select>
+    <div aria-label="Editor" contenteditable="true" role="textbox"></div>
+  `;
+  const origin = "https://shop.example.test";
+  const number = "4242424242424242";
+
+  it("types a card into text, tel, and password inputs on the merchant's HTTPS origin, hidden", () => {
+    const { domWindow, browser } = installPageHelper(`${origin}/pay`, html);
+    const snap = browser.snapshot();
+    browser.fill(refFor("Card number", snap.elements), number, origin, "card");
+    browser.fill(refFor("Phone", snap.elements), number, origin, "card");
+    browser.fill(refFor("Security code", snap.elements), "123", origin, "card");
+    expect(fieldValue(domWindow, "Card number")).toBe(number);
+    expect(fieldValue(domWindow, "Security code")).toBe("123");
+    expect(JSON.stringify(browser.snapshot())).not.toContain(number);
+    expect(JSON.stringify(browser.snapshot())).not.toContain('"123"');
+  });
+
+  it("draws a filled card as dots on screen until the field is filled with something else", () => {
+    const { domWindow, browser } = installPageHelper(`${origin}/pay`, html);
+    const ref = refFor("Card number", browser.snapshot().elements);
+    const input = domWindow.document.querySelector<HTMLInputElement>('[aria-label="Card number"]')!;
+    // jsdom drops vendor properties, so watch the CSSOM calls Chrome applies.
+    const set = vi.spyOn(input.style, "setProperty");
+    const remove = vi.spyOn(input.style, "removeProperty");
+    browser.fill(ref, number, origin, "card");
+    expect(set).toHaveBeenCalledWith("-webkit-text-security", "disc", "important");
+    expect(remove).not.toHaveBeenCalled();
+    browser.fill(ref, "plain text");
+    expect(remove).toHaveBeenCalledWith("-webkit-text-security");
+  });
+
+  it("refuses any other field, with card wording", () => {
+    const { domWindow, browser } = installPageHelper(`${origin}/pay`, html);
+    const snap = browser.snapshot();
+    for (const name of ["Email", "Query", "Pin", "Notes", "Country", "Editor"]) {
+      expect(() => browser.fill(refFor(name, snap.elements), number, origin, "card"), name).toThrow(
+        /^Refused: A card can only be typed into a card field\.$/,
+      );
+    }
+    expect(domWindow.document.body.innerHTML).not.toContain(number);
+  });
+
+  it("refuses another site, plain HTTP, and a card without its origin", () => {
+    for (const [url, saved, error] of [
+      ["https://shop.example.test.evil.test/pay", origin, /not on the merchant's site/],
+      ["http://shop.example.test/pay", "http://shop.example.test", /only be filled on HTTPS/],
+      [`${origin}/pay`, undefined, /only be filled on HTTPS/],
+    ] as const) {
+      const { domWindow, browser } = installPageHelper(url, html);
+      const ref = refFor("Card number", browser.snapshot().elements);
+      expect(() => browser.fill(ref, number, saved, "card"), url).toThrow(error);
+      expect(fieldValue(domWindow, "Card number"), url).toBe("");
+    }
+  });
+
+  it("clears a card the field only partly accepts", () => {
+    const { domWindow, browser } = installPageHelper(`${origin}/pay`, html);
+    const field = domWindow.document.querySelector<HTMLInputElement>('[aria-label="Card number"]')!;
+    // A page script that formats the number as it is set changes what reads back.
+    const setter = Object.getOwnPropertyDescriptor(domWindow.HTMLInputElement.prototype, "value")!;
+    Object.defineProperty(field, "value", {
+      get: () => setter.get!.call(field).slice(0, 12),
+      set: (value: string) => setter.set!.call(field, value),
+    });
+    const ref = refFor("Card number", browser.snapshot().elements);
+    expect(() => browser.fill(ref, number, origin, "card")).toThrow(
+      /^Refused: This field didn't accept the card, so it was cleared\.$/,
+    );
+    expect(setter.get!.call(field)).toBe("");
+  });
+
+  it("is refused by a helper that reads an unknown field as a password, outside password inputs", () => {
+    // An older helper treats "card" like a password; a card number field is never one.
+    const { browser } = installPageHelper(`${origin}/pay`, html);
+    const ref = refFor("Card number", browser.snapshot().elements);
+    expect(() => browser.fill(ref, number, origin, "unknown-field")).toThrow(/password field/);
   });
 });
 

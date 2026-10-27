@@ -99,7 +99,9 @@ import {
   runModelChoice,
 } from "./model-selection.js";
 import { modelAcceptsImageInput } from "./model-vision.js";
+import { paymentWalletConnected } from "./payment-wallets.js";
 import { isRetiredModelCredentialError } from "./pi-oauth.js";
+import { loadPurchaseCardRedactions } from "./purchase-service.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
 import { backOffRoutineAfterAccountError } from "./routine-backoff.js";
 import { lateRoutineRunInstruction } from "./routine-lateness.js";
@@ -413,6 +415,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           agentSkills,
           initialBotCommandEnvironment,
           savedLoginPasswordRedactions,
+          purchaseCardRedactions,
         ] = await Promise.all([
           deps.prisma.bot.findUniqueOrThrow({
             where: { id: run.botId },
@@ -449,6 +452,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }),
           loadBotCommandEnvironment(deps.prisma, deps.secretStore, run),
           loadLoginPasswordRedactions(deps.prisma, deps.secretStore, run),
+          deps.paymentWallet ? loadPurchaseCardRedactions(deps, run) : [],
         ]);
         const historySearchBeforeSeq =
           contextStrategy !== "current" && run.sourceMessageId
@@ -465,7 +469,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         runSecrets.push(...commandCredentialRedactions(initialBotCommandEnvironment));
         // A login filled in an earlier run may still be on its page, and anything this run reads
         // or is given may contain it, so every run hides its saved passwords before the model runs.
-        runSecrets.push(...savedLoginPasswordRedactions);
+        runSecrets.push(...savedLoginPasswordRedactions, ...purchaseCardRedactions);
         const agentEnvironmentInstruction = formatAgentEnvironmentInstruction(
           initialBotCommandEnvironment,
         );
@@ -886,6 +890,13 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const hasMessagingIdentity = deps.messaging
           ? await deps.messaging.hasIdentity(bot.id)
           : false;
+        const paymentWallet = deps.paymentWallet;
+        const paymentWalletEnabled = paymentWallet
+          ? await paymentWalletConnected(
+              { prisma: deps.prisma, secretStore: deps.secretStore, paymentWallet },
+              run.userId,
+            )
+          : false;
         const messagingContext = hasMessagingIdentity
           ? [messagingDmSurfaceNote(), messagingChannelRun ? messagingChannelPrivacyBlock() : null]
               .filter(Boolean)
@@ -956,6 +967,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
             mediaImagesEnabled: Boolean(deps.artifacts && mediaGeneration?.capabilities.images),
             mediaVideoEnabled: Boolean(deps.artifacts && mediaGeneration?.capabilities.video),
             cloudAgentEnabled: cloudAgentsEnabled(cloudAgent, run.spaceId),
+            paymentWalletEnabled,
             messagingChannelRun,
             voiceCall,
             disabledBuiltinTools: bot.disabledBuiltinTools,
