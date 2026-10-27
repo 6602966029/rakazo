@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AGENT_SECRET_NAME_PATTERN } from "./agent-secret-name.js";
 import { Id } from "./ids.js";
 import { isCloudMetadataHost, isPrivateNetworkHost } from "./network-host.js";
+import { settingsScopeInput } from "./settings-scope.js";
 
 // An opaque reference handle: matched exactly by secret_request/forget_secret,
 // displayed in list_secrets. Never interpolated into shells, env, or URLs, so
@@ -336,6 +337,13 @@ export const BotSecretPutInput = z.object({
   value: z.string().min(1).max(BOT_SECRET_VALUE_MAX_LENGTH),
 });
 export type BotSecretPutInput = z.infer<typeof BotSecretPutInput>;
+
+/** A credential the owner saves in a vault: the account's or, with scope "space", the Space's. */
+export const VaultPutInput = settingsScopeInput.extend({
+  destination: BotSecretDestinationInput,
+  value: BotSecretPutInput.shape.value,
+});
+export type VaultPutInput = z.infer<typeof VaultPutInput>;
 
 /**
  * What the owner can see about a saved credential. It never carries the protected value.
