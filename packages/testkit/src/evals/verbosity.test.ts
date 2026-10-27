@@ -8,7 +8,7 @@ const steps: MessageBlock = { kind: "steps", steps: [{ label: "Crm list records"
 function evidence(text: string, blocks: MessageBlock[]): Evidence {
   return {
     text,
-    turnMessages: [[blocks]],
+    turnMessages: [[{ blocks, beforeTools: false }]],
     files: {},
     records: [],
     notes: [],
@@ -31,13 +31,16 @@ describe("verbosity grading", () => {
   it("finds visible text between tool calls, allowing one opening line", () => {
     expect(
       narrationBetweenTools([
-        [
-          { kind: "text", text: "Let me check the CRM." },
-          steps,
-          { kind: "text", text: "That failed, retrying." },
-          steps,
-          { kind: "text", text: "Answer." },
-        ],
+        {
+          beforeTools: false,
+          blocks: [
+            { kind: "text", text: "Let me check the CRM." },
+            steps,
+            { kind: "text", text: "That failed, retrying." },
+            steps,
+            { kind: "text", text: "Answer." },
+          ],
+        },
       ]),
     ).toEqual(["That failed, retrying."]);
   });
@@ -45,10 +48,19 @@ describe("verbosity grading", () => {
   it("counts narration posted as its own message before the final one", () => {
     expect(
       narrationBetweenTools([
-        [{ kind: "text", text: "Still checking the CRM." }],
-        [steps, steps, { kind: "text", text: "Answer." }],
+        { beforeTools: false, blocks: [{ kind: "text", text: "Still checking the CRM." }] },
+        { beforeTools: false, blocks: [steps, steps, { kind: "text", text: "Answer." }] },
       ]),
     ).toEqual(["Still checking the CRM."]);
+  });
+
+  it("allows an opener posted as its own message before the first tool call", () => {
+    expect(
+      narrationBetweenTools([
+        { beforeTools: true, blocks: [{ kind: "text", text: "Checking the CRM." }] },
+        { beforeTools: false, blocks: [steps, { kind: "text", text: "Answer." }] },
+      ]),
+    ).toEqual([]);
   });
 
   it("passes a direct answer after tool work", () => {

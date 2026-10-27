@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import type { Criterion, EvalCase, Evidence } from "./cases.js";
+import type { Criterion, EvalCase, Evidence, TurnMessage } from "./cases.js";
 
 export const VERBOSITY_FIXTURE_VERSION = "verbosity-v1";
 export const VERBOSITY_JUDGE_VERSION = "verbosity-meaning-v4";
@@ -18,21 +18,21 @@ export function visibleWords(text: string): number {
 }
 
 /**
- * Visible text written while the bot worked: the "paragraphs of work". A turn's earlier
- * messages were posted mid-work, while its tool steps are saved with the final message, so
- * all of their text counts. In the final message only text before the first tool call is
- * an allowed opener.
+ * Visible text written while the bot worked: the "paragraphs of work". A message saved
+ * before the first tool call is an allowed opener. Later earlier messages were posted
+ * mid-work, while the turn's tool steps are saved with the final message, so all of their
+ * text counts. In the final message only text before the first tool call is an opener.
  */
-export function narrationBetweenTools(messages: readonly (readonly MessageBlock[])[]): string[] {
+export function narrationBetweenTools(messages: readonly TurnMessage[]): string[] {
   const text = (blocks: readonly MessageBlock[]) =>
     blocks.flatMap((block) =>
       block.kind === "text" && block.text.trim() ? [block.text.trim()] : [],
     );
-  const final = messages.at(-1) ?? [];
+  const final = messages.at(-1)?.blocks ?? [];
   const first = final.findIndex((block) => block.kind === "steps");
   const last = final.findLastIndex((block) => block.kind === "steps");
   return [
-    ...messages.slice(0, -1).flatMap(text),
+    ...messages.slice(0, -1).flatMap((m) => (m.beforeTools ? [] : text(m.blocks))),
     ...text(final.slice(first + 1, Math.max(last, 0))),
   ];
 }

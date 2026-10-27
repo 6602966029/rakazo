@@ -18,8 +18,8 @@ export type Step =
 export type Evidence = {
   text: string;
   replies?: string[];
-  /** Each answered step's bot messages in order, with their blocks, including hidden tool steps. */
-  turnMessages?: MessageBlock[][][];
+  /** Each answered step's bot messages in order, including hidden tool steps. */
+  turnMessages?: TurnMessage[][];
   routineRuns?: RoutineEvidence[];
   files: Record<string, string | null>;
   records: EvalServices["records"];
@@ -38,6 +38,8 @@ export type Evidence = {
   };
 };
 export type Criterion = { id: string; pass: boolean };
+/** A bot message of one turn; `beforeTools` when it was saved before the turn's first tool call. */
+export type TurnMessage = { blocks: MessageBlock[]; beforeTools: boolean };
 export type EvalCase = {
   id: string;
   purpose: string;
