@@ -1,3 +1,4 @@
+import type { MessageBlock } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
 import {
   appendTextSegment,
@@ -6,6 +7,7 @@ import {
   containsSecret,
   createStreamingRedactor,
   endsSentence,
+  foldWorkingText,
   humanizeToolName,
   isRunTerminalEvent,
   liveActivityLine,
@@ -122,7 +124,102 @@ describe("response streaming preference", () => {
   });
 });
 
+describe("foldWorkingText", () => {
+  const steps = (label: string, count = 1): MessageBlock => ({
+    kind: "steps",
+    steps: [{ label, count }],
+  });
+  const text = (value: string): MessageBlock => ({ kind: "text", text: value });
+
+  it("keeps the opening line and the answer, moving working text onto one steps block", () => {
+    expect(
+      foldWorkingText([
+        text("Checking your inbox."),
+        steps("Gmail list messages"),
+        text("That failed, retrying."),
+        steps("Gmail list messages"),
+        text("Two things need you."),
+      ]),
+    ).toEqual([
+      text("Checking your inbox."),
+      {
+        kind: "steps",
+        steps: [{ label: "Gmail list messages", count: 2 }],
+        notes: ["That failed, retrying."],
+      },
+      text("Two things need you."),
+    ]);
+  });
+
+  it("leaves a single tool call alone", () => {
+    const blocks = [text("Checking."), steps("Web search"), text("Done.")];
+    expect(foldWorkingText(blocks)).toEqual(blocks);
+  });
+
+  it("keeps the latest working text as the answer when nothing follows the last tool", () => {
+    expect(
+      foldWorkingText([steps("Crm list records"), text("  Saved the note.  "), steps("Remember")]),
+    ).toEqual([steps("Crm list records"), text("Saved the note."), steps("Remember")]);
+  });
+
+  it("hides all working text when no answer should be promoted", () => {
+    expect(
+      foldWorkingText([steps("Github list releases"), text("Nothing new."), steps("Remember")], {
+        keepLatestAsAnswer: false,
+      }),
+    ).toEqual([
+      {
+        kind: "steps",
+        steps: [
+          { label: "Github list releases", count: 1 },
+          { label: "Remember", count: 1 },
+        ],
+        notes: ["Nothing new."],
+      },
+    ]);
+  });
+
+  it("keeps text that describes a card or file shown between tool calls", () => {
+    const image: MessageBlock = {
+      kind: "image",
+      artifactId: "a",
+      name: "chart.png",
+    } as MessageBlock;
+    const blocks = [
+      steps("Render plot"),
+      image,
+      text("Here is the chart."),
+      steps("Remember"),
+      text("Done."),
+    ];
+    expect(foldWorkingText(blocks)).toEqual(blocks);
+  });
+});
+
 describe("reduceLiveMessageBlocks", () => {
+  it("folds live working text once the next tool call starts", () => {
+    const live = reduceLiveMessageBlocks(
+      [
+        { kind: "text", text: "Checking." },
+        { kind: "steps", steps: [{ label: "Web search", count: 1 }] },
+        { kind: "progress", text: "No luck, trying again.", pendingToolNames: ["web_fetch"] },
+      ],
+      { type: "tool", name: "web_search" },
+    );
+    expect(live).toEqual([
+      { kind: "text", text: "Checking." },
+      {
+        kind: "steps",
+        steps: [
+          { label: "Web search", count: 1 },
+          { label: "Web fetch", count: 1 },
+          { label: "Web search", count: 1 },
+        ],
+        notes: ["No luck, trying again."],
+      },
+    ]);
+  });
+
   it("preserves structured live activity markers", () => {
     expect(
       reduceLiveMessageBlocks([], {

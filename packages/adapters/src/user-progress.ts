@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { isToolActivityBlock } from "@rakazo/core";
+import { appendTextSegment, isToolActivityBlock } from "@rakazo/core";
 
 /**
  * Keep mid-turn progress beats short; prefer a few high-signal updates. Mid-turn
@@ -87,21 +87,29 @@ export function isUserProgressClientNonce(clientNonce: string | null | undefined
   return Boolean(clientNonce?.startsWith(USER_PROGRESS_CLIENT_NONCE_PREFIX));
 }
 
+/**
+ * The text a mid-turn message may post: what the bot said before its first tool call.
+ * Text written after that is working and stays in the reply for the final fold.
+ */
 export function extractNarrationText(
   segments: readonly MessageBlock[],
   currentText: string,
 ): { text: string; remaining: MessageBlock[] } {
+  const first = segments.findIndex((block) => block.kind === "steps");
   const parts: string[] = [];
   const remaining: MessageBlock[] = [];
-  for (const block of segments) {
-    if (block.kind === "text") {
+  for (const [index, block] of segments.entries()) {
+    if (block.kind === "text" && (first < 0 || index < first)) {
       if (block.text) parts.push(block.text);
       continue;
     }
     remaining.push(block);
   }
-  if (currentText) parts.push(currentText);
-  return { text: parts.join(""), remaining };
+  if (first < 0) {
+    if (currentText) parts.push(currentText);
+    return { text: parts.join(""), remaining };
+  }
+  return { text: parts.join(""), remaining: appendTextSegment(remaining, currentText) };
 }
 
 /**

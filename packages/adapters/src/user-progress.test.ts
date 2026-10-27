@@ -112,7 +112,16 @@ describe("midTurnProgressBudgetAllows", () => {
 });
 
 describe("extractNarrationText", () => {
-  it("pulls text blocks and current text while keeping tool activity", () => {
+  it("pulls all text before the first tool call", () => {
+    const { text, remaining } = extractNarrationText(
+      [{ kind: "text", text: "Checking calendars. " }],
+      "Back soon.",
+    );
+    expect(text).toBe("Checking calendars. Back soon.");
+    expect(remaining).toEqual([]);
+  });
+
+  it("pulls only the opening line once tools have run, keeping later working text", () => {
     const { text, remaining } = extractNarrationText(
       [
         { kind: "text", text: "Checking calendars. " },
@@ -121,8 +130,11 @@ describe("extractNarrationText", () => {
       ],
       " Still looking.",
     );
-    expect(text).toBe("Checking calendars. Found three options. Still looking.");
-    expect(remaining).toEqual([{ kind: "steps", steps: [{ label: "Web search", count: 1 }] }]);
+    expect(text).toBe("Checking calendars. ");
+    expect(remaining).toEqual([
+      { kind: "steps", steps: [{ label: "Web search", count: 1 }] },
+      { kind: "text", text: "Found three options. Still looking." },
+    ]);
   });
 });
 

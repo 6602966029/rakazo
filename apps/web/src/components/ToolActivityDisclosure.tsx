@@ -16,10 +16,13 @@ export const LIVE_TOOL_STEP_WINDOW = 6;
 
 export function ToolSteps({
   steps,
+  notes,
   currentIndex,
   limit,
 }: {
   steps: readonly ToolStep[];
+  /** What the bot wrote while working, kept out of its reply. */
+  notes?: readonly string[];
   currentIndex?: number;
   /** Show only the last `limit` steps, with a count of the earlier ones above them. */
   limit?: number;
@@ -56,6 +59,15 @@ export function ToolSteps({
           </div>
         );
       })}
+      {notes?.map((note, index) => (
+        <p
+          key={`note-${index}`}
+          className="whitespace-pre-wrap pt-1 text-[13px] leading-5 text-muted-foreground"
+          data-testid="tool-note"
+        >
+          {note}
+        </p>
+      ))}
     </div>
   );
 }
@@ -117,11 +129,13 @@ export function ToolActivityDisclosure({
 export function StandaloneToolActivity({
   live,
   steps,
+  notes,
   stepCount,
   durationMs,
 }: {
   live: boolean;
   steps: readonly ToolStep[];
+  notes?: readonly string[];
   stepCount: number;
   durationMs?: number;
 }) {
@@ -131,6 +145,7 @@ export function StandaloneToolActivity({
         <ToolActivityDisclosure live={live} stepCount={stepCount} durationMs={durationMs}>
           <ToolSteps
             steps={steps}
+            notes={notes}
             currentIndex={live ? steps.length - 1 : undefined}
             limit={live ? LIVE_TOOL_STEP_WINDOW : undefined}
           />
@@ -156,6 +171,7 @@ export function ToolOnlyNarration({
             key={i}
             live={live}
             steps={block.steps}
+            notes={block.notes}
             stepCount={toolStepCount(block.steps)}
             durationMs={block.durationMs}
           />

@@ -3,8 +3,12 @@ import { isBackgroundRunTrigger } from "@rakazo/core";
 import { NO_RESPONSE } from "./silent-reply.js";
 import { messageUserMaxLength } from "./user-progress.js";
 
+/** Chat reply style for every user-facing turn; owner instructions about length or tone still win. */
+export const REPLY_STYLE_GUIDANCE =
+  "The user sees two things from a turn: an optional short sentence you write before your first tool call, shown right away, and the answer you write after your last tool call. Text you write between tool calls is hidden working, so think freely there but do not address the user. Lead the answer with the result and keep it as short as the request allows; a simple question gets a sentence or two. Mention a problem only when it changes the result. Do not restate the request, recap, or add unrequested advice. End when the answer ends: no closing offer or question such as \"Want me to…?\" unless you need the user's answer to continue. Use headings and emphasis only in long answers. If the owner's instructions set a length or style, follow them exactly.";
+
 export function longWorkProgressGuidance(maxLength = messageUserMaxLength()): string {
-  return `Send progress updates only when the work will take minutes — long computer tasks or multi-step jobs — never for quick replies and never to announce that you are starting. Even then send at most a few brief updates (a sentence or two each), not one per tool call, and do not narrate routine steps. Thinking stays private. message_user is capped at ${maxLength} characters and will be silently cut off if you exceed it \u2014 never put your final answer, a report, or any long-form deliverable in it. Always put the complete final answer in your normal reply, never split across message_user calls, and never assume a message_user update already delivered your content.`;
+  return `message_user is the only way to tell the user something while you work. Send updates only when the work will take minutes — long computer tasks or multi-step jobs — never for quick replies and never to announce that you are starting. Even then send at most a few brief updates (a sentence or two each), not one per tool call, and do not narrate routine steps. Thinking stays private. message_user is capped at ${maxLength} characters and will be silently cut off if you exceed it \u2014 never put your final answer, a report, or any long-form deliverable in it. Always put the complete final answer in your normal reply, never split across message_user calls, and never assume a message_user update already delivered your content.`;
 }
 
 export const ROUTINE_SILENT_REPLY_GUIDANCE = `If this routine's prompt says to stay silent when there is nothing to report, the entire final assistant reply must be exactly ${NO_RESPONSE} — no surrounding prose, no variants, no progress updates, no all-clear, and no meta note that you are staying silent. Do not call message_user unless you have something to report.`;
@@ -31,7 +35,11 @@ export const TICKET_SILENT_REPLY_GUIDANCE =
 export function runReplyGuidance(trigger: string): string {
   if (trigger === "reaction") return REACTION_SILENT_REPLY_GUIDANCE;
   if (isBackgroundRunTrigger(trigger)) return TICKET_SILENT_REPLY_GUIDANCE;
-  return runAllowsSilentEmpty(trigger) ? ROUTINE_SILENT_REPLY_GUIDANCE : longWorkProgressGuidance();
+  return runAllowsSilentEmpty(trigger) ? ROUTINE_SILENT_REPLY_GUIDANCE : userReplyGuidance();
+}
+
+function userReplyGuidance(): string {
+  return `${REPLY_STYLE_GUIDANCE} ${longWorkProgressGuidance()}`;
 }
 
 export function replyGuidanceForOfferedTools(
@@ -39,8 +47,8 @@ export function replyGuidanceForOfferedTools(
   disabled?: ReadonlySet<string>,
 ): string | undefined {
   if (!disabled?.has("message_user")) return guidance;
-  if (guidance === longWorkProgressGuidance()) {
-    return "Always put the complete final answer in your normal reply.";
+  if (guidance === userReplyGuidance()) {
+    return `${REPLY_STYLE_GUIDANCE} Always put the complete final answer in your normal reply.`;
   }
   if (guidance === REACTION_SILENT_REPLY_GUIDANCE) {
     return guidance.replace(", with no message_user call.", ".");

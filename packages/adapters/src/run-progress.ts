@@ -4,6 +4,7 @@ import {
   appendToolCallSegment,
   createStreamingRedactor,
   endsSentence,
+  foldWorkingText,
   isBackgroundRunTrigger,
   redactSecrets,
 } from "@rakazo/core";
@@ -95,6 +96,20 @@ export function flushPendingTools(reply: ReplyState) {
   reply.pendingToolNames = [];
 }
 
+/** Keep only the opening line and the answer in the reply; the rest stays with the tool steps. */
+export function foldReplyWorkingText(reply: ReplyState) {
+  const folded = foldWorkingText(reply.messageSegments, {
+    keepLatestAsAnswer: !reply.explicitNoResponse,
+  });
+  if (replyText(folded) === replyText(reply.messageSegments)) return;
+  reply.messageSegments = folded;
+  reply.assembled = replyText(folded);
+}
+
+function replyText(blocks: readonly MessageBlock[]) {
+  return blocks.flatMap((block) => (block.kind === "text" ? [block.text] : [])).join("");
+}
+
 export function tryFlushPendingTools(reply: ReplyState) {
   if (reply.pendingToolNames.length > 0 && endsSentence(reply.currentTextSegment))
     flushPendingTools(reply);
@@ -150,13 +165,13 @@ export async function publishMidTurnNarration(ctx: RunContext, beforeConnectCard
   if (!narration) return;
   reply.hasStreamedText = false;
   reply.pendingProgress = "";
+  // Working text stays in the reply until the final fold.
+  reply.assembled = replyText(reply.messageSegments);
   if (!canPublish) {
-    reply.assembled = "";
     reply.discardedMidTurnNarration = true;
     reply.lastDiscardedMidTurnNarration = narration;
     return;
   }
-  reply.assembled = "";
   await publishMessage(
     deps,
     run,

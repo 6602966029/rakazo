@@ -231,3 +231,12 @@ describe("ToolOnlyNarration", () => {
     expect(html).not.toMatch(OPEN_TRIGGER);
   });
 });
+
+describe("ToolSteps notes", () => {
+  it("lists the bot's working text after the tool rows", () => {
+    const html = renderToStaticMarkup(
+      <ToolSteps steps={[{ label: "Web search", count: 2 }]} notes={["No luck, trying again."]} />,
+    );
+    expect(visibleText(html)).toBe("✓ Web search ×2 No luck, trying again.");
+  });
+});

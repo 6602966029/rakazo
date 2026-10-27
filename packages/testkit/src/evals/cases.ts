@@ -1,3 +1,4 @@
+import type { MessageBlock } from "@rakazo/contracts";
 import type { HistoryScenario } from "./history-fixtures.js";
 import { balancedAmbiguityFixture, gradeHistory, historyFixture } from "./history-fixtures.js";
 import type { JudgeInput } from "./judge.js";
@@ -17,6 +18,8 @@ export type Step =
 export type Evidence = {
   text: string;
   replies?: string[];
+  /** Persisted bot blocks per answered step, in order, including hidden tool steps. */
+  turnBlocks?: MessageBlock[][];
   routineRuns?: RoutineEvidence[];
   files: Record<string, string | null>;
   records: EvalServices["records"];
@@ -44,6 +47,10 @@ export type EvalCase = {
   expectedClarification?: true;
   connections?: string[];
   taughtSkill?: true;
+  botInstructions?: string;
+  /** Tools the owner already trusts, so the turn does not stop for approval. */
+  allowTools?: string[];
+  disabledBuiltinTools?: string[];
   history?: ReturnType<typeof historyFixture>;
   configure?: (services: EvalServices) => void;
   routine?: { prompt: string };

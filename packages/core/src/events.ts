@@ -327,7 +327,8 @@ export function reduceLiveMessageBlocks(
   if (pendingToolNames.length > 0 && endsSentence(tailText)) {
     let next = activity ? [...segments] : appendTextSegment(segments, tailText);
     for (const name of pendingToolNames) next = appendToolCallSegment(next, name);
-    return next;
+    // The run is still going, so the answer is yet to come.
+    return foldWorkingText(next, { keepLatestAsAnswer: false });
   }
   if (!tailText) return [...segments];
   return [
@@ -426,6 +427,75 @@ export function appendToolCallSegment(
     return [...segments.slice(0, -1), { kind: "steps", steps }];
   }
   return [...segments, { kind: "steps", steps }];
+}
+
+type StepsBlock = Extract<MessageBlock, { kind: "steps" }>;
+
+const isVisibleText = (block: MessageBlock) => block.kind === "text" && block.text.trim() !== "";
+
+/**
+ * A turn's chat bubble shows what the bot said before its first tool call and its answer
+ * after the last one. Text written between tool calls is its working: it moves onto the
+ * steps block so it shows only with the tool activity. When nothing follows the last tool
+ * call of a finished turn, the latest working text stays visible as the answer.
+ */
+export function foldWorkingText(
+  blocks: readonly MessageBlock[],
+  { keepLatestAsAnswer = true }: { keepLatestAsAnswer?: boolean } = {},
+): MessageBlock[] {
+  const first = blocks.findIndex((block) => block.kind === "steps");
+  const last = blocks.findLastIndex((block) => block.kind === "steps");
+  if (first === last) return [...blocks];
+  const answered = !keepLatestAsAnswer || blocks.slice(last + 1).some(isVisibleText);
+  const fallback = answered ? -1 : blocks.findLastIndex((b, i) => i < last && isVisibleText(b));
+  const folded: MessageBlock[] = [];
+  for (const [index, block] of blocks.entries()) {
+    const previous = folded.at(-1);
+    if (previous?.kind === "steps" && index > first && index < last && index !== fallback) {
+      if (block.kind === "text") {
+        if (block.text.trim()) folded[folded.length - 1] = withNote(previous, block.text.trim());
+        continue;
+      }
+      if (block.kind === "steps") {
+        folded[folded.length - 1] = mergeSteps(previous, block);
+        continue;
+      }
+    }
+    if (block.kind === "steps" && index === last && previous?.kind === "steps") {
+      folded[folded.length - 1] = mergeSteps(previous, block);
+      continue;
+    }
+    folded.push(
+      index === fallback && block.kind === "text" ? { ...block, text: block.text.trim() } : block,
+    );
+  }
+  return folded;
+}
+
+function withNote(block: StepsBlock, note: string): StepsBlock {
+  return { ...block, notes: [...(block.notes ?? []), note] };
+}
+
+function mergeSteps(a: StepsBlock, b: StepsBlock): StepsBlock {
+  let steps = a.steps;
+  for (const step of b.steps) {
+    const tail = steps.at(-1);
+    steps =
+      tail?.label === step.label
+        ? [...steps.slice(0, -1), { label: step.label, count: tail.count + step.count }]
+        : [...steps, step];
+  }
+  const durationMs =
+    a.durationMs === undefined && b.durationMs === undefined
+      ? undefined
+      : (a.durationMs ?? 0) + (b.durationMs ?? 0);
+  const notes = [...(a.notes ?? []), ...(b.notes ?? [])];
+  return {
+    kind: "steps",
+    steps,
+    ...(durationMs === undefined ? {} : { durationMs }),
+    ...(notes.length ? { notes } : {}),
+  };
 }
 
 export function humanizeToolName(name: string): string {

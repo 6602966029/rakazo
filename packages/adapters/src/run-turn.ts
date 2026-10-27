@@ -51,6 +51,7 @@ import {
   canPublishDurableNarration,
   flushPendingTools,
   flushProgress,
+  foldReplyWorkingText,
   publishMidTurnNarration,
   recordExplicitNoResponse,
   tryFlushPendingTools,
@@ -286,7 +287,8 @@ async function pauseForTakeover(ctx: RunContext, event: RuntimeEvent<"takeover">
   // Publish pending narration as tagged mid-turn progress so reconciliation
   // does not treat pre-takeover text as the delegated final result.
   await publishMidTurnNarration(ctx);
-  if (reply.assembled.trim()) {
+  // After a tool call the remaining text is working, which stays with the steps.
+  if (reply.assembled.trim() && !reply.messageSegments.some((block) => block.kind === "steps")) {
     const narration = clampUserProgressMessage(redactSecrets(reply.assembled, ctx.secrets));
     if (narration && canPublishDurableNarration(ctx)) {
       await publishMessage(
@@ -581,6 +583,7 @@ export async function completeRun(ctx: RunContext) {
     reply.currentTextSegment = reply.assembled;
   }
   flushPendingTools(reply);
+  foldReplyWorkingText(reply);
   // Silent-allowed runs can choose an explicit NO_RESPONSE or finish empty.
   // Other runs still drop a stray sentinel at the edges of a real reply.
   const silentReply = ctx.allowSilentEmptyRun
