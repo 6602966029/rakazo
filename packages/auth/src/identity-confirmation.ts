@@ -15,9 +15,37 @@ const PASSWORD_LOCKOUT_MS = 15 * 60_000;
 
 const confirmationKey = (sessionId: string) => `identity-confirmed-${sessionId}`;
 const codeKey = (sessionId: string) => `identity-code-${sessionId}`;
-const failuresKey = (userId: string) => `identity-failures-${userId}`;
+const attemptKey = (userId: string, slot: number) => `identity-attempt-${userId}-${slot}`;
 
 type Verification = { value: string; expiresAt: Date };
+
+/**
+ * Claims one of the account's password attempts before the password is checked. Each attempt is
+ * its own row created first-writer-wins, so parallel guesses across API processes cannot share one.
+ */
+async function reservePasswordAttempt(
+  adapter: {
+    findVerificationValue(identifier: string): Promise<Verification | null>;
+    consumeVerificationValue(identifier: string): Promise<Verification | null>;
+    reserveVerificationValue(data: Verification & { identifier: string }): Promise<boolean>;
+  },
+  userId: string,
+): Promise<boolean> {
+  for (let slot = 0; slot < PASSWORD_FAILURES; slot += 1) {
+    const identifier = attemptKey(userId, slot);
+    const held = await adapter.findVerificationValue(identifier);
+    // An expired attempt frees its slot; consuming it is atomic, so only the reserve below races.
+    if (held && held.expiresAt.getTime() <= Date.now())
+      await adapter.consumeVerificationValue(identifier);
+    const reserved = await adapter.reserveVerificationValue({
+      identifier,
+      value: userId,
+      expiresAt: new Date(Date.now() + PASSWORD_LOCKOUT_MS),
+    });
+    if (reserved) return true;
+  }
+  return false;
+}
 
 /**
  * Whether this session confirmed its identity within the window: by password or emailed code
@@ -92,31 +120,17 @@ export function identityConfirmation(email: TransactionalEmailProvider | undefin
           let method: "password" | "email";
           if (hash) {
             if (typeof body.password !== "string" || !body.password) throw invalidPassword();
-            const failures = await adapter.findVerificationValue(failuresKey(user.id));
-            const count =
-              failures && failures.expiresAt.getTime() > Date.now() ? Number(failures.value) : 0;
-            if (count >= PASSWORD_FAILURES) {
+            if (!(await reservePasswordAttempt(adapter, user.id))) {
               throw new APIError("TOO_MANY_REQUESTS", {
                 message: "Too many attempts. Try again later.",
                 code: "TOO_MANY_REQUESTS",
               });
             }
-            if (!(await ctx.context.password.verify({ hash, password: body.password }))) {
-              if (count > 0) {
-                await adapter.updateVerificationByIdentifier(failuresKey(user.id), {
-                  value: String(count + 1),
-                });
-              } else {
-                await adapter.deleteVerificationByIdentifier(failuresKey(user.id));
-                await adapter.createVerificationValue({
-                  identifier: failuresKey(user.id),
-                  value: "1",
-                  expiresAt: new Date(Date.now() + PASSWORD_LOCKOUT_MS),
-                });
-              }
+            // A wrong password keeps its reserved attempt until the lockout window passes.
+            if (!(await ctx.context.password.verify({ hash, password: body.password })))
               throw invalidPassword();
-            }
-            if (failures) await adapter.deleteVerificationByIdentifier(failuresKey(user.id));
+            for (let slot = 0; slot < PASSWORD_FAILURES; slot += 1)
+              await adapter.deleteVerificationByIdentifier(attemptKey(user.id, slot));
             method = "password";
           } else {
             const code = typeof body.code === "string" ? body.code.trim() : "";

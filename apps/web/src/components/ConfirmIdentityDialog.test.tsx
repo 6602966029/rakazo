@@ -185,3 +185,35 @@ it("gives the caller the server's error when the dialog is dismissed", async () 
   );
   expect(action).toHaveBeenCalledTimes(1);
 });
+
+it("ignores a confirmation that finishes after its dialog was dismissed", async () => {
+  vi.mocked(fetchAccountSecurity).mockResolvedValue(security({}));
+  let finish: () => void = () => undefined;
+  vi.mocked(confirmIdentity).mockImplementationOnce(
+    () => new Promise<void>((resolve) => (finish = resolve)),
+  );
+  const first = needsConfirmationOnce();
+  const second = needsConfirmationOnce();
+  await act(async () => root.render(<Reveal action={first} />));
+  await act(async () => button("Reveal").click());
+  await act(async () => type(host.querySelector("#confirm-identity-password")!, "pass-value"));
+  await act(async () => button("Continue").click());
+  await act(async () => button("Close").click());
+  await act(async () => root.render(<Reveal action={second} />));
+  await act(async () => button("Reveal").click());
+  await act(async () => finish());
+  expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(second).toHaveBeenCalledTimes(1);
+  expect(first).toHaveBeenCalledTimes(1);
+});
+
+it("lets an account without a password request another code", async () => {
+  vi.mocked(fetchAccountSecurity).mockResolvedValue(security({ hasPassword: false }));
+  await act(async () => root.render(<Reveal action={needsConfirmationOnce()} />));
+  await act(async () => button("Reveal").click());
+  await act(async () => button("Email me a code").click());
+  await act(async () => type(host.querySelector("#confirm-identity-code")!, "000000"));
+  await act(async () => button("Email me a code").click());
+  expect(requestIdentityCode).toHaveBeenCalledTimes(2);
+  expect(host.querySelector<HTMLInputElement>("#confirm-identity-code")?.value).toBe("");
+});

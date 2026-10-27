@@ -63,6 +63,7 @@ export function TextFieldDialog({
   error,
   saving,
   input,
+  extraAction,
   onChange,
   onSubmit,
   onClose,
@@ -74,6 +75,8 @@ export function TextFieldDialog({
   error: string | null;
   saving: boolean;
   input?: Omit<TextInputProps, "value" | "onChangeText">;
+  /** One more button beside Cancel and submit. */
+  extraAction?: { label: string; onPress: () => void };
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
   onClose: () => void;
@@ -124,6 +127,18 @@ export function TextFieldDialog({
             >
               <Text style={[styles.actionText, saving && styles.disabled]}>{t("Cancel")}</Text>
             </Pressable>
+            {extraAction ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={saving}
+                onPress={extraAction.onPress}
+                style={styles.action}
+              >
+                <Text style={[styles.actionText, saving && styles.disabled]}>
+                  {extraAction.label}
+                </Text>
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               disabled={disabled}

@@ -39,7 +39,11 @@ export function ConfirmIdentityDialog({
   const [sent, setSent] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Each opening is its own attempt; a request still running from a dismissed one is ignored.
+  const attempt = useRef(0);
   useEffect(() => {
+    attempt.current += 1;
+    setPending(false);
     if (!open) return;
     let active = true;
     setPassword("");
@@ -60,15 +64,19 @@ export function ConfirmIdentityDialog({
       active = false;
     };
   }, [open]);
-  async function action(run: () => Promise<unknown>) {
+  /** Runs a request; `then` runs on success only if the same attempt is still open. */
+  async function action(run: () => Promise<unknown>, then?: () => void) {
+    const started = attempt.current;
     setPending(true);
     setError(null);
     try {
       await run();
+      if (attempt.current === started) then?.();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t`Could not continue`);
+      if (attempt.current === started)
+        setError(cause instanceof Error ? cause.message : t`Could not continue`);
     } finally {
-      setPending(false);
+      if (attempt.current === started) setPending(false);
     }
   }
   const proof = security?.hasPassword ? password : sent ? code.trim() : "";
@@ -85,10 +93,10 @@ export function ConfirmIdentityDialog({
           onSubmit={(event) => {
             event.preventDefault();
             if (!proof || pending) return;
-            void action(async () => {
-              await confirmIdentity(security?.hasPassword ? { password } : { code: proof });
-              onDone(true);
-            });
+            void action(
+              () => confirmIdentity(security?.hasPassword ? { password } : { code: proof }),
+              () => onDone(true),
+            );
           }}
         >
           {security?.hasPassword ? (
@@ -148,15 +156,17 @@ export function ConfirmIdentityDialog({
                     onChange={(event) => setCode(event.target.value)}
                   />
                 </div>
-              ) : security.emailDeletion ? (
+              ) : null}
+              {/* Stays available after sending, as a code expires and locks after three tries. */}
+              {security.emailDeletion ? (
                 <Button
                   type="button"
                   variant="outline"
                   className="w-full"
                   disabled={pending}
                   onClick={() =>
-                    void action(async () => {
-                      await requestIdentityCode();
+                    void action(requestIdentityCode, () => {
+                      setCode("");
                       setSent(true);
                     })
                   }

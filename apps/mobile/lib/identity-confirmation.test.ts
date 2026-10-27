@@ -1,7 +1,7 @@
 import type { AccountSecurity } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
 import type { IdentityConfirmationDeps } from "./identity-confirmation";
-import { confirmIdentityOnDevice } from "./identity-confirmation";
+import { confirmIdentityOnDevice, NEW_CODE } from "./identity-confirmation";
 
 const security = (overrides: Partial<AccountSecurity> = {}): AccountSecurity => ({
   hasPassword: true,
@@ -68,6 +68,26 @@ describe("confirmIdentityOnDevice", () => {
     expect(d.requestIdentityCode).toHaveBeenCalledTimes(1);
     expect(d.ask).toHaveBeenCalledWith("code", null);
     expect(d.confirmIdentity).toHaveBeenCalledWith({ code: "123456" });
+  });
+
+  it("emails a new code without leaving the prompt", async () => {
+    const d = deps(security({ hasPassword: false }), {
+      choose: vi.fn(async () => "email" as const),
+      ask: vi
+        .fn<IdentityConfirmationDeps["ask"]>()
+        .mockResolvedValueOnce("000000")
+        .mockResolvedValueOnce(NEW_CODE)
+        .mockResolvedValueOnce("123456"),
+      confirmIdentity: vi
+        .fn<IdentityConfirmationDeps["confirmIdentity"]>()
+        .mockRejectedValueOnce(new Error("Request a new code"))
+        .mockResolvedValueOnce(undefined),
+    });
+    await expect(confirmIdentityOnDevice(d)).resolves.toBe(true);
+    expect(d.requestIdentityCode).toHaveBeenCalledTimes(2);
+    expect(d.ask).toHaveBeenNthCalledWith(2, "code", "Request a new code");
+    expect(d.ask).toHaveBeenNthCalledWith(3, "code", null);
+    expect(d.confirmIdentity).toHaveBeenLastCalledWith({ code: "123456" });
   });
 
   it("offers a fresh SSO sign-in to a linked account", async () => {

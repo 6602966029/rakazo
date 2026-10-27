@@ -3,6 +3,9 @@ import { t } from "./i18n";
 
 export type IdentityMethod = "sso" | "email";
 
+/** What the code prompt returns when the person asks for another code. */
+export const NEW_CODE = Symbol("new code");
+
 export type IdentityConfirmationDeps = {
   fetchAccountSecurity: () => Promise<AccountSecurity>;
   confirmIdentity: (proof: { password: string } | { code: string }) => Promise<void>;
@@ -11,8 +14,14 @@ export type IdentityConfirmationDeps = {
   reauthenticate: () => Promise<boolean>;
   /** How an account without a password confirms; null when dismissed. */
   choose: (methods: IdentityMethod[]) => Promise<IdentityMethod | null>;
-  /** Asks for the password or emailed code, showing the last failure; null when dismissed. */
-  ask: (kind: "password" | "code", error: string | null) => Promise<string | null>;
+  /**
+   * Asks for the password or emailed code, showing the last failure; null when dismissed.
+   * The code prompt also offers another code, since one expires and locks after three tries.
+   */
+  ask: (
+    kind: "password" | "code",
+    error: string | null,
+  ) => Promise<string | typeof NEW_CODE | null>;
   errorText: (error: unknown) => string;
 };
 
@@ -38,6 +47,15 @@ export async function confirmIdentityOnDevice(deps: IdentityConfirmationDeps): P
   let error: string | null = null;
   for (;;) {
     const entered = await deps.ask(kind, error);
+    if (entered === NEW_CODE) {
+      error = null;
+      try {
+        await deps.requestIdentityCode();
+      } catch (cause) {
+        error = deps.errorText(cause);
+      }
+      continue;
+    }
     const secret = kind === "code" ? entered?.trim() : entered;
     if (!secret) return false;
     try {

@@ -4,15 +4,17 @@ import { Alert, Platform } from "react-native";
 import { confirmIdentity, fetchAccountSecurity, requestIdentityCode } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import type { IdentityMethod } from "../lib/identity-confirmation";
-import { confirmIdentityOnDevice } from "../lib/identity-confirmation";
+import { confirmIdentityOnDevice, NEW_CODE } from "../lib/identity-confirmation";
 import { continueWithSso } from "../lib/sso";
 import { errorText } from "../lib/user-error";
 import { TextFieldDialog } from "./name-dialog";
 
+type Entry = string | typeof NEW_CODE | null;
+
 type Field = {
   kind: "password" | "code";
   error: string | null;
-  resolve: (value: string | null) => void;
+  resolve: (value: Entry) => void;
 };
 
 /**
@@ -29,13 +31,16 @@ export function useIdentityConfirmation() {
 
   const ask = useCallback(
     (kind: Field["kind"], error: string | null) =>
-      new Promise<string | null>((resolve) => {
+      new Promise<Entry>((resolve) => {
         if (Platform.OS === "ios") {
           Alert.prompt(
             title,
             error ?? undefined,
             [
               { text: t("Cancel"), style: "cancel", onPress: () => resolve(null) },
+              ...(kind === "code"
+                ? [{ text: t("Email me a code"), onPress: () => resolve(NEW_CODE) }]
+                : []),
               { text: t("Continue"), onPress: (entered?: string) => resolve(entered ?? null) },
             ],
             kind === "password" ? "secure-text" : "plain-text",
@@ -88,7 +93,7 @@ export function useIdentityConfirmation() {
     [ask, choose, t],
   );
 
-  const settle = useCallback((entered: string | null) => {
+  const settle = useCallback((entered: Entry) => {
     pending.current?.resolve(entered);
     pending.current = null;
     setField(null);
@@ -118,6 +123,11 @@ export function useIdentityConfirmation() {
                 keyboardType: "number-pad",
                 textContentType: "oneTimeCode",
               }
+        }
+        extraAction={
+          field.kind === "code"
+            ? { label: t("Email me a code"), onPress: () => settle(NEW_CODE) }
+            : undefined
         }
         onChange={setValue}
         onSubmit={settle}

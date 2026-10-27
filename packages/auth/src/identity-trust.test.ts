@@ -10,8 +10,22 @@ import { CLIENT_IP_HEADER, createAuth } from "./index.js";
 vi.mock("better-auth/adapters/prisma", async () => {
   const { memoryAdapter } = await import("better-auth/adapters/memory");
   return {
-    prismaAdapter: (prisma: { authData: Record<string, unknown[]> }) =>
-      memoryAdapter(prisma.authData),
+    prismaAdapter: (prisma: { authData: Record<string, { id?: unknown }[]> }) => {
+      const factory = memoryAdapter(prisma.authData);
+      // Postgres rejects a duplicate primary key, which first-writer-wins reservations rely on.
+      return (options: Parameters<typeof factory>[0]) => {
+        const adapter = factory(options);
+        return {
+          ...adapter,
+          create: (async (input: { model: string; data: { id?: unknown } }) => {
+            const id = input.data.id;
+            if (id !== undefined && prisma.authData[input.model]?.some((row) => row.id === id))
+              throw new Error("duplicate key");
+            return adapter.create(input as never);
+          }) as typeof adapter.create,
+        };
+      };
+    },
   };
 });
 vi.mock("@rakazo/db", async (original) => ({
@@ -640,6 +654,37 @@ describe("identity confirmation", () => {
     const locked = await f.request("/confirm-identity", { password: "offline-password12" }, token);
     expect(locked.status).toBe(429);
     expect(await confirmed(f, token)).toBe(false);
+  });
+
+  it("counts every parallel password guess toward the limit", async () => {
+    const f = fixture({ delivery: false });
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    const statuses = await Promise.all(
+      Array.from({ length: 12 }, () =>
+        f
+          .request("/confirm-identity", { password: "wrong-password12" }, token)
+          .then((response) => response.status),
+      ),
+    );
+    expect(statuses.filter((status) => status === 400)).toHaveLength(5);
+    expect(statuses.filter((status) => status === 429)).toHaveLength(7);
+    const locked = await f.request("/confirm-identity", { password: "offline-password12" }, token);
+    expect(locked.status).toBe(429);
+  });
+
+  it("frees password attempts once the lockout window passes, and clears them on success", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const f = fixture({ delivery: false });
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    const attempt = (password: string) =>
+      f.request("/confirm-identity", { password }, token).then((response) => response.status);
+    for (let index = 0; index < 5; index += 1) await attempt("wrong-password12");
+    expect(await attempt("offline-password12")).toBe(429);
+    vi.setSystemTime(Date.now() + 15 * 60_000 + 1);
+    for (let index = 0; index < 4; index += 1) await attempt("wrong-password12");
+    expect(await attempt("offline-password12")).toBe(200);
+    expect(await attempt("wrong-password12")).toBe(400);
+    expect(await attempt("offline-password12")).toBe(200);
   });
 
   it("confirms an account without a password by a single-use emailed code", async () => {
