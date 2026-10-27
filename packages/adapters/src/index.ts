@@ -19,6 +19,7 @@ export {
   normalizeSecretDestination,
   pageUrlOrigin,
   revealBotSecret,
+  SPACE_VAULT_NOT_IN_USE,
   storeBotSecret,
 } from "./bot-secrets.js";
 export * from "./browser-emulator.js";
