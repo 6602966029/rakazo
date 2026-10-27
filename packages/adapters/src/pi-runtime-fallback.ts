@@ -76,7 +76,7 @@ export interface FallbackStreamState {
   dropThinkingBlocks?: boolean;
   /** Output reservations reduced by a rejected request, scoped to this run and model. */
   outputCaps?: Map<string, number>;
-  /** Thinking levels narrowed to the reasoning efforts an endpoint accepts, scoped to this run and model. */
+  /** Thinking levels narrowed to the reasoning efforts an endpoint accepts, scoped to this run and connection. */
   thinkingLevelMaps?: Map<string, ThinkingLevelMap>;
   /**
    * Messages written before the last switch to a backup model. Their thinking is bound to the
@@ -432,7 +432,8 @@ export function fallbackAwareModelStream(
       }
       const active = state.getActive();
       const targetKey = JSON.stringify([active.config.provider, active.config.id]);
-      const thinkingLevelMap = state.thinkingLevelMaps?.get(targetKey);
+      const connectionKey = modelTargetKey(active.config);
+      const thinkingLevelMap = state.thinkingLevelMaps?.get(connectionKey);
       const target = thinkingLevelMap
         ? { ...active, model: { ...active.model, thinkingLevelMap } }
         : active;
@@ -546,7 +547,7 @@ export function fallbackAwareModelStream(
                 : undefined;
             if (narrowedThinking) {
               state.thinkingLevelMaps ??= new Map();
-              state.thinkingLevelMaps.set(targetKey, narrowedThinking);
+              state.thinkingLevelMaps.set(connectionKey, narrowedThinking);
               buffered = [];
               restart = true;
               break;
