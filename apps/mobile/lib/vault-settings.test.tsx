@@ -200,7 +200,13 @@ beforeEach(() => {
     if (proc === "vault/remove") return { ok: true };
     if (proc === "vault/reveal") {
       return input.name === "example-login"
-        ? { username: "ada", password: "example-password" }
+        ? {
+            fields: [
+              { label: "Email", value: "ada@example.test", hidden: false },
+              { label: "Password", value: "example-password", hidden: true },
+              { label: "PIN", value: "1234", hidden: true },
+            ],
+          }
         : { value: "example-value" };
     }
     throw new Error(`Unexpected RPC: ${proc}`);
@@ -352,7 +358,7 @@ it("shows a value in a native alert with a copy action, and never on the screen"
   expect(alertButton("Done").style).toBe("cancel");
 });
 
-it("shows a website login's username and password, each with its own copy", async () => {
+it("shows each field of a website login under its label, each with its own copy", async () => {
   state.credentials = [
     credential({
       name: "example-login",
@@ -364,12 +370,14 @@ it("shows a website login's username and password, each with its own copy", asyn
   await act(async () => button("Show", menu("example-login"))!.click());
   expect(state.alert).toHaveBeenCalledWith(
     "example-login",
-    "ada\nexample-password",
+    "Email\nada@example.test\n\nPassword\nexample-password\n\nPIN\n1234",
     expect.any(Array),
   );
-  await act(async () => alertButton("Copy username").onPress?.());
-  await act(async () => alertButton("Copy password").onPress?.());
-  expect(state.copy.mock.calls).toEqual([["ada"], ["example-password"]]);
+  await act(async () => alertButton("Copy Email").onPress?.());
+  await act(async () => alertButton("Copy Password").onPress?.());
+  await act(async () => alertButton("Copy PIN").onPress?.());
+  expect(state.copy.mock.calls).toEqual([["ada@example.test"], ["example-password"], ["1234"]]);
+  expect(alertButton("Done").style).toBe("cancel");
 });
 
 it("reveals a Space's own vault through that Space", async () => {

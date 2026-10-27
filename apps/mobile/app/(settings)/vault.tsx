@@ -131,11 +131,17 @@ export default function Vault() {
       ]);
       return;
     }
-    Alert.alert(name, `${revealed.username}\n${revealed.password}`, [
-      { text: t("Copy username"), onPress: () => copy(revealed.username) },
-      { text: t("Copy password"), onPress: () => copy(revealed.password) },
-      { text: t("Done"), style: "cancel" },
-    ]);
+    Alert.alert(
+      name,
+      revealed.fields.map((field) => `${field.label}\n${field.value}`).join("\n\n"),
+      [
+        ...revealed.fields.map((field) => ({
+          text: t("Copy {label}", { label: field.label }),
+          onPress: () => copy(field.value),
+        })),
+        { text: t("Done"), style: "cancel" },
+      ],
+    );
   }
 
   function runAction(credential: BotSecretMetadata, action: CredentialAction) {
