@@ -109,4 +109,34 @@ describe("agent secrets on the vault", () => {
       putAgentSecret(deps, actor, { name: "ACME_TOKEN", value: "fake" }),
     ).rejects.toBeInstanceOf(ORPCError);
   });
+
+  it("updates a variable through the vault name that exports it", async () => {
+    const { deps, rows } = fixture();
+    rows.push({
+      id: "netbird",
+      userId: "user-1",
+      spaceId: null,
+      name: "netbird-setup-key",
+      origin: "",
+      auth: { type: "command" },
+      ciphertext: "unused",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await expect(
+      putAgentSecret(deps, actor, { name: "NETBIRD_SETUP_KEY", value: "fake-rotated" }),
+    ).resolves.toEqual(
+      expect.objectContaining({ id: "netbird-setup-key", name: "NETBIRD_SETUP_KEY" }),
+    );
+    expect(rows.map((row) => row.name)).toEqual(["netbird-setup-key"]);
+    expect(rows[0]!.ciphertext).not.toBe("unused");
+  });
+
+  it("refuses a variable that starts with an underscore", async () => {
+    const { deps, rows } = fixture();
+    await expect(
+      putAgentSecret(deps, actor, { name: "_API_TOKEN", value: "fake" }),
+    ).rejects.toThrow("Variable names must start with a letter");
+    expect(rows).toEqual([]);
+  });
 });

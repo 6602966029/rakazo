@@ -10,6 +10,7 @@ import type { Actor } from "@rakazo/contracts";
 import {
   AGENT_SECRET_NAME_PATTERN,
   BotSecretAuth,
+  BotSecretName,
   commandVariableName,
   commandVariableProblem,
 } from "@rakazo/contracts";
@@ -66,7 +67,18 @@ export async function putAgentSecret(
   input: { name: string; value: string },
 ) {
   await requireSpaceOwner(deps.prisma, actor);
-  const name = input.name.toLowerCase();
+  // The vault name that exports this variable: an existing one (`netbird-setup-key` exports
+  // NETBIRD_SETUP_KEY), else the variable lower-cased. A vault name starts with a letter, so a
+  // variable that starts with an underscore has none.
+  const existing = (await listBotSecretMetadata(deps.prisma, vaultScope(actor))).find(
+    (row) =>
+      BotSecretAuth.safeParse(row.auth).data?.type === "command" &&
+      commandVariableName(row.name) === input.name,
+  );
+  const name = existing?.name ?? input.name.toLowerCase();
+  if (!BotSecretName.safeParse(name).success) {
+    throw new ORPCError("BAD_REQUEST", { message: "Variable names must start with a letter" });
+  }
   let row: Awaited<ReturnType<typeof getBotSecretMetadata>>;
   try {
     row = await storeBotSecret({
