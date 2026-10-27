@@ -3,6 +3,7 @@ import type { PluginRepoFile } from "./plugin-connectors.js";
 import {
   classifyPluginFiles,
   fetchGitHubRepo,
+  isTransientFetchError,
   parsePluginDirectory,
   parsePluginSource,
   pluginPreviewDto,
@@ -374,11 +375,30 @@ describe("GitHub acquisition", () => {
       read,
     );
     expect(read.mock.calls.map((c) => c[0]).join(" ")).not.toContain("notes.md");
+    expect(repo.files.map((f) => f.path)).toEqual([...repo.files.map((f) => f.path)].sort());
     const preview = parsePluginDirectory(repo);
     expect(preview.skills.map((s) => s.name)).toEqual(["kept"]);
     expect(preview.skipped).toContainEqual(
       expect.objectContaining({ reason: "Skills with links or submodules are not supported" }),
     );
+  });
+  it("reports a skill folder that is a link instead of ignoring it", () => {
+    const preview = parse([...files(), { path: "skills/linked", content: "\u0001" }]);
+    expect(preview.skipped).toContainEqual(
+      expect.objectContaining({
+        name: "skills/linked",
+        reason: "Links and submodules are not supported",
+      }),
+    );
+  });
+  it("tells temporary fetch failures from unsupported content", () => {
+    expect(isTransientFetchError(new Error("Request failed: HTTP 503"))).toBe(true);
+    expect(isTransientFetchError(new Error("Request failed: HTTP 429"))).toBe(true);
+    expect(isTransientFetchError(new DOMException("The operation timed out", "TimeoutError"))).toBe(
+      true,
+    );
+    expect(isTransientFetchError(new Error("Plugin directory has too many files"))).toBe(false);
+    expect(isTransientFetchError(new Error("Request failed: HTTP 404"))).toBe(false);
   });
   it.each([
     { path: "../plugin.json", mode: "100644", type: "blob" },

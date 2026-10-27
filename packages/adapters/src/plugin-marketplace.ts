@@ -364,5 +364,8 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
     markUnreadable(source: string) {
       unreadable.set(source, Date.now() + MANIFEST_TTL_MS);
     },
+    clearUnreadable(source: string) {
+      unreadable.delete(source);
+    },
   };
 }

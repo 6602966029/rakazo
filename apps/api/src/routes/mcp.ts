@@ -3,6 +3,7 @@ import { ORPCError } from "@orpc/server";
 import { runContinueJob } from "@rakazo/adapter-kit";
 import {
   createPluginMarketplace,
+  isTransientFetchError,
   persistPreparedSecret,
   pluginPreviewDto,
   prepareApiInstall,
@@ -294,13 +295,15 @@ export function mcpRoutes(ctx: RouterContext) {
           // Browse lists only plugins that install completely; one that turns out partial leaves it.
           if (preview.skipped.some((part) => part.kind !== "unsupported_field"))
             pluginMarketplace.markUnreadable(input.source);
+          else pluginMarketplace.clearUnreadable(input.source);
           return {
             ...pluginPreviewDto(preview),
             pinnedSource: `${preview.source.gitUrl}@${preview.resolvedSha}${preview.source.subdir ? `#${preview.source.subdir}` : ""}`,
             installedSource: `${preview.source.gitUrl}${preview.source.subdir ? `#${preview.source.subdir}` : ""}`,
           };
-        } catch {
-          pluginMarketplace.markUnreadable(input.source);
+        } catch (error) {
+          // Only content we can't support leaves browse; a slow or failing GitHub is retried.
+          if (!isTransientFetchError(error)) pluginMarketplace.markUnreadable(input.source);
           throw new ORPCError("BAD_REQUEST", {
             message: "Could not preview a supported plugin from this repository",
           });

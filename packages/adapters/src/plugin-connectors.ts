@@ -78,6 +78,9 @@ export const MAX_SKILL_FILES = 40;
 const OVERSIZED_FILE = "\u0000";
 /** A link or submodule is never followed; a skill that contains one does not install. */
 const UNREADABLE_FILE = "\u0001";
+/** A whole component (skill folder, agent, command, MCP config or manifest) that is a link. */
+const UNREADABLE_COMPONENT =
+  /^(skills\/[^/]+|agents\/[^/]+|commands\/[^/]+|\.?mcp\.json|plugin\.json|\.[a-z-]+-plugin(\/plugin\.json)?)$/;
 export const MAX_SKILL_FILES_BYTES = 400_000;
 // Underscore files beside commands are shared notes, not commands of their own.
 const COMMAND_FILE = /^commands\/([^/_][^/]*)\.md$/;
@@ -273,6 +276,8 @@ export async function fetchGitHubRepo(
       }
     }),
   );
+  // Parallel downloads finish in any order; parsing must not depend on it.
+  files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return { files, resolvedSha: sha };
 }
 
@@ -545,6 +550,13 @@ export function parsePluginDirectory(input: {
   }
   for (const name of unsupportedParts([...files.keys()]))
     skipped.push({ kind: "editor_only", name, reason: "Runs only inside an editor" });
+  for (const [path, content] of files)
+    if (content === UNREADABLE_FILE && UNREADABLE_COMPONENT.test(path))
+      skipped.push({
+        kind: "skill_invalid",
+        name: path,
+        reason: "Links and submodules are not supported",
+      });
   const names = new Set<string>();
   const skills = [
     ...collectSkills(files, skipped, names),
@@ -672,4 +684,13 @@ export function pluginPreviewDto(plugin: ParsedPlugin): PluginPreview {
       staticHeaderKeys: Object.keys(headers),
     })),
   };
+}
+
+/** Timeouts, aborts, rate limits and server errors say nothing about the plugin itself. */
+export function isTransientFetchError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name === "AbortError" || error.name === "TimeoutError") return true;
+  return /HTTP (408|429|5\d\d)|fetch failed|timed? ?out|aborted|ECONN|ENOTFOUND|EAI_AGAIN/i.test(
+    error.message,
+  );
 }
