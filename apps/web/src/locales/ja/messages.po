@@ -1610,12 +1610,14 @@ msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/markdown-copy.tsx
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
 msgstr "コピーしました"
 
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/message-hover-actions.tsx
@@ -2036,6 +2038,10 @@ msgstr "リセット用メールを送信できませんでした"
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "送信できませんでした"
+
+#: src/components/VaultSettings.tsx
+msgid "Could not show the credential"
+msgstr "認証情報を表示できませんでした"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not start OAuth"
@@ -2537,10 +2543,6 @@ msgstr "メールアドレスの確認が必要です"
 msgid "Enable {0}"
 msgstr "{0}を有効にする"
 
-#: src/components/VaultSettings.tsx
-msgid "Encrypted and never shown again"
-msgstr "暗号化され、再表示されません"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr "{day}に終了"
@@ -2899,6 +2901,10 @@ msgstr "サンプルを再生"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "こんにちは。返信を読み上げるときは、このような声になります。"
+
+#: src/components/VaultSettings.tsx
+msgid "Hide"
+msgstr "非表示"
 
 #: src/components/I18nBootstrap.tsx
 msgid "Hide password"
@@ -4980,6 +4986,10 @@ msgstr "共有"
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "共有メモリ"
+
+#: src/components/VaultSettings.tsx
+msgid "Show"
+msgstr "表示"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

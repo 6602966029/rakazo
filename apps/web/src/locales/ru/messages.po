@@ -1610,12 +1610,14 @@ msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/markdown-copy.tsx
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
 msgstr "Скопировано"
 
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/message-hover-actions.tsx
@@ -2036,6 +2038,10 @@ msgstr "Не удалось отправить электронное письм
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "Не удалось отправить это"
+
+#: src/components/VaultSettings.tsx
+msgid "Could not show the credential"
+msgstr "Не удалось показать учётные данные"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not start OAuth"
@@ -2537,10 +2543,6 @@ msgstr "Требуется подтверждение электронной п�
 msgid "Enable {0}"
 msgstr "Включить {0}"
 
-#: src/components/VaultSettings.tsx
-msgid "Encrypted and never shown again"
-msgstr "Зашифровано и больше не показывается"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr ""
@@ -2899,6 +2901,10 @@ msgstr "Прослушать образец"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "Привет, вот как я буду звучать, когда буду читать ответы вслух."
+
+#: src/components/VaultSettings.tsx
+msgid "Hide"
+msgstr "Скрыть"
 
 #: src/components/I18nBootstrap.tsx
 msgid "Hide password"
@@ -4980,6 +4986,10 @@ msgstr "Общий"
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "Общая память"
+
+#: src/components/VaultSettings.tsx
+msgid "Show"
+msgstr "Показать"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

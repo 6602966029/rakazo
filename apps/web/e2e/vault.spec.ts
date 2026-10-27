@@ -2,7 +2,8 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, openUserSettings, rpc, signup } from "./helpers";
 
-// Fake values only: this spec proves the UI and API never echo a saved credential.
+// Fake values only: this spec proves the UI and API echo a saved credential only when the
+// person asks to see it and confirms it's them.
 const SENTINEL = "fake-bot-credential-values-never-leak";
 const REPLACEMENT = "fake-bot-credential-value-two";
 const CREDENTIAL_NAME = "example_api";
@@ -35,7 +36,6 @@ test("vault and command credentials add, replace and remove without leaking valu
   // Add: a password field holds the value, which is cleared once the save starts.
   await credentials.getByTestId("credential-add").click();
   const addForm = credentials.getByTestId("credential-add-form");
-  await expect(addForm.getByText("Encrypted and never shown again", { exact: true })).toBeVisible();
   await addForm.getByTestId("credential-name").fill(CREDENTIAL_NAME);
   await addForm.getByTestId("credential-origin").fill("https://api.example.test");
   const valueInput = addForm.getByTestId("credential-value");
@@ -66,6 +66,20 @@ test("vault and command credentials add, replace and remove without leaking valu
   expect(JSON.stringify(listed)).not.toContain(SENTINEL);
   expect(JSON.stringify(listed)).not.toContain("ciphertext");
   await expectNoLeakedInputValue(page, SENTINEL);
+
+  // Show: the value appears only after the person confirms it's them, and hides on request.
+  await credentials.getByTestId(`credential-show-${CREDENTIAL_NAME}`).click();
+  const identity = page.getByRole("dialog", { name: "Confirm it's you" });
+  await expect(identity).toBeVisible();
+  await captureScreenshot(page, testInfo, "vault-show-confirm-identity");
+  await identity.getByLabel("Password").fill("password12");
+  await identity.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(identity).toBeHidden();
+  await expect(credentials.getByTestId("credential-revealed-value")).toHaveText(SENTINEL);
+  await captureScreenshot(page, testInfo, "vault-shown-value");
+  await credentials.getByRole("button", { name: "Hide", exact: true }).click();
+  await expect(credentials.getByTestId("credential-revealed")).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText(SENTINEL);
 
   // Replace: keeps the destination, writes a new value, leaves the old one gone.
   const replaced = page.waitForResponse(
