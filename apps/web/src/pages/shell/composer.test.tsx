@@ -239,6 +239,8 @@ describe("Composer", () => {
     pressEnter(textarea);
     expect(textarea.value).toBe("ask @Bob and then @Bob ");
     expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(1);
+    expect(container?.querySelector('[data-testid="mention-picker"]')).toBeNull();
+    expect(textarea.selectionStart).toBe(textarea.value.length);
     pressEnter(textarea);
     await act(async () => {});
     expect(onSend).toHaveBeenCalledWith("ask @Bob and then @Bob", [bob], expect.any(String));

@@ -194,6 +194,7 @@ export const Composer = memo(function Composer({
     pendingCaret.current = null;
     completedSelection.current = caret;
     textareaRef.current?.setSelectionRange(caret, caret);
+    textareaRef.current?.focus();
   });
   const [replyAnnouncement, setReplyAnnouncement] = useState("");
   // What the live region currently holds — a send disarming the reply clears
@@ -299,7 +300,6 @@ export const Composer = memo(function Composer({
         ? retained
         : [...retained, mention];
     });
-    focusComposer();
     // Restore after React has committed the new controlled value.
     pendingCaret.current = completion.caret;
   }
@@ -817,6 +817,7 @@ export const Composer = memo(function Composer({
             }}
             onSelect={(event) => {
               const field = event.currentTarget;
+              if (pendingCaret.current !== null) return;
               if (
                 completedSelection.current === field.selectionStart &&
                 field.selectionStart === field.selectionEnd
