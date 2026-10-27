@@ -247,10 +247,27 @@ function send(
 export function paidRequestEffect(args: Record<string, unknown>): Record<string, unknown> {
   const { headers, body, ...rest } = args;
   if (headers === undefined && body === undefined) return args;
+  return { ...rest, sealed: requestDigest(headers, body) };
+}
+
+/** An approved replay runs only with the headers and body whose digest was approved. */
+export function restorePaidRequest(
+  approved: Record<string, unknown>,
+  live: Record<string, unknown>,
+): Record<string, unknown> | { error: string } {
+  const { sealed, ...rest } = approved;
+  if (sealed === undefined) return approved;
+  if (requestDigest(live.headers, live.body) !== sealed)
+    return { error: "The request changed after approval. Call paid_request again." };
   return {
     ...rest,
-    sealed: createHash("sha256").update(stableJsonValue({ headers, body })).digest("hex"),
+    ...(live.headers !== undefined ? { headers: live.headers } : {}),
+    ...(live.body !== undefined ? { body: live.body } : {}),
   };
+}
+
+function requestDigest(headers: unknown, body: unknown): string {
+  return createHash("sha256").update(stableJsonValue({ headers, body })).digest("hex");
 }
 
 function responseView(response: SafeHttpResponse, secrets: string[] = []) {

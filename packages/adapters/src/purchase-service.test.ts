@@ -9,7 +9,7 @@ import {
   fakeJobs,
   fakePurchasePrisma,
 } from "./fake-purchases.js";
-import { executePaidRequest, paidRequestEffect } from "./paid-request.js";
+import { executePaidRequest, paidRequestEffect, restorePaidRequest } from "./paid-request.js";
 import {
   executePurchaseTool,
   loadPurchaseRedactions,
@@ -497,6 +497,15 @@ describe("paid_request", () => {
     expect(JSON.stringify(effect)).not.toContain("days");
     expect(JSON.stringify(effect)).not.toContain("content-type");
     expect(paidRequestEffect({ purchase: "purchase-1" })).toEqual({ purchase: "purchase-1" });
+  });
+
+  it("resumes an approved request only with the headers and body that were approved", () => {
+    const approved = paidRequestEffect(paidArgs);
+    expect(restorePaidRequest(approved, paidArgs)).toEqual(paidArgs);
+    expect(restorePaidRequest(approved, { ...paidArgs, body: '{"days":30}' })).toEqual({
+      error: expect.stringContaining("changed after approval"),
+    });
+    expect(restorePaidRequest({ purchase: "purchase-1" }, {})).toEqual({ purchase: "purchase-1" });
   });
 
   it("marks the purchase failed when the paid request is refused", async () => {

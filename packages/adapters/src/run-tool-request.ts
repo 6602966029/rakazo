@@ -20,7 +20,7 @@ import { validCloudAgentArgs } from "./cloud-agent-tools.js";
 import { sanitizeConnectorError } from "./connector-safety.js";
 import { isFleetApprovalTool, prepareFleetRequest } from "./fleet-tools.js";
 import { assertConnectorToolArgs, CATALOG_EXECUTE } from "./lazy-tool-catalog.js";
-import { paidRequestEffect } from "./paid-request.js";
+import { paidRequestEffect, restorePaidRequest } from "./paid-request.js";
 import type { RunContext } from "./run-context.js";
 import {
   approvalReplayEffectToolName,
@@ -219,7 +219,14 @@ export async function resolveToolRequest(
     } else {
       // Catalog wrappers keep resolveCall's parsed args so Zod stripping/coercion
       // still matches the first-approval effect key and execute payload.
+      const live = args;
       args = approvedReplayArgs(approvedRequest, args, CATALOG_APPROVAL_TOOL);
+      if (name === "paid_request") {
+        const restored = restorePaidRequest(args, live);
+        if ("error" in restored && typeof restored.error === "string")
+          return { error: restored.error };
+        args = restored;
+      }
     }
     // Bound / shrink-direct approvals may skip catalog parse — reject before execute
     // if they no longer match the live schema.
