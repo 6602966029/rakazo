@@ -324,7 +324,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   },
   {
     name: "browser_act",
-    description: `Click or fill page elements by ref from browser_snapshot (kinds: ${BROWSER_ACT_KINDS.join(", ")}). upload attaches your files to a "file upload" element; use it instead of clicking upload buttons. fill_secret types the username or password of a login saved with request_secret, only on the site it was saved for; you never see the value. fill_card types an approved purchase's card number or security code, only on its merchant site. type presses keys like a keyboard and replaces the field's text; use it for code boxes and fields that ignore fill. For a code split into one box per digit, type the whole code once into the first box, and to correct it type it again. Prefer this over computer_act for web pages. If the result includes fallback:"computer_act", use computer_act instead.`,
+    description: `Click or fill page elements by ref from browser_snapshot (kinds: ${BROWSER_ACT_KINDS.join(", ")}). upload attaches your files to a "file upload" element; use it instead of clicking upload buttons. fill_secret types the username or password of a login saved with request_secret, only on the site it was saved for; you never see the value. fill_card types an approved purchase's card details, only on its merchant site; leave out ref to find the field, including in a payment frame. type presses keys like a keyboard and replaces the field's text; use it for code boxes and fields that ignore fill. For a code split into one box per digit, type the whole code once into the first box, and to correct it type it again. Prefer this over computer_act for web pages. If the result includes fallback:"computer_act", use computer_act instead.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -337,7 +337,10 @@ export const builtinAgentTools: ConnectorTool[] = [
                 type: "string",
                 enum: [...BROWSER_ACT_KINDS],
               },
-              ref: { type: "string", description: "Element ref from browser_snapshot." },
+              ref: {
+                type: "string",
+                description: "Element ref from browser_snapshot. Optional for fill_card.",
+              },
               text: {
                 type: "string",
                 description: "Text for fill or type (type replaces the field's text).",
@@ -352,10 +355,10 @@ export const builtinAgentTools: ConnectorTool[] = [
               field: {
                 type: "string",
                 enum: ["username", "password", ...PURCHASE_CARD_FIELDS],
-                description: "username or password for fill_secret; number or cvc for fill_card.",
+                description: `username or password for fill_secret; ${PURCHASE_CARD_FIELDS.join(", ")} for fill_card.`,
               },
             },
-            required: ["kind", "ref"],
+            required: ["kind"],
           },
         },
       },

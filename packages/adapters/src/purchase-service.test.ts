@@ -211,6 +211,48 @@ describe("resolvePurchaseCardFill", () => {
     ).toEqual({ error: "Unknown purchase." });
   });
 
+  it("types the expiry as digits and the billing postal code from the approved card", async () => {
+    const env = setup();
+    await env.call("request_purchase", request);
+    const scope = { spaceId: fixture.spaceId, userId: fixture.userId, botId: fixture.botId };
+    env.purchases[0]!.status = "approved";
+    expect(await resolvePurchaseCardFill(env.deps, scope, "purchase-1", "expiry")).toEqual({
+      error: expect.stringContaining("not approved"),
+    });
+    const summary = { brand: "visa", last4: "4242", expMonth: 3, expYear: 2034 };
+    env.wallet.snapshots.set("remote-op-1", {
+      id: "remote-op-1",
+      status: "approved",
+      card: summary,
+    });
+    expect(await resolvePurchaseCardFill(env.deps, scope, "purchase-1", "expiry")).toEqual({
+      text: "0334",
+      origin: "https://shop.example.test",
+      redactions: [],
+    });
+    expect(await resolvePurchaseCardFill(env.deps, scope, "purchase-1", "postal_code")).toEqual({
+      error: "This card has no billing postal code.",
+    });
+    env.wallet.snapshots.set("remote-op-1", {
+      id: "remote-op-1",
+      status: "approved",
+      card: {
+        ...summary,
+        billingAddress: {
+          name: "Test User",
+          line1: "1 Test St",
+          postalCode: " 94110 ",
+          country: "US",
+        },
+      },
+    });
+    expect(
+      await resolvePurchaseCardFill(env.deps, scope, "purchase-1", "postal_code"),
+    ).toMatchObject({ text: "94110", origin: "https://shop.example.test" });
+    // Neither detail reveals the card, so nothing is sealed for later runs to hide.
+    expect(env.purchases[0]!.cardCiphertext ?? null).toBeNull();
+  });
+
   it("keeps hiding a typed card in the bot's later runs, sealed at rest", async () => {
     const env = setup();
     await env.call("request_purchase", request);
