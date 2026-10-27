@@ -12,6 +12,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { ConnectorAuthUnavailableError } from "@rakazo/adapter-kit";
 import { getLogger } from "@rakazo/logging";
+import { COMPOSIO_MULTI_EXECUTE_TOOL, composioToolBatch } from "./composio-batch.js";
 import type { ToolkitDirectoryEntry } from "./composio-catalog-cache.js";
 import {
   composioToolkitDirectory,
@@ -66,6 +67,7 @@ function mapOneTool(item: unknown): ConnectorTool | undefined {
       name,
       description: String(fn.description ?? name),
       inputSchema: asObject(fn.parameters) ?? { type: "object", properties: {} },
+      batch: composioToolBatch(name),
       route: { connectorId: "composio", toolName: name },
     };
   }
@@ -77,6 +79,7 @@ function mapOneTool(item: unknown): ConnectorTool | undefined {
     inputSchema: asObject(raw.inputParameters) ??
       asObject(raw.inputSchema) ??
       asObject(raw.parameters) ?? { type: "object", properties: {} },
+    batch: composioToolBatch(name),
     route: { connectorId: "composio", toolName: name },
   };
 }
@@ -142,7 +145,6 @@ export function executeSessionKey(
   return accountKey ? `${toolkitKey}|${accountKey}` : toolkitKey;
 }
 
-const COMPOSIO_MULTI_EXECUTE_TOOL = "COMPOSIO_MULTI_EXECUTE_TOOL";
 /** Connected-account listings are per user and toolkit; this bounds a runaway cursor. */
 const MAX_ACCOUNT_PAGES = 20;
 /** Folder listings treat a missing path as the account root. */
