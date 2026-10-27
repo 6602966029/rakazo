@@ -1931,6 +1931,7 @@ msgstr "无法加载运行历史记录"
 msgid "Could not load sign-in options"
 msgstr "无法加载登录选项"
 
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not load skill"
 msgstr "无法加载技能"
@@ -3994,7 +3995,7 @@ msgstr ""
 msgid "Not a valid skill"
 msgstr "不是有效的技能"
 
-#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#. placeholder {0}: notAdded.map((entry) => entry.name).join(", ")
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Not added: {0}"
 msgstr ""

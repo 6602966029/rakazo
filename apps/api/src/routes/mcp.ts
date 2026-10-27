@@ -291,12 +291,16 @@ export function mcpRoutes(ctx: RouterContext) {
           for (const server of preview.mcpServers) {
             await assertMcpRemoteEndpoint(server.endpoint, deps);
           }
+          // Browse lists only plugins that install completely; one that turns out partial leaves it.
+          if (preview.skipped.some((part) => part.kind !== "unsupported_field"))
+            pluginMarketplace.markUnreadable(input.source);
           return {
             ...pluginPreviewDto(preview),
             pinnedSource: `${preview.source.gitUrl}@${preview.resolvedSha}${preview.source.subdir ? `#${preview.source.subdir}` : ""}`,
             installedSource: `${preview.source.gitUrl}${preview.source.subdir ? `#${preview.source.subdir}` : ""}`,
           };
         } catch {
+          pluginMarketplace.markUnreadable(input.source);
           throw new ORPCError("BAD_REQUEST", {
             message: "Could not preview a supported plugin from this repository",
           });

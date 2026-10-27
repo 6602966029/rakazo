@@ -1931,6 +1931,7 @@ msgstr "रन का इतिहास लोड नहीं हो सका
 msgid "Could not load sign-in options"
 msgstr "साइन इन के विकल्प लोड नहीं हो सके"
 
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not load skill"
 msgstr "स्किल लोड नहीं हो सकी"
@@ -3994,7 +3995,7 @@ msgstr ""
 msgid "Not a valid skill"
 msgstr "मान्य स्किल नहीं"
 
-#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#. placeholder {0}: notAdded.map((entry) => entry.name).join(", ")
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Not added: {0}"
 msgstr ""

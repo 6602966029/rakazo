@@ -1931,6 +1931,7 @@ msgstr "Rungeschiedenis laden mislukt"
 msgid "Could not load sign-in options"
 msgstr "Aanmeldopties laden mislukt"
 
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not load skill"
 msgstr "Skill laden mislukt"
@@ -3994,7 +3995,7 @@ msgstr "Normaal"
 msgid "Not a valid skill"
 msgstr "Geen geldige skill"
 
-#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#. placeholder {0}: notAdded.map((entry) => entry.name).join(", ")
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Not added: {0}"
 msgstr ""

@@ -25,6 +25,7 @@ const REGISTRIES = [
 ];
 type Registry = (typeof REGISTRIES)[number];
 const MANIFEST_TTL_MS = 60 * 60_000;
+const CATALOG_TTL_MS = 10 * 60_000;
 const MANIFEST_CONCURRENCY = 16;
 const entrySchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -184,6 +185,8 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
     { expires: number; data: ReturnType<typeof parsePluginMarketplace> }
   >();
   const pending = new Map<string, Promise<ReturnType<typeof parsePluginMarketplace>>>();
+  /** Sources whose preview failed; they are left out of browse until this time. */
+  const unreadable = new Map<string, number>();
   const files = new Map<string, { expires: number; text: string | null }>();
   const trees = new Map<string, { expires: number; paths: string[]; sizes: Map<string, number> }>();
   const cachedText = async (url: string, maxBytes: number, signal: AbortSignal) => {
@@ -300,6 +303,14 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
   async function registryData(registry: Registry) {
     const cached = cache.get(registry.name);
     if (cached && cached.expires > Date.now()) return cached.data;
+    // An expired catalog is still served while a fresh one loads, so browsing never waits on GitHub twice.
+    if (cached) {
+      void refresh(registry).catch(() => undefined);
+      return cached.data;
+    }
+    return refresh(registry);
+  }
+  async function refresh(registry: Registry): Promise<ReturnType<typeof parsePluginMarketplace>> {
     const active = pending.get(registry.name);
     if (active) return active;
     const request = (async () => {
@@ -316,7 +327,7 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
         entries,
         skipped: parsed.skipped + parsed.entries.length - entries.length,
       };
-      cache.set(registry.name, { data, expires: Date.now() + 60_000 });
+      cache.set(registry.name, { data, expires: Date.now() + CATALOG_TTL_MS });
       return data;
     })();
     pending.set(registry.name, request);
@@ -338,14 +349,20 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
           skippedEntries += result.value.skipped;
         } else unavailableRegistries.push(REGISTRIES[i]!.name);
       }
+      const now = Date.now();
       return {
         entries: entries
+          .filter((entry) => (unreadable.get(entry.source) ?? 0) <= now)
           .map((entry) => ({ ...entry, category: pluginCategory(entry) }))
           .filter((entry) => matchesPluginQuery(entry, query))
           .sort(comparePlugins),
         unavailableRegistries,
         skippedEntries,
       };
+    },
+    /** A listed plugin that fails to preview, or would install only partly, leaves browse for a while. */
+    markUnreadable(source: string) {
+      unreadable.set(source, Date.now() + MANIFEST_TTL_MS);
     },
   };
 }

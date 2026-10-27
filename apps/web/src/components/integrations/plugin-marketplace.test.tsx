@@ -11,11 +11,14 @@ const api = vi.hoisted(() => ({
   parts: vi.fn(),
   approve: vi.fn(),
   connect: vi.fn(),
+  skills: vi.fn(),
+  skill: vi.fn(),
 }));
 vi.mock("../../lib/rpc", () => ({
   rpc: {
     capabilities: { pluginPreview: api.preview, install: api.install, pluginParts: api.parts },
     mcp: { assignments: { approve: api.approve } },
+    agentSkills: { list: api.skills, get: api.skill },
   },
 }));
 vi.mock("../../lib/mcp-connect", () => ({ connectMcpOauth: api.connect }));
@@ -241,6 +244,19 @@ describe("plugin detail", () => {
     expect(onConnect).toHaveBeenCalled();
     expect(api.install).not.toHaveBeenCalled();
     expect(container.textContent).not.toContain("https://notes.example.test/mcp");
+  });
+
+  it("opens an installed plugin skill's saved instructions", async () => {
+    api.skills.mockResolvedValue([
+      { id: "skill-db-1", name: "skill-1", source: "plugin", description: "", readOnly: true },
+    ]);
+    api.skill.mockResolvedValue({ content: "Follow the plugin steps." });
+    await render({ install, servers: [server] });
+    await click("skill-1Write");
+    expect(api.skill).toHaveBeenCalledWith({ skillId: "skill-db-1" });
+    expect(container.querySelector('[data-testid="plugin-skill-recipe"]')?.textContent).toBe(
+      "Follow the plugin steps.",
+    );
   });
 
   it("recognizes an install saved under the normalized form of a pasted URL", async () => {

@@ -1931,6 +1931,7 @@ msgstr "Não foi possível carregar o histórico de execuções"
 msgid "Could not load sign-in options"
 msgstr "Não foi possível carregar as opções de login"
 
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not load skill"
 msgstr "Não foi possível carregar a habilidade"
@@ -3994,7 +3995,7 @@ msgstr ""
 msgid "Not a valid skill"
 msgstr "Não é uma habilidade válida"
 
-#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#. placeholder {0}: notAdded.map((entry) => entry.name).join(", ")
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Not added: {0}"
 msgstr ""

@@ -172,7 +172,7 @@ describe("marketplace service", () => {
     await service.catalog("no match");
     expect(indexReads(read)).toBe(3);
   });
-  it("shares concurrent reads and expires the per-instance cache", async () => {
+  it("shares concurrent reads and refreshes an expired catalog in the background", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1000);
     const read = registryReader({
       cursor: [{ name: "Notes", source: "notes" }],
@@ -181,9 +181,10 @@ describe("marketplace service", () => {
     const service = createPluginMarketplace(read);
     await Promise.all([service.catalog(""), service.catalog("Notes")]);
     expect(indexReads(read)).toBe(2);
-    now.mockReturnValue(62_000);
-    await service.catalog("");
-    expect(indexReads(read)).toBe(4);
+    now.mockReturnValue(1000 + 10 * 60_000 + 1);
+    const stale = await service.catalog("");
+    expect(stale.entries).toHaveLength(1);
+    await vi.waitFor(() => expect(indexReads(read)).toBe(4));
   });
   it("reads the title, category and logo of vendored plugins from their manifests", async () => {
     const read = registryReader({

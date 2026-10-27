@@ -252,6 +252,8 @@ export default function PluginScreen() {
   const busy = Boolean(pending);
   const parsed = install ? PluginPreviewSchema.safeParse(install.config) : null;
   const detail = parsed?.success ? parsed.data : preview;
+  // An ignored manifest field loses nothing, so it isn't reported.
+  const notAdded = (detail?.skipped ?? []).filter((entry) => entry.kind !== "unsupported_field");
   const connectorCount = detail?.mcpServers.length ?? 0;
   // Without a connector there is nothing to connect, so the page adds the skills instead.
   const skillsOnly = params.skillsOnly === "1";
@@ -547,11 +549,9 @@ export default function PluginScreen() {
           </View>
         ) : null}
 
-        {detail?.skipped.length ? (
+        {notAdded.length ? (
           <Text style={styles.secondary}>
-            {t("Not added: {list}", {
-              list: detail.skipped.map((entry) => entry.name).join(", "),
-            })}
+            {t("Not added: {list}", { list: notAdded.map((entry) => entry.name).join(", ") })}
           </Text>
         ) : null}
       </ScrollView>

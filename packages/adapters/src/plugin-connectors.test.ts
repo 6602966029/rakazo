@@ -268,7 +268,7 @@ describe("portable plugin parser", () => {
   );
   it("bounds file count and file size, rejects duplicate paths/names", () => {
     expect(() =>
-      parse(Array.from({ length: 201 }, (_, i) => ({ path: `${i}`, content: "" }))),
+      parse(Array.from({ length: 5001 }, (_, i) => ({ path: `${i}`, content: "" }))),
     ).toThrow(/too many/);
     expect(() => parse([{ path: "plugin.json", content: "a".repeat(100_001) }])).toThrow(
       /too large/,
@@ -351,9 +351,36 @@ describe("GitHub acquisition", () => {
       `https://raw.githubusercontent.com/example/plugin/${SHA}/plugin.json`,
     ]);
   });
+  it("never follows links or submodules, and refuses only a skill that contains one", async () => {
+    const tree = [
+      { path: "plugin.json", type: "blob", mode: "100644", size: 80 },
+      { path: "skills/kept/SKILL.md", type: "blob", mode: "100644", size: 80 },
+      { path: "skills/linked/SKILL.md", type: "blob", mode: "100644", size: 80 },
+      { path: "skills/linked/references/notes.md", mode: "120000", type: "blob" },
+      { path: "docs", mode: "160000", type: "commit" },
+    ];
+    const read = vi.fn(async (url: string) => {
+      if (url.includes("/commits/"))
+        return JSON.stringify({ sha: SHA, commit: { tree: { sha: TREE } } });
+      if (url.includes("/git/trees/")) return JSON.stringify({ tree, truncated: false });
+      const name = /skills\/([^/]+)\/SKILL\.md$/.exec(url)?.[1];
+      return name
+        ? `---\nname: ${name}\ndescription: Example\n---\n\nSteps.\n`
+        : JSON.stringify(manifest);
+    });
+    const repo = await fetchGitHubRepo(
+      parsePluginSource("https://github.com/example/plugin"),
+      undefined,
+      read,
+    );
+    expect(read.mock.calls.map((c) => c[0]).join(" ")).not.toContain("notes.md");
+    const preview = parsePluginDirectory(repo);
+    expect(preview.skills.map((s) => s.name)).toEqual(["kept"]);
+    expect(preview.skipped).toContainEqual(
+      expect.objectContaining({ reason: "Skills with links or submodules are not supported" }),
+    );
+  });
   it.each([
-    { path: "plugin.json", mode: "120000", type: "blob" },
-    { path: "skills", mode: "160000", type: "commit" },
     { path: "../plugin.json", mode: "100644", type: "blob" },
     { path: "plugin.json", mode: "100644", type: "blob", size: 100_001 },
   ])("rejects unsafe tree entry %j", async (entry) => {

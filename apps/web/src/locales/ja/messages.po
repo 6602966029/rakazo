@@ -1931,6 +1931,7 @@ msgstr "実行履歴を読み込めませんでした"
 msgid "Could not load sign-in options"
 msgstr "ログイン方法を読み込めませんでした"
 
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not load skill"
 msgstr "スキルを読み込めませんでした"
@@ -3994,7 +3995,7 @@ msgstr "通常"
 msgid "Not a valid skill"
 msgstr "有効なスキルではありません"
 
-#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#. placeholder {0}: notAdded.map((entry) => entry.name).join(", ")
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Not added: {0}"
 msgstr ""

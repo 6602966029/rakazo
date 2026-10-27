@@ -1931,6 +1931,7 @@ msgstr "실행 기록을 불러오지 못했습니다"
 msgid "Could not load sign-in options"
 msgstr "로그인 옵션을 불러올 수 없습니다"
 
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not load skill"
 msgstr "스킬을 불러오지 못했습니다"
@@ -3994,7 +3995,7 @@ msgstr ""
 msgid "Not a valid skill"
 msgstr "올바른 스킬이 아닙니다"
 
-#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#. placeholder {0}: notAdded.map((entry) => entry.name).join(", ")
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Not added: {0}"
 msgstr ""

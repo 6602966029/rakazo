@@ -176,6 +176,7 @@ export function PluginDetail({
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [recipe, setRecipe] = useState<{ name: string; content: string | null } | null>(null);
   const [allSkills, setAllSkills] = useState(false);
   const [noAuth, setNoAuth] = useState(new Set<string>());
   const [attempt, setAttempt] = useState(0);
@@ -288,6 +289,28 @@ export function PluginDetail({
 
   // A plugin connector already installed stays manageable here until it is removed.
   const managed = parts.includes("connector") ? undefined : managedApp;
+  // Installed plugin skills are read-only, so their saved instructions open in place.
+  async function toggleRecipe(name: string) {
+    if (recipe?.name === name) return setRecipe(null);
+    setRecipe({ name, content: null });
+    try {
+      const entry = (await rpc.agentSkills.list()).find(
+        (row) => row.source === "plugin" && row.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (!entry) throw new Error(t`Could not load skill`);
+      const skill = await rpc.agentSkills.get({ skillId: entry.id });
+      if (live.current)
+        setRecipe((open) => (open?.name === name ? { name, content: skill.content } : open));
+    } catch (err) {
+      if (live.current) {
+        setRecipe(null);
+        setError(errorText(err, t`Could not load skill`));
+      }
+    }
+  }
+
+  // An ignored manifest field loses nothing, so it isn't reported.
+  const notAdded = (detail?.skipped ?? []).filter((entry) => entry.kind !== "unsupported_field");
   const prefix = `${detail?.name ?? ""}: `;
   const skills = detail?.skills ?? [];
   const shownSkills = allSkills ? skills : skills.slice(0, SKILLS_SHOWN);
@@ -548,25 +571,52 @@ export function PluginDetail({
             )}
           </div>
           <ul className="divide-y divide-border/60 rounded-xl border border-border/70">
-            {shownSkills.map((skill) => (
-              <li key={skill.name} className="flex items-center gap-3 px-4 py-3">
-                <FileText size={16} className="shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14.5px] font-medium">{skill.name}</span>
-                  <span className="block truncate text-[12.5px] text-muted-foreground">
-                    {skill.description}
+            {shownSkills.map((skill) => {
+              const row = (
+                <>
+                  <FileText size={16} className="shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14.5px] font-medium">{skill.name}</span>
+                    <span className="block truncate text-[12.5px] text-muted-foreground">
+                      {skill.description}
+                    </span>
                   </span>
-                </span>
-                {skill.files?.length ? (
-                  <span
-                    className="shrink-0 text-[12.5px] text-muted-foreground"
-                    title={skill.files.join("\n")}
-                  >
-                    <Plural value={skill.files.length} one="# file" other="# files" />
-                  </span>
-                ) : null}
-              </li>
-            ))}
+                  {skill.files?.length ? (
+                    <span
+                      className="shrink-0 text-[12.5px] text-muted-foreground"
+                      title={skill.files.join("\n")}
+                    >
+                      <Plural value={skill.files.length} one="# file" other="# files" />
+                    </span>
+                  ) : null}
+                </>
+              );
+              return (
+                <li key={skill.name}>
+                  {skillsOn ? (
+                    <button
+                      type="button"
+                      aria-expanded={recipe?.name === skill.name}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-start hover:bg-accent/60"
+                      onClick={() => void toggleRecipe(skill.name)}
+                    >
+                      {row}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3 px-4 py-3">{row}</div>
+                  )}
+                  {recipe?.name === skill.name ? (
+                    <pre
+                      data-testid="plugin-skill-recipe"
+                      className="max-h-80 overflow-auto whitespace-pre-wrap border-t border-border/60 px-4 py-3 font-mono text-[12.5px] text-foreground"
+                      dir="auto"
+                    >
+                      {recipe.content ?? <Spinner className="size-4 text-muted-foreground" />}
+                    </pre>
+                  ) : null}
+                </li>
+              );
+            })}
             {skills.length > shownSkills.length ? (
               <li className="flex justify-end px-2 py-1.5">
                 <Button variant="text" size="sm" onClick={() => setAllSkills(true)}>
@@ -578,9 +628,9 @@ export function PluginDetail({
         </section>
       ) : null}
 
-      {detail?.skipped.length ? (
+      {notAdded.length ? (
         <p className="px-1 text-[13px] text-muted-foreground">
-          <Trans>Not added: {detail.skipped.map((entry) => entry.name).join(", ")}</Trans>
+          <Trans>Not added: {notAdded.map((entry) => entry.name).join(", ")}</Trans>
         </p>
       ) : null}
     </div>

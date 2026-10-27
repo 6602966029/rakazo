@@ -1931,6 +1931,7 @@ msgstr "לא ניתן לטעון את היסטוריית ההרצות"
 msgid "Could not load sign-in options"
 msgstr "לא ניתן לטעון את אפשרויות ההתחברות"
 
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
 msgid "Could not load skill"
 msgstr "לא ניתן לטעון את המיומנות"
@@ -3994,7 +3995,7 @@ msgstr "רגיל"
 msgid "Not a valid skill"
 msgstr "מיומנות לא תקינה"
 
-#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#. placeholder {0}: notAdded.map((entry) => entry.name).join(", ")
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Not added: {0}"
 msgstr ""

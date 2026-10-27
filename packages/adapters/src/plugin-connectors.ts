@@ -55,7 +55,10 @@ export type ParsedPlugin = {
   skipped: PluginSkippedEntry[];
 };
 
+/** Fetched component files; other paths are only listed. */
 const MAX_FILES = 200;
+const MAX_TREE_ENTRIES = 5000;
+const FETCH_CONCURRENCY = 8;
 const MAX_BYTES = 4_000_000;
 const MAX_FILE_BYTES = 100_000;
 const FULL_SHA = /^[a-f0-9]{40}$/;
@@ -73,6 +76,8 @@ const SKILL_COMPANION = /^skills\/[^/]+\/(?!SKILL\.md$).+/;
 const SKILL_TEXT_FILE = /\.(md|mdx|txt|json|ya?ml|csv)$/i;
 export const MAX_SKILL_FILES = 40;
 const OVERSIZED_FILE = "\u0000";
+/** A link or submodule is never followed; a skill that contains one does not install. */
+const UNREADABLE_FILE = "\u0001";
 export const MAX_SKILL_FILES_BYTES = 400_000;
 // Underscore files beside commands are shared notes, not commands of their own.
 const COMMAND_FILE = /^commands\/([^/_][^/]*)\.md$/;
@@ -217,16 +222,19 @@ export async function fetchGitHubRepo(
     throw new Error("Plugin repository tree is incomplete");
   const prefix = ref.subdir ? `${ref.subdir}/` : "";
   const selected = tree.tree.filter((entry) => entry.path.startsWith(prefix));
+  const files: PluginRepoFile[] = [];
   const entries = selected.filter((entry) => {
-    const path = entry.path.slice(prefix.length);
-    safePath(path);
-    if (entry.mode === "120000" || entry.type === "commit")
-      throw new Error("Plugin symlinks and submodules are not supported");
+    safePath(entry.path.slice(prefix.length));
+    if (entry.mode === "120000" || entry.type === "commit") {
+      files.push({ path: entry.path, content: UNREADABLE_FILE });
+      return false;
+    }
     return entry.type === "blob";
   });
-  if (entries.length > MAX_FILES) throw new Error("Plugin directory has too many files");
+  if (entries.length > MAX_TREE_ENTRIES) throw new Error("Plugin directory has too many files");
   let total = 0;
-  const files: PluginRepoFile[] = [];
+  let fetched = 0;
+  const wanted: string[] = [];
   for (const entry of entries) {
     const path = entry.path.slice(prefix.length);
     // Fetch only component text. Other paths are retained for skipped-part reporting.
@@ -247,15 +255,24 @@ export async function fetchGitHubRepo(
       continue;
     }
     if ((entry.size ?? 0) > MAX_FILE_BYTES) throw new Error("Plugin file is too large");
-    const body = await read(
-      `https://raw.githubusercontent.com${repo}/${sha}/${entry.path.split("/").map(encodeURIComponent).join("/")}`,
-      MAX_FILE_BYTES,
-      deadline,
-    );
-    total += Buffer.byteLength(body);
-    if (total > MAX_BYTES) throw new Error("Plugin content is too large");
-    files.push({ path: entry.path, content: body });
+    if (++fetched > MAX_FILES) throw new Error("Plugin directory has too many files");
+    wanted.push(entry.path);
   }
+  const queue = [...wanted];
+  await Promise.all(
+    Array.from({ length: FETCH_CONCURRENCY }, async () => {
+      for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
+        const body = await read(
+          `https://raw.githubusercontent.com${repo}/${sha}/${path.split("/").map(encodeURIComponent).join("/")}`,
+          MAX_FILE_BYTES,
+          deadline,
+        );
+        total += Buffer.byteLength(body);
+        if (total > MAX_BYTES) throw new Error("Plugin content is too large");
+        files.push({ path, content: body });
+      }
+    }),
+  );
   return { files, resolvedSha: sha };
 }
 
@@ -267,6 +284,8 @@ function companionRefusal(companions: Array<[string, string]>): string | null {
   if (companions.some(([path]) => !SKILL_TEXT_FILE.test(path)))
     return "Skills with scripts or other non-text files are not supported";
   if (companions.length > MAX_SKILL_FILES) return "Skill has too many files";
+  if (companions.some(([, text]) => text === UNREADABLE_FILE))
+    return "Skills with links or submodules are not supported";
   if (companions.some(([, text]) => text === OVERSIZED_FILE)) return "Skill files are too large";
   const bytes = companions.reduce((sum, [, text]) => sum + Buffer.byteLength(text), 0);
   if (bytes > MAX_SKILL_FILES_BYTES) return "Skill files are too large";
@@ -485,7 +504,7 @@ export function parsePluginDirectory(input: {
 }): ParsedPlugin {
   if (!FULL_SHA.test(input.resolvedSha))
     throw new Error("Plugin requires a full resolved commit SHA");
-  if (input.files.length > MAX_FILES) throw new Error("Plugin directory has too many files");
+  if (input.files.length > MAX_TREE_ENTRIES) throw new Error("Plugin directory has too many files");
   const files = new Map<string, string>();
   let bytes = 0;
   for (const file of input.files) {
