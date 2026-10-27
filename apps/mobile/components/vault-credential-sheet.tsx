@@ -67,6 +67,10 @@ export function VaultCredentialSheet({
   const editable = !submitting && !closing;
   const update = (change: Partial<CredentialDraft>) => setDraft((prev) => ({ ...prev, ...change }));
   const nameProblem = replacing ? undefined : credentialNameProblem(draft);
+  // A save in flight keeps the sheet open, so its failure is still shown here.
+  const cancel = () => {
+    if (!submitting) close();
+  };
 
   async function save() {
     if (submitting || !ready) return;
@@ -119,7 +123,7 @@ export function VaultCredentialSheet({
   ];
 
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={cancel}>
       <View
         accessibilityViewIsModal
         style={[
@@ -132,7 +136,12 @@ export function VaultCredentialSheet({
         ]}
       >
         <View style={styles.header}>
-          <NativeActionButton label={t("Cancel")} onPress={close} prominence="plain" />
+          <NativeActionButton
+            disabled={submitting}
+            label={t("Cancel")}
+            onPress={cancel}
+            prominence="plain"
+          />
           <NativeActionButton
             disabled={!ready}
             busy={submitting}

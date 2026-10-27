@@ -298,3 +298,15 @@ it("offers a retry when the vault fails to load", async () => {
   await act(async () => button("Something went wrong. Try again. Retry")!.click());
   expect(rows()).toHaveLength(2);
 });
+
+it("clears a failed removal's error once a later save succeeds", async () => {
+  await render();
+  state.rpc.mockRejectedValueOnce(new Error("offline"));
+  await act(async () => button("Remove", menu("github"))!.click());
+  await act(async () => alertButton("Remove").onPress?.());
+  expect(container.textContent).toContain("Could not remove the credential");
+
+  await act(async () => button("Add credential")!.click());
+  await act(async () => button("Save", container.querySelector("dialog")!)!.click());
+  expect(container.textContent).not.toContain("Could not remove the credential");
+});

@@ -50,6 +50,7 @@ export default function Vault() {
         .then((next) => {
           if (!current || changes.current !== changesAtRead) return;
           setCredentials(next);
+          setError(null);
           setLoadError(null);
         })
         .catch((err: unknown) => {
@@ -63,6 +64,7 @@ export default function Vault() {
 
   async function save(destination: CredentialDestination, value: string) {
     changes.current += 1;
+    setError(null);
     const saved = await rpc("vault/put", { scope, destination, value });
     setCredentials((current) => withCredential(current ?? [], saved));
   }

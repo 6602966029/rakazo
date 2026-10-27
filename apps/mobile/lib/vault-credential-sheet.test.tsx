@@ -213,3 +213,25 @@ it("clears the value and shows an error when saving fails", async () => {
   expect(field("Name")!.value).toBe("github");
   expect(onClose).not.toHaveBeenCalled();
 });
+
+it("stays open while a save is in flight, so a failure is still shown", async () => {
+  let fail!: () => void;
+  onSave.mockImplementation(
+    () =>
+      new Promise<void>((_, reject) => {
+        fail = () => reject(new Error("offline"));
+      }),
+  );
+  await render();
+  await type("Name", "github");
+  await type("Site", "https://api.github.com");
+  await type("Value", "example-value");
+  await act(async () => save().click());
+  const cancel = () =>
+    [...container.querySelectorAll("button")].find((node) => node.textContent === "Cancel")!;
+  expect(cancel().disabled).toBe(true);
+
+  await act(async () => fail());
+  expect(container.textContent).toContain("Could not save the credential");
+  expect(cancel().disabled).toBe(false);
+});
