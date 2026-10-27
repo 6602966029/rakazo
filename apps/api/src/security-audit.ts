@@ -50,6 +50,11 @@ export const AUDITED_PROCEDURES: Record<string, AuditedProcedure> = {
     kind: "vault_credential",
     fields: ["scope", "destination.name"],
   },
+  "vault.reveal": {
+    type: "credential.revealed",
+    kind: "vault_credential",
+    fields: ["scope", "name"],
+  },
   "vault.remove": {
     type: "credential.deleted",
     kind: "vault_credential",

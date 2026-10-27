@@ -86,9 +86,21 @@ function botSecretDeps(seed: Row[] = []) {
       ref: `enc:${options.recordId}`,
       ciphertext: `enc:${options.recordId}`,
     })),
-    load: vi.fn(),
+    // The fake store's ciphertext is "enc:<id>"; reading it back returns what put saved.
+    load: vi.fn(async (ciphertext: string) => saved.get(ciphertext) ?? ""),
   };
+  const saved = new Map<string, string>();
+  secrets.put.mockImplementation(async (plaintext, _context, options) => {
+    saved.set(`enc:${options.recordId}`, plaintext);
+    return {
+      id: options.recordId,
+      ref: `enc:${options.recordId}`,
+      ciphertext: `enc:${options.recordId}`,
+    };
+  });
+  const auth = { hasRecentIdentityConfirmation: vi.fn(async () => false) };
   const deps = {
+    auth,
     prisma: prisma as unknown as PrismaClient,
     secrets,
     env: {
@@ -108,13 +120,13 @@ function botSecretDeps(seed: Row[] = []) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ json: input }),
       }),
-      { prefix: "/rpc", context: { actor } },
+      { prefix: "/rpc", context: { actor, sessionId: "session-1" } },
     );
     if (!response) throw new Error("Procedure did not match");
     const text = await response.text();
     return { status: response.status, text, body: JSON.parse(text) as { json: unknown } };
   }
-  return { prisma, secrets, rows, call };
+  return { prisma, secrets, rows, call, auth };
 }
 
 function putInput(origin: string, botId = "bot-1") {
@@ -497,5 +509,37 @@ describe("vault router", () => {
     expect((await call("vault/list", { scope: "space" })).body.json).toEqual([
       expect.objectContaining({ name: "portal" }),
     ]);
+  });
+
+  it("reveals a value only after this session confirmed it's the owner", async () => {
+    const { secrets, auth, call } = botSecretDeps();
+    await call("vault/put", { destination, value: FAKE_VALUE });
+    const refused = await call("vault/reveal", { name: "portal" });
+    expect(refused.status).toBe(403);
+    expect(refused.text).toContain("IDENTITY_CONFIRMATION_REQUIRED");
+    expect(refused.text).not.toContain(FAKE_VALUE);
+    expect(secrets.load).not.toHaveBeenCalled();
+
+    auth.hasRecentIdentityConfirmation.mockResolvedValue(true);
+    const shown = await call("vault/reveal", { name: "portal" });
+    expect(shown.body.json).toEqual({ value: FAKE_VALUE });
+    expect(auth.hasRecentIdentityConfirmation).toHaveBeenLastCalledWith({
+      sessionId: "session-1",
+      userId: "user-1",
+    });
+    expect((await call("vault/reveal", { name: "missing" })).status).toBe(404);
+  });
+
+  it("reveals a website login's username and password", async () => {
+    const { auth, call } = botSecretDeps();
+    auth.hasRecentIdentityConfirmation.mockResolvedValue(true);
+    await call("vault/put", {
+      destination: { name: "site", origin: "https://login.example.test", auth: { type: "login" } },
+      value: JSON.stringify({ username: "person@example.test", password: FAKE_VALUE }),
+    });
+    expect((await call("vault/reveal", { name: "site" })).body.json).toEqual({
+      username: "person@example.test",
+      password: FAKE_VALUE,
+    });
   });
 });
