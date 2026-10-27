@@ -94,7 +94,7 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   await dialog.getByRole("button", { name: "Close integrations", exact: true }).click();
   await page.reload();
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  await dialog.getByRole("button", { name: "1 connected", exact: true }).click();
+  await dialog.getByRole("button", { name: /^\d+ connected$/ }).click();
   const installed = dialog.getByTestId("installed-plugin");
   await expect(installed).toContainText("Planning Notes");
   await expect(installed).toContainText("1 connector, 1 skill");

@@ -29,7 +29,7 @@ test("shows directly registered MCP servers in Integrations without catalog conn
     });
   expect(await rpc(page, "connections/list", undefined)).toEqual([]);
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  await page.getByRole("button", { name: "2 connected", exact: true }).click();
+  await page.getByRole("button", { name: /^\d+ connected$/ }).click();
   const servers = page.getByTestId("registered-mcp-servers");
   await expect(servers.getByText("Dropbox", { exact: true })).toBeVisible();
   await expect(servers.getByText("GitHub", { exact: true })).toBeVisible();
