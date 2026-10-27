@@ -183,6 +183,20 @@ describe("portable plugin parser", () => {
       classifyPluginFiles(["mcp.json"], JSON.stringify({ mcpServers: { x: { command: "npx" } } })),
     ).toBe("incomplete");
     expect(classifyPluginFiles(["README.md"])).toBe("incomplete");
+    const refs = Array.from({ length: 5 }, (_, i) => `skills/a/references/r${i}.md`);
+    const big = new Map(refs.map((path) => [path, 90_000] as const));
+    expect(classifyPluginFiles(["skills/a/SKILL.md", ...refs], undefined, big)).toBe("incomplete");
+    expect(
+      classifyPluginFiles(
+        ["skills/a/SKILL.md", refs[0]!],
+        undefined,
+        new Map([[refs[0]!, 120_000]]),
+      ),
+    ).toBe("incomplete");
+    expect(classifyPluginFiles(["skills/a/SKILL.md", refs[0]!], undefined, big)).toEqual({
+      hasConnector: false,
+      skillCount: 1,
+    });
   });
   it("rejects unknown manifest versions/invalid metadata; reports unknown fields", () => {
     expect(() =>

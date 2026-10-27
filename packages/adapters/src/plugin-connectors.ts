@@ -565,9 +565,11 @@ export type PluginCompleteness = { hasConnector: boolean; skillCount: number };
 
 /** Decide from a plugin directory's file list (and its MCP config, when it has one)
  * whether every part installs. Null means it cannot be told without the file. */
+/** `sizes` (bytes by path, when known) applies the same reference-file limits an install does. */
 export function classifyPluginFiles(
   paths: string[],
   mcpConfig?: string,
+  sizes?: ReadonlyMap<string, number>,
 ): PluginCompleteness | "incomplete" | null {
   if (unsupportedParts(paths).length) return "incomplete";
   const skillDirs = new Map<string, string[]>();
@@ -577,10 +579,16 @@ export function classifyPluginFiles(
     if (skill) skillDirs.set(skill[1]!, [...(skillDirs.get(skill[1]!) ?? []), skill[2]!]);
     if (AGENT_FILE.test(path) || COMMAND_FILE.test(path)) skillCount++;
   }
-  for (const files of skillDirs.values()) {
+  for (const [dir, files] of skillDirs) {
     if (!files.includes("SKILL.md")) return "incomplete";
     const companions = files.filter((file) => file !== "SKILL.md");
     if (companions.length > MAX_SKILL_FILES || companions.some((f) => !SKILL_TEXT_FILE.test(f)))
+      return "incomplete";
+    const bytes = companions.map((file) => sizes?.get(`skills/${dir}/${file}`) ?? 0);
+    if (
+      bytes.some((size) => size > MAX_FILE_BYTES) ||
+      bytes.reduce((sum, size) => sum + size, 0) > MAX_SKILL_FILES_BYTES
+    )
       return "incomplete";
     skillCount++;
   }

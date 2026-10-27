@@ -185,7 +185,7 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
   >();
   const pending = new Map<string, Promise<ReturnType<typeof parsePluginMarketplace>>>();
   const files = new Map<string, { expires: number; text: string | null }>();
-  const trees = new Map<string, { expires: number; paths: string[] }>();
+  const trees = new Map<string, { expires: number; paths: string[]; sizes: Map<string, number> }>();
   const cachedText = async (url: string, maxBytes: number, signal: AbortSignal) => {
     const cached = files.get(url);
     if (cached && cached.expires > Date.now()) return cached.text;
@@ -201,9 +201,11 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
     }
   };
   /** One recursive listing per registry repo; GitHub's API is rate limited, so it is kept for an hour. */
-  async function repoPaths(registry: Registry): Promise<string[]> {
+  async function repoTree(
+    registry: Registry,
+  ): Promise<{ paths: string[]; sizes: Map<string, number> }> {
     const cached = trees.get(registry.name);
-    if (cached && cached.expires > Date.now()) return cached.paths;
+    if (cached && cached.expires > Date.now()) return cached;
     const repo = new URL(registry.repository).pathname;
     const tree = JSON.parse(
       await read(
@@ -211,11 +213,15 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
         8_000_000,
         AbortSignal.timeout(15_000),
       ),
-    ) as { truncated?: boolean; tree?: Array<{ path: string; type: string }> };
+    ) as { truncated?: boolean; tree?: Array<{ path: string; type: string; size?: number }> };
     if (tree.truncated || !Array.isArray(tree.tree)) throw new Error("Registry tree is incomplete");
-    const paths = tree.tree.filter((entry) => entry.type === "blob").map((entry) => entry.path);
-    trees.set(registry.name, { paths, expires: Date.now() + MANIFEST_TTL_MS });
-    return paths;
+    const blobs = tree.tree.filter((entry) => entry.type === "blob");
+    const listing = {
+      paths: blobs.map((entry) => entry.path),
+      sizes: new Map(blobs.map((entry) => [entry.path, entry.size ?? 0])),
+    };
+    trees.set(registry.name, { ...listing, expires: Date.now() + MANIFEST_TTL_MS });
+    return listing;
   }
   /** Vendored plugins describe their title, category and logo in a manifest beside them, and
    * their MCP config decides whether the connector installs. Plugins that would not install
@@ -227,8 +233,10 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
     const raw = `https://raw.githubusercontent.com${new URL(registry.repository).pathname}/HEAD/`;
     const prefix = `${registry.repository}#`;
     const signal = AbortSignal.timeout(15_000);
-    const [paths, index] = await Promise.all([
-      registry.componentIndex ? Promise.resolve([]) : repoPaths(registry),
+    const [{ paths, sizes }, index] = await Promise.all([
+      registry.componentIndex
+        ? Promise.resolve({ paths: [] as string[], sizes: new Map<string, number>() })
+        : repoTree(registry),
       registry.componentIndex
         ? read(`${raw}${registry.componentIndex}`, 2_000_000, signal).then((text) =>
             componentIndexSchema.parse(JSON.parse(text)),
@@ -263,7 +271,10 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
           const mcpText = mcpPath
             ? await cachedText(`${raw}${dir}/${mcpPath}`, 256_000, signal)
             : undefined;
-          const classified = classifyPluginFiles(own, mcpText ?? undefined);
+          const ownSizes = new Map(
+            own.map((path) => [path, sizes.get(`${dir}/${path}`) ?? 0] as const),
+          );
+          const classified = classifyPluginFiles(own, mcpText ?? undefined, ownSizes);
           parts = classified === "incomplete" ? null : classified;
         }
         details.set(entry.id, { manifest, parts });
