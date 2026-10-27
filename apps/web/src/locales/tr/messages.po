@@ -1612,12 +1612,14 @@ msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/markdown-copy.tsx
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
 msgstr "Kopyalandı"
 
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/message-hover-actions.tsx
@@ -2038,6 +2040,10 @@ msgstr "Sıfırlama e-postası gönderilemedi"
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "Gönderilemedi"
+
+#: src/components/VaultSettings.tsx
+msgid "Could not show the credential"
+msgstr "Kimlik bilgisi gösterilemedi"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not start OAuth"
@@ -2552,10 +2558,6 @@ msgstr "E-posta doğrulaması gerekiyor"
 msgid "Enable {0}"
 msgstr "{0} etkinleştir"
 
-#: src/components/VaultSettings.tsx
-msgid "Encrypted and never shown again"
-msgstr "Şifrelenir ve bir daha gösterilmez"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr ""
@@ -2914,6 +2916,10 @@ msgstr "Örnek dinle"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "Merhaba, yanıtları sesli okuduğumda böyle duyulacağım."
+
+#: src/components/VaultSettings.tsx
+msgid "Hide"
+msgstr "Gizle"
 
 #: src/components/I18nBootstrap.tsx
 msgid "Hide password"
@@ -4996,6 +5002,10 @@ msgstr "Ortak"
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "Ortak hafıza"
+
+#: src/components/VaultSettings.tsx
+msgid "Show"
+msgstr "Göster"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

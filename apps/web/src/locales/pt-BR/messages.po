@@ -1612,12 +1612,14 @@ msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/markdown-copy.tsx
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
 msgstr "Copiado"
 
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/message-hover-actions.tsx
@@ -2038,6 +2040,10 @@ msgstr "Não foi possível enviar o e-mail de redefinição"
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "Não foi possível enviar"
+
+#: src/components/VaultSettings.tsx
+msgid "Could not show the credential"
+msgstr "Não foi possível mostrar a credencial"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not start OAuth"
@@ -2552,10 +2558,6 @@ msgstr "É necessário verificar o e-mail"
 msgid "Enable {0}"
 msgstr "Ativar {0}"
 
-#: src/components/VaultSettings.tsx
-msgid "Encrypted and never shown again"
-msgstr "Criptografado e nunca mais exibido"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr ""
@@ -2914,6 +2916,10 @@ msgstr "Ouvir uma amostra"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "Olá, é assim que vou soar quando ler as respostas em voz alta."
+
+#: src/components/VaultSettings.tsx
+msgid "Hide"
+msgstr "Ocultar"
 
 #: src/components/I18nBootstrap.tsx
 msgid "Hide password"
@@ -4996,6 +5002,10 @@ msgstr "Compartilhado"
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "Memória compartilhada"
+
+#: src/components/VaultSettings.tsx
+msgid "Show"
+msgstr "Mostrar"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

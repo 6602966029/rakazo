@@ -13,7 +13,36 @@ const vault = vi.hoisted(() => ({
   list: vi.fn(),
   put: vi.fn(),
   remove: vi.fn(),
+  reveal: vi.fn(),
 }));
+
+// The dialog itself is tested on its own; here it is a pair of buttons that settle it.
+vi.mock("./ConfirmIdentityDialog", async () => {
+  const { useState } = await import("react");
+  const { runWithIdentityConfirmation } = await import("@rakazo/contracts");
+  return {
+    useIdentityConfirmation: () => {
+      const [settle, setSettle] = useState<((confirmed: boolean) => void) | null>(null);
+      const done = (confirmed: boolean) => {
+        settle?.(confirmed);
+        setSettle(null);
+      };
+      return {
+        withIdentityConfirmation: <T,>(action: () => Promise<T>) =>
+          runWithIdentityConfirmation(
+            action,
+            () => new Promise<boolean>((resolve) => setSettle(() => resolve)),
+          ),
+        identityDialog: settle ? (
+          <div data-testid="identity-dialog">
+            <button type="button" data-testid="identity-confirm" onClick={() => done(true)} />
+            <button type="button" data-testid="identity-cancel" onClick={() => done(false)} />
+          </div>
+        ) : null,
+      };
+    },
+  };
+});
 
 vi.mock("../lib/rpc", () => ({
   rpc: { vault },
@@ -37,7 +66,7 @@ vi.mock("@rakazo/ui-web", () => ({
   NativeSelectOption: (props: ComponentProps<"option">) => <option {...props} />,
 }));
 
-import { VaultSettings } from "./VaultSettings";
+import { REVEAL_MS, VaultSettings } from "./VaultSettings";
 
 const FAKE_VALUE = "fake-value-SENTINEL-1";
 const stamp = "2026-09-01T00:00:00.000Z";
@@ -107,6 +136,7 @@ beforeEach(() => {
   vault.list.mockReset().mockResolvedValue(rows);
   vault.put.mockReset();
   vault.remove.mockReset().mockResolvedValue({ ok: true });
+  vault.reveal.mockReset();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -146,7 +176,7 @@ describe("VaultSettings", () => {
     expect(container.querySelector('[data-testid="vault-card"]')).toBeNull();
     await click("credential-add");
     const form = byTestId("vault-card").querySelector('[data-testid="credential-add-form"]');
-    expect(form?.textContent).toContain("Encrypted and never shown again");
+    expect(form).not.toBeNull();
     // The form has its own save and cancel, so the add action steps aside while it is open.
     expect(container.querySelector('[data-testid="credential-add"]')).toBeNull();
   });
@@ -424,5 +454,130 @@ describe("VaultSettings command variables", () => {
       destination: { name: "netbird-setup-key", auth: { type: "command" } },
       value: FAKE_VALUE,
     });
+  });
+});
+
+describe("VaultSettings show", () => {
+  const confirmationRequired = Object.assign(new Error("Confirm it's you"), {
+    code: "IDENTITY_CONFIRMATION_REQUIRED",
+  });
+  const text = (testId: string) =>
+    container.querySelector(`[data-testid="${testId}"]`)?.textContent ?? null;
+  const shown = () => container.querySelector('[data-testid="credential-revealed"]');
+
+  it("shows a value with a copy button, then hides it on request", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    vault.reveal.mockResolvedValue({ value: FAKE_VALUE });
+    await render();
+    expect(byTestId("credential-show-api").getAttribute("aria-label")).toBe("Show");
+    await click("credential-show-api");
+    expect(vault.reveal).toHaveBeenCalledWith({ scope: "account", name: "api" });
+    expect(text("credential-revealed-value")).toBe(FAKE_VALUE);
+    expect(byTestId("credential-show-api").getAttribute("aria-label")).toBe("Hide");
+    // A shown value never lands in the query cache.
+    const cached = queryClient
+      .getQueryCache()
+      .getAll()
+      .map((query) => query.state.data);
+    expect(JSON.stringify(cached)).not.toContain(FAKE_VALUE);
+
+    await act(async () => {
+      shown()?.querySelector<HTMLButtonElement>('[aria-label="Copy"]')?.click();
+    });
+    expect(writeText).toHaveBeenCalledWith(FAKE_VALUE);
+
+    await click("credential-show-api");
+    expect(shown()).toBeNull();
+    expect(container.innerHTML).not.toContain(FAKE_VALUE);
+  });
+
+  it("shows a website login's username and password", async () => {
+    vault.reveal.mockResolvedValue({ username: "jamie", password: FAKE_VALUE });
+    await render();
+    await click("credential-show-portal");
+    expect(text("credential-revealed-username")).toBe("jamie");
+    expect(text("credential-revealed-password")).toBe(FAKE_VALUE);
+  });
+
+  it("asks the person to confirm it's them, then retries", async () => {
+    vault.reveal
+      .mockRejectedValueOnce(confirmationRequired)
+      .mockResolvedValueOnce({ value: FAKE_VALUE });
+    await render();
+    await click("credential-show-api");
+    expect(byTestId("identity-dialog")).toBeTruthy();
+    expect(container.innerHTML).not.toContain(FAKE_VALUE);
+    await click("identity-confirm");
+    expect(vault.reveal).toHaveBeenCalledTimes(2);
+    expect(text("credential-revealed-value")).toBe(FAKE_VALUE);
+    expect(container.querySelector('[data-testid="identity-dialog"]')).toBeNull();
+  });
+
+  it("shows nothing and no error when the confirmation is dismissed", async () => {
+    vault.reveal.mockRejectedValue(confirmationRequired);
+    await render();
+    await click("credential-show-api");
+    await click("identity-cancel");
+    expect(vault.reveal).toHaveBeenCalledTimes(1);
+    expect(shown()).toBeNull();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("hides the value after a while and when another row action opens", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vault.reveal.mockResolvedValue({ value: FAKE_VALUE });
+      await render();
+      await click("credential-show-api");
+      expect(text("credential-revealed-value")).toBe(FAKE_VALUE);
+      await act(async () => {
+        vi.advanceTimersByTime(REVEAL_MS);
+      });
+      expect(shown()).toBeNull();
+
+      await click("credential-show-api");
+      expect(text("credential-revealed-value")).toBe(FAKE_VALUE);
+      await click("credential-replace-custom");
+      expect(shown()).toBeNull();
+      expect(container.innerHTML).not.toContain(FAKE_VALUE);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("drops a pending show without asking to confirm once another action opens", async () => {
+    let reject: (error: unknown) => void = () => undefined;
+    vault.reveal.mockReturnValueOnce(
+      new Promise((_resolve, rejectReveal) => {
+        reject = rejectReveal;
+      }),
+    );
+    await render();
+    await click("credential-show-api");
+    expect(byTestId<HTMLButtonElement>("credential-show-custom").disabled).toBe(true);
+    await click("credential-replace-custom");
+    // Cancelling frees the other Show actions right away.
+    expect(byTestId<HTMLButtonElement>("credential-show-api").disabled).toBe(false);
+    await act(async () => reject(confirmationRequired));
+    await flush();
+    expect(container.querySelector('[data-testid="identity-dialog"]')).toBeNull();
+    expect(vault.reveal).toHaveBeenCalledTimes(1);
+    expect(byTestId("credential-replace-value")).toBeTruthy();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("offers no show on a row whose saved settings can't be read", async () => {
+    vault.list.mockResolvedValue([
+      {
+        name: "legacy",
+        origin: "https://legacy.example.com",
+        auth: null,
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+    ]);
+    await render();
+    expect(container.querySelector('[data-testid="credential-show-legacy"]')).toBeNull();
   });
 });

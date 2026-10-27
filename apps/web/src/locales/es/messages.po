@@ -1612,12 +1612,14 @@ msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/markdown-copy.tsx
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
 msgstr "Copiado"
 
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/message-hover-actions.tsx
@@ -2038,6 +2040,10 @@ msgstr "No se pudo enviar el correo de restablecimiento"
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "No se pudo enviar eso"
+
+#: src/components/VaultSettings.tsx
+msgid "Could not show the credential"
+msgstr "No se pudo mostrar la credencial"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not start OAuth"
@@ -2552,10 +2558,6 @@ msgstr "Se requiere verificar el correo"
 msgid "Enable {0}"
 msgstr "Activar {0}"
 
-#: src/components/VaultSettings.tsx
-msgid "Encrypted and never shown again"
-msgstr "Cifrado y no se vuelve a mostrar"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr ""
@@ -2914,6 +2916,10 @@ msgstr "Escuchar una muestra"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "Hola, así sonaré cuando lea las respuestas en voz alta."
+
+#: src/components/VaultSettings.tsx
+msgid "Hide"
+msgstr "Ocultar"
 
 #: src/components/I18nBootstrap.tsx
 msgid "Hide password"
@@ -4996,6 +5002,10 @@ msgstr "Compartido"
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "Memoria compartida"
+
+#: src/components/VaultSettings.tsx
+msgid "Show"
+msgstr "Mostrar"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

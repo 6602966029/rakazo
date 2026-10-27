@@ -39,7 +39,7 @@ import {
 } from "@rakazo/db";
 import { enrichLogContext, getLogger } from "@rakazo/logging";
 import { sanitizedError } from "@rakazo/logging/monitoring";
-import { decryptAgentEnvironment, formatAgentEnvironmentInstruction } from "./agent-environment.js";
+import { formatAgentEnvironmentInstruction } from "./agent-environment.js";
 import { createApprovedEffectReplayQueue } from "./approval-effect.js";
 import { PARTIAL_REPLY_NOTE } from "./automated-messages.js";
 import { loadBotMessageContext } from "./bot-messages.js";
@@ -413,7 +413,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
           configuredMemory,
           savedSkills,
           agentSkills,
-          agentSecretRows,
           initialBotCommandEnvironment,
           savedLoginPasswordRedactions,
           purchaseCardRedactions,
@@ -451,13 +450,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
             spaceId: run.spaceId,
             userId: run.userId,
           }),
-          deps.prisma.agentSecret.findMany({
-            where: { spaceId: run.spaceId },
-            select: {
-              name: true,
-              secret: { select: { id: true, ciphertext: true } },
-            },
-          }),
           loadBotCommandEnvironment(deps.prisma, deps.secretStore, run),
           loadLoginPasswordRedactions(deps.prisma, deps.secretStore, run),
           deps.paymentWallet ? loadPurchaseCardRedactions(deps, run) : [],
@@ -473,17 +465,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
               )?.seq ??
               thread.nextMessageSeq)
             : thread.nextMessageSeq;
-        const agentEnvironment = await decryptAgentEnvironment(agentSecretRows, deps.secretStore);
-        runSecrets.push(...Object.values(agentEnvironment));
         // Encoded forms too: read_file redacts with these values before any shell command runs.
         runSecrets.push(...commandCredentialRedactions(initialBotCommandEnvironment));
         // A login filled in an earlier run may still be on its page, and anything this run reads
         // or is given may contain it, so every run hides its saved passwords before the model runs.
         runSecrets.push(...savedLoginPasswordRedactions, ...purchaseCardRedactions);
-        const agentEnvironmentInstruction = formatAgentEnvironmentInstruction({
-          ...agentEnvironment,
-          ...initialBotCommandEnvironment,
-        });
+        const agentEnvironmentInstruction = formatAgentEnvironmentInstruction(
+          initialBotCommandEnvironment,
+        );
         // modelPinned distinguishes the captured choice from an attempt's recorded model.
         const modelChoice = runModelChoice(run, bot);
         const hasModelOverride = Boolean(modelChoice.modelProvider && modelChoice.modelId);
@@ -1131,7 +1120,6 @@ export function createRunExecutor(deps: ExecutorDeps) {
           abortController: runAbortController,
           fleetRun,
           secrets: runSecrets,
-          agentEnvironment,
           source: {
             ownerStartedRun,
             messagingChannelRun,

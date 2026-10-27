@@ -226,7 +226,6 @@ export interface RunContext {
   fleetRun: FleetRun;
   /** Every value redacted from what this run shows or stores. Grows during the run. */
   secrets: string[];
-  agentEnvironment: Record<string, string>;
   source: RunSource;
   computer: RunComputerContext;
   tools: RunTools;

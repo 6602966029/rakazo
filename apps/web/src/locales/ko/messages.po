@@ -1612,12 +1612,14 @@ msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/markdown-copy.tsx
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
 msgstr "복사됨"
 
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/message-hover-actions.tsx
@@ -2038,6 +2040,10 @@ msgstr "재설정 이메일을 보낼 수 없습니다"
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "메시지를 보내지 못했습니다."
+
+#: src/components/VaultSettings.tsx
+msgid "Could not show the credential"
+msgstr "자격 증명을 표시할 수 없습니다"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not start OAuth"
@@ -2552,10 +2558,6 @@ msgstr "이메일 인증이 필요합니다"
 msgid "Enable {0}"
 msgstr "{0} 활성화"
 
-#: src/components/VaultSettings.tsx
-msgid "Encrypted and never shown again"
-msgstr "암호화되며 다시 표시되지 않음"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr ""
@@ -2914,6 +2916,10 @@ msgstr "샘플 듣기"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "안녕하세요. 답변을 소리 내어 읽을 때 이런 목소리로 들립니다."
+
+#: src/components/VaultSettings.tsx
+msgid "Hide"
+msgstr "숨기기"
 
 #: src/components/I18nBootstrap.tsx
 msgid "Hide password"
@@ -4996,6 +5002,10 @@ msgstr "함께 사용"
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "공유 기억"
+
+#: src/components/VaultSettings.tsx
+msgid "Show"
+msgstr "보기"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
