@@ -546,6 +546,27 @@ describe("VaultSettings show", () => {
     }
   });
 
+  it("drops a pending show without asking to confirm once another action opens", async () => {
+    let reject: (error: unknown) => void = () => undefined;
+    vault.reveal.mockReturnValueOnce(
+      new Promise((_resolve, rejectReveal) => {
+        reject = rejectReveal;
+      }),
+    );
+    await render();
+    await click("credential-show-api");
+    expect(byTestId<HTMLButtonElement>("credential-show-custom").disabled).toBe(true);
+    await click("credential-replace-custom");
+    // Cancelling frees the other Show actions right away.
+    expect(byTestId<HTMLButtonElement>("credential-show-api").disabled).toBe(false);
+    await act(async () => reject(confirmationRequired));
+    await flush();
+    expect(container.querySelector('[data-testid="identity-dialog"]')).toBeNull();
+    expect(vault.reveal).toHaveBeenCalledTimes(1);
+    expect(byTestId("credential-replace-value")).toBeTruthy();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
   it("offers no show on a row whose saved settings can't be read", async () => {
     vault.list.mockResolvedValue([
       {

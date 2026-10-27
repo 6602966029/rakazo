@@ -28,6 +28,7 @@ type Revealed = VaultRevealed & { name: string };
 const fieldLabelClass = "mt-3 block text-[14px] text-muted-foreground";
 /** How long a shown value stays on screen. */
 export const REVEAL_MS = 30_000;
+const REVEAL_CANCELLED = new Error("Reveal cancelled");
 
 /** The stored value: a website login is saved as one encoded username and password pair. */
 function credentialPlaintext(type: CredentialAuthType, username: string, value: string) {
@@ -108,6 +109,7 @@ export function VaultSettings({
     revealAttempt.current += 1;
     window.clearTimeout(hideTimer.current);
     setRevealed(null);
+    setRevealing(null);
   }
 
   async function reveal(secretName: string) {
@@ -118,20 +120,26 @@ export function VaultSettings({
     setAdding(false);
     setError(null);
     const attempt = revealAttempt.current;
+    const current = () => revealAttempt.current === attempt;
     setRevealing(secretName);
     try {
-      const shown = await withIdentityConfirmation(() =>
-        rpc.vault.reveal({ scope, name: secretName }),
-      );
-      if (revealAttempt.current !== attempt) return;
+      const shown = await withIdentityConfirmation(async () => {
+        try {
+          return await rpc.vault.reveal({ scope, name: secretName });
+        } catch (err) {
+          // A reveal cancelled while waiting must not ask the person to confirm.
+          throw current() ? err : REVEAL_CANCELLED;
+        }
+      });
+      if (!current()) return;
       setRevealed({ name: secretName, ...shown });
       hideTimer.current = window.setTimeout(hideRevealed, REVEAL_MS);
     } catch (err) {
       // Closing the confirmation is a choice, not a failure.
-      if (revealAttempt.current === attempt && !isIdentityConfirmationRequired(err))
+      if (current() && err !== REVEAL_CANCELLED && !isIdentityConfirmationRequired(err))
         setError(errorText(err, t`Could not show the credential`));
     } finally {
-      setRevealing((current) => (current === secretName ? null : current));
+      if (current()) setRevealing(null);
     }
   }
 
@@ -312,12 +320,18 @@ export function VaultSettings({
                           {readableAuth !== null ? (
                             <Tooltip>
                               <TooltipTrigger
-                                render={<Button variant="ghost" size="icon-xs" />}
+                                // The trigger's own disabled only turns off the tooltip.
+                                render={
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    disabled={busy || revealing !== null}
+                                  />
+                                }
                                 type="button"
                                 aria-label={revealed?.name === secret.name ? t`Hide` : t`Show`}
                                 className="text-muted-foreground"
                                 data-testid={`credential-show-${secret.name}`}
-                                disabled={busy || revealing !== null}
                                 onClick={() =>
                                   revealed?.name === secret.name
                                     ? hideRevealed()
@@ -342,12 +356,11 @@ export function VaultSettings({
                           {readableAuth !== null ? (
                             <Tooltip>
                               <TooltipTrigger
-                                render={<Button variant="ghost" size="icon-xs" />}
+                                render={<Button variant="ghost" size="icon-xs" disabled={busy} />}
                                 type="button"
                                 aria-label={t`Replace value`}
                                 className="text-muted-foreground"
                                 data-testid={`credential-replace-${secret.name}`}
-                                disabled={busy}
                                 onClick={() => {
                                   clearProtectedFields();
                                   setConfirmingRemove(null);
@@ -364,12 +377,11 @@ export function VaultSettings({
                           ) : null}
                           <Tooltip>
                             <TooltipTrigger
-                              render={<Button variant="ghost" size="icon-xs" />}
+                              render={<Button variant="ghost" size="icon-xs" disabled={busy} />}
                               type="button"
                               aria-label={t`Remove`}
                               className="text-muted-foreground"
                               data-testid={`credential-remove-${secret.name}`}
-                              disabled={busy}
                               onClick={() => {
                                 clearProtectedFields();
                                 setReplacing(null);
