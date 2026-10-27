@@ -1,6 +1,5 @@
 import { MenuView } from "@expo/ui/community/menu";
 import type {
-  AgentSkillCatalogEntry,
   CapabilityInstall,
   Connection,
   ConnectionCatalogItem,
@@ -45,7 +44,6 @@ import { NativeActionButton } from "../../components/native-action-button";
 import { NativeSymbol } from "../../components/native-symbol";
 import { PluginIcon } from "../../components/plugin-icon";
 import { Chevron } from "../../components/row-accessories";
-import { SkillSymbol } from "../../components/skill-symbol";
 import { rpc } from "../../lib/api";
 import { mobileTokens } from "../../lib/appearance";
 import { useI18n } from "../../lib/i18n";
@@ -71,7 +69,6 @@ import {
   pluginCategories,
   pluginParams,
   pluginSite,
-  pluginSkillCount,
 } from "../../lib/plugin-marketplace";
 import { useSideInsets } from "../../lib/side-insets";
 import { errorText } from "../../lib/user-error";
@@ -115,7 +112,6 @@ export default function Integrations() {
   const [mcpError, setMcpError] = useState<string | null>(null);
   const [sources, setSources] = useState<CapabilityInstall[]>([]);
   const [pluginInstalls, setPluginInstalls] = useState<CapabilityInstall[]>([]);
-  const [userSkills, setUserSkills] = useState<AgentSkillCatalogEntry[]>([]);
   const [pluginEntries, setPluginEntries] = useState<PluginMarketplaceEntry[]>([]);
   const [pluginsState, setPluginsState] = useState<"loading" | "ready" | "partial">("loading");
   const [category, setCategory] = useState("");
@@ -230,7 +226,6 @@ export default function Integrations() {
         )
       : [];
   const connectorPlugins = pluginInstalls.filter(hasPluginConnector);
-  const skillSets = pluginInstalls.filter((install) => pluginSkillCount(install) > 0);
 
   const detailItem = useMemo(() => {
     if (!detailKey) return null;
@@ -250,7 +245,6 @@ export default function Integrations() {
     setCatalogReady(false);
     setSources([]);
     setPluginInstalls([]);
-    setUserSkills([]);
     setMcpServers([]);
     setMcpError(null);
     setDetailKey(null);
@@ -284,7 +278,6 @@ export default function Integrations() {
       setCatalogReady(false);
       setSources([]);
       setPluginInstalls([]);
-      setUserSkills([]);
       setMcpServers([]);
       setMcpError(null);
       setDetailKey(null);
@@ -332,16 +325,6 @@ export default function Integrations() {
           );
           setPluginInstalls(installs.filter((item) => item.kind === "plugin"));
         }
-      })
-      .catch(() => undefined);
-    void rpc("agentSkills/list")
-      .then((skills) => {
-        if (
-          mounted.current &&
-          isIntegrationsScopeCurrent(scope) &&
-          sourceGeneration === sourcesGeneration.current
-        )
-          setUserSkills(skills.filter((skill) => skill.source === "user"));
       })
       .catch(() => undefined);
     void rpc("marketplace/catalog", { query: "" })
@@ -563,7 +546,6 @@ export default function Integrations() {
 
   function renderConnected() {
     const apps = connectorPlugins.length + standaloneServers.length + sources.length;
-    const skills = skillSets.length + userSkills.length;
     return (
       <>
         {apps || mcpError ? (
@@ -612,36 +594,6 @@ export default function Integrations() {
                   onPress={() => void removeSource(source)}
                   prominence="destructive"
                 />
-              </View>
-            ))}
-          </View>
-        ) : null}
-        {skills ? (
-          <View testID="connected-skills" style={styles.catalogStack}>
-            <Text style={styles.section}>{t("Skills")}</Text>
-            {skillSets.map((install) => {
-              const count = pluginSkillCount(install);
-              return renderInstalledPlugin(
-                install,
-                count === 1 ? t("1 skill") : t("{count} skills", { count }),
-                false,
-              );
-            })}
-            {userSkills.map((skill) => (
-              <View key={skill.id} style={styles.row}>
-                <View style={styles.skillMark}>
-                  <SkillSymbol size={17} />
-                </View>
-                <View style={styles.grow}>
-                  <Text numberOfLines={1} style={styles.title}>
-                    {skill.name}
-                  </Text>
-                  {skill.description ? (
-                    <Text numberOfLines={1} style={styles.secondary}>
-                      {skill.description}
-                    </Text>
-                  ) : null}
-                </View>
               </View>
             ))}
           </View>
@@ -1490,14 +1442,6 @@ function createIntegrationsStyles() {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-    },
-    skillMark: {
-      width: LOGO_SIZE,
-      height: LOGO_SIZE,
-      borderRadius: 10,
-      backgroundColor: native.fillPressed,
-      alignItems: "center",
-      justifyContent: "center",
     },
     logoPlaceholder: {
       width: LOGO_SIZE,

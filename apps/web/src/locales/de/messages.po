@@ -27,9 +27,19 @@ msgstr ""
 msgid "{0, plural, one {# connector} other {# connectors}}"
 msgstr ""
 
+#. placeholder {0}: skill.files.length
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "{0, plural, one {# file} other {# files}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
+msgstr ""
+
+#. placeholder {0}: skillCount(install)
+#: src/components/integrations/skills-dialog.tsx
+msgid "{0, plural, one {# skill} other {# skills}}"
 msgstr ""
 
 #. placeholder {0}: pinned.length
@@ -915,7 +925,7 @@ msgid "Avatar Studio"
 msgstr "Avatar-Studio"
 
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -1029,12 +1039,12 @@ msgstr ""
 msgid "Brain label"
 msgstr ""
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Browse MCP servers"
+#: src/components/integrations/skills-dialog.tsx
+msgid "Browse"
 msgstr ""
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Browse skills"
+#: src/pages/PluginsOverlay.tsx
+msgid "Browse MCP servers"
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
@@ -1345,7 +1355,7 @@ msgstr "Panel schließen"
 msgid "Close preview"
 msgstr "Vorschau schließen"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 msgid "Close skills"
 msgstr ""
 
@@ -2825,10 +2835,6 @@ msgstr "Zu vergleichende Felder, z. B. id, modifiedTime (optional)"
 msgid "File"
 msgstr "Datei"
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Files"
-msgstr ""
-
 #: src/pages/RoutineEditor.tsx
 msgid "Files or folders on the computer"
 msgstr "Dateien oder Ordner auf dem Computer"
@@ -2911,7 +2917,7 @@ msgstr ""
 msgid "From {0}"
 msgstr ""
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "From GitHub"
 msgstr ""
@@ -3378,7 +3384,7 @@ msgid "Loading voice providers…"
 msgstr "Stimmanbieter werden geladen…"
 
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/components/PageLoading.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -4339,9 +4345,13 @@ msgstr "Wiedergabe…"
 msgid "Plugin"
 msgstr "Plugin"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Plugin GitHub URL"
+msgstr ""
+
+#: src/components/integrations/skills-dialog.tsx
+msgid "Plugins"
 msgstr ""
 
 #: src/pages/RoutineEditor.tsx
@@ -4356,7 +4366,7 @@ msgstr ""
 msgid "Preferences"
 msgstr "Präferenzen"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Preview"
 msgstr ""
@@ -4776,7 +4786,7 @@ msgstr ""
 
 #: src/components/AccountAccess.tsx
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
 #: src/pages/ModelRoleSettings.tsx
@@ -5009,7 +5019,7 @@ msgstr "Modelle suchen"
 msgid "Search runs"
 msgstr "Durchläufe suchen"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 msgid "Search skills"
 msgstr ""
 
@@ -5262,9 +5272,8 @@ msgid "Skill {position}"
 msgstr "Skill {position}"
 
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-marketplace.tsx
-#: src/pages/KnowledgeSection.tsx
-#: src/pages/PluginsOverlay.tsx
+#: src/components/integrations/skills-dialog.tsx
+#: src/components/SidebarFooter.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Skills"
 msgstr "Skills"
@@ -5298,7 +5307,7 @@ msgstr ""
 msgid "Slide up to lock"
 msgstr "Zum Sperren nach oben schieben"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
 msgstr ""
@@ -6333,6 +6342,10 @@ msgstr "Dein OpenAI"
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
 msgstr "Dein OpenRouter"
+
+#: src/components/integrations/skills-dialog.tsx
+msgid "Your skills"
+msgstr ""
 
 #: src/components/ModelCredits.tsx
 msgid "Your subscription or API key"

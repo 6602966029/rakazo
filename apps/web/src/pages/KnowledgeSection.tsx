@@ -6,9 +6,8 @@ import { fetchFresh, writeSaved } from "@rakazo/core/query";
 import { Badge, Button, Skeleton, Textarea } from "@rakazo/ui-web";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@rakazo/ui-web/components/ui/tooltip";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Plus, Search } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { SkillsMarketplaceDialog } from "../components/integrations/skills-marketplace";
 import { SettingsSectionHeading } from "../components/SettingsSectionHeading";
 import { downloadArtifactBytes } from "../lib/artifact-open";
 import { useSpaceQueries } from "../lib/query";
@@ -24,29 +23,10 @@ function rowClass(open: boolean): string {
 }
 
 /**
- * Bot memory and the current user's skills in this space.
- * User-scoped memory shared across bots lives in the Memory settings overlay.
+ * Bot memory. Skills belong to the person in a space, not to one bot, so they live in
+ * the Skills dialog; memory shared across bots lives in the Memory settings overlay.
  */
-export function KnowledgeSection({
-  botId,
-  skillsOnly = false,
-}: {
-  botId: string;
-  /** Unused: skills are read from and saved to the shared cached list. */
-  onSkillsChange?: (skills: AgentSkillCatalogEntry[]) => void;
-  skillsOnly?: boolean;
-}) {
-  if (skillsOnly)
-    return (
-      <section data-testid="bot-knowledge">
-        <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-          <Trans>Skills</Trans>
-        </h3>
-        <div className="rounded-xl bg-muted/50 p-4">
-          <AgentSkills />
-        </div>
-      </section>
-    );
+export function KnowledgeSection({ botId }: { botId: string }) {
   return (
     <MemoryDocumentList
       key={botId}
@@ -332,7 +312,8 @@ description: What this skill does and when the agent should use it.
 Steps the agent should follow.
 `;
 
-function AgentSkills() {
+/** Your own skills in this space, plus the built-in ones; plugin skills are listed by plugin. */
+export function AgentSkills() {
   const rpc = useSpaceRpc();
   const { t } = useLingui();
   const queries = useSpaceQueries();
@@ -340,7 +321,7 @@ function AgentSkills() {
   // The same list the composer offers as skill mentions, so a change here shows there at once.
   const list = queries.agentSkills.list.queryOptions();
   const listQuery = useQuery({ ...list, refetchOnMount: "always" });
-  const skills = listQuery.data ?? NO_SKILLS;
+  const skills = (listQuery.data ?? NO_SKILLS).filter((skill) => skill.source !== "plugin");
   const loading = listQuery.isPending;
   const [open, setOpen] = useState<AgentSkill | null>(null);
   const [creating, setCreating] = useState(false);
@@ -349,7 +330,6 @@ function AgentSkills() {
   const [actionError, setError] = useState<string | null>(null);
   const error = actionError ?? (listQuery.isError ? t`Could not load` : null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [browsing, setBrowsing] = useState(false);
   const selection = useRef(0);
 
   async function refresh() {
@@ -491,15 +471,6 @@ function AgentSkills() {
             className={fieldClass}
             dir="auto"
           />
-          {open?.files?.length ? (
-            <ul aria-label={t`Files`} className="mt-2 space-y-0.5">
-              {open.files.map((file) => (
-                <li key={file} className="truncate font-mono text-[12px] text-muted-foreground">
-                  {file}
-                </li>
-              ))}
-            </ul>
-          ) : null}
           <div className="mt-2 flex items-center gap-2">
             {!open?.readOnly ? (
               <Button
@@ -560,19 +531,6 @@ function AgentSkills() {
           <Plus aria-hidden="true" className="size-4 text-muted-foreground" />
         </Button>
       )}
-      {editorOpen ? null : (
-        <Button
-          variant="ghost"
-          type="button"
-          disabled={busy}
-          onClick={() => setBrowsing(true)}
-          className="-mx-2.5 h-auto min-h-11 w-[calc(100%+1.25rem)] justify-between px-2.5 py-2.5 text-sm font-normal text-foreground"
-        >
-          <Trans>Browse skills</Trans>
-          <Search aria-hidden="true" className="size-4 text-muted-foreground" />
-        </Button>
-      )}
-      {browsing ? <SkillsMarketplaceDialog onClose={() => setBrowsing(false)} /> : null}
     </div>
   );
 }

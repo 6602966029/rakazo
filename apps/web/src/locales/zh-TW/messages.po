@@ -28,9 +28,19 @@ msgstr "{0, plural, one {# 個機器人使用自己的模型：} other {# 個機
 msgid "{0, plural, one {# connector} other {# connectors}}"
 msgstr ""
 
+#. placeholder {0}: skill.files.length
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "{0, plural, one {# file} other {# files}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
+msgstr ""
+
+#. placeholder {0}: skillCount(install)
+#: src/components/integrations/skills-dialog.tsx
+msgid "{0, plural, one {# skill} other {# skills}}"
 msgstr ""
 
 #. placeholder {0}: pinned.length
@@ -916,7 +926,7 @@ msgid "Avatar Studio"
 msgstr "頭像工作室"
 
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -1030,13 +1040,13 @@ msgstr "擁有專屬電腦與瀏覽器的機器人"
 msgid "Brain label"
 msgstr "大腦標籤"
 
+#: src/components/integrations/skills-dialog.tsx
+msgid "Browse"
+msgstr ""
+
 #: src/pages/PluginsOverlay.tsx
 msgid "Browse MCP servers"
 msgstr "瀏覽 MCP 伺服器"
-
-#: src/pages/KnowledgeSection.tsx
-msgid "Browse skills"
-msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1346,7 +1356,7 @@ msgstr "關閉面板"
 msgid "Close preview"
 msgstr "關閉預覽"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 msgid "Close skills"
 msgstr ""
 
@@ -2826,10 +2836,6 @@ msgstr "要比較的欄位，例如 id, modifiedTime（選填）"
 msgid "File"
 msgstr "檔案"
 
-#: src/pages/KnowledgeSection.tsx
-msgid "Files"
-msgstr ""
-
 #: src/pages/RoutineEditor.tsx
 msgid "Files or folders on the computer"
 msgstr "電腦上的檔案或資料夾"
@@ -2912,7 +2918,7 @@ msgstr "從"
 msgid "From {0}"
 msgstr "自 {0} 起"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "From GitHub"
 msgstr ""
@@ -3379,7 +3385,7 @@ msgid "Loading voice providers…"
 msgstr "正在載入語音供應商…"
 
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/components/PageLoading.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -4340,9 +4346,13 @@ msgstr "播放中…"
 msgid "Plugin"
 msgstr "外掛程式"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Plugin GitHub URL"
+msgstr ""
+
+#: src/components/integrations/skills-dialog.tsx
+msgid "Plugins"
 msgstr ""
 
 #: src/pages/RoutineEditor.tsx
@@ -4357,7 +4367,7 @@ msgstr "POST 到"
 msgid "Preferences"
 msgstr "偏好設定"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Preview"
 msgstr ""
@@ -4777,7 +4787,7 @@ msgstr "正在還原工作空間"
 
 #: src/components/AccountAccess.tsx
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
 #: src/pages/ModelRoleSettings.tsx
@@ -5010,7 +5020,7 @@ msgstr "搜尋模型"
 msgid "Search runs"
 msgstr "搜尋執行紀錄"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 msgid "Search skills"
 msgstr ""
 
@@ -5263,9 +5273,8 @@ msgid "Skill {position}"
 msgstr "技能 {position}"
 
 #: src/components/integrations/plugin-marketplace.tsx
-#: src/components/integrations/skills-marketplace.tsx
-#: src/pages/KnowledgeSection.tsx
-#: src/pages/PluginsOverlay.tsx
+#: src/components/integrations/skills-dialog.tsx
+#: src/components/SidebarFooter.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Skills"
 msgstr "技能"
@@ -5299,7 +5308,7 @@ msgstr "未啟用 Slack"
 msgid "Slide up to lock"
 msgstr "向上滑動以鎖定"
 
-#: src/components/integrations/skills-marketplace.tsx
+#: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
 msgstr ""
@@ -6334,6 +6343,10 @@ msgstr "你的 OpenAI"
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
 msgstr "你的 OpenRouter"
+
+#: src/components/integrations/skills-dialog.tsx
+msgid "Your skills"
+msgstr ""
 
 #: src/components/ModelCredits.tsx
 msgid "Your subscription or API key"

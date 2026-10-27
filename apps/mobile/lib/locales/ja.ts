@@ -1198,4 +1198,7 @@ export const JA_MESSAGES: Record<string, string> = {
   "Not added: {list}": "追加されなかったもの: {list}",
   "Remove skills": "スキルを削除",
   "Search skills": "スキルを検索",
+  "Your skills": "あなたのスキル",
+  Plugins: "プラグイン",
+  Browse: "参照",
 };

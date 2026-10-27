@@ -25,6 +25,8 @@ export type PluginParams = {
   site?: string;
   managedConnectorId?: string;
   managedSlug?: string;
+  /** "1" when opened from Skills: only the plugin's skills are added there. */
+  skillsOnly?: string;
 };
 
 export function pluginParams(entry: PluginMarketplaceEntry): PluginParams {

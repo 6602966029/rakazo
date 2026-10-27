@@ -109,9 +109,8 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   await expect(apps).toContainText("Planning Notes");
   await expect(apps).toContainText("1 connector");
   await expect(apps.getByRole("button", { name: "Sign in", exact: true })).toHaveCount(0);
-  await expect(
-    dialog.getByTestId("connected-skills").getByTestId("installed-plugin"),
-  ).toContainText("1 skill");
+  // Skills are managed in the Skills dialog; the Connected view lists apps only.
+  await expect(dialog.getByTestId("connected-skills")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "integrations-manage");
 
   // Removing the connector keeps the skills; removing the last part removes the plugin.
@@ -152,20 +151,12 @@ test("GitHub import names the parts it cannot add and waits for confirmation", a
   expect(await rpc(page, "capabilities/list", undefined)).toEqual([]);
 });
 
-test("skill packs are browsed and added from a bot's skills", async ({ page }, testInfo) => {
+test("skill packs are browsed and added from the Skills dialog", async ({ page }, testInfo) => {
   await signup(page, `skill-packs-${Date.now()}@rakazo.test`, "password12", "Skill Packs Test");
   await completeOnboarding(page);
-  await page
-    .locator("main")
-    .getByRole("button", { name: /^Chief/ })
-    .click();
-  const settings = page.getByTestId("bot-settings");
-  await settings.getByRole("button", { name: "Advanced", exact: true }).click();
-  await settings
-    .getByTestId("bot-knowledge")
-    .getByRole("button", { name: "Browse skills", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Skills", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Skills", exact: true });
+  await expect(dialog.getByTestId("your-skills").getByText("Interrogate")).toBeVisible();
   const packs = dialog.getByTestId("skill-packs");
   await expect(packs.getByText("Review Kit", { exact: true })).toBeVisible();
   await expect(packs.getByText("Planning Notes", { exact: true })).toHaveCount(0);
@@ -178,4 +169,9 @@ test("skill packs are browsed and added from a bot's skills", async ({ page }, t
   const skills = await rpc<AgentSkillCatalogEntry[]>(page, "agentSkills/list", undefined);
   expect(skills.map((skill) => skill.name)).toEqual(expect.arrayContaining(["review", "reviewer"]));
   await captureScreenshot(page, testInfo, "skills-pack-added");
+  await dialog.getByRole("button", { name: "Back", exact: true }).click();
+  const sets = dialog.getByTestId("plugin-skill-sets");
+  await expect(sets.getByTestId("plugin-skill-set")).toContainText("Review Kit");
+  await expect(dialog.getByTestId("your-skills")).not.toContainText("reviewer");
+  await captureScreenshot(page, testInfo, "skills-dialog");
 });

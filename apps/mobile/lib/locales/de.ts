@@ -1174,4 +1174,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Not added: {list}": "Nicht hinzugefügt: {list}",
   "Remove skills": "Skills entfernen",
   "Search skills": "Skills suchen",
+  "Your skills": "Deine Skills",
+  Plugins: "Plugins",
+  Browse: "Durchsuchen",
 };

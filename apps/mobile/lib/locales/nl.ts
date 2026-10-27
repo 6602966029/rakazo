@@ -1166,4 +1166,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Not added: {list}": "Niet toegevoegd: {list}",
   "Remove skills": "Skills verwijderen",
   "Search skills": "Skills zoeken",
+  "Your skills": "Jouw skills",
+  Plugins: "Plug-ins",
+  Browse: "Bladeren",
 };

@@ -50,7 +50,7 @@ import {
   Spinner,
 } from "@rakazo/ui-web";
 import { queryOptions, skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronLeft, ChevronRight, FileText, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
@@ -210,10 +210,6 @@ export function PluginsOverlay({
     () => new Set((assignmentsQuery.data ?? []).map((row) => row.serverId)),
     [assignmentsQuery.data],
   );
-  const userSkillsQuery = useQuery({
-    ...queries.agentSkills.list.queryOptions(),
-  });
-  const userSkills = (userSkillsQuery.data ?? []).filter((skill) => skill.source === "user");
   const catalogFeedEnabled = integrations.data?.catalogFeedEnabled ?? false;
   // A failed refresh is shown even over what was cached, so stale apps never pass as current.
   const loadError = integrations.error
@@ -336,19 +332,19 @@ export function PluginsOverlay({
     install ? mcpServers.filter((server) => server.installId === install.id) : [];
   const standaloneServers = mcpServers.filter((server) => !server.installId);
   const connectedItems = catalog.filter((item) => itemConnected(item));
+  // Skills live in their own dialog, so only installs with a connector count as apps here.
+  const connectorInstalls = pluginInstalls.filter((install) =>
+    installedPluginParts(install.config).includes("connector"),
+  );
   const connectedCount =
-    connectedItems.length +
-    standaloneServers.length +
-    sources.length +
-    pluginInstalls.length +
-    userSkills.length;
+    connectedItems.length + standaloneServers.length + sources.length + connectorInstalls.length;
   const connectedMarks = [
     ...connectedItems.map((item) => ({
       key: catalogItemKey(item),
       name: item.name,
       logo: item.logo,
     })),
-    ...pluginInstalls.map((install) => {
+    ...connectorInstalls.map((install) => {
       const entry = catalogEntries.find((row) => row.installedSource === install.source);
       return { key: install.id, name: entry?.displayName ?? install.name, logo: entry?.logo };
     }),
@@ -1344,13 +1340,8 @@ export function PluginsOverlay({
   }
 
   function renderManage() {
-    const withPart = (part: "connector" | "skills") =>
-      pluginInstalls.filter((install) => installedPluginParts(install.config).includes(part));
-    const appPlugins = withPart("connector");
-    const skillPlugins = withPart("skills");
-    const hasApps =
-      connectedItems.length + appPlugins.length + standaloneServers.length + sources.length > 0 ||
-      Boolean(mcpError);
+    const appPlugins = connectorInstalls;
+    const hasApps = connectedCount > 0 || Boolean(mcpError);
     const sectionTitle = "mb-2 px-2.5 text-[14px] font-medium text-muted-foreground";
     return (
       <div data-testid="integrations-manage" className="space-y-8">
@@ -1444,35 +1435,6 @@ export function PluginsOverlay({
                     >
                       {pending === source.id ? <Trans>Removing…</Trans> : <Trans>Remove</Trans>}
                     </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        {skillPlugins.length || userSkills.length ? (
-          <section data-testid="connected-skills">
-            <h3 className={sectionTitle}>
-              <Trans>Skills</Trans>
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {skillPlugins.map((install) => renderInstalledPlugin(install, "skills"))}
-              <div data-testid="user-skills" className="contents">
-                {userSkills.map((skill) => (
-                  <div
-                    key={skill.id}
-                    className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
-                  >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border/60 bg-favicon-plate text-muted-foreground">
-                      <FileText size={16} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium">{skill.name}</span>
-                      <span className="block truncate text-[13px] text-muted-foreground">
-                        {skill.description}
-                      </span>
-                    </span>
                   </div>
                 ))}
               </div>

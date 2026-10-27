@@ -1182,4 +1182,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Not added: {list}": "未新增：{list}",
   "Remove skills": "移除技能",
   "Search skills": "搜尋技能",
+  "Your skills": "你的技能",
+  Plugins: "外掛",
+  Browse: "瀏覽",
 };

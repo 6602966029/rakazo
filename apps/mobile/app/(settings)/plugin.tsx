@@ -254,7 +254,8 @@ export default function PluginScreen() {
   const detail = parsed?.success ? parsed.data : preview;
   const connectorCount = detail?.mcpServers.length ?? 0;
   // Without a connector there is nothing to connect, so the page adds the skills instead.
-  const skillPack = !managed && !connectorCount && Boolean(detail);
+  const skillsOnly = params.skillsOnly === "1";
+  const skillPack = skillsOnly || (!managed && !connectorCount && Boolean(detail));
   const headerPart: PluginPart = skillPack ? "skills" : "connector";
   const headerOn = parts.includes(headerPart);
   const skillsOn = parts.includes("skills");
@@ -396,7 +397,7 @@ export default function PluginScreen() {
           <ActivityIndicator color={native.secondaryLabel} accessibilityLabel={t("Loading…")} />
         ) : null}
 
-        {managed || connectorCount ? (
+        {!skillsOnly && (managed || connectorCount) ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               {t("Apps")} <Text style={styles.count}>{managed ? 1 : connectorCount}</Text>

@@ -1205,4 +1205,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Not added: {list}": "Не добавлено: {list}",
   "Remove skills": "Удалить навыки",
   "Search skills": "Поиск навыков",
+  "Your skills": "Ваши навыки",
+  Plugins: "Плагины",
+  Browse: "Обзор",
 };

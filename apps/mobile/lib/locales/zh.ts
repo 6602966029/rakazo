@@ -1162,4 +1162,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Not added: {list}": "未添加：{list}",
   "Remove skills": "移除技能",
   "Search skills": "搜索技能",
+  "Your skills": "你的技能",
+  Plugins: "插件",
+  Browse: "浏览",
 };

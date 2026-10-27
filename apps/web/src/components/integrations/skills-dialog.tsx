@@ -1,6 +1,7 @@
-import { Trans, useLingui } from "@lingui/react/macro";
-import type { PluginMarketplaceEntry } from "@rakazo/contracts";
-import { matchesPluginQuery } from "@rakazo/core";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
+import type { CapabilityInstall, PluginMarketplaceEntry } from "@rakazo/contracts";
+import { PluginPreviewSchema } from "@rakazo/contracts";
+import { installedPluginParts, matchesPluginQuery } from "@rakazo/core";
 import {
   Button,
   Dialog,
@@ -17,15 +18,27 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, X } from "lucide-react";
 import { useState } from "react";
 import { useSpaceQueries } from "../../lib/query";
+import { AgentSkills } from "../../pages/KnowledgeSection";
 import type { PluginSelection } from "./plugin-marketplace";
-import { PluginDetail, PluginRow, pluginSelection } from "./plugin-marketplace";
+import {
+  PluginDetail,
+  PluginLogo,
+  PluginRow,
+  pluginSelection,
+  ROW_HOVER,
+} from "./plugin-marketplace";
 
 const NO_ENTRIES: PluginMarketplaceEntry[] = [];
 const NO_SERVERS: never[] = [];
 const NOT_ASSIGNED = new Set<string>();
 
-/** Skill packs from the plugin catalogs: plugins with nothing to connect, only skills. */
-export function SkillsMarketplaceDialog({ onClose }: { onClose: () => void }) {
+function skillCount(install: CapabilityInstall) {
+  const parsed = PluginPreviewSchema.safeParse(install.config);
+  return parsed.success ? parsed.data.skills.length : 0;
+}
+
+/** Your skills in this space, the skills plugins added, and skill packs to browse. */
+export function SkillsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
   const queryClient = useQueryClient();
@@ -41,6 +54,16 @@ export function SkillsMarketplaceDialog({ onClose }: { onClose: () => void }) {
     (entry) => !entry.hasConnector && matchesPluginQuery(entry, query),
   );
   const pluginInstalls = (installs.data ?? []).filter((row) => row.kind === "plugin");
+  const skillSets = pluginInstalls.filter(
+    (row) => installedPluginParts(row.config).includes("skills") && skillCount(row) > 0,
+  );
+  const catalogEntries = catalog.data?.entries ?? NO_ENTRIES;
+  function installedSelection(install: CapabilityInstall): PluginSelection {
+    const entry = catalogEntries.find((row) => row.installedSource === install.source);
+    return entry
+      ? pluginSelection(entry)
+      : { source: install.source, installedSource: install.source, name: install.name };
+  }
 
   async function refresh() {
     await Promise.all([
@@ -120,45 +143,90 @@ export function SkillsMarketplaceDialog({ onClose }: { onClose: () => void }) {
         </div>
       );
     return (
-      <>
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          aria-label={t`Search skills`}
-          placeholder={t`Search skills`}
-          maxLength={200}
-          className="mb-5 h-11 rounded-xl"
-        />
-        {catalog.isPending ? (
-          <div className="grid place-items-center py-10">
-            <Spinner className="size-5 text-muted-foreground" aria-label={t`Loading…`} />
+      <div className="space-y-8">
+        <section data-testid="your-skills">
+          <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
+            <Trans>Your skills</Trans>
+          </h3>
+          <div className="px-2.5">
+            <AgentSkills />
           </div>
+        </section>
+        {skillSets.length ? (
+          <section data-testid="plugin-skill-sets">
+            <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
+              <Trans>Plugins</Trans>
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {skillSets.map((install) => {
+                const set = installedSelection(install);
+                return (
+                  <button
+                    key={install.id}
+                    type="button"
+                    data-testid="plugin-skill-set"
+                    onClick={() => setSelection(set)}
+                    className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 text-start focus-visible:outline-none ${ROW_HOVER}`}
+                  >
+                    <PluginLogo name={set.name} logo={set.logo} site={set.site} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-medium">{set.name}</span>
+                      <span className="block truncate text-[13px] text-muted-foreground">
+                        <Plural value={skillCount(install)} one="# skill" other="# skills" />
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         ) : null}
-        {catalog.error || catalog.data?.unavailableRegistries.length ? (
-          <div role="alert" className="mb-4 flex items-center gap-3 text-sm text-muted-foreground">
-            <Trans>Some plugins could not be loaded.</Trans>
-            <Button variant="outline" size="sm" onClick={() => void catalog.refetch()}>
-              <Trans>Retry</Trans>
-            </Button>
+        <section data-testid="skill-packs-section">
+          <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
+            <Trans>Browse</Trans>
+          </h3>
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label={t`Search skills`}
+            placeholder={t`Search skills`}
+            maxLength={200}
+            className="mb-5 h-11 rounded-xl"
+          />
+          {catalog.isPending ? (
+            <div className="grid place-items-center py-10">
+              <Spinner className="size-5 text-muted-foreground" aria-label={t`Loading…`} />
+            </div>
+          ) : null}
+          {catalog.error || catalog.data?.unavailableRegistries.length ? (
+            <div
+              role="alert"
+              className="mb-4 flex items-center gap-3 text-sm text-muted-foreground"
+            >
+              <Trans>Some plugins could not be loaded.</Trans>
+              <Button variant="outline" size="sm" onClick={() => void catalog.refetch()}>
+                <Trans>Retry</Trans>
+              </Button>
+            </div>
+          ) : null}
+          <div data-testid="skill-packs" className="grid grid-cols-2 gap-2">
+            {packs.map((entry) => {
+              const pack = pluginSelection(entry);
+              return (
+                <PluginRow
+                  key={entry.id}
+                  name={entry.displayName}
+                  description={entry.description}
+                  logo={entry.logo}
+                  site={pack.site}
+                  installed={pluginInstalls.some((row) => row.source === entry.installedSource)}
+                  onOpen={() => setSelection(pack)}
+                />
+              );
+            })}
           </div>
-        ) : null}
-        <div data-testid="skill-packs" className="grid grid-cols-2 gap-2">
-          {packs.map((entry) => {
-            const pack = pluginSelection(entry);
-            return (
-              <PluginRow
-                key={entry.id}
-                name={entry.displayName}
-                description={entry.description}
-                logo={entry.logo}
-                site={pack.site}
-                installed={pluginInstalls.some((row) => row.source === entry.installedSource)}
-                onOpen={() => setSelection(pack)}
-              />
-            );
-          })}
-        </div>
-      </>
+        </section>
+      </div>
     );
   }
 

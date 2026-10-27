@@ -685,7 +685,7 @@ it("opens a managed app's brand plugin as one page and keeps skill packs out", a
   });
 });
 
-it("lists a plugin under Apps and Skills by its parts, with its servers kept under the plugin", async () => {
+it("lists a plugin connector under Apps, with its servers kept under the plugin", async () => {
   state.marketplace.mockResolvedValue({
     entries: [plugin],
     unavailableRegistries: [],
@@ -737,12 +737,10 @@ it("lists a plugin under Apps and Skills by its parts, with its servers kept und
   );
   await render();
   await act(async () => resolveCatalog([item]));
-  // An install from before parts could be chosen has both: one row under each section.
+  // An install from before parts could be chosen has both; its skills are listed in Skills.
   expect(container.querySelector('[data-testid="connected-apps"]')?.textContent).toBe(
     "AppsCCalcom1 connectorSign in",
   );
-  expect(container.querySelector('[data-testid="connected-skills"]')?.textContent).toBe(
-    "SkillsCCalcom{count} skills",
-  );
+  expect(container.querySelector('[data-testid="connected-skills"]')).toBeNull();
   expect(container.querySelectorAll('[data-testid="registered-mcp-server"]')).toHaveLength(0);
 });
