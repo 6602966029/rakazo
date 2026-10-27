@@ -7,7 +7,6 @@ import {
   normalizeRunError,
   routineHistoryPage,
   routineRunAt,
-  routineRunDuration,
 } from "@rakazo/core";
 import { Button, Spinner } from "@rakazo/ui-web";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -76,7 +75,6 @@ function RunRow({ run }: { run: RoutineRun }) {
   const { i18n, t } = useLingui();
   const locale = i18n.locale || "en";
   const at = routineRunAt(run);
-  const duration = routineRunDuration(run);
   const chatTo = run.messageId
     ? run.groupId
       ? `/app/g/${encodeURIComponent(run.groupId)}?m=${encodeURIComponent(run.messageId)}`
@@ -87,8 +85,9 @@ function RunRow({ run }: { run: RoutineRun }) {
       <time dateTime={at} title={new Date(at).toLocaleString(locale)} className="text-foreground">
         {formatRoutineRunAt(run, locale)}
       </time>
-      {duration ? <span>{duration}</span> : null}
-      <span className={`ml-auto ${statusTone(run.status)}`}>{statusLabel(run.status)}</span>
+      {run.status === "completed" ? null : (
+        <span className={`ml-auto ${statusTone(run.status)}`}>{statusLabel(run.status)}</span>
+      )}
     </>
   );
   const lineClass = "-mx-2 flex items-center gap-3 rounded-md px-2 py-2";

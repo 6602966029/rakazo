@@ -1061,7 +1061,8 @@ describe("routine detail", () => {
     });
     await render(createElement(RoutineDetail));
     expect(container.textContent).toContain("Run history");
-    expect(container.textContent).toContain("1m 22s");
+    expect(container.textContent).not.toContain("1m 22s");
+    expect(container.textContent).not.toContain("Done");
     expect(container.textContent).toContain("summary: 504: timed out");
     expect(container.textContent).not.toContain("Load older runs");
     const rows = [...container.querySelectorAll("button")].filter((node) =>

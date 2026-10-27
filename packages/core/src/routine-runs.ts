@@ -44,13 +44,6 @@ export function routineHistoryPage(routineId: string, before: RoutineRunCursor |
     : { routineId, limit: ROUTINE_HISTORY_FIRST_PAGE_SIZE };
 }
 
-/** How long a finished run took, or null while it has not both started and finished. */
-export function routineRunDuration(run: RoutineRun): string | null {
-  return run.startedAt && run.completedAt
-    ? formatCompactDuration(Date.parse(run.completedAt) - Date.parse(run.startedAt))
-    : null;
-}
-
 /** History pages, newest first, as one list; a run that shifted onto a later page shows once. */
 export function mergeRoutineRunPages(pages: readonly RoutineHistory[]): RoutineRun[] {
   const seen = new Set<string>();
