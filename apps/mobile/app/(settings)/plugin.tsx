@@ -1,5 +1,18 @@
-import type { CapabilityInstall, McpServer, PluginPreview } from "@rakazo/contracts";
+import type {
+  CapabilityInstall,
+  Connection,
+  ConnectionCatalogItem,
+  McpServer,
+  PluginPart,
+  PluginPreview,
+} from "@rakazo/contracts";
 import { PluginPreviewSchema } from "@rakazo/contracts";
+import {
+  catalogItemKey,
+  connectCatalogItem,
+  installedPluginParts,
+  isCatalogItemConnected,
+} from "@rakazo/core";
 import type { NativeStackNavigationOptions } from "expo-router";
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -17,7 +30,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeActionButton } from "../../components/native-action-button";
 import { NativeSymbol } from "../../components/native-symbol";
 import { PluginIcon } from "../../components/plugin-icon";
-import { Chevron } from "../../components/row-accessories";
+import { SkillSymbol } from "../../components/skill-symbol";
 import { rpc } from "../../lib/api";
 import { useAppForeground } from "../../lib/app-foreground";
 import { mobileTokens } from "../../lib/appearance";
@@ -50,27 +63,42 @@ export default function PluginScreen() {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [allSkills, setAllSkills] = useState(false);
-  const [skippedOpen, setSkippedOpen] = useState(false);
+  const [managedApp, setManagedApp] = useState<ConnectionCatalogItem | null>(null);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [noAuth, setNoAuth] = useState(new Set<string>());
   const [attempt, setAttempt] = useState(0);
   const live = useRef(true);
 
+  const managed = Boolean(params.managedConnectorId && params.managedSlug);
   const load = useCallback(async () => {
-    const [installRows, serverRows, lastBot] = await Promise.all([
+    const [installRows, serverRows, lastBot, managedState] = await Promise.all([
       rpc("capabilities/list"),
       rpc("mcp/servers/list"),
       loadLastBotId(),
+      managed
+        ? Promise.all([rpc("connections/catalog"), rpc("connections/list")])
+        : Promise.resolve(null),
     ]);
     const assignments = lastBot
       ? await rpc("mcp/assignments/list", { botId: lastBot }).catch(() => [])
       : [];
     if (!live.current) return;
+    if (managedState) {
+      const [catalog, connectionRows] = managedState;
+      setManagedApp(
+        catalog.find(
+          (item) =>
+            item.connectorId === params.managedConnectorId && item.slug === params.managedSlug,
+        ) ?? null,
+      );
+      setConnections(connectionRows);
+    }
     setInstalls(installRows);
     setAllServers(serverRows);
     setBotId(lastBot);
     setAssigned(new Set(assignments.map((row) => row.serverId)));
     setLoaded(true);
-  }, []);
+  }, [managed, params.managedConnectorId, params.managedSlug]);
 
   useFocusEffect(
     useCallback(() => {
@@ -95,7 +123,11 @@ export default function PluginScreen() {
       row.kind === "plugin" &&
       (row.source === params.installedSource || row.source === preview?.installedSource),
   );
-  const servers = install ? allServers.filter((server) => server.installId === install.id) : [];
+  const parts = install ? installedPluginParts(install.config) : [];
+  const servers =
+    install && parts.includes("connector")
+      ? allServers.filter((server) => server.installId === install.id)
+      : [];
   const installed = Boolean(install);
   useEffect(() => {
     if (!loaded || installed) return;
@@ -130,41 +162,62 @@ export default function PluginScreen() {
     }
   }
 
-  const add = () =>
-    preview &&
+  /** The first part installs the plugin; later changes keep its pinned version. */
+  const setParts = (key: string, next: PluginPart[], failure: string) =>
     run(
-      "install",
+      key,
       async () => {
-        await rpc("capabilities/install", {
-          kind: "plugin",
-          name: preview.name,
-          source: preview.pinnedSource ?? params.source,
-          pluginDigest: preview.digest,
-          config: {},
-        });
+        if (install) await rpc("capabilities/pluginParts", { id: install.id, parts: next });
+        else if (preview)
+          await rpc("capabilities/install", {
+            kind: "plugin",
+            name: preview.name,
+            source: preview.pinnedSource ?? params.source,
+            pluginDigest: preview.digest,
+            config: {},
+            pluginParts: next,
+          });
         await load();
       },
-      t("Could not install plugin"),
+      failure,
     );
+  const toggle = (part: PluginPart, on: boolean) =>
+    on
+      ? [...parts.filter((value) => value !== part), part]
+      : parts.filter((value) => value !== part);
 
-  const remove = () =>
-    install &&
-    Alert.alert(t("Remove {name}?", { name: params.name }), undefined, [
+  const confirmRemove = (title: string, onConfirm: () => void) =>
+    Alert.alert(title, undefined, [
       { text: t("Cancel"), style: "cancel" },
-      {
-        text: t("Remove"),
-        style: "destructive",
-        onPress: () =>
-          void run(
-            "remove",
-            async () => {
-              await rpc("capabilities/remove", { id: install.id });
-              if (live.current) router.back();
-            },
-            t("Could not remove plugin"),
-          ),
-      },
+      { text: t("Remove"), style: "destructive", onPress: onConfirm },
     ]);
+
+  const connectManaged = () =>
+    managedApp &&
+    run(
+      "header",
+      async () => {
+        const result = await connectCatalogItem(managedApp, connections, {
+          begin: (input) => rpc("connections/begin", input),
+          complete: (input) => rpc("connections/complete", input),
+          openUrl: (url) => Linking.openURL(url),
+          signal: new AbortController().signal,
+        });
+        if (result.status === "pending")
+          Alert.alert(
+            t("Connection pending"),
+            t("Finish connecting in the browser, then refresh this page."),
+          );
+        else if (botId)
+          void rpc("onboarding/appConnected", {
+            botId,
+            provider: managedApp.slug,
+            connectorId: managedApp.connectorId,
+          }).catch(() => undefined);
+        await load();
+      },
+      t("Could not connect"),
+    );
 
   const signIn = (server: McpServer) =>
     run(
@@ -197,12 +250,59 @@ export default function PluginScreen() {
     );
 
   const busy = Boolean(pending);
-  const canAdd = Boolean(preview && (preview.skills.length || preview.mcpServers.length));
-  const action = installed
-    ? { label: pending === "remove" ? t("Removing…") : t("Remove"), onPress: remove }
-    : { label: pending === "install" ? t("Adding…") : t("Add"), onPress: add };
-  const actionDisabled = !loaded || busy || (!installed && !canAdd);
+  const parsed = install ? PluginPreviewSchema.safeParse(install.config) : null;
+  const detail = parsed?.success ? parsed.data : preview;
+  const connectorCount = detail?.mcpServers.length ?? 0;
+  // Without a connector there is nothing to connect, so the page adds the skills instead.
+  const skillPack = !managed && !connectorCount && Boolean(detail);
+  const headerPart: PluginPart = skillPack ? "skills" : "connector";
+  const headerOn = parts.includes(headerPart);
+  const skillsOn = parts.includes("skills");
+  const ready = loaded && Boolean(detail) && (installed || Boolean(preview));
+  const managedConnected = managedApp ? isCatalogItemConnected(connections, managedApp) : false;
+  const working = pending === "header";
+  const action = managed
+    ? managedConnected
+      ? {
+          label: t("Added"),
+          onPress: () =>
+            router.navigate({
+              pathname: "/integrations",
+              params: { app: catalogItemKey(managedApp!) },
+            }),
+          destructive: false,
+        }
+      : {
+          label: working ? t("Connecting…") : t("Connect"),
+          onPress: () => void connectManaged(),
+          destructive: false,
+        }
+    : headerOn
+      ? {
+          label: working ? t("Removing…") : t("Remove"),
+          onPress: () =>
+            confirmRemove(t("Remove {name}?", { name: params.name }), () => {
+              void setParts("header", toggle(headerPart, false), t("Could not remove plugin"));
+            }),
+          destructive: true,
+        }
+      : {
+          label: working
+            ? skillPack
+              ? t("Adding…")
+              : t("Connecting…")
+            : skillPack
+              ? t("Add")
+              : t("Connect"),
+          onPress: () =>
+            void setParts("header", toggle(headerPart, true), t("Could not install plugin")),
+          destructive: false,
+        };
+  const actionDisabled = busy || (managed ? !managedApp : !ready);
 
+  // The header reads the latest action through a ref, so it only re-renders when it looks different.
+  const actionRef = useRef(action);
+  actionRef.current = action;
   useLayoutEffect(() => {
     navigation.setOptions({
       title: params.name,
@@ -213,8 +313,10 @@ export default function PluginScreen() {
               disabled={actionDisabled}
               fill={false}
               label={action.label}
-              onPress={() => void action.onPress()}
-              prominence={installed ? "destructive" : "primary"}
+              onPress={() => void actionRef.current.onPress()}
+              prominence={
+                action.destructive ? "destructive" : managedConnected ? "secondary" : "primary"
+              }
             />
           ),
       ...(iosAtLeast(26)
@@ -223,25 +325,24 @@ export default function PluginScreen() {
               {
                 type: "button" as const,
                 label: action.label,
-                ...(installed
+                ...(action.destructive
                   ? { tintColor: mobileTokens().destructive }
-                  : { variant: "prominent" as const, tintColor: mobileTokens().primary }),
+                  : managedConnected
+                    ? {}
+                    : { variant: "prominent" as const, tintColor: mobileTokens().primary }),
                 disabled: actionDisabled,
-                onPress: () => void action.onPress(),
+                onPress: () => void actionRef.current.onPress(),
               },
             ],
           }
         : {}),
     } satisfies NativeStackNavigationOptions);
-  }, [navigation, params.name, installed, action.label, actionDisabled]);
+  }, [navigation, params.name, action.label, action.destructive, actionDisabled, managedConnected]);
 
-  const parsed = install ? PluginPreviewSchema.safeParse(install.config) : null;
-  const detail = parsed?.success ? parsed.data : preview;
   const description = detail?.description || params.description;
   const skills = detail?.skills ?? [];
   const shownSkills = allSkills ? skills : skills.slice(0, SKILLS_SHOWN);
   const prefix = `${detail?.name ?? ""}: `;
-  const appCount = installed ? servers.length : (detail?.mcpServers.length ?? 0);
 
   return (
     <SafeAreaView edges={["bottom"]} style={styles.screen}>
@@ -295,118 +396,129 @@ export default function PluginScreen() {
           <ActivityIndicator color={native.secondaryLabel} accessibilityLabel={t("Loading…")} />
         ) : null}
 
-        {appCount ? (
+        {managed || connectorCount ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              {t("Apps")} <Text style={styles.count}>{appCount}</Text>
+              {t("Apps")} <Text style={styles.count}>{managed ? 1 : connectorCount}</Text>
             </Text>
             <View style={styles.card}>
-              {installed
-                ? servers.map((server, index) => (
-                    <View
-                      key={server.id}
-                      accessibilityLabel={server.name}
-                      style={[styles.item, index > 0 && styles.divider]}
-                    >
-                      <View style={styles.itemRow}>
-                        <NativeSymbol
-                          android="flash-outline"
-                          color={native.secondaryLabel}
-                          ios="powerplug"
-                          size={15}
-                        />
-                        <View style={styles.grow}>
-                          <Text numberOfLines={1} style={styles.title}>
-                            {server.name.startsWith(prefix)
-                              ? server.name.slice(prefix.length)
-                              : server.name}
-                          </Text>
-                          <Text numberOfLines={1} style={styles.secondary}>
-                            {server.endpoint}
-                          </Text>
-                        </View>
-                        {mcpServerReady(server) ? (
-                          <View accessible accessibilityLabel={t("Connected")}>
-                            <NativeSymbol
-                              ios="checkmark.circle.fill"
-                              android="checkmark-circle"
-                              size={16}
-                              color={mobileTokens().success}
-                            />
-                          </View>
-                        ) : null}
-                      </View>
-                      <View style={styles.itemActions}>
-                        {mcpServerReady(server) || noAuth.has(server.id) ? null : (
-                          <NativeActionButton
-                            busy={pending === server.id}
-                            disabled={busy}
-                            fill={false}
-                            label={
-                              server.oauthStatus === "reconnect" ? t("Reconnect") : t("Sign in")
-                            }
-                            onPress={() => void signIn(server)}
-                            prominence="secondary"
-                          />
-                        )}
-                        {botId ? (
-                          assigned.has(server.id) ? (
-                            <Text style={styles.secondary}>{t("In this bot")}</Text>
-                          ) : (
-                            <NativeActionButton
-                              disabled={busy}
-                              fill={false}
-                              label={t("Use in this bot")}
-                              onPress={() => void enable(server)}
-                              prominence="secondary"
-                            />
-                          )
-                        ) : null}
-                      </View>
-                    </View>
-                  ))
-                : detail?.mcpServers.map((server, index) => (
-                    <View
-                      key={server.name}
-                      style={[styles.item, styles.itemRow, index > 0 && styles.divider]}
-                    >
-                      <NativeSymbol
-                        android="flash-outline"
-                        color={native.secondaryLabel}
-                        ios="powerplug"
-                        size={15}
-                      />
+              {managed ? (
+                <View style={[styles.item, styles.itemRow]}>
+                  <ConnectorSymbol />
+                  <View style={styles.grow}>
+                    <Text numberOfLines={1} style={styles.title}>
+                      {params.name}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.secondary}>
+                      {t("Connector")}
+                    </Text>
+                  </View>
+                  {managedConnected ? <ConnectedMark label={t("Connected")} /> : null}
+                </View>
+              ) : servers.length ? (
+                servers.map((server, index) => (
+                  <View
+                    key={server.id}
+                    accessibilityLabel={server.name}
+                    style={[styles.item, index > 0 && styles.divider]}
+                  >
+                    <View style={styles.itemRow}>
+                      <ConnectorSymbol />
                       <View style={styles.grow}>
                         <Text numberOfLines={1} style={styles.title}>
-                          {server.name}
+                          {server.name.startsWith(prefix)
+                            ? server.name.slice(prefix.length)
+                            : server.name}
                         </Text>
                         <Text numberOfLines={1} style={styles.secondary}>
                           {server.endpoint}
                         </Text>
                       </View>
+                      {mcpServerReady(server) ? <ConnectedMark label={t("Connected")} /> : null}
                     </View>
-                  ))}
+                    <View style={styles.itemActions}>
+                      {mcpServerReady(server) || noAuth.has(server.id) ? null : (
+                        <NativeActionButton
+                          busy={pending === server.id}
+                          disabled={busy}
+                          fill={false}
+                          label={server.oauthStatus === "reconnect" ? t("Reconnect") : t("Sign in")}
+                          onPress={() => void signIn(server)}
+                          prominence="secondary"
+                        />
+                      )}
+                      {botId ? (
+                        assigned.has(server.id) ? (
+                          <Text style={styles.secondary}>{t("In this bot")}</Text>
+                        ) : (
+                          <NativeActionButton
+                            disabled={busy}
+                            fill={false}
+                            label={t("Use in this bot")}
+                            onPress={() => void enable(server)}
+                            prominence="secondary"
+                          />
+                        )
+                      ) : null}
+                    </View>
+                  </View>
+                ))
+              ) : (
+                detail?.mcpServers.map((server, index) => (
+                  <View
+                    key={server.name}
+                    style={[styles.item, styles.itemRow, index > 0 && styles.divider]}
+                  >
+                    <ConnectorSymbol />
+                    <View style={styles.grow}>
+                      <Text numberOfLines={1} style={styles.title}>
+                        {server.name}
+                      </Text>
+                      <Text numberOfLines={1} style={styles.secondary}>
+                        {server.endpoint}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
           </View>
         ) : null}
 
         {skills.length ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("Skills")} <Text style={styles.count}>{skills.length}</Text>
-            </Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                {t("Skills")} <Text style={styles.count}>{skills.length}</Text>
+              </Text>
+              {skillPack ? null : (
+                <NativeActionButton
+                  busy={pending === "skills"}
+                  disabled={busy || !ready}
+                  fill={false}
+                  label={skillsOn ? t("Remove skills") : t("Add skills")}
+                  onPress={() =>
+                    skillsOn
+                      ? confirmRemove(t("Remove skills"), () => {
+                          void setParts(
+                            "skills",
+                            toggle("skills", false),
+                            t("Could not remove skills"),
+                          );
+                        })
+                      : void setParts("skills", toggle("skills", true), t("Could not add skills"))
+                  }
+                  prominence={skillsOn ? "destructive" : "secondary"}
+                />
+              )}
+            </View>
             <View style={styles.card}>
               {shownSkills.map((skill, index) => (
                 <View
                   key={skill.name}
                   style={[styles.item, styles.itemRow, index > 0 && styles.divider]}
                 >
-                  <NativeSymbol
-                    android="cube-outline"
-                    color={native.secondaryLabel}
-                    ios="shippingbox"
-                    size={15}
-                  />
+                  <SkillSymbol />
                   <View style={styles.grow}>
                     <Text numberOfLines={1} style={styles.title}>
                       {skill.name}
@@ -435,31 +547,33 @@ export default function PluginScreen() {
         ) : null}
 
         {detail?.skipped.length ? (
-          <View style={styles.section}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: skippedOpen }}
-              onPress={() => setSkippedOpen((open) => !open)}
-              style={styles.disclosure}
-            >
-              <Text style={styles.secondary}>
-                {detail.skipped.length === 1
-                  ? t("1 part not added")
-                  : t("{count} parts not added", { count: detail.skipped.length })}
-              </Text>
-              <Chevron expanded={skippedOpen} />
-            </Pressable>
-            {skippedOpen
-              ? detail.skipped.map((entry, index) => (
-                  <Text key={`${entry.kind}:${entry.name}:${index}`} style={styles.secondary}>
-                    <Text style={styles.skippedName}>{entry.name}</Text> {entry.reason}
-                  </Text>
-                ))
-              : null}
-          </View>
+          <Text style={styles.secondary}>
+            {t("Not added: {list}", {
+              list: detail.skipped.map((entry) => entry.name).join(", "),
+            })}
+          </Text>
         ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function ConnectorSymbol() {
+  return (
+    <NativeSymbol android="flash-outline" color={native.secondaryLabel} ios="powerplug" size={15} />
+  );
+}
+
+function ConnectedMark({ label }: { label: string }) {
+  return (
+    <View accessible accessibilityLabel={label}>
+      <NativeSymbol
+        ios="checkmark.circle.fill"
+        android="checkmark-circle"
+        size={16}
+        color={mobileTokens().success}
+      />
+    </View>
   );
 }
 
@@ -475,6 +589,12 @@ function createStyles() {
     description: { color: native.secondaryLabel, fontSize: 15, lineHeight: 21 },
     section: { gap: 8 },
     sectionTitle: { color: native.label, fontSize: 15, fontWeight: "600", paddingHorizontal: 4 },
+    sectionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+    },
     count: { color: native.secondaryLabel, fontWeight: "400" },
     card: { borderRadius: 14, backgroundColor: native.fill, overflow: "hidden" },
     item: { paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
@@ -490,14 +610,6 @@ function createStyles() {
     title: { color: native.label, fontSize: 15, fontWeight: "500" },
     secondary: { color: native.secondaryLabel, fontSize: 13 },
     more: { color: native.label, fontSize: 14, textAlign: "right" },
-    disclosure: {
-      minHeight: 40,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 4,
-    },
-    skippedName: { color: native.label, fontWeight: "500" },
     errorRow: { gap: 8 },
     error: { color: tokens.destructive, fontSize: 14 },
   });

@@ -6,7 +6,14 @@ import type {
 } from "@rakazo/contracts";
 import { PluginPreviewSchema } from "@rakazo/contracts";
 import type { PluginCategory } from "@rakazo/core";
-import { matchesPluginQuery, OTHER_PLUGINS, PLUGIN_CATEGORIES } from "@rakazo/core";
+import {
+  catalogItemKey,
+  installedPluginParts,
+  managedAppFor,
+  matchesPluginQuery,
+  OTHER_PLUGINS,
+  PLUGIN_CATEGORIES,
+} from "@rakazo/core";
 
 /** What the plugin screen needs, from a catalog entry or a pasted GitHub URL. */
 export type PluginParams = {
@@ -16,6 +23,8 @@ export type PluginParams = {
   description?: string;
   logo?: string;
   site?: string;
+  managedConnectorId?: string;
+  managedSlug?: string;
 };
 
 export function pluginParams(entry: PluginMarketplaceEntry): PluginParams {
@@ -50,13 +59,42 @@ export function pluginSite(
   }
 }
 
-/** A managed app and a plugin with the same name would read as one app listed twice. */
+/**
+ * One row per brand: a plugin for a managed app lends that app its skills instead of being
+ * listed again, and skill packs with nothing to connect belong to Skills, not Integrations.
+ */
 export function browsablePlugins(
   entries: PluginMarketplaceEntry[],
   managed: ConnectionCatalogItem[],
-): PluginMarketplaceEntry[] {
-  const names = new Set(managed.map((item) => item.name.toLowerCase()));
-  return entries.filter((entry) => !names.has(entry.displayName.toLowerCase()));
+): { plugins: PluginMarketplaceEntry[]; pluginForApp: Map<string, PluginMarketplaceEntry> } {
+  const pluginForApp = new Map<string, PluginMarketplaceEntry>();
+  const plugins: PluginMarketplaceEntry[] = [];
+  for (const entry of entries) {
+    const app = managedAppFor(entry, managed);
+    if (app) {
+      if (entry.skillCount && !pluginForApp.has(catalogItemKey(app)))
+        pluginForApp.set(catalogItemKey(app), entry);
+    } else if (entry.hasConnector) plugins.push(entry);
+  }
+  return { plugins, pluginForApp };
+}
+
+export function skillPacks(entries: PluginMarketplaceEntry[], query: string) {
+  return entries.filter((entry) => !entry.hasConnector && matchesPluginQuery(entry, query));
+}
+
+/** The plugin screen connects this managed app instead of the plugin's own connector. */
+export function managedPluginParams(
+  entry: PluginMarketplaceEntry,
+  app: ConnectionCatalogItem,
+): PluginParams {
+  return {
+    ...pluginParams(entry),
+    name: app.name,
+    ...(app.logo ? { logo: app.logo } : {}),
+    managedConnectorId: app.connectorId,
+    managedSlug: app.slug,
+  };
 }
 
 export function pluginCategories(entries: PluginMarketplaceEntry[]): PluginCategory[] {
@@ -81,9 +119,15 @@ export function mcpServerReady(server: McpServer): boolean {
   return server.oauthStatus === "connected" || server.health.status === "ok";
 }
 
+/** Skills an install added; none when only its connector was added. */
 export function pluginSkillCount(install: CapabilityInstall): number {
+  if (!installedPluginParts(install.config).includes("skills")) return 0;
   const parsed = PluginPreviewSchema.safeParse(install.config);
   return parsed.success ? parsed.data.skills.length : 0;
+}
+
+export function hasPluginConnector(install: CapabilityInstall): boolean {
+  return installedPluginParts(install.config).includes("connector");
 }
 
 export function sourceHref(source: string, sha: string | undefined): string {

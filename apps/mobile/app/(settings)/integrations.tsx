@@ -1,5 +1,6 @@
 import { MenuView } from "@expo/ui/community/menu";
 import type {
+  AgentSkillCatalogEntry,
   CapabilityInstall,
   Connection,
   ConnectionCatalogItem,
@@ -22,7 +23,7 @@ import {
   OTHER_PLUGINS,
 } from "@rakazo/core";
 import type { NativeStackNavigationOptions } from "expo-router";
-import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -43,6 +44,7 @@ import { NativeActionButton } from "../../components/native-action-button";
 import { NativeSymbol } from "../../components/native-symbol";
 import { PluginIcon } from "../../components/plugin-icon";
 import { Chevron } from "../../components/row-accessories";
+import { SkillSymbol } from "../../components/skill-symbol";
 import { rpc } from "../../lib/api";
 import { mobileTokens } from "../../lib/appearance";
 import { useI18n } from "../../lib/i18n";
@@ -62,6 +64,8 @@ import {
   browsablePlugins,
   filterPlugins,
   gitImportParams,
+  hasPluginConnector,
+  managedPluginParams,
   mcpServerReady,
   pluginCategories,
   pluginParams,
@@ -81,6 +85,8 @@ const PLUGIN_PAGE_SIZE = 20;
 export default function Integrations() {
   const sideInsets = useSideInsets();
   const router = useRouter();
+  // A merged brand's plugin page sends people back here to manage the app's accounts.
+  const { app: appToOpen } = useLocalSearchParams<{ app?: string }>();
   const navigation = useNavigation();
   const scheme = useResolvedAppearance();
   const styles = useThemedStyles(createIntegrationsStyles);
@@ -108,6 +114,7 @@ export default function Integrations() {
   const [mcpError, setMcpError] = useState<string | null>(null);
   const [sources, setSources] = useState<CapabilityInstall[]>([]);
   const [pluginInstalls, setPluginInstalls] = useState<CapabilityInstall[]>([]);
+  const [userSkills, setUserSkills] = useState<AgentSkillCatalogEntry[]>([]);
   const [pluginEntries, setPluginEntries] = useState<PluginMarketplaceEntry[]>([]);
   const [pluginsState, setPluginsState] = useState<"loading" | "ready" | "partial">("loading");
   const [category, setCategory] = useState("");
@@ -206,12 +213,17 @@ export default function Integrations() {
   const showFeatured = !query.trim();
   const catalogApps = useMemo(() => filterConnectionCatalogItems(catalog, query), [catalog, query]);
   const renderedApps = catalogApps.slice(0, visibleCount);
-  const plugins = useMemo(() => browsablePlugins(pluginEntries, catalog), [pluginEntries, catalog]);
+  const { plugins, pluginForApp } = useMemo(
+    () => browsablePlugins(pluginEntries, catalog),
+    [pluginEntries, catalog],
+  );
   const categories = useMemo(() => pluginCategories(plugins), [plugins]);
   const pluginMatches = filterPlugins(plugins, query, category || null, categoryLabel);
   const filtering = Boolean(query.trim() || category);
   const installedSources = new Set(pluginInstalls.map((install) => install.source));
   const standaloneServers = mcpServers.filter((server) => !server.installId);
+  const connectorPlugins = pluginInstalls.filter(hasPluginConnector);
+  const skillSets = pluginInstalls.filter((install) => pluginSkillCount(install) > 0);
 
   const detailItem = useMemo(() => {
     if (!detailKey) return null;
@@ -231,6 +243,7 @@ export default function Integrations() {
     setCatalogReady(false);
     setSources([]);
     setPluginInstalls([]);
+    setUserSkills([]);
     setMcpServers([]);
     setMcpError(null);
     setDetailKey(null);
@@ -264,6 +277,7 @@ export default function Integrations() {
       setCatalogReady(false);
       setSources([]);
       setPluginInstalls([]);
+      setUserSkills([]);
       setMcpServers([]);
       setMcpError(null);
       setDetailKey(null);
@@ -311,6 +325,16 @@ export default function Integrations() {
           );
           setPluginInstalls(installs.filter((item) => item.kind === "plugin"));
         }
+      })
+      .catch(() => undefined);
+    void rpc("agentSkills/list")
+      .then((skills) => {
+        if (
+          mounted.current &&
+          isIntegrationsScopeCurrent(scope) &&
+          sourceGeneration === sourcesGeneration.current
+        )
+          setUserSkills(skills.filter((skill) => skill.source === "user"));
       })
       .catch(() => undefined);
     void rpc("marketplace/catalog", { query: "" })
@@ -420,6 +444,13 @@ export default function Integrations() {
     };
   }, [detailKey, toolsTick]);
 
+  useEffect(() => {
+    if (!appToOpen || !catalogReady) return;
+    const item = catalog.find((entry) => catalogItemKey(entry) === appToOpen);
+    if (item) openDetail(item);
+    router.setParams({ app: undefined });
+  }, [appToOpen, catalogReady, catalog]);
+
   function openPlugin(params: PluginParams) {
     router.push({ pathname: "/plugin", params });
   }
@@ -466,58 +497,145 @@ export default function Integrations() {
     );
   }
 
-  function pluginSummary(connectors: number, skills: number) {
-    const connectorText =
-      connectors === 1 ? t("1 connector") : t("{count} connectors", { count: connectors });
-    const skillText = skills === 1 ? t("1 skill") : t("{count} skills", { count: skills });
-    if (connectors && skills)
-      return t("{connectors}, {skills}", { connectors: connectorText, skills: skillText });
-    return connectors ? connectorText : skillText;
+  function serverStatus(server: McpServer) {
+    return !server.enabled
+      ? t("Disabled")
+      : server.oauthStatus === "reconnect"
+        ? t("OAuth expired")
+        : server.oauthStatus === "connected"
+          ? t("OAuth connected")
+          : server.hasSecret
+            ? t("Credential saved")
+            : t("No auth");
   }
 
-  function renderInstalledPlugins() {
+  function renderInstalledPlugin(install: CapabilityInstall, summary: string, signIn: boolean) {
+    const params = installedParams(install);
     return (
-      <View testID="installed-plugins" style={styles.catalogStack}>
-        <Text style={styles.section}>{t("Plugins")}</Text>
-        {pluginInstalls.map((install) => {
-          const params = installedParams(install);
-          const servers = mcpServers.filter((server) => server.installId === install.id);
-          const ready = servers.every(mcpServerReady);
-          return (
-            <Pressable
-              key={install.id}
-              testID="installed-plugin"
-              accessibilityRole="button"
-              accessibilityLabel={params.name}
-              onPress={() => openPlugin(params)}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-            >
-              <PluginIcon
-                logo={params.logo}
-                name={params.name}
-                site={params.site}
-                size={LOGO_SIZE}
-              />
-              <View style={styles.grow}>
-                <Text numberOfLines={1} style={styles.title}>
-                  {params.name}
-                </Text>
-                <Text numberOfLines={1} style={styles.secondary}>
-                  {pluginSummary(servers.length, pluginSkillCount(install))}
-                </Text>
-              </View>
-              {ready ? null : (
+      <Pressable
+        key={install.id}
+        testID="installed-plugin"
+        accessibilityRole="button"
+        accessibilityLabel={params.name}
+        onPress={() => openPlugin(params)}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      >
+        <PluginIcon logo={params.logo} name={params.name} site={params.site} size={LOGO_SIZE} />
+        <View style={styles.grow}>
+          <Text numberOfLines={1} style={styles.title}>
+            {params.name}
+          </Text>
+          <Text numberOfLines={1} style={styles.secondary}>
+            {summary}
+          </Text>
+        </View>
+        {signIn ? (
+          <NativeActionButton
+            fill={false}
+            label={t("Sign in")}
+            onPress={() => openPlugin(params)}
+            prominence="secondary"
+          />
+        ) : null}
+      </Pressable>
+    );
+  }
+
+  /** What this account already has: apps it can reach, then skills it follows. */
+  function renderConnected() {
+    const apps = connectorPlugins.length + standaloneServers.length + sources.length;
+    const skills = skillSets.length + userSkills.length;
+    return (
+      <>
+        {apps || mcpError ? (
+          <View testID="connected-apps" style={styles.catalogStack}>
+            <Text style={styles.section}>{t("Apps")}</Text>
+            {mcpError ? (
+              <View>
+                <Text style={styles.error}>{mcpError}</Text>
                 <NativeActionButton
+                  label={t("Retry")}
                   fill={false}
-                  label={t("Sign in")}
-                  onPress={() => openPlugin(params)}
+                  onPress={() => void retryRefresh()}
                   prominence="secondary"
                 />
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
+              </View>
+            ) : null}
+            {connectorPlugins.map((install) => {
+              const servers = mcpServers.filter((server) => server.installId === install.id);
+              return renderInstalledPlugin(
+                install,
+                servers.length === 1
+                  ? t("1 connector")
+                  : t("{count} connectors", { count: servers.length }),
+                !servers.every(mcpServerReady),
+              );
+            })}
+            {standaloneServers.map((server) => (
+              <View key={server.id} testID="registered-mcp-server" style={styles.row}>
+                <ConnectorIcon name={server.name} size={LOGO_SIZE} />
+                <Text numberOfLines={1} style={[styles.title, styles.grow]}>
+                  {server.name}
+                </Text>
+                <Text style={styles.secondary}>{serverStatus(server)}</Text>
+              </View>
+            ))}
+            {sources.map((source) => (
+              <View key={source.id} testID="tool-source" style={styles.row}>
+                <ConnectorIcon name={source.name} size={LOGO_SIZE} />
+                <View style={styles.grow}>
+                  <Text numberOfLines={1} style={styles.title}>
+                    {source.name}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.secondary}>
+                    {source.kind === "api"
+                      ? "OpenAPI"
+                      : source.kind === "graphql"
+                        ? "GraphQL"
+                        : "MCP"}
+                  </Text>
+                </View>
+                <NativeActionButton
+                  fill={false}
+                  label={pending === source.id ? t("Removing…") : t("Remove")}
+                  onPress={() => void removeSource(source)}
+                  prominence="destructive"
+                />
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {skills ? (
+          <View testID="connected-skills" style={styles.catalogStack}>
+            <Text style={styles.section}>{t("Skills")}</Text>
+            {skillSets.map((install) => {
+              const count = pluginSkillCount(install);
+              return renderInstalledPlugin(
+                install,
+                count === 1 ? t("1 skill") : t("{count} skills", { count }),
+                false,
+              );
+            })}
+            {userSkills.map((skill) => (
+              <View key={skill.id} style={styles.row}>
+                <View style={styles.skillMark}>
+                  <SkillSymbol size={17} />
+                </View>
+                <View style={styles.grow}>
+                  <Text numberOfLines={1} style={styles.title}>
+                    {skill.name}
+                  </Text>
+                  {skill.description ? (
+                    <Text numberOfLines={1} style={styles.secondary}>
+                      {skill.description}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </>
     );
   }
 
@@ -849,6 +967,7 @@ export default function Integrations() {
 
   function renderCatalogTile(item: ConnectionCatalogItem, label: string) {
     const connected = itemConnected(item);
+    const brandPlugin = pluginForApp.get(catalogItemKey(item));
     const body = (
       <>
         <ConnectorIcon logo={item.logo} name={label} size={LOGO_SIZE} />
@@ -861,12 +980,14 @@ export default function Integrations() {
       </>
     );
     const tileStyle = [styles.row, catalogColumns === 2 ? styles.catalogCell : null];
-    if (connected) {
+    if (connected || brandPlugin) {
       return (
         <Pressable
           key={catalogItemKey(item)}
           accessibilityRole="button"
-          onPress={() => openDetail(item)}
+          onPress={() =>
+            brandPlugin ? openPlugin(managedPluginParams(brandPlugin, item)) : openDetail(item)
+          }
           style={tileStyle}
         >
           {body}
@@ -1165,32 +1286,6 @@ export default function Integrations() {
     );
   }
 
-  function renderToolSources() {
-    if (!sources.length) return null;
-    return (
-      <View testID="tool-sources" style={styles.catalogStack}>
-        <Text style={styles.section}>{t("Tool sources")}</Text>
-        {sources.map((source) => (
-          <View key={source.id} style={styles.row}>
-            <View style={styles.grow}>
-              <Text style={styles.title}>{source.name}</Text>
-              <Text style={styles.secondary}>{source.kind.toUpperCase()}</Text>
-              <Text numberOfLines={1} style={styles.secondary}>
-                {source.source}
-              </Text>
-            </View>
-            <NativeActionButton
-              fill={false}
-              label={pending === source.id ? t("Removing…") : t("Remove")}
-              onPress={() => void removeSource(source)}
-              prominence="destructive"
-            />
-          </View>
-        ))}
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView edges={["bottom"]} style={styles.screen}>
       <ScrollView
@@ -1241,53 +1336,7 @@ export default function Integrations() {
               </View>
             ) : null}
 
-            {!detailItem && !filtering && pluginInstalls.length > 0
-              ? renderInstalledPlugins()
-              : null}
-
-            {!detailItem && !category && (standaloneServers.length > 0 || mcpError) ? (
-              <View testID="registered-mcp-servers" style={styles.catalogStack}>
-                <Text style={styles.section}>{t("MCP servers")}</Text>
-                {mcpError ? (
-                  <View>
-                    <Text style={styles.error}>{mcpError}</Text>
-                    <NativeActionButton
-                      label={t("Retry")}
-                      fill={false}
-                      onPress={() => void retryRefresh()}
-                      prominence="secondary"
-                    />
-                  </View>
-                ) : null}
-                {standaloneServers
-                  .filter((server) =>
-                    `${server.name} ${server.description}`
-                      .toLowerCase()
-                      .includes(query.trim().toLowerCase()),
-                  )
-                  .map((server) => (
-                    <View key={server.id} testID="registered-mcp-server" style={styles.row}>
-                      <ConnectorIcon name={server.name} size={LOGO_SIZE} />
-                      <Text numberOfLines={1} style={[styles.title, styles.grow]}>
-                        {server.name}
-                      </Text>
-                      <Text style={styles.secondary}>
-                        {!server.enabled
-                          ? t("Disabled")
-                          : server.oauthStatus === "reconnect"
-                            ? t("OAuth expired")
-                            : server.oauthStatus === "connected"
-                              ? t("OAuth connected")
-                              : server.hasSecret
-                                ? t("Credential saved")
-                                : t("No auth")}
-                      </Text>
-                    </View>
-                  ))}
-              </View>
-            ) : null}
-
-            {!detailItem && !filtering ? renderToolSources() : null}
+            {!detailItem && !filtering ? renderConnected() : null}
 
             {catalogError ? (
               <View style={styles.catalogStack}>
@@ -1424,6 +1473,14 @@ function createIntegrationsStyles() {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
+    },
+    skillMark: {
+      width: LOGO_SIZE,
+      height: LOGO_SIZE,
+      borderRadius: 10,
+      backgroundColor: native.fillPressed,
+      alignItems: "center",
+      justifyContent: "center",
     },
     logoPlaceholder: {
       width: LOGO_SIZE,

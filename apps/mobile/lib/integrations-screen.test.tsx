@@ -20,7 +20,8 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("./side-insets", () => ({ useSideInsets: () => ({}) }));
 vi.mock("expo-router", () => ({
-  useRouter: () => ({ push: state.push }),
+  useRouter: () => ({ push: state.push, setParams: vi.fn() }),
+  useLocalSearchParams: () => ({}),
   useNavigation: () => ({ setOptions: vi.fn() }),
   useFocusEffect: (callback: () => undefined | (() => void)) => {
     useEffect(() => {
@@ -438,7 +439,7 @@ it("keeps sources loading when a rename cancels the catalog refresh", async () =
   await act(async () =>
     [...container.querySelectorAll("button")].find((b) => b.textContent === "Back")?.click(),
   );
-  expect(container.querySelector('[data-testid="tool-sources"]')?.textContent).toContain(
+  expect(container.querySelector('[data-testid="tool-source"]')?.textContent).toContain(
     "Installed source",
   );
   expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Remove")).toBe(
@@ -645,7 +646,34 @@ it("lists plugins by category, hides ones named like a managed app, and opens on
   });
 });
 
-it("shows installed plugins with their parts and keeps their servers out of MCP servers", async () => {
+it("opens a managed app's brand plugin as one page and keeps skill packs out", async () => {
+  state.marketplace.mockResolvedValue({
+    entries: [
+      { ...plugin, id: "brand", name: "example-app", displayName: "Example app", skillCount: 3 },
+      { ...plugin, id: "pack", displayName: "Teaching", hasConnector: false, skillCount: 2 },
+    ],
+    unavailableRegistries: [],
+    skippedEntries: 0,
+  });
+  await render();
+  await act(async () => resolveCatalog([{ ...item, connected: false }]));
+  expect(container.textContent).not.toContain("Teaching");
+  expect(container.querySelectorAll('[data-testid="plugin-section"]')).toHaveLength(0);
+  const tile = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent?.includes("Example app") && button.textContent !== "Add",
+  );
+  await act(async () => tile?.click());
+  expect(state.push).toHaveBeenCalledWith({
+    pathname: "/plugin",
+    params: expect.objectContaining({
+      name: "Example app",
+      managedConnectorId: item.connectorId,
+      managedSlug: item.slug,
+    }),
+  });
+});
+
+it("lists a plugin under Apps and Skills by its parts, with its servers kept under the plugin", async () => {
   state.marketplace.mockResolvedValue({
     entries: [plugin],
     unavailableRegistries: [],
@@ -697,8 +725,12 @@ it("shows installed plugins with their parts and keeps their servers out of MCP 
   );
   await render();
   await act(async () => resolveCatalog([item]));
-  expect(container.querySelector('[data-testid="installed-plugins"]')?.textContent).toBe(
-    "PluginsCCalcom{connectors}, {skills}Sign in",
+  // An install from before parts could be chosen has both: one row under each section.
+  expect(container.querySelector('[data-testid="connected-apps"]')?.textContent).toBe(
+    "AppsCCalcom1 connectorSign in",
   );
-  expect(container.querySelector('[data-testid="registered-mcp-servers"]')).toBeNull();
+  expect(container.querySelector('[data-testid="connected-skills"]')?.textContent).toBe(
+    "SkillsCCalcom{count} skills",
+  );
+  expect(container.querySelectorAll('[data-testid="registered-mcp-server"]')).toHaveLength(0);
 });
