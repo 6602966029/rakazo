@@ -3714,12 +3714,23 @@ describe("sendUserMessage", () => {
 });
 
 describe("claimSteering", () => {
+  const group = (fromAddress: string) => ({
+    kind: "channel_message",
+    provider: "telegram",
+    channelId: "channel-1",
+    fromAddress,
+    fromLabel: "Someone",
+    text: "Hello",
+  });
   it.each([
-    ["webhook", "user-1", "webhook"],
-    ["messaging", "user-1", "messaging"],
+    ["a webhook", "webhook", "user-1", [{ kind: "text", text: "Hello" }], "webhook"],
+    ["the run's person in their connected chat", "messaging", "user-1", [], "user"],
+    ["someone else's connected chat", "messaging", "user-2", [], "messaging"],
+    ["the run's person in a group", "messaging", "user-1", [group("+15550001")], "user"],
+    ["someone else in a group", "messaging", "user-1", [group("+15550002")], "messaging"],
   ] as const)(
-    "marks a %s delivery by its origin, not as the run's person",
-    async (originTrigger, userId, origin) => {
+    "marks a message from %s by its sender",
+    async (_, originTrigger, userId, blocks, origin) => {
       const tx = {
         $queryRaw: vi.fn(),
         run: {
@@ -3733,6 +3744,9 @@ describe("claimSteering", () => {
           update: vi.fn().mockResolvedValue({ nextEventSeq: 1 }),
         },
         event: { create: vi.fn() },
+        messagingIdentity: {
+          findMany: vi.fn().mockResolvedValue([{ provider: "telegram", address: "+15550001" }]),
+        },
         steeringMessage: {
           findMany: vi.fn().mockResolvedValue([
             {
@@ -3740,7 +3754,7 @@ describe("claimSteering", () => {
               messageId: "message-1",
               userId,
               originTrigger,
-              message: { seq: 5, blocks: [{ kind: "text", text: "Hello" }] },
+              message: { seq: 5, blocks },
             },
           ]),
           updateMany: vi.fn().mockResolvedValue({ count: 1 }),

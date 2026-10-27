@@ -132,8 +132,8 @@ export interface ClaimedSteeringMessage {
   text: string;
   blocks: MessageBlock[];
   /**
-   * Who sent it: the run's own person in the app, another member of the chat, an external
-   * chat, or a webhook.
+   * Who sent it: the run's own person (in the app or a connected chat), another member of the
+   * chat, someone else in a connected chat, or a webhook.
    */
   origin: "user" | "member" | "messaging" | "webhook";
 }
@@ -671,6 +671,35 @@ export async function claimSteering(
       type: "run.steering.claimed",
       payload: { steeringIds: steering.map((item) => item.id), nextMessageSeq },
     });
+    // In a group chat the row's user is the bot's owner, not the sender, so the sender is
+    // matched by the address it wrote from.
+    const groupSenders = steering.flatMap((item) =>
+      (item.message.blocks as MessageBlock[]).filter((block) => block.kind === "channel_message"),
+    );
+    const ownAddresses = new Set(
+      groupSenders.length === 0
+        ? []
+        : (
+            await tx.messagingIdentity.findMany({
+              where: {
+                userId: run.userId,
+                OR: groupSenders.map((block) => ({
+                  provider: block.provider,
+                  address: block.fromAddress,
+                })),
+              },
+              select: { provider: true, address: true },
+            })
+          ).map((identity) => `${identity.provider}:${identity.address}`),
+    );
+    const sentByRunPerson = (item: (typeof steering)[number]) => {
+      const group = (item.message.blocks as MessageBlock[]).find(
+        (block) => block.kind === "channel_message",
+      );
+      return group
+        ? ownAddresses.has(`${group.provider}:${group.fromAddress}`)
+        : item.userId === run.userId;
+    };
     return steering.map((item) => ({
       id: item.id,
       messageId: item.messageId,
@@ -679,10 +708,10 @@ export async function claimSteering(
       origin:
         item.originTrigger === "webhook"
           ? ("webhook" as const)
-          : item.originTrigger === "messaging"
-            ? ("messaging" as const)
-            : item.userId === run.userId
-              ? ("user" as const)
+          : sentByRunPerson(item)
+            ? ("user" as const)
+            : item.originTrigger === "messaging"
+              ? ("messaging" as const)
               : ("member" as const),
     }));
   });

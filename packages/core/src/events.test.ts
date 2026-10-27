@@ -10,8 +10,10 @@ import {
   isRunTerminalEvent,
   liveActivityLine,
   normalizeResponseStreamingPreference,
+  noteLastToolStep,
   projectMessages,
   redactSecrets,
+  redactSecretsAfter,
   reduceLiveMessageBlocks,
   responseStreamingEnabled,
   runFailureError,
@@ -21,6 +23,7 @@ import {
   trackToolCallStreak,
   trackToolNameStreak,
   withLiveStreamingProgress,
+  withoutLastToolStepNotes,
 } from "./events.js";
 import { modelFallbackFailure, normalizeRunError } from "./run-error.js";
 
@@ -801,6 +804,57 @@ describe("appendToolCallSegment", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("step notes", () => {
+  it("puts each note on the step it came before, in order", () => {
+    let segments = appendToolCallSegment([], "read_file");
+    segments = noteLastToolStep(segments, "The meeting is with Anna.");
+    segments = appendToolCallSegment(segments, "read_file");
+    segments = appendToolCallSegment(segments, "read_file");
+    segments = noteLastToolStep(segments, "Saving it.");
+    expect(segments).toEqual([
+      {
+        kind: "steps",
+        steps: [
+          { label: "Read file", count: 2, note: "The meeting is with Anna." },
+          { label: "Read file", count: 1, note: "Saving it." },
+        ],
+      },
+    ]);
+  });
+
+  it("leaves text and a message without steps alone", () => {
+    const text = [{ kind: "text" as const, text: "hi" }];
+    expect(noteLastToolStep(text, "Note.")).toEqual(text);
+  });
+
+  it("removes only the newest notes", () => {
+    let segments = appendToolCallSegment([], "read_file");
+    segments = noteLastToolStep(segments, "One.");
+    segments = appendToolCallSegment(segments, "shell");
+    segments = noteLastToolStep(segments, "Two.");
+    segments = appendToolCallSegment(segments, "shell");
+    expect(withoutLastToolStepNotes(segments, 1)).toEqual([
+      {
+        kind: "steps",
+        steps: [
+          { label: "Read file", count: 1, note: "One." },
+          { label: "Shell", count: 2 },
+        ],
+      },
+    ]);
+  });
+});
+
+describe("redactSecretsAfter", () => {
+  it("hides the rest of a value that started in the text before", () => {
+    expect(redactSecretsAfter("The token is hunter", "abcxyz saved.", ["hunterabcxyz"])).toBe(
+      "[redacted] saved.",
+    );
+    expect(redactSecretsAfter("hunterabcxyz", " and abc", ["hunterabcxyz"])).toBe(" and abc");
+    expect(redactSecretsAfter("", "key hunterabcxyz", ["hunterabcxyz"])).toBe("key [redacted]");
   });
 });
 

@@ -311,6 +311,13 @@ async function runTurn(
   return { finalizeRun, append, pauseRunForInput, messages, savedEvents, prisma, runtimeRun };
 }
 
+/** Notes saved on the final reply's steps, in order. */
+function stepNotes(finalizeRun: Awaited<ReturnType<typeof runTurn>>["finalizeRun"]) {
+  return finalizeRun.mock.calls[0]![0].blocks.flatMap((block) =>
+    block.kind === "steps" ? block.steps.flatMap((step) => (step.note ? [step.note] : [])) : [],
+  );
+}
+
 describe.each(["routine", "reaction", "bot_message", "messaging"])(
   "held-back narration on %s runs",
   (trigger) => {
@@ -511,22 +518,6 @@ describe("withheld narration on short reply-producing turns", () => {
 });
 
 describe("text from separate assistant turns", () => {
-  // Text with a link may be part of the answer and keeps its place; a short note without one
-  // now becomes the working line instead (it used to be kept in the reply too).
-  it.each([
-    ["The draft is posted.", "Nothing has changed since then."],
-    [
-      "The draft is posted at https://example.com/drafts/42",
-      "The draft is posted at https://example.com/drafts/42\n\nNothing has changed since then.",
-    ],
-  ])("keeps a paragraph break after %j in finalized blocks", async (narration, expected) => {
-    const { finalizeRun } = await runTurn("Nothing has changed since then.", false, narration);
-    const text = finalizeRun.mock.calls[0]![0].blocks.filter((block) => block.kind === "text")
-      .map((block) => block.text)
-      .join("");
-    expect(text).toBe(expected);
-  });
-
   // The note now leaves the live text for the working line, so what streams after it is the
   // final text alone; the redactor's held-back copy of the note is not streamed again.
   it("streams the break when the redactor holds all pre-tool text", async () => {
@@ -594,23 +585,41 @@ describe("notes that can't be posted as messages", () => {
   });
 
   it.each([
+    "Checking the totals.",
     `Opening the supplier portal ${"and checking every invoice ".repeat(4)}now.`,
     "The report is at https://example.com/reports/7",
     "Run `npm test` before merging.",
     "Totals:\n- March: 4\n- April: 7",
     "The total is $42.",
-    "The fee is 0.5%.",
-  ])("keeps text that may be part of the answer in the reply: %j", async (narration) => {
+  ])("keeps text written before a step out of the reply, on that step: %j", async (narration) => {
     const { finalizeRun, append } = await runTurn("Done.", false, narration);
-    expect(finalText(finalizeRun)).toBe(`${narration}\n\nDone.`);
+    expect(finalText(finalizeRun)).toBe("Done.");
+    expect(stepNotes(finalizeRun)).toEqual([narration]);
     expect(progress(append).some((event) => (event.payload as { reset?: boolean }).reset)).toBe(
-      false,
+      true,
     );
+  });
+
+  it("keeps an answer written before the last step and replies with what follows it", async () => {
+    const { finalizeRun } = await runTurn("", false, undefined, [], "fyi", {
+      runtimeEvents: [
+        { type: "text", text: "The meeting is with Anna." },
+        { type: "tool", name: "save_event", args: {}, executionId: "call-1" },
+        { type: "text", text: "Saved." },
+        { type: "done", text: "" },
+      ],
+    });
+    expect(finalText(finalizeRun)).toBe("Saved.");
+    expect(finalizeRun.mock.calls[0]![0].blocks).toContainEqual({
+      kind: "steps",
+      steps: [{ label: "Save event", count: 1, note: "The meeting is with Anna." }],
+    });
   });
 
   it("brings every working-line note back, in order, when nothing follows the last step", async () => {
     const { finalizeRun } = await runTurn("", false, ["Paragraph A.", "Paragraph B."]);
     expect(finalText(finalizeRun)).toBe("Paragraph A.\n\nParagraph B.");
+    expect(stepNotes(finalizeRun)).toEqual([]);
   });
 
   it("keeps a long answer written before a closing step whole", async () => {
@@ -618,27 +627,6 @@ describe("notes that can't be posted as messages", () => {
     const { finalizeRun } = await runTurn("", false, answer);
     expect(answer.length).toBeGreaterThan(500);
     expect(finalText(finalizeRun).trim()).toBe(answer.trim());
-  });
-
-  it("sends short notes to the working line even after longer text was kept for the reply", async () => {
-    const kept = "Found the folder with all the quarterly reports from https://example.com/reports";
-    const { finalizeRun, append, messages } = await runTurn("All done.", false, [
-      kept,
-      "Opening the browser.",
-      "The page loaded.",
-    ]);
-    expect(messages).toEqual([]);
-    expect(finalText(finalizeRun)).toBe(`${kept}\n\nAll done.`);
-    const statuses = progress(append)
-      .filter((event) => (event.payload as { reset?: boolean }).reset)
-      .map((event) => (event.payload as { text: string }).text);
-    expect(statuses).toEqual(["Opening the browser.", "The page loaded."]);
-  });
-
-  it("brings back a short note after kept text when nothing follows the last step", async () => {
-    const kept = "Found the folder with all the quarterly reports from https://example.com/reports";
-    const { finalizeRun } = await runTurn("", false, [kept, "Saving the file."]);
-    expect(finalText(finalizeRun)).toBe(`${kept}\n\nSaving the file.`);
   });
 
   it("never cuts long text into a message, even once messages may be posted", async () => {
@@ -655,33 +643,36 @@ describe("notes that can't be posted as messages", () => {
       },
     );
     expect(long.length).toBeGreaterThan(500);
-    // The long text stays whole in the reply; the short note after it is posted on its own.
+    // The long text stays whole on its step; the short one after it is posted on its own.
     expect(sentTexts(messages)).toEqual(["Saving the file."]);
-    expect(finalText(finalizeRun)).toBe(`${long}\n\nDone.`);
+    expect(stepNotes(finalizeRun)).toEqual([long]);
+    expect(finalText(finalizeRun)).toBe("Done.");
+  });
+
+  it("redacts notes like the reply", async () => {
+    const { finalizeRun, append } = await runTurn("Done.", false, "The fake-secret-value is set.", [
+      "fake-secret-value",
+    ]);
+    expect(stepNotes(finalizeRun)).toEqual(["The [redacted] is set."]);
+    expect(JSON.stringify(append.mock.calls)).not.toContain("fake-secret-value");
   });
 
   it.each([
     ["once messages may be posted", new Date(Date.now() - 120_000)],
     ["on a fresh turn", undefined],
-  ])(
-    "keeps a note with the text before it when a secret runs across the two, %s",
-    async (_, startedAt) => {
-      const kept = `${"Each supplier matched the order totals. ".repeat(14)}The token is hunter`;
-      const { messages, append } = await runTurn(
-        "Done.",
-        false,
-        [kept, "abcxyz saved."],
-        ["hunterabcxyz"],
-        "fyi",
-        { startedAt },
-      );
-      // The rest of the split value is neither posted nor shown on the working line.
-      expect(messages).toEqual([]);
-      expect(progress(append).some((event) => (event.payload as { reset?: boolean }).reset)).toBe(
-        false,
-      );
-    },
-  );
+  ])("hides the rest of a secret split across two steps, %s", async (_, startedAt) => {
+    const { finalizeRun, append, messages } = await runTurn(
+      "Done.",
+      false,
+      ["The token is hunter", " abcxyz saved."],
+      ["hunter abcxyz"],
+      "fyi",
+      { startedAt },
+    );
+    const shown = JSON.stringify([append.mock.calls, messages, stepNotes(finalizeRun)]);
+    expect(shown).not.toContain("abcxyz");
+    expect(shown).toContain("[redacted] saved.");
+  });
 
   it("keeps tool status lines from replacing the note until the bot writes again", async () => {
     const { append } = await runTurn("", false, undefined, [], "fyi", {
@@ -771,7 +762,7 @@ describe("a message from the person while the bot works", () => {
     expect(sentTexts(await answer(false))).toEqual([]);
   });
 
-  it("posts a plain answer to the person on its own when the bot carries on after it", async () => {
+  it("keeps a plain answer with no step after it in the reply", async () => {
     const { messages, finalizeRun } = await runTurn("", false, undefined, [], "fyi", {
       runtimeEvents: [
         { type: "steered", fromRunUser: true },
@@ -781,8 +772,8 @@ describe("a message from the person while the bot works", () => {
         { type: "done", text: "" },
       ],
     });
-    expect(sentTexts(messages)).toEqual(["Yes, still on it."]);
-    expect(finalText(finalizeRun)).toBe("All four checked.");
+    expect(sentTexts(messages)).toEqual([]);
+    expect(finalText(finalizeRun)).toBe("Yes, still on it.\n\nAll four checked.");
   });
 
   it("keeps a long answer to the person in the reply, whole", async () => {
@@ -820,7 +811,7 @@ describe("a message from the person while the bot works", () => {
     expect(sentTexts(messages)).toEqual(["Yes, still on it."]);
   });
 
-  it("keeps a long answer to the person whole when the bot carries on with more steps", async () => {
+  it("keeps a long answer to the person whole on the step that follows it", async () => {
     const summary = `Full summary: ${"Supplier totals match the order. ".repeat(20)}`.trim();
     const { messages, finalizeRun } = await runTurn("", false, undefined, [], "fyi", {
       runtimeEvents: [
@@ -835,7 +826,8 @@ describe("a message from the person while the bot works", () => {
     });
     expect(summary.length).toBeGreaterThan(500);
     expect(sentTexts(messages)).toEqual([]);
-    expect(finalText(finalizeRun)).toBe(`${summary}\n\nDone.`);
+    expect(stepNotes(finalizeRun)).toEqual([`${summary}\n\nChecking one more file.`]);
+    expect(finalText(finalizeRun)).toBe("Done.");
   });
 
   it("keeps an allowance granted by a mid-task message that lands during message_user", async () => {

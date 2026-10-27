@@ -16,6 +16,7 @@ import {
   redactSecrets,
   TAKEOVER_COMPUTER_PENDING_STATE,
   userRunError,
+  withoutLastToolStepNotes,
 } from "@rakazo/core";
 import { recordUsage } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -77,7 +78,6 @@ import {
   clampUserProgressMessage,
   extractNarrationText,
   finalBlocksAfterMidTurnProgress,
-  messageUserMaxLength,
   STEERING_RESET_MIN_GAP_MS,
   STEERING_RESETS_MAX_PER_RUN,
 } from "./user-progress.js";
@@ -110,7 +110,6 @@ export async function consumeRunEvents(
       await streamText(ctx, event);
     } else if (event.type === "turn") {
       reply.assistantTurnBreakPending = true;
-      await postSteeringAnswer(ctx);
     } else if (event.type === "steered") {
       await onSteered(ctx, event);
     } else if (event.type === "progress") {
@@ -241,39 +240,6 @@ async function streamProgress(ctx: RunContext, event: RuntimeEvent<"progress">) 
 }
 
 /**
- * The model answered the person's mid-task message in plain text instead of with
- * message_user, and the runtime asked it to carry on: a short answer is posted as its own
- * message, as message_user would have, rather than opening the reply. A longer one may be
- * what the person asked for and stays in the reply whole.
- */
-async function postSteeringAnswer(ctx: RunContext) {
-  const { deps, run } = ctx;
-  const { reply } = ctx.state;
-  if (!reply.steeringReplyPending || !runPromotesMidTurnNarration(run.trigger)) return;
-  await flushProgress(ctx);
-  const answered = extractNarrationText(reply.messageSegments, reply.currentTextSegment);
-  const text = redactSecrets(answered.text, ctx.secrets).trim();
-  if (text && text.length <= messageUserMaxLength()) {
-    reply.messageSegments = answered.remaining;
-    reply.currentTextSegment = "";
-    reply.keptReplyLength = 0;
-    reply.workingNotes.length = 0;
-    reply.assembled = "";
-    reply.hasStreamedText = false;
-    reply.pendingProgress = "";
-    reply.redactor.skip();
-    await publishMessage(deps, run, "bot", [{ kind: "text", text }], true, nextProgressNonce(ctx));
-    reply.midTurnUserTexts.push(text);
-    reply.publishedMidTurnUserMessage = true;
-  } else if (text) {
-    // A long answer stays in the reply; nothing posts it later in pieces.
-    reply.steeringReplyPending = false;
-    reply.keptReplyLength = answered.text.length;
-    reply.workingNotes.length = 0;
-  }
-}
-
-/**
  * The run's person wrote while the bot worked. What the bot wrote before that is posted as
  * its own message instead of running on into the reply to them, and the interim-message
  * budget starts again: the first note may answer them at once. Webhooks, external chats and
@@ -299,7 +265,6 @@ async function onSteered(ctx: RunContext, event: RuntimeEvent<"steered">) {
   if (text && runPromotesMidTurnNarration(run.trigger)) {
     reply.messageSegments = before.remaining;
     reply.currentTextSegment = "";
-    reply.keptReplyLength = 0;
     reply.workingNotes.length = 0;
     reply.assembled = "";
     reply.hasStreamedText = false;
@@ -444,8 +409,8 @@ async function onToolCalled(ctx: RunContext, event: RuntimeEvent<"tool">): Promi
   // Preserve event ordering when the throttle still holds recent narration: the
   // client must see that text before the tool call it describes.
   await flushProgress(ctx);
-  // Promote streamed narration into a durable, replyable chat message before
-  // tools continue, so long turns do not look stalled and stay replyable.
+  // Queued first so the text written before this call becomes its note.
+  reply.pendingToolNames.push(event.name);
   const heldNote = event.name === "message_user" ? undefined : await publishMidTurnNarration(ctx);
   // A step without a note of its own replaces the earlier one in the live view, so its status
   // lines show again.
@@ -461,7 +426,6 @@ async function onToolCalled(ctx: RunContext, event: RuntimeEvent<"tool">): Promi
     payload: { name: event.name, executionId: event.executionId },
   });
   await showNarrationStatus(ctx, heldNote);
-  reply.pendingToolNames.push(event.name);
   tryFlushPendingTools(reply);
   const loopGuard = advanceToolCallLoopGuard(ctx.state.toolCallStreak, event.name, event.args);
   ctx.state.toolCallStreak = loopGuard.streak;
@@ -665,8 +629,7 @@ export async function completeRun(ctx: RunContext) {
   // model supplies none, unless it chose silence or already delivered that text.
   // Persisting peer results here also lets outcome delivery retry after completion.
   recordExplicitNoResponse(reply, reply.lastDiscardedMidTurnNarration);
-  // Notes shown on the working line since the last text that stays come back in full and
-  // in order when nothing follows the last step, after any text kept for the reply.
+  // When nothing follows the last step, the notes since the last interim message are the reply.
   if (
     !isBackgroundRunTrigger(run.trigger) &&
     !ctx.state.handedOff &&
@@ -674,6 +637,11 @@ export async function completeRun(ctx: RunContext) {
     reply.workingNotes.length > 0 &&
     !reply.textSinceLastStep.trim()
   ) {
+    flushPendingTools(reply);
+    reply.messageSegments = withoutLastToolStepNotes(
+      reply.messageSegments,
+      reply.workingNotes.length,
+    );
     const notes = reply.workingNotes.join("\n\n");
     const separator = assistantTurnSeparator(reply.assembled, notes);
     reply.assembled += separator + notes;

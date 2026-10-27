@@ -624,7 +624,7 @@ export type AgentRuntimeEvent =
   /** Messages sent while the bot worked were handed to the model before this turn. */
   | {
       type: "steered";
-      /** At least one came from the run's own person in the app. */
+      /** At least one came from the run's own person, in the app or a connected chat. */
       fromRunUser: boolean;
     }
   | {
