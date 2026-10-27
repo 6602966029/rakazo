@@ -1,7 +1,12 @@
 import { ALTERNATIVES, alternativeMarkdown } from "./alternatives";
 import { GROK_ALTERNATIVE_MARKDOWN } from "./grok-alternative";
 import { OPENCLAW_MARKDOWN, SELF_HOST_MARKDOWN } from "./guide";
-import { HOME_MODEL_PROVIDERS, getHomeCopy } from "./i18n/home";
+import {
+  HOME_CHANNELS,
+  HOME_FEATURE_KINDS,
+  HOME_MODEL_PROVIDERS,
+  getHomeCopy,
+} from "./i18n/home";
 import { roundupMarkdown } from "./roundup";
 import { APP_URL } from "./site";
 
@@ -21,6 +26,16 @@ ${home.hero.lead}
 ${home.roster.copy}
 
 ${home.roster.bots.map((bot) => `- **${bot.name}:** ${bot.desc}`).join("\n")}
+
+## ${home.channels.heading}
+
+${home.channels.copy}
+
+${HOME_CHANNELS.map((channel) => `- ${channel.name}${channel.selfHosted ? ` (${home.selfHost.heading})` : ""}`).join("\n")}
+
+## ${home.features.heading}
+
+${HOME_FEATURE_KINDS.map((kind) => `- **${home.features.items[kind].title}:** ${home.features.items[kind].body}`).join("\n")}
 
 ## ${home.testimonials.heading}
 
