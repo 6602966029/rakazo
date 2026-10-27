@@ -88,20 +88,18 @@ vi.mock("@earendil-works/pi-agent-core", () => ({
       fakeAgentState.promptInputs.push(prompt);
       fakeAgentState.promptImages.push(images ?? []);
       if (fakeAgentState.mode === "answer-then-stop") {
-        // The model answers the steered message in text and stops, twice in a row.
+        // The model answers the steered message in text and stops.
         await this.prepareNextTurnWithContext?.({ context: { messages: [] } });
-        for (let turn = 0; turn < 2; turn += 1) {
-          await this.finishTurn?.({
-            message: {
-              role: "assistant",
-              stopReason: "stop",
-              content: [{ type: "text", text: "Yes" }],
-            },
-            toolResults: [],
-            context: { messages: [] },
-            newMessages: [],
-          });
-        }
+        await this.finishTurn?.({
+          message: {
+            role: "assistant",
+            stopReason: "stop",
+            content: [{ type: "text", text: "Yes" }],
+          },
+          toolResults: [],
+          context: { messages: [] },
+          newMessages: [],
+        });
         return;
       }
       if (fakeAgentState.mode === "empty" || fakeAgentState.mode === "two-boundaries") {
@@ -413,11 +411,7 @@ import { providerFailureText } from "./pi-runtime-errors.js";
 import { TOOL_RESULT_TEXT_LIMIT } from "./pi-runtime-limits.js";
 import { maxToolCallsPerTurn } from "./pi-runtime-tools.js";
 import { toolCompletionAuditPayload } from "./tool-completion-audit.js";
-import {
-  CONTINUE_AFTER_ANSWER_PROMPT,
-  midTaskMessageFromPrompt,
-  midTaskMessagePrompt,
-} from "./user-progress.js";
+import { midTaskMessageFromPrompt, midTaskMessagePrompt } from "./user-progress.js";
 
 const destinationTool: ConnectorTool = {
   name: "destination.write",
@@ -608,7 +602,7 @@ describe("Pi connector tool dispatch", () => {
     ]);
   });
 
-  it("gives the model one more turn when it answers the person in text and stops", async () => {
+  it("ends the run when the model answers the person in text and stops", async () => {
     fakeAgentState.mode = "answer-then-stop";
     let claimCount = 0;
     const claimSteering = vi.fn(async () => {
@@ -641,10 +635,7 @@ describe("Pi connector tool dispatch", () => {
     )) {
       // Exhaust the runtime event stream.
     }
-    // Once per answer, not on the turn after it.
-    expect(fakeAgentState.followUpMessages).toEqual([
-      expect.objectContaining({ role: "user", content: CONTINUE_AFTER_ANSWER_PROMPT }),
-    ]);
+    expect(fakeAgentState.followUpMessages).toEqual([]);
   });
 
   it("defers steering arriving during a continuation to the following boundary", async () => {

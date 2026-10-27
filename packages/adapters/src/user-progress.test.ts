@@ -7,12 +7,10 @@ import {
   assistantTurnSeparator,
   botMessageOutcomeFromMidTurn,
   clampUserProgressMessage,
-  dropTrailingText,
   extractNarrationText,
   finalBlocksAfterMidTurnProgress,
   isProgressMessageTruncated,
   isUserProgressClientNonce,
-  isWorkingNote,
   MID_TURN_PROGRESS_MAX_PER_RUN,
   MID_TURN_PROGRESS_MIN_TURN_AGE_MS,
   messageUserMaxLength,
@@ -20,7 +18,6 @@ import {
   midTurnProgressBudgetAllows,
   NARRATION_STATUS_MAX_LENGTH,
   narrationStatusLine,
-  stoppedAfterAnswer,
   USER_PROGRESS_MESSAGE_MAX_LENGTH,
   userProgressClientNonce,
 } from "./user-progress.js";
@@ -218,48 +215,5 @@ describe("midTaskMessagePrompt", () => {
     expect(prompt).toContain("\n\nStill working?\n\n");
     expect(prompt).toContain("continue the task");
     expect(prompt).not.toMatch(/reply|answer/);
-  });
-});
-
-describe("isWorkingNote", () => {
-  it("accepts one short line and keeps anything that may be part of the answer", () => {
-    expect(isWorkingNote("Checking the totals.")).toBe(true);
-    expect(isWorkingNote("x".repeat(61))).toBe(false);
-    expect(isWorkingNote("Two lines\nhere")).toBe(false);
-    expect(isWorkingNote("See https://example.com/a")).toBe(false);
-    expect(isWorkingNote("See www.example.com")).toBe(false);
-    expect(isWorkingNote("[the draft](drafts/42)")).toBe(false);
-    expect(isWorkingNote("Run `ls` first.")).toBe(false);
-    expect(isWorkingNote("The total is $42.")).toBe(false);
-    expect(isWorkingNote("The fee is 0.5%.")).toBe(false);
-    expect(isWorkingNote("Costs €12 per seat.")).toBe(false);
-    expect(isWorkingNote("Opening page 2")).toBe(false);
-    expect(isWorkingNote("   ")).toBe(false);
-  });
-});
-
-describe("stoppedAfterAnswer", () => {
-  it("is true only for a turn that wrote text and stopped without a tool call", () => {
-    expect(stoppedAfterAnswer({ stopReason: "stop", content: [{ type: "text" }] })).toBe(true);
-    expect(
-      stoppedAfterAnswer({
-        stopReason: "toolUse",
-        content: [{ type: "text" }, { type: "toolCall" }],
-      }),
-    ).toBe(false);
-    expect(stoppedAfterAnswer({ stopReason: "length", content: [{ type: "text" }] })).toBe(false);
-  });
-});
-
-describe("dropTrailingText", () => {
-  it("removes the end of the turn's text and leaves its steps in place", () => {
-    const steps: MessageBlock = { kind: "steps", steps: [{ label: "Read", count: 1 }] };
-    expect(dropTrailingText([{ kind: "text", text: "Kept.\n\nNote." }, steps], "More", 11)).toEqual(
-      { segments: [{ kind: "text", text: "Kept." }, steps], currentText: "" },
-    );
-    expect(dropTrailingText([{ kind: "text", text: "Note." }, steps], "", 5)).toEqual({
-      segments: [steps],
-      currentText: "",
-    });
   });
 });

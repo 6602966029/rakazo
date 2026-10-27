@@ -78,12 +78,7 @@ import {
   serializeTurnCheckpoint,
   unresolvedTurnCheckpointCalls,
 } from "./turn-checkpoint.js";
-import {
-  CONTINUE_AFTER_ANSWER_PROMPT,
-  midTaskMessageFromPrompt,
-  midTaskMessagePrompt,
-  stoppedAfterAnswer,
-} from "./user-progress.js";
+import { midTaskMessageFromPrompt, midTaskMessagePrompt } from "./user-progress.js";
 
 const running = new Map<string, { controller: AbortController; work: Promise<void> }>();
 // Some OpenAI-compatible models return EOS immediately after a tool result
@@ -258,8 +253,6 @@ export class PiAgentRuntime implements AgentRuntime {
         resumeHost = host;
         const tools = toAgentTools(toolDefs, host);
         const seenSteeringIds: string[] = [];
-        // The next turn answers a mid-task message from the run's person.
-        let answeringPerson = false;
         const initialSteering = request.claimSteering ? await request.claimSteering([]) : [];
         let hasCurrentImages = Boolean(
           request.currentRunRequiresImageInput ||
@@ -457,18 +450,6 @@ export class PiAgentRuntime implements AgentRuntime {
               turn,
               turnSignal,
             );
-            // A turn answering the person mid-task that only wrote text would end the task
-            // there; the model gets one more turn to carry on.
-            if (answeringPerson) {
-              answeringPerson = false;
-              if (stoppedAfterAnswer(turn.message)) {
-                agent.followUp({
-                  role: "user",
-                  content: CONTINUE_AFTER_ANSWER_PROMPT,
-                  timestamp: Date.now(),
-                });
-              }
-            }
           },
           prepareNextTurnWithContext: async () => {
             if (!request.claimSteering) return undefined;
@@ -494,9 +475,10 @@ export class PiAgentRuntime implements AgentRuntime {
               });
             }
             // Ordered with the turn's other events, so the run can treat it as a turn boundary.
-            const fromRunUser = steering.some((item) => item.origin === "user");
-            answeringPerson ||= fromRunUser;
-            queue.push({ type: "steered", fromRunUser });
+            queue.push({
+              type: "steered",
+              fromRunUser: steering.some((item) => item.origin === "user"),
+            });
             return undefined;
           },
           initialState: {

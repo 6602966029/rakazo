@@ -381,15 +381,52 @@ export function liveActivityLine(
   return (tail?.kind === "progress" && tail.activity && tail.text.trim()) || undefined;
 }
 
-export type ToolStep = { label: string; count: number };
+export type ToolStep = { label: string; count: number; note?: string };
 
 export function appendToolStep(steps: readonly ToolStep[], toolName: string): ToolStep[] {
   const label = humanizeToolName(toolName);
   const last = steps.at(-1);
   if (last && last.label === label) {
-    return [...steps.slice(0, -1), { label, count: last.count + 1 }];
+    return [...steps.slice(0, -1), { ...last, count: last.count + 1 }];
   }
   return [...steps, { label, count: 1 }];
+}
+
+/** Puts a note on the newest step, splitting it off a run of the same step so it stays in order. */
+export function noteLastToolStep(segments: readonly MessageBlock[], note: string): MessageBlock[] {
+  const index = segments.findLastIndex((block) => block.kind === "steps");
+  const block = segments[index];
+  const last = block?.kind === "steps" ? block.steps.at(-1) : undefined;
+  if (block?.kind !== "steps" || !last) return [...segments];
+  const steps = block.steps.slice(0, -1);
+  if (last.count > 1)
+    steps.push({ ...last, count: last.count - 1 }, { label: last.label, count: 1, note });
+  else steps.push({ ...last, note: last.note ? `${last.note}\n\n${note}` : note });
+  const next = [...segments];
+  next[index] = { ...block, steps };
+  return next;
+}
+
+/** Removes the newest `count` notes from the steps. */
+export function withoutLastToolStepNotes(
+  segments: readonly MessageBlock[],
+  count: number,
+): MessageBlock[] {
+  let left = count;
+  const next = [...segments];
+  for (let index = next.length - 1; index >= 0 && left > 0; index -= 1) {
+    const block = next[index];
+    if (block?.kind !== "steps") continue;
+    const steps = [...block.steps];
+    for (let step = steps.length - 1; step >= 0 && left > 0; step -= 1) {
+      const { note, ...rest } = steps[step]!;
+      if (note === undefined) continue;
+      steps[step] = rest;
+      left -= 1;
+    }
+    next[index] = { ...block, steps };
+  }
+  return next;
 }
 
 export type ToolCallStreak = { key: string | undefined; count: number };

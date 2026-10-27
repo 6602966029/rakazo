@@ -89,16 +89,14 @@ export interface ReplyState {
   steeringResets: number;
   lastSteeringResetAt: number;
   /**
-   * Short notes moved to the working line since the last text that stays in the chat, in
-   * order and in full; they come back as the reply when nothing follows the last step.
+   * Notes on steps since the last interim message, in order; they come back as the reply when
+   * nothing follows the last step.
    */
   workingNotes: string[];
   /** What the bot wrote since its last step: empty means nothing follows the last step. */
   textSinceLastStep: string;
-  /** The working line shows a held-back note; tool status lines wait until the bot writes again. */
+  /** The working line shows a note; tool status lines wait until the bot writes again. */
   narrationStatusShowing: boolean;
-  /** How much of the turn's text was kept for the reply because it may be part of the answer. */
-  keptReplyLength: number;
   /**
    * Tool calls that land mid-sentence wait here until the narration catches up to a
    * sentence boundary, so the step chips never render in the middle of a clause.
