@@ -86,6 +86,9 @@ export function mcpServerReady(server: McpServer) {
   return server.oauthStatus === "connected" || server.health.status === "ok";
 }
 
+/** The whole row highlights, including for keyboard focus on its main button. */
+export const ROW_HOVER = "hover:bg-accent/60 has-[button:focus-visible]:bg-accent/60";
+
 export function PluginRow({
   name,
   description,
@@ -104,7 +107,7 @@ export function PluginRow({
   return (
     <div
       data-testid="plugin-row"
-      className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-accent/60"
+      className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 ${ROW_HOVER}`}
     >
       <button
         type="button"

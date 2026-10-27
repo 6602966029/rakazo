@@ -58,6 +58,7 @@ import {
   PluginLogo,
   PluginRow,
   pluginSelection,
+  ROW_HOVER,
 } from "../components/integrations/plugin-marketplace";
 import { connectedAppMarks } from "../lib/connected-apps";
 import { optionalCatalogFeedProbe } from "../lib/optional-catalog-feed";
@@ -645,12 +646,12 @@ export function PluginsOverlay({
       <div
         key={catalogItemKey(item)}
         data-testid={tileTestId ? `connection-tile-${item.slug.toLowerCase()}` : undefined}
-        className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
+        className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2${connected ? ` ${ROW_HOVER}` : ""}`}
       >
         {connected ? (
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-start hover:bg-accent/60"
+            className="flex min-w-0 flex-1 items-center gap-3 text-start focus-visible:outline-none"
             onClick={() => openDetail(item)}
           >
             {icon}
@@ -938,11 +939,11 @@ export function PluginsOverlay({
                   <div
                     key={install.id}
                     data-testid="installed-plugin"
-                    className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-accent/60"
+                    className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 ${ROW_HOVER}`}
                   >
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 items-center gap-3 text-start"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-start focus-visible:outline-none"
                       onClick={() => openPlugin(selection)}
                     >
                       <PluginLogo
