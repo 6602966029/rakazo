@@ -1125,4 +1125,21 @@ export const DE_MESSAGES: Record<string, string> = {
   "No runs yet": "Noch keine Ausführungen",
   "Load older runs": "Ältere Ausführungen laden",
   "Could not load run history": "Ausführungsverlauf konnte nicht geladen werden",
+  Vault: "Tresor",
+  "Add credential": "Zugangsdaten hinzufügen",
+  "Replace value": "Wert ersetzen",
+  "Remove {name}?": "{name} entfernen?",
+  "Could not save the credential": "Zugangsdaten konnten nicht gespeichert werden",
+  "Could not remove the credential": "Zugangsdaten konnten nicht entfernt werden",
+  Type: "Typ",
+  Site: "Website",
+  Value: "Wert",
+  "Custom header": "Eigener Header",
+  "Basic auth": "Basic-Auth",
+  "Website login": "Website-Anmeldung",
+  "Use lowercase letters, numbers, - and _, starting with a letter.":
+    "Verwende Kleinbuchstaben, Ziffern, - und _, beginnend mit einem Buchstaben.",
+  "{variable} is reserved. Choose another name.":
+    "{variable} ist reserviert. Wähle einen anderen Namen.",
+  "Delete this Space's credentials?": "Zugangsdaten dieses Space löschen?",
 };

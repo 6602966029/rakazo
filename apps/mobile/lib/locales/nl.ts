@@ -1077,4 +1077,21 @@ export const NL_MESSAGES: Record<string, string> = {
   "No runs yet": "Nog geen runs",
   "Load older runs": "Oudere runs laden",
   "Could not load run history": "Rungeschiedenis laden mislukt",
+  Vault: "Kluis",
+  "Add credential": "Gegeven toevoegen",
+  "Replace value": "Waarde vervangen",
+  "Remove {name}?": "{name} verwijderen?",
+  "Could not save the credential": "De gegevens opslaan mislukt",
+  "Could not remove the credential": "De gegevens verwijderen mislukt",
+  Type: "Type",
+  Site: "Site",
+  Value: "Waarde",
+  "Custom header": "Aangepaste header",
+  "Basic auth": "Basisauthenticatie",
+  "Website login": "Websiteaanmelding",
+  "Use lowercase letters, numbers, - and _, starting with a letter.":
+    "Gebruik kleine letters, cijfers, - en _, beginnend met een letter.",
+  "{variable} is reserved. Choose another name.":
+    "{variable} is gereserveerd. Kies een andere naam.",
+  "Delete this Space's credentials?": "Inloggegevens van deze Space verwijderen?",
 };

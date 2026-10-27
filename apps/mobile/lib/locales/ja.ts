@@ -1110,4 +1110,21 @@ export const JA_MESSAGES: Record<string, string> = {
   "No runs yet": "実行はまだありません",
   "Load older runs": "過去の実行を読み込む",
   "Could not load run history": "実行履歴を読み込めませんでした",
+  Vault: "保管庫",
+  "Add credential": "認証情報を追加",
+  "Replace value": "値を置き換え",
+  "Remove {name}?": "{name}を削除しますか？",
+  "Could not save the credential": "認証情報を保存できませんでした",
+  "Could not remove the credential": "認証情報を削除できませんでした",
+  Type: "種類",
+  Site: "サイト",
+  Value: "値",
+  "Custom header": "カスタムヘッダー",
+  "Basic auth": "Basic認証",
+  "Website login": "Webサイトのログイン",
+  "Use lowercase letters, numbers, - and _, starting with a letter.":
+    "小文字、数字、-、_ を使い、文字で始めてください。",
+  "{variable} is reserved. Choose another name.":
+    "{variable} は予約されています。別の名前を選んでください。",
+  "Delete this Space's credentials?": "このスペースの認証情報を削除しますか？",
 };
