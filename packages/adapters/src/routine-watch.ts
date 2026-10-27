@@ -88,7 +88,6 @@ export function parseRoutineWatchState(value: unknown): RoutineWatchState | null
   return parsed.success ? parsed.data : null;
 }
 
-/** When the next check is due. */
 export function nextRoutineWatchAt(watch: RoutineWatch, from: Date): Date {
   return new Date(from.getTime() + watch.everyMinutes * 60_000);
 }

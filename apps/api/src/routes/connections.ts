@@ -356,12 +356,9 @@ export function connectionsRoutes(ctx: RouterContext) {
               context.signal,
             );
             if (state && state !== input.provider) {
-              // Composio browser OAuth stores an authorization-request id in
-              // auth.state. Prefer canceling that pending request by id so the
-              // authorization URL cannot later create an untracked remote. The
-              // request id is the connected-account nanoid (INITIATED until OAuth
-              // finishes). Fall back to resolving an ACTIVE account id only when
-              // cancel is unavailable.
+              // Composio browser OAuth stores an authorization-request id in auth.state.
+              // Cancel that request by id so the authorization URL cannot later create an
+              // untracked remote; resolve an ACTIVE account id only when cancel is unavailable.
               const cancelAuthorizationRequest = (
                 connector as {
                   cancelAuthorizationRequest?: (

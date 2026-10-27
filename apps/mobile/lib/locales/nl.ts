@@ -239,7 +239,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Search conversations, files, and routines": "Zoek in gesprekken, bestanden en routines",
   "Searching…": "Bezig met zoeken…",
   "Space actions for {name}": "Space-acties voor {name}",
-  // app/(settings)/space.tsx
   Customize: "Aanpassen",
   "Customize {setting}": "{setting} aanpassen",
   "Tap + to create a bot": "Tik op + om een bot te maken",

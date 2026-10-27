@@ -191,18 +191,15 @@ export function botIntroPrompt(input: {
 }
 
 /**
- * Creating a bot asks only for a name and a look, so the bot finds out what it
- * is for itself. Queue one hidden-prompt turn (like a routine or skill test
- * run) that greets the user and asks. The executor limits the "created"
- * trigger to that question and the bot's own profile (see executor.ts), and
- * answering resumes the run as the user's turn.
+ * Creating a bot asks only for a name and a look, so one hidden-prompt turn greets the user and
+ * asks what the bot is for. The executor limits the "created" trigger to that question and the
+ * bot's own profile, and answering resumes the run as the user's turn.
  */
 export async function enqueueBotIntroRun(deps: RouterDeps, actor: Actor, bot: Bot): Promise<void> {
   const threadId = bot.threadId;
   if (!threadId) return;
-  // Scripted is the deterministic test/eval runtime, not a real deployment: an
-  // extra automatic run there competes with whatever response a test or eval
-  // harness queued next, for a bot it doesn't otherwise get to opt out of.
+  // In the scripted test/eval runtime an automatic run would compete with the harness's next
+  // queued response.
   if (deps.env.agentRuntime === "scripted") return;
   if ((await modelSetup(deps, actor)).needsModel) return;
   const [user, space] = await Promise.all([

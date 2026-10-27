@@ -47,12 +47,10 @@ export interface AppEnv {
   apiHost: string;
   /** Proxies whose forwarded client address is believed; empty means local networks. */
   trustedProxies: string[];
-  /** The header those proxies set. */
   clientIpHeader: string;
   signupsEnabled: string | undefined;
   signupAllowlist: string | undefined;
   encryptionKey: string;
-  /** CONTENT_ENCRYPTION: whether new content is encrypted at rest. */
   contentEncryption: boolean;
   dataDir: string;
   /** Opt-in Pi JSONL session recording under DATA_DIR/pi-sessions. Default off. */
@@ -137,7 +135,6 @@ export interface AppEnv {
   wakeupDriver: string;
   mcpStdioEnabled: boolean;
   mcpStdioAllowedCommands: string[];
-  /** Package dir, install/startup timeouts and idle reaping for stdio MCP servers. */
   mcpStdio: ReturnType<typeof mcpStdioOptionsFromEnv>;
   /** Deployment-owner escape for remote MCP on RFC1918 / Docker-network hosts. */
   mcpAllowPrivateEndpoint: boolean;

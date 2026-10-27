@@ -172,7 +172,6 @@ test("vault and command credentials add, replace and remove without leaking valu
   await captureScreenshot(page, testInfo, "command-credentials-removed");
 });
 
-/** Fail if any live input value still carries a protected value. */
 async function expectNoLeakedInputValue(page: Page, value: string) {
   const leaked = await page.evaluate((needle) => {
     const inputs = Array.from(document.querySelectorAll("input, textarea"));

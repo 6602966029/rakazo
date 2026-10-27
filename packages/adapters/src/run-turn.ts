@@ -589,10 +589,7 @@ export async function completeRun(ctx: RunContext) {
   let completionBlocks = silentReply.blocks;
   if (!silentReply.assembled || isBackgroundRunTrigger(run.trigger)) {
     // Mid-turn progress already posted durable chat messages; skip the empty
-    // "…" fallback so we do not add a junk final bubble. Delegated bot_message
-    // runs still return via botMessageOutcomeFromMidTurn below (status when
-    // only progress was posted, result when a final reply exists). Exact
-    // NO_RESPONSE finals are treated as empty before this fallback runs.
+    // "…" fallback so we do not add a junk final bubble.
     completionBlocks = completionMessageSegments(completionBlocks, {
       allowSilentEmpty: ctx.allowSilentEmptyRun || reply.publishedMidTurnUserMessage,
       emptyResponseText: ctx.emptyResponseText,

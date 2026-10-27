@@ -637,7 +637,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   Skip: "跳过",
   Space: "空间",
   "Space actions for {name}": "{name} 的空间操作",
-  // app/(settings)/space.tsx
   Customize: "自定义",
   "Customize {setting}": "自定义{setting}",
   "This removes the space for everyone.": "这将为所有人删除此空间。",
@@ -798,7 +797,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Your phone's built-in voice. Free, no account needed": "手机自带的语音。免费，无需账户",
   "Could not save that preference": "无法保存该设置",
   Username: "用户名",
-  // app/(settings)/models.tsx
   "Move down": "下移",
   "Move up": "上移",
   "Tried in order if the active model fails.": "当前模型失败时按顺序尝试。",
@@ -872,7 +870,6 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Hi, this is how I'll sound.": "你好，这是我的声音。",
   "Open external link?": "打开外部链接？",
   Open: "打开",
-  // ai-data-sharing
   "AI models": "AI 模型",
   Memory: "记忆",
   "Privacy policies": "隐私政策",

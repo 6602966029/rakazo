@@ -1509,20 +1509,9 @@ export async function controlDesktop(
 
 const SCREEN_READY_TIMEOUT_MS = 45_000;
 
-// Docker publishes a container's port mapping (or assigns its internal IP)
-// almost immediately on start, well before the process inside the container
-// is actually listening on it (Xvfb, the browser, x11vnc, then websockify
-// all start in sequence — see infra/sandboxes/computer/start.sh). Returning
-// the URL as soon as the mapping exists lets the frontend iframe race the
-// container's own boot sequence and hit "socket hang up" on first load.
-//
-// A bare TCP connect isn't a strong enough signal either: it only proves the
-// port is accepting connections, not that websockify is actually up and
-// serving — the same race can still slip through between "port open" and
-// "websockify ready" (e.g. right after setInteractiveScreen starts a new
-// x11vnc/websockify pair on the control port for a takeover). An HTTP GET
-// against the same embed.html path the browser will load only succeeds once
-// websockify itself is answering requests, closing that gap too.
+// Docker publishes the port mapping before websockify inside the container is
+// serving, and a bare TCP connect can succeed before it is too. Polling the same
+// embed.html the iframe loads keeps the frontend from hitting "socket hang up".
 export async function waitForScreenReady(host: string, port: number, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs;
   do {

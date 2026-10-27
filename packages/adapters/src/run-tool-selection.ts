@@ -67,7 +67,6 @@ export function selectBuiltinToolsForRun(options: {
   voiceCall?: boolean;
   /** Built-in names this bot turned off. Unknown names are ignored. */
   disabledBuiltinTools?: readonly string[];
-  /** The bot's fleet management switch. */
   fleetManagement?: boolean;
   /** A follow-up run whose source message the user wrote. */
   followUpFromUser?: boolean;

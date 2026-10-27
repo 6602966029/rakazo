@@ -1026,7 +1026,6 @@ async function bindWaitingTakeoverToControl(
     if (!waitingForTakeover) return;
     if (input.controlRunId === executionLease.runId) return;
 
-    // Confirm the locked lease row still matches before writing controlRunId.
     const leaseStillCurrent = await tx.computerExecutionLease.count({
       where: {
         computerId: input.computerId,

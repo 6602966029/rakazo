@@ -44,12 +44,8 @@ function configuredOpenRouterModel(
   id: string,
   contextWindow = 16_384,
 ): Model<"openai-completions"> {
-  // A configured model can intentionally be newer than Pi's static catalog. Keep
-  // pricing conservative, but enable reasoning: unknown OpenRouter endpoints
-  // (e.g. gemini-3.7-flash before the snapshot catches up) often mandate it, and
-  // thinkingLevel "off" becomes effort "none" which those endpoints reject.
-  // Reserve half the conservative fallback window for input. A model card's
-  // configured limits override this placeholder below.
+  // A configured model can be newer than Pi's static catalog. Enable reasoning:
+  // unknown OpenRouter endpoints often mandate it and reject effort "none".
   return {
     id,
     name: id,

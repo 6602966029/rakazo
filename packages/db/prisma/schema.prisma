@@ -1013,7 +1013,6 @@ model AgentImport {
 }
 
 /// Claude Agent Skills: SKILL.md recipes shared across assistants (not per-bot).
-/// The Pi runtime already understands this format; we persist and inject them.
 /// Distinct from TaughtSkill (demo/record playbooks).
 model AgentSkill {
   id          String   @id @default(cuid())
@@ -1278,14 +1277,10 @@ model Artifact {
 model UsageRecord {
   id                 String   @id @default(cuid())
   spaceId            String
-  /// Which bot spent this. Deliberately NOT a relation: a usage row is spend that really
-  /// happened, and no lifecycle event on the bot may delete it or blank its attribution.
-  /// `Cascade` erased the row; `SetNull` would erase the attribution instead, and because
-  /// deleting a bot also deletes its runs, `runId` goes null in the same breath — the row
-  /// would keep only space, user, model and token counts.
-  ///
-  /// So the id outlives the bot and may dangle. Read it with a LEFT JOIN; `BotDeletion.id`
-  /// IS the bot id, so a deleted bot's name is still reachable for display.
+  /// Which bot spent this. Deliberately not a relation: usage is spend that really happened,
+  /// and deleting a bot (which also deletes its runs) must not delete the row or blank its
+  /// attribution, as Cascade or SetNull would. The id may dangle; read it with a LEFT JOIN.
+  /// `BotDeletion.id` is the bot id, so a deleted bot's name stays reachable for display.
   botId              String?
   userId             String
   runId              String?

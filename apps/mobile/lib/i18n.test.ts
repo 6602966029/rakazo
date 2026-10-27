@@ -18,7 +18,6 @@ vi.mock("./ui-direction", () => ({
   applyMobileUiDirection: vi.fn(),
 }));
 
-/** Recursively collect source files used to validate mobile translation coverage. */
 function collectSourceFiles(dir: string): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
