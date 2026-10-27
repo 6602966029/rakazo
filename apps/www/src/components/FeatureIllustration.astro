@@ -35,7 +35,7 @@ const { kind, labels } = Astro.props;
     height: 144px;
     margin: -26px -26px 24px;
     border-bottom: 1px solid var(--line);
-    background: var(--surface-soft);
+    background: radial-gradient(120% 100% at 50% 100%, var(--accent-soft), var(--surface-soft) 85%);
     color: var(--ink);
     display: flex;
     align-items: center;
@@ -46,7 +46,9 @@ const { kind, labels } = Astro.props;
     font-size: 12px;
     line-height: 1.4;
   }
-  .feature-illustration { --accent: var(--ink); --accent-soft: var(--line); }
+  .feature-illustration--model { --accent: var(--coral); --accent-soft: var(--coral-soft); }
+  .feature-illustration--schedule { --accent: var(--indigo); --accent-soft: var(--indigo-soft); }
+  .feature-illustration--approval { --accent: var(--green); --accent-soft: var(--green-soft); }
   .mini-window {
     width: 100%;
     max-width: 240px;

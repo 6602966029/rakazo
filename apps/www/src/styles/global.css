@@ -40,6 +40,12 @@
   --indigo-soft: #e2e2fd;
   --green: #1f7f5f;
   --green-soft: #d6f3e9;
+  --amber: #d9822b;
+  --amber-soft: #fdecd3;
+  --violet: #8b5cf6;
+  --violet-soft: #ece3fd;
+  --rose: #e0457b;
+  --rose-soft: #fce1ea;
   --shadow-soft: 0 2px 16px rgba(0, 0, 0, 0.03);
   --shadow-demo: 0 30px 80px -30px rgba(0, 0, 0, 0.35);
   --radius-card: 20px;
