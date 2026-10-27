@@ -988,7 +988,7 @@ export const JA_MESSAGES: Record<string, string> = {
   Renews: "更新日",
   "Could not open billing": "請求を開けませんでした",
   "Put your bots to work": "ボットに仕事を任せましょう",
-  "Bots with their own computer and browser": "専用のコンピューターとブラウザを持つボット",
+  "Bots with their own computer": "専用のコンピューターを持つボット",
   "Routines that run while you're away": "不在中に実行されるルーティン",
   "Web, desktop and mobile apps": "Web、デスクトップ、モバイルアプリ",
   "Start free trial": "無料トライアルを開始",

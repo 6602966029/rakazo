@@ -1040,7 +1040,7 @@ export const RU_MESSAGES: Record<string, string> = {
   Renews: "Продление",
   "Could not open billing": "Не удалось открыть оплату",
   "Put your bots to work": "Пусть боты работают на вас",
-  "Bots with their own computer and browser": "Боты со своим компьютером и браузером",
+  "Bots with their own computer": "Боты со своим компьютером",
   "Routines that run while you're away": "Задачи, которые выполняются, пока вас нет",
   "Web, desktop and mobile apps": "Приложения для веба, компьютера и телефона",
   "Start free trial": "Начать бесплатный период",

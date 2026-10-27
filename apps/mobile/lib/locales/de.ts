@@ -1047,7 +1047,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Renews: "Verlängert sich am",
   "Could not open billing": "Abrechnung konnte nicht geöffnet werden",
   "Put your bots to work": "Lass deine Bots arbeiten",
-  "Bots with their own computer and browser": "Bots mit eigenem Computer und Browser",
+  "Bots with their own computer": "Bots mit eigenem Computer",
   "Routines that run while you're away": "Routinen, die laufen, während du weg bist",
   "Web, desktop and mobile apps": "Apps für Web, Desktop und Mobilgeräte",
   "Start free trial": "Kostenlos testen",

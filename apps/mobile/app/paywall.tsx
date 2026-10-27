@@ -242,7 +242,7 @@ export default function Paywall() {
   const creditPrice = `$${amount / 100}`;
   const features: { label: string; ios: string; android: SymbolName; color: string }[] = [
     {
-      label: t("Bots with their own computer and browser"),
+      label: t("Bots with their own computer"),
       ios: "desktopcomputer",
       android: "desktop-outline",
       color: botColors[2],

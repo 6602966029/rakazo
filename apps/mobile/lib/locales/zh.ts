@@ -1002,7 +1002,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   Renews: "续费日期",
   "Could not open billing": "无法打开账单",
   "Put your bots to work": "让你的 Bot 开始工作",
-  "Bots with their own computer and browser": "拥有专属电脑和浏览器的 Bot",
+  "Bots with their own computer": "拥有专属电脑的 Bot",
   "Routines that run while you're away": "在你离开时运行的例行任务",
   "Web, desktop and mobile apps": "网页、桌面和手机应用",
   "Start free trial": "开始免费试用",

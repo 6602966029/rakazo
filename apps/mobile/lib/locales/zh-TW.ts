@@ -992,7 +992,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   Renews: "續訂日期",
   "Could not open billing": "無法開啟帳務",
   "Put your bots to work": "讓你的機器人開始工作",
-  "Bots with their own computer and browser": "擁有專屬電腦與瀏覽器的機器人",
+  "Bots with their own computer": "擁有專屬電腦的機器人",
   "Routines that run while you're away": "在你離線時執行的例行任務",
   "Web, desktop and mobile apps": "網頁、桌面與手機應用程式",
   "Start free trial": "開始免費試用",

@@ -999,7 +999,7 @@ export const NL_MESSAGES: Record<string, string> = {
   Renews: "Verlengt op",
   "Could not open billing": "Kan facturering niet openen",
   "Put your bots to work": "Zet je bots aan het werk",
-  "Bots with their own computer and browser": "Bots met een eigen computer en browser",
+  "Bots with their own computer": "Bots met een eigen computer",
   "Routines that run while you're away": "Routines die draaien terwijl je weg bent",
   "Web, desktop and mobile apps": "Web-, desktop- en mobiele apps",
   "Start free trial": "Start gratis proefperiode",
