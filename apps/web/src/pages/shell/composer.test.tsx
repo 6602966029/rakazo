@@ -303,6 +303,64 @@ describe("Composer", () => {
     expect(onSend).toHaveBeenCalledWith("ask @Bobby", [bobby], expect.any(String));
   });
 
+  it.each(["bot", "group"] as const)(
+    "replaces an overlapping %s name without stale routing",
+    async (kind) => {
+      const short: ComposerMention = { kind, id: "short", name: "Bob" };
+      const long: ComposerMention = { kind: "bot", id: "long", name: "Bob Smith" };
+      const onSend = vi.fn().mockResolvedValue(true);
+      const textarea = renderComposer(onSend, { mentionTargets: [short, long] });
+      type(textarea, "ask @Bo");
+      pressEnter(textarea);
+      act(() => {
+        textarea.setSelectionRange(7, 7);
+        document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+      });
+      act(() =>
+        container
+          ?.querySelector<HTMLButtonElement>('[role="option"][aria-label="@Bob Smith"]')
+          ?.click(),
+      );
+      expect(textarea.value).toBe("ask @Bob Smith ");
+      expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(1);
+      pressEnter(textarea);
+      await act(async () => {});
+      expect(onSend).toHaveBeenCalledWith("ask @Bob Smith", [long], expect.any(String));
+    },
+  );
+
+  it("replaces the full existing multiword name and preserves a separate short mention", async () => {
+    const smith: ComposerMention = { kind: "bot", id: "smith", name: "Bob Smith" };
+    const jones: ComposerMention = { kind: "bot", id: "jones", name: "Bob Jones" };
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend, { mentionTargets: [bob, smith, jones] });
+    type(textarea, "@Bo");
+    pressEnter(textarea);
+    type(textarea, `${textarea.value}ask @Bo`);
+    act(() =>
+      container
+        ?.querySelector<HTMLButtonElement>('[role="option"][aria-label="@Bob Smith"]')
+        ?.click(),
+    );
+    act(() => {
+      textarea.setSelectionRange(12, 12);
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    act(() =>
+      container
+        ?.querySelector<HTMLButtonElement>('[role="option"][aria-label="@Bob Jones"]')
+        ?.click(),
+    );
+    expect(textarea.value).toBe("@Bob ask @Bob Jones ");
+    act(() =>
+      container?.querySelector<HTMLButtonElement>('[aria-label="Remove mention Bob"]')?.click(),
+    );
+    expect(textarea.value).toBe(" ask @Bob Jones ");
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend).toHaveBeenCalledWith("ask @Bob Jones", [jones], expect.any(String));
+  });
+
   it.each([false, true])(
     "keeps the keyboard mention selection when targets refresh (reorder: %s)",
     (reorder) => {

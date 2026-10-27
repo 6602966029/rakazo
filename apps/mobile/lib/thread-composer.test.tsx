@@ -277,6 +277,66 @@ describe("thread composer isolation", () => {
     expect(composer.current!.snapshot().mentions).toEqual([other]);
   });
 
+  function pickMentionAt(index: number) {
+    const options = container.querySelectorAll<HTMLButtonElement>('button[aria-label="@{name}"]');
+    expect(options.length).toBeGreaterThan(index);
+    act(() => options[index]!.click());
+  }
+
+  it.each(["bot", "group"] as const)(
+    "retires a shorter %s mention when replacing it with a multiword bot name",
+    (kind) => {
+      const shorter = { ...bot, kind };
+      const longer = { kind: "bot", id: "bot-3", name: "Helper Smith" } as const;
+      render({ composerMentionTargets: [shorter, longer] });
+      type("before @He");
+      pickMentionAt(0);
+      select(10);
+      pickMentionAt(1);
+      expect(container.querySelector("input")!.value).toBe("before @Helper Smith ");
+      expect(composer.current!.snapshot().mentions).toEqual([longer]);
+    },
+  );
+
+  it("keeps a separate shorter mention when replacing another occurrence with a longer name", () => {
+    const longer = { kind: "bot", id: "bot-3", name: "Helper Smith" } as const;
+    render({ composerMentionTargets: [bot, longer] });
+    type("@He");
+    pickMentionAt(0);
+    type("@Helper and @He");
+    pickMentionAt(0);
+    select("@Helper and @He".length);
+    pickMentionAt(1);
+    expect(container.querySelector("input")!.value).toBe("@Helper and @Helper Smith ");
+    expect(composer.current!.snapshot().mentions).toEqual([bot, longer]);
+    type("and @Helper Smith ");
+    expect(composer.current!.snapshot().mentions).toEqual([longer]);
+  });
+
+  it("replaces the entire recognized multiword name when the caret is inside its first word", () => {
+    const smith = { kind: "bot", id: "bot-3", name: "Helper Smith" } as const;
+    const jones = { kind: "bot", id: "bot-4", name: "Helper Jones" } as const;
+    render({ composerMentionTargets: [smith, jones] });
+    type("before @He");
+    pickMentionAt(0);
+    select(10);
+    pickMentionAt(1);
+    expect(container.querySelector("input")!.value).toBe("before @Helper Jones ");
+    expect(composer.current!.snapshot().mentions).toEqual([jones]);
+  });
+
+  it("removes a shorter mention chip without corrupting a longer recognized name", () => {
+    const longer = { kind: "bot", id: "bot-3", name: "Helper Smith" } as const;
+    render({ composerMentionTargets: [bot, longer] });
+    type("@He");
+    pickMentionAt(0);
+    type("@Helper and @He");
+    pickMentionAt(1);
+    press("Remove mention {name}");
+    expect(container.querySelector("input")!.value).toBe(" and @Helper Smith ");
+    expect(composer.current!.snapshot().mentions).toEqual([longer]);
+  });
+
   it.each(["text-first", "selection-first"])(
     "finds the query when native editing events arrive %s",
     (order) => {

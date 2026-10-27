@@ -2,7 +2,6 @@ import type { Connection, ConnectionCatalogItem } from "@rakazo/contracts";
 import type { CronLabels } from "./cron.js";
 import { ENGLISH_CRON_LABELS, formatCron } from "./cron.js";
 import { displayName } from "./display-name.js";
-import { hasMentionToken } from "./group-mentions.js";
 
 export const COMPOSER_MENTION_KINDS = ["bot", "group", "routine", "connector", "everyone"] as const;
 
@@ -81,16 +80,40 @@ export function mentionChipKey(mention: Pick<ComposerMention, "kind" | "id">): s
   return `${mention.kind}:${mention.id}`;
 }
 
-/** The active @query at a collapsed caret, including the rest of that token. */
+type MentionName = { name: string };
+
+/** Recognize each full mention once, so a name is not also its shorter prefix. */
+function composerMentionSpans(text: string, mentions: readonly MentionName[]) {
+  const names = [...new Set(mentions.map((mention) => mention.name.trim()).filter(Boolean))].sort(
+    (a, b) => b.length - a.length,
+  );
+  if (names.length === 0) return [];
+  const pattern = new RegExp(
+    `(?<![\\p{L}\\p{N}_-])@(${names.map(escapeRegExp).join("|")})(?![\\p{L}\\p{N}_-])`,
+    "giu",
+  );
+  return [...text.matchAll(pattern)].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+    name: match[1]!.toLowerCase(),
+  }));
+}
+
+/** The active @query at a collapsed caret, including its full recognized name. */
 export type ComposerMentionQuery = { start: number; end: number; query: string };
 
 export function composerMentionQuery(
   text: string,
   selectionStart = text.length,
   selectionEnd = selectionStart,
+  knownMentions: readonly MentionName[] = [],
 ): ComposerMentionQuery | null {
   if (selectionStart !== selectionEnd || selectionStart < 0 || selectionStart > text.length)
     return null;
+  const recognized = composerMentionSpans(text, knownMentions).find(
+    (span) => selectionStart > span.start && selectionStart <= span.end,
+  );
+  if (recognized) return { ...recognized, query: text.slice(recognized.start + 1, selectionStart) };
   const match = /(?:^|\s)@([\w-]*)$/.exec(text.slice(0, selectionStart));
   if (!match) return null;
   const query = match[1] ?? "";
@@ -102,7 +125,7 @@ export function composerMentionQuery(
 export function completeComposerMention(
   text: string,
   query: ComposerMentionQuery,
-  mention: { name: string },
+  mention: MentionName,
 ): { text: string; caret: number } {
   const suffix = text.slice(query.end);
   const token = `@${mention.name}`;
@@ -113,26 +136,30 @@ export function completeComposerMention(
   };
 }
 
-/** Remove selected tokens without rewriting any surrounding whitespace. */
-export function removeComposerMention(text: string, mention: { name: string }): string {
-  const name = mention.name.trim();
-  if (!name) return text;
-  const pattern = new RegExp(
-    `(^|[^\\p{L}\\p{N}_-])@${escapeRegExp(name)}(?![\\p{L}\\p{N}_-])`,
-    "giu",
-  );
-  return text.replace(pattern, (_match, prefix: string) => prefix);
+/** Remove selected full tokens without rewriting surrounding text or whitespace. */
+export function removeComposerMention(
+  text: string,
+  mention: MentionName,
+  knownMentions: readonly MentionName[] = [],
+): string {
+  const spans = composerMentionSpans(text, [...knownMentions, mention]);
+  let result = text;
+  for (const span of spans.reverse()) {
+    if (span.name === mention.name.trim().toLowerCase()) {
+      result = result.slice(0, span.start) + result.slice(span.end);
+    }
+  }
+  return result;
 }
 
-export function stripMentionToken(text: string, mentionName: string): string {
+export function stripMentionToken(
+  text: string,
+  mentionName: string,
+  knownMentions: readonly MentionName[] = [],
+): string {
   const normalized = mentionName.trim();
   if (!normalized) return text.trim();
-  const pattern = new RegExp(
-    `(^|[^\\p{L}\\p{N}_-])@${escapeRegExp(normalized)}(?![\\p{L}\\p{N}_-])`,
-    "giu",
-  );
-  return text
-    .replace(pattern, (_match, prefix: string) => prefix ?? "")
+  return removeComposerMention(text, { name: normalized }, knownMentions)
     .replace(/[^\S\n]+/g, " ")
     .replace(/[^\S\n]*\n/g, "\n")
     .trim();
@@ -146,7 +173,7 @@ export function stripMentionKinds(
   let result = text;
   for (const mention of mentions) {
     if (kinds.includes(mention.kind)) {
-      result = stripMentionToken(result, mention.name);
+      result = stripMentionToken(result, mention.name, mentions);
     }
   }
   return result.trim();
@@ -372,7 +399,10 @@ export function resolveComposerSendPlan(input: {
 
 export function mentionStillInPrompt(
   text: string,
-  mention: Pick<ComposerMention, "name">,
+  mention: MentionName,
+  knownMentions: readonly MentionName[] = [],
 ): boolean {
-  return hasMentionToken(text, mention.name);
+  return composerMentionSpans(text, [...knownMentions, mention]).some(
+    (span) => span.name === mention.name.trim().toLowerCase(),
+  );
 }

@@ -130,7 +130,7 @@ export const Composer = memo(function Composer({
   const { t } = useLingui();
   const [draft, setDraft] = useState(() => readComposerDraft(draftKey));
   const [mentionQuery, setMentionQuery] = useState<string | null>(
-    () => composerMentionQuery(draft)?.query ?? null,
+    () => composerMentionQuery(draft, draft.length, draft.length, mentionTargets)?.query ?? null,
   );
   const [mentionHighlightKey, setMentionHighlightKey] = useState<string | null>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(() => {
@@ -262,13 +262,15 @@ export const Composer = memo(function Composer({
     if (onAttachmentPick(files)) markEdited();
   }
 
+  const knownMentions = [...(mentionTargets ?? []), ...selectedMentions];
+
   function updateDraft(value: string, caret = value.length, end = caret) {
     markEdited();
     writeComposerDraft(draftKey, value);
     setDraft(value);
-    setMentionQuery(composerMentionQuery(value, caret, end)?.query ?? null);
+    setMentionQuery(composerMentionQuery(value, caret, end, knownMentions)?.query ?? null);
     setSelectedMentions((current) =>
-      current.filter((mention) => mentionStillInPrompt(value, mention)),
+      current.filter((mention) => mentionStillInPrompt(value, mention, knownMentions)),
     );
     // `/` only at the start of the draft so forced skills expand (`Use skill:` / `/Name` prefix).
     const slashMatch = selectedSkill === null ? /^\/([^\n]*)$/.exec(value) : null;
@@ -284,7 +286,12 @@ export const Composer = memo(function Composer({
   function insertMention(mention: ComposerMention) {
     const field = textareaRef.current;
     if (!field) return;
-    const query = composerMentionQuery(draft, field.selectionStart, field.selectionEnd);
+    const query = composerMentionQuery(
+      draft,
+      field.selectionStart,
+      field.selectionEnd,
+      knownMentions,
+    );
     if (!query || query.query !== mentionQuery) return;
     markEdited();
     const completion = completeComposerMention(draft, query, mention);
@@ -294,7 +301,7 @@ export const Composer = memo(function Composer({
     setMentionHighlightKey(null);
     setSelectedMentions((current) => {
       const retained = current.filter((selected) =>
-        mentionStillInPrompt(completion.text, selected),
+        mentionStillInPrompt(completion.text, selected, [...knownMentions, mention]),
       );
       return retained.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
         ? retained
@@ -305,7 +312,7 @@ export const Composer = memo(function Composer({
   }
 
   function removeMention(mention: ComposerMention) {
-    updateDraft(removeComposerMention(draft, mention));
+    updateDraft(removeComposerMention(draft, mention, knownMentions));
     setMentionQuery(null);
     focusComposer();
   }
@@ -825,8 +832,12 @@ export const Composer = memo(function Composer({
                 return;
               completedSelection.current = null;
               setMentionQuery(
-                composerMentionQuery(field.value, field.selectionStart, field.selectionEnd)
-                  ?.query ?? null,
+                composerMentionQuery(
+                  field.value,
+                  field.selectionStart,
+                  field.selectionEnd,
+                  knownMentions,
+                )?.query ?? null,
               );
             }}
             onPaste={handlePaste}

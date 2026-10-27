@@ -147,7 +147,10 @@ export function ThreadComposer({
         })
       : [];
   function updateMentionQuery(value: string, start: number, end = start) {
-    const query = composerMentionQuery(value, start, end);
+    const query = composerMentionQuery(value, start, end, [
+      ...composerMentionTargets,
+      ...selectedMentions,
+    ]);
     if (query) onMentionRequested?.();
     setMentionQuery(query);
   }
@@ -179,7 +182,9 @@ export function ThreadComposer({
     setSelection(undefined);
     updateMentionQuery(value, caret);
     setSelectedMentions((current) =>
-      current.filter((mention) => mentionStillInPrompt(value, mention)),
+      current.filter((mention) =>
+        mentionStillInPrompt(value, mention, [...composerMentionTargets, ...current]),
+      ),
     );
     const slashMatch = selectedSkill === null ? /^\/([^\n]*)$/.exec(value) : null;
     setSlashQuery(slashMatch ? (slashMatch[1] ?? "") : null);
@@ -195,7 +200,10 @@ export function ThreadComposer({
     setSelection(nativeSelection.current);
     setMentionQuery(null);
     setSelectedMentions((current) => {
-      const retained = current.filter((selected) => mentionStillInPrompt(next.text, selected));
+      const known = [...composerMentionTargets, ...current, mention];
+      const retained = current.filter((selected) =>
+        mentionStillInPrompt(next.text, selected, known),
+      );
       return retained.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
         ? retained
         : [...retained, mention];
@@ -204,7 +212,10 @@ export function ThreadComposer({
   }
 
   function removeMention(mention: ComposerMention) {
-    const next = removeComposerMention(draftRef.current, mention);
+    const next = removeComposerMention(draftRef.current, mention, [
+      ...composerMentionTargets,
+      ...selectedMentions,
+    ]);
     draftRef.current = next;
     setDraft(next);
     const caret = Math.min(nativeSelection.current.start, next.length);
@@ -213,7 +224,9 @@ export function ThreadComposer({
     setSelection(nativeSelection.current);
     setMentionQuery(null);
     setSelectedMentions((current) =>
-      current.filter((selected) => mentionStillInPrompt(next, selected)),
+      current.filter((selected) =>
+        mentionStillInPrompt(next, selected, [...composerMentionTargets, ...current]),
+      ),
     );
   }
 

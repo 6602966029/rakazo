@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   completeComposerMention,
   composerMentionQuery,
+  mentionStillInPrompt,
   removeComposerMention,
+  resolveComposerSendPlan,
 } from "./composer-mentions.js";
 
 describe("inline mention completion", () => {
@@ -37,5 +39,55 @@ describe("inline mention completion", () => {
     expect(removeComposerMention("ask @Bot  and @Bot\n@Botany", { name: "Bot" })).toBe(
       "ask   and \n@Botany",
     );
+  });
+  it("replaces a complete multiword name when the caret is inside either word", () => {
+    const names = [{ name: "Bob" }, { name: "Bob Smith" }, { name: "Bob Jones" }];
+    for (const caret of [7, 11]) {
+      const text = "ask @Bob Smith  later";
+      const query = composerMentionQuery(text, caret, caret, names)!;
+      expect(query).toMatchObject({ start: 4, end: 14 });
+      expect(completeComposerMention(text, query, names[2]!)).toEqual({
+        text: "ask @Bob Jones  later",
+        caret: 15,
+      });
+    }
+  });
+
+  it("does not retain or remove a shorter name inside a recognized longer mention", () => {
+    const short = { kind: "group", id: "group-bob", name: "Bob" } as const;
+    const long = { kind: "bot", id: "bot-bob", name: "Bob Smith" } as const;
+    const names = [short, long];
+    const text = "ask @Bob Smith ";
+    const mentions = names.filter((mention) => mentionStillInPrompt(text, mention, names));
+    expect(mentions).toEqual([long]);
+    expect(removeComposerMention(text, short, names)).toBe(text);
+    expect(resolveComposerSendPlan({ text, mentions, hasAttachments: false })).toMatchObject({
+      trimmed: "ask @Bob Smith",
+      rerouteGroupId: null,
+      mentionPayload: [{ kind: "bot", id: "bot-bob" }],
+    });
+  });
+
+  it("retains and removes a separate shorter occurrence without changing the longer name", () => {
+    const short = { name: "Bob" },
+      long = { name: "Bob Smith" };
+    const text = "@Bob and ask @Bob Smith ";
+    expect(mentionStillInPrompt(text, short, [short, long])).toBe(true);
+    expect(removeComposerMention(text, short, [short, long])).toBe(" and ask @Bob Smith ");
+  });
+  it("strips a separate group occurrence without stripping a longer bot name on send", () => {
+    const short = { kind: "group", id: "group-bob", name: "Bob" } as const;
+    const long = { kind: "bot", id: "bot-bob", name: "Bob Smith" } as const;
+    expect(
+      resolveComposerSendPlan({
+        text: "@Bob and ask @Bob Smith",
+        mentions: [short, long],
+        hasAttachments: false,
+      }),
+    ).toMatchObject({
+      trimmed: "and ask @Bob Smith",
+      rerouteGroupId: "group-bob",
+      mentionPayload: [{ kind: "bot", id: "bot-bob" }],
+    });
   });
 });
