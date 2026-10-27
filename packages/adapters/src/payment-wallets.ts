@@ -220,27 +220,35 @@ export async function paymentWalletStatus(
   }
   const ciphertext = await storeMaterial(deps, actor, { secret: result.credential.secret });
   const connectedAt = new Date();
-  const stored = await deps.prisma.paymentWallet.updateMany({
-    where: { id: row.id, ciphertext: row.ciphertext },
-    data: {
-      status: "connected",
-      ciphertext,
-      verificationUrl: null,
-      userCode: null,
-      expiresAt: null,
-      nextPollAt: null,
-      refreshAt: result.credential.refreshAt,
-      connectedAt,
-    },
-  });
+  let failure: unknown;
+  const stored = await deps.prisma.paymentWallet
+    .updateMany({
+      where: { id: row.id, ciphertext: row.ciphertext },
+      data: {
+        status: "connected",
+        ciphertext,
+        verificationUrl: null,
+        userCode: null,
+        expiresAt: null,
+        nextPollAt: null,
+        refreshAt: result.credential.refreshAt,
+        connectedAt,
+      },
+    })
+    .catch((error: unknown) => {
+      failure = error;
+      return { count: 0 };
+    });
   if (!stored.count) {
-    // A disconnect or new sign-in landed meanwhile; this credential is not wanted.
+    // A disconnect or new sign-in landed meanwhile, or the save failed: nothing holds this
+    // credential, so it is forgotten and revoked.
     await dropSecret(deps, actor.userId, ciphertext);
     try {
       await provider.disconnect(result.credential, providerContext(actor, "disconnect"));
     } catch (error) {
       warn("Payment wallet revoke failed", error);
     }
+    if (failure) throw failure;
     return statusOf(await currentWallet(deps, actor.userId));
   }
   await dropSecret(deps, actor.userId, row.ciphertext);

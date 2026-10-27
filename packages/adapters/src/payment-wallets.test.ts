@@ -326,6 +326,22 @@ describe("payment wallet connection", () => {
     expect(env.rows).toHaveLength(0);
   });
 
+  it("forgets and revokes a completed sign-in whose save fails", async () => {
+    const env = setup();
+    await connectPaymentWallet(env.deps, actor);
+    vi.setSystemTime(new Date(Date.now() + 5_000));
+    const saveFailure = new Error("database unavailable");
+    env.prisma.paymentWallet.updateMany
+      .mockImplementationOnce(async () => ({ count: 1 }))
+      .mockRejectedValueOnce(saveFailure);
+    await expect(paymentWalletStatus(env.deps, actor)).rejects.toBe(saveFailure);
+    expect([...env.values.values()].some((value) => value.includes("credential-1"))).toBe(false);
+    expect(env.provider?.disconnect).toHaveBeenCalledWith(
+      expect.objectContaining({ secret: "credential-1" }),
+      expect.anything(),
+    );
+  });
+
   it("keeps a sign-in pending when the provider check fails", async () => {
     const env = setup();
     env.provider!.pollConnect.mockRejectedValueOnce(new Error("network down token=leak"));
