@@ -386,6 +386,12 @@ export class McpConnector implements ConnectorProvider {
     call: ConnectorCall,
     context: AdapterContext,
   ): Promise<{ call: ConnectorCall; tool: ConnectorTool } | undefined> {
+    if (!call.route && call.tool.startsWith("mcp__")) {
+      return resolveCatalogCall(
+        { ...call, args: { id: call.tool, arguments: call.args } },
+        catalogEntries(await this.authorizedTools(context)),
+      );
+    }
     // Wrappers have no resourceId; real tools always do.
     if (call.route?.resourceId || call.route?.toolName !== CATALOG_EXECUTE) return undefined;
     return resolveCatalogCall(call, catalogEntries(await this.authorizedTools(context)));
