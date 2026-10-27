@@ -1028,55 +1028,149 @@ it.each([false, true])(
   },
 );
 
-it("keeps an existing binding in place when refused dictation appends identical text", async () => {
+it.each([
+  [false, false],
+  [false, true],
+  [true, false],
+  [true, true],
+])(
+  "ignores a late dictation failure after remount (throws=%s, different chat=%s)",
+  async (throws, differentChat) => {
+    let finish!: (accepted: boolean) => void;
+    let fail!: (error: Error) => void;
+    const onSend = vi.fn(
+      () =>
+        new Promise<boolean>((resolve, reject) => {
+          finish = resolve;
+          fail = reject;
+        }),
+    );
+    let onFinal!: (text: string) => void;
+    const listen = vi.spyOn(dictation, "listen").mockImplementation(async (options) => {
+      onFinal = options.onFinal;
+    });
+    try {
+      const original = renderComposer(onSend, { phoneCallsEnabled: true });
+      const mic = container?.querySelector<HTMLButtonElement>('button[aria-label="Hold to talk"]');
+      act(() => mic?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 })));
+      act(() => onFinal("late dictation"));
+      type(original, "original draft");
+      act(() => root?.unmount());
+      container?.remove();
+      const draftKey = differentChat ? "bot:other-bot" : "bot:bot-1";
+      const returned = renderComposer(vi.fn(), { draftKey });
+      type(returned, "@Bo");
+      pressEnter(returned);
+      type(returned, "@Bob newer draft");
+      const saved = localStorage.getItem(`rakazo.composerDraft.${draftKey}`);
+      const bindings = localStorage.getItem(`rakazo.composerBindings.${draftKey}`);
+      await act(async () => {
+        if (throws) fail(new Error("offline"));
+        else finish(false);
+      });
+      expect(returned.value).toBe("@Bob newer draft");
+      expect(localStorage.getItem(`rakazo.composerDraft.${draftKey}`)).toBe(saved);
+      expect(localStorage.getItem(`rakazo.composerBindings.${draftKey}`)).toBe(bindings);
+      if (differentChat)
+        expect(localStorage.getItem("rakazo.composerDraft.bot:bot-1")).toBe("original draft");
+      act(() => root?.unmount());
+      container?.remove();
+      const reloaded = renderComposer(vi.fn(), { draftKey });
+      expect(reloaded.value).toBe("@Bob newer draft");
+      expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(1);
+    } finally {
+      listen.mockRestore();
+    }
+  },
+);
+
+it("ignores dictation after switching draft keys on the same instance", async () => {
   let finish!: (accepted: boolean) => void;
-  const onSend = vi.fn(
-    () =>
-      new Promise<boolean>((resolve) => {
-        finish = resolve;
-      }),
-  );
   let onFinal!: (text: string) => void;
-  let onSnapshot!: (snapshot: {
-    status: "idle" | "listening" | "transcribing";
-    transcript: string;
-  }) => void;
-  const subscribe = vi.spyOn(dictation, "subscribe").mockImplementation((listener) => {
-    onSnapshot = listener;
-    return () => {};
-  });
   const listen = vi.spyOn(dictation, "listen").mockImplementation(async (options) => {
     onFinal = options.onFinal;
   });
   try {
-    const textarea = renderComposer(onSend, { phoneCallsEnabled: true });
+    const textarea = renderComposer(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve;
+        }),
+      {
+        phoneCallsEnabled: true,
+      },
+    );
     const mic = container?.querySelector<HTMLButtonElement>('button[aria-label="Hold to talk"]');
-    expect(mic).not.toBeNull();
     act(() => mic?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 })));
-    act(() => {
-      onFinal("@Bob");
-      onSnapshot({ status: "listening", transcript: "" });
-      onSnapshot({ status: "idle", transcript: "" });
-    });
-    type(textarea, "@Bo");
-    pressEnter(textarea);
-    type(textarea, "@Bob");
-    act(() => {
-      textarea.focus();
-      textarea.setSelectionRange(0, 0);
-      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
-    });
+    act(() => onFinal("late dictation"));
+    rerenderComposer({ draftKey: "bot:other-bot" });
+    type(textarea, "newer draft");
     await act(async () => finish(false));
-    expect(textarea.value).toBe("@Bob @Bob");
-    const record = JSON.parse(localStorage.getItem("rakazo.composerBindings.bot:bot-1")!);
-    expect(record.bindings).toMatchObject([{ start: 0, end: 4, mention: bob }]);
-    type(textarea, "@Bob ");
-    expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(1);
+    expect(textarea.value).toBe("newer draft");
+    expect(localStorage.getItem("rakazo.composerDraft.bot:other-bot")).toBe("newer draft");
+    expect(localStorage.getItem("rakazo.composerDraft.bot:bot-1")).toBeNull();
   } finally {
     listen.mockRestore();
-    subscribe.mockRestore();
   }
 });
+
+it.each([false, true])(
+  "keeps an existing binding when dictation fails (throws=%s)",
+  async (throws) => {
+    let finish!: (accepted: boolean) => void;
+    let fail!: (error: Error) => void;
+    const onSend = vi.fn(
+      () =>
+        new Promise<boolean>((resolve, reject) => {
+          finish = resolve;
+          fail = reject;
+        }),
+    );
+    let onFinal!: (text: string) => void;
+    let onSnapshot!: (snapshot: {
+      status: "idle" | "listening" | "transcribing";
+      transcript: string;
+    }) => void;
+    const subscribe = vi.spyOn(dictation, "subscribe").mockImplementation((listener) => {
+      onSnapshot = listener;
+      return () => {};
+    });
+    const listen = vi.spyOn(dictation, "listen").mockImplementation(async (options) => {
+      onFinal = options.onFinal;
+    });
+    try {
+      const textarea = renderComposer(onSend, { phoneCallsEnabled: true });
+      const mic = container?.querySelector<HTMLButtonElement>('button[aria-label="Hold to talk"]');
+      expect(mic).not.toBeNull();
+      act(() => mic?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 })));
+      act(() => {
+        onFinal("@Bob");
+        onSnapshot({ status: "listening", transcript: "" });
+        onSnapshot({ status: "idle", transcript: "" });
+      });
+      type(textarea, "@Bo");
+      pressEnter(textarea);
+      type(textarea, "@Bob");
+      act(() => {
+        textarea.focus();
+        textarea.setSelectionRange(0, 0);
+        document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+      });
+      await act(async () => {
+        if (throws) fail(new Error("offline"));
+        else finish(false);
+      });
+      expect(textarea.value).toBe("@Bob @Bob");
+      const record = JSON.parse(localStorage.getItem("rakazo.composerBindings.bot:bot-1")!);
+      expect(record.bindings).toMatchObject([{ start: 0, end: 4, mention: bob }]);
+      type(textarea, "@Bob ");
+      expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(1);
+    } finally {
+      listen.mockRestore();
+      subscribe.mockRestore();
+    }
+  },
+);
 
 it("hides call dictation until the server enables it", () => {
   renderComposer(vi.fn().mockResolvedValue(true));

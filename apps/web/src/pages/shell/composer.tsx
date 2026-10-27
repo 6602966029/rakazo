@@ -162,6 +162,7 @@ export const Composer = memo(function Composer({
     if (persist) writeComposerDraft(draftKey, next.text, undefined, next.bindings);
   }
   function appendDictation(text: string) {
+    if (!mountedRef.current || draftKeyRef.current !== draftKey) return;
     const current = compositionRef.current.text;
     editSelections.current = [{ start: current.length, end: current.length }];
     updateDraft(current ? `${current} ${text}` : text);
