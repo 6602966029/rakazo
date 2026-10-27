@@ -1094,7 +1094,7 @@ export function PluginsOverlay({
                 className="-my-1 h-9 gap-2.5 px-2.5 text-[14px] text-muted-foreground"
                 onClick={() => setView("manage")}
               >
-                <span className="flex -space-x-1.5">
+                <span aria-hidden className="flex -space-x-1.5">
                   {connectedMarks.map((mark) => (
                     <span key={mark.key} className="rounded-[9px] ring-2 ring-card">
                       {mark.logo ? (
