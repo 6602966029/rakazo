@@ -502,17 +502,18 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
         ),
     },
     onEmailError: (error) => getLogger().error("transactional email delivery failed", error),
-    afterSignup:
+    afterSignIn:
       email && env.welcomeEmailEnabled
-        ? (user) =>
+        ? (userId) =>
             sendWelcomeEmail(
               {
+                prisma,
                 email,
                 origin: env.authUrl,
                 secret: env.authSecret,
                 onError: (error) => getLogger().error("welcome email delivery failed", error),
               },
-              user,
+              userId,
             )
         : undefined,
     extraOrigins: MOBILE_AUTH_ORIGINS,

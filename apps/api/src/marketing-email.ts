@@ -24,18 +24,36 @@ function validToken(secret: string, userId: string, token: string): boolean {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-export function sendWelcomeEmail(
+// Accounts older than this never get a welcome, including those created before the email existed.
+const WELCOME_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export async function sendWelcomeEmail(
   deps: {
+    prisma: PrismaClient;
     email: TransactionalEmailProvider;
     origin: string;
     secret: string;
     onError: (error: unknown) => void;
   },
-  user: { id: string; email: string; name: string },
-): void {
-  void welcomeEmail(user, unsubscribeUrl(deps.origin, deps.secret, user.id))
-    .then((message) => deps.email.send(message))
-    .catch(deps.onError);
+  userId: string,
+): Promise<void> {
+  try {
+    const [user] = await deps.prisma.user.updateManyAndReturn({
+      where: {
+        id: userId,
+        welcomeEmailSentAt: null,
+        createdAt: { gte: new Date(Date.now() - WELCOME_WINDOW_MS) },
+      },
+      data: { welcomeEmailSentAt: new Date() },
+      select: { email: true, name: true },
+    });
+    if (!user) return;
+    const message = await welcomeEmail(user, unsubscribeUrl(deps.origin, deps.secret, userId));
+    // The provider tracks the send, so shutdown drains it; sign-in does not wait on delivery.
+    void deps.email.send(message).catch(deps.onError);
+  } catch (error) {
+    deps.onError(error);
+  }
 }
 
 // GET only confirms: link scanners open every URL in an email. Mail clients POST (RFC 8058).

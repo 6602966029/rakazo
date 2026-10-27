@@ -34,6 +34,7 @@ model User {
   /// IANA timezone such as "Pacific/Auckland". Null until set; bots then get UTC only.
   timezone                    String?
   marketingEmailOptOutAt      DateTime?
+  welcomeEmailSentAt          DateTime?
   sessions                    Session[]
   accounts                    Account[]
   passkeys                    Passkey[]

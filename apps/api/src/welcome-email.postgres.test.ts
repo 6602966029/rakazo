@@ -43,7 +43,11 @@ it.skipIf(!databaseUrl)(
       await vi.waitFor(() => expect(welcomes()).toHaveLength(1));
       expect(welcomes()[0]!.to).toBe(address);
 
-      expect((await post("/api/auth/sign-in/email", credentials)).status).toBe(200);
+      const signIns = await Promise.all([
+        post("/api/auth/sign-in/email", credentials),
+        post("/api/auth/sign-in/email", credentials),
+      ]);
+      expect(signIns.map((response) => response.status)).toEqual([200, 200]);
 
       const header = welcomes()[0]!.headers!["List-Unsubscribe"]!;
       const unsubscribe = new URL(header.slice(1, -1));
@@ -56,6 +60,16 @@ it.skipIf(!databaseUrl)(
       const user = await handles.prisma.user.findUniqueOrThrow({ where: { email: address } });
       expect(user.marketingEmailOptOutAt).toBeInstanceOf(Date);
       expect(welcomes()).toHaveLength(1);
+
+      const older = { email: `older-${Date.now()}@example.test`, password: "test-password-123" };
+      expect((await post("/api/auth/sign-up/email", { ...older, name: "Older" })).status).toBe(200);
+      await vi.waitFor(() => expect(welcomes()).toHaveLength(2));
+      await handles.prisma.user.update({
+        where: { email: older.email },
+        data: { welcomeEmailSentAt: null, createdAt: new Date("2020-01-01T00:00:00Z") },
+      });
+      expect((await post("/api/auth/sign-in/email", older)).status).toBe(200);
+      expect(welcomes()).toHaveLength(2);
     } finally {
       await handles.stop();
       await rm(dataDir, { recursive: true, force: true });

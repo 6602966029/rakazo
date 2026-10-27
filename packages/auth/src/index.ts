@@ -64,10 +64,8 @@ export interface AuthEnv {
   afterDeleteSession?: (session: AuthSession) => Promise<void>;
   /** Runs when a password change replaces the caller's own session instead of ending it. */
   afterReplaceSession?: (previous: AuthSession, session: AuthSession) => Promise<void>;
-  afterSignup?: (user: SignedUpUser) => void;
+  afterSignIn?: (userId: string) => Promise<void>;
 }
-
-type SignedUpUser = { id: string; email: string; name: string };
 
 type AuthSession = { id: string; userId: string };
 
@@ -145,8 +143,6 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
   // Better Auth's own token key, so every stored token shares one cipher and key.
   let authContext: Promise<{ secretConfig: TokenKey }> | undefined;
   const tokenKey = async () => (await authContext!).secretConfig;
-  // Announced after the session exists, so a signup that rolls back sends nothing.
-  const signedUp = new Map<string, SignedUpUser>();
   const auth = betterAuth({
     appName: "Rakazo",
     logger: env.logger,
@@ -505,17 +501,10 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
                 });
               }
               await bootstrapUserSpace(prisma, user, env);
-              if (env.afterSignup) {
-                signedUp.set(user.id, { id: user.id, email: user.email, name: user.name });
-              }
             }
           },
           after: async (session, ctx) => {
-            const newUser = signedUp.get(session.userId);
-            if (newUser) {
-              signedUp.delete(session.userId);
-              env.afterSignup?.(newUser);
-            }
+            await env.afterSignIn?.(session.userId);
             env.analytics?.capture(
               session.userId,
               { name: "signed_in" },
