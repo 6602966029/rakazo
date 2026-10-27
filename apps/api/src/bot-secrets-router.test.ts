@@ -508,7 +508,8 @@ describe("vault router", () => {
   });
 
   it("keeps a Space's own vault apart from the account vault", async () => {
-    const { rows, call } = botSecretDeps();
+    const { prisma, rows, call } = botSecretDeps();
+    prisma.spaceSettingOverride.findUnique.mockResolvedValue({ setting: "credentials" });
     await call("vault/put", { scope: "space", destination, value: FAKE_VALUE });
     expect(rows).toEqual([expect.objectContaining({ spaceId: "space-1", name: "portal" })]);
     expect((await call("vault/list", { scope: "account" })).body.json).toEqual([]);
@@ -556,5 +557,14 @@ describe("vault router", () => {
       username: "person@example.test",
       password: FAKE_VALUE,
     });
+  });
+
+  it("refuses to save into a Space's own vault the Space no longer uses", async () => {
+    const { rows, call } = botSecretDeps();
+    const refused = await call("vault/put", { scope: "space", destination, value: FAKE_VALUE });
+    expect(refused.status).toBe(400);
+    expect(refused.text).toContain("This Space uses the account vault");
+    expect(refused.text).not.toContain(FAKE_VALUE);
+    expect(rows).toEqual([]);
   });
 });

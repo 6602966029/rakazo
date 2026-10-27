@@ -41,6 +41,19 @@ async function lockVault(tx: Pick<Prisma.TransactionClient, "$queryRaw">, scope:
   await tx.$queryRaw`SELECT id FROM "user" WHERE id = ${scope.userId} FOR UPDATE`;
 }
 
+export const SPACE_VAULT_NOT_IN_USE = "This Space uses the account vault";
+
+/**
+ * A write aimed at a Space's own vault is refused once the Space stops customizing credentials,
+ * since nothing would read it and it would only wait to be deleted.
+ */
+async function assertVaultInUse(client: VaultClient, scope: BotSecretScope) {
+  if (scope.vault !== "space") return;
+  if ((await settingsTarget(client, scope, "credentials")) !== "space") {
+    throw new Error(SPACE_VAULT_NOT_IN_USE);
+  }
+}
+
 /** The vault rows a call reads and writes: the account's (no Space) or the Space's own. */
 async function vaultFields(client: VaultClient, scope: BotSecretScope) {
   const target = await settingsTarget(client, scope, "credentials", scope.vault);
@@ -423,6 +436,7 @@ export async function prepareBotSecret(input: {
       throw new Error(UNUSABLE_CREDENTIAL);
     }
   } else credentialHeader(destination, plaintext);
+  await assertVaultInUse(prisma, scope);
   const vault = await vaultFields(prisma, scope);
   const existing = await prisma.vaultCredential.findFirst({
     where: { ...vault, name: destination.name },
@@ -451,6 +465,7 @@ export async function prepareBotSecret(input: {
     ciphertext: stored.ciphertext,
     async store(tx: Prisma.TransactionClient) {
       await lockVault(tx, scope);
+      await assertVaultInUse(tx, scope);
       const current = await tx.vaultCredential.findFirst({
         where: { ...vault, name: destination.name },
       });

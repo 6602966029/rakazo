@@ -12,6 +12,7 @@ import {
   normalizeSecretDestination,
   pageUrlOrigin,
   revealBotSecret,
+  SPACE_VAULT_NOT_IN_USE,
   screenLeaseIdForRun,
   storeBotSecret,
   toComputerRef,
@@ -73,6 +74,7 @@ const BOT_SECRET_INPUT_ERRORS = [
   "Credential cannot be used with this authentication method",
   "Remove the existing credential before changing its destination",
   "Credential limit reached",
+  SPACE_VAULT_NOT_IN_USE,
 ];
 
 /** A credential the user typed that cannot be stored, as a bad request. Never echoes the value. */
