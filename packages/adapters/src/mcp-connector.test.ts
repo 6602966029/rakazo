@@ -7,6 +7,8 @@ import { createLogger, createTestSink, getLogger, installLogger } from "@rakazo/
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { ConnectorRegistry } from "./composio-connector.js";
 import { InfisicalSecretStore } from "./infisical-secret-store.js";
+import { InstalledConnectorProvider } from "./installed-connectors.js";
+import { IntegrationProviderSettings } from "./integration-provider-settings.js";
 import { DIRECT_TOOL_LIMIT } from "./lazy-tool-catalog.js";
 import { allowlistDrift, McpConnector } from "./mcp-connector.js";
 import type { McpOAuthBroker, OAuthMaterial } from "./mcp-oauth.js";
@@ -916,7 +918,7 @@ describe("MCP connector session cache", () => {
   });
 
   it.each([DIRECT_TOOL_LIMIT, DIRECT_TOOL_LIMIT + 1])(
-    "reads a watch through the registry with %i connected MCP tools",
+    "reads an MCP-only watch with production provider order and %i connected tools",
     async (count) => {
       const state = {
         failNext: false,
@@ -934,6 +936,8 @@ describe("MCP connector session cache", () => {
       };
       vi.stubGlobal("fetch", mcpFetch(state));
       const prisma = {
+        capabilityInstall: { findMany: vi.fn().mockResolvedValue([]) },
+        integrationProviderConfig: { findUnique: vi.fn().mockResolvedValue(null) },
         botMcpServer: {
           findMany: vi.fn().mockResolvedValue([ASSIGNMENT]),
           findFirst: vi.fn().mockResolvedValue(ASSIGNMENT),
@@ -944,7 +948,17 @@ describe("MCP connector session cache", () => {
         userActionApprovalRule: { findMany: vi.fn().mockResolvedValue([]) },
       };
       const mcp = new McpConnector(prisma as never, {} as never, { network: TEST_NETWORK });
-      const connector = new ConnectorRegistry([mcp]);
+      const secrets = new EncryptedSecretStore("test-encryption-key");
+      const integrationSettings = new IntegrationProviderSettings(
+        prisma as never,
+        secrets,
+        "test-identity",
+      );
+      const connector = new ConnectorRegistry([
+        new InstalledConnectorProvider(prisma as never, secrets),
+        ...integrationSettings.providers(),
+        mcp,
+      ]);
       const execute = vi.spyOn(mcp, "execute");
       const routine = {
         id: "routine-1",
