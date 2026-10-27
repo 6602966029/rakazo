@@ -283,6 +283,18 @@ describe("thread composer isolation", () => {
     act(() => options[index]!.click());
   }
 
+  it("replaces a selected group binding with a bot sharing its name at the same occurrence", () => {
+    const group = { kind: "group", id: "group-1", name: "Helper" } as const;
+    render({ composerMentionTargets: [group, bot] });
+    type("before @He");
+    pickMentionAt(0);
+    expect(composer.current!.snapshot().mentions).toEqual([group]);
+    select(10);
+    pickMentionAt(1);
+    expect(container.querySelector("input")!.value).toBe("before @Helper ");
+    expect(composer.current!.snapshot().mentions).toEqual([bot]);
+  });
+
   it.each(["bot", "group"] as const)(
     "retires a shorter %s mention when replacing it with a multiword bot name",
     (kind) => {

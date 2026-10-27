@@ -300,8 +300,10 @@ export const Composer = memo(function Composer({
     setMentionQuery(null);
     setMentionHighlightKey(null);
     setSelectedMentions((current) => {
-      const retained = current.filter((selected) =>
-        mentionStillInPrompt(completion.text, selected, [...knownMentions, mention]),
+      const retained = current.filter(
+        (selected) =>
+          mentionStillInPrompt(draft.slice(0, query.start), selected, knownMentions) ||
+          mentionStillInPrompt(draft.slice(query.end), selected, knownMentions),
       );
       return retained.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
         ? retained

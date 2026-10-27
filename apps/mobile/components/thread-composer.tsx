@@ -192,7 +192,8 @@ export function ThreadComposer({
 
   function insertMention(mention: ComposerMention) {
     if (!mentionQuery) return;
-    const next = completeComposerMention(draftRef.current, mentionQuery, mention);
+    const originalText = draftRef.current;
+    const next = completeComposerMention(originalText, mentionQuery, mention);
     draftRef.current = next.text;
     setDraft(next.text);
     nativeSelection.current = { start: next.caret, end: next.caret };
@@ -201,8 +202,12 @@ export function ThreadComposer({
     setMentionQuery(null);
     setSelectedMentions((current) => {
       const known = [...composerMentionTargets, ...current, mention];
-      const retained = current.filter((selected) =>
-        mentionStillInPrompt(next.text, selected, known),
+      const before = originalText.slice(0, mentionQuery.start);
+      const after = originalText.slice(mentionQuery.end);
+      const retained = current.filter(
+        (selected) =>
+          mentionStillInPrompt(before, selected, known) ||
+          mentionStillInPrompt(after, selected, known),
       );
       return retained.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
         ? retained

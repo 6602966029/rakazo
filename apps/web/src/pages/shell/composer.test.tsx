@@ -377,6 +377,23 @@ describe("Composer", () => {
     expect(onSend).toHaveBeenCalledWith("@Bo", [], expect.any(String));
   });
 
+  it("retires the replaced group identity when a bot has the same name", async () => {
+    const group: ComposerMention = { kind: "group", id: "group-bob", name: "Bob" };
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend, { mentionTargets: [group, bob] });
+    type(textarea, "ask @Bo");
+    pressEnter(textarea);
+    act(() => {
+      textarea.setSelectionRange(7, 7);
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    act(() => container?.querySelectorAll<HTMLButtonElement>('[role="option"]')[1]?.click());
+    expect(textarea.value).toBe("ask @Bob ");
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend).toHaveBeenCalledWith("ask @Bob", [bob], expect.any(String));
+  });
+
   it.each([false, true])(
     "keeps the keyboard mention selection when targets refresh (reorder: %s)",
     (reorder) => {
