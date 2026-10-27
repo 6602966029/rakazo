@@ -80,7 +80,7 @@ test("tool activity shows for live and finished runs when the user turned it on"
       "false",
     );
     await expect(doneCard.locator("button[aria-expanded]")).toContainText(/Done\s*8 tools\s*12s/);
-    await expect(page.getByTestId("message-bot-bubble")).not.toContainText(WORKING_NOTE);
+    await expect(page.getByTestId("tool-note")).toBeHidden();
     await captureScreenshot(page, testInfo, `default-done-collapsed-${viewport.name}`);
 
     await doneCard.locator("button[aria-expanded]").click();
@@ -91,6 +91,7 @@ test("tool activity shows for live and finished runs when the user turned it on"
     await expect(page.getByTestId("tool-rows-hidden")).toHaveCount(0);
     await expect(page.getByTestId("tool-rows")).toContainText("Open calendar");
     await expect(page.getByTestId("tool-rows")).toContainText("Check conflicts");
+    await expect(page.getByTestId("tool-note")).toBeVisible();
     await expect(page.getByTestId("tool-note")).toHaveText(WORKING_NOTE);
     await expect(page.locator("body")).toHaveJSProperty("scrollWidth", viewport.width);
     await captureScreenshot(page, testInfo, `default-done-expanded-${viewport.name}`);
