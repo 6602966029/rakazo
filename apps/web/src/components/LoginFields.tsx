@@ -35,6 +35,8 @@ export function LoginFieldValue({
       <div className="flex shrink-0 items-center gap-2">
         <Switch
           id={switchId}
+          // Every switch is named "Hidden"; the field it belongs to tells them apart.
+          aria-describedby={`${switchId}-field`}
           size="sm"
           checked={field.hidden}
           disabled={disabled}
@@ -43,6 +45,9 @@ export function LoginFieldValue({
         <Label htmlFor={switchId} className="text-[13px] font-normal text-muted-foreground">
           <Trans>Hidden</Trans>
         </Label>
+        <span id={`${switchId}-field`} className="sr-only">
+          {label}
+        </span>
       </div>
     </div>
   );

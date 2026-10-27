@@ -227,6 +227,8 @@ it("asks for each requested login field, every one hidden until the person shows
   for (const label of ["ID number", "Phone number"]) {
     expect(loginInput(label).type).toBe("password");
     expect(hiddenSwitch(label).getAttribute("aria-checked")).toBe("true");
+    const description = hiddenSwitch(label).getAttribute("aria-describedby")!;
+    expect(document.getElementById(description)?.textContent).toBe(label);
   }
   await type("ID number", " fake-id-123 ");
   expect(button("Save")!.disabled).toBe(true);
