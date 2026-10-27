@@ -39,6 +39,7 @@ CREATE TABLE "purchases" (
     "approvalUrl" TEXT,
     "nextPollAt" TIMESTAMP(3),
     "wokenStatus" TEXT,
+    "cardCiphertext" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

@@ -940,6 +940,8 @@ model Purchase {
   nextPollAt   DateTime?
   /// The status the bot was last woken for, so each change wakes it once.
   wokenStatus  String?
+  /// Secret store reference for the card number once typed, so later runs keep hiding it.
+  cardCiphertext String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

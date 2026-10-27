@@ -2,7 +2,11 @@ import type { AdapterContext } from "@rakazo/adapter-kit";
 import { PaymentWalletDisconnected, PaymentWalletRequestRejected } from "@rakazo/adapter-kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FakePaymentWallet, fakeJobs, fakePurchasePrisma } from "./fake-purchases.js";
-import { executePurchaseTool, resolvePurchaseCardFill } from "./purchase-service.js";
+import {
+  executePurchaseTool,
+  loadPurchaseCardRedactions,
+  resolvePurchaseCardFill,
+} from "./purchase-service.js";
 
 vi.mock("./payment-wallets.js", () => ({
   withPaymentWalletCredential: async (
@@ -25,9 +29,18 @@ function setup() {
   const db = fakePurchasePrisma(fixture);
   const queue = fakeJobs();
   const wallet = new FakePaymentWallet();
+  const secrets = new Map<string, string>();
+  const secretStore = {
+    put: async (plaintext: string) => {
+      const ref = `sealed-${secrets.size + 1}`;
+      secrets.set(ref, plaintext);
+      return { id: ref, ref, ciphertext: ref };
+    },
+    load: async (ref: string) => secrets.get(ref)!,
+  } as never;
   const deps = {
     prisma: db.prisma,
-    secretStore: {} as never,
+    secretStore,
     jobs: queue.jobs,
     paymentWallet: wallet,
   };
@@ -41,7 +54,7 @@ function setup() {
   });
   const call = (name: string, args: Record<string, unknown>, operationId?: string) =>
     executePurchaseTool(deps, context(operationId), { threadId: fixture.threadId }, name, args);
-  return { ...db, ...queue, wallet, deps, call };
+  return { ...db, ...queue, wallet, deps, call, secrets };
 }
 
 describe("request_purchase", () => {
@@ -189,5 +202,22 @@ describe("resolvePurchaseCardFill", () => {
         "cvc",
       ),
     ).toEqual({ error: "Unknown purchase." });
+  });
+
+  it("keeps hiding a typed card in the bot's later runs, sealed at rest", async () => {
+    const env = setup();
+    await env.call("request_purchase", request);
+    const run = { spaceId: fixture.spaceId, userId: fixture.userId, botId: fixture.botId };
+    expect(await loadPurchaseCardRedactions(env.deps, run)).toEqual([]);
+    env.purchases[0]!.status = "approved";
+    await resolvePurchaseCardFill(env.deps, run, "purchase-1", "number");
+    await resolvePurchaseCardFill(env.deps, run, "purchase-1", "cvc");
+    expect(env.purchases[0]!.cardCiphertext).toBe("sealed-1");
+    expect(env.secrets.size).toBe(1);
+    expect(await loadPurchaseCardRedactions(env.deps, run)).toEqual([
+      "4242424242424242",
+      "4242 4242 4242 4242",
+    ]);
+    expect(await loadPurchaseCardRedactions(env.deps, { ...run, botId: "bot-2" })).toEqual([]);
   });
 });

@@ -101,6 +101,7 @@ import {
 import { modelAcceptsImageInput } from "./model-vision.js";
 import { paymentWalletConnected } from "./payment-wallets.js";
 import { isRetiredModelCredentialError } from "./pi-oauth.js";
+import { loadPurchaseCardRedactions } from "./purchase-service.js";
 import { loadReplyContext, messageToAgentHistoryText } from "./reply-context.js";
 import { backOffRoutineAfterAccountError } from "./routine-backoff.js";
 import { lateRoutineRunInstruction } from "./routine-lateness.js";
@@ -415,6 +416,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           agentSecretRows,
           initialBotCommandEnvironment,
           savedLoginPasswordRedactions,
+          purchaseCardRedactions,
         ] = await Promise.all([
           deps.prisma.bot.findUniqueOrThrow({
             where: { id: run.botId },
@@ -458,6 +460,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }),
           loadBotCommandEnvironment(deps.prisma, deps.secretStore, run),
           loadLoginPasswordRedactions(deps.prisma, deps.secretStore, run),
+          deps.paymentWallet ? loadPurchaseCardRedactions(deps, run) : [],
         ]);
         const historySearchBeforeSeq =
           contextStrategy !== "current" && run.sourceMessageId
@@ -476,7 +479,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         runSecrets.push(...commandCredentialRedactions(initialBotCommandEnvironment));
         // A login filled in an earlier run may still be on its page, and anything this run reads
         // or is given may contain it, so every run hides its saved passwords before the model runs.
-        runSecrets.push(...savedLoginPasswordRedactions);
+        runSecrets.push(...savedLoginPasswordRedactions, ...purchaseCardRedactions);
         const agentEnvironmentInstruction = formatAgentEnvironmentInstruction({
           ...agentEnvironment,
           ...initialBotCommandEnvironment,

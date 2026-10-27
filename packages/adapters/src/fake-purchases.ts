@@ -66,6 +66,12 @@ function matches(row: Row, where: Row): boolean {
     if (expected && typeof expected === "object" && "lte" in expected) {
       return actual instanceof Date && actual.getTime() <= (expected.lte as Date).getTime();
     }
+    if (expected && typeof expected === "object" && "gte" in expected) {
+      return actual instanceof Date && actual.getTime() >= (expected.gte as Date).getTime();
+    }
+    if (expected && typeof expected === "object" && "not" in expected) {
+      return actual !== expected.not;
+    }
     return actual === expected;
   });
 }
@@ -88,8 +94,14 @@ export function fakePurchasePrisma(fixture: {
       purchases.find((row) => matches(row, where)) ?? null,
     findFirst: async ({ where }: { where: Row }) =>
       purchases.find((row) => matches(row, where)) ?? null,
-    findMany: async ({ where }: { where: Row }) =>
-      purchases.filter((row) => matches(row, where)).map((row) => ({ id: row.id })),
+    findMany: async ({ where, select }: { where: Row; select?: Record<string, boolean> }) =>
+      purchases
+        .filter((row) => matches(row, where))
+        .map((row) =>
+          Object.fromEntries(
+            Object.keys(select ?? { id: true }).map((key) => [key, row[key as keyof Purchase]]),
+          ),
+        ),
     upsert: async ({ where, create }: { where: Row; create: Row }) => {
       const existing = purchases.find((row) => matches(row, where));
       if (existing) return existing;
@@ -98,6 +110,7 @@ export function fakePurchasePrisma(fixture: {
         approvalUrl: null,
         nextPollAt: null,
         wokenStatus: null,
+        cardCiphertext: null,
         createdAt: new Date(),
         ...create,
         updatedAt: stamp(),

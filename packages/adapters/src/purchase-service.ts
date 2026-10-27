@@ -276,11 +276,61 @@ export async function resolvePurchaseCardFill(
   }
   const text = field === "number" ? secret.number : secret.cvc;
   if (!text) return { error: "This card has no security code." };
-  const digits = secret.number.replace(/\D/g, "");
-  const grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+  // The page keeps the card after this run, so later runs on this bot hide it too.
+  if (!purchase.cardCiphertext) {
+    const stored = await deps.secretStore.put(secret.number, context, {
+      recordId: `purchase-card:${purchase.id}`,
+    });
+    await deps.prisma.purchase.updateMany({
+      where: { id: purchase.id, cardCiphertext: null },
+      data: { cardCiphertext: stored.ciphertext },
+    });
+  }
   return {
     text,
     origin: new URL(purchase.merchantUrl).origin,
-    redactions: [...new Set([secret.number, digits, grouped].filter(Boolean))],
+    redactions: cardRedactionForms(secret.number),
   };
+}
+
+/** A card number as pages show it: as given, digits only, and in groups of four. */
+function cardRedactionForms(number: string): string[] {
+  const digits = number.replace(/\D/g, "");
+  const grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+  return [...new Set([number, digits, grouped].filter(Boolean))];
+}
+
+/** Single-use cards stop working well within this, and with them the reason to hide one. */
+const CARD_REDACTION_WINDOW_MS = 7 * 24 * 60 * 60_000;
+
+/**
+ * Redaction forms of every card this bot typed recently. A checkout can keep or copy the number
+ * after the filling run, so each run hides them before any tool output reaches the model.
+ */
+export async function loadPurchaseCardRedactions(
+  deps: Pick<PurchaseDeps, "prisma" | "secretStore">,
+  run: { spaceId: string; userId: string; botId: string },
+): Promise<string[]> {
+  const rows = await deps.prisma.purchase.findMany({
+    where: {
+      spaceId: run.spaceId,
+      userId: run.userId,
+      botId: run.botId,
+      cardCiphertext: { not: null },
+      createdAt: { gte: new Date(Date.now() - CARD_REDACTION_WINDOW_MS) },
+    },
+    select: { id: true, cardCiphertext: true },
+  });
+  const forms = new Set<string>();
+  for (const row of rows) {
+    try {
+      const number = await deps.secretStore.load(row.cardCiphertext!, {
+        recordId: `purchase-card:${row.id}`,
+      });
+      for (const form of cardRedactionForms(number)) forms.add(form);
+    } catch {
+      getLogger().warn("purchase card redaction could not be loaded");
+    }
+  }
+  return [...forms];
 }

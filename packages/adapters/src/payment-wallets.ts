@@ -8,7 +8,7 @@ import { PaymentWalletDisconnected, SecretStoreUnavailableError } from "@rakazo/
 import type { PaymentWalletStatus } from "@rakazo/contracts";
 import type { PaymentWallet, Prisma, PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
-import { deleteSecretBestEffort } from "./secret-store-factory.js";
+import { deleteSecretBestEffort, holdSecretNotifications } from "./secret-store-factory.js";
 
 export interface PaymentWalletDeps {
   prisma: PrismaClient;
@@ -395,7 +395,12 @@ export async function withPaymentWalletCredential<T>(
   if (!provider || !row || row.status !== "connected") throw new PaymentWalletDisconnected();
   let credential: PaymentWalletCredential;
   if (refreshDue(row.refreshAt)) {
-    ({ credential, row } = await refreshCredential(deps, provider, actor, row));
+    // The refresh writes its secret inside the lock transaction, so the change notification
+    // waits for that pooled connection to come back.
+    const held = row;
+    ({ credential, row } = await holdSecretNotifications(() =>
+      refreshCredential(deps, provider, actor, held),
+    ));
   } else {
     const material = await readMaterial(deps, row);
     if (!material || !("secret" in material)) {
