@@ -72,7 +72,7 @@ test("vault and command credentials add, replace and remove without leaking valu
   const identity = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(identity).toBeVisible();
   await captureScreenshot(page, testInfo, "vault-show-confirm-identity");
-  await identity.getByLabel("Password").fill("password12");
+  await identity.getByRole("textbox", { name: "Password" }).fill("password12");
   await identity.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(identity).toBeHidden();
   await expect(credentials.getByTestId("credential-revealed-value")).toHaveText(SENTINEL);
