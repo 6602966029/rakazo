@@ -992,6 +992,7 @@ export const ZH_MESSAGES: Record<string, string> = {
     "每月额度在续费时到期。单次充值额度不会过期。",
   "Use Rakazo credits": "使用 Rakazo 额度",
   "Choose a plan": "选择方案",
+  "Change plan": "更改方案",
   Plan: "方案",
   None: "无",
   "Free trial": "免费试用",

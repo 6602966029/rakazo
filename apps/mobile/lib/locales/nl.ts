@@ -989,6 +989,7 @@ export const NL_MESSAGES: Record<string, string> = {
     "Maandelijks tegoed vervalt bij verlenging. Los gekocht tegoed verloopt niet.",
   "Use Rakazo credits": "Rakazo-tegoed gebruiken",
   "Choose a plan": "Kies een abonnement",
+  "Change plan": "Abonnement wijzigen",
   Plan: "Abonnement",
   None: "Geen",
   "Free trial": "Gratis proefperiode",

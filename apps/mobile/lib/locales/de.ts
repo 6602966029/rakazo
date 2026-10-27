@@ -1037,6 +1037,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Monatliches Guthaben verfällt bei Verlängerung. Einmalige Aufladungen verfallen nicht.",
   "Use Rakazo credits": "Rakazo-Guthaben verwenden",
   "Choose a plan": "Tarif wählen",
+  "Change plan": "Tarif ändern",
   Plan: "Tarif",
   None: "Keiner",
   "Free trial": "Kostenlose Testphase",

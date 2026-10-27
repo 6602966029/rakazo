@@ -1030,6 +1030,7 @@ export const RU_MESSAGES: Record<string, string> = {
     "Ежемесячные кредиты истекают при продлении. Разовые пополнения не сгорают.",
   "Use Rakazo credits": "Использовать кредиты Rakazo",
   "Choose a plan": "Выбрать тариф",
+  "Change plan": "Сменить тариф",
   Plan: "Тариф",
   None: "Нет",
   "Free trial": "Бесплатный пробный период",

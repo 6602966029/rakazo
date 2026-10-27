@@ -9,7 +9,7 @@ import {
 import { botColors, botEyeColor, typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type { ComponentProps, ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -30,7 +30,13 @@ import { NativeSymbol } from "../components/native-symbol";
 import { rpc, signOut } from "../lib/api";
 import { replaceWithSignIn } from "../lib/auth-routing";
 import type { Plan } from "../lib/billing";
-import { openBillingPage, ownKeyOffer, planEndsAt, setPaywallShown } from "../lib/billing";
+import {
+  currentPlan,
+  openBillingPage,
+  ownKeyOffer,
+  planEndsAt,
+  setPaywallShown,
+} from "../lib/billing";
 import { translucentColor } from "../lib/color";
 import { dateLocaleForUi, useI18n } from "../lib/i18n";
 import { useMobileTokens } from "../lib/native";
@@ -65,6 +71,8 @@ export default function Paywall() {
   const [amount, setAmount] = useState<Amount>(DEFAULT_MONTHLY_CREDIT_AMOUNT);
   const [pending, setPending] = useState(false);
   const [started, setStarted] = useState<Plan | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const planPicked = useRef(false);
 
   useEffect(() => {
     setPaywallShown(true);
@@ -79,14 +87,23 @@ export default function Paywall() {
   }, [dismissible]);
 
   const load = useCallback(() => {
+    setLoadFailed(false);
     rpc("billing/status")
       .then((next) => {
+        // Changing plans from Billing starts on the plan the organization is not on yet.
+        if (!planPicked.current) {
+          planPicked.current = true;
+          if (dismissible && currentPlan(next) === "byok" && !next.byokFreeUntil)
+            setPlan("credits");
+        }
         setStatus(next);
-        if (next.access)
+        // Only the required paywall gives way once access lands (e.g. a Safari checkout);
+        // from Billing, an organization that already has access is here to change plans.
+        if (next.access && !dismissible)
           setStarted((current) => current ?? (next.funding === "credits" ? "credits" : "byok"));
       })
-      .catch(() => undefined);
-  }, []);
+      .catch(() => setLoadFailed(true));
+  }, [dismissible]);
 
   // Older binaries finish checkout in Safari, so look again when the app comes back.
   useEffect(() => {
@@ -163,7 +180,16 @@ export default function Paywall() {
       <View style={[styles.screen, { backgroundColor: tokens.background }]}>
         {topBar}
         <View style={[styles.screen, styles.center]}>
-          <ActivityIndicator color={tokens.mutedForeground} accessibilityLabel={t("Loading…")} />
+          {loadFailed ? (
+            <View style={styles.failed}>
+              <Text style={[styles.lead, { color: tokens.mutedForeground }]}>
+                {t("Could not load billing")}
+              </Text>
+              <NativeActionButton label={t("Try again")} prominence="secondary" onPress={load} />
+            </View>
+          ) : (
+            <ActivityIndicator color={tokens.mutedForeground} accessibilityLabel={t("Loading…")} />
+          )}
         </View>
       </View>
     );
@@ -561,5 +587,6 @@ const styles = StyleSheet.create({
   terms: { ...typeScale.caption, textAlign: "center" },
   legal: { flexDirection: "row", justifyContent: "center", gap: 24 },
   legalLabel: { ...typeScale.footnote, textDecorationLine: "underline" },
+  failed: { alignItems: "center", gap: 14, paddingHorizontal: 32 },
   done: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 32 },
 });

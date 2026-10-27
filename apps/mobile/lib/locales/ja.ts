@@ -978,6 +978,7 @@ export const JA_MESSAGES: Record<string, string> = {
     "月間クレジットは更新時に失効します。追加購入分は失効しません。",
   "Use Rakazo credits": "Rakazoクレジットを使用",
   "Choose a plan": "プランを選択",
+  "Change plan": "プランを変更",
   Plan: "プラン",
   None: "なし",
   "Free trial": "無料トライアル",

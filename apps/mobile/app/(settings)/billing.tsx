@@ -79,7 +79,8 @@ export default function BillingScreen() {
   const recurring = Boolean(
     status.monthlyAmountCents && !["none", "canceled", "incomplete"].includes(status.state),
   );
-  const credits = status.funding === "credits" || (status.balanceUsd ?? 0) > 0;
+  // Owners can always top up, as on web; a top-up is how an own-key plan starts on credits.
+  const credits = status.funding === "credits" || (status.balanceUsd ?? 0) > 0 || status.canManage;
   return (
     <ScrollView
       style={sideInsets}
@@ -107,9 +108,9 @@ export default function BillingScreen() {
         ) : status.access && status.currentPeriodEndsAt ? (
           <SettingsRow title={t("Renews")} value={formatDate(status.currentPeriodEndsAt)} />
         ) : null}
-        {status.canManage && (!status.access || status.byokFreeUntil) ? (
+        {status.canManage ? (
           <SettingsRow
-            title={t("Choose a plan")}
+            title={plan && !status.byokFreeUntil ? t("Change plan") : t("Choose a plan")}
             prominent
             onPress={() => openFromSettingsSheet(router, "/paywall?dismissible=1")}
           />
@@ -163,7 +164,7 @@ export default function BillingScreen() {
               ) : null}
             </>
           ) : null}
-          {status.canManage && status.funding === "credits" ? (
+          {status.canManage ? (
             <MenuView
               actions={MODEL_CREDIT_AMOUNTS.map((value) => ({
                 id: String(value),
@@ -187,7 +188,7 @@ export default function BillingScreen() {
               />
             </MenuView>
           ) : null}
-          {status.canManage && status.funding === "byok" ? (
+          {status.canManage && status.funding === "byok" && (status.balanceUsd ?? 0) > 0 ? (
             <SettingsRow
               title={t("Use Rakazo credits")}
               disabled={pending || !status.creditPurchasesEnabled}
