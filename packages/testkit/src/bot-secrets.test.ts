@@ -305,7 +305,9 @@ describeIntegration("reusable credential lifecycle", () => {
         expect(await db.run.findUniqueOrThrow({ where: { id: rotateRun } })).toMatchObject({
           status: "waiting_input",
         });
-        expect(await db.vaultCredential.findUniqueOrThrow({ where: { id: stored.id } })).toMatchObject({
+        expect(
+          await db.vaultCredential.findUniqueOrThrow({ where: { id: stored.id } }),
+        ).toMatchObject({
           ciphertext: stored.ciphertext,
         });
         await answer(rotateRun, `${key}-rotated`);
