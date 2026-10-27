@@ -517,6 +517,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 }
 
 .feature-card {
+  overflow: hidden;
   border-radius: 20px;
   padding: 26px;
 }
@@ -3412,7 +3413,7 @@ button.product-demo__dock-icon {
 
 .channel-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 12px;
   margin: 36px 0 0;
   padding: 0;
@@ -3584,11 +3585,5 @@ button.product-demo__dock-icon {
   .channels {
     grid-template-columns: 1fr;
     gap: 40px;
-  }
-}
-
-@media (max-width: 520px) {
-  .channel-list {
-    grid-template-columns: 1fr;
   }
 }
