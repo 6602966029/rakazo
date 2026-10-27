@@ -18,6 +18,7 @@ const state = vi.hoisted(() => ({
   rpc: vi.fn(),
   alert: vi.fn(),
   copy: vi.fn(async () => true),
+  actionSheet: vi.fn(),
   confirmIdentity: vi.fn(async () => true),
   spaceId: undefined as string | undefined,
   focused: true,
@@ -62,6 +63,7 @@ vi.mock("react-native", () => ({
 }));
 vi.mock("react-native-safe-area-context", () => ({ SafeAreaView: element("div") }));
 vi.mock("expo-clipboard", () => ({ setStringAsync: state.copy }));
+vi.mock("./message-action-sheet", () => ({ presentMessageActionSheet: state.actionSheet }));
 // The real retry rule from contracts, with the device prompt replaced by `confirmIdentity`.
 vi.mock("../components/confirm-identity", async () => {
   const { runWithIdentityConfirmation } = await import("@rakazo/contracts");
@@ -185,6 +187,7 @@ beforeEach(() => {
   state.spaceId = undefined;
   state.focused = true;
   state.alert.mockReset();
+  state.actionSheet.mockReset();
   state.copy.mockClear();
   state.confirmIdentity.mockReset().mockResolvedValue(true);
   state.credentials = [
@@ -373,11 +376,21 @@ it("shows each field of a website login under its label, each with its own copy"
     "Email\nada@example.test\n\nPassword\nexample-password\n\nPIN\n1234",
     expect.any(Array),
   );
-  await act(async () => alertButton("Copy Email").onPress?.());
-  await act(async () => alertButton("Copy Password").onPress?.());
-  await act(async () => alertButton("Copy PIN").onPress?.());
-  expect(state.copy.mock.calls).toEqual([["ada@example.test"], ["example-password"], ["1234"]]);
   expect(alertButton("Done").style).toBe("cancel");
+  // Every field's copy goes in a sheet, which pages on Android instead of dropping buttons.
+  await act(async () => alertButton("Copy").onPress?.());
+  const sheet = state.actionSheet.mock.calls[0]![0] as {
+    title: string;
+    actions: { text: string; onPress: () => void }[];
+  };
+  expect(sheet.title).toBe("example-login");
+  expect(sheet.actions.map((action) => action.text)).toEqual([
+    "Copy Email",
+    "Copy Password",
+    "Copy PIN",
+  ]);
+  for (const action of sheet.actions) await act(async () => action.onPress());
+  expect(state.copy.mock.calls).toEqual([["ada@example.test"], ["example-password"], ["1234"]]);
 });
 
 it("reveals a Space's own vault through that Space", async () => {
