@@ -40,7 +40,7 @@ test("saves a website login from a username and password card without echoing ei
   await expect(passwordField).toHaveAttribute("type", "password");
   const usernameHidden = card
     .getByTestId("login-field-value")
-    .filter({ has: usernameField })
+    .filter({ has: page.getByLabel("Username", { exact: true }) })
     .getByRole("switch", { name: "Hidden" });
   await expect(usernameHidden).toBeChecked();
   await usernameHidden.click();
