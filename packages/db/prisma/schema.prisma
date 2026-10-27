@@ -890,25 +890,18 @@ model CloudAgent {
   @@map("cloud_agents")
 }
 
-/// The wallet a user's bots spend from. One per user; reconnecting replaces it.
 model PaymentWallet {
   id         String    @id @default(cuid())
   userId     String    @unique
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   provider   String
-  /// "connecting" holds a pending sign-in; "connected" holds the wallet credential.
   status     String
-  /// Secret store reference for the pending sign-in or the credential.
   ciphertext String
-  /// Public sign-in details shown while connecting.
   verificationUrl String?
   userCode   String?
-  /// A pending sign-in's deadline, and when to check it next.
   expiresAt  DateTime?
   nextPollAt DateTime?
-  /// How often a pending sign-in may be checked; grows when the provider asks to slow down.
   pollIntervalMs Int?
-  /// When the credential wants refreshing.
   refreshAt  DateTime?
   connectedAt DateTime?
   createdAt  DateTime  @default(now())
@@ -917,32 +910,25 @@ model PaymentWallet {
   @@map("payment_wallets")
 }
 
-/// A purchase a bot asked its user's wallet to approve. Card secrets are never stored.
 model Purchase {
   id           String    @id @default(uuid())
-  /// The tool call that created it, so a replayed call reuses it.
   operationKey String    @unique
   spaceId      String
   space        Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   userId       String
   botId        String
   threadId     String
-  /// The chat's clear generation when requested; a cleared chat is not woken for it.
   threadGeneration Int
   provider     String
   remoteId     String
   merchantName String
-  /// The HTTPS page the purchase is made on; the card is only typed into its origin.
   merchantUrl  String
   amount       Int
   currency     String
   status       String
   approvalUrl  String?
-  /// Next status check while the owner has not decided; null once settled.
   nextPollAt   DateTime?
-  /// The status the bot was last woken for, so each change wakes it once.
   wokenStatus  String?
-  /// Secret store reference for the card number once typed, so later runs keep hiding it.
   cardCiphertext String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
