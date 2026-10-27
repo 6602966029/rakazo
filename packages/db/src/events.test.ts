@@ -3714,11 +3714,58 @@ describe("sendUserMessage", () => {
 });
 
 describe("claimSteering", () => {
+  it.each([
+    ["webhook", "user-1", "webhook"],
+    ["messaging", "user-1", "messaging"],
+  ] as const)(
+    "marks a %s delivery by its origin, not as the run's person",
+    async (originTrigger, userId, origin) => {
+      const tx = {
+        $queryRaw: vi.fn(),
+        run: {
+          findFirst: vi
+            .fn()
+            .mockResolvedValue({ id: "run-1", spaceId: "space-1", userId: "user-1" }),
+          findUnique: vi.fn().mockResolvedValue({ status: "running", startedAt: null }),
+        },
+        thread: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({ nextMessageSeq: 7 }),
+          update: vi.fn().mockResolvedValue({ nextEventSeq: 1 }),
+        },
+        event: { create: vi.fn() },
+        steeringMessage: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              id: "steer-1",
+              messageId: "message-1",
+              userId,
+              originTrigger,
+              message: { seq: 5, blocks: [{ kind: "text", text: "Hello" }] },
+            },
+          ]),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+      };
+      const prisma = {
+        $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+      } as unknown as PrismaClient;
+      const [claimed] = await claimSteering(prisma, {
+        threadId: "thread-1",
+        botId: "bot-1",
+        runId: "run-1",
+        leaseOwner: "worker-1",
+        leaseFence: 2,
+        seenIds: [],
+      });
+      expect(claimed?.origin).toBe(origin);
+    },
+  );
+
   it("claims pending messages for the fenced run in message order", async () => {
     const tx = {
       $queryRaw: vi.fn(),
       run: {
-        findFirst: vi.fn().mockResolvedValue({ id: "run-1", spaceId: "space-1" }),
+        findFirst: vi.fn().mockResolvedValue({ id: "run-1", spaceId: "space-1", userId: "user-1" }),
         findUnique: vi.fn().mockResolvedValue({ status: "running", startedAt: null }),
       },
       thread: {
@@ -3731,6 +3778,8 @@ describe("claimSteering", () => {
           {
             id: "steer-1",
             messageId: "message-1",
+            userId: "user-1",
+            originTrigger: null,
             message: {
               seq: 5,
               blocks: [
@@ -3747,6 +3796,8 @@ describe("claimSteering", () => {
           {
             id: "steer-2",
             messageId: "message-2",
+            userId: "user-2",
+            originTrigger: null,
             message: { seq: 6, blocks: [{ kind: "text", text: "Second" }] },
           },
         ]),
@@ -3780,12 +3831,14 @@ describe("claimSteering", () => {
             mimeType: "image/png",
           },
         ],
+        origin: "user",
       },
       {
         id: "steer-2",
         messageId: "message-2",
         text: "Second",
         blocks: [{ kind: "text", text: "Second" }],
+        origin: "member",
       },
     ]);
     expect(tx.run.findFirst).toHaveBeenCalledWith(

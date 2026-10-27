@@ -131,6 +131,11 @@ export interface ClaimedSteeringMessage {
   messageId: string;
   text: string;
   blocks: MessageBlock[];
+  /**
+   * Who sent it: the run's own person in the app, another member of the chat, an external
+   * chat, or a webhook.
+   */
+  origin: "user" | "member" | "messaging" | "webhook";
 }
 
 export interface FinalizeRunResult {
@@ -608,6 +613,7 @@ export async function claimSteering(
       select: {
         id: true,
         spaceId: true,
+        userId: true,
         trigger: true,
         sourceMessage: { select: { blocks: true } },
       },
@@ -670,6 +676,14 @@ export async function claimSteering(
       messageId: item.messageId,
       text: blocksToAgentHistoryText(item.message.blocks as MessageBlock[]),
       blocks: item.message.blocks as MessageBlock[],
+      origin:
+        item.originTrigger === "webhook"
+          ? ("webhook" as const)
+          : item.originTrigger === "messaging"
+            ? ("messaging" as const)
+            : item.userId === run.userId
+              ? ("user" as const)
+              : ("member" as const),
     }));
   });
 }

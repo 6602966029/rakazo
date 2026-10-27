@@ -10,6 +10,78 @@ export const USER_PROGRESS_MESSAGE_MAX_LENGTH = 500;
 /** Durable interim chat messages wait until a turn is genuinely long. */
 export const MID_TURN_PROGRESS_MIN_TURN_AGE_MS = 60_000;
 
+/** A note shown as the working line instead of a message is cut to this length. */
+export const NARRATION_STATUS_MAX_LENGTH = 60;
+
+/** One short line for the working indicator: whitespace collapsed, cut with "…". */
+export function narrationStatusLine(text: string): string {
+  const line = text.replace(/\s+/g, " ").trim();
+  return line.length <= NARRATION_STATUS_MAX_LENGTH
+    ? line
+    : `${line.slice(0, NARRATION_STATUS_MAX_LENGTH).trimEnd()}…`;
+}
+
+/**
+ * Whether held-back text reads as a passing note that can live on the working line: one short
+ * line with no link, code, number or amount. Anything else may be part of the answer and stays
+ * in the reply.
+ */
+export function isWorkingNote(text: string): boolean {
+  const note = text.trim();
+  return (
+    note.length > 0 &&
+    note.length <= NARRATION_STATUS_MAX_LENGTH &&
+    !/[\r\n]/.test(note) &&
+    !/`|https?:\/\/|www\.|\]\(/i.test(note) &&
+    // Numbers and amounts are often the answer itself ("The total is $42."), so they stay.
+    !/[\p{N}%\p{Sc}]/u.test(note)
+  );
+}
+
+/**
+ * How a message the person sends while the bot works reaches the model: it knows the message
+ * came mid-task. The answer goes through message_user, because a plain-text answer ends the
+ * turn and the task with it; without that tool it is only asked to take the message into account.
+ */
+export function midTaskMessagePrompt(text: string, canMessageUser: boolean): string {
+  const next = canMessageUser
+    ? "If it asks something or changes the plan, answer briefly with message_user, then continue the task."
+    : "Take it into account and continue the task.";
+  return `The person sent this while you were working:\n\n${text}\n\n${next}`;
+}
+
+/** What the runtime tells the model when it answered the person in plain text and stopped. */
+export const CONTINUE_AFTER_ANSWER_PROMPT = "Continue the task.";
+
+/**
+ * Whether a turn that answered the person's mid-task message ended the task by accident: it
+ * wrote text and stopped, with no tool call, so the model gets one more turn to carry on.
+ */
+export function stoppedAfterAnswer(message: {
+  stopReason?: string;
+  content: ReadonlyArray<{ type: string }>;
+}): boolean {
+  return message.stopReason === "stop" && !message.content.some((part) => part.type === "toolCall");
+}
+
+const MID_TASK_SOURCES = {
+  member: "another member of this chat",
+  messaging: "a connected chat",
+  webhook: "a webhook",
+} as const;
+
+/** A message from anyone else arrives labelled with where it came from, with no call to reply. */
+export function midTaskMessageFromPrompt(
+  text: string,
+  origin: keyof typeof MID_TASK_SOURCES | undefined,
+): string {
+  return `A message arrived from ${MID_TASK_SOURCES[origin ?? "member"]} while you were working:\n\n${text}`;
+}
+
+/** A mid-task message from the run's person restarts the interim budget at most this often. */
+export const STEERING_RESETS_MAX_PER_RUN = 3;
+export const STEERING_RESET_MIN_GAP_MS = 60_000;
+
 /** Cap on durable interim chat messages (message_user + promoted narration) per run. */
 export const MID_TURN_PROGRESS_MAX_PER_RUN = 3;
 
@@ -97,6 +169,31 @@ export function extractNarrationText(
   }
   if (currentText) parts.push(currentText);
   return { text: parts.join(""), remaining };
+}
+
+/**
+ * The turn's text with its last `count` characters removed, taken from the unflushed text first
+ * and then from the text blocks backwards. Steps stay where they are.
+ */
+export function dropTrailingText(
+  segments: readonly MessageBlock[],
+  currentText: string,
+  count: number,
+): { segments: MessageBlock[]; currentText: string } {
+  let left = count;
+  const fromCurrent = Math.min(left, currentText.length);
+  left -= fromCurrent;
+  const next = [...segments];
+  for (let index = next.length - 1; index >= 0 && left > 0; index -= 1) {
+    const block = next[index];
+    if (block?.kind !== "text") continue;
+    const cut = Math.min(left, block.text.length);
+    left -= cut;
+    const text = block.text.slice(0, block.text.length - cut);
+    if (text) next[index] = { ...block, text };
+    else next.splice(index, 1);
+  }
+  return { segments: next, currentText: currentText.slice(0, currentText.length - fromCurrent) };
 }
 
 /**

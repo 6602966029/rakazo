@@ -439,6 +439,11 @@ export interface AgentSteeringMessage {
   id: string;
   messageId: string;
   text: string;
+  /**
+   * Who sent it. Only the run's own person ("user") is framed as a message to answer; anything
+   * else, or no origin, is passed on as a neutral note.
+   */
+  origin?: "user" | "member" | "messaging" | "webhook";
   /** Persisted history text before attachment paths are appended. */
   historyText?: string;
   images?: AgentInputImage[];
@@ -616,6 +621,12 @@ export type AgentRuntimeEvent =
   | { type: "text"; text: string }
   /** A new assistant message starts; its text does not continue the previous text. */
   | { type: "turn" }
+  /** Messages sent while the bot worked were handed to the model before this turn. */
+  | {
+      type: "steered";
+      /** At least one came from the run's own person in the app. */
+      fromRunUser: boolean;
+    }
   | {
       type: "progress";
       text: string;

@@ -51,8 +51,10 @@ import {
   canPublishDurableNarration,
   flushPendingTools,
   flushProgress,
+  nextProgressNonce,
   publishMidTurnNarration,
   recordExplicitNoResponse,
+  showNarrationStatus,
   tryFlushPendingTools,
 } from "./run-progress.js";
 import {
@@ -75,7 +77,9 @@ import {
   clampUserProgressMessage,
   extractNarrationText,
   finalBlocksAfterMidTurnProgress,
-  userProgressClientNonce,
+  messageUserMaxLength,
+  STEERING_RESET_MIN_GAP_MS,
+  STEERING_RESETS_MAX_PER_RUN,
 } from "./user-progress.js";
 
 type RuntimeEvent<T extends AgentRuntimeEvent["type"]> = Extract<AgentRuntimeEvent, { type: T }>;
@@ -106,6 +110,9 @@ export async function consumeRunEvents(
       await streamText(ctx, event);
     } else if (event.type === "turn") {
       reply.assistantTurnBreakPending = true;
+      await postSteeringAnswer(ctx);
+    } else if (event.type === "steered") {
+      await onSteered(ctx, event);
     } else if (event.type === "progress") {
       await streamProgress(ctx, event);
     } else if (event.type === "ask") {
@@ -177,6 +184,8 @@ async function runLeaseLost(ctx: RunContext) {
 async function streamText(ctx: RunContext, event: RuntimeEvent<"text">) {
   const { reply } = ctx.state;
   reply.assistantTurnText += event.text;
+  if (event.text) reply.narrationStatusShowing = false;
+  reply.textSinceLastStep += event.text;
   if (reply.assistantTurnBreakPending && event.text) {
     reply.assistantTurnBreakPending = false;
     const separator = assistantTurnSeparator(reply.assembled, event.text);
@@ -202,6 +211,8 @@ async function streamProgress(ctx: RunContext, event: RuntimeEvent<"progress">) 
   const { reply } = ctx.state;
   ctx.state.toolCallStreak = { key: undefined, count: 0 };
   if (run.trigger === "routine" || isBackgroundRunTrigger(run.trigger)) return;
+  // The bot's own note stays the working line until it writes again.
+  if (event.activity && reply.narrationStatusShowing) return;
   // Flush batched text deltas first so an activity line cannot land
   // ahead of text the model streamed before the tool call.
   if (reply.pendingProgress) {
@@ -227,6 +238,88 @@ async function streamProgress(ctx: RunContext, event: RuntimeEvent<"progress">) 
       ...(event.activity ? { activity: true } : {}),
     },
   });
+}
+
+/**
+ * The model answered the person's mid-task message in plain text instead of with
+ * message_user, and the runtime asked it to carry on: a short answer is posted as its own
+ * message, as message_user would have, rather than opening the reply. A longer one may be
+ * what the person asked for and stays in the reply whole.
+ */
+async function postSteeringAnswer(ctx: RunContext) {
+  const { deps, run } = ctx;
+  const { reply } = ctx.state;
+  if (!reply.steeringReplyPending || !runPromotesMidTurnNarration(run.trigger)) return;
+  await flushProgress(ctx);
+  const answered = extractNarrationText(reply.messageSegments, reply.currentTextSegment);
+  const text = redactSecrets(answered.text, ctx.secrets).trim();
+  if (text && text.length <= messageUserMaxLength()) {
+    reply.messageSegments = answered.remaining;
+    reply.currentTextSegment = "";
+    reply.keptReplyLength = 0;
+    reply.workingNotes.length = 0;
+    reply.assembled = "";
+    reply.hasStreamedText = false;
+    reply.pendingProgress = "";
+    reply.redactor.skip();
+    await publishMessage(deps, run, "bot", [{ kind: "text", text }], true, nextProgressNonce(ctx));
+    reply.midTurnUserTexts.push(text);
+    reply.publishedMidTurnUserMessage = true;
+  } else if (text) {
+    // A long answer stays in the reply; nothing posts it later in pieces.
+    reply.steeringReplyPending = false;
+    reply.keptReplyLength = answered.text.length;
+    reply.workingNotes.length = 0;
+  }
+}
+
+/**
+ * The run's person wrote while the bot worked. What the bot wrote before that is posted as
+ * its own message instead of running on into the reply to them, and the interim-message
+ * budget starts again: the first note may answer them at once. Webhooks, external chats and
+ * other members stay on the normal budget, and the restart is capped so a stream of messages
+ * can't lift it.
+ */
+async function onSteered(ctx: RunContext, event: RuntimeEvent<"steered">) {
+  const { deps, run } = ctx;
+  const { reply } = ctx.state;
+  reply.assistantTurnBreakPending = true;
+  const now = Date.now();
+  if (
+    !event.fromRunUser ||
+    reply.steeringResets >= STEERING_RESETS_MAX_PER_RUN ||
+    now - reply.lastSteeringResetAt < STEERING_RESET_MIN_GAP_MS
+  )
+    return;
+  reply.steeringResets += 1;
+  reply.lastSteeringResetAt = now;
+  await flushProgress(ctx);
+  const before = extractNarrationText(reply.messageSegments, reply.currentTextSegment);
+  const text = redactSecrets(before.text, ctx.secrets).trim();
+  if (text && runPromotesMidTurnNarration(run.trigger)) {
+    reply.messageSegments = before.remaining;
+    reply.currentTextSegment = "";
+    reply.keptReplyLength = 0;
+    reply.workingNotes.length = 0;
+    reply.assembled = "";
+    reply.hasStreamedText = false;
+    reply.pendingProgress = "";
+    reply.redactor.skip();
+    await publishMessage(
+      deps,
+      run,
+      "bot",
+      [{ kind: "text", text }],
+      undefined,
+      nextProgressNonce(ctx),
+    );
+    reply.midTurnUserTexts.push(text);
+    reply.publishedMidTurnUserMessage = true;
+  }
+  reply.progressBudgetStart = reply.midTurnProgressCount;
+  reply.turnStartedAtMs = now;
+  reply.steeringReplyPending = true;
+  reply.narrationStatusShowing = false;
 }
 
 async function pauseForAnswer(ctx: RunContext, event: RuntimeEvent<"ask">) {
@@ -295,7 +388,7 @@ async function pauseForTakeover(ctx: RunContext, event: RuntimeEvent<"takeover">
         "bot",
         [{ kind: "text", text: narration }],
         undefined,
-        userProgressClientNonce(run.id, reply.midTurnProgressCount++),
+        nextProgressNonce(ctx),
       );
       reply.midTurnUserTexts.push(narration);
       reply.publishedMidTurnUserMessage = true;
@@ -353,9 +446,11 @@ async function onToolCalled(ctx: RunContext, event: RuntimeEvent<"tool">): Promi
   await flushProgress(ctx);
   // Promote streamed narration into a durable, replyable chat message before
   // tools continue, so long turns do not look stalled and stay replyable.
-  if (event.name !== "message_user") {
-    await publishMidTurnNarration(ctx);
-  }
+  const heldNote = event.name === "message_user" ? undefined : await publishMidTurnNarration(ctx);
+  // A step without a note of its own replaces the earlier one in the live view, so its status
+  // lines show again.
+  if (!heldNote) reply.narrationStatusShowing = false;
+  reply.textSinceLastStep = "";
   reply.assistantTurnBreakPending = true;
   await deps.events.append({
     spaceId: run.spaceId,
@@ -365,6 +460,7 @@ async function onToolCalled(ctx: RunContext, event: RuntimeEvent<"tool">): Promi
     runId,
     payload: { name: event.name, executionId: event.executionId },
   });
+  await showNarrationStatus(ctx, heldNote);
   reply.pendingToolNames.push(event.name);
   tryFlushPendingTools(reply);
   const loopGuard = advanceToolCallLoopGuard(ctx.state.toolCallStreak, event.name, event.args);
@@ -569,6 +665,21 @@ export async function completeRun(ctx: RunContext) {
   // model supplies none, unless it chose silence or already delivered that text.
   // Persisting peer results here also lets outcome delivery retry after completion.
   recordExplicitNoResponse(reply, reply.lastDiscardedMidTurnNarration);
+  // Notes shown on the working line since the last text that stays come back in full and
+  // in order when nothing follows the last step, after any text kept for the reply.
+  if (
+    !isBackgroundRunTrigger(run.trigger) &&
+    !ctx.state.handedOff &&
+    !reply.explicitNoResponse &&
+    reply.workingNotes.length > 0 &&
+    !reply.textSinceLastStep.trim()
+  ) {
+    const notes = reply.workingNotes.join("\n\n");
+    const separator = assistantTurnSeparator(reply.assembled, notes);
+    reply.assembled += separator + notes;
+    reply.currentTextSegment += separator + notes;
+  }
+  // Runs that hold their narration back keep only the last held-back preview.
   if (
     !isBackgroundRunTrigger(run.trigger) &&
     !ctx.state.handedOff &&

@@ -301,9 +301,19 @@ export type LiveMessageUpdate =
   | { type: "tool"; name: string };
 
 export function reduceLiveMessageBlocks(
-  blocks: readonly MessageBlock[],
+  current: readonly MessageBlock[],
   update: LiveMessageUpdate,
 ): MessageBlock[] {
+  // A reset drops the text streamed so far (it will not be in the reply) and keeps the steps,
+  // including tools still waiting on that text to finish its sentence.
+  let blocks = current;
+  if (update.type === "progress" && update.payload?.reset === true) {
+    const waiting = current.at(-1)?.kind === "progress" ? current.at(-1) : undefined;
+    blocks = current.filter((block) => block.kind !== "text" && block.kind !== "progress");
+    for (const name of waiting?.kind === "progress" ? (waiting.pendingToolNames ?? []) : []) {
+      blocks = appendToolCallSegment(blocks, name);
+    }
+  }
   const tail = blocks.at(-1);
   const segments = tail?.kind === "progress" ? blocks.slice(0, -1) : blocks;
   const priorText = liveMessageText(blocks);
@@ -651,6 +661,13 @@ export function createStreamingRedactor(secrets: string[]) {
     },
     finish() {
       return drain(true);
+    },
+    /**
+     * Drops what is held back without showing it, but keeps matching against it, so a value
+     * split between the dropped text and the next chunk is still hidden.
+     */
+    skip() {
+      covered = buffer.length;
     },
   };
 }
