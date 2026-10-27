@@ -21,7 +21,8 @@ export interface PaymentWalletConnectStart {
 }
 
 export type PaymentWalletConnectResult =
-  | { status: "pending" }
+  /** `slowDown`: the provider asked for a longer polling interval. */
+  | { status: "pending"; slowDown?: boolean }
   | { status: "connected"; credential: PaymentWalletCredential }
   | { status: "denied" | "expired" };
 

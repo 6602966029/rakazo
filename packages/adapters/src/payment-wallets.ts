@@ -25,6 +25,10 @@ type WalletMaterial = { state: string; intervalMs: number } | { secret: string }
 const REFRESH_SKEW_MS = 60_000;
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const PROVIDER_TIMEOUT_MS = 30_000;
+/** A sign-in check holds its claim past the provider timeout, so checks never overlap. */
+const POLL_CLAIM_MS = PROVIDER_TIMEOUT_MS + 5_000;
+/** RFC 8628: each slow_down adds five seconds to the polling interval. */
+const SLOW_DOWN_STEP_MS = 5_000;
 const REFRESH_LOCK_WAIT_MS = 10_000;
 const REFRESH_TRANSACTION_MS = 60_000;
 
@@ -194,17 +198,22 @@ export async function paymentWalletStatus(
       status: "connecting",
       nextPollAt: row.nextPollAt,
     },
-    data: { nextPollAt: new Date(now.getTime() + Math.max(material.intervalMs, 1_000)) },
+    data: { nextPollAt: new Date(now.getTime() + POLL_CLAIM_MS) },
   });
+  const intervalMs = Math.max(row.pollIntervalMs ?? material.intervalMs, 1_000);
   if (!count) return statusOf(await currentWallet(deps, actor.userId));
   let result: Awaited<ReturnType<PaymentWalletProvider["pollConnect"]>>;
   try {
     result = await provider.pollConnect(material.state, providerContext(actor, "poll"));
   } catch (error) {
     warn("Payment wallet sign-in check failed", error);
+    await releasePoll(deps, row, intervalMs);
     return statusOf(row);
   }
-  if (result.status === "pending") return statusOf(row);
+  if (result.status === "pending") {
+    await releasePoll(deps, row, result.slowDown ? intervalMs + SLOW_DOWN_STEP_MS : intervalMs);
+    return statusOf(row);
+  }
   if (result.status !== "connected") {
     await removeWallet(deps, row);
     return DISCONNECTED;
@@ -239,6 +248,14 @@ export async function paymentWalletStatus(
   return { status: "connected", connectedAt: connectedAt.toISOString() };
 }
 
+/** Ends a sign-in check: the next one may start after `intervalMs`. */
+async function releasePoll(deps: PaymentWalletDeps, row: PaymentWallet, intervalMs: number) {
+  await deps.prisma.paymentWallet.updateMany({
+    where: { id: row.id, ciphertext: row.ciphertext, status: "connecting" },
+    data: { nextPollAt: new Date(Date.now() + intervalMs), pollIntervalMs: intervalMs },
+  });
+}
+
 /** Starts a sign-in the user finishes with the provider, replacing any wallet already connected. */
 export async function connectPaymentWallet(
   deps: PaymentWalletDeps,
@@ -262,6 +279,7 @@ export async function connectPaymentWallet(
     userCode: start.userCode,
     expiresAt: start.expiresAt,
     nextPollAt: new Date(Date.now() + Math.max(start.intervalMs, 1_000)),
+    pollIntervalMs: start.intervalMs,
     refreshAt: null,
     connectedAt: null,
   };

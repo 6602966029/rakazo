@@ -9,6 +9,7 @@ CREATE TABLE "payment_wallets" (
     "userCode" TEXT,
     "expiresAt" TIMESTAMP(3),
     "nextPollAt" TIMESTAMP(3),
+    "pollIntervalMs" INTEGER,
     "refreshAt" TIMESTAMP(3),
     "connectedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

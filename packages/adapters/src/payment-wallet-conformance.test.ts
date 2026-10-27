@@ -297,7 +297,7 @@ for (const [name, create] of suites) {
 }
 
 describe("Link wallet protocol", () => {
-  it("signs in with the device flow and stays pending through slow_down", async () => {
+  it("signs in with the device flow and backs off on slow_down", async () => {
     const link = fakeLink();
     const provider = new LinkWalletProvider({ fetch: link.fetch });
     const start = await provider.beginConnect({ clientName: "Rakazo" }, ctx);
@@ -309,7 +309,10 @@ describe("Link wallet protocol", () => {
     expect(start.state).not.toContain("fake-access");
     expect(await provider.pollConnect(start.state, ctx)).toEqual({ status: "pending" });
     link.state.tokenResponse = { status: 400, body: { error: "slow_down" } };
-    expect(await provider.pollConnect(start.state, ctx)).toEqual({ status: "pending" });
+    expect(await provider.pollConnect(start.state, ctx)).toEqual({
+      status: "pending",
+      slowDown: true,
+    });
     link.state.tokenResponse = { status: 400, body: { error: "expired_token" } };
     expect(await provider.pollConnect(start.state, ctx)).toEqual({ status: "expired" });
     link.state.tokenResponse = { status: 400, body: { error: "access_denied" } };

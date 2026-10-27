@@ -1,6 +1,6 @@
 import type { Me, PaymentWalletStatus } from "@rakazo/contracts";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Alert, AppState, Linking, ScrollView, StyleSheet, View } from "react-native";
 import { LoadFailure } from "../../components/load-failure";
 import { SettingsGroup, SettingsRow } from "../../components/settings-group";
@@ -22,11 +22,14 @@ export default function WalletSettings() {
   const [status, setStatus] = useState<PaymentWalletStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Bumped by connect and disconnect, so a read started before one cannot overwrite its result.
+  const generation = useRef(0);
 
   const load = useCallback(async () => {
+    const started = generation.current;
     const [me, next] = await Promise.all([rpc("me"), rpc("paymentWallet/status")]);
     setProvider(me.paymentWalletProvider ?? null);
-    setStatus(next);
+    if (started === generation.current) setStatus(next);
     setLoadError(null);
   }, []);
   const reload = useCallback(
@@ -52,9 +55,10 @@ export default function WalletSettings() {
       if (!connecting) return;
       let active = true;
       const timer = setInterval(() => {
+        const started = generation.current;
         void rpc("paymentWallet/status")
           .then((next) => {
-            if (active) setStatus(next);
+            if (active && started === generation.current) setStatus(next);
           })
           .catch(() => undefined);
       }, WALLET_POLL_MS);
@@ -68,6 +72,7 @@ export default function WalletSettings() {
   async function act(action: () => Promise<PaymentWalletStatus>) {
     if (pending) return;
     setPending(true);
+    generation.current += 1;
     try {
       const next = await action();
       setStatus(next);

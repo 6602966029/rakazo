@@ -149,8 +149,9 @@ export class LinkWalletProvider implements PaymentWalletProvider {
     if (status === 200) return { status: "connected", credential: credentialFrom(body) };
     switch (body.error) {
       case "authorization_pending":
-      case "slow_down":
         return { status: "pending" };
+      case "slow_down":
+        return { status: "pending", slowDown: true };
       case "expired_token":
         return { status: "expired" };
       case "access_denied":

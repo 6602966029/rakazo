@@ -76,6 +76,7 @@ import {
   RunJobPublisher,
   reconcileCloudAgents,
   reconcileComputerUpdates,
+  reconcilePurchases,
   removePiUserSessions,
   resolveDeploymentModel,
   ScriptedAgentRuntime,
@@ -647,6 +648,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           lookup: deploymentModelUsageLookup(),
         }),
         reconcileCloudAgents: () => reconcileCloudAgents({ prisma, jobs, cloudAgent }),
+        reconcilePurchases: () => reconcilePurchases({ prisma, jobs, paymentWallet }),
         reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),
         reconcileSecurityEventRetention: createSecurityEventPruner(
           prisma,

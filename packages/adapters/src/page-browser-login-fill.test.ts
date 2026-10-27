@@ -228,6 +228,19 @@ describe("live page helper card fill", () => {
     expect(JSON.stringify(browser.snapshot())).not.toContain('"123"');
   });
 
+  it("draws a filled card as dots on screen until the field is filled with something else", () => {
+    const { domWindow, browser } = installPageHelper(`${origin}/pay`, html);
+    const ref = refFor("Card number", browser.snapshot().elements);
+    const input = domWindow.document.querySelector<HTMLInputElement>('[aria-label="Card number"]')!;
+    browser.fill(ref, number, origin, "card");
+    expect(input.hasAttribute("data-rakazo-card")).toBe(true);
+    expect(domWindow.document.getElementById("rakazo-card-mask")?.textContent).toContain(
+      "-webkit-text-security:disc",
+    );
+    browser.fill(ref, "plain text");
+    expect(input.hasAttribute("data-rakazo-card")).toBe(false);
+  });
+
   it("refuses any other field, with card wording", () => {
     const { domWindow, browser } = installPageHelper(`${origin}/pay`, html);
     const snap = browser.snapshot();

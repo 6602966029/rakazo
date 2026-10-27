@@ -77,6 +77,7 @@ function fakePrisma() {
           userCode: null,
           expiresAt: null,
           nextPollAt: null,
+          pollIntervalMs: null,
           refreshAt: null,
           connectedAt: null,
           createdAt: new Date(),
@@ -267,6 +268,43 @@ describe("payment wallet connection", () => {
     release();
     expect((await first).status).toBe("connecting");
     expect(env.provider?.pollConnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start another check while a slow one is still running", async () => {
+    const env = setup();
+    let release!: () => void;
+    env.provider!.pollConnect.mockImplementationOnce(
+      () =>
+        new Promise<PaymentWalletConnectResult>((resolve) => {
+          release = () => resolve({ status: "pending" });
+        }),
+    );
+    await connectPaymentWallet(env.deps, actor);
+    vi.setSystemTime(new Date(Date.now() + 5_000));
+    const first = paymentWalletStatus(env.deps, actor);
+    await vi.waitFor(() => expect(env.provider?.pollConnect).toHaveBeenCalledTimes(1));
+    // Past the sign-in interval but within the provider timeout.
+    vi.setSystemTime(new Date(Date.now() + 20_000));
+    await paymentWalletStatus(env.deps, actor);
+    expect(env.provider?.pollConnect).toHaveBeenCalledTimes(1);
+    release();
+    await first;
+    expect(env.rows[0]?.nextPollAt).toEqual(new Date(Date.now() + 5_000));
+  });
+
+  it("adds five seconds to the interval each time the provider asks to slow down", async () => {
+    const env = setup();
+    env.provider!.pollConnect.mockResolvedValue({ status: "pending", slowDown: true });
+    await connectPaymentWallet(env.deps, actor);
+    vi.setSystemTime(new Date(Date.now() + 5_000));
+    await paymentWalletStatus(env.deps, actor);
+    expect(env.rows[0]).toMatchObject({
+      pollIntervalMs: 10_000,
+      nextPollAt: new Date(Date.now() + 10_000),
+    });
+    vi.setSystemTime(new Date(Date.now() + 10_000));
+    await paymentWalletStatus(env.deps, actor);
+    expect(env.rows[0]?.pollIntervalMs).toBe(15_000);
   });
 
   it.each(["denied", "expired"] as const)("forgets a %s sign-in", async (outcome) => {

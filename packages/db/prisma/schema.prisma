@@ -906,6 +906,8 @@ model PaymentWallet {
   /// A pending sign-in's deadline, and when to check it next.
   expiresAt  DateTime?
   nextPollAt DateTime?
+  /// How often a pending sign-in may be checked; grows when the provider asks to slow down.
+  pollIntervalMs Int?
   /// When the credential wants refreshing.
   refreshAt  DateTime?
   connectedAt DateTime?
