@@ -97,7 +97,7 @@ function fakeLink() {
         ? { link_pay_token: "lpt_fake_secret" }
         : {}),
       ...(approved && type === "shared_payment_token" && include === "shared_payment_token"
-        ? { shared_payment_token: "spt_fake_link_secret" }
+        ? { shared_payment_token: { id: "spt_fake_link_secret" } }
         : {}),
       ...(approved && type === "card" && include === "card"
         ? {
