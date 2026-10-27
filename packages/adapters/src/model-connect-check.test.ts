@@ -57,6 +57,12 @@ describe("connect-time model check", () => {
 
   it.each([
     {
+      name: "an unsupported model reported as a bad request",
+      config: { provider: "groq", id: "openai/gpt-oss-120b" },
+      fetch: rejection(400, { code: "400", message: "Unsupported model fixture-model" }),
+      error: "can't run this model",
+    },
+    {
       name: "a free tier that only works inside its own app",
       config: { provider: "opencode", id: "big-pickle" },
       fetch: rejection(403, {
