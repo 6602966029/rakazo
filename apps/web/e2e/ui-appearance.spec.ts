@@ -112,12 +112,16 @@ test("sidebar footer opens integrations and the account menu", async ({ page }, 
   const pillBox = await footer
     .getByRole("button", { name: "Connect apps", exact: true })
     .boundingBox();
+  const skillsBox = await footer.getByRole("button", { name: "Skills", exact: true }).boundingBox();
   expect(searchBox).toBeTruthy();
   expect(avatarBox).toBeTruthy();
   expect(pillBox).toBeTruthy();
-  if (searchBox && avatarBox && pillBox) {
+  expect(skillsBox).toBeTruthy();
+  if (searchBox && avatarBox && pillBox && skillsBox) {
     expect(avatarBox.x).toBe(searchBox.x);
-    expect(pillBox.x + pillBox.width).toBe(searchBox.x + searchBox.width);
+    // Skills is the last footer control, so it closes the row at the search field's edge.
+    expect(skillsBox.x + skillsBox.width).toBe(searchBox.x + searchBox.width);
+    expect(pillBox.x + pillBox.width).toBeLessThan(skillsBox.x);
     expect(pillBox.height).toBe(avatarBox.height);
   }
   await expect(footer.getByRole("button", { name: "Install update", exact: true })).toHaveCount(0);
@@ -127,7 +131,7 @@ test("sidebar footer opens integrations and the account menu", async ({ page }, 
   await page.getByTestId("user-menu-trigger").click();
   await expect(page.getByRole("link", { name: "Get the mobile app", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Docs", exact: true })).toBeVisible();
-  await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(3);
+  await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(2);
   if (avatarBox && pillBox) {
     await expect
       .poll(async () => {
@@ -208,7 +212,7 @@ test("sidebar footer keeps the account identity readable and installs a ready de
   await expect(header).toHaveText(`${session.user.name}${email}`);
   await expect(page.getByText("New update available", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Install", exact: true })).toHaveCount(0);
-  await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(3);
+  await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(2);
   await captureScreenshot(page, testInfo, "sidebar-footer-menu-update");
   await page.keyboard.press("Escape");
   await footer.getByRole("button", { name: "Install update", exact: true }).click();
