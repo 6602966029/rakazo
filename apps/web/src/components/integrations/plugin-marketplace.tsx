@@ -154,7 +154,8 @@ export function PluginDetail({
   servers: allServers,
   assigned,
   activeBotId,
-  managed,
+  managed: managedApp,
+  skillsOnly = false,
   onBack,
   onChanged,
 }: {
@@ -164,6 +165,8 @@ export function PluginDetail({
   assigned: Set<string>;
   activeBotId?: string;
   managed?: ManagedAppLink;
+  /** Opened from Skills: only the plugin's skills are added here; its connector belongs to Integrations. */
+  skillsOnly?: boolean;
   onBack: () => void;
   onChanged: () => Promise<unknown>;
 }) {
@@ -283,12 +286,14 @@ export function PluginDetail({
       t`Could not enable tools`,
     );
 
+  // A plugin connector already installed stays manageable here until it is removed.
+  const managed = parts.includes("connector") ? undefined : managedApp;
   const prefix = `${detail?.name ?? ""}: `;
   const skills = detail?.skills ?? [];
   const shownSkills = allSkills ? skills : skills.slice(0, SKILLS_SHOWN);
   const connectorCount = detail?.mcpServers.length ?? 0;
   // Without a connector there is nothing to connect, so the page adds the skills instead.
-  const skillPack = !managed && !connectorCount && Boolean(detail);
+  const skillPack = skillsOnly || (!managed && !connectorCount && Boolean(detail));
   const headerPart: PluginPart = skillPack ? "skills" : "connector";
   const headerOn = parts.includes(headerPart);
   const skillsOn = parts.includes("skills");
@@ -417,7 +422,7 @@ export function PluginDetail({
         </div>
       ) : null}
 
-      {managed || connectorCount ? (
+      {!skillsOnly && (managed || connectorCount) ? (
         <section>
           <h3 className="mb-2 flex gap-2 px-1 text-[14px] font-medium text-foreground">
             <Trans>Apps</Trans>

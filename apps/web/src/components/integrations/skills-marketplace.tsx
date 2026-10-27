@@ -73,6 +73,7 @@ export function SkillsMarketplaceDialog({ onClose }: { onClose: () => void }) {
           installs={pluginInstalls}
           servers={NO_SERVERS}
           assigned={NOT_ASSIGNED}
+          skillsOnly
           onBack={() => setSelection(null)}
           onChanged={refresh}
         />

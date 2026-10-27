@@ -193,9 +193,10 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
       const text = await read(url, maxBytes, signal);
       files.set(url, { text, expires: Date.now() + MANIFEST_TTL_MS });
       return text;
-    } catch {
-      // A missing file is an answer; an abort is not, so it is retried next time.
-      if (!signal.aborted) files.set(url, { text: null, expires: Date.now() + MANIFEST_TTL_MS });
+    } catch (error) {
+      // Only a confirmed missing file is an answer; any other failure is retried next time.
+      if (error instanceof Error && error.message === "Request failed: HTTP 404")
+        files.set(url, { text: null, expires: Date.now() + MANIFEST_TTL_MS });
       return undefined;
     }
   };

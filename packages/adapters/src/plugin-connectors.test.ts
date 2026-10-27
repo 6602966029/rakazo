@@ -155,6 +155,16 @@ describe("portable plugin parser", () => {
       { kind: "editor_only", name: ".lsp.json", reason: "Runs only inside an editor" },
     ]);
   });
+  it("skips an invalid command without blocking the rest of the plugin", () => {
+    const preview = parse([
+      ...files(),
+      { path: `commands/${"x".repeat(81)}.md`, content: "# Too long\n\nBody.\n" },
+    ]);
+    expect(preview.skills.map((s) => s.name)).toEqual(["example-skill"]);
+    expect(preview.skipped).toContainEqual(
+      expect.objectContaining({ kind: "skill_invalid", name: `commands/${"x".repeat(81)}.md` }),
+    );
+  });
   it("tells from a file list whether every part installs", () => {
     const remote = JSON.stringify({
       mcpServers: { tools: { type: "http", url: "https://tools.example.test/mcp" } },

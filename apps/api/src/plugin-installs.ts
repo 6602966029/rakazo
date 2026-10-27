@@ -88,6 +88,13 @@ function withPreparedServers<T>(
   return prepare(0);
 }
 
+const BUILTIN_SKILL_NAMES = new Set(BUILTIN_AGENT_SKILLS.map((skill) => skill.name.toLowerCase()));
+
+function assertNoBuiltinSkillNames(plugin: LoadedPlugin) {
+  if (plugin.skills.some((skill) => BUILTIN_SKILL_NAMES.has(skill.name.toLowerCase())))
+    throw new ORPCError("CONFLICT", { message: "Plugin skill conflicts with a built-in skill" });
+}
+
 async function assertSkillNamesFree(
   tx: Prisma.TransactionClient,
   actor: Actor,
@@ -214,12 +221,7 @@ export async function installPlugin(
       message: "Plugin has no supported skills or MCP servers",
     });
   }
-  const builtinNames = new Set(BUILTIN_AGENT_SKILLS.map((skill) => skill.name.toLowerCase()));
-  if (
-    parts.includes("skills") &&
-    plugin.skills.some((skill) => builtinNames.has(skill.name.toLowerCase()))
-  )
-    throw new ORPCError("CONFLICT", { message: "Plugin skill conflicts with a built-in skill" });
+  if (parts.includes("skills")) assertNoBuiltinSkillNames(plugin);
   const servers = parts.includes("connector") ? plugin.mcpServers : [];
   return withPreparedServers(deps, actor, servers, signal, async (prepared) => {
     const source = plugin.source.gitUrl + (plugin.source.subdir ? `#${plugin.source.subdir}` : "");
@@ -297,6 +299,7 @@ export async function setPluginParts(
     ? await loadPlugin(deps, pinnedSource(existing), existing.digest, signal)
     : null;
   const added = plugin ? availableParts(plugin, adding) : [];
+  if (plugin && added.includes("skills")) assertNoBuiltinSkillNames(plugin);
   const parts = [...current.filter((part) => !removing.includes(part)), ...added];
   if (!parts.length) return null;
   const servers = plugin && added.includes("connector") ? plugin.mcpServers : [];
@@ -308,6 +311,10 @@ export async function setPluginParts(
           where: { ...scope, id: existing.id },
         });
         if (!install) throw new ORPCError("NOT_FOUND", { message: "Plugin is not installed" });
+        // The plan above was made from an unlocked read; another change since then invalidates it.
+        const locked = installedPluginParts(install.config as Record<string, unknown>);
+        if (locked.length !== current.length || locked.some((part) => !current.includes(part)))
+          throw new ORPCError("CONFLICT", { message: "Plugin changed. Reload and try again" });
         if (removing.includes("connector")) {
           const rows = await tx.mcpServer.findMany({
             where: { ...scope, installId: install.id },

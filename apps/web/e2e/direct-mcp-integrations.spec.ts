@@ -39,7 +39,10 @@ test("shows directly registered MCP servers in Integrations without catalog conn
   await captureScreenshot(page, testInfo, "integrations-direct-mcp-servers");
   await page.setViewportSize({ width: 390, height: 844 });
   await captureScreenshot(page, testInfo, "integrations-direct-mcp-mobile");
-  await servers.getByRole("button", { name: "Manage MCP servers", exact: true }).click();
+  await page
+    .getByTestId("connected-apps")
+    .getByRole("button", { name: "Manage MCP servers", exact: true })
+    .click();
   await expect(page.getByRole("heading", { name: "MCP servers", exact: true })).toBeVisible();
   await expect(page.getByRole("dialog").getByText("GitHub", { exact: true })).toBeVisible();
 });

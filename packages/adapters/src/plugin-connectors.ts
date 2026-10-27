@@ -308,7 +308,11 @@ function collectAgents(
 }
 
 /** Slash commands are prompt templates, which is what a skill invoked with /name already is. */
-function collectCommands(files: Map<string, string>, names: Set<string>): PluginSkillEntry[] {
+function collectCommands(
+  files: Map<string, string>,
+  names: Set<string>,
+  skipped: PluginSkippedEntry[],
+): PluginSkillEntry[] {
   const out: PluginSkillEntry[] = [];
   for (const [path, content] of files) {
     const name = COMMAND_FILE.exec(path)?.[1];
@@ -325,18 +329,25 @@ function collectCommands(files: Map<string, string>, names: Set<string>): Plugin
       .find(Boolean);
     const description =
       (parsed && !("error" in parsed) ? parsed.description : "") || firstLine || name;
-    names.add(name.toLowerCase());
-    out.push({
-      name,
-      description: description.slice(0, 2000),
-      content: buildSkillMd({
+    let skill: string;
+    try {
+      skill = buildSkillMd({
         name,
         description: description.slice(0, 2000),
         body: body.includes("$ARGUMENTS")
           ? `$ARGUMENTS is whatever the user wrote after /${name}.\n\n${body}`
           : body,
-      }),
-    });
+      });
+    } catch (error) {
+      skipped.push({
+        kind: "skill_invalid",
+        name: path,
+        reason: error instanceof Error ? error.message : "Invalid command",
+      });
+      continue;
+    }
+    names.add(name.toLowerCase());
+    out.push({ name, description: description.slice(0, 2000), content: skill });
   }
   return out;
 }
@@ -482,7 +493,7 @@ export function parsePluginDirectory(input: {
   const skills = [
     ...collectSkills(files, skipped, names),
     ...collectAgents(files, skipped, names),
-    ...collectCommands(files, names),
+    ...collectCommands(files, names, skipped),
   ].sort((a, b) => a.name.localeCompare(b.name));
   const canonical = [...files.entries()].sort(([a], [b]) => a.localeCompare(b));
   return {
