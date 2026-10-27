@@ -6,7 +6,7 @@ import {
   endsSentence,
   isBackgroundRunTrigger,
   noteLastToolStep,
-  redactSecrets,
+  redactSecretsAfter,
 } from "@rakazo/core";
 import type { Run } from "@rakazo/db";
 import type { ExecutorDeps } from "./executor-deps.js";
@@ -49,6 +49,7 @@ export async function createReplyState(
     lastSteeringResetAt: Number.NEGATIVE_INFINITY,
     workingNotes: [],
     textSinceLastStep: "",
+    narrationSoFar: "",
     narrationStatusShowing: false,
     pendingToolNames: [],
     pendingProgress: "",
@@ -160,7 +161,9 @@ export async function publishMidTurnNarration(ctx: RunContext, beforeConnectCard
   const extracted = extractNarrationText(reply.messageSegments, reply.currentTextSegment);
   reply.messageSegments = extracted.remaining;
   reply.currentTextSegment = "";
-  const text = redactSecrets(extracted.text, ctx.secrets).trim();
+  const raw = extracted.text.trim();
+  const text = redactSecretsAfter(reply.narrationSoFar, raw, ctx.secrets).trim();
+  reply.narrationSoFar += raw;
   if (!text) return undefined;
   reply.assembled = "";
   reply.hasStreamedText = false;

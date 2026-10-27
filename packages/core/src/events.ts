@@ -576,6 +576,19 @@ export function redactSecrets(value: string, secrets: string[]): string {
   return output + value.slice(offset);
 }
 
+/** Redacts `text` as the continuation of `before`, so a value split across the two is hidden too. */
+export function redactSecretsAfter(before: string, text: string, secrets: string[]): string {
+  const value = before + text;
+  let output = "";
+  let offset = before.length;
+  for (const [start, end] of redactedRanges(value, secrets)) {
+    if (end <= offset) continue;
+    output += `${value.slice(offset, Math.max(start, offset))}[redacted]`;
+    offset = end;
+  }
+  return output + value.slice(offset);
+}
+
 export function containsSecret(value: unknown, secrets: string[]): boolean {
   const active = protectedValues(secrets);
   if (active.length === 0) return false;

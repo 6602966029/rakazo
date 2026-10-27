@@ -93,6 +93,8 @@ export interface ReplyState {
    * nothing follows the last step.
    */
   workingNotes: string[];
+  /** Text taken out before steps so far, joined as written, so a secret split across two is hidden. */
+  narrationSoFar: string;
   /** What the bot wrote since its last step: empty means nothing follows the last step. */
   textSinceLastStep: string;
   /** The working line shows a note; tool status lines wait until the bot writes again. */

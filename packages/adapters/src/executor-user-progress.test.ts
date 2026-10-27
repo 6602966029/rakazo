@@ -657,6 +657,23 @@ describe("notes that can't be posted as messages", () => {
     expect(JSON.stringify(append.mock.calls)).not.toContain("fake-secret-value");
   });
 
+  it.each([
+    ["once messages may be posted", new Date(Date.now() - 120_000)],
+    ["on a fresh turn", undefined],
+  ])("hides the rest of a secret split across two steps, %s", async (_, startedAt) => {
+    const { finalizeRun, append, messages } = await runTurn(
+      "Done.",
+      false,
+      ["The token is hunter", "abcxyz saved."],
+      ["hunterabcxyz"],
+      "fyi",
+      { startedAt },
+    );
+    const shown = JSON.stringify([append.mock.calls, messages, stepNotes(finalizeRun)]);
+    expect(shown).not.toContain("abcxyz");
+    expect(shown).toContain("[redacted] saved.");
+  });
+
   it("keeps tool status lines from replacing the note until the bot writes again", async () => {
     const { append } = await runTurn("", false, undefined, [], "fyi", {
       runtimeEvents: [

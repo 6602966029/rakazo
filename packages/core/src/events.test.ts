@@ -13,6 +13,7 @@ import {
   noteLastToolStep,
   projectMessages,
   redactSecrets,
+  redactSecretsAfter,
   reduceLiveMessageBlocks,
   responseStreamingEnabled,
   runFailureError,
@@ -844,6 +845,16 @@ describe("step notes", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("redactSecretsAfter", () => {
+  it("hides the rest of a value that started in the text before", () => {
+    expect(redactSecretsAfter("The token is hunter", "abcxyz saved.", ["hunterabcxyz"])).toBe(
+      "[redacted] saved.",
+    );
+    expect(redactSecretsAfter("hunterabcxyz", " and abc", ["hunterabcxyz"])).toBe(" and abc");
+    expect(redactSecretsAfter("", "key hunterabcxyz", ["hunterabcxyz"])).toBe("key [redacted]");
   });
 });
 
