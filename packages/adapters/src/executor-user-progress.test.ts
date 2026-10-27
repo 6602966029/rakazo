@@ -664,8 +664,8 @@ describe("notes that can't be posted as messages", () => {
     const { finalizeRun, append, messages } = await runTurn(
       "Done.",
       false,
-      ["The token is hunter", "abcxyz saved."],
-      ["hunterabcxyz"],
+      ["The token is hunter", " abcxyz saved."],
+      ["hunter abcxyz"],
       "fyi",
       { startedAt },
     );

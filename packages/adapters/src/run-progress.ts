@@ -161,9 +161,8 @@ export async function publishMidTurnNarration(ctx: RunContext, beforeConnectCard
   const extracted = extractNarrationText(reply.messageSegments, reply.currentTextSegment);
   reply.messageSegments = extracted.remaining;
   reply.currentTextSegment = "";
-  const raw = extracted.text.trim();
-  const text = redactSecretsAfter(reply.narrationSoFar, raw, ctx.secrets).trim();
-  reply.narrationSoFar += raw;
+  const text = redactSecretsAfter(reply.narrationSoFar, extracted.text, ctx.secrets).trim();
+  reply.narrationSoFar += extracted.text;
   if (!text) return undefined;
   reply.assembled = "";
   reply.hasStreamedText = false;
