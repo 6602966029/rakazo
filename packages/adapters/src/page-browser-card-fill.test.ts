@@ -309,3 +309,85 @@ describe("browser_act fill_card", () => {
     }
   });
 });
+
+describe("pay token fill", () => {
+  const token = "lpt_fake_secret_token";
+  const steering = (account = "acct_fake123") => `<!doctype html><body>
+    <input aria-label="Card number" autocomplete="cc-number" />
+    <div class="AiAgentPaymentSteering" style="position:absolute;left:-9999px">
+      <span data-stripe-merchant-account="${account}"></span>
+      <input name="link_pay_token" />
+    </div></body>`;
+  const fill = (merchantAccountId = "acct_fake123", origin = merchant) => ({
+    kind: "pay_token" as const,
+    text: token,
+    origin,
+    merchantAccountId,
+  });
+
+  it("shows the checkout's merchant account and hands it the token, never showing it", () => {
+    const session = new PageBrowserSession(`${merchant}/pay`, steering());
+    expect(session.snapshot().tree).toContain(
+      'This checkout accepts a pay token: merchantAccountId "acct_fake123".',
+    );
+    const result = session.act([fill()]);
+    expect(result).toMatchObject({ ok: true, completed: 1 });
+    expect(JSON.stringify(result)).not.toContain(token);
+  });
+
+  it("refuses another site, another merchant account, and a page without the block", () => {
+    for (const [url, html, step, error] of [
+      ["https://evil.example.test/pay", steering(), fill(), /not on the merchant's site/],
+      [`${merchant}/pay`, steering("acct_other"), fill(), /no pay token field/],
+      [`${merchant}/pay`, steering("not-an-account"), fill(), /no pay token field/],
+      [`${merchant}/pay`, "<!doctype html><body></body>", fill(), /no pay token field/],
+      [`${merchant}/pay`, steering(), fill("acct_fake123", "http://shop.example.test"), /HTTPS/],
+    ] as const) {
+      const session = new PageBrowserSession(url, html);
+      const result = session.act([step]);
+      expect(result, url).toMatchObject({ ok: false, completed: 0, uncertain: false });
+      expect(result.error, url).toMatch(error);
+      expect(JSON.stringify(result)).not.toContain(token);
+    }
+  });
+
+  it("resolves fill_pay_token server-side and refuses it where no resolver is wired", async () => {
+    expect(parseBrowserActions([{ kind: "fill_pay_token", purchase: " p1 " }])).toEqual([
+      { kind: "fill_pay_token", purchase: "p1" },
+    ]);
+    const context: AdapterContext = {
+      operationId: "1",
+      traceId: "1",
+      spaceId: "w",
+      userId: "u",
+      signal: new AbortController().signal,
+    };
+    const computer: ComputerRef = { id: "c1", botId: "b1", kind: "fake", providerRef: "c1" };
+    const browser = new FakeBrowserProvider();
+    const act = vi.spyOn(browser, "act");
+    const resolvePayTokenFill = vi.fn(async () => ({
+      text: token,
+      origin: merchant,
+      merchantAccountId: "acct_fake123",
+    }));
+    await browserActFromTool(
+      browser,
+      computer,
+      context,
+      { actions: [{ kind: "fill_pay_token", purchase: "p1" }] },
+      { resolvePayTokenFill, redactions: () => [token] },
+    );
+    expect(resolvePayTokenFill).toHaveBeenCalledWith({ kind: "fill_pay_token", purchase: "p1" });
+    expect(act.mock.calls[0]?.[1].actions).toEqual([fill()]);
+    expect(
+      await browserActFromTool(browser, computer, context, {
+        actions: [{ kind: "fill_pay_token", purchase: "p1" }],
+      }),
+    ).toMatchObject({ ok: false, error: "Pay tokens are unavailable here." });
+    expect(
+      await browserActFromTool(browser, computer, context, {
+        actions: [{ kind: "fill_pay_token" }],
+      }),
+    ).toMatchObject({ ok: false, error: expect.stringContaining("needs purchase") });
+  });
+});

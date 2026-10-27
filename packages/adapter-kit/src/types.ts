@@ -1048,6 +1048,13 @@ export type BrowserActStep =
       origin: string;
       field: "card";
       cardField: PurchaseCardField;
+    }
+  | {
+      kind: "pay_token";
+      ref?: undefined;
+      text: string;
+      origin: string;
+      merchantAccountId: string;
     };
 
 export interface BrowserActRequest {

@@ -1,6 +1,5 @@
 import type {
   AdapterContext,
-  BrowserActKind,
   BrowserActStep,
   BrowserProvider,
   ComputerRef,
@@ -21,6 +20,7 @@ export const BROWSER_ACT_KINDS = [
   "upload",
   "fill_secret",
   "fill_card",
+  "fill_pay_token",
 ] as const;
 const NAVIGATE_URL_REQUIRED = "An HTTP(S) URL without embedded credentials is required";
 
@@ -38,7 +38,9 @@ export type CardFillStep = {
   purchase: string;
   field: PurchaseCardField;
 };
-export type BrowserActInput = BrowserActStep | SecretFillStep | CardFillStep;
+/** The model never supplies or sees the token. */
+export type PayTokenFillStep = { kind: "fill_pay_token"; purchase: string };
+export type BrowserActInput = BrowserActStep | SecretFillStep | CardFillStep | PayTokenFillStep;
 /** desktopTools: the run also has computer_act, so a page-tool failure can fall back to it. */
 export type PageToolOptions = { desktopTools?: boolean };
 export type ResolveSecretFill = (
@@ -48,6 +50,10 @@ export type ResolveSecretFill = (
 export type ResolveCardFill = (
   step: CardFillStep,
 ) => Promise<{ text: string; origin: string } | { error: string }>;
+
+export type ResolvePayTokenFill = (
+  step: PayTokenFillStep,
+) => Promise<{ text: string; origin: string; merchantAccountId: string } | { error: string }>;
 
 /**
  * A browser tool call turned down before anything ran, such as a missing argument. It is settled:
@@ -112,6 +118,7 @@ export async function browserActFromTool(
   options: PageToolOptions & {
     resolveSecretFill?: ResolveSecretFill;
     resolveCardFill?: ResolveCardFill;
+    resolvePayTokenFill?: ResolvePayTokenFill;
     redactions?: () => string[];
     /** Maps a bot-facing workspace path to its path in the computer's home. */
     resolveUploadPath?: (path: string) => string;
@@ -138,6 +145,24 @@ export async function browserActFromTool(
           paths,
           ...(options.uploadRoots ? { roots: options.uploadRoots } : {}),
         });
+        continue;
+      }
+      if (step.kind === "fill_pay_token") {
+        let resolved: Awaited<ReturnType<ResolvePayTokenFill>>;
+        try {
+          resolved = options.resolvePayTokenFill
+            ? await options.resolvePayTokenFill(step)
+            : { error: "Pay tokens are unavailable here." };
+        } catch (error) {
+          context.signal.throwIfAborted();
+          getLogger().warn("purchase pay token could not be loaded for a fill", {
+            errorName: error instanceof Error ? error.name : typeof error,
+          });
+          return { ...refusedInput("This pay token could not be loaded."), completed: 0 };
+        }
+        if ("error" in resolved) return { ...refusedInput(resolved.error), completed: 0 };
+        const { text, origin, merchantAccountId } = resolved;
+        actions.push({ kind: "pay_token", text, origin, merchantAccountId });
         continue;
       }
       if (step.kind !== "fill_secret" && step.kind !== "fill_card") {
@@ -218,13 +243,21 @@ export function parseBrowserActions(value: unknown): BrowserActInput[] {
       throw new BrowserToolInputError(`browser_act action ${index} must be an object`);
     }
     const action = raw as Record<string, unknown>;
-    const kind = String(action.kind ?? "") as BrowserActKind | "fill_secret" | "fill_card";
+    const kind = String(action.kind ?? "") as (typeof BROWSER_ACT_KINDS)[number];
     if (!(BROWSER_ACT_KINDS as readonly string[]).includes(kind)) {
       throw new BrowserToolInputError(
         `browser_act action ${index} needs kind: ${BROWSER_ACT_KINDS.join(", ")}`,
       );
     }
     const ref = String(action.ref ?? "").trim();
+    if (kind === "fill_pay_token") {
+      const purchase = String(action.purchase ?? "").trim();
+      if (!purchase)
+        throw new BrowserToolInputError(
+          "browser_act fill_pay_token needs purchase: the id of an approved purchase",
+        );
+      return { kind, purchase };
+    }
     if (kind === "fill_card") {
       const purchase = String(action.purchase ?? "").trim();
       const field = action.field;
