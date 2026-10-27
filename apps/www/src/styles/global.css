@@ -1646,6 +1646,11 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   color: var(--panel-muted);
 }
 
+[dir="rtl"] .product-demo__card-arrow {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
 .product-demo__composer {
   padding: 14px 20px 20px;
 }
