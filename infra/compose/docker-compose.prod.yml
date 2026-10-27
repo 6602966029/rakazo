@@ -22,6 +22,10 @@ x-app-environment: &app-environment
   DATA_DIR: /data
   ENCRYPTION_KEY:
   ENCRYPTION_MASTER_KEYS:
+  MASTER_KEY_PROVIDER:
+  AWS_KMS_KEY_ARN:
+  AWS_KMS_ACCESS_KEY_ID:
+  AWS_KMS_SECRET_ACCESS_KEY:
   # on encrypts new content at rest; off stores it readable (docs/self-host.md#content-encryption).
   CONTENT_ENCRYPTION: ${CONTENT_ENCRYPTION:-on}
   # Optional: keep computer homes and artifacts in S3-compatible storage (docs/self-host.md#shared-storage-migration).
