@@ -77,6 +77,12 @@ describe("device token storage", () => {
 });
 
 describe("remote computer access", () => {
+  const accesses: ReturnType<typeof createUserDeviceAccess>[] = [];
+  // select() pairs in the background; its token write must land before the directory is removed.
+  afterEach(async () => {
+    await Promise.all(accesses.splice(0).map((access) => access.pair()));
+  });
+
   function setup(overrides: Partial<Parameters<typeof createUserDeviceAccess>[0]> = {}) {
     const requests: { url: string; init: RequestInit }[] = [];
     const clients: {
@@ -119,6 +125,7 @@ describe("remote computer access", () => {
       },
       ...overrides,
     });
+    accesses.push(access);
     return { access, requests, clients };
   }
 
