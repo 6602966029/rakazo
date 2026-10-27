@@ -1,3 +1,4 @@
+import { MenuView } from "@expo/ui/community/menu";
 import type {
   CapabilityInstall,
   Connection,
@@ -20,8 +21,9 @@ import {
   isCatalogItemConnected,
   OTHER_PLUGINS,
 } from "@rakazo/core";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { NativeStackNavigationOptions } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +40,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ConnectorIcon } from "../../components/connector-icon";
 import { MenuPicker } from "../../components/menu-picker";
 import { NativeActionButton } from "../../components/native-action-button";
+import { NativeSymbol } from "../../components/native-symbol";
 import { PluginIcon } from "../../components/plugin-icon";
 import { Chevron } from "../../components/row-accessories";
 import { rpc } from "../../lib/api";
@@ -52,7 +55,8 @@ import {
   writeIntegrationsCache,
 } from "../../lib/integrations-cache";
 import { loadLastBotId } from "../../lib/last-bot";
-import { native, useThemedStyles } from "../../lib/native";
+import { native, useResolvedAppearance, useThemedStyles } from "../../lib/native";
+import { iosAtLeast } from "../../lib/native-controls";
 import type { PluginParams } from "../../lib/plugin-marketplace";
 import {
   browsablePlugins,
@@ -77,6 +81,8 @@ const PLUGIN_PAGE_SIZE = 20;
 export default function Integrations() {
   const sideInsets = useSideInsets();
   const router = useRouter();
+  const navigation = useNavigation();
+  const scheme = useResolvedAppearance();
   const styles = useThemedStyles(createIntegrationsStyles);
   const { t } = useI18n();
   const categoryLabels: Record<PluginCategory, string> = {
@@ -108,7 +114,7 @@ export default function Integrations() {
   const [pluginCount, setPluginCount] = useState(PLUGIN_PAGE_SIZE);
   const [gitUrl, setGitUrl] = useState("");
   const [sourceKind, setSourceKind] = useState<SourceKind | null>(null);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [adding, setAdding] = useState<"github" | "source" | null>(null);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [credential, setCredential] = useState("");
@@ -599,8 +605,8 @@ export default function Integrations() {
     );
   }
 
-  function closeAdvanced() {
-    setAdvancedOpen(false);
+  function closeAdding() {
+    setAdding(null);
     setSourceKind(null);
     setSourceError(null);
     setName("");
@@ -750,6 +756,7 @@ export default function Integrations() {
   }
 
   function beginSource(kind: SourceKind) {
+    setAdding("source");
     setSourceKind(kind);
     setSourceError(null);
     setName(kind === "treg" ? "Treg" : kind === "executor" ? "Executor" : "");
@@ -790,6 +797,7 @@ export default function Integrations() {
       });
       setCredential("");
       setSourceKind(null);
+      setAdding(null);
       await refresh();
     } catch (reason) {
       setSourceError(errorText(reason, t("Could not add source")));
@@ -978,6 +986,209 @@ export default function Integrations() {
     );
   }
 
+  const addOptions: Array<{ id: "github" | SourceKind; label: string }> = [
+    { id: "github", label: t("From GitHub") },
+    { id: "mcp", label: t("MCP server") },
+    { id: "api", label: "OpenAPI" },
+    { id: "graphql", label: "GraphQL" },
+    { id: "executor", label: "Executor" },
+    { id: "treg", label: "Treg" },
+  ];
+
+  function startAdding(id: "github" | SourceKind) {
+    closeDetail();
+    setSourceError(null);
+    if (id === "github") setAdding("github");
+    else beginSource(id);
+  }
+
+  useLayoutEffect(() => {
+    if (!iosAtLeast(26)) return;
+    navigation.setOptions({
+      unstable_headerRightItems: () => [
+        {
+          type: "menu" as const,
+          label: t("Add custom"),
+          accessibilityLabel: t("Add custom"),
+          icon: { type: "sfSymbol" as const, name: "plus" },
+          menu: {
+            items: addOptions.map((option) => ({
+              type: "action" as const,
+              label: option.label,
+              onPress: () => startAdding(option.id),
+            })),
+          },
+        },
+      ],
+    } satisfies NativeStackNavigationOptions);
+  }, [navigation, t]);
+
+  function renderAddMenuFallback() {
+    if (iosAtLeast(26)) return null;
+    return (
+      <MenuView
+        colorScheme={scheme}
+        title={t("Add custom")}
+        actions={addOptions.map((option) => ({ id: option.id, title: option.label }))}
+        onPressAction={({ nativeEvent }) => startAdding(nativeEvent.event as "github" | SourceKind)}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("Add custom")}
+          hitSlop={8}
+          style={styles.addCustom}
+        >
+          <NativeSymbol ios="plus" android="add" size={20} />
+        </Pressable>
+      </MenuView>
+    );
+  }
+
+  function renderAdding() {
+    return (
+      <View style={styles.catalogStack}>
+        <NativeActionButton
+          fill={false}
+          label={t("Back")}
+          onPress={closeAdding}
+          prominence="secondary"
+        />
+        {adding === "github" ? (
+          <View testID="plugin-git-import" style={styles.card}>
+            <TextInput
+              value={gitUrl}
+              onChangeText={setGitUrl}
+              accessibilityLabel={t("Plugin GitHub URL")}
+              placeholder="https://github.com/owner/plugin"
+              placeholderTextColor={native.tertiaryLabel}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              maxLength={2048}
+              style={styles.input}
+            />
+            <NativeActionButton
+              disabled={!gitUrl.trim()}
+              label={t("Preview")}
+              onPress={() => openPlugin(gitImportParams(gitUrl))}
+              prominence="secondary"
+            />
+          </View>
+        ) : null}
+        {sourceError ? <Text style={styles.error}>{sourceError}</Text> : null}
+        {sourceKind ? (
+          <View style={styles.card}>
+            <Text style={styles.title}>
+              {sourceKind === "treg"
+                ? t("Connect Treg")
+                : sourceKind === "executor"
+                  ? t("Connect Executor")
+                  : sourceKind === "mcp"
+                    ? t("Remote MCP server")
+                    : sourceKind === "graphql"
+                      ? t("GraphQL endpoint")
+                      : t("OpenAPI JSON")}
+            </Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder={t("Display name")}
+              placeholderTextColor={native.tertiaryLabel}
+              style={styles.input}
+            />
+            {sourceKind !== "treg" ? (
+              <TextInput
+                value={url}
+                onChangeText={setUrl}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder={
+                  sourceKind === "mcp"
+                    ? t("https://example.com/mcp")
+                    : sourceKind === "executor"
+                      ? t("https://executor.example/mcp")
+                      : sourceKind === "graphql"
+                        ? t("https://example.com/graphql")
+                        : t("https://example.com/openapi.json")
+                }
+                placeholderTextColor={native.tertiaryLabel}
+                style={styles.input}
+              />
+            ) : null}
+            {sourceKind !== "treg" && sourceKind !== "executor" ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setRequiresAuth((value) => !value)}
+                style={styles.authToggle}
+              >
+                <Text style={styles.secondary}>
+                  {requiresAuth ? t("Bearer authentication") : t("No authentication")}
+                </Text>
+              </Pressable>
+            ) : null}
+            {sourceKind === "treg" || sourceKind === "executor" || requiresAuth ? (
+              <TextInput
+                value={credential}
+                onChangeText={setCredential}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder={
+                  sourceKind === "treg"
+                    ? t("Treg token")
+                    : sourceKind === "executor"
+                      ? t("Executor token")
+                      : t("Bearer token")
+                }
+                placeholderTextColor={native.tertiaryLabel}
+                style={styles.input}
+              />
+            ) : null}
+            <View style={styles.accountActions}>
+              <NativeActionButton
+                busy={pending === "source"}
+                label={t("Verify and add")}
+                onPress={() => void addSource()}
+                prominence="secondary"
+              />
+              <NativeActionButton
+                label={t("Cancel")}
+                onPress={closeAdding}
+                prominence="secondary"
+              />
+            </View>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  function renderToolSources() {
+    if (!sources.length) return null;
+    return (
+      <View testID="tool-sources" style={styles.catalogStack}>
+        <Text style={styles.section}>{t("Tool sources")}</Text>
+        {sources.map((source) => (
+          <View key={source.id} style={styles.row}>
+            <View style={styles.grow}>
+              <Text style={styles.title}>{source.name}</Text>
+              <Text style={styles.secondary}>{source.kind.toUpperCase()}</Text>
+              <Text numberOfLines={1} style={styles.secondary}>
+                {source.source}
+              </Text>
+            </View>
+            <NativeActionButton
+              fill={false}
+              label={pending === source.id ? t("Removing…") : t("Remove")}
+              onPress={() => void removeSource(source)}
+              prominence="destructive"
+            />
+          </View>
+        ))}
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView edges={["bottom"]} style={styles.screen}>
       <ScrollView
@@ -986,51 +1197,99 @@ export default function Integrations() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
-        {!detailItem ? (
-          <TextInput
-            value={query}
-            onChangeText={(value) => {
-              setQuery(value);
-              setVisibleCount(CONNECTION_CATALOG_PAGE_SIZE);
-              setPluginCount(PLUGIN_PAGE_SIZE);
-            }}
-            accessibilityLabel={t("Search apps")}
-            placeholder={t("Search apps")}
-            placeholderTextColor={native.tertiaryLabel}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            style={styles.input}
-          />
-        ) : null}
+        {adding ? (
+          renderAdding()
+        ) : (
+          <>
+            {!detailItem ? renderAddMenuFallback() : null}
+            {!detailItem ? (
+              <TextInput
+                value={query}
+                onChangeText={(value) => {
+                  setQuery(value);
+                  setVisibleCount(CONNECTION_CATALOG_PAGE_SIZE);
+                  setPluginCount(PLUGIN_PAGE_SIZE);
+                }}
+                accessibilityLabel={t("Search apps")}
+                placeholder={t("Search apps")}
+                placeholderTextColor={native.tertiaryLabel}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                style={styles.input}
+              />
+            ) : null}
 
-        {!detailItem && (categories.length >= 2 || category) ? (
-          <View style={styles.categoryPicker}>
-            <MenuPicker
-              label={t("Category")}
-              showLabel={false}
-              plain
-              choices={[
-                { key: "", label: t("All") },
-                ...categories.map((name) => ({ key: name, label: categoryLabel(name) })),
-              ]}
-              value={category}
-              onChange={(key) => {
-                setCategory(key);
-                setPluginCount(PLUGIN_PAGE_SIZE);
-              }}
-            />
-          </View>
-        ) : null}
+            {!detailItem && (categories.length >= 2 || category) ? (
+              <View style={styles.categoryPicker}>
+                <MenuPicker
+                  label={t("Category")}
+                  showLabel={false}
+                  plain
+                  choices={[
+                    { key: "", label: t("All") },
+                    ...categories.map((name) => ({ key: name, label: categoryLabel(name) })),
+                  ]}
+                  value={category}
+                  onChange={(key) => {
+                    setCategory(key);
+                    setPluginCount(PLUGIN_PAGE_SIZE);
+                  }}
+                />
+              </View>
+            ) : null}
 
-        {!detailItem && !filtering && pluginInstalls.length > 0 ? renderInstalledPlugins() : null}
+            {!detailItem && !filtering && pluginInstalls.length > 0
+              ? renderInstalledPlugins()
+              : null}
 
-        {!detailItem && !category && (standaloneServers.length > 0 || mcpError) ? (
-          <View testID="registered-mcp-servers" style={styles.catalogStack}>
-            <Text style={styles.section}>{t("MCP servers")}</Text>
-            {mcpError ? (
-              <View>
-                <Text style={styles.error}>{mcpError}</Text>
+            {!detailItem && !category && (standaloneServers.length > 0 || mcpError) ? (
+              <View testID="registered-mcp-servers" style={styles.catalogStack}>
+                <Text style={styles.section}>{t("MCP servers")}</Text>
+                {mcpError ? (
+                  <View>
+                    <Text style={styles.error}>{mcpError}</Text>
+                    <NativeActionButton
+                      label={t("Retry")}
+                      fill={false}
+                      onPress={() => void retryRefresh()}
+                      prominence="secondary"
+                    />
+                  </View>
+                ) : null}
+                {standaloneServers
+                  .filter((server) =>
+                    `${server.name} ${server.description}`
+                      .toLowerCase()
+                      .includes(query.trim().toLowerCase()),
+                  )
+                  .map((server) => (
+                    <View key={server.id} testID="registered-mcp-server" style={styles.row}>
+                      <ConnectorIcon name={server.name} size={LOGO_SIZE} />
+                      <Text numberOfLines={1} style={[styles.title, styles.grow]}>
+                        {server.name}
+                      </Text>
+                      <Text style={styles.secondary}>
+                        {!server.enabled
+                          ? t("Disabled")
+                          : server.oauthStatus === "reconnect"
+                            ? t("OAuth expired")
+                            : server.oauthStatus === "connected"
+                              ? t("OAuth connected")
+                              : server.hasSecret
+                                ? t("Credential saved")
+                                : t("No auth")}
+                      </Text>
+                    </View>
+                  ))}
+              </View>
+            ) : null}
+
+            {!detailItem && !filtering ? renderToolSources() : null}
+
+            {catalogError ? (
+              <View style={styles.catalogStack}>
+                <Text style={styles.error}>{catalogError}</Text>
                 <NativeActionButton
                   label={t("Retry")}
                   fill={false}
@@ -1039,296 +1298,94 @@ export default function Integrations() {
                 />
               </View>
             ) : null}
-            {standaloneServers
-              .filter((server) =>
-                `${server.name} ${server.description}`
-                  .toLowerCase()
-                  .includes(query.trim().toLowerCase()),
-              )
-              .map((server) => (
-                <View key={server.id} testID="registered-mcp-server" style={styles.row}>
-                  <ConnectorIcon name={server.name} size={LOGO_SIZE} />
-                  <Text numberOfLines={1} style={[styles.title, styles.grow]}>
-                    {server.name}
-                  </Text>
-                  <Text style={styles.secondary}>
-                    {!server.enabled
-                      ? t("Disabled")
-                      : server.oauthStatus === "reconnect"
-                        ? t("OAuth expired")
-                        : server.oauthStatus === "connected"
-                          ? t("OAuth connected")
-                          : server.hasSecret
-                            ? t("Credential saved")
-                            : t("No auth")}
-                  </Text>
-                </View>
-              ))}
-          </View>
-        ) : null}
 
-        {catalogError ? (
-          <View style={styles.catalogStack}>
-            <Text style={styles.error}>{catalogError}</Text>
-            <NativeActionButton
-              label={t("Retry")}
-              fill={false}
-              onPress={() => void retryRefresh()}
-              prominence="secondary"
-            />
-          </View>
-        ) : null}
-
-        {detailItem ? (
-          renderDetail(detailItem)
-        ) : (
-          <>
-            {!catalogReady && !catalogError ? (
-              <View
-                testID="integrations-loading"
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                style={catalogColumns === 2 ? styles.catalogGrid : styles.catalogStack}
-              >
-                {Array.from({ length: 8 }, (_, index) => (
+            {detailItem ? (
+              renderDetail(detailItem)
+            ) : (
+              <>
+                {!catalogReady && !catalogError ? (
                   <View
-                    key={index}
-                    style={[styles.row, catalogColumns === 2 ? styles.catalogCell : null]}
+                    testID="integrations-loading"
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={catalogColumns === 2 ? styles.catalogGrid : styles.catalogStack}
                   >
-                    <View style={styles.logoPlaceholder} />
-                    <View style={styles.grow}>
-                      <View style={styles.titlePlaceholder} />
-                    </View>
-                    <View style={styles.pillPlaceholder} />
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
-            {catalogReady && catalog.length === 0 ? (
-              <Text style={styles.secondary}>{t(EMPTY_PLUGIN_CATALOG_MESSAGE)}</Text>
-            ) : null}
-
-            {catalogReady && catalog.length > 0 && !category ? (
-              <View style={catalogColumns === 2 ? styles.catalogGrid : styles.catalogStack}>
-                {showFeatured
-                  ? featuredTiles.map((tile) => {
-                      const item = tile.item;
-                      const key = item ? catalogItemKey(item) : tile.id;
-                      const disabled = tile.missing || !item;
-                      if (item && !tile.missing) {
-                        return renderCatalogTile(item, tile.label);
-                      }
-                      return (
-                        <View
-                          key={key}
-                          style={[
-                            styles.row,
-                            catalogColumns === 2 ? styles.catalogCell : null,
-                            disabled ? { opacity: 0.7 } : null,
-                          ]}
-                        >
-                          <ConnectorIcon logo={item?.logo} name={tile.label} size={LOGO_SIZE} />
-                          <View style={styles.grow}>
-                            <Text numberOfLines={1} style={styles.title}>
-                              {tile.label}
-                            </Text>
-                            {disabled ? (
-                              <Text style={styles.secondary}>{t("Not in the plugin catalog")}</Text>
-                            ) : null}
-                          </View>
+                    {Array.from({ length: 8 }, (_, index) => (
+                      <View
+                        key={index}
+                        style={[styles.row, catalogColumns === 2 ? styles.catalogCell : null]}
+                      >
+                        <View style={styles.logoPlaceholder} />
+                        <View style={styles.grow}>
+                          <View style={styles.titlePlaceholder} />
                         </View>
-                      );
-                    })
-                  : null}
-                {renderedApps.map((item) => renderCatalogTile(item, item.name))}
-              </View>
-            ) : null}
+                        <View style={styles.pillPlaceholder} />
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
 
-            {catalogReady &&
-            catalogApps.length === 0 &&
-            pluginMatches.length === 0 &&
-            pluginsState !== "loading" &&
-            filtering ? (
-              <Text style={styles.secondary}>{t("No apps match your search.")}</Text>
-            ) : null}
+                {catalogReady && catalog.length === 0 ? (
+                  <Text style={styles.secondary}>{t(EMPTY_PLUGIN_CATALOG_MESSAGE)}</Text>
+                ) : null}
 
-            {!category && renderedApps.length < catalogApps.length ? (
-              <NativeActionButton
-                label={t("Show more")}
-                onPress={() => setVisibleCount((count) => count + CONNECTION_CATALOG_PAGE_SIZE)}
-                prominence="secondary"
-              />
-            ) : null}
+                {catalogReady && catalog.length > 0 && !category ? (
+                  <View style={catalogColumns === 2 ? styles.catalogGrid : styles.catalogStack}>
+                    {showFeatured
+                      ? featuredTiles.map((tile) => {
+                          const item = tile.item;
+                          const key = item ? catalogItemKey(item) : tile.id;
+                          const disabled = tile.missing || !item;
+                          if (item && !tile.missing) {
+                            return renderCatalogTile(item, tile.label);
+                          }
+                          return (
+                            <View
+                              key={key}
+                              style={[
+                                styles.row,
+                                catalogColumns === 2 ? styles.catalogCell : null,
+                                disabled ? { opacity: 0.7 } : null,
+                              ]}
+                            >
+                              <ConnectorIcon logo={item?.logo} name={tile.label} size={LOGO_SIZE} />
+                              <View style={styles.grow}>
+                                <Text numberOfLines={1} style={styles.title}>
+                                  {tile.label}
+                                </Text>
+                                {disabled ? (
+                                  <Text style={styles.secondary}>
+                                    {t("Not in the plugin catalog")}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </View>
+                          );
+                        })
+                      : null}
+                    {renderedApps.map((item) => renderCatalogTile(item, item.name))}
+                  </View>
+                ) : null}
 
-            {renderPlugins()}
+                {catalogReady &&
+                catalogApps.length === 0 &&
+                pluginMatches.length === 0 &&
+                pluginsState !== "loading" &&
+                filtering ? (
+                  <Text style={styles.secondary}>{t("No apps match your search.")}</Text>
+                ) : null}
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: advancedOpen }}
-              testID="integrations-advanced"
-              onPress={() => {
-                if (advancedOpen) closeAdvanced();
-                else setAdvancedOpen(true);
-              }}
-              style={styles.advancedToggle}
-            >
-              <Text style={styles.advancedLabel}>{t("Advanced")}</Text>
-              <Chevron expanded={advancedOpen} />
-            </Pressable>
-
-            {advancedOpen ? (
-              <View style={styles.advancedBody}>
-                <View testID="plugin-git-import" style={styles.card}>
-                  <TextInput
-                    value={gitUrl}
-                    onChangeText={setGitUrl}
-                    accessibilityLabel={t("Plugin GitHub URL")}
-                    placeholder="https://github.com/owner/plugin"
-                    placeholderTextColor={native.tertiaryLabel}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    maxLength={2048}
-                    style={styles.input}
-                  />
+                {!category && renderedApps.length < catalogApps.length ? (
                   <NativeActionButton
-                    disabled={!gitUrl.trim()}
-                    label={t("Install from GitHub")}
-                    onPress={() => openPlugin(gitImportParams(gitUrl))}
+                    label={t("Show more")}
+                    onPress={() => setVisibleCount((count) => count + CONNECTION_CATALOG_PAGE_SIZE)}
                     prominence="secondary"
                   />
-                </View>
-                <View style={styles.accountActions}>
-                  {(["mcp", "api", "graphql", "executor", "treg"] as const).map((kind) => (
-                    <NativeActionButton
-                      key={kind}
-                      label={
-                        kind === "treg"
-                          ? t("Add Treg")
-                          : kind === "executor"
-                            ? t("Add Executor")
-                            : kind === "mcp"
-                              ? t("Add MCP server")
-                              : kind === "graphql"
-                                ? t("Add GraphQL")
-                                : t("Add OpenAPI")
-                      }
-                      onPress={() => beginSource(kind)}
-                      prominence="secondary"
-                    />
-                  ))}
-                </View>
-
-                {sourceError ? <Text style={styles.error}>{sourceError}</Text> : null}
-
-                {sourceKind ? (
-                  <View style={styles.card}>
-                    <Text style={styles.title}>
-                      {sourceKind === "treg"
-                        ? t("Connect Treg")
-                        : sourceKind === "executor"
-                          ? t("Connect Executor")
-                          : sourceKind === "mcp"
-                            ? t("Remote MCP server")
-                            : sourceKind === "graphql"
-                              ? t("GraphQL endpoint")
-                              : t("OpenAPI JSON")}
-                    </Text>
-                    <TextInput
-                      value={name}
-                      onChangeText={setName}
-                      placeholder={t("Display name")}
-                      placeholderTextColor={native.tertiaryLabel}
-                      style={styles.input}
-                    />
-                    {sourceKind !== "treg" ? (
-                      <TextInput
-                        value={url}
-                        onChangeText={setUrl}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        placeholder={
-                          sourceKind === "mcp"
-                            ? t("https://example.com/mcp")
-                            : sourceKind === "executor"
-                              ? t("https://executor.example/mcp")
-                              : sourceKind === "graphql"
-                                ? t("https://example.com/graphql")
-                                : t("https://example.com/openapi.json")
-                        }
-                        placeholderTextColor={native.tertiaryLabel}
-                        style={styles.input}
-                      />
-                    ) : null}
-                    {sourceKind !== "treg" && sourceKind !== "executor" ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => setRequiresAuth((value) => !value)}
-                        style={styles.authToggle}
-                      >
-                        <Text style={styles.secondary}>
-                          {requiresAuth ? t("Bearer authentication") : t("No authentication")}
-                        </Text>
-                      </Pressable>
-                    ) : null}
-                    {sourceKind === "treg" || sourceKind === "executor" || requiresAuth ? (
-                      <TextInput
-                        value={credential}
-                        onChangeText={setCredential}
-                        secureTextEntry
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        placeholder={
-                          sourceKind === "treg"
-                            ? t("Treg token")
-                            : sourceKind === "executor"
-                              ? t("Executor token")
-                              : t("Bearer token")
-                        }
-                        placeholderTextColor={native.tertiaryLabel}
-                        style={styles.input}
-                      />
-                    ) : null}
-                    <View style={styles.accountActions}>
-                      <NativeActionButton
-                        busy={pending === "source"}
-                        label={t("Verify and add")}
-                        onPress={() => void addSource()}
-                        prominence="secondary"
-                      />
-                      <NativeActionButton
-                        label={t("Cancel")}
-                        onPress={() => setSourceKind(null)}
-                        prominence="secondary"
-                      />
-                    </View>
-                  </View>
                 ) : null}
 
-                <Text style={styles.section}>{t("Tool sources")}</Text>
-                {sources.length === 0 ? (
-                  <Text style={styles.secondary}>{t("No custom sources installed.")}</Text>
-                ) : null}
-                {sources.map((source) => (
-                  <View key={source.id} style={styles.row}>
-                    <View style={styles.grow}>
-                      <Text style={styles.title}>{source.name}</Text>
-                      <Text style={styles.secondary}>{source.kind.toUpperCase()}</Text>
-                      <Text numberOfLines={1} style={styles.secondary}>
-                        {source.source}
-                      </Text>
-                    </View>
-                    <NativeActionButton
-                      fill={false}
-                      label={pending === source.id ? t("Removing…") : t("Remove")}
-                      onPress={() => void removeSource(source)}
-                      prominence="destructive"
-                    />
-                  </View>
-                ))}
-              </View>
-            ) : null}
+                {renderPlugins()}
+              </>
+            )}
           </>
         )}
       </ScrollView>
@@ -1437,14 +1494,6 @@ function createIntegrationsStyles() {
     },
     toolsBody: { gap: 8, paddingTop: 4 },
     toolName: { color: native.label, fontSize: 14 },
-    advancedToggle: {
-      marginTop: 8,
-      minHeight: 44,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    advancedLabel: { color: native.secondaryLabel, fontSize: 14 },
-    advancedBody: { gap: 14 },
+    addCustom: { alignSelf: "flex-end", padding: 4 },
   });
 }

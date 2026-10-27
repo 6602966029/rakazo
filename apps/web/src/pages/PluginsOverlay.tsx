@@ -28,10 +28,6 @@ import { fetchFresh, writeSaved } from "@rakazo/core/query";
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Dialog,
   DialogClose,
   DialogContent,
@@ -41,7 +37,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Field,
+  FieldDescription,
+  FieldLabel,
   Input,
   NativeSelect,
   NativeSelectOption,
@@ -49,6 +49,7 @@ import {
 } from "@rakazo/ui-web";
 import { queryOptions, skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, FileText, Plus, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
 import type { PluginSelection } from "../components/integrations/plugin-marketplace";
@@ -83,6 +84,7 @@ function ConnectorIcon({ name, logo }: { name: string; logo?: string | null }) {
 }
 
 type SourceKind = "treg" | "executor" | "mcp" | "api" | "graphql";
+type OverlayView = "browse" | "manage" | "github" | "source" | "browseMcp" | "domain";
 
 const NO_CATALOG: ConnectionCatalogItem[] = [];
 const NO_CONNECTIONS: Connection[] = [];
@@ -124,7 +126,6 @@ export function PluginsOverlay({
   activeBotId?: string;
 }) {
   const { t } = useLingui();
-  const [setupOpen, setSetupOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(CONNECTION_CATALOG_PAGE_SIZE);
   // Only accounts whose label is being edited; the rest follow the saved name.
@@ -144,7 +145,9 @@ export function PluginsOverlay({
   const [catalogFeedError, setCatalogFeedError] = useState<string | null>(null);
   const [catalogFeedPending, setCatalogFeedPending] = useState(false);
   const [catalogFeedSearched, setCatalogFeedSearched] = useState(false);
-  const [view, setView] = useState<"browse" | "manage">("browse");
+  const [view, setView] = useState<OverlayView>("browse");
+  // Where a source form returns: the domain search that prefilled it, or browse.
+  const [sourceBack, setSourceBack] = useState<OverlayView>("browse");
   const [plugin, setPlugin] = useState<PluginSelection | null>(null);
   const [category, setCategory] = useState<string | null>(null);
   const [pluginCount, setPluginCount] = useState(PLUGIN_PAGE_SIZE);
@@ -321,7 +324,11 @@ export function PluginsOverlay({
   const standaloneServers = mcpServers.filter((server) => !server.installId);
   const connectedItems = catalog.filter((item) => itemConnected(item));
   const connectedCount =
-    connectedItems.length + standaloneServers.length + pluginInstalls.length + userSkills.length;
+    connectedItems.length +
+    standaloneServers.length +
+    sources.length +
+    pluginInstalls.length +
+    userSkills.length;
   const connectedMarks = [
     ...connectedItems.map((item) => ({
       key: catalogItemKey(item),
@@ -489,6 +496,10 @@ export function PluginsOverlay({
   }
 
   function beginSource(kind: SourceKind) {
+    setPlugin(null);
+    setDetailKey(null);
+    setSourceBack("browse");
+    setView("source");
     setSourceKind(kind);
     setSourceError(null);
     setSourceHint(null);
@@ -522,6 +533,8 @@ export function PluginsOverlay({
     surface: IntegrationCatalogSurface,
   ) {
     if (!surface.source || (surface.kind !== "mcp" && surface.kind !== "openapi")) return;
+    setSourceBack("domain");
+    setView("source");
     setSourceKind(surface.kind === "mcp" ? "mcp" : "api");
     setSourceName(result.name);
     setSourceUrl(surface.source);
@@ -568,6 +581,7 @@ export function PluginsOverlay({
       });
       setCredential("");
       setSourceKind(null);
+      setView("manage");
       await refresh();
     } catch (err) {
       setSourceError(errorText(err, t`Could not install connector`));
@@ -903,6 +917,354 @@ export function PluginsOverlay({
     );
   }
 
+  function openAddView(next: OverlayView) {
+    setPlugin(null);
+    setDetailKey(null);
+    setSourceError(null);
+    setView(next);
+  }
+
+  function leaveSource() {
+    setSourceKind(null);
+    setSourceError(null);
+    setSourceHint(null);
+    setView(sourceBack);
+  }
+
+  function renderAddMenu() {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon-sm" aria-label={t`Add custom`} />}
+        >
+          <Plus />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => openAddView("github")}>
+            <Trans>From GitHub</Trans>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => beginSource("mcp")}>
+            <Trans>MCP server</Trans>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => beginSource("api")}>OpenAPI</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => beginSource("graphql")}>GraphQL</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => beginSource("executor")}>Executor</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => beginSource("treg")}>Treg</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => openAddView("browseMcp")}>
+            <Trans>Browse MCP servers</Trans>
+          </DropdownMenuItem>
+          {catalogFeedEnabled ? (
+            <DropdownMenuItem onClick={() => openAddView("domain")}>
+              <Trans>Search by domain</Trans>
+            </DropdownMenuItem>
+          ) : null}
+          {onOpenMcp ? (
+            <DropdownMenuItem onClick={onOpenMcp}>
+              <Trans>Manage MCP servers</Trans>
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  function renderViewTitle(title: ReactNode, onBack: () => void) {
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="-ms-2 text-muted-foreground"
+          aria-label={t`Back`}
+          onClick={onBack}
+        >
+          <ChevronLeft />
+        </Button>
+        <h2 className="text-[17px] font-medium text-foreground">{title}</h2>
+      </div>
+    );
+  }
+
+  function renderGithubImport() {
+    return (
+      <div data-testid="plugin-git-import" className="max-w-xl space-y-6">
+        {renderViewTitle(<Trans>From GitHub</Trans>, () => setView("browse"))}
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const source = gitSource.trim();
+            if (!source) return;
+            openPlugin({
+              source,
+              installedSource: source.replace(/\/$/, ""),
+              name: source.replace(/\/$/, "").split("/").pop() ?? source,
+            });
+          }}
+        >
+          <Field>
+            <FieldLabel htmlFor="plugin-git-url">
+              <Trans>Plugin GitHub URL</Trans>
+            </FieldLabel>
+            <Input
+              id="plugin-git-url"
+              value={gitSource}
+              onChange={(event) => setGitSource(event.target.value)}
+              placeholder="https://github.com/owner/plugin"
+              maxLength={2048}
+              autoFocus
+            />
+          </Field>
+          <Button type="submit" disabled={!gitSource.trim()}>
+            <Trans>Preview</Trans>
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  function renderSourceForm() {
+    if (!sourceKind) return null;
+    const custom = sourceKind !== "treg" && sourceKind !== "executor";
+    return (
+      <div data-testid="integrations-source-form" className="max-w-xl space-y-6">
+        {renderViewTitle(
+          sourceKind === "treg" ? (
+            "Treg"
+          ) : sourceKind === "executor" ? (
+            "Executor"
+          ) : sourceKind === "mcp" ? (
+            <Trans>MCP server</Trans>
+          ) : sourceKind === "graphql" ? (
+            "GraphQL"
+          ) : (
+            "OpenAPI"
+          ),
+          leaveSource,
+        )}
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void installSource();
+          }}
+        >
+          <Field>
+            <FieldLabel htmlFor="source-name">
+              <Trans>Name</Trans>
+            </FieldLabel>
+            <Input
+              id="source-name"
+              value={sourceName}
+              onChange={(event) => setSourceName(event.target.value)}
+              autoFocus
+            />
+          </Field>
+          {sourceKind !== "treg" ? (
+            <Field>
+              <FieldLabel htmlFor="source-url">URL</FieldLabel>
+              <Input
+                id="source-url"
+                value={sourceUrl}
+                onChange={(event) => setSourceUrl(event.target.value)}
+                placeholder={
+                  sourceKind === "mcp"
+                    ? "https://example.com/mcp"
+                    : sourceKind === "executor"
+                      ? "https://executor.example/mcp"
+                      : sourceKind === "graphql"
+                        ? "https://example.com/graphql"
+                        : "https://example.com/openapi.json"
+                }
+              />
+            </Field>
+          ) : null}
+          {custom ? (
+            <Field>
+              <FieldLabel htmlFor="source-auth">
+                <Trans>Authentication</Trans>
+              </FieldLabel>
+              <NativeSelect
+                id="source-auth"
+                className="w-full"
+                value={authType}
+                onChange={(event) => setAuthType(event.target.value as typeof authType)}
+              >
+                <NativeSelectOption value="none">
+                  <Trans>No authentication</Trans>
+                </NativeSelectOption>
+                <NativeSelectOption value="bearer">
+                  <Trans>Bearer token</Trans>
+                </NativeSelectOption>
+                <NativeSelectOption value="header">
+                  <Trans>API key header</Trans>
+                </NativeSelectOption>
+              </NativeSelect>
+            </Field>
+          ) : null}
+          {custom && authType === "header" ? (
+            <Field>
+              <FieldLabel htmlFor="source-header">
+                <Trans>Header name</Trans>
+              </FieldLabel>
+              <Input
+                id="source-header"
+                value={authName}
+                onChange={(event) => setAuthName(event.target.value)}
+              />
+            </Field>
+          ) : null}
+          {!custom || authType !== "none" ? (
+            <Field>
+              <FieldLabel htmlFor="source-credential">
+                {sourceKind === "treg" ? (
+                  <Trans>Treg token</Trans>
+                ) : sourceKind === "executor" ? (
+                  <Trans>Executor token</Trans>
+                ) : (
+                  <Trans>Credential</Trans>
+                )}
+              </FieldLabel>
+              <Input
+                id="source-credential"
+                type="password"
+                autoComplete="new-password"
+                value={credential}
+                onChange={(event) => setCredential(event.target.value)}
+              />
+              <FieldDescription>
+                <Trans>Credentials are encrypted and never sent to the model.</Trans>
+              </FieldDescription>
+            </Field>
+          ) : null}
+          {sourceHint ? <p className="text-sm text-muted-foreground">{sourceHint}</p> : null}
+          {sourceError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {sourceError}
+            </p>
+          ) : null}
+          <Button type="submit" disabled={pending === "install-source"}>
+            {pending === "install-source" ? (
+              <Trans>Verifying…</Trans>
+            ) : (
+              <Trans>Verify and add</Trans>
+            )}
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  function renderDomainSearch() {
+    return (
+      <div data-testid="integrations-catalog-feed" className="max-w-2xl space-y-6">
+        {renderViewTitle(<Trans>Search by domain</Trans>, () => setView("browse"))}
+        <div className="space-y-3">
+          <form
+            className="flex gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void searchCatalogFeed();
+            }}
+          >
+            <Input
+              value={catalogFeedQuery}
+              disabled={catalogFeedPending}
+              onChange={(event) => {
+                setCatalogFeedQuery(event.target.value);
+                setCatalogFeedResults([]);
+                setCatalogFeedError(null);
+                setCatalogFeedSearched(false);
+              }}
+              placeholder="github.com"
+              aria-label={t`Integration domain`}
+            />
+            <Button
+              type="submit"
+              variant="secondary"
+              size="sm"
+              disabled={!catalogFeedQuery.trim() || catalogFeedPending}
+            >
+              {catalogFeedPending ? <Trans>Searching…</Trans> : <Trans>Search</Trans>}
+            </Button>
+          </form>
+          {catalogFeedError ? <p className="text-sm text-destructive">{catalogFeedError}</p> : null}
+          {catalogFeedSearched && !catalogFeedPending && catalogFeedResults.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              <Trans>No results</Trans>
+            </p>
+          ) : null}
+          {catalogFeedResults.map((result) => (
+            <div
+              key={`${result.domain}:${result.name}:${result.pageUrl ?? ""}`}
+              className="rounded-xl border border-border/70 p-3"
+            >
+              <div className="font-medium text-foreground">
+                {result.pageUrl ? (
+                  <a
+                    href={result.pageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:underline"
+                  >
+                    {result.name}
+                  </a>
+                ) : (
+                  result.name
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">{result.domain}</div>
+              {result.description ? (
+                <p className="mt-2 text-sm leading-5 text-muted-foreground">{result.description}</p>
+              ) : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {result.surfaces.map((surface) => {
+                  const canAdd =
+                    Boolean(surface.source) &&
+                    (surface.kind === "mcp" || surface.kind === "openapi");
+                  return (
+                    <Button
+                      key={`${result.domain}:${surface.slug}`}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={!canAdd}
+                      title={canAdd ? undefined : t`Manual setup required`}
+                      onClick={() => beginCatalogSurface(result, surface)}
+                    >
+                      <span>{surface.kind.toUpperCase()}</span>
+                      <span>{canAdd ? t`Add` : t`Manual`}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderBrowseMcp() {
+    return (
+      <div className="space-y-6">
+        {renderViewTitle(<Trans>Browse MCP servers</Trans>, () => setView("browse"))}
+        <IntegrationSetup
+          botId={activeBotId}
+          onDone={() => {
+            setView("manage");
+            void refresh().catch((err: unknown) =>
+              setCatalogError(errorText(err, t`Could not load integrations`)),
+            );
+          }}
+        />
+      </div>
+    );
+  }
+
   function renderManage() {
     return (
       <div data-testid="integrations-manage" className="space-y-8">
@@ -1042,6 +1404,48 @@ export function PluginsOverlay({
           </section>
         ) : null}
 
+        {sources.length ? (
+          <section data-testid="tool-sources">
+            <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
+              <Trans>Tool sources</Trans>
+            </h3>
+            {sourceError ? (
+              <p role="alert" className="mb-2 px-2.5 text-sm text-destructive">
+                {sourceError}
+              </p>
+            ) : null}
+            {sources.map((source) => (
+              <div
+                key={source.id}
+                data-testid="tool-source"
+                className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
+              >
+                <ConnectorIcon name={source.name} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-medium">{source.name}</span>
+                  <span className="block truncate text-[13px] text-muted-foreground">
+                    {source.kind === "api"
+                      ? "OpenAPI"
+                      : source.kind === "graphql"
+                        ? "GraphQL"
+                        : "MCP"}{" "}
+                    {source.source}
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={pending === source.id}
+                  onClick={() => void removeSource(source)}
+                >
+                  {pending === source.id ? <Trans>Removing…</Trans> : <Trans>Remove</Trans>}
+                </Button>
+              </div>
+            ))}
+          </section>
+        ) : null}
+
         {userSkills.length ? (
           <section data-testid="user-skills">
             <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
@@ -1112,6 +1516,7 @@ export function PluginsOverlay({
                 <ChevronRight />
               </Button>
             ) : null}
+            {browsing || view === "manage" ? renderAddMenu() : null}
             <DialogClose
               render={<Button variant="ghost" size="icon-sm" aria-label={t`Close integrations`} />}
             >
@@ -1234,6 +1639,14 @@ export function PluginsOverlay({
             renderDetail(detailItem)
           ) : view === "manage" ? (
             renderManage()
+          ) : view === "github" ? (
+            renderGithubImport()
+          ) : view === "source" ? (
+            renderSourceForm()
+          ) : view === "domain" ? (
+            renderDomainSearch()
+          ) : view === "browseMcp" ? (
+            renderBrowseMcp()
           ) : (
             <>
               {catalogLoaded && showFeatured && !category ? (
@@ -1360,388 +1773,6 @@ export function PluginsOverlay({
                   ) : null}
                 </>
               )}
-
-              <Disclosure
-                data-testid="integrations-advanced"
-                className="group mt-8"
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setSourceKind(null);
-                    setSetupOpen(false);
-                    setSourceError(null);
-                    setSourceHint(null);
-                    setSourceName("");
-                    setSourceUrl("");
-                    setCredential("");
-                    setAuthType("none");
-                    setAuthName("x-api-key");
-                  }
-                }}
-                summary={<Trans>Advanced</Trans>}
-                summaryClassName="w-full flex items-center justify-between gap-3 text-[14px] text-muted-foreground"
-              >
-                <div className="mt-4 space-y-4">
-                  <form
-                    data-testid="plugin-git-import"
-                    className="flex gap-2"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      const source = gitSource.trim();
-                      if (!source) return;
-                      openPlugin({
-                        source,
-                        installedSource: source.replace(/\/$/, ""),
-                        name: source.replace(/\/$/, "").split("/").pop() ?? source,
-                      });
-                    }}
-                  >
-                    <Input
-                      value={gitSource}
-                      onChange={(event) => setGitSource(event.target.value)}
-                      aria-label={t`Plugin GitHub URL`}
-                      placeholder="https://github.com/owner/plugin"
-                      maxLength={2048}
-                    />
-                    <Button type="submit" variant="secondary" disabled={!gitSource.trim()}>
-                      <Trans>Install from GitHub</Trans>
-                    </Button>
-                  </form>
-                  {catalogFeedEnabled ? (
-                    <Card data-testid="integrations-catalog-feed">
-                      <CardHeader>
-                        <CardTitle>
-                          <Trans>Search by domain</Trans>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <form
-                          className="flex gap-2"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            void searchCatalogFeed();
-                          }}
-                        >
-                          <Input
-                            value={catalogFeedQuery}
-                            disabled={catalogFeedPending}
-                            onChange={(event) => {
-                              setCatalogFeedQuery(event.target.value);
-                              setCatalogFeedResults([]);
-                              setCatalogFeedError(null);
-                              setCatalogFeedSearched(false);
-                            }}
-                            placeholder="github.com"
-                            aria-label={t`Integration domain`}
-                          />
-                          <Button
-                            type="submit"
-                            variant="secondary"
-                            size="sm"
-                            disabled={!catalogFeedQuery.trim() || catalogFeedPending}
-                          >
-                            {catalogFeedPending ? <Trans>Searching…</Trans> : <Trans>Search</Trans>}
-                          </Button>
-                        </form>
-                        {catalogFeedError ? (
-                          <p className="text-sm text-destructive">{catalogFeedError}</p>
-                        ) : null}
-                        {catalogFeedSearched &&
-                        !catalogFeedPending &&
-                        catalogFeedResults.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">
-                            <Trans>No results</Trans>
-                          </p>
-                        ) : null}
-                        {catalogFeedResults.map((result) => (
-                          <div
-                            key={`${result.domain}:${result.name}:${result.pageUrl ?? ""}`}
-                            className="rounded-xl border border-border/70 p-3"
-                          >
-                            <div className="font-medium text-foreground">
-                              {result.pageUrl ? (
-                                <a
-                                  href={result.pageUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="hover:underline"
-                                >
-                                  {result.name}
-                                </a>
-                              ) : (
-                                result.name
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground">{result.domain}</div>
-                            {result.description ? (
-                              <p className="mt-2 text-sm leading-5 text-muted-foreground">
-                                {result.description}
-                              </p>
-                            ) : null}
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {result.surfaces.map((surface) => {
-                                const canAdd =
-                                  Boolean(surface.source) &&
-                                  (surface.kind === "mcp" || surface.kind === "openapi");
-                                return (
-                                  <Button
-                                    key={`${result.domain}:${surface.slug}`}
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    disabled={!canAdd}
-                                    title={canAdd ? undefined : t`Manual setup required`}
-                                    onClick={() => beginCatalogSurface(result, surface)}
-                                  >
-                                    <span>{surface.kind.toUpperCase()}</span>
-                                    <span>{canAdd ? t`Add` : t`Manual`}</span>
-                                  </Button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  ) : null}
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    aria-expanded={setupOpen}
-                    onClick={() => setSetupOpen((current) => !current)}
-                  >
-                    <Trans>Browse MCP servers</Trans>
-                  </Button>
-                  {setupOpen ? (
-                    <IntegrationSetup
-                      botId={activeBotId}
-                      onDone={() => {
-                        setSetupOpen(false);
-                        void refresh().catch((err: unknown) =>
-                          setCatalogError(errorText(err, t`Could not load integrations`)),
-                        );
-                      }}
-                    />
-                  ) : null}
-
-                  <div data-testid="integrations-advanced-add" className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => beginSource("mcp")}
-                    >
-                      <Trans>Add MCP server</Trans>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => beginSource("api")}
-                    >
-                      <Trans>Add OpenAPI</Trans>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => beginSource("graphql")}
-                    >
-                      <Trans>Add GraphQL</Trans>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => beginSource("executor")}
-                    >
-                      <Trans>Add Executor</Trans>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => beginSource("treg")}
-                    >
-                      <Trans>Add Treg</Trans>
-                    </Button>
-                  </div>
-
-                  {sourceError ? <p className="text-sm text-destructive">{sourceError}</p> : null}
-
-                  {sourceKind ? (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>
-                          {sourceKind === "treg" ? (
-                            <Trans>Connect Treg</Trans>
-                          ) : sourceKind === "executor" ? (
-                            <Trans>Connect Executor</Trans>
-                          ) : sourceKind === "mcp" ? (
-                            <Trans>Add remote MCP server</Trans>
-                          ) : sourceKind === "graphql" ? (
-                            <Trans>Add GraphQL endpoint</Trans>
-                          ) : (
-                            <Trans>Import OpenAPI JSON</Trans>
-                          )}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <Input
-                          value={sourceName}
-                          onChange={(event) => setSourceName(event.target.value)}
-                          placeholder={t`Display name`}
-                        />
-                        {sourceKind !== "treg" ? (
-                          <Input
-                            value={sourceUrl}
-                            onChange={(event) => setSourceUrl(event.target.value)}
-                            placeholder={
-                              sourceKind === "mcp"
-                                ? "https://example.com/mcp"
-                                : sourceKind === "executor"
-                                  ? "https://executor.example/mcp"
-                                  : sourceKind === "graphql"
-                                    ? "https://example.com/graphql"
-                                    : "https://example.com/openapi.json"
-                            }
-                          />
-                        ) : null}
-                        {sourceKind !== "treg" && sourceKind !== "executor" ? (
-                          <NativeSelect
-                            className="w-full"
-                            value={authType}
-                            onChange={(event) => setAuthType(event.target.value as typeof authType)}
-                          >
-                            <NativeSelectOption value="none">
-                              <Trans>No authentication</Trans>
-                            </NativeSelectOption>
-                            <NativeSelectOption value="bearer">
-                              <Trans>Bearer token</Trans>
-                            </NativeSelectOption>
-                            <NativeSelectOption value="header">
-                              <Trans>API key header</Trans>
-                            </NativeSelectOption>
-                          </NativeSelect>
-                        ) : null}
-                        {authType === "header" &&
-                        sourceKind !== "treg" &&
-                        sourceKind !== "executor" ? (
-                          <Input
-                            value={authName}
-                            onChange={(event) => setAuthName(event.target.value)}
-                            placeholder={t`Header name`}
-                          />
-                        ) : null}
-                        {sourceKind === "treg" ||
-                        sourceKind === "executor" ||
-                        authType !== "none" ? (
-                          <Input
-                            type="password"
-                            autoComplete="new-password"
-                            value={credential}
-                            onChange={(event) => setCredential(event.target.value)}
-                            placeholder={
-                              sourceKind === "treg"
-                                ? t`Treg token`
-                                : sourceKind === "executor"
-                                  ? t`Executor token`
-                                  : t`Credential`
-                            }
-                          />
-                        ) : null}
-                        <p className="text-xs leading-5 text-muted-foreground">
-                          <Trans>Credentials are encrypted and never sent to the model.</Trans>
-                        </p>
-                        {sourceHint ? (
-                          <p className="text-xs leading-5 text-muted-foreground">{sourceHint}</p>
-                        ) : null}
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            disabled={pending === "install-source"}
-                            onClick={() => void installSource()}
-                          >
-                            {pending === "install-source" ? (
-                              <Trans>Verifying…</Trans>
-                            ) : (
-                              <Trans>Verify and add</Trans>
-                            )}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setSourceKind(null)}
-                          >
-                            <Trans>Cancel</Trans>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : null}
-
-                  <div>
-                    <div className="mb-3 text-sm font-medium text-foreground/75">
-                      <Trans>Tool sources</Trans>
-                    </div>
-                    {sources.length === 0 && !sourceKind ? (
-                      <p className="text-muted-foreground/80">
-                        <Trans>No MCP or API tool sources installed yet.</Trans>
-                      </p>
-                    ) : null}
-                    {sources.map((source) => (
-                      <div
-                        key={source.id}
-                        className="flex items-center gap-4 rounded-xl px-3 py-2.5"
-                      >
-                        <div className="grid h-[42px] w-[42px] place-items-center rounded-xl bg-accent font-semibold uppercase text-foreground">
-                          {source.kind === "mcp" ? "M" : source.kind === "graphql" ? "G" : "A"}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[15.5px] font-medium text-foreground">
-                            {source.name}
-                          </div>
-                          <div className="flex min-w-0 gap-2 text-[13.5px] text-muted-foreground/70">
-                            <span className="shrink-0">{source.kind.toUpperCase()}</span>
-                            <span className="truncate">{source.source}</span>
-                            <span className="shrink-0">
-                              {source.secretConfigured ? (
-                                <Trans>Credential saved</Trans>
-                              ) : (
-                                <Trans>No auth</Trans>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          disabled={pending === source.id}
-                          onClick={() => void removeSource(source)}
-                        >
-                          {pending === source.id ? <Trans>Removing…</Trans> : <Trans>Remove</Trans>}
-                        </Button>
-                      </div>
-                    ))}
-                    {onOpenMcp ? (
-                      <Button
-                        type="button"
-                        variant="link"
-                        size="xs"
-                        className="mt-2 px-0 text-muted-foreground"
-                        onClick={onOpenMcp}
-                      >
-                        <Trans>Manage MCP servers</Trans>
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </Disclosure>
             </>
           )}
         </div>

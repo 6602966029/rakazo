@@ -532,20 +532,12 @@ msgid "Add credits"
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Add Executor"
-msgstr "Executor 추가"
+msgid "Add custom"
+msgstr ""
 
 #: src/pages/ModelRoleSettings.tsx
 msgid "Add fallback"
 msgstr "대체 모델 추가"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL"
-msgstr "GraphQL 추가"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL endpoint"
-msgstr "GraphQL 엔드포인트 추가"
 
 #: src/components/ModelHeadersEditor.tsx
 msgid "Add header"
@@ -556,17 +548,12 @@ msgid "Add item"
 msgstr "항목 추가"
 
 #: src/components/integrations/IntegrationSetup.tsx
-#: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "MCP 서버 추가"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Add open work"
 msgstr "진행 중인 작업 추가"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add OpenAPI"
-msgstr "OpenAPI 추가"
 
 #: src/components/PasskeyOffer.tsx
 #: src/components/PasskeySettings.tsx
@@ -576,10 +563,6 @@ msgstr "패스키 추가"
 #: src/pages/model-settings/providers-section.tsx
 msgid "Add provider"
 msgstr "서비스 추가"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add remote MCP server"
-msgstr "원격 MCP 서버 추가"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Add server"
@@ -596,10 +579,6 @@ msgstr "기존 봇에 추가"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Add to routine"
 msgstr "자동 실행에 추가"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add Treg"
-msgstr "Treg 추가"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Add trigger"
@@ -625,7 +604,6 @@ msgstr "추가 중…"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -879,6 +857,10 @@ msgstr "파일 첨부"
 msgid "Attachment"
 msgstr "첨부 파일"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Authentication"
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "Authentication failed."
 msgstr "인증에 실패했습니다."
@@ -1110,7 +1092,6 @@ msgstr "이미지를 읽을 수 없음"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
@@ -1553,10 +1534,6 @@ msgstr "API 키 연결"
 msgid "Connect apps"
 msgstr "앱 연결"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Executor"
-msgstr "Executor 연결"
-
 #: src/pages/shell/message-cards.tsx
 msgid "Connect MCP server “{name}”"
 msgstr "MCP 서버 ‘{name}’ 연결"
@@ -1576,10 +1553,6 @@ msgstr "OAuth 연결"
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."
 msgstr "먼저 이 모델의 제공자를 연결하세요."
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Treg"
-msgstr "Treg 연결"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -2520,10 +2493,6 @@ msgstr "닫힘"
 msgid "Dismissed. Reconnect anytime from MCP settings."
 msgstr "지금은 연결하지 않았습니다. MCP 설정에서 언제든 다시 연결할 수 있습니다."
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Display name"
-msgstr "표시 이름"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Docker"
 msgstr "Docker"
@@ -2920,6 +2889,10 @@ msgstr ""
 msgid "From {0}"
 msgstr ""
 
+#: src/pages/PluginsOverlay.tsx
+msgid "From GitHub"
+msgstr ""
+
 #: src/pages/WindowChrome.tsx
 msgid "Fullscreen"
 msgstr "전체 화면"
@@ -3100,10 +3073,6 @@ msgstr "가져오기"
 msgid "Import an agent"
 msgstr "에이전트 가져오기"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Import OpenAPI JSON"
-msgstr "OpenAPI JSON 가져오기"
-
 #: src/pages/shell/composer.tsx
 msgid "Import this agent as a bot?"
 msgstr "이 에이전트를 봇으로 가져올까요?"
@@ -3147,10 +3116,6 @@ msgstr "입력"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
 msgstr "입력값"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Install from GitHub"
-msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
@@ -3518,6 +3483,10 @@ msgstr "최대 출력 토큰 수"
 msgid "MCP endpoint"
 msgstr ""
 
+#: src/pages/PluginsOverlay.tsx
+msgid "MCP server"
+msgstr ""
+
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
@@ -3774,6 +3743,7 @@ msgstr ""
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/providers-section.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3928,10 +3898,6 @@ msgstr ""
 #: src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
 msgstr "일치하는 모델 없음"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "No MCP or API tool sources installed yet."
-msgstr "아직 추가된 MCP 또는 API 도구가 없습니다."
 
 #: src/pages/McpServersOverlay.tsx
 msgid "No MCP servers yet."
@@ -4364,6 +4330,10 @@ msgstr "POST 대상"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
 msgstr "환경설정"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Preview"
+msgstr ""
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx

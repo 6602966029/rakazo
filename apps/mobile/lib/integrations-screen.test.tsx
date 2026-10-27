@@ -21,6 +21,7 @@ const state = vi.hoisted(() => ({
 vi.mock("./side-insets", () => ({ useSideInsets: () => ({}) }));
 vi.mock("expo-router", () => ({
   useRouter: () => ({ push: state.push }),
+  useNavigation: () => ({ setOptions: vi.fn() }),
   useFocusEffect: (callback: () => undefined | (() => void)) => {
     useEffect(() => {
       if (state.focused) return callback();
@@ -45,7 +46,16 @@ vi.mock("./integrations-cache", () => ({
 }));
 vi.mock("./last-bot", () => ({ loadLastBotId: async () => "" }));
 vi.mock("./appearance", () => ({ mobileTokens: () => ({ destructive: "red" }) }));
-vi.mock("./native", () => ({ native: {}, useThemedStyles: (factory: () => unknown) => factory() }));
+vi.mock("./native", () => ({
+  native: {},
+  useResolvedAppearance: () => "light",
+  useThemedStyles: (factory: () => unknown) => factory(),
+}));
+vi.mock("./native-controls", () => ({ iosAtLeast: () => false }));
+vi.mock("@expo/ui/community/menu", () => ({
+  MenuView: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+vi.mock("../components/native-symbol", () => ({ NativeSymbol: () => null }));
 vi.mock("./i18n", () => ({
   t: (text: string) => text,
   useI18n: () => ({ t: (text: string) => text }),
@@ -428,11 +438,9 @@ it("keeps sources loading when a rename cancels the catalog refresh", async () =
   await act(async () =>
     [...container.querySelectorAll("button")].find((b) => b.textContent === "Back")?.click(),
   );
-  await act(async () =>
-    [...container.querySelectorAll("button")].find((b) => b.textContent === "Advanced")?.click(),
+  expect(container.querySelector('[data-testid="tool-sources"]')?.textContent).toContain(
+    "Installed source",
   );
-  expect(container.textContent).toContain("Installed source");
-  expect(container.textContent).not.toContain("No custom sources installed.");
   expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Remove")).toBe(
     true,
   );

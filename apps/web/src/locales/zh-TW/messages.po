@@ -533,20 +533,12 @@ msgid "Add credits"
 msgstr "加值"
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Add Executor"
-msgstr "新增 Executor"
+msgid "Add custom"
+msgstr ""
 
 #: src/pages/ModelRoleSettings.tsx
 msgid "Add fallback"
 msgstr "新增備援模型"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL"
-msgstr "新增 GraphQL"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL endpoint"
-msgstr "新增 GraphQL 端點"
 
 #: src/components/ModelHeadersEditor.tsx
 msgid "Add header"
@@ -557,17 +549,12 @@ msgid "Add item"
 msgstr "新增項目"
 
 #: src/components/integrations/IntegrationSetup.tsx
-#: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "新增 MCP 伺服器"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Add open work"
 msgstr "新增待辦事項"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add OpenAPI"
-msgstr "新增 OpenAPI"
 
 #: src/components/PasskeyOffer.tsx
 #: src/components/PasskeySettings.tsx
@@ -577,10 +564,6 @@ msgstr "新增通行金鑰"
 #: src/pages/model-settings/providers-section.tsx
 msgid "Add provider"
 msgstr "新增供應商"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add remote MCP server"
-msgstr "新增遠端 MCP 伺服器"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Add server"
@@ -597,10 +580,6 @@ msgstr "新增到現有機器人"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Add to routine"
 msgstr "加入例行任務"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add Treg"
-msgstr "新增 Treg"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Add trigger"
@@ -626,7 +605,6 @@ msgstr "正在新增…"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -880,6 +858,10 @@ msgstr "附加檔案"
 msgid "Attachment"
 msgstr "附件"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Authentication"
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "Authentication failed."
 msgstr "身分驗證失敗。"
@@ -1111,7 +1093,6 @@ msgstr "無法讀取影像"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
@@ -1554,10 +1535,6 @@ msgstr "連線 API 金鑰"
 msgid "Connect apps"
 msgstr "連接應用程式"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Executor"
-msgstr "連線 Executor"
-
 #: src/pages/shell/message-cards.tsx
 msgid "Connect MCP server “{name}”"
 msgstr "連線 MCP 伺服器「{name}」"
@@ -1577,10 +1554,6 @@ msgstr "連線 OAuth"
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."
 msgstr "請先連結此模型的供應商。"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Treg"
-msgstr "連線 Treg"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -2521,10 +2494,6 @@ msgstr "已忽略"
 msgid "Dismissed. Reconnect anytime from MCP settings."
 msgstr "已關閉，可隨時在 MCP 設定中重新連線。"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Display name"
-msgstr "顯示名稱"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Docker"
 msgstr "Docker"
@@ -2921,6 +2890,10 @@ msgstr "從"
 msgid "From {0}"
 msgstr "自 {0} 起"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "From GitHub"
+msgstr ""
+
 #: src/pages/WindowChrome.tsx
 msgid "Fullscreen"
 msgstr "全螢幕"
@@ -3101,10 +3074,6 @@ msgstr "匯入"
 msgid "Import an agent"
 msgstr "匯入代理程式"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Import OpenAPI JSON"
-msgstr "匯入 OpenAPI JSON"
-
 #: src/pages/shell/composer.tsx
 msgid "Import this agent as a bot?"
 msgstr "要將此代理程式匯入為機器人嗎？"
@@ -3148,10 +3117,6 @@ msgstr "輸入"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
 msgstr "輸入"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Install from GitHub"
-msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
@@ -3519,6 +3484,10 @@ msgstr "最大輸出 token 數"
 msgid "MCP endpoint"
 msgstr "MCP 端點"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "MCP server"
+msgstr ""
+
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
@@ -3775,6 +3744,7 @@ msgstr "已靜音"
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/providers-section.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3929,10 +3899,6 @@ msgstr "此頁面沒有符合的成品。"
 #: src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
 msgstr "沒有符合的模型"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "No MCP or API tool sources installed yet."
-msgstr "還沒有安裝 MCP 或 API 工具來源。"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "No MCP servers yet."
@@ -4365,6 +4331,10 @@ msgstr "POST 到"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
 msgstr "偏好設定"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Preview"
+msgstr ""
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx

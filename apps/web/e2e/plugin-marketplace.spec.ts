@@ -9,7 +9,7 @@ import {
   activeBotId,
   captureScreenshot,
   completeOnboarding,
-  expandAdvancedSection,
+  openIntegrationsAdd,
   rpc,
   signup,
 } from "./helpers";
@@ -124,11 +124,11 @@ test("GitHub import in Advanced still requires confirmation", async ({ page }) =
   await completeOnboarding(page);
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
-  await expandAdvancedSection(dialog.getByTestId("integrations-advanced"));
+  await openIntegrationsAdd(page, "From GitHub");
   await dialog
     .getByRole("textbox", { name: "Plugin GitHub URL", exact: true })
     .fill("https://github.com/example/plugin-marketplace-fixture");
-  await dialog.getByRole("button", { name: "Install from GitHub", exact: true }).click();
+  await dialog.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(dialog.getByTestId("plugin-detail")).toContainText("planning-notes");
   await expect(dialog.getByRole("button", { name: "Add", exact: true })).toBeEnabled();
   expect(await rpc(page, "capabilities/list", undefined)).toEqual([]);

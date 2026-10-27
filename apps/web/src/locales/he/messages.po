@@ -532,20 +532,12 @@ msgid "Add credits"
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Add Executor"
-msgstr "הוספת Executor"
+msgid "Add custom"
+msgstr ""
 
 #: src/pages/ModelRoleSettings.tsx
 msgid "Add fallback"
 msgstr "הוספת חלופה"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL"
-msgstr "הוספת GraphQL"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL endpoint"
-msgstr "הוספת נקודת קצה של GraphQL"
 
 #: src/components/ModelHeadersEditor.tsx
 msgid "Add header"
@@ -556,17 +548,12 @@ msgid "Add item"
 msgstr "הוספת פריט"
 
 #: src/components/integrations/IntegrationSetup.tsx
-#: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "הוספת שרת MCP"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Add open work"
 msgstr "הוספת עבודה פתוחה"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add OpenAPI"
-msgstr "הוספת OpenAPI"
 
 #: src/components/PasskeyOffer.tsx
 #: src/components/PasskeySettings.tsx
@@ -576,10 +563,6 @@ msgstr "הוספת מפתח גישה"
 #: src/pages/model-settings/providers-section.tsx
 msgid "Add provider"
 msgstr "הוספת ספק"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add remote MCP server"
-msgstr "הוספת שרת MCP מרוחק"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Add server"
@@ -596,10 +579,6 @@ msgstr "הוספה לבוט קיים"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Add to routine"
 msgstr "הוספה לרוטינה"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add Treg"
-msgstr "הוספת Treg"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Add trigger"
@@ -625,7 +604,6 @@ msgstr "מוסיף…"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -879,6 +857,10 @@ msgstr "צירוף קובץ"
 msgid "Attachment"
 msgstr "קובץ מצורף"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Authentication"
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "Authentication failed."
 msgstr "האימות נכשל."
@@ -1110,7 +1092,6 @@ msgstr "לא ניתן לקרוא תמונות"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
@@ -1553,10 +1534,6 @@ msgstr "חיבור מפתח API"
 msgid "Connect apps"
 msgstr "חיבור אפליקציות"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Executor"
-msgstr "חיבור Executor"
-
 #: src/pages/shell/message-cards.tsx
 msgid "Connect MCP server “{name}”"
 msgstr "חיבור שרת MCP “{name}”"
@@ -1576,10 +1553,6 @@ msgstr "חיבור OAuth"
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."
 msgstr "יש לחבר קודם את הספק של המודל הזה."
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Treg"
-msgstr "חיבור Treg"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -2520,10 +2493,6 @@ msgstr "נסגר"
 msgid "Dismissed. Reconnect anytime from MCP settings."
 msgstr "נסגר. אפשר להתחבר מחדש בכל עת מהגדרות MCP."
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Display name"
-msgstr "שם תצוגה"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Docker"
 msgstr "Docker"
@@ -2920,6 +2889,10 @@ msgstr "מתאריך"
 msgid "From {0}"
 msgstr "מ-{0}"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "From GitHub"
+msgstr ""
+
 #: src/pages/WindowChrome.tsx
 msgid "Fullscreen"
 msgstr "מסך מלא"
@@ -3100,10 +3073,6 @@ msgstr "ייבוא"
 msgid "Import an agent"
 msgstr "ייבוא סוכן"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Import OpenAPI JSON"
-msgstr "ייבוא OpenAPI JSON"
-
 #: src/pages/shell/composer.tsx
 msgid "Import this agent as a bot?"
 msgstr "לייבא את הסוכן הזה כבוט?"
@@ -3147,10 +3116,6 @@ msgstr "קלט"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
 msgstr "קלטים"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Install from GitHub"
-msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
@@ -3518,6 +3483,10 @@ msgstr "מספר טוקנים מרבי בפלט"
 msgid "MCP endpoint"
 msgstr "נקודת קצה של MCP"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "MCP server"
+msgstr ""
+
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
@@ -3774,6 +3743,7 @@ msgstr ""
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/providers-section.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3928,10 +3898,6 @@ msgstr "אין תוצרים תואמים בדף הזה."
 #: src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
 msgstr "אין מודלים תואמים"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "No MCP or API tool sources installed yet."
-msgstr "עדיין לא הותקנו מקורות כלים של MCP או API."
 
 #: src/pages/McpServersOverlay.tsx
 msgid "No MCP servers yet."
@@ -4364,6 +4330,10 @@ msgstr "POST אל"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
 msgstr "העדפות"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Preview"
+msgstr ""
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx

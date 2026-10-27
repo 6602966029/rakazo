@@ -1,11 +1,5 @@
 import { expect, test } from "@playwright/test";
-import {
-  captureScreenshot,
-  completeOnboarding,
-  expandAdvancedSection,
-  rpc,
-  signup,
-} from "./helpers";
+import { captureScreenshot, completeOnboarding, openIntegrationsAdd, rpc, signup } from "./helpers";
 
 test("shows directly registered MCP servers in Integrations without catalog connections", async ({
   page,
@@ -15,8 +9,7 @@ test("shows directly registered MCP servers in Integrations without catalog conn
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  await expandAdvancedSection(page.getByTestId("integrations-advanced"));
-  await page.getByRole("button", { name: "Manage MCP servers", exact: true }).click();
+  await openIntegrationsAdd(page, "Manage MCP servers");
   await expect(page.getByRole("textbox", { name: "Server name", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close MCP servers", exact: true }).click();
   for (const name of ["Dropbox", "GitHub"])

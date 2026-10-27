@@ -532,20 +532,12 @@ msgid "Add credits"
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Add Executor"
-msgstr "Ajouter un exécuteur"
+msgid "Add custom"
+msgstr ""
 
 #: src/pages/ModelRoleSettings.tsx
 msgid "Add fallback"
 msgstr "Ajouter un modèle de secours"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL"
-msgstr "Ajouter GraphQL"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL endpoint"
-msgstr "Ajouter un point de terminaison GraphQL"
 
 #: src/components/ModelHeadersEditor.tsx
 msgid "Add header"
@@ -556,17 +548,12 @@ msgid "Add item"
 msgstr "Ajouter un élément"
 
 #: src/components/integrations/IntegrationSetup.tsx
-#: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "Ajouter un serveur MCP"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Add open work"
 msgstr "Ajouter une tâche en cours"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add OpenAPI"
-msgstr "Ajouter OpenAPI"
 
 #: src/components/PasskeyOffer.tsx
 #: src/components/PasskeySettings.tsx
@@ -576,10 +563,6 @@ msgstr "Ajouter une clé d’accès"
 #: src/pages/model-settings/providers-section.tsx
 msgid "Add provider"
 msgstr "Ajouter un fournisseur"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add remote MCP server"
-msgstr "Ajouter un serveur MCP distant"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Add server"
@@ -596,10 +579,6 @@ msgstr "Ajouter à un bot existant"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Add to routine"
 msgstr "Ajouter à la routine"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add Treg"
-msgstr "Ajouter Treg"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Add trigger"
@@ -625,7 +604,6 @@ msgstr "Ajout en cours…"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -879,6 +857,10 @@ msgstr "Joindre un fichier"
 msgid "Attachment"
 msgstr "Pièce jointe"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Authentication"
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "Authentication failed."
 msgstr "Échec de l'authentification."
@@ -1110,7 +1092,6 @@ msgstr "Ne peut pas lire les images"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
@@ -1553,10 +1534,6 @@ msgstr "Connecter la clé API"
 msgid "Connect apps"
 msgstr "Connecter des applications"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Executor"
-msgstr "Connecter l'exécuteur"
-
 #: src/pages/shell/message-cards.tsx
 msgid "Connect MCP server “{name}”"
 msgstr "Connecter le serveur MCP « {name} »"
@@ -1576,10 +1553,6 @@ msgstr "Connecter OAuth"
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."
 msgstr "Connectez d’abord le fournisseur de ce modèle."
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Treg"
-msgstr "Connecter Treg"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -2520,10 +2493,6 @@ msgstr "Ignoré"
 msgid "Dismissed. Reconnect anytime from MCP settings."
 msgstr "Fermé. Reconnectez-vous à tout moment depuis les paramètres MCP."
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Display name"
-msgstr "Nom d'affichage"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Docker"
 msgstr "Docker"
@@ -2920,6 +2889,10 @@ msgstr ""
 msgid "From {0}"
 msgstr ""
 
+#: src/pages/PluginsOverlay.tsx
+msgid "From GitHub"
+msgstr ""
+
 #: src/pages/WindowChrome.tsx
 msgid "Fullscreen"
 msgstr "Plein écran"
@@ -3100,10 +3073,6 @@ msgstr "Importer"
 msgid "Import an agent"
 msgstr "Importer un agent"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Import OpenAPI JSON"
-msgstr "Importer OpenAPI JSON"
-
 #: src/pages/shell/composer.tsx
 msgid "Import this agent as a bot?"
 msgstr "Importer cet agent comme bot ?"
@@ -3147,10 +3116,6 @@ msgstr "Entrée"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
 msgstr "Entrées"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Install from GitHub"
-msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
@@ -3518,6 +3483,10 @@ msgstr "Jetons de sortie maximum"
 msgid "MCP endpoint"
 msgstr "Point de terminaison MCP"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "MCP server"
+msgstr ""
+
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
@@ -3774,6 +3743,7 @@ msgstr "Micro coupé"
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/providers-section.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3928,10 +3898,6 @@ msgstr "Aucun artefact correspondant sur cette page."
 #: src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
 msgstr "Aucun modèle correspondant"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "No MCP or API tool sources installed yet."
-msgstr "Aucune source d'outils MCP ou API installée pour le moment."
 
 #: src/pages/McpServersOverlay.tsx
 msgid "No MCP servers yet."
@@ -4364,6 +4330,10 @@ msgstr "POST vers"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
 msgstr "Préférences"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Preview"
+msgstr ""
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx

@@ -532,20 +532,12 @@ msgid "Add credits"
 msgstr "クレジットを追加"
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Add Executor"
-msgstr "Executorを追加"
+msgid "Add custom"
+msgstr ""
 
 #: src/pages/ModelRoleSettings.tsx
 msgid "Add fallback"
 msgstr "フォールバックを追加"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL"
-msgstr "GraphQLを追加"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL endpoint"
-msgstr "GraphQLエンドポイントを追加"
 
 #: src/components/ModelHeadersEditor.tsx
 msgid "Add header"
@@ -556,17 +548,12 @@ msgid "Add item"
 msgstr "項目を追加"
 
 #: src/components/integrations/IntegrationSetup.tsx
-#: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "MCPサーバーを追加"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Add open work"
 msgstr "未完了の作業を追加"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add OpenAPI"
-msgstr "OpenAPIを追加"
 
 #: src/components/PasskeyOffer.tsx
 #: src/components/PasskeySettings.tsx
@@ -576,10 +563,6 @@ msgstr "パスキーを追加"
 #: src/pages/model-settings/providers-section.tsx
 msgid "Add provider"
 msgstr "プロバイダーを追加"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add remote MCP server"
-msgstr "リモートMCPサーバーを追加"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Add server"
@@ -596,10 +579,6 @@ msgstr "既存のボットに追加"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Add to routine"
 msgstr "ルーティンに追加"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add Treg"
-msgstr "Tregを追加"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Add trigger"
@@ -625,7 +604,6 @@ msgstr "追加中…"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -879,6 +857,10 @@ msgstr "ファイルを添付"
 msgid "Attachment"
 msgstr "添付ファイル"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Authentication"
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "Authentication failed."
 msgstr "認証に失敗しました。"
@@ -1110,7 +1092,6 @@ msgstr "画像を読み取れません"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
@@ -1553,10 +1534,6 @@ msgstr "APIキーを接続"
 msgid "Connect apps"
 msgstr "アプリを接続"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Executor"
-msgstr "Executorを接続"
-
 #: src/pages/shell/message-cards.tsx
 msgid "Connect MCP server “{name}”"
 msgstr "MCPサーバー「{name}」を接続"
@@ -1576,10 +1553,6 @@ msgstr "OAuthを接続"
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."
 msgstr "先にこのモデルのプロバイダーを接続してください。"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Treg"
-msgstr "Tregを接続"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -2520,10 +2493,6 @@ msgstr "閉じました"
 msgid "Dismissed. Reconnect anytime from MCP settings."
 msgstr "閉じました。MCP設定からいつでも再接続できます。"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Display name"
-msgstr "表示名"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Docker"
 msgstr "Docker"
@@ -2920,6 +2889,10 @@ msgstr "開始日"
 msgid "From {0}"
 msgstr "{0}から"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "From GitHub"
+msgstr ""
+
 #: src/pages/WindowChrome.tsx
 msgid "Fullscreen"
 msgstr "フルスクリーン"
@@ -3100,10 +3073,6 @@ msgstr "インポート"
 msgid "Import an agent"
 msgstr "エージェントをインポート"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Import OpenAPI JSON"
-msgstr "OpenAPI JSONをインポート"
-
 #: src/pages/shell/composer.tsx
 msgid "Import this agent as a bot?"
 msgstr "このエージェントをボットとしてインポートしますか？"
@@ -3147,10 +3116,6 @@ msgstr "入力"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
 msgstr "入力"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Install from GitHub"
-msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
@@ -3518,6 +3483,10 @@ msgstr "最大出力トークン数"
 msgid "MCP endpoint"
 msgstr "MCPエンドポイント"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "MCP server"
+msgstr ""
+
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
@@ -3774,6 +3743,7 @@ msgstr "ミュート中"
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/providers-section.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3928,10 +3898,6 @@ msgstr "このページに一致するアーティファクトはありません
 #: src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
 msgstr "一致するモデルはありません"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "No MCP or API tool sources installed yet."
-msgstr "インストール済みのMCPまたはAPIツールソースはまだありません。"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "No MCP servers yet."
@@ -4364,6 +4330,10 @@ msgstr "POST先"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
 msgstr "環境設定"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Preview"
+msgstr ""
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx

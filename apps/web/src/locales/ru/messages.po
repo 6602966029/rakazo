@@ -532,20 +532,12 @@ msgid "Add credits"
 msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Add Executor"
-msgstr "Добавить Executor"
+msgid "Add custom"
+msgstr ""
 
 #: src/pages/ModelRoleSettings.tsx
 msgid "Add fallback"
 msgstr "Добавить резервную модель"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL"
-msgstr "Добавить GraphQL"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add GraphQL endpoint"
-msgstr "Добавить конечную точку GraphQL"
 
 #: src/components/ModelHeadersEditor.tsx
 msgid "Add header"
@@ -556,17 +548,12 @@ msgid "Add item"
 msgstr "Добавить элемент"
 
 #: src/components/integrations/IntegrationSetup.tsx
-#: src/pages/PluginsOverlay.tsx
 msgid "Add MCP server"
 msgstr "Добавить MCP-сервер"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Add open work"
 msgstr "Добавить задачу"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add OpenAPI"
-msgstr "Добавить OpenAPI"
 
 #: src/components/PasskeyOffer.tsx
 #: src/components/PasskeySettings.tsx
@@ -576,10 +563,6 @@ msgstr "Добавить ключ доступа"
 #: src/pages/model-settings/providers-section.tsx
 msgid "Add provider"
 msgstr "Добавить поставщика"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add remote MCP server"
-msgstr "Добавить удалённый MCP-сервер"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Add server"
@@ -596,10 +579,6 @@ msgstr "Добавить в существующего бота"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Add to routine"
 msgstr "Добавить в задачу"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Add Treg"
-msgstr "Добавить Treg"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Add trigger"
@@ -625,7 +604,6 @@ msgstr "Добавление…"
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/RoutineSchedule.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -879,6 +857,10 @@ msgstr "Прикрепить файл"
 msgid "Attachment"
 msgstr "Вложение"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Authentication"
+msgstr ""
+
 #: src/lib/model-connection-preflight.ts
 msgid "Authentication failed."
 msgstr "Аутентификация не удалась."
@@ -1110,7 +1092,6 @@ msgstr "Не может читать изображения"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
@@ -1553,10 +1534,6 @@ msgstr "Подключить API-ключ"
 msgid "Connect apps"
 msgstr "Подключить приложения"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Executor"
-msgstr "Подключить Executor"
-
 #: src/pages/shell/message-cards.tsx
 msgid "Connect MCP server “{name}”"
 msgstr "Подключите MCP-сервер «{name}»"
@@ -1576,10 +1553,6 @@ msgstr "Подключить OAuth"
 #: src/lib/agent-import-errors.ts
 msgid "Connect this model's provider first."
 msgstr "Сначала подключите провайдера этой модели."
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Connect Treg"
-msgstr "Подключить Treg"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts
@@ -2520,10 +2493,6 @@ msgstr "Отклонено"
 msgid "Dismissed. Reconnect anytime from MCP settings."
 msgstr "Закрыто. Подключиться снова можно в любое время в настройках MCP."
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Display name"
-msgstr "Отображаемое имя"
-
 #: src/pages/HostComputerPrompt.tsx
 msgid "Docker"
 msgstr "Docker"
@@ -2920,6 +2889,10 @@ msgstr ""
 msgid "From {0}"
 msgstr ""
 
+#: src/pages/PluginsOverlay.tsx
+msgid "From GitHub"
+msgstr ""
+
 #: src/pages/WindowChrome.tsx
 msgid "Fullscreen"
 msgstr "Полноэкранный"
@@ -3100,10 +3073,6 @@ msgstr "Импорт"
 msgid "Import an agent"
 msgstr "Импорт агента"
 
-#: src/pages/PluginsOverlay.tsx
-msgid "Import OpenAPI JSON"
-msgstr "Импортировать OpenAPI JSON"
-
 #: src/pages/shell/composer.tsx
 msgid "Import this agent as a bot?"
 msgstr "Импортировать этого агента как бота?"
@@ -3147,10 +3116,6 @@ msgstr "Ввод"
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Inputs"
 msgstr "Входы"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Install from GitHub"
-msgstr ""
 
 #: src/components/SidebarFooter.tsx
 msgid "Install update"
@@ -3518,6 +3483,10 @@ msgstr ""
 msgid "MCP endpoint"
 msgstr ""
 
+#: src/pages/PluginsOverlay.tsx
+msgid "MCP server"
+msgstr ""
+
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
@@ -3774,6 +3743,7 @@ msgstr "микрофон выключен"
 #: src/pages/GroupPanel.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/model-settings/providers-section.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/RoutineEditor.tsx
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-panel.tsx
@@ -3928,10 +3898,6 @@ msgstr ""
 #: src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
 msgstr "Нет подходящих моделей"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "No MCP or API tool sources installed yet."
-msgstr "Источники инструментов MCP или API пока не установлены."
 
 #: src/pages/McpServersOverlay.tsx
 msgid "No MCP servers yet."
@@ -4364,6 +4330,10 @@ msgstr "ОТПРАВИТЬ в"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Preferences"
 msgstr "Предпочтения"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Preview"
+msgstr ""
 
 #. placeholder {0}: props.name
 #: src/components/ArtifactFileCard.tsx
