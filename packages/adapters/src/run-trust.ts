@@ -27,7 +27,8 @@ function connectorTrustKey(
 
 /**
  * Read trust for each app a batch reaches, since every batch shares one tool: a Gmail batch must
- * not make a later Slack read trusted. An action outside every connected app keys by its own name.
+ * not make a later Slack read trusted, nor one server's batch a batch on another server. An action
+ * outside every connected app keys by its own name.
  */
 export function connectorTrustKeys(
   batchActions: readonly string[] | undefined,
@@ -35,14 +36,15 @@ export function connectorTrustKeys(
   connectorKind: string,
   providers: string[],
 ): string[] {
-  if (!batchActions?.length) return [connectorTrustKey(route, connectorKind)];
+  const connection = connectorTrustKey(route, connectorKind);
+  if (!batchActions?.length) return [connection];
   const apps = providers.map((provider) => provider.toLowerCase());
   return batchActions.map((name) => {
     const action = name.toLowerCase();
     const app = apps
       .filter((kind) => action === kind || action.startsWith(`${kind}_`))
       .sort((left, right) => right.length - left.length)[0];
-    return `kind:${connectorKind}:${app ?? action}`;
+    return `${connection}:${app ?? action}`;
   });
 }
 
