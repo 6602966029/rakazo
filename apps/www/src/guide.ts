@@ -280,6 +280,19 @@ Connect OpenAI, Anthropic, Google, OpenRouter, or Vercel AI Gateway. You can als
 
 There is no seat fee for the open source software. You pay the model provider you connect and any remote computer provider you choose. Local Docker computers are the default, so a single machine does not need an E2B, Daytona, CreateOS, or Boat account.
 
+## Self-host only, for now
+
+These work on your own deployment and are not yet on Rakazo Cloud. Each turns on from \`.env\`.
+
+- **Telegram, WhatsApp, iMessage and SMS, Feishu and Lark.** Add the platform's credentials: \`TELEGRAM_BOT_TOKEN\`, \`WHATSAPP_*\`, \`SENDBLUE_*\` (iMessage and SMS), or \`LARK_*\`.
+- **Image and video generation.** \`MEDIA_GENERATION_PROVIDER=fal\`.
+- **Purchases with Stripe Link.** \`PAYMENT_WALLET_PROVIDER=link\`. Each purchase waits for your approval in Link.
+- **Cursor cloud agents.** \`CLOUD_AGENT_PROVIDER=cursor\`.
+- **Ticket board.** \`TICKET_BOARD_ENABLED=true\`.
+- **Local models and local MCP servers.** \`RAKAZO_LOCAL_MODELS\` and \`MCP_STDIO_ENABLED\`.
+
+The [full guide](${DOCS_URL}) lists every setting for each one.
+
 ## Requirements
 
 Published images need Docker Engine 26 or newer (API 1.45 or newer, for bot home volume subpaths), the Compose plugin, curl, and OpenSSL. No Node.js install.

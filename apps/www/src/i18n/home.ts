@@ -5,6 +5,30 @@ import type { Locale } from "./locales";
 
 export const HOME_MODEL_PROVIDERS = ["Claude", "ChatGPT", "OpenRouter", "Grok", "Ollama", "LM Studio"];
 
+export const HOME_CHANNELS = [
+  { id: "slack", name: "Slack", selfHosted: false },
+  { id: "imessage", name: "iMessage & SMS", selfHosted: true },
+  { id: "whatsapp", name: "WhatsApp", selfHosted: true },
+  { id: "telegram", name: "Telegram", selfHosted: true },
+] as const;
+
+export const HOME_FEATURE_KINDS = ["call", "apps", "memory", "triggers", "team", "teach"] as const;
+export type HomeFeatureKind = (typeof HOME_FEATURE_KINDS)[number];
+
+export const HOME_MORE_FEATURES = [
+  { id: "voice", selfHosted: false },
+  { id: "skills", selfHosted: false },
+  { id: "charts", selfHosted: false },
+  { id: "device", selfHosted: false },
+  { id: "vault", selfHosted: false },
+  { id: "import", selfHosted: false },
+  { id: "media", selfHosted: true },
+  { id: "wallet", selfHosted: true },
+  { id: "cursor", selfHosted: true },
+  { id: "board", selfHosted: true },
+] as const;
+export type HomeMoreFeature = (typeof HOME_MORE_FEATURES)[number]["id"];
+
 export type HomeCopy = {
   title: string;
   description: string;
@@ -49,6 +73,25 @@ export type HomeCopy = {
     heading: string;
     copy: string;
     bots: RosterBot[];
+  };
+  channels: {
+    heading: string;
+    copy: string;
+    mock: { ask: string; reply: string };
+  };
+  features: {
+    heading: string;
+    items: Record<HomeFeatureKind, { title: string; body: string }>;
+    mock: {
+      calling: string;
+      memory: string;
+      memoryNotes: [string, string];
+      triggers: [string, string, string];
+      handoff: string;
+      recording: string;
+      skillSaved: string;
+    };
+    more: Record<HomeMoreFeature, string>;
   };
   testimonials: {
     heading: string;
@@ -440,6 +483,43 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       copy: "Start with a template. Make it yours.",
       bots: EN_ROSTER,
     },
+    channels: {
+      heading: "Message them anywhere",
+      copy: "Mention a bot in Slack or text it from your phone.",
+      mock: { ask: "who needs a follow-up today?", reply: "Three leads went quiet this week. Drafts are in the thread." },
+    },
+    features: {
+      heading: "More than chat",
+      items: {
+        call: { title: "It calls you", body: "When something needs you, your bot rings your devices. Talk it through." },
+        apps: { title: "Works in your apps", body: "Connect Gmail, GitHub, Notion, and any MCP server." },
+        memory: { title: "Remembers", body: "Bots keep what they learn and share it with the team." },
+        triggers: { title: "Wakes up on its own", body: "On a schedule, a webhook, a GitHub event, or a change it watches." },
+        team: { title: "Hands off work", body: "Bots delegate to each other and work together in groups." },
+        teach: { title: "Learns by watching", body: "Show a task once on its computer. It saves the steps as a skill." },
+      },
+      mock: {
+        calling: "Calling…",
+        memory: "Memory",
+        memoryNotes: ["Prefers short replies", "Acme renews in March"],
+        triggers: ["Weekdays at 9:00", "New GitHub issue", "Webhook"],
+        handoff: "Handed to Talent Scout",
+        recording: "Recording",
+        skillSaved: "Saved as a skill",
+      },
+      more: {
+        voice: "Voice mode",
+        skills: "Skills",
+        charts: "Charts and diagrams",
+        device: "Commands on your computer",
+        vault: "Secrets vault",
+        import: "Import from OpenClaw or Hermes",
+        media: "Images and video",
+        wallet: "Pays with Stripe Link",
+        cursor: "Cursor cloud agents",
+        board: "Ticket board",
+      },
+    },
     testimonials: {
       heading: "People love it",
       pause: "Pause",
@@ -563,6 +643,43 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       heading: "Gib jedem Bot eine Aufgabe",
       copy: "Wähle eine Vorlage und passe sie an.",
       bots: DE_ROSTER,
+    },
+    channels: {
+      heading: "Schreib ihnen überall",
+      copy: "Erwähne einen Bot in Slack oder schreib ihm vom Handy.",
+      mock: { ask: "wer braucht heute ein Follow-up?", reply: "Drei Leads sind diese Woche still geworden. Die Entwürfe sind im Thread." },
+    },
+    features: {
+      heading: "Mehr als Chat",
+      items: {
+        call: { title: "Er ruft dich an", body: "Wenn etwas dich braucht, klingelt dein Bot auf deinen Geräten. Sprecht es durch." },
+        apps: { title: "Arbeitet in deinen Apps", body: "Verbinde Gmail, GitHub, Notion und jeden MCP-Server." },
+        memory: { title: "Merkt sich Dinge", body: "Bots behalten, was sie lernen, und teilen es mit dem Team." },
+        triggers: { title: "Wird von selbst aktiv", body: "Nach Zeitplan, per Webhook, bei GitHub-Events oder wenn sich etwas ändert." },
+        team: { title: "Gibt Arbeit ab", body: "Bots delegieren untereinander und arbeiten in Gruppen zusammen." },
+        teach: { title: "Lernt durch Zuschauen", body: "Zeig eine Aufgabe einmal auf seinem Computer. Er speichert die Schritte als Skill." },
+      },
+      mock: {
+        calling: "Ruft an…",
+        memory: "Gedächtnis",
+        memoryNotes: ["Mag kurze Antworten", "Acme verlängert im März"],
+        triggers: ["Mo–Fr um 9:00", "Neues GitHub-Issue", "Webhook"],
+        handoff: "An Talent Scout übergeben",
+        recording: "Aufnahme",
+        skillSaved: "Als Skill gespeichert",
+      },
+      more: {
+        voice: "Sprachmodus",
+        skills: "Skills",
+        charts: "Charts und Diagramme",
+        device: "Befehle auf deinem Computer",
+        vault: "Secrets-Tresor",
+        import: "Import aus OpenClaw oder Hermes",
+        media: "Bilder und Videos",
+        wallet: "Bezahlt mit Stripe Link",
+        cursor: "Cursor Cloud Agents",
+        board: "Ticket-Board",
+      },
     },
     testimonials: {
       heading: "Die Leute lieben es",
@@ -691,6 +808,43 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       copy: "템플릿을 골라 내 일에 맞추세요.",
       bots: KO_ROSTER,
     },
+    channels: {
+      heading: "어디서든 메시지하세요",
+      copy: "Slack에서 봇을 멘션하거나 휴대폰으로 문자를 보내세요.",
+      mock: { ask: "오늘 팔로업할 사람이 누구야?", reply: "이번 주에 연락이 끊긴 리드가 세 명 있어요. 초안은 스레드에 있어요." },
+    },
+    features: {
+      heading: "채팅 그 이상",
+      items: {
+        call: { title: "먼저 전화해요", body: "당신이 필요할 때 봇이 기기로 전화를 걸어요. 말로 해결하세요." },
+        apps: { title: "쓰던 앱에서 일해요", body: "Gmail, GitHub, Notion, 그리고 모든 MCP 서버를 연결하세요." },
+        memory: { title: "기억해요", body: "봇은 배운 것을 기억하고 팀과 공유해요." },
+        triggers: { title: "스스로 깨어나요", body: "일정, 웹훅, GitHub 이벤트, 또는 지켜보던 변화에 맞춰 움직여요." },
+        team: { title: "일을 넘겨요", body: "봇끼리 일을 맡기고 그룹으로 함께 일해요." },
+        teach: { title: "보고 배워요", body: "봇의 컴퓨터에서 한 번 보여 주세요. 그 과정을 스킬로 저장해요." },
+      },
+      mock: {
+        calling: "전화 거는 중…",
+        memory: "메모리",
+        memoryNotes: ["짧은 답장을 선호함", "Acme 3월 갱신"],
+        triggers: ["평일 9:00", "새 GitHub 이슈", "웹훅"],
+        handoff: "Talent Scout에게 넘김",
+        recording: "녹화 중",
+        skillSaved: "스킬로 저장됨",
+      },
+      more: {
+        voice: "음성 모드",
+        skills: "스킬",
+        charts: "차트와 다이어그램",
+        device: "내 컴퓨터에서 명령 실행",
+        vault: "시크릿 금고",
+        import: "OpenClaw 또는 Hermes에서 가져오기",
+        media: "이미지와 동영상",
+        wallet: "Stripe Link로 결제",
+        cursor: "Cursor 클라우드 에이전트",
+        board: "티켓 보드",
+      },
+    },
     testimonials: {
       heading: "다들 좋아해요",
       pause: "일시정지",
@@ -817,6 +971,43 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       heading: "给每个 Bot 分配工作",
       copy: "选个模板，按你的需求调整。",
       bots: ZH_ROSTER,
+    },
+    channels: {
+      heading: "随时随地发消息",
+      copy: "在 Slack 里 @ 一个机器人，或用手机给它发短信。",
+      mock: { ask: "今天该跟进谁？", reply: "本周有三个潜在客户没回音了。草稿已放在线程里。" },
+    },
+    features: {
+      heading: "不止聊天",
+      items: {
+        call: { title: "它会给你打电话", body: "需要你的时候，机器人会呼叫你的设备。当面说清楚。" },
+        apps: { title: "在你的应用里工作", body: "连接 Gmail、GitHub、Notion 以及任何 MCP 服务器。" },
+        memory: { title: "记得住", body: "机器人会记住学到的东西，并与团队共享。" },
+        triggers: { title: "自己醒来", body: "按计划、Webhook、GitHub 事件，或它关注的变化触发。" },
+        team: { title: "把工作交出去", body: "机器人之间互相委派，也能在群组里协作。" },
+        teach: { title: "看一遍就会", body: "在它的电脑上演示一次任务，它会把步骤存成技能。" },
+      },
+      mock: {
+        calling: "呼叫中…",
+        memory: "记忆",
+        memoryNotes: ["喜欢简短回复", "Acme 三月续约"],
+        triggers: ["工作日 9:00", "新的 GitHub issue", "Webhook"],
+        handoff: "已交给 Talent Scout",
+        recording: "录制中",
+        skillSaved: "已存为技能",
+      },
+      more: {
+        voice: "语音模式",
+        skills: "技能",
+        charts: "图表和示意图",
+        device: "在你的电脑上执行命令",
+        vault: "密钥保险库",
+        import: "从 OpenClaw 或 Hermes 导入",
+        media: "图片和视频",
+        wallet: "用 Stripe Link 付款",
+        cursor: "Cursor 云端代理",
+        board: "工单看板",
+      },
     },
     testimonials: {
       heading: "大家都爱它",
@@ -945,6 +1136,43 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       heading: "ボットごとに仕事を任せましょう",
       copy: "テンプレートから始めて、自分好みに。",
       bots: JA_ROSTER,
+    },
+    channels: {
+      heading: "どこからでもメッセージ",
+      copy: "Slack でボットをメンション。スマホからテキストも送れます。",
+      mock: { ask: "今日フォローすべき相手は？", reply: "今週返信が止まったリードが3件あります。下書きはスレッドにあります。" },
+    },
+    features: {
+      heading: "チャットだけじゃない",
+      items: {
+        call: { title: "ボットから電話", body: "あなたが必要なとき、ボットがデバイスを鳴らします。話して片付けましょう。" },
+        apps: { title: "いつものアプリで", body: "Gmail、GitHub、Notion、あらゆる MCP サーバーとつなげます。" },
+        memory: { title: "覚えている", body: "ボットは学んだことを覚え、チームと共有します。" },
+        triggers: { title: "自分で動き出す", body: "スケジュール、Webhook、GitHub のイベント、見張っている変化をきっかけに動きます。" },
+        team: { title: "仕事を任せ合う", body: "ボット同士で仕事を任せ、グループで協力します。" },
+        teach: { title: "見て覚える", body: "ボットのコンピューターで一度やって見せれば、手順をスキルとして保存します。" },
+      },
+      mock: {
+        calling: "発信中…",
+        memory: "メモリー",
+        memoryNotes: ["短い返信が好み", "Acme は3月に更新"],
+        triggers: ["平日 9:00", "新しい GitHub issue", "Webhook"],
+        handoff: "Talent Scout に引き継ぎ",
+        recording: "録画中",
+        skillSaved: "スキルとして保存",
+      },
+      more: {
+        voice: "音声モード",
+        skills: "スキル",
+        charts: "チャートと図",
+        device: "自分のコンピューターでコマンド実行",
+        vault: "シークレット保管庫",
+        import: "OpenClaw や Hermes から移行",
+        media: "画像と動画",
+        wallet: "Stripe Link で支払い",
+        cursor: "Cursor クラウドエージェント",
+        board: "チケットボード",
+      },
     },
     testimonials: {
       heading: "多くの人に愛用されています",
