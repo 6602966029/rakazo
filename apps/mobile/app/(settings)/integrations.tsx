@@ -20,6 +20,7 @@ import {
   filterConnectionCatalogItems,
   humanizeToolName,
   isCatalogItemConnected,
+  matchesWordPrefixes,
   OTHER_PLUGINS,
 } from "@rakazo/core";
 import type { NativeStackNavigationOptions } from "expo-router";
@@ -222,6 +223,12 @@ export default function Integrations() {
   const filtering = Boolean(query.trim() || category);
   const installedSources = new Set(pluginInstalls.map((install) => install.source));
   const standaloneServers = mcpServers.filter((server) => !server.installId);
+  const savedServerMatches =
+    query.trim() && !category
+      ? standaloneServers.filter((server) =>
+          matchesWordPrefixes(`${server.name} ${server.description}`, query),
+        )
+      : [];
   const connectorPlugins = pluginInstalls.filter(hasPluginConnector);
   const skillSets = pluginInstalls.filter((install) => pluginSkillCount(install) > 0);
 
@@ -542,6 +549,18 @@ export default function Integrations() {
   }
 
   /** What this account already has: apps it can reach, then skills it follows. */
+  function renderSavedServer(server: McpServer) {
+    return (
+      <View key={server.id} testID="registered-mcp-server" style={styles.row}>
+        <ConnectorIcon name={server.name} size={LOGO_SIZE} />
+        <Text numberOfLines={1} style={[styles.title, styles.grow]}>
+          {server.name}
+        </Text>
+        <Text style={styles.secondary}>{serverStatus(server)}</Text>
+      </View>
+    );
+  }
+
   function renderConnected() {
     const apps = connectorPlugins.length + standaloneServers.length + sources.length;
     const skills = skillSets.length + userSkills.length;
@@ -571,15 +590,7 @@ export default function Integrations() {
                 !servers.every(mcpServerReady),
               );
             })}
-            {standaloneServers.map((server) => (
-              <View key={server.id} testID="registered-mcp-server" style={styles.row}>
-                <ConnectorIcon name={server.name} size={LOGO_SIZE} />
-                <Text numberOfLines={1} style={[styles.title, styles.grow]}>
-                  {server.name}
-                </Text>
-                <Text style={styles.secondary}>{serverStatus(server)}</Text>
-              </View>
-            ))}
+            {standaloneServers.map(renderSavedServer)}
             {sources.map((source) => (
               <View key={source.id} testID="tool-source" style={styles.row}>
                 <ConnectorIcon name={source.name} size={LOGO_SIZE} />
@@ -1337,6 +1348,11 @@ export default function Integrations() {
             ) : null}
 
             {!detailItem && !filtering ? renderConnected() : null}
+            {!detailItem && savedServerMatches.length ? (
+              <View testID="connected-apps" style={styles.catalogStack}>
+                {savedServerMatches.map(renderSavedServer)}
+              </View>
+            ) : null}
 
             {catalogError ? (
               <View style={styles.catalogStack}>
@@ -1421,6 +1437,7 @@ export default function Integrations() {
                 {catalogReady &&
                 catalogApps.length === 0 &&
                 pluginMatches.length === 0 &&
+                savedServerMatches.length === 0 &&
                 pluginsState !== "loading" &&
                 filtering ? (
                   <Text style={styles.secondary}>{t("No apps match your search.")}</Text>

@@ -594,6 +594,18 @@ it("shows registered MCP servers with connector initials and sentence case statu
   expect(rows[0]?.textContent).toBe("SSaved serverCredential saved");
   expect(rows[1]?.textContent).toBe("OOpen serverNo auth");
   for (const row of rows) expect(row.querySelector("button")).toBeNull();
+
+  const search = container.querySelector('input[placeholder="Search apps"]') as HTMLInputElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+      search,
+      "saved",
+    );
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const matches = container.querySelectorAll('[data-testid="registered-mcp-server"]');
+  expect([...matches].map((row) => row.textContent)).toEqual(["SSaved serverCredential saved"]);
+  expect(container.textContent).not.toContain("No apps match your search.");
 });
 
 const plugin = {
