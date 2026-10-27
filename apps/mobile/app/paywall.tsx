@@ -35,6 +35,7 @@ import {
   openBillingPage,
   ownKeyOffer,
   planEndsAt,
+  purchaseCompleted,
   setPaywallShown,
 } from "../lib/billing";
 import { translucentColor } from "../lib/color";
@@ -93,7 +94,12 @@ export default function Paywall() {
         // Changing plans from Billing starts on the plan the organization is not on yet.
         if (!planPicked.current) {
           planPicked.current = true;
-          if (dismissible && currentPlan(next) === "byok" && !next.byokFreeUntil)
+          if (
+            dismissible &&
+            currentPlan(next) === "byok" &&
+            !next.byokFreeUntil &&
+            next.creditPurchasesEnabled !== false
+          )
             setPlan("credits");
         }
         setStatus(next);
@@ -130,7 +136,7 @@ export default function Paywall() {
             : await rpc("billing/selectFunding", { funding: "byok", client: "mobile" });
       const next = url ? await openBillingPage(url) : await rpc("billing/refresh");
       setStatus(next);
-      if (next.access) setStarted(plan);
+      if (purchaseCompleted(status, next)) setStarted(plan);
     } catch (err) {
       Alert.alert(errorText(err, t("Could not open billing")));
     } finally {

@@ -24,6 +24,21 @@ export function currentPlan(status: BillingStatus): Plan | null {
   return status.funding === "byok" ? "byok" : status.funding === "credits" ? "credits" : null;
 }
 
+/**
+ * Whether a checkout changed the plan. A canceled checkout returns to the same status, and
+ * an organization that already had access (a free period, or changing plans) still has it.
+ */
+export function purchaseCompleted(before: BillingStatus, after: BillingStatus): boolean {
+  if (!after.access) return false;
+  return (
+    !before.access ||
+    after.state !== before.state ||
+    after.funding !== before.funding ||
+    after.monthlyAmountCents !== before.monthlyAmountCents ||
+    after.byokFreeUntil !== before.byokFreeUntil
+  );
+}
+
 let paywallShown = false;
 
 /** The paywall holds the app until a plan is chosen; the inbox must not stack a second one. */

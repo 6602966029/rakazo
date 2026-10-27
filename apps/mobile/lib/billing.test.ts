@@ -1,6 +1,6 @@
 import type { BillingStatus } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { currentPlan, ownKeyOffer, planEndsAt } from "./billing";
+import { currentPlan, ownKeyOffer, planEndsAt, purchaseCompleted } from "./billing";
 
 vi.mock("./api", () => ({ rpc: vi.fn() }));
 vi.mock("react-native", () => ({ Linking: { openURL: vi.fn() } }));
@@ -60,5 +60,34 @@ describe("current plan", () => {
     expect(currentPlan(status({ funding: "byok" }))).toBeNull();
     expect(currentPlan(status({ access: true, funding: "byok" }))).toBe("byok");
     expect(currentPlan(status({ access: true, funding: "credits" }))).toBe("credits");
+  });
+});
+
+describe("purchase completed", () => {
+  it("is a checkout that grants access", () => {
+    expect(purchaseCompleted(status(), status({ access: true, state: "trialing" }))).toBe(true);
+    expect(purchaseCompleted(status(), status())).toBe(false);
+  });
+
+  it("is not a canceled checkout from a free period that still has access", () => {
+    const free = status({
+      access: true,
+      funding: "byok",
+      byokFreeUntil: "2026-11-01T00:00:00.000Z",
+    });
+    expect(purchaseCompleted(free, free)).toBe(false);
+    expect(
+      purchaseCompleted(free, status({ access: true, funding: "byok", state: "active" })),
+    ).toBe(true);
+  });
+
+  it("is a change from own key to monthly credits", () => {
+    const ownKey = status({ access: true, funding: "byok", state: "active" });
+    expect(
+      purchaseCompleted(
+        ownKey,
+        status({ access: true, funding: "credits", state: "active", monthlyAmountCents: 2000 }),
+      ),
+    ).toBe(true);
   });
 });
