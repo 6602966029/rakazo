@@ -80,7 +80,13 @@ function botSecretDeps(seed: Row[] = []) {
       }),
     },
     vaultCredential: botSecret,
-    spaceSettingOverride: { findUnique: vi.fn(async () => null) },
+    // Counted before a prepared value that was never committed is deleted from the store.
+    secret: { count: vi.fn(async () => 0) },
+    botSecret: { count: vi.fn(async () => 0) },
+    integrationProviderConfig: { count: vi.fn(async () => 0) },
+    spaceSettingOverride: {
+      findUnique: vi.fn<() => Promise<{ setting: string } | null>>(async () => null),
+    },
     // The member's settings lock always finds the membership row.
     $queryRaw: vi.fn(async () => [{ locked: 1 }]),
     $transaction: vi.fn(),
@@ -94,6 +100,7 @@ function botSecretDeps(seed: Row[] = []) {
     })),
     // The fake store's ciphertext is "enc:<id>"; reading it back returns what put saved.
     load: vi.fn(async (ciphertext: string) => saved.get(ciphertext) ?? ""),
+    delete: vi.fn(async () => undefined),
   };
   const saved = new Map<string, string>();
   secrets.put.mockImplementation(async (plaintext, _context, options) => {
@@ -557,6 +564,19 @@ describe("vault router", () => {
       username: "person@example.test",
       password: FAKE_VALUE,
     });
+  });
+
+  it("refuses a save the Space stops customizing while it is being prepared", async () => {
+    const { prisma, secrets, rows, call } = botSecretDeps();
+    // Customized when the save is prepared, back on the account vault by the time it stores.
+    prisma.spaceSettingOverride.findUnique.mockResolvedValueOnce({ setting: "credentials" });
+    const refused = await call("vault/put", { scope: "space", destination, value: FAKE_VALUE });
+    expect(refused.status).toBe(400);
+    expect(refused.text).toContain("This Space uses the account vault");
+    expect(rows).toEqual([]);
+    expect(secrets.put).toHaveBeenCalledOnce();
+    const prepared = await secrets.put.mock.results[0]!.value;
+    expect(secrets.delete).toHaveBeenCalledWith(prepared.ciphertext, expect.anything());
   });
 
   it("refuses to save into a Space's own vault the Space no longer uses", async () => {
