@@ -12,6 +12,7 @@ import {
   sanitizeComposioError,
   verifyMcpInstall,
 } from "@rakazo/adapters";
+import type { Actor } from "@rakazo/contracts";
 import { signupSurveyAsksTeamSize } from "@rakazo/contracts";
 import { containsSecret } from "@rakazo/core";
 import type { Prisma } from "@rakazo/db";
@@ -40,7 +41,7 @@ import {
   promptFocus,
   startOnboarding,
 } from "../onboarding.js";
-import { installPlugin } from "../plugin-installs.js";
+import { installPlugin, setPluginParts } from "../plugin-installs.js";
 import type { RouterContext } from "./context.js";
 import { computerContext, isUniqueViolation } from "./shared.js";
 
@@ -59,6 +60,50 @@ export function mcpRoutes(ctx: RouterContext) {
     authed,
   } = ctx;
   const pluginMarketplace = createPluginMarketplace(deps.pluginMarketplaceRead);
+  /** Removes an install and, for a plugin, the servers, secrets and skills it added. */
+  const removeInstall = async (actor: Actor, id: string) => {
+    const notify: Array<{ threadId: string; seq: number }> = [];
+    await deps.prisma.$transaction(async (tx) => {
+      const existing = await tx.capabilityInstall.findFirst({
+        where: {
+          id,
+          spaceId: actor.spaceId,
+          userId: actor.userId,
+        },
+      });
+      if (!existing) return;
+      if (existing.kind === "plugin") {
+        const servers = await tx.mcpServer.findMany({
+          where: {
+            installId: existing.id,
+            spaceId: actor.spaceId,
+            userId: actor.userId,
+          },
+          select: { id: true, secretId: true },
+        });
+        for (const server of servers) {
+          notify.push(...(await removeMcpServerInTransaction(tx, actor, server)));
+        }
+        await tx.agentSkill.deleteMany({ where: { installId: existing.id } });
+      }
+      await tx.capabilityInstall.delete({ where: { id: existing.id } });
+      if (existing.secretId) {
+        const shared = await tx.capabilityInstall.count({
+          where: { secretId: existing.secretId },
+        });
+        if (shared === 0) {
+          await tx.secret.deleteMany({
+            where: {
+              id: existing.secretId,
+              spaceId: actor.spaceId,
+              userId: actor.userId,
+            },
+          });
+        }
+      }
+    });
+    for (const event of notify) await deps.events.notify(event.threadId, event.seq);
+  };
   return {
     marketplace: {
       catalog: authed.marketplace.catalog.handler(({ input }) =>
@@ -258,48 +303,27 @@ export function mcpRoutes(ctx: RouterContext) {
         }
       }),
       remove: authed.capabilities.remove.handler(async ({ context, input }) => {
-        const notify: Array<{ threadId: string; seq: number }> = [];
-        await deps.prisma.$transaction(async (tx) => {
-          const existing = await tx.capabilityInstall.findFirst({
-            where: {
-              id: input.id,
-              spaceId: context.actor.spaceId,
-              userId: context.actor.userId,
-            },
-          });
-          if (!existing) return;
-          if (existing.kind === "plugin") {
-            const servers = await tx.mcpServer.findMany({
-              where: {
-                installId: existing.id,
-                spaceId: context.actor.spaceId,
-                userId: context.actor.userId,
-              },
-              select: { id: true, secretId: true },
-            });
-            for (const server of servers) {
-              notify.push(...(await removeMcpServerInTransaction(tx, context.actor, server)));
-            }
-            await tx.agentSkill.deleteMany({ where: { installId: existing.id } });
-          }
-          await tx.capabilityInstall.delete({ where: { id: existing.id } });
-          if (existing.secretId) {
-            const shared = await tx.capabilityInstall.count({
-              where: { secretId: existing.secretId },
-            });
-            if (shared === 0) {
-              await tx.secret.deleteMany({
-                where: {
-                  id: existing.secretId,
-                  spaceId: context.actor.spaceId,
-                  userId: context.actor.userId,
-                },
-              });
-            }
-          }
-        });
-        for (const event of notify) await deps.events.notify(event.threadId, event.seq);
+        await removeInstall(context.actor, input.id);
         return { ok: true as const };
+      }),
+      pluginParts: authed.capabilities.pluginParts.handler(async ({ context, input }) => {
+        const notify: Array<{ threadId: string; seq: number }> = [];
+        const install = await setPluginParts(
+          {
+            prisma: deps.prisma,
+            secrets: deps.secrets,
+            fetcher: deps.pluginRepoFetcher,
+            assertEndpoint: (endpoint) => assertMcpRemoteEndpoint(endpoint, deps),
+            removeServer: async (tx, server) =>
+              notify.push(...(await removeMcpServerInTransaction(tx, context.actor, server))),
+          },
+          context.actor,
+          input,
+          context.signal,
+        );
+        for (const event of notify) await deps.events.notify(event.threadId, event.seq);
+        if (!install) await removeInstall(context.actor, input.id);
+        return { install };
       }),
     },
     mcp: {

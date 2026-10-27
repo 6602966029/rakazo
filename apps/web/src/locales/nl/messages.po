@@ -22,14 +22,14 @@ msgstr " (ongelezen)"
 msgid "{0, plural, one {# bot has its own model:} other {# bots have their own model:}}"
 msgstr ""
 
+#. placeholder {0}: servers.length
+#: src/pages/PluginsOverlay.tsx
+msgid "{0, plural, one {# connector} other {# connectors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
-msgstr ""
-
-#. placeholder {0}: detail.skipped.length
-#: src/components/integrations/plugin-marketplace.tsx
-msgid "{0, plural, one {# part not added} other {# parts not added}}"
 msgstr ""
 
 #. placeholder {0}: pinned.length
@@ -148,14 +148,6 @@ msgstr "{commandVariable} is gereserveerd en kan niet als commandovariabele word
 
 #: src/pages/PluginsOverlay.tsx
 msgid "{connectedCount, plural, one {# connected} other {# connected}}"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "{connectors, plural, one {# connector} other {# connectors}}"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "{connectors, plural, one {# connector} other {# connectors}}, {skillCount, plural, one {# skill} other {# skills}}"
 msgstr ""
 
 #: src/components/markdown-copy.tsx
@@ -572,6 +564,10 @@ msgstr "Server toevoegen"
 msgid "Add server URL"
 msgstr "Server-URL toevoegen"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Add skills"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 msgid "Add to an existing bot"
 msgstr "Aan een bestaande bot toevoegen"
@@ -919,6 +915,7 @@ msgid "Avatar Studio"
 msgstr "Avatarstudio"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -1035,6 +1032,10 @@ msgstr "Breinlabel"
 #: src/pages/PluginsOverlay.tsx
 msgid "Browse MCP servers"
 msgstr "MCP-servers doorzoeken"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Browse skills"
+msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1344,6 +1345,10 @@ msgstr "Paneel sluiten"
 msgid "Close preview"
 msgstr "Voorbeeld sluiten"
 
+#: src/components/integrations/skills-marketplace.tsx
+msgid "Close skills"
+msgstr ""
+
 #: src/components/markdown-copy.tsx
 msgid "Close table"
 msgstr "Tabel sluiten"
@@ -1498,6 +1503,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "Bevestig dat de URL vanuit deze browsersessie bereikbaar is en test daarna opnieuw."
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
@@ -1598,6 +1604,10 @@ msgstr "Verbindingstest mislukt."
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "De verbinding met {0} is nog in afwachting. Je kunt dit venster sluiten en later opnieuw controleren."
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Connector"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/import-status.ts
 msgid "Contains code to run"
@@ -1681,6 +1691,10 @@ msgstr "Toevoegen mislukt"
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not add MCP server"
 msgstr "MCP-server toevoegen mislukt"
+
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Could not add skills"
+msgstr ""
 
 #: src/pages/shell/message-cards.tsx
 msgid "Could not approve this server"
@@ -1981,6 +1995,10 @@ msgstr ""
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not remove rule"
 msgstr "Regel verwijderen mislukt"
+
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Could not remove skills"
+msgstr ""
 
 #: src/components/VaultSettings.tsx
 msgid "Could not remove the credential"
@@ -2889,6 +2907,7 @@ msgstr "Van"
 msgid "From {0}"
 msgstr "Vanaf {0}"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "From GitHub"
 msgstr ""
@@ -3355,6 +3374,7 @@ msgid "Loading voice providers…"
 msgstr "Spraakanbieders laden…"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/components/PageLoading.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3488,7 +3508,6 @@ msgid "MCP server"
 msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "MCP servers"
 msgstr "MCP-servers"
@@ -3965,6 +3984,11 @@ msgstr "Normaal"
 msgid "Not a valid skill"
 msgstr "Geen geldige skill"
 
+#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Not added: {0}"
+msgstr ""
+
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "Nog niet gecontroleerd"
@@ -4311,12 +4335,9 @@ msgstr "Bezig met afspelen…"
 msgid "Plugin"
 msgstr "Plugin"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Plugin GitHub URL"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Plugins"
 msgstr ""
 
 #: src/pages/RoutineEditor.tsx
@@ -4331,6 +4352,7 @@ msgstr "POST naar"
 msgid "Preferences"
 msgstr "Voorkeuren"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Preview"
 msgstr ""
@@ -4604,6 +4626,10 @@ msgstr "Schema verwijderen"
 msgid "Remove skill {0}"
 msgstr "Skill {0} verwijderen"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Remove skills"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Remove webhook"
 msgstr "Webhook verwijderen"
@@ -4746,6 +4772,7 @@ msgstr "Je werkruimte herstellen"
 
 #: src/components/AccountAccess.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
 #: src/pages/ModelRoleSettings.tsx
@@ -4977,6 +5004,10 @@ msgstr "Modellen zoeken"
 #: src/pages/shell/shell-sidebar.tsx
 msgid "Search runs"
 msgstr "Runs zoeken"
+
+#: src/components/integrations/skills-marketplace.tsx
+msgid "Search skills"
+msgstr ""
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
@@ -5227,7 +5258,9 @@ msgid "Skill {position}"
 msgstr "Skill {position}"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Skills"
 msgstr "Skills"
@@ -5261,6 +5294,7 @@ msgstr "Slack is niet ingeschakeld"
 msgid "Slide up to lock"
 msgstr "Schuif omhoog om te vergrendelen"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
 msgstr ""
@@ -5784,10 +5818,6 @@ msgid "Tool name"
 msgstr "Toolnaam"
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Tool sources"
-msgstr "Toolbronnen"
-
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "Tools"
@@ -6299,10 +6329,6 @@ msgstr "Jouw OpenAI"
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
 msgstr "Jouw OpenRouter"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Your skills"
-msgstr ""
 
 #: src/components/ModelCredits.tsx
 msgid "Your subscription or API key"

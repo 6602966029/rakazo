@@ -1,4 +1,5 @@
-import type { PluginMarketplaceEntry } from "@rakazo/contracts";
+import type { PluginMarketplaceEntry, PluginPart } from "@rakazo/contracts";
+import { PluginPartSchema } from "@rakazo/contracts";
 
 export const PLUGIN_CATEGORIES = [
   "productivity",
@@ -234,4 +235,23 @@ export function matchesPluginQuery(
     ].join(" "),
     query,
   );
+}
+
+function brandKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** The managed app a plugin is for, matched by name, so one brand is listed once. */
+export function managedAppFor<T extends { name: string; slug: string }>(
+  entry: Pick<PluginMarketplaceEntry, "name" | "displayName">,
+  apps: readonly T[],
+): T | undefined {
+  const keys = new Set([brandKey(entry.displayName), brandKey(entry.name)]);
+  return apps.find((app) => keys.has(brandKey(app.name)) || keys.has(brandKey(app.slug)));
+}
+
+/** Installs from before parts could be chosen added everything they had. */
+export function installedPluginParts(config: Record<string, unknown>): PluginPart[] {
+  const parsed = PluginPartSchema.array().safeParse(config.parts);
+  return parsed.success ? parsed.data : ["connector", "skills"];
 }

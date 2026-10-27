@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PluginRepoFile } from "./plugin-connectors.js";
 import {
+  classifyPluginFiles,
   fetchGitHubRepo,
   parsePluginDirectory,
   parsePluginSource,
@@ -125,6 +126,49 @@ describe("portable plugin parser", () => {
         "editor_only",
       ]),
     );
+  });
+  it("installs sub-agents and commands as skills, and skips only editor parts", () => {
+    const preview = parse([
+      ...files(),
+      {
+        path: "agents/reviewer.md",
+        content:
+          "---\nname: reviewer\ndescription: Reviews changes\nmodel: inherit\n---\n\nCheck the diff.\n",
+      },
+      {
+        path: "commands/deploy.md",
+        content: "---\ndescription: Deploy the project\n---\n\nDeploy to $ARGUMENTS.\n",
+      },
+      { path: "commands/status.md", content: "# Show status\n\nPrint the status.\n" },
+      { path: "commands/_conventions.md", content: "Shared notes" },
+      { path: "commands/example-skill.md", content: "Repeats the skill" },
+      { path: ".lsp.json", content: "{}" },
+    ]);
+    const byName = Object.fromEntries(preview.skills.map((s) => [s.name, s]));
+    expect(Object.keys(byName)).toEqual(["deploy", "example-skill", "reviewer", "status"]);
+    expect(byName.reviewer?.content).toContain('call run_subagent with name "reviewer"');
+    expect(byName.reviewer?.content).toContain("Check the diff.");
+    expect(byName.deploy?.description).toBe("Deploy the project");
+    expect(byName.deploy?.content).toContain("$ARGUMENTS is whatever the user wrote after /deploy");
+    expect(byName.status?.description).toBe("Show status");
+    expect(preview.skipped).toEqual([
+      { kind: "editor_only", name: ".lsp.json", reason: "Runs only inside an editor" },
+    ]);
+  });
+  it("tells from a file list whether every part installs", () => {
+    const remote = JSON.stringify({
+      mcpServers: { tools: { type: "http", url: "https://tools.example.test/mcp" } },
+    });
+    expect(
+      classifyPluginFiles(["mcp.json", "skills/a/SKILL.md", "agents/b.md", "README.md"], remote),
+    ).toEqual({ hasConnector: true, skillCount: 2 });
+    expect(classifyPluginFiles(["skills/a/SKILL.md", "hooks/hooks.json"])).toBe("incomplete");
+    expect(classifyPluginFiles(["skills/a/SKILL.md", "skills/a/notes.md"])).toBe("incomplete");
+    expect(classifyPluginFiles(["mcp.json"])).toBeNull();
+    expect(
+      classifyPluginFiles(["mcp.json"], JSON.stringify({ mcpServers: { x: { command: "npx" } } })),
+    ).toBe("incomplete");
+    expect(classifyPluginFiles(["README.md"])).toBe("incomplete");
   });
   it("rejects unknown manifest versions/invalid metadata; reports unknown fields", () => {
     expect(() =>

@@ -4,56 +4,85 @@ export const MARKETPLACE_FIXTURE_SOURCE = "https://github.com/example/plugin-mar
 export const MARKETPLACE_FIXTURE_ENDPOINT = "https://marketplace-tools.example.test/mcp";
 export const MARKETPLACE_FIXTURE_AUTH = "https://marketplace-auth.example.test";
 
+const CURSOR_REPO = "https://github.com/cursor/plugins";
+const CURSOR_RAW = "https://raw.githubusercontent.com/cursor/plugins/HEAD/";
+const fixtureMcp = JSON.stringify({
+  mcpServers: { notes: { type: "http", url: MARKETPLACE_FIXTURE_ENDPOINT } },
+});
+/** Plugins vendored in the fixture Cursor registry: one app with a skill, one skill pack. */
+const CURSOR_FILES: Record<string, string> = {
+  "planning-notes/.cursor-plugin/plugin.json": JSON.stringify({
+    name: "planning-notes",
+    displayName: "Planning Notes",
+  }),
+  "planning-notes/mcp.json": fixtureMcp,
+  "planning-notes/skills/planning-notes/SKILL.md":
+    "---\nname: planning-notes\ndescription: Organize a daily plan\n---\n\nUse the notes integration to record the plan.\n",
+  "review-kit/.cursor-plugin/plugin.json": JSON.stringify({
+    name: "review-kit",
+    displayName: "Review Kit",
+  }),
+  "review-kit/agents/reviewer.md":
+    "---\nname: reviewer\ndescription: Reviews a draft for gaps\n---\n\nList what is missing.\n",
+  "review-kit/commands/review.md":
+    "---\ndescription: Review the current draft\n---\n\nReview $ARGUMENTS.\n",
+};
+
 /** External provider boundary only. Catalog parsing, preview, installation,
  * native OAuth discovery/PKCE/storage, assignments and removal remain real. */
 export class PluginMarketplaceFixture {
   readonly calls: string[] = [];
   readonly repo: PluginRepoFetcher = async (source) => {
+    if (source.gitUrl === CURSOR_REPO)
+      return {
+        resolvedSha: "f".repeat(40),
+        files: Object.entries(CURSOR_FILES).map(([path, content]) => ({ path, content })),
+      };
     if (source.gitUrl !== MARKETPLACE_FIXTURE_SOURCE) throw new Error("Unknown fixture repository");
     return {
-      resolvedSha: "f".repeat(40),
+      resolvedSha: "e".repeat(40),
       files: [
         {
-          path: "plugin.json",
-          content: JSON.stringify({
-            $schema: "https://agent-plugins.org/schemas/1.1.0/plugin.schema.json",
-            name: "planning-notes",
-            description: "Plan work and write notes",
-            version: "1.0.0",
-          }),
+          path: ".cursor-plugin/plugin.json",
+          content: JSON.stringify({ name: "imported-notes", description: "Notes from GitHub" }),
         },
+        { path: "mcp.json", content: fixtureMcp },
         {
-          path: "skills/planning-notes/SKILL.md",
+          path: "skills/imported-notes/SKILL.md",
           content:
-            "---\nname: planning-notes\ndescription: Organize a daily plan\n---\n\nUse the notes integration to record the plan.\n",
+            "---\nname: imported-notes\ndescription: Keep imported notes\n---\n\nRecord notes.\n",
         },
-        {
-          path: "mcp.json",
-          content: JSON.stringify({
-            $schema: "https://agent-plugins.org/schemas/1.1.0/mcp.schema.json",
-            mcpServers: { notes: { type: "streamable-http", url: MARKETPLACE_FIXTURE_ENDPOINT } },
-          }),
-        },
-        { path: "rules/editor.md", content: "Editor-only fixture" },
+        { path: "hooks/hooks.json", content: "{}" },
       ],
     };
   };
   readonly index: PluginTextReader = async (url) => {
-    if (url.includes("/cursor/plugins/"))
+    if (url === `${CURSOR_RAW}.cursor-plugin/marketplace.json`)
       return JSON.stringify({
         name: "cursor-fixture",
         plugins: [
           {
             name: "planning-notes",
-            source: MARKETPLACE_FIXTURE_SOURCE,
+            source: "planning-notes",
             description: "Plan work and write notes",
             keywords: ["planning"],
             category: "productivity",
           },
+          { name: "review-kit", source: "review-kit", description: "Review drafts" },
         ],
       });
-    if (url.includes("/xai-org/plugin-marketplace/"))
+    if (url.startsWith("https://api.github.com/repos/cursor/plugins/git/trees/"))
+      return JSON.stringify({
+        tree: Object.keys(CURSOR_FILES).map((path) => ({ path, type: "blob" })),
+      });
+    if (url.startsWith(CURSOR_RAW)) {
+      const content = CURSOR_FILES[url.slice(CURSOR_RAW.length)];
+      if (content !== undefined) return content;
+    }
+    if (url.includes("/xai-org/plugin-marketplace/")) {
+      if (url.endsWith("plugin-index.json")) return JSON.stringify({ version: 1, plugins: {} });
       return JSON.stringify({ name: "xai-fixture", plugins: [] });
+    }
     throw new Error("Unknown fixture registry");
   };
   constructor(private readonly fallback: typeof globalThis.fetch) {}

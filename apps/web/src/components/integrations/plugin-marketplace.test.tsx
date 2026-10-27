@@ -8,13 +8,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const api = vi.hoisted(() => ({
   preview: vi.fn(),
   install: vi.fn(),
-  remove: vi.fn(),
+  parts: vi.fn(),
   approve: vi.fn(),
   connect: vi.fn(),
 }));
 vi.mock("../../lib/rpc", () => ({
   rpc: {
-    capabilities: { pluginPreview: api.preview, install: api.install, remove: api.remove },
+    capabilities: { pluginPreview: api.preview, install: api.install, pluginParts: api.parts },
     mcp: { assignments: { approve: api.approve } },
   },
 }));
@@ -152,13 +152,14 @@ describe("plugin detail", () => {
     expect(container.textContent).not.toContain("skill-5");
     await click("2 more");
     expect(container.textContent).toContain("skill-6");
-    await click("Add");
+    await click("Connect");
     expect(api.install).toHaveBeenCalledWith({
       kind: "plugin",
       name: "notes",
       source: preview.pinnedSource,
       pluginDigest: preview.digest,
       config: {},
+      pluginParts: ["connector"],
     });
     expect(onChanged).toHaveBeenCalled();
     expect(api.approve).not.toHaveBeenCalled();
@@ -167,7 +168,7 @@ describe("plugin detail", () => {
   it("shows a rejected install without claiming it was added", async () => {
     api.install.mockRejectedValue(new Error("Plugin content changed"));
     await render();
-    await click("Add");
+    await click("Connect");
     expect(container.querySelector("[role=alert]")?.textContent).toContain(
       "Plugin content changed",
     );
@@ -186,13 +187,60 @@ describe("plugin detail", () => {
     expect(api.approve).toHaveBeenCalledWith({ botId: "bot-1", serverId: server.id });
   });
 
-  it("removes only after confirmation", async () => {
+  it("removes the connector only after confirmation and keeps the skills", async () => {
     await render({ install, servers: [server] });
     await click("Remove");
-    expect(api.remove).not.toHaveBeenCalled();
+    expect(api.parts).not.toHaveBeenCalled();
     await click("Confirm removal");
-    expect(api.remove).toHaveBeenCalledWith({ id: install.id });
-    expect(onBack).toHaveBeenCalled();
+    expect(api.parts).toHaveBeenCalledWith({ id: install.id, parts: ["skills"] });
+  });
+
+  it("adds skills on their own, next to a connector", async () => {
+    await render();
+    await click("Add skills");
+    expect(api.install).toHaveBeenCalledWith(expect.objectContaining({ pluginParts: ["skills"] }));
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("adds a skill pack with one action and names parts it could not add", async () => {
+    api.preview.mockResolvedValue({
+      ...preview,
+      mcpServers: [],
+      skipped: [{ kind: "editor_only", name: "hooks/", reason: "Runs only inside an editor" }],
+    });
+    await render();
+    expect(() => button("Add skills")).toThrow();
+    expect(container.textContent).toContain("Not added: hooks/");
+    await click("Add");
+    expect(api.install).toHaveBeenCalledWith(expect.objectContaining({ pluginParts: ["skills"] }));
+  });
+
+  it("connects the managed app of the same brand instead of the plugin's connector", async () => {
+    const onConnect = vi.fn();
+    await act(async () =>
+      root.render(
+        <PluginDetail
+          selection={{ source, installedSource: source, name: "Notes" }}
+          installs={[]}
+          servers={[]}
+          assigned={new Set()}
+          managed={{
+            name: "Notes",
+            logo: null,
+            connected: false,
+            connecting: false,
+            onConnect,
+            onManage: vi.fn(),
+          }}
+          onBack={onBack}
+          onChanged={onChanged}
+        />,
+      ),
+    );
+    await click("Connect");
+    expect(onConnect).toHaveBeenCalled();
+    expect(api.install).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain("https://notes.example.test/mcp");
   });
 
   it("recognizes an install saved under the normalized form of a pasted URL", async () => {

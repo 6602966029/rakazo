@@ -101,6 +101,7 @@ import {
   ModelOAuthBeginSchema,
   OPENAI_COMPATIBLE_PROVIDER_ID,
   PluginMarketplaceCatalogSchema,
+  PluginPartSchema,
   PluginPreviewSchema,
   REPLY_QUOTE_MAX_LENGTH,
   ReorderBotsInput,
@@ -882,9 +883,15 @@ export const appContract = {
             .string()
             .regex(/^sha256:[a-f0-9]{64}$/)
             .optional(),
+          /** Plugins only: which parts to add; all supported parts when omitted. */
+          pluginParts: z.array(PluginPartSchema).min(1).max(2).optional(),
         }),
       )
       .output(CapabilityInstallSchema),
+    /** Add or remove parts of an installed plugin at its pinned version; no parts removes it. */
+    pluginParts: oc
+      .input(z.object({ id: Id, parts: z.array(PluginPartSchema).max(2) }))
+      .output(z.object({ install: CapabilityInstallSchema.nullable() })),
     /** Fetch and parse a plugin repo without installing: shows the skills,
      * MCP endpoints, variables, and skipped parts before confirmation. */
     pluginPreview: oc

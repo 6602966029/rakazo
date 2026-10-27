@@ -22,14 +22,14 @@ msgstr "（未読）"
 msgid "{0, plural, one {# bot has its own model:} other {# bots have their own model:}}"
 msgstr "{0, plural, one {#個のボットが独自のモデルを使用しています:} other {#個のボットが独自のモデルを使用しています:}}"
 
+#. placeholder {0}: servers.length
+#: src/pages/PluginsOverlay.tsx
+msgid "{0, plural, one {# connector} other {# connectors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
-msgstr ""
-
-#. placeholder {0}: detail.skipped.length
-#: src/components/integrations/plugin-marketplace.tsx
-msgid "{0, plural, one {# part not added} other {# parts not added}}"
 msgstr ""
 
 #. placeholder {0}: pinned.length
@@ -148,14 +148,6 @@ msgstr "{commandVariable}は予約済みのため、コマンド変数として�
 
 #: src/pages/PluginsOverlay.tsx
 msgid "{connectedCount, plural, one {# connected} other {# connected}}"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "{connectors, plural, one {# connector} other {# connectors}}"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "{connectors, plural, one {# connector} other {# connectors}}, {skillCount, plural, one {# skill} other {# skills}}"
 msgstr ""
 
 #: src/components/markdown-copy.tsx
@@ -572,6 +564,10 @@ msgstr "サーバーを追加"
 msgid "Add server URL"
 msgstr "サーバーURLを追加"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Add skills"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 msgid "Add to an existing bot"
 msgstr "既存のボットに追加"
@@ -919,6 +915,7 @@ msgid "Avatar Studio"
 msgstr "Avatar Studio"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -1035,6 +1032,10 @@ msgstr "Brainラベル"
 #: src/pages/PluginsOverlay.tsx
 msgid "Browse MCP servers"
 msgstr "MCPサーバーを探す"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Browse skills"
+msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1344,6 +1345,10 @@ msgstr "パネルを閉じる"
 msgid "Close preview"
 msgstr "プレビューを閉じる"
 
+#: src/components/integrations/skills-marketplace.tsx
+msgid "Close skills"
+msgstr ""
+
 #: src/components/markdown-copy.tsx
 msgid "Close table"
 msgstr "テーブルを閉じる"
@@ -1498,6 +1503,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "このブラウザセッションからURLにアクセスできることを確認してから、もう一度テストしてください。"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
@@ -1598,6 +1604,10 @@ msgstr "接続テストに失敗しました。"
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "{0}への接続はまだ保留中です。閉じてから後で再確認できます。"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Connector"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/import-status.ts
 msgid "Contains code to run"
@@ -1681,6 +1691,10 @@ msgstr "追加できませんでした"
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not add MCP server"
 msgstr "MCPサーバーを追加できませんでした"
+
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Could not add skills"
+msgstr ""
 
 #: src/pages/shell/message-cards.tsx
 msgid "Could not approve this server"
@@ -1981,6 +1995,10 @@ msgstr ""
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not remove rule"
 msgstr "ルールを削除できませんでした"
+
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Could not remove skills"
+msgstr ""
 
 #: src/components/VaultSettings.tsx
 msgid "Could not remove the credential"
@@ -2889,6 +2907,7 @@ msgstr "開始日"
 msgid "From {0}"
 msgstr "{0}から"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "From GitHub"
 msgstr ""
@@ -3355,6 +3374,7 @@ msgid "Loading voice providers…"
 msgstr "音声プロバイダーを読み込み中…"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/components/PageLoading.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3488,7 +3508,6 @@ msgid "MCP server"
 msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "MCP servers"
 msgstr "MCPサーバー"
@@ -3965,6 +3984,11 @@ msgstr "通常"
 msgid "Not a valid skill"
 msgstr "有効なスキルではありません"
 
+#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Not added: {0}"
+msgstr ""
+
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "未確認"
@@ -4311,12 +4335,9 @@ msgstr "再生中…"
 msgid "Plugin"
 msgstr "プラグイン"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Plugin GitHub URL"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Plugins"
 msgstr ""
 
 #: src/pages/RoutineEditor.tsx
@@ -4331,6 +4352,7 @@ msgstr "POST先"
 msgid "Preferences"
 msgstr "環境設定"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Preview"
 msgstr ""
@@ -4604,6 +4626,10 @@ msgstr "スケジュールを削除"
 msgid "Remove skill {0}"
 msgstr "スキル{0}を削除"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Remove skills"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Remove webhook"
 msgstr "Webhookを削除"
@@ -4746,6 +4772,7 @@ msgstr "ワークスペースを復元中"
 
 #: src/components/AccountAccess.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
 #: src/pages/ModelRoleSettings.tsx
@@ -4977,6 +5004,10 @@ msgstr "モデルを検索"
 #: src/pages/shell/shell-sidebar.tsx
 msgid "Search runs"
 msgstr "実行を検索"
+
+#: src/components/integrations/skills-marketplace.tsx
+msgid "Search skills"
+msgstr ""
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
@@ -5227,7 +5258,9 @@ msgid "Skill {position}"
 msgstr "スキル {position}"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Skills"
 msgstr "スキル"
@@ -5261,6 +5294,7 @@ msgstr "Slackが有効になっていません"
 msgid "Slide up to lock"
 msgstr "上にスライドしてロック"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
 msgstr ""
@@ -5784,10 +5818,6 @@ msgid "Tool name"
 msgstr "ツール名"
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Tool sources"
-msgstr "ツールソース"
-
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "ツール"
@@ -6299,10 +6329,6 @@ msgstr "お使いのOpenAI"
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
 msgstr "お使いのOpenRouter"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Your skills"
-msgstr ""
 
 #: src/components/ModelCredits.tsx
 msgid "Your subscription or API key"

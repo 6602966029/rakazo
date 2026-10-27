@@ -23,14 +23,14 @@ msgstr "（未讀）"
 msgid "{0, plural, one {# bot has its own model:} other {# bots have their own model:}}"
 msgstr "{0, plural, one {# 個機器人使用自己的模型：} other {# 個機器人使用自己的模型：}}"
 
+#. placeholder {0}: servers.length
+#: src/pages/PluginsOverlay.tsx
+msgid "{0, plural, one {# connector} other {# connectors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
-msgstr ""
-
-#. placeholder {0}: detail.skipped.length
-#: src/components/integrations/plugin-marketplace.tsx
-msgid "{0, plural, one {# part not added} other {# parts not added}}"
 msgstr ""
 
 #. placeholder {0}: pinned.length
@@ -149,14 +149,6 @@ msgstr "{commandVariable} 是保留名稱，不能用作命令變數。請選擇
 
 #: src/pages/PluginsOverlay.tsx
 msgid "{connectedCount, plural, one {# connected} other {# connected}}"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "{connectors, plural, one {# connector} other {# connectors}}"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "{connectors, plural, one {# connector} other {# connectors}}, {skillCount, plural, one {# skill} other {# skills}}"
 msgstr ""
 
 #: src/components/markdown-copy.tsx
@@ -573,6 +565,10 @@ msgstr "新增伺服器"
 msgid "Add server URL"
 msgstr "新增伺服器網址"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Add skills"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 msgid "Add to an existing bot"
 msgstr "新增到現有機器人"
@@ -920,6 +916,7 @@ msgid "Avatar Studio"
 msgstr "頭像工作室"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -1036,6 +1033,10 @@ msgstr "大腦標籤"
 #: src/pages/PluginsOverlay.tsx
 msgid "Browse MCP servers"
 msgstr "瀏覽 MCP 伺服器"
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Browse skills"
+msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/shell/agent-import.tsx
@@ -1345,6 +1346,10 @@ msgstr "關閉面板"
 msgid "Close preview"
 msgstr "關閉預覽"
 
+#: src/components/integrations/skills-marketplace.tsx
+msgid "Close skills"
+msgstr ""
+
 #: src/components/markdown-copy.tsx
 msgid "Close table"
 msgstr "關閉表格"
@@ -1499,6 +1504,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "請確認此瀏覽器工作階段可以存取該 URL，然後重新測試。"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
@@ -1599,6 +1605,10 @@ msgstr "連線測試失敗。"
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "與 {0} 的連線仍在等待。可以關閉此視窗稍後再看。"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Connector"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/import-status.ts
 msgid "Contains code to run"
@@ -1682,6 +1692,10 @@ msgstr "無法新增"
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not add MCP server"
 msgstr "無法新增 MCP 伺服器"
+
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Could not add skills"
+msgstr ""
 
 #: src/pages/shell/message-cards.tsx
 msgid "Could not approve this server"
@@ -1982,6 +1996,10 @@ msgstr ""
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not remove rule"
 msgstr "無法移除規則"
+
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Could not remove skills"
+msgstr ""
 
 #: src/components/VaultSettings.tsx
 msgid "Could not remove the credential"
@@ -2890,6 +2908,7 @@ msgstr "從"
 msgid "From {0}"
 msgstr "自 {0} 起"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "From GitHub"
 msgstr ""
@@ -3356,6 +3375,7 @@ msgid "Loading voice providers…"
 msgstr "正在載入語音供應商…"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/components/PageLoading.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3489,7 +3509,6 @@ msgid "MCP server"
 msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "MCP servers"
 msgstr "MCP 伺服器"
@@ -3966,6 +3985,11 @@ msgstr "一般"
 msgid "Not a valid skill"
 msgstr "不是有效的技能"
 
+#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Not added: {0}"
+msgstr ""
+
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "尚未檢查"
@@ -4312,12 +4336,9 @@ msgstr "播放中…"
 msgid "Plugin"
 msgstr "外掛程式"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Plugin GitHub URL"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Plugins"
 msgstr ""
 
 #: src/pages/RoutineEditor.tsx
@@ -4332,6 +4353,7 @@ msgstr "POST 到"
 msgid "Preferences"
 msgstr "偏好設定"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Preview"
 msgstr ""
@@ -4605,6 +4627,10 @@ msgstr "移除排程"
 msgid "Remove skill {0}"
 msgstr "移除技能 {0}"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Remove skills"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Remove webhook"
 msgstr "移除 Webhook"
@@ -4747,6 +4773,7 @@ msgstr "正在還原工作空間"
 
 #: src/components/AccountAccess.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
 #: src/pages/ModelRoleSettings.tsx
@@ -4978,6 +5005,10 @@ msgstr "搜尋模型"
 #: src/pages/shell/shell-sidebar.tsx
 msgid "Search runs"
 msgstr "搜尋執行紀錄"
+
+#: src/components/integrations/skills-marketplace.tsx
+msgid "Search skills"
+msgstr ""
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
@@ -5228,7 +5259,9 @@ msgid "Skill {position}"
 msgstr "技能 {position}"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Skills"
 msgstr "技能"
@@ -5262,6 +5295,7 @@ msgstr "未啟用 Slack"
 msgid "Slide up to lock"
 msgstr "向上滑動以鎖定"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
 msgstr ""
@@ -5785,10 +5819,6 @@ msgid "Tool name"
 msgstr "工具名稱"
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Tool sources"
-msgstr "工具來源"
-
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr "工具"
@@ -6300,10 +6330,6 @@ msgstr "你的 OpenAI"
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
 msgstr "你的 OpenRouter"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Your skills"
-msgstr ""
 
 #: src/components/ModelCredits.tsx
 msgid "Your subscription or API key"

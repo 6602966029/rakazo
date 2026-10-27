@@ -6,8 +6,9 @@ import { fetchFresh, writeSaved } from "@rakazo/core/query";
 import { Badge, Button, Skeleton, Textarea } from "@rakazo/ui-web";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@rakazo/ui-web/components/ui/tooltip";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Plus } from "lucide-react";
+import { Download, Plus, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { SkillsMarketplaceDialog } from "../components/integrations/skills-marketplace";
 import { SettingsSectionHeading } from "../components/SettingsSectionHeading";
 import { downloadArtifactBytes } from "../lib/artifact-open";
 import { useSpaceQueries } from "../lib/query";
@@ -348,6 +349,7 @@ function AgentSkills() {
   const [actionError, setError] = useState<string | null>(null);
   const error = actionError ?? (listQuery.isError ? t`Could not load` : null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const selection = useRef(0);
 
   async function refresh() {
@@ -549,6 +551,19 @@ function AgentSkills() {
           <Plus aria-hidden="true" className="size-4 text-muted-foreground" />
         </Button>
       )}
+      {editorOpen ? null : (
+        <Button
+          variant="ghost"
+          type="button"
+          disabled={busy}
+          onClick={() => setBrowsing(true)}
+          className="-mx-2.5 h-auto min-h-11 w-[calc(100%+1.25rem)] justify-between px-2.5 py-2.5 text-sm font-normal text-foreground"
+        >
+          <Trans>Browse skills</Trans>
+          <Search aria-hidden="true" className="size-4 text-muted-foreground" />
+        </Button>
+      )}
+      {browsing ? <SkillsMarketplaceDialog onClose={() => setBrowsing(false)} /> : null}
     </div>
   );
 }

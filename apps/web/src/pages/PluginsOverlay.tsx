@@ -17,8 +17,10 @@ import {
   connectCatalogItem,
   filterConnectionCatalogItems,
   humanizeToolName,
+  installedPluginParts,
   isCatalogItemConnected,
   isRecommendedPlugin,
+  managedAppFor,
   matchesPluginQuery,
   matchesWordPrefixes,
   OTHER_PLUGINS,
@@ -52,7 +54,10 @@ import { ChevronDown, ChevronLeft, ChevronRight, FileText, Plus, X } from "lucid
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
-import type { PluginSelection } from "../components/integrations/plugin-marketplace";
+import type {
+  ManagedAppLink,
+  PluginSelection,
+} from "../components/integrations/plugin-marketplace";
 import {
   mcpServerReady,
   PluginDetail,
@@ -288,13 +293,21 @@ export function PluginsOverlay({
     : visible.filter((item) => !matchesWordPrefixes(item.name, query));
   const rendered = weakMatches.slice(0, visibleCount);
 
-  // A managed app and a plugin with the same name would read as one app listed twice.
-  const plugins = useMemo(() => {
-    const managed = new Set(catalog.map((item) => item.name.toLowerCase()));
-    return (pluginCatalog.data?.entries ?? NO_PLUGINS).filter(
-      (entry) => !managed.has(entry.displayName.toLowerCase()),
-    );
-  }, [catalog, pluginCatalog.data]);
+  const catalogEntries = pluginCatalog.data?.entries ?? NO_PLUGINS;
+  // One row per brand: a plugin for a managed app lends that app its skills instead of being
+  // listed again. Skill packs with nothing to connect belong to Skills, not here.
+  const { plugins, pluginForApp } = useMemo(() => {
+    const forApp = new Map<string, PluginMarketplaceEntry>();
+    const listed: PluginMarketplaceEntry[] = [];
+    for (const entry of catalogEntries) {
+      const app = managedAppFor(entry, catalog);
+      if (app) {
+        if (entry.skillCount && !forApp.has(catalogItemKey(app)))
+          forApp.set(catalogItemKey(app), entry);
+      } else if (entry.hasConnector) listed.push(entry);
+    }
+    return { plugins: listed, pluginForApp: forApp };
+  }, [catalog, catalogEntries]);
   const categoryLabels: Record<PluginCategory, string> = {
     productivity: t`Productivity`,
     communication: t`Communication`,
@@ -336,7 +349,7 @@ export function PluginsOverlay({
       logo: item.logo,
     })),
     ...pluginInstalls.map((install) => {
-      const entry = plugins.find((row) => row.installedSource === install.source);
+      const entry = catalogEntries.find((row) => row.installedSource === install.source);
       return { key: install.id, name: entry?.displayName ?? install.name, logo: entry?.logo };
     }),
   ].slice(0, 4);
@@ -348,11 +361,39 @@ export function PluginsOverlay({
     setPlugin(selection);
   }
 
+  /** A managed app whose brand also has a plugin opens one page with its skills. */
+  function openApp(item: ConnectionCatalogItem) {
+    const entry = pluginForApp.get(catalogItemKey(item));
+    if (entry) openPlugin(pluginSelection(entry));
+    else openDetail(item);
+  }
+
+  const appForPlugin = (selection: PluginSelection) => {
+    const entry = catalogEntries.find((row) => row.installedSource === selection.installedSource);
+    return entry ? managedAppFor(entry, catalog) : undefined;
+  };
+
   function installedSelection(install: CapabilityInstall): PluginSelection {
-    const entry = plugins.find((row) => row.installedSource === install.source);
+    const entry = catalogEntries.find((row) => row.installedSource === install.source);
     return entry
       ? pluginSelection(entry)
       : { source: install.source, installedSource: install.source, name: install.name };
+  }
+
+  function managedLink(selection: PluginSelection): ManagedAppLink | undefined {
+    const item = appForPlugin(selection);
+    if (!item) return undefined;
+    return {
+      name: item.name,
+      logo: item.logo,
+      connected: itemConnected(item),
+      connecting: pending === catalogItemKey(item),
+      onConnect: () => void connect(item),
+      onManage: () => {
+        setPlugin(null);
+        openDetail(item);
+      },
+    };
   }
 
   function openDetail(item: ConnectionCatalogItem) {
@@ -649,6 +690,7 @@ export function PluginsOverlay({
     opts?: { tileTestId?: boolean },
   ) {
     const connected = itemConnected(item);
+    const openable = connected || pluginForApp.has(catalogItemKey(item));
     const tileTestId = opts?.tileTestId !== false && connected;
     const icon = <ConnectorIcon name={label} logo={logo} />;
     const title = (
@@ -660,13 +702,13 @@ export function PluginsOverlay({
       <div
         key={catalogItemKey(item)}
         data-testid={tileTestId ? `connection-tile-${item.slug.toLowerCase()}` : undefined}
-        className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2${connected ? ` ${ROW_HOVER}` : ""}`}
+        className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2${openable ? ` ${ROW_HOVER}` : ""}`}
       >
-        {connected ? (
+        {openable ? (
           <button
             type="button"
             className="flex min-w-0 flex-1 items-center gap-3 text-start focus-visible:outline-none"
-            onClick={() => openDetail(item)}
+            onClick={() => openApp(item)}
           >
             {icon}
             {title}
@@ -865,10 +907,11 @@ export function PluginsOverlay({
           ) : null}
         </section>
       ) : null;
-    const managed = new Map(catalog.map((item) => [item.name.toLowerCase(), item]));
     // A recommended brand this deployment already offers as a managed app is listed as that app.
-    const recommended = (pluginCatalog.data?.entries ?? NO_PLUGINS)
+    const recommended = catalogEntries
       .filter(isRecommendedPlugin)
+      .map((entry) => ({ entry, item: managedAppFor(entry, catalog) }))
+      .filter(({ entry, item }) => item || entry.hasConnector)
       .slice(0, SECTION_SIZE);
     const uncategorized = plugins.filter((entry) => !entry.category);
     const sections: Array<[string, string, PluginMarketplaceEntry[]]> = [
@@ -889,12 +932,9 @@ export function PluginsOverlay({
               <Trans>Recommended</Trans>
             </h2>
             <div className="grid grid-cols-2 gap-2">
-              {recommended.map((entry) => {
-                const item = managed.get(entry.displayName.toLowerCase());
-                return item
-                  ? renderCatalogTile(item, item.name, item.logo)
-                  : renderPluginRow(entry);
-              })}
+              {recommended.map(({ entry, item }) =>
+                item ? renderCatalogTile(item, item.name, item.logo) : renderPluginRow(entry),
+              )}
             </div>
           </section>
         ) : null}
@@ -1265,208 +1305,178 @@ export function PluginsOverlay({
     );
   }
 
+  function renderInstalledPlugin(install: CapabilityInstall, part: "connector" | "skills") {
+    const selection = installedSelection(install);
+    const servers = pluginServers(install);
+    const parsed = PluginPreviewSchema.safeParse(install.config);
+    const skillCount = parsed.success ? parsed.data.skills.length : 0;
+    const signInNeeded = part === "connector" && !servers.every(mcpServerReady);
+    return (
+      <div
+        key={`${install.id}:${part}`}
+        data-testid="installed-plugin"
+        className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 ${ROW_HOVER}`}
+      >
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-3 text-start focus-visible:outline-none"
+          onClick={() => openPlugin(selection)}
+        >
+          <PluginLogo name={selection.name} logo={selection.logo} site={selection.site} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] font-medium">{selection.name}</span>
+            <span className="block truncate text-[13px] text-muted-foreground">
+              {part === "connector" ? (
+                <Plural value={servers.length} one="# connector" other="# connectors" />
+              ) : (
+                <Plural value={skillCount} one="# skill" other="# skills" />
+              )}
+            </span>
+          </span>
+        </button>
+        {signInNeeded ? (
+          <Button variant="secondary" size="sm" onClick={() => openPlugin(selection)}>
+            <Trans>Sign in</Trans>
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
   function renderManage() {
+    const withPart = (part: "connector" | "skills") =>
+      pluginInstalls.filter((install) => installedPluginParts(install.config).includes(part));
+    const appPlugins = withPart("connector");
+    const skillPlugins = withPart("skills");
+    const hasApps =
+      connectedItems.length + appPlugins.length + standaloneServers.length + sources.length > 0 ||
+      Boolean(mcpError);
+    const sectionTitle = "mb-2 px-2.5 text-[14px] font-medium text-muted-foreground";
     return (
       <div data-testid="integrations-manage" className="space-y-8">
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="-ms-2 text-muted-foreground"
-            aria-label={t`Back`}
-            onClick={() => setView("browse")}
-          >
-            <ChevronLeft />
-          </Button>
-          <h2 className="text-[17px] font-medium text-foreground">
-            <Trans>Connected</Trans>
-          </h2>
-        </div>
+        {renderViewTitle(<Trans>Connected</Trans>, () => setView("browse"))}
 
-        {pluginInstalls.length ? (
-          <section>
-            <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
-              <Trans>Plugins</Trans>
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {pluginInstalls.map((install) => {
-                const selection = installedSelection(install);
-                const servers = pluginServers(install);
-                const parsed = PluginPreviewSchema.safeParse(install.config);
-                const skillCount = parsed.success ? parsed.data.skills.length : 0;
-                const ready = servers.every(mcpServerReady);
-                const connectors = servers.length;
-                return (
-                  <div
-                    key={install.id}
-                    data-testid="installed-plugin"
-                    className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 ${ROW_HOVER}`}
-                  >
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-3 text-start focus-visible:outline-none"
-                      onClick={() => openPlugin(selection)}
-                    >
-                      <PluginLogo
-                        name={selection.name}
-                        logo={selection.logo}
-                        site={selection.site}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] font-medium">
-                          {selection.name}
-                        </span>
-                        <span className="block truncate text-[13px] text-muted-foreground">
-                          {connectors && skillCount ? (
-                            <Trans>
-                              <Plural value={connectors} one="# connector" other="# connectors" />,{" "}
-                              <Plural value={skillCount} one="# skill" other="# skills" />
-                            </Trans>
-                          ) : connectors ? (
-                            <Plural value={connectors} one="# connector" other="# connectors" />
-                          ) : (
-                            <Plural value={skillCount} one="# skill" other="# skills" />
-                          )}
-                        </span>
-                      </span>
-                    </button>
-                    {ready ? null : (
-                      <Button variant="secondary" size="sm" onClick={() => openPlugin(selection)}>
-                        <Trans>Sign in</Trans>
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-
-        {connectedItems.length ? (
-          <section>
-            <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
-              <Trans>Apps</Trans>
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {connectedItems.map((item) =>
-                renderCatalogTile(item, item.name, item.logo, { tileTestId: false }),
-              )}
-            </div>
-          </section>
-        ) : null}
-
-        {standaloneServers.length > 0 || mcpError ? (
-          <section data-testid="registered-mcp-servers">
+        {hasApps ? (
+          <section data-testid="connected-apps">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <h3 className="px-2.5 text-[14px] font-medium text-muted-foreground">
-                <Trans>MCP servers</Trans>
+              <h3 className={sectionTitle}>
+                <Trans>Apps</Trans>
               </h3>
-              {onOpenMcp ? (
+              {onOpenMcp && standaloneServers.length ? (
                 <Button variant="link" size="xs" onClick={onOpenMcp}>
                   <Trans>Manage MCP servers</Trans>
                 </Button>
               ) : null}
             </div>
             {mcpError ? (
-              <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
+              <div
+                role="alert"
+                className="mb-2 flex items-center gap-2 px-2.5 text-sm text-destructive"
+              >
                 {mcpError}
                 <Button variant="link" size="xs" onClick={() => void mcpQuery.refetch()}>
                   <Trans>Retry</Trans>
                 </Button>
               </div>
             ) : null}
-            {standaloneServers.map((server) => (
-              <div
-                key={server.id}
-                data-testid="registered-mcp-server"
-                className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
-              >
-                <ConnectorIcon name={server.name} />
-                <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
-                  {server.name}
-                </span>
-                <span className="shrink-0 text-[12.5px] text-muted-foreground">
-                  {!server.enabled ? (
-                    <Trans>Disabled</Trans>
-                  ) : server.oauthStatus === "reconnect" ? (
-                    <Trans>OAuth expired</Trans>
-                  ) : server.oauthStatus === "connected" ? (
-                    <Trans>OAuth connected</Trans>
-                  ) : server.hasSecret ? (
-                    <Trans>Credential saved</Trans>
-                  ) : (
-                    <Trans>No auth</Trans>
-                  )}
-                </span>
-              </div>
-            ))}
-          </section>
-        ) : null}
-
-        {sources.length ? (
-          <section data-testid="tool-sources">
-            <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
-              <Trans>Tool sources</Trans>
-            </h3>
             {sourceError ? (
               <p role="alert" className="mb-2 px-2.5 text-sm text-destructive">
                 {sourceError}
               </p>
             ) : null}
-            {sources.map((source) => (
-              <div
-                key={source.id}
-                data-testid="tool-source"
-                className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
-              >
-                <ConnectorIcon name={source.name} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium">{source.name}</span>
-                  <span className="block truncate text-[13px] text-muted-foreground">
-                    {source.kind === "api"
-                      ? "OpenAPI"
-                      : source.kind === "graphql"
-                        ? "GraphQL"
-                        : "MCP"}{" "}
-                    {source.source}
-                  </span>
-                </span>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={pending === source.id}
-                  onClick={() => void removeSource(source)}
-                >
-                  {pending === source.id ? <Trans>Removing…</Trans> : <Trans>Remove</Trans>}
-                </Button>
+            <div className="grid grid-cols-2 gap-2">
+              {connectedItems.map((item) =>
+                renderCatalogTile(item, item.name, item.logo, { tileTestId: false }),
+              )}
+              {appPlugins.map((install) => renderInstalledPlugin(install, "connector"))}
+              <div data-testid="registered-mcp-servers" className="contents">
+                {standaloneServers.map((server) => (
+                  <div
+                    key={server.id}
+                    data-testid="registered-mcp-server"
+                    className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
+                  >
+                    <ConnectorIcon name={server.name} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-medium">{server.name}</span>
+                      <span className="block truncate text-[13px] text-muted-foreground">
+                        {!server.enabled ? (
+                          <Trans>Disabled</Trans>
+                        ) : server.oauthStatus === "reconnect" ? (
+                          <Trans>OAuth expired</Trans>
+                        ) : server.oauthStatus === "connected" ? (
+                          <Trans>OAuth connected</Trans>
+                        ) : server.hasSecret ? (
+                          <Trans>Credential saved</Trans>
+                        ) : (
+                          <Trans>No auth</Trans>
+                        )}
+                      </span>
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+              <div data-testid="tool-sources" className="contents">
+                {sources.map((source) => (
+                  <div
+                    key={source.id}
+                    data-testid="tool-source"
+                    className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
+                  >
+                    <ConnectorIcon name={source.name} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-medium">{source.name}</span>
+                      <span className="block truncate text-[13px] text-muted-foreground">
+                        {source.kind === "api"
+                          ? "OpenAPI"
+                          : source.kind === "graphql"
+                            ? "GraphQL"
+                            : "MCP"}{" "}
+                        {source.source}
+                      </span>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={pending === source.id}
+                      onClick={() => void removeSource(source)}
+                    >
+                      {pending === source.id ? <Trans>Removing…</Trans> : <Trans>Remove</Trans>}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
         ) : null}
 
-        {userSkills.length ? (
-          <section data-testid="user-skills">
-            <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
-              <Trans>Your skills</Trans>
+        {skillPlugins.length || userSkills.length ? (
+          <section data-testid="connected-skills">
+            <h3 className={sectionTitle}>
+              <Trans>Skills</Trans>
             </h3>
-            {userSkills.map((skill) => (
-              <div
-                key={skill.id}
-                className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
-              >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-muted-foreground">
-                  <FileText size={16} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium">{skill.name}</span>
-                  <span className="block truncate text-[13px] text-muted-foreground">
-                    {skill.description}
-                  </span>
-                </span>
+            <div className="grid grid-cols-2 gap-2">
+              {skillPlugins.map((install) => renderInstalledPlugin(install, "skills"))}
+              <div data-testid="user-skills" className="contents">
+                {userSkills.map((skill) => (
+                  <div
+                    key={skill.id}
+                    className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
+                  >
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border/60 bg-favicon-plate text-muted-foreground">
+                      <FileText size={16} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-medium">{skill.name}</span>
+                      <span className="block truncate text-[13px] text-muted-foreground">
+                        {skill.description}
+                      </span>
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </section>
         ) : null}
       </div>
@@ -1632,6 +1642,7 @@ export function PluginsOverlay({
               servers={mcpServers}
               assigned={assigned}
               activeBotId={activeBotId}
+              managed={managedLink(plugin)}
               onBack={() => setPlugin(null)}
               onChanged={refresh}
             />

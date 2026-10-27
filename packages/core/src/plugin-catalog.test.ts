@@ -2,6 +2,8 @@ import type { PluginMarketplaceEntry } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
 import {
   comparePlugins,
+  installedPluginParts,
+  managedAppFor,
   matchesPluginQuery,
   matchesWordPrefixes,
   pluginCategory,
@@ -22,6 +24,8 @@ function entry(
     registry: "Cursor",
     source: `https://github.com/example/${overrides.name}`,
     installedSource: `https://github.com/example/${overrides.name}`,
+    hasConnector: true,
+    skillCount: 0,
     ...overrides,
   };
 }
@@ -80,5 +84,24 @@ describe("matchesWordPrefixes", () => {
     expect(matchesWordPrefixes("Google Calendar", "googlecal")).toBe(true);
     expect(matchesWordPrefixes("Tailscale", "cal")).toBe(false);
     expect(matchesWordPrefixes("Recall.ai", "cal")).toBe(false);
+  });
+});
+
+describe("managedAppFor", () => {
+  it("matches a plugin to the managed app of the same brand", () => {
+    const apps = [
+      { name: "Google Calendar", slug: "googlecalendar" },
+      { name: "Vercel", slug: "VERCEL" },
+    ];
+    expect(managedAppFor(entry({ name: "vercel", displayName: "Vercel" }), apps)).toBe(apps[1]);
+    expect(managedAppFor(entry({ name: "google-calendar" }), apps)).toBe(apps[0]);
+    expect(managedAppFor(entry({ name: "calcom", displayName: "Calcom" }), apps)).toBeUndefined();
+  });
+});
+
+describe("installedPluginParts", () => {
+  it("reads chosen parts and treats older installs as complete", () => {
+    expect(installedPluginParts({ parts: ["skills"] })).toEqual(["skills"]);
+    expect(installedPluginParts({})).toEqual(["connector", "skills"]);
   });
 });

@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import type { PluginPreview } from "@rakazo/contracts";
 import { McpServerConfigInput } from "@rakazo/contracts";
-import { parseSkillMd } from "@rakazo/core";
+import { buildSkillMd, parseSkillMd } from "@rakazo/core";
 import { z } from "zod";
 import { assertNoSensitiveQuery } from "./connector-http.js";
 import { fetchSafeWebText } from "./web-ssrf.js";
@@ -58,14 +58,12 @@ const SCHEMAS = new Set([
   "https://agent-plugins.org/schemas/1.1.0/plugin.schema.json",
 ]);
 const MANIFESTS = ["plugin.json", ".cursor-plugin/plugin.json", ".grok-plugin/plugin.json"];
-const EDITOR_DIRS = new Set([
-  "rules",
-  "hooks",
-  "commands",
-  "agents",
-  "automations",
-  ".claude-plugin",
-]);
+/** Parts that only run inside an editor or execute the plugin's own code on the host. */
+const UNSUPPORTED_DIRS = new Set(["rules", "hooks", "automations"]);
+const UNSUPPORTED_FILES = new Set([".lsp.json"]);
+const AGENT_FILE = /^agents\/([^/]+)\.md$/;
+// Underscore files beside commands are shared notes, not commands of their own.
+const COMMAND_FILE = /^commands\/([^/_][^/]*)\.md$/;
 const manifestSchema = z.object({
   name: z
     .string()
@@ -223,7 +221,9 @@ export async function fetchGitHubRepo(
     const relevant =
       MANIFESTS.includes(path) ||
       ["mcp.json", ".mcp.json"].includes(path) ||
-      /^skills\/[^/]+\/SKILL\.md$/.test(path);
+      /^skills\/[^/]+\/SKILL\.md$/.test(path) ||
+      AGENT_FILE.test(path) ||
+      COMMAND_FILE.test(path);
     if (!relevant) {
       files.push({ path: entry.path, content: "" });
       continue;
@@ -248,9 +248,9 @@ function object(value: unknown): value is Record<string, unknown> {
 function collectSkills(
   files: Map<string, string>,
   skipped: PluginSkippedEntry[],
+  names: Set<string>,
 ): PluginSkillEntry[] {
   const skills: PluginSkillEntry[] = [];
-  const names = new Set<string>();
   for (const [path, content] of files) {
     const match = /^skills\/([^/]+)\/SKILL\.md$/.exec(path);
     if (!match) continue;
@@ -274,7 +274,71 @@ function collectSkills(
     names.add(parsed.name.toLowerCase());
     skills.push({ name: parsed.name, description: parsed.description, content });
   }
-  return skills.sort((a, b) => a.name.localeCompare(b.name));
+  return skills;
+}
+
+/** A sub-agent becomes a skill that hands its task to `run_subagent` with the agent's
+ * own instructions, so the plugin's skills can still delegate to it by name. */
+function collectAgents(
+  files: Map<string, string>,
+  skipped: PluginSkippedEntry[],
+  names: Set<string>,
+): PluginSkillEntry[] {
+  const out: PluginSkillEntry[] = [];
+  for (const [path, content] of files) {
+    if (!AGENT_FILE.test(path)) continue;
+    const parsed = parseSkillMd(content);
+    if ("error" in parsed) {
+      skipped.push({ kind: "skill_invalid", name: path, reason: parsed.error });
+      continue;
+    }
+    if (names.has(parsed.name.toLowerCase())) continue;
+    names.add(parsed.name.toLowerCase());
+    out.push({
+      name: parsed.name,
+      description: parsed.description,
+      content: buildSkillMd({
+        name: parsed.name,
+        description: parsed.description,
+        body: `Run this as a helper: call run_subagent with name "${parsed.name}", the task to do, and everything below as its instructions.\n\n${parsed.body}`,
+      }),
+    });
+  }
+  return out;
+}
+
+/** Slash commands are prompt templates, which is what a skill invoked with /name already is. */
+function collectCommands(files: Map<string, string>, names: Set<string>): PluginSkillEntry[] {
+  const out: PluginSkillEntry[] = [];
+  for (const [path, content] of files) {
+    const name = COMMAND_FILE.exec(path)?.[1];
+    // A command named like one of the plugin's skills repeats it.
+    if (!name || names.has(name.toLowerCase())) continue;
+    const front = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(content);
+    const parsed = front
+      ? parseSkillMd(`---\nname: ${name}\n${front[1]}\n---\n${content.slice(front[0].length)}`)
+      : null;
+    const body = parsed && !("error" in parsed) ? parsed.body : content;
+    const firstLine = body
+      .split("\n")
+      .map((line) => line.replace(/^#+\s*/, "").trim())
+      .find(Boolean);
+    const description =
+      (parsed && !("error" in parsed) ? parsed.description : "") || firstLine || name;
+    names.add(name.toLowerCase());
+    out.push({
+      name,
+      description: description.slice(0, 2000),
+      content: buildSkillMd({
+        name,
+        description: description.slice(0, 2000),
+        body: body.includes("$ARGUMENTS")
+          ? `$ARGUMENTS is whatever the user wrote after /${name}.\n\n${body}`
+          : body,
+      }),
+    });
+  }
+  return out;
 }
 
 function collectMcpServers(
@@ -412,15 +476,14 @@ export function parsePluginDirectory(input: {
       }
     }
   }
-  const editorDirs = new Set(
-    [...files.keys()].map((p) => p.split("/")[0] ?? "").filter((p) => EDITOR_DIRS.has(p)),
-  );
-  for (const name of editorDirs)
-    skipped.push({
-      kind: "editor_only",
-      name: `${name}/`,
-      reason: "Editor-only component skipped",
-    });
+  for (const name of unsupportedParts([...files.keys()]))
+    skipped.push({ kind: "editor_only", name, reason: "Runs only inside an editor" });
+  const names = new Set<string>();
+  const skills = [
+    ...collectSkills(files, skipped, names),
+    ...collectAgents(files, skipped, names),
+    ...collectCommands(files, names),
+  ].sort((a, b) => a.name.localeCompare(b.name));
   const canonical = [...files.entries()].sort(([a], [b]) => a.localeCompare(b));
   return {
     format,
@@ -434,10 +497,53 @@ export function parsePluginDirectory(input: {
     keywords: manifest.keywords ?? [],
     resolvedSha: input.resolvedSha,
     digest: `sha256:${createHash("sha256").update(JSON.stringify(canonical)).digest("hex")}`,
-    skills: collectSkills(files, skipped),
+    skills,
     mcpServers: collectMcpServers(files, typeof schema === "string" ? schema : undefined, skipped),
     skipped,
   };
+}
+
+function unsupportedParts(paths: string[]): string[] {
+  const parts = new Set<string>();
+  for (const path of paths) {
+    const first = path.split("/")[0] ?? "";
+    if (UNSUPPORTED_DIRS.has(first)) parts.add(`${first}/`);
+    if (UNSUPPORTED_FILES.has(path)) parts.add(path);
+  }
+  return [...parts].sort();
+}
+
+export type PluginCompleteness = { hasConnector: boolean; skillCount: number };
+
+/** Decide from a plugin directory's file list (and its MCP config, when it has one)
+ * whether every part installs. Null means it cannot be told without the file. */
+export function classifyPluginFiles(
+  paths: string[],
+  mcpConfig?: string,
+): PluginCompleteness | "incomplete" | null {
+  if (unsupportedParts(paths).length) return "incomplete";
+  const skillDirs = new Map<string, string[]>();
+  let skillCount = 0;
+  for (const path of paths) {
+    const skill = /^skills\/([^/]+)\/(.+)$/.exec(path);
+    if (skill) skillDirs.set(skill[1]!, [...(skillDirs.get(skill[1]!) ?? []), skill[2]!]);
+    if (AGENT_FILE.test(path) || COMMAND_FILE.test(path)) skillCount++;
+  }
+  for (const files of skillDirs.values()) {
+    // Companion files (references, scripts) are not stored with a skill yet.
+    if (files.length !== 1 || files[0] !== "SKILL.md") return "incomplete";
+    skillCount++;
+  }
+  const mcpPath = paths.find((path) => path === "mcp.json" || path === ".mcp.json");
+  let servers = 0;
+  if (mcpPath) {
+    if (mcpConfig === undefined) return null;
+    const skipped: PluginSkippedEntry[] = [];
+    servers = collectMcpServers(new Map([[mcpPath, mcpConfig]]), undefined, skipped).length;
+    if (skipped.length) return "incomplete";
+  }
+  if (!servers && !skillCount) return "incomplete";
+  return { hasConnector: servers > 0, skillCount };
 }
 
 export async function previewPluginInstall(options: {

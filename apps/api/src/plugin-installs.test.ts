@@ -3,7 +3,7 @@ import type { SecretStore } from "@rakazo/adapter-kit";
 import { BUILTIN_AGENT_SKILLS, previewPluginInstall } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { installPlugin } from "./plugin-installs.js";
+import { installPlugin, setPluginParts } from "./plugin-installs.js";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";
 
@@ -43,8 +43,21 @@ function setup() {
     capabilityInstall: {
       findFirst: vi.fn().mockResolvedValue(null),
       create: vi.fn(async ({ data }) => ({ ...data, id: "install-test", createdAt: new Date(0) })),
+      update: vi.fn(async ({ data }) => ({
+        id: "install-test",
+        name: "Example",
+        source,
+        version: sha,
+        digest: null,
+        createdAt: new Date(0),
+        ...data,
+      })),
     },
-    agentSkill: { findFirst: vi.fn().mockResolvedValue(null), create: vi.fn() },
+    agentSkill: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn(),
+      deleteMany: vi.fn(),
+    },
     mcpServer: { create: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
     secret: { create: vi.fn(), count: vi.fn().mockResolvedValue(1) },
     botSecret: { count: vi.fn().mockResolvedValue(0) },
@@ -236,5 +249,75 @@ describe("plugin RPC boundary", () => {
       rpc.capabilities.install({ kind: "plugin", source, name: "Example", config: {} }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(prisma.capabilityInstall.create).not.toHaveBeenCalled();
+  });
+  it("adds only the chosen parts and records them", async () => {
+    const { deps, prisma, secrets } = setup();
+    const result = await installPlugin(deps, actor, {
+      ...(await input()),
+      pluginParts: ["skills"],
+    });
+    expect(result.config).toMatchObject({ parts: ["skills"] });
+    expect(prisma.agentSkill.create).toHaveBeenCalledTimes(1);
+    expect(prisma.mcpServer.create).not.toHaveBeenCalled();
+    expect(secrets.put).not.toHaveBeenCalled();
+  });
+  it("adds a part later from the pinned commit and removes one on its own", async () => {
+    const { deps, prisma } = setup();
+    const digest = (await input()).pluginDigest;
+    const installed = {
+      id: "install-test",
+      kind: "plugin",
+      source,
+      version: sha,
+      digest,
+      config: { parts: ["skills"] },
+    };
+    prisma.capabilityInstall.findFirst.mockResolvedValue(installed as never);
+    const fetchPinned = vi.fn(fetcher);
+    const removeServer = vi.fn();
+    const both = await setPluginParts({ ...deps, fetcher: fetchPinned, removeServer }, actor, {
+      id: installed.id,
+      parts: ["skills", "connector"],
+    });
+    expect(fetchPinned).toHaveBeenCalledWith(
+      expect.objectContaining({ gitUrl: source, ref: sha }),
+      undefined,
+    );
+    expect(prisma.mcpServer.create).toHaveBeenCalledTimes(1);
+    expect(prisma.agentSkill.create).not.toHaveBeenCalled();
+    expect(both?.config).toMatchObject({ parts: ["skills", "connector"] });
+
+    prisma.capabilityInstall.findFirst.mockResolvedValue({
+      ...installed,
+      config: { parts: ["skills", "connector"] },
+    } as never);
+    prisma.mcpServer.findMany.mockResolvedValue([{ id: "server-1", secretId: null }] as never);
+    const skillsOnly = await setPluginParts({ ...deps, removeServer }, actor, {
+      id: installed.id,
+      parts: ["skills"],
+    });
+    expect(removeServer).toHaveBeenCalledWith(prisma, { id: "server-1", secretId: null });
+    expect(skillsOnly?.config).toMatchObject({ parts: ["skills"] });
+    expect(
+      await setPluginParts({ ...deps, removeServer }, actor, { id: installed.id, parts: [] }),
+    ).toBeNull();
+  });
+  it("refuses to add a part when the pinned content no longer matches", async () => {
+    const { deps, prisma } = setup();
+    prisma.capabilityInstall.findFirst.mockResolvedValue({
+      id: "install-test",
+      kind: "plugin",
+      source,
+      version: sha,
+      digest: `sha256:${"0".repeat(64)}`,
+      config: { parts: ["skills"] },
+    } as never);
+    await expect(
+      setPluginParts({ ...deps, removeServer: vi.fn() }, actor, {
+        id: "install-test",
+        parts: ["skills", "connector"],
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

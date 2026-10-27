@@ -4,11 +4,13 @@ import type {
   CapabilityInstall,
   McpServer,
   PluginMarketplaceEntry,
+  PluginPart,
   PluginPreview,
 } from "@rakazo/contracts";
 import { PluginPreviewSchema } from "@rakazo/contracts";
-import { Button, Disclosure, Spinner } from "@rakazo/ui-web";
-import { ArrowUpRight, Box, Check, ChevronLeft, Plug } from "lucide-react";
+import { installedPluginParts } from "@rakazo/core";
+import { Button, Spinner } from "@rakazo/ui-web";
+import { ArrowUpRight, Check, ChevronLeft, FileText, Plug } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { connectMcpOauth } from "../../lib/mcp-connect";
 import { rpc } from "../../lib/rpc";
@@ -136,12 +138,23 @@ function sourceHref(source: string, sha: string | undefined) {
 
 const SKILLS_SHOWN = 5;
 
+/** The managed app a plugin page connects instead of the plugin's own connector. */
+export type ManagedAppLink = {
+  name: string;
+  logo: string | null;
+  connected: boolean;
+  connecting: boolean;
+  onConnect: () => void;
+  onManage: () => void;
+};
+
 export function PluginDetail({
   selection,
   installs,
   servers: allServers,
   assigned,
   activeBotId,
+  managed,
   onBack,
   onChanged,
 }: {
@@ -150,6 +163,7 @@ export function PluginDetail({
   servers: McpServer[];
   assigned: Set<string>;
   activeBotId?: string;
+  managed?: ManagedAppLink;
   onBack: () => void;
   onChanged: () => Promise<unknown>;
 }) {
@@ -176,7 +190,11 @@ export function PluginDetail({
       row.kind === "plugin" &&
       (row.source === selection.installedSource || row.source === preview?.installedSource),
   );
-  const servers = install ? allServers.filter((server) => server.installId === install.id) : [];
+  const parts = install ? installedPluginParts(install.config) : [];
+  const servers =
+    install && parts.includes("connector")
+      ? allServers.filter((server) => server.installId === install.id)
+      : [];
   const parsed = install ? PluginPreviewSchema.safeParse(install.config) : null;
   const detail = parsed?.success ? parsed.data : preview;
   const installed = Boolean(install);
@@ -215,22 +233,30 @@ export function PluginDetail({
     }
   }
 
-  const add = () =>
-    preview &&
+  /** The first part installs the plugin; later changes keep its pinned version. */
+  const setParts = (key: string, next: PluginPart[], failure: string) =>
     run(
-      "install",
+      key,
       async () => {
-        await rpc.capabilities.install({
-          kind: "plugin",
-          name: preview.name,
-          source: preview.pinnedSource ?? selection.source,
-          pluginDigest: preview.digest,
-          config: {},
-        });
+        if (install) await rpc.capabilities.pluginParts({ id: install.id, parts: next });
+        else if (preview)
+          await rpc.capabilities.install({
+            kind: "plugin",
+            name: preview.name,
+            source: preview.pinnedSource ?? selection.source,
+            pluginDigest: preview.digest,
+            config: {},
+            pluginParts: next,
+          });
+        setConfirmRemove(false);
         await onChanged();
       },
-      t`Could not install plugin`,
+      failure,
     );
+  const toggle = (part: PluginPart, on: boolean) =>
+    on
+      ? [...parts.filter((value) => value !== part), part]
+      : parts.filter((value) => value !== part);
 
   const signIn = (server: McpServer) =>
     run(
@@ -257,23 +283,78 @@ export function PluginDetail({
       t`Could not enable tools`,
     );
 
-  const remove = () =>
-    install &&
-    run(
-      "remove",
-      async () => {
-        await rpc.capabilities.remove({ id: install.id });
-        await onChanged();
-        if (live.current) onBack();
-      },
-      t`Could not remove plugin`,
-    );
-
   const prefix = `${detail?.name ?? ""}: `;
   const skills = detail?.skills ?? [];
   const shownSkills = allSkills ? skills : skills.slice(0, SKILLS_SHOWN);
-  const appCount = installed ? servers.length : (detail?.mcpServers.length ?? 0);
+  const connectorCount = detail?.mcpServers.length ?? 0;
+  // Without a connector there is nothing to connect, so the page adds the skills instead.
+  const skillPack = !managed && !connectorCount && Boolean(detail);
+  const headerPart: PluginPart = skillPack ? "skills" : "connector";
+  const headerOn = parts.includes(headerPart);
+  const skillsOn = parts.includes("skills");
   const busy = Boolean(pending);
+  const ready = Boolean(detail) && (Boolean(install) || Boolean(preview));
+
+  function headerAction() {
+    if (managed)
+      return managed.connected ? (
+        <Button variant="secondary" disabled={busy} onClick={managed.onManage}>
+          <Trans>Added</Trans>
+        </Button>
+      ) : (
+        <Button
+          size="lg"
+          className="px-5"
+          disabled={busy || managed.connecting}
+          onClick={managed.onConnect}
+        >
+          {managed.connecting ? <Trans>Connecting…</Trans> : <Trans>Connect</Trans>}
+        </Button>
+      );
+    if (headerOn)
+      return confirmRemove ? (
+        <>
+          <Button variant="ghost" disabled={busy} onClick={() => setConfirmRemove(false)}>
+            <Trans>Cancel</Trans>
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={busy}
+            onClick={() =>
+              void setParts("header", toggle(headerPart, false), t`Could not remove plugin`)
+            }
+          >
+            {pending === "header" ? <Trans>Removing…</Trans> : <Trans>Confirm removal</Trans>}
+          </Button>
+        </>
+      ) : (
+        <Button variant="secondary" disabled={busy} onClick={() => setConfirmRemove(true)}>
+          <Trans>Remove</Trans>
+        </Button>
+      );
+    return (
+      <Button
+        size="lg"
+        className="px-5"
+        disabled={busy || !ready}
+        onClick={() =>
+          void setParts("header", toggle(headerPart, true), t`Could not install plugin`)
+        }
+      >
+        {pending === "header" ? (
+          skillPack ? (
+            <Trans>Adding…</Trans>
+          ) : (
+            <Trans>Connecting…</Trans>
+          )
+        ) : skillPack ? (
+          <Trans>Add</Trans>
+        ) : (
+          <Trans>Connect</Trans>
+        )}
+      </Button>
+    );
+  }
 
   return (
     <div data-testid="plugin-detail" className="space-y-7">
@@ -289,9 +370,16 @@ export function PluginDetail({
         >
           <ChevronLeft />
         </Button>
-        <PluginLogo name={selection.name} logo={selection.logo} site={selection.site} large />
+        <PluginLogo
+          name={selection.name}
+          logo={managed?.logo ?? selection.logo}
+          site={selection.site}
+          large
+        />
         <div className="min-w-0 flex-1 pt-1">
-          <h2 className="truncate text-[20px] font-semibold text-foreground">{selection.name}</h2>
+          <h2 className="truncate text-[20px] font-semibold text-foreground">
+            {managed?.name ?? selection.name}
+          </h2>
           <a
             href={sourceHref(selection.installedSource, detail?.resolvedSha)}
             target="_blank"
@@ -303,33 +391,7 @@ export function PluginDetail({
             <ArrowUpRight size={14} />
           </a>
         </div>
-        <div className="flex shrink-0 gap-2 pt-2">
-          {installed ? (
-            confirmRemove ? (
-              <>
-                <Button variant="ghost" disabled={busy} onClick={() => setConfirmRemove(false)}>
-                  <Trans>Cancel</Trans>
-                </Button>
-                <Button variant="destructive" disabled={busy} onClick={() => void remove()}>
-                  {pending === "remove" ? <Trans>Removing…</Trans> : <Trans>Confirm removal</Trans>}
-                </Button>
-              </>
-            ) : (
-              <Button variant="secondary" disabled={busy} onClick={() => setConfirmRemove(true)}>
-                <Trans>Remove</Trans>
-              </Button>
-            )
-          ) : (
-            <Button
-              size="lg"
-              className="px-5"
-              disabled={busy || !preview || (!preview.skills.length && !preview.mcpServers.length)}
-              onClick={() => void add()}
-            >
-              {pending === "install" ? <Trans>Adding…</Trans> : <Trans>Add</Trans>}
-            </Button>
-          )}
-        </div>
+        <div className="flex shrink-0 gap-2 pt-2">{headerAction()}</div>
       </div>
 
       {detail?.description || selection.description ? (
@@ -355,94 +417,135 @@ export function PluginDetail({
         </div>
       ) : null}
 
-      {appCount ? (
+      {managed || connectorCount ? (
         <section>
           <h3 className="mb-2 flex gap-2 px-1 text-[14px] font-medium text-foreground">
             <Trans>Apps</Trans>
-            <span className="text-muted-foreground">{appCount}</span>
+            <span className="text-muted-foreground">{managed ? 1 : connectorCount}</span>
           </h3>
           <ul className="divide-y divide-border/60 rounded-xl border border-border/70">
-            {installed
-              ? servers.map((server) => (
-                  <li
-                    key={server.id}
-                    aria-label={server.name}
-                    className="flex items-center gap-3 px-4 py-3"
-                  >
-                    <Plug size={16} className="shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14.5px] font-medium">
-                        {server.name.startsWith(prefix)
-                          ? server.name.slice(prefix.length)
-                          : server.name}
-                      </span>
-                      <span className="block truncate text-[12.5px] text-muted-foreground">
-                        {server.endpoint}
-                      </span>
+            {managed ? (
+              <li className="flex items-center gap-3 px-4 py-3">
+                <Plug size={16} className="shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14.5px] font-medium">{managed.name}</span>
+                  <span className="block truncate text-[12.5px] text-muted-foreground">
+                    <Trans>Connector</Trans>
+                  </span>
+                </span>
+                {managed.connected ? (
+                  <Check role="img" aria-label={t`Connected`} className="size-4 text-success" />
+                ) : null}
+              </li>
+            ) : servers.length ? (
+              servers.map((server) => (
+                <li
+                  key={server.id}
+                  aria-label={server.name}
+                  className="flex items-center gap-3 px-4 py-3"
+                >
+                  <Plug size={16} className="shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14.5px] font-medium">
+                      {server.name.startsWith(prefix)
+                        ? server.name.slice(prefix.length)
+                        : server.name}
                     </span>
-                    {mcpServerReady(server) ? (
-                      <Check role="img" aria-label={t`Connected`} className="size-4 text-success" />
-                    ) : noAuth.has(server.id) ? null : (
+                    <span className="block truncate text-[12.5px] text-muted-foreground">
+                      {server.endpoint}
+                    </span>
+                  </span>
+                  {mcpServerReady(server) ? (
+                    <Check role="img" aria-label={t`Connected`} className="size-4 text-success" />
+                  ) : noAuth.has(server.id) ? null : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy}
+                      onClick={() => void signIn(server)}
+                    >
+                      {pending === server.id ? (
+                        <Trans>Connecting…</Trans>
+                      ) : server.oauthStatus === "reconnect" ? (
+                        <Trans>Reconnect</Trans>
+                      ) : (
+                        <Trans>Sign in</Trans>
+                      )}
+                    </Button>
+                  )}
+                  {activeBotId ? (
+                    assigned.has(server.id) ? (
+                      <span className="text-[13px] text-muted-foreground">
+                        <Trans>In this bot</Trans>
+                      </span>
+                    ) : (
                       <Button
                         size="sm"
                         variant="secondary"
                         disabled={busy}
-                        onClick={() => void signIn(server)}
+                        onClick={() => void enable(server)}
                       >
-                        {pending === server.id ? (
-                          <Trans>Connecting…</Trans>
-                        ) : server.oauthStatus === "reconnect" ? (
-                          <Trans>Reconnect</Trans>
-                        ) : (
-                          <Trans>Sign in</Trans>
-                        )}
+                        <Trans>Use in this bot</Trans>
                       </Button>
-                    )}
-                    {activeBotId ? (
-                      assigned.has(server.id) ? (
-                        <span className="text-[13px] text-muted-foreground">
-                          <Trans>In this bot</Trans>
-                        </span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={busy}
-                          onClick={() => void enable(server)}
-                        >
-                          <Trans>Use in this bot</Trans>
-                        </Button>
-                      )
-                    ) : null}
-                  </li>
-                ))
-              : detail?.mcpServers.map((server) => (
-                  <li key={server.name} className="flex items-center gap-3 px-4 py-3">
-                    <Plug size={16} className="shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14.5px] font-medium">
-                        {server.name}
-                      </span>
-                      <span className="block truncate text-[12.5px] text-muted-foreground">
-                        {server.endpoint}
-                      </span>
+                    )
+                  ) : null}
+                </li>
+              ))
+            ) : (
+              detail?.mcpServers.map((server) => (
+                <li key={server.name} className="flex items-center gap-3 px-4 py-3">
+                  <Plug size={16} className="shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14.5px] font-medium">{server.name}</span>
+                    <span className="block truncate text-[12.5px] text-muted-foreground">
+                      {server.endpoint}
                     </span>
-                  </li>
-                ))}
+                  </span>
+                </li>
+              ))
+            )}
           </ul>
         </section>
       ) : null}
 
       {skills.length ? (
-        <section>
-          <h3 className="mb-2 flex gap-2 px-1 text-[14px] font-medium text-foreground">
-            <Trans>Skills</Trans>
-            <span className="text-muted-foreground">{skills.length}</span>
-          </h3>
+        <section data-testid="plugin-skills">
+          <div className="mb-2 flex items-center justify-between gap-3 px-1">
+            <h3 className="flex gap-2 text-[14px] font-medium text-foreground">
+              <Trans>Skills</Trans>
+              <span className="text-muted-foreground">{skills.length}</span>
+            </h3>
+            {skillPack ? null : (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy || !ready}
+                onClick={() =>
+                  void setParts(
+                    "skills",
+                    toggle("skills", !skillsOn),
+                    skillsOn ? t`Could not remove skills` : t`Could not add skills`,
+                  )
+                }
+              >
+                {pending === "skills" ? (
+                  skillsOn ? (
+                    <Trans>Removing…</Trans>
+                  ) : (
+                    <Trans>Adding…</Trans>
+                  )
+                ) : skillsOn ? (
+                  <Trans>Remove skills</Trans>
+                ) : (
+                  <Trans>Add skills</Trans>
+                )}
+              </Button>
+            )}
+          </div>
           <ul className="divide-y divide-border/60 rounded-xl border border-border/70">
             {shownSkills.map((skill) => (
               <li key={skill.name} className="flex items-center gap-3 px-4 py-3">
-                <Box size={16} className="shrink-0 text-muted-foreground" />
+                <FileText size={16} className="shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14.5px] font-medium">{skill.name}</span>
                   <span className="block truncate text-[12.5px] text-muted-foreground">
@@ -463,24 +566,9 @@ export function PluginDetail({
       ) : null}
 
       {detail?.skipped.length ? (
-        <Disclosure
-          summary={
-            <Plural
-              value={detail.skipped.length}
-              one="# part not added"
-              other="# parts not added"
-            />
-          }
-          summaryClassName="px-1 text-[13px] text-muted-foreground"
-        >
-          <ul className="mt-2 space-y-1.5 px-1 text-[13px] text-muted-foreground">
-            {detail.skipped.map((entry, i) => (
-              <li key={`${entry.kind}:${entry.name}:${i}`}>
-                <span className="font-medium text-foreground">{entry.name}</span> {entry.reason}
-              </li>
-            ))}
-          </ul>
-        </Disclosure>
+        <p className="px-1 text-[13px] text-muted-foreground">
+          <Trans>Not added: {detail.skipped.map((entry) => entry.name).join(", ")}</Trans>
+        </p>
       ) : null}
     </div>
   );

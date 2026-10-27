@@ -608,6 +608,8 @@ const plugin = {
   registry: "Cursor",
   source: "https://github.com/acme/plugins#calcom",
   installedSource: "https://github.com/acme/plugins#calcom",
+  hasConnector: true,
+  skillCount: 1,
 };
 
 it("lists plugins by category, hides ones named like a managed app, and opens one", async () => {

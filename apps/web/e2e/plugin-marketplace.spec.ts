@@ -37,6 +37,8 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
   const section = dialog.getByTestId("plugin-section").filter({ hasText: "Productivity" });
   await expect(section.getByText("Planning Notes", { exact: true })).toBeVisible();
+  // A skill pack has nothing to connect, so it is offered under Skills instead.
+  await expect(dialog.getByText("Review Kit", { exact: true })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "integrations-plugins");
   await dialog.getByRole("textbox", { name: "Search apps", exact: true }).fill("planning");
   const row = dialog.getByTestId("plugin-results").getByTestId("plugin-row");
@@ -46,17 +48,25 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   await expect(
     dialog.getByText("https://marketplace-tools.example.test/mcp", { exact: true }),
   ).toBeVisible();
+  await expect(dialog.getByText(/^Not added/)).toHaveCount(0);
   expect(await rpc(page, "capabilities/list", undefined)).toEqual([]);
-  await dialog.getByText("1 part not added", { exact: true }).click();
-  await expect(dialog.getByText("rules/", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "integrations-plugin-detail");
-  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+
+  // Connecting adds only the connector; the skills are a separate choice.
+  await dialog.getByRole("button", { name: "Connect", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
   const installs = await rpc<CapabilityInstall[]>(page, "capabilities/list", undefined);
   const install = installs.find((row) => row.kind === "plugin")!;
   expect(install.version).toBe("f".repeat(40));
-  const skills = await rpc<AgentSkillCatalogEntry[]>(page, "agentSkills/list", undefined);
-  expect(skills).toContainEqual(
+  expect(install.config).toMatchObject({ parts: ["connector"] });
+  const skillNames = async () =>
+    (await rpc<AgentSkillCatalogEntry[]>(page, "agentSkills/list", undefined)).map(
+      (skill) => skill.name,
+    );
+  expect(await skillNames()).not.toContain("planning-notes");
+  await dialog.getByRole("button", { name: "Add skills", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Remove skills", exact: true })).toBeVisible();
+  expect(await rpc<AgentSkillCatalogEntry[]>(page, "agentSkills/list", undefined)).toContainEqual(
     expect.objectContaining({ name: "planning-notes", source: "plugin", readOnly: true }),
   );
   const servers = await rpc<McpServer[]>(page, "mcp/servers/list", undefined);
@@ -95,26 +105,32 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   await page.reload();
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   await dialog.getByRole("button", { name: /^\d+ connected$/ }).click();
-  const installed = dialog.getByTestId("installed-plugin");
-  await expect(installed).toContainText("Planning Notes");
-  await expect(installed).toContainText("1 connector, 1 skill");
-  await expect(installed.getByRole("button", { name: "Sign in", exact: true })).toHaveCount(0);
+  const apps = dialog.getByTestId("connected-apps").getByTestId("installed-plugin");
+  await expect(apps).toContainText("Planning Notes");
+  await expect(apps).toContainText("1 connector");
+  await expect(apps.getByRole("button", { name: "Sign in", exact: true })).toHaveCount(0);
+  await expect(
+    dialog.getByTestId("connected-skills").getByTestId("installed-plugin"),
+  ).toContainText("1 skill");
   await captureScreenshot(page, testInfo, "integrations-manage");
-  await installed.getByRole("button", { name: /Planning Notes/ }).click();
+
+  // Removing the connector keeps the skills; removing the last part removes the plugin.
+  await apps.getByRole("button", { name: /Planning Notes/ }).click();
   await dialog.getByRole("button", { name: "Remove", exact: true }).click();
   await dialog.getByRole("button", { name: "Confirm removal", exact: true }).click();
-  await expect(dialog.getByTestId("integrations-manage")).toBeVisible();
-  await expect(dialog.getByTestId("installed-plugin")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Connect", exact: true })).toBeVisible();
   expect(await rpc(page, "mcp/servers/list", undefined)).toEqual([]);
   expect(await rpc(page, "mcp/assignments/list", { botId })).toEqual([]);
-  expect(
-    (await rpc<AgentSkillCatalogEntry[]>(page, "agentSkills/list", undefined)).some(
-      (row) => row.name === "planning-notes",
-    ),
-  ).toBe(false);
+  expect(await skillNames()).toContain("planning-notes");
+  await dialog.getByRole("button", { name: "Remove skills", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Add skills", exact: true })).toBeVisible();
+  expect(await rpc(page, "capabilities/list", undefined)).toEqual([]);
+  expect(await skillNames()).not.toContain("planning-notes");
 });
 
-test("GitHub import in Advanced still requires confirmation", async ({ page }) => {
+test("GitHub import names the parts it cannot add and waits for confirmation", async ({
+  page,
+}, testInfo) => {
   await signup(
     page,
     `marketplace-link-${Date.now()}@rakazo.test`,
@@ -129,7 +145,37 @@ test("GitHub import in Advanced still requires confirmation", async ({ page }) =
     .getByRole("textbox", { name: "Plugin GitHub URL", exact: true })
     .fill("https://github.com/example/plugin-marketplace-fixture");
   await dialog.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(dialog.getByTestId("plugin-detail")).toContainText("planning-notes");
-  await expect(dialog.getByRole("button", { name: "Add", exact: true })).toBeEnabled();
+  await expect(dialog.getByTestId("plugin-detail")).toContainText("imported-notes");
+  await expect(dialog.getByText("Not added: hooks/", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Connect", exact: true })).toBeEnabled();
+  await captureScreenshot(page, testInfo, "integrations-plugin-import-skipped");
   expect(await rpc(page, "capabilities/list", undefined)).toEqual([]);
+});
+
+test("skill packs are browsed and added from a bot's skills", async ({ page }, testInfo) => {
+  await signup(page, `skill-packs-${Date.now()}@rakazo.test`, "password12", "Skill Packs Test");
+  await completeOnboarding(page);
+  await page
+    .locator("main")
+    .getByRole("button", { name: /^Chief/ })
+    .click();
+  const settings = page.getByTestId("bot-settings");
+  await settings.getByRole("button", { name: "Advanced", exact: true }).click();
+  await settings
+    .getByTestId("bot-knowledge")
+    .getByRole("button", { name: "Browse skills", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Skills", exact: true });
+  const packs = dialog.getByTestId("skill-packs");
+  await expect(packs.getByText("Review Kit", { exact: true })).toBeVisible();
+  await expect(packs.getByText("Planning Notes", { exact: true })).toHaveCount(0);
+  await captureScreenshot(page, testInfo, "skills-packs");
+  await packs.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Review Kit", exact: true })).toBeVisible();
+  await expect(dialog.getByText("reviewer", { exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Remove", exact: true })).toBeVisible();
+  const skills = await rpc<AgentSkillCatalogEntry[]>(page, "agentSkills/list", undefined);
+  expect(skills.map((skill) => skill.name)).toEqual(expect.arrayContaining(["review", "reviewer"]));
+  await captureScreenshot(page, testInfo, "skills-pack-added");
 });

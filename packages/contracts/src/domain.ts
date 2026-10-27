@@ -821,6 +821,10 @@ export const PluginPreviewSchema = z.object({
 });
 export type PluginPreview = z.infer<typeof PluginPreviewSchema>;
 
+/** A plugin installs as up to two independent parts: its MCP connector and its skills. */
+export const PluginPartSchema = z.enum(["connector", "skills"]);
+export type PluginPart = z.infer<typeof PluginPartSchema>;
+
 export const PluginMarketplaceEntrySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -834,6 +838,10 @@ export const PluginMarketplaceEntrySchema = z.object({
   registry: z.string(),
   source: z.string(),
   installedSource: z.string(),
+  /** Whether installing adds a remote MCP connector; plugins without one are skill packs. */
+  hasConnector: z.boolean(),
+  /** Skills, sub-agents and commands, which all install as skills. */
+  skillCount: z.number().int().nonnegative(),
 });
 export type PluginMarketplaceEntry = z.infer<typeof PluginMarketplaceEntrySchema>;
 export const PluginMarketplaceCatalogSchema = z.object({

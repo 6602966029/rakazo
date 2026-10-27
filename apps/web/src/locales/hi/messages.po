@@ -22,14 +22,14 @@ msgstr " (अपठित)"
 msgid "{0, plural, one {# bot has its own model:} other {# bots have their own model:}}"
 msgstr ""
 
+#. placeholder {0}: servers.length
+#: src/pages/PluginsOverlay.tsx
+msgid "{0, plural, one {# connector} other {# connectors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
-msgstr ""
-
-#. placeholder {0}: detail.skipped.length
-#: src/components/integrations/plugin-marketplace.tsx
-msgid "{0, plural, one {# part not added} other {# parts not added}}"
 msgstr ""
 
 #. placeholder {0}: pinned.length
@@ -148,14 +148,6 @@ msgstr "{commandVariable} आरक्षित है और कमांड �
 
 #: src/pages/PluginsOverlay.tsx
 msgid "{connectedCount, plural, one {# connected} other {# connected}}"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "{connectors, plural, one {# connector} other {# connectors}}"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "{connectors, plural, one {# connector} other {# connectors}}, {skillCount, plural, one {# skill} other {# skills}}"
 msgstr ""
 
 #: src/components/markdown-copy.tsx
@@ -572,6 +564,10 @@ msgstr "सर्वर जोड़ें"
 msgid "Add server URL"
 msgstr ""
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Add skills"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 msgid "Add to an existing bot"
 msgstr "मौजूदा बॉट में जोड़ें"
@@ -919,6 +915,7 @@ msgid "Avatar Studio"
 msgstr "अवतार स्टूडियो"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -1034,6 +1031,10 @@ msgstr ""
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Browse MCP servers"
+msgstr ""
+
+#: src/pages/KnowledgeSection.tsx
+msgid "Browse skills"
 msgstr ""
 
 #: src/pages/KnowledgeSection.tsx
@@ -1344,6 +1345,10 @@ msgstr "पैनल बंद करें"
 msgid "Close preview"
 msgstr "प्रीव्यू बंद करें"
 
+#: src/components/integrations/skills-marketplace.tsx
+msgid "Close skills"
+msgstr ""
+
 #: src/components/markdown-copy.tsx
 msgid "Close table"
 msgstr "तालिका बंद करें"
@@ -1498,6 +1503,7 @@ msgid "Confirm the URL is reachable from this browser session, then test again."
 msgstr "पुष्टि करें कि यह URL इस ब्राउज़र सत्र से पहुँच योग्य है, फिर फिर से परीक्षण करें।"
 
 #: src/components/integrations/IntegrationSetup.tsx
+#: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/memory-providers/HonchoSettingsForm.tsx
 #: src/pages/memory-providers/SerenitySettingsForm.tsx
 #: src/pages/memory-providers/SupermemorySettingsForm.tsx
@@ -1598,6 +1604,10 @@ msgstr "कनेक्शन परीक्षण विफल रहा।"
 msgid "Connection to {0} is still pending. You can close this and check again."
 msgstr "{0} से कनेक्शन अभी लंबित है। आप इसे बंद करके बाद में जांच सकते हैं।"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Connector"
+msgstr ""
+
 #: src/pages/shell/agent-import.tsx
 #: src/pages/shell/import-status.ts
 msgid "Contains code to run"
@@ -1681,6 +1691,10 @@ msgstr "जोड़ा नहीं जा सका"
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not add MCP server"
 msgstr "MCP सर्वर जोड़ा नहीं जा सका"
+
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Could not add skills"
+msgstr ""
 
 #: src/pages/shell/message-cards.tsx
 msgid "Could not approve this server"
@@ -1981,6 +1995,10 @@ msgstr ""
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Could not remove rule"
 msgstr "नियम हटाया नहीं जा सका"
+
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Could not remove skills"
+msgstr ""
 
 #: src/components/VaultSettings.tsx
 msgid "Could not remove the credential"
@@ -2889,6 +2907,7 @@ msgstr ""
 msgid "From {0}"
 msgstr ""
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "From GitHub"
 msgstr ""
@@ -3355,6 +3374,7 @@ msgid "Loading voice providers…"
 msgstr "आवाज़ प्रोवाइडर्स लोड हो रहे हैं…"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/components/PageLoading.tsx
 #: src/pages/Artifacts.tsx
 #: src/pages/IntegrationSetup.tsx
@@ -3488,7 +3508,6 @@ msgid "MCP server"
 msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "MCP servers"
 msgstr "MCP सर्वर"
@@ -3965,6 +3984,11 @@ msgstr ""
 msgid "Not a valid skill"
 msgstr "मान्य स्किल नहीं"
 
+#. placeholder {0}: detail.skipped.map((entry) => entry.name).join(", ")
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Not added: {0}"
+msgstr ""
+
 #: src/components/McpServerHealthLine.tsx
 msgid "Not checked yet"
 msgstr "अभी तक जाँच नहीं हुई"
@@ -4311,12 +4335,9 @@ msgstr "प्ले हो रहा है…"
 msgid "Plugin"
 msgstr "प्लगइन"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Plugin GitHub URL"
-msgstr ""
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Plugins"
 msgstr ""
 
 #: src/pages/RoutineEditor.tsx
@@ -4331,6 +4352,7 @@ msgstr ""
 msgid "Preferences"
 msgstr "प्राथमिकताएँ"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Preview"
 msgstr ""
@@ -4604,6 +4626,10 @@ msgstr ""
 msgid "Remove skill {0}"
 msgstr "स्किल {0} हटाएं"
 
+#: src/components/integrations/plugin-marketplace.tsx
+msgid "Remove skills"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Remove webhook"
 msgstr ""
@@ -4746,6 +4772,7 @@ msgstr ""
 
 #: src/components/AccountAccess.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/components/PasskeySettings.tsx
 #: src/pages/Auth.tsx
 #: src/pages/ModelRoleSettings.tsx
@@ -4977,6 +5004,10 @@ msgstr ""
 #: src/pages/shell/shell-sidebar.tsx
 msgid "Search runs"
 msgstr "रन खोजें"
+
+#: src/components/integrations/skills-marketplace.tsx
+msgid "Search skills"
+msgstr ""
 
 #. placeholder {0}: filters.query.trim()
 #: src/pages/ActivityList.tsx
@@ -5227,7 +5258,9 @@ msgid "Skill {position}"
 msgstr "स्किल {position}"
 
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/KnowledgeSection.tsx
+#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Skills"
 msgstr "स्किल्स"
@@ -5261,6 +5294,7 @@ msgstr ""
 msgid "Slide up to lock"
 msgstr "लॉक करने के लिए ऊपर खिसकाएँ"
 
+#: src/components/integrations/skills-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Some plugins could not be loaded."
 msgstr ""
@@ -5784,10 +5818,6 @@ msgid "Tool name"
 msgstr "टूल का नाम"
 
 #: src/pages/PluginsOverlay.tsx
-msgid "Tool sources"
-msgstr "टूल स्रोत"
-
-#: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
 msgid "Tools"
 msgstr ""
@@ -6299,10 +6329,6 @@ msgstr "आपका OpenAI"
 #: src/lib/run-error.ts
 msgid "Your OpenRouter"
 msgstr "आपका OpenRouter"
-
-#: src/pages/PluginsOverlay.tsx
-msgid "Your skills"
-msgstr ""
 
 #: src/components/ModelCredits.tsx
 msgid "Your subscription or API key"

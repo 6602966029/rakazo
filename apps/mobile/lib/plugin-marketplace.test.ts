@@ -21,6 +21,8 @@ const entry = (overrides: Partial<PluginMarketplaceEntry>): PluginMarketplaceEnt
   registry: "Cursor",
   source: "https://github.com/acme/plugins",
   installedSource: "https://github.com/acme/plugins",
+  hasConnector: true,
+  skillCount: 0,
   ...overrides,
 });
 

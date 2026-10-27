@@ -287,4 +287,47 @@ describe
         await client().capabilities.remove({ id: install.id });
       }),
     );
+
+    it(
+      "adds and removes a plugin's connector and skills as separate parts",
+      asActor(async () => {
+        const rpc = client();
+        const preview = await rpc.capabilities.pluginPreview({ source });
+        const install = await rpc.capabilities.install({
+          kind: "plugin",
+          source,
+          name: "Example",
+          config: {},
+          pluginDigest: preview.digest,
+          pluginParts: ["skills"],
+        });
+        expect(await prisma.mcpServer.count({ where: { installId: install.id } })).toBe(0);
+        expect(await prisma.agentSkill.count({ where: { installId: install.id } })).toBe(1);
+
+        const both = await rpc.capabilities.pluginParts({
+          id: install.id,
+          parts: ["skills", "connector"],
+        });
+        expect(both.install?.config).toMatchObject({ parts: ["skills", "connector"] });
+        const server = await prisma.mcpServer.findFirstOrThrow({
+          where: { installId: install.id },
+        });
+        expect(server.secretId).not.toBeNull();
+
+        const connectorOnly = await rpc.capabilities.pluginParts({
+          id: install.id,
+          parts: ["connector"],
+        });
+        expect(connectorOnly.install?.config).toMatchObject({ parts: ["connector"] });
+        expect(await prisma.agentSkill.count({ where: { installId: install.id } })).toBe(0);
+        expect(await prisma.mcpServer.count({ where: { installId: install.id } })).toBe(1);
+
+        expect(await rpc.capabilities.pluginParts({ id: install.id, parts: [] })).toEqual({
+          install: null,
+        });
+        expect(await prisma.capabilityInstall.findUnique({ where: { id: install.id } })).toBeNull();
+        expect(await prisma.mcpServer.count({ where: { installId: install.id } })).toBe(0);
+        expect(await prisma.secret.findUnique({ where: { id: server.secretId! } })).toBeNull();
+      }),
+    );
   });
