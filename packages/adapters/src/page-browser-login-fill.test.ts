@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { JSDOM } from "jsdom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { resolveRequestSecretDestination } from "./bot-secrets.js";
 
 /** The live page helper's isolated-world script, executed here rather than reimplemented. */
@@ -232,13 +232,14 @@ describe("live page helper card fill", () => {
     const { domWindow, browser } = installPageHelper(`${origin}/pay`, html);
     const ref = refFor("Card number", browser.snapshot().elements);
     const input = domWindow.document.querySelector<HTMLInputElement>('[aria-label="Card number"]')!;
+    // jsdom drops vendor properties, so watch the CSSOM calls Chrome applies.
+    const set = vi.spyOn(input.style, "setProperty");
+    const remove = vi.spyOn(input.style, "removeProperty");
     browser.fill(ref, number, origin, "card");
-    expect(input.hasAttribute("data-rakazo-card")).toBe(true);
-    expect(domWindow.document.getElementById("rakazo-card-mask")?.textContent).toContain(
-      "-webkit-text-security:disc",
-    );
+    expect(set).toHaveBeenCalledWith("-webkit-text-security", "disc", "important");
+    expect(remove).not.toHaveBeenCalled();
     browser.fill(ref, "plain text");
-    expect(input.hasAttribute("data-rakazo-card")).toBe(false);
+    expect(remove).toHaveBeenCalledWith("-webkit-text-security");
   });
 
   it("refuses any other field, with card wording", () => {

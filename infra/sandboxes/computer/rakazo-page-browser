@@ -384,15 +384,16 @@ EVAL_HELPERS = r"""
   const refused = (message) => new Error(`Refused: ${message}`);
   // Fields holding a saved login: snapshots never report their values, whatever their type.
   const loginFilled = new WeakSet();
-  const CARD_MASK_ATTRIBUTE = "data-rakazo-card";
+  // Set through the CSSOM, which a page's Content-Security-Policy does not block, unlike an
+  // injected stylesheet or style attribute.
+  const cardMasked = new WeakSet();
   function maskCard(el) {
-    if (!document.getElementById("rakazo-card-mask")) {
-      const style = document.createElement("style");
-      style.id = "rakazo-card-mask";
-      style.textContent = `[${CARD_MASK_ATTRIBUTE}]{-webkit-text-security:disc!important}`;
-      (document.head || document.documentElement).appendChild(style);
-    }
-    el.setAttribute(CARD_MASK_ATTRIBUTE, "");
+    el.style.setProperty("-webkit-text-security", "disc", "important");
+    cardMasked.add(el);
+  }
+  function unmaskCard(el) {
+    if (!cardMasked.delete(el)) return;
+    el.style.removeProperty("-webkit-text-security");
   }
   // New snapshots/documents never recycle references. Retain exact nodes, not selectors.
   function newRef() {
@@ -706,7 +707,7 @@ EVAL_HELPERS = r"""
         else loginFilled.delete(el);
         // Screenshots reach the model too, so a card is drawn as dots, like a password.
         if (card) maskCard(el);
-        else el.removeAttribute(CARD_MASK_ATTRIBUTE);
+        else unmaskCard(el);
         el.dispatchEvent(new Event("input", { bubbles: true }));
         el.dispatchEvent(new Event("change", { bubbles: true }));
       } else if (el.isContentEditable) {
