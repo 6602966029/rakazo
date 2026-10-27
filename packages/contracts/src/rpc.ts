@@ -39,6 +39,8 @@ import {
   BotSecretPutInput,
   StoredBotSecretName,
   VaultPutInput,
+  VaultRevealed,
+  VaultRevealInput,
 } from "./bot-secrets.js";
 import {
   ActionApprovalRuleSchema,
@@ -1200,6 +1202,8 @@ export const appContract = {
   vault: {
     list: oc.input(settingsScopeInput.optional()).output(z.array(BotSecretMetadata)),
     put: oc.input(VaultPutInput).output(BotSecretMetadata),
+    /** Needs a recent identity confirmation on this session (IDENTITY_CONFIRMATION_REQUIRED). */
+    reveal: oc.input(VaultRevealInput).output(VaultRevealed),
     remove: oc
       .input(settingsScopeInput.extend({ name: StoredBotSecretName }))
       .output(z.object({ ok: z.literal(true) })),

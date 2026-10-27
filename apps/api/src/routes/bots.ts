@@ -11,6 +11,7 @@ import {
   listBotSecretMetadata,
   normalizeSecretDestination,
   pageUrlOrigin,
+  revealBotSecret,
   screenLeaseIdForRun,
   storeBotSecret,
   toComputerRef,
@@ -34,8 +35,10 @@ import {
   InstructionConflictError,
   IsolationError,
   recordComputerRunEnd,
+  recordSecurityEvent,
   restoreBotUnderComputerQuota,
   SpaceDeletionInProgressError,
+  settingsTarget,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { AgentImportServices } from "../agent-import.js";
@@ -47,6 +50,7 @@ import {
   undoAgentImport,
 } from "../agent-import.js";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "../agent-secrets.js";
+import { requireIdentityConfirmation } from "../identity-confirmation.js";
 import type { RouterDeps } from "../router.js";
 import { loadMessagePage } from "../thread-message-pages.js";
 import type { RouterContext } from "./context.js";
@@ -743,6 +747,30 @@ export function botsRoutes(ctx: RouterContext) {
       put: authed.vault.put.handler(({ context, input }) =>
         saveVaultCredential(deps, vaultScope(context.actor, input.scope), input),
       ),
+      reveal: authed.vault.reveal.handler(async ({ context, input }) => {
+        await requireIdentityConfirmation(deps.auth, context);
+        // Resolved here, so the event names the vault that was read even when scope is omitted.
+        const scope = await settingsTarget(deps.prisma, context.actor, "credentials", input.scope);
+        const revealed = await revealBotSecret({
+          prisma: deps.prisma,
+          secretStore: deps.secrets,
+          scope: vaultScope(context.actor, scope),
+          name: input.name,
+        });
+        if (!revealed) throw new ORPCError("NOT_FOUND", { message: "Credential not found" });
+        await recordSecurityEvent({
+          type: "credential.revealed",
+          userId: context.actor.userId,
+          spaceId: context.actor.spaceId,
+          metadata: {
+            procedure: "vault.reveal",
+            kind: "vault_credential",
+            scope,
+            name: input.name,
+          },
+        });
+        return revealed;
+      }),
       remove: authed.vault.remove.handler(async ({ context, input }) => {
         await forgetBotSecret(deps.prisma, vaultScope(context.actor, input.scope), input.name);
         return { ok: true as const };

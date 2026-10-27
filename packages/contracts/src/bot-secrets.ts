@@ -345,6 +345,12 @@ export const VaultPutInput = settingsScopeInput.extend({
 });
 export type VaultPutInput = z.infer<typeof VaultPutInput>;
 
+export const VaultRevealInput = settingsScopeInput.extend({ name: StoredBotSecretName });
+
+/** A saved value shown to its owner after they confirm it's them: a login's fields, or the value. */
+export const VaultRevealed = z.union([LoginSecretValue, z.object({ value: z.string() })]);
+export type VaultRevealed = z.infer<typeof VaultRevealed>;
+
 /**
  * What the owner can see about a saved credential. It never carries the protected value.
  * `name` is read loosely and `auth` is nullable so one stored row that no longer passes the

@@ -617,6 +617,26 @@ export async function getBotSecretMetadata(
   });
 }
 
+/**
+ * A saved value for its owner to read. Only for the owner-facing reveal, which confirms the
+ * person first; bots never read values. A login returns its username and password.
+ */
+export async function revealBotSecret(input: {
+  prisma: PrismaClient;
+  secretStore: Pick<SecretStore, "load">;
+  scope: BotSecretScope;
+  name: string;
+}): Promise<{ username: string; password: string } | { value: string } | null> {
+  const row = await input.prisma.vaultCredential.findFirst({
+    where: { ...(await vaultFields(input.prisma, input.scope)), name: input.name },
+  });
+  if (!row) return null;
+  const plaintext = await input.secretStore.load(row.ciphertext, row.id);
+  return BotSecretAuth.safeParse(row.auth).data?.type === "login"
+    ? decodeLoginSecret(plaintext)
+    : { value: plaintext };
+}
+
 export async function forgetBotSecret(prisma: PrismaClient, scope: BotSecretScope, name: string) {
   await prisma.$transaction(async (tx) => {
     await lockVault(tx, scope);
