@@ -13,7 +13,7 @@ fi
 # shell's original environment, which any process running as node can read from /proc.
 if [[ "${1:-}" != serve ]]; then
   pnpm --filter @rakazo/api db:deploy
-  exec env -u DATABASE_MIGRATION_URL "$0" serve
+  exec env -u DATABASE_MIGRATION_URL bash "$0" serve
 fi
 
 export RAILWAY_ENVIRONMENT_ID

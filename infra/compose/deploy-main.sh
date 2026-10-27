@@ -113,7 +113,10 @@ roll_out() {
   local service old new
   # Migrations run first, from their own container: it is the only one given the owner login.
   # The old API keeps serving meanwhile, so each migration must work with the previous release.
-  compose "${UP_TIMEOUT}" run --rm -T migrate
+  # A rollback to a release without that service has nothing to run: its API migrates on start.
+  if compose 1m config --services | grep -qx migrate; then
+    compose "${UP_TIMEOUT}" run --rm -T migrate
+  fi
   for service in api web; do
     old="$(compose 1m ps --all --quiet "${service}")"
     if [[ -z "${old}" ]]; then
