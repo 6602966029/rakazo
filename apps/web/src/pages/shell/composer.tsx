@@ -163,6 +163,7 @@ export const Composer = memo(function Composer({
   }
   function appendDictation(text: string) {
     const current = compositionRef.current.text;
+    editSelections.current = [{ start: current.length, end: current.length }];
     updateDraft(current ? `${current} ${text}` : text);
   }
   const [mentionQuery, setMentionQuery] = useState<string | null>(
