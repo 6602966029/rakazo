@@ -40,8 +40,8 @@ export default function PluginScreen() {
   const styles = useThemedStyles(createStyles);
   const { t } = useI18n();
   const foreground = useAppForeground();
-  const [install, setInstall] = useState<CapabilityInstall | null>(null);
-  const [servers, setServers] = useState<McpServer[]>([]);
+  const [installs, setInstalls] = useState<CapabilityInstall[]>([]);
+  const [allServers, setAllServers] = useState<McpServer[]>([]);
   const [assigned, setAssigned] = useState(new Set<string>());
   const [botId, setBotId] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -56,24 +56,21 @@ export default function PluginScreen() {
   const live = useRef(true);
 
   const load = useCallback(async () => {
-    const [installs, allServers, lastBot] = await Promise.all([
+    const [installRows, serverRows, lastBot] = await Promise.all([
       rpc("capabilities/list"),
       rpc("mcp/servers/list"),
       loadLastBotId(),
     ]);
-    const found =
-      installs.find((row) => row.kind === "plugin" && row.source === params.installedSource) ??
-      null;
     const assignments = lastBot
       ? await rpc("mcp/assignments/list", { botId: lastBot }).catch(() => [])
       : [];
     if (!live.current) return;
-    setInstall(found);
-    setServers(found ? allServers.filter((server) => server.installId === found.id) : []);
+    setInstalls(installRows);
+    setAllServers(serverRows);
     setBotId(lastBot);
     setAssigned(new Set(assignments.map((row) => row.serverId)));
     setLoaded(true);
-  }, [params.installedSource]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -92,6 +89,13 @@ export default function PluginScreen() {
     if (foreground && loaded) void load().catch(() => undefined);
   }, [foreground]);
 
+  // A pasted URL can differ from the normalized source the install is saved under.
+  const install = installs.find(
+    (row) =>
+      row.kind === "plugin" &&
+      (row.source === params.installedSource || row.source === preview?.installedSource),
+  );
+  const servers = install ? allServers.filter((server) => server.installId === install.id) : [];
   const installed = Boolean(install);
   useEffect(() => {
     if (!loaded || installed) return;

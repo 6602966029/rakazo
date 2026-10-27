@@ -812,6 +812,8 @@ export const PluginPreviewSchema = z.object({
   resolvedSha: z.string().regex(/^[a-f0-9]{40}$/),
   /** Immutable source for confirming this preview, present on new API responses. */
   pinnedSource: z.string().optional(),
+  /** The source an install of this preview is saved under. */
+  installedSource: z.string().optional(),
   digest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
   skills: z.array(PluginPreviewSkillSchema),
   mcpServers: z.array(PluginPreviewMcpServerSchema),

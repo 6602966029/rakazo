@@ -249,6 +249,7 @@ export function mcpRoutes(ctx: RouterContext) {
           return {
             ...pluginPreviewDto(preview),
             pinnedSource: `${preview.source.gitUrl}@${preview.resolvedSha}${preview.source.subdir ? `#${preview.source.subdir}` : ""}`,
+            installedSource: `${preview.source.gitUrl}${preview.source.subdir ? `#${preview.source.subdir}` : ""}`,
           };
         } catch {
           throw new ORPCError("BAD_REQUEST", {
@@ -825,6 +826,20 @@ export function mcpRoutes(ctx: RouterContext) {
             spaceId: context.actor.spaceId,
             userId: context.actor.userId,
           });
+          // A health check from before the disconnect would otherwise still read as connected.
+          const server = await deps.prisma.mcpServer.findFirst({
+            where: {
+              id: input.serverId,
+              spaceId: context.actor.spaceId,
+              userId: context.actor.userId,
+            },
+            select: { id: true },
+          });
+          if (server)
+            await recordMcpServerHealth(deps.prisma, server.id, {
+              status: "unknown",
+              message: MCP_OAUTH_PENDING_MESSAGE,
+            });
           return { ok: true as const };
         }),
       },

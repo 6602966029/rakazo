@@ -15,6 +15,9 @@ export const PLUGIN_CATEGORIES = [
 
 export type PluginCategory = (typeof PLUGIN_CATEGORIES)[number];
 
+/** The chip-less filter behind the uncategorized section's View all. */
+export const OTHER_PLUGINS = "other";
+
 /** Registries use their own coarse labels; these are the ones that already say what a plugin is for. */
 const REGISTRY_CATEGORIES: Record<string, PluginCategory> = {
   productivity: "productivity",

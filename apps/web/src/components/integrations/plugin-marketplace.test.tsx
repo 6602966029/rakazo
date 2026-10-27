@@ -107,12 +107,18 @@ const click = (name: string) =>
   act(async () => {
     button(name).click();
   });
-async function render(props: { install?: CapabilityInstall; servers?: McpServer[] } = {}) {
+async function render(
+  props: { install?: CapabilityInstall; servers?: McpServer[]; pasted?: string } = {},
+) {
   await act(async () =>
     root.render(
       <PluginDetail
-        selection={{ source, installedSource: source, name: "Notes" }}
-        install={props.install}
+        selection={{
+          source: props.pasted ?? source,
+          installedSource: props.pasted ?? source,
+          name: "Notes",
+        }}
+        installs={props.install ? [props.install] : []}
         servers={props.servers ?? []}
         assigned={new Set()}
         activeBotId="bot-1"
@@ -187,6 +193,13 @@ describe("plugin detail", () => {
     await click("Confirm removal");
     expect(api.remove).toHaveBeenCalledWith({ id: install.id });
     expect(onBack).toHaveBeenCalled();
+  });
+
+  it("recognizes an install saved under the normalized form of a pasted URL", async () => {
+    api.preview.mockResolvedValue({ ...preview, installedSource: source });
+    await render({ install, servers: [server], pasted: `${source}.git` });
+    expect(button("Remove")).toBeTruthy();
+    expect(container.textContent).toContain("notes-mcp");
   });
 
   it("reports connectors that answer as connected", async () => {

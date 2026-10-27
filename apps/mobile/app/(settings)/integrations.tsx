@@ -18,6 +18,7 @@ import {
   filterConnectionCatalogItems,
   humanizeToolName,
   isCatalogItemConnected,
+  OTHER_PLUGINS,
 } from "@rakazo/core";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -560,21 +561,25 @@ export default function Integrations() {
       );
     }
     const uncategorized = plugins.filter((entry) => !entry.category);
-    const sections: Array<[string | null, PluginMarketplaceEntry[]]> = [
+    const sections: Array<[string, PluginMarketplaceEntry[]]> = [
       ...categories.map((name): [string, PluginMarketplaceEntry[]] => [
         name,
         plugins.filter((entry) => entry.category === name),
       ]),
-      ...(uncategorized.length ? [[null, uncategorized] as [null, PluginMarketplaceEntry[]]] : []),
+      ...(uncategorized.length
+        ? [[OTHER_PLUGINS, uncategorized] as [string, PluginMarketplaceEntry[]]]
+        : []),
     ];
     return (
       <>
         {failed}
         {sections.map(([name, entries]) => (
-          <View key={name ?? "other"} testID="plugin-section" style={styles.catalogStack}>
+          <View key={name} testID="plugin-section" style={styles.catalogStack}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{name ? categoryLabel(name) : t("More")}</Text>
-              {name && entries.length > SECTION_SIZE ? (
+              <Text style={styles.sectionTitle}>
+                {name === OTHER_PLUGINS ? t("More") : categoryLabel(name)}
+              </Text>
+              {entries.length > SECTION_SIZE ? (
                 <Pressable
                   accessibilityRole="button"
                   hitSlop={8}

@@ -21,6 +21,7 @@ import {
   isRecommendedPlugin,
   matchesPluginQuery,
   matchesWordPrefixes,
+  OTHER_PLUGINS,
   PLUGIN_CATEGORIES,
 } from "@rakazo/core";
 import { fetchFresh, writeSaved } from "@rakazo/core/query";
@@ -202,7 +203,6 @@ export function PluginsOverlay({
   );
   const userSkillsQuery = useQuery({
     ...queries.agentSkills.list.queryOptions(),
-    enabled: view === "manage",
   });
   const userSkills = (userSkillsQuery.data ?? []).filter((skill) => skill.source === "user");
   const catalogFeedEnabled = integrations.data?.catalogFeedEnabled ?? false;
@@ -310,7 +310,7 @@ export function PluginsOverlay({
   const searching = query.trim().length > 0;
   const pluginMatches = plugins.filter(
     (entry) =>
-      (!category || entry.category === category) &&
+      (!category || entry.category === (category === OTHER_PLUGINS ? null : category)) &&
       matchesPluginQuery(entry, query, entry.category ? categoryLabel(entry.category) : ""),
   );
   const installedPlugin = (installedSource: string) =>
@@ -319,7 +319,8 @@ export function PluginsOverlay({
     install ? mcpServers.filter((server) => server.installId === install.id) : [];
   const standaloneServers = mcpServers.filter((server) => !server.installId);
   const connectedItems = catalog.filter((item) => itemConnected(item));
-  const connectedCount = connectedItems.length + standaloneServers.length + pluginInstalls.length;
+  const connectedCount =
+    connectedItems.length + standaloneServers.length + pluginInstalls.length + userSkills.length;
   const connectedMarks = [
     ...connectedItems.map((item) => ({
       key: catalogItemKey(item),
@@ -812,15 +813,24 @@ export function PluginsOverlay({
           <Spinner className="size-5 text-muted-foreground" aria-label={t`Loading plugins…`} />
         </div>
       );
-    if (pluginCatalog.error || pluginCatalog.data?.unavailableRegistries.length)
-      return (
+    const unavailable =
+      pluginCatalog.error || pluginCatalog.data?.unavailableRegistries.length ? (
         <div role="alert" className="mt-6 flex items-center gap-3 text-sm text-muted-foreground">
           <Trans>Some plugins could not be loaded.</Trans>
           <Button variant="outline" size="sm" onClick={() => void pluginCatalog.refetch()}>
             <Trans>Retry</Trans>
           </Button>
         </div>
-      );
+      ) : null;
+    return (
+      <>
+        {unavailable}
+        {renderPluginResults()}
+      </>
+    );
+  }
+
+  function renderPluginResults() {
     if (category || searching)
       return pluginMatches.length ? (
         <section data-testid="plugin-results" className="mt-2">
@@ -853,7 +863,7 @@ export function PluginsOverlay({
         plugins.filter((entry) => entry.category === name),
       ]),
       ...(uncategorized.length
-        ? [["other", t`More`, uncategorized] as [string, string, PluginMarketplaceEntry[]]]
+        ? [[OTHER_PLUGINS, t`More`, uncategorized] as [string, string, PluginMarketplaceEntry[]]]
         : []),
     ];
     return (
@@ -877,7 +887,7 @@ export function PluginsOverlay({
           <section key={name} data-testid="plugin-section" className="mt-8">
             <div className="mb-2 flex items-center justify-between px-2.5">
               <h2 className="text-[15px] font-medium text-foreground">{label}</h2>
-              {categories.includes(name) && entries.length > SECTION_SIZE ? (
+              {entries.length > SECTION_SIZE ? (
                 <Button variant="text" size="sm" onClick={() => setCategory(name)}>
                   <Trans>View all</Trans>
                 </Button>
@@ -1216,8 +1226,8 @@ export function PluginsOverlay({
             <PluginDetail
               key={plugin.installedSource}
               selection={plugin}
-              install={installedPlugin(plugin.installedSource)}
-              servers={pluginServers(installedPlugin(plugin.installedSource))}
+              installs={pluginInstalls}
+              servers={mcpServers}
               assigned={assigned}
               activeBotId={activeBotId}
               onBack={() => setPlugin(null)}

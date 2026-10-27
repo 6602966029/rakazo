@@ -6,7 +6,7 @@ import type {
 } from "@rakazo/contracts";
 import { PluginPreviewSchema } from "@rakazo/contracts";
 import type { PluginCategory } from "@rakazo/core";
-import { matchesPluginQuery, PLUGIN_CATEGORIES } from "@rakazo/core";
+import { matchesPluginQuery, OTHER_PLUGINS, PLUGIN_CATEGORIES } from "@rakazo/core";
 
 /** What the plugin screen needs, from a catalog entry or a pasted GitHub URL. */
 export type PluginParams = {
@@ -71,7 +71,7 @@ export function filterPlugins(
 ): PluginMarketplaceEntry[] {
   return entries.filter(
     (entry) =>
-      (!category || entry.category === category) &&
+      (!category || entry.category === (category === OTHER_PLUGINS ? null : category)) &&
       matchesPluginQuery(entry, query, entry.category ? categoryLabel(entry.category) : ""),
   );
 }

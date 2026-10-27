@@ -135,15 +135,15 @@ const SKILLS_SHOWN = 5;
 
 export function PluginDetail({
   selection,
-  install,
-  servers,
+  installs,
+  servers: allServers,
   assigned,
   activeBotId,
   onBack,
   onChanged,
 }: {
   selection: PluginSelection;
-  install?: CapabilityInstall;
+  installs: CapabilityInstall[];
   servers: McpServer[];
   assigned: Set<string>;
   activeBotId?: string;
@@ -167,6 +167,13 @@ export function PluginDetail({
     };
   }, []);
 
+  // A pasted URL can differ from the normalized source the install is saved under.
+  const install = installs.find(
+    (row) =>
+      row.kind === "plugin" &&
+      (row.source === selection.installedSource || row.source === preview?.installedSource),
+  );
+  const servers = install ? allServers.filter((server) => server.installId === install.id) : [];
   const parsed = install ? PluginPreviewSchema.safeParse(install.config) : null;
   const detail = parsed?.success ? parsed.data : preview;
   const installed = Boolean(install);
