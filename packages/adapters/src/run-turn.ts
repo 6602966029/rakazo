@@ -68,7 +68,11 @@ import {
 import { scheduleRoutineRetry } from "./run-routines.js";
 import { applyTool } from "./run-tools.js";
 import { withRuntimeCleanup } from "./runtime-stream.js";
-import { stripNoResponseReply, stripStrayNoResponse } from "./silent-reply.js";
+import {
+  peerReplyWithoutSentinel,
+  stripNoResponseReply,
+  stripStrayNoResponse,
+} from "./silent-reply.js";
 import { takeoverCheckpointOf } from "./takeover-resume.js";
 import { appendToolCompletionAudit, toolCompletionFromResult } from "./tool-completion-audit.js";
 import { advanceToolCallLoopGuard, loopGuardStopText } from "./tool-loop.js";
@@ -664,7 +668,11 @@ export async function completeRun(ctx: RunContext) {
   // Other runs still drop a stray sentinel at the edges of a real reply.
   const silentReply = ctx.allowSilentEmptyRun
     ? stripNoResponseReply(reply.assembled, reply.messageSegments)
-    : stripStrayNoResponse(reply.assembled, reply.messageSegments);
+    : (ctx.source.peerMessage?.intent === "request" ||
+          ctx.source.peerMessage?.intent === "question") &&
+        !reply.publishedMidTurnUserMessage
+      ? peerReplyWithoutSentinel(reply.assembled, reply.messageSegments)
+      : stripStrayNoResponse(reply.assembled, reply.messageSegments);
   let completionBlocks = silentReply.blocks;
   if (!silentReply.assembled || isBackgroundRunTrigger(run.trigger)) {
     // Mid-turn progress already posted durable chat messages; skip the empty
