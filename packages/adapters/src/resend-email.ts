@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { TransactionalEmail, TransactionalEmailProvider } from "@rakazo/adapter-kit";
+import { cancelResponseBody, readBoundedJsonResponse } from "@rakazo/core";
 
 interface ResendEmailConfig {
   apiKey: string;
@@ -115,7 +116,10 @@ export class ResendEmailProvider implements TransactionalEmailProvider {
 
 /** Resend's error name and message, without addresses: the message can quote a recipient. */
 async function errorDetail(response: Response): Promise<string> {
-  const body: unknown = await response.json().catch(() => undefined);
+  const body: unknown = await readBoundedJsonResponse(response, 4_096).catch(() => {
+    cancelResponseBody(response);
+    return undefined;
+  });
   if (typeof body !== "object" || body === null) return "";
   const { name, message } = body as { name?: unknown; message?: unknown };
   const parts = [
