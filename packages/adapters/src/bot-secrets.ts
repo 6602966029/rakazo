@@ -32,6 +32,15 @@ import { readBodyCapped, withAbort } from "./web-ssrf.js";
 export type BotSecretScope = { userId: string; spaceId: string; vault?: SettingsScope };
 type VaultClient = Pick<PrismaClient, "spaceSettingOverride">;
 
+/**
+ * Orders a vault write after any change of vault (the member's settings lock) and after every
+ * other write by the member, since Spaces without their own vault share the account's.
+ */
+async function lockVault(tx: Pick<Prisma.TransactionClient, "$queryRaw">, scope: BotSecretScope) {
+  await lockSpaceSettings(tx, scope);
+  await tx.$queryRaw`SELECT id FROM "user" WHERE id = ${scope.userId} FOR UPDATE`;
+}
+
 /** The vault rows a call reads and writes: the account's (no Space) or the Space's own. */
 async function vaultFields(client: VaultClient, scope: BotSecretScope) {
   const target = await settingsTarget(client, scope, "credentials", scope.vault);
@@ -146,7 +155,6 @@ export async function loadBotCommandEnvironment(
     where: await vaultFields(prisma, scope),
     select: { id: true, name: true, auth: true, ciphertext: true },
     orderBy: { name: "asc" },
-    take: 100,
   });
   const environment: Record<string, string> = {};
   for (const row of rows) {
@@ -205,7 +213,6 @@ export async function findCommandVariableConflict(
   const rows = await client.vaultCredential.findMany({
     where: { ...(await vaultFields(client, scope)), name: { not: destination.name } },
     select: { name: true, auth: true },
-    take: 100,
   });
   return rows.find(
     (row) => isCommandCredential(row.auth) && commandVariableName(row.name) === variable,
@@ -443,8 +450,7 @@ export async function prepareBotSecret(input: {
     id,
     ciphertext: stored.ciphertext,
     async store(tx: Prisma.TransactionClient) {
-      // The member's settings lock also orders this write after any change of vault.
-      await lockSpaceSettings(tx, scope);
+      await lockVault(tx, scope);
       const current = await tx.vaultCredential.findFirst({
         where: { ...vault, name: destination.name },
       });
@@ -585,7 +591,6 @@ export async function listBotSecrets(prisma: PrismaClient, scope: BotSecretScope
     where: await vaultFields(prisma, scope),
     select: metadata,
     orderBy: { name: "asc" },
-    take: 100,
   });
   return rows.map(botSecretToolView);
 }
@@ -598,7 +603,6 @@ export async function listBotSecretMetadata(prisma: PrismaClient, scope: BotSecr
     where: await vaultFields(prisma, scope),
     select: ownerMetadata,
     orderBy: { name: "asc" },
-    take: 100,
   });
 }
 
@@ -615,7 +619,7 @@ export async function getBotSecretMetadata(
 
 export async function forgetBotSecret(prisma: PrismaClient, scope: BotSecretScope, name: string) {
   await prisma.$transaction(async (tx) => {
-    await lockSpaceSettings(tx, scope);
+    await lockVault(tx, scope);
     await tx.vaultCredential.deleteMany({ where: { ...(await vaultFields(tx, scope)), name } });
   });
   return { removed: true };

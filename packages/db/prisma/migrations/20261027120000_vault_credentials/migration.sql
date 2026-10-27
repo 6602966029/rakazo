@@ -33,26 +33,45 @@ CREATE POLICY vault_credentials_system ON "vault_credentials"
 -- Saved credentials never become readable somewhere they were not: a member with one Space
 -- gets them in the account vault (no other Space exists to see them); a member with several
 -- keeps each Space's in that Space's own vault. Rows keep their ids, which their stored values
--- are bound to. A name two bots both used keeps its newest value; the others get a suffix.
-WITH placed AS (
-  SELECT b.*,
-    CASE WHEN (SELECT count(*) FROM "space_members" m WHERE m."userId" = b."userId") = 1
-      THEN NULL ELSE b."spaceId" END AS "vaultSpaceId"
-  FROM "bot_secrets" b
-), ranked AS (
-  SELECT placed.*, row_number() OVER (
-    PARTITION BY "userId", "vaultSpaceId", "name" ORDER BY "updatedAt" DESC, "id"
-  ) AS rank
-  FROM placed
-)
-INSERT INTO "vault_credentials"
-  ("id", "userId", "spaceId", "name", "origin", "auth", "ciphertext", "createdAt", "updatedAt")
-SELECT "id", "userId", "vaultSpaceId",
-  CASE WHEN rank = 1 THEN "name" ELSE "name" || '-' || rank END,
-  "origin", "auth", "ciphertext", "createdAt", "updatedAt"
-FROM ranked
-ORDER BY rank
-ON CONFLICT DO NOTHING;
+-- are bound to. Within a vault the newest row keeps its name; an older row whose name, or for a
+-- command variable whose exported variable, is taken gets the first free "-N" suffix that keeps
+-- the name within 64 characters.
+DO $$
+DECLARE
+  row RECORD;
+  vault_space TEXT;
+  candidate TEXT;
+  suffix INTEGER;
+  is_command BOOLEAN;
+BEGIN
+  FOR row IN
+    SELECT b.*,
+      (SELECT count(*) FROM "space_members" m WHERE m."userId" = b."userId") AS spaces
+    FROM "bot_secrets" b
+    ORDER BY b."userId", b."updatedAt" DESC, b."id"
+  LOOP
+    vault_space := CASE WHEN row.spaces = 1 THEN NULL ELSE row."spaceId" END;
+    is_command := row."auth"->>'type' = 'command';
+    candidate := row."name";
+    suffix := 1;
+    WHILE EXISTS (
+      SELECT 1 FROM "vault_credentials" v
+      WHERE v."userId" = row."userId"
+        AND v."spaceId" IS NOT DISTINCT FROM vault_space
+        AND (v."name" = candidate
+          OR (is_command AND v."auth"->>'type' = 'command'
+            AND upper(replace(v."name", '-', '_')) = upper(replace(candidate, '-', '_'))))
+    ) LOOP
+      suffix := suffix + 1;
+      candidate := left(row."name", 64 - length('-' || suffix)) || '-' || suffix;
+    END LOOP;
+    INSERT INTO "vault_credentials"
+      ("id", "userId", "spaceId", "name", "origin", "auth", "ciphertext", "createdAt", "updatedAt")
+    VALUES (row."id", row."userId", vault_space, candidate, row."origin", row."auth",
+      row."ciphertext", row."createdAt", row."updatedAt")
+    ON CONFLICT ("id") DO NOTHING;
+  END LOOP;
+END $$;
 
 INSERT INTO "space_setting_overrides" ("spaceId", "userId", "setting")
 SELECT DISTINCT v."spaceId", v."userId", 'credentials'

@@ -418,6 +418,31 @@ describe("shell command environment", () => {
     expect((await runCommand()).env).toEqual({});
   });
 
+  it("exports every command variable when a merged vault holds more than 100", async () => {
+    const db = fakeDatabase();
+    const value = await secretStore.put(
+      "fake-merged-value",
+      { ...scope, operationId: "test", traceId: "test", signal: new AbortController().signal },
+      { recordId: "merged" },
+    );
+    // Two bots' credentials merged into one vault can exceed the limit on new writes.
+    for (let index = 0; index < 120; index += 1) {
+      await db.prisma.vaultCredential.create({
+        data: {
+          id: "merged",
+          ...accountVault,
+          name: `tool-${index}`,
+          origin: "",
+          auth: command,
+          ciphertext: value.ciphertext,
+        },
+      });
+    }
+    const environment = await loadBotCommandEnvironment(db.prisma, secretStore, scope);
+    expect(Object.keys(environment)).toHaveLength(120);
+    expect(environment.TOOL_119).toBe("fake-merged-value");
+  });
+
   it("exports the command variables of the vault this Space uses", async () => {
     const db = fakeDatabase();
     await save(db, "cli-token", "fake-cli-token-1");
