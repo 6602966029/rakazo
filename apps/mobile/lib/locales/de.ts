@@ -1148,4 +1148,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Copy username": "Benutzernamen kopieren",
   "Copy password": "Passwort kopieren",
   "Could not show the credential": "Zugangsdaten konnten nicht angezeigt werden",
+  Wallet: "Wallet",
+  "Connect {name}": "{name} verbinden",
+  "Could not load wallet": "Wallet konnte nicht geladen werden",
+  "Could not update wallet": "Wallet konnte nicht aktualisiert werden",
 };

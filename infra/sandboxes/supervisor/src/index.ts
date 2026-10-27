@@ -528,10 +528,15 @@ app.post("/computers/:id/browser", async (c) => {
                   ref: z.string().min(1).max(200),
                   text: z.string().max(32_000),
                   origin: z.string().url().max(2048).optional(),
-                  field: z.enum(["username", "password"]).optional(),
+                  field: z.enum(["username", "password", "card"]).optional(),
                 })
-                // The field decides which input types the helper accepts for a saved login.
-                .refine((step) => !step.origin || step.field, "A saved login fill needs its field"),
+                // The field decides which input types the helper accepts for a saved login or card.
+                .refine((step) => !step.origin || step.field, "A saved login fill needs its field")
+                // A card detail is hidden and checked only when bound to the merchant's origin.
+                .refine(
+                  (step) => step.field !== "card" || step.origin,
+                  "A card fill needs its origin",
+                ),
             ]),
           )
           .min(1)
@@ -551,9 +556,10 @@ app.post("/computers/:id/browser", async (c) => {
     );
     const result = await runContainerCommand(
       container,
-      // Arguments go over stdin: origin-bound fills carry saved logins, and argv is readable by
-      // any process in the computer, including the bot's own shell. Other commands also keep the
-      // argv copy so a computer still on an older image keeps working until it is replaced.
+      // Arguments go over stdin: origin-bound fills carry saved logins and cards, and argv is
+      // readable by any process in the computer, including the bot's own shell. Other commands
+      // also keep the argv copy so a computer still on an older image keeps working until it is
+      // replaced.
       [
         "/usr/local/bin/rakazo-page-browser",
         body.command,

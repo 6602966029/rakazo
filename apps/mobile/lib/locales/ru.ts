@@ -1141,4 +1141,8 @@ export const RU_MESSAGES: Record<string, string> = {
   "Copy username": "Скопировать имя пользователя",
   "Copy password": "Скопировать пароль",
   "Could not show the credential": "Не удалось показать учетные данные",
+  Wallet: "Кошелёк",
+  "Connect {name}": "Подключить {name}",
+  "Could not load wallet": "Не удалось загрузить кошелёк",
+  "Could not update wallet": "Не удалось обновить кошелёк",
 };

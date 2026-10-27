@@ -215,6 +215,27 @@ class PageBrowserTest(unittest.TestCase):
                 ])
             ensure.assert_not_called()
 
+    def test_binds_card_fill_to_the_merchant_origin_in_the_same_evaluation(self):
+        with patch.object(helper, "ensure_helpers"), patch.object(helper, "snapshot", return_value={"ok": True}), \
+                patch.object(helper, "eval_json") as evaluate:
+            evaluate.side_effect = [True, {}]
+            helper.act(Mock(), "session", [
+                {"kind": "fill", "ref": "e1", "text": "4242424242424242", "origin": "https://shop.example.test",
+                 "field": "card"},
+            ])
+        self.assertEqual(
+            evaluate.call_args_list[1].args[2],
+            'window.__rakazoPageBrowser.fill("e1", "4242424242424242", "https://shop.example.test", "card")',
+        )
+
+    def test_rejects_card_fill_without_its_origin_before_any_action(self):
+        with patch.object(helper, "ensure_helpers") as ensure:
+            with self.assertRaisesRegex(RuntimeError, "card fill needs its origin"):
+                helper.act(Mock(), "session", [
+                    {"kind": "fill", "ref": "e1", "text": "4242424242424242", "field": "card"},
+                ])
+            ensure.assert_not_called()
+
     def test_key_events_press_printable_characters_and_insert_the_rest(self):
         self.assertEqual(helper.key_event("6"),
                          {"key": "6", "code": "Digit6", "text": "6", "windowsVirtualKeyCode": 54})
