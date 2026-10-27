@@ -35,8 +35,10 @@ import {
   InstructionConflictError,
   IsolationError,
   recordComputerRunEnd,
+  recordSecurityEvent,
   restoreBotUnderComputerQuota,
   SpaceDeletionInProgressError,
+  settingsTarget,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { AgentImportServices } from "../agent-import.js";
@@ -747,13 +749,26 @@ export function botsRoutes(ctx: RouterContext) {
       ),
       reveal: authed.vault.reveal.handler(async ({ context, input }) => {
         await requireIdentityConfirmation(deps.auth, context);
+        // Resolved here, so the event names the vault that was read even when scope is omitted.
+        const scope = await settingsTarget(deps.prisma, context.actor, "credentials", input.scope);
         const revealed = await revealBotSecret({
           prisma: deps.prisma,
           secretStore: deps.secrets,
-          scope: vaultScope(context.actor, input.scope),
+          scope: vaultScope(context.actor, scope),
           name: input.name,
         });
         if (!revealed) throw new ORPCError("NOT_FOUND", { message: "Credential not found" });
+        await recordSecurityEvent({
+          type: "credential.revealed",
+          userId: context.actor.userId,
+          spaceId: context.actor.spaceId,
+          metadata: {
+            procedure: "vault.reveal",
+            kind: "vault_credential",
+            scope,
+            name: input.name,
+          },
+        });
         return revealed;
       }),
       remove: authed.vault.remove.handler(async ({ context, input }) => {

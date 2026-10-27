@@ -5,6 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "./router.js";
 import { createRouter } from "./router.js";
 
+const events = vi.hoisted(() => ({ record: vi.fn() }));
+vi.mock("@rakazo/db", async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  recordSecurityEvent: events.record,
+}));
+
 // Offline boundary: a fake Prisma client and secret store drive the real router handlers,
 // the real repos.getBot ownership check, and the real storeBotSecret validation.
 
@@ -521,8 +527,17 @@ describe("vault router", () => {
     expect(secrets.load).not.toHaveBeenCalled();
 
     auth.hasRecentIdentityConfirmation.mockResolvedValue(true);
+    events.record.mockClear();
     const shown = await call("vault/reveal", { name: "portal" });
     expect(shown.body.json).toEqual({ value: FAKE_VALUE });
+    // The event names the vault that was read, though the call left scope to the Space.
+    expect(events.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "credential.revealed",
+        metadata: expect.objectContaining({ scope: "account", name: "portal" }),
+      }),
+    );
+    expect(JSON.stringify(events.record.mock.calls)).not.toContain(FAKE_VALUE);
     expect(auth.hasRecentIdentityConfirmation).toHaveBeenLastCalledWith({
       sessionId: "session-1",
       userId: "user-1",
