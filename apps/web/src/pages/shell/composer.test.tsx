@@ -361,6 +361,22 @@ describe("Composer", () => {
     expect(onSend).toHaveBeenCalledWith("ask @Bob Jones", [jones], expect.any(String));
   });
 
+  it("keeps Escape dismissal through a delayed native selection event", async () => {
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend);
+    act(() => textarea.focus());
+    type(textarea, "@Bo");
+    act(() => {
+      textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      textarea.dispatchEvent(new KeyboardEvent("keyup", { key: "Escape", bubbles: true }));
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    expect(container?.querySelector('[data-testid="mention-picker"]')).toBeNull();
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend).toHaveBeenCalledWith("@Bo", [], expect.any(String));
+  });
+
   it.each([false, true])(
     "keeps the keyboard mention selection when targets refresh (reorder: %s)",
     (reorder) => {

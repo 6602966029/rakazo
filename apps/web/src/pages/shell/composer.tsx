@@ -875,6 +875,7 @@ export const Composer = memo(function Composer({
               }
               if (action.type === "dismiss") {
                 event.preventDefault();
+                completedSelection.current = event.currentTarget.selectionStart;
                 setMentionQuery(null);
                 setMentionHighlightKey(null);
                 return;
