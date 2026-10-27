@@ -1610,12 +1610,14 @@ msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/markdown-copy.tsx
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
 msgstr "已复制"
 
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/message-hover-actions.tsx
@@ -2036,6 +2038,10 @@ msgstr "无法发送重置邮件"
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "无法发送"
+
+#: src/components/VaultSettings.tsx
+msgid "Could not show the credential"
+msgstr "无法显示凭据"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not start OAuth"
@@ -2537,10 +2543,6 @@ msgstr "需要验证邮箱"
 msgid "Enable {0}"
 msgstr "启用 {0}"
 
-#: src/components/VaultSettings.tsx
-msgid "Encrypted and never shown again"
-msgstr "已加密，且不再显示"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr ""
@@ -2899,6 +2901,10 @@ msgstr "试听"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "你好，这是我朗读回复时的声音。"
+
+#: src/components/VaultSettings.tsx
+msgid "Hide"
+msgstr "隐藏"
 
 #: src/components/I18nBootstrap.tsx
 msgid "Hide password"
@@ -4980,6 +4986,10 @@ msgstr "共享"
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "共享记忆"
+
+#: src/components/VaultSettings.tsx
+msgid "Show"
+msgstr "显示"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"

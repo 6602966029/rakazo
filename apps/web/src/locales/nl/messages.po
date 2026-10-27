@@ -1610,12 +1610,14 @@ msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
 #: src/components/markdown-copy.tsx
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
 msgid "Copied"
 msgstr "Gekopieerd"
 
+#: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/message-hover-actions.tsx
@@ -2036,6 +2038,10 @@ msgstr "Herstellingsmail versturen mislukt"
 #: src/lib/call-session.ts
 msgid "Could not send that"
 msgstr "Versturen mislukt"
+
+#: src/components/VaultSettings.tsx
+msgid "Could not show the credential"
+msgstr "Kan de gegevens niet tonen"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not start OAuth"
@@ -2537,10 +2543,6 @@ msgstr "E-mailverificatie vereist"
 msgid "Enable {0}"
 msgstr "{0} inschakelen"
 
-#: src/components/VaultSettings.tsx
-msgid "Encrypted and never shown again"
-msgstr "Versleuteld en nooit meer getoond"
-
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Ends {day}"
 msgstr "Eindigt op {day}"
@@ -2899,6 +2901,10 @@ msgstr "Luister naar een voorbeeld"
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "Hoi, zo klink ik als ik antwoorden hardop voorlees."
+
+#: src/components/VaultSettings.tsx
+msgid "Hide"
+msgstr "Verbergen"
 
 #: src/components/I18nBootstrap.tsx
 msgid "Hide password"
@@ -4980,6 +4986,10 @@ msgstr "Gedeeld"
 #: src/pages/KnowledgeSection.tsx
 msgid "Shared memory"
 msgstr "Gedeeld geheugen"
+
+#: src/components/VaultSettings.tsx
+msgid "Show"
+msgstr "Tonen"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
