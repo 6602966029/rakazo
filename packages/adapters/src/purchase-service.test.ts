@@ -182,7 +182,7 @@ describe("resolvePurchaseCardFill", () => {
   it("returns the value, its merchant origin and the number to redact", async () => {
     const env = setup();
     await env.call("request_purchase", request);
-    const scope = { spaceId: fixture.spaceId, userId: fixture.userId };
+    const scope = { spaceId: fixture.spaceId, userId: fixture.userId, botId: fixture.botId };
     expect(await resolvePurchaseCardFill(env.deps, scope, "purchase-1", "number")).toEqual({
       error: expect.stringContaining("not approved"),
     });
@@ -204,6 +204,10 @@ describe("resolvePurchaseCardFill", () => {
         "purchase-1",
         "cvc",
       ),
+    ).toEqual({ error: "Unknown purchase." });
+    // Another bot of the same user can't type it: its runs would not keep hiding the card.
+    expect(
+      await resolvePurchaseCardFill(env.deps, { ...scope, botId: "bot-2" }, "purchase-1", "cvc"),
     ).toEqual({ error: "Unknown purchase." });
   });
 
@@ -228,7 +232,7 @@ describe("resolvePurchaseCardFill", () => {
     const env = setup();
     await env.call("request_purchase", request);
     env.purchases[0]!.status = "approved";
-    const run = { spaceId: fixture.spaceId, userId: fixture.userId };
+    const run = { spaceId: fixture.spaceId, userId: fixture.userId, botId: fixture.botId };
     await Promise.all([
       resolvePurchaseCardFill(env.deps, run, "purchase-1", "number"),
       resolvePurchaseCardFill(env.deps, run, "purchase-1", "cvc"),

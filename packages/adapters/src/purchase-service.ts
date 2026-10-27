@@ -117,7 +117,12 @@ export async function executePurchaseTool(
   const parsed = PurchaseIdInput.safeParse(args);
   if (!parsed.success) return { error: "A purchase id is required." };
   const purchase = await deps.prisma.purchase.findFirst({
-    where: { id: parsed.data.id, spaceId: context.spaceId, userId: context.userId },
+    where: {
+      id: parsed.data.id,
+      spaceId: context.spaceId,
+      userId: context.userId,
+      botId: context.botId,
+    },
   });
   if (!purchase) return { error: "Unknown purchase." };
   if (!PENDING_PURCHASE_STATUSES.has(purchase.status) && purchase.status !== "approved")
@@ -250,14 +255,15 @@ export async function enqueuePurchasePoll(
  */
 export async function resolvePurchaseCardFill(
   deps: Omit<PurchaseDeps, "jobs">,
-  run: { spaceId: string; userId: string },
+  run: { spaceId: string; userId: string; botId: string },
   purchaseId: string,
   field: PurchaseCardField,
 ): Promise<{ text: string; origin: string; redactions: string[] } | { error: string }> {
   const provider = deps.paymentWallet;
   if (!provider) return NOT_CONFIGURED;
   const purchase = await deps.prisma.purchase.findFirst({
-    where: { id: purchaseId, spaceId: run.spaceId, userId: run.userId },
+    // Only the bot that asked for it: its later runs are the ones that keep hiding the card.
+    where: { id: purchaseId, spaceId: run.spaceId, userId: run.userId, botId: run.botId },
   });
   if (!purchase) return { error: "Unknown purchase." };
   if (purchase.status !== "approved")
