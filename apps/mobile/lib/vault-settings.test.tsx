@@ -20,6 +20,7 @@ const state = vi.hoisted(() => ({
   copy: vi.fn(async () => true),
   confirmIdentity: vi.fn(async () => true),
   spaceId: undefined as string | undefined,
+  focused: true,
   credentials: [] as Credential[],
 }));
 const { element } = vi.hoisted(() => ({
@@ -47,7 +48,9 @@ vi.mock("./api", () => ({
   captureApiRequestContext: async (spaceId: string) => ({ headers: { space: spaceId } }),
 }));
 vi.mock("expo-router", () => ({
-  useFocusEffect: (effect: () => undefined | (() => void)) => useEffect(effect, [effect]),
+  // Focus effects run while `state.focused` holds and clean up once a render clears it.
+  useFocusEffect: (effect: () => undefined | (() => void)) =>
+    useEffect(() => (state.focused ? effect() : undefined), [effect, state.focused]),
   useLocalSearchParams: () => ({ spaceId: state.spaceId }),
 }));
 vi.mock("react-native", () => ({
@@ -180,6 +183,7 @@ async function render() {
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   state.spaceId = undefined;
+  state.focused = true;
   state.alert.mockReset();
   state.copy.mockClear();
   state.confirmIdentity.mockReset().mockResolvedValue(true);
@@ -406,7 +410,7 @@ it("shows an error when revealing fails", async () => {
   expect(container.textContent).toContain("Could not show the credential");
 });
 
-it("drops a value that arrives after the screen lost focus", async () => {
+it("drops a value that arrives once another screen covers this one", async () => {
   await render();
   let finish!: (value: { value: string }) => void;
   state.rpc.mockImplementationOnce(
@@ -416,8 +420,14 @@ it("drops a value that arrives after the screen lost focus", async () => {
       }),
   );
   await act(async () => button("Show", menu("github"))!.click());
-  await act(async () => root.unmount());
+  state.focused = false;
+  await render();
   await act(async () => finish({ value: "example-value" }));
   expect(state.alert).not.toHaveBeenCalled();
-  root = createRoot(container);
+
+  // Back in focus, Show works again.
+  state.focused = true;
+  await render();
+  await act(async () => button("Show", menu("github"))!.click());
+  expect(state.alert).toHaveBeenCalledWith("github", "example-value", expect.any(Array));
 });
