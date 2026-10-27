@@ -1,8 +1,8 @@
 import type { DemoBot } from "../demo";
 import { DEMO_BOTS } from "../demo";
+import type { DemoMessages } from "./demo-text";
+import { fillDemoText } from "./demo-text";
 import type { Locale } from "./locales";
-
-type DemoValues = Record<string, string | number>;
 
 const ZH_DEMO_TEXT: Record<string, string> = {
   "Yesterday": "昨天",
@@ -3387,15 +3387,15 @@ const DEMO_TEXT: Partial<Record<Locale, Record<string, string>>> = {
   "zh-tw": ZH_TW_DEMO_TEXT,
 };
 
-export function demoText(locale: Locale, source: string, values: DemoValues = {}): string {
-  const template = DEMO_TEXT[locale]?.[source] ?? source;
-  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (match, key: string) =>
-    Object.hasOwn(values, key) ? String(values[key]) : match,
-  );
+/** One locale's demo strings, so the client island ships only the language it renders. */
+export function demoMessages(locale: Locale): DemoMessages {
+  return DEMO_TEXT[locale] ?? {};
 }
 
+
 export function getDemoBots(locale: Locale): DemoBot[] {
-  const text = (value: string) => demoText(locale, value);
+  const messages = demoMessages(locale);
+  const text = (value: string) => fillDemoText(messages, value);
   return DEMO_BOTS.map((bot) => ({
     ...bot,
     time: text(bot.time),

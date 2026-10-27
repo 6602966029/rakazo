@@ -6,6 +6,7 @@ import Header from "./Header.astro";
 import { LandingBotAvatar } from "./LandingBotAvatar";
 import PhoneMockup from "./PhoneMockup.astro";
 import { ProductDemo } from "./ProductDemo";
+import { demoMessages, getDemoBots } from "../i18n/demo";
 import FeatureIllustration from "./FeatureIllustration.astro";
 import CapabilityIllustration from "./CapabilityIllustration.astro";
 import RepoCard from "./RepoCard.astro";
@@ -172,7 +173,7 @@ const structuredData = homeStructuredData({
       </section>
 
       <section id="demo">
-        <ProductDemo locale={locale} client:load />
+        <ProductDemo bots={getDemoBots(locale)} strings={demoMessages(locale)} client:load />
       </section>
 
       <section id="roster" class="section">

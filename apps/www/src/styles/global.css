@@ -899,7 +899,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 .language-menu ul {
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 0;
+  inset-inline-start: 0;
   z-index: 10;
   display: grid;
   grid-template-columns: repeat(2, max-content);
