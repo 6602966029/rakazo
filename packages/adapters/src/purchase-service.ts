@@ -26,7 +26,6 @@ import type { SafeWebFetchOptions } from "./web-ssrf.js";
 export type PurchaseDeps = Omit<PaymentWalletDeps, "paymentWallet"> & {
   jobs: JobPublisher;
   paymentWallet?: PaymentWalletProvider | null;
-  /** Test seam for paid_request's network access. */
   paidRequestFetch?: Pick<SafeWebFetchOptions, "fetch" | "resolveHostname">;
 };
 
@@ -114,7 +113,6 @@ function walletDeps(deps: WalletStoreDeps, provider: PaymentWalletProvider): Pay
   return { prisma: deps.prisma, secretStore: deps.secretStore, paymentWallet: provider };
 }
 
-/** Run `fn` with the purchase owner's wallet credential. */
 export function withPurchaseWallet<T>(
   deps: WalletStoreDeps,
   provider: PaymentWalletProvider,

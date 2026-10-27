@@ -321,7 +321,6 @@ export class PageBrowserSession {
 
 const PAY_TOKEN_INPUT = '.AiAgentPaymentSteering input[name="link_pay_token"]';
 
-/** The merchant account of the one pay token block a checkout shows, as the live helper reads it. */
 function payTokenAccount(win: DomWindow): string | null {
   const blocks = [...win.document.querySelectorAll(".AiAgentPaymentSteering")].filter((block) =>
     block.querySelector('input[name="link_pay_token"]'),

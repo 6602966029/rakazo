@@ -38,11 +38,7 @@ interface StoredRequest {
 
 type PaidRequestResult = { result: unknown; redactions: string[] };
 
-/**
- * paid_request: send an HTTPS request, and when it answers 402 with a payment the user's wallet
- * can make, ask the wallet owner to approve it. Called again with the approved purchase, it sends
- * the request once more with the payment. The amount always comes from the server's challenge.
- */
+/** The amount always comes from the server's 402 challenge, never from the model. */
 export async function executePaidRequest(
   deps: PurchaseDeps,
   context: AdapterContext & { botId: string },

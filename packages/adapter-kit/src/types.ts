@@ -1049,7 +1049,6 @@ export type BrowserActStep =
       field: "card";
       cardField: PurchaseCardField;
     }
-  /** Hands an approved pay token to the checkout of `merchantAccountId` on `origin`. */
   | {
       kind: "pay_token";
       ref?: undefined;

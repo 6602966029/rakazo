@@ -42,7 +42,6 @@ export type PurchaseStatus =
 
 export type PurchaseCredentialKind = "card" | "pay_token" | "http_payment";
 
-/** A payment an HTTP 402 response asks for that this wallet can make. */
 export interface HttpPaymentChallenge {
   /** Opaque, provider-owned; pinned at approval and compared again before paying. */
   challenge: string;
@@ -53,9 +52,7 @@ export interface HttpPaymentChallenge {
 }
 
 export type PurchaseCredential =
-  /** A single-use card typed into the checkout on `merchantUrl`. */
   | { kind: "card"; merchantName: string; merchantUrl: string }
-  /** A token that this merchant account's checkout takes in place of a card. */
   | { kind: "pay_token"; merchantAccountId: string }
   /** `challenge` from `readHttpPaymentChallenge`. */
   | { kind: "http_payment"; challenge: string };
@@ -106,7 +103,6 @@ export interface PaymentCardSecret {
   cvc?: string;
 }
 
-/** Headers that pay a retried HTTP request, and the secrets in them. */
 export interface HttpPaymentAuthorization {
   headers: Record<string, string>;
   secrets: string[];

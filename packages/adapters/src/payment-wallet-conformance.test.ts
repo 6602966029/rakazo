@@ -233,7 +233,6 @@ async function settle(
 const realm = "api.example.test";
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
 
-/** A 402 challenge as an MPP server sends it: one challenge per payment method it takes. */
 function paymentRequired(amount = "500", id = "challenge-1") {
   return [
     `Payment id="tempo-1", realm="${realm}", method="tempo", intent="charge", request="${encode({ amount, currency: "0x01", recipient: "0x02" })}"`,

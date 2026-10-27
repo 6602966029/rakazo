@@ -163,7 +163,6 @@ export class EmulatorPaymentWalletProvider implements PaymentWalletProvider {
     };
   }
 
-  /** The purchase's key, once approved for this kind of credential. */
   private approved(
     credential: PaymentWalletCredential,
     id: string,

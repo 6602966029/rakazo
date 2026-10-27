@@ -23,7 +23,6 @@ export async function readStripeChargeChallenge(
   return terms ? { challenge: Challenge.serialize(challenge), ...terms } : null;
 }
 
-/** The terms of a challenge serialized by `readStripeChargeChallenge`. */
 export async function stripeChargeTerms(serialized: string): Promise<StripeChargeChallenge> {
   const challenge = await readStripeChargeChallenge(serialized);
   if (!challenge) throw new PaymentWalletRequestRejected("This payment request can't be paid.");

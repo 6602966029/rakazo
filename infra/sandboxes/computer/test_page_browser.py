@@ -103,7 +103,7 @@ class PayTokenBrowser(CardBrowser):
         self.handed = []
 
     def call(self, method, params=None, *, session_id=None, timeout_s=30.0):
-        if method == "Runtime.callFunctionOn":
+        if method == "Runtime.callFunctionOn" and "arguments" in params:
             self.sent.append((method, params, session_id))
             self.handed.append((params["arguments"][0]["value"], session_id, params["executionContextId"]))
             if self.on_focus:
