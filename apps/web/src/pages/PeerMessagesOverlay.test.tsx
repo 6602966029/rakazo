@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { act } from "react";
+import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -43,7 +44,12 @@ import { PeerMessagesOverlay } from "./PeerMessagesOverlay";
 const scrollHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get");
 const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get");
 
+let root: Root | undefined;
+let queryClient: QueryClient | undefined;
+
 afterEach(() => {
+  act(() => root?.unmount());
+  queryClient?.clear();
   document.body.innerHTML = "";
   api.messages.mockReset();
 });
@@ -62,10 +68,12 @@ async function open() {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  queryClient = client;
+  root = createRoot(container);
   await act(async () =>
-    createRoot(container).render(
-      <QueryClientProvider client={queryClient}>
+    root?.render(
+      <QueryClientProvider client={client}>
         <PeerMessagesOverlay
           botId="chief"
           botName="Chief"
@@ -78,8 +86,28 @@ async function open() {
       </QueryClientProvider>,
     ),
   );
+  await settle();
+  const transcript = container.querySelector<HTMLElement>(
+    '[data-testid="peer-conversation-transcript"]',
+  );
+  if (!transcript) throw new Error("transcript did not render");
+  return { transcript, client };
+}
+
+async function settle() {
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-  return container.querySelector<HTMLElement>('[data-testid="peer-conversation-transcript"]');
+}
+
+async function scrollTo(transcript: HTMLElement, top: number) {
+  transcript.scrollTop = top;
+  await act(async () => transcript.dispatchEvent(new Event("scroll")));
+}
+
+async function refreshWithNewMessage(client: QueryClient) {
+  scrollHeight.mockReturnValue(5_200);
+  api.messages.mockResolvedValue({ messages: exchange(41), olderCursor: null });
+  await act(async () => client.refetchQueries());
+  await settle();
 }
 
 it("opens a long exchange at its latest message", async () => {
@@ -87,8 +115,32 @@ it("opens a long exchange at its latest message", async () => {
   clientHeight.mockReturnValue(600);
   api.messages.mockResolvedValue({ messages: exchange(40), olderCursor: null });
 
-  const transcript = await open();
+  const { transcript } = await open();
 
-  expect(transcript?.textContent).toContain("note 39");
-  expect(transcript?.scrollTop).toBe(5_000);
+  expect(transcript.textContent).toContain("note 39");
+  expect(transcript.scrollTop).toBe(5_000);
+});
+
+it("follows a refresh only while the reader is at the latest message", async () => {
+  scrollHeight.mockReturnValue(5_000);
+  clientHeight.mockReturnValue(600);
+  api.messages.mockResolvedValue({ messages: exchange(40), olderCursor: null });
+  const atEnd = await open();
+  await scrollTo(atEnd.transcript, 4_400);
+
+  await refreshWithNewMessage(atEnd.client);
+
+  expect(atEnd.transcript.textContent).toContain("note 40");
+  expect(atEnd.transcript.scrollTop).toBe(5_200);
+
+  act(() => root?.unmount());
+  scrollHeight.mockReturnValue(5_000);
+  api.messages.mockResolvedValue({ messages: exchange(40), olderCursor: null });
+  const scrolledUp = await open();
+  await scrollTo(scrolledUp.transcript, 1_000);
+
+  await refreshWithNewMessage(scrolledUp.client);
+
+  expect(scrolledUp.transcript.textContent).toContain("note 40");
+  expect(scrolledUp.transcript.scrollTop).toBe(1_000);
 });

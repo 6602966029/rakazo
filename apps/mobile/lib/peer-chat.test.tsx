@@ -2,6 +2,7 @@
 
 import type { ReactNode, Ref } from "react";
 import { act, createElement, useImperativeHandle } from "react";
+import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import PeerChat from "../app/peer-chat";
@@ -56,7 +57,10 @@ vi.mock("react-native", () => {
   };
 });
 
+let root: Root | undefined;
+
 afterEach(() => {
+  act(() => root?.unmount());
   document.body.innerHTML = "";
   rpc.mockReset();
   scrollToEnd.mockReset();
@@ -81,7 +85,8 @@ async function open() {
   });
   const container = document.createElement("div");
   document.body.append(container);
-  await act(async () => createRoot(container).render(createElement(PeerChat)));
+  root = createRoot(container);
+  await act(async () => root?.render(createElement(PeerChat)));
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
   return container;
 }
