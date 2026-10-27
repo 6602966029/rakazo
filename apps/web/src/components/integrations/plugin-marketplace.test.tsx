@@ -207,7 +207,7 @@ describe("plugin detail", () => {
       install,
       servers: [{ ...server, health: { ...server.health, status: "ok" } }],
     });
-    expect(container.textContent).toContain("Connected");
+    expect(container.querySelector('[aria-label="Connected"]')).not.toBeNull();
     expect(() => button("Sign in")).toThrow();
   });
 });

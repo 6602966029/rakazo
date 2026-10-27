@@ -326,7 +326,14 @@ export default function PluginScreen() {
                           </Text>
                         </View>
                         {mcpServerReady(server) ? (
-                          <Text style={styles.connected}>{t("Connected")}</Text>
+                          <View accessible accessibilityLabel={t("Connected")}>
+                            <NativeSymbol
+                              ios="checkmark.circle.fill"
+                              android="checkmark-circle"
+                              size={16}
+                              color={mobileTokens().success}
+                            />
+                          </View>
                         ) : null}
                       </View>
                       <View style={styles.itemActions}>
@@ -482,7 +489,6 @@ function createStyles() {
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: native.separator },
     title: { color: native.label, fontSize: 15, fontWeight: "500" },
     secondary: { color: native.secondaryLabel, fontSize: 13 },
-    connected: { color: tokens.success, fontSize: 13 },
     more: { color: native.label, fontSize: 14, textAlign: "right" },
     disclosure: {
       minHeight: 40,

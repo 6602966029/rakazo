@@ -8,7 +8,7 @@ import type {
 } from "@rakazo/contracts";
 import { PluginPreviewSchema } from "@rakazo/contracts";
 import { Button, Disclosure, Spinner } from "@rakazo/ui-web";
-import { ArrowUpRight, Box, ChevronLeft, Plug } from "lucide-react";
+import { ArrowUpRight, Box, Check, ChevronLeft, Plug } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { connectMcpOauth } from "../../lib/mcp-connect";
 import { rpc } from "../../lib/rpc";
@@ -74,7 +74,7 @@ export function PluginLogo({
     />
   ) : (
     <div
-      className={`${box} grid shrink-0 place-items-center bg-accent font-semibold text-foreground`}
+      className={`${box} grid shrink-0 place-items-center border border-border/60 bg-favicon-plate font-semibold text-foreground`}
     >
       {name[0]?.toUpperCase()}
     </div>
@@ -378,9 +378,7 @@ export function PluginDetail({
                       </span>
                     </span>
                     {mcpServerReady(server) ? (
-                      <span className="text-[13px] text-success">
-                        <Trans>Connected</Trans>
-                      </span>
+                      <Check role="img" aria-label={t`Connected`} className="size-4 text-success" />
                     ) : noAuth.has(server.id) ? null : (
                       <Button
                         size="sm"

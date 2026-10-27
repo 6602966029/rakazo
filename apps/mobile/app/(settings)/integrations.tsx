@@ -500,9 +500,7 @@ export default function Integrations() {
                   {pluginSummary(servers.length, pluginSkillCount(install))}
                 </Text>
               </View>
-              {ready ? (
-                <Text style={styles.connected}>{t("Connected")}</Text>
-              ) : (
+              {ready ? null : (
                 <NativeActionButton
                   fill={false}
                   label={t("Sign in")}
@@ -1389,7 +1387,6 @@ function createIntegrationsStyles() {
     grow: { flex: 1, gap: 3, minWidth: 0 },
     title: { color: native.label, fontSize: 15, fontWeight: "600" },
     secondary: { color: native.secondaryLabel, fontSize: 13 },
-    connected: { color: mobileTokens().success, fontSize: 13 },
     pressed: { backgroundColor: native.fillPressed },
     categoryPicker: { alignSelf: "flex-start" },
     sectionHeader: {

@@ -77,7 +77,7 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   const popupPromise = page.waitForEvent("popup", { timeout: 30_000 });
   await dialog.getByRole("button", { name: "Reconnect", exact: true }).click();
   const popup = await popupPromise;
-  await expect(dialog.getByText("Connected", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("img", { name: "Connected", exact: true })).toBeVisible();
   await expect.poll(() => popup.isClosed()).toBe(true);
   const connected = (await rpc<McpServer[]>(page, "mcp/servers/list", undefined)).find(
     (row) => row.id === server.id,
@@ -98,7 +98,7 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   const installed = dialog.getByTestId("installed-plugin");
   await expect(installed).toContainText("Planning Notes");
   await expect(installed).toContainText("1 connector, 1 skill");
-  await expect(installed.getByText("Connected", { exact: true })).toBeVisible();
+  await expect(installed.getByRole("button", { name: "Sign in", exact: true })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "integrations-manage");
   await installed.getByRole("button", { name: /Planning Notes/ }).click();
   await dialog.getByRole("button", { name: "Remove", exact: true }).click();

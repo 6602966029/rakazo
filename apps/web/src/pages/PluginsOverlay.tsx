@@ -968,11 +968,7 @@ export function PluginsOverlay({
                         </span>
                       </span>
                     </button>
-                    {ready ? (
-                      <span className="shrink-0 text-[13px] text-success">
-                        <Trans>Connected</Trans>
-                      </span>
-                    ) : (
+                    {ready ? null : (
                       <Button variant="secondary" size="sm" onClick={() => openPlugin(selection)}>
                         <Trans>Sign in</Trans>
                       </Button>
@@ -1104,7 +1100,7 @@ export function PluginsOverlay({
                           className="h-6 w-6 rounded-lg bg-favicon-plate object-contain p-0.5"
                         />
                       ) : (
-                        <span className="grid h-6 w-6 place-items-center rounded-lg bg-accent text-[11px] font-semibold text-foreground">
+                        <span className="grid h-6 w-6 place-items-center rounded-lg border border-border/60 bg-favicon-plate text-[11px] font-semibold text-foreground">
                           {mark.name[0]?.toUpperCase()}
                         </span>
                       )}
