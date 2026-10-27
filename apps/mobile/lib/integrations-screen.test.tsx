@@ -227,12 +227,15 @@ it.each(["https://example.test/logo.svg?version=1", "https://example.test/logo.S
 );
 it("falls back when SVG artwork throws while rendering", async () => {
   const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-  await render(<ConnectorIcon name="Example" logo="https://example.test/unrenderable.svg" />);
-  expect(container.textContent).toBe("E");
-  expect(container.querySelector("svg")).toBeNull();
-  await render(<ConnectorIcon name="Example" logo="https://example.test/new.svg" />);
-  expect(container.querySelector("svg")).not.toBeNull();
-  error.mockRestore();
+  try {
+    await render(<ConnectorIcon name="Example" logo="https://example.test/unrenderable.svg" />);
+    expect(container.textContent).toBe("E");
+    expect(container.querySelector("svg")).toBeNull();
+    await render(<ConnectorIcon name="Example" logo="https://example.test/new.svg" />);
+    expect(container.querySelector("svg")).not.toBeNull();
+  } finally {
+    error.mockRestore();
+  }
 });
 it("retries extensionless artwork as SVG before falling back", async () => {
   const logo = "https://logos.example.test/api/gmail";
