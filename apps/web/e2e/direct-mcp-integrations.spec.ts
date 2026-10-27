@@ -29,6 +29,7 @@ test("shows directly registered MCP servers in Integrations without catalog conn
     });
   expect(await rpc(page, "connections/list", undefined)).toEqual([]);
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "2 connected", exact: true }).click();
   const servers = page.getByTestId("registered-mcp-servers");
   await expect(servers.getByText("Dropbox", { exact: true })).toBeVisible();
   await expect(servers.getByText("GitHub", { exact: true })).toBeVisible();
@@ -43,15 +44,8 @@ test("shows directly registered MCP servers in Integrations without catalog conn
   }
   await expect(servers).not.toContainText("fake-mcp-credential");
   await captureScreenshot(page, testInfo, "integrations-direct-mcp-servers");
-  await page.getByRole("textbox", { name: "Search apps", exact: true }).fill("github");
-  await expect(servers.getByTestId("registered-mcp-server")).toHaveCount(1);
-  await expect(servers.getByText("GitHub", { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await captureScreenshot(page, testInfo, "integrations-direct-mcp-mobile");
-  await expandAdvancedSection(page.getByTestId("integrations-advanced"));
-  await expect(page.getByRole("button", { name: "Manage MCP servers", exact: true })).toHaveCount(
-    1,
-  );
   await servers.getByRole("button", { name: "Manage MCP servers", exact: true }).click();
   await expect(page.getByRole("heading", { name: "MCP servers", exact: true })).toBeVisible();
   await expect(page.getByRole("dialog").getByText("GitHub", { exact: true })).toBeVisible();

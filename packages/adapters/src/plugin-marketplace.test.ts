@@ -4,6 +4,8 @@ import { createPluginMarketplace, parsePluginMarketplace } from "./plugin-market
 const registry = { name: "Cursor", repository: "https://github.com/example/plugins" };
 const index = (plugins: unknown[]) => JSON.stringify({ name: "example", plugins });
 const sha = "a".repeat(40);
+const indexReads = (read: { mock: { calls: unknown[][] } }) =>
+  read.mock.calls.filter(([url]) => String(url).endsWith("marketplace.json")).length;
 afterEach(() => vi.restoreAllMocks());
 
 describe("public marketplace indexes", () => {
@@ -16,8 +18,13 @@ describe("public marketplace indexes", () => {
       {
         id: "Cursor:https://github.com/example/plugins#notes",
         name: "notes",
+        displayName: "Notes",
         description: "Daily notes",
         keywords: [],
+        category: null,
+        logo: null,
+        homepage: null,
+        domains: [],
         registry: "Cursor",
         source: "https://github.com/example/plugins#notes",
         installedSource: "https://github.com/example/plugins#notes",
@@ -78,6 +85,31 @@ describe("public marketplace indexes", () => {
     expect(result.entries).toHaveLength(1);
     expect(result.skipped).toBe(7);
   });
+  it("keeps the subdirectory of a pinned URL source", () => {
+    const result = parsePluginMarketplace(
+      index([
+        {
+          name: "stripe",
+          source: {
+            source: "url",
+            url: "https://github.com/stripe/ai.git",
+            sha,
+            path: "providers/grok",
+          },
+          category: "Payments",
+          homepage: "https://stripe.com",
+          domains: ["stripe.com"],
+        },
+      ]),
+      { name: "xAI", repository: "https://github.com/example/index" },
+    );
+    expect(result.entries[0]).toMatchObject({
+      source: `https://github.com/stripe/ai@${sha}#providers/grok`,
+      category: "payments",
+      homepage: "https://stripe.com",
+      domains: ["stripe.com"],
+    });
+  });
   it("rejects malformed or oversized index structure", () => {
     expect(() => parsePluginMarketplace("invalid", registry)).toThrow();
     expect(() => parsePluginMarketplace(JSON.stringify({ plugins: {} }), registry)).toThrow();
@@ -103,19 +135,45 @@ describe("marketplace service", () => {
     const second = await service.catalog("planning");
     expect(second.entries.map((entry) => entry.name)).toEqual(["Notes", "Tasks"]);
     expect(second.unavailableRegistries).toEqual([]);
-    expect(read).toHaveBeenCalledTimes(3);
+    expect(indexReads(read)).toBe(3);
     await service.catalog("no match");
-    expect(read).toHaveBeenCalledTimes(3);
+    expect(indexReads(read)).toBe(3);
   });
   it("shares concurrent reads and expires the per-instance cache", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1000);
     const read = vi.fn(async () => index([{ name: "Notes", source: "notes" }]));
     const service = createPluginMarketplace(read);
     await Promise.all([service.catalog(""), service.catalog("Notes")]);
-    expect(read).toHaveBeenCalledTimes(2);
+    expect(indexReads(read)).toBe(2);
     now.mockReturnValue(62_000);
     await service.catalog("");
-    expect(read).toHaveBeenCalledTimes(4);
+    expect(indexReads(read)).toBe(4);
+  });
+  it("reads the title, category and logo of vendored plugins from their manifests", async () => {
+    const read = vi.fn(async (url: string) => {
+      if (url.includes("xai-org")) return index([]);
+      if (url.endsWith("/mail/.cursor-plugin/plugin.json"))
+        return JSON.stringify({
+          displayName: "Mail",
+          category: "Productivity",
+          logo: "assets/logo.svg",
+        });
+      if (url.endsWith("plugin.json")) return JSON.stringify({ logo: "../../escape.svg" });
+      return index([
+        { name: "mail", source: "mail" },
+        { name: "notes", source: "notes" },
+      ]);
+    });
+    const { entries } = await createPluginMarketplace(read).catalog("");
+    expect(entries).toMatchObject([
+      {
+        name: "mail",
+        displayName: "Mail",
+        category: "productivity",
+        logo: "https://raw.githubusercontent.com/cursor/plugins/HEAD/mail/assets/logo.svg",
+      },
+      { name: "notes", displayName: "Notes", category: null, logo: null },
+    ]);
   });
   it("returns explicit unavailability without leaking provider errors", async () => {
     const service = createPluginMarketplace(async () => {

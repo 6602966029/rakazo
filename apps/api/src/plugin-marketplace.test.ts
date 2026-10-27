@@ -36,8 +36,8 @@ describe("marketplace RPC", () => {
     const result = await client(actor).marketplace.catalog({ query: "notes" });
     expect(result.entries).toHaveLength(2);
     expect(result.entries.map((row) => row.registry)).toEqual(["Cursor", "xAI"]);
-    expect(read).toHaveBeenCalledTimes(2);
+    expect(read).toHaveBeenCalledTimes(4);
     expect((await client(actor).marketplace.catalog({ query: "missing" })).entries).toEqual([]);
-    expect(read).toHaveBeenCalledTimes(2);
+    expect(read).toHaveBeenCalledTimes(4);
   });
 });

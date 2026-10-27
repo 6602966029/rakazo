@@ -5,9 +5,16 @@ import type {
   CapabilityInstall,
   McpServer,
 } from "@rakazo/contracts";
-import { activeBotId, captureScreenshot, completeOnboarding, rpc, signup } from "./helpers";
+import {
+  activeBotId,
+  captureScreenshot,
+  completeOnboarding,
+  expandAdvancedSection,
+  rpc,
+  signup,
+} from "./helpers";
 
-test("marketplace installs a plugin, completes real broker OAuth against a fake provider, and removes its children", async ({
+test("Integrations installs a plugin, completes real broker OAuth against a fake provider, and removes its children", async ({
   page,
 }, testInfo) => {
   await signup(page, `marketplace-${Date.now()}@rakazo.test`, "password12", "Marketplace Test");
@@ -26,23 +33,24 @@ test("marketplace installs a plugin, completes real broker OAuth against a fake 
     return route.fulfill({ status: 302, headers: { location: redirect.toString() } });
   });
 
-  await page.getByRole("button", { name: "Marketplace", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Marketplace", exact: true });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("textbox", { name: "Search plugins", exact: true }).fill("planning");
-  const tile = dialog.getByRole("button", { name: /planning-notes/ });
-  await expect(tile).toBeVisible();
-  await captureScreenshot(page, testInfo, "marketplace-search");
-  await tile.click();
-  await expect(dialog.getByRole("heading", { name: "planning-notes", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
+  const section = dialog.getByTestId("plugin-section").filter({ hasText: "Productivity" });
+  await expect(section.getByText("Planning Notes", { exact: true })).toBeVisible();
+  await captureScreenshot(page, testInfo, "integrations-plugins");
+  await dialog.getByRole("textbox", { name: "Search apps", exact: true }).fill("planning");
+  const row = dialog.getByTestId("plugin-results").getByTestId("plugin-row");
+  await expect(row).toHaveCount(1);
+  await row.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Planning Notes", exact: true })).toBeVisible();
   await expect(
     dialog.getByText("https://marketplace-tools.example.test/mcp", { exact: true }),
   ).toBeVisible();
   expect(await rpc(page, "capabilities/list", undefined)).toEqual([]);
-  await dialog.getByText("Skipped components", { exact: false }).click();
+  await dialog.getByText("1 part not added", { exact: true }).click();
   await expect(dialog.getByText("rules/", { exact: true })).toBeVisible();
-  await captureScreenshot(page, testInfo, "marketplace-preview");
-  await dialog.getByRole("button", { name: "Add plugin", exact: true }).click();
+  await captureScreenshot(page, testInfo, "integrations-plugin-detail");
+  await dialog.getByRole("button", { name: "Add", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
   const installs = await rpc<CapabilityInstall[]>(page, "capabilities/list", undefined);
   const install = installs.find((row) => row.kind === "plugin")!;
@@ -77,21 +85,26 @@ test("marketplace installs a plugin, completes real broker OAuth against a fake 
   expect(connected).toMatchObject({ oauthStatus: "connected", hasSecret: true });
   expect(JSON.stringify(connected)).not.toContain("fake-marketplace-access");
   await dialog.getByRole("button", { name: "Use in this bot", exact: true }).click();
-  await expect(dialog.getByText("Enabled for this bot", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("In this bot", { exact: true })).toBeVisible();
   expect(await rpc<BotMcpServer[]>(page, "mcp/assignments/list", { botId })).toContainEqual(
     expect.objectContaining({ serverId: server.id }),
   );
-  await captureScreenshot(page, testInfo, "marketplace-connected");
+  await captureScreenshot(page, testInfo, "integrations-plugin-connected");
 
-  await dialog.getByRole("button", { name: "Close marketplace", exact: true }).click();
+  await dialog.getByRole("button", { name: "Close integrations", exact: true }).click();
   await page.reload();
-  await page.getByRole("button", { name: "Marketplace", exact: true }).click();
-  await dialog.getByRole("button", { name: "Installed", exact: true }).click();
-  await dialog.getByRole("button", { name: /planning-notes/ }).click();
-  await expect(dialog.getByText("Connected", { exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "Remove plugin", exact: true }).click();
+  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await dialog.getByRole("button", { name: "1 connected", exact: true }).click();
+  const installed = dialog.getByTestId("installed-plugin");
+  await expect(installed).toContainText("Planning Notes");
+  await expect(installed).toContainText("1 connector, 1 skill");
+  await expect(installed.getByText("Connected", { exact: true })).toBeVisible();
+  await captureScreenshot(page, testInfo, "integrations-manage");
+  await installed.getByRole("button", { name: /Planning Notes/ }).click();
+  await dialog.getByRole("button", { name: "Remove", exact: true }).click();
   await dialog.getByRole("button", { name: "Confirm removal", exact: true }).click();
-  await expect(dialog.getByText("No plugins installed", { exact: true })).toBeVisible();
+  await expect(dialog.getByTestId("integrations-manage")).toBeVisible();
+  await expect(dialog.getByTestId("installed-plugin")).toHaveCount(0);
   expect(await rpc(page, "mcp/servers/list", undefined)).toEqual([]);
   expect(await rpc(page, "mcp/assignments/list", { botId })).toEqual([]);
   expect(
@@ -101,9 +114,7 @@ test("marketplace installs a plugin, completes real broker OAuth against a fake 
   ).toBe(false);
 });
 
-test("marketplace links open the browser and manual Git import still requires confirmation", async ({
-  page,
-}) => {
+test("GitHub import in Advanced still requires confirmation", async ({ page }) => {
   await signup(
     page,
     `marketplace-link-${Date.now()}@rakazo.test`,
@@ -111,17 +122,14 @@ test("marketplace links open the browser and manual Git import still requires co
     "Marketplace Link Test",
   );
   await completeOnboarding(page);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/app?marketplace=1");
-  const dialog = page.getByRole("dialog", { name: "Marketplace", exact: true });
-  await expect(dialog).toBeVisible();
-  await dialog.getByText("Install from GitHub", { exact: true }).click();
+  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
+  await expandAdvancedSection(dialog.getByTestId("integrations-advanced"));
   await dialog
     .getByRole("textbox", { name: "Plugin GitHub URL", exact: true })
     .fill("https://github.com/example/plugin-marketplace-fixture");
-  await dialog.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Add plugin", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Install from GitHub", exact: true }).click();
+  await expect(dialog.getByTestId("plugin-detail")).toContainText("planning-notes");
+  await expect(dialog.getByRole("button", { name: "Add", exact: true })).toBeEnabled();
   expect(await rpc(page, "capabilities/list", undefined)).toEqual([]);
-  await page.goto("/app?marketplace=installed");
-  await expect(dialog.getByText("No plugins installed", { exact: true })).toBeVisible();
 });

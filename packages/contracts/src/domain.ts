@@ -822,8 +822,13 @@ export type PluginPreview = z.infer<typeof PluginPreviewSchema>;
 export const PluginMarketplaceEntrySchema = z.object({
   id: z.string(),
   name: z.string(),
+  displayName: z.string(),
   description: z.string(),
   keywords: z.array(z.string()),
+  category: z.string().nullable(),
+  logo: z.string().nullable(),
+  homepage: z.string().nullable(),
+  domains: z.array(z.string()),
   registry: z.string(),
   source: z.string(),
   installedSource: z.string(),

@@ -48,6 +48,7 @@ export class PluginMarketplaceFixture {
             source: MARKETPLACE_FIXTURE_SOURCE,
             description: "Plan work and write notes",
             keywords: ["planning"],
+            category: "productivity",
           },
         ],
       });

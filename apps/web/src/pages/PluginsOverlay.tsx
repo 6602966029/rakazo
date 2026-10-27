@@ -5,8 +5,9 @@ import type {
   ConnectionCatalogItem,
   IntegrationCatalogResult,
   IntegrationCatalogSurface,
+  PluginMarketplaceEntry,
 } from "@rakazo/contracts";
-import { CONNECTION_LABEL_MAX_LENGTH } from "@rakazo/contracts";
+import { CONNECTION_LABEL_MAX_LENGTH, PluginPreviewSchema } from "@rakazo/contracts";
 import {
   buildFeaturedConnectorTiles,
   CONNECTION_CATALOG_PAGE_SIZE,
@@ -31,15 +32,27 @@ import {
   DialogHeader,
   DialogTitle,
   Disclosure,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   NativeSelect,
   NativeSelectOption,
   Spinner,
 } from "@rakazo/ui-web";
 import { queryOptions, skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, FileText, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IntegrationSetup } from "../components/integrations/IntegrationSetup";
+import type { PluginSelection } from "../components/integrations/plugin-marketplace";
+import {
+  mcpServerReady,
+  PluginDetail,
+  PluginLogo,
+  PluginRow,
+  pluginSelection,
+} from "../components/integrations/plugin-marketplace";
 import { connectedAppMarks } from "../lib/connected-apps";
 import { optionalCatalogFeedProbe } from "../lib/optional-catalog-feed";
 import { useSpaceQueries } from "../lib/query";
@@ -67,6 +80,21 @@ type SourceKind = "treg" | "executor" | "mcp" | "api" | "graphql";
 const NO_CATALOG: ConnectionCatalogItem[] = [];
 const NO_CONNECTIONS: Connection[] = [];
 const NO_SOURCES: CapabilityInstall[] = [];
+const NO_PLUGINS: PluginMarketplaceEntry[] = [];
+const SECTION_SIZE = 6;
+const CHIP_COUNT = 6;
+const PLUGIN_PAGE_SIZE = 24;
+
+function categoryLabel(category: string) {
+  const label = category.replace(/[-_]+/g, " ");
+  return label[0]!.toUpperCase() + label.slice(1);
+}
+
+function matchesQuery(entry: PluginMarketplaceEntry, words: string[]) {
+  const text =
+    `${entry.displayName} ${entry.name} ${entry.description} ${entry.category ?? ""} ${entry.keywords.join(" ")}`.toLowerCase();
+  return words.every((word) => text.includes(word));
+}
 
 /** "GMAIL_SEND_EMAIL" under Gmail reads as "Send email": the app is already the page title. */
 function toolLabel(name: string, item: ConnectionCatalogItem) {
@@ -120,6 +148,11 @@ export function PluginsOverlay({
   const [catalogFeedError, setCatalogFeedError] = useState<string | null>(null);
   const [catalogFeedPending, setCatalogFeedPending] = useState(false);
   const [catalogFeedSearched, setCatalogFeedSearched] = useState(false);
+  const [view, setView] = useState<"browse" | "manage">("browse");
+  const [plugin, setPlugin] = useState<PluginSelection | null>(null);
+  const [category, setCategory] = useState<string | null>(null);
+  const [pluginCount, setPluginCount] = useState(PLUGIN_PAGE_SIZE);
+  const [gitSource, setGitSource] = useState("");
   const [detailKey, setDetailKey] = useState<{
     connectorId: string;
     slug: string;
@@ -146,6 +179,7 @@ export function PluginsOverlay({
       sources: installs.filter(
         (install) => install.kind === "mcp" || install.kind === "api" || install.kind === "graphql",
       ),
+      plugins: installs.filter((install) => install.kind === "plugin"),
       catalogFeedEnabled: catalogFeed.enabled,
     };
   }
@@ -159,6 +193,24 @@ export function PluginsOverlay({
   const catalog = integrations.data?.catalog ?? NO_CATALOG;
   const connections = integrations.data?.connections ?? NO_CONNECTIONS;
   const sources = integrations.data?.sources ?? NO_SOURCES;
+  const pluginInstalls = integrations.data?.plugins ?? NO_SOURCES;
+  const pluginCatalog = useQuery(
+    queries.marketplace.catalog.queryOptions({ input: { query: "" }, staleTime: 60_000 }),
+  );
+  const assignmentsQuery = useQuery(
+    queries.mcp.assignments.list.queryOptions({
+      input: activeBotId ? { botId: activeBotId } : skipToken,
+    }),
+  );
+  const assigned = useMemo(
+    () => new Set((assignmentsQuery.data ?? []).map((row) => row.serverId)),
+    [assignmentsQuery.data],
+  );
+  const userSkillsQuery = useQuery({
+    ...queries.agentSkills.list.queryOptions(),
+    enabled: view === "manage",
+  });
+  const userSkills = (userSkillsQuery.data ?? []).filter((skill) => skill.source === "user");
   const catalogFeedEnabled = integrations.data?.catalogFeedEnabled ?? false;
   // A failed refresh is shown even over what was cached, so stale apps never pass as current.
   const loadError = integrations.error
@@ -185,6 +237,7 @@ export function PluginsOverlay({
           catalog: NO_CATALOG,
           connections: NO_CONNECTIONS,
           sources: NO_SOURCES,
+          plugins: NO_SOURCES,
           catalogFeedEnabled: false,
         },
       ),
@@ -194,6 +247,7 @@ export function PluginsOverlay({
   /** Reads integrations again with requests sent after a change. */
   async function refresh() {
     void fetchFresh(queryClient, mcpOptions).catch(() => undefined);
+    void queryClient.invalidateQueries({ queryKey: queries.mcp.assignments.key() });
     await fetchFresh(queryClient, {
       queryKey: integrationsOptions.queryKey,
       queryFn: loadIntegrations,
@@ -228,6 +282,56 @@ export function PluginsOverlay({
 
   const visible = useMemo(() => filterConnectionCatalogItems(catalog, query), [catalog, query]);
   const rendered = visible.slice(0, visibleCount);
+
+  // A managed app and a plugin with the same name would read as one app listed twice.
+  const plugins = useMemo(() => {
+    const managed = new Set(catalog.map((item) => item.name.toLowerCase()));
+    return (pluginCatalog.data?.entries ?? NO_PLUGINS).filter(
+      (entry) => !managed.has(entry.displayName.toLowerCase()),
+    );
+  }, [catalog, pluginCatalog.data]);
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const entry of plugins)
+      if (entry.category) counts.set(entry.category, (counts.get(entry.category) ?? 0) + 1);
+    return [...counts].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+  }, [plugins]);
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const pluginMatches = plugins.filter(
+    (entry) => (!category || entry.category === category) && matchesQuery(entry, words),
+  );
+  const installedPlugin = (installedSource: string) =>
+    pluginInstalls.find((row) => row.source === installedSource);
+  const pluginServers = (install: CapabilityInstall | undefined) =>
+    install ? mcpServers.filter((server) => server.installId === install.id) : [];
+  const standaloneServers = mcpServers.filter((server) => !server.installId);
+  const connectedItems = catalog.filter((item) => itemConnected(item));
+  const connectedCount = connectedItems.length + standaloneServers.length + pluginInstalls.length;
+  const connectedMarks = [
+    ...connectedItems.map((item) => ({
+      key: catalogItemKey(item),
+      name: item.name,
+      logo: item.logo,
+    })),
+    ...pluginInstalls.map((install) => {
+      const entry = plugins.find((row) => row.installedSource === install.source);
+      return { key: install.id, name: entry?.displayName ?? install.name, logo: entry?.logo };
+    }),
+  ].slice(0, 4);
+
+  const browsing = !plugin && !detailItem && view === "browse";
+
+  function openPlugin(selection: PluginSelection) {
+    setCatalogError(null);
+    setPlugin(selection);
+  }
+
+  function installedSelection(install: CapabilityInstall): PluginSelection {
+    const entry = plugins.find((row) => row.installedSource === install.source);
+    return entry
+      ? pluginSelection(entry)
+      : { source: install.source, installedSource: install.source, name: install.name };
+  }
 
   function openDetail(item: ConnectionCatalogItem) {
     setCatalogError(null);
@@ -673,6 +777,253 @@ export function PluginsOverlay({
     );
   }
 
+  function renderPluginRow(entry: PluginMarketplaceEntry) {
+    const selection = pluginSelection(entry);
+    return (
+      <PluginRow
+        key={entry.id}
+        name={entry.displayName}
+        description={entry.description}
+        logo={entry.logo}
+        site={selection.site}
+        installed={Boolean(installedPlugin(entry.installedSource))}
+        onOpen={() => openPlugin(selection)}
+      />
+    );
+  }
+
+  function renderPluginSections() {
+    if (pluginCatalog.isPending)
+      return (
+        <div className="grid place-items-center py-8">
+          <Spinner className="size-5 text-muted-foreground" aria-label={t`Loading plugins…`} />
+        </div>
+      );
+    if (pluginCatalog.error || pluginCatalog.data?.unavailableRegistries.length)
+      return (
+        <div role="alert" className="mt-6 flex items-center gap-3 text-sm text-muted-foreground">
+          <Trans>Some plugins could not be loaded.</Trans>
+          <Button variant="outline" size="sm" onClick={() => void pluginCatalog.refetch()}>
+            <Trans>Retry</Trans>
+          </Button>
+        </div>
+      );
+    if (category || words.length)
+      return pluginMatches.length ? (
+        <section data-testid="plugin-results" className="mt-2">
+          <div className="grid grid-cols-2 gap-2">
+            {pluginMatches.slice(0, pluginCount).map(renderPluginRow)}
+          </div>
+          {pluginCount < pluginMatches.length ? (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setPluginCount((count) => count + PLUGIN_PAGE_SIZE)}
+              >
+                <Trans>Show more</Trans>
+              </Button>
+            </div>
+          ) : null}
+        </section>
+      ) : null;
+    const uncategorized = plugins.filter((entry) => !entry.category);
+    const sections: Array<[string | null, PluginMarketplaceEntry[]]> = [
+      ...categories.map((name): [string, PluginMarketplaceEntry[]] => [
+        name,
+        plugins.filter((entry) => entry.category === name),
+      ]),
+      ...(uncategorized.length ? [[null, uncategorized] as [null, PluginMarketplaceEntry[]]] : []),
+    ];
+    return sections.map(([name, entries]) => (
+      <section key={name ?? "other"} data-testid="plugin-section" className="mt-8">
+        <div className="mb-2 flex items-center justify-between px-2.5">
+          <h2 className="text-[15px] font-medium text-foreground">
+            {name ? categoryLabel(name) : <Trans>More</Trans>}
+          </h2>
+          {name && entries.length > SECTION_SIZE ? (
+            <Button variant="text" size="sm" onClick={() => setCategory(name)}>
+              <Trans>View all</Trans>
+            </Button>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {entries.slice(0, SECTION_SIZE).map(renderPluginRow)}
+        </div>
+      </section>
+    ));
+  }
+
+  function renderManage() {
+    return (
+      <div data-testid="integrations-manage" className="space-y-8">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="-ms-2 text-muted-foreground"
+            aria-label={t`Back`}
+            onClick={() => setView("browse")}
+          >
+            <ChevronLeft />
+          </Button>
+          <h2 className="text-[17px] font-medium text-foreground">
+            <Trans>Connected</Trans>
+          </h2>
+        </div>
+
+        {pluginInstalls.length ? (
+          <section>
+            <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
+              <Trans>Plugins</Trans>
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {pluginInstalls.map((install) => {
+                const selection = installedSelection(install);
+                const servers = pluginServers(install);
+                const parsed = PluginPreviewSchema.safeParse(install.config);
+                const skillCount = parsed.success ? parsed.data.skills.length : 0;
+                const ready = servers.every(mcpServerReady);
+                const connectors = servers.length;
+                return (
+                  <div
+                    key={install.id}
+                    data-testid="installed-plugin"
+                    className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-accent/60"
+                  >
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-start"
+                      onClick={() => openPlugin(selection)}
+                    >
+                      <PluginLogo
+                        name={selection.name}
+                        logo={selection.logo}
+                        site={selection.site}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-medium">
+                          {selection.name}
+                        </span>
+                        <span className="block truncate text-[13px] text-muted-foreground">
+                          {connectors && skillCount ? (
+                            <Trans>
+                              <Plural value={connectors} one="# connector" other="# connectors" />,{" "}
+                              <Plural value={skillCount} one="# skill" other="# skills" />
+                            </Trans>
+                          ) : connectors ? (
+                            <Plural value={connectors} one="# connector" other="# connectors" />
+                          ) : (
+                            <Plural value={skillCount} one="# skill" other="# skills" />
+                          )}
+                        </span>
+                      </span>
+                    </button>
+                    {ready ? (
+                      <span className="shrink-0 text-[13px] text-success">
+                        <Trans>Connected</Trans>
+                      </span>
+                    ) : (
+                      <Button variant="secondary" size="sm" onClick={() => openPlugin(selection)}>
+                        <Trans>Sign in</Trans>
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {connectedItems.length ? (
+          <section>
+            <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
+              <Trans>Apps</Trans>
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {connectedItems.map((item) =>
+                renderCatalogTile(item, item.name, item.logo, { tileTestId: false }),
+              )}
+            </div>
+          </section>
+        ) : null}
+
+        {standaloneServers.length > 0 || mcpError ? (
+          <section data-testid="registered-mcp-servers">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="px-2.5 text-[14px] font-medium text-muted-foreground">
+                <Trans>MCP servers</Trans>
+              </h3>
+              {onOpenMcp ? (
+                <Button variant="link" size="xs" onClick={onOpenMcp}>
+                  <Trans>Manage MCP servers</Trans>
+                </Button>
+              ) : null}
+            </div>
+            {mcpError ? (
+              <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
+                {mcpError}
+                <Button variant="link" size="xs" onClick={() => void mcpQuery.refetch()}>
+                  <Trans>Retry</Trans>
+                </Button>
+              </div>
+            ) : null}
+            {standaloneServers.map((server) => (
+              <div
+                key={server.id}
+                data-testid="registered-mcp-server"
+                className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
+              >
+                <ConnectorIcon name={server.name} />
+                <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
+                  {server.name}
+                </span>
+                <span className="shrink-0 text-[12.5px] text-muted-foreground">
+                  {!server.enabled ? (
+                    <Trans>Disabled</Trans>
+                  ) : server.oauthStatus === "reconnect" ? (
+                    <Trans>OAuth expired</Trans>
+                  ) : server.oauthStatus === "connected" ? (
+                    <Trans>OAuth connected</Trans>
+                  ) : server.hasSecret ? (
+                    <Trans>Credential saved</Trans>
+                  ) : (
+                    <Trans>No auth</Trans>
+                  )}
+                </span>
+              </div>
+            ))}
+          </section>
+        ) : null}
+
+        {userSkills.length ? (
+          <section data-testid="user-skills">
+            <h3 className="mb-2 px-2.5 text-[14px] font-medium text-muted-foreground">
+              <Trans>Your skills</Trans>
+            </h3>
+            {userSkills.map((skill) => (
+              <div
+                key={skill.id}
+                className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-muted-foreground">
+                  <FileText size={16} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-medium">{skill.name}</span>
+                  <span className="block truncate text-[13px] text-muted-foreground">
+                    {skill.description}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </section>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <Dialog
       open
@@ -688,15 +1039,44 @@ export function PluginsOverlay({
           <DialogTitle className="text-heading2 text-foreground">
             <Trans>Integrations</Trans>
           </DialogTitle>
-          <DialogClose
-            render={<Button variant="ghost" size="icon-sm" aria-label={t`Close integrations`} />}
-          >
-            <X />
-          </DialogClose>
+          <div className="flex items-center gap-2">
+            {browsing && connectedCount > 0 ? (
+              <Button
+                variant="ghost"
+                className="-my-1 h-9 gap-2.5 px-2.5 text-[14px] text-muted-foreground"
+                onClick={() => setView("manage")}
+              >
+                <span className="flex -space-x-1.5">
+                  {connectedMarks.map((mark) => (
+                    <span key={mark.key} className="rounded-[9px] ring-2 ring-card">
+                      {mark.logo ? (
+                        <img
+                          src={mark.logo}
+                          alt=""
+                          className="h-6 w-6 rounded-lg bg-favicon-plate object-contain p-0.5"
+                        />
+                      ) : (
+                        <span className="grid h-6 w-6 place-items-center rounded-lg bg-accent text-[11px] font-semibold text-foreground">
+                          {mark.name[0]?.toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </span>
+                <Plural value={connectedCount} one="# connected" other="# connected" />
+                <ChevronRight />
+              </Button>
+            ) : null}
+            <DialogClose
+              render={<Button variant="ghost" size="icon-sm" aria-label={t`Close integrations`} />}
+            >
+              <X />
+            </DialogClose>
+          </div>
         </DialogHeader>
 
-        {!detailItem ? (
-          <div className="px-8 pt-4">
+        {browsing ? (
+          <div className="space-y-4 px-8 pt-4">
             <Input
               disabled={loading}
               value={query}
@@ -708,6 +1088,64 @@ export function PluginsOverlay({
               placeholder={t`Search apps`}
               className="h-11 rounded-xl px-4 md:text-[15px]"
             />
+            {categories.length >= 2 ? (
+              <div className="flex flex-wrap gap-2" data-testid="integration-categories">
+                {[null, ...categories.slice(0, CHIP_COUNT)].map((name) => (
+                  <Button
+                    key={name ?? "all"}
+                    type="button"
+                    size="sm"
+                    variant={category === name ? "default" : "secondary"}
+                    aria-pressed={category === name}
+                    className="h-8 rounded-full px-3.5 text-[13px]"
+                    onClick={() => {
+                      setCategory(name);
+                      setPluginCount(PLUGIN_PAGE_SIZE);
+                    }}
+                  >
+                    {name ? categoryLabel(name) : <Trans>All</Trans>}
+                  </Button>
+                ))}
+                {categories.length > CHIP_COUNT ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            category && !categories.slice(0, CHIP_COUNT).includes(category)
+                              ? "default"
+                              : "secondary"
+                          }
+                          className="h-8 rounded-full px-3.5 text-[13px]"
+                        />
+                      }
+                    >
+                      {category && !categories.slice(0, CHIP_COUNT).includes(category) ? (
+                        categoryLabel(category)
+                      ) : (
+                        <Trans>More</Trans>
+                      )}
+                      <ChevronDown />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-auto">
+                      {categories.slice(CHIP_COUNT).map((name) => (
+                        <DropdownMenuItem
+                          key={name}
+                          onClick={() => {
+                            setCategory(name);
+                            setPluginCount(PLUGIN_PAGE_SIZE);
+                          }}
+                        >
+                          {categoryLabel(name)}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -736,70 +1174,31 @@ export function PluginsOverlay({
             </div>
           ) : null}
 
-          {!detailItem && (mcpServers.length > 0 || mcpError) ? (
-            <section data-testid="registered-mcp-servers" className="mb-6">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-medium">
-                  <Trans>MCP servers</Trans>
-                </h2>
-                {onOpenMcp ? (
-                  <Button variant="link" size="xs" onClick={onOpenMcp}>
-                    <Trans>Manage MCP servers</Trans>
-                  </Button>
-                ) : null}
-              </div>
-              {mcpError ? (
-                <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
-                  {mcpError}
-                  <Button variant="link" size="xs" onClick={() => void mcpQuery.refetch()}>
-                    <Trans>Retry</Trans>
-                  </Button>
-                </div>
-              ) : null}
-              {mcpServers
-                .filter((server) =>
-                  `${server.name} ${server.description}`
-                    .toLowerCase()
-                    .includes(query.trim().toLowerCase()),
-                )
-                .map((server) => (
-                  <div
-                    key={server.id}
-                    data-testid="registered-mcp-server"
-                    className="flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2"
-                  >
-                    <ConnectorIcon name={server.name} />
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
-                      {server.name}
-                    </span>
-                    <span className="shrink-0 text-[12.5px] text-muted-foreground">
-                      {!server.enabled ? (
-                        <Trans>Disabled</Trans>
-                      ) : server.oauthStatus === "reconnect" ? (
-                        <Trans>OAuth expired</Trans>
-                      ) : server.oauthStatus === "connected" ? (
-                        <Trans>OAuth connected</Trans>
-                      ) : server.hasSecret ? (
-                        <Trans>Credential saved</Trans>
-                      ) : (
-                        <Trans>No auth</Trans>
-                      )}
-                    </span>
-                  </div>
-                ))}
-            </section>
-          ) : null}
-
-          {detailItem ? (
+          {plugin ? (
+            <PluginDetail
+              key={plugin.installedSource}
+              selection={plugin}
+              install={installedPlugin(plugin.installedSource)}
+              servers={pluginServers(installedPlugin(plugin.installedSource))}
+              assigned={assigned}
+              activeBotId={activeBotId}
+              onBack={() => setPlugin(null)}
+              onChanged={refresh}
+            />
+          ) : detailItem ? (
             renderDetail(detailItem)
+          ) : view === "manage" ? (
+            renderManage()
           ) : (
             <>
-              {catalogLoaded && showFeatured ? (
+              {catalogLoaded && showFeatured && !category ? (
                 <div className="mb-6" data-testid="featured-connectors">
                   {catalog.length === 0 ? (
-                    <p className="text-[13.5px] leading-6 text-muted-foreground/80">
-                      <Trans>Configure a plugin catalog on the server to connect apps.</Trans>
-                    </p>
+                    plugins.length ? null : (
+                      <p className="text-[13.5px] leading-6 text-muted-foreground/80">
+                        <Trans>Configure a plugin catalog on the server to connect apps.</Trans>
+                      </p>
+                    )
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
                       {featuredTiles.map((tile) => {
@@ -840,38 +1239,79 @@ export function PluginsOverlay({
                 </div>
               ) : null}
 
-              {catalogLoaded && catalog.length === 0 && !showFeatured ? (
+              {catalogLoaded && catalog.length === 0 && !showFeatured && !pluginMatches.length ? (
                 <p className="text-muted-foreground/80">
                   <Trans>No managed app catalog is configured on this deployment.</Trans>
                 </p>
               ) : null}
-              {catalogLoaded && catalog.length > 0 && visible.length === 0 && !showFeatured ? (
+              {catalogLoaded && visible.length === 0 && !showFeatured && !pluginMatches.length ? (
                 <p className="text-muted-foreground/80">
                   <Trans>No apps match your search.</Trans>
                 </p>
               ) : null}
-              {visible.length > 0 ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {rendered.map((item) =>
-                    renderCatalogTile(item, item.name, item.logo, {
-                      // Avoid duplicate connection-tile-* ids while featured is also shown.
-                      tileTestId: !showFeatured,
-                    }),
-                  )}
-                </div>
-              ) : null}
-              {rendered.length < visible.length ? (
-                <div className="mt-4 flex justify-center">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setVisibleCount((count) => count + CONNECTION_CATALOG_PAGE_SIZE)}
-                  >
-                    <Trans>Show more</Trans>
-                  </Button>
-                </div>
-              ) : null}
+              {showFeatured ? (
+                <>
+                  {renderPluginSections()}
+                  {catalogLoaded && catalog.length > 0 && !category ? (
+                    <h2 className="mt-8 mb-2 px-2.5 text-[15px] font-medium text-foreground">
+                      <Trans>More apps</Trans>
+                    </h2>
+                  ) : null}
+                  {visible.length > 0 && !category ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {rendered.map((item) =>
+                        renderCatalogTile(item, item.name, item.logo, {
+                          // Avoid duplicate connection-tile-* ids while featured is also shown.
+                          tileTestId: !showFeatured,
+                        }),
+                      )}
+                    </div>
+                  ) : null}
+                  {rendered.length < visible.length && !category ? (
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          setVisibleCount((count) => count + CONNECTION_CATALOG_PAGE_SIZE)
+                        }
+                      >
+                        <Trans>Show more</Trans>
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {visible.length > 0 && !category ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {rendered.map((item) =>
+                        renderCatalogTile(item, item.name, item.logo, {
+                          // Avoid duplicate connection-tile-* ids while featured is also shown.
+                          tileTestId: !showFeatured,
+                        }),
+                      )}
+                    </div>
+                  ) : null}
+                  {rendered.length < visible.length && !category ? (
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          setVisibleCount((count) => count + CONNECTION_CATALOG_PAGE_SIZE)
+                        }
+                      >
+                        <Trans>Show more</Trans>
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {renderPluginSections()}
+                </>
+              )}
 
               <Disclosure
                 data-testid="integrations-advanced"
@@ -893,6 +1333,31 @@ export function PluginsOverlay({
                 summaryClassName="w-full flex items-center justify-between gap-3 text-[14px] text-muted-foreground"
               >
                 <div className="mt-4 space-y-4">
+                  <form
+                    data-testid="plugin-git-import"
+                    className="flex gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const source = gitSource.trim();
+                      if (!source) return;
+                      openPlugin({
+                        source,
+                        installedSource: source.replace(/\/$/, ""),
+                        name: source.replace(/\/$/, "").split("/").pop() ?? source,
+                      });
+                    }}
+                  >
+                    <Input
+                      value={gitSource}
+                      onChange={(event) => setGitSource(event.target.value)}
+                      aria-label={t`Plugin GitHub URL`}
+                      placeholder="https://github.com/owner/plugin"
+                      maxLength={2048}
+                    />
+                    <Button type="submit" variant="secondary" disabled={!gitSource.trim()}>
+                      <Trans>Install from GitHub</Trans>
+                    </Button>
+                  </form>
                   {catalogFeedEnabled ? (
                     <Card data-testid="integrations-catalog-feed">
                       <CardHeader>
@@ -1215,7 +1680,7 @@ export function PluginsOverlay({
                         </Button>
                       </div>
                     ))}
-                    {onOpenMcp && mcpServers.length === 0 && !mcpError ? (
+                    {onOpenMcp ? (
                       <Button
                         type="button"
                         variant="link"
