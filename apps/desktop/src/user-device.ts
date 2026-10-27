@@ -317,6 +317,7 @@ export function createUserDeviceAccess(deps: {
       unavailable.delete(origin);
       await pairOnce(origin);
       if (!paired.has(origin)) throw new Error("Could not pair this computer");
+      if (changes.get(origin) !== seen) return;
       await decide(origin, "allowed");
     },
     close() {

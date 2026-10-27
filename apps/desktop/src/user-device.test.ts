@@ -239,6 +239,26 @@ describe("remote computer access", () => {
     expect(clients).toHaveLength(1);
   });
 
+  it("keeps access off when it is turned off while pairing", async () => {
+    await saveDeviceConsent(userData, origin, "declined");
+    let respond: () => void = () => undefined;
+    const fetch = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          respond = () => resolve(Response.json({ deviceId: "device-1", token: "device-token" }));
+        }),
+    );
+    const { access } = setup({ fetch, confirm: async () => true });
+    await access.select(origin);
+    const turningOn = access.setAllowed(origin, true);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    await access.setAllowed(origin, false);
+    respond();
+    await turningOn;
+    expect(await readDeviceConsent(userData, origin)).toBe("declined");
+    expect(access.state(origin).allowed).toBe(false);
+  });
+
   it("ignores a page asking for a server it no longer shows", async () => {
     const confirm = vi.fn(async () => true);
     const { access } = setup({ confirm });
