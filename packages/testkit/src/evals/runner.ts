@@ -345,7 +345,7 @@ export async function runTrial(
     phase = "product";
     let lastText = "";
     const replies: string[] = [];
-    const turnBlocks: MessageBlock[][] = [];
+    const turnMessages: MessageBlock[][][] = [];
     for (const [stepIndex, step] of scenario.steps.entries()) {
       if (Date.now() >= deadline) throw new EvalFailure("incomplete", "Trial time budget exceeded");
       if ("newWorkspace" in step) {
@@ -583,14 +583,14 @@ export async function runTrial(
         lastText = [lastText, clarification].filter(Boolean).join("\n");
       }
       replies.push(lastText);
-      turnBlocks.push(
+      turnMessages.push(
         (
           await prisma.message.findMany({
             where: { runId, role: "bot" },
             orderBy: { seq: "asc" },
             select: { blocks: true },
           })
-        ).flatMap((m) => m.blocks as MessageBlock[]),
+        ).map((m) => m.blocks as MessageBlock[]),
       );
       if (scenario.routine && "wakeRoutine" in step) {
         const messages = await prisma.message.findMany({
@@ -643,7 +643,7 @@ export async function runTrial(
     const evidence: Evidence = {
       text: lastText,
       replies,
-      turnBlocks,
+      turnMessages,
       routineRuns,
       files,
       records: services.records,

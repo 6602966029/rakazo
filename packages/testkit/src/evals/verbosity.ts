@@ -17,13 +17,24 @@ export function visibleWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
-/** Visible text between the first and last tool call: the "paragraphs of work". */
-export function narrationBetweenTools(blocks: readonly MessageBlock[]): string[] {
-  const first = blocks.findIndex((block) => block.kind === "steps");
-  const last = blocks.findLastIndex((block) => block.kind === "steps");
-  return blocks
-    .slice(first + 1, Math.max(last, 0))
-    .flatMap((block) => (block.kind === "text" && block.text.trim() ? [block.text.trim()] : []));
+/**
+ * Visible text written while the bot worked: the "paragraphs of work". A turn's earlier
+ * messages were posted mid-work, while its tool steps are saved with the final message, so
+ * all of their text counts. In the final message only text before the first tool call is
+ * an allowed opener.
+ */
+export function narrationBetweenTools(messages: readonly (readonly MessageBlock[])[]): string[] {
+  const text = (blocks: readonly MessageBlock[]) =>
+    blocks.flatMap((block) =>
+      block.kind === "text" && block.text.trim() ? [block.text.trim()] : [],
+    );
+  const final = messages.at(-1) ?? [];
+  const first = final.findIndex((block) => block.kind === "steps");
+  const last = final.findLastIndex((block) => block.kind === "steps");
+  return [
+    ...messages.slice(0, -1).flatMap(text),
+    ...text(final.slice(first + 1, Math.max(last, 0))),
+  ];
 }
 
 const check = (id: string, pass: boolean): Criterion => ({ id, pass });
@@ -33,10 +44,10 @@ const read = (e: Evidence, tool: string) =>
   e.calls.some((c) => c.tool.startsWith(tool) && c.outcome === "read");
 
 function brevity(e: Evidence, maxWords: number): Criterion[] {
-  const blocks = e.turnBlocks?.at(-1) ?? [];
+  const messages = e.turnMessages?.at(-1) ?? [];
   return [
     check(`at-most-${maxWords}-words`, visibleWords(e.text) <= maxWords),
-    check("no-narration-between-tool-calls", narrationBetweenTools(blocks).length === 0),
+    check("no-narration-between-tool-calls", narrationBetweenTools(messages).length === 0),
   ];
 }
 

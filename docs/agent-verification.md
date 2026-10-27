@@ -347,9 +347,10 @@ check, a note whose save errors after it succeeded, a GitHub outage, work across
 two apps, and an owner whose bot instructions ask for one or two sentences.
 Each case checks the effect (the right reads, exactly one note, no other writes),
 then two structural limits on everything the person saw for the turn: a word
-budget, and no visible text between the first and last tool call, where
-narration such as "That failed, retrying…" would sit. One opening sentence
-before the first tool call is allowed.
+budget, and no narration such as "That failed, retrying…" while it worked:
+no text in an earlier message of the turn, and none between the first and last
+tool call of the final one. One opening sentence before the first tool call is
+allowed.
 
 The `verbosity-meaning-v4` judge then grades meaning: the reply gives the
 requested outcome without contradicting the case facts, leads with it, does not
@@ -360,6 +361,12 @@ after the deterministic checks pass and is calibrated against reviewed examples 
 self-correction, closing offers, invented causes, and short-but-wrong replies.
 Owner-trusted writes are pre-approved through approval rules; the outage case
 turns off web and computer fallbacks so it grades how the failure is reported.
+
+On Claude Haiku 5.5 with the reply-style guidance, 12 of 18 trials pass, replies
+average 38 visible words, and no trial narrates between tool calls. The
+remaining failures explain a recovered save error in two sentences, list each
+failed lookup and offer to retry after an outage, or run one word over the
+owner's brevity budget.
 
 ### Long conversation and cost evals
 

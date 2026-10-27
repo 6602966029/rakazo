@@ -18,8 +18,8 @@ export type Step =
 export type Evidence = {
   text: string;
   replies?: string[];
-  /** Persisted bot blocks per answered step, in order, including hidden tool steps. */
-  turnBlocks?: MessageBlock[][];
+  /** Each answered step's bot messages in order, with their blocks, including hidden tool steps. */
+  turnMessages?: MessageBlock[][][];
   routineRuns?: RoutineEvidence[];
   files: Record<string, string | null>;
   records: EvalServices["records"];

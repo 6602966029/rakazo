@@ -8,7 +8,7 @@ const steps: MessageBlock = { kind: "steps", steps: [{ label: "Crm list records"
 function evidence(text: string, blocks: MessageBlock[]): Evidence {
   return {
     text,
-    turnBlocks: [blocks],
+    turnMessages: [[blocks]],
     files: {},
     records: [],
     notes: [],
@@ -31,13 +31,24 @@ describe("verbosity grading", () => {
   it("finds visible text between tool calls, allowing one opening line", () => {
     expect(
       narrationBetweenTools([
-        { kind: "text", text: "Let me check the CRM." },
-        steps,
-        { kind: "text", text: "That failed, retrying." },
-        steps,
-        { kind: "text", text: "Answer." },
+        [
+          { kind: "text", text: "Let me check the CRM." },
+          steps,
+          { kind: "text", text: "That failed, retrying." },
+          steps,
+          { kind: "text", text: "Answer." },
+        ],
       ]),
     ).toEqual(["That failed, retrying."]);
+  });
+
+  it("counts narration posted as its own message before the final one", () => {
+    expect(
+      narrationBetweenTools([
+        [{ kind: "text", text: "Still checking the CRM." }],
+        [steps, steps, { kind: "text", text: "Answer." }],
+      ]),
+    ).toEqual(["Still checking the CRM."]);
   });
 
   it("passes a direct answer after tool work", () => {
