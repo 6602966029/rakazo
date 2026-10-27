@@ -294,6 +294,10 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await expect(form.getByLabel("Authentication", { exact: true })).toHaveValue("bearer");
   await form.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByTestId("integrations-catalog-feed")).toBeVisible();
+  await page
+    .getByTestId("integrations-catalog-feed")
+    .getByRole("button", { name: "Back", exact: true })
+    .click();
 
   const addSource = async (item: string) => {
     await page.getByRole("button", { name: "Add custom", exact: true }).click();

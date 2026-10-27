@@ -998,8 +998,10 @@ export default function Integrations() {
   function startAdding(id: "github" | SourceKind) {
     closeDetail();
     setSourceError(null);
-    if (id === "github") setAdding("github");
-    else beginSource(id);
+    if (id === "github") {
+      setSourceKind(null);
+      setAdding("github");
+    } else beginSource(id);
   }
 
   useLayoutEffect(() => {
@@ -1076,7 +1078,7 @@ export default function Integrations() {
           </View>
         ) : null}
         {sourceError ? <Text style={styles.error}>{sourceError}</Text> : null}
-        {sourceKind ? (
+        {adding === "source" && sourceKind ? (
           <View style={styles.card}>
             <Text style={styles.title}>
               {sourceKind === "treg"
