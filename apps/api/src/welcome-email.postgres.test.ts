@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EmailEmulator, FakeSandboxProvider } from "@rakazo/adapters";
+import { runAsSystem } from "@rakazo/db";
 import { expect, it, vi } from "vitest";
 import { createApp } from "./app.js";
 
@@ -43,11 +44,7 @@ it.skipIf(!databaseUrl)(
       await vi.waitFor(() => expect(welcomes()).toHaveLength(1));
       expect(welcomes()[0]!.to).toBe(address);
 
-      const signIns = await Promise.all([
-        post("/api/auth/sign-in/email", credentials),
-        post("/api/auth/sign-in/email", credentials),
-      ]);
-      expect(signIns.map((response) => response.status)).toEqual([200, 200]);
+      expect((await post("/api/auth/sign-in/email", credentials)).status).toBe(200);
 
       const header = welcomes()[0]!.headers!["List-Unsubscribe"]!;
       const unsubscribe = new URL(header.slice(1, -1));
@@ -61,15 +58,30 @@ it.skipIf(!databaseUrl)(
       expect(user.marketingEmailOptOutAt).toBeInstanceOf(Date);
       expect(welcomes()).toHaveLength(1);
 
+      // Reopen the claim so two sign-ins race for an unsent welcome.
+      const userId = user.id;
+      await runAsSystem("reopen the welcome claim", () =>
+        handles.prisma.emailSend.deleteMany({ where: { userId } }),
+      );
+      const signIns = await Promise.all([
+        post("/api/auth/sign-in/email", credentials),
+        post("/api/auth/sign-in/email", credentials),
+      ]);
+      expect(signIns.map((response) => response.status)).toEqual([200, 200]);
+      await vi.waitFor(() => expect(welcomes()).toHaveLength(2));
+
       const older = { email: `older-${Date.now()}@example.test`, password: "test-password-123" };
       expect((await post("/api/auth/sign-up/email", { ...older, name: "Older" })).status).toBe(200);
-      await vi.waitFor(() => expect(welcomes()).toHaveLength(2));
-      await handles.prisma.user.update({
-        where: { email: older.email },
-        data: { welcomeEmailSentAt: null, createdAt: new Date("2020-01-01T00:00:00Z") },
+      await vi.waitFor(() => expect(welcomes()).toHaveLength(3));
+      await runAsSystem("age an account and reopen its welcome claim", async () => {
+        const { id } = await handles.prisma.user.update({
+          where: { email: older.email },
+          data: { createdAt: new Date("2020-01-01T00:00:00Z") },
+        });
+        await handles.prisma.emailSend.deleteMany({ where: { userId: id } });
       });
       expect((await post("/api/auth/sign-in/email", older)).status).toBe(200);
-      expect(welcomes()).toHaveLength(2);
+      expect(welcomes()).toHaveLength(3);
     } finally {
       await handles.stop();
       await rm(dataDir, { recursive: true, force: true });

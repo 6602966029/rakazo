@@ -38,16 +38,16 @@ export async function sendWelcomeEmail(
   userId: string,
 ): Promise<void> {
   try {
-    const [user] = await deps.prisma.user.updateManyAndReturn({
-      where: {
-        id: userId,
-        welcomeEmailSentAt: null,
-        createdAt: { gte: new Date(Date.now() - WELCOME_WINDOW_MS) },
-      },
-      data: { welcomeEmailSentAt: new Date() },
+    const user = await deps.prisma.user.findFirst({
+      where: { id: userId, createdAt: { gte: new Date(Date.now() - WELCOME_WINDOW_MS) } },
       select: { email: true, name: true },
     });
     if (!user) return;
+    const claim = await deps.prisma.emailSend.createMany({
+      data: { userId, kind: "welcome" },
+      skipDuplicates: true,
+    });
+    if (claim.count === 0) return;
     const message = await welcomeEmail(user, unsubscribeUrl(deps.origin, deps.secret, userId));
     // The provider tracks the send, so shutdown drains it; sign-in does not wait on delivery.
     void deps.email.send(message).catch(deps.onError);

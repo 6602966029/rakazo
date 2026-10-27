@@ -46,33 +46,25 @@ describe("marketing email unsubscribe", () => {
 });
 
 describe("sendWelcomeEmail", () => {
-  function deps(claimed: Array<{ email: string; name: string }>) {
+  function deps(claimed: boolean) {
     const email = new EmailEmulator();
-    const updateManyAndReturn = vi.fn(async () => claimed);
+    const createMany = vi.fn(async () => ({ count: claimed ? 1 : 0 }));
     const onError = vi.fn();
-    const prisma = { user: { updateManyAndReturn } } as never;
-    return {
-      email,
-      updateManyAndReturn,
-      onError,
-      deps: { prisma, email, origin, secret, onError },
-    };
+    const prisma = {
+      user: { findFirst: async () => ({ email: "new@example.test", name: "New" }) },
+      emailSend: { createMany },
+    } as never;
+    return { email, createMany, onError, deps: { prisma, email, origin, secret, onError } };
   }
 
   it("claims the welcome once and sends one-click unsubscribe headers matching the body link", async () => {
-    const {
-      email,
-      updateManyAndReturn,
-      onError,
-      deps: welcome,
-    } = deps([{ email: "new@example.test", name: "New" }]);
+    const { email, createMany, onError, deps: welcome } = deps(true);
     await sendWelcomeEmail(welcome, "user-1");
     await vi.waitFor(() => expect(email.sent).toHaveLength(1));
-    expect(updateManyAndReturn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: "user-1", welcomeEmailSentAt: null }),
-      }),
-    );
+    expect(createMany).toHaveBeenCalledWith({
+      data: { userId: "user-1", kind: "welcome" },
+      skipDuplicates: true,
+    });
     const url = unsubscribeUrl(origin, secret, "user-1");
     expect(email.sent[0]).toMatchObject({
       to: "new@example.test",
@@ -87,13 +79,13 @@ describe("sendWelcomeEmail", () => {
   });
 
   it("sends nothing when another sign-in already claimed the welcome", async () => {
-    const { email, deps: welcome } = deps([]);
+    const { email, deps: welcome } = deps(false);
     await sendWelcomeEmail(welcome, "user-1");
     expect(email.sent).toHaveLength(0);
   });
 
   it("reports delivery failures without throwing", async () => {
-    const { email, onError, deps: welcome } = deps([{ email: "new@example.test", name: "New" }]);
+    const { email, onError, deps: welcome } = deps(true);
     email.failNextSends();
     await sendWelcomeEmail(welcome, "user-1");
     await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
