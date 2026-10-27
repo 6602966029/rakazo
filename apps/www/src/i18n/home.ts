@@ -12,7 +12,7 @@ export const HOME_CHANNELS = [
   { id: "telegram", name: "Telegram", selfHosted: true },
 ] as const;
 
-export const HOME_FEATURE_KINDS = ["call", "apps", "memory", "triggers", "team", "teach"] as const;
+export const HOME_FEATURE_KINDS = ["apps", "teach", "memory", "triggers", "team", "call"] as const;
 export type HomeFeatureKind = (typeof HOME_FEATURE_KINDS)[number];
 
 
@@ -476,7 +476,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     features: {
       heading: "More than chat",
       items: {
-        call: { title: "It calls you", body: "When something needs you, your bot rings your devices. Talk it through." },
+        call: { title: "It calls you", body: "When something needs you, your bot calls you in the app. Talk it through." },
         apps: { title: "Works in your apps", body: "Connect Gmail, GitHub, Notion, and any MCP server." },
         memory: { title: "Remembers", body: "Bots keep what they learn and share it with the team." },
         triggers: { title: "Wakes up on its own", body: "On a schedule, a webhook, a GitHub event, or a change it watches." },
@@ -624,7 +624,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     features: {
       heading: "Mehr als Chat",
       items: {
-        call: { title: "Er ruft dich an", body: "Wenn etwas dich braucht, klingelt dein Bot auf deinen Geräten. Sprecht es durch." },
+        call: { title: "Er ruft dich an", body: "Wenn etwas dich braucht, ruft dein Bot dich in der App an. Sprecht es durch." },
         apps: { title: "Arbeitet in deinen Apps", body: "Verbinde Gmail, GitHub, Notion und jeden MCP-Server." },
         memory: { title: "Merkt sich Dinge", body: "Bots behalten, was sie lernen, und teilen es mit dem Team." },
         triggers: { title: "Wird von selbst aktiv", body: "Nach Zeitplan, per Webhook, bei GitHub-Events oder wenn sich etwas ändert." },
@@ -775,7 +775,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     features: {
       heading: "채팅 그 이상",
       items: {
-        call: { title: "먼저 전화해요", body: "당신이 필요할 때 봇이 기기로 전화를 걸어요. 말로 해결하세요." },
+        call: { title: "먼저 전화해요", body: "당신이 필요할 때 봇이 앱에서 전화를 걸어요. 말로 해결하세요." },
         apps: { title: "쓰던 앱에서 일해요", body: "Gmail, GitHub, Notion, 그리고 모든 MCP 서버를 연결하세요." },
         memory: { title: "기억해요", body: "봇은 배운 것을 기억하고 팀과 공유해요." },
         triggers: { title: "스스로 깨어나요", body: "일정, 웹훅, GitHub 이벤트, 또는 지켜보던 변화에 맞춰 움직여요." },
@@ -926,7 +926,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     features: {
       heading: "不止聊天",
       items: {
-        call: { title: "它会给你打电话", body: "需要你的时候，机器人会呼叫你的设备。当面说清楚。" },
+        call: { title: "它会给你打电话", body: "需要你的时候，机器人会在应用里给你打电话。当面说清楚。" },
         apps: { title: "在你的应用里工作", body: "连接 Gmail、GitHub、Notion 以及任何 MCP 服务器。" },
         memory: { title: "记得住", body: "机器人会记住学到的东西，并与团队共享。" },
         triggers: { title: "自己醒来", body: "按计划、Webhook、GitHub 事件，或它关注的变化触发。" },
@@ -1078,7 +1078,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     features: {
       heading: "チャットだけじゃない",
       items: {
-        call: { title: "ボットから電話", body: "あなたが必要なとき、ボットがデバイスを鳴らします。話して片付けましょう。" },
+        call: { title: "ボットから電話", body: "あなたが必要なとき、ボットがアプリで電話をかけてきます。話して片付けましょう。" },
         apps: { title: "いつものアプリで", body: "Gmail、GitHub、Notion、あらゆる MCP サーバーとつなげます。" },
         memory: { title: "覚えている", body: "ボットは学んだことを覚え、チームと共有します。" },
         triggers: { title: "自分で動き出す", body: "スケジュール、Webhook、GitHub のイベント、見張っている変化をきっかけに動きます。" },
