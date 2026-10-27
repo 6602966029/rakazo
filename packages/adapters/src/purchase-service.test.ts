@@ -9,7 +9,7 @@ import {
   fakeJobs,
   fakePurchasePrisma,
 } from "./fake-purchases.js";
-import { executePaidRequest } from "./paid-request.js";
+import { executePaidRequest, paidRequestEffect } from "./paid-request.js";
 import {
   executePurchaseTool,
   loadPurchaseRedactions,
@@ -366,7 +366,13 @@ describe("paid_request", () => {
 
   /** An MPP API charging 500 cents per call; `echo` makes it repeat the request's credentials. */
   function paidApi(
-    options: { amount?: string; method?: string; status?: number; echo?: boolean } = {},
+    options: {
+      amount?: string;
+      method?: string;
+      status?: number;
+      echo?: boolean;
+      pad?: number;
+    } = {},
   ) {
     let issued = 0;
     const seen: { method: string; body: string | null; authorization: string | null }[] = [];
@@ -387,7 +393,7 @@ describe("paid_request", () => {
           if (credential.challenge.id !== `challenge-${issued}`)
             return new Response("stale", { status: 402 });
           const body = options.echo
-            ? `paid with ${credential.payload.spt} via ${authorization}`
+            ? `${"x".repeat(options.pad ?? 0)}paid with ${credential.payload.spt} via ${authorization}`
             : '{"forecast":"sun"}';
           return new Response(body, {
             status: api.status,
@@ -476,6 +482,21 @@ describe("paid_request", () => {
     const paid = await env.paid({ purchase: "purchase-1" }, "op-2");
     expect(JSON.stringify(paid.result)).not.toContain(FAKE_SHARED_PAYMENT_TOKEN);
     expect(JSON.stringify(paid.result)).not.toMatch(/Payment ey/);
+  });
+
+  it("hides a token the response limit would cut in half", async () => {
+    const { env } = await approvedPurchase(paidApi({ echo: true, pad: 50_000 - 20 }));
+    const paid = await env.paid({ purchase: "purchase-1" }, "op-2");
+    const body = String((paid.result as { body: string }).body);
+    expect(body).not.toContain(FAKE_SHARED_PAYMENT_TOKEN.slice(0, 8));
+  });
+
+  it("logs only a digest of a paid request's headers and body", () => {
+    const effect = paidRequestEffect(paidArgs);
+    expect(effect).toMatchObject({ url: paidArgs.url, method: "post", sealed: expect.any(String) });
+    expect(JSON.stringify(effect)).not.toContain("days");
+    expect(JSON.stringify(effect)).not.toContain("content-type");
+    expect(paidRequestEffect({ purchase: "purchase-1" })).toEqual({ purchase: "purchase-1" });
   });
 
   it("marks the purchase failed when the paid request is refused", async () => {

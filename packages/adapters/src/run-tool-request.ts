@@ -20,6 +20,7 @@ import { validCloudAgentArgs } from "./cloud-agent-tools.js";
 import { sanitizeConnectorError } from "./connector-safety.js";
 import { isFleetApprovalTool, prepareFleetRequest } from "./fleet-tools.js";
 import { assertConnectorToolArgs, CATALOG_EXECUTE } from "./lazy-tool-catalog.js";
+import { paidRequestEffect } from "./paid-request.js";
 import type { RunContext } from "./run-context.js";
 import {
   approvalReplayEffectToolName,
@@ -89,7 +90,7 @@ export async function resolveToolRequest(
       error: "Invalid cloud agent arguments. Raw environment variables are not supported.",
     };
   }
-  let effectRequest: unknown = args;
+  let effectRequest: unknown = name === "paid_request" ? paidRequestEffect(args) : args;
   if (connectorCall.route && deps.connector?.resolveCall) {
     try {
       const resolved = await deps.connector.resolveCall(connectorCall, context);

@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import type {
   AdapterContext,
   HttpPaymentAuthorization,
   PaymentWalletProvider,
 } from "@rakazo/adapter-kit";
 import { PaidRequestInput } from "@rakazo/contracts";
+import { stableJsonValue } from "@rakazo/core/node/approval-effect-key";
 import type { Purchase } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { redactConnectorPayload } from "./connector-safety.js";
@@ -201,7 +203,7 @@ async function payApproved(
     result: redactConnectorPayload(
       {
         purchase: { id: approved.id, status: accepted ? "completed" : "failed" },
-        ...responseView(paid),
+        ...responseView(paid, redactions),
         ...(accepted
           ? {}
           : {
@@ -241,8 +243,18 @@ function send(
 }
 
 /** The response as untrusted text, like a fetched page. Redirects are reported, not followed. */
-function responseView(response: SafeHttpResponse) {
-  const text = new TextDecoder().decode(response.body);
+/** The effect log keeps a digest of headers and body: they can hold personal data, sealed elsewhere. */
+export function paidRequestEffect(args: Record<string, unknown>): Record<string, unknown> {
+  const { headers, body, ...rest } = args;
+  if (headers === undefined && body === undefined) return args;
+  return {
+    ...rest,
+    sealed: createHash("sha256").update(stableJsonValue({ headers, body })).digest("hex"),
+  };
+}
+
+function responseView(response: SafeHttpResponse, secrets: string[] = []) {
+  const text = hideSecrets(new TextDecoder().decode(response.body), secrets, response.truncated);
   const location = response.headers.get("location");
   return {
     status: response.status,
@@ -253,6 +265,21 @@ function responseView(response: SafeHttpResponse) {
     body: text.slice(0, MAX_RESPONSE_CHARS),
     ...(response.truncated || text.length > MAX_RESPONSE_CHARS ? { truncated: true } : {}),
   };
+}
+
+/** Secrets go before any cut, and a body cut at the byte limit drops a secret's leading part too. */
+function hideSecrets(text: string, secrets: string[], cutShort: boolean | undefined): string {
+  let hidden = String(redactConnectorPayload(text, secrets));
+  if (!cutShort) return hidden;
+  for (const secret of secrets) {
+    for (let length = secret.length - 1; length >= 4; length -= 1) {
+      if (hidden.endsWith(secret.slice(0, length))) {
+        hidden = hidden.slice(0, -length);
+        break;
+      }
+    }
+  }
+  return hidden;
 }
 
 function requestFailed(error: unknown, context: AdapterContext) {
