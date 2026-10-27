@@ -1,9 +1,18 @@
 import type { MenuAction } from "@expo/ui/community/menu";
 import { MenuView } from "@expo/ui/community/menu";
 import type { AgentSkillCatalogEntry } from "@rakazo/contracts";
-import type { buildComposerMentionOptions, ComposerMention, SlashActionId } from "@rakazo/core";
+import type {
+  buildComposerMentionOptions,
+  ComposerMention,
+  ComposerMentionQuery,
+  SlashActionId,
+} from "@rakazo/core";
 import {
+  completeComposerMention,
+  composerMentionQuery,
   mentionChipKey,
+  mentionStillInPrompt,
+  removeComposerMention,
   SLASH_ACTIONS,
   serializeComposerPrompt,
   truncateSlashDescription,
@@ -77,13 +86,17 @@ export function ThreadComposer({
   const { t } = useI18n();
   const inputRef = useRef<TextInput>(null);
   const [draft, setDraft] = useState("");
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const draftRef = useRef("");
+  const nativeSelection = useRef({ start: 0, end: 0 });
+  const completedSelection = useRef<number | null>(null);
+  const [selection, setSelection] = useState<{ start: number; end: number }>();
+  const [mentionQuery, setMentionQuery] = useState<ComposerMentionQuery | null>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [selectedMentions, setSelectedMentions] = useState<ComposerMention[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<AgentSkillCatalogEntry | null>(null);
   useImperativeHandle(ref, () => ({
     snapshot: () => ({
-      promptText: serializeComposerPrompt(draft, selectedSkill, selectedMentions),
+      promptText: serializeComposerPrompt(draft, selectedSkill),
       mentions: selectedMentions,
       skill: selectedSkill,
       replyTargetId,
@@ -91,7 +104,11 @@ export function ThreadComposer({
       attachmentIds,
     }),
     reset: () => {
+      draftRef.current = "";
       setDraft("");
+      nativeSelection.current = { start: 0, end: 0 };
+      completedSelection.current = null;
+      setSelection({ start: 0, end: 0 });
       setMentionQuery(null);
       setSlashQuery(null);
       setSelectedSkill(null);
@@ -100,7 +117,7 @@ export function ThreadComposer({
   }));
   const mentionOptions = useMemo(() => {
     if (mentionQuery === null || composerMentionTargets.length === 0) return [];
-    const query = mentionQuery.trim().toLowerCase();
+    const query = mentionQuery.query.trim().toLowerCase();
     return composerMentionTargets
       .filter((target) => !query || target.name.toLowerCase().startsWith(query))
       .slice(0, 10);
@@ -129,28 +146,85 @@ export function ThreadComposer({
           );
         })
       : [];
+  function updateMentionQuery(value: string, start: number, end = start) {
+    const query = composerMentionQuery(value, start, end);
+    if (query) onMentionRequested?.();
+    setMentionQuery(query);
+  }
+
   function updateDraft(value: string) {
+    // Native text changes can arrive before their selection event. Infer the end
+    // of the changed span so the picker never reads the previous caret position.
+    const previous = draftRef.current;
+    let prefix = 0;
+    while (
+      prefix < previous.length &&
+      prefix < value.length &&
+      previous[prefix] === value[prefix]
+    ) {
+      prefix += 1;
+    }
+    let suffix = 0;
+    while (
+      suffix < previous.length - prefix &&
+      suffix < value.length - prefix &&
+      previous[previous.length - suffix - 1] === value[value.length - suffix - 1]
+    ) {
+      suffix += 1;
+    }
+    const caret = value.length - suffix;
+    draftRef.current = value;
     setDraft(value);
-    const match = /(?:^|\s)@([\w-]*)$/.exec(value);
-    if (match) onMentionRequested?.();
-    setMentionQuery(match ? (match[1] ?? "") : null);
+    completedSelection.current = null;
+    setSelection(undefined);
+    updateMentionQuery(value, caret);
+    setSelectedMentions((current) =>
+      current.filter((mention) => mentionStillInPrompt(value, mention)),
+    );
     const slashMatch = selectedSkill === null ? /^\/([^\n]*)$/.exec(value) : null;
     setSlashQuery(slashMatch ? (slashMatch[1] ?? "") : null);
   }
 
   function insertMention(mention: ComposerMention) {
-    setDraft((current) => current.replace(/@([\w-]*)$/, ""));
+    if (!mentionQuery) return;
+    const next = completeComposerMention(draftRef.current, mentionQuery, mention);
+    draftRef.current = next.text;
+    setDraft(next.text);
+    nativeSelection.current = { start: next.caret, end: next.caret };
+    completedSelection.current = next.caret;
+    setSelection(nativeSelection.current);
+    setMentionQuery(null);
+    setSelectedMentions((current) => {
+      const retained = current.filter((selected) => mentionStillInPrompt(next.text, selected));
+      return retained.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
+        ? retained
+        : [...retained, mention];
+    });
+    inputRef.current?.focus();
+  }
+
+  function removeMention(mention: ComposerMention) {
+    const next = removeComposerMention(draftRef.current, mention);
+    draftRef.current = next;
+    setDraft(next);
+    const caret = Math.min(nativeSelection.current.start, next.length);
+    nativeSelection.current = { start: caret, end: caret };
+    completedSelection.current = null;
+    setSelection(nativeSelection.current);
     setMentionQuery(null);
     setSelectedMentions((current) =>
-      current.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
-        ? current
-        : [...current, mention],
+      current.filter((selected) => mentionStillInPrompt(next, selected)),
     );
   }
 
   function insertSkill(skill: AgentSkillCatalogEntry) {
     setSelectedSkill(skill);
+    draftRef.current = "";
     setDraft("");
+    nativeSelection.current = { start: 0, end: 0 };
+    completedSelection.current = null;
+    setSelection(nativeSelection.current);
+    setSelectedMentions([]);
     setSlashQuery(null);
   }
 
@@ -163,7 +237,12 @@ export function ThreadComposer({
   }
 
   function runSlashAction(action: SlashActionId) {
+    draftRef.current = "";
     setDraft("");
+    nativeSelection.current = { start: 0, end: 0 };
+    completedSelection.current = null;
+    setSelection(nativeSelection.current);
+    setSelectedMentions([]);
     setSlashQuery(null);
     onSlashAction(action);
   }
@@ -411,13 +490,7 @@ export function ThreadComposer({
                 <Pressable
                   accessibilityLabel={t("Remove mention {name}", { name: mention.name })}
                   hitSlop={8}
-                  onPress={() =>
-                    setSelectedMentions((current) =>
-                      current.filter(
-                        (selected) => mentionChipKey(selected) !== mentionChipKey(mention),
-                      ),
-                    )
-                  }
+                  onPress={() => removeMention(mention)}
                 >
                   <NativeSymbol
                     ios="xmark"
@@ -465,6 +538,20 @@ export function ThreadComposer({
                 onFocus={onFocus}
                 value={draft}
                 onChangeText={updateDraft}
+                selection={selection}
+                onSelectionChange={(event) => {
+                  const next = event.nativeEvent.selection;
+                  nativeSelection.current = next;
+                  setSelection(undefined);
+                  if (
+                    next.start === completedSelection.current &&
+                    next.end === completedSelection.current
+                  ) {
+                    return;
+                  }
+                  completedSelection.current = null;
+                  updateMentionQuery(draftRef.current, next.start, next.end);
+                }}
                 accessibilityLabel={composerPrompt}
                 onKeyPress={(event) => {
                   if (

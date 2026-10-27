@@ -71,6 +71,29 @@ test("mention picker completes with Enter and Tab", async ({ page }, testInfo) =
   await expect(page.getByTestId("mention-chip")).toHaveCount(0);
   await expect(composer).toBeFocused();
 
+  for (const method of ["Enter", "Tab", "pointer"]) {
+    const text = "i need u to message @Res and do this";
+    await composer.fill(text);
+    await composer.evaluate((element, caret) => {
+      const field = element as HTMLTextAreaElement;
+      field.setSelectionRange(caret, caret);
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    }, text.indexOf(" and"));
+    await expect(picker).toBeVisible();
+    if (method === "pointer")
+      await picker.getByRole("option", { name: "@Researcher", exact: true }).click();
+    else await composer.press(method);
+    await expect(composer).toHaveValue("i need u to message @Researcher and do this");
+    await expect(composer).toBeFocused();
+    await composer.pressSequentially("also ");
+    await expect(composer).toHaveValue("i need u to message @Researcher also and do this");
+    await captureScreenshot(page, testInfo, `inline-mention-${method.toLowerCase()}`);
+  }
+  await composer.press("Enter");
+  await expect(page.getByTestId("transcript")).toContainText(
+    "i need u to message @Researcher also and do this",
+  );
+
   await composer.fill("hello without a picker");
   await composer.press("Enter");
   await expect(page.getByTestId("transcript")).toContainText("hello without a picker", {

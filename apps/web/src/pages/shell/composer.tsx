@@ -3,8 +3,12 @@ import type { AgentSkillCatalogEntry, ThreadMessage } from "@rakazo/contracts";
 import type { AgentImportReader, ComposerMention, SlashActionId } from "@rakazo/core";
 import {
   clampMentionHighlightIndex,
+  completeComposerMention,
+  composerMentionQuery,
   mentionChipKey,
+  mentionStillInPrompt,
   newClientId,
+  removeComposerMention,
   replyAttachment,
   resolveMentionPickerKey,
   SLASH_ACTIONS,
@@ -14,7 +18,7 @@ import {
 import { Button } from "@rakazo/ui-web";
 import { ArrowUp, Box, Paperclip, Plus, Settings, Square, X } from "lucide-react";
 import type { ClipboardEvent, DragEvent, RefObject } from "react";
-import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   HoldToTalkControls,
   HoldToTalkStrip,
@@ -125,10 +129,9 @@ export const Composer = memo(function Composer({
 }) {
   const { t } = useLingui();
   const [draft, setDraft] = useState(() => readComposerDraft(draftKey));
-  const [mentionQuery, setMentionQuery] = useState<string | null>(() => {
-    const mentionMatch = /(?:^|\s)@([\w-]*)$/.exec(draft);
-    return mentionMatch ? (mentionMatch[1] ?? "") : null;
-  });
+  const [mentionQuery, setMentionQuery] = useState<string | null>(
+    () => composerMentionQuery(draft)?.query ?? null,
+  );
   const [mentionHighlightKey, setMentionHighlightKey] = useState<string | null>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(() => {
     const slashMatch = /^\/([^\n]*)$/.exec(draft);
@@ -183,6 +186,15 @@ export const Composer = memo(function Composer({
     composerFieldRef,
     expanded,
   } = useComposerLayout(draft, selectedSkill !== null || selectedMentions.length > 0);
+  const pendingCaret = useRef<number | null>(null);
+  const completedSelection = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (pendingCaret.current === null) return;
+    const caret = pendingCaret.current;
+    pendingCaret.current = null;
+    completedSelection.current = caret;
+    textareaRef.current?.setSelectionRange(caret, caret);
+  });
   const [replyAnnouncement, setReplyAnnouncement] = useState("");
   // What the live region currently holds — a send disarming the reply clears
   // "reply" text, while an explicit cancel must keep "Reply cancelled".
@@ -249,12 +261,14 @@ export const Composer = memo(function Composer({
     if (onAttachmentPick(files)) markEdited();
   }
 
-  function updateDraft(value: string) {
+  function updateDraft(value: string, caret = value.length, end = caret) {
     markEdited();
     writeComposerDraft(draftKey, value);
     setDraft(value);
-    const mentionMatch = /(?:^|\s)@([\w-]*)$/.exec(value);
-    setMentionQuery(mentionMatch ? (mentionMatch[1] ?? "") : null);
+    setMentionQuery(composerMentionQuery(value, caret, end)?.query ?? null);
+    setSelectedMentions((current) =>
+      current.filter((mention) => mentionStillInPrompt(value, mention)),
+    );
     // `/` only at the start of the draft so forced skills expand (`Use skill:` / `/Name` prefix).
     const slashMatch = selectedSkill === null ? /^\/([^\n]*)$/.exec(value) : null;
     const nextSlash = slashMatch ? (slashMatch[1] ?? "") : null;
@@ -267,23 +281,39 @@ export const Composer = memo(function Composer({
   }
 
   function insertMention(mention: ComposerMention) {
+    const field = textareaRef.current;
+    if (!field) return;
+    const query = composerMentionQuery(draft, field.selectionStart, field.selectionEnd);
+    if (!query || query.query !== mentionQuery) return;
     markEdited();
-    const next = draft.replace(/@([\w-]*)$/, "");
-    writeComposerDraft(draftKey, next);
-    setDraft(next);
+    const completion = completeComposerMention(draft, query, mention);
+    writeComposerDraft(draftKey, completion.text);
+    setDraft(completion.text);
     setMentionQuery(null);
     setMentionHighlightKey(null);
-    setSelectedMentions((current) =>
-      current.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
-        ? current
-        : [...current, mention],
-    );
+    setSelectedMentions((current) => {
+      const retained = current.filter((selected) =>
+        mentionStillInPrompt(completion.text, selected),
+      );
+      return retained.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
+        ? retained
+        : [...retained, mention];
+    });
+    focusComposer();
+    // Restore after React has committed the new controlled value.
+    pendingCaret.current = completion.caret;
+  }
+
+  function removeMention(mention: ComposerMention) {
+    updateDraft(removeComposerMention(draft, mention));
+    setMentionQuery(null);
     focusComposer();
   }
 
   function insertSkill(skill: AgentSkillCatalogEntry) {
     markEdited();
     setSelectedSkill(skill);
+    setSelectedMentions([]);
     writeComposerDraft(draftKey, "");
     setDraft("");
     setSlashQuery(null);
@@ -291,6 +321,7 @@ export const Composer = memo(function Composer({
 
   function runSlashAction(action: SlashActionId) {
     markEdited();
+    setSelectedMentions([]);
     writeComposerDraft(draftKey, "");
     setDraft("");
     setSlashQuery(null);
@@ -358,7 +389,7 @@ export const Composer = memo(function Composer({
     const revision = editRevision.current;
     const clientNonce = retryNonce.current ?? newClientId();
     retryNonce.current = null;
-    const text = serializeComposerPrompt(draft, selectedSkill, selectedMentions);
+    const text = serializeComposerPrompt(draft, selectedSkill);
     const submission = beginComposerDraftSubmission(draftKey, draft);
     setDraft("");
     setMentionQuery(null);
@@ -464,7 +495,7 @@ export const Composer = memo(function Composer({
     const textarea = event.currentTarget;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    updateDraft(`${draft.slice(0, start)}${text}${draft.slice(end)}`);
+    updateDraft(`${draft.slice(0, start)}${text}${draft.slice(end)}`, start + text.length);
     const caret = start + text.length;
     window.requestAnimationFrame(() => {
       textareaRef.current?.setSelectionRange(caret, caret);
@@ -768,14 +799,7 @@ export const Composer = memo(function Composer({
               icon={<MentionChipIcon mention={mention} />}
               label={mention.name}
               removeLabel={t`Remove mention ${mention.name}`}
-              onRemove={() => {
-                markEdited();
-                setSelectedMentions((current) =>
-                  current.filter(
-                    (selected) => mentionChipKey(selected) !== mentionChipKey(mention),
-                  ),
-                );
-              }}
+              onRemove={() => removeMention(mention)}
             />
           ))}
           <HoldToTalkStrip talk={talk} />
@@ -783,7 +807,27 @@ export const Composer = memo(function Composer({
             ref={textareaRef}
             hidden={talk.recording !== null}
             value={draft}
-            onChange={(event) => updateDraft(event.target.value)}
+            onChange={(event) => {
+              completedSelection.current = null;
+              updateDraft(
+                event.target.value,
+                event.target.selectionStart,
+                event.target.selectionEnd,
+              );
+            }}
+            onSelect={(event) => {
+              const field = event.currentTarget;
+              if (
+                completedSelection.current === field.selectionStart &&
+                field.selectionStart === field.selectionEnd
+              )
+                return;
+              completedSelection.current = null;
+              setMentionQuery(
+                composerMentionQuery(field.value, field.selectionStart, field.selectionEnd)
+                  ?.query ?? null,
+              );
+            }}
             onPaste={handlePaste}
             onKeyDown={(event) => {
               if (

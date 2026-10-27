@@ -81,6 +81,49 @@ export function mentionChipKey(mention: Pick<ComposerMention, "kind" | "id">): s
   return `${mention.kind}:${mention.id}`;
 }
 
+/** The active @query at a collapsed caret, including the rest of that token. */
+export type ComposerMentionQuery = { start: number; end: number; query: string };
+
+export function composerMentionQuery(
+  text: string,
+  selectionStart = text.length,
+  selectionEnd = selectionStart,
+): ComposerMentionQuery | null {
+  if (selectionStart !== selectionEnd || selectionStart < 0 || selectionStart > text.length)
+    return null;
+  const match = /(?:^|\s)@([\w-]*)$/.exec(text.slice(0, selectionStart));
+  if (!match) return null;
+  const query = match[1] ?? "";
+  const start = selectionStart - query.length - 1;
+  const rest = /^[\w-]*/.exec(text.slice(selectionStart))?.[0] ?? "";
+  return { start, end: selectionStart + rest.length, query };
+}
+
+export function completeComposerMention(
+  text: string,
+  query: ComposerMentionQuery,
+  mention: { name: string },
+): { text: string; caret: number } {
+  const suffix = text.slice(query.end);
+  const token = `@${mention.name}`;
+  const separator = suffix.length === 0 ? " " : "";
+  return {
+    text: `${text.slice(0, query.start)}${token}${separator}${suffix}`,
+    caret: query.start + token.length + (separator || suffix.startsWith(" ") ? 1 : 0),
+  };
+}
+
+/** Remove selected tokens without rewriting any surrounding whitespace. */
+export function removeComposerMention(text: string, mention: { name: string }): string {
+  const name = mention.name.trim();
+  if (!name) return text;
+  const pattern = new RegExp(
+    `(^|[^\\p{L}\\p{N}_-])@${escapeRegExp(name)}(?![\\p{L}\\p{N}_-])`,
+    "giu",
+  );
+  return text.replace(pattern, (_match, prefix: string) => prefix);
+}
+
 export function stripMentionToken(text: string, mentionName: string): string {
   const normalized = mentionName.trim();
   if (!normalized) return text.trim();

@@ -197,6 +197,110 @@ function pressEnter(textarea: HTMLTextAreaElement) {
 }
 
 describe("Composer", () => {
+  it.each(["Enter", "Tab", "pointer"])(
+    "completes an inline bot at the caret with %s",
+    async (method) => {
+      const onSend = vi.fn().mockResolvedValue(true);
+      const textarea = renderComposer(onSend);
+      const original = "i need u to message @Bo and do this";
+      type(textarea, original);
+      act(() => {
+        textarea.focus();
+        textarea.setSelectionRange(original.indexOf(" and"), original.indexOf(" and"));
+        document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+      });
+      expect(container?.querySelector('[data-testid="mention-picker"]')).not.toBeNull();
+      if (method === "pointer") {
+        act(() => container?.querySelector<HTMLButtonElement>('[role="option"]')?.click());
+      } else {
+        act(() =>
+          textarea.dispatchEvent(new KeyboardEvent("keydown", { key: method, bubbles: true })),
+        );
+      }
+      expect(textarea.value).toBe("i need u to message @Bob and do this");
+      expect(textarea.selectionStart).toBe("i need u to message @Bob ".length);
+      expect(document.activeElement).toBe(textarea);
+      pressEnter(textarea);
+      await act(async () => {});
+      expect(onSend).toHaveBeenCalledWith(
+        "i need u to message @Bob and do this",
+        [bob],
+        expect.any(String),
+      );
+    },
+  );
+
+  it("keeps repeated inline mentions in order with one routing target", async () => {
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend);
+    type(textarea, "ask @Bo");
+    pressEnter(textarea);
+    type(textarea, `${textarea.value}and then @Bo`);
+    pressEnter(textarea);
+    expect(textarea.value).toBe("ask @Bob and then @Bob ");
+    expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(1);
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend).toHaveBeenCalledWith("ask @Bob and then @Bob", [bob], expect.any(String));
+  });
+
+  it("removes stale routing when a selected token is renamed or deleted", async () => {
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend);
+    type(textarea, "ask @Bo");
+    pressEnter(textarea);
+    type(textarea, "ask @Bobby later");
+    expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(0);
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend).toHaveBeenCalledWith("ask @Bobby later", [], expect.any(String));
+  });
+
+  it("removes mention text using the existing chip control without normalizing whitespace", () => {
+    const textarea = renderComposer(vi.fn());
+    type(textarea, "ask  @Bo");
+    pressEnter(textarea);
+    type(textarea, `${textarea.value} later`);
+    act(() =>
+      container?.querySelector<HTMLButtonElement>('[aria-label="Remove mention Bob"]')?.click(),
+    );
+    expect(textarea.value).toBe("ask    later");
+    expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(0);
+  });
+
+  it("moves the caret past the full token even when completion leaves text unchanged", () => {
+    const textarea = renderComposer(vi.fn());
+    type(textarea, "ask @Bob, please");
+    act(() => {
+      textarea.focus();
+      textarea.setSelectionRange(7, 7);
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    pressEnter(textarea);
+    expect(textarea.value).toBe("ask @Bob, please");
+    expect(textarea.selectionStart).toBe(8);
+    expect(container?.querySelector('[data-testid="mention-picker"]')).toBeNull();
+  });
+
+  it("replaces a selected bot without retaining its previous routing target", async () => {
+    const bobby: ComposerMention = { kind: "bot", id: "bot-3", name: "Bobby" };
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend, { mentionTargets: [bob, bobby] });
+    type(textarea, "ask @Bo");
+    pressEnter(textarea);
+    act(() => {
+      textarea.setSelectionRange(7, 7);
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    act(() =>
+      container?.querySelector<HTMLButtonElement>('[role="option"][aria-label="@Bobby"]')?.click(),
+    );
+    expect(textarea.value).toBe("ask @Bobby ");
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend).toHaveBeenCalledWith("ask @Bobby", [bobby], expect.any(String));
+  });
+
   it.each([false, true])(
     "keeps the keyboard mention selection when targets refresh (reorder: %s)",
     (reorder) => {
@@ -295,13 +399,13 @@ describe("Composer", () => {
       );
     type(textarea, "@Bo");
     pressEnter(textarea);
-    type(textarea, "hello");
+    type(textarea, "@Bob hello");
     pressEnter(textarea);
     expect(onSend).toHaveBeenCalledWith("@Bob hello", [bob], expect.any(String));
     expect(textarea.value).toBe("");
     expect(mentionChips()).toEqual([]);
     await act(async () => finishSend(false));
-    expect(textarea.value).toBe("hello");
+    expect(textarea.value).toBe("@Bob hello");
     expect(mentionChips()).toEqual(["Bob"]);
   });
 
