@@ -424,7 +424,7 @@ export function appendToolCallSegment(
   const priorSteps = last?.kind === "steps" ? last.steps : [];
   const steps = appendToolStep(priorSteps, toolName);
   if (last?.kind === "steps") {
-    return [...segments.slice(0, -1), { kind: "steps", steps }];
+    return [...segments.slice(0, -1), { ...last, steps }];
   }
   return [...segments, { kind: "steps", steps }];
 }

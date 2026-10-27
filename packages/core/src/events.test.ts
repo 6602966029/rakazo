@@ -151,6 +151,23 @@ describe("foldWorkingText", () => {
     ]);
   });
 
+  it("keeps earlier notes when the next tool call joins the steps block", () => {
+    const folded = foldWorkingText([steps("Web search"), text("Retrying."), steps("Web fetch")], {
+      keepLatestAsAnswer: false,
+    });
+    expect(appendToolCallSegment(folded, "web_search")).toEqual([
+      {
+        kind: "steps",
+        steps: [
+          { label: "Web search", count: 1 },
+          { label: "Web fetch", count: 1 },
+          { label: "Web search", count: 1 },
+        ],
+        notes: ["Retrying."],
+      },
+    ]);
+  });
+
   it("leaves a single tool call alone", () => {
     const blocks = [text("Checking."), steps("Web search"), text("Done.")];
     expect(foldWorkingText(blocks)).toEqual(blocks);
