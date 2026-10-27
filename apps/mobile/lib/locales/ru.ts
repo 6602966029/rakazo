@@ -1121,4 +1121,21 @@ export const RU_MESSAGES: Record<string, string> = {
   "No runs yet": "Запусков пока нет",
   "Load older runs": "Загрузить более ранние запуски",
   "Could not load run history": "Не удалось загрузить историю запусков",
+  Vault: "Хранилище",
+  "Add credential": "Добавить учетные данные",
+  "Replace value": "Заменить значение",
+  "Remove {name}?": "Удалить {name}?",
+  "Could not save the credential": "Не удалось сохранить учетные данные",
+  "Could not remove the credential": "Не удалось удалить учетные данные",
+  Type: "Тип",
+  Site: "Сайт",
+  Value: "Значение",
+  "Custom header": "Свой заголовок",
+  "Basic auth": "Базовая аутентификация",
+  "Website login": "Вход на сайт",
+  "Use lowercase letters, numbers, - and _, starting with a letter.":
+    "Используйте строчные буквы, цифры, - и _, начиная с буквы.",
+  "{variable} is reserved. Choose another name.":
+    "{variable} зарезервировано. Выберите другое имя.",
+  "Delete this Space's credentials?": "Удалить учетные данные этого пространства?",
 };
