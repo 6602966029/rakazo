@@ -267,8 +267,9 @@ describe("marketplace service", () => {
       { name: "app", hasConnector: true, skillCount: 2 },
       { name: "hosted", hasConnector: true, skillCount: 1 },
       { name: "pack", hasConnector: false, skillCount: 2 },
+      { name: "references", hasConnector: false, skillCount: 1 },
     ]);
-    expect(skippedEntries).toBe(7);
+    expect(skippedEntries).toBe(6);
   });
   it("returns explicit unavailability without leaking provider errors", async () => {
     const service = createPluginMarketplace(async () => {

@@ -2825,6 +2825,10 @@ msgstr "Champs à comparer, par ex. id, modifiedTime (facultatif)"
 msgid "File"
 msgstr "Fichier"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Files"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Files or folders on the computer"
 msgstr "Fichiers ou dossiers de l’ordinateur"

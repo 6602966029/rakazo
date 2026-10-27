@@ -2826,6 +2826,10 @@ msgstr "要比較的欄位，例如 id, modifiedTime（選填）"
 msgid "File"
 msgstr "檔案"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Files"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Files or folders on the computer"
 msgstr "電腦上的檔案或資料夾"

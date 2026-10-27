@@ -491,6 +491,15 @@ function AgentSkills() {
             className={fieldClass}
             dir="auto"
           />
+          {open?.files?.length ? (
+            <ul aria-label={t`Files`} className="mt-2 space-y-0.5">
+              {open.files.map((file) => (
+                <li key={file} className="truncate font-mono text-[12px] text-muted-foreground">
+                  {file}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <div className="mt-2 flex items-center gap-2">
             {!open?.readOnly ? (
               <Button

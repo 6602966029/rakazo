@@ -173,7 +173,11 @@ describe("portable plugin parser", () => {
       classifyPluginFiles(["mcp.json", "skills/a/SKILL.md", "agents/b.md", "README.md"], remote),
     ).toEqual({ hasConnector: true, skillCount: 2 });
     expect(classifyPluginFiles(["skills/a/SKILL.md", "hooks/hooks.json"])).toBe("incomplete");
-    expect(classifyPluginFiles(["skills/a/SKILL.md", "skills/a/notes.md"])).toBe("incomplete");
+    expect(classifyPluginFiles(["skills/a/SKILL.md", "skills/a/references/notes.md"])).toEqual({
+      hasConnector: false,
+      skillCount: 1,
+    });
+    expect(classifyPluginFiles(["skills/a/SKILL.md", "skills/a/run.sh"])).toBe("incomplete");
     expect(classifyPluginFiles(["mcp.json"])).toBeNull();
     expect(
       classifyPluginFiles(["mcp.json"], JSON.stringify({ mcpServers: { x: { command: "npx" } } })),
@@ -207,14 +211,40 @@ describe("portable plugin parser", () => {
       expect(preview.skipped[0]?.kind).toBe("mcp_invalid");
     }
   });
-  it("does not recursively discover skills or silently lose companion resources", () => {
+  it("keeps text reference files with their skill", () => {
+    const preview = parse([
+      ...files(),
+      { path: "skills/example-skill/references/guide.md", content: "guide" },
+      { path: "skills/example-skill/data/rates.csv", content: "a,b" },
+    ]);
+    expect(preview.skills).toEqual([
+      expect.objectContaining({
+        name: "example-skill",
+        files: { "references/guide.md": "guide", "data/rates.csv": "a,b" },
+      }),
+    ]);
+    expect(preview.skipped).toEqual([]);
+  });
+  it("does not install a skill whose scripts would be missing", () => {
     const preview = parse([
       ...files(),
       { path: "skills/nested/deeper/SKILL.md", content: skill },
-      { path: "skills/example-skill/references/guide.md", content: "guide" },
+      { path: "skills/example-skill/scripts/run.py", content: "" },
     ]);
     expect(preview.skills).toEqual([]);
-    expect(preview.skipped[0]?.reason).toMatch(/companion files/);
+    expect(preview.skipped[0]?.reason).toMatch(/scripts/);
+  });
+  it("refuses a skill whose reference files exceed the caps", () => {
+    const many = Array.from({ length: 41 }, (_, i) => ({
+      path: `skills/example-skill/references/${i}.md`,
+      content: "x",
+    }));
+    expect(parse([...files(), ...many]).skills).toEqual([]);
+    const big = Array.from({ length: 5 }, (_, i) => ({
+      path: `skills/example-skill/references/big-${i}.md`,
+      content: "x".repeat(90_000),
+    }));
+    expect(parse([...files(), ...big]).skipped[0]?.reason).toMatch(/too large/);
   });
   it.each(["../plugin.json", "/plugin.json", "skills/../plugin.json", "dir\\plugin.json"])(
     "rejects escaping path %s",

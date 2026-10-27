@@ -2825,6 +2825,10 @@ msgstr "तुलना के लिए फ़ील्ड, जैसे id, mo
 msgid "File"
 msgstr "फ़ाइल"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Files"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Files or folders on the computer"
 msgstr "कंप्यूटर पर फ़ाइलें या फ़ोल्डर"

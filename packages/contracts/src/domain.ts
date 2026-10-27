@@ -649,6 +649,8 @@ export const AgentSkillSchema = z.object({
   content: z.string(),
   source: AgentSkillSourceSchema,
   readOnly: z.boolean(),
+  /** Paths of the text files stored beside SKILL.md; the bot reads them through skill_read. */
+  files: z.array(z.string()).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

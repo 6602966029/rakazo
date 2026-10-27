@@ -2825,6 +2825,10 @@ msgstr "Te vergelijken velden, bijv. id, modifiedTime (optioneel)"
 msgid "File"
 msgstr "Bestand"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Files"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Files or folders on the computer"
 msgstr "Bestanden of mappen op de computer"

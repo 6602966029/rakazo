@@ -2825,6 +2825,10 @@ msgstr "比較するフィールド（例: id, modifiedTime）（任意）"
 msgid "File"
 msgstr "ファイル"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Files"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Files or folders on the computer"
 msgstr "コンピューター上のファイルまたはフォルダ"

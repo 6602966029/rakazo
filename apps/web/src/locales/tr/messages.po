@@ -2825,6 +2825,10 @@ msgstr "Karşılaştırılacak alanlar, ör. id, modifiedTime (isteğe bağlı)"
 msgid "File"
 msgstr "Dosya"
 
+#: src/pages/KnowledgeSection.tsx
+msgid "Files"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Files or folders on the computer"
 msgstr "Bilgisayardaki dosya veya klasörler"

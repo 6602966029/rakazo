@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { BUILTIN_AGENT_SKILLS } from "@rakazo/adapters";
+import { BUILTIN_AGENT_SKILLS, skillFiles } from "@rakazo/adapters";
 import type { Actor, AgentSkill, AgentSkillSource } from "@rakazo/contracts";
 import type { SkillSource } from "@rakazo/core";
 import {
@@ -18,6 +18,7 @@ type AgentSkillRow = {
   description: string;
   content: string;
   source: string;
+  files?: unknown;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -29,6 +30,7 @@ function asSource(value: string): AgentSkillSource {
 
 export function mapAgentSkill(row: AgentSkillRow): AgentSkill {
   const source = asSource(row.source);
+  const fileNames = Object.keys(skillFiles(row.files)).sort();
   return {
     id: row.id,
     name: row.name,
@@ -36,6 +38,7 @@ export function mapAgentSkill(row: AgentSkillRow): AgentSkill {
     content: row.content,
     source,
     readOnly: isSkillReadOnly(source as SkillSource),
+    ...(fileNames.length ? { files: fileNames } : {}),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -136,6 +139,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
     async list(actor: Actor): Promise<Omit<AgentSkill, "content">[]> {
       const rows = await prisma.agentSkill.findMany({
         where: { spaceId: actor.spaceId, userId: actor.userId },
+        omit: { files: true },
         orderBy: [{ name: "asc" }, { id: "asc" }],
       });
       return mergeBuiltinSkills(builtinCatalog(), rows.map(mapAgentSkill)).map(
@@ -146,6 +150,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
     async listWithContent(actor: Actor): Promise<AgentSkill[]> {
       const rows = await prisma.agentSkill.findMany({
         where: { spaceId: actor.spaceId, userId: actor.userId },
+        omit: { files: true },
         orderBy: [{ name: "asc" }, { id: "asc" }],
       });
       return mergeBuiltinSkills(builtinCatalog(), rows.map(mapAgentSkill));

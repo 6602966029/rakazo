@@ -14,7 +14,13 @@ export type PluginRepoFetcher = (
   ref: PluginSourceRef,
   signal?: AbortSignal,
 ) => Promise<{ files: PluginRepoFile[]; resolvedSha: string }>;
-export type PluginSkillEntry = { name: string; description: string; content: string };
+export type PluginSkillEntry = {
+  name: string;
+  description: string;
+  content: string;
+  /** Text files beside SKILL.md, keyed by their path relative to the skill folder. */
+  files?: Record<string, string>;
+};
 export type PluginMcpServerEntry = {
   name: string;
   transport: "streamable_http" | "sse";
@@ -62,6 +68,12 @@ const MANIFESTS = ["plugin.json", ".cursor-plugin/plugin.json", ".grok-plugin/pl
 const UNSUPPORTED_DIRS = new Set(["rules", "hooks", "automations"]);
 const UNSUPPORTED_FILES = new Set([".lsp.json"]);
 const AGENT_FILE = /^agents\/([^/]+)\.md$/;
+const SKILL_COMPANION = /^skills\/[^/]+\/(?!SKILL\.md$).+/;
+/** Reference docs a skill points to; scripts and binaries are not installed. */
+const SKILL_TEXT_FILE = /\.(md|mdx|txt|json|ya?ml|csv)$/i;
+export const MAX_SKILL_FILES = 40;
+const OVERSIZED_FILE = "\u0000";
+export const MAX_SKILL_FILES_BYTES = 400_000;
 // Underscore files beside commands are shared notes, not commands of their own.
 const COMMAND_FILE = /^commands\/([^/_][^/]*)\.md$/;
 const manifestSchema = z.object({
@@ -222,10 +234,16 @@ export async function fetchGitHubRepo(
       MANIFESTS.includes(path) ||
       ["mcp.json", ".mcp.json"].includes(path) ||
       /^skills\/[^/]+\/SKILL\.md$/.test(path) ||
+      (SKILL_COMPANION.test(path) && SKILL_TEXT_FILE.test(path)) ||
       AGENT_FILE.test(path) ||
       COMMAND_FILE.test(path);
     if (!relevant) {
       files.push({ path: entry.path, content: "" });
+      continue;
+    }
+    // An oversized reference refuses only its own skill, not the whole plugin.
+    if (SKILL_COMPANION.test(path) && (entry.size ?? 0) > MAX_FILE_BYTES) {
+      files.push({ path: entry.path, content: OVERSIZED_FILE });
       continue;
     }
     if ((entry.size ?? 0) > MAX_FILE_BYTES) throw new Error("Plugin file is too large");
@@ -245,6 +263,16 @@ function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function companionRefusal(companions: Array<[string, string]>): string | null {
+  if (companions.some(([path]) => !SKILL_TEXT_FILE.test(path)))
+    return "Skills with scripts or other non-text files are not supported";
+  if (companions.length > MAX_SKILL_FILES) return "Skill has too many files";
+  if (companions.some(([, text]) => text === OVERSIZED_FILE)) return "Skill files are too large";
+  const bytes = companions.reduce((sum, [, text]) => sum + Buffer.byteLength(text), 0);
+  if (bytes > MAX_SKILL_FILES_BYTES) return "Skill files are too large";
+  return null;
+}
+
 function collectSkills(
   files: Map<string, string>,
   skipped: PluginSkippedEntry[],
@@ -261,18 +289,27 @@ function collectSkills(
     }
     if (names.has(parsed.name.toLowerCase()))
       throw new Error("Plugin contains duplicate skill names");
-    // The current skill store persists SKILL.md text, not companion files. Do not
-    // silently install a recipe whose relative references/scripts would be missing.
-    if ([...files.keys()].some((p) => p.startsWith(`skills/${match[1]}/`) && p !== path)) {
-      skipped.push({
-        kind: "skill_invalid",
-        name: parsed.name,
-        reason: "Skills with companion files are not supported yet",
-      });
+    const folder = `skills/${match[1]}/`;
+    const companions = [...files].filter(([p]) => p.startsWith(folder) && p !== path);
+    const refusal = companionRefusal(companions.map(([p, text]) => [p.slice(folder.length), text]));
+    // A recipe whose scripts would be missing must not install half-working.
+    if (refusal) {
+      skipped.push({ kind: "skill_invalid", name: parsed.name, reason: refusal });
       continue;
     }
     names.add(parsed.name.toLowerCase());
-    skills.push({ name: parsed.name, description: parsed.description, content });
+    skills.push({
+      name: parsed.name,
+      description: parsed.description,
+      content,
+      ...(companions.length
+        ? {
+            files: Object.fromEntries(
+              companions.map(([p, text]) => [p.slice(folder.length), text]),
+            ),
+          }
+        : {}),
+    });
   }
   return skills;
 }
@@ -541,8 +578,10 @@ export function classifyPluginFiles(
     if (AGENT_FILE.test(path) || COMMAND_FILE.test(path)) skillCount++;
   }
   for (const files of skillDirs.values()) {
-    // Companion files (references, scripts) are not stored with a skill yet.
-    if (files.length !== 1 || files[0] !== "SKILL.md") return "incomplete";
+    if (!files.includes("SKILL.md")) return "incomplete";
+    const companions = files.filter((file) => file !== "SKILL.md");
+    if (companions.length > MAX_SKILL_FILES || companions.some((f) => !SKILL_TEXT_FILE.test(f)))
+      return "incomplete";
     skillCount++;
   }
   const mcpPath = paths.find((path) => path === "mcp.json" || path === ".mcp.json");
