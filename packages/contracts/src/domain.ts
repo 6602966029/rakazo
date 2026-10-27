@@ -1660,6 +1660,11 @@ export function signupSurveyAsksTeamSize(use: SignupSurvey["use"]): boolean {
   return use === "work" || use === "both";
 }
 
+/** Where checkout returns: the mobile app's in-app browser instead of the web app. */
+export const BillingClientSchema = z.literal("mobile").optional();
+/** The deep link the API sends a mobile checkout back to; it closes the in-app browser. */
+export const MOBILE_BILLING_CALLBACK_URL = "rakazo://billing";
+
 export const BillingStatusSchema = z.object({
   funding: z.enum(["byok", "credits"]).nullable().optional(),
   balanceUsd: z.number().optional(),
