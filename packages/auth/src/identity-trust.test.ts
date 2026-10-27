@@ -2,7 +2,7 @@ import { createHash, createHmac, generateKeyPairSync, randomBytes, sign } from "
 import type { TransactionalEmail } from "@rakazo/adapter-kit";
 import type * as Db from "@rakazo/db";
 import { bootstrapUserSpace, recordSecurityEvent } from "@rakazo/db";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CLIENT_IP_HEADER, createAuth } from "./index.js";
 
 // Exercise Better Auth's real routing, password hashing, verification and
@@ -579,6 +579,123 @@ describe("session credentials", () => {
     const deleted = await f.request("/delete-user", { password: "offline-password12" }, token);
     expect(deleted.status).toBe(200);
     expect(f.data.user).toHaveLength(0);
+  });
+});
+
+describe("identity confirmation", () => {
+  afterEach(() => vi.useRealTimers());
+  const confirmed = async (f: ReturnType<typeof fixture>, token: string) => {
+    const current = await f.sessionFor(token);
+    return f.auth.hasRecentIdentityConfirmation({
+      sessionId: current!.session.id,
+      userId: current!.user.id,
+    });
+  };
+  const codeAccount = async (f: ReturnType<typeof fixture>) => {
+    await f.sendCode();
+    return ((await (await f.codeSignIn(f.lastCode())).json()) as { token: string }).token;
+  };
+  const wrongCode = (code: string) => (code === "000000" ? "111111" : "000000");
+
+  it("confirms a password session for five minutes, and only that session", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const f = fixture({ delivery: false });
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    const other = ((await (await f.signin()).json()) as { token: string }).token;
+    expect(await confirmed(f, token)).toBe(false);
+    for (const body of [{}, { password: "" }, { password: "wrong-password12" }]) {
+      const response = await f.request("/confirm-identity", body, token);
+      expect(response.status, JSON.stringify(body)).toBe(400);
+      expect(await response.json()).toMatchObject({ code: "INVALID_PASSWORD" });
+    }
+    expect(await confirmed(f, token)).toBe(false);
+    expect(
+      (await f.request("/confirm-identity", { password: "offline-password12" }, token)).status,
+    ).toBe(200);
+    expect(await confirmed(f, token)).toBe(true);
+    expect(await confirmed(f, other)).toBe(false);
+    expect(recordSecurityEvent).toHaveBeenCalledWith({
+      type: "auth.identity.confirmed",
+      userId: f.data.user![0]!.id,
+      metadata: { method: "password" },
+    });
+    vi.setSystemTime(Date.now() + 5 * 60_000);
+    expect(await confirmed(f, token)).toBe(false);
+  });
+
+  it("refuses a session that is not signed in", async () => {
+    const f = fixture({ delivery: false });
+    expect((await f.request("/confirm-identity", { password: "offline-password12" })).status).toBe(
+      401,
+    );
+  });
+
+  it("locks password confirmation after five wrong passwords", async () => {
+    const f = fixture({ delivery: false });
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const wrong = { password: "wrong-password12" };
+      expect((await f.request("/confirm-identity", wrong, token)).status).toBe(400);
+    }
+    const locked = await f.request("/confirm-identity", { password: "offline-password12" }, token);
+    expect(locked.status).toBe(429);
+    expect(await confirmed(f, token)).toBe(false);
+  });
+
+  it("confirms an account without a password by a single-use emailed code", async () => {
+    const f = fixture();
+    const token = await codeAccount(f);
+    expect((await f.request("/request-identity-code", {}, token)).status).toBe(200);
+    expect(f.messages.at(-1)).toMatchObject({
+      to: "approved@example.test",
+      subject: "Your Rakazo confirmation code",
+    });
+    const code = f.lastCode();
+    expect(JSON.stringify(f.data.verification)).not.toContain(code);
+    const wrong = await f.request("/confirm-identity", { code: wrongCode(code) }, token);
+    expect(await wrong.json()).toMatchObject({ code: "INVALID_OTP" });
+    expect(await confirmed(f, token)).toBe(false);
+    expect((await f.request("/confirm-identity", { code }, token)).status).toBe(200);
+    expect(await confirmed(f, token)).toBe(true);
+    expect(recordSecurityEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "auth.identity.confirmed", metadata: { method: "email" } }),
+    );
+    const reused = await f.request("/confirm-identity", { code }, token);
+    expect(await reused.json()).toMatchObject({ code: "OTP_EXPIRED" });
+  });
+
+  it("binds an emailed code to the session that requested it", async () => {
+    const f = fixture();
+    const token = await codeAccount(f);
+    await f.sendCode();
+    const other = ((await (await f.codeSignIn(f.lastCode())).json()) as { token: string }).token;
+    await f.request("/request-identity-code", {}, token);
+    const code = f.lastCode();
+    expect((await f.request("/confirm-identity", { code }, other)).status).toBe(400);
+    expect((await f.request("/confirm-identity", { code }, token)).status).toBe(200);
+    expect(await confirmed(f, other)).toBe(false);
+  });
+
+  it("locks an emailed code after three wrong attempts", async () => {
+    const f = fixture();
+    const token = await codeAccount(f);
+    await f.request("/request-identity-code", {}, token);
+    const code = f.lastCode();
+    for (const expected of ["INVALID_OTP", "INVALID_OTP", "TOO_MANY_ATTEMPTS"]) {
+      const response = await f.request("/confirm-identity", { code: wrongCode(code) }, token);
+      expect(await response.json()).toMatchObject({ code: expected });
+    }
+    expect((await f.request("/confirm-identity", { code }, token)).status).toBe(400);
+    expect(await confirmed(f, token)).toBe(false);
+  });
+
+  it("keeps password accounts on their password", async () => {
+    const f = fixture();
+    const { token } = (await (await f.signup()).json()) as { token: string };
+    const requested = await f.request("/request-identity-code", {}, token);
+    expect(await requested.json()).toMatchObject({ code: "EMAIL_CODE_UNAVAILABLE" });
+    expect((await f.request("/confirm-identity", { code: "123456" }, token)).status).toBe(400);
+    expect(await confirmed(f, token)).toBe(false);
   });
 });
 
