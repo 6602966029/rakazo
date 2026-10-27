@@ -188,15 +188,14 @@ export async function loadBotCommandEnvironment(
 }
 
 /**
- * The environment for one shell command: the space variables, with this bot's command variables
- * loaded fresh over them (the bot's own value wins a name clash). The bot's values are handed to
- * `registerRedactions` before this returns, so the command's output is redacted.
+ * The environment for one shell command: the command variables of the vault this Space uses,
+ * loaded fresh. The values are handed to `registerRedactions` before this returns, so the
+ * command's output is redacted.
  */
 export async function shellCommandEnvironment(input: {
   prisma: PrismaClient;
   secretStore: Pick<SecretStore, "load">;
   scope: BotSecretScope;
-  spaceEnvironment: Record<string, string>;
   registerRedactions: (values: string[]) => void;
 }): Promise<{ env: Record<string, string>; unsetEnv: string[] }> {
   const unsetVariables = new Set<string>();
@@ -209,10 +208,7 @@ export async function shellCommandEnvironment(input: {
   // Encoded forms too, as secret_request does, so an accidental `base64` or URL-encoding of a
   // value is still redacted from command output.
   input.registerRedactions(commandCredentialRedactions(botEnvironment));
-  const environment = { ...input.spaceEnvironment, ...botEnvironment };
-  // A failed bot credential still shadows the space credential with the same name.
-  for (const variable of unsetVariables) delete environment[variable];
-  return { env: environment, unsetEnv: [...unsetVariables] };
+  return { env: botEnvironment, unsetEnv: [...unsetVariables] };
 }
 
 /** Another command credential of this bot that is exported as the same variable. */
