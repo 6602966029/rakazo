@@ -16,6 +16,8 @@ const rolloutSteps = (revision: string) => [
   `${COMPOSE} config --quiet`,
   `${COMPOSE} config`,
   `${COMPOSE} build --build-arg GIT_SHA=${revision}`,
+  // Only this container gets the database owner login; the old API keeps serving meanwhile.
+  `${COMPOSE} run --rm -T migrate`,
   ...["api", "web"].flatMap((service) => [
     `${COMPOSE} ps --all --quiet ${service}`,
     `${COMPOSE} up -d --no-deps --no-recreate --scale ${service}=2 ${service}`,
@@ -65,7 +67,9 @@ function rollout(commands: string[]) {
     .map((line) => line.split(" @ ")[0] ?? line)
     .filter(
       (line) =>
-        / (config|build|up|ps) /.test(`${line} `) || /^docker (inspect|stop|rm) /.test(line),
+        / (config|build|up|ps) /.test(`${line} `) ||
+        line.endsWith(" run --rm -T migrate") ||
+        /^docker (inspect|stop|rm) /.test(line),
     );
 }
 
@@ -104,6 +108,7 @@ if [[ "$*" == *" ps --quiet api" && -z "\${FRESH:-}" ]]; then echo api-old; fi
 if [[ "$*" == *" run --rm --no-deps -T --entrypoint sh postgres "* && -n "\${POSTGRES_16:-}" ]]; then
   echo upgrade
 fi
+if [[ "$*" == *" run --rm -T migrate" && -n "\${FAIL_MIGRATE:-}" ]]; then exit 1; fi
 if [[ "$1" == pull && -n "\${FAIL_PULL:-}" ]]; then exit 1; fi
 if [[ "$*" == *" images -q" ]]; then echo sha256:running; fi
 if [[ "$1" == tag && -n "\${FAIL_TAG:-}" ]]; then exit 1; fi
@@ -442,6 +447,17 @@ describe("production deploy script", () => {
     expect(commands).toContain(`${COMPOSE} up -d --wait api`);
     expect(commands).toContain(`${COMPOSE} up -d --wait web`);
     expect(commands.some((line) => line.includes("--scale"))).toBe(false);
+  });
+
+  it("starts no new container and keeps the old one serving when migrations fail", () => {
+    const deploy = fixture();
+    commit(deploy.upstream, "next");
+    expect(deploy.run({ FAIL_MIGRATE: "1" }).status).toBe(1);
+    const commands = rollout(deploy.commands());
+    expect(commands).toContain(`${COMPOSE} run --rm -T migrate`);
+    expect(commands.some((line) => line.includes(" up "))).toBe(false);
+    expect(commands.some((line) => line.startsWith("docker stop"))).toBe(false);
+    expect(deploy.head()).toBe(deploy.first);
   });
 
   it("keeps the old container serving when the new one fails its health check", () => {

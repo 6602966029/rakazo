@@ -284,6 +284,35 @@ services:
       timeout: 5s
       retries: 20
 
+  # Applies migrations as the database owner, creates the runtime login, and exits. Only this
+  # container gets the owner login: the API and worker connect as rakazo_app, which row-level
+  # security binds, so code running in either cannot find a login that bypasses it.
+  migrate:
+    image: ${RAKAZO_IMAGE:-ghcr.io/elie222/rakazo/app}:${RAKAZO_IMAGE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+    working_dir: /app/apps/api
+    command: ["pnpm", "db:deploy"]
+    restart: "no"
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: 1536m
+    environment:
+      DATABASE_URL: postgres://rakazo_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
+      DATABASE_MIGRATION_URL: postgres://${POSTGRES_USER:-rakazo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     # The tag is what the updater moves. `docker compose pull` fetches it, `up -d` recreates onto
     # it, and the previous tag stays in .env so a rollback is one redeploy rather than a rebuild.
@@ -301,10 +330,7 @@ services:
     # Node runs directly, not through pnpm: pnpm does not pass SIGTERM on, so a stop would kill the
     # process before its graceful shutdown finishes in-flight requests and jobs.
     working_dir: /app/apps/api
-    command:
-      - bash
-      - -lc
-      - pnpm db:deploy && exec env -u DATABASE_MIGRATION_URL node --enable-source-maps dist/index.js
+    command: ["node", "--enable-source-maps", "dist/index.js"]
     init: true
     logging: *logging
     security_opt:
@@ -315,8 +341,6 @@ services:
     mem_limit: 1536m
     environment:
       <<: *app-environment
-      # Owner login for migrations; the start command drops it before serving.
-      DATABASE_MIGRATION_URL: postgres://${POSTGRES_USER:-rakazo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
       # Sign-in, sessions, billing and inbound webhooks: API only.
       API_HOST: "0.0.0.0"
       API_PORT:
@@ -370,6 +394,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         - CMD

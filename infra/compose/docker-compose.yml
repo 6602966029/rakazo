@@ -319,6 +319,23 @@ services:
     volumes:
       - ../../data:/data
 
+  # Applies migrations as the database owner, creates the runtime login, and exits. Only this
+  # container gets the owner login: the API and worker connect as rakazo_app, which row-level
+  # security binds, so code running in either cannot find a login that bypasses it.
+  migrate:
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+    working_dir: /app/apps/api
+    command: ["pnpm", "db:deploy"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://rakazo_app:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
+      DATABASE_MIGRATION_URL: postgres://${POSTGRES_USER:-rakazo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build:
       context: ../..
@@ -326,11 +343,9 @@ services:
     # Node runs directly, not through pnpm: pnpm does not pass SIGTERM on, so a stop would kill the
     # process before its graceful shutdown finishes in-flight requests and jobs.
     working_dir: /app/apps/api
-    command: ["bash", "-lc", "pnpm db:deploy && exec env -u DATABASE_MIGRATION_URL node --enable-source-maps dist/index.js"]
+    command: ["node", "--enable-source-maps", "dist/index.js"]
     environment:
       <<: *app-environment
-      # Owner login for migrations; the start command drops it before serving.
-      DATABASE_MIGRATION_URL: postgres://${POSTGRES_USER:-rakazo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-rakazo}
       # Sign-in, sessions, billing and inbound webhooks: API only.
       API_HOST: "0.0.0.0"
       API_PORT:
@@ -392,6 +407,8 @@ services:
         condition: service_healthy
       data-init:
         condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
 
   worker:
     build:
@@ -416,7 +433,7 @@ services:
         condition: service_healthy
       data-init:
         condition: service_completed_successfully
-      # The API's start command migrates and creates the login the worker uses.
+      # Reached once migrations have run and the login the worker uses exists.
       api:
         condition: service_healthy
 

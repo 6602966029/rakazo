@@ -111,6 +111,9 @@ container_healthy() {
 # normally; the replaced containers already match the new configuration and stay as they are.
 roll_out() {
   local service old new
+  # Migrations run first, from their own container: it is the only one given the owner login.
+  # The old API keeps serving meanwhile, so each migration must work with the previous release.
+  compose "${UP_TIMEOUT}" run --rm -T migrate
   for service in api web; do
     old="$(compose 1m ps --all --quiet "${service}")"
     if [[ -z "${old}" ]]; then
