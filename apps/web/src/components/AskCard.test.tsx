@@ -215,9 +215,9 @@ function loginInput(label: string) {
 }
 
 function hiddenSwitch(label: string) {
-  return container.querySelector<HTMLElement>(
-    `[role="group"][aria-label="${label}"] [role="switch"]`,
-  )!;
+  return [...container.querySelectorAll('[data-testid="login-field-value"]')]
+    .find((row) => row.querySelector(`input[aria-label="${label}"]`))!
+    .querySelector<HTMLElement>('[role="switch"]')!;
 }
 
 it("asks for each requested login field, every one hidden until the person shows it", async () => {

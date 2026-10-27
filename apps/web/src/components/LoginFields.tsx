@@ -19,8 +19,7 @@ export function LoginFieldValue({
 }) {
   const switchId = useId();
   return (
-    // biome-ignore lint/a11y/useSemanticElements: a fieldset's border and legend don't fit this row.
-    <div role="group" aria-label={label} className="flex items-center gap-3">
+    <div data-testid="login-field-value" className="flex items-center gap-3">
       <Input
         className="w-full"
         aria-label={label}
