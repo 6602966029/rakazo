@@ -633,7 +633,11 @@ export function pluginPreviewDto(plugin: ParsedPlugin): PluginPreview {
     resolvedSha: plugin.resolvedSha,
     digest: plugin.digest,
     skipped: plugin.skipped,
-    skills: plugin.skills.map(({ name, description }) => ({ name, description })),
+    skills: plugin.skills.map(({ name, description, files }) => ({
+      name,
+      description,
+      ...(files ? { files: Object.keys(files).sort() } : {}),
+    })),
     mcpServers: plugin.mcpServers.map(({ name, transport, endpoint, headers }) => ({
       name,
       transport,

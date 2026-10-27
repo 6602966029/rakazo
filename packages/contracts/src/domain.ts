@@ -649,8 +649,6 @@ export const AgentSkillSchema = z.object({
   content: z.string(),
   source: AgentSkillSourceSchema,
   readOnly: z.boolean(),
-  /** Paths of the text files stored beside SKILL.md; the bot reads them through skill_read. */
-  files: z.array(z.string()).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -782,6 +780,8 @@ export type CapabilityInstall = z.infer<typeof CapabilityInstallSchema>;
 export const PluginPreviewSkillSchema = z.object({
   name: z.string(),
   description: z.string(),
+  /** Paths of the reference files that install with the skill. */
+  files: z.array(z.string()).optional(),
 });
 export const PluginPreviewMcpServerSchema = z.object({
   name: z.string(),

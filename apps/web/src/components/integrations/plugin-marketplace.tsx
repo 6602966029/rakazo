@@ -557,6 +557,14 @@ export function PluginDetail({
                     {skill.description}
                   </span>
                 </span>
+                {skill.files?.length ? (
+                  <span
+                    className="shrink-0 text-[12.5px] text-muted-foreground"
+                    title={skill.files.join("\n")}
+                  >
+                    <Plural value={skill.files.length} one="# file" other="# files" />
+                  </span>
+                ) : null}
               </li>
             ))}
             {skills.length > shownSkills.length ? (

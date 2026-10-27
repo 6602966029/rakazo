@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { BUILTIN_AGENT_SKILLS, skillFiles } from "@rakazo/adapters";
+import { BUILTIN_AGENT_SKILLS } from "@rakazo/adapters";
 import type { Actor, AgentSkill, AgentSkillSource } from "@rakazo/contracts";
 import type { SkillSource } from "@rakazo/core";
 import {
@@ -18,7 +18,6 @@ type AgentSkillRow = {
   description: string;
   content: string;
   source: string;
-  files?: unknown;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -30,7 +29,6 @@ function asSource(value: string): AgentSkillSource {
 
 export function mapAgentSkill(row: AgentSkillRow): AgentSkill {
   const source = asSource(row.source);
-  const fileNames = Object.keys(skillFiles(row.files)).sort();
   return {
     id: row.id,
     name: row.name,
@@ -38,7 +36,6 @@ export function mapAgentSkill(row: AgentSkillRow): AgentSkill {
     content: row.content,
     source,
     readOnly: isSkillReadOnly(source as SkillSource),
-    ...(fileNames.length ? { files: fileNames } : {}),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
