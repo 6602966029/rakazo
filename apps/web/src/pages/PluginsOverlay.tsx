@@ -1136,7 +1136,7 @@ export function PluginsOverlay({
               placeholder={t`Search apps`}
               className="h-11 rounded-xl px-4 md:text-[15px]"
             />
-            {categories.length >= 2 ? (
+            {categories.length >= 2 || category ? (
               <div className="flex flex-wrap gap-2" data-testid="integration-categories">
                 {[null, ...categories.slice(0, CHIP_COUNT)].map((name) => (
                   <Button

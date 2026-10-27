@@ -1006,7 +1006,7 @@ export default function Integrations() {
           />
         ) : null}
 
-        {!detailItem && categories.length >= 2 ? (
+        {!detailItem && (categories.length >= 2 || category) ? (
           <View style={styles.categoryPicker}>
             <MenuPicker
               label={t("Category")}
