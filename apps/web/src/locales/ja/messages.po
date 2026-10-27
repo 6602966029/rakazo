@@ -1433,6 +1433,10 @@ msgstr "コマンド変数"
 msgid "Comment"
 msgstr "コメント"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Communication"
+msgstr ""
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
 msgstr "コンパクト"
@@ -2298,6 +2302,10 @@ msgstr "ボットのアバターをカスタマイズ"
 msgid "Dark"
 msgstr "ダーク"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Data"
+msgstr ""
+
 #: src/lib/billing.ts
 #: src/lib/cron.ts
 msgid "day"
@@ -2428,6 +2436,10 @@ msgstr "拒否"
 msgid "Description"
 msgstr "説明"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Design"
+msgstr ""
+
 #: src/components/DesktopUpdates.tsx
 msgid "Desktop app"
 msgstr "デスクトップアプリ"
@@ -2440,6 +2452,10 @@ msgstr "デスクトップの更新"
 #: src/pages/shell/composer-error.tsx
 msgid "Details"
 msgstr "詳細"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Developer"
+msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disable a tool"
@@ -2842,6 +2858,10 @@ msgstr "日付で絞り込む"
 #: src/pages/shell/shell-sidebar.tsx
 msgid "Filters"
 msgstr "フィルター"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Finance"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -3464,6 +3484,10 @@ msgstr "未読にする"
 #: src/components/markdown-copy.tsx
 msgid "Markdown table"
 msgstr "Markdown テーブル"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Marketing"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4370,6 +4394,10 @@ msgstr "非公開"
 msgid "Private workspace with its own bots and groups."
 msgstr "専用のボットとグループを持つ非公開のワークスペースです。"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Productivity"
+msgstr ""
+
 #: src/pages/shell/import-status.ts
 msgid "Program: {name}"
 msgstr "プログラム: {name}"
@@ -4437,6 +4465,10 @@ msgstr "参照のみ"
 #: src/pages/ActivityList.tsx
 msgid "Recent"
 msgstr "最近"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Recommended"
+msgstr ""
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -4507,6 +4539,10 @@ msgstr "動作していないコンピューターを再作成します。"
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Recreating the computer"
 msgstr "コンピューターを再作成中"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Recruiting & HR"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Redirect URI"
@@ -4836,6 +4872,10 @@ msgstr "実行"
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr "このボットがこのプロバイダーから検証済みのメッセージを受信したときに実行されます。"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Sales & CRM"
+msgstr ""
+
 #: src/lib/cron.ts
 msgid "Saturday"
 msgstr "土曜日"
@@ -4981,6 +5021,10 @@ msgstr "検索中…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
 msgstr "セキュリティ"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Security & Ops"
+msgstr ""
 
 #: src/pages/shell/chat-header.tsx
 msgid "Select a bot"

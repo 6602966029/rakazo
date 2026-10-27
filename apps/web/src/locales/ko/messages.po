@@ -1433,6 +1433,10 @@ msgstr "명령 변수"
 msgid "Comment"
 msgstr ""
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Communication"
+msgstr ""
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
 msgstr ""
@@ -2298,6 +2302,10 @@ msgstr "봇 아바타 맞춤설정"
 msgid "Dark"
 msgstr "다크"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Data"
+msgstr ""
+
 #: src/lib/billing.ts
 #: src/lib/cron.ts
 msgid "day"
@@ -2428,6 +2436,10 @@ msgstr "거부"
 msgid "Description"
 msgstr "설명"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Design"
+msgstr ""
+
 #: src/components/DesktopUpdates.tsx
 msgid "Desktop app"
 msgstr ""
@@ -2440,6 +2452,10 @@ msgstr ""
 #: src/pages/shell/composer-error.tsx
 msgid "Details"
 msgstr "세부 정보"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Developer"
+msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disable a tool"
@@ -2842,6 +2858,10 @@ msgstr ""
 #: src/pages/shell/shell-sidebar.tsx
 msgid "Filters"
 msgstr "필터"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Finance"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -3464,6 +3484,10 @@ msgstr "읽지 않음으로 표시"
 #: src/components/markdown-copy.tsx
 msgid "Markdown table"
 msgstr "Markdown 표"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Marketing"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4370,6 +4394,10 @@ msgstr "Bot 전용"
 msgid "Private workspace with its own bots and groups."
 msgstr ""
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Productivity"
+msgstr ""
+
 #: src/pages/shell/import-status.ts
 msgid "Program: {name}"
 msgstr "프로그램: {name}"
@@ -4437,6 +4465,10 @@ msgstr ""
 #: src/pages/ActivityList.tsx
 msgid "Recent"
 msgstr "최근"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Recommended"
+msgstr ""
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -4506,6 +4538,10 @@ msgstr "작동하지 않는 컴퓨터를 다시 만듭니다."
 
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Recreating the computer"
+msgstr ""
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Recruiting & HR"
 msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
@@ -4836,6 +4872,10 @@ msgstr "실행"
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr ""
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Sales & CRM"
+msgstr ""
+
 #: src/lib/cron.ts
 msgid "Saturday"
 msgstr "토요일"
@@ -4981,6 +5021,10 @@ msgstr "검색 중…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
 msgstr "보안"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Security & Ops"
+msgstr ""
 
 #: src/pages/shell/chat-header.tsx
 msgid "Select a bot"

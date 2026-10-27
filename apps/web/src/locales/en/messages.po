@@ -1433,6 +1433,10 @@ msgstr "Command variable"
 msgid "Comment"
 msgstr "Comment"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Communication"
+msgstr "Communication"
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
 msgstr "Compact"
@@ -2298,6 +2302,10 @@ msgstr "Customize bot avatar"
 msgid "Dark"
 msgstr "Dark"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Data"
+msgstr "Data"
+
 #: src/lib/billing.ts
 #: src/lib/cron.ts
 msgid "day"
@@ -2428,6 +2436,10 @@ msgstr "Deny"
 msgid "Description"
 msgstr "Description"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Design"
+msgstr "Design"
+
 #: src/components/DesktopUpdates.tsx
 msgid "Desktop app"
 msgstr "Desktop app"
@@ -2440,6 +2452,10 @@ msgstr "Desktop update"
 #: src/pages/shell/composer-error.tsx
 msgid "Details"
 msgstr "Details"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Developer"
+msgstr "Developer"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disable a tool"
@@ -2842,6 +2858,10 @@ msgstr "Filter by date"
 #: src/pages/shell/shell-sidebar.tsx
 msgid "Filters"
 msgstr "Filters"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Finance"
+msgstr "Finance"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -3464,6 +3484,10 @@ msgstr "Mark as Unread"
 #: src/components/markdown-copy.tsx
 msgid "Markdown table"
 msgstr "Markdown table"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Marketing"
+msgstr "Marketing"
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4370,6 +4394,10 @@ msgstr "Private"
 msgid "Private workspace with its own bots and groups."
 msgstr "Private workspace with its own bots and groups."
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Productivity"
+msgstr "Productivity"
+
 #: src/pages/shell/import-status.ts
 msgid "Program: {name}"
 msgstr "Program: {name}"
@@ -4437,6 +4465,10 @@ msgstr "Recall only"
 #: src/pages/ActivityList.tsx
 msgid "Recent"
 msgstr "Recent"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Recommended"
+msgstr "Recommended"
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -4507,6 +4539,10 @@ msgstr "Recreate a computer that is not working."
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Recreating the computer"
 msgstr "Recreating the computer"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Recruiting & HR"
+msgstr "Recruiting & HR"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Redirect URI"
@@ -4836,6 +4872,10 @@ msgstr "Runs"
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr "Runs when this bot receives a verified message from this provider."
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Sales & CRM"
+msgstr "Sales & CRM"
+
 #: src/lib/cron.ts
 msgid "Saturday"
 msgstr "Saturday"
@@ -4981,6 +5021,10 @@ msgstr "Searching…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
 msgstr "Security"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Security & Ops"
+msgstr "Security & Ops"
 
 #: src/pages/shell/chat-header.tsx
 msgid "Select a bot"

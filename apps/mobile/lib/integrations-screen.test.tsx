@@ -9,6 +9,8 @@ import { ConnectorIcon } from "../components/connector-icon";
 
 const state = vi.hoisted(() => ({
   rpc: vi.fn(),
+  marketplace: vi.fn(),
+  push: vi.fn(),
   read: vi.fn(),
   write: vi.fn(),
   current: true,
@@ -18,13 +20,22 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("./side-insets", () => ({ useSideInsets: () => ({}) }));
 vi.mock("expo-router", () => ({
+  useRouter: () => ({ push: state.push }),
   useFocusEffect: (callback: () => undefined | (() => void)) => {
     useEffect(() => {
       if (state.focused) return callback();
     }, [callback, state.focused]);
   },
 }));
-vi.mock("./api", () => ({ rpc: state.rpc }));
+// The plugin catalog has its own seam so app-catalog tests keep their own rpc fakes.
+vi.mock("./api", () => ({
+  rpc: (proc: string, ...args: unknown[]) =>
+    proc === "marketplace/catalog" ? state.marketplace() : state.rpc(proc, ...args),
+}));
+vi.mock("../components/plugin-icon", () => ({
+  PluginIcon: ({ name }: { name: string }) => <span>{name[0]}</span>,
+}));
+vi.mock("../components/menu-picker", () => ({ MenuPicker: () => null }));
 vi.mock("./integrations-cache", () => ({
   integrationsCacheScope: state.scope,
   persistedIntegrationsCacheScope: state.persisted,
@@ -137,6 +148,10 @@ beforeEach(() => {
   state.persisted.mockReset().mockResolvedValue(null);
   state.read.mockReset().mockReturnValue(null);
   state.write.mockReset();
+  state.push.mockReset();
+  state.marketplace
+    .mockReset()
+    .mockResolvedValue({ entries: [], unavailableRegistries: [], skippedEntries: 0 });
   const pending = new Promise<(typeof item)[]>((resolve, reject) => {
     resolveCatalog = resolve;
     rejectCatalog = reject;
@@ -570,4 +585,110 @@ it("shows registered MCP servers with connector initials and sentence case statu
   expect(rows[0]?.textContent).toBe("SSaved serverCredential saved");
   expect(rows[1]?.textContent).toBe("OOpen serverNo auth");
   for (const row of rows) expect(row.querySelector("button")).toBeNull();
+});
+
+const plugin = {
+  id: "cursor:calcom",
+  name: "calcom",
+  displayName: "Calcom",
+  description: "Scheduling",
+  keywords: ["cal.com"],
+  category: "productivity",
+  logo: null,
+  homepage: "https://cal.com",
+  domains: ["cal.com"],
+  registry: "Cursor",
+  source: "https://github.com/acme/plugins#calcom",
+  installedSource: "https://github.com/acme/plugins#calcom",
+};
+
+it("lists plugins by category, hides ones named like a managed app, and opens one", async () => {
+  state.marketplace.mockResolvedValue({
+    entries: [
+      plugin,
+      { ...plugin, id: "dup", displayName: "Example app", installedSource: "dup" },
+      { ...plugin, id: "sentry", displayName: "Sentry", category: "ops" },
+    ],
+    unavailableRegistries: [],
+    skippedEntries: 0,
+  });
+  await render();
+  await act(async () => resolveCatalog([item]));
+  const sections = container.querySelectorAll('[data-testid="plugin-section"]');
+  expect([...sections].map((section) => section.textContent)).toEqual([
+    "ProductivityCCalcomScheduling",
+    "Security & OpsSSentryScheduling",
+  ]);
+  const calcom = [...container.querySelectorAll("button")].find((button) =>
+    button.textContent?.includes("Calcom"),
+  );
+  await act(async () => calcom?.click());
+  expect(state.push).toHaveBeenCalledWith({
+    pathname: "/plugin",
+    params: {
+      source: plugin.source,
+      installedSource: plugin.installedSource,
+      name: "Calcom",
+      description: "Scheduling",
+      site: "https://cal.com",
+    },
+  });
+});
+
+it("shows installed plugins with their parts and keeps their servers out of MCP servers", async () => {
+  state.marketplace.mockResolvedValue({
+    entries: [plugin],
+    unavailableRegistries: [],
+    skippedEntries: 0,
+  });
+  const fallback = state.rpc.getMockImplementation();
+  state.rpc.mockImplementation((proc: string) =>
+    proc === "capabilities/list"
+      ? Promise.resolve([
+          {
+            id: "install-a",
+            kind: "plugin",
+            name: "calcom",
+            source: plugin.installedSource,
+            config: {
+              format: "grok",
+              name: "calcom",
+              version: null,
+              description: "",
+              author: null,
+              homepage: null,
+              repository: null,
+              license: null,
+              keywords: [],
+              resolvedSha: "a".repeat(40),
+              digest: `sha256:${"b".repeat(64)}`,
+              skills: [
+                { name: "book", description: "" },
+                { name: "cancel", description: "" },
+              ],
+              mcpServers: [],
+              skipped: [],
+            },
+          },
+        ])
+      : proc === "mcp/servers/list"
+        ? Promise.resolve([
+            {
+              id: "owned",
+              installId: "install-a",
+              name: "calcom: calcom",
+              enabled: true,
+              hasSecret: false,
+              oauthStatus: "none",
+              health: { status: "unknown" },
+            },
+          ])
+        : fallback?.(proc),
+  );
+  await render();
+  await act(async () => resolveCatalog([item]));
+  expect(container.querySelector('[data-testid="installed-plugins"]')?.textContent).toBe(
+    "PluginsCCalcom{connectors}, {skills}Sign in",
+  );
+  expect(container.querySelector('[data-testid="registered-mcp-servers"]')).toBeNull();
 });

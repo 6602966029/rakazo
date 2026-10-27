@@ -1,4 +1,5 @@
 import type { PluginMarketplaceCatalog, PluginMarketplaceEntry } from "@rakazo/contracts";
+import { comparePlugins, matchesPluginQuery, pluginCategory } from "@rakazo/core";
 import { z } from "zod";
 import type { PluginTextReader } from "./plugin-connectors.js";
 import { parsePluginSource } from "./plugin-connectors.js";
@@ -216,15 +217,11 @@ export function createPluginMarketplace(read: PluginTextReader = publicRead) {
           skippedEntries += result.value.skipped;
         } else unavailableRegistries.push(REGISTRIES[i]!.name);
       }
-      const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
       return {
         entries: entries
-          .filter((entry) => {
-            const text =
-              `${entry.name} ${entry.displayName} ${entry.description} ${entry.registry} ${entry.category ?? ""} ${entry.keywords.join(" ")}`.toLowerCase();
-            return words.every((word) => text.includes(word));
-          })
-          .sort((a, b) => a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id)),
+          .map((entry) => ({ ...entry, category: pluginCategory(entry) }))
+          .filter((entry) => matchesPluginQuery(entry, query))
+          .sort(comparePlugins),
         unavailableRegistries,
         skippedEntries,
       };

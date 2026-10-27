@@ -3,9 +3,11 @@ import type {
   Connection,
   ConnectionCatalogItem,
   McpServer,
+  PluginMarketplaceEntry,
   RpcOutput,
 } from "@rakazo/contracts";
 import { CONNECTION_LABEL_MAX_LENGTH } from "@rakazo/contracts";
+import type { PluginCategory } from "@rakazo/core";
 import {
   buildFeaturedConnectorTiles,
   CONNECTION_CATALOG_PAGE_SIZE,
@@ -17,7 +19,7 @@ import {
   humanizeToolName,
   isCatalogItemConnected,
 } from "@rakazo/core";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -33,7 +35,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ConnectorIcon } from "../../components/connector-icon";
+import { MenuPicker } from "../../components/menu-picker";
 import { NativeActionButton } from "../../components/native-action-button";
+import { PluginIcon } from "../../components/plugin-icon";
 import { Chevron } from "../../components/row-accessories";
 import { rpc } from "../../lib/api";
 import { mobileTokens } from "../../lib/appearance";
@@ -48,6 +52,17 @@ import {
 } from "../../lib/integrations-cache";
 import { loadLastBotId } from "../../lib/last-bot";
 import { native, useThemedStyles } from "../../lib/native";
+import type { PluginParams } from "../../lib/plugin-marketplace";
+import {
+  browsablePlugins,
+  filterPlugins,
+  gitImportParams,
+  mcpServerReady,
+  pluginCategories,
+  pluginParams,
+  pluginSite,
+  pluginSkillCount,
+} from "../../lib/plugin-marketplace";
 import { useSideInsets } from "../../lib/side-insets";
 import { errorText } from "../../lib/user-error";
 
@@ -55,11 +70,27 @@ type SourceKind = "treg" | "executor" | "mcp" | "api" | "graphql";
 type ConnectionTool = RpcOutput<"connections/tools">[number];
 
 const LOGO_SIZE = 32;
+const SECTION_SIZE = 4;
+const PLUGIN_PAGE_SIZE = 20;
 
 export default function Integrations() {
   const sideInsets = useSideInsets();
+  const router = useRouter();
   const styles = useThemedStyles(createIntegrationsStyles);
   const { t } = useI18n();
+  const categoryLabels: Record<PluginCategory, string> = {
+    productivity: t("Productivity"),
+    communication: t("Communication"),
+    sales: t("Sales & CRM"),
+    marketing: t("Marketing"),
+    finance: t("Finance"),
+    people: t("Recruiting & HR"),
+    design: t("Design"),
+    code: t("Developer"),
+    data: t("Data"),
+    ops: t("Security & Ops"),
+  };
+  const categoryLabel = (name: string) => categoryLabels[name as PluginCategory] ?? name;
   const { width } = useWindowDimensions();
   const catalogColumns = width >= 480 ? 2 : 1;
   const [catalog, setCatalog] = useState<ConnectionCatalogItem[]>([]);
@@ -69,6 +100,12 @@ export default function Integrations() {
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [mcpError, setMcpError] = useState<string | null>(null);
   const [sources, setSources] = useState<CapabilityInstall[]>([]);
+  const [pluginInstalls, setPluginInstalls] = useState<CapabilityInstall[]>([]);
+  const [pluginEntries, setPluginEntries] = useState<PluginMarketplaceEntry[]>([]);
+  const [pluginsState, setPluginsState] = useState<"loading" | "ready" | "partial">("loading");
+  const [category, setCategory] = useState("");
+  const [pluginCount, setPluginCount] = useState(PLUGIN_PAGE_SIZE);
+  const [gitUrl, setGitUrl] = useState("");
   const [sourceKind, setSourceKind] = useState<SourceKind | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [name, setName] = useState("");
@@ -162,6 +199,12 @@ export default function Integrations() {
   const showFeatured = !query.trim();
   const catalogApps = useMemo(() => filterConnectionCatalogItems(catalog, query), [catalog, query]);
   const renderedApps = catalogApps.slice(0, visibleCount);
+  const plugins = useMemo(() => browsablePlugins(pluginEntries, catalog), [pluginEntries, catalog]);
+  const categories = useMemo(() => pluginCategories(plugins), [plugins]);
+  const pluginMatches = filterPlugins(plugins, query, category || null, categoryLabel);
+  const filtering = Boolean(query.trim() || category);
+  const installedSources = new Set(pluginInstalls.map((install) => install.source));
+  const standaloneServers = mcpServers.filter((server) => !server.installId);
 
   const detailItem = useMemo(() => {
     if (!detailKey) return null;
@@ -180,6 +223,7 @@ export default function Integrations() {
     applySnapshot({ catalog: [], connections: [] });
     setCatalogReady(false);
     setSources([]);
+    setPluginInstalls([]);
     setMcpServers([]);
     setMcpError(null);
     setDetailKey(null);
@@ -212,6 +256,7 @@ export default function Integrations() {
       applySnapshot({ catalog: [], connections: [] });
       setCatalogReady(false);
       setSources([]);
+      setPluginInstalls([]);
       setMcpServers([]);
       setMcpError(null);
       setDetailKey(null);
@@ -257,9 +302,25 @@ export default function Integrations() {
               (item) => item.kind === "mcp" || item.kind === "api" || item.kind === "graphql",
             ),
           );
+          setPluginInstalls(installs.filter((item) => item.kind === "plugin"));
         }
       })
       .catch(() => undefined);
+    void rpc("marketplace/catalog", { query: "" })
+      .then((result) => {
+        if (
+          mounted.current &&
+          isIntegrationsScopeCurrent(scope) &&
+          sourceGeneration === sourcesGeneration.current
+        ) {
+          setPluginEntries(result.entries);
+          setPluginsState(result.unavailableRegistries.length ? "partial" : "ready");
+        }
+      })
+      .catch(() => {
+        if (mounted.current && sourceGeneration === sourcesGeneration.current)
+          setPluginsState("partial");
+      });
     setCatalogError(null);
     let next: IntegrationsSnapshot;
     try {
@@ -351,6 +412,189 @@ export default function Integrations() {
       cancelled = true;
     };
   }, [detailKey, toolsTick]);
+
+  function openPlugin(params: PluginParams) {
+    router.push({ pathname: "/plugin", params });
+  }
+
+  function installedParams(install: CapabilityInstall): PluginParams {
+    const entry = pluginEntries.find((row) => row.installedSource === install.source);
+    return entry
+      ? pluginParams(entry)
+      : { source: install.source, installedSource: install.source, name: install.name };
+  }
+
+  function renderPluginRow(entry: PluginMarketplaceEntry) {
+    const installed = installedSources.has(entry.installedSource);
+    return (
+      <Pressable
+        key={entry.id}
+        accessibilityRole="button"
+        accessibilityLabel={entry.displayName}
+        onPress={() => openPlugin(pluginParams(entry))}
+        style={({ pressed }) => [
+          styles.row,
+          catalogColumns === 2 ? styles.catalogCell : null,
+          pressed && styles.pressed,
+        ]}
+      >
+        <PluginIcon
+          logo={entry.logo}
+          name={entry.displayName}
+          site={pluginSite(entry)}
+          size={LOGO_SIZE}
+        />
+        <View style={styles.grow}>
+          <Text numberOfLines={1} style={styles.title}>
+            {entry.displayName}
+          </Text>
+          {entry.description ? (
+            <Text numberOfLines={1} style={styles.secondary}>
+              {entry.description}
+            </Text>
+          ) : null}
+        </View>
+        {installed ? <Text style={styles.secondary}>{t("Added")}</Text> : <Chevron />}
+      </Pressable>
+    );
+  }
+
+  function pluginSummary(connectors: number, skills: number) {
+    const connectorText =
+      connectors === 1 ? t("1 connector") : t("{count} connectors", { count: connectors });
+    const skillText = skills === 1 ? t("1 skill") : t("{count} skills", { count: skills });
+    if (connectors && skills)
+      return t("{connectors}, {skills}", { connectors: connectorText, skills: skillText });
+    return connectors ? connectorText : skillText;
+  }
+
+  function renderInstalledPlugins() {
+    return (
+      <View testID="installed-plugins" style={styles.catalogStack}>
+        <Text style={styles.section}>{t("Plugins")}</Text>
+        {pluginInstalls.map((install) => {
+          const params = installedParams(install);
+          const servers = mcpServers.filter((server) => server.installId === install.id);
+          const ready = servers.every(mcpServerReady);
+          return (
+            <Pressable
+              key={install.id}
+              testID="installed-plugin"
+              accessibilityRole="button"
+              accessibilityLabel={params.name}
+              onPress={() => openPlugin(params)}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            >
+              <PluginIcon
+                logo={params.logo}
+                name={params.name}
+                site={params.site}
+                size={LOGO_SIZE}
+              />
+              <View style={styles.grow}>
+                <Text numberOfLines={1} style={styles.title}>
+                  {params.name}
+                </Text>
+                <Text numberOfLines={1} style={styles.secondary}>
+                  {pluginSummary(servers.length, pluginSkillCount(install))}
+                </Text>
+              </View>
+              {ready ? (
+                <Text style={styles.connected}>{t("Connected")}</Text>
+              ) : (
+                <NativeActionButton
+                  fill={false}
+                  label={t("Sign in")}
+                  onPress={() => openPlugin(params)}
+                  prominence="secondary"
+                />
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
+
+  function renderPlugins() {
+    if (pluginsState === "loading") {
+      return catalogReady ? (
+        <ActivityIndicator color={native.secondaryLabel} accessibilityLabel={t("Loading…")} />
+      ) : null;
+    }
+    const failed =
+      pluginsState === "partial" ? (
+        <View style={styles.catalogStack}>
+          <Text style={styles.secondary}>{t("Some plugins could not be loaded.")}</Text>
+          <NativeActionButton
+            label={t("Retry")}
+            fill={false}
+            onPress={() => {
+              setPluginsState("loading");
+              void retryRefresh();
+            }}
+            prominence="secondary"
+          />
+        </View>
+      ) : null;
+    if (filtering) {
+      return (
+        <>
+          {failed}
+          {pluginMatches.length ? (
+            <View
+              testID="plugin-results"
+              style={catalogColumns === 2 ? styles.catalogGrid : styles.catalogStack}
+            >
+              {pluginMatches.slice(0, pluginCount).map(renderPluginRow)}
+            </View>
+          ) : null}
+          {pluginCount < pluginMatches.length ? (
+            <NativeActionButton
+              label={t("Show more")}
+              onPress={() => setPluginCount((count) => count + PLUGIN_PAGE_SIZE)}
+              prominence="secondary"
+            />
+          ) : null}
+        </>
+      );
+    }
+    const uncategorized = plugins.filter((entry) => !entry.category);
+    const sections: Array<[string | null, PluginMarketplaceEntry[]]> = [
+      ...categories.map((name): [string, PluginMarketplaceEntry[]] => [
+        name,
+        plugins.filter((entry) => entry.category === name),
+      ]),
+      ...(uncategorized.length ? [[null, uncategorized] as [null, PluginMarketplaceEntry[]]] : []),
+    ];
+    return (
+      <>
+        {failed}
+        {sections.map(([name, entries]) => (
+          <View key={name ?? "other"} testID="plugin-section" style={styles.catalogStack}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{name ? categoryLabel(name) : t("More")}</Text>
+              {name && entries.length > SECTION_SIZE ? (
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => {
+                    setCategory(name);
+                    setPluginCount(PLUGIN_PAGE_SIZE);
+                  }}
+                >
+                  <Text style={styles.link}>{t("View all")}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <View style={catalogColumns === 2 ? styles.catalogGrid : styles.catalogStack}>
+              {entries.slice(0, SECTION_SIZE).map(renderPluginRow)}
+            </View>
+          </View>
+        ))}
+      </>
+    );
+  }
 
   function closeAdvanced() {
     setAdvancedOpen(false);
@@ -745,6 +989,7 @@ export default function Integrations() {
             onChangeText={(value) => {
               setQuery(value);
               setVisibleCount(CONNECTION_CATALOG_PAGE_SIZE);
+              setPluginCount(PLUGIN_PAGE_SIZE);
             }}
             accessibilityLabel={t("Search apps")}
             placeholder={t("Search apps")}
@@ -756,7 +1001,28 @@ export default function Integrations() {
           />
         ) : null}
 
-        {!detailItem && (mcpServers.length > 0 || mcpError) ? (
+        {!detailItem && categories.length >= 2 ? (
+          <View style={styles.categoryPicker}>
+            <MenuPicker
+              label={t("Category")}
+              showLabel={false}
+              plain
+              choices={[
+                { key: "", label: t("All") },
+                ...categories.map((name) => ({ key: name, label: categoryLabel(name) })),
+              ]}
+              value={category}
+              onChange={(key) => {
+                setCategory(key);
+                setPluginCount(PLUGIN_PAGE_SIZE);
+              }}
+            />
+          </View>
+        ) : null}
+
+        {!detailItem && !filtering && pluginInstalls.length > 0 ? renderInstalledPlugins() : null}
+
+        {!detailItem && !category && (standaloneServers.length > 0 || mcpError) ? (
           <View testID="registered-mcp-servers" style={styles.catalogStack}>
             <Text style={styles.section}>{t("MCP servers")}</Text>
             {mcpError ? (
@@ -770,7 +1036,7 @@ export default function Integrations() {
                 />
               </View>
             ) : null}
-            {mcpServers
+            {standaloneServers
               .filter((server) =>
                 `${server.name} ${server.description}`
                   .toLowerCase()
@@ -840,7 +1106,7 @@ export default function Integrations() {
               <Text style={styles.secondary}>{t(EMPTY_PLUGIN_CATALOG_MESSAGE)}</Text>
             ) : null}
 
-            {catalogReady && catalog.length > 0 ? (
+            {catalogReady && catalog.length > 0 && !category ? (
               <View style={catalogColumns === 2 ? styles.catalogGrid : styles.catalogStack}>
                 {showFeatured
                   ? featuredTiles.map((tile) => {
@@ -876,17 +1142,23 @@ export default function Integrations() {
               </View>
             ) : null}
 
-            {catalogReady && catalog.length > 0 && catalogApps.length === 0 && !showFeatured ? (
+            {catalogReady &&
+            catalogApps.length === 0 &&
+            pluginMatches.length === 0 &&
+            pluginsState !== "loading" &&
+            filtering ? (
               <Text style={styles.secondary}>{t("No apps match your search.")}</Text>
             ) : null}
 
-            {renderedApps.length < catalogApps.length ? (
+            {!category && renderedApps.length < catalogApps.length ? (
               <NativeActionButton
                 label={t("Show more")}
                 onPress={() => setVisibleCount((count) => count + CONNECTION_CATALOG_PAGE_SIZE)}
                 prominence="secondary"
               />
             ) : null}
+
+            {renderPlugins()}
 
             <Pressable
               accessibilityRole="button"
@@ -904,6 +1176,26 @@ export default function Integrations() {
 
             {advancedOpen ? (
               <View style={styles.advancedBody}>
+                <View testID="plugin-git-import" style={styles.card}>
+                  <TextInput
+                    value={gitUrl}
+                    onChangeText={setGitUrl}
+                    accessibilityLabel={t("Plugin GitHub URL")}
+                    placeholder="https://github.com/owner/plugin"
+                    placeholderTextColor={native.tertiaryLabel}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    maxLength={2048}
+                    style={styles.input}
+                  />
+                  <NativeActionButton
+                    disabled={!gitUrl.trim()}
+                    label={t("Install from GitHub")}
+                    onPress={() => openPlugin(gitImportParams(gitUrl))}
+                    prominence="secondary"
+                  />
+                </View>
                 <View style={styles.accountActions}>
                   {(["mcp", "api", "graphql", "executor", "treg"] as const).map((kind) => (
                     <NativeActionButton
@@ -1092,6 +1384,16 @@ function createIntegrationsStyles() {
     grow: { flex: 1, gap: 3, minWidth: 0 },
     title: { color: native.label, fontSize: 15, fontWeight: "600" },
     secondary: { color: native.secondaryLabel, fontSize: 13 },
+    connected: { color: mobileTokens().success, fontSize: 13 },
+    pressed: { backgroundColor: native.fillPressed },
+    categoryPicker: { alignSelf: "flex-start" },
+    sectionHeader: {
+      marginTop: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    sectionTitle: { color: native.label, fontSize: 16, fontWeight: "600" },
     accountActions: {
       flexDirection: "row",
       flexWrap: "wrap",

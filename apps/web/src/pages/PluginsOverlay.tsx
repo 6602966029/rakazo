@@ -8,6 +8,7 @@ import type {
   PluginMarketplaceEntry,
 } from "@rakazo/contracts";
 import { CONNECTION_LABEL_MAX_LENGTH, PluginPreviewSchema } from "@rakazo/contracts";
+import type { PluginCategory } from "@rakazo/core";
 import {
   buildFeaturedConnectorTiles,
   CONNECTION_CATALOG_PAGE_SIZE,
@@ -17,6 +18,10 @@ import {
   filterConnectionCatalogItems,
   humanizeToolName,
   isCatalogItemConnected,
+  isRecommendedPlugin,
+  matchesPluginQuery,
+  matchesWordPrefixes,
+  PLUGIN_CATEGORIES,
 } from "@rakazo/core";
 import { fetchFresh, writeSaved } from "@rakazo/core/query";
 import {
@@ -84,17 +89,6 @@ const NO_PLUGINS: PluginMarketplaceEntry[] = [];
 const SECTION_SIZE = 6;
 const CHIP_COUNT = 6;
 const PLUGIN_PAGE_SIZE = 24;
-
-function categoryLabel(category: string) {
-  const label = category.replace(/[-_]+/g, " ");
-  return label[0]!.toUpperCase() + label.slice(1);
-}
-
-function matchesQuery(entry: PluginMarketplaceEntry, words: string[]) {
-  const text =
-    `${entry.displayName} ${entry.name} ${entry.description} ${entry.category ?? ""} ${entry.keywords.join(" ")}`.toLowerCase();
-  return words.every((word) => text.includes(word));
-}
 
 /** "GMAIL_SEND_EMAIL" under Gmail reads as "Send email": the app is already the page title. */
 function toolLabel(name: string, item: ConnectionCatalogItem) {
@@ -281,7 +275,14 @@ export function PluginsOverlay({
   const showFeatured = !query.trim();
 
   const visible = useMemo(() => filterConnectionCatalogItems(catalog, query), [catalog, query]);
-  const rendered = visible.slice(0, visibleCount);
+  // Apps whose name starts with the query come before plugins; mid-word matches trail them.
+  const strongMatches = showFeatured
+    ? []
+    : visible.filter((item) => matchesWordPrefixes(item.name, query));
+  const weakMatches = showFeatured
+    ? visible
+    : visible.filter((item) => !matchesWordPrefixes(item.name, query));
+  const rendered = weakMatches.slice(0, visibleCount);
 
   // A managed app and a plugin with the same name would read as one app listed twice.
   const plugins = useMemo(() => {
@@ -290,15 +291,27 @@ export function PluginsOverlay({
       (entry) => !managed.has(entry.displayName.toLowerCase()),
     );
   }, [catalog, pluginCatalog.data]);
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const entry of plugins)
-      if (entry.category) counts.set(entry.category, (counts.get(entry.category) ?? 0) + 1);
-    return [...counts].sort((a, b) => b[1] - a[1]).map(([name]) => name);
-  }, [plugins]);
-  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const categoryLabels: Record<PluginCategory, string> = {
+    productivity: t`Productivity`,
+    communication: t`Communication`,
+    sales: t`Sales & CRM`,
+    marketing: t`Marketing`,
+    finance: t`Finance`,
+    people: t`Recruiting & HR`,
+    design: t`Design`,
+    code: t`Developer`,
+    data: t`Data`,
+    ops: t`Security & Ops`,
+  };
+  const categoryLabel = (name: string) => categoryLabels[name as PluginCategory] ?? name;
+  const categories: string[] = PLUGIN_CATEGORIES.filter((name) =>
+    plugins.some((entry) => entry.category === name),
+  );
+  const searching = query.trim().length > 0;
   const pluginMatches = plugins.filter(
-    (entry) => (!category || entry.category === category) && matchesQuery(entry, words),
+    (entry) =>
+      (!category || entry.category === category) &&
+      matchesPluginQuery(entry, query, entry.category ? categoryLabel(entry.category) : ""),
   );
   const installedPlugin = (installedSource: string) =>
     pluginInstalls.find((row) => row.source === installedSource);
@@ -808,7 +821,7 @@ export function PluginsOverlay({
           </Button>
         </div>
       );
-    if (category || words.length)
+    if (category || searching)
       return pluginMatches.length ? (
         <section data-testid="plugin-results" className="mt-2">
           <div className="grid grid-cols-2 gap-2">
@@ -827,31 +840,56 @@ export function PluginsOverlay({
           ) : null}
         </section>
       ) : null;
+    const managed = new Map(catalog.map((item) => [item.name.toLowerCase(), item]));
+    // A recommended brand this deployment already offers as a managed app is listed as that app.
+    const recommended = (pluginCatalog.data?.entries ?? NO_PLUGINS)
+      .filter(isRecommendedPlugin)
+      .slice(0, SECTION_SIZE);
     const uncategorized = plugins.filter((entry) => !entry.category);
-    const sections: Array<[string | null, PluginMarketplaceEntry[]]> = [
-      ...categories.map((name): [string, PluginMarketplaceEntry[]] => [
+    const sections: Array<[string, string, PluginMarketplaceEntry[]]> = [
+      ...categories.map((name): [string, string, PluginMarketplaceEntry[]] => [
         name,
+        categoryLabel(name),
         plugins.filter((entry) => entry.category === name),
       ]),
-      ...(uncategorized.length ? [[null, uncategorized] as [null, PluginMarketplaceEntry[]]] : []),
+      ...(uncategorized.length
+        ? [["other", t`More`, uncategorized] as [string, string, PluginMarketplaceEntry[]]]
+        : []),
     ];
-    return sections.map(([name, entries]) => (
-      <section key={name ?? "other"} data-testid="plugin-section" className="mt-8">
-        <div className="mb-2 flex items-center justify-between px-2.5">
-          <h2 className="text-[15px] font-medium text-foreground">
-            {name ? categoryLabel(name) : <Trans>More</Trans>}
-          </h2>
-          {name && entries.length > SECTION_SIZE ? (
-            <Button variant="text" size="sm" onClick={() => setCategory(name)}>
-              <Trans>View all</Trans>
-            </Button>
-          ) : null}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {entries.slice(0, SECTION_SIZE).map(renderPluginRow)}
-        </div>
-      </section>
-    ));
+    return (
+      <>
+        {recommended.length ? (
+          <section data-testid="plugin-section" className="mt-8">
+            <h2 className="mb-2 px-2.5 text-[15px] font-medium text-foreground">
+              <Trans>Recommended</Trans>
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              {recommended.map((entry) => {
+                const item = managed.get(entry.displayName.toLowerCase());
+                return item
+                  ? renderCatalogTile(item, item.name, item.logo)
+                  : renderPluginRow(entry);
+              })}
+            </div>
+          </section>
+        ) : null}
+        {sections.map(([name, label, entries]) => (
+          <section key={name} data-testid="plugin-section" className="mt-8">
+            <div className="mb-2 flex items-center justify-between px-2.5">
+              <h2 className="text-[15px] font-medium text-foreground">{label}</h2>
+              {categories.includes(name) && entries.length > SECTION_SIZE ? (
+                <Button variant="text" size="sm" onClick={() => setCategory(name)}>
+                  <Trans>View all</Trans>
+                </Button>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {entries.slice(0, SECTION_SIZE).map(renderPluginRow)}
+            </div>
+          </section>
+        ))}
+      </>
+    );
   }
 
   function renderManage() {
@@ -1284,17 +1322,22 @@ export function PluginsOverlay({
                 </>
               ) : (
                 <>
-                  {visible.length > 0 && !category ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {rendered.map((item) =>
-                        renderCatalogTile(item, item.name, item.logo, {
-                          // Avoid duplicate connection-tile-* ids while featured is also shown.
-                          tileTestId: !showFeatured,
-                        }),
+                  {strongMatches.length > 0 && !category ? (
+                    <div className="mb-2 grid grid-cols-2 gap-2">
+                      {strongMatches.map((item) =>
+                        renderCatalogTile(item, item.name, item.logo, { tileTestId: true }),
                       )}
                     </div>
                   ) : null}
-                  {rendered.length < visible.length && !category ? (
+                  {renderPluginSections()}
+                  {rendered.length > 0 && !category ? (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {rendered.map((item) =>
+                        renderCatalogTile(item, item.name, item.logo, { tileTestId: true }),
+                      )}
+                    </div>
+                  ) : null}
+                  {rendered.length < weakMatches.length && !category ? (
                     <div className="mt-4 flex justify-center">
                       <Button
                         type="button"
@@ -1308,8 +1351,6 @@ export function PluginsOverlay({
                       </Button>
                     </div>
                   ) : null}
-
-                  {renderPluginSections()}
                 </>
               )}
 

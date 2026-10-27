@@ -1434,6 +1434,10 @@ msgstr "命令變數"
 msgid "Comment"
 msgstr "留言"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Communication"
+msgstr ""
+
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Compact"
 msgstr "緊湊"
@@ -2299,6 +2303,10 @@ msgstr "自訂機器人頭像"
 msgid "Dark"
 msgstr "深色"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Data"
+msgstr ""
+
 #: src/lib/billing.ts
 #: src/lib/cron.ts
 msgid "day"
@@ -2429,6 +2437,10 @@ msgstr "拒絕"
 msgid "Description"
 msgstr "描述"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Design"
+msgstr ""
+
 #: src/components/DesktopUpdates.tsx
 msgid "Desktop app"
 msgstr "桌面應用程式"
@@ -2441,6 +2453,10 @@ msgstr "桌面版更新"
 #: src/pages/shell/composer-error.tsx
 msgid "Details"
 msgstr "詳細資訊"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Developer"
+msgstr ""
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Disable a tool"
@@ -2843,6 +2859,10 @@ msgstr "依日期篩選"
 #: src/pages/shell/shell-sidebar.tsx
 msgid "Filters"
 msgstr "篩選器"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Finance"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -3465,6 +3485,10 @@ msgstr "標為未讀"
 #: src/components/markdown-copy.tsx
 msgid "Markdown table"
 msgstr "Markdown 表格"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Marketing"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4371,6 +4395,10 @@ msgstr "私人"
 msgid "Private workspace with its own bots and groups."
 msgstr "擁有專屬機器人與群組的私人工作空間。"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Productivity"
+msgstr ""
+
 #: src/pages/shell/import-status.ts
 msgid "Program: {name}"
 msgstr "程式：{name}"
@@ -4438,6 +4466,10 @@ msgstr "僅回想"
 #: src/pages/ActivityList.tsx
 msgid "Recent"
 msgstr "最近"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Recommended"
+msgstr ""
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -4508,6 +4540,10 @@ msgstr "重建無法正常工作的電腦。"
 #: src/components/ComputerUpdateProgress.tsx
 msgid "Recreating the computer"
 msgstr "正在重建電腦"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Recruiting & HR"
+msgstr ""
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Redirect URI"
@@ -4837,6 +4873,10 @@ msgstr "執行"
 msgid "Runs when this bot receives a verified message from this provider."
 msgstr "當此機器人收到來自這個供應商且通過驗證的訊息時執行。"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Sales & CRM"
+msgstr ""
+
 #: src/lib/cron.ts
 msgid "Saturday"
 msgstr "週六"
@@ -4982,6 +5022,10 @@ msgstr "正在搜尋…"
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Security"
 msgstr "安全"
+
+#: src/pages/PluginsOverlay.tsx
+msgid "Security & Ops"
+msgstr ""
 
 #: src/pages/shell/chat-header.tsx
 msgid "Select a bot"
