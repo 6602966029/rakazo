@@ -17,6 +17,7 @@ import type { Purchase } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { PaymentWalletDeps } from "./payment-wallets.js";
 import { withPaymentWalletCredential } from "./payment-wallets.js";
+import { deleteSecretBestEffort } from "./secret-store-factory.js";
 
 export type PurchaseDeps = Omit<PaymentWalletDeps, "paymentWallet"> & {
   jobs: JobPublisher;
@@ -278,13 +279,17 @@ export async function resolvePurchaseCardFill(
   if (!text) return { error: "This card has no security code." };
   // The page keeps the card after this run, so later runs on this bot hide it too.
   if (!purchase.cardCiphertext) {
-    const stored = await deps.secretStore.put(secret.number, context, {
-      recordId: `purchase-card:${purchase.id}`,
-    });
-    await deps.prisma.purchase.updateMany({
-      where: { id: purchase.id, cardCiphertext: null },
-      data: { cardCiphertext: stored.ciphertext },
-    });
+    const recordId = `purchase-card:${purchase.id}`;
+    const stored = await deps.secretStore.put(secret.number, context, { recordId });
+    // A concurrent first fill or a failed write leaves this copy unreferenced, so it goes.
+    const saved = await deps.prisma.purchase
+      .updateMany({
+        where: { id: purchase.id, cardCiphertext: null },
+        data: { cardCiphertext: stored.ciphertext },
+      })
+      .catch(() => ({ count: 0 }));
+    if (!saved.count)
+      await deleteSecretBestEffort(deps.secretStore, stored.ciphertext, { recordId });
   }
   return {
     text,

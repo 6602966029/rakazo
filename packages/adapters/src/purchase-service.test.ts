@@ -37,6 +37,9 @@ function setup() {
       return { id: ref, ref, ciphertext: ref };
     },
     load: async (ref: string) => secrets.get(ref)!,
+    delete: async (ref: string) => {
+      secrets.delete(ref);
+    },
   } as never;
   const deps = {
     prisma: db.prisma,
@@ -219,5 +222,18 @@ describe("resolvePurchaseCardFill", () => {
       "4242 4242 4242 4242",
     ]);
     expect(await loadPurchaseCardRedactions(env.deps, { ...run, botId: "bot-2" })).toEqual([]);
+  });
+
+  it("deletes a sealed card that two first fills raced to save", async () => {
+    const env = setup();
+    await env.call("request_purchase", request);
+    env.purchases[0]!.status = "approved";
+    const run = { spaceId: fixture.spaceId, userId: fixture.userId };
+    await Promise.all([
+      resolvePurchaseCardFill(env.deps, run, "purchase-1", "number"),
+      resolvePurchaseCardFill(env.deps, run, "purchase-1", "cvc"),
+    ]);
+    expect(env.secrets.size).toBe(1);
+    expect(env.secrets.has(env.purchases[0]!.cardCiphertext!)).toBe(true);
   });
 });
