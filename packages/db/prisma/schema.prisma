@@ -33,6 +33,7 @@ model User {
   avatarStyle                 String                       @default("organic")
   /// IANA timezone such as "Pacific/Auckland". Null until set; bots then get UTC only.
   timezone                    String?
+  marketingEmailOptOutAt      DateTime?
   sessions                    Session[]
   accounts                    Account[]
   passkeys                    Passkey[]

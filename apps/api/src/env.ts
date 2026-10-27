@@ -101,8 +101,10 @@ export interface AppEnv {
   expoAccessToken: string | undefined;
   smtpUrl: string | undefined;
   emailProvider?: string;
+  welcomeEmailEnabled?: boolean;
   emailApiKey?: string;
   emailFrom: string | undefined;
+  emailReplyTo?: string;
   /** Billing turns on only when all three are set; self-hosted installs leave them unset. */
   stripeSecretKey: string | undefined;
   stripeWebhookSecret: string | undefined;
@@ -270,6 +272,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     emailProvider: optional(source.EMAIL_PROVIDER),
     emailApiKey: optional(source.EMAIL_API_KEY),
     emailFrom: optional(source.EMAIL_FROM),
+    emailReplyTo: optional(source.EMAIL_REPLY_TO),
+    welcomeEmailEnabled: source.WELCOME_EMAIL_ENABLED === "true",
     stripeSecretKey: optional(source.STRIPE_SECRET_KEY),
     stripeWebhookSecret: optional(source.STRIPE_WEBHOOK_SECRET),
     stripePriceId: optional(source.STRIPE_PRICE_ID),
