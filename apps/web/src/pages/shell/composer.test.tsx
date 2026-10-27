@@ -3,7 +3,7 @@
 import { i18n } from "@lingui/core";
 import type { AgentSkillCatalogEntry, ThreadMessage } from "@rakazo/contracts";
 import type { ComposerMention } from "@rakazo/core";
-import { MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
+import { MODEL_REQUIRED_SEND_ERROR, resolveComposerSendPlan } from "@rakazo/core";
 import type { ComponentProps, ReactNode } from "react";
 import { act, createRef } from "react";
 import type { Root } from "react-dom/client";
@@ -392,6 +392,180 @@ describe("Composer", () => {
     pressEnter(textarea);
     await act(async () => {});
     expect(onSend).toHaveBeenCalledWith("ask @Bob", [bob], expect.any(String));
+  });
+
+  it.each(["bot", "group"])(
+    "deleting only a same-name %s occurrence retires that target",
+    async (deleted) => {
+      const group: ComposerMention = { kind: "group", id: "group-bob", name: "Bob" };
+      const onSend = vi.fn().mockResolvedValue(true);
+      const textarea = renderComposer(onSend, { mentionTargets: [bob, group] });
+      type(textarea, "ask @Bo");
+      pressEnter(textarea);
+      type(textarea, `${textarea.value}then @Bo`);
+      act(() => container?.querySelectorAll<HTMLButtonElement>('[role="option"]')[1]?.click());
+      type(textarea, `${textarea.value}please`);
+      type(textarea, deleted === "group" ? "ask @Bob then please" : "ask then @Bob please");
+      pressEnter(textarea);
+      await act(async () => {});
+      expect(onSend).toHaveBeenCalledWith(
+        deleted === "group" ? "ask @Bob then please" : "ask then @Bob please",
+        [expect.objectContaining(deleted === "group" ? bob : group)],
+        expect.any(String),
+      );
+      const [text, mentions] = onSend.mock.calls[0]!;
+      expect(
+        resolveComposerSendPlan({ text, mentions, hasAttachments: false }).rerouteGroupId,
+      ).toBe(deleted === "group" ? null : group.id);
+    },
+  );
+
+  it.each(["bot", "group"])(
+    "removing a same-name %s chip removes only its occurrence",
+    async (removed) => {
+      const group: ComposerMention = { kind: "group", id: "group-bob", name: "Bob" };
+      const onSend = vi.fn().mockResolvedValue(true);
+      const textarea = renderComposer(onSend, { mentionTargets: [bob, group] });
+      type(textarea, "ask @Bo");
+      pressEnter(textarea);
+      type(textarea, `${textarea.value}then @Bo`);
+      act(() => container?.querySelectorAll<HTMLButtonElement>('[role="option"]')[1]?.click());
+      act(() =>
+        container
+          ?.querySelector<HTMLButtonElement>(`[data-mention-kind="${removed}"] button`)
+          ?.click(),
+      );
+      expect(textarea.value).toBe(removed === "group" ? "ask @Bob then  " : "ask  then @Bob ");
+      pressEnter(textarea);
+      await act(async () => {});
+      expect(onSend).toHaveBeenCalledWith(
+        removed === "group" ? "ask @Bob then" : "ask  then @Bob",
+        [expect.objectContaining(removed === "group" ? bob : group)],
+        expect.any(String),
+      );
+    },
+  );
+
+  it("keeps the correct identity after deleting the first of adjacent identical tokens", async () => {
+    const group: ComposerMention = { kind: "group", id: "group-bob", name: "Bob" };
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend, { mentionTargets: [bob, group] });
+    type(textarea, "@Bo");
+    pressEnter(textarea);
+    type(textarea, `${textarea.value}@Bo`);
+    act(() => container?.querySelectorAll<HTMLButtonElement>('[role="option"]')[1]?.click());
+    act(() => {
+      textarea.setSelectionRange(0, 5);
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    type(textarea, "@Bob ");
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend).toHaveBeenCalledWith(
+      "@Bob",
+      [expect.objectContaining(group)],
+      expect.any(String),
+    );
+    const [text, mentions] = onSend.mock.calls[0]!;
+    expect(resolveComposerSendPlan({ text, mentions, hasAttachments: false }).shouldOpenGroup).toBe(
+      true,
+    );
+  });
+
+  it("restores occurrence identity after remounting a persisted draft", async () => {
+    const group: ComposerMention = { kind: "group", id: "group-bob", name: "Bob" };
+    const onSend = vi.fn().mockResolvedValue(true);
+    let textarea = renderComposer(onSend, { mentionTargets: [bob, group] });
+    type(textarea, "ask @Bo");
+    pressEnter(textarea);
+    type(textarea, `${textarea.value}then @Bo`);
+    act(() => container?.querySelectorAll<HTMLButtonElement>('[role="option"]')[1]?.click());
+    type(textarea, `${textarea.value}please`);
+    act(() => root?.render(<Composer key="restored" {...composerProps} />));
+    textarea = container!.querySelector("textarea")!;
+    expect(textarea.value).toBe("ask @Bob then @Bob please");
+    expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(2);
+    type(textarea, "ask @Bob then please");
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend).toHaveBeenCalledWith("ask @Bob then please", [bob], expect.any(String));
+  });
+
+  it("restores text and occurrence identity together after a refused send", async () => {
+    const group: ComposerMention = { kind: "group", id: "group-bob", name: "Bob" };
+    const onSend = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
+    const textarea = renderComposer(onSend, { mentionTargets: [bob, group] });
+    type(textarea, "ask @Bo");
+    pressEnter(textarea);
+    type(textarea, `${textarea.value}then @Bo`);
+    act(() => container?.querySelectorAll<HTMLButtonElement>('[role="option"]')[1]?.click());
+    type(textarea, `${textarea.value}please`);
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(textarea.value).toBe("ask @Bob then @Bob please");
+    type(textarea, "ask @Bob then please");
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend.mock.calls[1]?.[1]).toEqual([bob]);
+  });
+
+  it.each([
+    [0, 0, 0, 0],
+    [3, 3, 3, 3],
+    [5, 7, 4, 4],
+    [10, 13, 6, 9],
+    [2, 12, 2, 8],
+  ])("maps a selection %s..%s through chip removal", (start, end, nextStart, nextEnd) => {
+    const textarea = renderComposer(vi.fn());
+    type(textarea, "ask @Bo");
+    pressEnter(textarea);
+    type(textarea, `${textarea.value}one two three`);
+    act(() => {
+      textarea.setSelectionRange(start, end);
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    act(() =>
+      container?.querySelector<HTMLButtonElement>('[aria-label="Remove mention Bob"]')?.click(),
+    );
+    expect(textarea.value).toBe("ask  one two three");
+    expect(textarea.selectionStart).toBe(nextStart);
+    expect(textarea.selectionEnd).toBe(nextEnd);
+  });
+
+  it("restores a legacy raw same-name draft without inventing either target identity", async () => {
+    localStorage.setItem("rakazo.composerDraft.bot:bot-1", "@Bob ");
+    const group: ComposerMention = { kind: "group", id: "group-bob", name: "Bob" };
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend, { mentionTargets: [bob, group] });
+    expect(textarea.value).toBe("@Bob ");
+    expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(0);
+    pressEnter(textarea);
+    await act(async () => {});
+    expect(onSend).toHaveBeenCalledWith("@Bob", [], expect.any(String));
+  });
+
+  it("sends only the bound group occurrence through cleanup after a skill prefix and whitespace trim", async () => {
+    const group: ComposerMention = { kind: "group", id: "group-bob", name: "Bob" };
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend, { mentionTargets: [bob, group] });
+    type(textarea, "/sum");
+    act(() =>
+      container?.querySelector<HTMLButtonElement>('[aria-label="Skill summarize"]')?.click(),
+    );
+    type(textarea, "  ask @Bo");
+    pressEnter(textarea);
+    type(textarea, `${textarea.value}then @Bo`);
+    act(() => container?.querySelectorAll<HTMLButtonElement>('[role="option"]')[1]?.click());
+    type(textarea, `${textarea.value}please`);
+    pressEnter(textarea);
+    await act(async () => {});
+    const [text, mentions] = onSend.mock.calls[0]!;
+    expect(text).toBe("/summarize\nask @Bob then @Bob please");
+    expect(resolveComposerSendPlan({ text, mentions, hasAttachments: false })).toMatchObject({
+      trimmed: "/summarize\nask @Bob then please",
+      rerouteGroupId: group.id,
+      mentionPayload: [{ kind: "bot", id: bob.id }],
+    });
   });
 
   it.each([false, true])(

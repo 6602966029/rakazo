@@ -288,12 +288,87 @@ describe("thread composer isolation", () => {
     render({ composerMentionTargets: [group, bot] });
     type("before @He");
     pickMentionAt(0);
-    expect(composer.current!.snapshot().mentions).toEqual([group]);
+    expect(composer.current!.snapshot().mentions).toMatchObject([group]);
     select(10);
     pickMentionAt(1);
     expect(container.querySelector("input")!.value).toBe("before @Helper ");
     expect(composer.current!.snapshot().mentions).toEqual([bot]);
   });
+
+  const bobBot = { kind: "bot", id: "bob-bot", name: "Bob" } as const;
+  const bobGroup = { kind: "group", id: "bob-group", name: "Bob" } as const;
+
+  function selectBothBobs(separator = "and ") {
+    render({ composerMentionTargets: [bobBot, bobGroup] });
+    type("@Bo");
+    pickMentionAt(0);
+    type(`@Bob ${separator}@Bo`);
+    pickMentionAt(1);
+    expect(composer.current!.snapshot().mentions).toMatchObject([bobBot, bobGroup]);
+  }
+
+  it("removes only the deleted group binding when a bot has the same name", () => {
+    selectBothBobs();
+    select(9, 13);
+    type("@Bob and  ");
+    select(9);
+    expect(composer.current!.snapshot().mentions).toEqual([bobBot]);
+  });
+
+  it.each(["text-first", "selection-first"])(
+    "retains the second identity when deleting an identical first token with %s events",
+    (order) => {
+      selectBothBobs("");
+      select(0, 5);
+      if (order === "selection-first") select(0);
+      type("@Bob ");
+      if (order === "text-first") select(0);
+      expect(composer.current!.snapshot().mentions).toMatchObject([
+        { ...bobGroup, ranges: [{ start: 0, end: 4 }] },
+      ]);
+    },
+  );
+
+  it("uses the latest native caret after a previous selection when deleting identical tokens", () => {
+    selectBothBobs("");
+    select(0, 5);
+    select(10);
+    type("@Bob ");
+    select(5);
+    expect(composer.current!.snapshot().mentions).toEqual([bobBot]);
+  });
+
+  it.each([0, 1])("removes only the chip's bound identity at index %s", (index) => {
+    selectBothBobs();
+    const chips = container.querySelectorAll<HTMLButtonElement>(
+      'button[aria-label="Remove mention {name}"]',
+    );
+    act(() => chips[index]!.click());
+    expect(container.querySelector("input")!.value).toBe(index === 0 ? " and @Bob " : "@Bob and  ");
+    expect(composer.current!.snapshot().mentions).toMatchObject(
+      index === 0 ? [bobGroup] : [bobBot],
+    );
+  });
+
+  it.each([
+    { start: 21, end: 21, expectedStart: 14, expectedEnd: 14 },
+    { start: 15, end: 20, expectedStart: 8, expectedEnd: 13 },
+    { start: 9, end: 20, expectedStart: 7, expectedEnd: 13 },
+  ])(
+    "shifts both native selection endpoints after chip removal: $start-$end",
+    ({ start, end, expectedStart, expectedEnd }) => {
+      type("before @He");
+      press("@{name}");
+      type("before @Helper alpha omega");
+      select(start, end);
+      press("Remove mention {name}");
+      expect(container.querySelector("input")!.value).toBe("before  alpha omega");
+      expect(JSON.parse(container.querySelector("input")!.dataset.selection!)).toEqual({
+        start: expectedStart,
+        end: expectedEnd,
+      });
+    },
+  );
 
   it.each(["bot", "group"] as const)(
     "retires a shorter %s mention when replacing it with a multiword bot name",

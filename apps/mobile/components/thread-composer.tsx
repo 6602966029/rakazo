@@ -4,18 +4,22 @@ import type { AgentSkillCatalogEntry } from "@rakazo/contracts";
 import type {
   buildComposerMentionOptions,
   ComposerMention,
+  ComposerMentionBinding,
   ComposerMentionQuery,
+  ComposerMentionRange,
   SlashActionId,
 } from "@rakazo/core";
 import {
-  completeComposerMention,
+  bindComposerMention,
   composerMentionQuery,
+  composerMentionsForPrompt,
+  composerSelectedMentions,
   mentionChipKey,
-  mentionStillInPrompt,
-  removeComposerMention,
+  removeBoundComposerMention,
   SLASH_ACTIONS,
   serializeComposerPrompt,
   truncateSlashDescription,
+  updateComposerMentionBindings,
 } from "@rakazo/core";
 import { MAX_FONT_SCALE } from "@rakazo/ui-tokens";
 import type { Ref } from "react";
@@ -92,12 +96,28 @@ export function ThreadComposer({
   const [selection, setSelection] = useState<{ start: number; end: number }>();
   const [mentionQuery, setMentionQuery] = useState<ComposerMentionQuery | null>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
-  const [selectedMentions, setSelectedMentions] = useState<ComposerMention[]>([]);
+  const [mentionBindings, setMentionBindings] = useState<ComposerMentionBinding[]>([]);
+  const bindingsRef = useRef<ComposerMentionBinding[]>([]);
+  const selectionHistory = useRef<ComposerMentionRange[]>([]);
+  const pendingNativeEdit = useRef<{
+    beforeText: string;
+    afterText: string;
+    bindings: ComposerMentionBinding[];
+    beforeSelections: ComposerMentionRange[];
+  } | null>(null);
+  const selectedMentions = useMemo(
+    () => composerSelectedMentions(mentionBindings),
+    [mentionBindings],
+  );
+  function updateBindings(next: ComposerMentionBinding[]) {
+    bindingsRef.current = next;
+    setMentionBindings(next);
+  }
   const [selectedSkill, setSelectedSkill] = useState<AgentSkillCatalogEntry | null>(null);
   useImperativeHandle(ref, () => ({
     snapshot: () => ({
       promptText: serializeComposerPrompt(draft, selectedSkill),
-      mentions: selectedMentions,
+      mentions: composerMentionsForPrompt(draft, selectedSkill, mentionBindings),
       skill: selectedSkill,
       replyTargetId,
       replyQuote,
@@ -112,7 +132,9 @@ export function ThreadComposer({
       setMentionQuery(null);
       setSlashQuery(null);
       setSelectedSkill(null);
-      setSelectedMentions([]);
+      updateBindings([]);
+      selectionHistory.current = [];
+      pendingNativeEdit.current = null;
     },
   }));
   const mentionOptions = useMemo(() => {
@@ -147,10 +169,13 @@ export function ThreadComposer({
         })
       : [];
   function updateMentionQuery(value: string, start: number, end = start) {
-    const query = composerMentionQuery(value, start, end, [
-      ...composerMentionTargets,
-      ...selectedMentions,
-    ]);
+    const query = composerMentionQuery(
+      value,
+      start,
+      end,
+      [...composerMentionTargets, ...composerSelectedMentions(bindingsRef.current)],
+      bindingsRef.current,
+    );
     if (query) onMentionRequested?.();
     setMentionQuery(query);
   }
@@ -176,63 +201,61 @@ export function ThreadComposer({
       suffix += 1;
     }
     const caret = value.length - suffix;
+    const beforeSelections = [nativeSelection.current, ...selectionHistory.current.toReversed()];
+    const bindings = bindingsRef.current;
+    pendingNativeEdit.current = {
+      beforeText: previous,
+      afterText: value,
+      bindings,
+      beforeSelections,
+    };
+    updateBindings(
+      updateComposerMentionBindings(previous, value, bindings, {
+        before: beforeSelections,
+        after: nativeSelection.current,
+      }),
+    );
+    selectionHistory.current = [];
     draftRef.current = value;
     setDraft(value);
     completedSelection.current = null;
     setSelection(undefined);
     updateMentionQuery(value, caret);
-    setSelectedMentions((current) =>
-      current.filter((mention) =>
-        mentionStillInPrompt(value, mention, [...composerMentionTargets, ...current]),
-      ),
-    );
     const slashMatch = selectedSkill === null ? /^\/([^\n]*)$/.exec(value) : null;
     setSlashQuery(slashMatch ? (slashMatch[1] ?? "") : null);
   }
 
   function insertMention(mention: ComposerMention) {
     if (!mentionQuery) return;
-    const originalText = draftRef.current;
-    const next = completeComposerMention(originalText, mentionQuery, mention);
+    const next = bindComposerMention(draftRef.current, mentionQuery, mention, bindingsRef.current);
+    pendingNativeEdit.current = null;
+    updateBindings(next.bindings);
     draftRef.current = next.text;
     setDraft(next.text);
     nativeSelection.current = { start: next.caret, end: next.caret };
+    selectionHistory.current = [nativeSelection.current];
     completedSelection.current = next.caret;
     setSelection(nativeSelection.current);
     setMentionQuery(null);
-    setSelectedMentions((current) => {
-      const known = [...composerMentionTargets, ...current, mention];
-      const before = originalText.slice(0, mentionQuery.start);
-      const after = originalText.slice(mentionQuery.end);
-      const retained = current.filter(
-        (selected) =>
-          mentionStillInPrompt(before, selected, known) ||
-          mentionStillInPrompt(after, selected, known),
-      );
-      return retained.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
-        ? retained
-        : [...retained, mention];
-    });
     inputRef.current?.focus();
   }
 
   function removeMention(mention: ComposerMention) {
-    const next = removeComposerMention(draftRef.current, mention, [
-      ...composerMentionTargets,
-      ...selectedMentions,
-    ]);
-    draftRef.current = next;
-    setDraft(next);
-    const caret = Math.min(nativeSelection.current.start, next.length);
-    nativeSelection.current = { start: caret, end: caret };
-    completedSelection.current = null;
-    setSelection(nativeSelection.current);
-    setMentionQuery(null);
-    setSelectedMentions((current) =>
-      current.filter((selected) =>
-        mentionStillInPrompt(next, selected, [...composerMentionTargets, ...current]),
-      ),
+    const next = removeBoundComposerMention(
+      draftRef.current,
+      bindingsRef.current,
+      mention,
+      nativeSelection.current,
     );
+    pendingNativeEdit.current = null;
+    updateBindings(next.bindings);
+    draftRef.current = next.text;
+    setDraft(next.text);
+    nativeSelection.current = next.selection;
+    selectionHistory.current = [next.selection];
+    completedSelection.current = null;
+    setSelection(next.selection);
+    setMentionQuery(null);
   }
 
   function insertSkill(skill: AgentSkillCatalogEntry) {
@@ -242,13 +265,15 @@ export function ThreadComposer({
     nativeSelection.current = { start: 0, end: 0 };
     completedSelection.current = null;
     setSelection(nativeSelection.current);
-    setSelectedMentions([]);
+    updateBindings([]);
+    selectionHistory.current = [];
+    pendingNativeEdit.current = null;
     setSlashQuery(null);
   }
 
   function removeLastChip() {
     if (selectedMentions.length > 0) {
-      setSelectedMentions((current) => current.slice(0, -1));
+      removeMention(selectedMentions[selectedMentions.length - 1]!);
       return;
     }
     if (selectedSkill) setSelectedSkill(null);
@@ -260,7 +285,9 @@ export function ThreadComposer({
     nativeSelection.current = { start: 0, end: 0 };
     completedSelection.current = null;
     setSelection(nativeSelection.current);
-    setSelectedMentions([]);
+    updateBindings([]);
+    selectionHistory.current = [];
+    pendingNativeEdit.current = null;
     setSlashQuery(null);
     onSlashAction(action);
   }
@@ -559,6 +586,19 @@ export function ThreadComposer({
                 selection={selection}
                 onSelectionChange={(event) => {
                   const next = event.nativeEvent.selection;
+                  const pending = pendingNativeEdit.current;
+                  if (pending) {
+                    updateBindings(
+                      updateComposerMentionBindings(
+                        pending.beforeText,
+                        pending.afterText,
+                        pending.bindings,
+                        { before: pending.beforeSelections, after: next },
+                      ),
+                    );
+                    pendingNativeEdit.current = null;
+                  }
+                  selectionHistory.current = [...selectionHistory.current.slice(-3), next];
                   nativeSelection.current = next;
                   setSelection(undefined);
                   if (

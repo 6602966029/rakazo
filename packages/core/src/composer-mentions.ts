@@ -7,11 +7,15 @@ export const COMPOSER_MENTION_KINDS = ["bot", "group", "routine", "connector", "
 
 export type ComposerMentionKind = (typeof COMPOSER_MENTION_KINDS)[number];
 
+export type ComposerMentionRange = { start: number; end: number };
+
 /** Chip selected in the composer `@` picker. */
 export type ComposerMention = {
   kind: ComposerMentionKind;
   id: string;
   name: string;
+  /** Exact prompt occurrences for client-side action-token cleanup. */
+  ranges?: ComposerMentionRange[];
   subtitle?: string;
   color?: string;
   /** Owning bot for routine chips (test-run lands on that bot). */
@@ -107,9 +111,17 @@ export function composerMentionQuery(
   selectionStart = text.length,
   selectionEnd = selectionStart,
   knownMentions: readonly MentionName[] = [],
+  bindings: readonly (ComposerMentionRange & { mention: MentionName })[] = [],
 ): ComposerMentionQuery | null {
   if (selectionStart !== selectionEnd || selectionStart < 0 || selectionStart > text.length)
     return null;
+  const bound = bindings.find((span) => selectionStart > span.start && selectionStart <= span.end);
+  if (bound)
+    return {
+      start: bound.start,
+      end: bound.end,
+      query: text.slice(bound.start + 1, selectionStart),
+    };
   const recognized = composerMentionSpans(text, knownMentions).find(
     (span) => selectionStart > span.start && selectionStart <= span.end,
   );
@@ -167,15 +179,35 @@ export function stripMentionToken(
 
 export function stripMentionKinds(
   text: string,
-  mentions: readonly Pick<ComposerMention, "kind" | "name">[],
+  mentions: readonly Pick<ComposerMention, "kind" | "name" | "ranges">[],
   kinds: readonly ComposerMentionKind[],
 ): string {
+  const ranges = mentions
+    .filter((mention) => kinds.includes(mention.kind))
+    .flatMap((mention) =>
+      (mention.ranges ?? []).filter(
+        (range) =>
+          Number.isInteger(range.start) &&
+          Number.isInteger(range.end) &&
+          range.start >= 0 &&
+          range.end <= text.length &&
+          text.slice(range.start, range.end) === `@${mention.name}`,
+      ),
+    )
+    .sort((a, b) => b.start - a.start);
   let result = text;
+  let previousStart = text.length;
+  for (const range of ranges) {
+    if (range.end > previousStart) continue;
+    result = result.slice(0, range.start) + result.slice(range.end);
+    previousStart = range.start;
+  }
   for (const mention of mentions) {
-    if (kinds.includes(mention.kind)) {
+    if (kinds.includes(mention.kind) && mention.ranges === undefined) {
       result = stripMentionToken(result, mention.name, mentions);
     }
   }
+  if (ranges.length) result = result.replace(/[^\S\n]+/g, " ").replace(/[^\S\n]*\n/g, "\n");
   return result.trim();
 }
 
@@ -369,11 +401,7 @@ export function resolveComposerSendPlan(input: {
 } {
   const parts = partitionComposerMentions(input.mentions);
   const mentionedGroup = parts.groups[0];
-  let trimmed = stripMentionKinds(input.text.trim(), input.mentions, [
-    "group",
-    "routine",
-    "connector",
-  ]);
+  let trimmed = stripMentionKinds(input.text, input.mentions, ["group", "routine", "connector"]);
   trimmed = appendConnectorIntent(trimmed, needsAuthConnectorNames(input.mentions));
   if (!trimmed && parts.connectors.length) {
     trimmed = parts.connectors.map((mention) => `@${mention.name}`).join(" ");
