@@ -29,6 +29,7 @@ CREATE TABLE "purchases" (
     "userId" TEXT NOT NULL,
     "botId" TEXT NOT NULL,
     "threadId" TEXT NOT NULL,
+    "threadGeneration" INTEGER NOT NULL,
     "provider" TEXT NOT NULL,
     "remoteId" TEXT NOT NULL,
     "merchantName" TEXT NOT NULL,

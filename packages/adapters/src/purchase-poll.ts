@@ -86,8 +86,14 @@ async function settle(
 ) {
   const committed = await deps.prisma.$transaction(async (tx) => {
     // Same lock order as clearing chat: thread first, then the run it queues.
+    // Clearing the chat bumps its generation, so a cleared chat is not woken for an old purchase.
     const thread = await tx.thread.updateMany({
-      where: { id: purchase.threadId, spaceId: purchase.spaceId, userId: purchase.userId },
+      where: {
+        id: purchase.threadId,
+        spaceId: purchase.spaceId,
+        userId: purchase.userId,
+        historyCompactionGeneration: purchase.threadGeneration,
+      },
       data: { nextEventSeq: { increment: 0 } },
     });
     const [member, bot] = await Promise.all([
@@ -107,7 +113,7 @@ async function settle(
     ]);
     const attached = thread.count > 0 && Boolean(member) && Boolean(bot);
     const pending = PENDING_PURCHASE_STATUSES.has(next.status);
-    // Nobody is left to tell once the bot, its chat or its owner is gone.
+    // Nobody is left to tell once the bot, its chat or its owner is gone, or the chat was cleared.
     const nextPollAt = pending && attached ? new Date(Date.now() + PURCHASE_POLL_MS) : null;
     const wake = attached && WAKE_STATUSES.has(next.status) && next.status !== purchase.wokenStatus;
     // The updatedAt fence makes a concurrent poll or purchase_status write win once.

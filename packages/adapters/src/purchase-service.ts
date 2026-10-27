@@ -168,6 +168,10 @@ async function requestPurchase(
     return providerError(error);
   }
   const pending = PENDING_PURCHASE_STATUSES.has(snapshot.status);
+  const thread = await deps.prisma.thread.findUniqueOrThrow({
+    where: { id: run.threadId },
+    select: { historyCompactionGeneration: true },
+  });
   const purchase = ownedReplay(
     await deps.prisma.purchase.upsert({
       where: { operationKey: context.operationId },
@@ -178,6 +182,7 @@ async function requestPurchase(
         userId: context.userId,
         botId: context.botId,
         threadId: run.threadId,
+        threadGeneration: thread.historyCompactionGeneration,
         provider: provider.describe().id,
         remoteId: snapshot.id,
         merchantName: request.merchantName,

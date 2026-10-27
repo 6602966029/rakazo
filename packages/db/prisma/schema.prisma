@@ -927,6 +927,8 @@ model Purchase {
   userId       String
   botId        String
   threadId     String
+  /// The chat's clear generation when requested; a cleared chat is not woken for it.
+  threadGeneration Int
   provider     String
   remoteId     String
   merchantName String

@@ -111,6 +111,15 @@ describe("pollPurchase", () => {
     expect(pending.row()).toMatchObject({ status: "pending_approval", nextPollAt: null });
   });
 
+  it("does not wake a chat cleared since the purchase, and stops polling", async () => {
+    const env = await setup();
+    env.live.threadGeneration += 1;
+    env.approve();
+    await env.poll();
+    expect(env.runs).toHaveLength(0);
+    expect(env.row()).toMatchObject({ status: "approved", nextPollAt: null });
+  });
+
   it("expires a purchase nobody decided on after the deadline", async () => {
     const env = await setup();
     vi.useFakeTimers({ now: Date.now() + PURCHASE_POLL_DEADLINE_MS + 1 });

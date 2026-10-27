@@ -86,7 +86,7 @@ export function fakePurchasePrisma(fixture: {
   const purchases: Purchase[] = [];
   const runs: Row[] = [];
   const tasks: Row[] = [];
-  const live = { thread: true, member: true, bot: true };
+  const live = { thread: true, member: true, bot: true, threadGeneration: 0 };
   let clock = 0;
   const stamp = () => new Date(Date.UTC(2026, 0, 1) + ++clock);
   const purchase = {
@@ -128,8 +128,14 @@ export function fakePurchasePrisma(fixture: {
     purchase,
     thread: {
       updateMany: async ({ where }: { where: Row }) => ({
-        count: live.thread && where.id === fixture.threadId ? 1 : 0,
+        count:
+          live.thread &&
+          where.id === fixture.threadId &&
+          where.historyCompactionGeneration === live.threadGeneration
+            ? 1
+            : 0,
       }),
+      findUniqueOrThrow: async () => ({ historyCompactionGeneration: live.threadGeneration }),
     },
     spaceMember: { findUnique: async () => (live.member ? { id: "member" } : null) },
     bot: { findFirst: async () => (live.bot ? { id: fixture.botId } : null) },
