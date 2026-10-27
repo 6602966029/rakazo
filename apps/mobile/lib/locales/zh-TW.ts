@@ -805,6 +805,8 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Default ({level})": "預設（{level}）",
   "Disconnected {provider}.": "已中斷 {provider}。",
   "Sign in again": "重新登入",
+  "Confirm it's you": "確認是你本人",
+  "Email me a code": "用電子郵件傳送驗證碼",
   "Thinking: {level}": "思考：{level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":
     "等待登入中 — 驗證碼將在約 {minutes} 分鐘後失效。",

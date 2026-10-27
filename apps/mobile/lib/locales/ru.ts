@@ -850,6 +850,8 @@ export const RU_MESSAGES: Record<string, string> = {
   "Default ({level})": "По умолчанию ({level})",
   "Disconnected {provider}.": "{provider} отключён.",
   "Sign in again": "Войти снова",
+  "Confirm it's you": "Подтвердите, что это вы",
+  "Email me a code": "Отправить код на почту",
   "Thinking: {level}": "Рассуждение: {level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":
     "Ожидание входа — срок действия кода истекает примерно через {minutes} мин.",
