@@ -25,7 +25,6 @@ import {
   HOME_CHANNELS,
   HOME_FEATURE_KINDS,
   HOME_MODEL_PROVIDERS,
-  HOME_MORE_FEATURES,
   getHomeCopy,
 } from "../i18n/home";
 import {
@@ -252,18 +251,6 @@ const structuredData = homeStructuredData({
             ))
           }
         </div>
-        <ul class="more-features">
-          {
-            HOME_MORE_FEATURES.map((feature) => (
-              <li>
-                {copy.features.more[feature.id]}
-                {feature.selfHosted && (
-                  <a class="self-host-tag" href={selfHostOnlyHref}>{copy.selfHost.heading}</a>
-                )}
-              </li>
-            ))
-          }
-        </ul>
       </section>
 
       <section id="testimonials" class="section testimonials" aria-labelledby="testimonials-heading">

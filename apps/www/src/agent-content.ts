@@ -5,7 +5,6 @@ import {
   HOME_CHANNELS,
   HOME_FEATURE_KINDS,
   HOME_MODEL_PROVIDERS,
-  HOME_MORE_FEATURES,
   getHomeCopy,
 } from "./i18n/home";
 import { roundupMarkdown } from "./roundup";
@@ -37,7 +36,6 @@ ${HOME_CHANNELS.map((channel) => `- ${channel.name}${channel.selfHosted ? ` (${h
 ## ${home.features.heading}
 
 ${HOME_FEATURE_KINDS.map((kind) => `- **${home.features.items[kind].title}:** ${home.features.items[kind].body}`).join("\n")}
-${HOME_MORE_FEATURES.map((feature) => `- ${home.features.more[feature.id]}${feature.selfHosted ? ` (${home.selfHost.heading})` : ""}`).join("\n")}
 
 ## ${home.testimonials.heading}
 

@@ -3556,31 +3556,6 @@ button.product-demo__dock-icon {
   color: var(--blue);
 }
 
-.more-features {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 28px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.more-features li {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--body);
-  font-size: 14px;
-}
-
-.more-features .self-host-tag {
-  margin-left: 0;
-}
-
 @media (max-width: 960px) {
   .channels {
     grid-template-columns: 1fr;

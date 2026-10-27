@@ -15,19 +15,6 @@ export const HOME_CHANNELS = [
 export const HOME_FEATURE_KINDS = ["call", "apps", "memory", "triggers", "team", "teach"] as const;
 export type HomeFeatureKind = (typeof HOME_FEATURE_KINDS)[number];
 
-export const HOME_MORE_FEATURES = [
-  { id: "voice", selfHosted: false },
-  { id: "skills", selfHosted: false },
-  { id: "charts", selfHosted: false },
-  { id: "device", selfHosted: false },
-  { id: "vault", selfHosted: false },
-  { id: "import", selfHosted: false },
-  { id: "media", selfHosted: true },
-  { id: "wallet", selfHosted: true },
-  { id: "cursor", selfHosted: true },
-  { id: "board", selfHosted: true },
-] as const;
-export type HomeMoreFeature = (typeof HOME_MORE_FEATURES)[number]["id"];
 
 export type HomeCopy = {
   title: string;
@@ -87,11 +74,9 @@ export type HomeCopy = {
       memory: string;
       memoryNotes: [string, string];
       triggers: [string, string, string];
-      handoff: string;
       recording: string;
       skillSaved: string;
     };
-    more: Record<HomeMoreFeature, string>;
   };
   testimonials: {
     heading: string;
@@ -503,21 +488,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         memory: "Memory",
         memoryNotes: ["Prefers short replies", "Acme renews in March"],
         triggers: ["Weekdays at 9:00", "New GitHub issue", "Webhook"],
-        handoff: "Handed to Talent Scout",
         recording: "Recording",
         skillSaved: "Saved as a skill",
-      },
-      more: {
-        voice: "Voice mode",
-        skills: "Skills",
-        charts: "Charts and diagrams",
-        device: "Commands on your computer",
-        vault: "Secrets vault",
-        import: "Import from OpenClaw or Hermes",
-        media: "Images and video",
-        wallet: "Pays with Stripe Link",
-        cursor: "Cursor cloud agents",
-        board: "Ticket board",
       },
     },
     testimonials: {
@@ -664,21 +636,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         memory: "Gedächtnis",
         memoryNotes: ["Mag kurze Antworten", "Acme verlängert im März"],
         triggers: ["Mo–Fr um 9:00", "Neues GitHub-Issue", "Webhook"],
-        handoff: "An Talent Scout übergeben",
         recording: "Aufnahme",
         skillSaved: "Als Skill gespeichert",
-      },
-      more: {
-        voice: "Sprachmodus",
-        skills: "Skills",
-        charts: "Charts und Diagramme",
-        device: "Befehle auf deinem Computer",
-        vault: "Secrets-Tresor",
-        import: "Import aus OpenClaw oder Hermes",
-        media: "Bilder und Videos",
-        wallet: "Bezahlt mit Stripe Link",
-        cursor: "Cursor Cloud Agents",
-        board: "Ticket-Board",
       },
     },
     testimonials: {
@@ -828,21 +787,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         memory: "메모리",
         memoryNotes: ["짧은 답장을 선호함", "Acme 3월 갱신"],
         triggers: ["평일 9:00", "새 GitHub 이슈", "웹훅"],
-        handoff: "Talent Scout에게 넘김",
         recording: "녹화 중",
         skillSaved: "스킬로 저장됨",
-      },
-      more: {
-        voice: "음성 모드",
-        skills: "스킬",
-        charts: "차트와 다이어그램",
-        device: "내 컴퓨터에서 명령 실행",
-        vault: "시크릿 금고",
-        import: "OpenClaw 또는 Hermes에서 가져오기",
-        media: "이미지와 동영상",
-        wallet: "Stripe Link로 결제",
-        cursor: "Cursor 클라우드 에이전트",
-        board: "티켓 보드",
       },
     },
     testimonials: {
@@ -992,21 +938,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         memory: "记忆",
         memoryNotes: ["喜欢简短回复", "Acme 三月续约"],
         triggers: ["工作日 9:00", "新的 GitHub issue", "Webhook"],
-        handoff: "已交给 Talent Scout",
         recording: "录制中",
         skillSaved: "已存为技能",
-      },
-      more: {
-        voice: "语音模式",
-        skills: "技能",
-        charts: "图表和示意图",
-        device: "在你的电脑上执行命令",
-        vault: "密钥保险库",
-        import: "从 OpenClaw 或 Hermes 导入",
-        media: "图片和视频",
-        wallet: "用 Stripe Link 付款",
-        cursor: "Cursor 云端代理",
-        board: "工单看板",
       },
     },
     testimonials: {
@@ -1157,21 +1090,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         memory: "メモリー",
         memoryNotes: ["短い返信が好み", "Acme は3月に更新"],
         triggers: ["平日 9:00", "新しい GitHub issue", "Webhook"],
-        handoff: "Talent Scout に引き継ぎ",
         recording: "録画中",
         skillSaved: "スキルとして保存",
-      },
-      more: {
-        voice: "音声モード",
-        skills: "スキル",
-        charts: "チャートと図",
-        device: "自分のコンピューターでコマンド実行",
-        vault: "シークレット保管庫",
-        import: "OpenClaw や Hermes から移行",
-        media: "画像と動画",
-        wallet: "Stripe Link で支払い",
-        cursor: "Cursor クラウドエージェント",
-        board: "チケットボード",
       },
     },
     testimonials: {
