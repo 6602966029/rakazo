@@ -4228,6 +4228,36 @@ describe("appendEvent", () => {
     expect(publish).toHaveBeenCalledTimes(1);
   });
 
+  it("treats a run event for a deleted thread as closed run history", async () => {
+    const missing = Object.assign(new Error("No record was found for an update."), {
+      code: "P2025",
+    });
+    const tx = {
+      thread: { update: vi.fn().mockRejectedValue(missing) },
+      run: { findUnique: vi.fn() },
+      event: { create: vi.fn() },
+    };
+    const transaction = vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx));
+    const input = {
+      spaceId: "workspace-1",
+      threadId: "thread-1",
+      botId: "bot-1",
+      type: "computer.command" as const,
+      payload: { text: "late output" },
+    };
+
+    await expect(
+      appendEvent({ $transaction: transaction } as unknown as PrismaClient, {
+        ...input,
+        runId: "run-1",
+      }),
+    ).rejects.toThrow(RunHistoryWriteError);
+    await expect(
+      appendEvent({ $transaction: transaction } as unknown as PrismaClient, input),
+    ).rejects.toBe(missing);
+    expect(tx.event.create).not.toHaveBeenCalled();
+  });
+
   it("does not retry a run that can no longer write history", async () => {
     const tx = {
       thread: { update: vi.fn().mockResolvedValue({ nextEventSeq: 5 }) },

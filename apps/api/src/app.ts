@@ -721,7 +721,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     },
   });
   const rpc = new RPCHandler(router, {
-    clientInterceptors: [onError((error, { path }) => handleRpcError(error, path))],
+    clientInterceptors: [onError((error, { path, signal }) => handleRpcError(error, path, signal))],
   });
   const app = new Hono();
   app.use("*", requestLogging(logger));
@@ -1396,7 +1396,11 @@ function emptyAuthBodyAsJson(request: Request) {
  * the only record of what broke. The cause chain matters: undici and most SDKs report a bare
  * "fetch failed" and keep the host and errno one level down.
  */
-export function handleRpcError(error: unknown, path: readonly string[]): void {
+export function handleRpcError(
+  error: unknown,
+  path: readonly string[],
+  signal?: AbortSignal,
+): void {
   // A missing or foreign resource is the caller's mistake (a stale client, a deleted bot),
   // not a server failure, so it is a warning rather than an error report.
   if (error instanceof IsolationError) {
@@ -1437,6 +1441,13 @@ export function handleRpcError(error: unknown, path: readonly string[]): void {
   if (error instanceof SandboxDamagedError) {
     getLogger().warn(`rpc ${path.join("/")} computer damaged`);
     throw new ORPCError("CONFLICT", { message: error.message, cause: error });
+  }
+  // The client went away mid-request, so whatever failed next has no one waiting for it.
+  if (signal?.aborted && !(error instanceof ORPCError)) {
+    getLogger().warn(`rpc ${path.join("/")} client disconnected`, {
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    return;
   }
   logUnexpectedRpcError(error, path);
 }

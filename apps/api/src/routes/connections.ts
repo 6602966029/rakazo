@@ -1020,14 +1020,14 @@ export function connectionsRoutes(ctx: RouterContext) {
             if (shouldRestoreLocalAfterRemoteRevokeFailure(error)) {
               await restoreLocalStatus();
             } else {
-              getLogger().error(
-                "connections.revoke remote outcome uncertain; leaving local revoked",
-                error,
-                {
-                  connectionId: input.connectionId,
-                  connectorId: outcome.remote.connectorId,
-                },
-              );
+              const where = {
+                connectionId: input.connectionId,
+                connectorId: outcome.remote.connectorId,
+              };
+              const message = "connections.revoke remote outcome uncertain; leaving local revoked";
+              // The caller hung up mid-revoke: the row is already handled, nothing to report.
+              if (context.signal?.aborted) getLogger().warn(message, where);
+              else getLogger().error(message, error, where);
             }
             if (error instanceof ORPCError) throw error;
             throw new ORPCError("BAD_REQUEST", { message: sanitizeComposioError(error) });

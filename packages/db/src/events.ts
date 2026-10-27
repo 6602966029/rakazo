@@ -1902,11 +1902,18 @@ export async function appendEventInTransaction(
   tx: Prisma.TransactionClient,
   input: AppendEventInput,
 ) {
-  const thread = await tx.thread.update({
-    where: { id: input.threadId },
-    data: { nextEventSeq: { increment: 1 } },
-    select: { nextEventSeq: true },
-  });
+  const thread = await tx.thread
+    .update({
+      where: { id: input.threadId },
+      data: { nextEventSeq: { increment: 1 } },
+      select: { nextEventSeq: true },
+    })
+    .catch((error: unknown) => {
+      // Deleting the bot or space cascades the thread and its runs away under
+      // in-flight work; that run has no history left to write to.
+      if (input.runId && isRecordNotFound(error)) throw new RunHistoryWriteError();
+      throw error;
+    });
   // run.cancelled is appended after the run row already reads cancelled, so it
   // asserts the terminal status where every other event needs a writable run.
   let firstResponseAt: Date | null | undefined;
@@ -1942,6 +1949,10 @@ export async function appendEventInTransaction(
       ).count === 1,
   );
   return { ...event, firstResponse };
+}
+
+function isRecordNotFound(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2025");
 }
 
 /** Timing metadata is returned by the transaction that recorded first output. */
