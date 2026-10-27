@@ -829,6 +829,8 @@ export const NL_MESSAGES: Record<string, string> = {
   "Default ({level})": "Standaard ({level})",
   "Disconnected {provider}.": "{provider} losgekoppeld.",
   "Sign in again": "Opnieuw aanmelden",
+  "Confirm it's you": "Bevestig dat jij het bent",
+  "Email me a code": "Mail me een code",
   "Thinking: {level}": "Denkt: {level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":
     "Wachten op aanmelding — de code verloopt over ongeveer {minutes} minuten.",

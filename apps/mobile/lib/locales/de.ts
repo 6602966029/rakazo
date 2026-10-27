@@ -874,6 +874,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Default ({level})": "Standard ({level})",
   "Disconnected {provider}.": "{provider} getrennt.",
   "Sign in again": "Erneut anmelden",
+  "Confirm it's you": "Bestätige, dass du es bist",
+  "Email me a code": "Code per E-Mail senden",
   "Thinking: {level}": "Denkmodus: {level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":
     "Warte auf Anmeldung — der Code läuft in etwa {minutes} Minuten ab.",

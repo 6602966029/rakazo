@@ -1339,6 +1339,7 @@ msgid "Cloud"
 msgstr "Cloud"
 
 #: src/components/AskCard.tsx
+#: src/components/ConfirmIdentityDialog.tsx
 msgid "Code"
 msgstr "Code"
 
@@ -1451,6 +1452,10 @@ msgstr "Serveurs configurés"
 #: src/pages/McpServersOverlay.tsx
 msgid "Confirm delete"
 msgstr "Confirmer la suppression"
+
+#: src/components/ConfirmIdentityDialog.tsx
+msgid "Confirm it's you"
+msgstr ""
 
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Auth.tsx
@@ -1576,6 +1581,7 @@ msgstr "Contient du code à exécuter"
 msgid "Context limit"
 msgstr "Limite de contexte"
 
+#: src/components/ConfirmIdentityDialog.tsx
 #: src/components/integrations/IntegrationSetup.tsx
 #: src/components/SignupSurvey.tsx
 #: src/pages/Auth.tsx
@@ -1710,6 +1716,7 @@ msgid "Could not connect to the computer screen"
 msgstr "Impossible de se connecter à l'écran de l'ordinateur"
 
 #: src/components/AccountAccess.tsx
+#: src/components/ConfirmIdentityDialog.tsx
 #: src/components/PasskeyOffer.tsx
 #: src/components/PasskeySettings.tsx
 #: src/lib/account-security.ts
@@ -2514,6 +2521,10 @@ msgstr "E-mail"
 #: src/lib/user-error.ts
 msgid "Email is not allowed to register"
 msgstr "Cette adresse e-mail ne peut pas s’inscrire"
+
+#: src/components/ConfirmIdentityDialog.tsx
+msgid "Email me a code"
+msgstr ""
 
 #: src/lib/user-error.ts
 msgid "Email verification required"
@@ -4081,6 +4092,7 @@ msgid "Passkeys"
 msgstr "Clés d’accès"
 
 #: src/components/AskCard.tsx
+#: src/components/ConfirmIdentityDialog.tsx
 #: src/pages/AccountSettingsOverlay.tsx
 #: src/pages/Auth.tsx
 #: src/pages/shell/bot-credentials.tsx
@@ -5022,6 +5034,7 @@ msgid "Sign in"
 msgstr "Se connecter"
 
 #: src/components/AccountAccess.tsx
+#: src/components/ConfirmIdentityDialog.tsx
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx

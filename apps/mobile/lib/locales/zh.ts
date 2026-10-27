@@ -815,6 +815,8 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Default ({level})": "默认（{level}）",
   "Disconnected {provider}.": "已断开 {provider}。",
   "Sign in again": "重新登录",
+  "Confirm it's you": "确认是你本人",
+  "Email me a code": "通过邮件发送验证码",
   "Thinking: {level}": "思考：{level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":
     "等待登录——代码将在约 {minutes} 分钟后过期。",

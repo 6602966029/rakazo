@@ -817,6 +817,8 @@ export const JA_MESSAGES: Record<string, string> = {
   "Default ({level})": "デフォルト（{level}）",
   "Disconnected {provider}.": "{provider}を切断しました。",
   "Sign in again": "再度ログイン",
+  "Confirm it's you": "本人確認",
+  "Email me a code": "メールでコードを送信",
   "Thinking: {level}": "思考: {level}",
   "Waiting for sign-in — the code expires in about {minutes} minutes.":
     "ログインを待機中です。コードの有効期限は約{minutes}分です。",
