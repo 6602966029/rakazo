@@ -370,6 +370,14 @@ function LayoutContent() {
                     />
                     <Stack.Screen name="sign-in" options={{ headerShown: false }} />
                     <Stack.Screen
+                      name="paywall"
+                      options={{
+                        headerShown: false,
+                        presentation: "fullScreenModal",
+                        gestureEnabled: false,
+                      }}
+                    />
+                    <Stack.Screen
                       name="(settings)"
                       options={{
                         headerShown: false,

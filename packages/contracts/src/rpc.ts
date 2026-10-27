@@ -55,6 +55,7 @@ import {
   ArtifactVersionSchema,
   ArtifactWithContentSchema,
   AvatarStyleSchema,
+  BillingClientSchema,
   BillingStatusSchema,
   BotMcpServerSchema,
   BotSchema,
@@ -235,18 +236,30 @@ export const appContract = {
   me: oc.output(MeSchema),
   billing: {
     status: oc.output(BillingStatusSchema),
+    /** Re-reads the subscription from the provider, e.g. right after a mobile checkout. */
+    refresh: oc.output(BillingStatusSchema),
     selectFunding: oc
-      .input(z.object({ funding: z.enum(["byok", "credits"]) }))
+      .input(z.object({ funding: z.enum(["byok", "credits"]), client: BillingClientSchema }))
       /** `url` is the checkout to pay for the own-key plan before it has access. */
       .output(z.object({ ok: z.literal(true), url: z.string().url().optional() })),
     purchaseCredits: oc
-      .input(z.object({ amountCents: ModelCreditAmountSchema, monthly: z.boolean() }))
+      .input(
+        z.object({
+          amountCents: ModelCreditAmountSchema,
+          monthly: z.boolean(),
+          client: BillingClientSchema,
+        }),
+      )
       .output(z.object({ url: z.string().url() })),
     setMonthlyCredits: oc
       .input(z.object({ amountCents: ModelCreditAmountSchema }))
       .output(z.object({ ok: z.literal(true) })),
-    checkout: oc.output(z.object({ url: z.string().url() })),
-    portal: oc.output(z.object({ url: z.string().url() })),
+    checkout: oc
+      .input(z.object({ client: BillingClientSchema }).optional())
+      .output(z.object({ url: z.string().url() })),
+    portal: oc
+      .input(z.object({ client: BillingClientSchema }).optional())
+      .output(z.object({ url: z.string().url() })),
   },
   preferences: {
     update: oc
