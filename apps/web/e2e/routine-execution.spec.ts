@@ -106,6 +106,7 @@ test("routine test-run completes and survives reload", async ({ page }, testInfo
   const stamp = Date.now();
   await signup(page, `routine-${stamp}@rakazo.test`, "password12", "Routine");
   await completeOnboarding(page);
+  const botId = activeBotId(page);
 
   await page.getByRole("button", { name: "Agent computer", exact: true }).click();
   await expect(page.getByRole("button", { name: "Test run" })).toHaveCount(0);
@@ -146,7 +147,13 @@ test("routine test-run completes and survives reload", async ({ page }, testInfo
   await page.getByRole("button", { name: /Daily verification/ }).click();
   const history = page.getByTestId("routine-run-history");
   await expect(history.getByTestId("routine-run-row")).toHaveCount(1);
-  await expect(history.getByText("Running", { exact: true })).toHaveCount(0);
+  const created = (await rpc<Routine[]>(page, "routines/list", { botId })).find(
+    (item) => item.name === "Daily verification",
+  );
+  const ran = await rpc<{ runs: Array<{ status: string }> }>(page, "routines/history", {
+    routineId: created?.id,
+  });
+  expect(ran.runs.map((run) => run.status)).toEqual(["completed"]);
   await expect(history.getByText("No runs yet")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "36-routine-run-history");
   await history.getByTestId("routine-run-row").getByRole("link").click();
