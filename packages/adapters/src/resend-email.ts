@@ -95,10 +95,8 @@ export class ResendEmailProvider implements TransactionalEmailProvider {
             return;
           failure = "Resend returned an invalid email response";
         } else {
-          // Never surface provider bodies, which can contain recipients or credentials.
-          failure = `Resend email request failed (HTTP ${response.status})`;
           retry = response.status === 429 || response.status >= 500;
-          await response.body?.cancel();
+          failure = `Resend email request failed (HTTP ${response.status}${await errorDetail(response)})`;
         }
       } catch {
         // A lost response may already have sent the email; the same key makes retry safe.
@@ -113,4 +111,16 @@ export class ResendEmailProvider implements TransactionalEmailProvider {
       }
     }
   }
+}
+
+/** Resend's error name and message, without addresses: the message can quote a recipient. */
+async function errorDetail(response: Response): Promise<string> {
+  const body: unknown = await response.json().catch(() => undefined);
+  if (typeof body !== "object" || body === null) return "";
+  const { name, message } = body as { name?: unknown; message?: unknown };
+  const parts = [
+    typeof name === "string" && /^[a-z_]{1,64}$/.test(name) ? name : "",
+    typeof message === "string" ? message.replace(/\S+@\S+/g, "<address>").slice(0, 200) : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? `: ${parts.join(": ")}` : "";
 }
