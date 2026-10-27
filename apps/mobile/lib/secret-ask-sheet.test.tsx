@@ -202,7 +202,7 @@ function valueFields() {
   return [...container.querySelectorAll<HTMLInputElement>("input:not([type=checkbox])")];
 }
 
-it("opens as a page sheet with the title, hidden default fields and the destination", async () => {
+it("opens as a page sheet with the title, the default fields and the destination", async () => {
   await render();
 
   expect(container.querySelector("[data-presentation]")?.getAttribute("data-presentation")).toBe(
@@ -214,12 +214,13 @@ it("opens as a page sheet with the title, hidden default fields and the destinat
     "Username",
     "Password",
   ]);
-  for (const input of valueFields()) {
-    expect(input.type).toBe("password");
-    expect(input.dataset.contentType).toBe("password");
-    expect(input.dataset.autocomplete).toBe("current-password");
-  }
-  expect(hiddenSwitches().map((input) => input.checked)).toEqual([true, true]);
+  // As logins always started: Username visible, Password hidden.
+  expect(field("Username").type).toBe("text");
+  const password = field("Password");
+  expect(password.type).toBe("password");
+  expect(password.dataset.contentType).toBe("password");
+  expect(password.dataset.autocomplete).toBe("current-password");
+  expect(hiddenSwitches().map((input) => input.checked)).toEqual([false, true]);
 });
 
 it("shows the default labels translated but saves them in English", async () => {
@@ -321,9 +322,9 @@ it("enables Save only once every field has a value", async () => {
 
   // A blank value counts only while it is hidden.
   await type("Username", "  ");
-  expect(button("Save").disabled).toBe(false);
-  await act(async () => hiddenSwitches()[0]!.click());
   expect(button("Save").disabled).toBe(true);
+  await act(async () => hiddenSwitches()[0]!.click());
+  expect(button("Save").disabled).toBe(false);
 });
 
 it("saves the default fields under their English labels, then clears them", async () => {
@@ -336,7 +337,7 @@ it("saves the default fields under their English labels, then clears them", asyn
 
   expect(onSave).toHaveBeenCalledTimes(1);
   expect(onSave).toHaveBeenCalledWith([
-    { label: "Username", value: "ada@example.test", hidden: true },
+    { label: "Username", value: "ada@example.test", hidden: false },
     { label: "Password", value: " example-password ", hidden: true },
   ]);
   expect(field("Username").value).toBe("");

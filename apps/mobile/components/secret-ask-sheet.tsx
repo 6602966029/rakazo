@@ -1,5 +1,5 @@
 import type { LoginFieldInput } from "@rakazo/contracts";
-import { DEFAULT_LOGIN_FIELD_LABELS, LoginSecretValue } from "@rakazo/contracts";
+import { LoginSecretValue, loginCardFields } from "@rakazo/contracts";
 import { useEffect, useRef, useState } from "react";
 import type { TextInput } from "react-native";
 import { Modal, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -37,14 +37,8 @@ export function SecretAskSheet({
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const inputs = useRef<(TextInput | null)[]>([]);
-  // Every value starts hidden: only the person may let one show.
   const [fields, setFields] = useState<LoginFieldRow[]>(() =>
-    (loginFields ?? DEFAULT_LOGIN_FIELD_LABELS).map((label, id) => ({
-      id,
-      label,
-      value: "",
-      hidden: true,
-    })),
+    loginCardFields(loginFields).map((field, id) => ({ ...field, id })),
   );
   const labels = loginFields ?? [t("Username"), t("Password")];
   const [error, setError] = useState<string | null>(null);

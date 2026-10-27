@@ -9,6 +9,7 @@ import {
   encodeLoginSecret,
   LOGIN_FIELD_LIMIT,
   LoginFieldLabels,
+  loginCardFields,
   SecretHttpRequest,
 } from "./bot-secrets.js";
 import { AGENT_SECRET_NAME_PATTERN } from "./domain.js";
@@ -240,6 +241,19 @@ describe("login credentials", () => {
     { username: "fake-user" },
   ])("rejects an incomplete saved pair %j", (value) => {
     expect(() => decodeLoginSecret(JSON.stringify(value))).toThrow();
+  });
+
+  it("starts the default card as logins always have and every named field hidden", () => {
+    expect(loginCardFields(undefined)).toEqual([
+      { label: "Username", value: "", hidden: false },
+      { label: "Password", value: "", hidden: true },
+    ]);
+    // The bot can't make a field visible, not even by naming the default labels.
+    expect(loginCardFields(["Username", "Password"]).map((field) => field.hidden)).toEqual([
+      true,
+      true,
+    ]);
+    expect(loginCardFields(["ID", "Phone"]).map((field) => field.hidden)).toEqual([true, true]);
   });
 
   it.each([[["Username", "Password"]], [["ID", "Phone", "Code"]]])(

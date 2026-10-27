@@ -293,6 +293,22 @@ export function decodeLoginSecret(plaintext: string): LoginSecretValue {
 }
 
 /**
+ * The empty fields a login card starts with. The default Username and Password card starts as
+ * logins always have, Username visible; fields the bot names all start hidden, since only the
+ * person may let one show.
+ */
+export function loginCardFields(requested: readonly string[] | undefined): LoginFieldInput[] {
+  if (!requested) {
+    return DEFAULT_LOGIN_FIELD_LABELS.map((label, index) => ({
+      label,
+      value: "",
+      hidden: index > 0,
+    }));
+  }
+  return requested.map((label) => ({ label, value: "", hidden: true }));
+}
+
+/**
  * The login a card's answer saves, or undefined unless it answers exactly the requested fields,
  * in order. An app that predates fields answers a Username and Password card with `username`
  * and the password as `answer`.

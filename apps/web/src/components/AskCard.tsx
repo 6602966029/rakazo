@@ -5,8 +5,8 @@ import type { LoginFieldInput, ThreadMessage } from "@rakazo/contracts";
 import {
   BOT_INSTRUCTIONS_MAX_LENGTH,
   commandVariableName,
-  DEFAULT_LOGIN_FIELD_LABELS,
   LoginSecretValue,
+  loginCardFields,
 } from "@rakazo/contracts";
 import {
   isApprovalAskBlock,
@@ -92,9 +92,7 @@ export function AskCard({
   const [dismissed, setDismissed] = useState(false);
   const [acceptedAnswer, setAcceptedAnswer] = useState<string>();
   const [undone, setUndone] = useState(false);
-  const loginLabels = block.loginFields ?? DEFAULT_LOGIN_FIELD_LABELS;
-  // Only the person makes a field visible, so every field starts hidden.
-  const emptyLogin = () => loginLabels.map(() => ({ value: "", hidden: true }));
+  const emptyLogin = () => loginCardFields(block.loginFields);
   const [login, setLogin] = useState(emptyLogin);
   const [secretField, setSecretField] = useState<HTMLInputElement | null>(null);
   const [pastedLines, setPastedLines] = useState(false);
@@ -139,11 +137,7 @@ export function AskCard({
   const ownerOnly = secretInput && Boolean(block.credential) && !canDismiss;
   const loginInput = secretInput && block.credential?.auth.type === "login";
   const shownLoginLabels = block.loginFields ?? [t`Username`, t`Password`];
-  const loginAnswer: LoginFieldInput[] = loginLabels.map((label, index) => ({
-    label,
-    ...login[index]!,
-  }));
-  const loginReady = LoginSecretValue.safeParse({ fields: loginAnswer }).success;
+  const loginReady = LoginSecretValue.safeParse({ fields: login }).success;
   const secretLabel = secretFieldLabel(block.purpose);
   const commandInput = secretInput && block.credential?.auth.type === "command";
 
@@ -390,16 +384,16 @@ export function AskCard({
           className="mt-3.5 flex flex-col gap-2"
           onSubmit={(event) => {
             event.preventDefault();
-            if (loginInput) void submitAnswer("", loginAnswer);
+            if (loginInput) void submitAnswer("", login);
             else void submitAnswer(answer);
           }}
         >
           {loginInput ? (
-            loginLabels.map((label, index) => (
+            login.map((field, index) => (
               <LoginFieldValue
-                key={label}
-                label={shownLoginLabels[index] ?? label}
-                field={login[index]!}
+                key={field.label}
+                label={shownLoginLabels[index] ?? field.label}
+                field={field}
                 disabled={submitting}
                 onChange={(change) =>
                   setLogin((current) =>

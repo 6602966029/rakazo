@@ -82,7 +82,7 @@ When you want a bot to sign in to a website by itself, ask it to save the login.
 }
 ```
 
-Without `fields`, the card asks for a Username and a Password. A login has 1 to 8 fields, each with its own label. The card asks for one value per field, and every field starts hidden; you can switch a field to visible. Only you choose: the bot names the fields but cannot make one visible, and the server only accepts an answer with exactly the fields the card asked for. All values are stored encrypted in the same way as other reusable credentials. To sign in, the bot fills fields found with `browser_snapshot`, naming each by its label:
+Without `fields`, the card asks for a Username, which starts visible, and a Password, which starts hidden, as logins always have. A login has 1 to 8 fields, each with its own label. The card asks for one value per field, and fields the bot names all start hidden; you can switch any field between hidden and visible. Only you choose: the bot names the fields but cannot make one visible, and the server only accepts an answer with exactly the fields the card asked for. All values are stored encrypted in the same way as other reusable credentials. To sign in, the bot fills fields found with `browser_snapshot`, naming each by its label:
 
 ```json
 {

@@ -411,7 +411,7 @@ test("keeps a website login password on one line", async ({ page, context }) => 
     .poll(() => loginAnswers)
     .toEqual([
       [
-        { label: "Username", value: "someone", hidden: true },
+        { label: "Username", value: "someone", hidden: false },
         { label: "Password", value: "pass-one pass-two", hidden: true },
       ],
     ]);

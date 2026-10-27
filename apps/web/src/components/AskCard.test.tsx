@@ -248,7 +248,7 @@ it("asks for each requested login field, every one hidden until the person shows
   expect(container.querySelector("input")).toBeNull();
 });
 
-it("asks for a username and password, both hidden, when the bot names no fields", async () => {
+it("asks for a visible username and a hidden password when the bot names no fields", async () => {
   const onAnswer = vi.fn(async () => undefined);
   const { loginFields: _, ...defaultLogin } = loginCard;
   await render(defaultLogin, undefined, onAnswer);
@@ -256,13 +256,16 @@ it("asks for a username and password, both hidden, when the bot names no fields"
   expect(
     [...container.querySelectorAll("input[aria-label]")].map((input) => input.ariaLabel),
   ).toEqual(["Username", "Password"]);
-  expect(loginInput("Username").type).toBe("password");
+  expect(loginInput("Username").type).toBe("text");
+  expect(hiddenSwitch("Username").getAttribute("aria-checked")).toBe("false");
+  expect(loginInput("Password").type).toBe("password");
+  expect(hiddenSwitch("Password").getAttribute("aria-checked")).toBe("true");
   await type("Username", "fake-user");
   await type("Password", "fake-password");
   await act(async () => button("Save")!.click());
 
   expect(onAnswer).toHaveBeenCalledWith("", [
-    { label: "Username", value: "fake-user", hidden: true },
+    { label: "Username", value: "fake-user", hidden: false },
     { label: "Password", value: "fake-password", hidden: true },
   ]);
 });
